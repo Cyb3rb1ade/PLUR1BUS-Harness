@@ -1,0 +1,11 @@
+{
+  "params": {
+    "from": "workspace:v1:test",
+    "to": "workspace:v1:test"
+  },
+  "result": {
+    "from": "workspace:v1:test",
+    "to": "workspace:v1:test",
+    "applied": false
+  }
+}

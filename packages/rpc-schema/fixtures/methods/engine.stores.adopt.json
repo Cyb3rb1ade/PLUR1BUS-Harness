@@ -1,0 +1,17 @@
+{
+  "params": {
+    "req": {
+      "path": "workspace:v1:test",
+      "expectedIdentity": {
+        "fingerprintId": "workspace:v1:test",
+        "provider": "workspace:v1:test",
+        "model": "workspace:v1:test",
+        "dimensions": 0
+      }
+    }
+  },
+  "result": {
+    "verdict": "ok",
+    "dryRun": false
+  }
+}

@@ -67,7 +67,7 @@ describe("composition openTurnComposition", () => {
   it("assembles sessions, collaboration, voice, openai and the media RPC surface", async () => {
     const { composition: c, identity } = await open();
     try {
-      assert.deepEqual(Object.keys(c).sort(), ["budget", "capabilities", "chatModels", "close", "collab", "discoveryCredentials", "importSsh", "mining", "openai", "refusedProviders", "sessions", "skillReview", "surfaceMethods", "voice"]);
+      assert.deepEqual(Object.keys(c).sort(), ["budget", "capabilities", "chatModels", "close", "collab", "discoveryCredentials", "engineComplete", "importSsh", "mining", "openai", "refusedProviders", "sessions", "skillReview", "surfaceMethods", "voice"]);
       assert.equal(c.skillReview.status().state, "engine-unavailable");
       assert.equal(c.mining.status().state, "engine-unavailable");
       assert.ok(c.collab, "collaboration needs the call budget, which opened");
@@ -148,6 +148,25 @@ describe("composition openTurnComposition", () => {
       assert.equal(logged![2]?.code, "E_CONFIG_INVALID");
       assert.equal(lines.some(l => /turn providers unavailable/.test(l[1])), false, "the composition root no longer disables every provider");
     } finally { await c.close(); identity.close(); }
+  });
+
+  it("exposes an engine completion over the composed router with budget and privacy admission", async () => {
+    let calls = 0;
+    const adapter = { async *stream() { calls++; yield { type: "done", result: { text: "ok", toolCalls: [], finishReason: "stop", usage: { inputTokens: 2, outputTokens: 1 }, meta: {} } } as const; } };
+    const { composition: c, identity } = await open({ options: { providers: { profiles: { default: [{ provider: "cloud", model: "m", adapter: adapter as never }] } } } });
+    try {
+      const params = { messages: [{ role: "user" as const, content: "hello" }] };
+      assert.equal((await c.engineComplete("bernd", params)).text, "ok");
+      assert.equal(calls, 1);
+      c.budget!.setLimit({ scope: "agent", id: "bernd", period: "day", metric: "tokens", hard: 0 });
+      await assert.rejects(() => c.engineComplete("bernd", params), { error: "E_NOT_AVAILABLE", reason: "budget-exceeded" });
+      assert.equal(calls, 1);
+    } finally { await c.close(); identity.close(); }
+    const denied = await open({ options: { providers: { profiles: { default: [{ provider: "cloud", model: "m", adapter: adapter as never }] } } } }, () => {}, cfg => { cfg.privacy.localOnly = true; });
+    try {
+      await assert.rejects(() => denied.composition.engineComplete("bernd", { messages: [] }), { error: "E_DENIED", reason: "local-only" });
+      assert.equal(calls, 1);
+    } finally { await denied.composition.close(); denied.identity.close(); }
   });
 
   it("without any provider the composition still opens (turns then answer no-provider)", async () => {

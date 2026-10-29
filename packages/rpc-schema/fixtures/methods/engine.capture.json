@@ -1,0 +1,28 @@
+{
+  "params": {
+    "turn": {
+      "agentId": "workspace:v1:test",
+      "principal": {
+        "agentId": "workspace:v1:test",
+        "workspace": "workspace:v1:test",
+        "channel": "workspace:v1:test",
+        "accountId": "workspace:v1:test",
+        "chat": {
+          "id": "workspace:v1:test",
+          "kind": "direct"
+        },
+        "trust": "proved"
+      },
+      "agent": {
+        "origin": "user",
+        "background": false
+      },
+      "messages": [],
+      "incognito": false
+    }
+  },
+  "result": {
+    "id": "workspace:v1:test",
+    "acceptedAt": 0
+  }
+}

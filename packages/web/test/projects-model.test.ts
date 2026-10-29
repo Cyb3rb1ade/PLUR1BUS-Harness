@@ -7,9 +7,11 @@ import {
   countActiveCardsByColumn,
   filterCards,
   optimisticallyMoveCard,
+  withPendingMoves,
   wouldExceedWip,
   calculateProjectStats,
   type BoardFilters,
+  type PendingMove,
 } from "../src/pages/projects/model.ts";
 import type { BoardCard, BoardColumn } from "../src/pages/projects/rpc-types.ts";
 
@@ -108,6 +110,32 @@ test("model: WIP limit calculation and optimistic move", () => {
   assert.equal(oldCards.length, 1);
   assert.equal(oldCards[0]!.id, "c2");
   assert.equal(oldCards[0]!.position, 0);
+});
+
+test("model: pending moves are made again over an answer that does not know them, in the order they were made", () => {
+  const answer = [
+    cardFixture({ id: "c1", columnId: "col_1", position: 0 }),
+    cardFixture({ id: "c2", columnId: "col_1", position: 1 }),
+    cardFixture({ id: "c3", columnId: "col_2", position: 0 }),
+  ];
+  // c2 was moved to the end of col_2 first, then c1.
+  const c2ToCol2: PendingMove = { cardId: "c2", columnId: "col_2", position: undefined };
+  const c1ToCol2: PendingMove = { cardId: "c1", columnId: "col_2", position: undefined };
+  const shown = withPendingMoves(answer, [c2ToCol2, c1ToCol2]);
+  const col2 = shown.filter((c) => c.columnId === "col_2").sort((a, b) => a.position - b.position);
+  assert.deepEqual(col2.map((c) => [c.id, c.position]), [["c3", 0], ["c2", 1], ["c1", 2]]);
+  assert.equal(shown.filter((c) => c.columnId === "col_1").length, 0);
+
+  // A later move of the same card wins: c1 then goes on to col_3.
+  const again = withPendingMoves(answer, [c2ToCol2, c1ToCol2, { cardId: "c1", columnId: "col_3", position: undefined }]);
+  assert.deepEqual(again.map((c) => [c.id, c.columnId, c.position]), [["c1", "col_3", 0], ["c2", "col_2", 1], ["c3", "col_2", 0]]);
+
+  // The answer stays as the server sent it: once a move is dropped, drawing the answer again no longer shows it.
+  assert.deepEqual(answer.map((c) => [c.id, c.columnId, c.position]), [["c1", "col_1", 0], ["c2", "col_1", 1], ["c3", "col_2", 0]]);
+  assert.deepEqual(
+    withPendingMoves(answer, [c2ToCol2]).filter((c) => c.columnId === "col_1").map((c) => [c.id, c.position]),
+    [["c1", 0]],
+  );
 });
 
 test("model: project stats count open cards and overdue cards", () => {

@@ -138,7 +138,9 @@
       "backfill": "auto"
     }
   },
-  "engine": {},
+  "engine": {
+    "implementation": "node"
+  },
   "mcp": {
     "servers": {}
   },

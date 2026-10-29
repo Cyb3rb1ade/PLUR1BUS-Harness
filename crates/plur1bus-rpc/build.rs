@@ -52,6 +52,199 @@ fn each_schema(v: &mut Value, f: &mut dyn FnMut(&mut Map<String, Value>)) {
     }
 }
 
+fn scalar_branches(
+    node: &Value,
+    definitions: &Map<String, Value>,
+    seen: &mut BTreeSet<String>,
+) -> Option<Vec<Value>> {
+    if let Some(reference) = node.get("$ref").and_then(Value::as_str) {
+        let name = reference
+            .strip_prefix("#/$defs/")
+            .or_else(|| reference.strip_prefix("#/definitions/"))?;
+        if !seen.insert(name.to_owned()) {
+            return None;
+        }
+        let mut target = definitions.get(name)?.clone();
+        let object = target.as_object_mut()?;
+        for (key, value) in node.as_object()? {
+            if key != "$ref" {
+                object.insert(key.clone(), value.clone());
+            }
+        }
+        let result = scalar_branches(&target, definitions, seen);
+        seen.remove(name);
+        return result;
+    }
+    if let Some(branches) = node
+        .get("anyOf")
+        .or_else(|| node.get("oneOf"))
+        .and_then(Value::as_array)
+    {
+        let mut result = Vec::new();
+        for branch in branches {
+            result.extend(scalar_branches(branch, definitions, seen)?);
+        }
+        return Some(result);
+    }
+    let scalar = matches!(
+        node.get("type").and_then(Value::as_str),
+        Some("string" | "number" | "integer" | "boolean" | "null")
+    ) && node.as_object()?.keys().all(|key| {
+        matches!(key.as_str(), "type" | "enum" | "description" | "title") || key.starts_with("x-")
+    });
+    scalar.then(|| vec![node.clone()])
+}
+
+/// typify 0.8 mistakes a multi-branch scalar anyOf for flattened struct fields. Group
+/// scalar alternatives by their JSON type, preserving the exact accepted wire values.
+fn normalize_scalar_unions(value: &mut Value) {
+    let definitions = value["definitions"]
+        .as_object()
+        .cloned()
+        .unwrap_or_default();
+    each_schema(value, &mut |node| {
+        if node.contains_key("anyOf") {
+            let resolved = scalar_branches(
+                &Value::Object(node.clone()),
+                &definitions,
+                &mut BTreeSet::new(),
+            );
+            if let Some(branches) = resolved {
+                let mut alternatives = BTreeMap::<String, Option<Vec<Value>>>::new();
+                for branch in &branches {
+                    let kind = branch["type"].as_str().expect("scalar type").to_owned();
+                    let values = branch.get("enum").and_then(Value::as_array).cloned();
+                    match alternatives.entry(kind) {
+                        std::collections::btree_map::Entry::Vacant(entry) => {
+                            entry.insert(values);
+                        }
+                        std::collections::btree_map::Entry::Occupied(mut entry) => {
+                            if let (Some(existing), Some(values)) = (entry.get_mut(), values) {
+                                existing.extend(values);
+                            } else {
+                                entry.insert(None);
+                            }
+                        }
+                    }
+                }
+                node.remove("anyOf");
+                let alternatives = alternatives
+                    .into_iter()
+                    .map(|(kind, values)| {
+                        let mut branch = serde_json::json!({"type":kind});
+                        if let Some(values) = values {
+                            let mut unique = Vec::new();
+                            for value in values {
+                                if !unique.contains(&value) {
+                                    unique.push(value);
+                                }
+                            }
+                            branch["enum"] = Value::Array(unique);
+                        }
+                        branch
+                    })
+                    .collect::<Vec<_>>();
+                node.insert("oneOf".into(), Value::Array(alternatives));
+            }
+        }
+    });
+}
+
+/// typify infers one shared field type for tagged alternatives when their property
+/// names match. Distinct enum constraints need distinct names to retain both branches.
+fn name_contract_union_fields(root: &mut Value) {
+    for (name, definition) in root["definitions"].as_object_mut().unwrap() {
+        if !name.starts_with("EngineContract") {
+            continue;
+        }
+        let mut union_id = 0usize;
+        each_schema(definition, &mut |node| {
+            for key in ["anyOf", "oneOf"] {
+                let Some(branches) = node.get_mut(key).and_then(Value::as_array_mut) else {
+                    continue;
+                };
+                union_id += 1;
+                for (index, branch) in branches.iter_mut().enumerate() {
+                    let Some(properties) =
+                        branch.get_mut("properties").and_then(Value::as_object_mut)
+                    else {
+                        continue;
+                    };
+                    for (property, schema) in properties {
+                        if schema.get("enum").is_some() {
+                            schema["title"] = Value::String(format!(
+                                "{name}Alternative{union_id}Branch{index}{}",
+                                pascal(property)
+                            ));
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+fn empty_wire_object(value: &Value) -> bool {
+    value["type"] == "object"
+        && value["additionalProperties"] == false
+        && value
+            .get("properties")
+            .and_then(Value::as_object)
+            .is_some_and(Map::is_empty)
+}
+
+/// A closed empty result becomes an open map in typify after ADR-016's opening pass.
+/// Preserve its empty struct instead, so future fields are accepted and ignored.
+fn path_mentions(path: &syn::Path, names: &BTreeSet<String>) -> bool {
+    path.segments.iter().any(|segment| {
+        names.contains(&segment.ident.to_string())
+            || match &segment.arguments {
+                syn::PathArguments::AngleBracketed(arguments) => arguments.args.iter().any(|argument| {
+                    matches!(argument, syn::GenericArgument::Type(ty) if type_mentions(ty, names))
+                }),
+                _ => false,
+            }
+    })
+}
+
+fn type_mentions(ty: &syn::Type, names: &BTreeSet<String>) -> bool {
+    match ty {
+        syn::Type::Path(path) => path_mentions(&path.path, names),
+        syn::Type::Reference(reference) => type_mentions(&reference.elem, names),
+        syn::Type::Paren(parenthesized) => type_mentions(&parenthesized.elem, names),
+        _ => false,
+    }
+}
+
+fn keep_empty_wire_objects(file: &mut syn::File, names: &BTreeSet<String>) {
+    // typify emits named maps as tuple newtypes, including Deref/From implementations.
+    // Their replacement is a normal empty struct; map-specific implementations no longer apply.
+    file.items.retain(|item| match item {
+        syn::Item::Impl(implementation) => {
+            !type_mentions(&implementation.self_ty, names)
+                && !implementation
+                    .trait_
+                    .as_ref()
+                    .is_some_and(|(_, path, _)| path_mentions(path, names))
+        }
+        _ => true,
+    });
+    for item in &mut file.items {
+        let name = match item {
+            syn::Item::Type(alias) => &alias.ident,
+            syn::Item::Struct(structure) => &structure.ident,
+            _ => continue,
+        };
+        if !names.contains(&name.to_string()) {
+            continue;
+        }
+        *item = syn::parse_quote! {
+            #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug, Default)]
+            pub struct #name {}
+        };
+    }
+}
+
 fn rewrite_refs(v: &mut Value) {
     each_schema(v, &mut |m| {
         if let Some(Value::String(r)) = m.get_mut("$ref") {
@@ -114,6 +307,21 @@ fn main() {
     let mut defs: Map<String, Value> = root["$defs"].as_object().unwrap().clone();
     let methods = defs.remove("methods").unwrap();
     let notifications = defs.remove("notifications").unwrap();
+    let empty_wire_objects: BTreeSet<String> = methods
+        .as_object()
+        .unwrap()
+        .iter()
+        .filter(|(_, definition)| empty_wire_object(&definition["result"]))
+        .map(|(name, _)| format!("{}Result", pascal(name)))
+        .chain(
+            notifications
+                .as_object()
+                .unwrap()
+                .iter()
+                .filter(|(_, definition)| empty_wire_object(definition))
+                .map(|(name, _)| format!("{}Notification", pascal(name))),
+        )
+        .collect();
     // Shared `$defs` (Capabilities, cards, ErrorObject, …) are read from the core, so they are opened too.
     defs.values_mut().for_each(open_objects);
     for (m, def) in methods.as_object().unwrap() {
@@ -141,6 +349,8 @@ fn main() {
         .map(|m| format!("{}Params", pascal(m)))
         .collect();
     let mut flat = serde_json::json!({ "$schema": "http://json-schema.org/draft-07/schema#", "title": "RpcRoot", "type": "object", "definitions": defs });
+    normalize_scalar_unions(&mut flat);
+    name_contract_union_fields(&mut flat);
     rewrite_refs(&mut flat);
     let _ = root.take();
     let flat_defs = flat["definitions"].as_object().unwrap().clone();
@@ -178,6 +388,7 @@ fn main() {
     let mut space = typify::TypeSpace::new(&settings);
     space.add_root_schema(schema).expect("typify");
     let mut file = syn::parse2::<syn::File>(space.to_stream()).expect("generated code parses");
+    keep_empty_wire_objects(&mut file, &empty_wire_objects);
     keep_explicit_values(&mut file, &flat_defs, &params_types);
     file.items.extend(
         syn::parse_str::<syn::File>(SUPPORT)
@@ -303,7 +514,11 @@ fn allows(node: &Value, ty: &str) -> bool {
     match node.get("type") {
         Some(Value::String(t)) => t == ty,
         Some(Value::Array(a)) => a.iter().any(|t| t == ty),
-        _ => false,
+        _ => ["anyOf", "oneOf"].iter().any(|keyword| {
+            node.get(keyword)
+                .and_then(Value::as_array)
+                .is_some_and(|branches| branches.iter().any(|branch| allows(branch, ty)))
+        }),
     }
 }
 

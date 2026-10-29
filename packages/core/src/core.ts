@@ -28,7 +28,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
 import type { Engine, EngineStatus, HostServices, ModelsStatus } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import type { HarnessConfig } from "@plur1bus/config-schema";
-import { apiPrincipal, checkAdoptionNonce, createOrphanWatch, type OrphanWatch, type SecurePathOptions } from "@plur1bus/module-api";
+import { apiPrincipal, checkAdoptionNonce, createOrphanWatch, readRunToken, engineRunFiles, type OrphanWatch, type SecurePathOptions } from "@plur1bus/module-api";
 import { RPC_VERSION, SCHEMA, buildCapabilities, precompileMethods, type CoreStatusResult, type JobsStatus, type ProcessState } from "@plur1bus/rpc-schema";
 import { ActivityTracker } from "./activity.ts";
 import { ADMIN_METHODS } from "./admin-ops.ts";
@@ -44,7 +44,11 @@ import { blockRemote, reembedTargetPolicy, targetFromSpec } from "./embedding-mi
 import { createAgentRegistry, type AgentRegistry } from "./agents.ts";
 import { CORE_FEATURES } from "./capabilities.ts";
 import { flattenPatch, openConfigSource, type ConfigSource } from "./config-source.ts";
-import { assertEngineContract, bindEngine } from "./engine.ts";
+import { assertEngineContract } from "./engine.ts";
+import { selectEngine } from "./engine/select.ts";
+import { EngineClient } from "./engine/client.ts";
+import { registerHostMethods } from "./engine/host-methods.ts";
+import { isEngineContext } from "./engine/engine-principal.ts";
 import { buildEngineConfig, checkEngineConfigLicences, checkEngineEgress } from "./engine-config.ts";
 import { isLocalEndpoint, localEndpoints, localOnlyFor } from "./privacy/local-only.ts";
 import { localOnlyCheck } from "./privacy/doctor.ts";
@@ -464,6 +468,7 @@ export function createCore(o: CoreOptions): Core {
     // `agents` are read per use; a `core`-class change waits for the supervisor's restart (restartPending).
     const watchedOrphans = orphans;
     cs.onChange((prev, next, plan) => {
+      if (plan.changed.some(k => k === "egress" || k.startsWith("egress."))) server?.notify("egress.changed", {});
       if(plan.changed.some(k=>k==="privacy"||k.startsWith("privacy.")||/^agents\.[^.]+\.privacy(?:\.|$)/.test(k)))server?.notify("chat.models.changed",{at:clock(),reason:"privacy"});
       if (next.core.logLevel !== prev.core.logLevel) log.setLevel(next.core.logLevel);
       if (next.logs.maxBytes !== prev.logs.maxBytes || next.logs.keep !== prev.logs.keep) log.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
@@ -524,7 +529,8 @@ export function createCore(o: CoreOptions): Core {
       // is built and before the socket listens, so before the first recall. Never throws; a gap leaves the marker and a warning.
       await reapplyTombstonesAfterRestore({ layout: l, baseDbPath: String(engineConfig.baseDbPath), logger, ...(o.tombstoneReapply ? { load: o.tombstoneReapply } : {}) });
       const { startDelayMs, ...engineInternals } = o.testInternals ?? {};
-      const eng = lifecycleEngine(bindEngine(host, engineConfig, o.testInternals ? engineInternals : undefined), lifecycle); engine = eng;
+      const selectedEngine = selectEngine(config, host, engineConfig, o.testInternals ? engineInternals : undefined);
+      const eng = lifecycleEngine(selectedEngine, lifecycle); engine = eng;
       assertEngineContract(eng);
       const es = await eng.status();
       cacheEngineStatus(es);
@@ -1063,14 +1069,24 @@ export function createCore(o: CoreOptions): Core {
         const principal = await resolvePrincipal(ctx, "core.status", params);
         return projectAuditStatus(result, principal, () => auditHealth.status());
       };
-      const methods = importHold.methods(guardMethods(apiAdmission(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.forSession(id).store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } }));
+      const guardedMethods = guardMethods(apiAdmission(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.forSession(id).store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
+      registerHostMethods(guardedMethods, { host, egress, secrets: secretStore, agents: executionRegistry,
+        canCompleteFor: id => selectedEngine instanceof EngineClient && selectedEngine.canCompleteFor(id),
+        complete: (agentId, params) => {
+          if (!turnComposition) return Promise.reject(new RpcError("E_NOT_AVAILABLE", "engine LLM service is unavailable", { reason: "llm-unavailable" }));
+          return turnComposition.engineComplete(agentId, { ...params, signal: AbortSignal.any([params.signal ?? shutdown.signal, shutdown.signal]) });
+        },
+      });
+      const methods = importHold.methods(guardedMethods);
       const subscribe = methods["events.subscribe"]!;
       methods["events.subscribe"] = async (p, ctx) => {
+        if (isEngineContext(ctx) && p.agentId === undefined && Array.isArray(p.names) && p.names.length === 1 && p.names[0] === "egress.changed") return {};
         // The API's credential-only control link watches account revocations, never agent events.
         if (apiPrincipal(ctx) === null && p.agentId === undefined && Array.isArray(p.names) && p.names.length === 1 && p.names[0] === "api.account.changed") return {};
         return subscribe(p, ctx);
       };
       server = createRpcServer({
+        engineToken: () => { try { return readRunToken(l.home, engineRunFiles(l.home).token); } catch { return undefined; } },
         canReadAgent: async (ctx, agentId) => authorize(await resolvePrincipal(ctx, "events.subscribe", { agentId }), "agent.read", { kind: "agent", agentId }, { now: clock() }).effect === "allow",
         address, token, apiToken, authorizeClient: hostClients.authorize, apiPrincipalOf: apiIdentity.forwarded, onApiAuthenticated: apiIdentity.authenticated, apiPersonOfConnection: async (connectionId, p) => { const who = apiIdentity.resolve({ requestId: "audience", connectionId, signal: shutdown.signal }); return who?.kind === "person" && who.userId === p.userId ? who.userId : null; }, personOfConnection: async connectionId => { const p = await resolvePrincipal({ requestId: "audience", connectionId, signal: shutdown.signal }, "events.subscribe", {}); return p?.kind === "person" ? p.userId : null; }, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
         onConnectionClosed: (id) => { apiIdentity.closed(id); orphans?.connectionClosed(id); void turnComposition?.voice.v3.connectionClosed(id); },

@@ -113,6 +113,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "memory.mediaEmbedding.caption.perSegment", type: "boolean", tier: "advanced", help: "Whether video and audio get one caption per segment instead of one per medium." },
   { key: "memory.mediaEmbedding.backfill", type: "string", tier: "advanced", help: "Whether existing media are indexed automatically in the background (auto) or only on request (manual)." },
   { key: "engine", type: "object", tier: "advanced", help: "Pass-through to the engine's EngineConfig (57 keys, see docs/config-engine-keys.md). Every key here is class core until the engine declares readAt: live (engine PR E5)." },
+  { key: "engine.implementation", type: "string", tier: "advanced", help: "Memory engine implementation. Rust is experimental and requires the separately running engine process; unavailable engines leave the Core running and recall reports engine-unavailable." },
   { key: "engine.schicht15", type: "object", tier: "advanced", help: "Curated knowledge promotion settings passed to the Engine." },
   { key: "engine.schicht15.maxPromotionsPerRun", type: "integer", tier: "advanced", help: "Maximum memories promoted by one knowledge-update run; 0 means unlimited." },
   { key: "engine.baseDbPathOverride", type: "string", tier: "advanced", help: "Testing/advanced only; default <home>/state/lancedb. An absolute path (POSIX, drive letter or UNC); a blank value keeps the default." },

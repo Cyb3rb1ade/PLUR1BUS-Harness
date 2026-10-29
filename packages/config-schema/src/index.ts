@@ -54,7 +54,7 @@ export interface HarnessConfig {
   /** Installation-wide privacy switches (privacy.localOnly: no model call leaves the machine). */
   privacy: { localOnly: boolean; localEndpoints: string[] };
   embedding: { useClass: "general" | "research" | "commercial"; acceptedNcLicence: boolean; acceptedNcLicenceAt?: string };
-  engine: Record<string, unknown> & { baseDbPathOverride?: string };
+  engine: Record<string, unknown> & { baseDbPathOverride?: string; implementation?: "node" | "rust" };
   mcp: { servers: Record<string, McpServerConfig> };
   providers: Record<string, unknown>;
   auth?: { requireSecondFactor?:"remote"|"always"|"never"; openai: { clientRegistration: "dynamic_on_authorize"; storeBackend: "auto" | "keyring"; loopbackTimeoutMs: number; httpTimeoutMs: number; refreshSkewSeconds: number; liveHandleTtlSeconds: number; voiceDailySeconds: number; voiceCapacity: number; federated: { command?: string; file?: string; args: string[]; environment: Record<string, string> } } };

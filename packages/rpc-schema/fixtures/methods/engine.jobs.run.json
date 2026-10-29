@@ -1,0 +1,22 @@
+{
+  "params": {
+    "job": "persona-evolve",
+    "agentId": "workspace:v1:test"
+  },
+  "result": {
+    "runId": "workspace:v1:test",
+    "job": "persona-evolve",
+    "phase": "light",
+    "agentId": "workspace:v1:test",
+    "trigger": "cron",
+    "startedAt": 0,
+    "finishedAt": 0,
+    "durationMs": 0,
+    "outcome": "completed",
+    "attempt": 0,
+    "cost": {
+      "ms": 0
+    },
+    "counts": {}
+  }
+}

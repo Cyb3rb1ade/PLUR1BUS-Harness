@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.7.0)
+# RPC reference (rpc 1.8.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -6,9 +6,13 @@ JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core
 (this schema's version). Methods served by the supervisor (**Served by:** supervisor) are called on the supervisor's own
 endpoint, whose first call is `supervisor.auth`. Methods served by a module (**Served by:** module) are called on that
 module's own endpoint (`run/module-<name>.sock`, or the per-home `-module-<name>` pipe), whose first call is
-`module.auth`. Design and rationale: `docs/adr/ADR-012-process-model-and-languages.md`.
+`module.auth`. Engine methods use the engine endpoint (`run/engine.sock` or the per-home `-engine` pipe),
+whose first call is `engine.auth`. The Core serves `host.*` only to an engine-delegated connection; omission from ordinary
+capabilities is a convenience, while every handler enforces the principal at dispatch. Engine delegation is revalidated on every call. `host.llm.complete` additionally requires an outer `agentId` belonging to a registered, active agent opened by this Core or carrying its in-flight engine work; the optional schema field preserves compatibility, while production rejects absent or unrelated attribution before provider access. The engine transport also emits
+`engine.event` with its `x-engine-notification` schema; the deprecated Core emitter keeps its existing payload and opt-in rule.
+Design and rationale: `docs/adr/ADR-012-process-model-and-languages.md`.
 
-JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor or (methods only, since 1.3.0) module.
+JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch.
 
 ## Local endpoint trust
 
@@ -72,11 +76,3421 @@ A closed enum; the core puts the code into every error response as `error.data.e
 
 Everything else is experimental and may change in any minor release (ADR-016 §4).
 
+### core server
+
+- `host.llm.complete`: experimental, since 1.7.0 (feature engine)
+- `host.egress.decide`: experimental, since 1.7.0 (feature engine)
+- `host.secret.get`: experimental, since 1.7.0 (feature engine)
+- `host.workspaceDir`: experimental, since 1.7.0 (feature engine)
+- `host.event`: experimental, since 1.7.0 (feature engine)
+- `host.journalBacklog`: experimental, since 1.7.0 (feature engine)
+- `admin.import.runtime.release`: experimental, since 1.8.0
+- `admin.import.runtime.status`: experimental, since 1.8.0
+- `admin.import.runtime.complete`: experimental, since 1.8.0
+- `admin.import.ssh.key.status`: experimental, since 1.8.0
+- `admin.import.ssh.key.generate`: experimental, since 1.8.0
+- `admin.import.ssh.key.rotate`: experimental, since 1.8.0
+- `admin.import.ssh.key.delete`: experimental, since 1.8.0
+- `admin.import.ssh.connections.list`: experimental, since 1.8.0
+- `admin.import.ssh.connections.set`: experimental, since 1.8.0
+- `admin.import.ssh.connections.delete`: experimental, since 1.8.0
+- `admin.import.ssh.hostKey.probe`: experimental, since 1.8.0
+- `admin.import.ssh.hostKey.trust`: experimental, since 1.8.0
+- `admin.import.detect`: experimental, since 1.8.0
+- `admin.import.wsl.list`: experimental, since 1.8.0
+- `admin.import.plan`: experimental, since 1.8.0
+- `admin.import.preflight`: experimental, since 1.8.0
+- `admin.import.skills`: experimental, since 1.8.0
+- `channel.history.list`: experimental, since 1.6.0
+- `channel.history.get`: experimental, since 1.6.0
+- `channel.handoff.create`: experimental, since 1.6.0
+- `channel.handoff.redeem`: experimental, since 1.6.0
+- `delivery.target.list`: experimental, since 1.6.0
+- `delivery.target.add`: experimental, since 1.6.0
+- `delivery.target.confirm`: experimental, since 1.6.0
+- `delivery.target.remove`: experimental, since 1.6.0
+- `delivery.target.subscribe`: experimental, since 1.6.0
+- `chat.promote.links`: experimental, since 1.6.0
+- `chat.promote.preview`: experimental, since 1.6.0
+- `chat.promote.commit`: experimental, since 1.6.0
+- `chat.create`: experimental, since 1.6.0
+- `chat.list`: experimental, since 1.6.0
+- `chat.get`: experimental, since 1.6.0
+- `chat.events`: experimental, since 1.6.0
+- `chat.submit`: experimental, since 1.6.0
+- `chat.update`: experimental, since 1.6.0
+- `chat.archive`: experimental, since 1.6.0
+- `chat.restore`: experimental, since 1.6.0
+- `chat.cancel`: experimental, since 1.6.0
+- `chat.fork`: experimental, since 1.6.0
+- `chat.delete`: experimental, since 1.6.0
+- `chat.export`: experimental, since 1.6.0
+- `chat.model.get`: experimental, since 1.7.0
+- `chat.model.set`: experimental, since 1.7.0
+- `jobs.create`: experimental, since 1.6.0
+- `jobs.update`: experimental, since 1.6.0
+- `jobs.delete`: experimental, since 1.6.0
+- `voice.status`: experimental, since 1.6.0
+- `voice.agent.override.get`: experimental, since 1.6.0
+- `voice.agent.override.set`: experimental, since 1.6.0
+- `voice.agent.override.clear`: experimental, since 1.6.0
+- `voice.session.create`: experimental, since 1.6.0
+- `voice.realtime.start`: experimental, since 1.6.0
+- `voice.realtime.stop`: experimental, since 1.6.0
+- `voice.models.list`: experimental, since 1.6.0
+- `voice.models.install`: experimental, since 1.6.0
+- `voice.language.list`: experimental, since 1.6.0
+- `voice.language.get`: experimental, since 1.6.0
+- `voice.language.set`: experimental, since 1.6.0
+- `voice.realtime.profile.get`: experimental, since 1.6.0
+- `voice.realtime.profile.set`: experimental, since 1.6.0
+- `voice.metrics.get`: experimental, since 1.6.0
+- `project.column.list`: experimental, since 1.6.0
+- `project.column.create`: experimental, since 1.6.0
+- `project.column.update`: experimental, since 1.6.0
+- `project.column.move`: experimental, since 1.6.0
+- `project.column.delete`: experimental, since 1.6.0
+- `project.card.list`: experimental, since 1.6.0
+- `project.card.get`: experimental, since 1.6.0
+- `project.card.create`: experimental, since 1.6.0
+- `project.card.update`: experimental, since 1.6.0
+- `project.card.move`: experimental, since 1.6.0
+- `project.card.assign`: experimental, since 1.6.0
+- `project.card.unassign`: experimental, since 1.6.0
+- `project.card.archive`: experimental, since 1.6.0
+- `project.card.unarchive`: experimental, since 1.6.0
+- `project.card.comment.add`: experimental, since 1.6.0
+- `project.card.comment.list`: experimental, since 1.6.0
+- `project.card.activity.list`: experimental, since 1.6.0
+- `admin.api.device.pair`: experimental, since 1.6.0
+- `admin.api.device.challenge`: experimental, since 1.6.0
+- `admin.api.device.prove`: experimental, since 1.6.0
+- `admin.api.device.announce`: experimental, since 1.6.0
+- `device.pair`: experimental, since 1.6.0
+- `admin.api.desktop.redeem`: experimental, since 1.6.0
+- `admin.api.desktop.token`: experimental, since 1.6.0
+- `admin.api.desktop.resolve`: experimental, since 1.6.0
+- `device.list`: experimental, since 1.6.0
+- `device.revoke`: experimental, since 1.6.0
+- `device.rename`: experimental, since 1.6.0
+- `media.preferences.set`: experimental, since 1.5.0
+- `media.preferences.get`: experimental, since 1.5.0
+- `media.generate`: experimental, since 1.5.0
+- `media.edit`: experimental, since 1.5.0
+- `media.job.get`: experimental, since 1.5.0
+- `media.job.cancel`: experimental, since 1.5.0
+- `media.job.list`: experimental, since 1.5.0
+- `media.output.get`: experimental, since 1.5.0
+- `media.output.list`: experimental, since 1.5.0
+- `media.output.delete`: experimental, since 1.5.0
+- `media.adapters.list`: experimental, since 1.5.0
+- `project.create`: experimental, since 1.5.0
+- `project.get`: experimental, since 1.5.0
+- `project.list`: experimental, since 1.5.0
+- `project.update`: experimental, since 1.5.0
+- `project.archive`: experimental, since 1.5.0
+- `project.member.add`: experimental, since 1.5.0
+- `project.member.remove`: experimental, since 1.5.0
+- `project.member.role`: experimental, since 1.5.0
+- `project.agent.add`: experimental, since 1.5.0
+- `project.agent.remove`: experimental, since 1.5.0
+- `task.complete`: experimental, since 1.5.0
+- `collab.session.replay`: experimental, since 1.5.0
+- `collab.trace.get`: experimental, since 1.5.0
+- `collab.trace.list`: experimental, since 1.5.0
+- `collab.chain.cancel`: experimental, since 1.5.0
+- `identity.link.request`: experimental, since 1.5.0
+- `identity.link.list`: experimental, since 1.5.0
+- `identity.link.approve`: experimental, since 1.5.0
+- `identity.link.decline`: experimental, since 1.5.0
+- `identity.link.remove`: experimental, since 1.5.0
+- `identity.principals`: experimental, since 1.5.0
+- `core.auth`: stable, since 1.0.0
+- `core.status`: stable, since 1.0.0
+- `core.shutdown`: stable, since 1.0.0
+- `core.adopt`: experimental, since 1.2.0
+- `memory.recall`: stable, since 1.0.0
+- `memory.capture`: stable, since 1.0.0
+- `memory.checkpoint`: experimental, since 1.0.0
+- `memory.list`: experimental, since 1.0.0
+- `memory.show`: experimental, since 1.0.0
+- `memory.forget`: experimental, since 1.0.0
+- `memory.correct`: experimental, since 1.0.0
+- `memory.share`: experimental, since 1.0.0
+- `memory.state`: experimental, since 1.0.0
+- `memory.propose`: experimental, since 1.1.0
+- `memory.curation.list`: experimental, since 1.6.0
+- `memory.curation.resolve`: experimental, since 1.6.0
+- `memory.proposals.list`: experimental, since 1.1.0
+- `memory.proposals.accept`: experimental, since 1.1.0
+- `memory.proposals.reject`: experimental, since 1.1.0
+- `model.memory.status`: experimental, since 1.7.0
+- `model.licence.confirm`: experimental, since 1.6.0
+- `model.licence.list`: experimental, since 1.6.0
+- `model.licence.check`: experimental, since 1.6.0
+- `agent.create`: experimental, since 1.6.0
+- `agent.validate`: experimental, since 1.6.0
+- `agent.import`: experimental, since 1.6.0
+- `doctor.report`: experimental, since 1.6.0
+- `agent.activity.list`: experimental, since 1.6.0
+- `agent.list`: experimental, since 1.0.0
+- `agent.open`: experimental, since 1.0.0
+- `agent.close`: experimental, since 1.0.0
+- `agent.status`: experimental, since 1.0.0
+- `jobs.list`: experimental, since 1.0.0
+- `jobs.run`: experimental, since 1.0.0
+- `jobs.history`: experimental, since 1.0.0
+- `dreams.status`: experimental, since 1.5.0
+- `dreams.log`: experimental, since 1.5.0
+- `dreams.run`: experimental, since 1.5.0
+- `dreams.schedule.get`: experimental, since 1.5.0
+- `dreams.schedule.set`: experimental, since 1.5.0
+- `dreams.enable`: experimental, since 1.5.0
+- `dreams.disable`: experimental, since 1.5.0
+- `dreams.diary`: experimental, since 1.6.0
+- `admin.obsidian.detect`: experimental, since 1.3.0
+- `admin.obsidian.prepare`: experimental, since 1.3.0
+- `admin.obsidian.confirm`: experimental, since 1.3.0
+- `admin.migrate`: experimental, since 1.3.0
+- `admin.backup.snapshot`: experimental, since 1.5.0
+- `logs.levels`: experimental, since 1.6.0
+- `logs.query`: experimental, since 1.5.0
+- `logs.tail`: experimental, since 1.5.0
+- `audit.verify`: experimental, since 1.5.0
+- `admin.embedding.probe`: experimental, since 1.3.0
+- `admin.embedding.serve`: experimental, since 1.3.0
+- `admin.embedding.check`: experimental, since 1.7.0
+- `admin.reembed.plan`: experimental, since 1.5.0
+- `admin.reembed.run`: experimental, since 1.5.0
+- `admin.reembed.status`: experimental, since 1.5.0
+- `admin.reembed.abort`: experimental, since 1.5.0
+- `events.subscribe`: stable, since 1.0.0
+- `events.unsubscribe`: stable, since 1.0.0
+- `decision.status`: experimental, since 1.6.0
+- `decision.test`: experimental, since 1.6.0
+- `admin.engine.test`: experimental, since 1.6.0
+- `models.test`: experimental, since 1.6.0
+- `models.list`: experimental, since 1.5.0
+- `models.scan`: experimental, since 1.5.0
+- `models.setOverride`: experimental, since 1.5.0
+- `models.removeManual`: experimental, since 1.5.0
+- `models.acknowledge`: experimental, since 1.5.0
+- `budget.status`: experimental, since 1.5.0
+- `egress.status`: experimental, since 1.5.0
+- `budget.set`: experimental, since 1.5.0
+- `admin.extensions.setup.get`: experimental, since 1.8.0
+- `admin.extensions.setup.set`: experimental, since 1.8.0
+- `admin.extensions.runtime.hold`: experimental, since 1.8.0
+- `admin.extensions.runtime.release`: experimental, since 1.8.0
+- `admin.extensions.runtime.status`: experimental, since 1.8.0
+- `admin.extensions.auth.start`: experimental, since 1.8.0
+- `admin.extensions.auth.status`: experimental, since 1.8.0
+- `admin.extensions.auth.submit`: experimental, since 1.8.0
+- `admin.extensions.auth.cancel`: experimental, since 1.8.0
+- `secret.status`: experimental, since 1.5.0
+- `secret.list`: experimental, since 1.5.0
+- `auth.login.start`: experimental, since 1.5.0
+- `auth.login.await`: experimental, since 1.5.0
+- `auth.login.cancel`: experimental, since 1.5.0
+- `auth.credentials.list`: experimental, since 1.5.0
+- `auth.logout`: experimental, since 1.5.0
+- `agent.pause`: experimental, since 1.5.0
+- `agent.resume`: experimental, since 1.5.0
+- `agent.archive`: experimental, since 1.5.0
+- `agent.unarchive`: experimental, since 1.5.0
+- `agent.export`: experimental, since 1.5.0
+- `agent.delete`: experimental, since 1.5.0
+- `user.list`: experimental, since 1.5.0
+- `user.disable`: experimental, since 1.6.0
+- `user.enable`: experimental, since 1.6.0
+- `admin.api.person.resolve`: experimental, since 1.6.0
+- `admin.api.invite.validate`: experimental, since 1.6.0
+- `user.role.set`: experimental, since 1.5.0
+- `user.invite.create`: experimental, since 1.5.0
+- `user.invite.list`: experimental, since 1.5.0
+- `user.invite.revoke`: experimental, since 1.5.0
+- `user.invite.redeem`: experimental, since 1.6.0
+- `agent.rights.get`: experimental, since 1.5.0
+- `agent.rights.set`: experimental, since 1.5.0
+- `breakglass.request`: experimental, since 1.5.0
+- `inbox.list`: experimental, since 1.6.0
+- `inbox.count`: experimental, since 1.6.0
+- `inbox.markRead`: experimental, since 1.6.0
+- `inbox.dismiss`: experimental, since 1.6.0
+- `breakglass.notices`: experimental, since 1.5.0
+- `breakglass.list`: experimental, since 1.5.0
+- `breakglass.revoke`: experimental, since 1.5.0
+- `pairing.qr`: experimental, since 1.5.0
+- `auth.status`: experimental, since 1.5.0
+- `channel.list`: experimental, since 1.5.0
+- `channel.crypto`: experimental, since 1.6.0
+- `channel.get`: experimental, since 1.5.0
+- `channel.enable`: experimental, since 1.5.0
+- `channel.disable`: experimental, since 1.5.0
+- `channel.set`: experimental, since 1.5.0
+- `channel.test`: experimental, since 1.5.0
+- `channel.status`: experimental, since 1.5.0
+- `media.search`: experimental, since 1.5.0
+- `media.index.status`: experimental, since 1.5.0
+- `media.index.pause`: experimental, since 1.5.0
+- `media.index.resume`: experimental, since 1.5.0
+- `media.index.reindex`: experimental, since 1.5.0
+- `media.caption.set`: experimental, since 1.5.0
+- `secret.describe`: experimental, since 1.6.0
+- `secret.grants.list`: experimental, since 1.6.0
+- `secret.set`: experimental, since 1.5.0
+- `secret.get`: experimental, since 1.5.0
+- `secret.delete`: experimental, since 1.5.0
+- `identity.list`: experimental, since 1.5.0
+- `identity.human.create`: experimental, since 1.5.0
+- `identity.link`: experimental, since 1.5.0
+- `identity.pair.start`: experimental, since 1.5.0
+- `identity.pair.claim`: experimental, since 1.5.0
+- `identity.pair.confirm`: experimental, since 1.5.0
+- `identity.unlink`: experimental, since 1.5.0
+- `session.model.get`: experimental, since 1.7.0
+- `session.model.set`: experimental, since 1.7.0
+- `session.create`: experimental, since 1.5.0
+- `session.list`: experimental, since 1.5.0
+- `session.get`: experimental, since 1.5.0
+- `session.resume`: experimental, since 1.5.0
+- `session.archive`: experimental, since 1.5.0
+- `session.submit`: experimental, since 1.5.0
+- `session.events`: experimental, since 1.5.0
+- `session.cancel`: experimental, since 1.5.0
+- `grant.list`: experimental, since 1.5.0
+- `grant.get`: experimental, since 1.5.0
+- `grant.create`: experimental, since 1.5.0
+- `grant.revoke`: experimental, since 1.5.0
+- `approval.list`: experimental, since 1.5.0
+- `approval.get`: experimental, since 1.5.0
+- `approval.decide`: experimental, since 1.5.0
+- `approval.cancel`: experimental, since 1.5.0
+- `approval.verify`: experimental, since 1.5.0
+- `approval.audit`: experimental, since 1.5.0
+
+### supervisor server
+
+- `admin.import.runtime.config.set`: experimental, since 1.8.0
+- `admin.extensions.runtime.reconcile`: experimental, since 1.8.0
+- `admin.import.apply`: experimental, since 1.8.0
+- `admin.import.status`: experimental, since 1.8.0
+- `admin.import.abort`: experimental, since 1.8.0
+- `admin.import.runs`: experimental, since 1.8.0
+- `admin.import.rollback`: experimental, since 1.8.0
+- `supervisor.auth`: experimental, since 1.2.0
+- `daemon.status`: experimental, since 1.2.0
+- `daemon.start`: experimental, since 1.2.0
+- `daemon.stop`: experimental, since 1.2.0
+- `config.get`: experimental, since 1.3.0
+- `config.set`: experimental, since 1.3.0
+- `config.watch`: experimental, since 1.3.0
+- `module.watch`: experimental, since 1.3.0
+- `module.list`: experimental, since 1.3.0
+- `module.start`: experimental, since 1.3.0
+- `module.stop`: experimental, since 1.3.0
+- `module.restart`: experimental, since 1.3.0
+- `module.graph`: experimental, since 1.3.0
+- `module.install`: experimental, since 1.3.0
+- `module.uninstall`: experimental, since 1.3.0
+- `ext.list`: experimental, since 1.4.0
+- `ext.show`: experimental, since 1.4.0
+- `ext.inspect`: experimental, since 1.4.0
+- `ext.inspection.get`: experimental, since 1.8.0
+- `ext.install`: experimental, since 1.4.0
+- `ext.uninstall`: experimental, since 1.4.0
+- `ext.restore`: experimental, since 1.4.0
+- `ext.enable`: experimental, since 1.4.0
+- `ext.disable`: experimental, since 1.4.0
+- `ext.watch`: experimental, since 1.4.0
+
+### module server
+
+- `module.auth`: experimental, since 1.3.0
+- `module.status`: experimental, since 1.3.0
+- `module.adopt`: experimental, since 1.3.0
+- `module.shutdown`: experimental, since 1.3.0
+
+### engine server
+
+- `engine.auth`: experimental, since 1.7.0
+- `engine.open`: experimental, since 1.7.0
+- `engine.status`: experimental, since 1.7.0
+- `engine.shutdown`: experimental, since 1.7.0
+- `engine.recall`: experimental, since 1.7.0
+- `engine.capture`: experimental, since 1.7.0
+- `engine.capture.wait`: experimental, since 1.7.0
+- `engine.capture.abort`: experimental, since 1.7.0
+- `engine.checkpoint`: experimental, since 1.7.0
+- `engine.systemSupplement`: experimental, since 1.7.0
+- `engine.jobs.list`: experimental, since 1.7.0
+- `engine.jobs.run`: experimental, since 1.7.0
+- `engine.jobs.history`: experimental, since 1.7.0
+- `engine.embedding.embed`: experimental, since 1.7.0
+- `engine.embedding.rerank`: experimental, since 1.7.0
+- `engine.embedding.probe`: experimental, since 1.7.0
+- `engine.embedding.identities`: experimental, since 1.7.0
+- `engine.embedding.serve`: experimental, since 1.7.0
+- `engine.embedding.fingerprint`: experimental, since 1.7.0
+- `engine.config.normalizeEmbedding`: experimental, since 1.7.0
+- `engine.models.status`: experimental, since 1.7.0
+- `engine.models.warm`: experimental, since 1.7.0
+- `engine.models`: experimental, since 1.7.0
+- `engine.memory.stats`: experimental, since 1.7.0
+- `engine.memory.promote`: experimental, since 1.7.0
+- `engine.memory.curation.list`: experimental, since 1.7.0
+- `engine.memory.curation.resolve`: experimental, since 1.7.0
+- `engine.memory.list`: experimental, since 1.7.0
+- `engine.memory.show`: experimental, since 1.7.0
+- `engine.memory.forget`: experimental, since 1.7.0
+- `engine.memory.correct`: experimental, since 1.7.0
+- `engine.memory.share`: experimental, since 1.7.0
+- `engine.memory.state`: experimental, since 1.7.0
+- `engine.memory.propose`: experimental, since 1.7.0
+- `engine.memory.proposals.list`: experimental, since 1.7.0
+- `engine.memory.proposals.accept`: experimental, since 1.7.0
+- `engine.memory.proposals.reject`: experimental, since 1.7.0
+- `engine.memory.import`: experimental, since 1.7.0
+- `engine.memory.rebind`: experimental, since 1.7.0
+- `engine.memory.unbind`: experimental, since 1.7.0
+- `engine.memory.unimport`: experimental, since 1.7.0
+- `engine.memory.link`: experimental, since 1.7.0
+- `engine.memory.curation.keep`: experimental, since 1.7.0
+- `engine.memory.curation.drop`: experimental, since 1.7.0
+- `engine.admin.share`: experimental, since 1.7.0
+- `engine.admin.forget`: experimental, since 1.7.0
+- `engine.admin.reembedding.plan`: experimental, since 1.7.0
+- `engine.admin.reembedding.apply`: experimental, since 1.7.0
+- `engine.admin.reembedding.resume`: experimental, since 1.7.0
+- `engine.admin.reembedding.validate`: experimental, since 1.7.0
+- `engine.admin.reembedding.rollback`: experimental, since 1.7.0
+- `engine.admin.reembedding.status`: experimental, since 1.7.0
+- `engine.admin.reembedding.switch`: experimental, since 1.7.0
+- `engine.admin.workspacePolicy.get`: experimental, since 1.7.0
+- `engine.admin.workspacePolicy.list`: experimental, since 1.7.0
+- `engine.admin.workspacePolicy.set`: experimental, since 1.7.0
+- `engine.admin.migrate`: experimental, since 1.7.0
+- `engine.admin.obsidian.detect`: experimental, since 1.7.0
+- `engine.admin.obsidian.prepare`: experimental, since 1.7.0
+- `engine.admin.obsidian.confirm`: experimental, since 1.7.0
+- `engine.stores.adopt`: experimental, since 1.7.0
+- `engine.snapshot.create`: experimental, since 1.7.0
+- `engine.snapshot.verify`: experimental, since 1.7.0
+- `engine.tombstones.reapply`: experimental, since 1.7.0
+- `engine.agent.close`: experimental, since 1.7.0
+
 ## Methods
+
+### `engine.auth`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The auth operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "token",
+    "clientId"
+  ],
+  "properties": {
+    "token": {
+      "type": "string",
+      "minLength": 60,
+      "maxLength": 64
+    },
+    "clientId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "rpc",
+    "instanceId",
+    "pid",
+    "capabilities"
+  ],
+  "properties": {
+    "contract": {
+      "type": "string"
+    },
+    "rpc": {
+      "type": "string"
+    },
+    "instanceId": {
+      "type": "string"
+    },
+    "pid": {
+      "type": "integer"
+    },
+    "capabilities": {
+      "$ref": "#/$defs/Capabilities"
+    },
+    "engineCapabilities": {
+      "$ref": "#/$defs/EngineContractEngineCapabilitiesData"
+    }
+  }
+}
+```
+
+### `engine.open`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The open operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractAgentStoreData"
+}
+```
+
+### `engine.status`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The status operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractEngineStatusData"
+}
+```
+
+### `engine.shutdown`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The shutdown operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "budgetMs": {
+      "type": "number",
+      "minimum": 0
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+### `engine.recall`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The recall operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "query"
+  ],
+  "properties": {
+    "query": {
+      "$ref": "#/$defs/EngineContractRecallQueryData"
+    },
+    "options": {
+      "$ref": "#/$defs/EngineContractRecallOptionsData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractRecallResultData"
+}
+```
+
+### `engine.capture`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The capture operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "turn"
+  ],
+  "properties": {
+    "turn": {
+      "$ref": "#/$defs/EngineContractTurnRecordData"
+    },
+    "options": {
+      "$ref": "#/$defs/EngineContractCaptureOptionsData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractCaptureHandleData"
+}
+```
+
+### `engine.capture.wait`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The capture.wait operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "timeoutMs": {
+      "type": "number",
+      "minimum": 0
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "anyOf": [
+    {
+      "$ref": "#/$defs/EngineContractCaptureResultData"
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pending"
+      ],
+      "properties": {
+        "pending": {
+          "const": true
+        }
+      }
+    }
+  ]
+}
+```
+
+### `engine.capture.abort`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The capture.abort operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+### `engine.checkpoint`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The checkpoint operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "reason"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "reason": {
+      "$ref": "#/$defs/EngineContractCheckpointReasonData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractCheckpointResultData"
+}
+```
+
+### `engine.systemSupplement`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The contract's stable synchronous prefix, hydrated by EngineClient and returned as string[].
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "array",
+  "items": {
+    "type": "string"
+  }
+}
+```
+
+### `engine.jobs.list`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The jobs.list operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/EngineContractJobSpecData"
+  }
+}
+```
+
+### `engine.jobs.run`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+`signal` is observed before start only (an already-aborted call is a recorded skip, reason "aborted"). `dryRun` is not supported in M1b-1: it resolves skipped/"dry_run_unsupported" without running or writing a ledger row.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job",
+    "agentId"
+  ],
+  "properties": {
+    "job": {
+      "$ref": "#/$defs/EngineContractJobNameData"
+    },
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "trigger": {
+      "$ref": "#/$defs/EngineContractJobTriggerData"
+    },
+    "dryRun": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractJobRunData"
+}
+```
+
+### `engine.jobs.history`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The jobs.history operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "job": {
+      "$ref": "#/$defs/EngineContractJobNameData"
+    },
+    "since": {
+      "type": "number"
+    },
+    "limit": {
+      "type": "number"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/EngineContractJobRunData"
+  }
+}
+```
+
+### `engine.embedding.embed`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The embedding.embed operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "texts",
+    "kind",
+    "identity"
+  ],
+  "properties": {
+    "texts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "query",
+        "passage"
+      ]
+    },
+    "identity": {
+      "$ref": "#/$defs/EngineContractEmbeddingIdentityData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "array",
+  "items": {
+    "type": "array",
+    "items": {
+      "type": "number"
+    }
+  }
+}
+```
+
+### `engine.embedding.rerank`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The embedding.rerank operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "query",
+    "docs",
+    "topN"
+  ],
+  "properties": {
+    "query": {
+      "type": "string"
+    },
+    "docs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "topN": {
+      "type": "number"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/EngineContractRerankHitData"
+  }
+}
+```
+
+### `engine.embedding.probe`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The embedding.probe operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "refresh": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractEmbeddingProbeResultData"
+}
+```
+
+### `engine.embedding.identities`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The embedding.identities operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/EngineContractEmbeddingIdentityData"
+  }
+}
+```
+
+### `engine.embedding.serve`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The embedding.serve operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "address": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EngineContractIpcAddressData"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractEmbeddingServeResultData"
+}
+```
+
+### `engine.embedding.fingerprint`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The embedding.fingerprint operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "normalized"
+  ],
+  "properties": {
+    "normalized": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "fingerprintId"
+  ],
+  "properties": {
+    "fingerprintId": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `engine.config.normalizeEmbedding`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The config.normalizeEmbedding operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "raw"
+  ],
+  "properties": {
+    "raw": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "normalized"
+  ],
+  "properties": {
+    "normalized": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}
+```
+
+### `engine.models.status`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The models.status operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractModelsStatusData"
+}
+```
+
+### `engine.models.warm`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The models.warm operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "refresh": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractModelsStatusData"
+}
+```
+
+### `engine.models`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+Compatibility alias for engine.models.status; model readiness follows RE-01's ModelsStatus.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractModelsStatusData"
+}
+```
+
+### `engine.memory.stats`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+1.17.0: per-agent counters for visible cards only, at most 500 ids. Undefined ids reads persisted counters; unseen requested visible ids return zero.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ids",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMemoryStatsResultData"
+}
+```
+
+### `engine.memory.promote`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+1.17.0: foreground system/user host only. Uses schicht15 cap per invocation (0 unlimited), never invokes providers; only agent-private source rows.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "req",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "req": {
+      "type": "object",
+      "properties": {
+        "ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "ids"
+      ],
+      "additionalProperties": false
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMemoryPromotionResultData"
+}
+```
+
+### `engine.memory.curation.list`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The memory.curation.list operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "q",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "q": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMemoryCurationListResultData"
+}
+```
+
+### `engine.memory.curation.resolve`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The memory.curation.resolve operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "action",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "keep",
+        "drop"
+      ]
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "status": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "ok"
+  ],
+  "additionalProperties": false
+}
+```
+
+### `engine.memory.list`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The memory.list operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "q",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "q": {
+      "$ref": "#/$defs/EngineContractMemoryListQueryData"
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMemoryListResultData"
+}
+```
+
+### `engine.memory.show`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The memory.show operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMemoryCardData"
+}
+```
+
+### `engine.memory.forget`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The memory.forget operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMemoryForgetResultData"
+}
+```
+
+### `engine.memory.correct`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The memory.correct operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "newText",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "newText": {
+      "type": "string"
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMemoryCorrectResultData"
+}
+```
+
+### `engine.memory.share`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+`allowSensitive` is the caller's explicit confirmation after an `approval-required` refusal.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "target",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "target": {
+      "type": "string",
+      "enum": [
+        "workspace",
+        "user"
+      ]
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    },
+    "opts": {
+      "type": "object",
+      "properties": {
+        "allowSensitive": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMemoryShareResultData"
+}
+```
+
+### `engine.memory.state`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The memory.state operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "p",
+    "a"
+  ],
+  "properties": {
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMemoryStateData"
+}
+```
+
+### `engine.memory.propose`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+File a change proposal against a shared copy the caller can read but does not own (`a.origin === "user"`).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sharedId",
+    "newText",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "sharedId": {
+      "type": "string"
+    },
+    "newText": {
+      "type": "string"
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    },
+    "opts": {
+      "type": "object",
+      "properties": {
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMemoryProposeResultData"
+}
+```
+
+### `engine.memory.proposals.list`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The memory.proposals.list operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "q",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "q": {
+      "$ref": "#/$defs/EngineContractMemoryProposalListQueryData"
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMemoryProposalListResultData"
+}
+```
+
+### `engine.memory.proposals.accept`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+Sharer only (anyone else: `not-found`). Refreshes the copy with the proposal's text.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "proposalId",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "proposalId": {
+      "type": "string"
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMemoryProposalAcceptResultData"
+}
+```
+
+### `engine.memory.proposals.reject`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The memory.proposals.reject operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "proposalId",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "proposalId": {
+      "type": "string"
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    },
+    "opts": {
+      "type": "object",
+      "properties": {
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMemoryProposalRejectResultData"
+}
+```
+
+### `engine.memory.import`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+1.11.0: ingest finished cards (text + provenance + source timestamp) without the live-store LLM merge. `p` is the operator; `req.principal` is the card ACL binding. Requires `a.origin === "system"` and `a.background === false`. At most 500 cards per call.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "req",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "req": {
+      "$ref": "#/$defs/EngineContractMemoryImportRequestData"
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMemoryImportResultData"
+}
+```
+
+### `engine.memory.rebind`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+1.12.0: attach user-scope cards of one channel identity to a harness user. `dryRun` defaults to true. Requires `a.origin === "system"` and `a.background === false`. Counters only; no card text or raw identity keys.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "req",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "req": {
+      "$ref": "#/$defs/EngineContractMemoryRebindRequestData"
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMemoryRebindResultData"
+}
+```
+
+### `engine.memory.unbind`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+1.12.0: restore the owner bindings recorded under `req.rebindId`. Cards written after that rebind are left alone. `dryRun` defaults to false.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "req",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "req": {
+      "$ref": "#/$defs/EngineContractMemoryUnbindRequestData"
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMemoryUnbindResultData"
+}
+```
+
+### `engine.memory.unimport`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+1.13.0: roll back the cards `import` created under `req.importRunId` for `req.agentId`. `dryRun` defaults to true. Requires `a.origin === "system"` and `a.background === false`. Ids, keys, counters and reason codes only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "req",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "req": {
+      "$ref": "#/$defs/EngineContractMemoryUnimportRequestData"
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMemoryUnimportResultData"
+}
+```
+
+### `engine.memory.link`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+1.16.0: attach an additional source to the existing card `id` (an imported card that duplicates it) without changing its text, vector or row. Requires `a.origin === "system"` and `a.background === false` (`denied`). The card must be one the caller can `show`; otherwise `not-found` (also for an unknown id). Idempotent per sourceRef. Apply takes the per-agent import lock (`lock-busy` / `lock-lost`); more than 100 links on one card is `conflict`. Audit line `memory.linked`.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "req",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "req": {
+      "$ref": "#/$defs/EngineContractMemoryLinkRequestData"
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMemoryLinkResultData"
+}
+```
+
+### `engine.memory.curation.keep`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+Equivalent to engine.memory.curation.resolve with action keep.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "status": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "ok"
+  ],
+  "additionalProperties": false
+}
+```
+
+### `engine.memory.curation.drop`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+Equivalent to engine.memory.curation.resolve with action drop.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "status": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "ok"
+  ],
+  "additionalProperties": false
+}
+```
+
+### `engine.admin.share`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The admin.share operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "target",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "target": {
+      "type": "string",
+      "enum": [
+        "workspace",
+        "user"
+      ]
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    },
+    "opts": {
+      "type": "object",
+      "properties": {
+        "allowSensitive": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMemoryShareResultData"
+}
+```
+
+### `engine.admin.forget`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The admin.forget operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMemoryForgetResultData"
+}
+```
+
+### `engine.admin.reembedding.plan`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The admin.reembedding.plan operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "target"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fingerprint"
+          ],
+          "properties": {
+            "fingerprint": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "provider",
+                "model",
+                "dimensions"
+              ],
+              "properties": {
+                "provider": {
+                  "type": "string"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "dimensions": {
+                  "type": "number"
+                },
+                "revision": {
+                  "type": "string"
+                },
+                "endpoint": {
+                  "type": "string"
+                },
+                "queryPrefix": {
+                  "type": "string"
+                },
+                "passagePrefix": {
+                  "type": "string"
+                },
+                "pooling": {
+                  "type": "string"
+                },
+                "normalize": {
+                  "type": "boolean"
+                },
+                "dtype": {
+                  "type": "string"
+                },
+                "artifacts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "path",
+                      "sha256"
+                    ],
+                    "properties": {
+                      "path": {
+                        "type": "string"
+                      },
+                      "sha256": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "secretRef": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "source",
+                "provider",
+                "id"
+              ],
+              "properties": {
+                "source": {
+                  "const": "env"
+                },
+                "provider": {
+                  "const": "default"
+                },
+                "id": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "targetGeneration": {
+          "type": "string"
+        },
+        "confirmationTtlMs": {
+          "type": "number"
+        }
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{}
+```
+
+### `engine.admin.reembedding.apply`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The admin.reembedding.apply operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "token"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "token": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{}
+```
+
+### `engine.admin.reembedding.resume`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The admin.reembedding.resume operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "token"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "token": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{}
+```
+
+### `engine.admin.reembedding.validate`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+1.17.0: `validate({ id })` moves a fully copied migration from `validating` to `ready_to_switch` after the target generation check and the semantic recall probe; on failure it rejects and the record stays `validating`.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{}
+```
+
+### `engine.admin.reembedding.rollback`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The admin.reembedding.rollback operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{}
+```
+
+### `engine.admin.reembedding.status`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The admin.reembedding.status operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{}
+```
+
+### `engine.admin.reembedding.switch`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The admin.reembedding.switch operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{}
+```
+
+### `engine.admin.workspacePolicy.get`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The admin.workspacePolicy.get operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{}
+```
+
+### `engine.admin.workspacePolicy.list`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The admin.workspacePolicy.list operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{}
+```
+
+### `engine.admin.workspacePolicy.set`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The admin.workspacePolicy.set operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "patch"
+  ],
+  "properties": {
+    "patch": {}
+  }
+}
+```
+
+**result**
+
+```json
+{}
+```
+
+### `engine.admin.migrate`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+Store schema migration (E2, variant a). Rejects with MemoryOpError: `conflict` when `from` is not the store's current version, `invalid-input` for an unknown or downgrading `to`, `storage` when the marker is unreadable.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "from",
+    "to"
+  ],
+  "properties": {
+    "from": {
+      "$ref": "#/$defs/EngineContractSchemaVersionData"
+    },
+    "to": {
+      "$ref": "#/$defs/EngineContractSchemaVersionData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractMigrationResultData"
+}
+```
+
+### `engine.admin.obsidian.detect`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The admin.obsidian.detect operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "p",
+    "a"
+  ],
+  "properties": {
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    },
+    "opts": {
+      "type": "object",
+      "properties": {
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractObsidianDetectResultData"
+}
+```
+
+### `engine.admin.obsidian.prepare`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The admin.obsidian.prepare operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "vaultPath",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "vaultPath": {
+      "type": "string"
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractObsidianPrepareResultData"
+}
+```
+
+### `engine.admin.obsidian.confirm`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The admin.obsidian.confirm operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "nonce",
+    "p",
+    "a"
+  ],
+  "properties": {
+    "nonce": {
+      "type": "string"
+    },
+    "p": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "a": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractObsidianConfirmResultData"
+}
+```
+
+### `engine.stores.adopt`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+1.11.0: inspect a copied store (copy-never-move). Does not migrate, does not re-embed, and does not take `state/core.lock` — the host holds that lock before `createEngine`. `incompatible` is a result, not a throw.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "req"
+  ],
+  "properties": {
+    "req": {
+      "$ref": "#/$defs/EngineContractStoreAdoptRequestData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractStoreAdoptResultData"
+}
+```
+
+### `engine.snapshot.create`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The engine-owned snapshot report (RE-10). Paths are local to the engine process.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "out"
+  ],
+  "properties": {
+    "out": {
+      "type": "string"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `engine.snapshot.verify`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The engine-owned snapshot verification report (RE-10).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dir"
+  ],
+  "properties": {
+    "dir": {
+      "type": "string"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `engine.tombstones.reapply`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The engine-owned restored tombstone reapplication report (RE-10).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `host.llm.complete`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Engine delegation only; uses the normal provider router, budget admission, privacy and D109 gates. T2 must send the owning registered agentId outside RE-01 LlmParams. agentId stays optional in the additive wire schema, but Core denies missing, unknown or unauthorized attribution before accessing the provider.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "params"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "params": {
+      "$ref": "#/$defs/EngineContractLlmParamsData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/EngineContractLlmResultData"
+}
+```
+
+### `host.egress.decide`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Engine delegation only; evaluates the exact target with the core egress policy before each hop.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scheme",
+    "host",
+    "port"
+  ],
+  "properties": {
+    "scheme": {
+      "enum": [
+        "http",
+        "https"
+      ]
+    },
+    "host": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 253
+    },
+    "port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed",
+        "host",
+        "port",
+        "address",
+        "family"
+      ],
+      "properties": {
+        "allowed": {
+          "const": true
+        },
+        "host": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "address": {
+          "type": "string"
+        },
+        "family": {
+          "type": "integer",
+          "enum": [
+            4,
+            6
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed",
+        "reason",
+        "message"
+      ],
+      "properties": {
+        "allowed": {
+          "const": false
+        },
+        "reason": {
+          "enum": [
+            "invalid-url",
+            "scheme",
+            "port",
+            "host-not-allowed",
+            "loopback",
+            "private-address",
+            "not-found"
+          ]
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    }
+  ]
+}
+```
+
+### `host.secret.get`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Engine delegation only; reads a fresh audited lease and revokes it before returning. Never log its value.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "value"
+  ],
+  "properties": {
+    "value": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+### `host.workspaceDir`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+The workspaceDir operation on the Core host-services RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "path"
+  ],
+  "properties": {
+    "path": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+### `host.event`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+The event operation on the Core host-services RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "payload"
+  ],
+  "properties": {
+    "name": {
+      "$ref": "#/$defs/EngineContractEngineEventNameData"
+    },
+    "payload": {}
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+### `host.journalBacklog`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+The journalBacklog operation on the Core host-services RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "anyOf": [
+    {
+      "$ref": "#/$defs/EngineContractJournalBacklogData"
+    },
+    {
+      "type": "null"
+    }
+  ]
+}
+```
+
+### `engine.agent.close`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+The agent.close operation on the memory-engine RPC endpoint.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
 
 ### `admin.import.runtime.config.set`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** supervisor
 
@@ -203,7 +3617,7 @@ Private current-Core-PID-only configuration control for the active immutable imp
 
 ### `admin.import.runtime.release`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -264,7 +3678,7 @@ Private native import lifecycle control; no API, client-agent or WebMCP authorit
 
 ### `admin.import.runtime.status`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -345,7 +3759,7 @@ Private native import lifecycle control; no API, client-agent or WebMCP authorit
 
 ### `admin.import.runtime.complete`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -426,7 +3840,7 @@ Private native import lifecycle control; no API, client-agent or WebMCP authorit
 
 ### `admin.extensions.runtime.reconcile`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** supervisor
 
@@ -474,7 +3888,7 @@ Private native control: reconcile current extension setup state after a Secret S
 
 ### `admin.import.ssh.key.status`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -501,7 +3915,7 @@ Owner-only SSH identity operation; private key remains in Secret Store.
 
 ### `admin.import.ssh.key.generate`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -528,7 +3942,7 @@ Owner-only SSH identity operation; private key remains in Secret Store.
 
 ### `admin.import.ssh.key.rotate`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -555,7 +3969,7 @@ Owner-only SSH identity operation; private key remains in Secret Store.
 
 ### `admin.import.ssh.key.delete`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -591,7 +4005,7 @@ Owner-only identity removal, revoking active source handles.
 
 ### `admin.import.ssh.connections.list`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -631,7 +4045,7 @@ List configured source connections for current Owner/Admin.
 
 ### `admin.import.ssh.connections.set`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -673,7 +4087,7 @@ Owner-only connection setup; endpoint changes clear host-key trust.
 
 ### `admin.import.ssh.connections.delete`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -725,7 +4139,7 @@ Owner-only connection removal, invalidating probes and source handles.
 
 ### `admin.import.ssh.hostKey.probe`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -796,7 +4210,7 @@ Owner-only host-key probe before authentication; binds the observed key to an ex
 
 ### `admin.import.ssh.hostKey.trust`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -855,7 +4269,7 @@ Owner explicitly trusts the exact current host-key probe; changes are never auto
 
 ### `admin.import.detect`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -899,7 +4313,7 @@ Detect and seal a supported source, projecting bounded metadata for the current 
 
 ### `admin.import.wsl.list`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -972,7 +4386,7 @@ List WSL distributions without starting stopped distributions.
 
 ### `admin.import.plan`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -1212,7 +4626,7 @@ Persist an immutable human-owned import plan; secret migration requires Owner.
 
 ### `admin.import.preflight`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -1317,7 +4731,7 @@ Validate live target state, cold rollback coverage and a one-use operation-bound
 
 ### `admin.import.apply`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** supervisor
 
@@ -1379,7 +4793,7 @@ Consume a preflight ticket and queue supervised import maintenance.
 
 ### `admin.import.status`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** supervisor
 
@@ -1424,7 +4838,7 @@ Read owner-bound maintenance metadata while Core is stopped.
 
 ### `admin.import.abort`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** supervisor
 
@@ -1480,7 +4894,7 @@ Abort a maintenance run and automatically restore the cold baseline before resta
 
 ### `admin.import.runs`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** supervisor
 
@@ -1539,7 +4953,7 @@ List bounded human-owned maintenance history.
 
 ### `admin.import.rollback`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** supervisor
 
@@ -1598,7 +5012,7 @@ Queue rollback after a fresh live preflight; later target changes refuse rollbac
 
 ### `admin.import.skills`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -7752,6 +11166,9 @@ Human-only principals; self or authenticated administrator, codes revealed only 
     },
     "api": {
       "$ref": "#/$defs/ApiDelegation"
+    },
+    "engine": {
+      "$ref": "#/$defs/EngineDelegation"
     }
   }
 }
@@ -13433,7 +16850,7 @@ Audits a package file (.p1x, or a skill folder, .zip or .skill normalised to an 
 
 ### `ext.inspection.get`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** supervisor
 
@@ -14909,7 +18326,7 @@ Sets, changes or clears a budget limit and/or the time zone budget periods follo
 
 ### `admin.extensions.setup.get`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -14990,7 +18407,7 @@ Declared extension secret slots and current availability, never values. Human Ow
 
 ### `admin.extensions.setup.set`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -15052,7 +18469,7 @@ Sets one installed extension's declared secret slot as ext:<name>:<slot>. Owner 
 
 ### `admin.extensions.runtime.hold`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -15099,7 +18516,7 @@ Stops an installed MCP registration and holds it while the supervisor changes it
 
 ### `admin.extensions.runtime.release`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -15146,7 +18563,7 @@ Releases a supervisor transaction hold and reconciles fresh MCP metadata. Direct
 
 ### `admin.extensions.runtime.status`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -15200,7 +18617,7 @@ Current MCP runtime holdback metadata for the supervisor. Direct local Owner con
 
 ### `admin.extensions.auth.start`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -15260,7 +18677,7 @@ Explicitly starts a bounded MCP login for this human Owner/Admin and server. Cli
 
 ### `admin.extensions.auth.status`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -15299,7 +18716,7 @@ Returns only this initiating human's extension login interaction metadata. Forei
 
 ### `admin.extensions.auth.submit`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -15344,7 +18761,7 @@ Submits a write-only pasted MCP callback URL to this human's attempt. No callbac
 
 ### `admin.extensions.auth.cancel`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** core
 
@@ -20323,11 +23740,59 @@ D109 §9.10: approval-related HMAC-chain entries of the calling person, newest f
 
 ## Notifications
 
-Delivered on the same connection to clients that called `events.subscribe`.
+Core notifications are delivered on the same connection to clients that called `events.subscribe`. Engine transport notifications are delivered on authenticated engine connections.
+
+### `engine.capture.done`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** engine
+
+```json
+{
+  "x-server": "engine",
+  "x-stability": "experimental",
+  "x-since": "1.7.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "result"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "result": {
+      "$ref": "#/$defs/EngineContractCaptureResultData"
+    }
+  }
+}
+```
+
+### `egress.changed`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Engine policy cache invalidation; emitted when the core's egress policy changes.
+
+```json
+{
+  "x-server": "core",
+  "x-stability": "experimental",
+  "x-since": "1.7.0",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "description": "Engine policy cache invalidation; emitted when the core's egress policy changes."
+}
+```
 
 ### `import.progress`
 
-**Stability:** experimental · since 1.7.0
+**Stability:** experimental · since 1.8.0
 
 **Served by:** supervisor
 
@@ -20384,7 +23849,7 @@ Bounded maintenance counters only; no source paths, content or secret values.
     }
   },
   "x-stability": "experimental",
-  "x-since": "1.7.0",
+  "x-since": "1.8.0",
   "x-server": "supervisor",
   "description": "Bounded maintenance counters only; no source paths, content or secret values."
 }
@@ -20947,7 +24412,7 @@ Authorized connection receives job finished.
 
 **Stability:** experimental · since 1.0.0 · **deprecated** since 1.1.0, removal not before 2027-03-26; use harness event notifications: recall.completed, recall.degraded, recall.block-clipped, recall.block-dropped, job.run, memory.proposal (ADR-016 §6)
 
-**Served by:** core
+**Served by:** core (legacy); engine (transport projection since 1.7.0)
 
 Every engine event forwarded verbatim: name is the EngineEventName, payload as emitted, agentId when the payload carries one. Delivered only to subscriptions that name engine.event in names (opt-in).
 
@@ -20986,6 +24451,23 @@ Every engine event forwarded verbatim: name is the EngineEventName, payload as e
       "$ref": "#/$defs/AgentId"
     },
     "payload": {}
+  },
+  "x-engine-notification": {
+    "x-server": "engine",
+    "x-stability": "experimental",
+    "x-since": "1.7.0",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "name",
+      "payload"
+    ],
+    "properties": {
+      "name": {
+        "$ref": "#/$defs/EngineContractEngineEventNameData"
+      },
+      "payload": {}
+    }
   }
 }
 ```
@@ -21715,6 +25197,3897 @@ D109 §4: a grant was created, used, revoked, expired or suspended. Opt-in (a su
 ## Definitions
 
 Shared `$defs` referenced above as `#/$defs/<Name>`.
+
+### `EngineContractEngineCapabilitiesData`
+
+```json
+{
+  "title": "EngineContractEngineCapabilitiesData",
+  "type": "object",
+  "properties": {
+    "memoryLink": {
+      "type": "boolean",
+      "description": "`MemoryOps.link`, `MemoryCard.links`, unimport unlinks by run."
+    },
+    "recallStats": {
+      "type": "boolean"
+    },
+    "knowledgePromotion": {
+      "type": "boolean"
+    },
+    "memoryCuration": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "memoryLink",
+    "recallStats",
+    "knowledgePromotion",
+    "memoryCuration"
+  ],
+  "additionalProperties": false,
+  "description": "1.16.0: additive feature flags a host can test before calling an optional surface."
+}
+```
+
+### `EngineContractAgentIdData`
+
+```json
+{
+  "title": "EngineContractAgentIdData",
+  "type": "string",
+  "description": "Matches /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/ (memory-host-runtime.js:30).",
+  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+}
+```
+
+### `EngineContractAgentStoreData`
+
+```json
+{
+  "title": "EngineContractAgentStoreData",
+  "type": "object",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    }
+  },
+  "required": [
+    "agentId"
+  ],
+  "additionalProperties": false,
+  "description": "Agent Store in the engine contract."
+}
+```
+
+### `EngineContractEngineStatusData`
+
+```json
+{
+  "title": "EngineContractEngineStatusData",
+  "type": "object",
+  "properties": {
+    "ready": {
+      "type": "boolean"
+    },
+    "degraded": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EngineContractDegradedData"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "1.8.0: derived from models — embedder failed → {reason:\"model-failed\",capability:\"embedding\"}; embedder loading → {reason:\"models-warming\",capability:\"embedding\"}; reranker failed → model-failed/\"reranker\"; reranker loading → models-warming/\"reranker\"; first match wins; otherwise null."
+    },
+    "agents": {
+      "type": "number"
+    },
+    "contract": {
+      "$ref": "#/$defs/EngineContractContractVersionData"
+    },
+    "storeSchema": {
+      "type": "object",
+      "properties": {
+        "current": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EngineContractSchemaVersionData"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expected": {
+          "$ref": "#/$defs/EngineContractSchemaVersionData"
+        }
+      },
+      "required": [
+        "current",
+        "expected"
+      ],
+      "additionalProperties": false
+    },
+    "jobs": {
+      "$ref": "#/$defs/EngineContractJobsHealthData",
+      "description": "1.8.0"
+    },
+    "models": {
+      "$ref": "#/$defs/EngineContractModelsStatusData",
+      "description": "1.8.0"
+    },
+    "journal": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EngineContractJournalBacklogData"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "1.8.0: null when the host reports none."
+    },
+    "sharedMemory": {
+      "$ref": "#/$defs/EngineContractSharedMemorySupportData",
+      "description": "1.8.0"
+    }
+  },
+  "required": [
+    "ready",
+    "degraded",
+    "agents",
+    "contract",
+    "storeSchema",
+    "jobs",
+    "models",
+    "journal",
+    "sharedMemory"
+  ],
+  "additionalProperties": false,
+  "description": "Engine Status in the engine contract."
+}
+```
+
+### `EngineContractDegradedData`
+
+```json
+{
+  "title": "EngineContractDegradedData",
+  "type": "object",
+  "properties": {
+    "reason": {
+      "type": "string"
+    },
+    "capability": {
+      "type": "string"
+    },
+    "detail": {
+      "type": "string"
+    },
+    "identities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "identityId": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "identityId",
+          "code"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "reason",
+    "capability"
+  ],
+  "additionalProperties": false,
+  "description": "Degraded in the engine contract."
+}
+```
+
+### `EngineContractContractVersionData`
+
+```json
+{
+  "title": "EngineContractContractVersionData",
+  "type": "string",
+  "enum": [
+    "1.17.0"
+  ],
+  "description": "types/engine.d.ts — the frozen PLUR1BUS engine contract. Contract version 1.17.0 (frozen at 1.0.0 on 2026-09-22, owner decision B8; amended seventeen times under the policy below — see the changelog at the end of this header). This file reconciles the four places Phase 0 sketched the same API differently (review-report finding S4). Where ADR-002 and engine-extraction.md §b.2 disagreed, B8 chose: - `Principal.trust: \"proved\" | \"inferred\"`   (not `proof: \"transport\"`) - `TurnOrigin` as a string union plus a separate `AgentContext` (not one `TurnOrigin` object) - `capture()` returns a non-blocking `CaptureHandle` (not `Promise<CaptureResult>`) - `RecallResult.degraded` is a structured object or null (not a boolean) `createEngine` (engine/create-engine.js) implements it from M1b-1 on. It is the shape both the plugin host adapter and the harness are written against, and it is checked by `npm run typecheck`. Amendment policy: \"frozen\" means 1.0.0 is never edited in place. Any change to an exported member's shape that an existing adapter could observe — a new required property, a removed or renamed member, a narrowed or widened union, a changed parameter or return type — forces a `ContractVersion` bump; only additions no adapter can observe (a comment, a new optional property on a type the engine alone constructs) may land without one. `ContractVersion`, the assertions in `types/engine.conformance.ts` and both adapters move together in a single PR, so the contract, its gate and its two consumers are never in disagreement at any commit. Changelog: 1.1.0 — SecurePathResult.reason gains \"acl-tool-unavailable\" (Task 5). 1.2.0 — HostServices.workspaceDir becomes async (Task 6). 1.3.0 — HostServices.configPath(), HostServices.routing?, HostServices.pathOverrides? (G1 closure, M1b-1 Task 11). 1.4.0 — Engine surface of createEngine (M1b-1): ContextBlock.chars; RecallResult.timing (replaces timings) and .deferrals; RecallQuery.budget optional; JobRun/JobRegistry/JobSpec per spec 3.3 (outcome gains \"abandoned\"); CheckpointReason gains \"session-end\"; Engine.close({ budgetMs }); Engine.channels; HostServices.capabilities?; EngineEventName gains recall.block-clipped/-dropped, recall.completed; createEngine testOptions. 1.4.1 — JobTrigger gains \"unknown\" (a crash row recovered from a corrupt, unreadable start marker; M1b-1 final review m2). 1.5.0 — MemoryOps types, Engine.memory (E1 Task 2); runCommand deprecated; MemoryState.tombstones number | null (E1-R11); HostCapabilities.memoryArchiveDir? (E1 Task 8). 1.6.0 — AdminOps.share/forget alias Engine.memory (deprecated); ObsidianOps with explicit paths; migrate over a store schema marker; MemoryOps.propose/proposals (D31); MemoryCard.sharedBy/sourceId; MemoryOpError.detail; \"memory.proposal\" event; EngineStatus.storeSchema (E2). 1.7.0 — EmbeddingService.probe(opts?) → EmbeddingProbeResult (identity, readiness, memoized); serve(address?: IpcAddress | null) → EmbeddingServeResult (real scoped IPC, in-process owner, no claim listener); HostCapabilities.pushCriticalButtons? typed (E3). 1.8.0 — EngineStatus.jobs/models/journal/sharedMemory, degraded derived from model readiness; Engine.models (status, warm); HostCapabilities.journalBacklog?; MemoryOpErrorCode \"unsupported\"; CaptureResult.reason \"duplicate-turn\" (E4). 1.9.0 — engine-config.schema.json with readAt/x-tier/x-sensitive and its types (EngineConfigSchema, EngineConfigKey, EngineConfigReadAt); RecallQuery.warmOnly; RecallTiming.totalMs covers queue wait and prelude (E5). 1.10.0 — additive engine-config keys from the 7.18.5–7.18.20 port (runtime.deferPostTurnLlm, diaryFromUserChats, captureChunkingJev, recall.fullTextTopRecords/fullTextMaxChars) and JobName \"post-turn-refine\"; adapter-only keys stay on the plugin host manifest; no breaking change to existing callers. 1.11.0 — MemoryOps.import (finished-card ingest with deterministic ids) and Engine.stores.adopt (copy-never-move store take-over with a sample cosine probe for legacy stores); MemoryCard.provenance/sourceRef optional; no breaking change to existing callers. 1.12.0 — MemoryOps.rebind / MemoryOps.unbind (manual N:1 channel-identity link; user-scope owner metadata only) and ADOPT_PROBE_MIN_ROWS = min(8, available); UserPrincipal accepts user:v1 and user:v2; MemoryOpErrorCode \"identity-already-bound\" | \"ledger-corrupt\" | \"lock-lost\"; no breaking change to existing callers. 1.13.0 — MemoryOps.unimport (roll back the cards one import run created; archive-first soft delete without a registry tombstone, key freed for re-import); MemoryImportRequest.importRunId optional; MemoryOpErrorCode \"lock-busy\"; no breaking change to existing callers. 1.14.0 — additive complete vector-space identities, routes and degraded notes. 1.15.0 — HostServices.fetch? (HostFetch: every outbound engine HTTP request goes through it when set); SecretStore becomes resolve(ref, purpose) (lease() kept optional and deprecated; it was never called) for provider `apiKeyRef`; ProviderCredentialConfig, RemoteRerankerConfig and the reranker providers jina | voyage | remote with baseUrl/protocol; no breaking change to existing callers (the engine called no SecretStore member before 1.15.0). Also: MemoryImportRequest without importRunId attributes each card to the run its sourceRef names (`;run=<id>`); MemoryUnimportRequest.importRunId also selects such lines; MemoryUnimportResult.derived.graphEdgesRemoved? / mirrorsArchived? / cleanupErrors? (unimport drops the undone cards' graph edges and archives their Obsidian mirrors). 1.17.0 — AdminOps.reembedding.validate({ id }) (the coordinator's validating → ready_to_switch step: target generation check and semantic recall probe, so a host that owns its switch can finish a migration); a failed validation rejects and leaves the record in validating; no breaking change to existing callers. 1.16.0 — MemoryOps.link(id, req, p, a) (owner decision 2026-10-19: attach an imported duplicate to an existing card as an additional source instead of storing a duplicate; sidecar `_links/`, the card row is never written; idempotent per sourceRef); MemoryCard.links? (show/list); MemoryUnimportResult.links? (unimport of a run unlinks that run's links, the card stays); Engine.capabilities (EngineCapabilities, `memoryLink: true`); no breaking change to existing callers."
+}
+```
+
+### `EngineContractSchemaVersionData`
+
+```json
+{
+  "title": "EngineContractSchemaVersionData",
+  "type": "string",
+  "description": "Schema Version in the engine contract."
+}
+```
+
+### `EngineContractJobsHealthData`
+
+```json
+{
+  "title": "EngineContractJobsHealthData",
+  "type": "object",
+  "properties": {
+    "ledger": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "unavailable"
+      ]
+    },
+    "agents": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineContractAgentJobHealthData"
+      }
+    }
+  },
+  "required": [
+    "ledger",
+    "agents"
+  ],
+  "additionalProperties": false,
+  "description": "Jobs Health in the engine contract."
+}
+```
+
+### `EngineContractAgentJobHealthData`
+
+```json
+{
+  "title": "EngineContractAgentJobHealthData",
+  "type": "object",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "lastRuns": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/EngineContractJobLastRunData"
+      },
+      "description": "Latest finished run per job (by finishedAt); jobs that never ran are absent."
+    },
+    "running": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineContractJobNameData"
+      },
+      "description": "Jobs with a run in flight in this process, sorted."
+    },
+    "breaker": {
+      "$ref": "#/$defs/EngineContractBreakerStateData",
+      "description": "rem/deep LLM-session breaker for the current UTC sweep, in-flight sessions included."
+    },
+    "unreadableLines": {
+      "type": "number",
+      "description": "Ledger lines that could not be parsed."
+    }
+  },
+  "required": [
+    "agentId",
+    "lastRuns",
+    "running",
+    "breaker",
+    "unreadableLines"
+  ],
+  "additionalProperties": false,
+  "description": "Agent Job Health in the engine contract."
+}
+```
+
+### `EngineContractJobLastRunData`
+
+```json
+{
+  "title": "EngineContractJobLastRunData",
+  "type": "object",
+  "properties": {
+    "runId": {
+      "type": "string"
+    },
+    "outcome": {
+      "$ref": "#/$defs/EngineContractJobOutcomeData"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "trigger": {
+      "$ref": "#/$defs/EngineContractJobTriggerData"
+    },
+    "startedAt": {
+      "type": "number"
+    },
+    "finishedAt": {
+      "type": "number"
+    },
+    "attempt": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "runId",
+    "outcome",
+    "trigger",
+    "startedAt",
+    "finishedAt",
+    "attempt"
+  ],
+  "additionalProperties": false,
+  "description": "Job Last Run in the engine contract."
+}
+```
+
+### `EngineContractJobOutcomeData`
+
+```json
+{
+  "title": "EngineContractJobOutcomeData",
+  "type": "string",
+  "enum": [
+    "completed",
+    "skipped",
+    "incomplete",
+    "failed",
+    "abandoned"
+  ],
+  "description": "Job Outcome in the engine contract."
+}
+```
+
+### `EngineContractJobTriggerData`
+
+```json
+{
+  "title": "EngineContractJobTriggerData",
+  "type": "string",
+  "enum": [
+    "cron",
+    "manual",
+    "harness",
+    "capture",
+    "unknown"
+  ],
+  "description": "\"unknown\" only on a crash row recovered from a corrupt start marker (1.4.1)."
+}
+```
+
+### `EngineContractJobNameData`
+
+```json
+{
+  "title": "EngineContractJobNameData",
+  "type": "string",
+  "enum": [
+    "persona-evolve",
+    "afterthought",
+    "consolidate-daily",
+    "auto-accept-stale",
+    "embedding-drain",
+    "emotion-refine",
+    "post-turn-refine",
+    "classify-recent",
+    "rem-dream",
+    "skill-miner",
+    "discover-semantic-links",
+    "gc-run",
+    "reminder-dispatch",
+    "feedback-report",
+    "proactive-check",
+    "meta-reflect",
+    "skill-benefit-backfill",
+    "episodes-rebuild",
+    "light-dream",
+    "knowledge-update"
+  ],
+  "description": "Job Name in the engine contract."
+}
+```
+
+### `EngineContractBreakerStateData`
+
+```json
+{
+  "title": "EngineContractBreakerStateData",
+  "type": "object",
+  "properties": {
+    "sweep": {
+      "type": "string"
+    },
+    "sessions": {
+      "type": "number"
+    },
+    "limit": {
+      "type": "number"
+    },
+    "open": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "sweep",
+    "sessions",
+    "limit",
+    "open"
+  ],
+  "additionalProperties": false,
+  "description": "Breaker State in the engine contract."
+}
+```
+
+### `EngineContractModelsStatusData`
+
+```json
+{
+  "title": "EngineContractModelsStatusData",
+  "type": "object",
+  "properties": {
+    "embedder": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/EngineContractModelStateData",
+          "description": "loading: not confirmed yet (checkedAt null) or first probe running; the embedder is never \"disabled\"."
+        },
+        "warming": {
+          "type": "boolean",
+          "description": "true while a probe is in flight."
+        },
+        "checkedAt": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Clock time of the completed probe that set `state`; null before any, and when disabled."
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EngineContractEmbeddingProbeErrorData"
+            },
+            {
+              "$ref": "#/$defs/EngineContractRerankerProbeErrorData"
+            }
+          ],
+          "description": "Only when state === \"failed\"."
+        },
+        "identity": {
+          "$ref": "#/$defs/EngineContractEmbeddingIdentityData"
+        }
+      },
+      "required": [
+        "state",
+        "warming",
+        "checkedAt",
+        "identity"
+      ],
+      "additionalProperties": false
+    },
+    "reranker": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/EngineContractModelStateData",
+          "description": "loading: not confirmed yet (checkedAt null) or first probe running; the embedder is never \"disabled\"."
+        },
+        "warming": {
+          "type": "boolean",
+          "description": "true while a probe is in flight."
+        },
+        "checkedAt": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Clock time of the completed probe that set `state`; null before any, and when disabled."
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EngineContractEmbeddingProbeErrorData"
+            },
+            {
+              "$ref": "#/$defs/EngineContractRerankerProbeErrorData"
+            }
+          ],
+          "description": "Only when state === \"failed\"."
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "state",
+        "warming",
+        "checkedAt",
+        "provider"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "embedder",
+    "reranker"
+  ],
+  "additionalProperties": false,
+  "description": "Models Status in the engine contract."
+}
+```
+
+### `EngineContractModelStateData`
+
+```json
+{
+  "title": "EngineContractModelStateData",
+  "type": "string",
+  "enum": [
+    "loading",
+    "ready",
+    "failed",
+    "disabled"
+  ],
+  "description": "Model State in the engine contract."
+}
+```
+
+### `EngineContractEmbeddingProbeErrorData`
+
+```json
+{
+  "title": "EngineContractEmbeddingProbeErrorData",
+  "type": "string",
+  "enum": [
+    "aborted",
+    "provider-failed",
+    "invalid-vector",
+    "dimension-mismatch"
+  ],
+  "description": "Embedding Probe Error in the engine contract."
+}
+```
+
+### `EngineContractRerankerProbeErrorData`
+
+```json
+{
+  "title": "EngineContractRerankerProbeErrorData",
+  "type": "string",
+  "enum": [
+    "aborted",
+    "provider-failed",
+    "invalid-result"
+  ],
+  "description": "Reranker Probe Error in the engine contract."
+}
+```
+
+### `EngineContractEmbeddingIdentityData`
+
+```json
+{
+  "title": "EngineContractEmbeddingIdentityData",
+  "type": "object",
+  "properties": {
+    "fingerprintId": {
+      "type": "string"
+    },
+    "provider": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "dimensions": {
+      "type": "number"
+    },
+    "space": {
+      "$ref": "#/$defs/EngineContractVectorSpaceIdentityData",
+      "description": "1.14.0: full vector-space identity for routing and cache isolation."
+    }
+  },
+  "required": [
+    "fingerprintId",
+    "provider",
+    "model",
+    "dimensions"
+  ],
+  "additionalProperties": false,
+  "description": "Embedding Identity in the engine contract."
+}
+```
+
+### `EngineContractVectorSpaceIdentityData`
+
+```json
+{
+  "title": "EngineContractVectorSpaceIdentityData",
+  "type": "object",
+  "properties": {
+    "provider": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "string"
+    },
+    "dimension": {
+      "type": "number"
+    },
+    "normalization": {
+      "type": "string"
+    },
+    "prefixScheme": {
+      "type": "string"
+    },
+    "instruction": {
+      "type": "string"
+    },
+    "dtype": {
+      "type": "string"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "tokenCap": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "pooling": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "provider",
+    "model",
+    "revision",
+    "dimension",
+    "normalization",
+    "prefixScheme",
+    "instruction",
+    "dtype"
+  ],
+  "additionalProperties": false,
+  "description": "Canonical vector-space identity; credentials and transport are excluded."
+}
+```
+
+### `EngineContractJournalBacklogData`
+
+```json
+{
+  "title": "EngineContractJournalBacklogData",
+  "type": "object",
+  "properties": {
+    "entries": {
+      "type": "number"
+    },
+    "oldestAt": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "entries",
+    "oldestAt"
+  ],
+  "additionalProperties": false,
+  "description": "1.8.0: what the host knows about turns it journaled while the engine was unavailable."
+}
+```
+
+### `EngineContractSharedMemorySupportData`
+
+```json
+{
+  "title": "EngineContractSharedMemorySupportData",
+  "type": "object",
+  "properties": {
+    "supported": {
+      "type": "boolean"
+    },
+    "mode": {
+      "$ref": "#/$defs/EngineContractSharedMemoryModeData"
+    },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "platform",
+        "unsafe-root",
+        "acl-tool-unavailable",
+        "identity-changed"
+      ],
+      "description": "Why it is unsupported: the platform lacks a mode, the shared root failed its safety check, the Windows ACL reader is missing, or the root's identity changed during a lease (pool refuses until restart)."
+    }
+  },
+  "required": [
+    "supported",
+    "mode"
+  ],
+  "additionalProperties": false,
+  "description": "Shared Memory Support in the engine contract."
+}
+```
+
+### `EngineContractSharedMemoryModeData`
+
+```json
+{
+  "title": "EngineContractSharedMemoryModeData",
+  "type": "string",
+  "enum": [
+    "fd-capability",
+    "verified-path",
+    "unavailable"
+  ],
+  "description": "Shared Memory Mode in the engine contract."
+}
+```
+
+### `EngineContractRecallQueryData`
+
+```json
+{
+  "title": "EngineContractRecallQueryData",
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string"
+    },
+    "principal": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "agent": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    },
+    "budget": {
+      "type": "object",
+      "properties": {
+        "softMs": {
+          "type": "number"
+        },
+        "hardMs": {
+          "type": "number"
+        },
+        "capChars": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "compactedAt": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "previousUserTurnAt": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "validAt": {
+      "type": "string"
+    },
+    "warmOnly": {
+      "type": "boolean",
+      "description": "1.9.0: run only the read-only heavy path (neo prelude reads, query embedding, read-only store open, vector search, rerank) and answer { blocks: [], degraded: null, timing } on success. Writes no memory data, no store, no file and no persistent embedding-cache row (embeds are memory-only, E5-R26), emits no event, never uses or fills the recall cache, never calls an LLM, runs at background (low, evictable) priority. It warms in-memory caches (the provider's embedding cache, loaded models, the neo worker); a cold local model cache still downloads model files, as any first model load does. A warm recall can also answer blocks [] with degraded \"warm-failed\" (the warm path failed), \"aborted\", \"timeout\", \"queue-full\" or \"pressure\" (shed at background priority), or \"engine-closed\"; a workspace whose policy disables memory answers an empty success."
+    }
+  },
+  "required": [
+    "query",
+    "principal",
+    "agent"
+  ],
+  "additionalProperties": false,
+  "description": "Recall Query in the engine contract."
+}
+```
+
+### `EngineContractPrincipalData`
+
+```json
+{
+  "title": "EngineContractPrincipalData",
+  "type": "object",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "workspace": {
+      "$ref": "#/$defs/EngineContractWorkspacePrincipalData"
+    },
+    "user": {
+      "$ref": "#/$defs/EngineContractUserPrincipalData",
+      "description": "Absent means the `user` ACL scope is unreachable (acl-middleware.js:139-159). Never accepted from an untrusted host."
+    },
+    "channel": {
+      "$ref": "#/$defs/EngineContractChannelRefData"
+    },
+    "accountId": {
+      "type": "string"
+    },
+    "chat": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/EngineContractChatKindData"
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "trust": {
+      "type": "string",
+      "enum": [
+        "proved",
+        "inferred"
+      ],
+      "description": "\"inferred\" degrades every read and write to agent-private and never throws (memory-request-context.js:1405-1417)."
+    }
+  },
+  "required": [
+    "agentId",
+    "workspace",
+    "channel",
+    "accountId",
+    "chat",
+    "trust"
+  ],
+  "additionalProperties": false,
+  "description": "Principal in the engine contract."
+}
+```
+
+### `EngineContractWorkspacePrincipalData`
+
+```json
+{
+  "title": "EngineContractWorkspacePrincipalData",
+  "type": "string",
+  "description": "Workspace Principal in the engine contract.",
+  "pattern": "^(?:workspace:v1:|workspace-dir:v1:)"
+}
+```
+
+### `EngineContractUserPrincipalData`
+
+```json
+{
+  "title": "EngineContractUserPrincipalData",
+  "type": "string",
+  "description": "`user:v1:` + sha256(JSON.stringify([channel, accountId, userId])), or from 1.12.0 `user:v2:` + sha256(harnessUserId). The v1 hash is the on-disk pool directory name and must not change (memory-request-context.js).",
+  "pattern": "^user:v[12]:"
+}
+```
+
+### `EngineContractChannelRefData`
+
+```json
+{
+  "title": "EngineContractChannelRefData",
+  "type": "string",
+  "description": "Open vocabulary, host-declared. Replaces the closed four-value set at memory-request-context.js:24-25."
+}
+```
+
+### `EngineContractChatKindData`
+
+```json
+{
+  "title": "EngineContractChatKindData",
+  "type": "string",
+  "enum": [
+    "direct",
+    "dm",
+    "group",
+    "channel"
+  ],
+  "description": "Chat Kind in the engine contract."
+}
+```
+
+### `EngineContractAgentContextData`
+
+```json
+{
+  "title": "EngineContractAgentContextData",
+  "type": "object",
+  "properties": {
+    "origin": {
+      "$ref": "#/$defs/EngineContractTurnOriginData"
+    },
+    "background": {
+      "type": "boolean",
+      "description": "Fail-closed: unknown means true."
+    },
+    "jobId": {
+      "type": "string"
+    },
+    "parentRunId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "origin",
+    "background"
+  ],
+  "additionalProperties": false,
+  "description": "Agent Context in the engine contract."
+}
+```
+
+### `EngineContractTurnOriginData`
+
+```json
+{
+  "title": "EngineContractTurnOriginData",
+  "type": "string",
+  "enum": [
+    "user",
+    "cron",
+    "subagent",
+    "heartbeat",
+    "system"
+  ],
+  "description": "Turn Origin in the engine contract."
+}
+```
+
+### `EngineContractRecallOptionsData`
+
+```json
+{
+  "title": "EngineContractRecallOptionsData",
+  "type": "object",
+  "properties": {
+    "reranker": {
+      "type": "string",
+      "enum": [
+        "on",
+        "off"
+      ],
+      "description": "\"on\" uses the configured provider; if absent, recall continues with a diagnostic."
+    }
+  },
+  "additionalProperties": false,
+  "description": "Call-local overrides. Omitted settings use the configured engine behavior."
+}
+```
+
+### `EngineContractRecallResultData`
+
+```json
+{
+  "title": "EngineContractRecallResultData",
+  "type": "object",
+  "properties": {
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineContractPerCallDiagnosticData"
+      }
+    },
+    "blocks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineContractContextBlockData"
+      }
+    },
+    "capChars": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "Character cap, or null for the JSON representation of an uncapped non-finite limit (Infinity in Node)."
+    },
+    "degraded": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EngineContractDegradedData"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "null means not degraded. Structured, never a bare boolean (B8)."
+    },
+    "trace": {
+      "$ref": "#/$defs/EngineContractDecisionTraceData"
+    },
+    "timing": {
+      "$ref": "#/$defs/EngineContractRecallTimingData"
+    },
+    "deferrals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineContractDeferralData"
+      }
+    }
+  },
+  "required": [
+    "blocks",
+    "capChars",
+    "degraded",
+    "timing",
+    "deferrals"
+  ],
+  "additionalProperties": false,
+  "description": "Recall Result in the engine contract."
+}
+```
+
+### `EngineContractPerCallDiagnosticData`
+
+```json
+{
+  "title": "EngineContractPerCallDiagnosticData",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "feature": {
+          "type": "string",
+          "enum": [
+            "reranker"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "reranker-not-configured"
+          ]
+        },
+        "fallback": {
+          "type": "string",
+          "enum": [
+            "unreranked"
+          ]
+        }
+      },
+      "required": [
+        "feature",
+        "reason",
+        "fallback"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "feature": {
+          "type": "string",
+          "enum": [
+            "postTurnLlm"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "post-turn-refine-unscheduled"
+          ]
+        },
+        "fallback": {
+          "type": "string",
+          "enum": [
+            "inline"
+          ]
+        }
+      },
+      "required": [
+        "feature",
+        "reason",
+        "fallback"
+      ],
+      "additionalProperties": false
+    }
+  ],
+  "description": "Non-fatal, closed-code explanation of an unavailable requested option."
+}
+```
+
+### `EngineContractContextBlockData`
+
+```json
+{
+  "title": "EngineContractContextBlockData",
+  "type": "object",
+  "properties": {
+    "name": {
+      "$ref": "#/$defs/EngineContractContextBlockNameData"
+    },
+    "text": {
+      "type": "string"
+    },
+    "droppable": {
+      "type": "boolean"
+    },
+    "chars": {
+      "type": "number",
+      "description": "`text.length`."
+    },
+    "tokensEstimate": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "name",
+    "text",
+    "droppable",
+    "chars"
+  ],
+  "additionalProperties": false,
+  "description": "Context Block in the engine contract."
+}
+```
+
+### `EngineContractContextBlockNameData`
+
+```json
+{
+  "title": "EngineContractContextBlockNameData",
+  "type": "string",
+  "description": "Context Block Name in the engine contract."
+}
+```
+
+### `EngineContractDecisionTraceData`
+
+```json
+{
+  "title": "EngineContractDecisionTraceData",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": {},
+  "description": "Decision Trace in the engine contract."
+}
+```
+
+### `EngineContractRecallTimingData`
+
+```json
+{
+  "title": "EngineContractRecallTimingData",
+  "type": "object",
+  "properties": {
+    "phases": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": {}
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "totalMs": {
+      "type": "number"
+    },
+    "namespacePhases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Namespace identifier, or null for the default namespace. The pinned runtime returns null; see DRIFT.json."
+          },
+          "phase": {
+            "type": "string"
+          },
+          "ms": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "namespace",
+          "phase",
+          "ms"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "phases",
+    "totalMs"
+  ],
+  "additionalProperties": false,
+  "description": "1.9.0: `totalMs` runs from `Engine.recall` entry (for the plugin host hook path: assembler entry); `phases.completed` begins with `entry` (Engine.recall only), `queue` and `prelude`."
+}
+```
+
+### `EngineContractDeferralData`
+
+```json
+{
+  "title": "EngineContractDeferralData",
+  "type": "object",
+  "properties": {
+    "block": {
+      "$ref": "#/$defs/EngineContractContextBlockNameData"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "clipped",
+        "dropped"
+      ]
+    },
+    "from": {
+      "type": "number"
+    },
+    "to": {
+      "type": "number"
+    },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "global-cap",
+        "memories-cap"
+      ]
+    }
+  },
+  "required": [
+    "block",
+    "kind",
+    "from",
+    "to",
+    "reason"
+  ],
+  "additionalProperties": false,
+  "description": "A block the host's joiner clipped or dropped to fit `capChars`."
+}
+```
+
+### `EngineContractTurnRecordData`
+
+```json
+{
+  "title": "EngineContractTurnRecordData",
+  "type": "object",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "principal": {
+      "$ref": "#/$defs/EngineContractPrincipalData"
+    },
+    "agent": {
+      "$ref": "#/$defs/EngineContractAgentContextData"
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineContractMessageData"
+      }
+    },
+    "runId": {
+      "type": "string"
+    },
+    "sessionKey": {
+      "type": "string"
+    },
+    "incognito": {
+      "type": "boolean",
+      "description": "Classified by the host, fail-closed."
+    }
+  },
+  "required": [
+    "agentId",
+    "principal",
+    "agent",
+    "messages",
+    "incognito"
+  ],
+  "additionalProperties": false,
+  "description": "Turn Record in the engine contract."
+}
+```
+
+### `EngineContractMessageData`
+
+```json
+{
+  "title": "EngineContractMessageData",
+  "type": "object",
+  "properties": {
+    "role": {
+      "type": "string",
+      "enum": [
+        "system",
+        "user",
+        "assistant",
+        "tool"
+      ]
+    },
+    "content": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "role",
+    "content"
+  ],
+  "additionalProperties": false,
+  "description": "Message in the engine contract."
+}
+```
+
+### `EngineContractCaptureOptionsData`
+
+```json
+{
+  "title": "EngineContractCaptureOptionsData",
+  "type": "object",
+  "properties": {
+    "deferPostTurnLlm": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Call-local refinement scheduling; true requires postTurnRefineScheduled, otherwise inline + diagnostic."
+}
+```
+
+### `EngineContractCaptureHandleData`
+
+```json
+{
+  "title": "EngineContractCaptureHandleData",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "acceptedAt": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "id",
+    "acceptedAt"
+  ],
+  "additionalProperties": false,
+  "description": "Non-blocking by contract (B8, ADR-002 \"capture returns in < 5 ms\"): the caller gets the handle immediately and may await `done` or abandon it."
+}
+```
+
+### `EngineContractCaptureResultData`
+
+```json
+{
+  "title": "EngineContractCaptureResultData",
+  "type": "object",
+  "properties": {
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineContractPerCallDiagnosticData"
+      }
+    },
+    "stored": {
+      "type": "number"
+    },
+    "skipped": {
+      "type": "number"
+    },
+    "reason": {
+      "type": "string",
+      "description": "\"duplicate-turn\": the same turn was already captured (Q3, E4)."
+    }
+  },
+  "required": [
+    "stored",
+    "skipped"
+  ],
+  "additionalProperties": false,
+  "description": "Capture Result in the engine contract."
+}
+```
+
+### `EngineContractCheckpointReasonData`
+
+```json
+{
+  "title": "EngineContractCheckpointReasonData",
+  "type": "string",
+  "enum": [
+    "compaction",
+    "session-end",
+    "shutdown",
+    "manual"
+  ],
+  "description": "Checkpoint Reason in the engine contract."
+}
+```
+
+### `EngineContractCheckpointResultData`
+
+```json
+{
+  "title": "EngineContractCheckpointResultData",
+  "type": "object",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "reason": {
+      "$ref": "#/$defs/EngineContractCheckpointReasonData"
+    },
+    "digest": {
+      "type": "string",
+      "description": "Idempotency key over the transcript digest."
+    },
+    "written": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "agentId",
+    "reason",
+    "digest",
+    "written"
+  ],
+  "additionalProperties": false,
+  "description": "Checkpoint Result in the engine contract."
+}
+```
+
+### `EngineContractJobSpecData`
+
+```json
+{
+  "title": "EngineContractJobSpecData",
+  "type": "object",
+  "properties": {
+    "name": {
+      "$ref": "#/$defs/EngineContractJobNameData"
+    },
+    "needsLlm": {
+      "type": "boolean"
+    },
+    "singleton": {
+      "type": "boolean"
+    },
+    "defaultSchedule": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "cron",
+            "every"
+          ]
+        },
+        "expr": {
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "expr"
+      ],
+      "additionalProperties": false
+    },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "light",
+        "rem",
+        "deep"
+      ]
+    }
+  },
+  "required": [
+    "name",
+    "needsLlm",
+    "singleton"
+  ],
+  "additionalProperties": false,
+  "description": "Job Spec in the engine contract."
+}
+```
+
+### `EngineContractJobRunData`
+
+```json
+{
+  "title": "EngineContractJobRunData",
+  "type": "object",
+  "properties": {
+    "runId": {
+      "type": "string"
+    },
+    "job": {
+      "$ref": "#/$defs/EngineContractJobNameData"
+    },
+    "phase": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "light"
+          ]
+        },
+        {
+          "type": "string",
+          "enum": [
+            "rem"
+          ]
+        },
+        {
+          "type": "string",
+          "enum": [
+            "deep"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "trigger": {
+      "$ref": "#/$defs/EngineContractJobTriggerData"
+    },
+    "startedAt": {
+      "type": "number"
+    },
+    "finishedAt": {
+      "type": "number"
+    },
+    "durationMs": {
+      "type": "number"
+    },
+    "outcome": {
+      "$ref": "#/$defs/EngineContractJobOutcomeData"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "attempt": {
+      "type": "number"
+    },
+    "cost": {
+      "$ref": "#/$defs/EngineContractJobCostData"
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "idempotencyKey": {
+      "type": "string"
+    },
+    "keys": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "pendingKeys": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "diary": {
+      "type": "object",
+      "properties": {
+        "written": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "written"
+      ],
+      "additionalProperties": false
+    },
+    "migrated": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "runId",
+    "job",
+    "phase",
+    "agentId",
+    "trigger",
+    "startedAt",
+    "finishedAt",
+    "durationMs",
+    "outcome",
+    "attempt",
+    "cost",
+    "counts"
+  ],
+  "additionalProperties": false,
+  "description": "Job Run in the engine contract."
+}
+```
+
+### `EngineContractJobCostData`
+
+```json
+{
+  "title": "EngineContractJobCostData",
+  "type": "object",
+  "properties": {
+    "ms": {
+      "type": "number"
+    },
+    "provider": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "inputTokens": {
+      "type": "number"
+    },
+    "outputTokens": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "ms"
+  ],
+  "additionalProperties": false,
+  "description": "Job Cost in the engine contract."
+}
+```
+
+### `EngineContractRerankHitData`
+
+```json
+{
+  "title": "EngineContractRerankHitData",
+  "type": "object",
+  "properties": {
+    "index": {
+      "type": "number"
+    },
+    "score": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "index",
+    "score"
+  ],
+  "additionalProperties": false,
+  "description": "Rerank Hit in the engine contract."
+}
+```
+
+### `EngineContractEmbeddingProbeResultData`
+
+```json
+{
+  "title": "EngineContractEmbeddingProbeResultData",
+  "type": "object",
+  "properties": {
+    "ok": {
+      "type": "boolean",
+      "description": "The provider returned a finite vector of `identity.dimensions`: the model is loaded and ready."
+    },
+    "error": {
+      "$ref": "#/$defs/EngineContractEmbeddingProbeErrorData"
+    },
+    "cached": {
+      "type": "boolean",
+      "description": "true: the memoized result of an earlier successful probe of this engine; no provider call was made."
+    },
+    "identity": {
+      "$ref": "#/$defs/EngineContractEmbeddingIdentityData"
+    },
+    "durationMs": {
+      "type": "number",
+      "description": "Provider call time of the probe that produced this result."
+    },
+    "checkedAt": {
+      "type": "number",
+      "description": "Clock time (host.clock) when that probe finished."
+    }
+  },
+  "required": [
+    "ok",
+    "cached",
+    "identity",
+    "durationMs",
+    "checkedAt"
+  ],
+  "additionalProperties": false,
+  "description": "Embedding Probe Result in the engine contract."
+}
+```
+
+### `EngineContractIpcAddressData`
+
+```json
+{
+  "title": "EngineContractIpcAddressData",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "abstract-socket",
+        "unix-socket",
+        "named-pipe"
+      ]
+    },
+    "address": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "address"
+  ],
+  "additionalProperties": false,
+  "description": "Ipc Address in the engine contract."
+}
+```
+
+### `EngineContractEmbeddingServeResultData`
+
+```json
+{
+  "title": "EngineContractEmbeddingServeResultData",
+  "type": "object",
+  "properties": {
+    "identity": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EngineContractEmbeddingEnvelopeIdentityData"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "identity"
+  ],
+  "additionalProperties": false,
+  "description": "Embedding Serve Result in the engine contract."
+}
+```
+
+### `EngineContractEmbeddingEnvelopeIdentityData`
+
+```json
+{
+  "title": "EngineContractEmbeddingEnvelopeIdentityData",
+  "type": "object",
+  "properties": {
+    "model": {
+      "type": "string"
+    },
+    "dimensions": {
+      "type": "number"
+    },
+    "fingerprintId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "model",
+    "dimensions",
+    "fingerprintId"
+  ],
+  "additionalProperties": false,
+  "description": "The values a client must put into the IPC envelope next to the token."
+}
+```
+
+### `EngineContractMemoryStatsResultData`
+
+```json
+{
+  "title": "EngineContractMemoryStatsResultData",
+  "type": "object",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineContractMemoryRecallStatData"
+      }
+    }
+  },
+  "required": [
+    "agentId",
+    "items"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Stats Result in the engine contract."
+}
+```
+
+### `EngineContractMemoryRecallStatData`
+
+```json
+{
+  "title": "EngineContractMemoryRecallStatData",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "recalls": {
+      "type": "number"
+    },
+    "distinctQueries": {
+      "type": "number"
+    },
+    "lastRecalledAt": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Epoch milliseconds, null when this card has not been recalled."
+    }
+  },
+  "required": [
+    "id",
+    "recalls",
+    "distinctQueries",
+    "lastRecalledAt"
+  ],
+  "additionalProperties": false,
+  "description": "Every member rejects with MemoryOpError `storage` (\"engine is closed\") after `Engine.close()`. `list` and `show` read the agent-private pool plus the workspace and user pools the principal can reach. `forget`, `correct` and `share` act on the caller's own agent-private cards. On a shared (workspace/user) copy (D31): `forget` by the sharing agent retracts the copy (archive-first, soft delete; `tombstoneId` is null because the original stays live); `correct` by the sharing agent refreshes it (corrects the original, shares the new version, then retracts the old copy; the result id is the new copy); any other agent answers `denied` and files `propose` instead; `share` of a copy is always `denied`. Proposals never change a memory until the sharer calls `proposals.accept`. A proposal belongs to the shared pool of its copy: `proposals.*` reach it only through a principal that can reach that pool (otherwise `list` omits it and `accept`/`reject` answer `not-found`)."
+}
+```
+
+### `EngineContractMemoryPromotionResultData`
+
+```json
+{
+  "title": "EngineContractMemoryPromotionResultData",
+  "type": "object",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "promoted",
+              "skipped"
+            ]
+          },
+          "reason": {
+            "$ref": "#/$defs/EngineContractMemoryPromotionReasonData"
+          }
+        },
+        "required": [
+          "id",
+          "outcome",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "agentId",
+    "items"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Promotion Result in the engine contract."
+}
+```
+
+### `EngineContractMemoryPromotionReasonData`
+
+```json
+{
+  "title": "EngineContractMemoryPromotionReasonData",
+  "type": "string",
+  "enum": [
+    "integrated",
+    "disabled",
+    "lock-busy",
+    "not-found",
+    "not-live",
+    "scope-not-publishable",
+    "importance-pending",
+    "importance-below-threshold",
+    "already-promoted",
+    "cap-reached"
+  ],
+  "description": "Memory Promotion Reason in the engine contract."
+}
+```
+
+### `EngineContractMemoryCurationListResultData`
+
+```json
+{
+  "title": "EngineContractMemoryCurationListResultData",
+  "type": "object",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineContractMemoryCurationRecordData"
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "agentId",
+    "items",
+    "truncated"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Curation List Result in the engine contract."
+}
+```
+
+### `EngineContractMemoryCurationRecordData`
+
+```json
+{
+  "title": "EngineContractMemoryCurationRecordData",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "text": {
+      "type": "string"
+    },
+    "category": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "status",
+    "text",
+    "category"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Curation Record in the engine contract."
+}
+```
+
+### `EngineContractMemoryListQueryData`
+
+```json
+{
+  "title": "EngineContractMemoryListQueryData",
+  "type": "object",
+  "properties": {
+    "topic": {
+      "type": "string",
+      "description": "Topic query (vector search, best first). Exactly one of `topic` and `since` is required."
+    },
+    "since": {
+      "type": "number",
+      "description": "Epoch ms lower bound for a time listing (newest first)."
+    },
+    "until": {
+      "type": "number",
+      "description": "Epoch ms upper bound; only with `since`, and not before it. Default: now."
+    },
+    "limit": {
+      "type": "number",
+      "description": "Default 20, maximum 100."
+    }
+  },
+  "additionalProperties": false,
+  "description": "Memory List Query in the engine contract."
+}
+```
+
+### `EngineContractMemoryListResultData`
+
+```json
+{
+  "title": "EngineContractMemoryListResultData",
+  "type": "object",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineContractMemoryCardData"
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "agentId",
+    "items",
+    "truncated"
+  ],
+  "additionalProperties": false,
+  "description": "Memory List Result in the engine contract."
+}
+```
+
+### `EngineContractMemoryCardData`
+
+```json
+{
+  "title": "EngineContractMemoryCardData",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "scope": {
+      "$ref": "#/$defs/EngineContractMemoryScopeData"
+    },
+    "text": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "createdAt": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "origin": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "epistemicStatus": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "score": {
+      "type": "number",
+      "description": "Present on list results from a topic query; absent on show."
+    },
+    "sharedBy": {
+      "$ref": "#/$defs/EngineContractAgentIdData",
+      "description": "1.6.0, only on workspace/user copies: the sharing agent and its original card."
+    },
+    "sourceId": {
+      "type": "string"
+    },
+    "provenance": {
+      "type": "string",
+      "enum": [
+        "imported"
+      ],
+      "description": "1.11.0: set when the card was written by `memory.import`."
+    },
+    "sourceRef": {
+      "type": "string",
+      "description": "1.11.0: import source reference, truncated to ≤ 500 characters before store."
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineContractMemoryLinkData"
+      },
+      "description": "1.16.0: additional sources attached by `memory.link` (oldest first); absent when there are none. Recorded per agent: only the linking agent's show/list report them."
+    }
+  },
+  "required": [
+    "id",
+    "scope",
+    "text",
+    "summary",
+    "createdAt",
+    "origin",
+    "epistemicStatus"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Card in the engine contract."
+}
+```
+
+### `EngineContractMemoryScopeData`
+
+```json
+{
+  "title": "EngineContractMemoryScopeData",
+  "type": "string",
+  "enum": [
+    "agent-private",
+    "workspace",
+    "user"
+  ],
+  "description": "Memory Scope in the engine contract."
+}
+```
+
+### `EngineContractMemoryLinkData`
+
+```json
+{
+  "title": "EngineContractMemoryLinkData",
+  "type": "object",
+  "properties": {
+    "linkId": {
+      "type": "string",
+      "description": "Deterministic over (agentId, card id, sourceRef); 32 hex characters."
+    },
+    "sourceRef": {
+      "type": "string"
+    },
+    "provenance": {
+      "$ref": "#/$defs/EngineContractMemoryImportProvenanceData"
+    },
+    "importRunId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The import run the link belongs to (explicit, or named in the sourceRef as `;run=<id>`); null when none."
+    },
+    "linkedAt": {
+      "type": "number",
+      "description": "Epoch ms."
+    }
+  },
+  "required": [
+    "linkId",
+    "sourceRef",
+    "provenance",
+    "importRunId",
+    "linkedAt"
+  ],
+  "additionalProperties": false,
+  "description": "1.16.0: one additional source of a card, attached by `memory.link`."
+}
+```
+
+### `EngineContractMemoryImportProvenanceData`
+
+```json
+{
+  "title": "EngineContractMemoryImportProvenanceData",
+  "type": "string",
+  "enum": [
+    "imported"
+  ],
+  "description": "Memory Import Provenance in the engine contract."
+}
+```
+
+### `EngineContractMemoryForgetResultData`
+
+```json
+{
+  "title": "EngineContractMemoryForgetResultData",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "archived": {
+      "type": "boolean"
+    },
+    "tombstoneId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "alreadyForgotten": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "archived",
+    "tombstoneId",
+    "alreadyForgotten"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Forget Result in the engine contract."
+}
+```
+
+### `EngineContractMemoryCorrectResultData`
+
+```json
+{
+  "title": "EngineContractMemoryCorrectResultData",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "archived": {
+      "type": "boolean",
+      "enum": [
+        true
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "archived"
+  ],
+  "additionalProperties": false,
+  "description": "`id` is the id of the corrected (new, live) version — `correct` supersedes the old row, and the caller's old id is no longer live (fix round 1, E1-R8)."
+}
+```
+
+### `EngineContractMemoryShareResultData`
+
+```json
+{
+  "title": "EngineContractMemoryShareResultData",
+  "type": "object",
+  "properties": {
+    "sourceId": {
+      "type": "string"
+    },
+    "sharedId": {
+      "type": "string"
+    },
+    "target": {
+      "type": "string",
+      "enum": [
+        "workspace",
+        "user"
+      ]
+    }
+  },
+  "required": [
+    "sourceId",
+    "sharedId",
+    "target"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Share Result in the engine contract."
+}
+```
+
+### `EngineContractMemoryStateData`
+
+```json
+{
+  "title": "EngineContractMemoryStateData",
+  "type": "object",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "cards": {
+      "type": "object",
+      "properties": {
+        "agentPrivate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "workspace": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "user": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "agentPrivate",
+        "workspace",
+        "user"
+      ],
+      "additionalProperties": false
+    },
+    "tombstones": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "`null` means the tombstone registry was unreadable, never \"zero tombstones\"."
+    },
+    "archiveDir": {
+      "type": "string",
+      "description": "The archive root (e.g. `<stateDir>/memory/_archive`); per-agent archives land in `<archiveDir>/<agentId>/`."
+    }
+  },
+  "required": [
+    "agentId",
+    "cards",
+    "tombstones",
+    "archiveDir"
+  ],
+  "additionalProperties": false,
+  "description": "Memory State in the engine contract."
+}
+```
+
+### `EngineContractMemoryProposeResultData`
+
+```json
+{
+  "title": "EngineContractMemoryProposeResultData",
+  "type": "object",
+  "properties": {
+    "proposalId": {
+      "type": "string"
+    },
+    "sharedId": {
+      "type": "string"
+    },
+    "sharerAgentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    }
+  },
+  "required": [
+    "proposalId",
+    "sharedId",
+    "sharerAgentId"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Propose Result in the engine contract."
+}
+```
+
+### `EngineContractMemoryProposalListQueryData`
+
+```json
+{
+  "title": "EngineContractMemoryProposalListQueryData",
+  "type": "object",
+  "properties": {
+    "status": {
+      "$ref": "#/$defs/EngineContractMemoryProposalStatusData"
+    },
+    "limit": {
+      "type": "number"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Memory Proposal List Query in the engine contract."
+}
+```
+
+### `EngineContractMemoryProposalStatusData`
+
+```json
+{
+  "title": "EngineContractMemoryProposalStatusData",
+  "type": "string",
+  "enum": [
+    "pending",
+    "accepted",
+    "rejected",
+    "stale"
+  ],
+  "description": "Memory Proposal Status in the engine contract."
+}
+```
+
+### `EngineContractMemoryProposalListResultData`
+
+```json
+{
+  "title": "EngineContractMemoryProposalListResultData",
+  "type": "object",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineContractMemoryProposalData"
+      },
+      "description": "Proposals the agent filed or received, newest first."
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "unreadable": {
+      "type": "number",
+      "description": "Proposal files that could not be parsed; never silently dropped."
+    }
+  },
+  "required": [
+    "agentId",
+    "items",
+    "truncated",
+    "unreadable"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Proposal List Result in the engine contract."
+}
+```
+
+### `EngineContractMemoryProposalData`
+
+```json
+{
+  "title": "EngineContractMemoryProposalData",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "sharedId": {
+      "type": "string",
+      "description": "The shared copy the proposal was filed against and the sharer's original behind it."
+    },
+    "sourceId": {
+      "type": "string"
+    },
+    "target": {
+      "type": "string",
+      "enum": [
+        "workspace",
+        "user"
+      ]
+    },
+    "sharerAgentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "proposerAgentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "oldText": {
+      "type": "string"
+    },
+    "newText": {
+      "type": "string"
+    },
+    "note": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "createdAt": {
+      "type": "number"
+    },
+    "status": {
+      "$ref": "#/$defs/EngineContractMemoryProposalStatusData"
+    },
+    "resolvedAt": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "resultId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "accepted: the id of the refreshed shared copy."
+    },
+    "resolutionNote": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "sharedId",
+    "sourceId",
+    "target",
+    "sharerAgentId",
+    "proposerAgentId",
+    "oldText",
+    "newText",
+    "note",
+    "createdAt",
+    "status",
+    "resolvedAt",
+    "resultId",
+    "resolutionNote"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Proposal in the engine contract."
+}
+```
+
+### `EngineContractMemoryProposalAcceptResultData`
+
+```json
+{
+  "title": "EngineContractMemoryProposalAcceptResultData",
+  "type": "object",
+  "properties": {
+    "proposalId": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "sourceId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "proposalId",
+    "id",
+    "sourceId"
+  ],
+  "additionalProperties": false,
+  "description": "`id` is the refreshed shared copy, `sourceId` the corrected original (both new ids)."
+}
+```
+
+### `EngineContractMemoryProposalRejectResultData`
+
+```json
+{
+  "title": "EngineContractMemoryProposalRejectResultData",
+  "type": "object",
+  "properties": {
+    "proposalId": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "rejected"
+      ]
+    }
+  },
+  "required": [
+    "proposalId",
+    "status"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Proposal Reject Result in the engine contract."
+}
+```
+
+### `EngineContractMemoryImportRequestData`
+
+```json
+{
+  "title": "EngineContractMemoryImportRequestData",
+  "type": "object",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "principal": {
+      "$ref": "#/$defs/EngineContractPrincipalData",
+      "description": "Card ACL binding (A1). Must share `agentId` with `p` and `req.agentId`."
+    },
+    "cards": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineContractMemoryImportCardInputData"
+      }
+    },
+    "dryRun": {
+      "type": "boolean"
+    },
+    "importRunId": {
+      "type": "string",
+      "description": "1.13.0: `/^[A-Za-z0-9_-]{1,64}$/`. Recorded on every ledger line this call writes; `unimport` selects by it. 1.15.0: when absent, a card whose `sourceRef` carries exactly one segment `;run=<id>` (same pattern, sourceRef shorter than the 500-char cap) is recorded under that run, with its digest."
+    }
+  },
+  "required": [
+    "agentId",
+    "principal",
+    "cards"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Import Request in the engine contract."
+}
+```
+
+### `EngineContractMemoryImportCardInputData`
+
+```json
+{
+  "title": "EngineContractMemoryImportCardInputData",
+  "type": "object",
+  "properties": {
+    "idempotencyKey": {
+      "type": "string",
+      "description": "Stable caller key; a second call with the same key and agent is a resume."
+    },
+    "text": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string",
+      "description": "Mapped onto `MemoryCard` category; omitted → auto-categorise."
+    },
+    "createdAt": {
+      "type": "number"
+    },
+    "provenance": {
+      "$ref": "#/$defs/EngineContractMemoryImportProvenanceData"
+    },
+    "sourceRef": {
+      "type": "string",
+      "description": "Truncated to ≤ 500 characters before store."
+    },
+    "scope": {
+      "$ref": "#/$defs/EngineContractMemoryScopeData"
+    }
+  },
+  "required": [
+    "idempotencyKey",
+    "text",
+    "provenance"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Import Card Input in the engine contract."
+}
+```
+
+### `EngineContractMemoryImportResultData`
+
+```json
+{
+  "title": "EngineContractMemoryImportResultData",
+  "type": "object",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "dryRun": {
+      "type": "boolean"
+    },
+    "created": {
+      "type": "number"
+    },
+    "matchedExisting": {
+      "type": "number"
+    },
+    "rejected": {
+      "type": "number"
+    },
+    "cards": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineContractMemoryImportCardResultData"
+      }
+    }
+  },
+  "required": [
+    "agentId",
+    "dryRun",
+    "created",
+    "matchedExisting",
+    "rejected",
+    "cards"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Import Result in the engine contract."
+}
+```
+
+### `EngineContractMemoryImportCardResultData`
+
+```json
+{
+  "title": "EngineContractMemoryImportCardResultData",
+  "type": "object",
+  "properties": {
+    "idempotencyKey": {
+      "type": "string"
+    },
+    "outcome": {
+      "$ref": "#/$defs/EngineContractMemoryImportOutcomeData"
+    },
+    "id": {
+      "type": "string",
+      "description": "Set on created and matched-existing. Omitted on dry-run created."
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EngineContractMemoryImportRejectReasonData"
+        },
+        {
+          "type": "string",
+          "enum": [
+            "already-imported"
+          ]
+        },
+        {
+          "type": "string",
+          "enum": [
+            "duplicate-in-batch"
+          ]
+        }
+      ],
+      "description": "Machine-stable; never card text. `already-imported` / `duplicate-in-batch` only with matched-existing."
+    }
+  },
+  "required": [
+    "idempotencyKey",
+    "outcome"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Import Card Result in the engine contract."
+}
+```
+
+### `EngineContractMemoryImportOutcomeData`
+
+```json
+{
+  "title": "EngineContractMemoryImportOutcomeData",
+  "type": "string",
+  "enum": [
+    "created",
+    "matched-existing",
+    "rejected"
+  ],
+  "description": "Memory Import Outcome in the engine contract."
+}
+```
+
+### `EngineContractMemoryImportRejectReasonData`
+
+```json
+{
+  "title": "EngineContractMemoryImportRejectReasonData",
+  "type": "string",
+  "enum": [
+    "invalid-input",
+    "tombstone-blocked",
+    "principal-unresolved",
+    "empty-text",
+    "provenance-not-imported",
+    "previously-imported-deleted",
+    "aborted",
+    "storage"
+  ],
+  "description": "Memory Import Reject Reason in the engine contract."
+}
+```
+
+### `EngineContractMemoryRebindRequestData`
+
+```json
+{
+  "title": "EngineContractMemoryRebindRequestData",
+  "type": "object",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "fromIdentity": {
+      "$ref": "#/$defs/EngineContractMemoryRebindFromIdentityData"
+    },
+    "toUser": {
+      "type": "string",
+      "description": "Harness user id; hashed to `user:v2:` by the engine."
+    },
+    "dryRun": {
+      "type": "boolean",
+      "description": "Defaults to true. Writes only when explicitly `false`."
+    }
+  },
+  "required": [
+    "agentId",
+    "fromIdentity",
+    "toUser"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Rebind Request in the engine contract."
+}
+```
+
+### `EngineContractMemoryRebindFromIdentityData`
+
+```json
+{
+  "title": "EngineContractMemoryRebindFromIdentityData",
+  "type": "object",
+  "properties": {
+    "channel": {
+      "$ref": "#/$defs/EngineContractChannelRefData",
+      "description": "Channel name, e.g. \"telegram\"."
+    },
+    "identityKey": {
+      "type": "string",
+      "description": "Opaque channel user id (the third v1-hash tuple member)."
+    },
+    "accountId": {
+      "type": "string",
+      "description": "Bot account id; omitted → `\"default\"`, matching live capture."
+    }
+  },
+  "required": [
+    "channel",
+    "identityKey"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Rebind From Identity in the engine contract."
+}
+```
+
+### `EngineContractMemoryRebindResultData`
+
+```json
+{
+  "title": "EngineContractMemoryRebindResultData",
+  "type": "object",
+  "properties": {
+    "rebindId": {
+      "type": "string"
+    },
+    "matched": {
+      "type": "number"
+    },
+    "rebound": {
+      "type": "number"
+    },
+    "skipped": {
+      "type": "number"
+    },
+    "dryRun": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "rebindId",
+    "matched",
+    "rebound",
+    "skipped",
+    "dryRun"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Rebind Result in the engine contract."
+}
+```
+
+### `EngineContractMemoryUnbindRequestData`
+
+```json
+{
+  "title": "EngineContractMemoryUnbindRequestData",
+  "type": "object",
+  "properties": {
+    "rebindId": {
+      "type": "string"
+    },
+    "dryRun": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "rebindId"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Unbind Request in the engine contract."
+}
+```
+
+### `EngineContractMemoryUnbindResultData`
+
+```json
+{
+  "title": "EngineContractMemoryUnbindResultData",
+  "type": "object",
+  "properties": {
+    "rebindId": {
+      "type": "string"
+    },
+    "matched": {
+      "type": "number"
+    },
+    "unbound": {
+      "type": "number"
+    },
+    "skipped": {
+      "type": "number"
+    },
+    "skippedModified": {
+      "type": "number"
+    },
+    "dryRun": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "rebindId",
+    "matched",
+    "unbound",
+    "skipped",
+    "skippedModified",
+    "dryRun"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Unbind Result in the engine contract."
+}
+```
+
+### `EngineContractMemoryUnimportRequestData`
+
+```json
+{
+  "title": "EngineContractMemoryUnimportRequestData",
+  "type": "object",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "importRunId": {
+      "type": "string",
+      "description": "Required; selects the `_imports/` ledger lines of this run: written with this `importRunId`, or (1.15.0) without one but with a `sourceRef` carrying the segment `;run=<importRunId>`."
+    },
+    "idempotencyKeys": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Optional narrowing filter (≤ 500); never widens the selection."
+    },
+    "dryRun": {
+      "type": "boolean",
+      "description": "Defaults to true. Writes only when explicitly `false`."
+    },
+    "force": {
+      "type": "boolean",
+      "description": "Also undo cards kept as `content-changed`, `metadata-changed` or `edited`. Never `superseded`, `shared`, `rebound`, `binding-changed`, `other-run`, forgotten or missing cards."
+    },
+    "principal": {
+      "$ref": "#/$defs/EngineContractPrincipalData",
+      "description": "Optional card ACL binding used at import; its workspace/user pools are searched for shared copies too. Must share `agentId`."
+    }
+  },
+  "required": [
+    "agentId",
+    "importRunId"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Unimport Request in the engine contract."
+}
+```
+
+### `EngineContractMemoryUnimportResultData`
+
+```json
+{
+  "title": "EngineContractMemoryUnimportResultData",
+  "type": "object",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "importRunId": {
+      "type": "string"
+    },
+    "dryRun": {
+      "type": "boolean"
+    },
+    "selected": {
+      "type": "number",
+      "description": "Cards attributed to this run (after the key filter)."
+    },
+    "unimported": {
+      "type": "number"
+    },
+    "keptModified": {
+      "type": "number"
+    },
+    "alreadyForgotten": {
+      "type": "number"
+    },
+    "alreadyUnimported": {
+      "type": "number"
+    },
+    "missing": {
+      "type": "number"
+    },
+    "failed": {
+      "type": "number"
+    },
+    "remaining": {
+      "type": "number",
+      "description": "Selected cards not visited in this call (abort). A rerun visits them."
+    },
+    "cards": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineContractMemoryUnimportCardResultData"
+      }
+    },
+    "derived": {
+      "type": "object",
+      "properties": {
+        "jobsSinceImport": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EngineContractJobNameData"
+          }
+        },
+        "graphEdgesRemoved": {
+          "type": "number"
+        },
+        "mirrorsArchived": {
+          "type": "number"
+        },
+        "cleanupErrors": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "jobsSinceImport"
+      ],
+      "additionalProperties": false,
+      "description": "Derivation-capable jobs with a run that finished after the earliest selected import. 1.15.0, apply only (absent on dryRun or when nothing was undone): graph edges of the undone cards removed from the canonical neo journal, their Obsidian mirror notes moved into the archive (`{archiveDir}/obsidian-mirrors/`), and best-effort cleanup failures (logged, the cards stay undone; a rerun retries the cleanup)."
+    },
+    "links": {
+      "$ref": "#/$defs/EngineContractMemoryUnimportLinksResultData",
+      "description": "1.16.0: present when the run made links (`memory.link`). Unlinking never writes the linked card."
+    }
+  },
+  "required": [
+    "agentId",
+    "importRunId",
+    "dryRun",
+    "selected",
+    "unimported",
+    "keptModified",
+    "alreadyForgotten",
+    "alreadyUnimported",
+    "missing",
+    "failed",
+    "remaining",
+    "cards",
+    "derived"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Unimport Result in the engine contract."
+}
+```
+
+### `EngineContractMemoryUnimportCardResultData`
+
+```json
+{
+  "title": "EngineContractMemoryUnimportCardResultData",
+  "type": "object",
+  "properties": {
+    "idempotencyKey": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "outcome": {
+      "$ref": "#/$defs/EngineContractMemoryUnimportOutcomeData"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EngineContractMemoryUnimportKeptReasonData"
+        },
+        {
+          "type": "string",
+          "enum": [
+            "storage"
+          ]
+        },
+        {
+          "type": "string",
+          "enum": [
+            "aborted"
+          ]
+        }
+      ],
+      "description": "`kept-modified`: the kept reason. `failed`: \"storage\" | \"aborted\"."
+    }
+  },
+  "required": [
+    "idempotencyKey",
+    "id",
+    "outcome"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Unimport Card Result in the engine contract."
+}
+```
+
+### `EngineContractMemoryUnimportOutcomeData`
+
+```json
+{
+  "title": "EngineContractMemoryUnimportOutcomeData",
+  "type": "string",
+  "enum": [
+    "unimported",
+    "kept-modified",
+    "already-forgotten",
+    "already-unimported",
+    "missing",
+    "failed"
+  ],
+  "description": "Memory Unimport Outcome in the engine contract."
+}
+```
+
+### `EngineContractMemoryUnimportKeptReasonData`
+
+```json
+{
+  "title": "EngineContractMemoryUnimportKeptReasonData",
+  "type": "string",
+  "enum": [
+    "superseded",
+    "content-changed",
+    "binding-changed",
+    "metadata-changed",
+    "edited",
+    "shared",
+    "rebound",
+    "other-run"
+  ],
+  "description": "Memory Unimport Kept Reason in the engine contract."
+}
+```
+
+### `EngineContractMemoryUnimportLinksResultData`
+
+```json
+{
+  "title": "EngineContractMemoryUnimportLinksResultData",
+  "type": "object",
+  "properties": {
+    "selected": {
+      "type": "number",
+      "description": "Links this run made (after the key filter; a link without a key is not selected when a filter is set)."
+    },
+    "unlinked": {
+      "type": "number"
+    },
+    "alreadyUnlinked": {
+      "type": "number"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "linkId": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "outcome": {
+            "$ref": "#/$defs/EngineContractMemoryUnimportLinkOutcomeData"
+          }
+        },
+        "required": [
+          "linkId",
+          "id",
+          "outcome"
+        ],
+        "additionalProperties": false
+      },
+      "description": "One entry per handled link; empty after an abort (a rerun handles them)."
+    }
+  },
+  "required": [
+    "selected",
+    "unlinked",
+    "alreadyUnlinked",
+    "items"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Unimport Links Result in the engine contract."
+}
+```
+
+### `EngineContractMemoryUnimportLinkOutcomeData`
+
+```json
+{
+  "title": "EngineContractMemoryUnimportLinkOutcomeData",
+  "type": "string",
+  "enum": [
+    "unlinked",
+    "already-unlinked"
+  ],
+  "description": "Memory Unimport Link Outcome in the engine contract."
+}
+```
+
+### `EngineContractMemoryLinkRequestData`
+
+```json
+{
+  "title": "EngineContractMemoryLinkRequestData",
+  "type": "object",
+  "properties": {
+    "sourceRef": {
+      "type": "string",
+      "description": "1–500 characters after trim (longer is `invalid-input`, never truncated: it is the idempotency key)."
+    },
+    "provenance": {
+      "$ref": "#/$defs/EngineContractMemoryImportProvenanceData"
+    },
+    "importRunId": {
+      "type": "string",
+      "description": "`/^[A-Za-z0-9_-]{1,64}$/`. Absent: the run named in `sourceRef` (`;run=<id>`, rules as for import), else none."
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "description": "The importer's key for the duplicate card (1–256); `unimport`'s `idempotencyKeys` filter matches it."
+    },
+    "dryRun": {
+      "type": "boolean",
+      "description": "Default false. True: checks and classifies, writes nothing, takes no lock."
+    }
+  },
+  "required": [
+    "sourceRef",
+    "provenance"
+  ],
+  "additionalProperties": false,
+  "description": "1.16.0: argument of `MemoryOps.link`."
+}
+```
+
+### `EngineContractMemoryLinkResultData`
+
+```json
+{
+  "title": "EngineContractMemoryLinkResultData",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "linkId": {
+      "type": "string"
+    },
+    "outcome": {
+      "$ref": "#/$defs/EngineContractMemoryLinkOutcomeData"
+    },
+    "importRunId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "dryRun": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "linkId",
+    "outcome",
+    "importRunId",
+    "dryRun"
+  ],
+  "additionalProperties": false,
+  "description": "Memory Link Result in the engine contract."
+}
+```
+
+### `EngineContractMemoryLinkOutcomeData`
+
+```json
+{
+  "title": "EngineContractMemoryLinkOutcomeData",
+  "type": "string",
+  "enum": [
+    "linked",
+    "already-linked",
+    "already-source"
+  ],
+  "description": "`linked`: a new link was written. `already-linked`: this sourceRef is already linked (no-op; `importRunId` is the existing link's run). `already-source`: the card was itself imported from this sourceRef (no-op, `importRunId` null)."
+}
+```
+
+### `EngineContractMigrationResultData`
+
+```json
+{
+  "title": "EngineContractMigrationResultData",
+  "type": "object",
+  "properties": {
+    "from": {
+      "$ref": "#/$defs/EngineContractSchemaVersionData"
+    },
+    "to": {
+      "$ref": "#/$defs/EngineContractSchemaVersionData"
+    },
+    "applied": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "from",
+    "to",
+    "applied"
+  ],
+  "additionalProperties": false,
+  "description": "`applied` is false when `from === to`. Both are decimal strings (\"0\" = a store written before any marker existed)."
+}
+```
+
+### `EngineContractObsidianDetectResultData`
+
+```json
+{
+  "title": "EngineContractObsidianDetectResultData",
+  "type": "object",
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/EngineContractAgentIdData"
+    },
+    "vaults": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineContractObsidianVaultCandidateData"
+      }
+    }
+  },
+  "required": [
+    "agentId",
+    "vaults"
+  ],
+  "additionalProperties": false,
+  "description": "Obsidian Detect Result in the engine contract."
+}
+```
+
+### `EngineContractObsidianVaultCandidateData`
+
+```json
+{
+  "title": "EngineContractObsidianVaultCandidateData",
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "Absolute, normalised path. Input may be `~/…` or home-relative; the engine expands it."
+    },
+    "isVault": {
+      "type": "boolean",
+      "description": "`.obsidian/workspace.json` or `.obsidian/app.json` exists."
+    },
+    "confirmed": {
+      "type": "boolean",
+      "description": "A confirmation receipt for this agent, workspace and vault exists (lib/obsidian-vault-authority.js)."
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "config",
+        "workspace",
+        "candidate"
+      ]
+    }
+  },
+  "required": [
+    "path",
+    "isVault",
+    "confirmed",
+    "source"
+  ],
+  "additionalProperties": false,
+  "description": "Obsidian Vault Candidate in the engine contract."
+}
+```
+
+### `EngineContractObsidianPrepareResultData`
+
+```json
+{
+  "title": "EngineContractObsidianPrepareResultData",
+  "type": "object",
+  "properties": {
+    "nonce": {
+      "type": "string"
+    },
+    "expiresAt": {
+      "type": "number"
+    },
+    "vaultPath": {
+      "type": "string"
+    },
+    "vaultDigest": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "nonce",
+    "expiresAt",
+    "vaultPath",
+    "vaultDigest"
+  ],
+  "additionalProperties": false,
+  "description": "Obsidian Prepare Result in the engine contract."
+}
+```
+
+### `EngineContractObsidianConfirmResultData`
+
+```json
+{
+  "title": "EngineContractObsidianConfirmResultData",
+  "type": "object",
+  "properties": {
+    "confirmed": {
+      "type": "boolean",
+      "enum": [
+        true
+      ]
+    },
+    "vaultPath": {
+      "type": "string"
+    },
+    "vaultDigest": {
+      "type": "string"
+    },
+    "alreadyConfirmed": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "confirmed",
+    "vaultPath",
+    "vaultDigest",
+    "alreadyConfirmed"
+  ],
+  "additionalProperties": false,
+  "description": "Obsidian Confirm Result in the engine contract."
+}
+```
+
+### `EngineContractStoreAdoptRequestData`
+
+```json
+{
+  "title": "EngineContractStoreAdoptRequestData",
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "Absolute store root (the path `createEngine` would use as `baseDbPath`)."
+    },
+    "expectedIdentity": {
+      "$ref": "#/$defs/EngineContractEmbeddingIdentityData"
+    },
+    "dryRun": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "path",
+    "expectedIdentity"
+  ],
+  "additionalProperties": false,
+  "description": "Store Adopt Request in the engine contract."
+}
+```
+
+### `EngineContractStoreAdoptResultData`
+
+```json
+{
+  "title": "EngineContractStoreAdoptResultData",
+  "type": "object",
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "incompatible"
+      ]
+    },
+    "dryRun": {
+      "type": "boolean"
+    },
+    "reason": {
+      "$ref": "#/$defs/EngineContractStoreAdoptIncompatibleReasonData"
+    },
+    "storeSchema": {
+      "type": "object",
+      "properties": {
+        "current": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EngineContractSchemaVersionData"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expected": {
+          "$ref": "#/$defs/EngineContractSchemaVersionData"
+        }
+      },
+      "required": [
+        "current",
+        "expected"
+      ],
+      "additionalProperties": false
+    },
+    "identity": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EngineContractEmbeddingIdentityData"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "identitySource": {
+      "$ref": "#/$defs/EngineContractStoreAdoptIdentitySourceData",
+      "description": "How identity was established when a check ran."
+    }
+  },
+  "required": [
+    "verdict",
+    "dryRun"
+  ],
+  "additionalProperties": false,
+  "description": "Store Adopt Result in the engine contract."
+}
+```
+
+### `EngineContractStoreAdoptIncompatibleReasonData`
+
+```json
+{
+  "title": "EngineContractStoreAdoptIncompatibleReasonData",
+  "type": "string",
+  "enum": [
+    "path-unreadable",
+    "not-a-store",
+    "schema-unreadable",
+    "schema-mismatch",
+    "identity-unreadable",
+    "identity-mismatch",
+    "identity-unverifiable",
+    "dimension-mismatch",
+    "target-running"
+  ],
+  "description": "Store Adopt Incompatible Reason in the engine contract."
+}
+```
+
+### `EngineContractStoreAdoptIdentitySourceData`
+
+```json
+{
+  "title": "EngineContractStoreAdoptIdentitySourceData",
+  "type": "string",
+  "enum": [
+    "manifest",
+    "probe"
+  ],
+  "description": "Store Adopt Identity Source in the engine contract."
+}
+```
+
+### `EngineContractLlmParamsData`
+
+```json
+{
+  "title": "EngineContractLlmParamsData",
+  "type": "object",
+  "properties": {
+    "messages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/EngineContractMessageData"
+      }
+    },
+    "model": {
+      "type": "string"
+    },
+    "temperature": {
+      "type": "number"
+    },
+    "maxTokens": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "messages"
+  ],
+  "additionalProperties": false,
+  "description": "Llm Params in the engine contract."
+}
+```
+
+### `EngineContractLlmResultData`
+
+```json
+{
+  "title": "EngineContractLlmResultData",
+  "type": "object",
+  "properties": {
+    "text": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "usage": {
+      "type": "object",
+      "properties": {
+        "inputTokens": {
+          "type": "number"
+        },
+        "outputTokens": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "text"
+  ],
+  "additionalProperties": false,
+  "description": "Llm Result in the engine contract."
+}
+```
+
+### `EngineContractEngineEventNameData`
+
+```json
+{
+  "title": "EngineContractEngineEventNameData",
+  "type": "string",
+  "enum": [
+    "dream.completed",
+    "job.run",
+    "acl.denied",
+    "recall.degraded",
+    "embedding.identity.changed",
+    "recall.block-clipped",
+    "recall.block-dropped",
+    "recall.completed",
+    "memory.proposal"
+  ],
+  "description": "Engine Event Name in the engine contract."
+}
+```
+
+### `EngineDelegation`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "clientId",
+    "token"
+  ],
+  "properties": {
+    "clientId": {
+      "const": "plur1bus-engine"
+    },
+    "token": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$"
+    }
+  }
+}
+```
+
+### `EngineTransportEvent`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "payload"
+  ],
+  "properties": {
+    "name": {
+      "$ref": "#/$defs/EngineContractEngineEventNameData"
+    },
+    "payload": {}
+  }
+}
+```
 
 ### `MemoryCurationRecord`
 
@@ -23222,7 +30595,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "loopback",
         "remote"
       ],
-      "x-since": "1.7.0",
+      "x-since": "1.8.0",
       "description": "API-verified HTTP transport locality; never accepted from browser fields or forwarding headers."
     }
   }
@@ -25466,7 +32839,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 {
   "description": "Human-selected MCP login ladder method (M-A8).",
   "x-stability": "experimental",
-  "x-since": "1.7.0",
+  "x-since": "1.8.0",
   "enum": [
     "device_code",
     "loopback_pkce",
@@ -25482,7 +32855,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 {
   "description": "One person's bounded extension sign-in interaction. Credentials, verifiers and callback codes are never returned.",
   "x-stability": "experimental",
-  "x-since": "1.7.0",
+  "x-since": "1.8.0",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -26981,6 +34354,129 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         }
       }
     },
+    "stores": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "displayName",
+          "kind"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "kind": {
+            "enum": [
+              "agent",
+              "shared"
+            ]
+          },
+          "agentId": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "rows": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sourceModelCandidate": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "model",
+              "dimensions",
+              "revision",
+              "licence",
+              "nonCommercial"
+            ],
+            "properties": {
+              "model": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "dimensions": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16384
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40}$"
+              },
+              "licence": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "nonCommercial": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "portability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unmapped"
+      ],
+      "properties": {
+        "unmapped": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "kind",
+              "reason"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "kind": {
+                "enum": [
+                  "workspace",
+                  "store",
+                  "skills"
+                ]
+              },
+              "reason": {
+                "enum": [
+                  "env-var",
+                  "foreign-path",
+                  "drive-relative",
+                  "home-unknown",
+                  "outside-source-root"
+                ]
+              },
+              "agentId": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        }
+      }
+    },
     "unsupported": {
       "type": "array",
       "maxItems": 2,
@@ -27043,6 +34539,41 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
             "type": "string",
             "minLength": 1,
             "maxLength": 256
+          }
+        }
+      }
+    },
+    "stores": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "displayName",
+          "path"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-f-]{36}$"
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "candidateId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-f-]{36}$"
           }
         }
       }

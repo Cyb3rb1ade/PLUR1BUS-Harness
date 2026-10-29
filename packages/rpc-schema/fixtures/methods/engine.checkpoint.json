@@ -1,0 +1,12 @@
+{
+  "params": {
+    "agentId": "workspace:v1:test",
+    "reason": "compaction"
+  },
+  "result": {
+    "agentId": "workspace:v1:test",
+    "reason": "compaction",
+    "digest": "workspace:v1:test",
+    "written": false
+  }
+}

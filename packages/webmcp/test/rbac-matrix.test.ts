@@ -12,10 +12,14 @@ import { SCHEMA, buildCapabilities } from "@plur1bus/rpc-schema";
 import { buildWebMcpTools, isForbiddenMethod, selectMethods, toolNameFor } from "../src/index.ts";
 import { RPC_RULES, guardMethods } from "../../core/src/rbac/guard.ts";
 import { POLICY, policyFor } from "../../core/src/rbac/policy.ts";
+import { createHostMethods, type HostMethodDependencies } from "../../core/src/engine/host-methods.ts";
 
-type MethodDef = { "x-server": string; description?: string };
+type MethodDef = { "x-server": string; "x-feature"?: string; description?: string };
 const methods = (SCHEMA as any).$defs.methods as Record<string, MethodDef>;
 const coreMethods = Object.keys(methods).filter((n) => methods[n]!["x-server"] === "core").sort();
+const engineMethods = Object.keys(methods).filter((n) => methods[n]!["x-server"] === "engine").sort();
+const hostMethods = coreMethods.filter((n) => n.startsWith("host."));
+const SERVERS = ["core", "supervisor", "module", "engine"] as const;
 const rbacDoc = readFileSync(new URL("../../../docs/rbac.md", import.meta.url), "utf8");
 const DOC_ROLES = ["owner", "admin", "operator", "member", "viewer"];
 
@@ -29,6 +33,7 @@ const isWrite = (m: string): boolean => m.split(".").some((s) => WRITE_VERBS.has
 
 /** Core methods that carry no RBAC rule on purpose. Each reason is a statement the doc or the code makes. */
 const UNRULED: Record<string, string> = {
+  ...Object.fromEntries(hostMethods.map(m => [m, "RE-08: engine-only reverse RPC; each handler requires the authenticated engine connection principal before accessing a service"])),
   "core.auth": "handshake; local-owner token or HM4 scoped personal-token validation before a principal exists",
   "core.status": "docs/rbac.md 'Not yet secured': core.*",
   "core.shutdown": "docs/rbac.md 'Not yet secured': core.*; local token only; HM4 scoped clients are denied by the transport allowlist",
@@ -85,7 +90,9 @@ function t(name: string, gap: string | undefined, fn: () => void): void {
 describe("matrix: inputs", () => {
   it("covers every method of the schema", () => {
     assert.ok(coreMethods.length > 100);
-    for (const m of Object.keys(methods)) assert.ok(["core", "supervisor", "module"].includes(methods[m]!["x-server"]), m);
+    for (const m of Object.keys(methods)) assert.ok((SERVERS as readonly string[]).includes(methods[m]!["x-server"]), m);
+    assert.ok(engineMethods.length > 0, "engine server methods are part of the matrix");
+    for (const m of engineMethods) assert.ok(m.startsWith("engine."), `${m}: engine server namespace`);
   });
   it("docs/rbac.md names the five roles", () => {
     for (const r of DOC_ROLES) assert.match(rbacDoc, new RegExp(`\\b${r}\\b`, "i"), r);
@@ -106,7 +113,7 @@ describe("matrix: inputs", () => {
   });
 });
 
-describe("A. every core method has an RBAC classification", () => {
+describe("A. every core method has an RBAC or engine-principal classification", () => {
   for (const m of coreMethods) {
     const rule = RPC_RULES[m];
     if (rule) {
@@ -122,8 +129,22 @@ describe("A. every core method has an RBAC classification", () => {
       });
     }
   }
-  it("supervisor and module methods have no core RBAC rule (they authenticate with their own token)", () => {
+  it("supervisor, module and engine methods have no core RBAC rule (they authenticate with their own token)", () => {
     for (const m of Object.keys(methods).filter((n) => methods[n]!["x-server"] !== "core")) assert.ok(!RPC_RULES[m], m);
+  });
+  it("every schema host method is engine-feature gated and its handler refuses ordinary callers before accessing any service", async () => {
+    assert.ok(hostMethods.length > 0, "reverse RPC is part of the matrix");
+    const inaccessible = <T extends object>(): T => new Proxy({} as T, { get() { assert.fail("an ordinary caller reached a host service"); } });
+    const handlers = createHostMethods({ host: inaccessible<HostMethodDependencies["host"]>(),
+      secrets: inaccessible<HostMethodDependencies["secrets"]>(), egress: inaccessible<HostMethodDependencies["egress"]>(),
+      complete: async () => { assert.fail("an ordinary caller reached the provider router"); },
+    });
+    assert.deepEqual(Object.keys(handlers).sort(), [...hostMethods].sort(), "every schema host method has a guarded implementation");
+    for (const m of hostMethods) {
+      assert.equal(methods[m]!["x-feature"], "engine", `${m}: reverse RPC is engine-only`);
+      const ctx = { requestId: "matrix", connectionId: "ordinary", signal: new AbortController().signal };
+      await assert.rejects(() => handlers[m]!({}, ctx), { error: "E_DENIED", reason: "engine-principal-required" }, m);
+    }
   });
 });
 
@@ -136,11 +157,17 @@ describe("B. every write method is forbidden in WebMCP or explicitly exposed", (
       assert.ok(isForbiddenMethod(m) || m in WRITE_EXPOSED, `${m}: write method exposed without a recorded reason`);
     });
   }
-  it("supervisor/module methods are never offered, even when named in include", () => {
-    const caps = buildCapabilities([]);
+  it("supervisor/module/engine methods and engine-only host methods are never offered, even with the engine feature and explicit include", () => {
     const all = Object.keys(methods);
-    const offered = selectMethods({ capabilities: caps, schema: SCHEMA, include: all });
-    for (const m of offered) assert.equal(methods[m]!["x-server"], "core", m);
+    for (const server of SERVERS) {
+      const caps = buildCapabilities(["engine"], server);
+      const offered = selectMethods({ capabilities: caps, schema: SCHEMA, include: all });
+      for (const m of offered) {
+        assert.equal(methods[m]!["x-server"], "core", m);
+        assert.ok(!hostMethods.includes(m), `${m}: reverse RPC is never an agent tool`);
+      }
+    }
+    for (const m of [...engineMethods, ...hostMethods]) assert.ok(isForbiddenMethod(m), `${m}: internal service methods are forbidden`);
   });
   it("every exposed write asks the person first and does not call without an answer", async () => {
     const caps = buildCapabilities([]);

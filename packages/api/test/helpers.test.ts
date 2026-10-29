@@ -40,6 +40,32 @@ test("a request reset before any response remains a client failure", async t => 
   await assert.rejects(raw(harness, { path: "/" }), { code: "ECONNRESET" });
 });
 
+test("a failed request identifies its method, route, byte count and transport phase without its body", async t => {
+  requestEvents(t, req => { req.emit("finish"); req.emit("error", reset()); });
+  const body = "private fixture ü";
+  await assert.rejects(raw(harness, { method: "POST", path: "/api/v1/probe", body }), error => {
+    assert.ok(error instanceof Error);
+    assert.match(error.message, /POST \/api\/v1\/probe/);
+    assert.ok(error.message.includes(`${Buffer.byteLength(body)} bytes`));
+    assert.match(error.message, /phase=awaiting-response/);
+    assert.ok(!error.message.includes(body));
+    assert.equal((error as NodeJS.ErrnoException).code, "ECONNRESET");
+    return true;
+  });
+});
+
+test("a truncated response identifies the response-body phase and retains its transport error", async t => {
+  requestEvents(t, (_, res, respond) => {
+    respond(); res.emit("data", Buffer.from('{"error":')); res.emit("error", reset());
+  });
+  await assert.rejects(raw(harness, { path: "/api/v1/probe" }), error => {
+    assert.ok(error instanceof Error);
+    assert.match(error.message, /GET \/api\/v1\/probe.*0 bytes.*phase=response-body/);
+    assert.equal((error as NodeJS.ErrnoException).code, "ECONNRESET");
+    return true;
+  });
+});
+
 test("a response that fails after its headers remains a client failure", async t => {
   requestEvents(t, (_, res, respond) => {
     respond(); res.emit("data", Buffer.from('{"error":')); res.emit("error", reset());

@@ -352,6 +352,17 @@ impl Layout {
             },
         }
     }
+
+    /// The engine's address and run files, reserved before RE-08/T4 adds its supervisor slot.
+    /// That slot delegates its `endpoints` arm here rather than deriving another address rule.
+    #[allow(dead_code)] // Consumed by the engine supervisor slot in RE-08/T4.
+    pub fn engine_endpoints(&self, platform: &str) -> Endpoints {
+        Endpoints {
+            address: engine_address(&self.home, platform),
+            token: self.run().join("engine.token"),
+            pid: self.run().join("engine.pid"),
+        }
+    }
 }
 
 /// Where a supervised child listens and where it keeps its token and `<pid> <instanceId>` file.
@@ -375,6 +386,11 @@ pub fn extension_secrets_address(home: &Path, platform: &str) -> String {
 /// Private one-use source credentials for the supervised importer; separate from extension spawn credentials.
 pub fn import_secrets_address(home: &Path, platform: &str) -> String {
     address(home, platform, "i")
+}
+
+/// The engine's address: `run/engine.sock` on POSIX, the per-home `-engine` pipe on Windows.
+pub fn engine_address(home: &Path, platform: &str) -> String {
+    address(home, platform, "engine")
 }
 
 /// Same rule as packages/core/src/paths.ts supervisorAddress(): `run/supervisor.sock` on POSIX, the per-home
@@ -411,6 +427,19 @@ fn sha256_hex(b: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn engine_endpoints_use_the_engine_address_and_run_files() {
+        let layout = Layout::new(PathBuf::from("/h/.plur1bus"));
+        let endpoints = layout.engine_endpoints("posix");
+        assert_eq!(endpoints.address, "/h/.plur1bus/run/engine.sock");
+        assert_eq!(endpoints.token, layout.run().join("engine.token"));
+        assert_eq!(endpoints.pid, layout.run().join("engine.pid"));
+        assert_eq!(
+            engine_address(Path::new(r"C:\Users\c\AppData\Local\PLUR1BUS"), "windows"),
+            r"\\.\pipe\plur1bus-741b3e0a44818d49-engine"
+        );
+    }
     #[test]
     fn module_address_parity() {
         // The same strings as module-api's `module address parity` (paths.test.ts); the hash is computed from the rule.
@@ -658,6 +687,11 @@ mod tests {
                 core_address(Path::new(home), platform),
                 v["address"].as_str().unwrap(),
                 "{platform} {home:?}"
+            );
+            assert_eq!(
+                engine_address(Path::new(home), platform),
+                v["engineAddress"].as_str().unwrap(),
+                "engine {platform} {home:?}"
             );
         }
     }

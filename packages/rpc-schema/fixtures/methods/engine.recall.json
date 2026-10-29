@@ -1,0 +1,35 @@
+{
+  "params": {
+    "query": {
+      "query": "workspace:v1:test",
+      "principal": {
+        "agentId": "workspace:v1:test",
+        "workspace": "workspace:v1:test",
+        "channel": "workspace:v1:test",
+        "accountId": "workspace:v1:test",
+        "chat": {
+          "id": "workspace:v1:test",
+          "kind": "direct"
+        },
+        "trust": "proved"
+      },
+      "agent": {
+        "origin": "user",
+        "background": false
+      }
+    }
+  },
+  "result": {
+    "blocks": [],
+    "capChars": 0,
+    "degraded": {
+      "reason": "workspace:v1:test",
+      "capability": "workspace:v1:test"
+    },
+    "timing": {
+      "phases": {},
+      "totalMs": 0
+    },
+    "deferrals": []
+  }
+}

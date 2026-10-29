@@ -33,13 +33,15 @@ test('caller abort is cancellation and never tries a fallback', async () => {
   const result = await pending; assert.equal(!result.ok && result.reason, 'cancelled');
 });
 test('fallback shares the original deadline rather than resetting it', async () => {
-  const cfg = defaults(); cfg.decision.backend = 'laya'; cfg.decision.timeoutMs = 30;
-  let remaining = Infinity;
+  // The deadlines handed to both backends are compared, not the time left: a Windows timer can fire a clock tick
+  // (about 16 ms) late, so a 20 ms backend could outlast a short budget before the fallback ever runs.
+  const cfg = defaults(); cfg.decision.backend = 'laya'; cfg.decision.timeoutMs = 200;
+  const deadlines: number[] = [];
   const client = new DecisionClient({ config: () => cfg, backends: {
-    laya: { local: () => true, async run() { await new Promise(resolve => setTimeout(resolve, 20)); throw Error('invalid'); } },
-    role: { local: () => true, async run(r) { remaining = r.deadline - performance.now(); return new Promise(() => {}); } },
+    laya: { local: () => true, async run(r) { deadlines.push(r.deadline); await new Promise(resolve => setTimeout(resolve, 20)); throw Error('invalid'); } },
+    role: { local: () => true, async run(r) { deadlines.push(r.deadline); return new Promise(() => {}); } },
   } });
-  const result = await client.choice(input, context()); assert.equal(!result.ok && result.reason, 'timeout'); assert(remaining < 25);
+  const result = await client.choice(input, context()); assert.equal(!result.ok && result.reason, 'timeout'); assert.deepEqual(deadlines, [deadlines[0], deadlines[0]]);
 });
 test('live privacy refuses explicit cloud role before invocation and unavailable stays tagged', async () => {
   let calls = 0; const f = fixture(async () => { calls++; return {}; }, false); f.cfg.privacy.localOnly = true;

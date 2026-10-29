@@ -40,6 +40,169 @@ fn pair<P: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize>(name: 
 fn method_fixture(name: &str, f: &Value) {
     use types::*;
     match name {
+        "engine.agent.close" => pair::<EngineAgentCloseParams, EngineAgentCloseResult>(name, f),
+        "host.journalBacklog" => {
+            pair::<HostJournalBacklogParams, HostJournalBacklogResult>(name, f)
+        }
+        "host.event" => pair::<HostEventParams, HostEventResult>(name, f),
+        "host.workspaceDir" => pair::<HostWorkspaceDirParams, HostWorkspaceDirResult>(name, f),
+        "host.secret.get" => pair::<HostSecretGetParams, HostSecretGetResult>(name, f),
+        "host.egress.decide" => pair::<HostEgressDecideParams, HostEgressDecideResult>(name, f),
+        "host.llm.complete" => pair::<HostLlmCompleteParams, HostLlmCompleteResult>(name, f),
+        "engine.tombstones.reapply" => {
+            pair::<EngineTombstonesReapplyParams, EngineTombstonesReapplyResult>(name, f)
+        }
+        "engine.snapshot.verify" => {
+            pair::<EngineSnapshotVerifyParams, EngineSnapshotVerifyResult>(name, f)
+        }
+        "engine.snapshot.create" => {
+            pair::<EngineSnapshotCreateParams, EngineSnapshotCreateResult>(name, f)
+        }
+        "engine.stores.adopt" => pair::<EngineStoresAdoptParams, EngineStoresAdoptResult>(name, f),
+        "engine.admin.obsidian.confirm" => {
+            pair::<EngineAdminObsidianConfirmParams, EngineAdminObsidianConfirmResult>(name, f)
+        }
+        "engine.admin.obsidian.prepare" => {
+            pair::<EngineAdminObsidianPrepareParams, EngineAdminObsidianPrepareResult>(name, f)
+        }
+        "engine.admin.obsidian.detect" => {
+            pair::<EngineAdminObsidianDetectParams, EngineAdminObsidianDetectResult>(name, f)
+        }
+        "engine.admin.migrate" => {
+            pair::<EngineAdminMigrateParams, EngineAdminMigrateResult>(name, f)
+        }
+        "engine.admin.workspacePolicy.set" => pair::<
+            EngineAdminWorkspacePolicySetParams,
+            EngineAdminWorkspacePolicySetResult,
+        >(name, f),
+        "engine.admin.workspacePolicy.list" => pair::<
+            EngineAdminWorkspacePolicyListParams,
+            EngineAdminWorkspacePolicyListResult,
+        >(name, f),
+        "engine.admin.workspacePolicy.get" => pair::<
+            EngineAdminWorkspacePolicyGetParams,
+            EngineAdminWorkspacePolicyGetResult,
+        >(name, f),
+        "engine.admin.reembedding.switch" => {
+            pair::<EngineAdminReembeddingSwitchParams, EngineAdminReembeddingSwitchResult>(name, f)
+        }
+        "engine.admin.reembedding.status" => {
+            pair::<EngineAdminReembeddingStatusParams, EngineAdminReembeddingStatusResult>(name, f)
+        }
+        "engine.admin.reembedding.rollback" => pair::<
+            EngineAdminReembeddingRollbackParams,
+            EngineAdminReembeddingRollbackResult,
+        >(name, f),
+        "engine.admin.reembedding.validate" => pair::<
+            EngineAdminReembeddingValidateParams,
+            EngineAdminReembeddingValidateResult,
+        >(name, f),
+        "engine.admin.reembedding.resume" => {
+            pair::<EngineAdminReembeddingResumeParams, EngineAdminReembeddingResumeResult>(name, f)
+        }
+        "engine.admin.reembedding.apply" => {
+            pair::<EngineAdminReembeddingApplyParams, EngineAdminReembeddingApplyResult>(name, f)
+        }
+        "engine.admin.reembedding.plan" => {
+            pair::<EngineAdminReembeddingPlanParams, EngineAdminReembeddingPlanResult>(name, f)
+        }
+        "engine.admin.forget" => pair::<EngineAdminForgetParams, EngineAdminForgetResult>(name, f),
+        "engine.admin.share" => pair::<EngineAdminShareParams, EngineAdminShareResult>(name, f),
+        "engine.memory.curation.drop" => {
+            pair::<EngineMemoryCurationDropParams, EngineMemoryCurationDropResult>(name, f)
+        }
+        "engine.memory.curation.keep" => {
+            pair::<EngineMemoryCurationKeepParams, EngineMemoryCurationKeepResult>(name, f)
+        }
+        "engine.memory.link" => pair::<EngineMemoryLinkParams, EngineMemoryLinkResult>(name, f),
+        "engine.memory.unimport" => {
+            pair::<EngineMemoryUnimportParams, EngineMemoryUnimportResult>(name, f)
+        }
+        "engine.memory.unbind" => {
+            pair::<EngineMemoryUnbindParams, EngineMemoryUnbindResult>(name, f)
+        }
+        "engine.memory.rebind" => {
+            pair::<EngineMemoryRebindParams, EngineMemoryRebindResult>(name, f)
+        }
+        "engine.memory.import" => {
+            pair::<EngineMemoryImportParams, EngineMemoryImportResult>(name, f)
+        }
+        "engine.memory.proposals.reject" => {
+            pair::<EngineMemoryProposalsRejectParams, EngineMemoryProposalsRejectResult>(name, f)
+        }
+        "engine.memory.proposals.accept" => {
+            pair::<EngineMemoryProposalsAcceptParams, EngineMemoryProposalsAcceptResult>(name, f)
+        }
+        "engine.memory.proposals.list" => {
+            pair::<EngineMemoryProposalsListParams, EngineMemoryProposalsListResult>(name, f)
+        }
+        "engine.memory.propose" => {
+            pair::<EngineMemoryProposeParams, EngineMemoryProposeResult>(name, f)
+        }
+        "engine.memory.state" => pair::<EngineMemoryStateParams, EngineMemoryStateResult>(name, f),
+        "engine.memory.share" => pair::<EngineMemoryShareParams, EngineMemoryShareResult>(name, f),
+        "engine.memory.correct" => {
+            pair::<EngineMemoryCorrectParams, EngineMemoryCorrectResult>(name, f)
+        }
+        "engine.memory.forget" => {
+            pair::<EngineMemoryForgetParams, EngineMemoryForgetResult>(name, f)
+        }
+        "engine.memory.show" => pair::<EngineMemoryShowParams, EngineMemoryShowResult>(name, f),
+        "engine.memory.list" => pair::<EngineMemoryListParams, EngineMemoryListResult>(name, f),
+        "engine.memory.curation.resolve" => {
+            pair::<EngineMemoryCurationResolveParams, EngineMemoryCurationResolveResult>(name, f)
+        }
+        "engine.memory.curation.list" => {
+            pair::<EngineMemoryCurationListParams, EngineMemoryCurationListResult>(name, f)
+        }
+        "engine.memory.promote" => {
+            pair::<EngineMemoryPromoteParams, EngineMemoryPromoteResult>(name, f)
+        }
+        "engine.memory.stats" => pair::<EngineMemoryStatsParams, EngineMemoryStatsResult>(name, f),
+        "engine.models" => pair::<EngineModelsParams, EngineModelsResult>(name, f),
+        "engine.models.warm" => pair::<EngineModelsWarmParams, EngineModelsWarmResult>(name, f),
+        "engine.models.status" => {
+            pair::<EngineModelsStatusParams, EngineModelsStatusResult>(name, f)
+        }
+        "engine.config.normalizeEmbedding" => pair::<
+            EngineConfigNormalizeEmbeddingParams,
+            EngineConfigNormalizeEmbeddingResult,
+        >(name, f),
+        "engine.embedding.fingerprint" => {
+            pair::<EngineEmbeddingFingerprintParams, EngineEmbeddingFingerprintResult>(name, f)
+        }
+        "engine.embedding.serve" => {
+            pair::<EngineEmbeddingServeParams, EngineEmbeddingServeResult>(name, f)
+        }
+        "engine.embedding.identities" => {
+            pair::<EngineEmbeddingIdentitiesParams, EngineEmbeddingIdentitiesResult>(name, f)
+        }
+        "engine.embedding.probe" => {
+            pair::<EngineEmbeddingProbeParams, EngineEmbeddingProbeResult>(name, f)
+        }
+        "engine.embedding.rerank" => {
+            pair::<EngineEmbeddingRerankParams, EngineEmbeddingRerankResult>(name, f)
+        }
+        "engine.embedding.embed" => {
+            pair::<EngineEmbeddingEmbedParams, EngineEmbeddingEmbedResult>(name, f)
+        }
+        "engine.jobs.history" => pair::<EngineJobsHistoryParams, EngineJobsHistoryResult>(name, f),
+        "engine.jobs.run" => pair::<EngineJobsRunParams, EngineJobsRunResult>(name, f),
+        "engine.jobs.list" => pair::<EngineJobsListParams, EngineJobsListResult>(name, f),
+        "engine.systemSupplement" => {
+            pair::<EngineSystemSupplementParams, EngineSystemSupplementResult>(name, f)
+        }
+        "engine.checkpoint" => pair::<EngineCheckpointParams, EngineCheckpointResult>(name, f),
+        "engine.capture.abort" => {
+            pair::<EngineCaptureAbortParams, EngineCaptureAbortResult>(name, f)
+        }
+        "engine.capture.wait" => pair::<EngineCaptureWaitParams, EngineCaptureWaitResult>(name, f),
+        "engine.capture" => pair::<EngineCaptureParams, EngineCaptureResult>(name, f),
+        "engine.recall" => pair::<EngineRecallParams, EngineRecallResult>(name, f),
+        "engine.shutdown" => pair::<EngineShutdownParams, EngineShutdownResult>(name, f),
+        "engine.status" => pair::<EngineStatusParams, EngineStatusResult>(name, f),
+        "engine.open" => pair::<EngineOpenParams, EngineOpenResult>(name, f),
+        "engine.auth" => pair::<EngineAuthParams, EngineAuthResult>(name, f),
         "model.memory.status" => pair::<ModelMemoryStatusParams, ModelMemoryStatusResult>(name, f),
         "model.licence.confirm" => {
             pair::<ModelLicenceConfirmParams, ModelLicenceConfirmResult>(name, f)
@@ -632,6 +795,8 @@ fn every_notification_fixture_round_trips() {
     assert!(!files.is_empty());
     for (name, v) in &files {
         match name.as_str() {
+            "engine.capture.done" => round_trip::<types::EngineCaptureDoneNotification>(v, name),
+            "egress.changed" => round_trip::<types::EgressChangedNotification>(v, name),
             "devices.trust.next" => round_trip::<types::DevicesTrustNextNotification>(v, name),
             "inbox.changed" => round_trip::<types::InboxChangedNotification>(v, name),
             "project.card.changed" => round_trip::<types::ProjectCardChangedNotification>(v, name),
@@ -714,5 +879,40 @@ fn core_auth_preserves_owner_tokens_and_supports_scoped_client_tokens() {
     ] {
         let value = serde_json::json!({ "token": token });
         round_trip::<types::CoreAuthParams>(&value, "core.auth token variants");
+    }
+}
+
+#[test]
+fn engine_transport_events_keep_memory_proposals_without_widening_the_legacy_emitter() {
+    let event = serde_json::json!({"name":"memory.proposal","payload":{"id":"proposal"}});
+    round_trip::<types::EngineTransportEvent>(&event, "engine transport event");
+    assert!(serde_json::from_value::<types::EngineEventNotification>(event).is_err());
+}
+
+#[test]
+fn engine_job_phase_is_a_scalar_string_or_null() {
+    let base = fs::read_to_string(fixtures().join("methods/engine.jobs.run.json")).unwrap();
+    let fixture: Value = serde_json::from_str(&base).unwrap();
+    for phase in [
+        serde_json::json!("light"),
+        serde_json::json!("rem"),
+        serde_json::json!("deep"),
+        Value::Null,
+    ] {
+        let mut result = fixture["result"].clone();
+        result["phase"] = phase;
+        round_trip::<types::EngineJobsRunResult>(&result, "engine jobs phase");
+    }
+}
+
+#[test]
+fn engine_capture_diagnostics_keep_both_contract_alternatives() {
+    for diagnostic in [
+        serde_json::json!({"feature":"reranker","reason":"reranker-not-configured","fallback":"unreranked"}),
+        serde_json::json!({"feature":"postTurnLlm","reason":"post-turn-refine-unscheduled","fallback":"inline"}),
+    ] {
+        let result = serde_json::json!({"stored":0,"skipped":0,"diagnostics":[diagnostic]});
+        round_trip::<types::EngineContractCaptureResultData>(&result, "capture diagnostics");
+        round_trip::<types::EngineCaptureWaitResult>(&result, "capture wait diagnostics");
     }
 }

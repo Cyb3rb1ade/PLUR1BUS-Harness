@@ -141,7 +141,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "mcp": {
         "servers": {}
       },
@@ -654,7 +656,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "mcp": {
         "servers": {}
       },
@@ -1180,7 +1184,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "mcp": {
         "servers": {}
       },
@@ -1694,6 +1700,7 @@
         }
       },
       "engine": {
+        "implementation": "node",
         "recallMinScore": 0.5
       },
       "mcp": {
@@ -2221,7 +2228,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "mcp": {
         "servers": {}
       },
@@ -2738,7 +2747,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "mcp": {
         "servers": {}
       },
@@ -3270,7 +3281,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "mcp": {
         "servers": {}
       },
@@ -3783,7 +3796,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "mcp": {
         "servers": {}
       },
@@ -4315,7 +4330,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "mcp": {
         "servers": {}
       },
@@ -4832,7 +4849,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "mcp": {
         "servers": {}
       },
@@ -5362,7 +5381,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "mcp": {
         "servers": {}
       },
@@ -5875,7 +5896,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "mcp": {
         "servers": {}
       },
@@ -6407,7 +6430,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "mcp": {
         "servers": {}
       },
@@ -6920,7 +6945,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "mcp": {
         "servers": {}
       },
@@ -7449,7 +7476,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "mcp": {
         "servers": {}
       },
@@ -7967,7 +7996,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "mcp": {
         "servers": {}
       },
@@ -8500,7 +8531,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "mcp": {
         "servers": {}
       },
@@ -9013,7 +9046,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "mcp": {
         "servers": {}
       },

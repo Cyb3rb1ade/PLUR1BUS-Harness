@@ -4264,7 +4264,7 @@ Examples:
 
 SSH examples:
   plur1bus import ssh --key generate
-  plur1bus import ssh --ssh reader@host:22 --source /srv/source --probe-host-key
+  plur1bus import ssh --ssh reader@host:22 --source /srv/source --allow-egress --probe-host-key
   plur1bus import ssh --connection ID --trust-host-key SHA256:... --probe-id TOKEN
   plur1bus import hermes --ssh reader@host:22 --source /srv/source --detect
 
@@ -4315,6 +4315,7 @@ SSH examples:
   Possible values: `status`, `generate`, `rotate`, `delete`
 
 * `--allow-private` — Explicitly permit private-address SSH endpoints for this connection
+* `--allow-egress` — Owner consent: allow exactly this SSH host and TCP port in the central egress policy (SSH setup with --ssh and --source only)
 * `--probe-host-key` — Probe the SSH host key without authenticating; never trusts it automatically
 * `--trust-host-key <SHA256>` — Trust the exact fingerprint from an earlier --probe-host-key result
 * `--probe-id <TOKEN>` — Expiring probe identifier returned by --probe-host-key

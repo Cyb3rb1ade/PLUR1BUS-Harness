@@ -25,7 +25,16 @@ export function lifecycleAdmission(handlers: Record<string, Handler>, lifecycle:
 
 /** Engine jobs launched outside RPC (dreams/post-turn) pass the same gate. Already running jobs finish normally. */
 export function lifecycleEngine(engine: import("@cyb3rb1ade/plur1bus-memory/types/engine.js").Engine, lifecycle: AgentLifecycle): import("@cyb3rb1ade/plur1bus-memory/types/engine.js").Engine {
-  return { ...engine, jobs: { ...engine.jobs, run: async (job, id, options) => {
+  // The RPC implementation is a class: spreading it drops its prototype methods and version getters.
+  return {
+    get contract() { return engine.contract; }, get capabilities() { return engine.capabilities; },
+    open: id => engine.open(id), close: options => engine.close(options), status: () => engine.status(),
+    systemSupplement: () => engine.systemSupplement(), recall: (query, options) => engine.recall(query, options),
+    capture: (turn, options) => engine.capture(turn, options), checkpoint: (id, reason) => engine.checkpoint(id, reason),
+    runCommand: (name, args, principal, agent) => engine.runCommand(name, args, principal, agent),
+    memory: engine.memory, tools: engine.tools, commands: engine.commands, embedding: engine.embedding,
+    models: engine.models, admin: engine.admin, stores: engine.stores, events: engine.events, channels: engine.channels,
+    jobs: { ...engine.jobs, run: async (job, id, options) => {
     if (!lifecycle.usable(id)) {
       const state = lifecycle.state(id);
       throw new RpcError(state.deleted ? "E_NOT_FOUND" : "E_CONFLICT", "agent background work is suspended", { reason: state.deleted ? "deleted" : state.archived ? "archived" : "paused" });

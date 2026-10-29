@@ -2,31 +2,31 @@
   "methods": {
     "admin.import.runtime.config.set": {
       "stability": "experimental",
-      "since": "1.7.0"
+      "since": "1.8.0"
     },
     "admin.extensions.runtime.reconcile": {
       "stability": "experimental",
-      "since": "1.7.0"
+      "since": "1.8.0"
     },
     "admin.import.apply": {
       "stability": "experimental",
-      "since": "1.7.0"
+      "since": "1.8.0"
     },
     "admin.import.status": {
       "stability": "experimental",
-      "since": "1.7.0"
+      "since": "1.8.0"
     },
     "admin.import.abort": {
       "stability": "experimental",
-      "since": "1.7.0"
+      "since": "1.8.0"
     },
     "admin.import.runs": {
       "stability": "experimental",
-      "since": "1.7.0"
+      "since": "1.8.0"
     },
     "admin.import.rollback": {
       "stability": "experimental",
-      "since": "1.7.0"
+      "since": "1.8.0"
     },
     "supervisor.auth": {
       "stability": "experimental",
@@ -102,7 +102,7 @@
     },
     "ext.inspection.get": {
       "stability": "experimental",
-      "since": "1.7.0"
+      "since": "1.8.0"
     },
     "ext.install": {
       "stability": "experimental",
@@ -132,7 +132,7 @@
   "notifications": {
     "import.progress": {
       "stability": "experimental",
-      "since": "1.7.0"
+      "since": "1.8.0"
     },
     "config.changed": {
       "stability": "experimental",

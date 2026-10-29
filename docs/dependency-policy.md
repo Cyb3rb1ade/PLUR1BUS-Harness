@@ -37,19 +37,23 @@ here, not in the code. SPDX expressions are evaluated: `A OR B` needs one allowe
 - Zlib (OSI-approved and permissive; foldhash, zlib-rs)
 - MIT-0 (MIT without the attribution requirement; borrow-or-share via jsonschema)
 - CDLA-Permissive-2.0 (permissive data licence of the Mozilla CA bundle; webpki-roots, webpki-root-certs via ureq)
+- Unlicense (OSI-approved public-domain dedication; nostr-tools, a direct dependency of the Buzz channel)
+- Python-2.0 (OSI-approved and permissive; argparse, a development dependency)
 <!-- /audit-deps:allowed -->
 
 - **Added 2026-10-24** (PR #759, RE-00: the Rust engine's Lance closure): BSL-1.0, Zlib, MIT-0 and CDLA-Permissive-2.0,
   here and in `deny.toml`, which also gained 0BSD and a per-crate MPL-2.0 exception for `option-ext`. Controller
   recommendation, not objected to by the owner.
+- **Added 2026-10-28** (owner decision, see "Licence decisions of 2026-10-28" below): Unlicense and Python-2.0. The
+  same decision explicitly confirmed MIT-0, Zlib and CDLA-Permissive-2.0.
 - **MPL-2.0 only unmodified.** File-level copyleft: the dependency may be used as published (including via a lockfile
   pin), never forked or patched in this repository. The script prints a note for every package that relies on it.
   A `patchedDependencies` entry for an MPL-2.0 package needs a review and an exception.
 - **Forbidden:** GPL, AGPL, SSPL and other strong-copyleft or source-available licences, unless an `OR` alternative is
   allowed.
 - **Unknown is an error:** a missing `license` field, `UNLICENSED`, `SEE LICENSE IN ...`, a custom text or an expression
-  that does not parse. Anything else that is simply not on the list (for example `Zlib`) is reported as `NOT-LISTED`
-  and also fails until the list is extended or an exception is recorded.
+  that does not parse. Anything else that is simply not on the list (for example `LGPL-3.0-or-later`) is reported as
+  `NOT-LISTED` and also fails until the list is extended or an exception is recorded.
 
 ## Exceptions
 
@@ -63,14 +67,15 @@ Approved exceptions live in `docs/dependency-exceptions.json`, never in the scri
       "name": "example-crate",
       "version": "1.2.3",
       "license": "LGPL-3.0-or-later OR custom",
-      "reason": "Why this is acceptable, who approved it, and what would end the exception."
+      "reason": "Why this is acceptable, who approved it, and what would end the exception.",
+      "expires": "2027-01-01"
     }
   ]
 }
 ```
 
-- `ecosystem`, `name`, `license` and `reason` are required; `version` is optional (omitted or `"*"` covers every
-  version).
+- `ecosystem`, `name`, `license`, `reason` and `expires` are required; `version` is optional (omitted or `"*"` covers
+  every version).
 - `license` must equal the licence string the package declares today. If the package's licence changes, the exception
   stops applying and the package fails again, so a relicensing cannot slip through.
 - An exception that matches no dependency is printed as a stale-exception warning.
@@ -134,31 +139,51 @@ Only an advisory actually found exits 1. Python advisories are not wired.
 | 2 | usage error, unreadable or malformed policy / exceptions file |
 | 3 | an ecosystem could not be collected (`--allow-incomplete` turns this into a warning) |
 
-## Advisory licence job (GP5 S4)
+## Licence job (GP5 S4)
 
-`.github/workflows/dependency-licenses.yml` runs a separate **non-blocking** job on dependency,
-policy and auditor PR changes, every main push, weekly and manually. It is not a required check
-and does not replace `release-quality` or change the existing advisory gate. No user-document-only
-PR starts it. Every action uses an immutable commit SHA with its version comment.
+`.github/workflows/dependency-licenses.yml` checks the licences on every pull request and merge
+group, on every main push, weekly and manually. Its check `dependency-licenses-gate` is required
+(owner decision of 2026-10-28, below). It does not replace `release-quality` or change the existing
+advisory gate. Every action uses an immutable commit SHA with its version comment.
 
-The job performs a frozen workspace install, then runs `node scripts/audit-deps.mjs --json`.
-The `dependency-licenses` artifact retains `licenses.json`, `errors.txt` and `exit-code.txt` for
-14 days. Collection and upload run even after an earlier failure. A non-zero auditor exit is
-preserved in the job and artifact; `continue-on-error` at job scope keeps the result advisory.
+The workflow starts on every pull request, without a paths filter, so that the gate always
+reports. Its `changes` job (`scripts/ci/license-changes.mjs`) selects the platform legs only when
+the pull request touches an input of the report: a `package.json`, `pnpm-lock.yaml`, a `Cargo.toml`
+or `Cargo.lock`, a `pyproject.toml`, the Hermes provider, the policy and exception files, the
+auditor, or the workflow and its selection. The gate fails unless the selection ran and either every
+selected leg passed or no leg was selected.
+
+The legs run on `ubuntu-24.04`, `macos-15` and `windows-2025`, because pnpm installs different
+native packages on each platform. A main push runs only the Linux leg: the pull request that
+changed a dependency has already run all three. The macOS leg can run on the owner's macOS VM
+runner instead (`docs/ci.md`, "Self-hosted macOS runner"), same platform, same native packages.
+
+Each leg performs a frozen workspace install, then runs `node scripts/audit-deps.mjs --json`.
+Its `dependency-licenses-<os>` artifact retains `licenses.json`, `errors.txt` and `exit-code.txt` for
+14 days. Collection and upload run even after an earlier failure. A non-zero auditor exit fails the
+leg and with it the gate; the artifact keeps the report.
 Missing ecosystems remain visible as incomplete; the job never passes `--allow-incomplete`.
 Python packages are not installed by this job, so their missing licence metadata may be reported
 as incomplete/unknown. Root and desktop Cargo metadata use the pinned Rust 1.95 toolchain.
 No report contents are copied into an executable workflow command or used as an approval.
 
+By the owner decision of 2026-10-28 the job became required once all three legs had run green.
+They did on the pull request that added the macOS and Windows legs (#798), and the Linux leg again
+on the following main push. Since then the job has no `continue-on-error`, and `CLAUDE.md` lists
+`dependency-licenses-gate` among the checks that decide a merge. Branch protection requires the
+gate, not the three legs: a pull request without dependency changes skips them, and a required
+check that never reports would block it.
+
 ### Licence exception format
 
-[dependency-exceptions.json](dependency-exceptions.json) is still empty. Its format is described by
+[dependency-exceptions.json](dependency-exceptions.json) holds the owner-approved entries. Its format is described by
 [dependency-exceptions.schema.json](dependency-exceptions.schema.json). An owner-approved entry
 requires `ecosystem`, `name`, `license`, a non-empty `reason` and `expires` (`YYYY-MM-DD` UTC);
 `version` can narrow it to an exact dependency version. Expiry is exclusive at 00:00 UTC.
 The CLI rejects malformed calendar dates and expired entries before collecting dependencies;
-expiry is an error even when the dependency disappeared. No auto-renewal is provided. This file
-is separate from the vulnerability exceptions in `audit-allowlist.json`.
+expiry is an error even when the dependency disappeared. No auto-renewal is provided. An entry
+for a package that a platform does not install is reported there as a stale-exception warning,
+not an error. This file is separate from the vulnerability exceptions in `audit-allowlist.json`.
 
 Example shape only (not an approved exception):
 
@@ -173,16 +198,47 @@ Example shape only (not an approved exception):
 }
 ```
 
-### Open owner decisions
+### Licence decisions of 2026-10-28
 
-None of the following is approved or added to either exception file by S4.
+The owner decided the cases the S4 report left open:
 
-| Case | Decision and recommendation |
+| Case | Decision |
 |---|---|
-| `@img/sharp-libvips-*` / `sharp-win32-*`, LGPL-3.0-or-later via `@huggingface/transformers` | Decide after checking the actual distributed native artifacts and applicable source/notice/relinking requirements. Recommendation: keep the finding visible and require a distribution review before approving a narrow, expiring exception or changing the dependency. This report alone does not establish compliance. |
-| `nostr-tools`, Unlicense | Decide whether to include this licence in the approved policy or approve a package/version-specific exception. Recommendation: make that an explicit owner policy decision; do not silently broaden the allow-list. |
-| Desktop `zbus_names`, `zvariant_derive`, unmaintained | These are maintenance advisories, not licence approvals. Recommendation: track the upstream zbus migration and its desktop compatibility separately; do not suppress them through the licence exception file. |
-| Make licence CI blocking | Recommendation: keep it advisory until the above decisions, reproducible metadata on distributed targets and incomplete Python collection are resolved. Then enable a separate required check through an explicit owner decision. |
+| `@img/sharp-libvips-*` and `@img/sharp-win32-*`, LGPL-3.0-or-later, via sharp and `@huggingface/transformers` | A narrow, expiring exception in `dependency-exceptions.json` (below). |
+| `nostr-tools`, Unlicense | Unlicense is on the allow-list. |
+| Python-2.0 (`argparse`), MIT-0, Zlib, CDLA-Permissive-2.0 | All four are on the allow-list; MIT-0, Zlib and CDLA-Permissive-2.0 had already been added on 2026-10-24. |
+| Make licence CI blocking | After clean runs: the licence job runs on Linux, macOS and Windows and became required, through `dependency-licenses-gate`, once all three were green (above). |
+
+The libvips exception covers exactly these packages at their locked versions, until 2027-04-28:
+
+- `@img/sharp-libvips-linux-x64`, `-linux-arm64`, `-linuxmusl-x64`, `-linuxmusl-arm64` and `-darwin-arm64`
+  1.3.4 (`LGPL-3.0-or-later`): the libvips builds of the Linux and macOS release targets. On Linux pnpm installs
+  the musl build beside the glibc one.
+- `@img/sharp-win32-x64` and `@img/sharp-win32-arm64` 0.35.5 (`Apache-2.0 AND LGPL-3.0-or-later`): sharp for the
+  Windows release targets, which bundles the libvips DLLs.
+
+Its conditions:
+
+- sharp loads the prebuilt library dynamically, so it stays replaceable.
+- `THIRD_PARTY-LICENSES.txt` carries the texts of the GNU LGPL version 3 and the GNU GPL version 3 for every
+  LGPL-3.0 package, and for these packages also where the libvips source is. The libvips packages ship no licence
+  file of their own, so `scripts/release/third-party.mjs` supplies the texts from `scripts/release/licence-texts/`
+  and marks them as supplied.
+- Another version, or a platform that is not listed, fails the check until the owner extends the exception.
+
+A correction to the question the owner answered: sharp does not go away with Phase 3 of the Rust engine. Phase 3
+removes only the engine's dependency on `@huggingface/transformers`; the core keeps that closure, sharp included, as
+an optional dependency for local Florence-2 captions (`docs/superpowers/plans/2026-10-23-rust-engine-rewrite.md`,
+§2.5 and RE-11). At expiry the owner renews the exception or decides on another way.
+
+Still open:
+
+- The notices say where the upstream source is; the release does not mirror the corresponding source. Under GPL-3.0
+  §6(d), which the LGPL incorporates, the distributor stays responsible for its availability. Mirroring it with the
+  release assets would change the release pipeline and needs an owner decision.
+- Desktop `zbus_names` and `zvariant_derive` (unmaintained): maintenance advisories, not licence approvals. Track the
+  upstream zbus migration and its desktop compatibility separately; do not suppress them through the licence
+  exception file.
 
 S4 does not change the existing `release-quality` merge requirements or any active security
 exception. Licence-policy acceptance and native release qualification remain distinct checks.
@@ -196,4 +252,5 @@ the current allow-list reports Python-2.0 (`argparse`), MIT-0 (`borrow-or-share`
 (`foldhash`, `zlib-rs`) and CDLA-Permissive-2.0 (`webpki-root-certs`, `webpki-roots`).
 Several rows appear in both Cargo workspaces. These are unlisted-policy findings, not a claim
 that each licence is forbidden. None was silently approved, suppressed or added as an exception.
-The advisory job exposes the full target-specific report for the owner policy review.
+The licence job exposes the full target-specific report for the owner policy review. The licence
+decisions of 2026-10-28 above settle these findings.

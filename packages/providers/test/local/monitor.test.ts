@@ -5,6 +5,7 @@ import { guardLocalAdapter, LocalEndpointMonitor } from "../../src/local/index.t
 import { ProviderRouter } from "../../src/router/index.ts";
 import type { StreamingAdapter } from "../../src/router/types.ts";
 import type { ChatRequest, ChatStreamEvent } from "../../src/types.ts";
+import { until } from "../helpers/stub.ts";
 import { FakeClock, REQ, cand, drain } from "../router/helpers.ts";
 
 const T = { timeout: 15_000 };
@@ -103,7 +104,7 @@ describe("LocalEndpointMonitor", () => {
     st.up = false;
     monitor.refreshInBackground();
     // Wait for the event (the status leaving "unknown"), not for a fixed time: the fake fetch settles within a few ticks.
-    while (monitor.status("lm")?.status === "unknown") await new Promise<void>((ok) => setImmediate(ok));
+    assert.ok(await until(() => monitor.status("lm")?.status !== "unknown", 10_000), "the background refresh never left \"unknown\"");
     assert.equal(monitor.status("lm")?.status, "unavailable");
   });
 

@@ -6,7 +6,7 @@ use serde_json::{json, Map, Value};
 /// The RPC schema, the single source for both languages.
 pub const SCHEMA_JSON: &str = include_str!("../../../packages/rpc-schema/schema/rpc.schema.json");
 
-/// Builds the `Capabilities` value `server` (`"core"`, `"supervisor"` or `"module"`) advertises in its handshake. The schema is
+/// Builds the `Capabilities` value `server` (`"core"`, `"supervisor"`, `"module"` or `"engine"`) advertises in its handshake. The schema is
 /// parsed on every call: this runs once per supervisor start, never on the CLI's start-up path.
 pub fn capabilities(server: &str, features: &[&str]) -> Value {
     let schema: Value = serde_json::from_str(SCHEMA_JSON).expect("rpc.schema.json parses");
@@ -14,7 +14,20 @@ pub fn capabilities(server: &str, features: &[&str]) -> Value {
         defs.as_object()
             .expect("$defs/methods and $defs/notifications are objects")
             .iter()
-            .filter(|(_, def)| def["x-server"].as_str().unwrap_or("core") == server)
+            .filter_map(|(name, def)| {
+                // The deprecated Core emitter keeps its original schema and metadata. The engine
+                // transport uses the additive projection declared on that same wire name.
+                let served = if server == "engine" {
+                    def.get("x-engine-notification").unwrap_or(def)
+                } else {
+                    def
+                };
+                let feature_on = served["x-feature"]
+                    .as_str()
+                    .is_none_or(|feature| features.contains(&feature));
+                (served["x-server"].as_str().unwrap_or("core") == server && feature_on)
+                    .then_some((name, served))
+            })
             .map(|(name, def)| {
                 let mut entry = Map::new();
                 entry.insert("stability".into(), def["x-stability"].clone());
