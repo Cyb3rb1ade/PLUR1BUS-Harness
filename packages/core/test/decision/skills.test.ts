@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { defaults } from '@plur1bus/config-schema';
 import { DecisionClient } from '../../src/decision/client.ts';
 import { ruleSkills, selectDecisionSkills } from '../../src/decision/skills.ts';
-const candidates=['rust','media','docs','tests'].map(id=>({id:`skill:${id}`,name:id,description:`help with ${id}`}));
+const candidates=['rust','media','docs','tests'].map(id=>({id:`skill:${id}`,name:id,description:`help with ${id}`,confidence:.9}));
 const context=()=>({agentId:'a',sessionId:'s',principal:'p',signal:new AbortController().signal});
 type Mode='good'|'none'|'uncertain'|'absent'|'spread'|'second';
 /** One scripted role. `spread` splits the probability 0.5/0.3/0.2 over the first three options, `second` picks the second candidate. */
@@ -25,12 +25,22 @@ test('without a decision model the rule shortlist top-3 stands, pins first, bloc
   assert.deepEqual(names(pinned),['tests','media','docs']);assert.deepEqual(pinned.map(p=>p.source),['pinned','rule','rule']);
   assert.deepEqual(names(ruleSkills({query:'x',candidates,pinned:['rust','docs'],blocked:['rust']})),['docs','media','tests']);
 });
-test('an uncertain answer falls back to the rule shortlist top-3 and a certain "none" adds nothing',async()=>{
+test('an uncertain answer only keeps pins and a certain "none" adds nothing',async()=>{
   const u=client('uncertain');
   const result=await selectDecisionSkills(u.value,{query:'hi',candidates,pinned:['docs']},context());
-  assert.equal(u.calls,1);assert.deepEqual(names(result),['docs','rust','media']);assert.deepEqual(result.map(r=>r.source),['pinned','rule','rule']);
+  assert.equal(u.calls,1);assert.deepEqual(names(result),['docs']);assert.deepEqual(result.map(r=>r.source),['pinned']);
+  assert.deepEqual(await selectDecisionSkills(u.value,{query:'hi',candidates},context()),[]);
   const n=client('none');
   assert.deepEqual(names(await selectDecisionSkills(n.value,{query:'hi',candidates,pinned:['docs']},context())),['docs']);assert.equal(n.calls,1);
+});
+test('rules inject only ranked candidates above the relevance floor while pins remain authoritative',()=>{
+  const scored = candidates.map((candidate,index)=>({...candidate,confidence:[.19,.2,.9,0][index]!}));
+  assert.deepEqual(names(ruleSkills({query:'x',candidates:scored})),['media','docs']);
+  assert.deepEqual(names(ruleSkills({query:'x',candidates:scored,pinned:['rust','tests'],blocked:['tests']})),['rust','media','docs']);
+  const unscored = candidates.map(({confidence: _confidence,...candidate})=>candidate);
+  assert.deepEqual(ruleSkills({query:'x',candidates:unscored}),[]);
+  assert.deepEqual(names(ruleSkills({query:'x',candidates:unscored,pinned:['docs']})),['docs']);
+  assert.deepEqual(ruleSkills({query:'x',candidates:candidates.map((candidate,index)=>({...candidate,confidence:[NaN,Infinity,-1,0][index]!}))}),[]);
 });
 test('a decision refines the shortlist with ONE call: the winner and every skill with enough probability, only those plus pins',async()=>{
   const single=client('second');
@@ -57,4 +67,13 @@ test('a timed-out decision falls back to the rule shortlist top-3 inside the ski
   const started=performance.now();
   const result=await selectDecisionSkills(c,{query:'task',candidates,maxMs:20},context());
   assert.ok(performance.now()-started<150);assert.equal(calls,1);assert.deepEqual(names(result),['rust','media','docs']);assert.ok(result.every(r=>r.source==='rule'));
+});
+test('default skill budgets admit a routed model response beyond the old local-only deadline',async()=>{
+  const c=new DecisionClient({config:()=>defaults(),backends:{role:{local:()=>true,async run(req){
+    await new Promise(resolve=>setTimeout(resolve,250));
+    const ids=req.options!.map(option=>option.id),id=ids[0]!;
+    return{id,probabilities:Object.fromEntries(ids.map(option=>[option,option===id?1:0])),confidence:.9};
+  }}}});
+  const result=await selectDecisionSkills(c,{query:'rust task',candidates},context());
+  assert.deepEqual(names(result),['rust']);assert.equal(result[0]!.source,'decision');
 });

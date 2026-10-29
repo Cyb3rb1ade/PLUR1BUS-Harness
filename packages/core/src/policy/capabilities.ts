@@ -71,6 +71,9 @@ const TABLE: readonly CapabilityDef[] = [
   def({ id: "apps.launch", covers: "apps.open/focus, hostctl.app.open", intrinsicEffect: "local-write", base: same(P), ceiling: "once", minSurface: 2, baseRisk: "medium" }),
   def({ id: "fs.read", covers: "fs.list/stat/read/search", intrinsicEffect: "read", base: { inside: A, outside: P }, ceiling: "always", minSurface: 1, baseRisk: "low" }),
   def({ id: "fs.write", covers: "fs.write/edit/mkdir/copy/move, fs.trash inside roots", intrinsicEffect: "local-write", base: { inside: A, outside: P }, ceiling: "always", minSurface: 1, baseRisk: "low" }),
+  // N-F1: explicit memory tools retain the identity/session and channel gates of automatic memory operations.
+  def({ id: "memory.read", covers: "memory.recall within the admitted caller and agent", intrinsicEffect: "read", base: same(A), ceiling: null, minSurface: null, baseRisk: "low" }),
+  def({ id: "memory.write", covers: "memory.capture within the admitted caller and session", intrinsicEffect: "local-write", base: same(A), ceiling: "always", minSurface: 2, baseRisk: "low" }),
   def({ id: "fs.delete", covers: "fs.delete, fs.trash outside roots", intrinsicEffect: "local-destructive", base: same(P), ceiling: "task", minSurface: 2, baseRisk: "high" }),
   def({ id: "shell.exec", covers: "shell.*, skill scripts", intrinsicEffect: "local-write", base: same(P), ceiling: "always", minSurface: 2, baseRisk: "medium" }),
   def({ id: "proc.signal", covers: "proc.signal/kill, apps.quit with unsaved state", intrinsicEffect: "local-destructive", base: same(P), ceiling: "session", minSurface: 2, baseRisk: "medium" }),

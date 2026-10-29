@@ -28,6 +28,9 @@ Repository evidence at `31f8dd62cb1bf022ae99cae58a9538e38df5c918`:
   [ADR-016 §6](ADR-016-api-stability-and-versioning.md#6-events-are-harness-owned), mapped events;
   [ADR-010](ADR-010-latency-and-caching.md), cached prefix versus dynamic suffix.
 
+N-D4 supersedes the historical 200 ms/core-only behaviour above: routed triage and skill decisions now default
+to 2,000 ms, with rule triage on failure. Explicit caller and installation deadlines remain authoritative.
+
 System One shapes were checked against the primary [Noul](https://docs.typesafe.ai/primitives/noul),
 [Choice](https://docs.typesafe.ai/primitives/choice) and [Score](https://docs.typesafe.ai/primitives/score)
 documentation on 2026-10-20. Noul is a yes/no probability; Choice supplies a selected key and
@@ -119,10 +122,10 @@ and stricter D116 thresholds always win; reducing a service threshold never auth
 
 | Use case | Status at baseline / planned phase | Default max ms | Confidence floor / fallback |
 |---|---|---:|---|
-| D105 message triage | role JSON exists; F2 shared execution | 200 | 0 keeps existing validator; malformed/deadline → current core-only fallback |
+| D105 message triage | role JSON through the existing router | 2000 | 0 keeps existing validator; malformed/deadline → rule triage, preserving core tools and skill discovery |
 | D30 model routing | class-profile routing exists; F5 session policy | 200 | 0.7; retain fixed or already selected session model; no mid-session change without opt-in |
 | D33 tool-output pruning | port + heuristic exists; F2 adapter, F6 three-way result | 100 | 0.7; keep originals; timeout → compaction without pruning |
-| D69 skill injection | current skill pipeline exists; F6 decision selection | 100 | 0.7; rule shortlist top-3 (keyword and local-embedding stages, as before the decision service); a decision refines it with one call; explicit pins/blocks remain authoritative; max 3 per turn including pins |
+| D69 skill loading | cached catalogue plus metadata selection | 2000 | 0.7; unavailable/late → rule picks with metadata score ≥0.2; uncertain → pins only; max 3 per turn including pins |
 | D116 placement / level | design only; C3/F7 adapter | 200 | 0.7; category placement, confidentiality **confidential**; person override wins |
 | D116 zoom recall | design only; C4/F7 adapter | 150 per level | minimum 0.35, pick at 0.6; middle → two branches; below/deadline/none → existing parallel flat recall |
 | D33-like compaction choice | compaction exists; decision enhancement pending | 200 | 0.7; existing D23 summary; no destructive edit to append-only history |
@@ -130,11 +133,32 @@ and stricter D116 thresholds always win; reducing a service threshold never auth
 Pruning cannot alter user/assistant text, last K turns (3), pending follow-ups, restored outputs,
 approval/audit evidence or uncertain pairs. `keep` preserves bytes; `truncate` retains head/tail
 and a ref marker; `drop` retains a call/status/argument-hash stub. Originals stay retrievable.
-Skill selection writes only the dynamic suffix (ADR-010). Without a decision model, with an unavailable role, an
-uncertain answer (below the configured `skills` floor) or a timeout, the rule shortlist (top 3, pins first) is injected
-exactly as before the decision service; a usable decision only refines it, in **one** call inside
-`min(decision.timeoutMs, budgets.skills)`: the answer is a probability distribution over the shortlist and `none`, the
-winner and every other skill with probability of at least 0.2 are kept (up to three including pins), and a confident `none` adds nothing.
+Skill names and full bounded author descriptions live in the byte-stable system catalogue (ADR-010).
+Selection uses metadata only: current and previous user messages plus triage task summaries. Brief continuations
+reuse the last `skills.selected` event; a new intent starts a new selection (D69). Each triage task is routed
+separately, with one skill slot per task before extras and at most three total; pins take precedence (D103).
+Multi-task turns carry a checklist of task summaries in the dynamic suffix (D105).
+
+Without a decision model, with an unavailable role or after a timeout, the rule shortlist only loads skills whose
+metadata relevance score is at least 0.2, with pins first and blocks authoritative. Missing/nonfinite scores do not
+qualify. An uncertain answer below the configured `skills` confidence floor keeps only pins; the catalogue remains
+available for explicit discovery. A usable decision refines each task shortlist in one call inside
+`min(decision.timeoutMs, budgets.skills)`: the answer distributes probability over the shortlist and `none`; the
+winner and other skills with probability at least 0.2 are kept, up to three including pins. A confident `none` adds
+nothing. Selected bodies enter history as harness-triggered `skill.load` call/result pairs after the user message,
+and a skill already loaded in the session is not loaded again.
+
+The initial metadata floor is calibrated against the separate bilingual fixture
+`packages/core/test/fixtures/turn-eval/skill-selection.json`: all six cases pass, the lowest relevant score is 2.138
+and the highest irrelevant/common-word score is 0.187. These are catalogue relevance scores, not calibrated
+probabilities; this small fixture does not establish accuracy for every catalogue or ambiguous word. The broader
+turn eval and the optional live-model eval measure selection quality as the catalogue changes.
+
+Triage failure never reduces the turn to search alone: rule triage supplies task categories, model class and effort.
+Active-task model class and effort remain fixed until the explicit boundary, including during fallback. A valid
+`chat` judgement retains the agent's default model, core tools and skill catalogue. Decision and summarize roles
+remain tool-free. The 2,000 ms default allows a routed provider response while existing shorter configured limits
+still bound the call; latency p50/p95 comes from the decision-service telemetry.
 The pruning confidence floor is `decision.confidence.pruning`; the pruner applies the same configured value as the client. Session routing records model and reason;
 its tier list also defines failover. None of these decisions grants permissions or bypasses D109.
 
@@ -143,8 +167,8 @@ its tier list also defines failover. None of these decisions grants permissions 
 `decision` is a closed namespace. Every field is `x-restart: live`, `x-tier: advanced`:
 
 - `backend`: `role|laya|kev|jev|auto`, default `role`.
-- `timeoutMs`: integer 1–60,000, default 200; retains the existing D105 key.
-- `budgets`: `triage:200`, `routing:200`, `pruning:100`, `skills:100`, `placement:200`, `zoom:150`,
+- `timeoutMs`: integer 1–60,000, default 2000; retains the existing D105 key.
+- `budgets`: `triage:2000`, `routing:200`, `pruning:100`, `skills:2000`, `placement:200`, `zoom:150`,
   `compaction:200`, each integer 1–60,000. Effective deadline uses the minimum above.
 - `confidence`: `triage:0`, `routing:0.7`, `pruning:0.7`, `skills:0.7`, `placement:0.7`, `zoom:0.35`,
   `compaction:0.7`, each finite [0,1]. D116's own pair/pick and disclosure thresholds remain binding.

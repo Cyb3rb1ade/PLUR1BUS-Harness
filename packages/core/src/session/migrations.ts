@@ -128,6 +128,22 @@ export const MIGRATIONS: readonly string[] = [
    ALTER TABLE tool_visibility ADD COLUMN confidence REAL;
    ALTER TABLE tool_visibility ADD COLUMN tokens_saved INTEGER NOT NULL DEFAULT 0;
    ALTER TABLE tool_visibility ADD COLUMN refetches INTEGER NOT NULL DEFAULT 0;`,
+  // v7: applyAt=next-session freezes authored skill catalogue bytes independently of the memory snapshot.
+  `CREATE TABLE skill_catalogue_snapshots (
+    session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+    catalogue TEXT NOT NULL
+  );
+  CREATE INDEX idx_skill_load_calls ON events(session_id,turn_id,json_extract(data,'$.id'),seq)
+    WHERE type='tool.call' AND json_extract(data,'$.name')='skill.load';`,
+  // v8: only canonical tool names and their admission order survive a remembered session restart.
+  `CREATE TABLE session_tool_offers (
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    name TEXT NOT NULL CHECK(name='sys.startupItems' OR
+      (length(name) BETWEEN 1 AND 64 AND name GLOB '[a-z]*' AND name NOT GLOB '*[^a-z0-9_.-]*')),
+    ordinal INTEGER NOT NULL CHECK(ordinal>=0 AND ordinal<128),
+    PRIMARY KEY(session_id,name),
+    UNIQUE(session_id,ordinal)
+  );`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
