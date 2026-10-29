@@ -20,6 +20,8 @@ The explicit-agent control plane remains outside this worker context: authentica
 
 The Agents UI publishes the per-agent/process-global categories in English and German.
 
+An external ACP agent does not share the caller's tool process. Its file and terminal calls are limited to the provisioned worktree. Seatbelt denies new hard links. A regular file that already has more than one name refuses the session and `terminal/create`. The measurement and the residual (a process outside the sandbox) are in `docs/research/2026-10-29-m6b-external-agent-spike.md`.
+
 ## Creation protocol
 
 `agent.create` accepts an optional idempotency key. The browser always supplies one key per attempt and reuses it after a lost response. Keys are bound to the authenticated actor and canonical request digest. Reusing a key for different input returns `E_CONFLICT`; a completed retry returns the original agent ID and `replayed: true`.

@@ -25,6 +25,14 @@ error text or a credential (a test pins this). A line over 1 MiB is answered onc
 Prompt blocks: `text` and `resource_link` are used; every other block type is refused with `-32602`
 (`reason: unsupported-content-block`), never dropped silently.
 
+## Client side
+
+The harness is also an ACP client for an external coding agent (`packages/core/src/external-agents/acp-client.ts`). Same schema v1, same line framing, no SDK (owner 2026-10-29). The client sends `initialize` (capabilities `fs.readTextFile`, `fs.writeTextFile`, `terminal`), `session/new` (`cwd` is the provisioned worktree, `mcpServers` is empty until package P), `session/prompt` and `session/cancel`. A `protocolVersion` other than 1 is refused.
+
+`session/update` is appended to a harness session whose `origin` is `acp-agent`. `session/request_permission` becomes a D109 approval for subject `acp-agent`; without a person the answer is a denial. `fs/*` and `terminal/*` run only through worktree containment. Unknown methods get `-32601`. Unknown notifications are ignored and counted. A line over 1 MiB, too many open requests, or more than 200 updates in one turn fails the exchange. `initialize` and `session/new` do not carry memory content. `memoryExposure.acp` is package P's channel and is not placed on those messages.
+
+The agent-side table above is unchanged: `plur1bus acp serve` still does not implement `request_permission`, `fs/*` or `terminal/*`.
+
 ## Rulings (A1)
 
 - **No SDK.** The ACP v1 surface needed here is five methods; it is hand-written against the schema instead of adding

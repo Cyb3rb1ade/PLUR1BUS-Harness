@@ -1,6 +1,14 @@
 # ADR-011: External coding agents
 
-**Status:** Accepted (2026-09-22; amended 2026-10-07: implemented as `agent-bridge` connectors, connector catalogue) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D5, D6, D11; `docs/phase0/auftrag-original-2026-09-21.md` §7, §8, §10, §11, §12 (M6), §13 Q3; `docs/phase0/research/protocols-channels-coding-clis.md` (Coding CLIs, ACP ecosystem, minimum-viable adapter strategy); `docs/phase0/research/providers-chat-auth-caching.md` (subscription-login policy); `docs/phase0/research/hermes-learnings-and-import.md` A2, A12; `docs/phase0/research/harness-engineering-state-of-the-art.md` §5; local repos `agent-client-protocol@bba7ddf`, `buzz@77729ab`; ADR-003, ADR-005, ADR-008
+**Status:** Accepted (2026-09-22; amended 2026-10-07: implemented as `agent-bridge` connectors, connector catalogue; amended 2026-10-29: own ACP client, no SDK) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D5, D6, D11; `docs/phase0/auftrag-original-2026-09-21.md` §7, §8, §10, §11, §12 (M6), §13 Q3; `docs/phase0/research/protocols-channels-coding-clis.md` (Coding CLIs, ACP ecosystem, minimum-viable adapter strategy); `docs/phase0/research/providers-chat-auth-caching.md` (subscription-login policy); `docs/phase0/research/hermes-learnings-and-import.md` A2, A12; `docs/phase0/research/harness-engineering-state-of-the-art.md` §5; local repos `agent-client-protocol@bba7ddf`, `buzz@77729ab`; ADR-003, ADR-005, ADR-008
+
+## Amendment 2026-10-29 (owner)
+
+The ACP client is hand-written in `packages/core/src/external-agents/acp-client.ts`. There is no `@agentclientprotocol/sdk`. Protocol version is 1. The client speaks `initialize`, `session/new`, `session/prompt` and `session/cancel`. Agent requests for `session/request_permission`, `fs/read_text_file`, `fs/write_text_file` and `terminal/*` go through D109 (subject `acp-agent`) and the worktree sandbox. `mcpServers` stays empty until package P.
+
+Tier 1 is what this slice builds, and CI runs it against a stub. Tiers 2 and 3 are not built. The nightly matrix against the real CLIs (Claude Code ACP adapter, `codex-acp`, Goose, agy) is a follow-up, not part of this acceptance. One git implementation provisions worktrees (`fork`, `remove`, `status`). `mergePreview`, `merge` and `revert` stay with M5+.
+
+Hard links are an attack on a path-checked sandbox. The Seatbelt profile denies `file-link` outright, because a source-only filter could not be shown on this Mac. Existing links (`nlink > 1`) refuse the session and `terminal/create`. Details and the residual (a process outside the sandbox) are in `docs/research/2026-10-29-m6b-external-agent-spike.md`.
 
 ## Context
 
