@@ -76,13 +76,14 @@ export function createMemoryTools(memory: TurnMemory, req: ChatRequest): ToolDef
           throw new MemoryToolError("memory-read-only", "Memory capture is unavailable in a read-only review.");
         }
         // TurnMemory owns the shutdown capture signal and channel content/provenance rules (R19, ADR-003).
-        await memory.capture({
+        const outcome = await memory.capture({
           ...identity, sessionId, turnId: `${turnId ?? sessionId}:memory:${++captures}`, incognito: false,
           messages: [{ role: "assistant", content: (args as { text: string }).text }],
         });
         requestSignal.throwIfAborted();
         ctx.signal.throwIfAborted();
-        return { submitted: true };
+        // The model is told only what happened: submitted to the engine, or not and a fixed reason (no policy text).
+        return outcome && outcome.submitted === false ? { submitted: false, reason: outcome.reason } : { submitted: true };
       },
     },
   ];

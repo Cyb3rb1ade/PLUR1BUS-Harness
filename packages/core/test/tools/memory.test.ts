@@ -195,3 +195,40 @@ it("the real memory port retains ALS identity and channel restrictions for expli
   assert.match(JSON.stringify(logs), /channel.capture.provenance/);
   assert.equal(JSON.stringify(logs).includes("private group body"), false);
 });
+
+it("N2/7: memory.capture says so when the port did not hand the text to the engine", async () => {
+  const workspace = tempDir("n2-memory-submit-");
+  const engineCaptures: unknown[] = [];
+  let stopping = false;
+  const logs: unknown[] = [];
+  const logger: HarnessLogger = {
+    debug() {}, warn(...args) { logs.push(args); }, error() {}, setLevel() {}, setRotation() {},
+    info(...args) { logs.push(args); }, child() { return this; }, async close() {},
+  };
+  const port = engineTurnMemory({
+    engine: { capture(args: unknown) { engineCaptures.push(args); return { id: "capture", done: Promise.resolve({ stored: 1, skipped: 0 }) }; } } as never,
+    config: defaults,
+    agents: { list: () => ["agent"], has: () => true, scaffold: () => {}, workspaceOf: () => workspace },
+    logger, captureSignal: new AbortController().signal, isStopping: () => stopping,
+  });
+  const req = rig().req;
+  const capture = createMemoryTools(port, req).find(tool => tool.name === "memory.capture")!;
+  const ctx = { agentId: "agent", sessionId: "session", principal: "principal", signal: req.signal };
+  const submit = (text: string) => runWithAgentScope(scopeFor("agent", workspace), () => capture.execute({ text }, ctx));
+  const under = (set: Parameters<typeof resolveBehaviour>[0], context: Parameters<typeof resolveBehaviour>[1], text: string) =>
+    channelBehaviour.run(resolveBehaviour(set, context).profile, () => submit(text));
+
+  assert.deepEqual(await submit("a decision"), { submitted: true });
+  assert.equal(engineCaptures.length, 1);
+  const refusals = [
+    ["channel policy none", await under({ default: { memory: { capture: "none" } } }, { channel: "cli", chatKind: "direct" }, "none body"), "channel-policy"],
+    ["channel policy provenance-only", await under({}, { channel: "matrix", chatKind: "group" }, "group body"), "channel-policy"],
+    ["scope not allowed", await under({ default: { memory: { allowedScopes: ["agent-private"] } } }, { channel: "cli", chatKind: "direct" }, "scope body"), "scope-not-permitted"],
+  ] as const;
+  stopping = true;
+  const afterStop = await submit("late body");
+  for (const [label, result, reason] of refusals) assert.deepEqual(result, { submitted: false, reason }, label);
+  assert.deepEqual(afterStop, { submitted: false, reason: "core-stopping" });
+  assert.equal(engineCaptures.length, 1, "none of the refused texts reached the engine");
+  assert.doesNotMatch(JSON.stringify([refusals, afterStop]), /body|policy-/);
+});
