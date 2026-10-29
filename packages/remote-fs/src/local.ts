@@ -1,30 +1,29 @@
 /** Local source reads with explicit confined or native authority; handles close even when a deadline wins. */
-import { constants, realpath as walkRealpath, type Stats } from "node:fs";
-import { open, opendir, realpath as nativeRealpath, readlink, stat, lstat } from "node:fs/promises";
-import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
-import { promisify } from "node:util";
+import { constants, type Dirent, type Stats } from "node:fs";
+import { open, opendir, realpath, readlink, stat, lstat } from "node:fs/promises";
+import { basename, dirname, isAbsolute, relative, resolve, sep, win32 } from "node:path";
 import { FsBudget } from "./budget.ts";
 import { localSourceRelativePath } from "./local-paths.ts";
 import { RemoteFsError, type FsLimits, type FsStat, type ReadonlyFs } from "./types.ts";
 
 const WSL_SHARE = /^\\\\wsl(?:\$|\.localhost)\\/i;
+const SHARE_LINK: FsStat = Object.freeze({ type: "symlink", size: 0, mode: 0, mtimeMs: 0 });
 
 /**
- * Canonical path. Windows' native realpath (GetFinalPathNameByHandle) fails on WSL shares (`\\wsl.localhost\…`,
- * `\\wsl$\…`) although the path exists; there the lstat/readlink walk of `fs.realpath` resolves it instead. Every other
- * path, and every missing path, keeps the native answer.
+ * Windows cannot lstat a Linux symlink on a WSL share (`\\wsl.localhost\…`, `\\wsl$\…`): the call fails with EISDIR, while
+ * the share's own directory listing names the entry a link. Only for that failure the listing answers, with a link of
+ * unknown size and mode; every other error, path and platform keeps the native answer (undefined here).
  */
-export async function realpathWith(path: string, platform: NodeJS.Platform = process.platform,
-  native: (path: string) => Promise<string> = nativeRealpath,
-  walk: (path: string) => Promise<string> = promisify(walkRealpath)): Promise<string> {
-  try {
-    return await native(path);
-  } catch (error) {
-    if (platform !== "win32" || !WSL_SHARE.test(path) || (error as NodeJS.ErrnoException).code === "ENOENT") throw error;
-    return walk(path);
+export async function wslShareLinkStat(full: string, error: unknown, platform: NodeJS.Platform = process.platform,
+  list: (directory: string) => Promise<AsyncIterable<Dirent>> = opendir, check: () => void = () => {}): Promise<FsStat | undefined> {
+  if (platform !== "win32" || !WSL_SHARE.test(full) || (error as NodeJS.ErrnoException)?.code !== "EISDIR") return undefined;
+  const name = win32.basename(full);
+  for await (const entry of await list(win32.dirname(full))) {
+    check();
+    if (entry.name === name) return entry.isSymbolicLink() ? SHARE_LINK : undefined;
   }
+  return undefined;
 }
-const realpath = (path: string): Promise<string> => realpathWith(path);
 
 /** The selected source root is the only filesystem authority held by the returned object. */
 export interface LocalFsOptions {
@@ -94,7 +93,16 @@ function localFs(budget: FsBudget, authority?: { root: string; selectedRoot: str
   };
   return Object.freeze({
     stat: (path: string) => budget.operation(async () => view(await stat(await target(path)))),
-    lstat: (path: string) => budget.operation(async () => view(await lstat(await noFollowTarget(path)))),
+    lstat: (path: string) => budget.operation(async () => {
+      const full = await noFollowTarget(path);
+      try {
+        return view(await lstat(full));
+      } catch (error) {
+        const link = await wslShareLinkStat(full, error, process.platform, opendir, () => budget.check());
+        if (link) return link;
+        throw error;
+      }
+    }),
     realpath: (path: string) => budget.operation(() => target(path)),
     readlink: (path: string) => budget.operation(async () => {
       const full = await noFollowTarget(path);
