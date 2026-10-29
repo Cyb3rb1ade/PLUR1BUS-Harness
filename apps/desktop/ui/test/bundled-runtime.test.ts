@@ -1,6 +1,21 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
 import {withShell} from "./browser-harness.ts";
+test("bundled enrollment keeps extension and import grants separate and unchecked",async()=>{
+ await withShell(async page=>{
+  await page.getByRole("button",{name:"Set up a local harness",exact:true}).click();
+  await page.getByRole("button",{name:"Continue",exact:true}).click();
+  await page.getByRole("checkbox",{name:"I agree to the licences"}).check();
+  await page.getByRole("button",{name:"Continue",exact:true}).click();
+  const extensions=page.getByRole("checkbox",{name:"Allow extension review and management",exact:true});
+  const imports=page.getByRole("checkbox",{name:"Allow source snapshots and imports",exact:true});
+  assert.equal(await extensions.isChecked(),false); assert.equal(await imports.isChecked(),false);
+  await imports.check();
+  await page.getByRole("button",{name:"Continue",exact:true}).click();
+  await page.getByRole("button",{name:"Open PLUR1BUS",exact:true}).waitFor();
+  assert.deepEqual(await page.evaluate(()=>(window as any).testShell.calls.enrollments),[{runtimeId:"p1t-runtime",agreed:true,grants:{imports:true}}]);
+ },undefined,{bundled:true});
+});
 test("bundled wizard completes four actions with a runtime and retains 400px layout",async()=>{
  await withShell(async page=>{
   await page.addInitScript(()=>{(window as any).__fixtureBoot={bundled:true};});await page.reload();

@@ -1,4 +1,6 @@
 import { openSheet } from "../components/sheet.ts";
+import { enrollmentGrants } from "./enrollment-grants.ts";
+import type { EnrollmentGrants } from "../ipc.ts";
 import type { Connection, ConnectionList, ConnectionSnapshot, DesktopTransport, Paired, TransportReport, TransportView } from "../ipc.ts";
 import { element, append } from "../components/dom.ts";
 import { button } from "../components/button.ts";
@@ -8,6 +10,9 @@ import { addRemote, resetPairing, type Translate } from "./add-remote.ts";
 import { pairingFailure } from "../models/pairing-model.ts";
 import { createTransportModel, errorLine, noticeLines, originHost, publicLines, tailscaleNotice } from "../models/transport-model.ts";
 import { transportChoice } from "./transport-choice.ts";
+import { createStepUp } from "../models/stepup.ts";
+import { stepUpControls } from "./stepup.ts";
+import type { StepUpPurpose } from "../ipc.ts";
 export function connectionsView(transport: DesktopTransport, translate: Translate, snapshot: () => ConnectionSnapshot, refresh: () => Promise<void>): () => HTMLElement {
     let data: ConnectionList = { connections: [], active: null, tokenStore: null };
     let error: unknown = null;
@@ -21,6 +26,9 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
     let mount: HTMLElement | null = null;
     // Guards live here, not in a rendered button: the shell rebuilds this view on every late load.
     let nativeBusy = false, openBusy = false, removeBusy = false, renameBusy = false;
+    let nativeGrants: EnrollmentGrants = {};
+    let approvalPurpose: StepUpPurpose = "session";
+    let approval: {id: string; purpose: StepUpPurpose; model: ReturnType<typeof createStepUp>} | null = null;
     let t = translate;
     // Transport choice §7.1/§7.3: the last open's report per connection (its notices and chips), and connections
     // whose open or reconnect needs the explicit confirmation, with the fresh report that explains why.
@@ -63,6 +71,12 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
         const row = await rowFor(event.id);
         if (row) selected = row.id;
         fail(event.error);
+    });
+    void transport.stepUpRequired?.(async event => {
+        if (!["session", "extensions", "imports"].includes(event.purpose)) return;
+        const row = await rowFor(event.id);
+        if (!row) return;
+        selected = row.id; mode = "list"; approvalPurpose = event.purpose; error = null; paint();
     });
     function paired(result: Paired) { mode = "list"; repair = undefined; selected = result.connection.id; error = null; void refresh(); paint(); }
     function fail(e: unknown) { opened = false; error = e; void refresh(); paint(); }
@@ -114,12 +128,13 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
             input.maxLength = 120;
             append(label, element("span", undefined, t("pair.name")), input);
             form.append(label);
+            form.append(enrollmentGrants(nativeGrants,t));
             const submit = button(t("pair.native"), () => { }, "primary");
             submit.type = "submit";
             submit.disabled = nativeBusy;
             append(form, submit, button(t("pair.cancel"), () => { mode = "list"; paint(); }));
             form.addEventListener("submit", async (e) => { e.preventDefault(); if (nativeBusy) return; nativeBusy = true; submit.disabled = true; try {
-                const result = await transport.pairLocal(input.value);
+                const result = await transport.pairLocal(input.value,nativeGrants);
                 nativeBusy = false;
                 paired(result);
             }
@@ -135,7 +150,7 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
             return;
         }
         const actions = element("div", "connection-actions");
-        append(actions, button(t("pair.add"), () => startAdd(), "primary"), button(t("pair.native"), () => { opened = false; mode = "native"; error = null; paint(); formFocus(); }), button(t("connections.refresh"), () => void refresh()));
+        append(actions, button(t("pair.add"), () => startAdd(), "primary"), button(t("pair.native"), () => { opened = false; mode = "native"; error = null; nativeGrants={}; paint(); formFocus(); }), button(t("connections.refresh"), () => void refresh()));
         mount.append(actions);
         const layout = element("div", "connections-layout");
         const list = element("aside", "connections-side");
@@ -203,6 +218,18 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
             openButton.disabled = openBusy;
             append(buttons, openButton, button(t("pair.repair"), () => startAdd(row)), button(t("connections.rename"), () => startRename(row)), button(t("connections.remove"), () => startRemove(row)));
             main.append(buttons);
+            if (transport.stepUpBegin) {
+                const field = element("label", "field"); field.htmlFor = "native-approval-purpose";
+                const purpose = element("select"); purpose.id = "native-approval-purpose";
+                for (const value of ["session", "extensions", "imports"] as const) {
+                    const option = element("option"); option.value = value; option.textContent = t(`stepup.purpose.${value}`); purpose.append(option);
+                }
+                purpose.value = approvalPurpose;
+                purpose.addEventListener("change", () => { approvalPurpose = purpose.value as StepUpPurpose; paint(); });
+                append(field, element("span", undefined, t("stepup.purposeLabel")), purpose); main.append(field);
+                if (approval?.id !== row.id || approval.purpose !== approvalPurpose) approval = {id: row.id, purpose: approvalPurpose, model: createStepUp(row, approvalPurpose)};
+                main.append(stepUpControls(approval.model, transport, t, paint));
+            }
             append(detail, element("p", undefined, t(data.tokenStore === null ? "connections.unchecked" : data.tokenStore === "memory-only" ? "connections.memory" : "connections.keychain")), element("p", undefined, `${t("connections.device")}: ${row.tokenHint}`));
             for (const [label, value] of [["connections.currentPin", row.certPin ?? row.caPin], ["connections.observedPin", row.observedCertPin], ["connections.nextPin", row.nextCertPin ?? row.nextCaPin]] as const) {
                 if (value)

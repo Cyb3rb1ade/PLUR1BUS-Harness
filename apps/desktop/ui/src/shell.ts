@@ -1,4 +1,6 @@
 import { integrationControls } from "./views/integration-controls.ts";
+import { createExtensionUpload } from "./models/extension-upload.ts";
+import { extensionUploadView } from "./views/extension-upload.ts";
 import { advancedSettings } from "./views/settings-advanced.ts";
 import { addRemote, resetPairing } from "./views/add-remote.ts";
 import type { LinkEnvelope } from "./ipc.ts";
@@ -36,10 +38,12 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   let externalLink: LinkEnvelope | null = null;
   let pullingLink = false;
   let linkError = false;
+  let packageUpload: ReturnType<typeof createExtensionUpload> | null = null;
   /** Shared delivery point for the native pull handshake and browser fixtures. Never pairs automatically. */
   function offerLink(link: LinkEnvelope) {
     if (externalLink) return;
     externalLink = link;
+    packageUpload = link.intent.kind === "p1x" ? createExtensionUpload(link.id) : null;
     wizardVisible = false;
     linkError = false;
     resetPairing();
@@ -88,6 +92,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   let connectionStatus: import("./ipc.ts").ConnectionSnapshot = { status: "loading", data: null };
   let connectionRefresh: Promise<void> | null = null;
   const renderConnections = connectionsView(transport, t, () => connectionStatus, refreshConnections);
+  void transport.stepUpRequired?.(() => { navigate("connections"); });
   function connectionSummary() {
     if (connectionStatus.status === "loading") return t("connections.loading");
     if (connectionStatus.status === "error") return t(connectionStatus.timedOut ? "connections.loadTimeout" : "connections.loadError");
@@ -278,6 +283,9 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     if (link.intent.kind === "pair") {
       page.append(addRemote(t, transport, () => { closeLink(); void refreshConnections(); }, closeLink, undefined,
         {linkId: link.id, origin: link.intent.origin, code: link.intent.code, pin: link.intent.pin, ca: link.intent.ca}));
+    } else if (link.intent.kind === "p1x" && packageUpload && transport.extensionUpload) {
+      page.append(extensionUploadView(packageUpload, connectionStatus.data?.connections ?? [], transport, t, render));
+      const close = button(t("panel.close"), closeLink); close.disabled = packageUpload.busy; page.append(close);
     } else {
       page.append(element("p", undefined, t(linkError ? "link.noConnection" : "link.unavailable")), button(t("panel.close"), closeLink));
     }
