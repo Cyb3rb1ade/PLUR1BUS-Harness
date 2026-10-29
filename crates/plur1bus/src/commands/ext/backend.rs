@@ -346,7 +346,27 @@ pub(super) fn spool_stdin(layout: &Layout) -> Result<Spool, Failure> {
     let io = |what: &str, e: std::io::Error| {
         Failure::new("E_INTERNAL", "io", format!("{what} {}: {e}", dir.display()))
     };
-    std::fs::create_dir_all(&dir).map_err(|e| io("cannot create", e))?;
+    let mut builder = std::fs::DirBuilder::new();
+    builder.recursive(false);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        builder.mode(0o700);
+    }
+    // Backend::open has created run/. The supervisor validates inspect/ before spawning the worker, so this
+    // transport directory must already be private even under umask 0022. Existing directories still face its checks.
+    match builder.create(&dir) {
+        Ok(()) => {
+            #[cfg(windows)]
+            {
+                let user = plur1bus_rpc::win::user_sid().map_err(|e| io("cannot secure", e))?;
+                plur1bus_rpc::win::set_path_dacl(&dir, &plur1bus_rpc::acl::run_dir_sddl(&user))
+                    .map_err(|e| io("cannot secure", e))?;
+            }
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(e) => return Err(io("cannot create", e)),
+    }
     let cap = offline_config(layout)["extensions"]["limits"]["packageBytes"]
         .as_u64()
         .unwrap_or(268_435_456);

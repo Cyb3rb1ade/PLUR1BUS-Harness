@@ -60,8 +60,19 @@ impl Home {
 
     /// `run` with `bytes` on stdin.
     fn run_stdin(&self, args: &[&str], bytes: &[u8]) -> Output {
-        let mut child = self
-            .cmd()
+        let mut command = self.cmd();
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            // SAFETY: umask is async-signal-safe and changes only this child's process.
+            unsafe {
+                command.pre_exec(|| {
+                    libc::umask(0o022);
+                    Ok(())
+                });
+            }
+        }
+        let mut child = command
             .args(args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -719,11 +730,26 @@ fn install_from_stdin_works() {
         );
         assert_eq!(v["name"], "demo-skill", "online={online}: {v}");
         assert!(h.home.join("skills/demo-skill/SKILL.md").is_file());
+        assert!(entries(&h.home.join("run/inspect")).is_empty());
         let v = ok_doc(
             &h.run_stdin(&["--json", "ext", "inspect", "-"], &pkg),
             "ext.inspect/1",
         );
         assert_eq!(v["manifest"]["name"], "demo-skill");
+        let inspect = h.home.join("run/inspect");
+        let id = v["inspectionId"].as_str().unwrap();
+        assert_eq!(
+            std::fs::read(inspect.join(format!("{id}.p1x"))).unwrap(),
+            pkg
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                std::fs::metadata(&inspect).unwrap().permissions().mode() & 0o777,
+                0o700
+            );
+        }
         // The CLI's stdin spool is gone; only inspections are left in run/inspect/.
         assert!(
             entries(&h.home.join("run/inspect"))
@@ -732,6 +758,86 @@ fn install_from_stdin_works() {
             "{:?}",
             entries(&h.home.join("run/inspect"))
         );
+    }
+}
+
+/// A parser refusal removes both stdin's transport file and the worker's unfinished inspection.
+#[test]
+fn a_refused_stdin_inspection_removes_its_spools() {
+    for online in [false, true] {
+        let h = Home::new();
+        let _s = online.then(|| h.start());
+        let pkg = tamper(&skill_pkg(&h, "demo-skill"), Tamper::PayloadByte);
+        err_doc(
+            &h.run_stdin(&["--json", "skill", "install", "-", "--yes"], &pkg),
+            2,
+            "E_INVALID_PARAMS",
+            "digest-mismatch",
+        );
+        assert!(entries(&h.home.join("run/inspect")).is_empty());
+        assert!(guarded(&h.home).is_empty());
+    }
+}
+
+/// The stdin transport enforces the configured cap before inspection and removes an oversized partial copy.
+#[test]
+fn oversized_stdin_is_bounded_and_removes_its_spool() {
+    const CAP: usize = 1_048_576;
+    for online in [false, true] {
+        let h = Home::new();
+        let mut cfg = plur1bus_config::defaults();
+        cfg["extensions"]["limits"]["packageBytes"] = json!(CAP);
+        plur1bus_config::validate(&cfg).unwrap();
+        plur1bus_config::write_atomic(&h.home.join("config.json"), &cfg).unwrap();
+        let _s = online.then(|| h.start());
+        let before = guarded(&h.home);
+        err_doc(
+            &h.run_stdin(
+                &["--json", "skill", "install", "-", "--yes"],
+                &vec![0; CAP + 1],
+            ),
+            2,
+            "E_INVALID_PARAMS",
+            "download-too-large",
+        );
+        assert!(entries(&h.home.join("run/inspect")).is_empty());
+        assert_eq!(guarded(&h.home), before);
+    }
+}
+
+/// Expiry removes the worker-owned stdin inspection after the CLI's transport copy has already gone.
+#[test]
+fn an_expired_stdin_inspection_removes_its_package_and_record() {
+    for online in [false, true] {
+        let h = Home::new();
+        let _s = online.then(|| h.start());
+        let v = ok_doc(
+            &h.run_stdin(
+                &["--json", "ext", "inspect", "-"],
+                &skill_pkg(&h, "demo-skill"),
+            ),
+            "ext.inspect/1",
+        );
+        let id = v["inspectionId"].as_str().unwrap();
+        let inspect = h.home.join("run/inspect");
+        let record = inspect.join(format!("{id}.json"));
+        let package = inspect.join(format!("{id}.p1x"));
+        assert!(package.is_file());
+        let mut value: Value = serde_json::from_slice(&std::fs::read(&record).unwrap()).unwrap();
+        let transport = value["sourcePath"].as_str().unwrap();
+        assert!(
+            !Path::new(transport).exists(),
+            "stdin transport is already removed"
+        );
+        value["expiresAt"] = json!("2000-01-01T00:00:00.000Z");
+        std::fs::write(&record, serde_json::to_vec(&value).unwrap()).unwrap();
+        let o = h.run(&["ext", "__worker", "stage", "--id", id]);
+        let v = doc(&o);
+        assert_eq!(code(&o), 1, "{v}");
+        assert_eq!(v["error"]["code"], "E_NOT_FOUND", "{v}");
+        assert_eq!(v["error"]["reason"], "inspection-expired", "{v}");
+        assert!(!record.exists() && !package.exists());
+        assert!(guarded(&h.home).is_empty());
     }
 }
 
