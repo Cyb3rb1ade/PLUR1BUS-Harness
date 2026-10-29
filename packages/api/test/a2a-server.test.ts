@@ -383,3 +383,103 @@ test("M6A-A4.1: tasks/send draws on expensive rate class and audits rate-limited
     await h.close();
   }
 });
+
+test("M6A-A4.5: rejects 0.3 incoming requests with -32009 by default without legacy03 opt-in", async () => {
+  const h = await setupA2a({ legacy03: false });
+  try {
+    const { cookie } = await loginAs(h, "a2auser");
+    const a2aToken = await mintBoundToken(h, cookie, "a2a", "main");
+
+    // 1. Explicit A2A-Version: 0.3 -> -32009
+    const v03Res = await raw(h, {
+      method: "POST",
+      path: "/a2a/main",
+      headers: {
+        authorization: `Bearer ${a2aToken.token}`,
+        "a2a-version": "0.3",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "v03-1",
+        method: "message/send",
+        params: { message: { messageId: "m1", role: "user", parts: [{ text: "hi" }] } },
+      }),
+    });
+    assert.equal(v03Res.status, 200);
+    assert.equal(v03Res.json.id, "v03-1");
+    assert.equal(v03Res.json.error?.code, -32009);
+
+    // 2. Missing A2A-Version header -> -32009
+    const noHeaderRes = await raw(h, {
+      method: "POST",
+      path: "/a2a/main",
+      headers: {
+        authorization: `Bearer ${a2aToken.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "no-hdr-1",
+        method: "SendMessage",
+        params: { message: { messageId: "m2", role: "user", parts: [{ text: "hi" }] } },
+      }),
+    });
+    assert.equal(noHeaderRes.status, 200);
+    assert.equal(noHeaderRes.json.id, "no-hdr-1");
+    assert.equal(noHeaderRes.json.error?.code, -32009);
+  } finally {
+    await h.close();
+  }
+});
+
+test("M6A-A4.5: enables 0.3 compatibility when legacy03 is true and handles legacy message/send", async () => {
+  const h = await setupA2a({ legacy03: true });
+  try {
+    const { cookie } = await loginAs(h, "a2auser");
+    const a2aToken = await mintBoundToken(h, cookie, "a2a", "main");
+
+    // Legacy card contains 0.3 supportedInterfaces
+    const cardRes = await raw(h, {
+      method: "GET",
+      path: "/a2a/main/.well-known/agent-card.json",
+    });
+    assert.equal(cardRes.status, 200);
+    const versions = cardRes.json.supportedInterfaces?.map((i: { protocolVersion: string }) => i.protocolVersion);
+    assert.ok(versions.includes("1.0"));
+    assert.ok(versions.includes("0.3"));
+
+    // Legacy message/send succeeds
+    const legacyRes = await raw(h, {
+      method: "POST",
+      path: "/a2a/main",
+      headers: {
+        authorization: `Bearer ${a2aToken.token}`,
+        "a2a-version": "0.3",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "legacy-msg-1",
+        method: "message/send",
+        params: {
+          message: {
+            kind: "message",
+            messageId: "m-leg-1",
+            role: "user",
+            parts: [{ kind: "text", text: "Hello over 0.3" }],
+          },
+        },
+      }),
+    });
+
+    assert.equal(legacyRes.status, 200);
+    assert.equal(legacyRes.json.id, "legacy-msg-1");
+    assert.ok(legacyRes.json.result);
+    // Legacy result should return a completed task or message
+    const resTask = legacyRes.json.result;
+    assert.ok(resTask.id || resTask.task?.id);
+  } finally {
+    await h.close();
+  }
+});
