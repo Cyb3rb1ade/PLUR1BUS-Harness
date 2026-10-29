@@ -2,6 +2,8 @@
 export interface FsStat {
   readonly type: "file" | "directory" | "symlink" | "other";
   readonly size: number;
+  /** Portable permission bits, when the backend supplies them. */
+  readonly mode?: number;
   readonly mtimeMs?: number;
 }
 

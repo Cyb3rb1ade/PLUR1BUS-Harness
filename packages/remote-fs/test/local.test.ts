@@ -1,6 +1,6 @@
 /** Read-only source access must enforce trust and budgets before returning any contents. */
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile, symlink, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, symlink, rm, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
@@ -56,6 +56,22 @@ test("internal symlinks remain readable and their target stays inside the select
   const fs = await createLocalFs({ root });
   assert.equal(await fs.readlink("alias"), "card.md");
   assert.equal((await fs.readFile("alias", 11)).toString(), "public-card");
+}));
+
+test("an explicitly selected alias pins its canonical root once while inner links still cannot escape", async () => fixture(async (root, outside) => {
+  const alias = root + "-alias";
+  await symlink(root, alias, "junction");
+  await symlink(outside, join(root, "escape"));
+  const canonical = await realpath(root);
+  const fs = await createLocalFs({ root: alias });
+  assert.equal((await fs.readFile(join(alias, "card.md"), 11)).toString(), "public-card");
+  assert.equal(await fs.realpath(alias), canonical);
+  assert.equal((await fs.readFile(join(root, "card.md"), 11)).toString(), "public-card");
+  await assert.rejects(fs.readFile(join(alias, "escape"), 1024), { reason: "path-denied" });
+  await assert.rejects(fs.stat(alias + "-other/card.md"), { reason: "path-denied" });
+  await rm(alias);
+  await symlink(join(root, ".."), alias, "junction");
+  assert.equal((await fs.readFile(join(alias, "card.md"), 11)).toString(), "public-card", "root alias replacement never changes the pinned authority");
 }));
 
 test("depth and directory-entry limits are cumulative and deterministic", async () => fixture(async root => {

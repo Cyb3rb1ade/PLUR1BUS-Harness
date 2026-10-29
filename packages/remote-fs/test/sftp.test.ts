@@ -9,7 +9,7 @@ import { buildNative, fixture } from "./native-fixture.ts";
 before(buildNative, { timeout: 900_000 });
 
 for (const mode of ["standalone", "harness"] as const) {
-  test(`${mode}: the real worker exposes only six reads and keeps leased keys out of results`, async () => {
+  test(`${mode}: the real worker exposes only six reads and keeps leased keys out of results`, { timeout: 900_000 }, async () => {
     const host = await fixture(mode);
     try {
       const identity = await probeSftpHostKey(host.options);

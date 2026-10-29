@@ -48,11 +48,13 @@ export async function probeSftpHostKey(options: ProbeOptions): Promise<{ hostKey
 function statView(reply: Record<string, unknown>): FsStat {
   const item = reply.metadata as Record<string, unknown> | undefined;
   if (!item || !["file", "directory", "symlink", "other"].includes(item.kind as string)
+    || (item.mode !== undefined && (!Number.isInteger(item.mode) || (item.mode as number) < 0 || (item.mode as number) > 0o777))
     || !Number.isSafeInteger(item.size) || (item.size as number) < 0
     || (item.mtimeMs !== undefined && (typeof item.mtimeMs !== "number" || !Number.isFinite(item.mtimeMs)))) {
     throw new RemoteFsError("remote-protocol");
   }
   return Object.freeze({ type: item.kind as FsStat["type"], size: item.size as number,
+    ...(typeof item.mode === "number" ? { mode: item.mode } : {}),
     ...(typeof item.mtimeMs === "number" ? { mtimeMs: item.mtimeMs } : {}) });
 }
 

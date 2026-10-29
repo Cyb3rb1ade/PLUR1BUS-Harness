@@ -173,6 +173,17 @@ fn io_error(error: std::io::Error) -> StatusCode {
 }
 
 fn attributes(metadata: &std::fs::Metadata) -> FileAttributes {
+    #[cfg(unix)]
+    let permission_bits = {
+        use std::os::unix::fs::PermissionsExt;
+        metadata.permissions().mode() & 0o777
+    };
+    #[cfg(not(unix))]
+    let permission_bits = if metadata.permissions().readonly() {
+        0o444
+    } else {
+        0o666
+    };
     let kind = if metadata.is_file() {
         0o100000
     } else if metadata.is_dir() {
@@ -184,7 +195,7 @@ fn attributes(metadata: &std::fs::Metadata) -> FileAttributes {
     };
     FileAttributes {
         size: Some(metadata.len()),
-        permissions: Some(kind | 0o444),
+        permissions: Some(kind | permission_bits),
         mtime: metadata
             .modified()
             .ok()

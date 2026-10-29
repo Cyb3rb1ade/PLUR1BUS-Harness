@@ -135,6 +135,9 @@ pub struct Metadata {
     pub kind: &'static str,
     /// Declared size in bytes.
     pub size: u64,
+    /// Portable permission bits, when supplied by the SFTP server.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<u32>,
     /// Modification time, when supplied by the server.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mtime_ms: Option<u64>,

@@ -46,6 +46,7 @@ fn metadata(attrs: FileAttributes) -> Result<Metadata, Failure> {
     Ok(Metadata {
         kind,
         size,
+        mode: attrs.permissions.map(|mode| mode & 0o777),
         mtime_ms: attrs.mtime.map(|time| u64::from(time) * 1000),
     })
 }

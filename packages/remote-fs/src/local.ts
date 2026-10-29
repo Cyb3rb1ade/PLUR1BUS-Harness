@@ -16,6 +16,7 @@ function view(stats: Stats): FsStat {
   return Object.freeze({
     type: stats.isFile() ? "file" : stats.isDirectory() ? "directory" : stats.isSymbolicLink() ? "symlink" : "other",
     size: stats.size,
+    mode: stats.mode & 0o777,
     mtimeMs: stats.mtimeMs,
   });
 }
@@ -23,6 +24,7 @@ function view(stats: Stats): FsStat {
 /** Creates a frozen six-operation port, refusing escapes and nonregular reads with fixed reasons. */
 export async function createLocalFs(options: LocalFsOptions): Promise<ReadonlyFs> {
   const budget = new FsBudget(options.limits, options.signal);
+  const selectedRoot = resolve(options.root);
   const root = await budget.operation(() => realpath(options.root));
   if (!(await budget.operation(() => stat(root))).isDirectory()) throw new RemoteFsError("unsupported-type");
   const within = (path: string): string => {
@@ -34,7 +36,15 @@ export async function createLocalFs(options: LocalFsOptions): Promise<ReadonlyFs
   const lexical = (path: string): string => {
     budget.check();
     if (typeof path !== "string" || path.includes("\0") || path.length > 8192) throw new RemoteFsError("path-denied");
-    return within(resolve(root, path));
+    const full = resolve(root, path);
+    if (isAbsolute(path) && selectedRoot !== root) {
+      const selected = relative(selectedRoot, full);
+      if (selected !== ".." && !selected.startsWith(`..${sep}`) && !isAbsolute(selected)) {
+        // The explicitly selected alias is translated to the authority pinned at creation, never followed again.
+        return within(resolve(root, selected));
+      }
+    }
+    return within(full);
   };
   const target = async (path: string): Promise<string> => within(await realpath(lexical(path)));
   const noFollowTarget = async (path: string): Promise<string> => {
