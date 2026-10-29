@@ -56,13 +56,37 @@ pub struct State {
     pub(super) proofs: BTreeMap<String, Proof>,
 }
 
-pub fn busy(shared: &Shared) -> bool {
-    let state = match shared.maintenance.try_lock() {
-        Ok(state) => state,
-        Err(std::sync::TryLockError::Poisoned(error)) => error.into_inner(),
-        Err(std::sync::TryLockError::WouldBlock) => return true,
-    };
+fn reserved(state: &State) -> bool {
     state.preparing || state.pending.is_some() || state.active.is_some() || state.blocked
+}
+
+/// An idle admission reservation, held before configuration or supervisor-state locks and never across RPC waits.
+pub(super) struct Idle<'a> {
+    shared: &'a Shared,
+    _state: std::sync::MutexGuard<'a, State>,
+}
+
+impl Idle<'_> {
+    pub(super) fn shared(&self) -> &Shared {
+        self.shared
+    }
+}
+
+/// Serializes a public mutation with import admission; metadata-only readers do not manufacture a busy import.
+pub(super) fn idle(shared: &Shared) -> Result<Idle<'_>, ExtError> {
+    let state = relock(&shared.maintenance);
+    if reserved(&state) {
+        return Err(busy_error());
+    }
+    Ok(Idle {
+        shared,
+        _state: state,
+    })
+}
+
+/// Reads actual admission state. Call before acquiring config/state locks; mutations retain [`idle`] instead.
+pub fn busy(shared: &Shared) -> bool {
+    reserved(&relock(&shared.maintenance))
 }
 
 pub(super) fn owner(principal: Option<&Value>) -> Result<&str, ExtError> {

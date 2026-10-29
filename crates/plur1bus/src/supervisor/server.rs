@@ -340,10 +340,11 @@ impl ConnCtx {
     /// `daemon.start`: reset the core's backoff and ask the main thread for an immediate spawn (a no-op while the
     /// core runs). Under `--no-core` there is never a child.
     fn daemon_start(&self, id: &Value) -> Value {
+        let _idle = match super::imports::idle(&self.shared) {
+            Ok(idle) => idle,
+            Err(error) => return ext_reply(id, Err(error)),
+        };
         let mut st = self.shared.lock();
-        if super::imports::busy(&self.shared) {
-            return ext_reply(id, Err(super::imports::busy_error()));
-        }
         if st.no_core {
             return error_reply(
                 id,
@@ -1075,24 +1076,23 @@ impl ConnCtx {
                 ));
             }
         }
-        if super::imports::busy(&self.shared)
-            && matches!(
-                method,
-                "config.set"
-                    | "daemon.start"
-                    | "module.start"
-                    | "module.stop"
-                    | "module.restart"
-                    | "module.install"
-                    | "module.uninstall"
-                    | "ext.inspect"
-                    | "ext.install"
-                    | "ext.uninstall"
-                    | "ext.restore"
-                    | "ext.enable"
-                    | "ext.disable"
-                    | "admin.extensions.runtime.reconcile"
-            )
+        if matches!(
+            method,
+            "config.set"
+                | "daemon.start"
+                | "module.start"
+                | "module.stop"
+                | "module.restart"
+                | "module.install"
+                | "module.uninstall"
+                | "ext.inspect"
+                | "ext.install"
+                | "ext.uninstall"
+                | "ext.restore"
+                | "ext.enable"
+                | "ext.disable"
+                | "admin.extensions.runtime.reconcile"
+        ) && super::imports::busy(&self.shared)
         {
             return Some((
                 ext_reply(&id, Err(super::imports::busy_error())),

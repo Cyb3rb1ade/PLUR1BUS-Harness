@@ -17,6 +17,55 @@ fn fixture() -> (tempfile::TempDir, Layout, Arc<Shared>) {
 }
 
 #[test]
+fn an_idle_metadata_reader_does_not_report_import_maintenance() {
+    let (_temp, _layout, shared) = fixture();
+    let idle = relock(&shared.maintenance);
+    let (send, receive) = std::sync::mpsc::channel();
+    let reader = {
+        let shared = shared.clone();
+        std::thread::spawn(move || send.send(imports::busy(&shared)).unwrap())
+    };
+    let early = receive.recv_timeout(Duration::from_millis(50));
+    drop(idle);
+    let busy = early.unwrap_or_else(|_| receive.recv_timeout(Duration::from_secs(2)).unwrap());
+    reader.join().unwrap();
+    assert!(
+        !busy,
+        "idle maintenance metadata contention is not an admitted import"
+    );
+}
+
+#[test]
+fn a_public_config_writer_waits_for_idle_metadata_without_a_false_busy_refusal() {
+    let (_temp, layout, shared) = fixture();
+    let idle = relock(&shared.maintenance);
+    let (send, receive) = std::sync::mpsc::channel();
+    let writer = {
+        let shared = shared.clone();
+        let layout = layout.clone();
+        std::thread::spawn(move || {
+            send.send(config::set(
+                &shared,
+                &layout,
+                vec![("supervisor.graceMs".into(), json!(15000))],
+                None,
+                false,
+            ))
+            .unwrap();
+        })
+    };
+    let early = receive.recv_timeout(Duration::from_millis(50));
+    drop(idle);
+    let result = early.unwrap_or_else(|_| receive.recv_timeout(Duration::from_secs(2)).unwrap());
+    writer.join().unwrap();
+    assert!(
+        result.is_ok(),
+        "idle metadata must not refuse a valid configuration: {result:?}"
+    );
+    assert!(layout.config_path().exists());
+}
+
+#[test]
 fn public_config_writer_rechecks_the_reservation_under_its_write_lock() {
     let (_temp, layout, shared) = fixture();
     relock(&shared.maintenance).preparing = true;
