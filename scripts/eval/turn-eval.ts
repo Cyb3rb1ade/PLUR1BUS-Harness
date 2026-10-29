@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { runTurnEval } from "../../packages/core/src/toolcall/turn-eval.ts";
 import {
-  createTurnEvalAdapter, parseTurnEvalModels, turnEvalFamily, turnEvalLiveGate,
+  composeTurnEvalProviders, openTurnEvalSecrets, parseTurnEvalModels, turnEvalFamily, turnEvalHome, turnEvalLiveGate,
 } from "../../packages/core/src/toolcall/turn-eval-live.ts";
 import { TURN_EVAL_SCENARIOS } from "../../packages/core/test/fixtures/turn-eval/scenarios.ts";
 import { TURN_EVAL_POLICY_SCENARIOS } from "../../packages/core/test/fixtures/turn-eval/policy-scenarios.ts";
@@ -21,20 +21,25 @@ for (const [index, arg] of args.entries()) {
   if (!["--baseline", "--regression", "--live", "--out"].includes(arg)) throw new Error("unknown turn eval argument");
 }
 if (live) {
+  // Credentials come from the harness secret store of the eval home (written by turn-eval-secrets.ts), never from this
+  // process's environment; every profile is checked, and every provider composed, before the first scenario runs.
   const models = parseTurnEvalModels(process.env.PLUR1BUS_TURN_EVAL_MODELS);
+  const providers = composeTurnEvalProviders(models, { secrets: openTurnEvalSecrets(turnEvalHome()) });
   const reports = [];
-  for (const model of models) {
-    const adapter = createTurnEvalAdapter(model);
-    const report = await runTurnEval([...TURN_EVAL_SCENARIOS, ...TURN_EVAL_POLICY_SCENARIOS], {
-      evidence: "live", adapterForScenario: () => adapter, provider: model.provider, model: model.model,
-      family: turnEvalFamily(model), providerOptions: { isLocalProvider: () => model.local === true },
-    });
-    const gate = turnEvalLiveGate(report);
-    reports.push({ provider: model.provider, model: model.model, gate, report });
-    console.log(JSON.stringify({ provider: model.provider, model: model.model, gate,
-      metrics: report.metrics, denominators: report.denominators }, null, 2));
-    if (!gate.passed) process.exitCode = 1;
-  }
+  try {
+    for (const [index, model] of models.entries()) {
+      const adapter = providers.adapters[index]!;
+      const report = await runTurnEval([...TURN_EVAL_SCENARIOS, ...TURN_EVAL_POLICY_SCENARIOS], {
+        evidence: "live", adapterForScenario: () => adapter, provider: model.provider, model: model.model,
+        family: turnEvalFamily(model), providerOptions: { isLocalProvider: () => model.local === true },
+      });
+      const gate = turnEvalLiveGate(report);
+      reports.push({ provider: model.provider, model: model.model, gate, report });
+      console.log(JSON.stringify({ provider: model.provider, model: model.model, gate,
+        metrics: report.metrics, denominators: report.denominators }, null, 2));
+      if (!gate.passed) process.exitCode = 1;
+    }
+  } finally { providers.close(); }
   const path = resolve(output ?? "artifacts/turn-eval/live-reports.json");
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify({ schema: "plur1bus.turn-eval-models/1", reports }, null, 2)}\n`);

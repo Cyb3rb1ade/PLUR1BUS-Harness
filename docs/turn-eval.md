@@ -37,33 +37,69 @@ retroactively attributed to the original baseline.
 
 The separate `turn-eval-live` job in `nightly.yml` runs when repository variable
 `PLUR1BUS_TURN_EVAL_MODELS` is configured. An explicitly invoked `--live` command
-fails if the configuration is empty or required credentials are absent. It
-never replaces real models with fixture responses.
+fails if the configuration is empty or a credential is absent. It never replaces
+real models with fixture responses.
 
-The variable is a JSON array of at most 32 entries:
+The variable is a JSON array of at most 32 entries. It names endpoints, never
+credentials:
 
 ```json
 [
   {
-    "provider": "openai",
+    "provider": "anthropic",
     "model": "configured-default-model",
-    "baseUrl": "https://api.openai.com/v1",
-    "keyEnv": "OPENAI_API_KEY",
-    "wireFormat": "chat_completions"
+    "baseUrl": "https://api.anthropic.com",
+    "wireFormat": "anthropic_messages"
   }
 ]
 ```
 
-Supported wires are `chat_completions`, `codex_responses`,
-`anthropic_messages` and `gemini`. `keyEnv` names a credential provided to the
-job; URLs cannot contain credentials. The job exposes the configured
-`ANTHROPIC_API_KEY`, `GOOGLE_API_KEY` and generic
-`PLUR1BUS_TURN_EVAL_API_KEY` GitHub secrets. D110 keeps direct OpenAI credentials out of this scheduled job;
-OpenAI configuration requires the separate owner-approved live flow or an explicit local CLI invocation.
-Explicit `local: true` permits a
-keyless local endpoint; conservative local tool-choice capabilities still apply.
+Supported wires are `chat_completions`, `anthropic_messages` and `gemini`; a URL
+cannot contain credentials. `local: true` marks a local OpenAI-compatible endpoint
+(loopback only: the egress gate refuses private addresses) that needs no key and keeps the conservative local
+tool-choice capabilities.
+
+### Credentials come from the secret store
+
+A live run resolves credentials the way the harness does: provider definitions,
+`createCredentialsProvider` and the secret store (`composeAuth`), with the egress
+gate on every request. There is no key variable in the evaluation and no
+`process.env` read of a key. The store belongs to a short-lived eval home
+(`PLUR1BUS_TURN_EVAL_HOME`, an absolute path), and a key is stored under the name
+`plur1bus login <provider> --api-key` uses, `<provider>/api-key`.
+
+The nightly job has two steps for it. A setup step runs
+`scripts/eval/turn-eval-secrets.ts`; it is the only step that sees the GitHub secrets
+`ANTHROPIC_API_KEY` (provider `anthropic`) and `GOOGLE_API_KEY` (providers `google`
+and `gemini`) and writes them to the store. The evaluation step
+(`scripts/eval/turn-eval.ts --live`) has no secret in its environment and leases
+the key from the store. A last step removes the eval home. The setup step does not
+use `plur1bus login`, because that stores through a running core and the nightly
+would have to build the Rust CLI and the supervisor for it; it calls the store the
+core's `secret.set` uses, under the same name.
+
+The store uses its encrypted-file backend (`secrets.fileFallback`), which carries from
+one process to the next through the eval home; the OS keyring is switched off, so a
+developer's keychain is never touched. The in-memory keyring seam is process-local and
+would not carry the key from the setup step to the evaluation. A provider other than
+`anthropic`, `google` and `gemini` can only be a `local: true` endpoint; it gets a
+placeholder key because the harness always presents one.
+
+### OpenAI profiles are refused
+
+D110 keeps direct OpenAI credentials out of every scheduled job. The scheduled job
+passes only the two vendor keys above, and `--live` refuses any profile with the
+`codex_responses` wire, a `chatgpt.com` or `openai.com` endpoint (subdomains
+included) or a provider label of `openai`, `chatgpt` or `codex`, before it composes
+a provider or sends a request. OpenAI runs only through the owner-gated live flow.
+HYG-015 recognises secret names that say "openai"; `scripts/ci/nightly-live-secrets.test.mjs`
+pins which secrets each live job and step may see.
+
+For a local run, store the key first and point both scripts at one eval home:
 
 ```sh
+export PLUR1BUS_TURN_EVAL_HOME=/tmp/turn-eval-home PLUR1BUS_TURN_EVAL_MODELS='[...]'
+ANTHROPIC_API_KEY=... node --experimental-strip-types --conditions=source scripts/eval/turn-eval-secrets.ts
 node --experimental-strip-types --conditions=source scripts/eval/turn-eval.ts --live --out artifacts/turn-eval/live-reports.json
 ```
 
