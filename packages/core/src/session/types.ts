@@ -3,6 +3,9 @@
 export const SESSION_KINDS = ["direct", "card", "project", "channel", "acp"] as const;
 export type SessionKind = (typeof SESSION_KINDS)[number];
 
+export const SESSION_ORIGINS = ["mcp", "a2a", "acp-agent"] as const;
+export type SessionOrigin = (typeof SESSION_ORIGINS)[number];
+
 export type MemoryMode = "remember" | "incognito";
 export type TurnState = "running" | "completed" | "failed";
 export type MessageRole = "system" | "user" | "assistant" | "tool";
@@ -32,6 +35,8 @@ export interface SessionRecord {
   lastTurnAt: number | null;
   archivedAt: number | null;
   turnCount: number;
+  /** I1: immutable external protocol origin; omitted when internal (NULL in SQLite). */
+  origin?: SessionOrigin;
 }
 
 export interface TurnRecord {

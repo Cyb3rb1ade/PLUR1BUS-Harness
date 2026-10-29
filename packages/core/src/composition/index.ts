@@ -70,6 +70,8 @@ import { legacyAdapter } from './legacy.ts';
 import { composeMediaSearch, mediaSearchMethods } from './media-search.ts';
 import { mediaToInbox } from '../inbox/producers.ts';
 import { isLocalEndpoint, localEndpoints, localOnlyFor, localOnlyShared, LOCAL_ONLY_REASON, LOCAL_ONLY_HINT } from '../privacy/local-only.ts';
+import { subjectForOrigin } from './protocols.ts';
+import type { SessionOrigin } from '../session/types.ts';
 
 export interface CompositionOptions {
   /** Internal loopback-only System One test endpoint; never a configuration or RPC field. */
@@ -139,11 +141,18 @@ export function secretNamesPort(d: Pick<CompositionDeps, 'config' | 'secrets'>):
  * D109: the approval service's repeat-denied / prompt-cap context for one dispatched call. The permission stores are opened by
  * `beforeTools` before any dispatch; if they are not, this throws and the dispatcher refuses the call (fail closed).
  */
-export function approvalPolicyContext(permissions: Pick<PermissionRuntime, 'current'>): NonNullable<TurnProviderOptions['policyContext']> {
-  return ctx => {
+export function approvalPolicyContext(
+  permissions: Pick<PermissionRuntime, 'current'>,
+  originOf?: (sessionId: string) => SessionOrigin | null | undefined,
+): NonNullable<TurnProviderOptions['policyContext']> {
+  return (ctx, req) => {
     const opened = permissions.current();
     if (!opened) throw new Error('approval service unavailable');
-    return opened.service.policyContext()(ctx);
+    const base = opened.service.policyContext()(ctx);
+    if (!originOf) return base;
+    const sessionId = ctx.sessionId ?? req?.sessionId;
+    const kind = subjectForOrigin(sessionId ? originOf(sessionId) : undefined);
+    return { ...base, subject: base.subject ?? { kind, agentId: ctx.agentId } };
   };
 }
 /** Router events and billing refusals go to the core log and the audit log, tagged with their turn. */
@@ -355,7 +364,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       const selected=request.turnProfile ? await request.turnProfile.run('decisionService',work,ruleSkills({query:'',candidates,...selection}),signal) : await work(signal);
       if(request.turnId){const store=sessions.forSession(request.sessionId).store;const session=store.getSession(request.sessionId);if(session?.agentId===request.agentId&&session.owner===request.principal){const event=store.appendEvent(request.turnId,'skills.selected',{skills:selected.map(s=>({id:s.id,source:s.source,...('confidence' in s && s.confidence!==undefined?{confidence:s.confidence}:{})}))});d.notify('session.event',{agentId:request.agentId,event:toWireEvent(event)},{optIn:true});}}
       return selected.map(s=>s.id);
-    }, requireTriage: !!cfg.modelRoles.decision, triageTimeoutMs: typeof cfg.decision.timeoutMs === 'number' ? cfg.decision.timeoutMs : 200, profileForAgent: agent => d.config().agents[agent]?.model, capabilities, skillsForAgent: agent => d.config().agents[agent]?.skills ?? {}, profiles, reasoningFor, profile: auth?.resolved.defaultProfile ?? 'default', profileForClass: modelClass => loadClassProfiles(join(d.home, 'model-class-profiles.json'), (d.config().decision.classProfiles as Record<string, string> | undefined) ?? classProfiles)[modelClass as import('../triage/classes.ts').ModelClass], router: { profileDefaults: auth?.resolved.defaults ?? {}, unsupportedProfiles: auth?.resolved.unsupported ?? {}, ...options.providers?.router }, family: options.providers?.family ?? auth?.families ?? {}, billing: options.providers?.billing ?? auth?.billing ?? {}, cacheRoutes: auth?.cacheRoutes ?? {}, profileCache: Object.fromEntries(Object.entries(auth?.resolved.profiles ?? {}).map(([name, p]) => [name, p.cache])), allowCrossBilling: name => profilePolicy[name]?.allowCrossBilling === true, localOnly: agentId => localOnlyFor(d.config(), agentId), isLocalProvider, secrets: () => registered, onRouterEvent: routerEventSink(d), policyContext: approvalPolicyContext(d.permissions), registry: new ToolRegistry(), budget, principal, toolsForTurn, snapshot: (req, memory) => req.projectId ? memory : sessions.forSession(req.sessionId).store.freezePromptSnapshot(req.sessionId, memory), onUsage: record => d.logger.info('provider.cache_usage', { ...record }), onPrompt: prompt => { options.providers?.onPrompt?.(prompt); for (const event of prompt.events) d.logger.info(event.type, { ...event }); }, beforeTools: async () => { await d.permissions.open(); }, grants, grantUse: { markUsed: id => d.permissions.current()!.grants.markUsed(id), consumeOnce: (id, binding) => d.permissions.current()!.grants.consumeOnce(id, binding) }, approval: { request: async ask => (await d.permissions.open()).service.request(ask), begin: (answer, ask) => d.permissions.current()?.service.begin(answer, ask) ?? false }, audit, log: record => d.logger.info('turn.stage', { ...record }), resultStore: { async put(value) {
+    }, requireTriage: !!cfg.modelRoles.decision, triageTimeoutMs: typeof cfg.decision.timeoutMs === 'number' ? cfg.decision.timeoutMs : 200, profileForAgent: agent => d.config().agents[agent]?.model, capabilities, skillsForAgent: agent => d.config().agents[agent]?.skills ?? {}, profiles, reasoningFor, profile: auth?.resolved.defaultProfile ?? 'default', profileForClass: modelClass => loadClassProfiles(join(d.home, 'model-class-profiles.json'), (d.config().decision.classProfiles as Record<string, string> | undefined) ?? classProfiles)[modelClass as import('../triage/classes.ts').ModelClass], router: { profileDefaults: auth?.resolved.defaults ?? {}, unsupportedProfiles: auth?.resolved.unsupported ?? {}, ...options.providers?.router }, family: options.providers?.family ?? auth?.families ?? {}, billing: options.providers?.billing ?? auth?.billing ?? {}, cacheRoutes: auth?.cacheRoutes ?? {}, profileCache: Object.fromEntries(Object.entries(auth?.resolved.profiles ?? {}).map(([name, p]) => [name, p.cache])), allowCrossBilling: name => profilePolicy[name]?.allowCrossBilling === true, localOnly: agentId => localOnlyFor(d.config(), agentId), isLocalProvider, secrets: () => registered, onRouterEvent: routerEventSink(d), policyContext: approvalPolicyContext(d.permissions, sessionId => sessions?.forSession(sessionId).store.getSession(sessionId)?.origin), registry: new ToolRegistry(), budget, principal, toolsForTurn, snapshot: (req, memory) => req.projectId ? memory : sessions.forSession(req.sessionId).store.freezePromptSnapshot(req.sessionId, memory), onUsage: record => d.logger.info('provider.cache_usage', { ...record }), onPrompt: prompt => { options.providers?.onPrompt?.(prompt); for (const event of prompt.events) d.logger.info(event.type, { ...event }); }, beforeTools: async () => { await d.permissions.open(); }, grants, grantUse: { markUsed: id => d.permissions.current()!.grants.markUsed(id), consumeOnce: (id, binding) => d.permissions.current()!.grants.consumeOnce(id, binding) }, approval: { request: async ask => (await d.permissions.open()).service.request(ask), begin: (answer, ask) => d.permissions.current()?.service.begin(answer, ask) ?? false }, audit, log: record => d.logger.info('turn.stage', { ...record }), resultStore: { async put(value) {
       const dir = join(d.home, 'state', 'tool-results'); await mkdir(dir, { recursive: true, mode: 0o700 });
       const id = randomUUID(); await writeFile(join(dir, `${id}.json`), JSON.stringify(value), { flag: 'wx', mode: 0o600 }); return `tool-result:${id}`;
     } } } : null;

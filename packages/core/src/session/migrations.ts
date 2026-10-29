@@ -128,6 +128,13 @@ export const MIGRATIONS: readonly string[] = [
    ALTER TABLE tool_visibility ADD COLUMN confidence REAL;
    ALTER TABLE tool_visibility ADD COLUMN tokens_saved INTEGER NOT NULL DEFAULT 0;
    ALTER TABLE tool_visibility ADD COLUMN refetches INTEGER NOT NULL DEFAULT 0;`,
+  // v7: external protocol session origin (shared M6-A / M6-B contract; NULL = internal).
+  `ALTER TABLE sessions ADD COLUMN origin TEXT CHECK (origin IS NULL OR origin IN ('mcp','a2a','acp-agent'));
+   DROP TRIGGER sessions_immutable;
+   CREATE TRIGGER sessions_immutable BEFORE UPDATE OF kind, agent_id, owner, scope, chat_key, origin ON sessions
+   WHEN NEW.kind IS NOT OLD.kind OR NEW.agent_id IS NOT OLD.agent_id OR NEW.owner IS NOT OLD.owner
+     OR NEW.scope IS NOT OLD.scope OR NEW.chat_key IS NOT OLD.chat_key OR NEW.origin IS NOT OLD.origin
+   BEGIN SELECT RAISE(ABORT, 'I1: session kind, agent, owner, scope and origin are immutable'); END;`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
