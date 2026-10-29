@@ -147,7 +147,7 @@ export class TurnRunner {
             text: `Automatically triggered by recurring task ${recurring.jobName} (${recurring.jobId}); `
               + `runAs=${recurring.runAs}. This is a scheduled task, not a live message.`,
           }] : []),
-          ...view.messages.map((m) => ({ role: m.role, text: m.text, ...(m.turnId ? { turnId: m.turnId } : {}) })),
+          ...view.messages.map((m) => ({ role: m.role, text: m.text, ...(m.turnId ? { turnId: m.turnId } : {}), ...(m.toolCall ? { toolCall: m.toolCall } : {}) })),
         ],
         signal,
         ...(this.#d.toolCalls ? { tools: this.#d.toolCalls.dispatcher.describe() } : {}),

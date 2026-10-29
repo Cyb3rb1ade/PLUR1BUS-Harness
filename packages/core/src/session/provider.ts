@@ -55,7 +55,11 @@ export interface ChatRequest {
   /** The recalled memory block for this turn (empty when recall returned nothing or degraded). */
   memory: string;
   /** The uncovered history ending with this turn's user message. */
-  messages: { role: "system" | "user" | "assistant" | "tool"; text: string; turnId?: string }[];
+  messages: {
+    role: "system" | "user" | "assistant" | "tool"; text: string; turnId?: string;
+    /** A completed tool call/result pair the context view carries as this one message (see `ContextView`). */
+    toolCall?: { id: string; name: string; whole: boolean };
+  }[];
   /** The tools the harness will execute for this turn (B1); absent when the turn loop has no tool dispatcher. */
   tools?: { name: string; description: string; inputSchema: Record<string, unknown>; risk: string }[];
   signal: AbortSignal;

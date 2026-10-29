@@ -92,7 +92,10 @@ points to `capabilities.search`. Blocked skills and extension agent visibility a
 `skill.load` returns instructions without frontmatter and a resource list; `skill.read` reads a bounded ordinary file
 inside that skill's directory. Neither executes scripts. Harness-selected skills use the same load/result path after
 the current user message, persist in conversation and are not loaded again in that session. Successful loads count as
-skill `used` events.
+skill `used` events. In later turns the context view carries the load pair itself, whole (the per-message cap and the
+tool-output pruning leave a successful `skill.load` alone) and counted, and the provider sends it as a call and result
+pair; the body therefore reaches the model once per load. A summary that covers the turn removes the pair, and the
+provider does not bring it back.
 
 Selection uses the current and previous user messages plus task summaries. Short followups retain the last completed
 `skills.selected` choice; multi-task turns route each task separately and append its checklist to the volatile tail.
