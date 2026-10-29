@@ -2273,7 +2273,10 @@ fn memory_mark_and_unmark_sensitivity() {
         .clone();
     let value: serde_json::Value = serde_json::from_slice(&output).unwrap();
     assert_eq!(value["id"], "mem_01");
-    assert_eq!(value["categories"], serde_json::json!(["financial", "health"]));
+    assert_eq!(
+        value["categories"],
+        serde_json::json!(["financial", "health"])
+    );
 
     // Test unmark with json
     let dir2 = tempfile::tempdir().unwrap();
@@ -2293,14 +2296,7 @@ fn memory_mark_and_unmark_sensitivity() {
         )),
     );
     let output2 = bin()
-        .args([
-            "--json",
-            "--home",
-            home2,
-            "memory",
-            "unmark",
-            "mem_01",
-        ])
+        .args(["--json", "--home", home2, "memory", "unmark", "mem_01"])
         .assert()
         .success()
         .get_output()

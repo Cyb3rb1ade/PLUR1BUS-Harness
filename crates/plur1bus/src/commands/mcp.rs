@@ -87,7 +87,9 @@ fn serve(out: &Out, layout: &Layout, agent: Option<String>) {
     if !agent_exposed {
         out.fail(
             "E_DENIED",
-            &format!("Agent '{agent}' is not exposed on MCP server (agents.{agent}.mcpServer.exposed)"),
+            &format!(
+                "Agent '{agent}' is not exposed on MCP server (agents.{agent}.mcpServer.exposed)"
+            ),
             json!({ "reason": "agent-not-exposed" }),
         );
     }

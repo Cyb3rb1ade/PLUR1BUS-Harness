@@ -562,10 +562,7 @@ fn nothing_the_catalogue_writes_under_a_credential_name_or_description_is_unclas
             "mcp_server_denied.tokenId",
             "the token's public identifier if present, not the secret",
         ),
-        (
-            "oauth_refresh.familyId",
-            "refresh token family identifier",
-        ),
+        ("oauth_refresh.familyId", "refresh token family identifier"),
         (
             "oauth_refresh.tokenId",
             "new access token public identifier",
