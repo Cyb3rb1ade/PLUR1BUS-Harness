@@ -24,7 +24,7 @@ import { statSync } from "node:fs";
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
 import { isIP, type Socket } from "node:net";
-import type { HarnessLogger } from "@plur1bus/module-api";
+import { lingerLimits, lingerSocket, lingerUnread, type HarnessLogger, type LingerLimits } from "@plur1bus/module-api";
 import { createAuditEmitter } from "./audit.ts";
 import { systemClock, type Clock } from "./clock.ts";
 import type { CoreRpc } from "./core-rpc.ts";
@@ -112,14 +112,9 @@ export function loopbackBind(host: string): string {
   throw new Error(`the API binds loopback only (127.0.0.0/8, ::1, localhost); refusing ${JSON.stringify(host)}`);
 }
 
-const REASONS: Record<number, string> = { 200: "OK", 400: "Bad Request", 408: "Request Timeout", 431: "Request Header Fields Too Large" };
+const LINGER_MS = 5_000;
 
-function drain(req: IncomingMessage, cap: number): void {
-  let seen = 0;
-  req.on("data", (c: Buffer) => { seen += c.length; if (seen > cap) req.destroy(); });
-  req.on("error", () => {});
-  req.resume();
-}
+const REASONS: Record<number, string> = { 200: "OK", 400: "Bad Request", 408: "Request Timeout", 431: "Request Header Fields Too Large" };
 
 function readBody(req: IncomingMessage, limit: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -152,6 +147,8 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   const tls = transport.secure;
   const clock = o.clock ?? systemClock;
   const limits: ApiLimits = { ...DEFAULT_LIMITS, ...o.limits };
+  /** How long a refused upload may keep its connection open while the server discards the rest of it (`lingerUnread`). */
+  const lingerMs = Math.min(LINGER_MS, limits.requestTimeoutMs);
   const base = o.logger ?? noopLogger;
   // Whatever a call site passes, credential-named fields never reach the sink.
   const log: ApiLogger = {
@@ -217,11 +214,14 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
     try { const u = new URL(value); return (u.protocol === "http:" || u.protocol === "https:") && allowedOrigins.has(u.origin.toLowerCase()); } catch { return false; }
   };
 
-  const send = (res: ServerResponse, status: number, body: object, extra: Record<string, string> = {}): void => {
+  /** `unread`: the request is answered before its upload is in. The answer goes out at once, but the response is only ended
+   *  (so the connection only closed) after the rest of the upload was read, or a bound was hit: closing under a sender ends
+   *  in an RST, and on macOS that RST wipes the answer from the client's receive queue (`lingerUnread`). */
+  const send = (res: ServerResponse, status: number, body: object, extra: Record<string, string> = {}, unread?: Promise<void>): void => {
     const payload = Buffer.from(JSON.stringify(body), "utf8");
     if (res.headersSent) { res.end(); return; }
     res.writeHead(status, { ...secHeaders, "Content-Type": "application/json; charset=utf-8", "Content-Length": payload.length, ...extra });
-    res.end(payload);
+    if (unread) { res.write(payload); void unread.then(() => res.end()); } else res.end(payload);
   };
 
   /** The principal of a session as it is *now*: owner from the bootstrap, users from the directory (so a demotion, a
@@ -286,6 +286,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
     };
     req.once("end", stopBodyTimer); res.once("finish", stopBodyTimer);
     bodyDeadline(limits.requestTimeoutMs);
+    let linger: LingerLimits = lingerLimits(limits.maxBodyBytes, lingerMs);
     const rateLimited = (scope: string, cls: string, retryAfterSec: number): never => {
       audit.emit("auth.rate-limited", principalId ?? "anonymous", scope, { class: cls, route: routeId, ip });
       throw errors.rateLimited(retryAfterSec);
@@ -345,12 +346,13 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       const { spec, handler } = route; routeId = spec.id;
       if (spec.requestContentType === "multipart/form-data") bodyDeadline(UPLOAD_BODY_TIMEOUT_MS);
       const bodyLimit = spec.requestContentType === "multipart/form-data" ? 1073741824 + 16384 : spec.id === "web.rpc" ? o.limits?.maxBodyBytes ?? 1024 * 1024 : limits.maxBodyBytes;
+      linger = lingerLimits(bodyLimit, lingerMs);
 
       const declared = req.headers["content-length"];
       if (declared !== undefined) {
         const n = Number(declared);
         if (!/^\d+$/.test(declared) || !Number.isSafeInteger(n)) throw errors.badRequest("content-length", "invalid Content-Length");
-        if (n > bodyLimit) { drain(req, bodyLimit * 4 + 65_536); throw errors.tooLarge(bodyLimit); }
+        if (n > bodyLimit) throw errors.tooLarge(bodyLimit);
       }
 
       const presented = readCookie(req.headers.cookie, cookieName);
@@ -542,8 +544,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       if (e instanceof ApiError) err = e;
       else { err = errors.internal(); log.error("unhandled error", { route: routeId, error: e instanceof Error ? `${e.name}: ${e.message}` : "non-error thrown" }); }
       status = err.status;
-      if (!req.complete) res.once("finish", () => req.destroy());
-      send(res, err.status, errorBody(err), { ...(!req.complete ? { Connection: "close" } : {}), ...err.headers });
+      send(res, err.status, errorBody(err), err.headers, req.complete ? undefined : lingerUnread(req, linger));
     } finally {
       stopBodyTimer();
       if (!req.complete && res.writableEnded) {
@@ -565,13 +566,17 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   // Requests Node rejects before a handler runs (malformed, header overflow, request timeout) still get the headers and
   // the error/1 body; without a listener Node would write its own bare response.
   server.on("upgrade",(req,socket,head)=>{void (async()=>{if(o.remote||o.requireSecondFactor==="always"){const session=sessions.peek(readCookie(req.headers.cookie,cookieName));const current=session?await resolve(session):undefined;if(current&&secondFactorRequired(current.principal.role,!!o.remote,o.requireSecondFactor)&&session!.stepUpAt===undefined){socket.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");return;}}await ws.upgrade(req,socket,head);})().catch(()=>socket.destroy());});
-  server.on("clientError", (err: NodeJS.ErrnoException, socket: Socket) => {
+  server.on("clientError", (err: NodeJS.ErrnoException & { rawPacket?: Buffer }, socket: Socket) => {
+    // Node reports every further chunk of a connection it has given up on as another clientError. Once the answer is out,
+    // the socket is only kept to read what the client is still sending, within the bounds of `lingerSocket`.
+    if (socket.writableEnded) { lingerSocket(socket, lingerLimits(limits.maxHeaderBytes, lingerMs), err.rawPacket?.length ?? 0); return; }
     if (!socket.writable || socket.destroyed) { socket.destroy(); return; }
     const status = err.code === "ERR_HTTP_REQUEST_TIMEOUT" ? 408 : err.code === "HPE_HEADER_OVERFLOW" ? 431 : 400;
     const e = status === 408 ? errors.timeout("request-timeout") : new ApiError(status, "E_INVALID_PARAMS", "malformed request", { reason: status === 431 ? "headers-too-large" : "malformed-request" });
     const payload = JSON.stringify(errorBody(e));
     const head = Object.entries({ ...secHeaders, "Content-Type": "application/json; charset=utf-8", "Content-Length": String(Buffer.byteLength(payload)), Connection: "close" }).map(([k, v]) => `${k}: ${v}`).join("\r\n");
     socket.end(`HTTP/1.1 ${status === 408 ? 408 : status} ${REASONS[status] ?? "Error"}\r\n${head}\r\n\r\n${payload}`);
+    lingerSocket(socket, lingerLimits(limits.maxHeaderBytes, lingerMs), err.rawPacket?.length ?? 0);
     log.warn("malformed request", { status, code: err.code });
   });
 

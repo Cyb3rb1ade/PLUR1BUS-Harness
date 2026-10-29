@@ -41,7 +41,17 @@ export interface ConfigSourceOptions {
   attempts?: number; connectTimeoutMs?: number;
   /** M1: re-watch backoff after a lost or missing watch (default 1000 ms doubling up to 30 000 ms). */
   rewatchMs?: { initial: number; max: number };
+  /** Standalone: how often config.json is checked besides the directory watcher (default `FILE_POLL_MS`, 1000 ms). */
+  filePollMs?: number;
+  /** The directory watcher (default `fs.watch`); a port so a test can play an OS that reports nothing. */
+  watchDirectory?: typeof watchDirectory;
 }
+
+/** The interval of the stat check that backs the directory watcher. `fs.watch` is best effort: on macOS (FSEvents) a change
+ *  made right after the watcher was created can go unreported while the stream is still starting, and bursts are coalesced,
+ *  so a listener could wait for the next admission read for ever. A change to config.json therefore reaches the listeners
+ *  within this interval at the latest, whatever the OS reports. One `stat` per interval; the timer never keeps the process alive. */
+export const FILE_POLL_MS = 1000;
 
 /** The leaves of `patch` as `config.set` changes under `prefix`; arrays and non-objects are leaves. */
 export function flattenPatch(prefix: string, patch: Record<string, unknown>): { key: string; value: unknown }[] {
@@ -177,10 +187,12 @@ export async function openConfigSource(o: ConfigSourceOptions): Promise<ConfigSo
     if (stamp !== fileStamp) { fileStamp = stamp; readFile(); }
   };
   // A standalone/fallback Core also invalidates idle model pickers when an accepted file edit arrives.
-  // Per-admission refresh remains authoritative if the OS watcher is unavailable or coalesces events.
+  // Per-admission refresh remains authoritative; the watcher makes the notice prompt, and the poll below makes it certain
+  // when the OS watcher is unavailable, still starting, or coalesces events.
   let fileWatch: ReturnType<typeof watchDirectory> | undefined;
+  const filePoll = setInterval(refreshFile, o.filePollMs ?? FILE_POLL_MS); filePoll.unref();
   try {
-    fileWatch=watchDirectory(dirname(o.layout.configPath),(_event,file)=>{
+    fileWatch=(o.watchDirectory ?? watchDirectory)(dirname(o.layout.configPath),(_event,file)=>{
       if(file===null || String(file)===basename(o.layout.configPath))refreshFile();
     });
     fileWatch.unref();fileWatch.on("error",err=>log?.warn("configuration file watch unavailable; admission reads remain active",{err}));
@@ -203,7 +215,7 @@ export async function openConfigSource(o: ConfigSourceOptions): Promise<ConfigSo
     },
     async close() {
       closed = true;
-      fileWatch?.close();
+      fileWatch?.close(); clearInterval(filePoll);
       if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
       detach?.(); detach = null;
       const w = watch; watch = null;
