@@ -34,7 +34,12 @@ impl Verb {
     fn kinds(self) -> Vec<String> {
         match self {
             Verb::Skill => vec!["skill".into()],
-            Verb::Plugin => vec!["module".into(), "channel".into()],
+            Verb::Plugin => vec![
+                "module".into(),
+                "channel".into(),
+                "mcp-server".into(),
+                "bundle".into(),
+            ],
         }
     }
     fn owns(self, kind: &str) -> bool {
@@ -230,12 +235,19 @@ fn predicted(insp: &Value, enable: bool) -> Vec<String> {
     let new = semver::Version::parse(insp["manifest"]["version"].as_str().unwrap_or(""));
     let old = semver::Version::parse(insp["replaces"]["version"].as_str().unwrap_or(""));
     if let (Ok(n), Ok(o)) = (new, old) {
-        if n < o {
+        if n.cmp_precedence(&o).is_lt() {
             need.push("downgrade".into());
         }
     }
     if enable {
         need.push("capabilities".into());
+    }
+    for member in insp["members"].as_array().into_iter().flatten() {
+        for token in predicted(member, enable) {
+            if !need.contains(&token) {
+                need.push(token);
+            }
+        }
     }
     need
 }
@@ -288,9 +300,9 @@ pub(crate) fn install(
 ) {
     let input = Input::parse(path);
     let mut be = Backend::open(out, layout, true);
-    let insp = be.inspect(&input).unwrap_or_else(|f| fail(out, &f, None));
-    let kind = insp["manifest"]["kind"].as_str().unwrap_or("");
-    if !verb.owns(kind) {
+    let mut insp = be.inspect(&input).unwrap_or_else(|f| fail(out, &f, None));
+    let kind = insp["manifest"]["kind"].as_str().unwrap_or("").to_string();
+    if !verb.owns(&kind) {
         let mut f = Failure::new(
             "E_INVALID_PARAMS",
             "package-invalid",
@@ -307,6 +319,23 @@ pub(crate) fn install(
         );
         f.detail = Some(format!("use {} install", verb.other()));
         fail(out, &f, None);
+    }
+    let selection = (!flags.members.is_empty()).then_some(flags.members.as_slice());
+    if let Some(selected) = selection {
+        if kind != "bundle" {
+            fail(
+                out,
+                &Failure::new(
+                    "E_INVALID_PARAMS",
+                    "package-invalid",
+                    "--member applies only to a bundle",
+                ),
+                None,
+            );
+        }
+        if let Some(members) = insp["members"].as_array_mut() {
+            members.retain(|m| selected.iter().any(|name| m["name"] == name.as_str()));
+        }
     }
     if flags.dry_run {
         out.ok("ext.inspect/1", &insp, || {
@@ -381,7 +410,7 @@ pub(crate) fn install(
         .unwrap_or_default()
         .to_string();
     let v = loop {
-        match be.install(&id, &given, enable.as_ref()) {
+        match be.install(&id, &given, enable.as_ref(), selection) {
             Ok(v) => break v,
             Err(f) => {
                 let Some(x) = f.wants().map(str::to_string) else {
@@ -469,8 +498,30 @@ pub(crate) fn enable(
 ) {
     let agents = agents_of(agents);
     let mut be = Backend::open(out, layout, true);
+    let detail = be
+        .show(name)
+        .unwrap_or_else(|failure| fail(out, &failure, None));
+    let expected_consent = if detail["item"]["kind"] == "bundle" {
+        let digest = detail["consentSha256"]
+            .as_str()
+            .filter(|digest| digest.len() == 64 && digest.bytes().all(|b| b.is_ascii_hexdigit()));
+        if digest.is_none() || !detail["memberInspections"].is_array() {
+            fail(
+                out,
+                &Failure::new(
+                    "E_NOT_AVAILABLE",
+                    "tampered",
+                    "the selected bundle members cannot be verified; inspect the bundle again",
+                ),
+                None,
+            );
+        }
+        digest
+    } else {
+        None
+    };
     let mut ack: Vec<String> = Vec::new();
-    let plan = match be.toggle(name, true, agents.as_ref(), &ack, true) {
+    let plan = match be.toggle(name, true, agents.as_ref(), &ack, true, expected_consent) {
         Ok(p) => p,
         Err(f) if f.wants() == Some("capabilities") => {
             if !out.json {
@@ -487,7 +538,7 @@ pub(crate) fn enable(
                 }
             }
             ack.push("capabilities".into());
-            be.toggle(name, true, agents.as_ref(), &ack, true)
+            be.toggle(name, true, agents.as_ref(), &ack, true, expected_consent)
                 .unwrap_or_else(|f| fail(out, &f, None))
         }
         Err(f) => fail(out, &f, None),
@@ -496,7 +547,7 @@ pub(crate) fn enable(
         crate::output::say(&plan_lines(&plan));
     }
     let v = be
-        .toggle(name, true, agents.as_ref(), &ack, false)
+        .toggle(name, true, agents.as_ref(), &ack, false, expected_consent)
         .unwrap_or_else(|f| fail(out, &f, None));
     out.ok(&verb.schema("enable"), &v, || match &agents {
         Some(Agents::Some(l)) => format!("enabled {name} for {}", l.join(", ")),
@@ -517,7 +568,7 @@ pub(crate) fn disable(
     let mut be = Backend::open(out, layout, true);
     if verb == Verb::Plugin {
         let plan = be
-            .toggle(name, false, None, &[], true)
+            .toggle(name, false, None, &[], true, None)
             .unwrap_or_else(|f| fail(out, &f, None));
         if !out.json {
             crate::output::say(&plan_lines(&plan));
@@ -532,7 +583,7 @@ pub(crate) fn disable(
         }
     }
     let v = be
-        .toggle(name, false, agents.as_ref(), &[], false)
+        .toggle(name, false, agents.as_ref(), &[], false, None)
         .unwrap_or_else(|f| fail(out, &f, None));
     out.ok(&verb.schema("disable"), &v, || match &agents {
         Some(Agents::Some(l)) => format!("disabled {name} for {}", l.join(", ")),
@@ -574,7 +625,7 @@ pub(crate) fn uninstall(
             confirm(
                 out,
                 &format!(
-                    "also purge data/ext/{name} and its configuration section (no secrets are stored yet)?"
+                    "also purge data/ext/{name}, its configuration and declared secret slots? Deleted secret values cannot be restored"
                 ),
                 yes,
             );

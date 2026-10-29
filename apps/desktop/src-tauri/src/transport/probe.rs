@@ -45,44 +45,52 @@ impl Default for TcpProber {
 
 impl Prober for TcpProber {
     fn probe<'a>(&'a self, addrs: &'a [SocketAddr]) -> BoxFuture<'a, ProbeOutcome> {
-        Box::pin(async move {
-            let mut refused = addrs.is_empty();
-            for remote in addrs.iter().take(PROBE_ADDRESSES) {
-                let mut connect = Box::pin(tokio::net::TcpStream::connect(*remote));
-                let attempt = tokio::time::timeout(self.timeout, &mut connect).await;
-                if attempt.is_err() {
-                    // Closing a socket whose connect is still in flight can block (about a second on macOS);
-                    // close it on a blocking thread so the time per address stays the timeout.
-                    tokio::task::spawn_blocking(move || drop(connect));
-                } else {
-                    drop(connect);
-                }
-                match attempt {
-                    Ok(Ok(stream)) => {
-                        let local = stream.local_addr();
-                        drop(stream);
-                        match local {
-                            Ok(local) => {
-                                return ProbeOutcome::Connected {
-                                    local,
-                                    remote: *remote,
-                                }
-                            }
-                            Err(_) => refused = true,
-                        }
-                    }
-                    // The peer answered with a reset: refused. Anything else (no route, host or network
-                    // unreachable) means no answer from the peer, like a timeout.
-                    Ok(Err(e)) if is_refusal(e.kind()) => refused = true,
-                    Ok(Err(_)) | Err(_) => {}
-                }
-            }
-            if refused {
-                ProbeOutcome::Refused
+        Box::pin(self.probe_with(addrs, tokio::net::TcpStream::connect))
+    }
+}
+impl TcpProber {
+    /// Keep the timeout and address policy shared with a deterministic pending-connect test.
+    async fn probe_with<C, F>(&self, addrs: &[SocketAddr], connect: C) -> ProbeOutcome
+    where
+        C: Fn(SocketAddr) -> F,
+        F: std::future::Future<Output = std::io::Result<tokio::net::TcpStream>> + Send + 'static,
+    {
+        let mut refused = addrs.is_empty();
+        for remote in addrs.iter().take(PROBE_ADDRESSES) {
+            let mut connect = Box::pin(connect(*remote));
+            let attempt = tokio::time::timeout(self.timeout, &mut connect).await;
+            if attempt.is_err() {
+                // Closing a socket whose connect is still in flight can block (about a second on macOS);
+                // close it on a blocking thread so the time per address stays the timeout.
+                tokio::task::spawn_blocking(move || drop(connect));
             } else {
-                ProbeOutcome::Timeout
+                drop(connect);
             }
-        })
+            match attempt {
+                Ok(Ok(stream)) => {
+                    let local = stream.local_addr();
+                    drop(stream);
+                    match local {
+                        Ok(local) => {
+                            return ProbeOutcome::Connected {
+                                local,
+                                remote: *remote,
+                            }
+                        }
+                        Err(_) => refused = true,
+                    }
+                }
+                // The peer answered with a reset: refused. Anything else (no route, host or network
+                // unreachable) means no answer from the peer, like a timeout.
+                Ok(Err(e)) if is_refusal(e.kind()) => refused = true,
+                Ok(Err(_)) | Err(_) => {}
+            }
+        }
+        if refused {
+            ProbeOutcome::Refused
+        } else {
+            ProbeOutcome::Timeout
+        }
     }
 }
 
@@ -111,5 +119,24 @@ mod tests {
         ] {
             assert!(!is_refusal(kind), "{kind:?}");
         }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn pending_connects_obey_the_exact_timeout_and_address_limit() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let attempts = AtomicUsize::new(0);
+        let addresses = (1..=5)
+            .map(|port| SocketAddr::from(([127, 0, 0, 1], port)))
+            .collect::<Vec<_>>();
+        let started = tokio::time::Instant::now();
+        let result = TcpProber::default()
+            .probe_with(&addresses, |_| {
+                attempts.fetch_add(1, Ordering::Relaxed);
+                std::future::pending::<std::io::Result<tokio::net::TcpStream>>()
+            })
+            .await;
+        assert_eq!(result, ProbeOutcome::Timeout);
+        assert_eq!(attempts.load(Ordering::Relaxed), PROBE_ADDRESSES);
+        assert_eq!(started.elapsed(), PROBE_TIMEOUT * PROBE_ADDRESSES as u32);
     }
 }

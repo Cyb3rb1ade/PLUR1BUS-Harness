@@ -1,9 +1,9 @@
+import { SourceReader } from "../source-reader.ts";
 // Hermes cron jobs reader (docs/import.md §3.3, M7 Batch 3).
 // Reads cron/jobs.json across Hermes root and profiles.
 // Reports user-authored jobs as "deferred" (id, schedule, deliverKind only; zero disk writes; prompt text and target IDs excluded).
 import { join } from "node:path";
 import { deliverKind } from "./openclaw-cron.ts";
-import { existsNoFollow, readSourceTextSafe } from "../fs-safe.ts";
 import { ImportError } from "../types.ts";
 
 export interface HermesCronJob {
@@ -14,24 +14,27 @@ export interface HermesCronJob {
   sourceProfile?: string | undefined;
 }
 
-export function readHermesCronJobs(
+export async function readHermesCronJobs(
   profiles: Array<{ agentId: string; dir: string }>,
   errors?: Array<{ sourceRef: string; reason: string }>,
-): {
+  sourceReader?: SourceReader,
+): Promise<{
   userJobs: HermesCronJob[];
   excludedCount: number;
-} {
+}> {
+  const reader = sourceReader ?? await SourceReader.local();
   const userJobs: HermesCronJob[] = [];
   let excludedCount = 0;
   const seenJobIds = new Set<string>();
 
   for (const p of profiles) {
-    const cronFile = join(p.dir, "cron", "jobs.json");
-    if (!existsNoFollow(cronFile)) continue;
+    const cronFile = reader.paths.join(p.dir, "cron", "jobs.json");
+    if (!await reader.exists(cronFile)) continue;
     let content: string;
     try {
-      content = readSourceTextSafe(cronFile, 1024 * 1024);
+      content = await reader.text(cronFile, 1024 * 1024);
     } catch (error) {
+      SourceReader.refuseFatal(error);
       errors?.push({ sourceRef: `${p.agentId}:cron/jobs.json`, reason: error instanceof ImportError ? error.reason : "source-unreadable" });
       continue;
     }

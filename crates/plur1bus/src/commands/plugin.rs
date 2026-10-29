@@ -14,6 +14,8 @@ pub fn run(out: &Out, layout: &Layout, cmd: PluginCmd) {
             let kind = kind.map(|k| match k {
                 PluginKind::Module => "module",
                 PluginKind::Channel => "channel",
+                PluginKind::McpServer => "mcp-server",
+                PluginKind::Bundle => "bundle",
             });
             verbs::list(out, layout, v, kind, state, None, None)
         }
@@ -22,7 +24,16 @@ pub fn run(out: &Out, layout: &Layout, cmd: PluginCmd) {
             path,
             enable,
             flags,
-        } => verbs::install(out, layout, v, &path, enable.then_some(Agents::All), &flags),
+        } => {
+            let agents = enable.map(|list| {
+                if list.is_empty() {
+                    Agents::All
+                } else {
+                    Agents::Some(list)
+                }
+            });
+            verbs::install(out, layout, v, &path, agents, &flags)
+        }
         PluginCmd::Uninstall {
             name,
             purge,
@@ -30,7 +41,11 @@ pub fn run(out: &Out, layout: &Layout, cmd: PluginCmd) {
             yes,
         } => verbs::uninstall(out, layout, v, &name, purge, cascade, yes),
         PluginCmd::Restore { trash_id } => verbs::restore(out, layout, v, &trash_id),
-        PluginCmd::Enable { name, yes } => verbs::enable(out, layout, v, &name, vec![], yes),
-        PluginCmd::Disable { name, yes } => verbs::disable(out, layout, v, &name, vec![], yes),
+        PluginCmd::Enable { name, agents, yes } => {
+            verbs::enable(out, layout, v, &name, agents, yes)
+        }
+        PluginCmd::Disable { name, agents, yes } => {
+            verbs::disable(out, layout, v, &name, agents, yes)
+        }
     }
 }

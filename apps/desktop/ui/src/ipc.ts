@@ -9,6 +9,13 @@ export type Platform = "mac" | "win" | "gnome" | "kde";
 export type Settings = { theme: ThemeChoice; locale: LocaleChoice };
 export type Connection = { id: string; name: string; kind: "bundled" | "local" | "remote"; origin: string; installationId: string; deviceId: string; tokenHint: string; certPin: string | null; caPin: string | null; nextCertPin: string | null; nextCaPin: string | null; observedCertPin: string | null; pairingNeeded: boolean };
 export type TokenStoreKind = "keychain" | "memory-only";
+export type EnrollmentGrants = { extensions?: boolean; imports?: boolean };
+export type StepUpPurpose = "session" | "extensions" | "imports";
+export type StepUpPublic = { handle: string; userCode: string; verificationUri: string; purpose: StepUpPurpose;
+  expiresAt: number; state: "pending" | "approved" | "declined" | "expired" };
+function enrollmentFields(grants?: EnrollmentGrants): EnrollmentGrants {
+  return { ...(grants?.extensions ? {extensions:true} : {}), ...(grants?.imports ? {imports:true} : {}) };
+}
 /** Transport choice (spec §3.1, §8): the path, what a check reports, what the list shows. */
 export type Transport = "tailscale" | "direct";
 export type Purpose = "remote" | "ssh" | "ssh-jump";
@@ -32,6 +39,12 @@ export type UninstallLevel="app_only"|"app_and_images"|"everything";
 export type UninstallSummary={level:UninstallLevel;containers:string[];images:string[];volumes:{name:string;bytes:number|null}[];removesKeychain:boolean;preservesData:boolean};
 export type IntegrationState={kind:"desktop"|"menu"|"store";enabled:boolean};
 export type DesktopTransport = {
+  stepUpBegin?(request: {connectionId: string; purpose: StepUpPurpose}): Promise<StepUpPublic>;
+  stepUpPoll?(request: {connectionId: string; handle: string}): Promise<StepUpPublic>;
+  stepUpCancel?(request: {connectionId: string; handle: string}): Promise<void>;
+  stepUpOpen?(request: {connectionId: string; handle: string}): Promise<void>;
+  stepUpRequired?(listener: (event: {id: string; purpose: StepUpPurpose}) => void): Promise<() => void>;
+  extensionUpload?(request: {linkId: number; connectionId: string}): Promise<{inspectionId: string; origin: string}>;
   desktopIntegrationGet?():Promise<IntegrationState|null>;
   desktopIntegrationSet?(enabled:boolean):Promise<IntegrationState|null>;
   installOptions?():Promise<InstallOptions>;
@@ -65,7 +78,7 @@ export type DesktopTransport = {
   bundleProgress?(onStep:(step:string)=>void):Promise<()=>void>;
   runtimeDetect?(): Promise<import("./models/wizard-model.ts").RuntimeItem[]>;
   bundleCancel?(runtimeId:string):Promise<void>;
-  bundleInstall?(runtimeId: string, agreed: boolean): Promise<{connectionId: string}>;
+  bundleInstall?(runtimeId: string, agreed: boolean, grants?: EnrollmentGrants): Promise<{connectionId: string}>;
   harnessStart?(memoryGib?: number): Promise<void>;
   harnessStop?(): Promise<void>;
   harnessStatus?(): Promise<{state: string;resources?:{memoryMiB:number}}>;
@@ -77,7 +90,7 @@ export type DesktopTransport = {
   connectionsRename(id: string, name: string): Promise<void>;
   connectionsRemove(id: string): Promise<void>;
   pairCode(request: PairRequest): Promise<Paired>;
-  pairLocal(name: string): Promise<Paired>;
+  pairLocal(name: string, grants?: EnrollmentGrants): Promise<Paired>;
   openConnection(id: string): Promise<Opened>;
   transportCheck?(target: CheckTarget, transport: Transport, purpose: Purpose): Promise<TransportReport>;
   connectionTransportSet?(id: string, transport: Transport, publicAck: boolean): Promise<TransportReport>;
@@ -90,6 +103,12 @@ export type DesktopTransport = {
 };
 
 export const nativeTransport: DesktopTransport = {
+  stepUpBegin: request => invoke("step_up_begin", {request}),
+  stepUpPoll: request => invoke("step_up_poll", {request}),
+  stepUpCancel: request => invoke("step_up_cancel", {request}),
+  stepUpOpen: request => invoke("step_up_open", {request}),
+  stepUpRequired: listener => listen<{id: string; purpose: StepUpPurpose}>("desktop-stepup-required", event => listener(event.payload)),
+  extensionUpload: request => invoke("extension_upload", { request }),
   desktopIntegrationGet:()=>invoke("desktop_integration_get"),
   desktopIntegrationSet:enabled=>invoke("desktop_integration_set",{request:{enabled}}),
   installOptions:()=>invoke("install_options"),
@@ -123,7 +142,7 @@ export const nativeTransport: DesktopTransport = {
   bundleProgress: onStep => listen<string>("desktop-bundle-progress",event=>onStep(event.payload)),
   runtimeDetect: () => invoke("runtime_detect"),
   bundleCancel: runtimeId => invoke("bundle_install",{request:{runtimeId,agreed:true,action:"cancel"}}),
-  bundleInstall: (runtimeId, agreed) => invoke("bundle_install", {request:{runtimeId,agreed}}),
+  bundleInstall: (runtimeId, agreed, grants) => invoke("bundle_install", {request:{runtimeId,agreed,...enrollmentFields(grants)}}),
   harnessStart: memoryGib => invoke("harness_start",{request:{memoryGib:memoryGib??null}}),
   harnessStop: () => invoke("harness_stop"),
   harnessStatus: () => invoke("harness_status"),
@@ -135,7 +154,7 @@ export const nativeTransport: DesktopTransport = {
   connectionsRename: (id, name) => invoke("connections_rename", { request: { id, name } }),
   connectionsRemove: id => invoke("connections_remove", { request: { id } }),
   pairCode: request => invoke("pair_code", { request }),
-  pairLocal: name => invoke("pair_local", { request: { name } }),
+  pairLocal: (name, grants) => invoke("pair_local", { request: { name, ...enrollmentFields(grants) } }),
   openConnection: id => invoke("open_connection", { request: { id } }),
   transportCheck: (target, transport, purpose) => invoke("transport_check", { request: { target, transport, purpose } }),
   connectionTransportSet: (id, transport, publicAck) => invoke("connection_transport_set", { request: { id, transport, publicAck } }),

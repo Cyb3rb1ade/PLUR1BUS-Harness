@@ -4,6 +4,11 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -138,6 +143,9 @@
       },
       "engine": {
         "implementation": "node"
+      },
+      "mcp": {
+        "servers": {}
       },
       "providers": {},
       "auth": {
@@ -511,6 +519,11 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -645,6 +658,9 @@
       },
       "engine": {
         "implementation": "node"
+      },
+      "mcp": {
+        "servers": {}
       },
       "providers": {},
       "auth": {
@@ -1031,6 +1047,11 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -1165,6 +1186,9 @@
       },
       "engine": {
         "implementation": "node"
+      },
+      "mcp": {
+        "servers": {}
       },
       "providers": {},
       "auth": {
@@ -1538,6 +1562,11 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -1673,6 +1702,9 @@
       "engine": {
         "implementation": "node",
         "recallMinScore": 0.5
+      },
+      "mcp": {
+        "servers": {}
       },
       "providers": {},
       "auth": {
@@ -2059,6 +2091,11 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -2193,6 +2230,9 @@
       },
       "engine": {
         "implementation": "node"
+      },
+      "mcp": {
+        "servers": {}
       },
       "providers": {},
       "auth": {
@@ -2566,6 +2606,11 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -2704,6 +2749,9 @@
       },
       "engine": {
         "implementation": "node"
+      },
+      "mcp": {
+        "servers": {}
       },
       "providers": {},
       "auth": {
@@ -3092,6 +3140,11 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -3230,6 +3283,9 @@
       },
       "engine": {
         "implementation": "node"
+      },
+      "mcp": {
+        "servers": {}
       },
       "providers": {},
       "auth": {
@@ -3603,6 +3659,11 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -3737,6 +3798,9 @@
       },
       "engine": {
         "implementation": "node"
+      },
+      "mcp": {
+        "servers": {}
       },
       "providers": {},
       "auth": {
@@ -4125,6 +4189,11 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -4263,6 +4332,9 @@
       },
       "engine": {
         "implementation": "node"
+      },
+      "mcp": {
+        "servers": {}
       },
       "providers": {},
       "auth": {
@@ -4636,6 +4708,11 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -4774,6 +4851,9 @@
       },
       "engine": {
         "implementation": "node"
+      },
+      "mcp": {
+        "servers": {}
       },
       "providers": {},
       "auth": {
@@ -5164,6 +5244,11 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -5298,6 +5383,9 @@
       },
       "engine": {
         "implementation": "node"
+      },
+      "mcp": {
+        "servers": {}
       },
       "providers": {},
       "auth": {
@@ -5671,6 +5759,11 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -5805,6 +5898,9 @@
       },
       "engine": {
         "implementation": "node"
+      },
+      "mcp": {
+        "servers": {}
       },
       "providers": {
         "nvidia": {
@@ -6197,6 +6293,11 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -6331,6 +6432,9 @@
       },
       "engine": {
         "implementation": "node"
+      },
+      "mcp": {
+        "servers": {}
       },
       "providers": {},
       "auth": {
@@ -6704,6 +6808,11 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -6838,6 +6947,9 @@
       },
       "engine": {
         "implementation": "node"
+      },
+      "mcp": {
+        "servers": {}
       },
       "providers": {},
       "auth": {
@@ -7227,6 +7339,11 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -7361,6 +7478,9 @@
       },
       "engine": {
         "implementation": "node"
+      },
+      "mcp": {
+        "servers": {}
       },
       "providers": {},
       "auth": {
@@ -7739,6 +7859,11 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -7873,6 +7998,9 @@
       },
       "engine": {
         "implementation": "node"
+      },
+      "mcp": {
+        "servers": {}
       },
       "providers": {},
       "auth": {
@@ -8266,6 +8394,11 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -8400,6 +8533,9 @@
       },
       "engine": {
         "implementation": "node"
+      },
+      "mcp": {
+        "servers": {}
       },
       "providers": {},
       "auth": {
@@ -8773,6 +8909,11 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -8907,6 +9048,9 @@
       },
       "engine": {
         "implementation": "node"
+      },
+      "mcp": {
+        "servers": {}
       },
       "providers": {},
       "auth": {

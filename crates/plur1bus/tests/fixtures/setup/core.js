@@ -108,6 +108,24 @@ const address = process.platform === "win32"
 mkdirSync(run, { recursive: true });
 if (process.platform !== "win32") rmSync(address, { force: true });
 const token = randomBytes(32).toString("hex");
+// A7 integration uses the actual private broker and secret store, with an in-memory backend. The fixture still has
+// no Engine dependency and never exposes a secret-value read method over its public RPC endpoint.
+let extensionStore;
+let extensionBroker;
+const extensionOwner = { kind: "owner", surface: 3 };
+if (process.env.PLUR1BUS_ALLOW_TEST_INTERNALS === "1" && process.env.FAKE_CORE_EXTENSION_SECRETS === "1") {
+  const moduleAt = relative => new URL(`../../../../packages/core/src/${relative}`, import.meta.url).href;
+  const [{ createMemoryBackend }, { createMemoryAuditSink }, { createSecretStore },
+    { startExtensionSpawnSecrets }, { installedExtensionSecretDefinition }] = await Promise.all([
+    import(moduleAt("secrets/memory-backend.ts")), import(moduleAt("secrets/audit.ts")),
+    import(moduleAt("secrets/store.ts")), import(moduleAt("extensions/spawn-secrets.ts")),
+    import(moduleAt("mcp/extension-metadata.ts")),
+  ]);
+  extensionStore = createSecretStore({ keyring: createMemoryBackend(), file: createMemoryBackend({ available: false }),
+    fileFallback: () => false, audit: createMemoryAuditSink(), clock: () => Date.now() });
+  extensionBroker = await startExtensionSpawnSecrets({ home, token, store: extensionStore,
+    definition: name => installedExtensionSecretDefinition(home, name) });
+}
 
 // One-shot (H3B-R7): only the core that creates the marker reports a pending restart, so its successor does not.
 let restartPending = null;
@@ -210,6 +228,7 @@ function shutdown(budgetMs) {
   stopping = true;
   event("shutdown", { budgetMs: budgetMs ?? null });
   server.close();
+  void extensionBroker?.close();
   removeRunFiles();
   setTimeout(() => exit(0), 20);
 }
@@ -237,6 +256,20 @@ const server = net.createServer((sock) => {
     }
     if (!authed) {
       send({ id, error: { code: -32000, message: "authenticate first", data: { error: "E_UNAUTHORIZED", reason: "auth-required" } } });
+      return;
+    }
+    if (["admin.extensions.runtime.hold", "admin.extensions.runtime.release", "admin.extensions.runtime.status"].includes(method)) {
+      const name = params.name;
+      send({ id, result: { name, ...(method.endsWith("hold") ? { held: true } : method.endsWith("release") ? { released: true } : {}) } });
+      return;
+    }
+    if (method === "secret.status" || (extensionStore && ["secret.set", "secret.delete"].includes(method))) {
+      const result = !extensionStore ? Promise.resolve({ backend: "none" }) : method === "secret.status"
+        ? extensionStore.status(extensionOwner) : method === "secret.set"
+          ? extensionStore.set(extensionOwner, params.name, params.value) : extensionStore.delete(extensionOwner, params.name);
+      Promise.resolve(result).then(result => send({ id, result }), () => send({ id, error: {
+        code: -32000, message: "fixture secret operation failed", data: { error: "E_NOT_AVAILABLE", reason: "secret-storage" },
+      } }));
       return;
     }
     if (method === "core.status") {

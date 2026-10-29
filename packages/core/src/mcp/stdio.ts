@@ -3,12 +3,20 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { PassThrough, type Readable, type Writable } from "node:stream";
 import { JSONRPCMessageSchema, type JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
 import type { McpTransportConfig } from "./types.ts";
-import { stdioSpawnEnv } from "./env.ts";
+import { isolatedStdioEnv, stdioSpawnEnv, type LeasedLaunchEnvironment } from "./env.ts";
 import { windowsJobCommand, windowsLauncherEnv } from "./windows-job.ts";
+import { acquireLease } from "../secrets/acquisition.ts";
 
 type Pipes = { input: Writable; output: Readable; stderr?: Readable };
 type StdioConfig = Extract<McpTransportConfig, { type: "stdio" }>;
 export const MAX_FRAME_BYTES = 1024 * 1024;
+
+/** Trusted spawn-time lease acquisition; neither the configuration nor the transport stores credential values. */
+export interface StdioLaunchOptions {
+  signal?: AbortSignal;
+  launchEnvironment?: () => Promise<LeasedLaunchEnvironment | undefined>;
+  redact?: (value: string) => void;
+}
 
 export class BoundedStdioTransport {
   onclose?: () => void;
@@ -28,8 +36,11 @@ export class BoundedStdioTransport {
   private readonly limit: number;
   private readonly grace: number;
   private readonly host: NodeJS.ProcessEnv;
-  constructor(source: Pipes | StdioConfig, limit = MAX_FRAME_BYTES, grace = 2000, host: NodeJS.ProcessEnv = process.env) {
-    this.source = source; this.limit = limit; this.grace = grace; this.host = host;
+  private readonly launch: StdioLaunchOptions;
+  private readonly launchAbort = new AbortController();
+  constructor(source: Pipes | StdioConfig, limit = MAX_FRAME_BYTES, grace = 2000,
+    host: NodeJS.ProcessEnv = process.env, launch: StdioLaunchOptions = {}) {
+    this.source = source; this.limit = limit; this.grace = grace; this.host = host; this.launch = launch;
   }
   get pid(): number | null { return this.pidValue; }
   async start(): Promise<void> {
@@ -38,16 +49,15 @@ export class BoundedStdioTransport {
     if ("input" in this.source) this.pipes = this.source;
     else {
       const t = this.source;
-      const env = stdioSpawnEnv(t, this.host);
-      const launch = process.platform === "win32" ? windowsJobCommand(t.command, t.args, this.host, Object.keys(env)) : { command: t.command, args: t.args };
-      const spawnEnv = process.platform === "win32" ? windowsLauncherEnv(env) : env;
-      this.child = spawn(launch.command, launch.args, { env: spawnEnv, cwd: t.cwd, shell: false, windowsHide: true, detached: process.platform !== "win32", stdio: "pipe" });
-      this.pidValue = this.child.pid ?? null;
-      this.pipes = { input: this.child.stdin, output: this.child.stdout, stderr: this.child.stderr };
-      this.child.on("close", () => { this.finish(); if (!this.closing) void this.killTree("SIGKILL"); });
+      await this.spawn(t);
+      const child = this.child;
+      if (!child) throw new Error("MCP child launch failed");
+      this.pidValue = child.pid ?? null;
+      this.pipes = { input: child.stdin, output: child.stdout, stderr: child.stderr };
+      child.on("close", () => { this.finish(); if (!this.closing) void this.killTree("SIGKILL"); });
       await new Promise<void>((resolve, reject) => {
-        this.child!.once("spawn", resolve);
-        this.child!.once("error", () => { const e = new Error("MCP child spawn failed"); this.onerror?.(e); reject(e); });
+        child.once("spawn", resolve);
+        child.once("error", () => { const e = new Error("MCP child spawn failed"); this.onerror?.(e); reject(e); });
       });
     }
     this.pipes.stderr?.pipe(this.stderr);
@@ -58,6 +68,38 @@ export class BoundedStdioTransport {
       else if (!this.closing) void this.close();
     });
     this.pipes.output.on("data", (chunk: Buffer | string) => this.read(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+  }
+
+  private async spawn(t: StdioConfig): Promise<void> {
+    let leased: LeasedLaunchEnvironment | undefined;
+    let env: Record<string, string> | undefined;
+    let spawnEnv: Record<string, string> | undefined;
+    try {
+      if (this.launch.signal?.aborted || this.closed || this.closing) throw new Error("MCP launch aborted");
+      const signal = this.launch.signal
+        ? AbortSignal.any([this.launch.signal, this.launchAbort.signal]) : this.launchAbort.signal;
+      leased = await acquireLease(() => this.launch.launchEnvironment?.() ?? Promise.resolve(undefined),
+        late => late?.release(), signal);
+      if (this.launch.signal?.aborted || this.closed || this.closing) throw new Error("MCP launch aborted");
+      env = leased ? isolatedStdioEnv(leased.env) : stdioSpawnEnv(t, this.host);
+      if (leased) for (const value of Object.values(env)) this.launch.redact?.(value);
+      const command = process.platform === "win32"
+        ? windowsJobCommand(t.command, t.args, this.host, Object.keys(env))
+        : { command: t.command, args: t.args };
+      spawnEnv = process.platform === "win32" ? windowsLauncherEnv(env) : env;
+      leased?.validate?.();
+      this.child = spawn(command.command, command.args, { env: spawnEnv, cwd: t.cwd, shell: false,
+        windowsHide: true, detached: process.platform !== "win32", stdio: "pipe" });
+    } catch {
+      // Backend/platform exceptions may contain credential values; only a fixed error crosses the transport boundary.
+      throw new Error("MCP child launch failed");
+    } finally {
+      try { leased?.release(); } catch { throw new Error("MCP launch lease release failed"); }
+      if (leased) {
+        if (env) for (const key of Object.keys(env)) delete env[key];
+        if (spawnEnv) for (const key of Object.keys(spawnEnv)) delete spawnEnv[key];
+      }
+    }
   }
   private read(chunk: Buffer): void {
     if (this.closed || this.closing) return;
@@ -87,6 +129,7 @@ export class BoundedStdioTransport {
   }
   close(): Promise<void> { return this.closing ??= this.stop(); }
   private async stop(): Promise<void> {
+    this.launchAbort.abort();
     this.pipes?.input.end();
     const child = this.child;
     if (child) {

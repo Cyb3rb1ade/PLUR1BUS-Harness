@@ -39,6 +39,12 @@ export function createSecretStore(o: SecretStoreOptions) {
   const leases = createLeaseTable(clock);
   /** Every value this store writes or reads is registered before it is returned, so no log, audit or report redactor misses it. */
   const redaction = createSecretRedaction();
+  const changeListeners = new Set<(name: string) => void>();
+  const changed = (name: string): void => {
+    for (const listener of [...changeListeners]) {
+      try { listener(name); } catch { /* observers cannot change a committed mutation */ }
+    }
+  };
   const now = () => new Date(clock());
 
   const allowed = (p: SecretPrincipal, kinds: readonly string[]): boolean => !!p && typeof p === "object" && typeof (p as { kind?: unknown }).kind === "string" && kinds.includes(p.kind);
@@ -198,6 +204,11 @@ export function createSecretStore(o: SecretStoreOptions) {
 
   return {
     redaction,
+    /** In-process committed-value notifications contain names only and never delay the secret operation. */
+    onChange(listener: (name: string) => void): () => void {
+      changeListeners.add(listener);
+      return () => { changeListeners.delete(listener); };
+    },
     async status(p: SecretPrincipal): Promise<SecretStatus> {
       gate(p, "status", null, ["owner", "core"]);
       const s = await select();
@@ -239,7 +250,7 @@ export function createSecretStore(o: SecretStoreOptions) {
         }
         redaction.register(value, name);
         audited(p, "secret.set", name, { backend: backend.kind });
-        return changing(name, async () => {
+        const result = await changing(name, async () => {
           const meta = await backend.put(name, value, now(), p.kind === "owner" ? p.id : undefined, text, previous => redaction.register(previous));
           // A copy of the old value in the other backend would come back when this one goes away: rotation removes it, and a
           // tombstone of an earlier delete has nothing left to hide.
@@ -248,6 +259,8 @@ export function createSecretStore(o: SecretStoreOptions) {
           }
           return meta;
         });
+        changed(name);
+        return result;
       });
     },
 
@@ -314,6 +327,7 @@ export function createSecretStore(o: SecretStoreOptions) {
           }
         });
         if (!removed) throw new SecretError("not-found", `no secret named ${name}`, { name });
+        changed(name);
         return { removed: true as const };
       });
     },

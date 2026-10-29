@@ -1,3 +1,4 @@
+import { deferMaintenanceStart } from '../composition/maintenance.ts';
 import { decide } from '../policy/index.ts';
 import { createHash } from 'node:crypto';
 import { RealtimeService } from './realtime.ts';
@@ -110,8 +111,11 @@ export function createVoiceRuntime(d: CompositionDeps, openai: OpenAIRuntime, bu
     const item = sockets.get(id); if (!item) throw new OpenAIError('transport-unavailable'); item.client = client;
     return { async send(frame) { if (item.closing) throw new OpenAIError('handle-revoked'); if (frame.byteLength > 128 * 1024 || frame.byteLength % 2) throw new OpenAIError('invalid-request'); await item.socket.send({ type: 'session.input_audio.append', audio: Buffer.from(frame).toString('base64') }); }, async close() { item.closing = true; await item.socket.close(); } };
   } } });
-  const sweep = setInterval(() => { void live.sweep().catch(() => d.logger.warn('voice.sweep_failed')); }, 1000); sweep.unref();
-  const runtime = { live, realtime: new RealtimeService(broker), broker, setDelegate(provider: ChatProvider | null) { delegate = provider; }, async close() { clearInterval(sweep); try { await live.close(); } finally { federation?.close(); ledger?.close(); } } };
+  let sweep: ReturnType<typeof setInterval> | undefined;
+  const startSweep = () => { sweep ??= setInterval(() => { void live.sweep().catch(() => d.logger.warn('voice.sweep_failed')); }, 1000); sweep.unref(); };
+  const unwatchSweep = deferMaintenanceStart(d.maintenance, startSweep);
+  if (!unwatchSweep) startSweep();
+  const runtime = { live, realtime: new RealtimeService(broker), broker, setDelegate(provider: ChatProvider | null) { delegate = provider; }, async close() { unwatchSweep?.(); clearInterval(sweep); try { await live.close(); } finally { federation?.close(); ledger?.close(); } } };
   d.options?.onVoice?.(runtime); return runtime;
 }
 export type VoiceRuntime = ReturnType<typeof createVoiceRuntime>;

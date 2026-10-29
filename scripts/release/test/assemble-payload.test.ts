@@ -69,6 +69,7 @@ function deployed(root: string): string {
   put(join(d, "src/core.ts"), "// source, not shipped");
   put(join(d, "test/x.test.ts"), "// test, not shipped");
   put(join(d, "dist/core.js"), "#!/usr/bin/env node\n");
+  put(join(d, "dist/extension-source.js"), "// bounded extension source egress helper\n");
   put(join(d, "dist/agent-templates/AGENTS.md"), "# template");
   put(join(d, "node_modules/@cyb3rb1ade/plur1bus-memory/engine/create-engine.js"), 'const x = {\n    contract: "1.9.0",\n};\nconst y = { contract: "1.9.0" };\n');
   put(join(d, "node_modules/@plur1bus/rpc-schema/schema/rpc.schema.json"), JSON.stringify({ "x-rpc-version": "1.3.0" }));
@@ -148,7 +149,7 @@ describe("assemble-payload", () => {
       assert.equal(readFileSync(`${out}.sha256`, "utf8"), `${sha(out)}  core-0.2.0-linux-x64.tar.gz\n`);
 
       const names = list(out);
-      for (const n of ["core.js", "agent-templates/AGENTS.md", "package.json", "skills/plur1bus-ops/SKILL.md", "modules", "node_modules/semver/bin/semver.js"]) {
+      for (const n of ["core.js", "extension-source.js", "agent-templates/AGENTS.md", "package.json", "skills/plur1bus-ops/SKILL.md", "modules", "node_modules/semver/bin/semver.js"]) {
         assert.ok(names.includes(n), `${n} in ${names.join(", ")}`);
       }
       for (const n of names) assert.ok(!/^(src|test|dist)(\/|$)/.test(n) && !n.includes(".bin"), `${n} is not shipped`);

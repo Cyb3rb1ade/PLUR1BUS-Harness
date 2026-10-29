@@ -1,0 +1,24 @@
+{
+  "params": {
+    "sourceId": "00000000-0000-4000-8000-000000000001"
+  },
+  "result": {
+    "runId": "00000000-0000-4000-8000-000000000001",
+    "sourceType": "fixture",
+    "mode": "dry-run",
+    "status": "planned",
+    "counts": {
+      "total": 0,
+      "imported": 0,
+      "adopted": 0,
+      "renamed": 0,
+      "replaced": 0,
+      "skipped": 0,
+      "refused": 0,
+      "failed": 0
+    },
+    "skills": [],
+    "warnings": [],
+    "errors": []
+  }
+}

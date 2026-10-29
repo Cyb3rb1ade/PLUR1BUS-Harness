@@ -79,6 +79,20 @@ test("a slow request that never completes is cut off with 408 and the error/1 bo
   } finally { await h.close(); }
 });
 
+test("a stalled chunked body on an ordinary GET keeps the short request deadline", async () => {
+  const h = await start({ limits: { requestTimeoutMs: 200, headersTimeoutMs: 200 } });
+  try {
+    const { cookie } = await login(h);
+    const wire = await new Promise<string>((resolve, reject) => {
+      const socket = connect(h.port, "127.0.0.1"); let data = "";
+      socket.setTimeout(2000, () => socket.destroy());
+      socket.on("data", value => { data += value; }); socket.on("error", reject); socket.on("close", () => resolve(data));
+      socket.write(`GET /api/v1/whoami HTTP/1.1\r\nHost: 127.0.0.1:${h.port}\r\nCookie: ${cookie}\r\nTransfer-Encoding: chunked\r\n\r\n1\r\nx\r\n`);
+    });
+    assert.match(wire, /^HTTP\/1\.1 408 /); assert.ok(!wire.includes('"schema":"whoami/1"'));
+  } finally { await h.close(); }
+});
+
 test("a handler that does not answer in time is 504; an unexpected exception is a bare 500 and logs no detail to the client", async () => {
   const core = fakeCore(); core.impl = () => new Promise(() => {});
   const h = await start({ core, limits: { handlerTimeoutMs: 100, healthTimeoutMs: 5000 } });

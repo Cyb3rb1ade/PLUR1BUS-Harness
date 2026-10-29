@@ -1,12 +1,36 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { join } from "node:path";
+import { createLocalFs, RemoteFsError } from "@plur1bus/remote-fs";
 import { detect, type DetectReport } from "../../src/import/detect.ts";
 import { ImportError } from "../../src/import/types.ts";
 import { renderDetect } from "../../src/import/render.ts";
 import { CONTENT_MARKER, FAKE_TOKEN, harnessHome, hermesFixture, openclawFixture, SYMLINKS, type OpenclawFixture } from "./fixtures.ts";
 import { treeDigest } from "./tree.ts";
+import { tempDir } from "../helpers/temp-dir.ts";
 
 const TOP = ["agents", "counts", "other", "plur1bus", "portability", "rerankers", "secrets", "skillRoots", "skills", "source", "sourceType", "target", "version", "warnings"];
+
+describe("WSL candidates when the native source cannot be read", () => {
+  const wslRunner = async () => { throw new ImportError("E_SOURCE_BUSY", "wsl-timeout", "wsl.exe timed out"); };
+
+  it("reports candidates when the confined native source is absent", async () => {
+    const root = tempDir("p1-detect-missing-");
+    const report = await detect({ sourceType: "openclaw", home: harnessHome(), platform: "win32", env: {},
+      homedir: join(root, "missing-home"), reader: { fs: await createLocalFs({ root }), root }, wslRunner });
+    assert.equal(report.source.root, "(none)");
+    assert.equal(report.candidates?.[0]?.distro, "wsl-unavailable");
+    assert.ok(report.warnings.includes("No native source installation found; choose a candidate with --source wsl:<distro>:<path>"));
+  });
+
+  it("keeps a configured native authority denial fatal even when WSL candidates are available", async () => {
+    const root = tempDir("p1-detect-authority-");
+    const fs = await createLocalFs({ root });
+    const denied = { ...fs, stat: async () => { throw new RemoteFsError("path-denied"); } };
+    await assert.rejects(detect({ sourceType: "openclaw", home: harnessHome(), platform: "win32", env: {},
+      homedir: root, reader: { fs: denied, root }, wslRunner }), { reason: "path-denied" });
+  });
+});
 
 describe("detect (OpenClaw)", () => {
   let fx: OpenclawFixture; let home: string; let r: DetectReport; let homeDigest: string; let srcDigest: string;

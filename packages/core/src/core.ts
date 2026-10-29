@@ -56,6 +56,11 @@ import { emailAuthChecks } from "./channels/email-auth-check.ts";
 import { mapEngineEvent } from "./events-map.ts";
 import { createHarnessHost } from "./host.ts";
 import { acquireCoreLock } from "./lock.ts";
+import { assertNoPendingMaintenance } from "./import/pending-maintenance.ts";
+import { createImportMaintenanceHold } from "./import/maintenance-admission.ts";
+import { createImportRuntime } from "./import/runtime.ts";
+import { storeModelPreparation } from "./import/source-store-transfer.ts";
+import { cleanupCompletedSource } from "./import/source-cleanup.ts";
 import { type HarnessLogger, type Level } from "./logger.ts";
 import { CURATION_METHODS } from "./memory-curation.ts";
 import { MEMORY_OP_METHODS, requireAgent } from "./memory-ops.ts";
@@ -111,6 +116,9 @@ import { createConfiguredWebSearch } from "./sidecars/web-search-router.ts";
 import { WebFailure } from "./tools/web/failure.ts";
 import { createBudgetService, type BudgetService } from "./budget/index.ts";
 import { createCoreSecretStore } from "./secrets/runtime.ts";
+import { startExtensionSpawnSecrets } from "./extensions/spawn-secrets.ts";
+import { composeImports } from "./composition/imports.ts";
+import { installedExtensionSecretDefinition } from "./mcp/extension-metadata.ts";
 import { createCatalogStore, type CatalogStore } from "./discovery/catalog-store.ts";
 import { defaultDiscoveryAdapters, type DiscoveryAdapters } from "./discovery/defaults.ts";
 import { createModelsScanJob } from "./discovery/job.ts";
@@ -257,6 +265,7 @@ function cliCaller(): { channel: "cli"; accountId: string; userId: string } {
 export function createCore(o: CoreOptions): Core {
   const home = resolveHome({ ...(o.home ? { home: o.home } : {}) });
   const l = layout(home); const clock = o.clock ?? Date.now;
+  const importHold = createImportMaintenanceHold(process.env.PLUR1BUS_IMPORT_MAINTENANCE);
   const instanceId = o.instanceId ?? randomUUID();
   const token = randomBytes(32).toString("hex");
   const apiToken = randomBytes(32).toString("hex");
@@ -299,6 +308,9 @@ export function createCore(o: CoreOptions): Core {
   let userJobsTimer: ReturnType<typeof setInterval> | null = null;
   let sessions: SessionService | null = null;
   let turnComposition: TurnComposition | null = null;
+  let extensionSpawnSecrets: Awaited<ReturnType<typeof startExtensionSpawnSecrets>> | null = null;
+  let importComposition: ReturnType<typeof composeImports> | null = null;
+  let importRuntime: ReturnType<typeof createImportRuntime> | null = null;
   let permissions: PermissionRuntime | null = null; // D109: grants + approvals (`state/approvals.sqlite`), opened on first use
   let permissionNotifier: PermissionNotifier | null = null;
   let switchboard: Switchboard | null = null; // R3: the channel adapters (Discord, Slack, Matrix, Signal, E-mail), started and stopped by `channels.<id>.enabled`
@@ -374,6 +386,8 @@ export function createCore(o: CoreOptions): Core {
 
   let hostClients: ReturnType<typeof hermesClientAuth> | null = null;
   async function start(): Promise<void> {
+    let prepareImportBootstrap: ((signal: AbortSignal) => Promise<void>) | undefined;
+    let importTargetPrepared = false;
     for (const d of [l.state, l.run, l.logs, l.agents, l.models, l.journal, l.catalog, l.systemJobs]) mkdirSync(d, { recursive: true, mode: 0o700 });
     // B7: what the config source logs before the logger exists (it is built from the configuration) is kept and
     // written once it does.
@@ -471,6 +485,7 @@ export function createCore(o: CoreOptions): Core {
     });
     try {
       lock = acquireCoreLock(l.coreLock, instanceId);
+      assertNoPendingMaintenance(l.home);
       // Under the supervisor the agents follow its configuration; on its own the core follows config.json's edits.
       // Decided per call (M7): a core that fell back to the file and later re-watched switches over, and back.
       const supervised = createAgentRegistry({ config: cfg }, l, logger);
@@ -616,15 +631,9 @@ export function createCore(o: CoreOptions): Core {
         onRecorded: run => { void delivery?.notify("system", run.job, undefined, run.outcome).catch(err => log.warn("delivery notify failed", { err })); },
       });
       systemJobs.register(createModelsScanJob(discovery, discSettings));
-      systemJobs.register(createKnowledgeUpdateJob({ engine: eng, agents: () => executionRegistry.list(), now: clock }));
-      armKnowledgeUpdate(systemJobs, {
-        now: clock,
-        setTimer: (fn, ms) => {
-          const timer = setTimeout(() => { void fn(); }, ms);
-          timer.unref();
-          return { cancel: () => clearTimeout(timer) };
-        },
-      }, shutdown.signal, log);
+      const lastKnowledgeRun = systemJobs.history({ job: "knowledge.update", limit: 1 })[0]?.startedAt;
+      systemJobs.register(createKnowledgeUpdateJob({ engine: eng, agents: () => executionRegistry.list(), now: clock,
+        ...(lastKnowledgeRun === undefined ? {} : { lastRunAt: lastKnowledgeRun }) }));
 
       scanScheduler = createScanScheduler({
         service: discovery,
@@ -760,8 +769,11 @@ export function createCore(o: CoreOptions): Core {
           return t;
         },
       });
-      try { turnComposition = await openTurnComposition({ home: l.home, systemJobs, mediaHostFetchReady: typeof host.fetch === "function", supervised: o.supervisorConfig !== undefined, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
-        voiceConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal, resolveCollaborationPerson: id => people.resolvePerson(id), secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
+      try { turnComposition = await openTurnComposition({ home: l.home, systemJobs, mediaHostFetchReady: typeof host.fetch === "function", supervised: o.supervisorConfig !== undefined, config: cfg, configChanges: listener => cs.onChange(() => listener()), engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
+        maintenance: { held: () => importHold.held, onRelease: callback => importHold.onRelease(callback) },
+        voiceConfigSource: changes => cs.set(changes), importConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal,
+        surfaceOf: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }),
+        resolveCollaborationPerson: id => people.resolvePerson(id), secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
         // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or
         // grant-covered turns) and is refused with a typed error only when a call needs a person's approval.
         approver: async (ctx, params) => { const principal = await resolvePrincipal(ctx, "session.submit", params); return { person: principal && principal.kind === "person" ? principal.userId : null, surface: connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }; },
@@ -818,6 +830,39 @@ export function createCore(o: CoreOptions): Core {
       breakglassSweep.unref(); shutdown.signal.addEventListener("abort", () => clearInterval(breakglassSweep), { once: true });
       const signer = agentExportSigner(secretStore);
       const licenceLedger = modelLicences = new LicenceLedger(path.join(l.state, "model-licences.sqlite"), rbacAudit, clock);
+      importComposition = composeImports({ home: l.home, config: cs, engine: eng, secrets: secretStore,
+        ...(o.testInternals ? { testInternals: o.testInternals } : {}),
+        licences: licenceLedger, audit: rbacAudit, resolvePrincipal, clock, signal: shutdown.signal,
+        ...(turnComposition?.importSsh ? { ssh: turnComposition.importSsh } : {}),
+        progress: (event, personId) => server?.notify("import.progress", event, { audience: [{ personId }] }) });
+      const imported = importComposition;
+      importRuntime = createImportRuntime({ home: l.home, heldRunId: () => importHold.runId, resolvePrincipal,
+        person: id => people.resolvePerson(id), model: imported.model,
+        runningModel: () => eng.embedding.identities()[0]?.model,
+        prepareTarget: async signal => {
+          const check = () => { shutdown.signal.throwIfAborted(); signal.throwIfAborted(); };
+          for (const id of executionRegistry.list()) {
+            check();
+            const store = await eng.open(id);
+            try { check(); } finally { await store.close(); check(); }
+          }
+          check();
+          if (importHold.held && !prepareImportBootstrap) throw new Error("Import bootstrap is not ready");
+          await prepareImportBootstrap?.(signal);
+          check();
+        },
+        release: runId => importHold.release(runId),
+        cleanupSource: async plan => { await cleanupCompletedSource({ home: l.home, plan }); },
+        driver: (control, plan) => createMigrationDriver({ engine: reembedEnginePort, store: createStateStore(l.state), logger: log,
+          switchPort: createConfigSwitchPort({ layout: l, config: { current: () => cs.current(),
+            set: changes => {
+              const block = changes.find(change => change.key === "engine.embedding")?.value as { local?: { model?: string; dimensions?: number } } | undefined;
+              const prepare = plan.sourceEmbedding && block?.local?.model && block.local.dimensions
+                ? [storeModelPreparation(block.local.model, block.local.dimensions)] : [];
+              return cs.setDuringImport?.(control, [...changes, ...prepare]) ?? null;
+            } } }),
+        }),
+      });
       const reservedAgents = new Map<string, Awaited<ReturnType<typeof eng.open>>>();
       const creation = agentCreation({ config: cfg, layout: l, clock, audit: rbacAudit,
         people: () => [...new Set([LOCAL_OWNER.userId, ...people.users().map(u => u.id), ...identityService.list({}).humans.map(h => h.id)])],
@@ -977,6 +1022,8 @@ export function createCore(o: CoreOptions): Core {
         }),
         ...(sessions?.methods ?? {}),
         ...(turnComposition?.surfaceMethods ?? {}),
+        ...importComposition.methods,
+        ...importRuntime.methods,
         ...(turnComposition?.voice.v3.methods ?? {}),
         ...buildVoiceSessionMethods({ config: cfg, broker: () => turnComposition?.voice.broker, hasAgent: id => registry.has(id), clock, audit: rbacAudit,
           surface: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }),
@@ -1029,14 +1076,15 @@ export function createCore(o: CoreOptions): Core {
         const principal = await resolvePrincipal(ctx, "core.status", params);
         return projectAuditStatus(result, principal, () => auditHealth.status());
       };
-      const methods = guardMethods(apiAdmission(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.forSession(id).store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
-      registerHostMethods(methods, { host, egress, secrets: secretStore, agents: executionRegistry,
+      const guardedMethods = guardMethods(apiAdmission(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.forSession(id).store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
+      registerHostMethods(guardedMethods, { host, egress, secrets: secretStore, agents: executionRegistry,
         canCompleteFor: id => selectedEngine instanceof EngineClient && selectedEngine.canCompleteFor(id),
         complete: (agentId, params) => {
           if (!turnComposition) return Promise.reject(new RpcError("E_NOT_AVAILABLE", "engine LLM service is unavailable", { reason: "llm-unavailable" }));
           return turnComposition.engineComplete(agentId, { ...params, signal: AbortSignal.any([params.signal ?? shutdown.signal, shutdown.signal]) });
         },
       });
+      const methods = importHold.methods(guardedMethods);
       const subscribe = methods["events.subscribe"]!;
       methods["events.subscribe"] = async (p, ctx) => {
         if (isEngineContext(ctx) && p.agentId === undefined && Array.isArray(p.names) && p.names.length === 1 && p.names[0] === "egress.changed") return {};
@@ -1067,6 +1115,9 @@ export function createCore(o: CoreOptions): Core {
       platform.securePath(engineModelsPath);
       writeFileSync(l.corePid, `${process.pid} ${instanceId}\n`, { mode: 0o600 }); // S6
       platform.securePath(l.coreToken); platform.securePath(l.corePid);
+      extensionSpawnSecrets = await startExtensionSpawnSecrets({ home: l.home, token, store: secretStore,
+        definition: name => installedExtensionSecretDefinition(l.home, name) });
+      await importComposition?.listen(token);
       await server.listen();
       if (config.metrics.enabled) {
         // D3: a metrics endpoint that cannot start (port taken) never keeps the core from starting.
@@ -1082,41 +1133,80 @@ export function createCore(o: CoreOptions): Core {
       // A lifeline lost during the engine start orphaned the core before it was ready; its grace may already have run out.
       if (orphans.orphanedSince !== null) { beforeOrphan = ready; setState({ state: "orphaned", since: orphans.orphanedSince }); }
       else setState(ready);
-      if (o.discovery?.scheduler !== false) scanScheduler.start();
-      // M1b-3: a dreams store that cannot open must not take the memory service down; `dreams.*` then answers not-available.
-      try {
-        // A1 is optional until the Controller pins Engine contract 1.17.0.
-        // These are public host operations under the agent's existing principal,
-        // never calls made by a model or a background AgentContext.
-        const dreamMemory = eng.memory as typeof eng.memory & A1MemoryOperations;
-        const dreamContext = { origin: "system", background: false } as const;
-        const dreamPrincipal = (agentId: string) => {
-          const ws = executionRegistry.workspaceOf(agentId);
-          if (!ws) throw new Error(`dreams agent workspace unavailable: ${agentId}`);
-          return callerToPrincipal(cliCaller(), agentId, ws).principal;
-        };
-        dreams = createDreams({
-          engine: eng, layout: l, clock: o.dreams?.clock ?? discClock, logger, agents: executionRegistry, securePath: platform.securePath,
-          // Agent-private public cards plus A1's persistent recall counters when
-          // available. Missing A1 keeps promotion closed, never maintenance. A
-          // truncated corpus fails closed after the independent jobs ran.
-          candidateMemory: {
-            async list(agentId) {
-              const ws = executionRegistry.workspaceOf(agentId);
-              if (!ws) return [];
-              return readCandidateMemory(query => dreamMemory.list(query, dreamPrincipal(agentId), dreamContext));
+      const backgroundLogger = logger;
+      const backgroundScan = scanScheduler;
+      let dreamsPrepared = false;
+      const prepareDreams = () => {
+        if (dreamsPrepared) return;
+        dreamsPrepared = true;
+        const logger = backgroundLogger;
+        // M1b-3: a dreams store that cannot open must not take the memory service down; `dreams.*` then answers not-available.
+        try {
+          // A1 is optional until the Controller pins Engine contract 1.17.0.
+          // These are public host operations under the agent's existing principal,
+          // never calls made by a model or a background AgentContext.
+          const dreamMemory = eng.memory as typeof eng.memory & A1MemoryOperations;
+          const dreamContext = { origin: "system", background: false } as const;
+          const dreamPrincipal = (agentId: string) => {
+            const ws = executionRegistry.workspaceOf(agentId);
+            if (!ws) throw new Error(`dreams agent workspace unavailable: ${agentId}`);
+            return callerToPrincipal(cliCaller(), agentId, ws).principal;
+          };
+          dreams = createDreams({
+            engine: eng, layout: l, clock: o.dreams?.clock ?? discClock, logger, agents: executionRegistry, securePath: platform.securePath,
+            // Agent-private public cards plus A1's persistent recall counters when
+            // available. Missing A1 keeps promotion closed, never maintenance. A
+            // truncated corpus fails closed after the independent jobs ran.
+            candidateMemory: {
+              async list(agentId) {
+                const ws = executionRegistry.workspaceOf(agentId);
+                if (!ws) return [];
+                return readCandidateMemory(query => dreamMemory.list(query, dreamPrincipal(agentId), dreamContext));
+              },
+              ...(typeof dreamMemory.stats === "function" ? {
+                stats: (agentId: string, ids: readonly string[]) => dreamMemory.stats!(ids, dreamPrincipal(agentId), dreamContext),
+              } : {}),
+              ...(typeof dreamMemory.promote === "function" ? {
+                promote: (agentId: string, ids: readonly string[]) => dreamMemory.promote!({ ids }, dreamPrincipal(agentId), dreamContext),
+              } : {}),
             },
-            ...(typeof dreamMemory.stats === "function" ? {
-              stats: (agentId: string, ids: readonly string[]) => dreamMemory.stats!(ids, dreamPrincipal(agentId), dreamContext),
-            } : {}),
-            ...(typeof dreamMemory.promote === "function" ? {
-              promote: (agentId: string, ids: readonly string[]) => dreamMemory.promote!({ ids }, dreamPrincipal(agentId), dreamContext),
-            } : {}),
-          },
-          scheduler: { ...(o.dreams?.defaultTimezone ? { defaultTimezone: o.dreams.defaultTimezone } : {}), onEvent: event => { if (event.name === 'run.finished') void delivery?.notify('dreams', event.phase ?? 'unknown', event.agentId, String(event.outcome)).catch(err => log.warn("delivery notify failed", { err })); } },
-        });
-        if (o.dreams?.scheduler ?? o.testInternals === undefined) void dreams.start().catch((err) => logger?.error("dreaming scheduler failed to start", { err }));
-      } catch (err) { dreams = null; dreamsError = String((err as Error)?.message ?? err).slice(0, 300); logger.error("dreaming scheduler unavailable", { err }); }
+            scheduler: { ...(o.dreams?.defaultTimezone ? { defaultTimezone: o.dreams.defaultTimezone } : {}), onEvent: event => { if (event.name === 'run.finished') void delivery?.notify('dreams', event.phase ?? 'unknown', event.agentId, String(event.outcome)).catch(err => log.warn("delivery notify failed", { err })); } },
+          });
+        } catch (err) { dreams = null; dreamsError = String((err as Error)?.message ?? err).slice(0, 300); logger.error("dreaming scheduler unavailable", { err }); }
+      };
+      // Complete local constructors and lazy read-pool initialization while the authenticated maintenance generation
+      // is held. memory.list by time opens the same agent read pool without loading models or calling an embedder.
+      // These legitimate bootstrap writes belong to the final rollback proof, before public admission opens.
+      prepareImportBootstrap = async signal => {
+        const check = () => { shutdown.signal.throwIfAborted(); signal.throwIfAborted(); };
+        check();
+        prepareDreams();
+        check();
+        dreams?.scheduler.syncAgents();
+        check();
+        for (const agentId of executionRegistry.list()) {
+          check();
+          const ws = executionRegistry.workspaceOf(agentId);
+          if (!ws) throw new Error("Import agent workspace is unavailable");
+          await eng.memory.list({ since: 0, limit: 1 }, callerToPrincipal(cliCaller(), agentId, ws).principal, AGENT_CONTEXT_CLI);
+          check();
+        }
+        importTargetPrepared = true;
+      };
+      const startImportBackground = async () => {
+      const logger = backgroundLogger;
+      if (shutdown.signal.aborted) throw new Error("Core is stopping");
+      armKnowledgeUpdate(systemJobs, {
+        now: clock,
+        setTimer: (fn, ms) => {
+          const timer = setTimeout(() => { void fn(); }, ms);
+          timer.unref();
+          return { cancel: () => clearTimeout(timer) };
+        },
+      }, shutdown.signal, log);
+      if (o.discovery?.scheduler !== false) backgroundScan.start();
+      prepareDreams();
+      if (o.dreams?.scheduler ?? o.testInternals === undefined) void dreams?.start().catch((err) => logger.error("dreaming scheduler failed to start", { err }));
       logger.info("core ready", { instanceId, address, supervised: o.lifeline !== undefined });
       void initialDoctorCheck?.().catch(() => {});
       const runUserJobs = () => { if (userJobs && !shutdown.signal.aborted) void userJobs.tick().catch(() => log.warn("recurring scheduler failed")); };
@@ -1127,13 +1217,15 @@ export function createCore(o: CoreOptions): Core {
         engine: eng, logger, signal: shutdown.signal, onDone: () => refreshEngineStatus(),
         // H3-R23: a read-only pass per agent registered now (memory.list + rerank, never engine.recall); agents added
         // later are not warmed (their first recall pays the cold path). Not agent activity, emits no events.
-        recallPath: {
+        // After restoration no target initialization is allowed: opening the writable read pool can append a Lance
+        // bootstrap transaction. Model loading remains enabled; normal startup and prepared imports warm the full path.
+        ...(!importHold.held || importTargetPrepared ? { recallPath: {
           agents: () => executionRegistry.list(),
-          principal: (agentId) => {
+          principal: (agentId: string) => {
             const ws = registry.workspaceOf(agentId);
             return ws ? callerToPrincipal(cliCaller(), agentId, ws).principal : null;
           },
-        },
+        } } : {}),
         // The memory ops' RPC validators compile here, not in the first client call's end-to-end budget (spec §6.4).
         onRecallDone: () => {
           try { precompileMethods(["memory.recall", "memory.capture"]); } catch (err) { logger?.debug("rpc validator warm-up failed", { err }); }
@@ -1149,6 +1241,8 @@ export function createCore(o: CoreOptions): Core {
         // The cached engine status predates the replay (its journal count included the lines just replayed).
         onDone: (r) => { journalBacklog = r.kept; refreshEngineStatus(); },
       });
+      };
+      if (!importHold.defer(startImportBackground)) await startImportBackground();
       refreshEngineStatus(); // the probes now run: `warming` starts the WARMING_REFRESH_MS poll
       if (graceExpiredWhileStarting && state.state === "orphaned") graceExpired();
     } catch (e) {
@@ -1156,12 +1250,17 @@ export function createCore(o: CoreOptions): Core {
       const log = logger;
       log.error("core start failed", { err: e });
       shutdown.abort(new Error("core start failed"));
+      await step(log, "import runtime close", async () => { await importRuntime?.close(); importRuntime = null; });
+      await step(log, "import source secrets close", async () => { await importComposition?.close(); importComposition = null; });
       statusClosed = true; warmup?.abort(); if (warmingTimer) { clearTimeout(warmingTimer); warmingTimer = null; }
       orphans?.dispose();
       await step(log, "config watch", async () => { await source?.close(); });
       await step(log, "channels stop", async () => { await switchboard?.stop(); }); switchboard = null;
       if (userJobsTimer) { clearInterval(userJobsTimer); userJobsTimer = null; }
       await step(log, "sessions close", async () => { await turnComposition?.close(); turnComposition = null; }); sessions = null;
+      await step(log, "extension spawn secrets close", async () => {
+        await extensionSpawnSecrets?.close(); extensionSpawnSecrets = null;
+      });
       await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null; handoff?.close(); handoff = null;
       await step(log, "permissions close", async () => { permissionNotifier?.close(); await permissions?.close(); }); permissions = null; permissionNotifier = null;
       await step(log, "budget close", () => { budget?.close(); budget = null; });
@@ -1225,6 +1324,11 @@ export function createCore(o: CoreOptions): Core {
       warmup?.abort(); // first: the warm-up's wait ends before the engine closes under it
       if (warmingTimer) { clearTimeout(warmingTimer); warmingTimer = null; }
       shutdown.abort(new Error("core stopping"));
+      await step(logger, "import runtime close", async () => { await importRuntime?.close(); importRuntime = null; });
+      await step(logger, "import source secrets close", async () => { await importComposition?.close(); importComposition = null; });
+      await step(logger, "extension spawn secrets close", async () => {
+        await extensionSpawnSecrets?.close(); extensionSpawnSecrets = null;
+      });
       orphans?.dispose(); // closing connections from here on is the stop itself, not a lost lifeline
       const errors: unknown[] = [];
       await step(logger, "config watch", async () => { await source?.close(); }, errors);

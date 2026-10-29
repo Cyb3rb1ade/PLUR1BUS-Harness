@@ -11,7 +11,9 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defaults } from "@plur1bus/config-schema";
+import { build } from "esbuild";
 import { layout } from "../src/paths.ts";
+import { SOURCE_CATALOG } from "../src/import/types.ts";
 import { tempDir } from "./helpers/temp-dir.ts";
 
 const dist = fileURLToPath(new URL("../dist/core.js", import.meta.url));
@@ -81,10 +83,26 @@ it("the trace hook also sees a CommonJS require(), not just import() (the gap re
   );
 });
 
-it("the core bundle carries none of the importer (dist/import.js is a separate entry the core never loads)", () => {
-  const core = readFileSync(dist, "utf8");
-  for (const marker of ["plur1bus-skill-sha256", "lastTouchedVersion", "reembedding-state.json", "runImport"]) {
-    assert.ok(!core.includes(marker), `dist/core.js contains importer code (${marker})`);
+// C3/C7 require live source inspection, preflight and skills import. Source-format markers must therefore be present;
+// the boundary is offline full-import mutation authority. Both forbidden host-adapter trace proofs above still apply.
+it("Core contains source readers and live skills but cannot load full-import mutation or cold-maintenance implementations", async () => {
+  const output = await build({ entryPoints: [fileURLToPath(new URL("../src/bin.ts", import.meta.url))],
+    bundle: true, platform: "node", target: "node24", format: "esm", packages: "external", write: false, metafile: true });
+  const bundled = Object.values(output.metafile!.outputs)[0]!;
+  const loaded = Object.entries(bundled.inputs).filter(([, input]) => input.bytesInOutput > 0)
+    .map(([path]) => path.replaceAll("\\", "/"));
+  const forbidden = ["import-bin.ts", "import/supervised-entry.ts", "import/maintenance-worker.ts",
+    "import/maintenance-snapshot.ts", "import/snapshot-target.ts", "import/rollback.ts", "import/agent-mutations.ts",
+    ...SOURCE_CATALOG.flatMap(({ id: family }) => [`import/importers/${family}.ts`,
+      `import/importers/${family}-agents.ts`, `import/importers/${family}-memories.ts`, `import/importers/${family}-stores.ts`])];
+  assert.deepEqual(loaded.filter(path => forbidden.some(file => path.endsWith("/" + file) || path === file)), [],
+    "offline mutation implementations must be absent from the actual tree-shaken Core dependency graph");
+  const core = output.outputFiles[0]!.text;
+  const pipelineNames = SOURCE_CATALOG.map(({ id }) => id[0]!.toUpperCase() + id.slice(1));
+  for (const name of ["runImportMaintenance", "commitStoreAdopt", "createTargetSnapshot", "rollbackImport", "writeImportConfig",
+    ...pipelineNames.flatMap(family => [`import${family}`, `commit${family}Stores`])]) {
+    assert.ok(!new RegExp(`(?:async )?function ${name}\\(`).test(core), `Core contains the full-import mutator ${name}`);
   }
-  assert.ok(!new RegExp(["open", "claw"].join(""), "i").test(core), "dist/core.js names the importer's source host");
+  assert.ok(loaded.some(path => path.endsWith("import/source.ts")), "actual source reading is available in Core");
+  assert.ok(loaded.some(path => path.endsWith("import/skills-import.ts")), "the authorized live skills path remains available");
 });

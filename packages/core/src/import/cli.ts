@@ -2,6 +2,7 @@
 // prints the envelope's `value` as the `--json` document (schema inserted there) or its `human` text.
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
+import { RemoteFsError } from "@plur1bus/remote-fs";
 import { detect } from "./detect.ts";
 import { importOpenclaw } from "./importers/openclaw.ts";
 import { importHermes } from "./importers/hermes.ts";
@@ -16,9 +17,16 @@ import { ImportError, type SourceType } from "./types.ts";
 
 export type Envelope =
   | { ok: true; schema: string; value: Record<string, unknown>; human: string; exit?: number }
-  | { ok: false; error: string; message: string; reason: string; exit: number };
+  | { ok: false; error: string; message: string; reason: string; exit: number; detail?: string };
 
 const fail = (error: string, reason: string, message: string, exit = 2): Envelope => ({ ok: false, error, message, reason, exit });
+/** An unexpected failure; a native filesystem error names its code and call (`EPERM lstat`), never a path. */
+const internal = (e: unknown): Envelope => {
+  const message = (e as Error)?.message ?? String(e);
+  return e instanceof RemoteFsError && e.detail
+    ? { ok: false, error: "E_IMPORT_FAILED", message, reason: "internal", exit: 1, detail: e.detail }
+    : fail("E_IMPORT_FAILED", "internal", message, 1);
+};
 
 export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process.env, homedir?: string, testInternals?: Record<string, unknown>): Promise<Envelope> {
   let values: Record<string, string | boolean | string[] | undefined>; let positionals: string[];
@@ -60,7 +68,7 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
       return { ok: true, schema: "import.backfill/1", value: r as unknown as Record<string, unknown>, human: renderBackfill(r) };
     } catch (e) {
       if (e instanceof ImportError) return fail(e.code, e.reason, e.message, e.exit);
-      return fail("E_IMPORT_FAILED", "internal", (e as Error).message ?? String(e), 1);
+      return internal(e);
     }
   }
 
@@ -193,6 +201,6 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
     return { ok: true, schema: "import.rollback/1", value: r as unknown as Record<string, unknown>, human: renderRollback(r) };
   } catch (e) {
     if (e instanceof ImportError) return fail(e.code, e.reason, e.message, e.exit);
-    return fail("E_IMPORT_FAILED", "internal", (e as Error).message ?? String(e), 1);
+    return internal(e);
   }
 }

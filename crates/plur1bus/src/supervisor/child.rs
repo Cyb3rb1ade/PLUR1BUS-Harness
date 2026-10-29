@@ -76,7 +76,10 @@ pub fn core_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String
         role: "core".into(),
         program: locate_node(layout),
         args,
-        env: crate::commands::core::attest_env(),
+        env: crate::commands::core::attest_env()
+            .into_iter()
+            .chain(crate::commands::core::native_worker_env())
+            .collect(),
         cwd: None,
     })
 }
@@ -157,7 +160,8 @@ pub fn module_spec(layout: &Layout, m: &Installed, instance_id: &str) -> Result<
         role: m.name.clone(),
         program: locate_node(layout),
         args,
-        env: Vec::new(),
+        // M-A12: cache only nonsecret path metadata; credentials are leased at spawn, never kept in ChildSpec.
+        env: vec![("P1X_DATA".into(), layout.ext_data(&m.name).into_os_string())],
         cwd: Some(m.dir.clone()),
     })
 }
@@ -660,7 +664,63 @@ impl Monitor {
         let restart = self.spawned;
         self.spawned = true;
         let spec = with_instance(base, &instance_id);
-        let mut cmd = Command::new(&spec.program);
+        let lease = if self.ctx.role.kind == RoleKind::Module {
+            match super::spawn_secrets::for_module(&self.ctx.layout, &name) {
+                Ok(lease) => lease,
+                Err(failure) => {
+                    let (overlay, reason) = if failure == super::spawn_secrets::Failure::Invalid {
+                        (
+                            crate::ext::overlays::Overlay::Tampered,
+                            super::state::STOPPED_EXT_TAMPERED,
+                        )
+                    } else {
+                        (
+                            crate::ext::overlays::Overlay::NeedsSetup,
+                            super::state::STOPPED_EXT_NEEDS_SETUP,
+                        )
+                    };
+                    let mut state = self.shared.lock();
+                    state.ext_overlays.insert(name.clone(), overlay);
+                    if let Some(slot) = slot_mut(&mut state, &name) {
+                        slot.start_requested = false;
+                        slot.restart_at = None;
+                        let child = slot
+                            .child
+                            .get_or_insert_with(|| fresh_child(&self.ctx.role));
+                        child.health = Health::Stopped {
+                            reason: Some(reason.to_string()),
+                        };
+                        child.next_restart_at_ms = None;
+                    }
+                    drop(state);
+                    self.shared.log.warn(
+                        "packaged module spawn held",
+                        json!({"module":name,"reason":reason}),
+                    );
+                    return;
+                }
+            }
+        } else {
+            None
+        };
+        let program = if lease.is_some() {
+            match super::spawn_secrets::executable(&spec.program) {
+                Some(program) => program,
+                None => {
+                    return mark_unspawnable(
+                        &self.shared,
+                        &name,
+                        &(
+                            CrashReason::ManifestInvalid,
+                            "the packaged module runtime executable is unavailable".into(),
+                        ),
+                    )
+                }
+            }
+        } else {
+            spec.program.clone()
+        };
+        let mut cmd = Command::new(&program);
         if let Some(dir) = &spec.cwd {
             cmd.current_dir(dir);
         }
@@ -671,6 +731,22 @@ impl Monitor {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
+        // A maintenance hold belongs to this generation, never to the reusable child spec or ambient environment.
+        cmd.env_remove("PLUR1BUS_IMPORT_MAINTENANCE");
+        if self.ctx.role.kind == RoleKind::Core {
+            if let Some(job) = super::relock(&self.shared.maintenance)
+                .active
+                .as_ref()
+                .filter(|job| job.mode != "activate")
+            {
+                cmd.env("PLUR1BUS_IMPORT_MAINTENANCE", &job.run_id);
+            }
+        }
+        if let Some(lease) = &lease {
+            lease
+                .environment
+                .apply(&mut cmd, &self.ctx.layout.ext_data(&name));
+        }
         #[cfg(unix)]
         {
             // Its own process group: a terminal's Ctrl-C reaches the supervisor, which stops the core cleanly.
@@ -703,6 +779,16 @@ impl Monitor {
                 return;
             }
         };
+        drop(cmd);
+        if let Some(lease) = lease {
+            // Disconnect is also a release signal. A failed ACK never puts values or transport errors in a log.
+            if lease.spawned().is_err() {
+                self.shared.log.warn(
+                    "extension spawn lease released by disconnect",
+                    json!({"module":name}),
+                );
+            }
+        }
         let pid = child.id();
         let stdin = child.stdin.take();
         let stdout = child.stdout.take();
@@ -1745,6 +1831,14 @@ mod tests {
         let spec = module_spec(&layout, &m, id).unwrap();
         assert_eq!(spec.role, "fixture");
         assert_eq!(spec.cwd.as_deref(), Some(dir.as_path()));
+        assert_eq!(
+            spec.env,
+            vec![(
+                OsString::from("P1X_DATA"),
+                home.join("data/ext/fixture").into_os_string()
+            )],
+            "cached module specs hold only canonical, nonsecret data metadata"
+        );
         let args: Vec<String> = spec
             .args
             .iter()
@@ -1887,6 +1981,7 @@ mod tests {
     #[test]
     fn an_exit_is_logged_before_it_is_marked_exited() {
         let shared = Arc::new(Shared {
+            maintenance: Default::default(),
             state: Mutex::new(crate::supervisor::test_state()),
             wake: std::sync::Condvar::new(),
             log: crate::supervisor::Log::none(),
@@ -1932,6 +2027,7 @@ mod tests {
     #[test]
     fn the_health_interval_follows_the_running_configuration() {
         let shared = Shared {
+            maintenance: Default::default(),
             state: Mutex::new(crate::supervisor::test_state()),
             wake: std::sync::Condvar::new(),
             log: crate::supervisor::Log::none(),

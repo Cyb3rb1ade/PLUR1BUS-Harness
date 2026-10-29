@@ -35,6 +35,14 @@ pub struct CliArtifact {
     pub path: String,
     pub sha256: String,
 }
+/// Host snapshot resources are part of the signed bundle and use the harness's pinned Node archive.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct SnapshotRuntime {
+    pub node: CliArtifact,
+    pub entry: CliArtifact,
+    pub node_version: String,
+}
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct VendorArtifact {
@@ -57,6 +65,8 @@ pub struct Bundle {
     pub docker_min_api: String,
     #[serde(default)]
     pub cli: CliArtifact,
+    #[serde(default)]
+    pub snapshot_runtime: Option<SnapshotRuntime>,
     #[serde(default)]
     pub vendor: BTreeMap<String, VendorArtifact>,
 }

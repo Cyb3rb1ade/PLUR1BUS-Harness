@@ -20,7 +20,7 @@ test("imported memory/KNOWLEDGE.md is returned by actual Engine recall without c
   writeFileSync(join(source, "memory", "KNOWLEDGE.md"), `# Atlas deployment policy\n\n${importedFact}\n`);
   const home = tempDir("a2-import-recall-home-");
   const l = layout(home);
-  const { report } = planAndMigrateAgent({ agentId: "bernd", workspace: source, workspaceSource: "fixture", agentDir: null, foundIn: [] }, source, l, new Set(), true);
+  const { report } = await planAndMigrateAgent({ agentId: "bernd", workspace: source, workspaceSource: "fixture", agentDir: null, foundIn: [] }, source, l, new Set(), true);
   assert.ok(report.files.some(file => file.targetFile === "memory/KNOWLEDGE.md" && file.action === "created"));
   const cfg = defaults(); cfg.agents.bernd = {};
   cfg.engine = {

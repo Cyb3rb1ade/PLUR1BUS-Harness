@@ -378,6 +378,16 @@ pub fn core_address(home: &Path, platform: &str) -> String {
     address(home, platform, "core")
 }
 
+/// Private native-child spawn credentials; the Core owns role `e` beside its public endpoint.
+pub fn extension_secrets_address(home: &Path, platform: &str) -> String {
+    address(home, platform, "e")
+}
+
+/// Private one-use source credentials for the supervised importer; separate from extension spawn credentials.
+pub fn import_secrets_address(home: &Path, platform: &str) -> String {
+    address(home, platform, "i")
+}
+
 /// The engine's address: `run/engine.sock` on POSIX, the per-home `-engine` pipe on Windows.
 pub fn engine_address(home: &Path, platform: &str) -> String {
     address(home, platform, "engine")

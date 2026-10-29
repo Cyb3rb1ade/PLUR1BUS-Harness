@@ -1,0 +1,9 @@
+{
+  "params": {
+    "id": "fixture"
+  },
+  "result": {
+    "id": "fixture",
+    "deleted": false
+  }
+}

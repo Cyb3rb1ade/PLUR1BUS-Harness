@@ -34,6 +34,659 @@
     }
   ],
   "paths": {
+    "/api/v1/import/sources": {
+      "get": {
+        "operationId": "imports.sources",
+        "tags": [
+          "import"
+        ],
+        "summary": "Supported import formats and the authenticated request's host-path capability",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Canonical display metadata only; source configuration and filesystem paths are absent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "sources",
+                    "hostPathsAllowed"
+                  ],
+                  "properties": {
+                    "sources": {
+                      "type": "array",
+                      "maxItems": 64,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "displayName"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "maxLength": 64
+                          },
+                          "displayName": {
+                            "type": "string",
+                            "maxLength": 256
+                          }
+                        }
+                      }
+                    },
+                    "hostPathsAllowed": {
+                      "type": "boolean"
+                    },
+                    "sshHostSuggestion": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "host",
+                        "reason"
+                      ],
+                      "properties": {
+                        "host": {
+                          "const": "host.docker.internal"
+                        },
+                        "reason": {
+                          "const": "container-host"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session (`reason`: `no-session`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A foreign `Origin` or a cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.8.0",
+        "x-rate-class": "read",
+        "x-csrf": false,
+        "x-authz": "imports.read"
+      }
+    },
+    "/api/v1/import/snapshots": {
+      "post": {
+        "operationId": "imports.snapshot.upload",
+        "tags": [
+          "import"
+        ],
+        "summary": "Stream one tar.gz import snapshot into separate ten-minute person-bound staging; explicitly enrolled import device scope or session",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "A one-time token from GET /api/v1/csrf.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Separate import capability; never accepted by extension inspection. Compressed bytes are capped at 1 GiB before safe extraction by the import service.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "snapshotId",
+                    "expiresAt",
+                    "sha256"
+                  ],
+                  "properties": {
+                    "snapshotId": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{43}$"
+                    },
+                    "expiresAt": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed multipart: exactly one file field is required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The one-time CSRF token is missing, wrong, spent or expired (`reason`: `csrf`); or a foreign `Origin` / cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not multipart/form-data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Private staging or the required Core service is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.8.0",
+        "x-rate-class": "upload",
+        "x-csrf": true,
+        "x-authz": "imports.manage"
+      }
+    },
+    "/api/v1/extensions/upload": {
+      "post": {
+        "operationId": "extensions.upload",
+        "tags": [
+          "extensions"
+        ],
+        "summary": "Stream one extension file into ten-minute person-bound private staging; session or explicitly enrolled native device token",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "A one-time token from GET /api/v1/csrf.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Opaque one-use ID, expiry and package hash; never a host path. Ordinary personal API tokens cannot perform this human-only operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "uploadId",
+                    "expiresAt",
+                    "sha256"
+                  ],
+                  "properties": {
+                    "uploadId": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{43}$"
+                    },
+                    "expiresAt": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed multipart: exactly one file field is required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The one-time CSRF token is missing, wrong, spent or expired (`reason`: `csrf`); or a foreign `Origin` / cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not multipart/form-data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Private staging or the required Core service is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.8.0",
+        "x-rate-class": "upload",
+        "x-csrf": true,
+        "x-authz": "extensions.manage"
+      }
+    },
+    "/api/v1/extensions/inspect": {
+      "post": {
+        "operationId": "extensions.inspect",
+        "tags": [
+          "extensions"
+        ],
+        "summary": "Inspect the same person's opaque upload; native device bearer or session with CSRF",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "A one-time token from GET /api/v1/csrf.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "source"
+                ],
+                "properties": {
+                  "source": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "upload"
+                    ],
+                    "properties": {
+                      "upload": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{43}$"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Owned inspection for /extensions/confirm?inspection=<id>; no installation occurs.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionRpcExtInspection"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The one-time CSRF token is missing, wrong, spent or expired (`reason`: `csrf`); or a foreign `Origin` / cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Private staging or the required Core service is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.8.0",
+        "x-rate-class": "write",
+        "x-csrf": true,
+        "x-authz": "extensions.manage"
+      }
+    },
     "/api/v1/meta": {
       "get": {
         "operationId": "desktop.meta",
@@ -245,7 +898,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -395,7 +1048,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -567,7 +1220,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -612,6 +1265,831 @@
         "x-rate-class": "auth",
         "x-csrf": false,
         "x-authz": "public"
+      }
+    },
+    "/api/v1/desktop/step-up/start": {
+      "post": {
+        "operationId": "desktop.step-up.start",
+        "tags": [
+          "desktop"
+        ],
+        "summary": "Enrolled native device starts a fixed five-minute same-person browser approval",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "purpose"
+                ],
+                "properties": {
+                  "purpose": {
+                    "enum": [
+                      "session",
+                      "extensions",
+                      "imports"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Native-private challenge and public verification code; no permission is added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "challengeId",
+                    "userCode",
+                    "purpose",
+                    "expiresAt",
+                    "intervalMs"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "desktop.step-up.start/1"
+                    },
+                    "challengeId": {
+                      "type": "string",
+                      "minLength": 43,
+                      "maxLength": 43
+                    },
+                    "userCode": {
+                      "type": "string",
+                      "pattern": "^[A-Z2-9]{4}-[A-Z2-9]{4}$"
+                    },
+                    "purpose": {
+                      "enum": [
+                        "session",
+                        "extensions",
+                        "imports"
+                      ]
+                    },
+                    "expiresAt": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "intervalMs": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The credentials are wrong (`reason`: `invalid-token` for the owner token, `invalid-credentials` for a local account).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A foreign `Origin` or a cross-site fetch (`reason`: `origin`, `cross-site`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.8.0",
+        "x-rate-class": "auth",
+        "x-csrf": false,
+        "x-authz": "public"
+      }
+    },
+    "/api/v1/desktop/step-up/poll": {
+      "post": {
+        "operationId": "desktop.step-up.poll",
+        "tags": [
+          "desktop"
+        ],
+        "summary": "Same device polls privately for a one-use operation proof",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "challengeId"
+                ],
+                "properties": {
+                  "challengeId": {
+                    "type": "string",
+                    "minLength": 43,
+                    "maxLength": 43
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Only the native bearer receives proofToken; never expose this response to a renderer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "schema",
+                        "state",
+                        "expiresAt"
+                      ],
+                      "properties": {
+                        "schema": {
+                          "const": "desktop.step-up.poll/1"
+                        },
+                        "state": {
+                          "enum": [
+                            "pending",
+                            "declined",
+                            "expired"
+                          ]
+                        },
+                        "expiresAt": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "schema",
+                        "state",
+                        "purpose",
+                        "proofToken",
+                        "expiresAt"
+                      ],
+                      "properties": {
+                        "schema": {
+                          "const": "desktop.step-up.poll/1"
+                        },
+                        "state": {
+                          "const": "approved"
+                        },
+                        "purpose": {
+                          "enum": [
+                            "session",
+                            "extensions",
+                            "imports"
+                          ]
+                        },
+                        "proofToken": {
+                          "type": "string",
+                          "minLength": 43,
+                          "maxLength": 43
+                        },
+                        "expiresAt": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The credentials are wrong (`reason`: `invalid-token` for the owner token, `invalid-credentials` for a local account).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A foreign `Origin` or a cross-site fetch (`reason`: `origin`, `cross-site`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.8.0",
+        "x-rate-class": "auth",
+        "x-csrf": false,
+        "x-authz": "public"
+      }
+    },
+    "/api/v1/desktop/step-up/cancel": {
+      "post": {
+        "operationId": "desktop.step-up.cancel",
+        "tags": [
+          "desktop"
+        ],
+        "summary": "Same enrolled device cancels its pending or approved grant",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "challengeId"
+                ],
+                "properties": {
+                  "challengeId": {
+                    "type": "string",
+                    "minLength": 43,
+                    "maxLength": 43
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Outstanding operation proofs are revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "ok"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "desktop.step-up.cancel/1"
+                    },
+                    "ok": {
+                      "const": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The credentials are wrong (`reason`: `invalid-token` for the owner token, `invalid-credentials` for a local account).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A foreign `Origin` or a cross-site fetch (`reason`: `origin`, `cross-site`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.8.0",
+        "x-rate-class": "auth",
+        "x-csrf": false,
+        "x-authz": "public"
+      }
+    },
+    "/api/v1/desktop/step-up/approval/{userCode}": {
+      "get": {
+        "operationId": "desktop.step-up.approval",
+        "tags": [
+          "desktop"
+        ],
+        "summary": "Same-person ordinary browser sees public device approval details",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "userCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "No native credential, private challenge or proof is returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "userCode",
+                    "deviceId",
+                    "purpose",
+                    "state",
+                    "expiresAt"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "desktop.step-up.approval/1"
+                    },
+                    "userCode": {
+                      "type": "string",
+                      "pattern": "^[A-Z2-9]{4}-[A-Z2-9]{4}$"
+                    },
+                    "deviceId": {
+                      "type": "string"
+                    },
+                    "purpose": {
+                      "enum": [
+                        "session",
+                        "extensions",
+                        "imports"
+                      ]
+                    },
+                    "state": {
+                      "enum": [
+                        "pending",
+                        "approved",
+                        "declined"
+                      ]
+                    },
+                    "expiresAt": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session (`reason`: `no-session`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A foreign `Origin` or a cross-site fetch (`reason`: `origin`, `cross-site`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.8.0",
+        "x-rate-class": "read",
+        "x-csrf": false,
+        "x-authz": "authenticated"
+      }
+    },
+    "/api/v1/desktop/step-up/decision": {
+      "post": {
+        "operationId": "desktop.step-up.decision",
+        "tags": [
+          "desktop"
+        ],
+        "summary": "Same-person ordinary browser approves with an existing fresh MFA session, or declines",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "A one-time token from GET /api/v1/csrf.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "userCode",
+                  "decision"
+                ],
+                "properties": {
+                  "userCode": {
+                    "type": "string",
+                    "pattern": "^[A-Z2-9]{4}-[A-Z2-9]{4}$"
+                  },
+                  "decision": {
+                    "enum": [
+                      "approve",
+                      "decline"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Public metadata only; approval cannot widen the device's enrolled purpose or extend MFA freshness",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "userCode",
+                    "deviceId",
+                    "purpose",
+                    "state",
+                    "expiresAt"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "desktop.step-up.decision/1"
+                    },
+                    "userCode": {
+                      "type": "string",
+                      "pattern": "^[A-Z2-9]{4}-[A-Z2-9]{4}$"
+                    },
+                    "deviceId": {
+                      "type": "string"
+                    },
+                    "purpose": {
+                      "enum": [
+                        "session",
+                        "extensions",
+                        "imports"
+                      ]
+                    },
+                    "state": {
+                      "enum": [
+                        "pending",
+                        "approved",
+                        "declined"
+                      ]
+                    },
+                    "expiresAt": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session (`reason`: `no-session`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The one-time CSRF token is missing, wrong, spent or expired (`reason`: `csrf`); or a foreign `Origin` / cross-site fetch (`reason`: `origin`, `cross-site`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.8.0",
+        "x-rate-class": "write",
+        "x-csrf": true,
+        "x-authz": "authenticated"
       }
     },
     "/rpc": {
@@ -751,7 +2229,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1008,7 +2486,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1167,7 +2645,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1394,7 +2872,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1550,7 +3028,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1694,7 +3172,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1823,7 +3301,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1964,7 +3442,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2484,7 +3962,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2765,7 +4243,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3391,7 +4869,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3588,7 +5066,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4126,7 +5604,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4485,7 +5963,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4755,7 +6233,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5025,7 +6503,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5304,7 +6782,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5617,7 +7095,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6149,7 +7627,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6608,7 +8086,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6753,7 +8231,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6900,7 +8378,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7124,7 +8602,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7253,7 +8731,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7414,7 +8892,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7648,7 +9126,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7815,7 +9293,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7960,7 +9438,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8450,7 +9928,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8624,7 +10102,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -8812,7 +10290,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -9934,7 +11412,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -10099,7 +11577,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -10260,7 +11738,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -10669,7 +12147,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -10834,7 +12312,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -11011,7 +12489,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -11290,7 +12768,7 @@
             }
           },
           "415": {
-            "description": "The content type is not `application/json`.",
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -11460,6 +12938,297 @@
       }
     },
     "schemas": {
+      "ExtensionRpcExtInspection": {
+        "description": "Experimental (1.4.0). ext.inspect (spec 10.2): the id to install with and its expiry (RFC 3339 UTC), the package sha256, the manifest, the trust verdict, the checks (pass, warn or fail), the declared capabilities, the executable files, the requirements, and what an install would replace (with the capability changes).",
+        "x-stability": "experimental",
+        "x-since": "1.4.0",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "inspectionId",
+          "expiresAt",
+          "sha256",
+          "manifest",
+          "trust",
+          "checks",
+          "capabilities",
+          "scripts",
+          "requires"
+        ],
+        "properties": {
+          "inspectionId": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "manifest": {
+            "type": "object"
+          },
+          "trust": {
+            "$ref": "#/components/schemas/ExtensionRpcExtTrust"
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "status",
+                "detail"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "pass",
+                    "warn",
+                    "fail"
+                  ]
+                },
+                "detail": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "capabilities": {
+            "type": "object"
+          },
+          "scripts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExtensionRpcExtScript"
+            }
+          },
+          "requires": {
+            "type": "object"
+          },
+          "replaces": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "version",
+              "capabilityDiff"
+            ],
+            "properties": {
+              "version": {
+                "type": "string"
+              },
+              "capabilityDiff": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "changed"
+                ],
+                "properties": {
+                  "changed": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "members": {
+            "type": "array",
+            "maxItems": 256,
+            "items": {
+              "$ref": "#/components/schemas/ExtensionRpcExtBundleMemberInspection"
+            }
+          }
+        }
+      },
+      "ExtensionRpcExtTrust": {
+        "description": "Experimental (1.4.0). The trust verdict of a package: the tier, the signing key id when a signature was present, and the label of the trusted key that verified it.",
+        "x-stability": "experimental",
+        "x-since": "1.4.0",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tier"
+        ],
+        "properties": {
+          "tier": {
+            "$ref": "#/components/schemas/ExtensionRpcExtTrustTier"
+          },
+          "keyId": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Since 1.7.0: certificate subject when the package carries an X.509 signer."
+          }
+        }
+      },
+      "ExtensionRpcExtTrustTier": {
+        "description": "Experimental (1.4.0). Where an item stands on trust: release (bundled with a release), first-party (signed by a pinned key), unknown-signer (signed by a key the harness does not trust), unsigned, imported (from a skills import) or dev (a local module directory).",
+        "x-stability": "experimental",
+        "x-since": "1.4.0",
+        "enum": [
+          "release",
+          "first-party",
+          "unknown-signer",
+          "unsigned",
+          "imported",
+          "dev"
+        ]
+      },
+      "ExtensionRpcExtScript": {
+        "description": "Experimental (1.4.0). One executable file of a package: its path inside the package, its size in bytes, and its first line when it starts with a shebang.",
+        "x-stability": "experimental",
+        "x-since": "1.4.0",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "size"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "firstLine": {
+            "type": "string"
+          },
+          "license": {
+            "type": "string",
+            "description": "Since 1.7.0: executable-specific licence when declared; otherwise the package licence applies."
+          }
+        }
+      },
+      "ExtensionRpcExtBundleMemberInspection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "kind",
+          "version",
+          "sha256",
+          "optional",
+          "manifest",
+          "trust",
+          "checks",
+          "capabilities",
+          "scripts",
+          "requires"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "skill",
+              "module",
+              "channel",
+              "mcp-server"
+            ]
+          },
+          "version": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "optional": {
+            "type": "boolean"
+          },
+          "manifest": {
+            "type": "object"
+          },
+          "trust": {
+            "$ref": "#/components/schemas/ExtensionRpcExtTrust"
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "status",
+                "detail"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "pass",
+                    "warn",
+                    "fail"
+                  ]
+                },
+                "detail": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "capabilities": {
+            "type": "object"
+          },
+          "scripts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExtensionRpcExtScript"
+            }
+          },
+          "requires": {
+            "type": "object"
+          },
+          "replaces": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "version",
+              "capabilityDiff"
+            ],
+            "properties": {
+              "version": {
+                "type": "string"
+              },
+              "capabilityDiff": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "changed"
+                ],
+                "properties": {
+                  "changed": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "Error": {
         "type": "object",
         "additionalProperties": false,

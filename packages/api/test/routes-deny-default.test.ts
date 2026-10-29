@@ -5,8 +5,8 @@ import { RPC_RULES } from "../../core/src/rbac/guard.ts";
 import { authorize, policyFor } from "../src/rbac-bridge.ts";
 import { start, fakeCore, addUser, raw, jsonHeaders, loginAs, write } from "./helpers.ts";
 const wide = { auth: { capacity: 10000, refillPerSec: 1000 }, read: { capacity: 10000, refillPerSec: 1000 }, write: { capacity: 10000, refillPerSec: 1000 }, stream: { capacity: 10000, refillPerSec: 1000 } };
-const publicIds = new Set(["desktop.meta", "desktop.pair", "desktop.redeem", "desktop.ticket", "invitation.redeem", "session.create", "session.totp", "account.bootstrap", "passkeys.login.options", "passkeys.login", "remote.pair-proof", "remote.device.pair"]);
-const selfIds = new Set(["csrf.issue", "session.delete", "sessions.revoke-all", "whoami"]);
+const publicIds = new Set(["desktop.meta", "desktop.pair", "desktop.redeem", "desktop.ticket", "desktop.step-up.start", "desktop.step-up.poll", "desktop.step-up.cancel", "invitation.redeem", "session.create", "session.totp", "account.bootstrap", "passkeys.login.options", "passkeys.login", "remote.pair-proof", "remote.device.pair"]);
+const selfIds = new Set(["csrf.issue", "session.delete", "sessions.revoke-all", "whoami", "desktop.step-up.approval", "desktop.step-up.decision"]);
 const path = (value: string) => value.replace("{agentId}", "main").replace("{sessionId}", "deny-contract");
 const body = (id: string) => id === "chats.create" ? { agentId: "main" } : id === "chats.submit" ? { text: "Deny contract" } : {};
 test("every registered route has a reviewed auth classification and anonymous requests cannot enter authenticated routes", async t => {

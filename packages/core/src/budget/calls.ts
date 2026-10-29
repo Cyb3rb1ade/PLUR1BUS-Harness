@@ -2,6 +2,7 @@
 // Counts tokens, calls and media units (images, video seconds); no money dimension anywhere (owner decisions 2026-10-19).
 // Output tokens include reported reasoning tokens. The legacy `budget_call.cost` column stays in the store, unused (always NULL).
 import { randomUUID } from 'node:crypto';
+import { deferMaintenanceStart, type CompositionMaintenance } from '../composition/maintenance.ts';
 import {
   CACHE_READS_SQL, DEFAULT_CACHE_READ_WEIGHT, countedTokens, storedCacheReadWeight,
 } from './cache-read-weight.ts';
@@ -34,6 +35,7 @@ export type CallBudgetEvent =
   | ({ type: 'expire'; reservationId: string; tokens: number; reservedAt: number } & MediaAmounts);
 export interface BudgetEmitter { emit(event: CallBudgetEvent): void }
 export interface CallBudgetOptions {
+  maintenance?: CompositionMaintenance;
   path: string; clock: { now(): number }; emitter?: BudgetEmitter; defaultTimeZone?: string;
   securePath?: (p: string, o?: { mode?: number }) => void; busyTimeoutMs?: number;
   /**
@@ -147,7 +149,8 @@ export function createCallBudget(o: CallBudgetOptions) {
     for (const r of rows) emit({ type: 'expire', reservationId: r.id, tokens: Number(r.tokens), reservedAt: Number(r.ts), ...media({ tokens: 0, images: Number(r.images), videoSeconds: Number(r.video_seconds) }) });
     return rows.length;
   }
-  try { reconcileExpired(); } catch (e) { db.close(); throw e; }
+  const unwatchRecovery = deferMaintenanceStart(o.maintenance, () => { reconcileExpired(); });
+  if (!unwatchRecovery) try { reconcileExpired(); } catch (e) { db.close(); throw e; }
   const zone = () => {
     const row = db.prepare("SELECT value FROM settings WHERE key='timezone'").get() as { value: string } | undefined;
     return validateTimeZone(row?.value ?? defaultZone);
@@ -282,7 +285,7 @@ export function createCallBudget(o: CallBudgetOptions) {
         settle(decision.reservationId, result.usage); return result.value;
       } catch (cause) { throw new CallUsagePendingError(decision.reservationId, cause); }
     },
-    close(): void { db.close(); },
+    close(): void { unwatchRecovery?.(); db.close(); },
   };
 }
 export type CallBudget = ReturnType<typeof createCallBudget>;

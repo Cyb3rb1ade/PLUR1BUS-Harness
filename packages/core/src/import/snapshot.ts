@@ -40,6 +40,8 @@ export interface SnapshotFileInfo {
   size: number;
   sha256: string;
   mtimeMs?: number;
+  /** Original permission metadata for disclosure; private snapshot files themselves remain 0600. */
+  sourceMode?: number;
 }
 
 export interface SnapshotSqliteInfo {
@@ -68,12 +70,19 @@ export interface SnapshotMetadata {
   skippedLinks?: string[] | undefined;
   skippedFiles?: Array<{ path: string; reason: string }>;
   omittedCredentials?: string[];
+  omittedConfigKeys?: import("./types.ts").SecretsReport["configKeys"];
   envKeys: Record<string, string[]>;
   liveCopy?: boolean | undefined;
   tarWarnings?: number | undefined;
 }
 
 export interface CreateSnapshotOptions {
+  /** Internal authorized path-map subtree; the outer family was already detected. No CLI/RPC flag. */
+  selectedTree?: true;
+  reader?: import("./source-reader.ts").SourceReaderOptions;
+  signal?: AbortSignal;
+  maxDepth?: number;
+  maxFileBytes?: number;
   sourceType: SourceType;
   sourceRoot?: string | undefined;
   source?: string | undefined;
@@ -104,7 +113,10 @@ export interface SnapshotResult {
 export interface ExtractTarOptions {
   maxBytes?: number;
   maxFiles?: number;
+  maxDepth?: number;
   targetPlatform?: NodeJS.Platform;
+  /** Trusted pre-write sink. Raw byte/count limits remain enforced here, including omitted members. */
+  onFile?: (entry: { path: string; size: number }, chunks: AsyncIterable<Buffer>) => Promise<void>;
 }
 
 const sleeper = new Int32Array(new SharedArrayBuffer(4));
@@ -400,6 +412,9 @@ export async function extractTarStream(
 
       // Security Check 2: No path traversal (..)
       const segments = entryPath.split("/").filter(Boolean);
+      if (opts.maxDepth !== undefined && segments.length > opts.maxDepth) {
+        throw new ImportError("E_LIMIT_EXCEEDED", "snapshot-depth", "Tar path exceeds the depth limit", 3);
+      }
       if (segments.some((s) => s === "..")) {
         throw new ImportError("E_TAR_SECURITY", "path-traversal", `Path traversal ('..') in tar entry is forbidden: ${entryPath}`, 3);
       }
@@ -450,6 +465,25 @@ export async function extractTarStream(
       totalFiles++;
       if (totalFiles > maxFiles) {
         throw new ImportError("E_LIMIT_EXCEEDED", "too-many-files", `Tar stream exceeded max file count (${maxFiles})`, 3);
+      }
+
+      if (opts.onFile) {
+        let remaining = size;
+        async function* chunks() {
+          while (remaining > 0) {
+            const chunk = await reader.read(Math.min(64 * 1024, remaining));
+            if (chunk === null) throw new ImportError("E_TAR_CORRUPT", "stream-truncated", "Tar member is truncated", 3);
+            remaining -= chunk.length;
+            totalBytes += chunk.length;
+            if (totalBytes > maxBytes) throw new ImportError("E_LIMIT_EXCEEDED", "too-large", "Tar member exceeds the byte limit", 3);
+            yield chunk;
+          }
+        }
+        await opts.onFile({ path: entryPath, size }, chunks());
+        if (remaining !== 0) throw new ImportError("E_TAR_CORRUPT", "member-unconsumed", "Tar member was not consumed", 3);
+        const pad = (512 - (size % 512)) % 512;
+        if (pad > 0) await reader.skip(pad);
+        continue;
       }
 
       let fd: number;
@@ -799,6 +833,7 @@ function runnerToSpawn(runner: WslRunner): typeof spawn {
  * Emits `snapshot.json` with metadata, hashes, and SQLite statuses without leaking secrets.
  */
 export async function createSnapshot(opts: CreateSnapshotOptions): Promise<SnapshotResult> {
+  if (opts.reader) return (await import("./reader-snapshot.ts")).createReaderSnapshot(opts);
   const platform = opts.platform ?? process.platform;
   const maxBytes = opts.maxBytes ?? DEFAULT_SNAPSHOT_MAX_BYTES;
   const maxFiles = opts.maxFiles ?? DEFAULT_SNAPSHOT_MAX_FILES;

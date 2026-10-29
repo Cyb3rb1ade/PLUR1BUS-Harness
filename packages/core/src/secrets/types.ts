@@ -3,11 +3,13 @@
 
 import type { SurfaceTrustLevel } from "../rbac/surface.ts";
 
-/** `[A-Za-z0-9]` first, then `[A-Za-z0-9._:/@-]`, at most 128 characters. */
+/** Generic names stay capped at 128; canonical M-A7 extension slots allow 64 characters per component. */
 const NAME = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/;
+const EXTENSION_SLOT = /^ext:[a-z0-9][a-z0-9._-]{0,63}:[A-Za-z][A-Za-z0-9_]{0,63}$/;
 export const MAX_VALUE_BYTES = 64 * 1024;
 
-export const isSecretName = (v: unknown): v is string => typeof v === "string" && NAME.test(v);
+export const isSecretName = (v: unknown): v is string =>
+  typeof v === "string" && (NAME.test(v) || EXTENSION_SLOT.test(v));
 
 /** Who is asking. The RPC layer derives it from the connection (a client cannot supply it); `core` is the in-process
  *  engine lease path; `agent` is any agent-side caller. Anything that is not exactly `owner` or `core` is refused. */

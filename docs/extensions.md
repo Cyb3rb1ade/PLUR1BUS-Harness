@@ -1,6 +1,6 @@
-# Extensions: `.p1x` packages, skills and plugins (X1)
+# Extensions: `.p1x` packages, skills and plugins
 
-Status: **experimental**. X1 installs skills, modules and channels **from a file**. Everything below is what shipped in X1 (RPC 1.4.0); the design it follows is `docs/superpowers/specs/2026-09-27-extensions-ecosystem-design.md`, and where the shipped behaviour differs the rulings are recorded in ADR-012 §10.14 and ADR-016. Every command's `--help` starts with `[experimental] `.
+Status: **experimental**. File installation supports skills, modules, channels, local and remote MCP servers, and bundles. MCPB/DXT and Claude Code inputs normalize into the same verified pipeline (§8b–8c). M v2 adds the lifecycle and human UI described below; the original X1 contract began at RPC 1.4.0. The design and its 2026-10-28 amendments are in `docs/superpowers/specs/2026-09-27-extensions-ecosystem-design.md`; ADR-012 §10.14 and ADR-016 describe the process and trust boundaries. Every command's `--help` starts with `[experimental] `.
 
 Hand-written. The command reference (`docs/cli.md`) and the RPC reference (`docs/rpc.md`) are generated and are the authority on flags and shapes.
 
@@ -14,13 +14,17 @@ p1x.json.minisig    a minisign signature over the exact bytes of p1x.json (optio
 payload/…           the item's files, and nothing else
 ```
 
+The macOS UTI is `app.plur1bus.extension`.
+
 `p1x.json` lists the SHA-256, size and exec bit of **every** payload file (`files`) and the set of programs the package contains (`scripts`). The signature covers `p1x.json` only; because `p1x.json` hashes every file, it binds the whole package, and a re-zipped package with identical content still verifies. The signature's trusted comment must be `p1x <id> <version> sha256(p1x.json)=<hex>`, so a signature cannot be moved onto another manifest.
 
 Manifest fields that matter to a person: `id` (`<publisher>/<name>`), `name` (the local name: a directory, a module name and a skill name at once, so it is unique across kinds), `version` (semver), `kind`, `title`, `summary`, `publisher`, `licence`, `compat` (`harness` range, `moduleApi`, `rpc`, `platforms`, `container`), `requires.runtime`, `capabilities` (`network`, `filesystem`, `processes`, `harness` are always present; `secrets`, `hostBridge`, `tools`, `mcpApps` optional) and `defaultEnabled` (honoured only for bundled items).
 
-**Kinds in X1:** `skill` (`payload/` is the skill folder, with `payload/SKILL.md`), `module` and `channel` (`payload/` is the module directory, with `payload/module.json`; the install is the D14 module install, module-guide §9). A `.p1x` of kind `mcp-server`, `provider` or `bundle` is refused by `ext.inspect` and `ext.install` (the first two have a package store since X2/D1, below, which nothing calls over RPC yet), and `.mcpb`, `.dxt` and Claude Code plugin inputs, are refused at inspection with `E_NOT_AVAILABLE reason=kind-unsupported` (`"<kind> packages arrive in X2"`).
+**Kinds in X1:** `skill` (`payload/` is the skill folder, with `payload/SKILL.md`), `module` and `channel` (`payload/` is the module directory, with `payload/module.json`; the install is the D14 module install, module-guide §9). The X1 release refused `mcp-server`, `provider`, `bundle`, `.mcpb`, `.dxt` and Claude Code plugin inputs with `E_NOT_AVAILABLE reason=kind-unsupported`. Current MCPB/DXT input support is described in §8b; the package-store building blocks are described in §8a.
 
 **Other inputs.** A skill folder with a `SKILL.md`, a `.zip` holding one and an Anthropic `.skill` are normalised in memory into an **unsigned** `.p1x` (id `local/<name>`, publisher `local`, trust `unsigned`) and then go through the same pipeline. The normalised manifest states what a skill without a manifest could do: with no scripts, `network: none`, no filesystem, no processes and no harness access; with scripts, network `any`, process spawning, read-write access to the agent workspace, and still no harness access. A module directory stays `plur1bus module install <dir>` (trust `dev`).
+
+The source importer wraps supported MCP declarations as unsigned packages through this same verifier/installer and leaves them disabled. Credential values are stripped; missing secret slots require manual setup. Unsupported commands/auth/layouts are reported with a manual reason. Foreign plugins are only classified from declarations as `bridge-possible`, `nonportable` or `unknown`; neither a classification nor a source publisher claim grants execution authority.
 
 ## 2. Verification, in order
 
@@ -45,7 +49,7 @@ The audit streams every entry once (inflate capped at the declared size plus one
 
 ### Process boundary
 
-The supervisor never parses package bytes. `ext.inspect` and the staging half of `ext.install` run in a child process, `plur1bus ext __worker inspect|stage` (a hidden command), killed after 60 s and 300 s respectively; the child prints one JSON line. A crashing parser only fails the call with `E_INTERNAL reason=worker-failed`; a crashed or timed-out stage also discards the inspection, so the package must be inspected again. The supervisor then commits (renames, index, state, config) in-process. Offline, the CLI calls the same functions in-process. `scripts/lint-hygiene.mjs` enforces the split (ADR-012 §10.14).
+The supervisor never parses package bytes. `ext.inspect` and the staging half of `ext.install` run in a child process, `plur1bus ext __worker inspect|stage` (a hidden command), killed after 60 s and 300 s respectively; the child prints one JSON line. A crashing parser only fails the call with `E_INTERNAL reason=worker-failed`; a crashed or timed-out stage also discards the inspection, so the package must be inspected again. The supervisor then commits (renames, index, state, config) in-process. The offline CLI uses the same worker boundary. `scripts/lint-hygiene.mjs` enforces the split (ADR-012 §10.14).
 
 ## 3. Trust
 
@@ -71,7 +75,9 @@ The supervisor never parses package bytes. `ext.inspect` and the staging half of
                           uninstalled (code in trash; data kept; purge also moves data)
 ```
 
-Every install ends **installed(disabled)**: nothing runs until an explicit enable (or `install --enable`). An overlay condition is shown instead of the plain state and never changes the configuration: `needs-setup` (a required secret slot is unfilled; X1 has no secret store, so `enable` refuses with `E_NOT_AVAILABLE reason=needs-setup`), `incompatible` (`compat` no longer holds), `revoked`, `tampered`, `error`. An item under an overlay is not run; its enable flag is kept, except that a revoked item cannot be enabled at all.
+An initial **first-party** install activates for all agents after the applicable checks. Every other trust tier installs disabled unless the human selects **Install and activate**, confirms rights and trust, and chooses agents. Owner and Admin can activate; production `PINNED_KEYS` remains empty until X5, so first-party installation currently exists only through the explicit test seam (§3). CLI installation keeps its existing flags: install, then use `plugin enable` or `skill enable` separately. Updates preserve the existing enabled state and agent selection when their consent still applies.
+
+An overlay is shown instead of the plain state: `needs-setup` (a required secret or pinned runtime is unavailable), `incompatible`, `revoked`, `tampered`, or `error` (including `auth-required`). An item under an overlay is not run. Its enable flag is kept, except that a revoked item cannot be enabled at all. Secret setup uses the existing Secret Store; values never enter extension definitions, state or inspection responses.
 
 | Fact | Where | Owner |
 |---|---|---|
@@ -82,6 +88,8 @@ Every install ends **installed(disabled)**: nothing runs until an explicit enabl
 | Per-agent skill selection | `agents.<id>.skills.{blocked, pinned, applyAt}` in `config.json` | same |
 | Module and channel code | `modules/<name>/` | same |
 | Module and channel enabled | `modules.<name>.enabled`: the only switch | same |
+| Local MCP versions, each with manifest, record and payload | `mcp/<name>/<version>/` | same; extraction and manifest parsing stay in the worker |
+| MCP activation, agents and active/previous version metadata | `mcp.servers.<name>` and the extension state record | supervisor (config), Core (lazy registration) |
 | Extension data | `data/ext/<name>/` (created at install; passing it to modules is X2) | the extension |
 | Trash | `extensions/trash/<name>-<version>-<YYYYMMDDTHHMMSSZ>/` | same |
 | Inspections | `run/inspect/<inspectionId>.{p1x,json}`, valid 10 minutes | same |
@@ -177,21 +185,21 @@ With a supervisor that answers, every verb is its `ext.*` method; without one, t
 
 Exit codes of the ext commands: `E_LOCKED` (an importer holds `skills/index.json`, `reason=skills-locked`) exits 3; `E_NOT_AVAILABLE`, `E_APPROVAL_REQUIRED`, `E_INVALID_PARAMS` and `E_CANCELLED` (a declined prompt) exit 2 (so **`supervisor-running` exits 2** here); everything else exits 1. `plur1bus module` now behaves the same: its `supervisor-running` and `supervisor-not-running` refusals exit 2 as well (module-guide §9).
 
-## 6. RPC (1.4.0)
+## 6. RPC
 
-Served by the supervisor (`x-server: "supervisor"`), all `x-stability: "experimental"`, `x-since: "1.4.0"`, params closed. Shapes and error lists are in `docs/rpc.md`.
+The original `ext.*` lifecycle is served by the Supervisor (`x-server: "supervisor"`, experimental, introduced at RPC 1.4.0). M's additive import/setup/auth contracts ship with RPC 1.8.0. Params are closed; current shapes, server routing and error lists are in `docs/rpc.md`.
 
 | Method | Purpose |
 |---|---|
 | `ext.list`, `ext.show` | installed items (name, id, kind, version, source, trust, state, overlays, enabled, agents) and one item's manifest, capabilities, scripts, trust, files summary, dependents and trash entries; an unreadable `extensions/state.json` is `E_STORAGE reason=state-invalid` (for `ext.watch` and the mutations too), and an unreadable `skills/index.json` lists every skill as not enabled |
-| `ext.inspect` `{ source: { path } }` | audit in a worker; keep the result 10 minutes; returns `inspectionId`, `expiresAt`, `sha256`, `manifest`, `trust`, `checks`, `capabilities`, `scripts`, `requires`, `replaces` |
-| `ext.install` `{ inspectionId, acknowledge?, enable? }` | stage in a worker, commit; disabled unless `enable` (which needs `capabilities`) |
+| `ext.inspect` `{ source: { path } }` or `{ source: { upload } }` | audit in a worker; keep the owner-bound result 10 minutes; returns manifest, trust, checks, rights, runtime, scripts and verified bundle member disclosures |
+| `ext.install` `{ inspectionId, acknowledge?, enable?, members? }` | stage in a worker and commit; activation follows §4; optional bundle selection still includes every required member |
 | `ext.uninstall` `{ name, purge?, cascade? }` | into the trash; `trashId` is `null` for a bundled hide |
 | `ext.restore` `{ trashId }` | back from the trash, disabled |
 | `ext.enable`, `ext.disable` `{ name, agents?, dryRun? }` | `{ name, state, restart: { modules }, heldBack }`; `dryRun` runs every refusal and writes nothing |
 | `ext.watch` | returns every item and subscribes the connection to the `ext.changed` notification |
 
-`ext.update`, `ext.pin`, `ext.unpin`, `ext.skip`, `ext.search` and `ext.catalog.refresh` are X4 and do not exist. `ext.install` takes no `config` or `secrets` (there is no secret store); `ext.inspect` takes no `upload` or `catalog` alternative (X3, X4).
+`ext.update`, `ext.pin`, `ext.unpin`, `ext.skip`, `ext.search` and `ext.catalog.refresh` remain X4. `ext.inspect` has no `catalog` alternative. `ext.install` never accepts credential values; the human setup methods write declared slots to the existing Secret Store. Upload bytes are claimed privately and their original size/SHA256 are checked by the worker before format parsing or normalization.
 
 **Errors** use the closed `ErrorCode` enum; `reason` carries the case. New reasons: `package-invalid`, `signature-invalid`, `scripts-mismatch`, `incompatible`, `name-taken`, `kind-unsupported`, `policy-unsigned-disallowed`, `revoked`, `inspection-expired`, `acknowledge-unsigned`, `acknowledge-unknown-signer`, `acknowledge-downgrade`, `acknowledge-capabilities`, `busy`, `required-by`, `extension-unknown`, `trash-expired`, `bundled`, `needs-setup`, `tampered`, `agents-not-supported`, `worker-failed`, plus `skills-locked` (`E_LOCKED`). The reused frozen vocabulary is `archive-unsafe-entry`, `archive-unsupported`, `download-too-large`, `digest-mismatch`, `reserved-name`, `socket-path-too-long`. `E_STORAGE` also carries `state-invalid` (`extensions/state.json` cannot be read), `index-invalid` and `index-newer` (`skills/index.json` cannot be read or is a newer schema).
 
@@ -214,9 +222,9 @@ All live (`x-restart: "live"`), `x-tier: "advanced"`: `extensions.allowUnsigned`
 - **Key compromise.** Between a compromise and the next rotation or revocation an attacker can sign packages that verify.
 - **Dependencies vendored inside a package** are reviewed at the pinned version only.
 
-## 8a. X2 / D1: `mcp-server` and `provider` packages (library level)
+## 8a. MCP server packages and versioned storage
 
-Not reachable over RPC or the CLI yet; the building blocks are `plur1bus_ext::kinds`, `plur1bus_ext::rights` and `plur1bus::ext::packages` (a worker-side file, never linked by the supervisor).
+`mcp-server` and `bundle` now use the normal RPC/CLI inspection, staging and commit path. `provider` retains its schema/library validation but is not an installable plugin kind. `packages.rs` holds supervisor-safe store metadata; `package_worker.rs` owns package parsing and extraction.
 
 **Kinds.** The manifest `kind` enum gained `provider`. A `provider` carries `provider: { api: "chat_completions", baseUrl: "https://…" }` (closed block, required for that kind). The `remote` block is `mcp-server` only, the `provider` block `provider` only.
 
@@ -234,12 +242,97 @@ Not reachable over RPC or the CLI yet; the building blocks are `plur1bus_ext::ki
 
 **Declared rights** (`rights::declared_rights`): the capabilities as an id-sorted list with a risk (`low`, `medium`, `high`): `network:host:<h>` / `network:any`, `fs:<scope>[:<path>]:<access>`, `process:spawn`, `process:command:<c>`, `secret:<slot>[:required]`, `hostbridge:<x>`, `harness:full` / `harness:scoped:<rpc>`, `tool:<name>:<effect>`, `mcpapps`, `remote:<url>`, `provider:<baseUrl>`. A right the extension does not ask for is absent. It is disclosure, not a sandbox (§8).
 
-**Package store** (`packages::PackageStore`, `<home>/extensions/packages/<name>/`). `install` reads the package once, into a private spool copy under `packages/.staging/` (capped at the policy's package size), and works only on that copy. It audits it (zip structure, `..`, symlinks, case collisions, caps from the caller's `Policy`: package bytes, entry bytes, entry count, ratio), verifies the signature, applies the kind rules and every file's SHA-256, applies `extensions.allowUnsigned` (`false` admits only packages signed by a trusted key: `E_DENIED policy-unsigned-disallowed`, before any acknowledgment is asked for), hashes the spool copy again against the audited SHA-256 (`digest-mismatch` if it changed), extracts with the one verified extractor into `packages/.staging/<name>-<nonce>/` (capped at the audited uncompressed size), checks the extracted tree against `files` once more and the two root files, `p1x.json` and `p1x.json.minisig`, against the audited manifest and signature bytes, writes `record.json` (id, version, kind, package SHA-256, trust, rights, the acknowledged capabilities including the endpoint URL, files) and renames the directory into place. A replace moves the old directory aside first. Any failure undoes every step; a refusal leaves `extensions/` as it was. Unsigned, unknown-signer and downgrade need the same acknowledgments as X1 (`E_APPROVAL_REQUIRED acknowledge-*`); the same name under another id is `E_CONFLICT name-taken`; the identical package is a no-op. `uninstall` renames the directory out of sight, then deletes it (`data/ext/<name>/` stays). `recover` finishes what a kill left. Nothing is enabled or run; there is no `state.json` record yet, so `ext.list` does not show these packages.
+**Package store.** Local MCP code lives at `<home>/mcp/<name>/<version>/{p1x.json,record.json,payload/...}`. The worker reuses the bounded private spool, ZIP audit, shared extractor and extracted-tree hash checks. It validates `payload/manifest.json`, the runtime agreement and the `uv` tree constraints. Supervisor commit uses the existing transaction/recovery machinery and writes the ordinary extension state, so these packages appear in `plugin list` and `ext.list`. The same name/version cannot silently acquire different bytes.
+
+An update stages a sibling version and switches the active version atomically. The prior version remains a fallback through the first clean start. Per-agent version choice is prepared in storage but is not implemented; agent selection shares one active version. The local process cwd is the active version root; `${__dirname}` is its authenticated `payload/` directory. Raw source templates retain that meaning across updates. Node uses the harness runtime; binaries must be declared and contained in the verified payload. Python/`uv` has resolution and frozen-lock validation, but the harness ships no `uv` (owner decision of 2026-10-29): a Python MCP server from a bundle stays `needs-setup`. There is no `uv` producer, no fallback to a `uv` on `PATH` or an unpinned download, and no advisory exception for one.
+
+Required secrets use `ext:<name>:<slot>`. Setup returns declared names and availability only. Short leases are acquired for process start, inserted into the child environment and released on every path; sensitive command/argument substitutions are refused. Disable closes registrations/processes and takes effect for agent tool selection at the next turn. Remote authentication is lazy and human initiated; it never opens a login page as a side effect of listing.
+
+## 8b. MCPB and DXT inputs (M-A9)
+
+`plur1bus plugin install <file.mcpb>` accepts MCPB bundles and their older `.dxt` name.
+`plur1bus mcp import <file.mcpb>` is a compatibility alias using the same inspection,
+acknowledgments and `plugin.install/1` JSON result. `--dry-run` returns `ext.inspect/1`.
+Normalized MCPB/DXT remains unsigned and installs disabled. The alias has no
+`--enable` option; native `.p1x` input follows the same trust policy as `plugin install`.
+
+Normalization validates the closed manifests from `@anthropic-ai/mcpb@2.1.2`, versions
+0.1–0.4, including the deprecated `dxt_version` alias. Node, Python and binary servers
+retain their runtime requirements; 0.4 `uv` becomes Python through `uv`, requires root
+`pyproject.toml`, and rejects bundled `server/lib` or `server/venv`. The executable 0.4
+schema requires `mcp_config` for `uv`; this resolves its disagreement with upstream prose.
+The pinned schemas, checksums and MIT attribution are in
+`crates/plur1bus-ext/schema/mcpb/README.md`.
+
+An appended `MCPB_SIG_V1` / little-endian length / DER envelope / `MCPB_SIG_END` block
+is bounded and removed before the strict ZIP audit. Malformed framing, trailing bytes
+and ZIP corruption refuse inspection. No approved PKCS#7 verifier is installed:
+**signature not checked** appears in inspection warnings, and trust remains **unsigned**.
+Framing checks do not authenticate the source or detect a cryptographically invalid
+signature whose envelope remains structurally valid. `extensions.allowUnsigned: false`
+therefore refuses these bundles too.
+
+The resulting unsigned p1x lists every payload digest and retains the source manifest.
+Sensitive defaults are removed; sensitive configuration becomes secret slots, with
+arbitrary source keys mapped through hashed `.plur1bus/mcpb.json` metadata. Secret
+references in command or arguments are refused; leases populate environment slots only.
+Other string, number, boolean, file and directory declarations retain their types,
+multiple-value flags and numeric bounds. Missing referenced values require setup.
+Platform overrides replace command, args and environment independently; array values
+expand only as complete arguments. A caller supplies platform, system directories and
+configuration through an explicit context port. Raw templates remain in the payload
+so runtime expansion uses the authenticated installed directory.
+
+MCPB/Claude normalization uses an undated canonical `created` value, keeping the
+same source byte-identical across inspections; inspection/install records retain
+their actual times. Authored `.p1x` packing still uses its caller's creation date.
+An upstream MCPB keeps its declared version, so changed bytes under that same
+version remain a conflict.
+
+## 8c. Claude Code plugin inputs (M-A11)
+
+`plur1bus ext inspect <folder-or-zip>` and `plugin install --dry-run` normalize Claude Code
+plugins into unsigned bundles. `.claude-plugin/plugin.json` is optional; when present, only
+`name` is required. The default layout reads `skills/` and `.mcp.json`. Explicit skill paths,
+local MCPB/DXT references, HTTPS references and supported inline MCP configurations also work.
+The source formats follow the official Claude Code plugin manifest reference and the
+[`anthropics/claude-plugins-official`](https://github.com/anthropics/claude-plugins-official)
+examples; no upstream implementation code is included.
+
+Inline MCP members inherit a valid plugin version. Without one, they use a stable
+content-derived SemVer build ID computed after credential stripping; changing
+source content creates a new immutable version. Build IDs have equal SemVer
+precedence and do not create arbitrary downgrade prompts. Inline remote endpoints
+with query strings or fragments are refused without echoing them, rather than
+silently changing endpoint semantics; configure authentication through declared
+Secret Store slots. The synthetic wrapper name avoids every selected member name.
+
+The wrapper has no runtime or operational rights. Every nested package has an exact SHA-256
+in the wrapper's member table. Inspection warnings disclose each member's full capabilities,
+runtime, scripts and unsigned trust. Child secret slots remain scoped to the child. Source
+environment values and authorization headers are replaced with required secret declarations;
+credentials, publisher signatures and foreign trust claims are never carried into the bundle.
+
+Unsupported `commands`, `agents`, `hooks`, `lspServers`, `outputStyles`, `workflows`,
+`experimental.*`, `bin/`, `settings` and `channels` are reported by name and reason. Their
+configuration and code are skipped. No source hook or installer runs during normalization.
+Source paths stay inside the plugin root; ZIP audits, per-file limits and aggregate member
+and download budgets apply before a bundle is accepted.
+
+HTTPS references use the installed Core's `extension-source.js` helper and the existing
+egress service, including host, port, address and redirect checks. Readable valid target
+configuration is required. Requests carry no ambient credentials or custom headers. Bytes
+stream directly into the bounded native worker; its deadline terminates the complete fetch
+process tree. `cargo test -p plur1bus-ext` and `cargo test -p plur1bus --test ext_claude_cli
+--test ext_worker_tree` cover normalization, disclosure, policy refusal and cancellation.
+Bundle installation and atomic child lifecycle are implemented by M-A10. The inert parent owns selected skill/module/channel/MCP members; providers and nested bundles are refused. Omitting `members` selects all, while an explicit selection must contain every nonoptional member. Each selected child's exact package hash, trust, capabilities, scripts and runtime are included in consent. A first-party wrapper does not promote child trust or bypass selected-child acknowledgments. An unsigned wrapper leaves all selected children disabled, including a first-party child.
+
+Group mutations share one extension/skills lock and one durable rollback transaction across code, cache, state, index and config. Required children cannot be toggled or removed independently; optional children can be disabled and produce a partially enabled group. Independently updating an owned child is refused because the parent binds its exact digest. Updates preserve existing member activation and agent coverage; new optional members start disabled. Uninstall cascades to the selected graph, and restore brings it back disabled. Recovery blocks further mutations until the whole graph is consistent.
 
 ## 9. What arrives in X2–X5
 
-- **X2:** (D1 above: the `mcp-server` and `provider` manifests, rights and package store; still to come:) `bundle` kind, the `ext.*` and CLI wiring of the package store, `.mcpb`/`.dxt` and Claude Code plugin inputs, `ctx.dataDir` and `P1X_DATA` for modules and scripts, per-agent MCP lists.
-- **X3:** web UI, the upload endpoint (`ext.inspect` `upload`), D1 `.p1x` file association, the WebMCP deny list work beyond the one-line defence in depth already in place.
+- **M v2:** MCP lifecycle, bundle transactions, source normalizers, human extension/import surfaces, owner-bound upload/native snapshot input and per-agent MCP activation are implemented. Browser/axe acceptance is still pending; required attempts failed because the exact Chromium artifact was unavailable. The harness ships no `uv` runtime, so Python MCP servers from bundles stay `needs-setup`. Foreign plugin classification is display-only; a plugin execution bridge is outside M.
+- **X3 integration:** the web upload/confirm flow and native `.p1x` association use authenticated human authority; no extension/import mutation is a WebMCP or agent tool. See [the current UI validation status](web-ui.md#m-v2-extensionimport-validation-status).
 - **X4:** the signed catalogue and `ext.inspect` `catalog`, search, per-item updates with health gate and rollback, pin/skip, revocation lists and `--force-revoked`, the 24 h integrity timer and repair from the cache, key rotation.
 - **X5:** the pinned first-party keys, `ext lint`, the publishing repository and first packages. After X5 a signed package can be `first-party`.
 

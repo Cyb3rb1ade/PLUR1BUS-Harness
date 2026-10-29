@@ -13,13 +13,21 @@ export { SecretBearerAuthProvider, PkceAuthProvider, type McpAuthProvider, type 
 /** Composition factory; the registry stays lazy and keeps all transport ownership in mcp/. */
 import { McpRegistry as Registry } from './registry.ts';
 import type { RegistryOptions } from './registry.ts';
+import { McpClientError as ClientError } from './errors.ts';
+import type { McpCaller } from './types.ts';
 export function createMcpRegistry(options: RegistryOptions): Registry { return new Registry(options); }
 
 /** Identity adapter: approval's person is separate from MCP's canonical visibility principal. */
-export function scopedMcpPort(port: import("../tools/mcp-bridge.ts").McpToolPort, principal: string): import("../tools/mcp-bridge.ts").McpToolPort {
+export function scopedMcpPort(port: import("../tools/mcp-bridge.ts").McpToolPort, principal: string,
+  mayExecute?: (server: string, caller: McpCaller) => boolean): import("../tools/mcp-bridge.ts").McpToolPort {
   const invoke = port.callTool.bind(port);
   return {
     listTools: (server, caller, options) => port.listTools(server, { ...caller, principal }, options),
-    callTool: (server, tool, args, caller, signal) => invoke(server, tool, args, { ...caller, principal }, signal),
+    callTool: async (server, tool, args, caller, signal) => {
+      if (mayExecute && !mayExecute(server, caller)) {
+        throw new ClientError('not-allowed', 'MCP server is no longer enabled for this agent', { server });
+      }
+      return invoke(server, tool, args, { ...caller, principal }, signal);
+    },
   };
 }

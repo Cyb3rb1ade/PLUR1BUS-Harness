@@ -30,7 +30,7 @@ let pairingError:string|null=null;
 let failConnections=boot?.failConnections??false;
 let releaseConnections: (()=>void)|undefined;
 const connectionGate = boot?.deferConnections ? new Promise<void>(resolve=>{releaseConnections=resolve;}) : Promise.resolve();
-const calls = { pair: 0, remove: 0, open: 0, decide: 0, install: 0, logs: 0 };
+const calls = { pair: 0, remove: 0, open: 0, decide: 0, install: 0, logs: 0, extensionUploads: [] as unknown[], enrollments: [] as unknown[], stepUps: [] as unknown[] };
 // Transport choice fixtures (spec §7.1): reports by host, the stored path per connection, every IPC call.
 type Report = import("../src/ipc.ts").TransportReport;
 const privateReport = (): Report => ({ category: "private", addresses: ["192.168.1.20"], hints: [], tailscale: null, needsPublicAck: false, classifier: "iana-special-2025-10-09" });
@@ -61,7 +61,7 @@ const transport: DesktopTransport = {
  async connectionsRename(id,name){if(renameError)throw renameError;rows=rows.map(row=>row.id===id?{...row,name}:row);},
  async connectionsRemove(id){calls.remove++;await gates.remove;rows=rows.filter(row=>row.id!==id);},
  async pairCode(request){calls.pair++;transportCalls.push(["pair",request.transport,request.publicAck]);await gates.pair;if(pairingError)throw pairingError;if(request.transport!=="tailscale"&&request.transport!=="direct")throw "invalid";const needs=reportFor(hostOf(request.origin)).needsPublicAck;if(needs&&!request.publicAck)throw "transport-confirm-needed";const connection={id:request.repairId??"fixture-row",name:request.name,origin:request.origin,kind:"remote" as const,installationId:"fixture-installation",deviceId:"fixture-device",tokenHint:"hint",certPin:null,caPin:null,nextCertPin:null,nextCaPin:null,observedCertPin:null,pairingNeeded:false};transportViews[connection.id]={transport:request.transport,publicAck:needs,storeReadOnly:transportStoreReadOnly};rows=[connection];return {connection,tokenStore:"memory-only"};},
- async pairLocal(){if(pairingError)throw pairingError;throw "denied";},
+ async pairLocal(name,grants){calls.enrollments.push({name,grants});if(pairingError)throw pairingError;throw "denied";},
  async openConnection(id){calls.open++;transportCalls.push(["open",id]);await gates.open;if(pairingError)throw pairingError;const row=rows.find(r=>r.id===id);const report=row&&row.kind==="remote"?reportFor(hostOf(row.origin)):null;if(row&&report?.needsPublicAck&&!viewFor(row).publicAck)throw "transport-confirm-needed";active=id;return {selected:true,spa_available:false,transport:report};},
  async transportCheck(target,transport,purpose){transportCalls.push(["check",target,transport,purpose]);await gates.check;if(transportCheckError)throw transportCheckError;const host=target.kind==="origin"?hostOf(target.origin):target.kind==="host"?target.host:hostOf(rows.find(r=>r.id===target.id)?.origin??"");return reportFor(host);},
  async connectionTransportSet(id,transport,publicAck){transportCalls.push(["set",id,transport,publicAck]);const row=rows.find(r=>r.id===id);if(!row)throw "invalid";const view=viewFor(row);const needs=reportFor(hostOf(row.origin)).needsPublicAck;const kept=view.transport===transport&&view.publicAck;if(needs&&!publicAck&&!kept)throw "transport-confirm-needed";transportViews[id]={transport,publicAck:needs&&(publicAck||kept),storeReadOnly:transportStoreReadOnly};return reportFor(hostOf(row.origin));},
@@ -77,12 +77,26 @@ const transport: DesktopTransport = {
 };
 if(boot?.bundled){
  transport.runtimeDetect=async()=>[{id:"p1t-runtime",kind:"docker",endpoint:"unix:///p1t/engine.sock",source:"podman",engine:"Podman",version:"5.0",state:"ready"}];
- transport.bundleInstall=async()=>({connectionId:"p1t-bundled"});
+ transport.bundleInstall=async(runtimeId,agreed,grants)=>{calls.enrollments.push({runtimeId,agreed,grants});return {connectionId:"p1t-bundled"};};
  transport.bundleCancel=async()=>{};
  transport.harnessStatus=async()=>({state:boot?.harnessState??"ready"});
  if(boot?.failProgress)transport.bundleProgress=async()=>{throw "listen-failed";};
  transport.harnessStart=async()=>{};transport.harnessStop=async()=>{};
  transport.harnessLogsTail=async()=>{calls.logs++;await gates.logs;return boot?.runtimeLog??"synthetic redacted log";};
+}
+if ((boot as Record<string, unknown> | undefined)?.extensionUpload) {
+ transport.extensionUpload = async request => { calls.extensionUploads.push(request); return { inspectionId: "fixture-inspection", origin: rows.find(row => row.id === request.connectionId)!.origin }; };
+}
+if ((boot as Record<string, unknown> | undefined)?.stepUp) {
+ const metadata = (connectionId: string, purpose: import("../src/ipc.ts").StepUpPurpose, state: "pending" | "approved") => ({
+   handle: "019a0000-0000-7000-8000-000000000001", userCode: "ABCD-2345", purpose, state,
+   verificationUri: rows.find(row => row.id === connectionId)!.origin + "/#/desktop/approve", expiresAt: Date.now()+300000,
+ });
+ let purpose: import("../src/ipc.ts").StepUpPurpose = "session";
+ transport.stepUpBegin = async request => { calls.stepUps.push({action:"begin",...request}); purpose=request.purpose; return metadata(request.connectionId,purpose,"pending"); };
+ transport.stepUpPoll = async request => { calls.stepUps.push({action:"poll",...request}); return metadata(request.connectionId,purpose,"approved"); };
+ transport.stepUpCancel = async request => { calls.stepUps.push({action:"cancel",...request}); };
+ transport.stepUpOpen = async request => { calls.stepUps.push({action:"open",...request}); };
 }
 const shellRoot = document.createElement("div");
 document.body.append(shellRoot);

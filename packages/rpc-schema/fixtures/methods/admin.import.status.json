@@ -1,0 +1,19 @@
+{
+  "params": {
+    "runId": "00000000-0000-4000-8000-000000000001"
+  },
+  "result": {
+    "run": {
+      "runId": "00000000-0000-4000-8000-000000000001",
+      "planId": "00000000-0000-4000-8000-000000000001",
+      "sourceType": "fixture",
+      "state": "queued",
+      "attempt": 1,
+      "createdAt": "2026-10-29T00:00:00Z",
+      "updatedAt": "2026-10-29T00:00:00Z",
+      "restored": false,
+      "resumable": false,
+      "rollbackAvailable": false
+    }
+  }
+}

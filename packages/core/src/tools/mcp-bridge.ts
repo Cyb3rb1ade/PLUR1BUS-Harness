@@ -2,10 +2,10 @@
 // `McpRegistry.callTool` runs a server's tool with no policy of its own (ADR-014 left that to the turn loop); this bridge is the one
 // place that calls it for an agent, and only from a `ToolDef.execute` that the dispatcher invokes after the gate.
 //
-// Classification (§2, §7): capability `net.submit` ("MCP `external` tools"); the effect is `external` unless the server's annotations
-// RAISE it (`fromMcp`: a `readOnlyHint` never lowers it); the call counts as outside the roots (fail closed: approval). The caller
-// identity is the dispatch context's agent and principal, never anything from the arguments.
-import { fromMcp, type Effect, type McpAnnotations } from "../policy/effects.ts";
+// Classification uses the installed extension's declared effect when present. Unspecified tools remain external;
+// server annotations only raise effects. MCP-specific capabilities keep filesystem/shell grants from authorizing
+// an unrelated server. Caller identity comes from the dispatch context, never tool arguments.
+import { fromExtensionEffect, fromMcp, maxEffect, type Effect, type McpAnnotations } from "../policy/effects.ts";
 import type { McpCaller, McpToolDescriptor, McpToolResult } from "../mcp/types.ts";
 import type { ToolDef, ToolTrust } from "./registry.ts";
 import { HARD_MAX_RESULT_BYTES } from "./registry.ts";
@@ -21,6 +21,13 @@ export interface McpBridgeOptions {
   trust?: ToolTrust;
   signal?: AbortSignal;
   refresh?: boolean;
+  /** Host-verified installed manifest declarations; never accepted from a server's own descriptors. */
+  declaration?: McpExtensionDeclaration;
+}
+/** The subset of an installed extension's capabilities needed to classify its tools. */
+export interface McpExtensionDeclaration {
+  tools: readonly { name: string; effect: "read" | "write" | "destructive" }[];
+  network: "none" | "declared";
 }
 export type McpSkipReason = "schema" | "name" | "too-long" | "collision";
 export interface McpBridgeResult { tools: ToolDef[]; skipped: { tool: string; reason: McpSkipReason }[] }
@@ -61,6 +68,27 @@ function safe(part: string): string | null {
   return /[a-z0-9]/.test(s) ? s : null;
 }
 
+function declaredEffect(declaration: McpExtensionDeclaration | undefined, name: string): Effect | undefined {
+  let effect: Effect | undefined;
+  for (const tool of declaration?.tools ?? []) {
+    if (tool.name !== name) continue;
+    const next = fromExtensionEffect(tool.effect, declaration!.network);
+    // A repeated declaration must never let the first, weaker entry lower the effective permission.
+    effect = effect === undefined ? next : maxEffect(effect, next);
+  }
+  return effect;
+}
+
+function capabilityFor(effect: Effect): string {
+  switch (effect) {
+    case "read": return "mcp.tool.read";
+    case "local-write": return "mcp.tool.write";
+    case "local-destructive": return "mcp.tool.destructive";
+    case "external":
+    case "money": return "net.submit";
+  }
+}
+
 export async function mcpToolDefs(port: McpToolPort, server: string, caller: McpCaller, o: McpBridgeOptions = {}): Promise<McpBridgeResult> {
   const descriptors = await port.listTools(server, caller, { ...(o.refresh ? { refresh: true } : {}), ...(o.signal ? { signal: o.signal } : {}) });
   const serverPart = safe(server);
@@ -78,17 +106,18 @@ export async function mcpToolDefs(port: McpToolPort, server: string, caller: Mcp
     if (seen.has(name)) { skipped.push({ tool: d.name, reason: "collision" }); continue; }
     seen.add(name);
     const ann = (d.annotations ?? {}) as McpAnnotations;
-    const effect: Effect = fromMcp(undefined, ann);
-    // `external` already outranks `local-destructive`, so a destructive hint raises through the call's flags instead: irreversible (risk +1).
-    const destructive = ann.destructiveHint === true;
+    const effect = fromMcp(declaredEffect(o.declaration, d.name), ann);
+    // Network writes rank above local destruction; retain the irreversible flag in either case.
+    const destructive = ann.destructiveHint === true ||
+      o.declaration?.tools.some(tool => tool.name === d.name && tool.effect === "destructive") === true;
     const upstream = d.name;
     tools.push({
       name,
       description: (d.description ?? d.title ?? d.name).slice(0, MAX_DESCRIPTION),
       inputSchema,
-      capability: "net.submit",
+      capability: capabilityFor(effect),
       effect,
-      risk: destructive || effect !== "external" ? "high" : "medium",
+      risk: destructive || effect === "local-destructive" ? "high" : effect === "read" ? "low" : "medium",
       trust: o.trust ?? "untrusted",
       limits: { timeoutMs: 65_000, maxResultBytes: HARD_MAX_RESULT_BYTES },
       classify: () => ({ flags: { outsideRoots: true, ...(destructive ? { irreversible: true } : {}) } }),

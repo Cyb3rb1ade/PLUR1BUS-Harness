@@ -14,17 +14,23 @@ import * as area from "../../i18n/extensions.ts";
 import { FailureState } from "../common/states.ts";
 import { currentRole, getApi, roleIn, useLoad } from "../common/load.ts";
 import type { PageProps } from "../registry.ts";
-import { navigate } from "../../router.ts";
+import { navigate, routePath } from "../../router.ts";
 import type {
   ExtItem,
   ExtDetail,
-  ExtInspection,
   ExtKind,
   ExtOverlay,
   ExtTrustTier,
 } from "../common/surfaces-rpc.ts";
 
 import { RightsList } from "./rights.ts";
+import { InstallDialog } from "./upload.ts";
+import { ExtensionConfirmPage } from "./confirm.ts";
+import { AgentSwitches } from "./agent-switches.ts";
+import { ExtensionSetup } from "./setup.ts";
+import { BundleState } from "./bundle-state.ts";
+import { InspectionDisclosure } from "./disclosure.ts";
+import { enableConsentIdentity, enableConsentReady, enableParameters, type EnableConsentDetail } from "./enable-model.ts";
 
 import "../../styles/extensions.css";
 
@@ -59,13 +65,6 @@ function trustTone(tier: ExtTrustTier): BadgeTone {
     default:
       return "neutral";
   }
-}
-
-/** Key order does not matter when two capability objects are compared. */
-function canonical(v: unknown): string {
-  if (Array.isArray(v)) return `[${v.map(canonical).join(",")}]`;
-  if (typeof v === "object" && v !== null) return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canonical((v as Record<string, unknown>)[k])}`).join(",")}}`;
-  return JSON.stringify(v) ?? "null";
 }
 
 function UninstallDialog({
@@ -157,166 +156,16 @@ function UninstallDialog({
   );
 }
 
-function InstallDialog({
-  onClose,
-  onDone,
-}: {
-  onClose: () => void;
-  onDone: () => void;
-}): View {
-  const [stage, setStage] = useState<"file" | "inspecting" | "disclosed">("file");
-  const [filePath, setFilePath] = useState("");
-  const [inspection, setInspection] = useState<ExtInspection | null>(null);
-  const [ack, setAck] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-  const inFlight = useRef(false);
-
-  const inspect = async (path: string): Promise<void> => {
-    setBusy(true);
-    setErr("");
-    setStage("inspecting");
-    try {
-      const res = (await getApi().rpc("ext.inspect", { source: { path } }, { write: false })) as ExtInspection;
-      setInspection(res);
-      setStage("disclosed");
-    } catch (e) {
-      setStage("file");
-      const o = (typeof e === "object" && e !== null ? e : {}) as { message?: string };
-      setErr(o.message || t("extensions.install.inspectFailed"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleFileChange = (e: Event): void => {
-    const input = e.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-    const path = file.name;
-    setFilePath(path);
-    void inspect(path);
-  };
-
-  const install = async (): Promise<void> => {
-    if (!inspection || inFlight.current || inspection.checks.some((c) => c.status === "fail")) return;
-    inFlight.current = true;
-    setBusy(true);
-    setErr("");
-    try {
-      const acks: ("unsigned" | "unknown-signer" | "downgrade" | "capabilities")[] = [];
-      if (inspection.trust.tier === "unsigned") acks.push("unsigned");
-      if (inspection.trust.tier === "unknown-signer") acks.push("unknown-signer");
-      acks.push("capabilities");
-      await getApi().rpc("ext.install", {
-        inspectionId: inspection.inspectionId,
-        acknowledge: acks,
-      });
-      setBusy(false);
-      onDone();
-      onClose();
-    } catch (e) {
-      setBusy(false);
-      const o = (typeof e === "object" && e !== null ? e : {}) as { message?: string };
-      setErr(o.message || t("extensions.error.required"));
-    } finally {
-      inFlight.current = false;
-    }
-  };
-  const blocked = inspection?.checks.some((c) => c.status === "fail") ?? false;
-
-  return h(
-    Dialog,
-    {
-      title: t("extensions.install.title"),
-      onClose,
-      actions: h(
-        "div",
-        { class: "dialog-actions" },
-        h("button", { type: "button", class: "btn btn-quiet", onClick: onClose }, t("shared.confirm.cancel")),
-        stage === "disclosed"
-          ? h(
-              "button",
-              {
-                type: "button",
-                class: "btn btn-primary",
-                disabled: busy || !ack || blocked,
-                onClick: () => { void install(); },
-              },
-              t("extensions.install.submit"),
-            )
-          : null,
-      ),
-    },
-    h(
-      "div",
-      { class: "dialog-content" },
-      err ? h("p", { class: "form-error", role: "alert" }, err) : null,
-      stage === "file" || stage === "inspecting"
-        ? h(
-            "div",
-            { class: "field" },
-            h("label", { for: "ext-file-input" }, t("extensions.action.installFile")),
-            h("input", {
-              id: "ext-file-input",
-              type: "file",
-              accept: ".p1x,.zip,.skill",
-              disabled: busy,
-              onChange: handleFileChange,
-            }),
-            stage === "inspecting" ? h("p", { role: "status", "aria-live": "polite" }, t("extensions.install.inspect")) : null,
-          )
-        : null,
-      stage === "disclosed" && inspection
-        ? h(
-            "div",
-            { class: "inspection-disclosure" },
-            h("p", { class: "reading" }, t("extensions.install.ready", { id: String((inspection.manifest as { id?: unknown }).id ?? "?"), version: String((inspection.manifest as { version?: unknown }).version ?? "?") })),
-            h("p", { class: "reading", "data-install": "trust" }, t("extensions.install.trust", { tier: inspection.trust.tier, sha: inspection.sha256.slice(0, 12) })),
-            h(
-              "ul",
-              { class: "plain-list", "data-install": "checks" },
-              inspection.checks.map((c) => h("li", { key: c.id, class: c.status === "fail" ? "form-error" : undefined, role: c.status === "fail" ? "alert" : undefined }, `${c.id}: ${t(`extensions.install.check.${c.status}` as Key)} – ${c.detail}`)),
-            ),
-            inspection.scripts.length
-              ? h("div", { "data-install": "scripts" }, h("h3", null, t("extensions.install.scripts")), h("ul", { class: "plain-list" }, inspection.scripts.map((sc) => h("li", { key: sc.path }, `${sc.path} (${sc.size} B)`))))
-              : null,
-            h("h3", null, t("extensions.install.capabilities")),
-            h(RightsList, { caps: inspection.capabilities }),
-            inspection.replaces && inspection.replaces.capabilityDiff.changed.length > 0
-              ? h("p", { class: "form-notice", role: "status" }, t("extensions.install.widens", { list: inspection.replaces.capabilityDiff.changed.join(", ") }))
-              : null,
-            h(
-              "div",
-              { class: "field" },
-              h(
-                "label",
-                { class: "checkbox-label" },
-                h("input", {
-                  type: "checkbox",
-                  checked: ack,
-                  onChange: (e: Event) => setAck((e.target as HTMLInputElement).checked),
-                }),
-                " ",
-                t("extensions.install.acknowledge"),
-              ),
-            ),
-          )
-        : null,
-    ),
-  );
-}
-
 function EnableDialog({
   name,
-  caps,
+  detail,
   changed,
   onClose,
   onConfirm,
   busy,
 }: {
   name: string;
-  caps: unknown;
+  detail: EnableConsentDetail;
   /** The rights differ from what the person saw a moment ago: they are shown again and must be acknowledged again. */
   changed: boolean;
   onClose: () => void;
@@ -324,6 +173,7 @@ function EnableDialog({
   busy: boolean;
 }): View {
   const [ack, setAck] = useState(false);
+  const ready = enableConsentReady(detail);
   return h(
     Dialog,
     {
@@ -333,7 +183,7 @@ function EnableDialog({
         "div",
         { class: "dialog-actions" },
         h("button", { type: "button", class: "btn btn-quiet", onClick: onClose }, t("shared.confirm.cancel")),
-        h("button", { type: "button", class: "btn btn-primary", disabled: busy || !ack, onClick: onConfirm }, t("extensions.enable.submit")),
+        h("button", { type: "button", class: "btn btn-primary", disabled: busy || !ack || !ready, onClick: onConfirm }, t("extensions.enable.submit")),
       ),
     },
     h(
@@ -341,7 +191,14 @@ function EnableDialog({
       { class: "dialog-content" },
       changed ? h("p", { class: "form-error", role: "alert" }, t("extensions.enable.changed")) : null,
       h("p", { class: "reading" }, t("extensions.enable.intro", { name })),
-      h(RightsList, { caps }),
+      h(RightsList, { caps: detail.capabilities }),
+      !ready ? h("p", { class: "form-error", role: "alert" }, t("extensions.bundle.enableUnavailable")) : null,
+      detail.item.kind === "bundle" ? h("div", null,
+        h("h3", null, t("extensions.bundle.title")),
+        detail.memberInspections?.map(member => h(Card, { key: member.name, title: `${member.name} v${member.version}`, level: 3 },
+          h(InspectionDisclosure, { inspection: member, nested: true }),
+        )),
+      ) : null,
       h(
         "div",
         { class: "field" },
@@ -350,7 +207,7 @@ function EnableDialog({
           { class: "checkbox-label" },
           h("input", { type: "checkbox", checked: ack, onChange: (e: Event) => setAck((e.target as HTMLInputElement).checked) }),
           " ",
-          t("extensions.enable.acknowledge"),
+          t(detail.item.kind === "bundle" ? "extensions.bundle.permissionsAck" : "extensions.enable.acknowledge"),
         ),
       ),
     ),
@@ -377,7 +234,7 @@ function ExtensionDetailView({
   const [actionNotice, setActionNotice] = useState("");
   const [uninstalling, setUninstalling] = useState(false);
   // The rights the person is looking at in the enable dialog; `n` restarts the dialog (and its acknowledgement) when they change.
-  const [consent, setConsent] = useState<{ caps: unknown; changed: boolean; n: number } | null>(null);
+  const [consent, setConsent] = useState<{ detail: EnableConsentDetail; changed: boolean; n: number; agents?: string[] } | null>(null);
   const inFlight = useRef(false);
 
   if (state.status === "loading") return h(PageLoading, { label: t("state.loading") });
@@ -390,13 +247,14 @@ function ExtensionDetailView({
 
   const detail = state.data;
   const item = detail.item;
+  const openConsent = (agents?: string[]): void => setConsent({ detail: structuredClone(detail), changed: false, n: 0, ...(agents ? { agents } : {}) });
 
-  const toggle = async (enable: boolean): Promise<void> => {
+  const toggle = async (enable: boolean, agents?: string[], approved?: EnableConsentDetail): Promise<void> => {
     setBusy(true);
     setActionNotice("");
     try {
       if (enable) {
-        await getApi().rpc("ext.enable", { name: item.name, acknowledge: ["capabilities"] });
+        await getApi().rpc("ext.enable", enableParameters(approved ?? detail, agents));
       } else {
         await getApi().rpc("ext.disable", { name: item.name });
       }
@@ -425,13 +283,13 @@ function ExtensionDetailView({
         setActionNotice(o.message || t("extensions.error.required"));
         return;
       }
-      if (canonical(fresh.capabilities) !== canonical(consent.caps)) {
-        setConsent({ caps: fresh.capabilities, changed: true, n: consent.n + 1 });
+      if (!enableConsentReady(fresh) || enableConsentIdentity(fresh) !== enableConsentIdentity(consent.detail)) {
+        setConsent({ ...consent, detail: fresh, changed: true, n: consent.n + 1 });
         reload();
         return;
       }
       setConsent(null);
-      await toggle(true);
+      await toggle(true, consent.agents, fresh);
     } finally {
       inFlight.current = false;
       setBusy(false);
@@ -470,8 +328,8 @@ function ExtensionDetailView({
           { class: "chip-row" },
           h(
             Badge,
-            { tone: item.enabled ? "ok" : "neutral" },
-            item.enabled ? t("extensions.status.enabled") : t("extensions.status.disabled"),
+            { tone: item.partial ? "warn" : item.enabled ? "ok" : "neutral" },
+            item.partial ? t("extensions.bundle.partial") : item.enabled ? t("extensions.status.enabled") : t("extensions.status.disabled"),
           ),
           h(
             Badge,
@@ -491,7 +349,7 @@ function ExtensionDetailView({
       h(
         "div",
         { class: "chip-row" },
-        item.enabled
+        item.enabled || item.partial
           ? h(
               "button",
               {
@@ -508,10 +366,11 @@ function ExtensionDetailView({
                 type: "button",
                 class: "btn btn-primary",
                 disabled: busy,
-                onClick: () => setConsent({ caps: detail.capabilities, changed: false, n: 0 }),
+                onClick: () => openConsent(),
               },
               t("extensions.action.enable"),
             ),
+        item.partial ? h("button", { type:"button", class:"btn btn-primary", disabled:busy, onClick:()=>openConsent() }, t("extensions.action.enable")) : null,
         h(
           "button",
           {
@@ -527,6 +386,10 @@ function ExtensionDetailView({
     actionNotice
       ? h("p", { class: "form-notice", role: "status", "aria-live": "polite" }, actionNotice)
       : null,
+    ["skill", "mcp-server", "bundle"].includes(item.kind) ? h(AgentSwitches, {
+      item, onEnable: agents => openConsent(agents),
+      onChanged: () => { reload(); onRefresh(); },
+    }) : null,
     h(
       Card,
       null,
@@ -558,11 +421,18 @@ function ExtensionDetailView({
         ),
       ),
     ),
+    (detail.members ?? item.members)?.length ? h(BundleState, { members: (detail.members ?? item.members)! }) : null,
     h(
       Card,
       { title: t("extensions.detail.permissions") },
       h(RightsList, { caps: detail.capabilities }),
     ),
+    item.kind === "mcp-server" ? h(ExtensionSetup, {
+      key: item.name,
+      name: item.name,
+      oauth: (detail.manifest as { remote?: { auth?: unknown } }).remote?.auth === "oauth",
+      onChanged: () => { reload(); onRefresh(); },
+    }) : null,
     detail.dependents.length > 0
       ? h(
           Card,
@@ -601,7 +471,7 @@ function ExtensionDetailView({
       ? h(EnableDialog, {
           key: consent.n,
           name: item.name,
-          caps: consent.caps,
+          detail: consent.detail,
           changed: consent.changed,
           busy,
           onClose: () => setConsent(null),
@@ -633,7 +503,7 @@ function ExtensionsContent({
     []
   );
   const [selectedName, setSelectedName] = useState<string | null>(sub ?? null);
-  const [kindFilter, setKindFilter] = useState<"all" | "skill" | "plugin">(
+  const [kindFilter, setKindFilter] = useState<"all" | "plugin" | ExtKind>(
     initialKind === "skill" ? "skill" : initialKind === "plugin" ? "plugin" : "all"
   );
   const [search, setSearch] = useState("");
@@ -678,6 +548,7 @@ function ExtensionsContent({
   const filtered = items.filter((it) => {
     if (kindFilter === "skill" && it.kind !== "skill") return false;
     if (kindFilter === "plugin" && it.kind === "skill") return false;
+    if (!["all", "plugin", "skill"].includes(kindFilter) && it.kind !== kindFilter) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
       return it.name.toLowerCase().includes(q) || (it.id && it.id.toLowerCase().includes(q));
@@ -689,7 +560,7 @@ function ExtensionsContent({
 
   const select = (name: string): void => {
     setSelectedName(name);
-    navigate(`/skills/${name}`);
+    navigate(routePath(initialKind === "skill" ? "skills" : "plugins", name));
   };
 
   const listPane = h(
@@ -728,11 +599,13 @@ function ExtensionsContent({
           },
           t("extensions.tab.plugins"),
         ),
+        (["module", "channel", "mcp-server", "bundle"] as const).map(kind => h("button", { key: kind, type: "button", class: `btn ${kindFilter === kind ? "btn-primary" : "btn-quiet"}`, "aria-pressed": kindFilter === kind, onClick: () => setKindFilter(kind) }, t(`extensions.kind.${kind === "mcp-server" ? "mcpServer" : kind}` as Key))),
       ),
       h("input", {
         type: "search",
         class: "extensions-search",
         placeholder: t("extensions.search"),
+        "aria-label": t("extensions.search"),
         value: search,
         onInput: (e: Event) => setSearch((e.target as HTMLInputElement).value),
       }),
@@ -749,6 +622,7 @@ function ExtensionsContent({
         },
         t("extensions.action.installFile"),
       ),
+      h("a", { href: "#/import", class: "btn btn-quiet", onClick: (event: MouseEvent) => { event.preventDefault(); navigate("/import"); } }, t("extensions.install.import")),
     ),
     h(
       "div",
@@ -785,8 +659,8 @@ function ExtensionsContent({
                     { class: "chip-row" },
                     h(
                       Badge,
-                      { tone: it.enabled ? "ok" : "neutral" },
-                      it.enabled ? t("extensions.status.enabled") : t("extensions.status.disabled"),
+                      { tone: it.partial ? "warn" : it.enabled ? "ok" : "neutral" },
+                      it.partial ? t("extensions.bundle.partial") : it.enabled ? t("extensions.status.enabled") : t("extensions.status.disabled"),
                     ),
                     h(Badge, { tone: "neutral" }, it.kind),
                     h(Badge, { tone: trustTone(it.trust) }, it.trust),
@@ -823,7 +697,7 @@ function ExtensionsContent({
       detail: detailPane,
       selected: Boolean(selected),
       listLabel: t("extensions.title"),
-      detailLabel: selected ?? t("extensions.title"),
+      detailLabel: selected ?? t("extensions.action.details"),
       onBack: () => {
         setSelectedName(null);
         navigate(initialKind === "plugin" ? "/plugins" : "/skills");
@@ -833,7 +707,8 @@ function ExtensionsContent({
 }
 
 export function ExtensionsPage({ item, sub }: PageProps): View {
-  const allowed = roleIn(currentRole(), ["owner", "admin", "operator", "member", "viewer"]);
+  const allowed = roleIn(currentRole(), ["owner", "admin"]);
+  if (allowed && item.id === "extensions" && sub === "confirm") return h(ExtensionConfirmPage, {});
   const initialKind = item.id === "plugins" ? "plugin" : item.id === "skills" ? "skill" : undefined;
   return h(
     Page,

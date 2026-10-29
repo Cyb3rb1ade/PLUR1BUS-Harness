@@ -1,0 +1,10 @@
+{
+  "params": {
+    "name": "fixture"
+  },
+  "result": {
+    "name": "fixture",
+    "available": false,
+    "slots": []
+  }
+}

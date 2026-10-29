@@ -34,6 +34,9 @@ impl PairError {
             Self::Client(ClientError::Incompatible { server, client }) => {
                 format!("incompatible:{server}:{client}")
             }
+            Self::Client(ClientError::RateLimited { retry_after_secs }) => {
+                format!("rate-limited:{retry_after_secs}")
+            }
             _ => self.code().to_owned(),
         }
     }
@@ -53,6 +56,8 @@ impl PairError {
             Self::Client(e) => match e {
                 ClientError::Revoked => "revoked",
                 ClientError::Unauthorized => "unauthorized",
+                ClientError::SecondFactorRequired => "second-factor-required",
+                ClientError::RateLimited { .. } => "rate-limited",
                 ClientError::Incompatible { .. } | ClientError::MissingCapability => "incompatible",
                 ClientError::InstallationMismatch => "installation-mismatch",
                 ClientError::CertChanged => "cert-changed",
@@ -73,6 +78,67 @@ pub struct PairCode {
     pub code: String,
     pub expires_at: String,
     pub origin: Option<Origin>,
+}
+#[derive(Clone, Copy, Default)]
+pub struct PairGrants {
+    pub extensions: bool,
+    pub imports: bool,
+}
+impl PairGrants {
+    fn requested(self) -> bool {
+        self.extensions || self.imports
+    }
+}
+fn parse_pair_offer(bytes: &[u8], current: bool) -> Result<PairCode, PairError> {
+    let offer = if current {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase", deny_unknown_fields)]
+        struct CurrentCode {
+            schema: String,
+            code: String,
+            kind: String,
+            expires_at: u64,
+            scopes: Vec<String>,
+        }
+        let wire: CurrentCode = serde_json::from_slice(bytes).map_err(|_| PairError::Invalid)?;
+        use base64::Engine;
+        let decoded = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(&wire.code)
+            .map_err(|_| PairError::Invalid)?;
+        if wire.kind != "desktop"
+            || decoded.len() != 32
+            || base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(decoded) != wire.code
+            || wire.scopes.len() > 128
+            || wire
+                .scopes
+                .iter()
+                .any(|scope| scope.len() > 128 || scope.chars().any(char::is_control))
+        {
+            return Err(PairError::Invalid);
+        }
+        let millis = i64::try_from(wire.expires_at).map_err(|_| PairError::Invalid)?;
+        let expiry = chrono::DateTime::from_timestamp_millis(millis).ok_or(PairError::Invalid)?;
+        PairCode {
+            schema: wire.schema,
+            code: wire.code,
+            expires_at: expiry.to_rfc3339(),
+            origin: None,
+        }
+    } else {
+        let offer: PairCode = serde_json::from_slice(bytes).map_err(|_| PairError::Invalid)?;
+        if !plur1bus_desktop_contract::trust::valid_code(&offer.code) {
+            return Err(PairError::Invalid);
+        }
+        offer
+    };
+    if offer.schema != "device.pair/1"
+        || chrono::DateTime::parse_from_rfc3339(&offer.expires_at)
+            .map_err(|_| PairError::Invalid)?
+            <= chrono::Utc::now()
+    {
+        return Err(PairError::Invalid);
+    }
+    Ok(offer)
 }
 pub fn resolve_cli() -> Option<PathBuf> {
     #[cfg(debug_assertions)]
@@ -175,16 +241,49 @@ pub async fn pair_local_with(
     cli: &Path,
     name: &str,
 ) -> Result<PairCode, PairError> {
+    pair_local_protocol(executor, cli, name, false, PairGrants::default()).await
+}
+pub async fn pair_local_current_with(
+    executor: &dyn PairExecutor,
+    cli: &Path,
+    name: &str,
+) -> Result<PairCode, PairError> {
+    pair_local_protocol(executor, cli, name, true, PairGrants::default()).await
+}
+pub async fn pair_local_current(
+    cli: &Path,
+    name: &str,
+    grants: PairGrants,
+) -> Result<PairCode, PairError> {
+    if !cli.is_file() {
+        return Err(PairError::CliMissing);
+    }
+    pair_local_protocol(&NativeExecutor::default(), cli, name, true, grants).await
+}
+async fn pair_local_protocol(
+    executor: &dyn PairExecutor,
+    cli: &Path,
+    name: &str,
+    current: bool,
+    grants: PairGrants,
+) -> Result<PairCode, PairError> {
     if !cli.is_absolute() {
         return Err(PairError::CliMissing);
     }
     if name.trim().is_empty() || name.len() > 120 || name.chars().any(char::is_control) {
         return Err(PairError::Invalid);
     }
-    let args = plur1bus_desktop_contract::exec::native_pair(name)
-        .into_iter()
-        .map(str::to_owned)
-        .collect();
+    let args = if current {
+        crate::contract::exec::current_pair(grants.extensions, grants.imports)
+    } else {
+        if grants.requested() {
+            return Err(PairError::Client(ClientError::MissingCapability));
+        }
+        plur1bus_desktop_contract::exec::native_pair(name)
+            .into_iter()
+            .map(str::to_owned)
+            .collect()
+    };
     let output = executor.execute(cli, args).await?;
     if output.bytes.len() > 8192 {
         return Err(PairError::Invalid);
@@ -202,16 +301,7 @@ pub async fn pair_local_with(
             },
         );
     }
-    let offer: PairCode = serde_json::from_slice(&output.bytes).map_err(|_| PairError::Invalid)?;
-    if offer.schema != "device.pair/1"
-        || !plur1bus_desktop_contract::trust::valid_code(&offer.code)
-        || chrono::DateTime::parse_from_rfc3339(&offer.expires_at)
-            .map_err(|_| PairError::Invalid)?
-            <= chrono::Utc::now()
-    {
-        return Err(PairError::Invalid);
-    }
-    Ok(offer)
+    parse_pair_offer(&output.bytes, current)
 }
 pub async fn pair_code(
     origin: &str,
@@ -343,6 +433,9 @@ async fn pair_using_client_inner(
         control.checkpoint()?;
     }
     let redeemed = client.redeem_for(&meta.installation_id, code, name).await?;
+    if existing.is_some() {
+        crate::client::forget_step_up(&origin);
+    }
     let mut connection = Connection::new(
         name.into(),
         kind,
@@ -381,8 +474,15 @@ async fn pair_using_client_inner(
     tokens
         .set(&token_account(connection.id), &redeemed.token)
         .map_err(PairError::Token)?;
+    if let Some(key) = redeemed.signing_key {
+        if let Err(error) = tokens.set(&format!("device-key-{}", connection.id), &key) {
+            let _ = tokens.delete(&token_account(connection.id));
+            return Err(PairError::Token(error));
+        }
+    }
     if store.upsert(connection.clone()).is_err() {
         let _ = tokens.delete(&token_account(connection.id));
+        let _ = tokens.delete(&format!("device-key-{}", connection.id));
         return Err(PairError::Storage);
     }
     if let Some(boundary) = boundary.as_mut() {
@@ -413,6 +513,7 @@ pub fn mark_failure(
         store.upsert(c.clone()).map_err(|_| PairError::Storage)?;
     }
     if *error == ClientError::Revoked {
+        crate::client::forget_step_up(&c.origin);
         // Persist the repair state before a possibly denied deletion (M4).
         tokens
             .delete(&token_account(c.id))
@@ -420,7 +521,10 @@ pub fn mark_failure(
     }
     Ok(())
 }
-fn connection_token(c: &Connection, tokens: &dyn TokenStore) -> Result<SecretString, PairError> {
+pub(crate) fn connection_token(
+    c: &Connection,
+    tokens: &dyn TokenStore,
+) -> Result<SecretString, PairError> {
     let matches = matches!(
         (c.credential_provenance, tokens.kind()),
         (CredentialProvenance::Keychain, StoreKind::Keychain)
@@ -573,6 +677,7 @@ pub fn remove_connection(
         .into_iter()
         .find(|c| c.id == id)
         .ok_or(PairError::Invalid)?;
+    crate::client::forget_step_up(&row.origin);
     if row.pending_keychain_cleanup || row.credential_provenance != CredentialProvenance::MemoryOnly
     {
         if persistent.kind() != StoreKind::Keychain {
@@ -581,10 +686,16 @@ pub fn remove_connection(
         persistent
             .delete(&token_account(id))
             .map_err(PairError::Token)?;
+        persistent
+            .delete(&format!("device-key-{id}"))
+            .map_err(PairError::Token)?;
     }
     if let Some(memory) = session.filter(|s| s.kind() == StoreKind::MemoryOnly) {
         memory
             .delete(&token_account(id))
+            .map_err(PairError::Token)?;
+        memory
+            .delete(&format!("device-key-{id}"))
             .map_err(PairError::Token)?;
     }
     store.remove_metadata(id).map_err(|_| PairError::Storage)
@@ -608,6 +719,26 @@ pub async fn pair_bundled_controlled(
     progress: impl Fn(crate::controller::InstallStep),
     control: Option<&PairControl>,
 ) -> Result<Connection, PairError> {
+    pair_bundled_granted(
+        ctl,
+        tokens,
+        store,
+        name,
+        progress,
+        control,
+        PairGrants::default(),
+    )
+    .await
+}
+pub async fn pair_bundled_granted(
+    ctl: &crate::controller::Controller,
+    tokens: &dyn TokenStore,
+    store: &Store,
+    name: &str,
+    progress: impl Fn(crate::controller::InstallStep),
+    control: Option<&PairControl>,
+    grants: PairGrants,
+) -> Result<Connection, PairError> {
     use crate::controller::{CtlError, InstallStep};
     if name.trim().is_empty() || name.len() > 120 || name.chars().any(char::is_control) {
         return Err(PairError::Invalid);
@@ -618,6 +749,16 @@ pub async fn pair_bundled_controlled(
         .ok_or(PairError::Invalid)?;
     let origin =
         Origin::parse(&format!("http://127.0.0.1:{}", i.port)).map_err(|_| PairError::Invalid)?;
+    if let Some(control) = control {
+        control.checkpoint()?;
+    }
+    let current = HarnessClient::new(origin.clone(), None)
+        .meta()
+        .await?
+        .current_desktop();
+    if !current && grants.requested() {
+        return Err(PairError::Client(ClientError::MissingCapability));
+    }
     let old = store
         .load()
         .map_err(|_| PairError::Storage)?
@@ -637,32 +778,38 @@ pub async fn pair_bundled_controlled(
     if let Some(control) = control {
         control.checkpoint()?;
     }
-    progress(InstallStep::Owner);
-    match ctl
-        .exec_json(
-            &["plur1bus", "user", "create", "--owner", "--json"],
-            Duration::from_secs(15),
-        )
-        .await
-    {
-        Ok(value)
-            if value.get("schema").and_then(|v| v.as_str()) == Some("user.create/1")
-                && value
-                    .get("userId")
-                    .and_then(|v| v.as_str())
-                    .is_some_and(|s| !s.is_empty()) => {}
-        Err(CtlError::ExecFailed {
-            error_code: Some(ref code),
-            ..
-        }) if code == "E_EXISTS" => {}
-        Ok(_) => return Err(PairError::Invalid),
-        Err(e) => return Err(PairError::Runtime(e.code())),
+    if !current {
+        progress(InstallStep::Owner);
+        match ctl
+            .exec_json(
+                &["plur1bus", "user", "create", "--owner", "--json"],
+                Duration::from_secs(15),
+            )
+            .await
+        {
+            Ok(value)
+                if value.get("schema").and_then(|v| v.as_str()) == Some("user.create/1")
+                    && value
+                        .get("userId")
+                        .and_then(|v| v.as_str())
+                        .is_some_and(|s| !s.is_empty()) => {}
+            Err(CtlError::ExecFailed {
+                error_code: Some(ref code),
+                ..
+            }) if code == "E_EXISTS" => {}
+            Ok(_) => return Err(PairError::Invalid),
+            Err(e) => return Err(PairError::Runtime(e.code())),
+        }
     }
     if let Some(control) = control {
         control.checkpoint()?;
     }
     progress(InstallStep::Pairing);
-    let args = crate::contract::exec::bundled_pair(name);
+    let args = if current {
+        crate::contract::exec::current_pair(grants.extensions, grants.imports)
+    } else {
+        crate::contract::exec::bundled_pair(name)
+    };
     let mut full = vec!["plur1bus".to_string()];
     full.extend(args);
     let argv = full.iter().map(String::as_str).collect::<Vec<_>>();
@@ -670,10 +817,9 @@ pub async fn pair_bundled_controlled(
         .exec_json(&argv, Duration::from_secs(15))
         .await
         .map_err(|e| PairError::Runtime(e.code()))?;
-    let code: PairCode = serde_json::from_value(value).map_err(|_| PairError::Invalid)?;
-    if code.schema != "device.pair/1" || code.code.is_empty() {
-        return Err(PairError::Invalid);
-    }
+    let private_bytes =
+        zeroize::Zeroizing::new(serde_json::to_vec(&value).map_err(|_| PairError::Invalid)?);
+    let code = parse_pair_offer(&private_bytes, current)?;
     let secret_code = zeroize::Zeroizing::new(code.code);
     let mut pending: Vec<String> = if ctl.dir.join("pair-revocations.json").exists() {
         serde_json::from_str(

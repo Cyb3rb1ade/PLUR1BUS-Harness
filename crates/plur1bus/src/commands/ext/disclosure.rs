@@ -212,6 +212,26 @@ pub(crate) fn describe_inspection(v: &Value) -> String {
             ));
         }
     }
+    if tier == "first-party" && m["kind"] == "bundle" {
+        lines.push("first-party bundle installation activates its approved selected members for all agents".into());
+    }
+    for member in v["members"].as_array().into_iter().flatten() {
+        lines.push(format!(
+            "member {} ({}; SHA256 {}):",
+            member["name"].as_str().unwrap_or("?"),
+            if member["optional"] == true {
+                "optional"
+            } else {
+                "required"
+            },
+            member["sha256"].as_str().unwrap_or("?")
+        ));
+        lines.extend(
+            describe_inspection(member)
+                .lines()
+                .map(|line| format!("  {line}")),
+        );
+    }
     lines.join("\n")
 }
 
@@ -229,6 +249,13 @@ pub(super) fn describe_capabilities(d: &Value) -> String {
     }
     lines.extend(capability_lines(&d["capabilities"]));
     lines.extend(script_lines(&d["scripts"]));
+    let members = d
+        .get("memberInspections")
+        .or_else(|| d.get("members"))
+        .and_then(Value::as_array);
+    for member in members.into_iter().flatten() {
+        lines.push(describe_inspection(member));
+    }
     lines.join("\n")
 }
 
