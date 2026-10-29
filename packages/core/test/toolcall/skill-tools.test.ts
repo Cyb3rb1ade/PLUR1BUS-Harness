@@ -7,6 +7,9 @@ import { execFileSync } from "node:child_process";
 import { createSkillTools } from "../../src/toolcall/skill-tools.ts";
 import type { IndexedSkill } from "../../src/toolcall/live-index.ts";
 import { ToolRegistry } from "../../src/tools/registry.ts";
+import { ToolDispatcher } from "../../src/tools/dispatcher.ts";
+import { createFsOps, FsFailure } from "../../src/tools/fs/index.ts";
+import { denyEntriesFor } from "../../src/host-tools/denylist.ts";
 import { useTempDirs } from "../composition/helpers.ts";
 
 const dirs = useTempDirs("n-skill-tools-");
@@ -143,4 +146,62 @@ test("an oversized skill file list fails without recording a successful load", a
   for (let i = 0; i < 80; i++) await writeFile(join(root, `${String(i).padStart(2, "0")}-${"x".repeat(220)}`), "x");
   await assert.rejects(load.execute({ name: "reports" }, ctx), { code: "file-list-too-large" });
   assert.deepEqual(used, []);
+});
+
+const CREDENTIAL_FILES = [".env", "id_rsa", "credentials.json", ".ssh/config", "keys/server.pem", ".env.production", "auth.json"];
+
+async function withCredentialFiles() {
+  const fixture = await setup();
+  for (const path of CREDENTIAL_FILES) {
+    await mkdir(join(fixture.root, ...path.split("/").slice(0, -1)), { recursive: true });
+    await writeFile(join(fixture.root, ...path.split("/")), `SECRET ${path}`);
+  }
+  return fixture;
+}
+
+test("N2/2: credential-style files in a skill folder are neither listed nor readable", async () => {
+  const { load, read } = await withCredentialFiles();
+  const listed = (await load.execute({ name: "reports" }, ctx) as { files: string[] }).files;
+  assert.deepEqual(listed, ["SKILL.md", "references/alpha.txt", "references/zebra.txt"]);
+  for (const path of CREDENTIAL_FILES) {
+    await assert.rejects(read.execute({ name: "reports", path }, ctx), { code: "secret-file" }, path);
+  }
+  // The refusal is typed, path-free and names no content.
+  await assert.rejects(read.execute({ name: "reports", path: ".env" }, ctx), (error: Error) => {
+    assert.doesNotMatch(error.message, /\.env|SECRET/);
+    return true;
+  });
+});
+
+test("N2/2: skill.read classifies credential paths as deny-list hits so the dispatcher refuses before any read", async () => {
+  const { home, read } = await withCredentialFiles();
+  const flags = async (path: unknown) => (await read.classify!({ name: "reports", path })).flags.denyListHit;
+  for (const path of CREDENTIAL_FILES) assert.equal(await flags(path), true, path);
+  assert.equal(await flags("references/alpha.txt"), false);
+  assert.equal(await flags("../escape"), false, "traversal is the path check's business, not the deny list's");
+  // Through the real dispatcher: denied by policy, and the file is never opened.
+  const registry = new ToolRegistry();
+  for (const tool of createSkillTools({ home, skills: [admitted()] })) registry.register(tool);
+  const dispatcher = new ToolDispatcher({
+    registry, clock: { now: () => 1 }, grants: { list: () => [], get: () => undefined },
+    approvals: { request: async () => ({ approved: true }) },
+  });
+  const result = await dispatcher.call({ id: "c", name: "skill.read", args: { name: "reports", path: ".env" } },
+    { agentId: "agent", principal: "owner", surface: 3, signal: ctx.signal });
+  assert.ok(result.isError);
+  assert.equal(result.error.code, "tool-denied");
+  assert.match(result.error.message, /deny-list/);
+  assert.doesNotMatch(JSON.stringify(result), /SECRET/);
+});
+
+test("N2/2: file.read refuses the same paths", async () => {
+  const { home, root } = await withCredentialFiles();
+  const ops = createFsOps({ roots: [{ id: "skill", path: root }], home, deny: denyEntriesFor(home, {}, "linux") });
+  for (const path of CREDENTIAL_FILES.filter(p => !["keys/server.pem", ".env.production"].includes(p))) {
+    await assert.rejects(ops.read({ path: join(root, ...path.split("/")) }), (error: unknown) => {
+      assert.ok(error instanceof FsFailure);
+      assert.equal(error.reason, "deny-listed", path);
+      return true;
+    }, path);
+  }
 });

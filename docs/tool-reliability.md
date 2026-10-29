@@ -145,6 +145,9 @@ preload limit. `next-session` freezes the catalogue with the session; `next-turn
 `skill.load {name}` returns instructions without frontmatter and the resource file list, records `used` and retains
 the load/result pair in conversation. A previously loaded skill is not loaded again in that session. Additional
 files require `skill.read {name,path}`, confined to that skill directory with traversal, symlink and 64 KiB limits.
+Credential-style files (`.env`, `.env.*`, `id_rsa*`, `id_ed25519*`, `*.pem`, `*.key`, `credentials.json`, `auth.json`, `.netrc`, `.npmrc`, `.pypirc`
+and anything the policy deny list names, such as a `.ssh` folder) are left out of the file list; `skill.read` refuses them with
+`secret-file`, and its classification reports a deny-list hit, so the dispatcher refuses the call as it would for `file.read`.
 Neither tool runs scripts; execution remains behind `exec.run` and its existing approval policy.
 
 The registered system job `capabilities.recheck` runs at 03:00 host-local time, removes orphaned skill rows and recalibrates usage priors. File defaults are in `toolcall/calibration.defaults.json`; `<home>/capability-calibration.json` overrides them and is reloaded at recheck. Owner-approved values: minimum 10 effective offers, per-agent statistics with same-name/kind/version global fallback, maximum +0.2 bonus / −0.2 penalty, 14-day half-life (hourly UTC buckets), reset on version change or removal. The current success target/weight are 0.8/0.5 and search-miss weight 0.1. Priors affect ranking only after visibility/policy filtering. Legacy counters without timestamps do not train decayed priors. Review these values after about four weeks of Nightly data. The fixed-clock calibration and policy-precedence tests are in `test/toolcall/live-index.test.ts`.

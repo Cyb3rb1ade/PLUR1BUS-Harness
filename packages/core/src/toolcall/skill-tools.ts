@@ -4,6 +4,9 @@ import { lstat, open, readdir, realpath, type FileHandle } from "node:fs/promise
 import { join, sep } from "node:path";
 import type { IndexedSkill } from "./live-index.ts";
 import type { ToolDef } from "../tools/registry.ts";
+import { denyEntriesFor } from "../host-tools/denylist.ts";
+import { isSecretFileName } from "../import/secret-file-names.ts";
+import { matchDeny } from "../policy/paths.ts";
 
 export const MAX_SKILL_FILE_BYTES = 64 * 1024;
 const MAX_SKILL_FILES = 1024;
@@ -12,7 +15,7 @@ const MAX_SKILL_DIRECTORY_DEPTH = 32;
 const MAX_SKILL_RESULT_BYTES = 128 * 1024;
 const SAFE_NAME = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 
-type SkillAccessCode = "skill-unavailable" | "unsafe-path" | "too-large" | "file-list-too-large";
+type SkillAccessCode = "skill-unavailable" | "unsafe-path" | "secret-file" | "too-large" | "file-list-too-large";
 
 /** Fixed, path-free messages keep filesystem failures useful without disclosing host identities. */
 export class SkillAccessError extends Error {
@@ -21,6 +24,7 @@ export class SkillAccessError extends Error {
     const messages: Record<SkillAccessCode, string> = {
       "skill-unavailable": "The skill is unavailable to this agent; use capabilities.search to find an available skill.",
       "unsafe-path": "The resource is unavailable or unsafe; use a regular file relative to the listed skill directory.",
+      "secret-file": "Credential-style files are never exposed by skills; use a resource from the listed files.",
       "too-large": "The skill resource exceeds the 64 KiB read limit; request a smaller resource.",
       "file-list-too-large": "The skill file list exceeds its limit; reduce the number or depth of skill resources.",
     };
@@ -35,6 +39,18 @@ export interface SkillToolsOptions {
   skills: readonly IndexedSkill[];
   /** Records a successful load, including a harness-triggered load through this same tool. */
   onLoad?: (name: string) => void;
+}
+
+/** The name classes of the policy deny list (`.env`, `.ssh`, `id_rsa`, `credentials.json` ...), without any home directory. */
+const DENY_NAMES = denyEntriesFor("/", {}, "linux").filter(entry => "name" in entry);
+
+/**
+ * A path inside a skill folder that looks like a credential: a secret file name (the importer's and packer's rule) or a
+ * name the policy deny list covers, in any component. Such files are not listed and not read, as `file.read` would refuse
+ * them; a README that tells the agent to read one changes nothing.
+ */
+function isCredentialPath(parts: readonly string[]): boolean {
+  return parts.some(isSecretFileName) || matchDeny(parts.join("/"), DENY_NAMES) !== null;
 }
 
 function relativeParts(path: unknown): string[] {
@@ -117,7 +133,7 @@ async function listSkillFiles(root: string, signal: AbortSignal): Promise<string
     const folder = await checkedPath(root, parts);
     for (const entry of await readdir(folder, { withFileTypes: true })) {
       const child = [...parts, entry.name];
-      if (entry.isSymbolicLink()) continue;
+      if (entry.isSymbolicLink() || isCredentialPath(child)) continue;
       if (entry.isDirectory()) {
         pending.push(child);
         if (pending.length > MAX_SKILL_FILES) throw new SkillAccessError("file-list-too-large");
@@ -138,6 +154,12 @@ function withoutFrontmatter(text: string): string {
   return text.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/, "");
 }
 
+/** Classification never throws on a malformed path: the path check in `execute` owns that refusal. */
+function requestsCredential(args: unknown): boolean {
+  const path = (args as { path?: unknown } | null)?.path;
+  return typeof path === "string" && isCredentialPath(path.split(/[\\/]+/).filter(Boolean));
+}
+
 /** The admitted view is frozen by the caller at the turn boundary; all resource paths are rechecked at use time. */
 export function createSkillTools(options: SkillToolsOptions): ToolDef[] {
   if (!options.skills.length) return [];
@@ -151,6 +173,7 @@ export function createSkillTools(options: SkillToolsOptions): ToolDef[] {
     }
     try {
       const parts = mode === "load" ? ["SKILL.md"] : relativeParts(input?.path);
+      if (isCredentialPath(parts)) throw new SkillAccessError("secret-file");
       const root = await skillRoot(options.home, name);
       const text = await readSkillFile(root, parts, signal);
       if (mode === "read") return { name, path: parts.join("/"), text };
@@ -179,7 +202,8 @@ export function createSkillTools(options: SkillToolsOptions): ToolDef[] {
     discovery: { category: "general.chat", summary: `Read available skill ${mode === "load" ? "instructions" : "resources"}.`,
       useWhen: mode === "load" ? "An available skill matches the task." : "A loaded skill refers to a resource file.",
       notFor: "Executing scripts, reading other skills or bypassing agent visibility." },
-    classify: () => ({ flags: { outsideRoots: false, denyListHit: false } }),
+    // The dispatcher refuses a deny-list hit before the tool runs, as it does for file.read; `execute` refuses it again.
+    classify: args => ({ flags: { outsideRoots: false, denyListHit: mode === "read" && requestsCredential(args) } }),
     execute: async (args, context) => execute(args, context.signal, mode),
   }));
 }
