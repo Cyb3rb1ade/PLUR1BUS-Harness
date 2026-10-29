@@ -20,7 +20,34 @@ let browser: Browser | undefined;
 export async function setup(): Promise<void> {
   distDir = await mkdtemp(join(tmpdir(), "p1web-dist-"));
   await buildWeb(distDir, { gallery: true });
-  if (executablePath) browser = await chromium.launch({ executablePath, headless: true });
+  if (executablePath) {
+    browser = await chromium.launch({ executablePath, headless: true });
+    await warmUp(browser);
+  }
+}
+
+/** Opens and closes one page of the built app before the first test. The first page of a fresh browser is the slowest (renderer,
+ *  network and font start-up), and on a shared macOS runner that cost landed on the first test of a file, which met its waits
+ *  cold: the first tests of `setup-wizard`, `lazy-pages` and `switchboard-robustness` were the ones that failed there. A failure
+ *  here is not reported; the tests that follow fail with their own message if the browser does not work. */
+async function warmUp(b: Browser): Promise<void> {
+  const server = new MockHarnessServer({ distDir: getDistDir() });
+  try {
+    const baseUrl = await server.start();
+    const context = await b.newContext();
+    try {
+      const page = await context.newPage();
+      page.setDefaultTimeout(30_000);
+      await page.goto(baseUrl + "/");
+      await page.getByRole("heading", { name: "Sign in", level: 1 }).waitFor();
+    } finally {
+      await context.close();
+    }
+  } catch {
+    // see above
+  } finally {
+    await server.stop();
+  }
 }
 export async function teardown(): Promise<void> {
   await browser?.close();
@@ -46,10 +73,36 @@ export type App = { page: Page; context: BrowserContext; server: MockHarnessServ
 export const TOKEN = OWNER_TOKEN;
 export const WRONG_TOKEN = "wrong-token-0123456789abcdef0123456789abcdef";
 
+/** Playwright's default timeout for every action and wait of a test page. The macOS job raises it (`PLUR1BUS_WEB_ACTION_TIMEOUT_MS`):
+ *  a shared runner now and then stalls a page for seconds, which fails a wait that is not wrong (docs/ci.md, "macOS browser suites"). */
+export const ACTION_TIMEOUT_MS = ((): number => {
+  const n = Number(process.env.PLUR1BUS_WEB_ACTION_TIMEOUT_MS);
+  return Number.isInteger(n) && n >= 1000 ? n : 5000;
+})();
+/** One `withApp` call may take this long. Several Playwright calls have no timeout (keyboard.*, evaluate, newContext, newPage,
+ *  context.close), so a browser that stops answering would otherwise run into the 120 s limit of node:test, which cancels the
+ *  whole file without saying where it stood. The longest legitimate test takes about 20 s. */
+const APP_DEADLINE_MS = 100_000;
+
 export async function withApp(opts: AppOptions, run: (app: App) => Promise<void>): Promise<void> {
+  let stage = "starting the mock server";
+  let where: Page | undefined;
+  let timer: NodeJS.Timeout | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`withApp: still ${stage} after ${APP_DEADLINE_MS / 1000} s${where ? ` (page at ${where.url()})` : ""}; a Playwright call without a timeout or the browser itself does not answer`)), APP_DEADLINE_MS);
+  });
+  try {
+    await Promise.race([runApp(opts, run, (s, p) => { stage = s; where ??= p; }), deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function runApp(opts: AppOptions, run: (app: App) => Promise<void>, at: (stage: string, page?: Page) => void): Promise<void> {
   if (!browser) throw new Error("no browser");
   const server = new MockHarnessServer({ distDir: getDistDir(), ...opts.server });
   const baseUrl = await server.start();
+  at("opening the browser context");
   const context = await browser.newContext({
     viewport: { width: opts.width ?? 1440, height: opts.height ?? 900 },
     deviceScaleFactor: opts.deviceScaleFactor ?? 1,
@@ -58,18 +111,23 @@ export async function withApp(opts: AppOptions, run: (app: App) => Promise<void>
     ...(opts.timezoneId ? { timezoneId: opts.timezoneId } : {}),
     reducedMotion: opts.reducedMotion ?? "no-preference",
   });
+  at("opening the page");
   const page = await context.newPage();
-  page.setDefaultTimeout(5000);
+  page.setDefaultTimeout(ACTION_TIMEOUT_MS);
   // Console errors and uncaught exceptions fail a test that checks `problems`. A CSP violation is a console error
   // ("Refused to ..."); the browser's own "Failed to load resource" line for an expected 401/429 is not a page problem.
   const problems: string[] = [];
   page.on("console", (m) => { if (m.type() === "error" && !m.text().startsWith("Failed to load resource")) problems.push(m.text()); });
   page.on("pageerror", (e) => problems.push(String(e)));
   try {
+    at("loading the app", page);
     await page.goto(baseUrl + "/" + (opts.hash ?? ""));
+    at("running the test");
     await run({ page, context, server, baseUrl, problems });
   } finally {
+    at("closing the browser context");
     await context.close();
+    at("stopping the mock server");
     await server.stop();
   }
 }

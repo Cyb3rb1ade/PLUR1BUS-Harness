@@ -1,6 +1,8 @@
 ---
 name: documentation-standards
 description: Default documentation checks for coding-task completion.
+category: project.document
+useWhen: Document changed public behavior, configuration, errors or operator actions before completing a coding task.
 ---
 
 Project documentation conventions take precedence. Describe changed public

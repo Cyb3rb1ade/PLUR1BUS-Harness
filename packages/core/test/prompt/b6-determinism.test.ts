@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { createPromptBuilder } from "../../src/prompt/builder.ts";
 import { canonicalJson, sha256Hex } from "../../src/prompt/canonical.ts";
 import { corpusInput } from "../fixtures/prompt-corpus.ts";
+import { renderAvailableSkills } from "../../src/prompt/skills.ts";
 
 const PROBE = fileURLToPath(new URL("../fixtures/prompt-b6-probe.ts", import.meta.url));
 const probe = (env: Record<string, string>): string =>
@@ -58,6 +59,24 @@ describe("B6: zone determinism", () => {
 
 // Extend B6 to the new metadata without changing the pinned original zone-hash corpus/probe.
 describe("B6: cache metadata determinism", () => {
+  it("the authored skill catalogue has identical system bytes across turns and process starts", () => {
+    const skills = [
+      { entry: { name: "zebra", description: "ranking only" }, authoredDescription: "Read the zebra workflow." },
+      { entry: { name: "alpha", description: "ranking only" }, authoredDescription: "Read the alpha workflow." },
+    ];
+    const input = corpusInput(2);
+    const first = createPromptBuilder().render({ ...input, system: [...input.system, renderAvailableSkills(skills)] });
+    const next = corpusInput(3);
+    const second = createPromptBuilder().render({ ...next, system: [...next.system, renderAvailableSkills(skills)] });
+    assert.equal(first.zoneHashes.system, second.zoneHashes.system);
+    const skillsUrl = new URL("../../src/prompt/skills.ts", import.meta.url).href;
+    const script = `import { renderAvailableSkills } from ${JSON.stringify(skillsUrl)};
+      process.stdout.write(renderAvailableSkills(${JSON.stringify(skills)}));`;
+    const run = (locale: string) => execFileSync(process.execPath,
+      ["--experimental-strip-types", "--input-type=module", "-e", script],
+      { encoding: "utf8", timeout: 30_000, env: { PATH: process.env.PATH ?? "", LC_ALL: locale } });
+    assert.equal(run("C"), run("de_DE.UTF-8"));
+  });
   it("offsets, breakpoint hashes and routing identity survive two process starts", () => {
     const builderUrl = new URL("../../src/prompt/index.ts", import.meta.url).href;
     const corpusUrl = new URL("../fixtures/prompt-corpus.ts", import.meta.url).href;

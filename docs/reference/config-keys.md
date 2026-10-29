@@ -30,9 +30,11 @@ Legende: `–` bedeutet im Schema kein `default` bzw. keine `x-restart`-Angabe. 
 | agents.<id> | object (open map entry) | – | geerbt: live (agents) | Settings for one agent. | …json:62 |
 | agents.<id>.createdAt | string, date-time | – | geerbt: live (agents) | Timestamp when the agent was created, in date-time format. | …json:66 |
 | agents.<id>.displayName | string, maxLength 128 | – | geerbt: live (agents) | Optional human-readable name for the agent. | …json:67 |
-| agents.<id>.skills | object | – | live | Per-agent skill selection (X1-R11): `blocked` names skills this agent does not get although they are enabled installation-wide; `pinned` is stored and shown, not interpreted before D69; `applyAt` says when a change reaches a running agent. | …json:68 |
+| agents.<id>.toolUse | object | – | live | Advanced per-agent tool-use policy; omitted settings use `prefer`. | packages/config-schema/schema/config.schema.json, agents additionalProperties |
+| agents.<id>.toolUse.mode | enum: auto, prefer, require-first | prefer | live | `auto` leaves tool choice to the model; `prefer` forces the first round only with detected need; `require-first` requests an initial tool whenever supported. Anthropic Thinking and unverified local servers stay automatic. Advanced tier. | packages/config-schema/schema/config.schema.json, toolUse.mode |
+| agents.<id>.skills | object | – | live | Per-agent skill selection: `blocked` wins over `pinned`; pins take priority within the three-skill preload limit; `applyAt` controls catalogue refresh. | …json:68 |
 | agents.<id>.skills.blocked | array of string | [] | geerbt: live (skills) | Skill names this agent must not receive, even when enabled installation-wide. | …json:72 |
-| agents.<id>.skills.pinned | array of string | [] | geerbt: live (skills) | Skill names pinned for this agent; currently stored and displayed but not interpreted. | …json:73 |
+| agents.<id>.skills.pinned | array of string | [] | geerbt: live (skills) | Enabled, visible skill names preloaded before relevance candidates, up to three skills overall; a blocked name is excluded. | …json:73 |
 | agents.<id>.skills.applyAt | enum: next-turn, next-session | next-turn | geerbt: live (skills) | When a changed skill selection takes effect for a running agent. | …json:74 |
 | extensions | object | {} | – | Extension management (X1-R21): whether unsigned packages may be installed, how many days uninstalled items stay in the trash, and the size caps for packages and skill folders. | …json:80 |
 | extensions.allowUnsigned | boolean | true | live | Whether unsigned extension packages may be installed. | …json:84 |
@@ -89,7 +91,7 @@ Legende: `–` bedeutet im Schema kein `default` bzw. keine `x-restart`-Angabe. 
 
 ## Zählung
 
-Insgesamt **80** Schlüssel-Zeilen. Davon sind 7 feste Schlüssel unter `modelRoles` (aus der propertyNames-Enum), 3 offene Map-Platzhalter (`agents.<id>`, `modelProfiles.<name>`, `modules.<name>`) und 70 weitere feste Pfade. Die Engine-Pass-Through-Keys (`engine.*`, laut Schema 57 Keys in docs/config-engine-keys.md) sind hier nicht enumeriert, weil sie nicht im Schema stehen.
+Insgesamt **82** Schlüssel-Zeilen in dieser handgelesenen Referenz. Davon sind 7 feste Schlüssel unter `modelRoles` (aus der propertyNames-Enum), 3 offene Map-Platzhalter (`agents.<id>`, `modelProfiles.<name>`, `modules.<name>`) und 72 weitere feste Pfade. Die Engine-Pass-Through-Keys (`engine.*`, laut Schema 57 Keys in docs/config-engine-keys.md) sind hier nicht enumeriert, weil sie nicht im Schema stehen. Die vollständige, generierte aktuelle Referenz steht in [../config.md](../config.md).
 
 ## Hinweise
 
@@ -99,5 +101,5 @@ Insgesamt **80** Schlüssel-Zeilen. Davon sind 7 feste Schlüssel unter `modelRo
 - unklar – prüfen: `providers`, `oauth`, `decision` sind reserviert, haben keine benannten Properties und `additionalProperties: true`. Es gibt keine dokumentierten Unterschlüssel.
 - unklar – prüfen: `modules.<name>` hat `additionalProperties: true`. Unbekannte modulspezifische Keys bleiben erhalten, deshalb sind sie hier nicht vollständig auflistbar.
 - unklar – prüfen: `agents.<id>` und `modelProfiles.<name>` haben das propertyNames-Muster `^[a-z0-9][a-z0-9_-]{0,63}$`. Die `modelProfiles`-Constraints per allOf (aggregator erfordert strategy=moa, moa erfordert mindestens 2 candidates) sind hier nicht als eigene Zeilen aufgeführt.
-- unklar – prüfen: `agents.<id>.skills.pinned` ist laut Beschreibung nur gespeichert, nicht interpretiert (vor D69).
+- `agents.<id>.skills.pinned` wird bei der D69-Vorauswahl interpretiert; Blockierung und Agent-Sichtbarkeit haben Vorrang.
 - unklar – prüfen: `engine.baseDbPathOverride` ist `core`-Klasse, aber das `engine`-Objekt ist insgesamt als core markiert. Ob sich das nach E5 ändert, ist nicht ersichtlich.

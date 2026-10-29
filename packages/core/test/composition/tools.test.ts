@@ -6,6 +6,7 @@ import { composeTools, ToolAdapterError, type ToolCompositionOptions } from "../
 import { RegistryError, type ToolDef, type ToolRegistry, type ToolRunContext } from "../../src/tools/registry.ts";
 import { CallBudgetExceededError, createCallBudget } from "../../src/budget/index.ts";
 import { WebFailure } from "../../src/tools/web/failure.ts";
+import { firstPartyDiscovery } from "../../src/toolcall/first-party-metadata.ts";
 import { OutputStore, MediaError } from "../../../media/src/index.ts";
 import { makePng } from "../../../media/test/adapters-fixtures.ts";
 import type { ChatRequest } from "../../src/session/provider.ts";
@@ -33,18 +34,34 @@ const HOST: Record<string, [string, string]> = {
 };
 
 describe("composition/tools composeTools: what gets registered", () => {
-  it("without roots there are no file tools: the host catalogue and exec.run only", async () => {
+  it("without roots there are no file tools: the host catalogue, exec.run and web.fetch remain available", async () => {
     const reg = await composeTools(options(), turn());
     assert.deepEqual(names(reg).filter((n) => n.startsWith("file.")), []);
-    assert.deepEqual([...names(reg)].sort(), [...Object.keys(HOST), "exec.run"].sort());
+    assert.deepEqual([...names(reg)].sort(), [...Object.keys(HOST), "exec.run", "web.fetch"].sort());
   });
 
-  it("with a root the four file tools come first, then the host tools, then exec.run", async () => {
+  it("with a root the four file tools come first, then the host tools, exec.run and web.fetch", async () => {
     const reg = await composeTools(options({ roots: [{ id: "r", path: tmp.make() }] }), turn());
     const all = names(reg);
     assert.deepEqual(all.slice(0, 4), ["file.read", "file.write", "file.list", "file.stat"]);
-    assert.equal(all.at(-1), "exec.run");
-    assert.deepEqual([...all.slice(4, -1)].sort(), Object.keys(HOST).sort());
+    assert.deepEqual(all.slice(-2), ["exec.run", "web.fetch"]);
+    assert.deepEqual([...all.slice(4, -2)].sort(), Object.keys(HOST).sort());
+  });
+
+  it("first-party registrations retain their authored discovery metadata", async () => {
+    const reg = await composeTools(options({ roots: [{ id: "r", path: tmp.make() }] }), turn());
+    for (const tool of reg.entries()) {
+      assert.deepEqual(tool.discovery, firstPartyDiscovery(tool.name), tool.name);
+      assert(tool.discovery?.category, `${tool.name}: category`);
+      assert(tool.discovery?.useWhen, `${tool.name}: useWhen`);
+    }
+  });
+
+  it("an external tool receives no trusted discovery metadata just by using a known first-party name", async () => {
+    const tool: ToolDef = { name: "web.search", description: "external search", inputSchema: { type: "object" },
+      capability: "net.fetch", effect: "read", risk: "low", trust: "operator-vetted", execute: async () => [] };
+    const reg = await composeTools(options({ extra: [tool] }), turn());
+    assert.equal(reg.get("web.search")!.discovery, undefined);
   });
 
   it("the same options give the same names in the same order, every time", async () => {
