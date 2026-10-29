@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -692,7 +693,10 @@ describe("handler outcomes", () => {
 
 describe("clientError handling", () => {
   function fakeSocket(o: { writable?: boolean; destroyed?: boolean } = {}) {
-    const s = { writable: o.writable ?? true, destroyed: o.destroyed ?? false, ended: "" as string, destroyedCalls: 0, end(x: string) { s.ended = x; }, destroy() { s.destroyedCalls++; } };
+    // An EventEmitter with `resume`: after its answer the server keeps the socket reading (lingerSocket) instead of closing it.
+    const s = Object.assign(new EventEmitter(), { writable: o.writable ?? true, destroyed: o.destroyed ?? false, ended: "" as string, resumed: 0, destroyedCalls: 0,
+      end(x: string) { s.ended = x; }, resume() { s.resumed++; }, destroy() { s.destroyedCalls++; s.destroyed = true; } });
+    Object.defineProperty(s, "writableEnded", { get: () => s.ended !== "" });
     return s;
   }
   const cases: Array<[string, string | undefined, number, string]> = [
@@ -710,6 +714,11 @@ describe("clientError handling", () => {
     assert.ok(sock.ended.includes("X-Content-Type-Options: nosniff"));
     assert.equal(JSON.parse(sock.ended.slice(sock.ended.indexOf("\r\n\r\n") + 4)).reason, reason);
     assert.ok(h.logs.some((l) => l.includes("malformed request")));
+    assert.deepEqual([sock.resumed, sock.destroyedCalls], [1, 0], "the socket lingers to read what the client still sends, it is not closed under it");
+    h.api.server.emit("clientError", new Error("x"), sock);
+    assert.equal(sock.destroyedCalls, 0, "a further chunk on a socket that has been answered is not a reason to close it");
+    h.api.server.emit("clientError", Object.assign(new Error("x"), { rawPacket: Buffer.alloc(1_000_000) }), sock);
+    assert.equal(sock.destroyedCalls, 1, "but a client that keeps sending past the cap is cut off");
   });
 
   it("just destroys a socket that is no longer writable or already destroyed", async () => {

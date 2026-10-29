@@ -17,3 +17,4 @@ export * from "./api-principal.ts";
 
 export * from "./client-principal.ts";
 export * from "./engine-principal.ts";
+export * from "./http-linger.ts";
