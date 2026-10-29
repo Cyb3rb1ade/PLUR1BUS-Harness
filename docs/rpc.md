@@ -74,6 +74,1758 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ## Methods
 
+### `admin.import.runtime.config.set`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** supervisor
+
+Private current-Core-PID-only configuration control for the active immutable import run. Restarts are deferred to its supervisor maintenance owner.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "planId",
+    "planSha256",
+    "changes"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f-]{36}$"
+    },
+    "planId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f-]{36}$"
+    },
+    "planSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "changes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "value"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {}
+        }
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "applied",
+    "dryRun",
+    "changed",
+    "restart",
+    "revision",
+    "restarted",
+    "durationMs"
+  ],
+  "properties": {
+    "applied": {
+      "type": "boolean"
+    },
+    "dryRun": {
+      "type": "boolean"
+    },
+    "changed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "restart": {
+      "$ref": "#/$defs/RestartPlan"
+    },
+    "revision": {
+      "type": "string",
+      "description": "After an apply the new revision; on a dry run the current one."
+    },
+    "restarted": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "estimates": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "description": "Estimated restart time (ms) per unit, null when unknown."
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "audit-chain-unavailable"
+        ]
+      },
+      "description": "Present only when the set was applied with a caveat. `audit-chain-unavailable`: the configuration is saved, but the audit hash chain refused the audit rows (anchor missing or invalid, integrity mismatch, lock timeout); they are in audit.log with chain=refused and wait in the pending journal until the chain accepts appends again."
+    }
+  }
+}
+```
+
+### `admin.import.runtime.release`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Private native import lifecycle control; no API, client-agent or WebMCP authority. Actor and selected model derive only from the authenticated immutable plan.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "planId",
+    "planSha256"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f-]{36}$"
+    },
+    "planId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f-]{36}$"
+    },
+    "planSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "released"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f-]{36}$"
+    },
+    "released": {
+      "const": true
+    }
+  }
+}
+```
+
+### `admin.import.runtime.status`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Private native import lifecycle control; no API, client-agent or WebMCP authority. Actor and selected model derive only from the authenticated immutable plan.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "planId",
+    "planSha256"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f-]{36}$"
+    },
+    "planId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f-]{36}$"
+    },
+    "planSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "state",
+    "completed"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f-]{36}$"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "completed",
+        "failed"
+      ]
+    },
+    "completed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "restartRequired": {
+      "type": "boolean"
+    },
+    "error": {
+      "$ref": "#/$defs/ImportIssue"
+    }
+  }
+}
+```
+
+### `admin.import.runtime.complete`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Private native import lifecycle control; no API, client-agent or WebMCP authority. Actor and selected model derive only from the authenticated immutable plan.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "planId",
+    "planSha256"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f-]{36}$"
+    },
+    "planId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f-]{36}$"
+    },
+    "planSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "state",
+    "completed"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f-]{36}$"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "completed",
+        "failed"
+      ]
+    },
+    "completed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "restartRequired": {
+      "type": "boolean"
+    },
+    "error": {
+      "$ref": "#/$defs/ImportIssue"
+    }
+  }
+}
+```
+
+### `admin.extensions.runtime.reconcile`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** supervisor
+
+Private native control: reconcile current extension setup state after a Secret Store change. API delegation is denied.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "reconciled"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "reconciled": {
+      "const": true
+    }
+  }
+}
+```
+
+### `admin.import.ssh.key.status`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Owner-only SSH identity operation; private key remains in Secret Store.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/SshKeyStatus"
+}
+```
+
+### `admin.import.ssh.key.generate`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Owner-only SSH identity operation; private key remains in Secret Store.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/SshKeyStatus"
+}
+```
+
+### `admin.import.ssh.key.rotate`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Owner-only SSH identity operation; private key remains in Secret Store.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/SshKeyStatus"
+}
+```
+
+### `admin.import.ssh.key.delete`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Owner-only identity removal, revoking active source handles.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "deleted"
+  ],
+  "properties": {
+    "deleted": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `admin.import.ssh.connections.list`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+List configured source connections for current Owner/Admin.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "connections"
+  ],
+  "properties": {
+    "connections": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "$ref": "#/$defs/SshConnection"
+      }
+    }
+  }
+}
+```
+
+### `admin.import.ssh.connections.set`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Owner-only connection setup; endpoint changes clear host-key trust.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "connection"
+  ],
+  "properties": {
+    "connection": {
+      "$ref": "#/$defs/SshConnectionInput"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "connection"
+  ],
+  "properties": {
+    "connection": {
+      "$ref": "#/$defs/SshConnection"
+    }
+  }
+}
+```
+
+### `admin.import.ssh.connections.delete`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Owner-only connection removal, invalidating probes and source handles.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "deleted"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "deleted": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `admin.import.ssh.hostKey.probe`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Owner-only host-key probe before authentication; binds the observed key to an expiring probe.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "connectionId",
+    "probeId",
+    "hostKeySha256",
+    "changed"
+  ],
+  "properties": {
+    "connectionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "probeId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43,
+      "pattern": "^[A-Za-z0-9_-]{43}$"
+    },
+    "hostKeySha256": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 50,
+      "pattern": "^SHA256:[A-Za-z0-9+/]{43}$"
+    },
+    "hostKeyAlgorithm": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "changed": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `admin.import.ssh.hostKey.trust`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Owner explicitly trusts the exact current host-key probe; changes are never auto-accepted.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "connectionId",
+    "probeId",
+    "hostKeySha256"
+  ],
+  "properties": {
+    "connectionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "probeId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43,
+      "pattern": "^[A-Za-z0-9_-]{43}$"
+    },
+    "hostKeySha256": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 50,
+      "pattern": "^SHA256:[A-Za-z0-9+/]{43}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "connection"
+  ],
+  "properties": {
+    "connection": {
+      "$ref": "#/$defs/SshConnection"
+    }
+  }
+}
+```
+
+### `admin.import.detect`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Detect and seal a supported source, projecting bounded metadata for the current human.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "source"
+  ],
+  "properties": {
+    "source": {
+      "$ref": "#/$defs/ImportSource"
+    },
+    "discover": {
+      "type": "boolean",
+      "description": "Discover usual source locations under the admitted authority without importing or starting stopped WSL distributions."
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "oneOf": [
+    {
+      "$ref": "#/$defs/ImportDetection"
+    },
+    {
+      "$ref": "#/$defs/ImportDiscovery"
+    }
+  ]
+}
+```
+
+### `admin.import.wsl.list`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+List WSL distributions without starting stopped distributions.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "available",
+    "distros"
+  ],
+  "properties": {
+    "available": {
+      "type": "boolean"
+    },
+    "distros": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "state",
+          "version",
+          "isDefault"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "Running",
+              "Stopped"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "isDefault": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `admin.import.plan`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Persist an immutable human-owned import plan; secret migration requires Owner.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sourceId"
+  ],
+  "properties": {
+    "sourceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "options": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "agentIds": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "onConflict": {
+          "type": "string",
+          "enum": [
+            "skip",
+            "rename",
+            "replace"
+          ]
+        },
+        "conflicts": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "choice"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "choice": {
+                "type": "string",
+                "enum": [
+                  "skip",
+                  "rename",
+                  "replace"
+                ]
+              }
+            }
+          }
+        },
+        "maps": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "from",
+              "to"
+            ],
+            "properties": {
+              "from": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "to": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            }
+          }
+        },
+        "adoptStoreId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "adoptStrategy": {
+          "type": "string",
+          "enum": [
+            "take-over",
+            "re-embed"
+          ]
+        },
+        "mapProfiles": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "profile",
+              "agentId"
+            ],
+            "properties": {
+              "profile": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "agentId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            }
+          }
+        },
+        "mergeProfiles": {
+          "type": "boolean"
+        },
+        "migrateSecrets": {
+          "type": "boolean"
+        },
+        "reembed": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "model"
+          ],
+          "properties": {
+            "model": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "licenceId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "planId",
+    "runId",
+    "sourceType",
+    "sourceSha256",
+    "planSha256",
+    "expiresAt",
+    "counts",
+    "conflicts",
+    "warnings",
+    "requiresSecretOwner"
+  ],
+  "properties": {
+    "planId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "sourceType": {
+      "$ref": "#/$defs/ImportFamily"
+    },
+    "sourceSha256": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "planSha256": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "expiresAt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "format": "date-time"
+    },
+    "counts": {
+      "$ref": "#/$defs/ImportCounts"
+    },
+    "conflicts": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "$ref": "#/$defs/ImportConflict"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "$ref": "#/$defs/ImportIssue"
+      }
+    },
+    "requiresSecretOwner": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `admin.import.preflight`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Validate live target state, cold rollback coverage and a one-use operation-bound ticket before stopping Core.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "planId"
+  ],
+  "properties": {
+    "planId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "operation": {
+      "type": "string",
+      "enum": [
+        "apply",
+        "rollback"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "planId",
+    "runId",
+    "ok",
+    "issues",
+    "estimatedDowntimeMs",
+    "requiredBytes",
+    "availableBytes",
+    "automaticRollback"
+  ],
+  "properties": {
+    "planId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "preflightId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "expiresAt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "format": "date-time"
+    },
+    "issues": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "$ref": "#/$defs/ImportIssue"
+      }
+    },
+    "estimatedDowntimeMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "requiredBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "availableBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "automaticRollback": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `admin.import.apply`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** supervisor
+
+Consume a preflight ticket and queue supervised import maintenance.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "planId",
+    "preflightId"
+  ],
+  "properties": {
+    "planId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "preflightId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "resume": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "state"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "state": {
+      "const": "queued"
+    }
+  }
+}
+```
+
+### `admin.import.status`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** supervisor
+
+Read owner-bound maintenance metadata while Core is stopped.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run"
+  ],
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/ImportRun"
+    }
+  }
+}
+```
+
+### `admin.import.abort`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** supervisor
+
+Abort a maintenance run and automatically restore the cold baseline before restarting Core.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "accepted",
+    "state"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "accepted": {
+      "type": "boolean"
+    },
+    "state": {
+      "$ref": "#/$defs/ImportRunState"
+    }
+  }
+}
+```
+
+### `admin.import.runs`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** supervisor
+
+List bounded human-owned maintenance history.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "default": 25
+    },
+    "before": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "format": "date-time"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runs"
+  ],
+  "properties": {
+    "runs": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "#/$defs/ImportRun"
+      }
+    },
+    "nextBefore": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "format": "date-time"
+    }
+  }
+}
+```
+
+### `admin.import.rollback`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** supervisor
+
+Queue rollback after a fresh live preflight; later target changes refuse rollback.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "preflightId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "preflightId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "state"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "state": {
+      "const": "queued"
+    }
+  }
+}
+```
+
+### `admin.import.skills`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Plan or apply skills-only import in live Core under the import lock.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sourceId"
+  ],
+  "properties": {
+    "sourceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "apply": {
+      "type": "boolean"
+    },
+    "onConflict": {
+      "type": "string",
+      "enum": [
+        "skip",
+        "rename",
+        "replace"
+      ]
+    },
+    "enable": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "sourceType",
+    "mode",
+    "status",
+    "counts",
+    "skills",
+    "warnings",
+    "errors"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "sourceType": {
+      "$ref": "#/$defs/ImportFamily"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "dry-run",
+        "apply"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "completed"
+      ]
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total",
+        "imported",
+        "adopted",
+        "renamed",
+        "replaced",
+        "skipped",
+        "refused",
+        "failed"
+      ],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "imported": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "adopted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "renamed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "replaced": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "refused": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "skills": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "targetId",
+          "action",
+          "outcome",
+          "enabled",
+          "reason"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "targetId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "import",
+              "adopt",
+              "skip-identical",
+              "conflict-skip",
+              "rename",
+              "replace",
+              "refuse"
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "imported",
+              "renamed",
+              "replaced",
+              "adopted",
+              "skipped",
+              "refused",
+              "failed"
+            ]
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "$ref": "#/$defs/ImportIssue"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "$ref": "#/$defs/ImportIssue"
+      }
+    }
+  }
+}
+```
+
 ### `channel.history.list`
 
 **Stability:** experimental · since 1.6.0
@@ -3917,6 +5669,16 @@ Person-bound desktop attach operation. Private admin.api operations require the 
   "properties": {
     "kind": {
       "const": "desktop"
+    },
+    "extensions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Since 1.7.0: an explicit Owner/Admin request to enrol extensions.read and extensions.manage in this person-bound desktop grant; false preserves the initial fixed scopes. Never inferred from role."
+    },
+    "imports": {
+      "type": "boolean",
+      "default": false,
+      "description": "Since 1.7.0: an explicit Owner/Admin request to enrol imports.read and imports.manage in this person-bound desktop grant. Never inferred from role or a native upload request."
     }
   },
   "required": [
@@ -11627,17 +13389,70 @@ Audits a package file (.p1x, or a skill folder, .zip or .skill normalised to an 
   ],
   "properties": {
     "source": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "path"
-      ],
-      "properties": {
-        "path": {
-          "type": "string",
-          "minLength": 1
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "upload"
+          ],
+          "properties": {
+            "upload": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "description": "Since 1.7.0: one-use ten-minute upload ID, bound to this authenticated person; never a path."
+            }
+          }
         }
-      }
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/ExtInspection"
+}
+```
+
+### `ext.inspection.get`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** supervisor
+
+Reads an unexpired inspection as the same authenticated human who created it, for the confirmation page. Does not install or consume it. Owner/Admin only; no caller-supplied identity. E_NOT_FOUND reason=inspection-expired for missing, expired or foreign inspection IDs.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "inspectionId"
+  ],
+  "properties": {
+    "inspectionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
     }
   }
 }
@@ -11694,6 +13509,15 @@ Installs an inspected package, disabled unless enable is given (which needs ackn
         "agents": {
           "$ref": "#/$defs/ExtAgents"
         }
+      }
+    },
+    "members": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
       }
     }
   }
@@ -11890,6 +13714,11 @@ Enables an extension, for the given agents (skills only) or everywhere; dryRun r
     },
     "dryRun": {
       "type": "boolean"
+    },
+    "expectedConsentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Since 1.7.0: atomically refuse a changed installed consent revision before activation."
     }
   }
 }
@@ -13075,6 +14904,480 @@ Sets, changes or clears a budget limit and/or the time zone budget periods follo
       }
     }
   }
+}
+```
+
+### `admin.extensions.setup.get`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Declared extension secret slots and current availability, never values. Human Owner/Admin only; a missing backend leaves presence unknown. M-A7.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "available",
+    "slots"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "available": {
+      "type": "boolean"
+    },
+    "slots": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "slot",
+          "secret",
+          "required",
+          "present"
+        ],
+        "properties": {
+          "slot": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+          },
+          "secret": {
+            "type": "string",
+            "maxLength": 133
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "present": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `admin.extensions.setup.set`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Sets one installed extension's declared secret slot as ext:<name>:<slot>. Owner only. The value is write-only and never returned. M-A7.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "slot",
+    "value"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "slot": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+    },
+    "value": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 65536
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "slot",
+    "stored"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "slot": {
+      "type": "string"
+    },
+    "stored": {
+      "const": true
+    }
+  }
+}
+```
+
+### `admin.extensions.runtime.hold`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Stops an installed MCP registration and holds it while the supervisor changes its package. Direct local Owner connection only; API delegation and module credentials are refused. Returns metadata only. M-A7.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "held"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "held": {
+      "const": true
+    }
+  }
+}
+```
+
+### `admin.extensions.runtime.release`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Releases a supervisor transaction hold and reconciles fresh MCP metadata. Direct local Owner connection only; API delegation and module credentials are refused. Returns metadata only. M-A7.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "released"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "released": {
+      "const": true
+    }
+  }
+}
+```
+
+### `admin.extensions.runtime.status`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Current MCP runtime holdback metadata for the supervisor. Direct local Owner connection only; API delegation and module credentials are refused. Never returns paths or credentials. M-A7.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "overlay": {
+      "enum": [
+        "needs-setup",
+        "error"
+      ]
+    },
+    "reason": {
+      "enum": [
+        "auth-required"
+      ]
+    }
+  }
+}
+```
+
+### `admin.extensions.auth.start`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Explicitly starts a bounded MCP login for this human Owner/Admin and server. Client registration is supplied as a real client ID and literal-loopback redirect URI pair, or by host configuration. Agent discovery never starts login. M-A8.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "dependentRequired": {
+    "clientId": [
+      "redirectUri"
+    ],
+    "redirectUri": [
+      "clientId"
+    ]
+  },
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "clientId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "pattern": "^[^\\u0000-\\u0020\\u007f]+$"
+    },
+    "redirectUri": {
+      "type": "string",
+      "maxLength": 2048,
+      "format": "uri",
+      "pattern": "^http://(?:127\\.0\\.0\\.1|\\[::1\\]):[0-9]{1,5}/"
+    },
+    "method": {
+      "$ref": "#/$defs/ExtAuthMethod"
+    },
+    "pasteCallback": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/ExtAuthAttempt"
+}
+```
+
+### `admin.extensions.auth.status`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Returns only this initiating human's extension login interaction metadata. Foreign attempts and agent callers are denied. M-A8.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "attemptId"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "attemptId": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/ExtAuthAttempt"
+}
+```
+
+### `admin.extensions.auth.submit`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Submits a write-only pasted MCP callback URL to this human's attempt. No callback code, verifier or credential is returned or logged. M-A8.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "attemptId",
+    "callbackUrl"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "attemptId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "callbackUrl": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8192
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/ExtAuthAttempt"
+}
+```
+
+### `admin.extensions.auth.cancel`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Cancels this initiating human's MCP login and invalidates pending callback/device work. No token is returned. M-A8.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "attemptId"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "attemptId": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/ExtAuthAttempt"
 }
 ```
 
@@ -16009,7 +18312,7 @@ Owner and human only. Changes a secret description without supplying or exposing
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+      "pattern": "^(?:[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}|ext:[a-z0-9][a-z0-9._-]{0,63}:[A-Za-z][A-Za-z0-9_]{0,63})$"
     },
     "description": {
       "type": "string",
@@ -16085,7 +18388,7 @@ Owner and human only. Read-only effective agent lease grants and separately labe
           },
           "name": {
             "type": "string",
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+            "pattern": "^(?:[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}|ext:[a-z0-9][a-z0-9._-]{0,63}:[A-Za-z][A-Za-z0-9_]{0,63})$"
           },
           "scope": {
             "type": "array",
@@ -16127,7 +18430,7 @@ Creates or replaces a secret, with an optional description; leases on the old va
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+      "pattern": "^(?:[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}|ext:[a-z0-9][a-z0-9._-]{0,63}:[A-Za-z][A-Za-z0-9_]{0,63})$"
     },
     "value": {
       "type": "string",
@@ -16171,7 +18474,7 @@ A secret's metadata; with `reveal: true` also its value, the only RPC that retur
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+      "pattern": "^(?:[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}|ext:[a-z0-9][a-z0-9._-]{0,63}:[A-Za-z][A-Za-z0-9_]{0,63})$"
     },
     "reveal": {
       "type": "boolean",
@@ -16221,7 +18524,7 @@ Deletes a secret from every available backend and revokes its leases. Owner only
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+      "pattern": "^(?:[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}|ext:[a-z0-9][a-z0-9._-]{0,63}:[A-Za-z][A-Za-z0-9_]{0,63})$"
     }
   }
 }
@@ -18021,6 +20324,71 @@ D109 §9.10: approval-related HMAC-chain entries of the calling person, newest f
 ## Notifications
 
 Delivered on the same connection to clients that called `events.subscribe`.
+
+### `import.progress`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** supervisor
+
+Bounded maintenance counters only; no source paths, content or secret values.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "phase",
+    "completed"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "detect",
+        "plan",
+        "preflight",
+        "snapshot",
+        "apply",
+        "rollback",
+        "verify",
+        "complete"
+      ]
+    },
+    "completed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "entity": {
+      "type": "string",
+      "enum": [
+        "agent",
+        "skill",
+        "memory",
+        "store",
+        "config",
+        "secret",
+        "extension"
+      ]
+    }
+  },
+  "x-stability": "experimental",
+  "x-since": "1.7.0",
+  "x-server": "supervisor",
+  "description": "Bounded maintenance counters only; no source paths, content or secret values."
+}
+```
 
 ### `devices.trust.next`
 
@@ -20847,6 +23215,15 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "principal": {
       "$ref": "#/$defs/ApiPrincipal"
+    },
+    "transport": {
+      "type": "string",
+      "enum": [
+        "loopback",
+        "remote"
+      ],
+      "x-since": "1.7.0",
+      "description": "API-verified HTTP transport locality; never accepted from browser fields or forwarding headers."
     }
   }
 }
@@ -23083,6 +25460,105 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `ExtAuthMethod`
+
+```json
+{
+  "description": "Human-selected MCP login ladder method (M-A8).",
+  "x-stability": "experimental",
+  "x-since": "1.7.0",
+  "enum": [
+    "device_code",
+    "loopback_pkce",
+    "loopback_ssh",
+    "paste_callback"
+  ]
+}
+```
+
+### `ExtAuthAttempt`
+
+```json
+{
+  "description": "One person's bounded extension sign-in interaction. Credentials, verifiers and callback codes are never returned.",
+  "x-stability": "experimental",
+  "x-since": "1.7.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "attemptId",
+    "name",
+    "status",
+    "expiresAt"
+  ],
+  "properties": {
+    "attemptId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "starting",
+        "awaiting-callback",
+        "awaiting-device",
+        "authorized",
+        "failed",
+        "cancelled",
+        "expired"
+      ]
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "method": {
+      "$ref": "#/$defs/ExtAuthMethod"
+    },
+    "authorizationUrl": {
+      "type": "string",
+      "maxLength": 16384,
+      "format": "uri"
+    },
+    "redirectUri": {
+      "type": "string",
+      "maxLength": 2048,
+      "format": "uri"
+    },
+    "sshHint": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "userCode",
+        "verificationUri"
+      ],
+      "properties": {
+        "userCode": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "verificationUri": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 4096
+        },
+        "verificationUriComplete": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 8192
+        }
+      }
+    }
+  }
+}
+```
+
 ### `ExtKind`
 
 ```json
@@ -23179,6 +25655,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "firstLine": {
       "type": "string"
+    },
+    "license": {
+      "type": "string",
+      "description": "Since 1.7.0: executable-specific licence when declared; otherwise the package licence applies."
     }
   }
 }
@@ -23205,6 +25685,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "label": {
       "type": "string"
+    },
+    "subject": {
+      "type": "string",
+      "description": "Since 1.7.0: certificate subject when the package carries an X.509 signer."
     }
   }
 }
@@ -23278,6 +25762,16 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "tampered",
         "unchecked"
       ]
+    },
+    "partial": {
+      "type": "boolean"
+    },
+    "members": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/ExtBundleMember"
+      }
     }
   }
 }
@@ -23371,6 +25865,25 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
           }
         }
       }
+    },
+    "members": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/ExtBundleMember"
+      }
+    },
+    "memberInspections": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/ExtBundleMemberInspection"
+      }
+    },
+    "consentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Since 1.7.0: installed bundle consent revision, binding the parent archive and selected member identities, digests, trust and declared rights."
     }
   }
 }
@@ -23479,6 +25992,1066 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
             }
           }
         }
+      }
+    },
+    "members": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/ExtBundleMemberInspection"
+      }
+    }
+  }
+}
+```
+
+### `ImportFamily`
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 64,
+  "pattern": "^[a-z][a-z0-9-]{0,63}$",
+  "description": "Source catalog identifier; the importer validates membership in its supported source catalog."
+}
+```
+
+### `ImportSource`
+
+```json
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "family"
+      ],
+      "properties": {
+        "kind": {
+          "const": "auto"
+        },
+        "family": {
+          "$ref": "#/$defs/ImportFamily"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "family",
+        "path"
+      ],
+      "properties": {
+        "kind": {
+          "const": "path"
+        },
+        "family": {
+          "$ref": "#/$defs/ImportFamily"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "profile": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "family",
+        "distro",
+        "path"
+      ],
+      "properties": {
+        "kind": {
+          "const": "wsl"
+        },
+        "family": {
+          "$ref": "#/$defs/ImportFamily"
+        },
+        "distro": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "probeStopped": {
+          "type": "boolean"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "family",
+        "connectionId",
+        "path"
+      ],
+      "properties": {
+        "kind": {
+          "const": "ssh"
+        },
+        "family": {
+          "$ref": "#/$defs/ImportFamily"
+        },
+        "connectionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "profile": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "family",
+        "snapshotId"
+      ],
+      "properties": {
+        "kind": {
+          "const": "snapshot"
+        },
+        "family": {
+          "$ref": "#/$defs/ImportFamily"
+        },
+        "snapshotId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 43,
+          "pattern": "^[A-Za-z0-9_-]{43}$"
+        },
+        "profile": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    }
+  ]
+}
+```
+
+### `ImportCounts`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agents",
+    "skills",
+    "memories",
+    "stores",
+    "channels",
+    "extensions",
+    "secrets"
+  ],
+  "properties": {
+    "agents": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "skills": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "memories": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "stores": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "channels": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "extensions": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "secrets": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `ImportIssue`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "code",
+    "reason"
+  ],
+  "properties": {
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "entity": {
+      "type": "string",
+      "enum": [
+        "agent",
+        "skill",
+        "memory",
+        "store",
+        "config",
+        "secret",
+        "extension"
+      ]
+    },
+    "itemId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  }
+}
+```
+
+### `ImportConflict`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "entity",
+    "itemId",
+    "choices"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "entity": {
+      "type": "string",
+      "enum": [
+        "agent",
+        "skill",
+        "memory",
+        "store",
+        "config",
+        "secret",
+        "extension"
+      ]
+    },
+    "itemId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "choices": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "string",
+        "enum": [
+          "skip",
+          "rename",
+          "replace"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    }
+  }
+}
+```
+
+### `ImportRunState`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "queued",
+    "stopping-core",
+    "snapshotting",
+    "applying",
+    "rolling-back",
+    "restarting-core",
+    "completed",
+    "aborted",
+    "failed"
+  ]
+}
+```
+
+### `ImportProgress`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "phase",
+    "completed"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "detect",
+        "plan",
+        "preflight",
+        "snapshot",
+        "apply",
+        "rollback",
+        "verify",
+        "complete"
+      ]
+    },
+    "completed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "entity": {
+      "type": "string",
+      "enum": [
+        "agent",
+        "skill",
+        "memory",
+        "store",
+        "config",
+        "secret",
+        "extension"
+      ]
+    }
+  }
+}
+```
+
+### `ImportRun`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "planId",
+    "sourceType",
+    "state",
+    "attempt",
+    "createdAt",
+    "updatedAt",
+    "restored",
+    "resumable",
+    "rollbackAvailable"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "planId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "sourceType": {
+      "$ref": "#/$defs/ImportFamily"
+    },
+    "state": {
+      "$ref": "#/$defs/ImportRunState"
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "createdAt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "format": "date-time"
+    },
+    "progress": {
+      "$ref": "#/$defs/ImportProgress"
+    },
+    "restored": {
+      "type": "boolean"
+    },
+    "resumable": {
+      "type": "boolean"
+    },
+    "rollbackAvailable": {
+      "type": "boolean"
+    },
+    "error": {
+      "$ref": "#/$defs/ImportIssue"
+    },
+    "report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "sha256",
+        "bytes"
+      ],
+      "properties": {
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
+```
+
+### `SshKeyStatus`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "configured"
+  ],
+  "properties": {
+    "configured": {
+      "type": "boolean"
+    },
+    "publicKey": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^SHA256:[A-Za-z0-9+/]{43}$"
+    },
+    "instructions": {
+      "type": "string",
+      "maxLength": 2048
+    }
+  }
+}
+```
+
+### `SshConnectionInput`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "host",
+    "user",
+    "roots"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "host": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 253
+    },
+    "port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535,
+      "default": 22
+    },
+    "user": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "roots": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    },
+    "allowPrivate": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}
+```
+
+### `SshConnection`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "host",
+    "user",
+    "roots",
+    "port",
+    "allowPrivate"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "host": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 253
+    },
+    "port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535,
+      "default": 22
+    },
+    "user": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "roots": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    },
+    "allowPrivate": {
+      "type": "boolean",
+      "default": false
+    },
+    "hostKey": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256"
+      ],
+      "properties": {
+        "sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50,
+          "pattern": "^SHA256:[A-Za-z0-9+/]{43}$"
+        },
+        "algorithm": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    }
+  }
+}
+```
+
+### `ExtBundleMemberInspection`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "kind",
+    "version",
+    "sha256",
+    "optional",
+    "manifest",
+    "trust",
+    "checks",
+    "capabilities",
+    "scripts",
+    "requires"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "skill",
+        "module",
+        "channel",
+        "mcp-server"
+      ]
+    },
+    "version": {
+      "type": "string"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "optional": {
+      "type": "boolean"
+    },
+    "manifest": {
+      "type": "object"
+    },
+    "trust": {
+      "$ref": "#/$defs/ExtTrust"
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status",
+          "detail"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "warn",
+              "fail"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object"
+    },
+    "scripts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ExtScript"
+      }
+    },
+    "requires": {
+      "type": "object"
+    },
+    "replaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "capabilityDiff"
+      ],
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "capabilityDiff": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "changed"
+          ],
+          "properties": {
+            "changed": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `ExtBundleMember`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "kind",
+    "version",
+    "sha256",
+    "optional",
+    "enabled",
+    "agents"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "skill",
+        "module",
+        "channel",
+        "mcp-server"
+      ]
+    },
+    "version": {
+      "type": "string"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "optional": {
+      "type": "boolean"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "agents": {
+      "$ref": "#/$defs/ExtAgents"
+    }
+  }
+}
+```
+
+### `ImportDetection`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sourceId",
+    "sourceType",
+    "sourceSha256",
+    "expiresAt",
+    "counts",
+    "agents",
+    "plugins",
+    "mcpServers",
+    "unsupported",
+    "warnings"
+  ],
+  "properties": {
+    "sourceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "sourceType": {
+      "$ref": "#/$defs/ImportFamily"
+    },
+    "sourceSha256": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "expiresAt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "format": "date-time"
+    },
+    "counts": {
+      "$ref": "#/$defs/ImportCounts"
+    },
+    "agents": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "displayName",
+          "hasPersona",
+          "files",
+          "skills",
+          "plugins",
+          "mcpServers",
+          "stores",
+          "channels"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "hasPersona": {
+            "type": "boolean"
+          },
+          "files": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "skills": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "plugins": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "mcpServers": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stores": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "channels": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "plugins": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "classification",
+          "reason"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "classification": {
+            "type": "string",
+            "enum": [
+              "bridge-possible",
+              "nonportable",
+              "unknown"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      }
+    },
+    "mcpServers": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "transport",
+          "enabled",
+          "needsSetup"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "transport": {
+            "type": "string",
+            "enum": [
+              "stdio",
+              "http"
+            ]
+          },
+          "enabled": {
+            "const": false
+          },
+          "needsSetup": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "unsupported": {
+      "type": "array",
+      "maxItems": 2,
+      "items": {
+        "type": "string",
+        "enum": [
+          "cron",
+          "sessions"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "warnings": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "$ref": "#/$defs/ImportIssue"
+      }
+    }
+  }
+}
+```
+
+### `ImportDiscovery`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "discovery",
+    "candidates",
+    "warnings"
+  ],
+  "properties": {
+    "discovery": {
+      "const": true
+    },
+    "candidates": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "source",
+          "displayName"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-f-]{36}$"
+          },
+          "source": {
+            "$ref": "#/$defs/ImportSource"
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "$ref": "#/$defs/ImportIssue"
       }
     }
   }
@@ -26038,7 +29611,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+      "pattern": "^(?:[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}|ext:[a-z0-9][a-z0-9._-]{0,63}:[A-Za-z][A-Za-z0-9_]{0,63})$"
     },
     "backend": {
       "$ref": "#/$defs/SecretBackend"
@@ -26080,7 +29653,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+      "pattern": "^(?:[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}|ext:[a-z0-9][a-z0-9._-]{0,63}:[A-Za-z][A-Za-z0-9_]{0,63})$"
     },
     "backend": {
       "$ref": "#/$defs/SecretBackend"

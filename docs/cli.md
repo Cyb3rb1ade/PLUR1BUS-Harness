@@ -2890,7 +2890,7 @@ One trailing newline is removed. Replacing a secret revokes the leases on the ol
 
 [experimental] Issue a person-bound desktop attach code valid for ten minutes
 
-**Usage:** `plur1bus device pair --kind <KIND>`
+**Usage:** `plur1bus device pair [OPTIONS] --kind <KIND>`
 
 ###### **Options:**
 
@@ -2898,6 +2898,8 @@ One trailing newline is removed. Replacing a secret revokes the leases on the ol
 
   Possible values: `desktop`
 
+* `--extensions` — Explicitly grant extension reading and management (Owner/Admin only)
+* `--imports` — Explicitly grant source import reading and management (Owner/Admin only)
 
 
 
@@ -4260,11 +4262,22 @@ Examples:
 
 **Usage:** `plur1bus import [OPTIONS] <SOURCE_TYPE>`
 
+SSH examples:
+  plur1bus import ssh --key generate
+  plur1bus import ssh --ssh reader@host:22 --source /srv/source --probe-host-key
+  plur1bus import ssh --connection ID --trust-host-key SHA256:... --probe-id TOKEN
+  plur1bus import hermes --ssh reader@host:22 --source /srv/source --detect
+
 ###### **Arguments:**
 
 * `<SOURCE_TYPE>` — Source system to read (never modified)
 
-  Possible values: `openclaw`, `hermes`, `backfill`
+  Possible values:
+  - `openclaw`
+  - `hermes`
+  - `backfill`
+  - `ssh`:
+    SSH identity, connection, host-key trust and supervised-run operations
 
 
 ###### **Options:**
@@ -4295,6 +4308,21 @@ Examples:
 * `--agent <AGENT>` — Target agent ID (required for backfill)
 * `--adopt-strategy <STRATEGY>` — Store adoption strategy when identity mismatches: 'reembed' or 'import'
 * `--merge-profiles` — Allow multiple Hermes profiles to merge into the same target agent
+* `--ssh <USER@HOST[:PORT]>` — Read an SSH source through Core's read-only SFTP worker (requires an absolute --source or configured --connection)
+* `--connection <ID>` — Use this configured SSH connection instead of its stable endpoint identifier
+* `--key <ACTION>` — SSH identity operation; Owner-only, private key remains in Secret Store
+
+  Possible values: `status`, `generate`, `rotate`, `delete`
+
+* `--allow-private` — Explicitly permit private-address SSH endpoints for this connection
+* `--probe-host-key` — Probe the SSH host key without authenticating; never trusts it automatically
+* `--trust-host-key <SHA256>` — Trust the exact fingerprint from an earlier --probe-host-key result
+* `--probe-id <TOKEN>` — Expiring probe identifier returned by --probe-host-key
+* `--remove-connection` — Delete the configured --connection and invalidate its active source handles
+* `--run-status <RUN_ID>` — Read an SSH import's maintenance status, including while Core is offline
+* `--abort-run <RUN_ID>` — Abort an SSH maintenance run through the supervisor
+* `--runs` — List supervised import runs
+* `--rollback-run <RUN_ID>` — Preflight a supervised rollback; --apply dispatches it after a fresh ticket
 
 
 
