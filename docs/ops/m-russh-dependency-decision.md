@@ -26,10 +26,31 @@ The seven reviewed versions younger than fourteen days are `crypto-bigint 0.7.10
 
 The exact package versions and registry checksums remain pinned in `Cargo.lock`. The reviewed additional registry packages are recorded in [m-russh-reviewed-packages.json](m-russh-reviewed-packages.json) for comparison during dependency updates. Inactive optional lockfile packages are included in that inventory and receive no runtime authority from this decision.
 
-## Workspace audit baseline
+## Pre-main workspace audit baseline (historical)
 
 The complete workspace audit is not clean. An independent checkout of the pre-SSH commit and the merged SSH graph both report the same four existing RustSec findings: `paste 1.0.15` (RUSTSEC-2024-0436), `zstd 0.13.3` (RUSTSEC-2026-0391) and `zstd-safe 7.3.0` (RUSTSEC-2026-0398 and RUSTSEC-2026-0403), through the existing Rust Engine dependency graph. None of the new SSH packages adds an advisory. Cargo licence checks pass for both graphs; duplicate warnings increase by the thirteen reviewed lines.
 
 The complete Node/Python/Cargo licence auditor also retains four existing pnpm policy findings: both Linux libvips packages (LGPL-3.0-or-later), `argparse 2.0.1` (Python-2.0) and `nostr-tools 2.25.2` (Unlicense). They are not covered by this decision. The task does not modify Engine code or expand licence/advisory exception files. These remaining repository-wide failures must be included in the PR validation results.
 
 The rejected OpenSSL-backed candidate and the npm `tweetnacl` licence exception are not authorized by this decision. The repository's licence and advisory exception files remain unchanged.
+
+## After integrating main, 2026-10-29
+
+The historical pnpm findings above are settled by the independent Owner licence decision already on main
+(`1858dd95`): Python-2.0 and Unlicense are admitted, and exact libvips exceptions have their own expiry and
+notice obligations. This does not extend the M SSH exception. The complete merged licence collection reports
+1,771 rows, zero violations and zero incomplete ecosystems; two Linux libvips rows use those existing exceptions.
+
+The actual fail-closed release advisory policy reports zero blocking findings and zero collection errors, using
+the unchanged existing advisory-ID exceptions. Unfiltered Cargo Deny output is still not clean: root and Desktop
+error sets match an independent checkout of main exactly. All 85 new registry tuples and checksums match the
+reviewed inventory; no unreviewed addition, removal or Desktop registry-version change was found.
+
+Fresh Linux third-party notice generation and verification pass. The committed notice baseline has Darwin ARM
+provenance; its old npm receipt cannot be reused with the changed workspace lock hash. Fresh native Darwin notice
+artifacts are needed to refresh that baseline while retaining the existing macOS check. This is an artifact
+requirement, not a new licence exception. No hash or provenance was edited by hand.
+
+The latest official uv release was rechecked independently on 2026-10-29: 0.13.6 still has unexcepted findings
+under the current release policy. The SSH decision does not authorize that runtime, and no uv producer or
+advisory waiver has been added.
