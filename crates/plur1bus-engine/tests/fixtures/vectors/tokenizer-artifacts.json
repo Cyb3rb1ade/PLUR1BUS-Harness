@@ -22,6 +22,17 @@
       "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4",
       "license": "Apache-2.0",
       "licenseStatus": "permissive"
+    },
+    {
+      "id": "bge-reranker-v2-m3",
+      "family": "bge-reranker-v2-m3",
+      "file": "tokenizer.json",
+      "repository": "woxpas-ai/bge-reranker-v2-m3-onnx",
+      "revision": "c44ebc43de724ae8816668bb44d2e728e17faa18",
+      "url": "https://huggingface.co/woxpas-ai/bge-reranker-v2-m3-onnx/resolve/c44ebc43de724ae8816668bb44d2e728e17faa18/tokenizer.json",
+      "sha256": "8bf8afbfd11306bd872018c53bfdf2e160a56f8edbcf49933324404791c148d3",
+      "license": "Apache-2.0",
+      "licenseStatus": "permissive"
     }
   ]
 }

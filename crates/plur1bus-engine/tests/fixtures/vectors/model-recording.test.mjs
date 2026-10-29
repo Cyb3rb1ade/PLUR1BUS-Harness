@@ -4,10 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dirname } from "node:path";
 import { createRequire } from "node:module";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { readFile } from "node:fs/promises";
 import { buildSentences, f32Decimal, stringifyRecording, assertJinaConsent, assertOutputDirectory,
-  metadataOnlyProfile, encodeThenCut, recordModels, assertBgeLicence } from "./model-recording.mjs";
+  metadataOnlyProfile, encodeThenCut, recordModels, assertBgeLicence, readBgeLicence } from "./model-recording.mjs";
 import * as recording from "./model-recording.mjs";
 
 test("the corpus contains 25 literal German and 25 literal English inputs plus three distinct extras", () => {
@@ -81,6 +81,21 @@ test("BGE cannot produce goldens from an unverified repository licence or a clai
   assert.throws(() => assertBgeLicence(profile), /verified pinned LICENSE/u);
   assert.throws(() => assertBgeLicence({ ...profile, approved: true, license: "MIT" }), /verified pinned LICENSE/u);
   assert.throws(() => assertBgeLicence({ ...profile, license: "unresolved", artifacts: [{ path: "LICENSE", sha256: "a".repeat(64) }] }), /verified pinned LICENSE/u);
+});
+
+test("BGE goldens need exactly the committed receipt of the original's Apache-2.0 licence", async () => {
+  const profile = { model: "woxpas-ai/bge-reranker-v2-m3-onnx", revision: "c44ebc43de724ae8816668bb44d2e728e17faa18", artifacts: [] };
+  const licence = await readBgeLicence(fileURLToPath(new URL(".", import.meta.url)));
+  assert.doesNotThrow(() => assertBgeLicence(profile, licence));
+  const refused = [
+    [{ ...profile, revision: "0".repeat(40) }, licence],
+    [profile, { ...licence, text: Buffer.concat([licence.text, Buffer.from(" ")]) }],
+    [profile, { ...licence, receipt: { ...licence.receipt, license: "MIT" } }],
+    [profile, { ...licence, receipt: { ...licence.receipt, upstream: { ...licence.receipt.upstream, revision: "main" } } }],
+    [profile, { ...licence, receipt: { ...licence.receipt, extra: true } }],
+    [profile, { ...licence, receipt: { ...licence.receipt, decision: undefined } }],
+  ];
+  for (const [candidate, given] of refused) assert.throws(() => assertBgeLicence(candidate, given), /verified pinned LICENSE/u);
 });
 
 test("reranker ranking cases record one query against five normal documents and preserve provider hits", async () => {

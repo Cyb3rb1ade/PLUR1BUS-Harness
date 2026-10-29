@@ -4,6 +4,8 @@ import { readFile, writeFile, mkdir, realpath } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join, resolve, relative, isAbsolute, basename } from "node:path";
 import { tmpdir } from "node:os";
+import { createHash } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 
 const E5 = "intfloat/multilingual-e5-small";
 const GEMMA = "google/embeddinggemma-2";
@@ -196,11 +198,35 @@ function profileFor(context, model) {
   assert.ok(profile, `Node pin has no verified profile for ${model}`); return profile;
 }
 
-export function assertBgeLicence(profile) {
-  // The pinned catalogue has no LICENSE artifact or verified repository licence for this conversion.
-  // A flag or an unverified local assertion cannot replace an immutable LICENSE digest/receipt.
-  if (!["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause"].includes(profile.license) || !profile.artifacts.some(row => basename(row.path).toUpperCase() === "LICENSE" && /^[a-f0-9]{64}$/u.test(row.sha256))) {
-    throw new Error(`refusing BGE-derived goldens: ${profile.model}@${profile.revision} has no verified pinned LICENSE artifact/receipt; resolve the repository licence before recording`);
+/** The one licence receipt accepted for BGE goldens: the conversion has no LICENSE file of its own, so the owner
+ * decided (2026-10-29) that the original's Apache-2.0 applies, proven by its pinned model card and the licence text. */
+const BGE_LICENCE_RECEIPT = Object.freeze({
+  version: 1, model: BGE, revision: "c44ebc43de724ae8816668bb44d2e728e17faa18",
+  upstream: { repository: "BAAI/bge-reranker-v2-m3", revision: "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e", file: "README.md",
+    url: "https://huggingface.co/BAAI/bge-reranker-v2-m3/resolve/953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e/README.md",
+    size: 17229, sha256: "c887aa6dd2598f908bf0582ca7068cc816585c7a1b6a07df305b631ede0cb174", declares: "license: apache-2.0" },
+  license: "Apache-2.0",
+  licenseText: { file: "Apache-2.0.txt", url: "https://www.apache.org/licenses/LICENSE-2.0.txt",
+    sha256: "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30" },
+});
+
+/** Reads the committed receipt and licence text that `assertBgeLicence` checks. */
+export async function readBgeLicence(fixtureDir) {
+  const directory = join(fixtureDir, "licences");
+  const receipt = JSON.parse(await readFile(join(directory, "bge-reranker-v2-m3.json"), "utf8"));
+  const text = await readFile(join(directory, BGE_LICENCE_RECEIPT.licenseText.file));
+  return { receipt, text };
+}
+
+export function assertBgeLicence(profile, licence) {
+  // A flag, a claimed licence or a LICENSE row in the catalogue cannot replace the exact receipt: the pinned
+  // conversion, the original's pinned model card and the byte-exact licence text.
+  const { decision: _decision, ...receipt } = licence?.receipt ?? {};
+  const exact = profile?.model === BGE_LICENCE_RECEIPT.model && profile?.revision === BGE_LICENCE_RECEIPT.revision
+    && isDeepStrictEqual(receipt, BGE_LICENCE_RECEIPT) && typeof licence?.receipt?.decision === "string"
+    && Buffer.isBuffer(licence?.text) && createHash("sha256").update(licence.text).digest("hex") === BGE_LICENCE_RECEIPT.licenseText.sha256;
+  if (!exact) {
+    throw new Error(`refusing BGE-derived goldens: ${profile?.model}@${profile?.revision} has no verified pinned LICENSE artifact or licence receipt; resolve the repository licence before recording`);
   }
 }
 
@@ -335,7 +361,7 @@ export async function recordModels(context, mode, { outputDir, explicitOutputDir
   if (mode === "--sentences") { await writeSmall(outputDir, "sentences.json", { nodeCommit: context.nodeCommit, normalCount: 50, cases: sentences }); return; }
   context = await modelContext({ ...context, environment, outputDir });
   if (mode === "--bge") {
-    const profile = profileFor(context, BGE); assertBgeLicence(profile);
+    const profile = profileFor(context, BGE); assertBgeLicence(profile, await readBgeLicence(context.fixtureDir));
     await recordReranker(context, profile, sentences, "bge-scores.json");
     await writeSmall(outputDir, "token-ids-bge.json", { nodeCommit: context.nodeCommit, models: [await recordTokenModel(context, profile, sentences, { reranker: true })] }); return;
   }
@@ -353,7 +379,7 @@ export async function recordModels(context, mode, { outputDir, explicitOutputDir
     const models = [];
     for (const model of [E5, GEMMA]) models.push(await recordTokenModel(context, profileFor(context, model), sentences));
     await writeSmall(outputDir, "token-ids.json", { nodeCommit: context.nodeCommit, models,
-      excludedModels: [{ model: BGE, reason: "pinned-repository-LICENSE-not-verified" }, { model: JINA3, reason: "NC-results-require-jina-temp-mode" }, { model: JINA5, reason: "NC-results-require-jina-temp-mode" }, { model: JINA_RERANK, reason: "NC-results-require-jina-temp-mode" }] }); return;
+      excludedModels: [{ model: BGE, reason: "recorded-by-bge-mode-in-token-ids-bge" }, { model: JINA3, reason: "NC-results-require-jina-temp-mode" }, { model: JINA5, reason: "NC-results-require-jina-temp-mode" }, { model: JINA_RERANK, reason: "NC-results-require-jina-temp-mode" }] }); return;
   }
   if (mode === "--jina") {
     await writeSmall(outputDir, "sentences.json", { nodeCommit: context.nodeCommit, normalCount: 50, cases: sentences });
