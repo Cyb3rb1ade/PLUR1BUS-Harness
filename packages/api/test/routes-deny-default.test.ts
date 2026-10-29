@@ -15,7 +15,7 @@ test("every registered route has a reviewed auth classification and anonymous re
     assert.ok(r.authz, `${r.id} must declare authorization`);
     if (r.authz === "public") { assert.ok(publicIds.has(r.id), `${r.id} is an unreviewed public route`); assert.equal(r.auth, "none"); continue; }
     if (r.authz === "authenticated") assert.ok(selfIds.has(r.id), `${r.id} is unreviewed session self-service`);
-    else if (r.authz === "delegated") assert.ok(["web.rpc", "web.events", "mcp.server"].includes(r.id), `${r.id} is unreviewed delegated route`);
+    else if (r.authz === "delegated") assert.ok(["web.rpc", "web.events", "mcp.server", "a2a.endpoint"].includes(r.id), `${r.id} is unreviewed delegated route`);
     else assert.ok(policyFor(r.authz.action), `${r.id} needs a registered policy`);
     const res = await raw(h, { method: r.method, path: path(r.path), headers: r.requestBody ? jsonHeaders() : {}, ...(r.requestBody ? { body: JSON.stringify(body(r.id)) } : {}) });
     assert.equal(res.status, 401, `${r.id} anonymous with a valid path`);

@@ -96,6 +96,7 @@ export interface ApiServerOptions {
   logger?: ApiLogger; clock?: Clock;
   limits?: Partial<ApiLimits>; rateClasses?: RateClasses; /** Most model-backed operations (chat turn, job or dream run, realtime voice) running at once, installation-wide. Default 8. */ expensiveConcurrency?: number; sessionLimits?: SessionLimits; lockout?: Partial<LockoutPolicy>;
   mcpConfig?: import("./mcp/activation.ts").McpServerConfigLike | (() => Promise<import("./mcp/activation.ts").McpServerConfigLike | undefined> | import("./mcp/activation.ts").McpServerConfigLike | undefined) | undefined;
+  a2aConfig?: import("./a2a/activation.ts").A2aServerConfigLike | (() => Promise<import("./a2a/activation.ts").A2aServerConfigLike | undefined> | import("./a2a/activation.ts").A2aServerConfigLike | undefined) | undefined;
   oauthStore?: import("./oauth/types.ts").OAuthStore | undefined;
   oauthService?: import("./oauth/service.ts").OAuthService | undefined;
   oauthClients?: Record<string, import("./oauth/types.ts").OAuthClientMetadata> | undefined;
@@ -207,7 +208,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
     requireSecondFactor: o.requireSecondFactor,
     clients: o.oauthClients,
   }) : undefined);
-  const handlerDeps = { core: perRequest.core, desktopStepUp, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, sharedAddress, audit, resolveBootstrap: o.resolveBootstrap, requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor), hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length, mcpConfig: o.mcpConfig, oauthService, isRemote: !!o.remote };
+  const handlerDeps = { core: perRequest.core, desktopStepUp, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, sharedAddress, audit, resolveBootstrap: o.resolveBootstrap, requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor), hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length, mcpConfig: o.mcpConfig, a2aConfig: o.a2aConfig, oauthService, isRemote: !!o.remote };
   const handlers = { ...buildHandlers(handlerDeps), ...extensionHandlers(o.core), ...buildDesktopAttachHandlers({...handlerDeps,core:o.core}, origin=>allowedOrigins.has(origin)), ...buildAccountHandlers(handlerDeps, o.accounts, o.core, o.bootstrapConsumed, !o.remote, () => { const sink=o.breakGlassAudit??o.audit; if(!sink)throw new Error("bootstrap audit unavailable"); sink.append({at:clock.now(),actor:{user:"local-owner",host:"api"},action:"account.bootstrap.commit-attempt",target:"account",detail:{}}); }),...buildWebAuthnHandlers(handlerDeps, o.accounts, (requestOrigin?: string) => o.remote?.publicOrigin ?? o.webauthnOrigin ?? requestOrigin ?? [...allowedOrigins][0]!, o.sharedWebauthnChallenges),...buildRemoteHandlers({core:o.core,home:o.home,audit:o.breakGlassAudit??o.audit,now:()=>clock.now(),certificates:o.remoteCertificates}),...buildRemotePairingHandlers(o.remotePairing) };
   if (o.webRoot !== undefined && !statSync(o.webRoot, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`webRoot ${JSON.stringify(o.webRoot)} is not a directory`);
   const staticFiles = o.webRoot !== undefined ? createStaticServer(o.webRoot) : undefined;
@@ -598,6 +599,53 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
             }
           };
           takeMcpSlot();
+        }
+      }
+      if (spec.id === "a2a.endpoint") {
+        let isTaskSend = false;
+        if (rawBody && rawBody.length > 0) {
+          try {
+            const p = JSON.parse(rawBody.toString("utf8"));
+            if (
+              p.method === "SendMessage" ||
+              p.method === "SendStreamingMessage" ||
+              p.method === "message/send" ||
+              p.method === "message/stream" ||
+              p.method === "tasks/send"
+            ) {
+              isTaskSend = true;
+            }
+          } catch {
+            // invalid json handled by route handler
+          }
+        }
+        if (isTaskSend) {
+          const scope = rateKey ?? (tokenRecord ? `token:${tokenRecord.id}` : principalId ? `principal:${principalId}` : `ip:${ip}`);
+          const v = limiter.take("expensive", scope);
+          if (!v.ok) {
+            const agentId = tokenRecord?.binding?.agentId ?? pathParams?.agentId ?? "unknown";
+            audit.emit("a2a.server.denied", principalId ?? tokenRecord?.id ?? "anonymous", `agent:${agentId}`, {
+              tokenId: tokenRecord?.id ?? "-",
+              method: "SendMessage",
+              agentId,
+              reason: "rate-limited",
+            });
+            rateLimited(scope, "expensive", v.retryAfterSec);
+          }
+          const takeA2aSlot = (): void => {
+            releaseSlot = expensiveSlots.tryAcquire();
+            if (!releaseSlot) {
+              const agentId = tokenRecord?.binding?.agentId ?? pathParams?.agentId ?? "unknown";
+              audit.emit("a2a.server.denied", principalId ?? tokenRecord?.id ?? "anonymous", `agent:${agentId}`, {
+                tokenId: tokenRecord?.id ?? "-",
+                method: "SendMessage",
+                agentId,
+                reason: "concurrency-limit",
+              });
+              rateLimited("expensive:concurrency", "expensive", 2);
+            }
+          };
+          takeA2aSlot();
         }
       }
 
