@@ -34,47 +34,13 @@ import {
 import type { ServerResponse } from "node:http";
 import { once } from "node:events";
 import { A2A_DEFAULT_PAGE_SIZE } from "./types.ts";
+import { InMemoryTaskStore, SqliteTaskStore } from "./task-store.ts";
 
 export interface CoreLike {
   call<T = unknown>(method: string, params: unknown): Promise<T>;
 }
 
-export class InMemoryTaskStore implements TaskStore {
-  private readonly tasks = new Map<string, Task>();
-  private readonly agentId: string;
-  private readonly onSave?: ((task: Task) => void) | undefined;
-
-  constructor(agentId: string, onSave?: (task: Task) => void) {
-    this.agentId = agentId;
-    this.onSave = onSave;
-  }
-
-  async save(task: Task): Promise<void> {
-    this.tasks.set(task.id, structuredClone(task));
-    this.onSave?.(structuredClone(task));
-  }
-
-  async load(taskId: string): Promise<Task | undefined> {
-    const found = this.tasks.get(taskId);
-    return found ? structuredClone(found) : undefined;
-  }
-
-  async list(params: ListTasksRequest): Promise<ListTasksResponse> {
-    let all = Array.from(this.tasks.values()).map((t) => structuredClone(t));
-    if (params.contextId) {
-      all = all.filter((t) => t.contextId === params.contextId);
-    }
-    if (params.status !== undefined && params.status !== TaskState.TASK_STATE_UNSPECIFIED) {
-      all = all.filter((t) => t.status?.state === params.status);
-    }
-    return {
-      tasks: all,
-      totalSize: all.length,
-      pageSize: params.pageSize || A2A_DEFAULT_PAGE_SIZE,
-      nextPageToken: "",
-    };
-  }
-}
+export { InMemoryTaskStore, SqliteTaskStore };
 
 export interface A2aAgentExecutorOptions {
   agentId: string;
@@ -154,7 +120,13 @@ export class A2aAgentExecutor implements AgentExecutor {
 
     const inputText =
       userMessage.parts
-        .map((p) => (p.content?.$case === "text" ? p.content.value : ""))
+        .map((p) => {
+          if (p.content?.$case === "text") return p.content.value;
+          if (typeof (p as unknown as { text?: unknown }).text === "string") {
+            return (p as unknown as { text: string }).text;
+          }
+          return "";
+        })
         .join("") || "";
 
     try {
@@ -163,6 +135,7 @@ export class A2aAgentExecutor implements AgentExecutor {
         turnId: string;
         state: "completed" | "failed";
         reply?: string;
+        chunks?: string[];
         error?: string;
       }>("external.turn.start", {
         agentId: this.agentId,
@@ -174,30 +147,37 @@ export class A2aAgentExecutor implements AgentExecutor {
       });
 
       if (result.state === "completed") {
-        eventBus.publish(
-          AgentEvent.artifactUpdate({
-            taskId,
-            contextId,
-            artifact: {
-              artifactId: `art-${taskId}`,
-              name: "output",
-              description: "Agent turn output",
-              parts: [
-                {
-                  content: { $case: "text", value: result.reply ?? "" },
-                  metadata: undefined,
-                  filename: "",
-                  mediaType: "text/plain",
-                },
-              ],
+        const chunks =
+          result.chunks && result.chunks.length > 0
+            ? result.chunks
+            : [result.reply ?? ""];
+
+        for (let i = 0; i < chunks.length; i++) {
+          eventBus.publish(
+            AgentEvent.artifactUpdate({
+              taskId,
+              contextId,
+              artifact: {
+                artifactId: `art-${taskId}`,
+                name: "output",
+                description: "Agent turn output",
+                parts: [
+                  {
+                    content: { $case: "text", value: chunks[i] ?? "" },
+                    metadata: undefined,
+                    filename: "",
+                    mediaType: "text/plain",
+                  },
+                ],
+                metadata: undefined,
+                extensions: [],
+              },
+              append: i > 0,
+              lastChunk: i === chunks.length - 1,
               metadata: undefined,
-              extensions: [],
-            },
-            append: false,
-            lastChunk: true,
-            metadata: undefined,
-          }),
-        );
+            }),
+          );
+        }
 
         eventBus.publish(
           AgentEvent.statusUpdate({
@@ -433,20 +413,37 @@ export class A2aServerCore {
     }
     res.writeHead(200, sseHeaders);
 
+    let closed = false;
+    const onClose = (): void => {
+      closed = true;
+      try { void stream.return?.(); } catch {}
+    };
+    res.on("close", onClose);
+
     try {
-      if (!firstItem.done) {
+      if (!firstItem.done && !closed && !res.destroyed) {
         const ok = res.write(formatSSEEvent(firstItem.value));
-        if (!ok) await once(res, "drain");
+        if (!ok && !closed && !res.destroyed) {
+          await Promise.race([once(res, "drain"), once(res, "close")]);
+        }
       }
       for await (const item of stream) {
+        if (closed || res.destroyed || res.writableEnded) break;
         const ok = res.write(formatSSEEvent(item));
-        if (!ok) await once(res, "drain");
+        if (!ok && !closed && !res.destroyed) {
+          await Promise.race([once(res, "drain"), once(res, "close")]);
+        }
       }
     } catch (err) {
-      const rpcErr = JsonRpcTransportHandler.mapToJSONRPCError(err);
-      res.write(formatSSEErrorEvent({ jsonrpc: "2.0", id: rpcId, error: rpcErr }));
+      if (!closed && !res.destroyed) {
+        const rpcErr = JsonRpcTransportHandler.mapToJSONRPCError(err);
+        res.write(formatSSEErrorEvent({ jsonrpc: "2.0", id: rpcId, error: rpcErr }));
+      }
     } finally {
-      res.end();
+      res.removeListener("close", onClose);
+      if (!res.writableEnded && !res.destroyed) {
+        res.end();
+      }
     }
   }
 }
