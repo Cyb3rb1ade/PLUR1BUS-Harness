@@ -21,7 +21,8 @@ test('constraints survive locally, dialect reductions are visible, schemas are n
   assert.deepEqual(schema, before);
   assert.throws(() => compileDialect({ name: 'open', parameters: { type: 'object' } }, 'openai-chat'), /closed/);
   assert.throws(() => compileDialect(golden.input, 'gemini', { strict: true }), /unsupported/);
-  assert.throws(() => compileCatalogue(Array.from({ length: 9 }, (_, i) => ({ ...golden.input, name: `t${i}` })), 'openai-chat', 'local-small'), /too many/);
+  const oversized = Array.from({ length: 17 }, (_, i) => ({ ...golden.input, name: `t${i}` }));
+  assert.throws(() => compileCatalogue(oversized, 'openai-chat', 'local-small'), /too many/);
 });
 test('unions, deep enums, null, additional schemas and Unicode string lengths', () => {
   assert.equal(validateArguments({ enum: [{ a: 1 }], type: 'object' }, { a: 1 }).length, 0);

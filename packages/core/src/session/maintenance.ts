@@ -16,7 +16,7 @@ export function sessionRoleFactory(create: typeof createTurnProvider, config: Ha
     const get = () => {
       const cfg = read(), next = JSON.stringify([cfg.modelRoles, cfg.session.compaction.summaryMaxTokens]);
       if (next !== key) {
-        current = createSessionRoleProvider(create, { ...options, requireTriage: !!cfg.modelRoles.decision, triageTimeoutMs: () => Number(read().decision.timeoutMs ?? 200) }, cfg.modelRoles, cfg.session.compaction.summaryMaxTokens, decisions);
+        current = createSessionRoleProvider(create, { ...options, requireTriage: !!cfg.modelRoles.decision, triageTimeoutMs: () => Number(read().decision.timeoutMs ?? 2000) }, cfg.modelRoles, cfg.session.compaction.summaryMaxTokens, decisions);
         key = next;
       }
       return current!;

@@ -54,6 +54,9 @@ export class ToolPruner {
   #protected(sessionId: string, pair: ToolPair, boundary = this.#boundary(sessionId)): boolean {
     const turn = boundary.turns.get(pair.turnId);
     if (!turn || turn.state !== 'completed' || turn.seq > boundary.latest - this.cfg.keepLastTurns || pair.restored) return true;
+    // A loaded skill's instructions stay in the context until a summary covers their turn: the turn provider sends the
+    // pair exactly as the view holds it, so a hidden stub would silently take the skill away.
+    if (pair.call.data.name === 'skill.load' && pair.result.data.isError !== true) return true;
     // The background worker cannot weaken approval/audit evidence, even when a model says "no".
     if (/approval|audit|grant|attest|permission|policy/i.test(JSON.stringify({ call: pair.call.data, result: pair.result.data }))) return true;
     if(boundary.pending.some(call=>call.turnId===pair.turnId)) return true;

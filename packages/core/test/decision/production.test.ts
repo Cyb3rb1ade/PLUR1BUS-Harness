@@ -13,7 +13,7 @@ test('production role factory shares triage client, keeps D105 payload and charg
   const f = turnFixture(wire.adapter, {}, tmp.make()); let client!: DecisionClient; let admits = 0;
   const before = f.budget.checkBeforeCall.bind(f.budget); f.budget.checkBeforeCall = req => { admits++; return before(req); };
   const factory = sessionRoleFactory(createTurnProvider, () => cfg, { onClient: value => client = value });
-  const provider = factory({ profiles: { default: [{ provider: 'fixture', model: 'gpt-4.1', adapter: wire.adapter }], triage: [{ provider: 'fixture', model: 'gpt-4.1-mini', adapter: classifier.adapter }] }, budget: f.budget, registry: f.registry, grants: { get: () => undefined, list: () => [] }, approval: { async request() { return { approved: false }; } }, log: () => {}, resultStore: { async put() { throw Error('no tools'); } } });
+  const provider = factory({ profiles: { default: [{ provider: 'fixture', model: 'gpt-4.1', adapter: wire.adapter }], triage: [{ provider: 'fixture', model: 'gpt-4.1-mini', adapter: { async *stream(request, options) { await new Promise(resolve => setTimeout(resolve, 250)); yield* classifier.adapter.stream(request, options); } } }] }, budget: f.budget, registry: f.registry, grants: { get: () => undefined, list: () => [] }, approval: { async request() { return { approved: false }; } }, log: () => {}, resultStore: { async put() { throw Error('no tools'); } } });
   try {
     await collect(provider, { ...turnRequest(), messages: [{ role: 'user', text: 'Search' }] });
     assert.equal(client.status().requests, 1); assert.equal(client.status().failures, 0); assert.equal(admits, 2);

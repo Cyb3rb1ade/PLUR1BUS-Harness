@@ -13,12 +13,17 @@ import type { HarnessLogger } from "../logger.ts";
 import { requireAgent } from "../memory-ops.ts";
 import { AGENT_CONTEXT_CLI, callerToPrincipal } from "../principal.ts";
 
+/** Why the port did not hand a capture to the engine: a fixed code, never a text taken from a policy or a message. */
+export type CaptureSkipReason = "channel-policy" | "scope-not-permitted" | "core-stopping";
+/** What a capture did. A port that returns nothing makes no statement (the turn loop ignores the result). */
+export type CaptureOutcome = { submitted: true } | { submitted: false; reason: CaptureSkipReason };
+
 export interface TurnMemory {
   /** One call per turn, before the provider runs. Never throws for a degraded recall (returns `degraded`). */
   recall(a: { agentId: string; caller: CallerIdentity; authenticatedPerson?: string; query: string; signal: AbortSignal; turnProfile?: import("../voice/turn-profile.ts").TurnProfile }): Promise<{ text: string; degraded: Degraded | null }>;
   /** One call per turn, after it completed, and never for an incognito session. `incognito` is derived by the core from
    *  the session (F10): it is never a client parameter. */
-  capture(a: { agentId: string; caller: CallerIdentity; authenticatedPerson?: string; sessionId: string; turnId: string; messages: { role: "user" | "assistant"; content: string }[]; incognito: boolean; turnProfile?: import("../voice/turn-profile.ts").TurnProfile }): Promise<void>;
+  capture(a: { agentId: string; caller: CallerIdentity; authenticatedPerson?: string; sessionId: string; turnId: string; messages: { role: "user" | "assistant"; content: string }[]; incognito: boolean; turnProfile?: import("../voice/turn-profile.ts").TurnProfile }): Promise<CaptureOutcome | void>;
   /** D23: the `compaction` checkpoint before a swap; never called for an incognito session. */
   checkpoint(a: { agentId: string; reason: "compaction" | "session-end" }): Promise<void>;
 }
@@ -72,15 +77,16 @@ export function engineTurnMemory(d: EnginePortDeps): TurnMemory {
     },
     async capture({ agentId, caller, authenticatedPerson, sessionId, turnId, messages, incognito }) {
       const policy = channelBehaviour.getStore();
-      if (policy?.memory.capture === "none") return;
+      if (policy?.memory.capture === "none") return { submitted: false, reason: "channel-policy" };
       if (policy?.memory.capture === "provenance-only") {
         d.logger.info("channel.capture.provenance", { agentId, sessionId, turnId, channel: channelOrigin.getStore()?.channel ?? caller.channel });
-        return; // no third-party message text reaches the engine
+        return { submitted: false, reason: "channel-policy" }; // no third-party message text reaches the engine
       }
       if (!permitsEngineMemory()) {
-        d.logger.warn("channel.capture.refused", { agentId, sessionId, turnId, reason: "behaviour-scope-unavailable" }); return;
+        d.logger.warn("channel.capture.refused", { agentId, sessionId, turnId, reason: "behaviour-scope-unavailable" });
+        return { submitted: false, reason: "scope-not-permitted" };
       }
-      if (d.isStopping()) return; // the turn is already stored; a stopping core takes no new capture (the next start does not replay it: RULING, a lost capture is logged)
+      if (d.isStopping()) return { submitted: false, reason: "core-stopping" }; // the turn is already stored; a stopping core takes no new capture (the next start does not replay it: RULING, a lost capture is logged)
       const { principal } = identity(caller, agentId, authenticatedPerson);
       if (principal.user?.startsWith('user:v2:') && d.scope) principal.user = d.scope.capturePrincipal(principal.user) as NonNullable<typeof principal.user>;
       const handle = d.engine.capture({
@@ -89,6 +95,7 @@ export function engineTurnMemory(d: EnginePortDeps): TurnMemory {
       const r = await handle.done;
       if (r.stored > 0) d.onStoredCapture?.(agentId);
       d.logger.info("session capture done", { agentId, sessionId, turnId, captureId: handle.id, stored: r.stored, skipped: r.skipped, reason: r.reason });
+      return { submitted: true };
     },
     async checkpoint({ agentId, reason }) {
       requireAgentScope(agentId);

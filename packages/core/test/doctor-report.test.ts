@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { buildDoctorMethods } from "../src/doctor-report.ts";
 import { guardMethods } from "../src/rbac/guard.ts";
 import type { Principal } from "../src/rbac/types.ts";
+import { createMetrics } from "../src/metrics/metrics.ts";
 it("projects authoritative checks, removes private paths, shares refresh and rate limits", async () => {
   let now = 1000; let runs = 0;
   const methods = buildDoctorMethods({ home: "/private/home/example", clock: () => now, check: async () => { runs++; return { schema: "1staid.check/1", checks: [{ id: "models.cache", status: "ok", summary: "models in /private/home/example/models", detail: "must not escape", hint: "plur1bus setup" }] }; } });
@@ -50,6 +51,35 @@ it("a read-only scoped operator token cannot request a fresh check", async () =>
 const ctxOf = () => ({ requestId: "request", connectionId: "connection", signal: new AbortController().signal });
 const viewer = (now: () => number) => ({ resolve: () => ({ kind: "person", role: "viewer", userId: "person-alice" }) as Principal, now });
 const reportOf = (home: string, summary: string, hint?: string) => guardMethods(buildDoctorMethods({ home, clock: () => 1000, check: async () => ({ schema: "1staid.check/1", checks: [{ id: "models.cache", status: "warn", summary, ...(hint ? { hint } : {}) }] }) }), viewer(() => 1000))["doctor.report"]!({}, ctxOf());
+
+it("shows a live numeric tool-use summary and p50/p95 without refreshing provisioning", async () => {
+  const metrics = createMetrics({ connections: () => 0 });
+  let runs = 0;
+  const methods = guardMethods(buildDoctorMethods({
+    home: "/fixture", clock: () => 1000,
+    check: async () => { runs++; return { schema: "1staid.check/1", checks: [] }; },
+    turnTelemetry: () => metrics.turnTelemetrySummary(),
+  }), viewer(() => 1000));
+  await methods["doctor.report"]!({}, ctxOf());
+  metrics.turnTelemetry({
+    rounds: 2, toolCalls: 0, metaCalls: { search: 1, skillLoad: 1, skillRead: 0 },
+    skills: { injected: 1, loaded: 1 }, toolChoice: { status: "unsupported", forced: false },
+    toolNeed: { detected: true, reasons: ["path"] }, errorsReturned: 1,
+    endReason: "completed", triageDurationMs: 40,
+  });
+  const report = await methods["doctor.report"]!({}, ctxOf()) as {
+    groups: { checks: { id: string; status: string; summary: string }[] }[];
+  };
+  const check = report.groups.flatMap(group => group.checks).find(c => c.id === "tools.turn-usage")!;
+  assert.equal(runs, 1);
+  assert.equal(check.status, "warn");
+  assert.match(check.summary, /1 turns.*2 rounds.*0 tool calls/);
+  assert.match(check.summary, /1 loaded.*1 errors returned/);
+  assert.match(check.summary, /p50 40 ms.*p95 40 ms/);
+  assert.match(check.summary, /1 needed tools unused.*1 unsupported/);
+  assert.match(check.summary, /1 need detected/);
+  assert.match(check.summary, /ends completed=1/);
+});
 
 it("an empty or root home does not shred the summary", async () => {
   for (const home of ["", "/"]) {

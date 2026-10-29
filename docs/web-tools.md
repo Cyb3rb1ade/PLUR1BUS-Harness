@@ -2,7 +2,9 @@
 
 Hand-written. Code: `packages/core/src/tools/web/`, `packages/core/src/tools/repair.ts`. Spec: D94, D95, D97 item 1, D103
 (`docs/superpowers/specs/2026-09-28-basics-quality-bar-design.md`); acceptance: `docs/milestones.md` §M2 items 12–14.
-The tools are library code with dispatcher-ready specs (`createWebTools`); they are not yet registered with a dispatcher.
+`web.fetch` is registered in turn composition through the central dispatcher and belongs to the stable read/discovery
+core. `web.search` is registered when a configured search backend exists. Both remain subject to the agent's tool
+view and policy; relevance selection does not grant network access.
 Extraction rules, the golden corpus gate (M2 acceptance 12) and the SSRF suite are in [web-fetch.md](web-fetch.md).
 
 ## SSRF guard (every hop)

@@ -11,11 +11,12 @@ import { SqliteCapabilityRegistry } from './sqlite-registry.ts';
 import type { RegisteredTool } from '../tools/registry.ts';
 import { RpcError } from '../rpc/errors.ts';
 import type { SystemJobHandler } from '../system-jobs/index.ts';
+import { skillDescription } from '../prompt/skills.ts';
 
 const digest = (s: string) => createHash('sha256').update(s).digest('hex');
 const short = (s: string) => s.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().split(/\s+/u).slice(0, 25).join(' ').slice(0, 1000);
 export interface SkillSelection { blocked?: readonly string[]; pinned?: readonly string[] }
-export interface IndexedSkill { entry: CapabilityEntry; text: string }
+export interface IndexedSkill { entry: CapabilityEntry; text: string; authoredDescription?: string }
 export interface CapabilityView { index: CapabilityIndex; discovery: CapabilityIndex; agent?: string; skills: readonly IndexedSkill[]; ids: ReadonlySet<string> }
 /** Trusted registration metadata, never inferred from third-party prose. */
 export function toolEntry(tool: RegisteredTool, scope: string): CapabilityEntry {
@@ -30,6 +31,8 @@ export function toolEntry(tool: RegisteredTool, scope: string): CapabilityEntry 
 export class LiveCapabilityIndex {
   readonly registry: SqliteCapabilityRegistry;
   readonly #home: string;
+  /** The configured skill store home; tool composition uses this same source instead of a duplicate setting. */
+  get home(): string { return this.#home; }
   readonly #clock: () => number;
   extensionFeed: Pick<ExtensionCapabilityFeed, 'snapshot'> | undefined;
   #extensions: ExtensionCapability[] = [];
@@ -60,7 +63,7 @@ export class LiveCapabilityIndex {
         if (item.enabled !== true) continue;
         try {
           const folder = realpathSync(join(root, item.id));
-          if (!folder.startsWith(root + sep)) continue;
+          if (folder !== join(root, item.id) || !folder.startsWith(root + sep)) continue;
           const fd = openSync(join(folder, 'SKILL.md'), constants.O_RDONLY | constants.O_NOFOLLOW);
           let text: string;
           try { const st = fstatSync(fd); if (!st.isFile() || st.size > 64 * 1024) continue; text = readFileSync(fd, 'utf8'); } finally { closeSync(fd); }
@@ -69,7 +72,7 @@ export class LiveCapabilityIndex {
           const description = short(meta.description); if (!description) continue;
           const entry: CapabilityEntry = { id: `skill:${item.id}`, name: item.id, description, category: authored ? String(meta.category) : 'general.chat', kind: 'skill', effect: 'read', risk: 'low', source: 'skills', version: digest(text),
             useWhen: typeof meta.useWhen === 'string' ? short(meta.useWhen) : description, notFor: typeof meta.notFor === 'string' ? short(meta.notFor) : 'Granting permissions or bypassing approval.', generatedFields: [...(authored ? [] : ['category']), ...(typeof meta.useWhen === 'string' ? [] : ['useWhen']), ...(typeof meta.notFor === 'string' ? [] : ['notFor'])] };
-          skills.push({ entry, text });
+          skills.push({ entry, text, authoredDescription: skillDescription(meta.description) });
         } catch { /* incomplete install, removed or unsafe path: absent on this turn */ }
       }
       this.#error = this.#feedError;

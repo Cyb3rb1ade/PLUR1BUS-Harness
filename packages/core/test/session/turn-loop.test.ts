@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { Compactor, defaultCompaction } from "../../src/session/compaction.ts";
 import type { TurnMemory } from "../../src/session/memory-port.ts";
-import { FakeChatProvider, type ChatProvider } from "../../src/session/provider.ts";
+import { FakeChatProvider, type ChatProvider, type ChatRequest } from "../../src/session/provider.ts";
 import { SessionStore } from "../../src/session/store.ts";
 import { NoProviderError, TurnRunner } from "../../src/session/turn-loop.ts";
 import type { EventRecord } from "../../src/session/types.ts";
@@ -33,6 +33,23 @@ function rig(o: { provider?: ChatProvider | null; memory?: Spy; window?: number 
 }
 
 describe("turn loop", () => {
+  it("provider history preserves message turn identities for stable placement of restored skill loads", async () => {
+    const requests: ChatRequest[] = [];
+    const r = rig({ provider: new FakeChatProvider({ onRequest: request => requests.push(request) }) });
+    try {
+      const session = r.session();
+      const first = r.runner.submit({ session, caller: CALLER, text: "Create a report" });
+      await first.done;
+      const second = r.runner.submit({ session, caller: CALLER, text: "Continue" });
+      await second.done;
+      assert.deepEqual(requests[1]!.messages.map(message => [message.role, message.turnId]),
+        [["user", first.turnId], ["assistant", first.turnId], ["user", second.turnId]]);
+      assert.deepEqual(requests[0]!.messages, [{ role: "user", text: "Create a report", turnId: first.turnId }]);
+    } finally {
+      r.store.close();
+    }
+  });
+
   it("submit → ordered events → completed; the reply is stored; deltas add up", async () => {
     const r = rig(); const s = r.session();
     const h = r.runner.submit({ session: s, caller: CALLER, text: "hello world" });
