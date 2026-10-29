@@ -1,7 +1,8 @@
 # Workload Identity Federation as an auth-engine credential kind — design
 
-**Status:** Draft for owner review. Owner decision of 2026-10-29 is binding (support WIF; not urgent, v0.2 /
-enterprise track; the personal default stays unchanged). Open owner questions are in §17 · **Date:** 2026-10-29 ·
+**Status:** Draft for owner review. Owner decisions of 2026-10-29 are binding (support WIF; not urgent, v0.2 /
+enterprise track; the personal default stays unchanged; **Q4 decided: full CLI setup parity**, §12.1, §12.5). The other
+owner questions are open (§17) · **Date:** 2026-10-29 (amended the same day: CLI setup and remote primary path) ·
 **Owner:** Christian (Cyb3rb1ade) · **Track:** auth engine (ADR-005), enterprise ·
 **Plan:** [`2026-10-29-workload-identity-federation.md`](../plans/2026-10-29-workload-identity-federation.md)
 
@@ -46,9 +47,14 @@ returns an access token that lives minutes. Revocation is a rule or IdP change, 
   credential), minted token in memory, every identity token presented at most once.
 - **G4** Failure classification into the existing `AuthError` / pool / router vocabulary, with diagnostics that make
   the vendors' deliberately opaque denials actionable.
-- **G5** Surfaces: config, `plur1bus login status` / `login test`, `1staid check`, a read-only web view, docs.
+- **G5** Surfaces: a full CLI setup with the same verbs as the other auth kinds (interactive wizard, equivalent
+  non-interactive flags with `--json`, status, test, remove, list), a WIF choice in `plur1bus setup` (also on a
+  headless server whose web listener a remote desktop attaches to), `1staid check`, the web settings, docs.
 - **G6** Environment hygiene: no stray vendor key or federation variable can change which credential a harness
   provider or a harness-spawned process uses.
+- **G7** Remote primary server: a desktop that sets up an SSH host as the owner's primary server can configure WIF on
+  that server, over SSH (non-interactive CLI) or over authenticated RPC, and the identity token and minted token never
+  leave the server (§12.5).
 
 **Non-goals.**
 
@@ -78,13 +84,13 @@ returns an access token that lives minutes. Revocation is a rule or IdP change, 
 | W4 | Minted token storage | **Memory only** by default; opt-in `auth.workloadIdentity.restartCache: "secret-store"` (owner Q2). | Always persist: a new at-rest bearer and a stale-state class for a token that is re-derivable in seconds. |
 | W5 | Single use | **Spent-assertion ledger:** an identity token's SHA-256 is recorded *before* it is presented and it is never presented again, whatever the outcome; the hash (not the token) survives restart. | Retry the same JWT on timeout: Anthropic answers `jti_reused`, OpenAI requires a new assertion after an unknown outcome. |
 | W6 | Refresh | Through `RefreshOwner`, new mint path: advisory at expiry − 120 s (0–30 s early jitter), mandatory at expiry − 30 s, transient backoff 1–60 s; **no exchange while the identity token is unchanged**. | A separate timer per provider adapter: two owners, double-spent assertions. |
-| W7 | Failures | Opaque 401 → `workload_denied`, never retried with the same JWT, at most 3 consecutive denials with fresh JWTs, then background attempts stop; 400 → `workload_config_invalid`; 408/429/5xx/network → `refresh_failed` (transient). | Generic 401 handling: the harness cannot tell `jti_reused` from a rule mismatch, so blind retries burn assertions and flood the Console history. |
+| W7 | Failures | Opaque 401 → `workload_denied`, never retried with the same JWT, at most 3 consecutive denials with fresh JWTs, then background attempts stop; 400 → `workload_config_invalid`; 408/5xx/network → `refresh_failed` (transient); 429 → `rate_limited` (Retry-After honoured, then exponential backoff, §9.7). | Generic 401 handling: the harness cannot tell `jti_reused` from a rule mismatch, so blind retries burn assertions and flood the Console history. |
 | W8 | Precedence | The harness has no credential precedence chain: a provider uses exactly its profile. No vendor credential variable is read unless opted in; child processes get an allowlisted environment plus a hard **deny set** of vendor credential names. | Mirror the SDK chain: a leftover `ANTHROPIC_API_KEY` would silently win, the documented SDK pitfall. |
 | W9 | Env import | `auth.workloadIdentity.importEnv.{anthropic,openai}`, default `false`, read once at core start, file sources only; a literal token in the environment is refused. | Always import: an operator's SDK env would switch the harness credential without a config change. |
-| W10 | Anthropic header | `anthropic_messages` gains a **bearer mode** (`Authorization: Bearer`); the `x-api-key` path is unchanged. | Put the bearer into `x-api-key`: today's composition would send `Bearer …` there, which the API does not document. |
+| W10 | Anthropic header | `anthropic_messages` gains a **bearer mode** (`Authorization: Bearer`); the `x-api-key` path is unchanged. | Keep one key-only mode: today a bearer value reaches the adapter's `apiKey` and is refused as unusable (§8.4). |
 | W11 | Scope | Accept `workspace:inference` and `workspace:developer`; refuse `org:admin` and `workspace:manage_tunnels`; docs recommend `workspace:inference`. | Accept any scope: an admin-scoped token behind a chat provider is an over-privileged bearer in memory. |
-| W12 | CLI | **Config-only definition**; `login status` lists workload profiles, `login test <profile>` runs one exchange, `login <vendor> --workload-identity` prints a `config set` command and writes nothing. | A full `login` writer: there is nothing to sign in to or store, it duplicates the config writer, and Kubernetes configs are mounted read-only. |
-| W13 | Claude Code headless | Later, gated package: the harness owns the exchange and hands the token to the child through `apiKeyHelper` (bare mode honours it). | Let the child exchange itself: needs non-bare mode and breaks the single owner and single use (§10). |
+| W12 | CLI (**owner decision 2026-10-29**) | **Full CLI setup parity** in the existing `plur1bus login` verb structure: `login <vendor> --workload-identity` (wizard, or `--non-interactive` flags + `--json`), `login status`, `login list`, `login test <id>`, `login logout <id>` (remove); a WIF choice in a new `plur1bus setup` step `auth`; the same flags drive SSH setup from a desktop (§12.1, §12.5). | Config-only (the earlier recommendation): rejected by the owner, because a headless CLI-only install, and a server set up from a remote desktop, must be first-class paths. |
+| W13 | Claude Code headless | Later, gated package: the harness owns the exchange and hands the token to the child; transport chosen by the WP0 decision tree (`apiKeyHelper`, else `ANTHROPIC_AUTH_TOKEN`, else parked, §10.1). Only the Claude Code child depends on it; the harness's own Anthropic calls use the bearer mode (W10). | Let the child exchange itself: needs non-bare mode and breaks the single owner and single use (§10). |
 | W14 | Repo CI | Optional package: the nightly live jobs may swap `secrets.ANTHROPIC_API_KEY` for GitHub OIDC. | Mandatory: PR CI calls no model API; only three nightly jobs do. |
 
 ## 4. External facts (read 2026-10-29)
@@ -173,14 +179,14 @@ and [Codex environment variables](https://developers.openai.com/codex/config-fil
 
 | # | Unknown | Why it matters | Resolution |
 |---|---|---|---|
-| U1 | Whether `api.anthropic.com` accepts an `sk-ant-oat01-` WIF token that arrives in **both** `X-Api-Key` and `Authorization: Bearer` (Claude Code's `apiKeyHelper` behaviour) | W13 transport to a bare-mode Claude Code child | Plan WP0 spike (owner credentials); undocumented |
+| U1 | Whether `api.anthropic.com` accepts an `sk-ant-oat01-` WIF token that arrives in **both** `X-Api-Key` and `Authorization: Bearer` (Claude Code's `apiKeyHelper` behaviour) | W13 transport to a bare-mode Claude Code child **only**; the harness's own Anthropic calls send the bearer alone (W10) and do not depend on it | Plan WP0 spike (owner credentials); undocumented; WP12 follows the decision tree of §10.1 |
 | U2 | Whether bare-mode Claude Code reads `ANTHROPIC_AUTH_TOKEN` | Fallback for W13 | Bare-mode docs name only `ANTHROPIC_API_KEY` and `apiKeyHelper`; WP0 |
 | U3 | Whether Claude Code caches a federation-minted token across processes (`credentials/<profile>.json`) | Whether parallel children would each spend an assertion | Undocumented; the `ant` CLI re-exchanges per process when configured by env or flags (wif-admin-api); design does not rely on it |
 | U4 | OpenAI's replay policy on the **API** path | Retry behaviour | Only Codex rules document "Prevent assertion replay"; the harness treats every assertion as single-use (W5) |
 | U5 | Whether OpenAI SDKs read `OPENAI_IDENTITY_PROVIDER_ID` / `OPENAI_SERVICE_ACCOUNT_ID` themselves | Naming of the opt-in import (§6.4) | The guides' examples read them in application code; the harness uses no SDK |
 | U6 | The host of `ACTIONS_ID_TOKEN_REQUEST_URL` | Egress allowlist and host check for `github_actions` | GitHub does not document it; the design assumes `*.actions.githubusercontent.com` on github.com, configurable for GHES; verified in WP0/WP2 |
-| U7 | Rate limits of both token endpoints | Backoff tuning | Undocumented; existing 1–60 s backoff and single flight keep the rate at one exchange per profile per lifetime |
-| U8 | Anthropic's Kubernetes example (`expirationSeconds: 3600`, rule `token_lifetime_seconds: 600`) with jti-bearing tokens (≥ 1.32) and default `check_jti` | By §4.1 and §4.5 the second refresh (~8 min) re-reads a token the kubelet only replaces after ~48 min → `jti_reused` | **Inferred, not observed.** WP0 checks it on a test cluster; the harness never presents the unrotated token anyway (§9.4) |
+| U7 | Rate limits of both token endpoints | Backoff tuning | Undocumented; defensive behaviour of §9.7 (one flight per profile per host, never per request, `Retry-After` then exponential backoff with jitter, status `rate_limited`, no assertion shared between hosts) |
+| U8 | Anthropic's Kubernetes example (`expirationSeconds: 3600`, rule `token_lifetime_seconds: 600`) with jti-bearing tokens (≥ 1.32) and default `check_jti` | By §4.1 and §4.5 the second refresh (~8 min) re-reads a token the kubelet only replaces after ~48 min → `jti_reused` | **Inferred, not observed; WP0 spike verification item.** Mitigated regardless: the rotation-versus-lifetime check of §9.4 warns in `login test`, status and `1staid check` with the fix, and the ledger refuses the duplicate `jti` locally (§9.2) instead of burning a request |
 | U9 | Mode and owner of a projected token file for the image's non-root uid 10001 | `identity_token_unreadable` | Deployment detail; WP0, documented in `docs/containers.md` |
 
 ## 5. Where WIF fits ADR-005
@@ -487,7 +493,7 @@ it** when:
 Diagnostics only (never a refusal): `aud` without `expected_audience` → `audience_mismatch` warning; `exp − iat` >
 3600 s with `exchange: anthropic` → `lifetime_exceeds_issuer_default` info (issuer maximum, §4.1); no `jti` → info
 "replay protection does not apply". Status shows `iss`, `sub`, `aud`, `exp`, `iat` and whether a `jti` is present
-(identifiers, Owner/Admin only). The token itself, its signature and any other claim are never logged or returned.
+(identifiers, Owner only like every `auth.credentials.read` field, §11). The token itself, its signature and any other claim are never logged or returned.
 
 ## 8. Exchange adapters
 
@@ -573,16 +579,20 @@ expires or the profile changes (owner Q2).
 
 ADR-005's rotating-refresh rule ("persist before releasing waiters") becomes, for single-use assertions:
 
-1. The core computes `fingerprint = SHA-256(JWT bytes)`.
-2. It records `{ exchange, fingerprint, exp }` as spent in memory **and** in `state/auth-workload.json` (0600, atomic
-   replace, entries pruned at `exp` + 60 s). Only the hash is written, never the JWT.
-3. Only then is the assertion sent. A spent fingerprint is never presented again, whatever happened: success,
-   denial, timeout with unknown outcome, crash mid-request.
+1. The core computes `fingerprint = SHA-256(JWT bytes)` and, when the token has a `jti`, `jtiKey = SHA-256(iss ‖ jti)`
+   (the vendors' replay unit is the `jti` per issuer, §4.1, §4.3).
+2. It records `{ exchange, fingerprint, jtiKey?, exp }` as spent in memory **and** in `state/auth-workload.json`
+   (0600, atomic replace, entries pruned at `exp` + 60 s). Only hashes are written, never the JWT or the raw `jti`.
+3. Only then is the assertion sent. A token whose fingerprint **or** `jtiKey` is spent is never presented again,
+   whatever happened: success, denial, timeout with unknown outcome, crash mid-request. The duplicate is refused
+   **locally** (status `waiting_for_rotation`, no request, no Console `jti_reused` entry); a re-encoded token that
+   carries an already used `jti` is caught by the `jtiKey` even though its bytes differ.
 
 The ledger key includes the exchange vendor: one JWT may still go once to Anthropic and once to OpenAI (separate
 replay domains), never twice to one (and §6.3 already refuses same-vendor sharing of a file). If the ledger cannot be
 written, the exchange is not attempted (`persist_failed`, retryable): presenting without a durable mark could replay
-after a crash.
+after a crash. The ledger belongs to one installation (its state directory) and cannot see what another host
+presented, which is why every host mints from its own source (§9.7).
 
 ### 9.3 Schedule
 
@@ -594,8 +604,9 @@ after a crash.
 
 For very short tokens the thresholds scale: advisory at expiry − min(120 s, lifetime / 2), mandatory at expiry −
 min(30 s, lifetime / 4). Transient failures back off 1 s → 60 s plus ≤ 1 s jitter (the existing owner policy).
-Timers are `unref`ed and cancelled by `close()`. One flight per profile: ten parallel turns at the threshold cause
-one exchange.
+Timers are `unref`ed and cancelled by `close()`. **Minting is never per request:** a lease is served from the cached
+token, and only the thresholds above (or a generation-guarded 401, or an explicit test) start an exchange. One flight
+per profile: ten parallel turns at the threshold cause one exchange.
 
 **Implementation shape.** `RefreshOwner` gets a record-source abstraction: the existing store-backed source for
 OAuth records, and a memory source (optionally backed by the secret store for `restartCache`) for minted records;
@@ -618,6 +629,21 @@ generation-guarded `invalidate()` (a 401 on a token believed valid) are shared. 
   with an older token the minted lifetime shrinks (2 × remaining) but the next rotation comes correspondingly sooner.
   A 600 s rule leaves only ~90 s for that sync. Anthropic's example values (3600 / 600) leave four refreshes per rotation
   (U8); the harness then waits instead of failing silently, and `1staid check` names the fix.
+- **Rotation-versus-lifetime check (U8; a WP0 spike verification item).** After every successful exchange from a
+  `file` source the core compares two moments and stores the verdict in the profile status:
+  - *next rotation* — for a Kubernetes projected service-account token (recognised by its `kubernetes.io` claim) the
+    kubelet replaces it at about 80 % of its lifetime, so `iat + 0.8 × (exp − iat)` plus a 60 s volume-sync margin;
+    for any other file the interval observed between the last two distinct contents, unknown until two were seen;
+  - *next mandatory refresh* — exchange time + minted lifetime − 30 s (the minted lifetime comes from `expires_in`,
+    so the rule's `token_lifetime_seconds` is observed, not guessed).
+
+  If the source would still hold the same `jti` when the mandatory refresh comes due, the verdict is
+  `rotation_slower_than_refresh`: a WARN in `login test`, `login status`, `auth.workload.status` and `1staid check`
+  naming the fix — raise the rule's `token_lifetime_seconds` to at least the computed value, or lower the projected
+  token's `expirationSeconds` (minimum 600). Because the minted lifetime is also capped at twice the token's
+  remaining lifetime, a longer rule alone does not always help; the message names the change that suffices for the
+  observed numbers (often both: `expirationSeconds: 600` with a rule of 600–900 s). The ledger still refuses the duplicate `jti`
+  locally when the refresh comes (§9.2), so a mismatched configuration costs a visible wait, never a burnt request.
 - After a restart, the ledger marks the last file content as spent, so the core waits for rotation instead of
   provoking an opaque 401 and a `jti_reused` entry in the Console.
 - `github_actions` always has a fresh token; spiffe-helper rotates at least every few minutes (SVID TTL 5 min).
@@ -633,7 +659,8 @@ reused where they fit. Messages stay constant (no token, path, claim or response
 | Exchange 401/403, OpenAI `invalid_grant` | `workload_denied` | Only with a **fresh** identity token, after 30 s, 2 min, 8 min; after `maxConsecutiveDenials` (3) background attempts stop | No lease → the router's `auth` class: no fallback, no breaker trip (unchanged semantics); pool `lastError` `auth_rejected` / confirmed | `denied` with the Console hint (authentication history; typical reasons `jti_reused`, `match_subject_prefix`, `workspace_id_required`, `iss` mismatch) |
 | Stopped after repeated denials | `workload_denied` (`retryable: false`) | Resumes on a config change (core restart), or on `login test` / `auth.workload.test` once a fresh identity token exists | as above | `blocked` |
 | Exchange 400/404/3xx, scope refused, egress refused the exchange host | `workload_config_invalid` | None until config change or explicit test | as above | `config_invalid` + reason |
-| Exchange 408/429/5xx/network/invalid body | `refresh_failed` (`retryable`, `retryAfterMs`) | Backoff 1–60 s; cached token served until the mandatory moment | Only after the mandatory moment: no lease, retryable | `degraded` |
+| Exchange 408/5xx/network/invalid body | `refresh_failed` (`retryable`, `retryAfterMs`) | Backoff 1–60 s; cached token served until the mandatory moment | Only after the mandatory moment: no lease, retryable | `degraded` |
+| Exchange 429 | `refresh_failed`, `reason: rate_limited` (`retryable`, `retryAfterMs`) | `Retry-After` first, then exponential backoff with jitter (§9.7); cached token served until the mandatory moment | as above | `rate_limited` (status and `1staid check`) |
 | No fresh identity token (file unchanged, missing, stale, skewed) | `identity_unavailable` once the cached token is past the mandatory moment | Poll / next rotation | as above | `waiting_for_rotation` or the reason |
 | Ledger not writable | `persist_failed` (`retryable`) | Next lease | as above | `degraded` |
 | API 401 with a minted token believed valid | — | `invalidate(generation)`, the next lease mints with a fresh token; a second 401 right after a fresh mint is a confirmed `auth_rejected` (sole-credential cooldown, 300 s) | existing `reportResult` logic, extended from `isRefreshable` to `isMinted` | `denied` |
@@ -650,6 +677,24 @@ Three signals: the JWT's `iat`/`nbf` against the local clock (pre-flight, §7.4)
 header against the local clock (warning above 30 s, the vendor leeway); OpenAI's `expires_at` against the computed
 expiry (§8.2). Local expiry is computed from the injected `Clock` at request start and never extended beyond the
 vendor's numbers. Skew is a diagnostic and a pre-flight refusal reason, never a reason to shift timers.
+
+### 9.7 Token-endpoint rate limits and several instances (U7)
+
+Neither vendor documents rate limits for its token endpoint, so the harness behaves defensively:
+
+- **One flight per profile per host.** All callers on one installation join the owner's single flight (§9.3); the CLI,
+  RPC and web `test` actions go through the same flight and are additionally limited to one per profile per 10 s.
+- **Never per request** (§9.3): turns, tools, discovery and voice consume the cached lease.
+- **429:** the presented token stays spent (it may have been consumed before the limit hit, the same rule as an
+  unknown outcome). The next attempt waits for `Retry-After` (seconds or HTTP date, clamped to 1 s … 1 h), then
+  continues with exponential backoff 2 s → 5 min plus up to 20 % jitter, and needs a fresh identity token; the cached
+  minted token is served until the mandatory moment. Status and `1staid check` show `rate_limited` with the
+  remaining wait; the audit records it once per episode.
+- **No shared assertions across hosts.** A server and a client (for example the owner's primary server and the
+  desktop's own bundled instance, §12.5) each mint **from their own identity source**: their own projected token,
+  their own GitHub request, their own SPIFFE SVID. Copying a token file to another host, or mounting one token file
+  on two hosts, makes the two ledgers race for the same `jti`; docs forbid it, and every `denied` status for a `file`
+  source lists "another consumer may have spent this token (shared token file?)" among its hints.
 
 ## 10. Claude Code headless and other delegated CLIs
 
@@ -671,16 +716,35 @@ vendor's numbers. Skew is a diagnostic and a pre-flight refusal reason, never a 
     Code holds anyway.
   - The child environment is built by §6.5 P4, so `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_API_KEY` (which outrank
     `apiKeyHelper`) cannot be present.
-  - **Gates:** ADR-005 action 2a (the backend exists) and the WP0 spike: U1 (the API accepts the WIF token arriving in
-    both `X-Api-Key` and `Authorization: Bearer`). If U1 fails, the fallback is `ANTHROPIC_AUTH_TOKEN` per one-shot
-    `-p` run whose deadline is shorter than the token's remaining lifetime, and only if U2 confirms bare mode reads
-    it; resident sessions would then be recycled before expiry.
+  - **Gates:** ADR-005 action 2a (the backend exists) and the WP0 result, applied through the decision tree of §10.1.
   - **Rejected:** forwarding the federation variables or an Anthropic profile file to the child. That needs non-bare
     mode (which loads hooks, `CLAUDE.md` and project MCP servers), lets every child exchange on its own (several
     owners) and makes the child and the harness spend the same token file's `jti` (U3).
 - **Codex CLI.** Stays "personal/local only" (D110). Codex WIF (beta, ChatGPT principal) is out of scope. Because
   "either variable selects WIF", §6.5 strips `OPENAI_FEDERATION_RULE_ID` and `OPENAI_IDENTITY_TOKEN_FILE` from every
   Codex child, so a variable meant for the harness's own import can never switch a personal Codex login.
+
+### 10.1 WP12 decision tree (keyed on the WP0 result)
+
+**Scope of the unknowns.** U1 and U2 concern **only Claude Code running as a harness child process**. The harness's
+own Anthropic calls (turns, discovery, every `anthropic_messages` provider) use the bearer mode of §8.4: one
+`Authorization: Bearer` header and no `x-api-key`. Their correctness does not depend on U1 or U2, and WP1–WP11 ship
+regardless of what WP0 finds.
+
+```text
+WP0 U1: does api.anthropic.com accept the WIF token in X-Api-Key AND Authorization: Bearer at once?
+├─ yes → WP12 uses apiKeyHelper (§10, handle-based helper, TTL 60 s); resident sessions supported.
+└─ no  → WP0 U2: does bare-mode Claude Code read ANTHROPIC_AUTH_TOKEN?
+         ├─ yes → WP12 uses ANTHROPIC_AUTH_TOKEN, set by the route (§6.5 P4) per one-shot `-p` run whose deadline
+         │        is shorter than the token's remaining lifetime; resident sessions are recycled before the token
+         │        expires. Documented residual risk: the minted token sits in that child's environment for the run.
+         └─ no  → WP12 stays parked. Running Claude Code without --bare (so that it reads federation variables or a
+                  profile) contradicts ADR-005's documented invocation and the single-owner rule; it needs an
+                  explicit owner decision recorded as an ADR-005 amendment before any work starts.
+```
+
+The tree is re-evaluated when Claude Code's documentation changes either behaviour (`policy_checked`-style re-check
+noted in the WP12 PR).
 
 ## 11. Security
 
@@ -719,67 +783,222 @@ vendor's numbers. Skew is a diagnostic and a pre-flight refusal reason, never a 
 
 | Action | Detail |
 |---|---|
-| `auth.workload.exchange` | `profileId`, `exchange`, `result` (`ok`/`denied`/`config_invalid`/`transient`), `expiresAt`, `scope`, rule / service-account / workspace ids, `iss`, `sub`, the first 12 hex digits of the assertion fingerprint |
+| `auth.workload.exchange` | `profileId`, `exchange`, `result` (`ok`/`denied`/`config_invalid`/`transient`/`rate_limited`), `expiresAt`, `scope`, rule / service-account / workspace ids, `iss`, `sub`, the first 12 hex digits of the assertion fingerprint |
+| `auth.workload.validated` | `profileId`, vendor, source kind, the identifiers, `origin` (`cli`, `setup`, `rpc`), principal, verdict (the config write itself is the supervisor's existing audited `config.set`) |
+| `auth.workload.removed` | `profileId`, principal, `origin`, ledger entries dropped |
 | `auth.workload.blocked` | `profileId`, consecutive denials |
+| `auth.workload.rate_limited` | `profileId`, `exchange`, wait (once per episode) |
 | `auth.workload.rotation_wait` | `profileId`, `exchange`, seconds waited (once per episode) |
 | `auth.workload.env_imported` | vendor, variable names |
 | `auth.workload.cache_restored` | `profileId`, `expiresAt` (only with `restartCache`) |
-| `auth.workload.test` | `profileId`, principal, result |
+| `auth.workload.test` | `profileId`, principal, `origin`, result |
 
-- **RBAC.** Status: `auth.credentials.read`. `auth.workload.test`: `auth.credentials.write` (Owner/Admin). The
-  token-helper handle of §10 is never available over the public RPC surface.
+- **RBAC.** The workload methods reuse the existing provider-login actions, which are human-only and **Owner only**
+  (`docs/rbac.md`, *Provider login*): `auth.credentials.read` for `auth.workload.status` and the additive `workload`
+  fields of `auth.status` / `auth.credentials.list`; `auth.credentials.write` for `auth.workload.validate`, `.test`
+  and `.remove`. The provider definition itself is written by the supervisor's existing `config.set` (its own
+  `x-write-roles` and audit). Binding the installation to an organisation's service account is an owner decision like
+  every provider credential; owner Q11 asks whether Admin should manage it as well. The token-helper handle of §10 is
+  never available over the public RPC surface.
 
 ## 12. Surfaces
 
-### 12.1 CLI (Rust)
+### 12.1 CLI: full setup parity (Rust; owner decision Q4, 2026-10-29)
 
-Decision W12: **the definition is configuration only** (`config.json`, `plur1bus config set providers.<id> …`, or a
-mounted file). A WIF profile has nothing to sign in to and nothing to store, so a `login` writer would only duplicate
-the config writer, and Kubernetes deployments mount config read-only. The CLI verifies and explains:
+**Existing structure reused.** `crates/plur1bus/src/commands/login.rs` is how the CLI adds credentials today:
+`plur1bus login <provider>` with a route flag (`--api-key`, key on stdin, stored by `secret.set`; `--oauth`, the D110
+loopback sign-in over `auth.login.*`), plus the subcommands `login status`, `login list` and `login logout <id>`.
+`adc` and `external_cli` have no CLI route (ambient credentials, delegated vendor login); no provider offers
+`device_code`. WIF becomes a **third route flag**, `--workload-identity` (a `Route::WorkloadIdentity` next to
+`ApiKey` and `Oauth`), and adds exactly one subcommand, `login test <id>`; removal is the existing `login logout <id>`
+(owner Q12 asks for a `remove` alias). The CLI stays a thin client: validation, the identity-token pre-flight and
+the test run in the **core**, the process that will read the token file, and the config write goes through the
+existing config route (supervisor `config.set`, which waits for the core restart, H3B-R22). Like every other login
+route it needs a running core (`E_CORE_UNAVAILABLE`, hint `plur1bus daemon start`).
 
 | Command | Behaviour |
 |---|---|
-| `plur1bus login status` | Adds a `workload` table (and the `workload` array in `--json`): profile, vendor, origin (`config` / `env`), source (`file <path>` / `github_actions`), state (`valid until …`, `waiting_for_rotation`, `degraded`, `denied`, `blocked`, `config_invalid`), last exchange, last error code and hint, granted scope. Never a token, never a JWT. |
-| `plur1bus login test <profile-id>` | Calls `auth.workload.test`: one exchange if a fresh identity token exists (a spent one is never re-presented: the answer is then `waiting_for_rotation` with the expected wait); prints the class, expiry and scope; exit code from the existing `E_*` table. |
-| `plur1bus login <anthropic\|openai> --workload-identity [--from-env] [--rule … --org … --service-account … --workspace … --token-file …] [--github-actions --audience …]` | Prints the `plur1bus config set providers.<id> '<json>'` command and the `egress.allowHosts` entries it needs; writes nothing. `--from-env` reads the vendor variables of the CLI's own environment once (§6.4 names). A JWT- or key-shaped value in any argument is refused with the existing `value-in-argument` rule and never echoed. |
-| `plur1bus 1staid check` | New check `auth.workload` (after `models.warm`, fixed table order), reading `auth.workload.status` from the core; OK / WARN / FAIL per profile with repair hints; `doctor.report` shows it automatically (it projects the 1staid report). |
+| `plur1bus login <anthropic\|openai> --workload-identity` | **Interactive wizard** (TTY, no `--non-interactive`): provider id (default `<vendor>-wif`; an existing one asks to replace) → source (`file` / `github-actions`) → for `file` the token-file path **on this host**, for `github-actions` the audience → identifiers (Anthropic: `federation_rule_id`, `organization_id`, `service_account_id`, `workspace_id`; OpenAI: `identity_provider_id`, `service_account_id`, subject token type) → accepted scope (`inference`, recommended; `developer`; both) → summary with the core's pre-flight (`iss`, `aud`, `exp`, `jti` present, rotation estimate, §9.4) and the missing `egress.allowHosts` entries (offered to add) → confirm → write → **offer a test exchange** (default yes). Every answer is validated when entered (§6.1, §6.3), with the reason shown and the question repeated. |
+| `plur1bus login <anthropic\|openai> --workload-identity --non-interactive --wif-… [--json]` | The same, from flags only; a missing required value is `E_INVALID_PARAMS reason=missing-<flag>`, never a prompt. Without `--wif-replace` an existing provider id is `E_CONFLICT reason=provider-exists`. `--wif-test` runs the test after the write. JSON document `login.workload/1`: `{ providerId, profileId, vendor, source, written, replaced, coreRestarted, egress: { missing[], added[] }, preflight, test? }`. |
+| `plur1bus login status` | Adds a `workload` table (and array in `--json`): profile, vendor, origin (`cli`, `setup`, `rpc`, `env`, `config`), source, state (`valid until …`, `waiting_for_rotation`, `rotation_slower_than_refresh`, `degraded`, `rate_limited`, `denied`, `blocked`, `config_invalid`), last exchange, last error code and hint, granted scope. Never a token, never a JWT. |
+| `plur1bus login list` | Adds workload rows: id, vendor, source kind, identifiers, valid-until, `needsAttention`. |
+| `plur1bus login test <id>` | `auth.workload.test`: one exchange through the owner's flight if a fresh identity token exists (a spent one is never re-presented: the answer is then `waiting_for_rotation` with the expected wait); prints class, expiry, scope and the rotation verdict of §9.4. JSON `login.test/1`. The minted token is kept as the profile's cached token, so a test wastes no assertion. |
+| `plur1bus login logout <id>` | Removes a workload profile: writes the `providers` map without that entry through the config route, then `auth.workload.remove` drops its ledger entries and any `restartCache` record. Asks for confirmation; `--yes` with `--non-interactive`. The id may be a unique prefix (existing rule). JSON `login.logout/1` with `kind: "workload_identity"`. |
+| `plur1bus 1staid check` | Check `auth.workload` (after `models.warm`, fixed table order), reading `auth.workload.status`; OK / WARN / FAIL per profile with repair hints; `doctor.report` projects it. |
 
-`1staid check` findings:
+**Flags (one shared clap struct `WorkloadIdentityArgs`, flattened into `LoginArgs` and `SetupArgs`, so `login`,
+`setup` and an SSH-driven desktop use identical names):** `--wif-provider-id <ID>`, `--wif-source
+<file|github-actions>`, `--wif-token-file <ABSOLUTE PATH>`, `--wif-audience <AUDIENCE>`, `--wif-rule-id <fdrl_…>`,
+`--wif-organization-id <UUID>`, `--wif-service-account-id <ID>`, `--wif-workspace-id <wrkspc_…>`,
+`--wif-identity-provider-id <ID>`, `--wif-subject-token-type <jwt|id-token>`, `--wif-scope
+<inference|developer|both>`, `--wif-from-env` (read the §6.4 variables of the CLI's own environment once),
+`--wif-allow-egress` (add the missing `egress.allowHosts` entries), `--wif-replace`, `--wif-test`.
+
+**No secret in argv.** WIF setup has no secret input at all: the identity token is never an input, the core reads it
+from the token file on its own host at exchange time. Flags carry identifiers, a path and an audience only. A JWT- or
+key-shaped value in any flag is refused with the existing `value-in-argument` rule and never echoed; there is
+therefore nothing to read from stdin or a file (the API-key route keeps its stdin rule unchanged).
+
+**Exit codes** (the existing table in `docs/errors.md`; no new numbers):
+
+| Outcome | Error code, `reason` | Exit |
+|---|---|---|
+| Written (and, with `--wif-test`, test minted) | — | 0 |
+| Invalid or missing input, token-shaped value, unsupported provider | `E_INVALID_PARAMS`, `missing-<flag>`, `value-in-argument`, `workload-identity-unsupported-provider`, `invalid-<field>` | 2 |
+| Confirmation declined | `E_CANCELLED`, `declined` | 2 |
+| Ctrl-C in the wizard | `E_CANCELLED`, `setup-cancelled` | 130 |
+| Provider id exists without `--wif-replace` | `E_CONFLICT`, `provider-exists` | 1 |
+| Core-side validation refused (path, pre-flight, same-file sharing, gateway `base_url`) | `E_CONFIG_INVALID`, `workload-config-invalid` + sub-reason | 1 |
+| Core not running | `E_CORE_UNAVAILABLE` | 1 |
+| Test denied / blocked | `E_DENIED`, `workload-denied` | 1 |
+| Test: config refused by the vendor (400, scope) | `E_CONFIG_INVALID`, `workload-config-invalid` | 1 |
+| Test: no fresh identity token, rate limited, endpoint down | `E_NOT_AVAILABLE`, `identity-token-spent` / `rate-limited` / `token-endpoint-unavailable` (with `retryAfterMs`) | 2 |
+| Unknown profile (`test`, `logout`) | `E_NOT_FOUND` | 1 |
+| Not the owner | `E_DENIED`, `owner-only` | 1 |
+
+A failed test after a successful write still exits non-zero, but the JSON document says `written: true`, so a script
+can tell "configured, test failed" from "nothing changed".
+
+**`1staid check` findings:**
 
 | Finding | Level | Hint |
 |---|---|---|
 | Token file missing / unreadable / malformed | FAIL | mount path, projection `audience`, file mode for uid 10001 (U9) |
 | Token stale (`exp` passed) or not rotated before the mandatory moment | FAIL | the computed `expirationSeconds` / `token_lifetime_seconds` advice of §9.4 |
-| Rotation slower than the minted lifetime (predicted) | WARN | same advice, before it fails |
+| `rotation_slower_than_refresh` (§9.4) | WARN | raise the rule's lifetime or lower `expirationSeconds` (minimum 600), with the computed value |
+| `rate_limited` (§9.7) | WARN | remaining wait; check for other consumers of the same service account |
 | Clock skew (pre-flight or `Date` header) | WARN/FAIL | NTP |
-| Last exchange denied / blocked | FAIL | Console → Workload identity → Authentication history; `jti_reused`, `match_subject_prefix`, `workspace_id_required`, `iss` byte-for-byte |
+| Last exchange denied / blocked | FAIL | Console → Workload identity → Authentication history; `jti_reused`, `match_subject_prefix`, `workspace_id_required`, `iss` byte-for-byte; a shared token file (§9.7) |
 | Config invalid (400, scope refused, gateway `base_url`) | FAIL | the field |
 | Egress refuses an exchange or source host | FAIL | the `egress.allowHosts` entry |
 | `aud` lacks the expected audience | WARN | projection or GitHub audience |
 | `github_actions` source without the two runner variables | FAIL | `permissions: id-token: write` |
 | Vendor API key in the core environment while a workload profile exists | INFO | it is ignored by the harness (§6.5) |
 
-### 12.2 RPC (TypeScript core)
+### 12.2 `plur1bus setup`: WIF as an auth choice
 
-- `auth.status` and `auth.credentials.list`: additive `workload: WorkloadStatus[]` (experimental surface).
-- `auth.workload.status` (read, `auth.credentials.read`): per profile the state, timestamps (`expiresAt`, last
-  exchange, next refresh), last error code, granted scope, the identity-token summary of §7.4, ledger counts.
-- `auth.workload.test` (write, `auth.credentials.write`): one attempt as in §12.1; at most one per profile per 10 s.
-- Both are documented in `docs/rpc.md` (generated) and `docs/rbac.md`; no token or JWT is ever a field.
+`crates/plur1bus/src/install/setup.rs` runs nine steps with fixed ids and asks only basic-tier config questions
+(HB11); it has **no provider sign-in step today** (providers are configured afterwards with `plur1bus login`). WIF
+needs one, so setup gains a tenth step **`auth`** between `start` and `check`: the core is running (validation and the
+test exchange need it) and the following `check` step already reports `auth.workload`.
 
-### 12.3 Web (read-only in v1)
+- **Choices:** `skip` (default), `workload-identity`, `api-key`, `chatgpt`. `workload-identity` runs exactly the
+  wizard and flag code of §12.1 (one implementation in `login.rs`, called from setup). `api-key` and `chatgpt` hand
+  over to the existing interactive login routes (hidden key prompt; loopback or `--paste` sign-in) and are offered only
+  interactively: their secret input is stdin, which setup's re-exec for a profile upgrade does not forward, so a
+  script keeps calling `printf %s "$KEY" | plur1bus login <provider>` after setup, unchanged.
+- **Non-interactive:** `plur1bus setup --non-interactive --auth workload-identity --auth-provider <anthropic|openai>
+  --wif-…` (the shared flags of §12.1); `--auth skip` is the default, so existing scripts are unaffected.
+- **Result in `setup/1`:** step `auth` with `detail { choice, providerId?, written?, test?: { result, expiresAt,
+  scope, rotation }, egress? }`. A refused WIF configuration fails the step (`reason: workload-config-invalid`, the
+  usual `after-failure` handling); a test that is denied, rate limited or waiting for rotation does **not** fail setup
+  (status `done`, the test result and a warning in `detail`), because the installation itself is complete and
+  `1staid check` keeps reporting it. Re-running setup with the same flags is `already-installed` when the stored
+  definition is equal.
+- **HB11 amendment:** the rule "setup asks only basic-tier questions" applies to the `config` step; the `auth` step
+  is the documented exception (provider sign-in is not a config-tier question). `setup_asks_only_basic_tier_questions`
+  is scoped accordingly, and the frozen step-id vocabulary gains `auth` (owner Q13).
+- **Headless server with web listener.** The CLI-only path is `plur1bus setup --non-interactive` on a host without a
+  display (what `install.sh` hands over to and what the desktop's SSH install runs, §12.5). The harness API (the only
+  listening surface, loopback, with `remote.publish` `local`, `tailnet` or `network`) is what a remote desktop
+  attaches to. The `auth` step is identical with or without that listener; once a desktop is attached, the same WIF
+  functions are available to it over RPC (§12.3, §12.5).
+- **Container mode** (`setup --container`) keeps its refusal of in-image setup; a containerised core is configured
+  over RPC or a mounted config (§12.5 contract), never by copying a token file into the image.
 
-Settings → Providers gets a **Workload identity** group: per profile the vendor, the identifiers, the source, a state
-badge (text, not colour alone), "valid until", last exchange, last error with its hint, granted scope; a **Test**
-button for Owner/Admin (`auth.workload.test`). No sign-in, no logout, no secret field. Texts in German (*du*) and
-English.
+### 12.3 RPC (TypeScript core)
 
-### 12.4 Docs
+The CLI, `setup`, the web settings and a remote desktop use one sequence, so they cannot drift:
+
+1. **`auth.workload.validate`** (write action, `auth.credentials.write`): closed params `{ vendor, providerId,
+   source: { kind: "file", path } | { kind: "github_actions", audience }, anthropic? | openai?, acceptedScopes?,
+   replace? }`. The core applies §6.1/§6.3 and, for a `file` source, stats and pre-flights the token file **on its own
+   filesystem, as its own OS user** (§7.1, §7.4); it returns `{ definition, preflight, egress: { missing[] },
+   conflicts[] }`. Nothing is written, nothing is exchanged.
+2. **`config.set providers.<id>`** (supervisor, existing): writes the returned definition (and, when asked, the
+   missing `egress.allowHosts` entries), audited, waits for the core restart.
+3. **`auth.workload.test`** (write, `auth.credentials.write`, one per profile per 10 s): one exchange through the
+   owner's flight; result class, expiry, scope, rotation verdict; the minted token stays in the core.
+4. **`auth.workload.status`** (read, `auth.credentials.read`): state, timestamps, last error, scope, identity-token
+   summary (§7.4), ledger counts, rotation verdict. `auth.status` / `auth.credentials.list` carry the same rows as an
+   additive `workload` array (list).
+5. **`auth.workload.remove`** (write): after the supervisor wrote the `providers` map without the entry, drops the
+   profile's ledger entries and `restartCache` record.
+
+The four methods join the API's RPC allowlist (`packages/api/src/rpc-route.ts`, next to `auth.status` and
+`auth.login.*`), so an attached desktop or the web UI can call them; `config.set` is already admitted for
+Owner/Admin in `crates/plur1bus/src/supervisor/api_transport.rs`. Documented in `docs/rpc.md` (generated) and
+`docs/rbac.md`; no token or JWT is ever a field.
+
+### 12.4 Web settings
+
+Settings → Providers gets a **Workload identity** group: per profile the vendor, identifiers, source, a state badge
+(text, not colour alone), "valid until", last exchange, last error with its hint, granted scope and the rotation
+verdict; for the Owner an **Add / Edit** form with the wizard's fields (validated live through
+`auth.workload.validate`), **Test** and **Remove**. Every value shown is the server's answer (`validate`, `test`,
+`status`); the browser computes nothing about the token. No secret field exists. Texts in German (*du*) and English.
+This is also the surface an attached remote desktop shows (§12.5).
+
+### 12.5 Remote primary server (desktop sets up an SSH host)
+
+**What exists.** The desktop SSH design (D113,
+[`2026-10-18-desktop-ssh-remote-design.md`](2026-10-18-desktop-ssh-remote-design.md), plan
+[`2026-10-18-desktop-ssh-remote.md`](../plans/2026-10-18-desktop-ssh-remote.md)) specifies installing and managing a
+harness on a Linux host over SSH: a closed `RemoteCommand` enum with a quoting-free argument charset
+`[A-Za-z0-9._/:=@+-]`, no secret in argv or environment, `setup --non-interactive --json` as install step 4,
+management actions through `ssh_manage`, and use of the server through an in-process tunnel with SSH pairing; the
+transport choice (Tailscale / direct) is in
+[`2026-10-21-desktop-transport-choice-design.md`](2026-10-21-desktop-transport-choice-design.md). On `main` only the
+SSH transport spike (`apps/desktop/transport-spike/`) is built; the D113 work packages are open. **What does not
+exist:** a flow that makes such a host the owner's *primary* server and turns the desktop's own instance into a client
+(so channels such as Telegram keep running while the notebook is off). No spec, ADR or code was found for it
+(searched: primary server, second instance, client role, remote install, SSH bootstrap). That role switch is
+therefore a **dependency** (owner Q14); this spec defines only the WIF contract it, and D113, call.
+
+**Hook into D113 (specified now, built with D113 WP4).**
+
+- Install step 4 passes the desktop's WIF answers to the server's setup: `setup --non-interactive --json --auth
+  workload-identity --auth-provider <vendor> --wif-…`. Every value is an identifier, an absolute server path or an
+  audience and fits D113's charset (`fdrl_…`, `svac_…`, `wrkspc_…`, UUIDs, `https://api.anthropic.com`,
+  `/var/run/secrets/anthropic.com/token`); a value outside it is refused by the desktop before anything is sent.
+- `RemoteCommand` gains `WorkloadValidate`, `WorkloadConfigure`, `WorkloadTest`, `WorkloadStatus`, `WorkloadList`,
+  `WorkloadRemove`, rendering to the fixed `~/.local/bin/plur1bus login … --workload-identity --non-interactive
+  --json --wif-…`, `login test <id> --json`, `login status --json`, `login list --json` and `login logout <id> --yes
+  --non-interactive --json`; `ssh_manage`'s closed action enum gains the matching actions. Output is parsed as the
+  schema-tagged documents of §12.1.
+- The desktop's install and host pages show the **server's** `login.workload/1`, `login.test/1` and `login.status/1`
+  documents verbatim (state, hints, exit reason); nothing is recomputed on the desktop.
+
+**Contract for the primary-server flow (and any other remote configuration).** The server can be configured in two
+ways:
+
+| Way | Mechanism | Authority |
+|---|---|---|
+| Over SSH | the desktop runs the non-interactive CLI of §12.1 on the server through D113's closed command set | the SSH login as the harness's OS user (D113 §7.2 trust anchor) |
+| Over authenticated RPC | the attached desktop (the server's SPA through the tunnel, or a paired remote connection) calls the §12.3 sequence | a human **Owner** session (`auth.credentials.write`; `config.set` per its `x-write-roles`) |
+
+Invariants, tested in both ways:
+
+1. The identity-token source and the minted token **stay on the server**. Neither is ever sent to the desktop:
+   no command output, RPC result, event, log line or diagnostics bundle contains them (status carries the §7.4
+   summary only).
+2. The token-file path **refers to the server's filesystem**; the server's core validates it as the user that reads
+   it. The desktop never reads, uploads or copies a token file, and never offers a local file picker for it.
+3. **No secret appears in argv** on either host. Flags carry identifiers only; there is no secret input for WIF; any
+   other secret the flow needs (an API key for another provider) goes over stdin or a file, never argv (D113 §6.3).
+4. **The GUI shows the server-side result** of validate, test and status, verbatim.
+5. **No shared assertion** (§9.7): after the role switch the desktop's own instance, if it keeps a workload profile at
+   all, mints from **its own** source; it never receives the server's token file or minted token.
+6. Removing the host from the desktop does not touch the server's WIF configuration; `login logout` on the server (by
+   either way) does.
+
+### 12.6 Docs
 
 `docs/auth-engine.md` (new section), `docs/providers.md` (Anthropic bearer mode), `docs/egress.md` (hosts),
 `docs/containers.md` (a Kubernetes example with the recommended projection), `docs/mcp-client.md` (deny set),
-generated `docs/config.md`, `docs/cli.md`, `docs/rpc.md`, the ADR-005 amendment; user-guide text (DE/EN) goes into
-the PR body as a template because `docs/user/` has its own owner.
+`docs/errors.md` (the WIF reasons, no new codes), generated `docs/config.md`, `docs/cli.md`, `docs/rpc.md`, the
+ADR-005 amendment, and pointers in the D113 spec (§6.3 command enum, §6.4 install step 4, §6.6 actions); user-guide
+text (DE/EN) goes into the PR body as a template because `docs/user/` has its own owner.
 
 ## 13. The repository's own CI
 
@@ -824,9 +1043,25 @@ green nightlies without it.
   `sk-ant-oat01-`, the GitHub request token and fake minted tokens; child-environment tests (exec, sandbox, MCP,
   delegated-CLI builder) prove no deny-set name reaches a child; MCP `fromHost` refusal; token-shaped config values
   refused; gateway `base_url` refused; tool deny of configured token paths.
-- **Rust:** `login status` / `login test` / snippet golden JSON; the `auth.workload` check table; the existing
-  secret-scan tests over CLI output.
-- **Web:** unit tests and Playwright against the mock server.
+- **Rate limits and rotation (§9.4, §9.7):** 429 with `Retry-After` in seconds and as an HTTP date, without it, and
+  out of range; backoff growth and jitter bounds; the token stays spent after a 429; `rate_limited` in status; the
+  rotation verdict for a Kubernetes-shaped token (3600 s vs. a 600 s rule → WARN with both fixes; 600 s vs. 900 s →
+  OK) and for a plain file after two observed rotations; a duplicate `jti` in re-encoded bytes refused locally.
+- **Rust CLI:** the wizard driven through the existing `Prompter` seam (every question, re-ask on invalid input,
+  decline → `E_CANCELLED`, Ctrl-C → 130); the non-interactive matrix of §12.1 (each missing flag, token-shaped values
+  in every flag, `--wif-replace`, `--wif-test`, `--wif-from-env` with an injected environment) with golden
+  `login.workload/1`, `login.test/1`, `login.status/1`, `login.list/1`, `login.logout/1` documents and the exit-code
+  table; `setup` with `--auth workload-identity` (step `auth` done / failed / done-with-warning, idempotent re-run
+  `already-installed`, `--auth skip` default leaves `setup/1` unchanged apart from the skipped step); the
+  `auth.workload` check table; the existing secret-scan tests over CLI output and a recorded-argv test that no flag
+  value is token-shaped.
+- **Remote contract (§12.5):** with D113's fake binary and fixture server, every `Workload*` remote command renders
+  inside the charset, refuses an out-of-charset value before sending, and the desktop shows the server document
+  verbatim; RPC sequence tests (validate → `config.set` → test → status → remove) as Owner, and refusal for Admin,
+  Operator, agents and unauthenticated callers; an end-to-end scan proving no RPC result, event or bundle carries a
+  token or JWT.
+- **Web:** unit tests and Playwright against the mock server (form validation from `validate`, test and remove
+  flows, role gating).
 - **Live:** only the owner-run WP0 spike and, optionally, the nightly job of §13.
 
 ## 15. Rollout and compatibility
@@ -845,25 +1080,35 @@ that provider only. Removing a WIF provider leaves nothing behind but ledger ent
 | R4 | Claude Code route unknowns (U1–U3) | Separate gated package (§10); the personal route is untouched |
 | R5 | Over-broad vendor rules (operator side) | Docs with narrow rule recipes per source; the harness cannot see rules |
 | R6 | Restart gap with `file` sources | Recommended 600 s projection; `restartCache` opt-in (Q2) |
-| R7 | Egress friction (hosts must be listed) | `1staid check` names the missing entry; the snippet printer prints it |
+| R7 | Egress friction (hosts must be listed) | `1staid check` names the missing entry; the wizard and `--wif-allow-egress` add it |
 | R8 | Projected token not readable for uid 10001 (U9) | Explicit FAIL with the fix; `docs/containers.md` example sets the security context |
 | R9 | Confusing `federated_token` with `workload_identity` | ADR-005 amendment, distinct validation messages, docs table |
 | R10 | One identity token file shared by two profiles of one vendor | Refused by validation (§6.3) |
+| R11 | One token file shared by two hosts (server and client) | Forbidden in docs; per-host sources (§9.7); a "shared token file?" hint on every `file`-source denial |
+| R12 | A desktop user enters a path that exists on the desktop, not the server | Invariant 2 (§12.5): only the server's core validates the path; the GUI never offers a local file picker |
+| R13 | The new setup step `auth` surprises a consumer of `setup/1` (the D113 desktop) | `--auth skip` default; D113 spec pointer; step ids are additive and consumers tolerate unknown fields (D113 §6.3); owner Q13 |
+| R14 | Token-endpoint rate limits are unknown (U7) | §9.7: one flight per profile per host, never per request, `Retry-After` plus backoff, visible `rate_limited` |
 
-## 17. Open owner questions
+## 17. Owner questions
 
-| # | Question | Recommendation |
+Q4 is decided; every other row is an open question with a recommendation.
+
+| # | Question | Recommendation / decision |
 |---|---|---|
 | Q1 | A new kind `workload_identity`, or extend `federated_token`? | New kind; keep `federated_token` as D110's external supplier (W1, §5.2). |
 | Q2 | May a minted token survive a core restart? | Memory only by default; offer `restartCache: "secret-store"` as an opt-in in v1 (§9.1). |
 | Q3 | Which sources in v1? | `file` + `github_actions`; `command` in v1.1; metadata sources later behind a named egress exception (§7.3). |
-| Q4 | CLI: config-only or a `login --workload-identity` writer? | Config-only plus `login status`, `login test` and the snippet printer (W12). |
+| Q4 | CLI: config-only or a `login --workload-identity` writer? | **Decided by the owner, 2026-10-29: full CLI setup parity.** A headless CLI-only install must be a first-class path, and WIF must be configurable when a desktop sets up an SSH host as the primary server. Interactive wizard, equivalent non-interactive flags with `--json` and defined exit codes, status / test / remove / list, a WIF choice in `plur1bus setup`, configuration over SSH and over RPC (W12, §12.1, §12.2, §12.5). The earlier config-only recommendation is withdrawn. |
 | Q5 | Env import of the vendor variables? | Opt-in per vendor, file sources only, a literal token in the environment refused (§6.4). |
 | Q6 | Scope policy? | Accept `workspace:inference` and `workspace:developer`, refuse `org:admin` and `workspace:manage_tunnels`, document `workspace:inference` as the recommendation (W11). |
 | Q7 | Claude Code on WIF in v0.2? | No: a separate package after ADR-005 action 2a and the WP0 spike (§10). |
 | Q8 | Move the nightly live jobs to GitHub OIDC? | Only `turn-eval-live`, after the core packages; keep the secret until two green nightlies (§13). |
 | Q9 | `workload_identity` as a voice parent (Realtime / GPT-Live)? | Later; `federated_token` keeps serving voice. |
 | Q10 | Reuse `OPENAI_IDENTITY_TOKEN_FILE` (Codex's name) for the opt-in OpenAI import? | Yes, with the Codex-child strip of §6.5; the alternative is a harness-specific name operators must learn. |
+| Q11 | Who may configure WIF: Owner only (as every provider credential today) or Owner and Admin? | Owner only, reusing `auth.credentials.*` unchanged (§11); revisit with the M3 RBAC review if organisations need delegated admins. |
+| Q12 | Removal verb: the existing `login logout <id>` only, or also a `login remove <id>` alias? | Add `remove` as a visible clap alias of `logout` for **every** kind, so "remove" works without a second code path. |
+| Q13 | May `plur1bus setup` gain a tenth step `auth` (frozen step-id vocabulary, HB11 exception)? | Yes: `auth` between `start` and `check`, default `skip`; amend the D113 spec's step list in the same PR (§12.2). |
+| Q14 | Which track owns the "SSH host becomes the primary server, the desktop instance becomes a client" flow? | The desktop track as a D113 follow-up spec (role switch, channel ownership hand-over, desktop instance demotion); WIF provides only the §12.5 contract and is not blocked by it. |
 
 ## 18. Documents the implementation amends
 
@@ -877,4 +1122,7 @@ that provider only. Removing a WIF provider leaves nothing behind but ledger ent
 | `docs/containers.md` | Kubernetes projection example (600 s, audience, security context) |
 | `docs/mcp-client.md` | Vendor credential deny set |
 | `docs/config.md`, `docs/cli.md`, `docs/rpc.md` | Regenerated |
-| `docs/rbac.md`, `docs/doctor.md` | New methods; check `auth.workload` |
+| `docs/rbac.md`, `docs/doctor.md` | New methods (Owner only); check `auth.workload` |
+| `docs/errors.md` | The WIF `reason` values of §12.1 (no new error codes or exit numbers) |
+| D113 spec (`2026-10-18-desktop-ssh-remote-design.md`) | §6.3 `Workload*` commands, §6.4 step 4 WIF flags, §6.6 actions, setup step `auth` |
+| `docs/module-guide.md` §12 / setup docs | Step `auth`, `--auth` and the shared `--wif-*` flags |

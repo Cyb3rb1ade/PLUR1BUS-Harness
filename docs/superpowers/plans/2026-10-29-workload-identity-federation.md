@@ -9,13 +9,17 @@ presented at most once. Specified in
 **Architecture.** Closed profile block validated in `auth/profile.ts`; sources and pre-flight in a new
 `packages/core/src/auth/workload/`; two exchange adapters with fixed endpoints over a JSON variant of the guarded
 OAuth transport; a mint path, a spent-assertion ledger and denial handling inside `RefreshOwner`; a bearer mode for
-the Anthropic Messages adapter; a vendor-credential deny set for every child environment; `auth.workload.*` RPC; CLI
-status/test/snippet and a `1staid check` entry (Rust); a read-only web group.
-**Status.** Owner decision 2026-10-29: support WIF, not urgent (v0.2 / enterprise track); personal default
-unchanged. Ten owner questions (spec §17) carry recommendations; WP1–WP4 do not depend on any answer except Q1 (kind
-name) and Q2 (`restartCache`, a small part of WP4). WP0 needs owner credentials and the NAS Ubuntu VM.
-**Executor.** TypeScript packages: the controller's choice of agent. **Rust packages (WP8, the Rust half of WP12):
-Claude agent** (owner decision 2026-10-21: Rust by Claude, not Codex). One branch and one ready PR per package
+the Anthropic Messages adapter; a vendor-credential deny set for every child environment; `auth.workload.*` RPC
+(validate, test, status, remove; Owner only) reachable from an attached desktop; a full CLI setup in the existing
+`plur1bus login` verbs (wizard, non-interactive flags with `--json`, status, list, test, logout) plus a setup step
+`auth` and a `1staid check` entry (Rust); a web form; the WIF hook into the desktop SSH install (D113).
+**Status.** Owner decisions 2026-10-29: support WIF, not urgent (v0.2 / enterprise track); personal default
+unchanged; **Q4 decided: full CLI setup parity**, including headless servers and the remote primary-server path
+(spec §12.1, §12.2, §12.5). The other owner questions (spec §17, now Q1–Q3, Q5–Q14) carry recommendations; WP1–WP4
+do not depend on any answer except Q1 (kind name) and Q2 (`restartCache`, a small part of WP4). WP0 needs owner
+credentials and the NAS Ubuntu VM.
+**Executor.** TypeScript packages: the controller's choice of agent. **Rust packages (WP8a, WP8b, WP13 and the Rust
+half of WP12): Claude agent** (owner decision 2026-10-21: Rust by Claude, not Codex). One branch and one ready PR per package
 (`claude/wif-wp1-kind`, `…-wp2-sources`, …), each from fresh `origin/main` or stacked with `Stacked on #N`.
 **Constraints.** No change to the Claude Code / Agent SDK route, Sign in with ChatGPT, setup-token or API-key
 behaviour; `federated_token` untouched (spec W1). No real vendor endpoint, IdP or GitHub token in tests or fixtures;
@@ -40,6 +44,11 @@ closed with `x-restart`/`x-tier`. No CI polling, force-push, rebase, amend or st
 6. **Classification:** opaque 401s are never retried with the same token, denial backoff stops after the configured
    count, transient failures keep serving until the mandatory moment (spec §9.3, §9.5).
 7. **Personal default unchanged:** existing profile, pool, refresh and adapter tests pass without edits.
+8. **Remote invariants (spec §12.5):** the identity-token source and the minted token never leave the server (no
+   RPC result, CLI document, event, log or bundle carries them); token-file paths are validated only by the server's
+   core; no flag carries a token-shaped value; the GUI renders the server's documents verbatim.
+9. **One implementation:** `login --workload-identity`, the setup step `auth`, the web form and the desktop's SSH
+   commands all go through `auth.workload.validate` → `config.set` → `auth.workload.test`; no second validator.
 
 ## Dependencies and order
 
@@ -48,11 +57,12 @@ WP0 spike (owner time; answers U1, U2, U6, U8, U9) ─────────�
 WP1 kind + validation + config keys ──► WP2 sources + pre-flight ──► WP4 mint path, ledger, classification ──► WP5 provider wiring
                                    └──► WP3 exchange adapters + JSON transport ──┘                                   │
 WP6 env import + hygiene (after WP1; parallel to WP2–WP5) ───────────────────────────────────────────────────────────┤
-                                                                     WP7 RPC + audit (after WP4) ──► WP8 CLI + 1staid (Rust, Claude agent)
-                                                                                                └──► WP9 web read-only status
-WP10 docs + ADR-005 amendment (with WP5; final pass after WP8/WP9)
+                                  WP7 RPC + RBAC + audit (after WP4) ──► WP8a CLI login setup + 1staid (Rust, Claude agent) ──► WP8b setup step `auth` (Rust, Claude agent)
+                                                                    └──► WP9 web form + status
+WP10 docs + ADR-005 amendment (with WP5; final pass after WP8a/WP8b/WP9)
 WP11 optional: nightly turn-eval-live on GitHub OIDC (after WP5, WP7)
-WP12 gated: Claude Code on WIF (after ADR-005 action 2a + WP0 U1/U2)
+WP12 gated: Claude Code on WIF (after ADR-005 action 2a + WP0, decision tree spec §10.1)
+WP13 gated: WIF hook in the desktop SSH install (after WP8a/WP8b + D113 WP3/WP4; Rust, Claude agent)
 ```
 
 Until WP5 lands, composition refuses `workload_identity` providers with `E_CONFIG_INVALID` reason
@@ -81,8 +91,11 @@ public-JWKS-less issuer registered `inline`; a scratch workflow with `id-token: 
 **Output.** `docs/handoff/status/2026-1x-xx-wif-spike.md`: each unknown marked answered / not answered with evidence;
 IDs replaced by placeholders, no token, no JWT, no claim values beyond `iss` and `aud`.
 
-**Acceptance.** The record exists; WP2 adopts the observed GitHub host suffix; WP10 adopts the observed Kubernetes
-numbers; WP12's gate is decided.
+**Acceptance.** The record exists; WP2 adopts the observed GitHub host suffix; WP4's rotation verdict (spec §9.4:
+80 % of the token lifetime plus a 60 s sync margin) is confirmed or adjusted against the observed kubelet timing, and
+U8 is marked observed or refuted; WP10 adopts the observed Kubernetes numbers; WP12's branch is chosen by the
+decision tree of spec §10.1 (dual header accepted → `apiKeyHelper`; else bare mode reads `ANTHROPIC_AUTH_TOKEN` →
+per-run variable; else parked pending an owner decision).
 
 ## WP1 — Kind, profile block, validation, config keys (≈ 2 agent days)
 
@@ -172,15 +185,21 @@ D110 federated-supplier tests unchanged and green.
 **Acceptance.** Tests green; no import of `node:http(s)`/`fetch` in the new files (static test); the old
 `workload.test.ts` cases pass against the new adapter.
 
-## WP4 — Mint path in `RefreshOwner`, ledger, schedule, classification (≈ 3.5 agent days)
+## WP4 — Mint path in `RefreshOwner`, ledger, schedule, classification (≈ 4 agent days)
 
 **Files.**
 - `packages/core/src/auth/refresh.ts` — record-source abstraction (existing store source; new memory source, optional
   secret-store backing for `restartCache`); `Minter` port beside `Refresher`; advisory / mandatory thresholds and
-  their short-lifetime scaling (spec §9.3); "no fresh token" outcome that keeps serving and schedules a poll; denial
-  backoff 30 s / 2 min / 8 min and the stop after `maxConsecutiveDenials`; resume hooks (config change, explicit test).
-- `packages/core/src/auth/workload/ledger.ts` — `state/auth-workload.json`, 0600, atomic replace, vendor-scoped keys,
-  prune at `exp` + 60 s, fail closed on write errors.
+  their short-lifetime scaling (spec §9.3); never mint per lease; "no fresh token" outcome that keeps serving and
+  schedules a poll; denial backoff 30 s / 2 min / 8 min and the stop after `maxConsecutiveDenials`; 429 handling of
+  spec §9.7 (`Retry-After` seconds or HTTP date clamped to 1 s … 1 h, then 2 s → 5 min with ≤ 20 % jitter, reason
+  `rate_limited`); resume hooks (config change, explicit test).
+- `packages/core/src/auth/workload/ledger.ts` — `state/auth-workload.json`, 0600, atomic replace, vendor-scoped keys
+  on the fingerprint **and** `SHA-256(iss ‖ jti)` (spec §9.2), prune at `exp` + 60 s, fail closed on write errors.
+- `packages/core/src/auth/workload/rotation.ts` — the rotation-versus-lifetime verdict of spec §9.4 (Kubernetes
+  tokens by their `kubernetes.io` claim: `iat + 0.8 × (exp − iat)` + 60 s; other files: observed interval) compared
+  with exchange time + minted lifetime − 30 s; the computed fix (rule lifetime and/or `expirationSeconds`, minimum
+  600).
 - `packages/core/src/auth/workload/minter.ts` — source → pre-flight → ledger → adapter; registers the identity token
   as a transient redaction value for the duration of the call.
 - `packages/core/src/auth/credentials.ts` — dispatch `isMinted` profiles to the mint path with the synthetic pool
@@ -198,7 +217,13 @@ D110 federated-supplier tests unchanged and green.
 - `packages/core/test/auth/workload/ledger.test.ts` — the ledger entry exists before the fake endpoint sees the
   request; a request that times out leaves the token spent and the next attempt waits for new content; a restart
   (new owner, same state dir) waits instead of re-sending; ledger write failure → no request, `persist_failed`;
-  pruning; the same token allowed once per vendor.
+  pruning; the same token allowed once per vendor; a re-encoded token with an already used `jti` refused locally
+  (no request reaches the fake endpoint).
+- `packages/core/test/auth/workload/rotation.test.ts` — Kubernetes-shaped 3600 s token with a 600 s minted lifetime →
+  `rotation_slower_than_refresh` naming both fixes; 600 s token with 900 s → OK; 600 s with 600 s → OK with the sync
+  margin; a plain file before and after two observed rotations; a minted lifetime capped by 2 × remaining.
+- 429 cases in `refresh-workload.test.ts` — `Retry-After` in seconds, as an HTTP date, missing, out of range; backoff
+  bounds; the token stays spent; status `rate_limited`; one audit record per episode.
 - `packages/core/test/auth/credentials-workload.test.ts` — generation-guarded 401 re-mints with a fresh token; a second
   401 right after a fresh mint cools the credential (sole, 300 s); 403 → `forbidden` ambiguous; lease JSON redacted.
 - `restartCache` cases — a stored record is used after restart only while unexpired and with a matching
@@ -258,68 +283,118 @@ credentials directory; `redaction.test.ts` extended.
 
 **Acceptance.** Tests green; `packages/core/test/mcp/secrets.test.ts` and exec env tests unchanged and green.
 
-## WP7 — RPC, audit, status (≈ 2 agent days)
+## WP7 — RPC, RBAC, audit, status (≈ 3 agent days)
 
 **Files.**
 - `packages/core/src/rpc/auth-surface.ts` — additive `workload: WorkloadStatus[]` on `auth.status` and
-  `auth.credentials.list`; new `auth.workload.status` (read) and `auth.workload.test` (write, one per profile per
-  10 s, through the owner's flight).
-- `packages/core/src/auth/credentials.ts` / `refresh.ts` — a status projection per minted profile (state, timestamps,
-  last error code, scope, claims summary, ledger counts); never a token.
-- RPC schema (`packages/rpc-schema`), `docs/rbac.md` (`auth.credentials.read` / `write`), regenerated `docs/rpc.md`
-  and `docs/openapi.json`.
-- Audit actions of spec §11 (`auth.workload.exchange`, `.blocked`, `.rotation_wait`, `.env_imported`,
-  `.cache_restored`, `.test`) through `audit.append`; logs `auth.workload.*` with ids and codes.
+  `auth.credentials.list`; new methods (spec §12.3): `auth.workload.validate` (closed params; §6.1/§6.3 rules and the
+  token-file stat + pre-flight on the core's own filesystem as its own OS user; returns `{ definition, preflight,
+  egress.missing, conflicts }`, writes nothing, exchanges nothing), `auth.workload.test` (one per profile per 10 s,
+  through the owner's flight, result incl. rotation verdict), `auth.workload.status` (read), `auth.workload.remove`
+  (drops ledger entries and the `restartCache` record after the supervisor removed the definition).
+- RBAC: the methods declared in `RPC_RULES` as human-only, mapped to the existing `auth.credentials.read` (status) and
+  `auth.credentials.write` (validate, test, remove), **Owner only** (spec §11, owner Q11); `docs/rbac.md` rows.
+- `packages/api/src/rpc-route.ts` — the four methods join the API's RPC allowlist next to `auth.status` and
+  `auth.login.*`, so the web UI and an attached desktop reach them; `config.set` stays as admitted today in
+  `crates/plur1bus/src/supervisor/api_transport.rs` (no change there).
+- `packages/core/src/auth/credentials.ts` / `refresh.ts` — the status projection per minted profile (state incl.
+  `rate_limited` and `rotation_slower_than_refresh`, timestamps, last error code, scope, claims summary, ledger
+  counts); never a token.
+- RPC schema (`packages/rpc-schema`), regenerated `docs/rpc.md`, `docs/api-surface.md` and `docs/openapi.json`.
+- Audit actions of spec §11 (`auth.workload.exchange`, `.validated`, `.removed`, `.blocked`, `.rate_limited`,
+  `.rotation_wait`, `.env_imported`, `.cache_restored`, `.test`, each with `origin`) through `audit.append`.
 
-**Tests.** RPC tests for both methods and the additive fields (role matrix, rate limit, unknown profile); an audit
-test that every action carries only the listed fields; a status-payload secret scan.
+**Tests.** RPC tests for every method and the additive fields: role matrix (Owner allowed; Admin, Operator, Member,
+Viewer, agents, unauthenticated refused), the rate limit, unknown profile, `validate` with a path that does not exist
+on the core host, a symlinked projected-volume path, a token-shaped value in an id field, same-file sharing; the full
+sequence validate → `config.set` (fake supervisor) → test → status → remove; through the API route with a session
+cookie; an audit test that every action carries only the listed fields; a payload secret scan over every result.
 
-**Acceptance.** Core tests and `pnpm docs:check` green; RPC schema check green.
+**Acceptance.** Core and API tests, `pnpm docs:check` and the RPC schema check green.
 
-## WP8 — CLI and `1staid check` (Rust, **Claude agent**) (≈ 3 agent days)
+## WP8a — CLI setup in `plur1bus login` and `1staid check` (Rust, **Claude agent**) (≈ 4.5 agent days)
 
 **Files.**
-- `crates/plur1bus/src/commands/login.rs` — `login status` renders the `workload` table and passes the array through
-  in `login.status/1` (additive field); new subcommand `login test <profile-id>` (`auth.workload.test`, document
-  `login.test/1`, existing exit-code mapping); `--workload-identity` route for `anthropic` / `openai` with
-  `--from-env`, `--rule`, `--org`, `--service-account`, `--workspace`, `--token-file`, `--github-actions`,
-  `--audience`, `--provider-id`: prints the `plur1bus config set providers.<id> '<json>'` command and the needed
-  `egress.allowHosts` entries, writes nothing; JWT- or key-shaped argument values refused with `value-in-argument`
-  and never echoed.
+- `crates/plur1bus/src/commands/login.rs` —
+  - `Route::WorkloadIdentity` next to `ApiKey` / `Oauth`, selected by `--workload-identity` for `anthropic` /
+    `openai` (other providers: `E_INVALID_PARAMS reason=workload-identity-unsupported-provider`);
+  - `WorkloadIdentityArgs` (one clap struct, flattened into `LoginArgs` here and into `SetupArgs` by WP8b) with the
+    flags of spec §12.1 (`--wif-provider-id`, `--wif-source`, `--wif-token-file`, `--wif-audience`, `--wif-rule-id`,
+    `--wif-organization-id`, `--wif-service-account-id`, `--wif-workspace-id`, `--wif-identity-provider-id`,
+    `--wif-subject-token-type`, `--wif-scope`, `--wif-from-env`, `--wif-allow-egress`, `--wif-replace`,
+    `--wif-test`) and `--non-interactive`;
+  - the interactive wizard (spec §12.1 order, validation per answer through `auth.workload.validate`, re-ask on
+    error, summary, confirm, write through the existing config route, wait for the core restart, offer the test) on a
+    `Prompter`-style seam shared with setup;
+  - the non-interactive path with `missing-<flag>` refusals, `provider-exists` without `--wif-replace`, the exit-code
+    table of spec §12.1 (existing codes only), document `login.workload/1` (`written` stays true when only the test
+    failed);
+  - `login status` / `login list` workload rows (additive fields of `login.status/1`, `login.list/1`), new
+    `login test <id>` (`login.test/1`), `login logout <id>` for workload profiles (config route removal, then
+    `auth.workload.remove`; confirmation, `--yes`; `login.logout/1` with `kind`); the `remove` alias if owner Q12 is
+    accepted;
+  - token-shaped values refused in every flag (`value-in-argument`, never echoed).
 - `crates/plur1bus/src/commands/firstaid.rs` — check `auth.workload` after `models.warm` in `CHECK_IDS`, reading
-  `auth.workload.status` over the existing core connection, the findings table of spec §12.1 with repair hints;
-  `skip` when no workload profile exists or the core is down.
-- `docs/cli.md` regenerated (`pnpm docs:gen`); `docs/doctor.md` names the check.
+  `auth.workload.status` over the existing core connection, the findings table of spec §12.1 including
+  `rotation_slower_than_refresh` and `rate_limited`; `skip` when no workload profile exists or the core is down.
+- `docs/errors.md` (the WIF reasons), `docs/cli.md` regenerated (`pnpm docs:gen`), `docs/doctor.md`.
 
-**Tests.** Unit tests on the existing `FakeCore` / `FakeRpc` harness: status table and JSON golden output (no token
-fields), `login test` result classes and exit codes, snippet output for file and GitHub sources and `--from-env`
-(env injected), refusal of a JWT in `--rule`; firstaid table vectors for every finding and the fixed order; the
-existing CLI secret-scan tests extended to JWTs and `sk-ant-oat01-`.
+**Tests.** On the existing `FakeCore` / `FakeRpc` harness: the wizard through the prompt seam (every question, re-ask,
+decline → `E_CANCELLED`/2, Ctrl-C → 130); the non-interactive matrix (each missing flag, token-shaped values in each
+flag, replace, test, `--from-env` with an injected environment, core down → `E_CORE_UNAVAILABLE`); golden JSON for
+all five documents; exit codes checked against the table; firstaid vectors for every finding in the fixed order; a
+recorded-argv test; the existing CLI secret-scan tests extended to JWTs and `sk-ant-oat01-`.
 
 **Acceptance.** `cargo fmt --all -- --check`, `cargo clippy --workspace -- -D warnings`, `cargo test -p plur1bus`,
-`node scripts/check-cli-exit-codes.mjs --check`, `pnpm docs:check` green; manual pass on the owner's Mac against a
-core with a fake exchange endpoint.
+`node scripts/check-cli-exit-codes.mjs --check`, `pnpm docs:check` green; manual pass on the owner's Mac and on the
+NAS Ubuntu VM (headless, over SSH) against a core with a fake exchange endpoint.
 
-## WP9 — Web: read-only status (≈ 2 agent days)
+## WP8b — `plur1bus setup` step `auth` and the headless server path (Rust, **Claude agent**) (≈ 2 agent days)
+
+**Files.**
+- `crates/plur1bus/src/install/setup.rs` — `STEP_IDS` gains `auth` between `start` and `check` (owner Q13); the step
+  offers `skip` (default) / `workload-identity` / `api-key` / `chatgpt`, runs the WP8a wizard or flag path for
+  `workload-identity` and hands `api-key` / `chatgpt` to the existing interactive login routes; `detail` per spec
+  §12.2; a refused configuration fails the step, a denied / rate-limited / rotation-wait test is `done` with a warning;
+  `already-installed` when the stored definition equals the flags.
+- `crates/plur1bus/src/cli.rs` (`SetupArgs`) — `--auth <skip|workload-identity|api-key|chatgpt>`, `--auth-provider`,
+  the flattened `WorkloadIdentityArgs`; `api-key` / `chatgpt` refused with `--non-interactive`
+  (`E_INVALID_PARAMS reason=auth-needs-terminal`, hint `plur1bus login`).
+- `crates/plur1bus/src/commands/setup.rs` — `NoPrompts` answers the `auth` step from the flags; `describe` renders it.
+- `setup_asks_only_basic_tier_questions` scoped to the `config` step with the documented HB11 exception for `auth`.
+- `docs/module-guide.md` §12 and the D113 spec's step list (pointer only).
+
+**Tests.** Step order and ids; `--auth skip` keeps today's `setup/1` apart from one skipped step; `workload-identity`
+done / failed / done-with-warning; idempotent re-run; headless run without a TTY (`--non-interactive` on Linux without
+`DISPLAY`) end to end against a fake core and fake exchange; the profile-upgrade re-exec path keeps the flags.
+
+**Acceptance.** Rust gates as in WP8a; an existing `setup --non-interactive` script produces the same exit code and
+the same steps plus `auth: skipped`.
+
+## WP9 — Web: Workload identity form and status (≈ 3 agent days)
 
 **Files.** `packages/web/src/pages/settings/sections/providers.ts` (a **Workload identity** group fed by
-`auth.status`'s `workload` array and `auth.workload.status`; a **Test** button for Owner/Admin calling
-`auth.workload.test`; no sign-in, logout or secret field), `packages/web/src/i18n/providers.ts` (DE with *du*, EN),
-the mock server's `auth.*` fixtures, `packages/web/scripts/gen-settings-index.mjs` output.
+`auth.status`'s `workload` array and `auth.workload.status`; for the Owner an Add / Edit form with the wizard's fields
+validated live through `auth.workload.validate`, written with `config.set`, then **Test** and **Remove**; every value
+shown is the server's answer; no local file picker for the token path; no secret field),
+`packages/web/src/i18n/providers.ts` (DE with *du*, EN), the mock server's `auth.*` and `config.set` fixtures,
+`packages/web/scripts/gen-settings-index.mjs` output. This is the surface an attached remote desktop shows (spec §12.5).
 
-**Tests.** Component tests (states, badges with text, role gating of the button, no token-shaped strings rendered);
-Playwright against the mock server in DE/EN light/dark; `node scripts/check-i18n.mjs`.
+**Tests.** Component tests (states incl. `rate_limited` and the rotation verdict, badges with text, Owner-only gating,
+server errors shown as localized sentences, no token-shaped strings rendered); Playwright against the mock server in
+DE/EN light/dark: add, validate error, test, remove; `node scripts/check-i18n.mjs`.
 
 **Acceptance.** Web unit and browser tests green; settings index check green.
 
-## WP10 — Docs and ADR-005 amendment (≈ 1.5 agent days)
+## WP10 — Docs and ADR-005 amendment (≈ 2 agent days)
 
-**Files.** ADR-005 amendment (spec §18 row 1); `docs/auth-engine.md` (kind, sources, ledger, schedule, error table);
-`docs/openai-auth.md` (`federated_token` vs `workload_identity`, `workload.ts` moved); `docs/egress.md` (hosts);
-`docs/containers.md` (Kubernetes example: projection `audience`, `expirationSeconds: 600`, a security context that
-makes the token readable for uid 10001 per WP0, the env-import variant); narrow rule recipes per source (GitHub
-exact ref, Kubernetes exact service account with audience); a DE/EN user-guide template in the PR body
-(`docs/user/` has its own owner).
+**Files.** ADR-005 amendment (spec §18 row 1); `docs/auth-engine.md` (kind, sources, ledger, schedule, error table,
+rate limits); `docs/openai-auth.md` (`federated_token` vs `workload_identity`, `workload.ts` moved); `docs/egress.md`
+(hosts); `docs/containers.md` (Kubernetes example: projection `audience`, `expirationSeconds: 600`, a security context
+that makes the token readable for uid 10001 per WP0, the env-import variant, "one token source per host");
+pointers in the D113 spec (§6.3, §6.4, §6.6, step `auth`); narrow rule recipes per source (GitHub exact ref,
+Kubernetes exact service account with audience); a DE/EN user-guide template in the PR body (`docs/user/` has its own
+owner), including the headless CLI walkthrough.
 
 **Acceptance.** `node scripts/check-doc-links.mjs`, `node scripts/lint-hygiene.mjs`, `pnpm docs:check` green.
 
@@ -336,32 +411,67 @@ eval home), `scripts/eval/turn-eval-secrets.ts` (profile writer instead of key i
 
 ## WP12 — Gated: Claude Code on WIF (≈ 3 agent days; Rust half by **Claude agent**)
 
-**Gate.** ADR-005 action item 2a (the Claude Code backend exists on `main`) and WP0 answering U1 (or U2 for the
-fallback). Not part of the v0.2 core scope (owner Q7).
+**Gate.** ADR-005 action item 2a (the Claude Code backend exists on `main`) and the WP0 result, applied through the
+decision tree of spec §10.1: dual header accepted → `apiKeyHelper` (below); rejected but bare mode reads
+`ANTHROPIC_AUTH_TOKEN` → the per-run variable variant (no helper; recycling of resident sessions before expiry);
+neither → **parked**, and any non-bare variant needs an owner decision recorded as an ADR-005 amendment first. U1/U2
+affect only this package; the harness's own Anthropic calls (WP5 bearer mode) ship regardless. Not part of the v0.2
+core scope (owner Q7).
 
-**Files.** The Claude Code backend's child builder (deny set, `--settings` with `apiKeyHelper`,
-`CLAUDE_CODE_API_KEY_HELPER_TTL_MS=60000`); `crates/plur1bus/src/commands/auth.rs` (new hidden `auth token-helper`:
-reads `PLUR1BUS_TOKEN_HELPER_HANDLE`, asks the core over the local socket, prints the token to stdout only);
-`packages/core/src/rpc/` internal method for session-bound handles (create on session start, revoke on end, rate
-limit, never on the public RPC list); docs of the accepted residual risk (spec §10).
+**Files (apiKeyHelper branch).** The Claude Code backend's child builder (deny set, `--settings` with
+`apiKeyHelper`, `CLAUDE_CODE_API_KEY_HELPER_TTL_MS=60000`); `crates/plur1bus/src/commands/auth.rs` (new hidden
+`auth token-helper`: reads `PLUR1BUS_TOKEN_HELPER_HANDLE`, asks the core over the local socket, prints the token to
+stdout only); `packages/core/src/rpc/` internal method for session-bound handles (create on session start, revoke on
+end, rate limit, never on the public RPC list); docs of the accepted residual risk (spec §10).
 
-**Tests.** Child-environment test (no `ANTHROPIC_*` credential variable present); handle lifecycle (revoked after
-session end, wrong profile refused, rate limit); helper output never logged; an integration test with a fake
-`claude` binary that runs the helper and records the header it would send.
+**Tests.** Child-environment test (no `ANTHROPIC_*` credential variable present, except the route's own variable in
+the second branch); handle lifecycle (revoked after session end, wrong profile refused, rate limit); helper output
+never logged; an integration test with a fake `claude` binary that runs the helper and records the header it would
+send.
 
 **Acceptance.** Tests green; owner manual run against the test organisation.
+
+## WP13 — Gated: WIF hook in the desktop SSH install (Rust, **Claude agent**) (≈ 1.5 agent days)
+
+**Gate.** WP8a and WP8b merged; the D113 packages it extends (`2026-10-18-desktop-ssh-remote.md` WP3 native commands,
+WP4 remote install/manage) exist on `main`. Built as a stacked follow-up to D113 WP4, or folded into it if WP4 is
+still open. The "SSH host becomes the primary server, the desktop instance a client" flow is **not** in scope here
+(owner Q14); it will call the same commands.
+
+**Files.**
+- `apps/desktop/src-tauri/src/ssh_remote/setup.rs` — the install plan's optional WIF answers become `--auth
+  workload-identity --auth-provider <vendor> --wif-…` on `setup --non-interactive --json`; every value checked
+  against D113's charset `[A-Za-z0-9._/:=@+-]` before anything is sent.
+- `apps/desktop/src-tauri/src/ssh_remote/manage.rs` and the `RemoteCommand` enum — `WorkloadValidate`,
+  `WorkloadConfigure`, `WorkloadTest`, `WorkloadStatus`, `WorkloadList`, `WorkloadRemove` (spec §12.5), rendering to
+  the fixed `login …` command lines; `ssh_manage`'s closed action enum gains the actions
+  (`apps/desktop/desktop-contract`).
+- `apps/desktop/ui/src/views/ssh-hosts/install.ts`, `manage.ts` — a WIF section (vendor, source, server path or
+  audience, identifiers, scope; no local file picker) that renders the server's `login.workload/1`, `login.test/1`
+  and `login.status/1` verbatim; DE/EN strings.
+
+**Tests.** With D113's `test-bins/fake-plur1bus` scenarios: each `Workload*` command renders inside the charset, an
+out-of-charset value is refused before sending, recorded argv contains no token-shaped value; the UI shows the server
+document verbatim (status, hints, exit reason); browser suite for the WIF section; a scan proving no command output
+stored by the desktop contains a token or JWT.
+
+**Acceptance.** Desktop Green gate (`cargo test --locked --workspace`, desktop UI tests, `check-i18n`); manual run
+against the NAS Ubuntu VM: install with WIF over SSH, test, status, remove.
 
 ## Test matrix
 
 | Area | Linux CI (x64, arm64) | macOS CI | Windows CI | Owner Mac (aarch64) | NAS Ubuntu VM (k3s) |
 |---|---|---|---|---|---|
-| Profile validation, adapters, ledger, schedule (WP1–WP4) | gate (unit) | — | unit (paths) | `pnpm test` | — |
+| Profile validation, adapters, ledger, schedule, rate limits, rotation verdict (WP1–WP4) | gate (unit) | — | unit (paths) | `pnpm test` | — |
 | File source rotation (symlink swap) | gate | — | skipped (POSIX symlink semantics), absolute-path parsing tested | real swap with a script | real projected volume (WP0) |
 | GitHub source | fake endpoint | — | — | fake endpoint | — |
 | Provider wiring (WP5) | gate | — | — | fake exchange + fake Messages | — |
 | Child environments (WP6) | gate | — | exec / MCP env on Windows | — | — |
-| CLI + 1staid (WP8) | gate (Rust) | Rust tests | Rust tests | manual pass | — |
-| Web (WP9) | gate (unit, browser) | — | — | visual DE/EN light/dark | — |
+| RPC sequence and RBAC (WP7) | gate | — | — | — | — |
+| CLI wizard, flags, status/test/logout, 1staid (WP8a) | gate (Rust) | Rust tests | Rust tests | manual pass | headless run over SSH |
+| Setup step `auth`, headless server (WP8b) | gate (Rust) | Rust tests | Rust tests | manual `setup` | `setup --non-interactive --auth workload-identity` over SSH |
+| Web form (WP9) | gate (unit, browser) | — | — | visual DE/EN light/dark | — |
+| Desktop SSH hook (WP13) | desktop workflow | desktop workflow | desktop workflow | install with WIF from the app | target host |
 | Live exchange | never | never | never | WP0 / WP12 only (owner credentials) | WP0 |
 | Nightly OIDC (WP11) | scheduled job only | — | — | — | — |
 
@@ -373,18 +483,20 @@ session end, wrong profile refused, rate limit); helper output never logged; an 
 | WP1 | 2 | TS agent | Q1 |
 | WP2 | 2.5 | TS agent | WP1 (WP0 for the GitHub host, may land with the assumed default) |
 | WP3 | 2 | TS agent | WP1 |
-| WP4 | 3.5 | TS agent | WP2, WP3; Q2 for `restartCache` |
+| WP4 | 4 (was 3.5: rate limits, `jti` key, rotation verdict) | TS agent | WP2, WP3; Q2 for `restartCache` |
 | WP5 | 2 | TS agent | WP4 |
 | WP6 | 2 | TS agent | WP1 |
-| WP7 | 2 | TS agent | WP4 |
-| WP8 | 3 | **Claude agent** (Rust) | WP7 |
-| WP9 | 2 | TS agent | WP7 |
-| WP10 | 1.5 | TS agent / controller | WP5; final pass after WP8, WP9 |
-| **v1 total (WP0–WP10)** | **≈ 23.5** | | |
+| WP7 | 3 (was 2: validate/remove, RBAC, API route) | TS agent | WP4; Q11 |
+| WP8a | 4.5 (was WP8, 3) | **Claude agent** (Rust) | WP7; Q12 for the alias |
+| WP8b | 2 (new) | **Claude agent** (Rust) | WP8a; Q13 |
+| WP9 | 3 (was 2: form instead of read-only) | TS agent | WP7 |
+| WP10 | 2 (was 1.5) | TS agent / controller | WP5; final pass after WP8a, WP8b, WP9 |
+| **v1 total (WP0–WP10)** | **≈ 30** (was ≈ 23.5) | | |
 | WP11 (optional) | 1.5 | TS agent + owner | WP5, WP7; Q8 |
-| WP12 (gated) | 3 | TS agent + **Claude agent** (Rust half) | ADR-005 action 2a, WP0 U1/U2; Q7 |
+| WP12 (gated) | 3 | TS agent + **Claude agent** (Rust half) | ADR-005 action 2a, WP0 → spec §10.1; Q7 |
+| WP13 (gated) | 1.5 | **Claude agent** (Rust, desktop) | WP8a, WP8b, D113 WP3/WP4; Q14 for the primary-server flow |
 
-Total ≈ 23.5 agent days for v1, ≈ 28 with WP11 and WP12.
+Total ≈ 30 agent days for v1, ≈ 36 with WP11, WP12 and WP13.
 
 ## Later packages (not estimated into the totals)
 
@@ -396,10 +508,14 @@ Total ≈ 23.5 agent days for v1, ≈ 28 with WP11 and WP12.
 | Entra adapter + Azure OpenAI wire profile | 4 days | Azure OpenAI requested |
 | OpenAI X.509 (needs client certificates in the egress client) | 4 days | X.509 WIF leaves beta and is requested |
 | `workload_identity` as a voice parent | 1 day | owner Q9 |
+| Primary-server role switch (desktop track, D113 follow-up spec) | own spec | owner Q14 |
 
 ## Open points
 
-- Owner questions Q1–Q10 (spec §17) are open; the recommendations are the plan's defaults.
-- U8 (Anthropic's Kubernetes example vs. jti-bearing tokens) is an inference until WP0; nothing in WP1–WP5 depends
-  on its answer, only the docs numbers in WP10.
-- The Claude Code backend itself (ADR-005 action 2a) is outside this plan; WP12 waits for it.
+- Q4 is decided (full CLI setup parity, 2026-10-29). Owner questions Q1–Q3 and Q5–Q14 (spec §17) are open; the
+  recommendations are the plan's defaults.
+- U8 (Anthropic's Kubernetes example vs. jti-bearing tokens) is an inference until WP0; the rotation verdict and the
+  local `jti` refusal (WP4) mitigate it whatever WP0 finds, only the docs numbers in WP10 depend on it.
+- U7 (token-endpoint rate limits) stays undocumented; WP4 implements the defensive behaviour of spec §9.7.
+- The Claude Code backend itself (ADR-005 action 2a) is outside this plan; WP12 waits for it. The primary-server role
+  switch is outside this plan; WP13 provides the SSH hook it will use.
