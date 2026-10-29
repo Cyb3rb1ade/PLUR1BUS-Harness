@@ -419,9 +419,177 @@ Export reads live rights from AdminStore and includes them in its signed manifes
 Required secret names are metadata only; no secret values are imported.
 See [agents.md](agents.md) for CLI formats, compatibility and recovery behavior.
 
+## Import maintenance and SSH sources
+
+Import maintenance is available to Owner/Admin people only. Token scopes narrow
+these grants; a PAT remains an agent principal even when its stored role is Owner.
+
+| Method | Coarse action | Owner | Admin | Operator | Member | Viewer |
+|---|---|---|---|---|---|---|
+| `admin.import.detect` | `imports.manage` | ✔ | ✔ | – | – | – |
+| `admin.import.wsl.list` | `imports.manage` | ✔ | ✔ | – | – | – |
+| `admin.import.plan` | `imports.manage` | ✔ | ✔ | – | – | – |
+| `admin.import.preflight` | `imports.manage` | ✔ | ✔ | – | – | – |
+| `admin.import.skills` | `imports.manage` | ✔ | ✔ | – | – | – |
+| `admin.import.apply` | `imports.manage` | ✔ | ✔ | – | – | – |
+| `admin.import.status` | `imports.manage` | ✔ | ✔ | – | – | – |
+| `admin.import.abort` | `imports.manage` | ✔ | ✔ | – | – | – |
+| `admin.import.runs` | `imports.manage` | ✔ | ✔ | – | – | – |
+| `admin.import.rollback` | `imports.manage` | ✔ | ✔ | – | – | – |
+| `admin.import.ssh.key.status` | `imports.read` | ✔ | ✔ | – | – | – |
+| `admin.import.ssh.key.generate` | `imports.manage` | ✔ | ✔ | – | – | – |
+| `admin.import.ssh.key.rotate` | `imports.manage` | ✔ | ✔ | – | – | – |
+| `admin.import.ssh.key.delete` | `imports.manage` | ✔ | ✔ | – | – | – |
+| `admin.import.ssh.connections.list` | `imports.read` | ✔ | ✔ | – | – | – |
+| `admin.import.ssh.connections.set` | `imports.manage` | ✔ | ✔ | – | – | – |
+| `admin.import.ssh.connections.delete` | `imports.manage` | ✔ | ✔ | – | – | – |
+| `admin.import.ssh.hostKey.probe` | `imports.manage` | ✔ | ✔ | – | – | – |
+| `admin.import.ssh.hostKey.trust` | `imports.manage` | ✔ | ✔ | – | – | – |
+
+The SSH handlers additionally require the Owner for all key operations, connection
+writes, host-key probing and trust. Only the public key and fingerprint can leave
+the key service. The private Ed25519 key stays in Secret Store and reaches the
+verified native helper over a private lease after the host fingerprint matches.
+Connection configuration and its ancestors carry the Owner-only write policy, so
+generic `config.set` cannot bypass these handler checks.
+
+Host-key probes belong to their initiating Owner and current connection revision,
+expire after five minutes and are consumed by trust. A changed host key stops
+before authentication. Owner/Admin can read only explicitly configured source roots;
+the current role and original token scopes are rechecked on each filesystem call.
+Private SSH destinations require consent on that connection. This allowance does
+not change HTTPS egress policy. Key or connection changes revoke existing read handles.
+Import plans, run status and rollback remain bound to their authenticated initiator.
+
+
+### Import GUI and temporary maintenance authority
+
+`GET /api/v1/import/sources` requires human `imports.read` and returns only canonical
+format names and a server-derived host-path capability hint. The GUI uses the same
+human import methods at `/import` and setup F37. Source upload, inspection, plan,
+preflight and run IDs have different purposes; no browser-selected path becomes an
+upload ID. Snapshot uploads use their own private namespace, ten-minute ownership
+and a fixed 1 GiB compressed limit.
+
+Decision8 free host paths and additional source path mappings require Owner on remote surfaces.
+Admin may supply them on a verified loopback/local Desktop connection. The API stamps
+`ApiDelegation.transport` from its socket/listener facts. The shared RPC server checks
+the registration credential, binds the fact separately from the principal in a WeakMap,
+and locks it to that connection. Public params, forwarding headers and a forged context
+field cannot supply it. Absent delegated proof fails closed. This locality fact does
+not raise approval surface trust or satisfy MFA. Secret migration additionally requires
+Owner; re-embedding still checks the real actor/model/revision licence ledger and use class.
+
+A successful authenticated apply/rollback can create one temporary context for its
+initiating ordinary cookie, authenticated person, credential/auth version, logical
+connection and exact run. It is capped at 75 minutes and the session's own expiry;
+status, reload and reconnect do not renew it. The native active-run proof independently
+limits the job to its hard deadline and recovery. A native device cookie is eligible only
+when the API-private `DesktopStepUp.importSessionProof` map supplies stable provenance
+from a same-person imports-purpose approval. The context additionally binds the immutable
+device ID, device expiry and narrowed enrolled scopes, Core identity version and local
+credential version. Public fields, an MFA timestamp alone, another cookie or a different
+purpose cannot create that proof. The originating approval grant's short lifetime does
+not renew or truncate a successfully redeemed normal device session. Its own logout,
+session expiry and credential-version changes revoke maintenance access.
+
+Only genuine Core transport loss or its typed `E_CORE_UNAVAILABLE/core-stopping`
+shutdown branch may use that context: explicit live Core
+refusals, untrusted endpoints and account-storage errors never do. Permitted operations
+are that run's status and cancellation, history filtered to that one run, and bounded
+`import.progress` checkpoints. Own whoami, CSRF issuance and logout are infrastructure
+for that same cookie; they grant no other operation. Config, setup, detection, planning,
+new apply and new rollback require live Core authorization. Another cookie, including
+another session of the same person, cannot inherit the context.
+
+The CoreLink may retain only the service credential actually used by the successful
+run, privately in memory for the same bounded person/connection/run. Missing-file
+fallback is never available to generic RPC or Core calls. Fresh credential rotation,
+terminal status, native proof refusal/close, expiry and shutdown retire it. No credential
+is persisted, logged or returned. Logout or a local credential-version change revokes
+the cookie context immediately; live Core authority supersedes it when available.
+Progress accepts only same-run schema-valid metadata up to 4096 bytes and has no source
+paths, names, configuration or secret values.
+
+`admin.import.runtime.config.set` is a separate private Core-to-supervisor control, absent from the Web gateway.
+It requires no API delegation and the kernel-reported peer PID must match the currently tracked Core process.
+The run ID, plan ID and plan hash must match the active maintenance reservation. Writes keep the initiating job's
+role and ordinary configuration policy, while maintenance owns the restart. Losing that private connection refuses
+the write; it never falls back to ordinary `config.set` or direct file writes.
+
+`admin.import.runtime.release`, `admin.import.runtime.status` and `admin.import.runtime.complete` are private
+native-to-Core lifecycle controls, also absent from the human Web gateway and ordinary human allow rules.
+Their closed run/plan/hash parameters carry no actor, selected model or source path; those derive from the
+authenticated immutable plan. They do not grant API delegation, module-client or agent authority.
+The Core handlers require the trusted local Owner credential, reject API delegation and client contexts, and check
+the held run's fixed private record in `restarting-core` state against the same immutable plan hash. They resolve
+the initiating person again as Owner/Admin and repeat model artifact, licence-ledger and use-class checks where
+needed. Release waits for completion with no pending model restart before enabling normal routing.
+
+The controlled-port HTTP and real credential-file deletion checks cover these gates.
+Actual ordinary-cookie HTTP apply has passed across native Core shutdown and restart.
+Actual cancellation and mid-entity automatic restoration also passed an exact full mutable-data baseline check.
+The imports-purpose MFA device cookie also passed actual stopped-Core status/progress isolation and restart.
+Fresh manual rollback also passed with exact mutable-data restoration and a second Core restart.
+Required browser/axe execution remains pending; see
+[Web UI validation status](web-ui.md#m-v2-extensionimport-validation-status).
+
 ## Web transport reachability
 
-The session-only `/rpc` gateway uses an explicit exposure list in `packages/api/src/rpc-route.ts`. It delegates the actual person through a separately registered local API credential; stored core roles and agent rights override forwarded snapshots. It never accepts a browser principal or actAs. Token-authenticated REST calls remain agents and retain scope narrowing. Existing RPC_RULES and the Guard remain unchanged.
+The session-only `/rpc` gateway uses an explicit exposure list in `packages/api/src/rpc-route.ts`. It delegates the actual person through a separately registered local API credential; stored core roles and agent rights override forwarded snapshots. It never accepts a browser principal or actAs. Personal API tokens remain agent principals and retain scope narrowing.
+
+### Extensions
+
+Every extension operation is human-only and restricted to Owner/Admin. Member,
+Operator, Viewer and agent principals are denied, including metadata reads and
+watch subscriptions. The API and supervisor use the same explicit extension
+method inventory; the Core guard covers extension setup and sign-in.
+
+| Methods | Action |
+|---|---|
+| `ext.list`, `ext.show`, `ext.watch`, `ext.inspection.get`, `admin.extensions.setup.get`, `admin.extensions.auth.status` | `extensions.read` |
+| `ext.inspect`, `ext.install`, `ext.uninstall`, `ext.restore`, `ext.enable`, `ext.disable`, `admin.extensions.setup.set`, `admin.extensions.auth.start`, `admin.extensions.auth.submit`, `admin.extensions.auth.cancel` | `extensions.manage` |
+
+Token scopes intersect these grants. Setup metadata contains declared secret slot
+names and availability only. The secret setter separately requires the Owner;
+Admin cannot store or reveal secret values. OAuth attempts belong to their
+initiating person and extension; discovery never starts sign-in. Status uses the
+read action; start, callback submission and cancellation use manage.
+
+Browser inspection accepts an opaque uploaded-package ID, never a host path.
+Uploads and inspections belong to the authenticated person, expire after ten
+minutes, and cannot be installed by another person. Multipart uploads stream into
+private staging; their response contains only an ID, expiry and SHA-256. Session
+writes require CSRF. `ext.changed` is forwarded only to an authorized person's
+extension feed and is checked again against the live session authority.
+
+The native file upload and inspect routes additionally accept a live, person-bound
+device credential with explicit `extensions.manage` enrollment. Import snapshot
+uploads use a separate ID namespace and explicit `imports.manage` enrollment.
+Neither opt-in changes PAT authority or opens Bearer access to `/rpc`. A required native
+TOTP/WebAuthn continuation uses a short-lived same-person browser approval and private,
+operation-bound one-use proofs. The purpose and scopes can only narrow the actual live
+device enrollment; no caller-supplied factor timestamp is accepted. A redeemed device
+cookie retains private verified provenance and intersects its narrowed scopes with the
+fresh live device identity on every resolution. Runtime hold/release
+and status RPCs retain their separate native-only handler checks and are absent
+from the Web gateway.
+
+| Method | Action | Owner | Admin | Operator | Member | Viewer |
+|---|---|---|---|---|---|---|
+| `admin.extensions.setup.get` | `extensions.read` | ✔ | ✔ | – | – | – |
+| `admin.extensions.auth.status` | `extensions.read` | ✔ | ✔ | – | – | – |
+| `admin.extensions.runtime.status` | `extensions.read` | ✔ | ✔ | – | – | – |
+| `admin.extensions.setup.set` | `extensions.manage` | ✔ | ✔ | – | – | – |
+| `admin.extensions.auth.start` | `extensions.manage` | ✔ | ✔ | – | – | – |
+| `admin.extensions.auth.submit` | `extensions.manage` | ✔ | ✔ | – | – | – |
+| `admin.extensions.auth.cancel` | `extensions.manage` | ✔ | ✔ | – | – | – |
+| `admin.extensions.runtime.hold` | `extensions.manage` | ✔ | ✔ | – | – | – |
+| `admin.extensions.runtime.release` | `extensions.manage` | ✔ | ✔ | – | – | – |
+
+`admin.extensions.runtime.reconcile` is a supervisor method that only the Core calls, with its own supervisor
+connection, after an extension's secret changed. Neither the Harness API nor a delegated person reaches it, so it has
+no rule in `RPC_RULES`.
 
 Config get/set and module list/graph use the supervisor, which obtains current identity from the core; config writes are Owner/Admin and additionally obey every affected x-write-roles annotation, including parent replacements. Annotations and sensitivity are checked at the mutation boundary. Internal lifecycle/auth/subscription RPCs, admin backup/import, secret reveal and raw caller-based memory calls remain excluded. For legacy methods without a guard, API admission is conservative: actual Owner only, except authorized diagnostics and filtered agent listing. This is narrower than the previous local-token compatibility path. Remaining exposed methods keep their existing Core policy and humanOnly requirements.
 

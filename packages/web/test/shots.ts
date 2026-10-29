@@ -242,7 +242,7 @@ const SHOTS: Shot[] = [
     await p.getByRole("button", { name: "Create a backup now" }).click();
     await p.getByText("Backup created: plur1bus-20261007-setup").waitFor(); await next(p);
     await stepHeading(p, /Import/).waitFor();
-    await p.getByRole("button", { name: "Skip and finish" }).click();
+    await p.getByRole("button", { name: "Skip this step" }).click();
     await stepHeading(p, "Setup summary").waitFor();
   }),
   {

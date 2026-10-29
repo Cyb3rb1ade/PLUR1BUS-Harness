@@ -12,17 +12,19 @@
 //!   for the whole install. Config changes go through `config::set_removing_nulls` (its restart plan restarts or holds
 //!   back modules), module work through the main thread's op queue (`ModuleVerb::Install`, `ModuleVerb::Uninstall`).
 //! - **Overlays.** A packaged module (or channel) that is revoked, whose installed files no longer match the package,
-//!   or whose manifest `compat` no longer fits is held back (`stopped` with reason `ext-revoked`, `ext-tampered` or
-//!   `ext-incompatible`), after the `disabled` check, so its dependents are held back as `needs-unavailable`. The
+//!   whose manifest `compat` no longer fits, or whose required secret slots are unavailable is held back (`stopped`
+//!   with reason `ext-revoked`, `ext-tampered`, `ext-incompatible` or `ext-needs-setup`), after the `disabled` check,
+//!   so its dependents are held back as `needs-unavailable`. The
 //!   overlays are computed at start, after `ext::recover` (which re-hashes every enabled packaged module), and again
 //!   after every ext mutation; a module whose overlay changed is reconciled.
 use super::config::SetError;
+use super::extension_uploads::{self, Caller};
 use super::subscribers::Topic;
 use super::{relock, ModuleVerb, OpError, Shared, DEFAULT_STOP_BUDGET};
 use crate::ext::commit::{install_commit_held, Agents, InstallOpts, ModuleHost};
 use crate::ext::lifecycle::{self, ToggleOpts};
 use crate::ext::list::{cached_meta, list_items, show_item, ListFilter};
-use crate::ext::overlays::{load_revocations, overlays_of, rehash, Overlay};
+use crate::ext::overlays::{load_revocations, overlays_with_missing, rehash, Overlay};
 use crate::ext::paths::ExtPaths;
 use crate::ext::record::StagedItem;
 use crate::ext::record::{self, strings, InspectionRecord};
@@ -34,19 +36,20 @@ use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 /// Held while `ext.changed` is broadcast and while `ext.watch` lists and subscribes, so a watcher reads its reply before
 /// any notification sent after the listing.
 static WATCH: Mutex<()> = Mutex::new(());
 
-/// The held-back reason of a module with overlay `o` (X1-R17); `None` for the overlays that do not hold a module back
-/// (`needs-setup` refuses the enable instead; `error` is a kind this build does not know).
+/// The held-back reason of a module with overlay `o` (X1-R17); `None` for `error`, a kind this build does not know.
 pub fn overlay_reason(o: Overlay) -> Option<&'static str> {
     match o {
         Overlay::Revoked => Some(super::state::STOPPED_EXT_REVOKED),
         Overlay::Tampered => Some(super::state::STOPPED_EXT_TAMPERED),
         Overlay::Incompatible => Some(super::state::STOPPED_EXT_INCOMPATIBLE),
-        Overlay::NeedsSetup | Overlay::Error => None,
+        Overlay::NeedsSetup => Some(super::state::STOPPED_EXT_NEEDS_SETUP),
+        Overlay::Error => None,
     }
 }
 
@@ -58,11 +61,16 @@ pub fn overlay_reason(o: Overlay) -> Option<&'static str> {
 pub struct SupervisorHost<'a> {
     shared: &'a Arc<Shared>,
     layout: &'a Layout,
+    presence: ext::runtime::OperationPresence,
 }
 
 impl<'a> SupervisorHost<'a> {
     pub fn new(shared: &'a Arc<Shared>, layout: &'a Layout) -> Self {
-        SupervisorHost { shared, layout }
+        SupervisorHost {
+            shared,
+            layout,
+            presence: Default::default(),
+        }
     }
 }
 
@@ -91,8 +99,17 @@ fn op_error(e: OpError) -> ExtError {
     }
 }
 
+fn require_no_maintenance(shared: &Shared) -> Result<(), ExtError> {
+    if super::imports::busy(shared) {
+        Err(super::imports::busy_error())
+    } else {
+        Ok(())
+    }
+}
+
 fn set_error(e: SetError) -> ExtError {
     match e {
+        SetError::MaintenanceBusy => super::imports::busy_error(),
         SetError::Invalid(errors) => ExtError {
             code: "E_CONFIG_INVALID",
             reason: None,
@@ -120,6 +137,28 @@ fn set_error(e: SetError) -> ExtError {
 }
 
 impl ModuleHost for SupervisorHost<'_> {
+    fn check_secret_store(&mut self) -> Result<(), ExtError> {
+        self.presence.require_store(self.layout)
+    }
+    fn purge_secrets(&mut self, name: &str, slots: &[String]) -> Result<(), ExtError> {
+        ext::runtime::delete_declared(self.layout, name, slots)
+    }
+    fn hold_runtime(&mut self, name: &str) -> Result<bool, ExtError> {
+        ext::runtime::hold(self.layout, name)
+    }
+    fn release_runtime(&mut self, name: &str) -> Result<(), ExtError> {
+        ext::runtime::release(self.layout, name)
+    }
+    fn missing_secrets(&mut self, name: &str, required: &[String]) -> Vec<String> {
+        self.presence.missing(self.layout, name, required)
+    }
+    fn hold_for_setup(&mut self, name: &str) {
+        self.shared
+            .lock()
+            .ext_overlays
+            .entry(name.to_string())
+            .or_insert(Overlay::NeedsSetup);
+    }
     fn config(&self) -> Value {
         relock(&self.shared.config)
             .running
@@ -188,11 +227,25 @@ impl ModuleHost for SupervisorHost<'_> {
 // ---- overlays and start --------------------------------------------------------------------------------------------
 
 /// The held-back overlay of every packaged module and channel (X1-R17): `revoked` first, then `tampered` (the record's
-/// last integrity result), then `incompatible` (the cached manifest's `compat`). When `extensions/state.json` cannot be
+/// last integrity result), then `incompatible` (the cached manifest's `compat`), then `needs-setup` (fresh required-slot
+/// availability). When `extensions/state.json` cannot be
 /// read, the check fails closed (X1-C23): every module a cached package names (`extensions/cache/<sha256>.json`, kind
 /// `module` or `channel`) is held back as `tampered`.
 pub fn module_overlays(layout: &Layout) -> BTreeMap<String, Overlay> {
+    module_overlays_with(layout, &mut Default::default())
+}
+
+fn module_overlays_with(
+    layout: &Layout,
+    presence: &mut ext::runtime::OperationPresence,
+) -> BTreeMap<String, Overlay> {
     let paths = ExtPaths::of(layout);
+    if ext::bundle_transaction::pending(layout) {
+        return cached_modules(&paths)
+            .into_iter()
+            .map(|name| (name, Overlay::Tampered))
+            .collect();
+    }
     let st = match state::read(&paths) {
         Ok(st) => st,
         Err(_) => {
@@ -211,10 +264,16 @@ pub fn module_overlays(layout: &Layout) -> BTreeMap<String, Overlay> {
         }
         let compat = cached_meta(&paths, &rec.package_sha256)
             .and_then(|m| m["manifest"].get("compat").cloned());
-        let found = overlays_of(rec, &host, &revs, compat.as_ref());
-        let pick = [Overlay::Revoked, Overlay::Tampered, Overlay::Incompatible]
-            .into_iter()
-            .find(|o| found.contains(o));
+        let missing = presence.missing(layout, &rec.name, &rec.required_secrets);
+        let found = overlays_with_missing(rec, &host, &revs, compat.as_ref(), &missing);
+        let pick = [
+            Overlay::Revoked,
+            Overlay::Tampered,
+            Overlay::Incompatible,
+            Overlay::NeedsSetup,
+        ]
+        .into_iter()
+        .find(|o| found.contains(o));
         if let Some(o) = pick {
             out.insert(rec.name.clone(), o);
         }
@@ -294,8 +353,13 @@ pub fn at_start(
 /// After an ext mutation, while its caller still holds the mutation lock (so no later mutation's overlays can be
 /// overwritten by these): the overlays again; a module whose overlay changed is reconciled (held back, or released
 /// and started when it may run).
-fn refresh_overlays(shared: &Shared, layout: &Layout, _held: &ext::MutationGuard) {
-    let now = module_overlays(layout);
+fn refresh_overlays(
+    shared: &Shared,
+    layout: &Layout,
+    _held: &ext::MutationGuard,
+    presence: &mut ext::runtime::OperationPresence,
+) {
+    let now = module_overlays_with(layout, presence);
     let changed: BTreeSet<String> = {
         let mut st = shared.lock();
         let before = std::mem::replace(&mut st.ext_overlays, now.clone());
@@ -317,6 +381,105 @@ fn refresh_overlays(shared: &Shared, layout: &Layout, _held: &ext::MutationGuard
 
 // ---- the handlers --------------------------------------------------------------------------------------------------
 
+/// Starts after disk recovery and the RPC server. The authenticated Core may become available later; a mutation
+/// guard prevents an old journal entry from releasing a hold owned by a currently running transaction.
+pub fn spawn_hold_recovery(shared: &Arc<Shared>, layout: &Layout) -> std::io::Result<()> {
+    let shared2 = shared.clone();
+    let layout = layout.clone();
+    super::spawn_guarded(shared, "extension-hold-recovery", move || {
+        let mut warned = false;
+        loop {
+            if shared2.lock().stopping.is_some() {
+                return;
+            }
+            if ext::runtime::recovery_needed(&layout) && !ext::bundle_transaction::pending(&layout)
+            {
+                if let Ok(_guard) = ext::try_mutation() {
+                    match ext::runtime::settle(&layout) {
+                        Ok(()) => warned = false,
+                        Err(_) if !warned => {
+                            shared2.log.warn(
+                                "extension runtime release awaits authenticated Core recovery",
+                                json!({"reason":"runtime-unavailable"}),
+                            );
+                            warned = true;
+                        }
+                        Err(_) => {}
+                    }
+                }
+            }
+            for _ in 0..10 {
+                if shared2.lock().stopping.is_some() {
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        }
+    })
+}
+
+/// Local Core callback after secret setup, rotation or deletion. The authoritative enable switch is never changed.
+pub fn runtime_reconcile(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    params: &Value,
+) -> Result<Value, ExtError> {
+    let name = params["name"].as_str().unwrap_or_default();
+    if !record::skill_id_ok(name) {
+        return Err(invalid("invalid extension name"));
+    }
+    let _guard = ext::try_mutation()?;
+    require_no_maintenance(shared)?;
+    let state = state::read(&ExtPaths::of(layout)).map_err(record::state_invalid)?;
+    let result = || json!({"name":name,"reconciled":true});
+    let Some(record) = state.items.get(name).filter(|record| {
+        !record.removed_by_user && matches!(record.kind.as_str(), "module" | "channel")
+    }) else {
+        return Ok(result());
+    };
+    let enabled = ext::commit::enabled_now(layout, &running_config(shared), name, &record.kind);
+    let now = module_overlays_with(layout, &mut Default::default());
+    let mut changed: BTreeSet<String> = {
+        let mut state = shared.lock();
+        let before = std::mem::replace(&mut state.ext_overlays, now.clone());
+        before
+            .keys()
+            .chain(now.keys())
+            .filter(|key| before.get(*key) != now.get(*key))
+            .cloned()
+            .collect()
+    };
+    if enabled {
+        changed.insert(name.to_string());
+    }
+    if !changed.is_empty() {
+        let receiver = super::push_restart(
+            shared,
+            plur1bus_config::Restart {
+                modules: changed.into_iter().collect(),
+                ..Default::default()
+            },
+        )
+        .ok_or_else(|| {
+            ExtError::new(
+                "E_NOT_AVAILABLE",
+                "stopping",
+                "extension reconciliation cannot run while the supervisor stops",
+            )
+        })?;
+        receiver
+            .recv_timeout(DEFAULT_STOP_BUDGET + Duration::from_secs(10))
+            .map_err(|_| {
+                ExtError::new(
+                    "E_NOT_AVAILABLE",
+                    "runtime-unavailable",
+                    "extension reconciliation did not finish within its deadline",
+                )
+            })?;
+    }
+    Ok(result())
+}
+
 /// `ExtInspection` from a stored inspection record: exactly the schema's closed keys (X1-C7: `sourcePath` and
 /// `normalised` are dropped).
 pub fn inspection_result(rec: &InspectionRecord) -> Value {
@@ -331,6 +494,9 @@ pub fn inspection_result(rec: &InspectionRecord) -> Value {
         "scripts": rec.scripts,
         "requires": rec.requires,
     });
+    if !rec.members.is_empty() {
+        v["members"] = json!(rec.members);
+    }
     if let Some(r) = &rec.replaces {
         v["replaces"] = json!({
             "version": r["version"],
@@ -390,7 +556,15 @@ fn clean_after_worker(layout: &Layout, id: &str, root_existed: bool) {
     if let Ok(entries) = std::fs::read_dir(&p.staging) {
         let suffix = format!("-{id}");
         for e in entries.flatten() {
-            if e.file_name().to_string_lossy().ends_with(&suffix) {
+            let name = e.file_name();
+            let text = name.to_string_lossy();
+            let belongs = text.rsplit_once(&suffix).is_some_and(|(_, tail)| {
+                tail.is_empty()
+                    || tail.strip_prefix('-').is_some_and(|index| {
+                        !index.is_empty() && index.bytes().all(|b| b.is_ascii_digit())
+                    })
+            });
+            if belongs {
                 let path = e.path();
                 let _ = match std::fs::symlink_metadata(&path) {
                     Ok(m) if m.is_dir() => state::remove_dir_all_retrying(&path),
@@ -412,20 +586,79 @@ fn clean_after_worker(layout: &Layout, id: &str, root_existed: bool) {
     }
 }
 
+static INSPECTIONS: Mutex<usize> = Mutex::new(0);
+/// Held across maintenance reservation/publication, after the ext mutation guard.
+pub(super) struct InspectionFence {
+    _held: std::sync::MutexGuard<'static, usize>,
+}
+pub(super) fn inspection_fence() -> Result<InspectionFence, ExtError> {
+    let held = relock(&INSPECTIONS);
+    if *held != 0 {
+        return Err(super::imports::busy_error());
+    }
+    Ok(InspectionFence { _held: held })
+}
+struct InspectionActive(bool);
+impl Drop for InspectionActive {
+    fn drop(&mut self) {
+        if self.0 {
+            *relock(&INSPECTIONS) -= 1;
+        }
+    }
+}
+fn begin_inspection(shared: &Shared) -> Result<InspectionActive, ExtError> {
+    let mut count = relock(&INSPECTIONS);
+    require_no_maintenance(shared)?;
+    *count += 1;
+    Ok(InspectionActive(true))
+}
+
 /// `ext.inspect { source: { path } }`: the worker inspects; the answer is the stored record as `ExtInspection`. The
 /// path must be absolute (a relative one would resolve against the supervisor's working directory, not the caller's);
 /// it reaches the worker as `--path=<p>`, so a path that starts with `-` is never read as a flag.
-pub fn inspect(layout: &Layout, params: &Value) -> Result<Value, ExtError> {
-    let path = params["source"]["path"].as_str().unwrap_or_default();
+pub fn inspect(
+    shared: &Shared,
+    layout: &Layout,
+    params: &Value,
+    caller: Caller<'_>,
+) -> Result<Value, ExtError> {
+    let _active = begin_inspection(shared)?;
+    let upload = params["source"]["upload"].as_str();
+    let claimed = upload
+        .map(|id| extension_uploads::claim(layout, id, caller))
+        .transpose()?;
+    if claimed.is_none() && !matches!(caller, Caller::LocalOwner) {
+        return Err(ExtError::new(
+            "E_DENIED",
+            "upload-required",
+            "browser extension inspection requires a private upload",
+        ));
+    }
+    let path = claimed
+        .as_ref()
+        .and_then(|claim| claim.path().to_str())
+        .or_else(|| params["source"]["path"].as_str())
+        .unwrap_or_default();
     if !Path::new(path).is_absolute() {
         return Err(invalid(format!(
             "source.path must be an absolute path, got {path:?}"
         )));
     }
     let id = worker::new_inspection_id();
+    // Reserve ownership before the worker can publish its record, including during concurrent getter calls.
+    extension_uploads::bind_inspection(layout, &id, caller)?;
     let path_arg = format!("--path={path}");
     let seam = worker::seam_args("inspect");
+    let expected = claimed.as_ref().map(|claim| {
+        [
+            format!("--expected-source-sha256={}", claim.sha256),
+            format!("--expected-source-size={}", claim.size),
+        ]
+    });
     let mut args = vec!["inspect", "--id", &id, path_arg.as_str()];
+    if let Some(expected) = &expected {
+        args.extend(expected.iter().map(String::as_str));
+    }
     args.extend(seam.iter().map(String::as_str));
     match worker::spawn_worker(
         layout,
@@ -441,15 +674,32 @@ pub fn inspect(layout: &Layout, params: &Value) -> Result<Value, ExtError> {
                     format!("the ext worker answered an unreadable inspection: {e}"),
                 )
             })?;
+            if rec.inspection_id != id {
+                clean_after_worker(layout, &id, true);
+                return Err(ExtError::new(
+                    "E_INTERNAL",
+                    "worker-failed",
+                    "the ext worker answered another inspection",
+                ));
+            }
             Ok(inspection_result(&rec))
         }
         Err(e) => {
-            if worker::is_worker_failure(&e) {
-                clean_after_worker(layout, &id, true);
-            }
+            clean_after_worker(layout, &id, true);
             Err(e)
         }
     }
+}
+
+/// Read the same disclosure only as its authenticated creator, without consuming the inspection.
+pub fn inspection_get(
+    layout: &Layout,
+    params: &Value,
+    caller: Caller<'_>,
+) -> Result<Value, ExtError> {
+    let id = params["inspectionId"].as_str().unwrap_or_default();
+    extension_uploads::check_inspection(layout, id, caller)?;
+    record::load(layout, id).map(|record| inspection_result(&record))
 }
 
 /// The stage half of `ext.install`, under the caller's mutation lock: the worker stages inspection `rec`. Only the
@@ -484,9 +734,15 @@ fn stage(layout: &Layout, id: &str) -> Result<StagedItem, ExtError> {
 
 /// `ext.install { inspectionId, acknowledge?, enable? }`: under the mutation lock, the worker stages the inspected
 /// package, then the commit puts it in place with a [`SupervisorHost`], and the overlays are refreshed.
-pub fn install(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Result<Value, ExtError> {
+pub fn install(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    params: &Value,
+    caller: Caller<'_>,
+) -> Result<Value, ExtError> {
     let opts = InstallOpts {
         acknowledge: strings(&params["acknowledge"]),
+        members: params.get("members").map(strings),
         enable: match params.get("enable") {
             None => None,
             Some(e) => Some(agents(e.get("agents"))?.unwrap_or(Agents::All)),
@@ -496,13 +752,18 @@ pub fn install(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Result<
         .as_str()
         .unwrap_or_default()
         .to_string();
+    extension_uploads::check_inspection(layout, &id, caller)?;
     let guard = ext::try_mutation()?;
+    require_no_maintenance(shared)?;
+    let mut host = SupervisorHost::new(shared, layout);
     let result = record::load(layout, &id).and_then(|rec| {
         let staged = stage(layout, &id)?;
-        let mut host = SupervisorHost::new(shared, layout);
         install_commit_held(layout, &mut host, &rec, staged, &opts, &guard)
     });
-    refresh_overlays(shared, layout, &guard);
+    refresh_overlays(shared, layout, &guard, &mut host.presence);
+    if result.is_ok() {
+        extension_uploads::remove_owner(layout, &id);
+    }
     result
 }
 
@@ -511,6 +772,7 @@ fn toggle_opts(params: &Value) -> Result<ToggleOpts, ExtError> {
         agents: agents(params.get("agents"))?,
         acknowledge: strings(&params["acknowledge"]),
         dry_run: params["dryRun"].as_bool().unwrap_or(false),
+        expected_consent_sha256: params["expectedConsentSha256"].as_str().map(str::to_owned),
     })
 }
 
@@ -526,6 +788,7 @@ fn toggle(
     let name = params["name"].as_str().unwrap_or_default();
     let mut host = SupervisorHost::new(shared, layout);
     if o.dry_run {
+        require_no_maintenance(shared)?;
         return if on {
             lifecycle::enable(layout, &mut host, name, &o)
         } else {
@@ -533,8 +796,9 @@ fn toggle(
         };
     }
     let guard = ext::try_mutation()?;
+    require_no_maintenance(shared)?;
     let r = lifecycle::toggle_held(layout, &mut host, name, &o, on, &guard);
-    refresh_overlays(shared, layout, &guard);
+    refresh_overlays(shared, layout, &guard, &mut host.presence);
     r
 }
 
@@ -556,14 +820,10 @@ pub fn uninstall(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Resul
     };
     let name = params["name"].as_str().unwrap_or_default();
     let guard = ext::try_mutation()?;
-    let r = remove::uninstall_held(
-        layout,
-        &mut SupervisorHost::new(shared, layout),
-        name,
-        &o,
-        &guard,
-    );
-    refresh_overlays(shared, layout, &guard);
+    require_no_maintenance(shared)?;
+    let mut host = SupervisorHost::new(shared, layout);
+    let r = remove::uninstall_held(layout, &mut host, name, &o, &guard);
+    refresh_overlays(shared, layout, &guard, &mut host.presence);
     r
 }
 
@@ -571,13 +831,10 @@ pub fn uninstall(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Resul
 pub fn restore(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Result<Value, ExtError> {
     let tid = params["trashId"].as_str().unwrap_or_default();
     let guard = ext::try_mutation()?;
-    let r = remove::restore_held(
-        layout,
-        &mut SupervisorHost::new(shared, layout),
-        tid,
-        &guard,
-    );
-    refresh_overlays(shared, layout, &guard);
+    require_no_maintenance(shared)?;
+    let mut host = SupervisorHost::new(shared, layout);
+    let r = remove::restore_held(layout, &mut host, tid, &guard);
+    refresh_overlays(shared, layout, &guard, &mut host.presence);
     r
 }
 
@@ -649,6 +906,7 @@ mod tests {
             scripts: json!([{ "path": "payload/run.sh", "size": 3 }]),
             requires: json!({}),
             replaces,
+            members: Vec::new(),
         }
     }
 
@@ -694,7 +952,49 @@ mod tests {
             overlay_reason(Overlay::Incompatible),
             Some("ext-incompatible")
         );
-        assert_eq!(overlay_reason(Overlay::NeedsSetup), None);
+        assert_eq!(overlay_reason(Overlay::NeedsSetup), Some("ext-needs-setup"));
         assert_eq!(overlay_reason(Overlay::Error), None);
+    }
+
+    #[test]
+    fn direct_extension_entry_points_recheck_the_maintenance_reservation() {
+        let temporary = tempfile::tempdir().unwrap();
+        let layout = Layout::new(temporary.path().join("home"));
+        let shared = Arc::new(Shared {
+            maintenance: Default::default(),
+            state: Mutex::new(crate::supervisor::test_state()),
+            wake: std::sync::Condvar::new(),
+            log: crate::supervisor::Log::open(&layout.logs().join("supervisor.log"), 1 << 20, 3),
+            config: Mutex::new(super::super::config::initial(&layout)),
+            subscribers: Default::default(),
+            out_logs: Mutex::new(Vec::new()),
+        });
+        std::fs::create_dir_all(layout.run().join("inspect")).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            for path in [layout.run(), layout.run().join("inspect")] {
+                std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700)).unwrap();
+            }
+        }
+        relock(&shared.maintenance).preparing = true;
+        // These calls deliberately bypass server pre-dispatch, like an already admitted concurrent RPC.
+        let results = [
+            enable(&shared, &layout, &json!({"name":"missing"})),
+            disable(&shared, &layout, &json!({"name":"missing"})),
+            uninstall(&shared, &layout, &json!({"name":"missing"})),
+            restore(&shared, &layout, &json!({"trashId":"missing-1"})),
+            install(
+                &shared,
+                &layout,
+                &json!({"inspectionId":"a"}),
+                Caller::LocalOwner,
+            ),
+        ];
+        for result in results {
+            let error = result.unwrap_err();
+            assert_eq!((error.code, error.reason), ("E_CONFLICT", Some("busy")));
+        }
+        assert!(!layout.extensions().join("staging").exists());
     }
 }

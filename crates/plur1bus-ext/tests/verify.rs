@@ -510,6 +510,33 @@ fn x2_provider() -> Value {
 }
 
 #[test]
+fn x2_verification_accepts_a_bundle_without_changing_the_x1_gate() {
+    let member = skill(None);
+    let mut t = template("toolkit", "bundle");
+    t["members"] = json!([{
+        "name": "demo", "path": "payload/members/demo.p1x",
+        "sha256": hex(&Sha256::digest(&member)), "optional": false
+    }]);
+    let pkg = build_package_from(&t, vec![f("members/demo.p1x", &member, false)], None);
+    let store = TrustStore::pinned();
+    let host = host();
+    let policy = Policy {
+        limits: Limits::default(),
+        skill_bytes: MAX_SKILL_BYTES,
+        store: &store,
+        host: &host,
+        reserved: &[],
+        revoked: &no_revocations,
+    };
+    let inspected = inspect_reader_kinds(&mut Cursor::new(&pkg), &policy, &X2_KINDS).unwrap();
+    assert_eq!(
+        inspected.manifest.kind,
+        plur1bus_ext::manifest::Kind::Bundle
+    );
+    assert_eq!(refusal(&pkg, &store).reason, reason::KIND_UNSUPPORTED);
+}
+
+#[test]
 fn x2_kinds_inspect_when_the_caller_accepts_them_and_stay_refused_for_x1_callers() {
     let key = test_key("test");
     let store = store_for(&[&key]);

@@ -19,6 +19,7 @@ import * as core from "./core.ts";
 import type * as devices from "./devices.ts";
 import type * as doctor from "./doctor.ts";
 import type * as extensions from "./extensions.ts";
+import type * as imports from "./imports.ts";
 import type * as logs from "./logs.ts";
 import * as memory from "./memory.ts";
 import * as mediasearch from "./mediasearch.ts";
@@ -78,6 +79,7 @@ type LazyAreaName =
   | "sessions"
   | "voice"
   | "extensions"
+  | "imports"
   | "recurring"
   | "homeHelpLibrary"
   | "inbox"
@@ -87,7 +89,7 @@ type LazyAreaName =
 
 const LAZY_ORDER: readonly string[] = [
   "surfaces", "core", "chat", "projects", "memory", "mediasearch", "models", "budget", "doctor", "palette", "shared", "setup", "agents", "settings", "users",
-  "providers", "secrets", "switchboard", "devices", "logs", "activity", "audit", "sessions", "approvals", "voice", "extensions", "recurring", "homeHelpLibrary", "inbox", "breakglass", "modules", "libmedia",
+  "providers", "secrets", "switchboard", "devices", "logs", "activity", "audit", "sessions", "approvals", "voice", "extensions", "imports", "recurring", "homeHelpLibrary", "inbox", "breakglass", "modules", "libmedia",
 ];
 
 type AreaEn =
@@ -111,6 +113,7 @@ type AreaEn =
   | typeof sessions.en
   | typeof voice.en
   | typeof extensions.en
+  | typeof imports.en
   | typeof recurring.en
   | typeof homeHelpLibrary.en
   | typeof inbox.en

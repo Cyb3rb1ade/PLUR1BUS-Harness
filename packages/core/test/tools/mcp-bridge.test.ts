@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mcpToolDefs, type McpToolPort } from "../../src/tools/mcp-bridge.ts";
+import { mcpToolDefs, type McpBridgeOptions, type McpToolPort } from "../../src/tools/mcp-bridge.ts";
 import { ToolDispatcher, type DispatchContext } from "../../src/tools/dispatcher.ts";
 import { ToolRegistry } from "../../src/tools/registry.ts";
 import { validateArgs } from "../../src/tools/repair.ts";
@@ -25,10 +25,10 @@ function port(tools: McpToolDescriptor[]) {
 }
 const ctx = (o: Partial<DispatchContext> = {}): DispatchContext => ({ agentId: "bernd", principal: "christian", sessionId: "s1", taskId: "t1", surface: 3, signal: new AbortController().signal, ...o });
 
-async function setup(tools: McpToolDescriptor[], policy: Record<string, unknown> = {}) {
+async function setup(tools: McpToolDescriptor[], policy: Record<string, unknown> = {}, options: McpBridgeOptions = {}) {
   const r = await rig();
   const { p, calls } = port(tools);
-  const built = await mcpToolDefs(p, "srv", { agentId: "bernd", principal: "christian" });
+  const built = await mcpToolDefs(p, "srv", { agentId: "bernd", principal: "christian" }, options);
   const registry = new ToolRegistry();
   for (const t of built.tools) registry.register(t);
   const d = new ToolDispatcher({ registry, approvals: r.service, grants: r.stores.grants, grantUse: r.stores.grants, clock: r.clock, timers: r.timers, policyContext: r.service.policyContext(() => policy) });
@@ -102,6 +102,86 @@ describe("MCP tools go through the dispatcher (D109 §7)", () => {
     r.service.decide({ requestId: n.id, nonce: n.nonce, decision: "approve", person: "christian", surface: 3 });
     await p;
     assert.equal(calls[0]!.caller.agentId, "bernd");
+  });
+});
+
+describe("extension declarations govern MCP tool policy (M-A6)", () => {
+  it("a declared read tool executes through its read capability without a write approval", T, async () => {
+    const { r, d, calls, built } = await setup([{ name: "peek", inputSchema: schema }], {}, {
+      declaration: { network: "none", tools: [{ name: "peek", effect: "read" }] },
+    });
+    try {
+      assert.equal(built.tools[0]!.effect, "read");
+      assert.equal(built.tools[0]!.capability, "mcp.tool.read");
+      const value = await d.call({ id: "read", name: "mcp.srv.peek", args: {} }, ctx());
+      assert.equal(value.isError, false);
+      assert.equal(calls.length, 1);
+      assert.equal(r.stores.approvals.list().length, 0);
+    } finally {
+      r.service.dispose();
+    }
+  });
+
+  for (const [declared, effect, capability] of [
+    ["write", "local-write", "mcp.tool.write"],
+    ["destructive", "local-destructive", "mcp.tool.destructive"],
+  ] as const) {
+    it(`a declared ${declared} tool starts at ask and does not execute before approval`, T, async () => {
+      const { r, d, calls, built } = await setup([{ name: "change", inputSchema: schema }], {}, {
+        declaration: { network: "none", tools: [{ name: "change", effect: declared }] },
+      });
+      let pending: ReturnType<typeof d.call> | undefined;
+      try {
+        assert.equal(built.tools[0]!.effect, effect);
+        assert.equal(built.tools[0]!.capability, capability);
+        pending = d.call({ id: declared, name: "mcp.srv.change", args: {} }, ctx());
+        await tick();
+        assert.equal(calls.length, 0);
+        assert.equal(r.stores.approvals.list({ status: "pending" }).length, 1);
+        const request = lastNonce(r);
+        assert.ok(r.service.decide({
+          requestId: request.id, nonce: request.nonce, decision: "approve", person: "christian", surface: 3,
+        }).ok);
+        assert.equal((await pending).isError, false);
+        assert.equal(calls.length, 1);
+      } finally {
+        r.service.dispose();
+        await pending;
+      }
+    });
+  }
+
+  it("server annotations can raise declared effects and cannot lower a destructive declaration", T, async () => {
+    const { tools } = await mcpToolDefs(port([
+      { name: "erase", inputSchema: schema, annotations: { readOnlyHint: true, destructiveHint: false } },
+      { name: "peek", inputSchema: schema, annotations: { destructiveHint: true } },
+      { name: "publish", inputSchema: schema, annotations: { openWorldHint: true } },
+      { name: "undeclared", inputSchema: schema, annotations: { readOnlyHint: true } },
+    ]).p, "srv", { agentId: "bernd", principal: "christian" }, {
+      declaration: { network: "none", tools: [
+        { name: "erase", effect: "destructive" },
+        { name: "peek", effect: "read" },
+        { name: "publish", effect: "write" },
+      ] },
+    });
+    assert.deepEqual(tools.map(tool => [tool.effect, tool.capability]), [
+      ["local-destructive", "mcp.tool.destructive"],
+      ["local-destructive", "mcp.tool.destructive"],
+      ["external", "net.submit"],
+      ["external", "net.submit"],
+    ]);
+    const registry = new ToolRegistry();
+    for (const tool of tools) registry.register(tool);
+    assert.equal(registry.size, 4);
+  });
+
+  it("a write declaration with network access remains external", T, async () => {
+    const { tools } = await mcpToolDefs(port([{ name: "send", inputSchema: schema }]).p,
+      "srv", { agentId: "bernd", principal: "christian" }, {
+        declaration: { network: "declared", tools: [{ name: "send", effect: "write" }] },
+      });
+    assert.equal(tools[0]!.effect, "external");
+    assert.equal(tools[0]!.capability, "net.submit");
   });
 });
 

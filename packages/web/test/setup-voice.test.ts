@@ -114,7 +114,7 @@ describe("setup wizard: voice step", opts, () => {
       await page.getByText(/Backup erstellt/).waitFor();
       await next(page);
       await stepHeading(page, /Import/).waitFor();
-      await skip(page, "Überspringen und beenden");
+      await skip(page);
       await stepHeading(page, "Zusammenfassung der Einrichtung").waitFor();
 
       // Summary should show the configured voice language

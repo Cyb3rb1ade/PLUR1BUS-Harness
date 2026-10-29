@@ -1,4 +1,5 @@
 import { authorize } from '../rbac/authorize.ts';
+import { deferMaintenanceStart, type CompositionMaintenance } from './maintenance.ts';
 // Media search composition (ME2): builds the media index port, caption service, index hook and backfill job, and attaches
 // the hook to the OutputStore. The RPC surface (`createMediaSearchSurface`) is connected by the caller: see WIRING POINT.
 import { safeId } from '../../../media/src/files.ts';
@@ -30,6 +31,7 @@ import { deriveUserPrincipal } from '../identity/principals.ts';
 import type { Handler } from '../rpc/server.ts';
 
 export interface MediaSearchDeps {
+  maintenance?: CompositionMaintenance;
   home: string;
   config: () => HarnessConfig;
   engine: unknown;
@@ -153,26 +155,32 @@ export async function composeMediaSearch(d: MediaSearchDeps): Promise<MediaSearc
   const backfill = createBackfillJob({ port: () => port, config: cfg, budgetCallback, events: { emit }, logger: d.logger, stateFile: join(d.home, 'state', 'media-search.json') });
 
   let unlisten: (() => void) | undefined;
+  let closed = false;
   const store = d.store;
-  if (store && kind !== 'disabled') {
-    const recordOf = (m: Manifest): MediaRecord | null => {
-      const file = m.files[0];
-      if (!file) return null;
-      const kind = m.kind === 'video' ? 'video' : 'image';
-      const mime = kind === 'video' && file.format === 'mov' ? 'video/quicktime' : `${kind}/${file.format}`;
-      return { mediaId: m.id, kind, mime, source: { path: join(store.root, m.id, file.path) }, prompt: m.prompt };
-    };
-    unlisten = store.addListener({
-      onPut: m => { const r = recordOf(m); if (r) hook.onStored(r); },
-      onDelete: id => hook.onDeleted(id),
-    });
-  }
-  if (kind !== 'disabled') {
-    void backfill.init().then(() => backfill.watch()).catch(e => d.logger.warn('media backfill init failed', { err: e }));
-  }
+  const start = async () => {
+    if (closed) return;
+    if (store && kind !== 'disabled' && !unlisten) {
+      const recordOf = (m: Manifest): MediaRecord | null => {
+        const file = m.files[0];
+        if (!file) return null;
+        const kind = m.kind === 'video' ? 'video' : 'image';
+        const mime = kind === 'video' && file.format === 'mov' ? 'video/quicktime' : `${kind}/${file.format}`;
+        return { mediaId: m.id, kind, mime, source: { path: join(store.root, m.id, file.path) }, prompt: m.prompt };
+      };
+      unlisten = store.addListener({
+        onPut: m => { const r = recordOf(m); if (r) hook.onStored(r); },
+        onDelete: id => hook.onDeleted(id),
+      });
+    }
+    if (kind !== 'disabled') {
+      await backfill.init().then(() => { if (!closed) backfill.watch(); }).catch(e => d.logger.warn('media backfill init failed', { err: e }));
+    }
+  };
+  const unwatchStart = deferMaintenanceStart(d.maintenance, start);
+  if (!unwatchStart) void start();
   return {
     port, kind, hook, backfill, captions, counters,
-    async close() { unlisten?.(); backfill.close(); await hook.idle().catch(() => {}); },
+    async close() { closed = true; unwatchStart?.(); unlisten?.(); backfill.close(); await hook.idle().catch(() => {}); },
   };
 }
 

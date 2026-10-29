@@ -1,4 +1,7 @@
 import { test } from 'node:test';
+import { createSecretStore } from '../../src/secrets/store.ts';
+import { createMemoryBackend } from '../../src/secrets/memory-backend.ts';
+import { createMemoryAuditSink } from '../../src/secrets/audit.ts';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -153,7 +156,7 @@ test('finding 4: a throwing createTurnProvider closes everything composition alr
   const budgetWal = join(home, 'state', 'budget.sqlite-wal');
   let walWhileOpen = false;
   try {
-    await assert.rejects(() => openTurnComposition({ home, config: () => cfg, engine: {} as never, agents, logger, secrets: {} as never, egress: { decide: async () => ({ allowed: false }) } as never,
+    await assert.rejects(() => openTurnComposition({ home, config: () => cfg, engine: {} as never, agents, logger, secrets: createSecretStore({ keyring: createMemoryBackend(), file: createMemoryBackend(), fileFallback: () => false, audit: createMemoryAuditSink() }), egress: { decide: async () => ({ allowed: false }) } as never,
       permissions: { current: () => null, open: async () => { throw new Error('unused'); } } as never, audit: memoryAuditSink(), identity, clock: Date.now, signal: new AbortController().signal, isStopping: () => false, notify: () => {},
       options: { providers: { profiles: { default: [{ provider: 'fixture', model: 'gpt-4.1', adapter: { async *stream() {} } }] } }, createTurnProvider: () => { walWhileOpen = existsSync(budgetWal); throw new Error('synthetic provider failure'); } } }), /synthetic provider failure/);
     assert.equal(walWhileOpen, true, 'the budget store was open when the provider factory threw');

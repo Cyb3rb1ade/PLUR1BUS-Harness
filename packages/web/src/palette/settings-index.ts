@@ -12,6 +12,8 @@
 export type SettingSpec = { readonly key: string; readonly type: string; readonly tier: "basic" | "advanced"; readonly help?: string };
 
 export const SETTINGS: readonly SettingSpec[] = [
+  { key: "import.ssh", type: "object", tier: "advanced", help: "Owner-managed SSH source identity and endpoint configuration." },
+  { key: "import.ssh.connections", type: "object", tier: "advanced", help: "Owner-managed named SSH source connections." },
   { key: "collaboration.fanoutEnabled", type: "boolean", tier: "advanced", help: "Enable collaboration fan-out only after owner review of the equal-token-budget evaluation." },
   { key: "approvals.maxGrantDays", type: "integer", tier: "advanced", help: "Always-grant idle lifetime in days. Explicit shorter expiries still apply." },
   { key: "approvals.requireOsConfirmation", type: "boolean", tier: "advanced", help: "Allow the required OS confirmation for an otherwise untrusted local decision. False disables this lift; it never bypasses surface trust." },
@@ -115,6 +117,8 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "engine.schicht15", type: "object", tier: "advanced", help: "Curated knowledge promotion settings passed to the Engine." },
   { key: "engine.schicht15.maxPromotionsPerRun", type: "integer", tier: "advanced", help: "Maximum memories promoted by one knowledge-update run; 0 means unlimited." },
   { key: "engine.baseDbPathOverride", type: "string", tier: "advanced", help: "Testing/advanced only; default <home>/state/lancedb. An absolute path (POSIX, drive letter or UNC); a blank value keeps the default." },
+  { key: "mcp", type: "object", tier: "advanced", help: "Installed MCP extension activation and per-agent tool visibility (X2)." },
+  { key: "mcp.servers", type: "object", tier: "advanced", help: "Activation settings keyed by the installed MCP extension name." },
   { key: "providers", type: "object", tier: "basic", help: "Reserved namespace for model-provider configuration." },
   { key: "auth.requireSecondFactor", type: "string", tier: "advanced", help: "Require TOTP or WebAuthn for Owner and Admin on remote listeners by default; always or never are explicit overrides." },
   { key: "auth.openai.loopbackTimeoutMs", type: "integer", tier: "advanced", help: "Loopback login deadline." },

@@ -1,0 +1,69 @@
+/* Import/setup controls share the active theme and keep long remote metadata within the reading column. */
+.import-wizard {
+  min-inline-size: 0;
+}
+.import-wizard fieldset {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  margin-block: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.import-wizard legend {
+  padding-inline: 4px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.import-wizard :is(input, select, textarea) {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+.import-wizard select {
+  inline-size: 100%;
+}
+.import-wizard textarea {
+  inline-size: 100%;
+  min-block-size: calc(var(--control-h) * 2);
+  padding: 10px 12px;
+  resize: vertical;
+  font: inherit;
+  color: var(--ink);
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  border-radius: 10px;
+}
+.import-wizard .checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-block: 10px;
+}
+.import-wizard input[type="checkbox"] {
+  inline-size: auto;
+  min-block-size: 20px;
+  flex: none;
+}
+.import-wizard .chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block: 10px;
+}
+.import-wizard pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: auto;
+  max-block-size: 30rem;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: 12.5px/1.5 var(--font-mono);
+}
+.import-wizard .btn-err {
+  color: var(--err-ink);
+  border-color: var(--err-border);
+}
+.import-wizard :is(.plain-list, .reading, .field-hint) {
+  overflow-wrap: anywhere;
+}

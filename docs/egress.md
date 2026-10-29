@@ -78,6 +78,44 @@ decision counters therefore live here only.
 `discardBody` (any `request` call): the response body is never read, whatever its size or encoding, and `body` comes back
 empty; status and headers are returned as usual.
 
+## Read-only SSH/SFTP import
+
+SSH uses the same compiled central `egress.allowHosts` and `egress.allowPorts`
+rules before DNS. The source endpoint must match the host allowlist and its TCP
+port must be allowed; SSH's default 22 is **not** in the default `[443]`. Creating
+an Owner-managed `import.ssh.connections` entry does not grant central egress or
+silently add a wildcard. The Owner explicitly approves the exact host and port
+through the configuration path. A denied or invalid policy causes no resolution,
+worker launch, authentication or private-key lease. Removing that permission
+denies further source operations.
+
+The central host and port lists form a global cross-product: adding port 22 also
+permits it for the other already allowed hosts. Review both lists when approving
+SSH; a named connection narrows which endpoint this import feature uses.
+
+After the central check, the shared guarded resolver validates every DNS answer.
+A connection's Owner-only `allowPrivate` can permit RFC1918, loopback and ULA
+addresses for that particular source (including a Docker host); it never bypasses
+the host/port policy or admits link-local/metadata destinations. It does not change
+ordinary HTTP/HTTPS address rules. Mixed safe/unsafe answers fail closed. The
+native helper receives one vetted numeric IP and never resolves the hostname again.
+
+SSH then uses its exact confirmed SHA256 host-key pin, rather than TLS. Initial
+probing performs only the handshake; later connections verify the pin before
+leasing the private Ed25519 key, authenticating or reading source files. A host-key
+change, expired trust probe, missing key or untrusted helper fails closed. The
+read-only filesystem port exposes no shell or writes. Key/connection changes and
+role revocation invalidate active access. Lifecycle audit records contain only
+connection IDs, outcomes and fixed reasons, never key values or file contents.
+SSH audits are separate from the HTTP per-hop `egress.status` counters.
+
+Implementation: `import/ssh-service.ts`, `import/ssh-egress.ts`, the existing
+`egress/policy.ts`/SSRF resolver, and `@plur1bus/remote-fs`. The exact reviewed native
+dependency exception is recorded in
+[the SSH dependency decision](ops/m-russh-dependency-decision.md). See
+[the import workflow](import.md#13-supervised-import-and-remote-sources-m-v2) for
+source roots, snapshots and maintenance; source credentials never enter ordinary RPC.
+
 ## Engine HTTP and secrets (contract 1.15)
 
 The core supplies `HostServices.fetch` and `HostServices.secrets.resolve` to the memory engine. Every engine HTTP
@@ -157,9 +195,9 @@ role and origin only, no credentials) prevents a proposed local engine configura
 remote engine. First migrate/change engine models with local-only off, wait for the existing Core restart job, then
 enable local-only. An older running Core without a verifiable inventory must be restarted first.
 
-**Remaining hot-reconfiguration gap:** contract 1.16 includes the 1.15 host fetch/secret ports, now wired to the live
+**Remaining hot-reconfiguration gap:** contract 1.17 includes the 1.15 host fetch/secret ports, now wired to the live
 request gate. The Engine still has no public hot-reconfiguration port. An unsafe
 live transition is rejected with a restart hint; automatic engine-only restart / `restartPending` for that rejected
 transition is not implemented. No switch is reported as enabled while an uncontrolled remote Engine keeps running.
-Reembed usage remains an explicit token/cost estimate until that port exposes actual provider usage; its desired
+Reembed usage remains an estimated token count until that port exposes actual provider usage; its desired
 behavior has a todo test.

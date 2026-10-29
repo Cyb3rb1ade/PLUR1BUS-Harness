@@ -9,7 +9,7 @@
 //! waits until the client has read everything) runs with a deadline, so a client that never reads cannot hold up a
 //! close or a `daemon.stop`.
 use super::server::Accepted;
-use plur1bus_rpc::win::{overlapped_op, OverlappedPipe, SecurityDescriptor};
+use plur1bus_rpc::win::{overlapped_op, pipe_client_pid, OverlappedPipe, SecurityDescriptor};
 use std::io::{self, Read, Write};
 use std::os::windows::ffi::OsStrExt;
 use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
@@ -174,9 +174,11 @@ impl Listener {
             *self.next.lock().unwrap_or_else(|e| e.into_inner()) = Some(n);
         }
         let pipe = Arc::new(OverlappedPipe::new(h)?);
+        let peer_pid = pipe_client_pid(pipe.handle());
         let closer = pipe.clone();
         let drain = pipe.clone();
         Ok(Accepted {
+            peer_pid,
             reader: Box::new(Pipe(pipe.clone())),
             writer: Box::new(Pipe(pipe)),
             closer: Arc::new(move || {

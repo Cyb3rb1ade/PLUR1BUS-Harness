@@ -6,9 +6,9 @@
 //! package bytes are never opened.
 use super::commit::enabled_in;
 use super::index::{self, SkillIndex};
-use super::overlays::{load_revocations, overlays_of, rehash, Revocation};
+use super::overlays::{load_revocations, overlays_with_missing, rehash, Revocation};
 use super::paths::ExtPaths;
-use super::record::{code_dir, skill_id_ok, state_invalid, warn};
+use super::record::{skill_id_ok, state_invalid, warn};
 use super::state::{self, ItemRecord};
 use super::ExtError;
 use crate::paths::Layout;
@@ -64,7 +64,17 @@ pub(crate) fn install_units(layout: &Layout, key: &str) -> BTreeMap<String, (Str
 
 /// `"all"` or the agents a skill is effective for (X1-R11): none when it is disabled, else every configured agent that
 /// does not block it, and `"all"` when none does. Modules and channels: `"all"`.
-fn agents_of(cfg: &Value, name: &str, kind: &str, enabled: bool) -> Value {
+pub(crate) fn agents_of(cfg: &Value, name: &str, kind: &str, enabled: bool) -> Value {
+    if kind == "mcp-server" {
+        return if enabled {
+            cfg["mcp"]["servers"][name]
+                .get("agents")
+                .cloned()
+                .unwrap_or(json!("all"))
+        } else {
+            json!([])
+        };
+    }
     if kind != "skill" {
         return json!("all");
     }
@@ -116,6 +126,7 @@ fn item_json(
 }
 
 /// The `ExtItem` of a package record.
+#[allow(clippy::too_many_arguments)]
 fn record_item(
     layout: &Layout,
     paths: &ExtPaths,
@@ -124,13 +135,39 @@ fn record_item(
     rec: &ItemRecord,
     host: &HostFacts,
     revs: &[Revocation],
+    missing: &[String],
 ) -> Value {
-    let enabled = enabled_in(layout, idx, cfg, &rec.name, &rec.kind);
+    let (enabled, partial, member_overlays) = if rec.kind == "bundle" {
+        super::bundle_lifecycle::summary(layout, cfg, rec)
+    } else {
+        (
+            enabled_in(layout, idx, cfg, &rec.name, &rec.kind),
+            false,
+            vec![],
+        )
+    };
     let meta = cached_meta(paths, &rec.package_sha256);
     let compat = meta
         .as_ref()
         .and_then(|m| m["manifest"].get("compat").cloned());
-    let overlays = overlays_of(rec, host, revs, compat.as_ref());
+    let mut overlays = overlays_with_missing(rec, host, revs, compat.as_ref(), missing);
+    for overlay in member_overlays {
+        if !overlays.contains(&overlay) {
+            overlays.push(overlay);
+        }
+    }
+    if super::bundle_transaction::pending(layout)
+        && !overlays.contains(&super::overlays::Overlay::Tampered)
+    {
+        overlays.push(super::overlays::Overlay::Tampered);
+    }
+    if rec.kind == "mcp-server" {
+        if let Some(runtime) = super::runtime::status(layout, &rec.name) {
+            if !overlays.contains(&runtime) {
+                overlays.push(runtime);
+            }
+        }
+    }
     let mut item = item_json(
         &rec.name,
         Some(&rec.id),
@@ -147,13 +184,21 @@ fn record_item(
         Some(i) if i.ok => "ok",
         Some(_) => "tampered",
     });
+    if rec.kind == "bundle" {
+        item["partial"] = json!(partial);
+        item["members"] = json!(rec.members);
+    }
     item
 }
 
 /// Every item, sorted by name (see the module documentation). An unreadable `extensions/state.json` is `E_STORAGE
 /// state-invalid` (X1-C29): without the records, a packaged item would list as unknown or as a local one. An
 /// unreadable `skills/index.json` is read once here and fails closed: no skill is listed as enabled.
-fn collect(layout: &Layout, cfg: &Value) -> Result<Vec<Entry>, ExtError> {
+fn collect(
+    layout: &Layout,
+    cfg: &Value,
+    presence: &mut super::runtime::OperationPresence,
+) -> Result<Vec<Entry>, ExtError> {
     let paths = ExtPaths::of(layout);
     let st = state::read(&paths).map_err(state_invalid)?;
     let idx = index::read_index(layout)
@@ -172,15 +217,29 @@ fn collect(layout: &Layout, cfg: &Value) -> Result<Vec<Entry>, ExtError> {
 
     // Package records (a bundled item the person hid, X1-R18, is not listed).
     for rec in st.items.values() {
-        if rec.removed_by_user || !matches!(rec.kind.as_str(), "skill" | "module" | "channel") {
+        if rec.removed_by_user
+            || !matches!(
+                rec.kind.as_str(),
+                "skill" | "module" | "channel" | "mcp-server" | "bundle"
+            )
+        {
             continue;
         }
         out.insert(
             rec.name.clone(),
             Entry {
-                item: record_item(layout, &paths, cfg, idx.as_ref(), rec, &host, &revs),
+                item: record_item(
+                    layout,
+                    &paths,
+                    cfg,
+                    idx.as_ref(),
+                    rec,
+                    &host,
+                    &revs,
+                    &presence.missing(layout, &rec.name, &rec.required_secrets),
+                ),
                 record: Some(rec.clone()),
-                dir: code_dir(layout, &rec.name, &rec.kind),
+                dir: super::record::active_code_dir(layout, rec),
             },
         );
     }
@@ -323,7 +382,8 @@ fn keep(item: &Value, f: &ListFilter) -> bool {
 /// `ext.list`: `{items: ExtItem[]}`, sorted by name; `E_STORAGE state-invalid` when `extensions/state.json` cannot be
 /// read (X1-C29).
 pub fn list_items(layout: &Layout, cfg: &Value, filter: &ListFilter) -> Result<Value, ExtError> {
-    let items: Vec<Value> = collect(layout, cfg)?
+    let mut presence = super::runtime::OperationPresence::default();
+    let items: Vec<Value> = collect(layout, cfg, &mut presence)?
         .into_iter()
         .map(|e| e.item)
         .filter(|i| keep(i, filter))
@@ -422,7 +482,8 @@ pub(crate) fn scripts_of(meta: Option<&Value>, rec: &ItemRecord) -> Vec<Value> {
 /// `E_NOT_FOUND extension-unknown`; an unreadable `extensions/state.json` → `E_STORAGE state-invalid` (X1-C29).
 pub fn show_item(layout: &Layout, cfg: &Value, name: &str) -> Result<Value, ExtError> {
     let paths = ExtPaths::of(layout);
-    let entry = collect(layout, cfg)?
+    let mut presence = super::runtime::OperationPresence::default();
+    let entry = collect(layout, cfg, &mut presence)?
         .into_iter()
         .find(|e| e.item["name"] == name)
         .ok_or_else(|| {
@@ -449,7 +510,17 @@ pub fn show_item(layout: &Layout, cfg: &Value, name: &str) -> Result<Value, ExtE
     let host = super::host::host_facts();
     let revs = load_revocations(&paths);
     let idx = index::read_index(layout).ok();
-    let item = record_item(layout, &paths, cfg, idx.as_ref(), &rec, &host, &revs);
+    let missing = presence.missing(layout, &rec.name, &rec.required_secrets);
+    let item = record_item(
+        layout,
+        &paths,
+        cfg,
+        idx.as_ref(),
+        &rec,
+        &host,
+        &revs,
+        &missing,
+    );
     let meta = cached_meta(&paths, &rec.package_sha256);
     let manifest = meta
         .as_ref()
@@ -469,7 +540,7 @@ pub fn show_item(layout: &Layout, cfg: &Value, name: &str) -> Result<Value, ExtE
     } else {
         json!({})
     };
-    Ok(json!({
+    let mut result = json!({
         "item": item,
         "manifest": manifest,
         "capabilities": capabilities,
@@ -478,5 +549,11 @@ pub fn show_item(layout: &Layout, cfg: &Value, name: &str) -> Result<Value, ExtE
         "files": { "count": rec.files.len(), "bytes": rec.files.values().map(|f| f.size).sum::<u64>() },
         "dependents": if rec.kind == "skill" { vec![] } else { super::lifecycle::dependents(layout, cfg, name) },
         "trash": trash_of(&paths, name),
-    }))
+    });
+    if rec.kind == "bundle" {
+        let members = super::bundle_lifecycle::member_inspections(layout, &rec)?;
+        result["consentSha256"] = json!(super::bundle_lifecycle::consent_sha256(&rec, &members));
+        result["memberInspections"] = json!(members);
+    }
+    Ok(result)
 }

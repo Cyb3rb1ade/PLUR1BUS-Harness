@@ -15,6 +15,10 @@
     "allow-pair-code",
     "allow-pair-local",
     "allow-open-connection",
+    "allow-step-up-begin",
+    "allow-step-up-poll",
+    "allow-step-up-cancel",
+    "allow-step-up-open",
     "allow-transport-check",
     "allow-connection-transport-set",
     "allow-quit-request",
@@ -63,6 +67,9 @@
     "allow-uninstall-summary",
     "allow-uninstall-run",
     "allow-desktop-integration-get",
-    "allow-desktop-integration-set"
+    "allow-desktop-integration-set",
+    "allow-extension-upload",
+    "allow-host-file-pick",
+    "allow-host-import-snapshot"
   ]
 }

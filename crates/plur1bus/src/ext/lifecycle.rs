@@ -34,13 +34,15 @@ use crate::paths::Layout;
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 
-/// `ext.enable|disable`'s options: the agents (skills only; `None` means everywhere for enable and "the entry" for
+/// `ext.enable|disable`'s options: the agents (skills and MCP servers; `None` means everywhere for enable and "the entry" for
 /// disable), the acknowledgments given (`capabilities`) and whether to only plan.
 #[derive(Clone, Debug, Default)]
 pub struct ToggleOpts {
     pub agents: Option<Agents>,
     pub acknowledge: Vec<String>,
     pub dry_run: bool,
+    /// Exact displayed bundle composition; runtime enable flags are excluded from this digest.
+    pub expected_consent_sha256: Option<String>,
 }
 
 /// X1-R13: the capabilities `caps` are covered by the acknowledged hash `ack`. `ext.enable` checks an item's current
@@ -51,16 +53,29 @@ pub(crate) fn capabilities_acknowledged(caps: &Value, ack: Option<&str>) -> bool
 
 /// The agent checks an enable or disable makes before any write (X1-R11): agents on a module or channel, an agent that
 /// is not configured.
-fn check_agents(name: &str, kind: &str, cfg: &Value, agents: &Agents) -> Result<(), ExtError> {
+pub(crate) fn check_agents(
+    name: &str,
+    kind: &str,
+    cfg: &Value,
+    agents: &Agents,
+) -> Result<(), ExtError> {
     let Agents::Some(list) = agents else {
         return Ok(());
     };
-    if kind != "skill" {
+    if !matches!(kind, "skill" | "mcp-server") {
         return Err(ExtError::new(
             "E_INVALID_PARAMS",
             "agents-not-supported",
             format!("{name} is a {kind}; modules.{name}.enabled is its only switch"),
         ));
+    }
+    if kind == "mcp-server" && list.iter().collect::<BTreeSet<_>>().len() != list.len() {
+        return Err(ExtError {
+            code: "E_INVALID_PARAMS",
+            reason: None,
+            message: "MCP agent selections must not repeat an agent".into(),
+            data: Value::Null,
+        });
     }
     if let Some(unknown) = list
         .iter()
@@ -81,7 +96,7 @@ fn needs_setup(name: &str, required_secrets: &[String]) -> ExtError {
         "E_NOT_AVAILABLE",
         "needs-setup",
         format!(
-            "{name} needs secrets ({}) that cannot be set up yet; it installs, but cannot be enabled",
+            "{name} needs required secret slots ({}) before it can be activated",
             required_secrets.join(", ")
         ),
     )
@@ -157,8 +172,59 @@ pub(crate) fn skill_enable_changes(cfg: &Value, name: &str, agents: &Agents) -> 
     })
 }
 
+/// Config is the sole MCP activation owner. A selected disable expands `all` over configured agents, and the
+/// last selected agent leaving stops the server. The whole prior section is retained for transaction rollback.
+pub(crate) fn mcp_activation_changes(
+    cfg: &Value,
+    name: &str,
+    agents: &Agents,
+    on: bool,
+) -> (Changes, Changes, bool) {
+    let previous = super::record::config_section(cfg, name, "mcp-server");
+    let (selection, enabled) = match (on, agents) {
+        (true, Agents::All) => (json!("all"), true),
+        (true, Agents::Some(ids)) => (json!(ids), !ids.is_empty()),
+        (false, Agents::All) => (
+            previous.get("agents").cloned().unwrap_or(json!("all")),
+            false,
+        ),
+        (false, Agents::Some(excluded)) => {
+            let current = if previous["agents"] == "all" || previous.get("agents").is_none() {
+                cfg["agents"]
+                    .as_object()
+                    .map(|a| a.keys().cloned().collect())
+                    .unwrap_or_default()
+            } else {
+                strings(&previous["agents"])
+            };
+            let remaining: Vec<String> = current
+                .into_iter()
+                .filter(|id| !excluded.contains(id))
+                .collect();
+            let enabled = previous["enabled"] == true && !remaining.is_empty();
+            (json!(remaining), enabled)
+        }
+    };
+    let mut next = if previous.is_object() {
+        previous.clone()
+    } else {
+        json!({})
+    };
+    next["enabled"] = json!(enabled);
+    next["agents"] = selection;
+    if next == previous {
+        return (vec![], vec![], enabled);
+    }
+    let key = super::record::config_key(name, "mcp-server");
+    (vec![(key.clone(), next)], vec![(key, previous)], enabled)
+}
+
 /// A skill disable for some agents: the name is added to their lists only.
-fn skill_disable_changes(cfg: &Value, name: &str, agents: &[String]) -> (Changes, Changes) {
+pub(crate) fn skill_disable_changes(
+    cfg: &Value,
+    name: &str,
+    agents: &[String],
+) -> (Changes, Changes) {
     block_changes(cfg, name, |id| {
         agents.iter().any(|x| x == id).then_some(false)
     })
@@ -211,7 +277,12 @@ pub(crate) fn resolve(
     name: &str,
 ) -> Result<Target, ExtError> {
     if let Some(rec) = st.items.get(name) {
-        if rec.removed_by_user || !matches!(rec.kind.as_str(), "skill" | "module" | "channel") {
+        if rec.removed_by_user
+            || !matches!(
+                rec.kind.as_str(),
+                "skill" | "module" | "channel" | "mcp-server"
+            )
+        {
             return Err(unknown(name));
         }
         return Ok(Target {
@@ -278,7 +349,12 @@ fn overlays(paths: &ExtPaths, rec: Option<&ItemRecord>) -> Vec<Overlay> {
 
 /// Enable's overlay refusals (X1-R17; Q9: revoked is refused and locked), first match in the overlay order with
 /// `revoked` first.
-fn refuse_overlays(paths: &ExtPaths, rec: &ItemRecord, found: &[Overlay]) -> Result<(), ExtError> {
+pub(crate) fn refuse_overlays(
+    paths: &ExtPaths,
+    rec: &ItemRecord,
+    found: &[Overlay],
+    missing: &[String],
+) -> Result<(), ExtError> {
     if found.contains(&Overlay::Revoked) {
         let why = revoked(&load_revocations(paths), &rec.id, &rec.version)
             .unwrap_or_else(|| "revoked".into());
@@ -290,7 +366,7 @@ fn refuse_overlays(paths: &ExtPaths, rec: &ItemRecord, found: &[Overlay]) -> Res
     }
     for o in found {
         match o {
-            Overlay::NeedsSetup => return Err(needs_setup(&rec.name, &rec.required_secrets)),
+            Overlay::NeedsSetup => return Err(needs_setup(&rec.name, missing)),
             Overlay::Incompatible => {
                 return Err(ExtError::new(
                     "E_NOT_AVAILABLE",
@@ -326,7 +402,11 @@ fn refuse_overlays(paths: &ExtPaths, rec: &ItemRecord, found: &[Overlay]) -> Res
 
 /// X1-R13: the first enable of a packaged item, or an enable after its capabilities changed, needs `capabilities`.
 /// Items without a package record (bundled, local, imported) never reach this check, so they need none.
-fn check_acknowledged(paths: &ExtPaths, rec: &ItemRecord, o: &ToggleOpts) -> Result<(), ExtError> {
+pub(crate) fn check_acknowledged(
+    paths: &ExtPaths,
+    rec: &ItemRecord,
+    o: &ToggleOpts,
+) -> Result<(), ExtError> {
     if capabilities_acknowledged(&rec.capabilities, rec.capabilities_ack.as_deref())
         || o.acknowledge.iter().any(|a| a == "capabilities")
     {
@@ -401,6 +481,7 @@ fn toggle(
     o: &ToggleOpts,
     on: bool,
 ) -> Result<Value, ExtError> {
+    super::bundle_lifecycle::require_settled(layout)?;
     // A plan writes nothing, so it does not wait for (or block) a mutation.
     if o.dry_run {
         return toggle_locked(layout, host, name, o, on);
@@ -419,6 +500,7 @@ pub fn toggle_held(
     on: bool,
     _held: &super::MutationGuard,
 ) -> Result<Value, ExtError> {
+    super::bundle_lifecycle::require_settled(layout)?;
     toggle_locked(layout, host, name, o, on)
 }
 
@@ -436,8 +518,11 @@ pub(crate) fn disable_locked(
 /// X1-C15: an item whose code folder is missing (a kill between steps that `ext::recover` has not reconciled yet, or
 /// a folder deleted by hand) cannot be enabled. The overlay vocabulary has no "missing" value; `tampered` (installed
 /// files no longer match what was installed) is the closest, and `data.paths` lists every recorded file.
-fn refuse_missing_code(layout: &Layout, t: &Target) -> Result<(), ExtError> {
-    let dir = code_dir(layout, &t.name, &t.kind);
+pub(crate) fn refuse_missing_code(layout: &Layout, t: &Target) -> Result<(), ExtError> {
+    let dir = t.record.as_ref().map_or_else(
+        || code_dir(layout, &t.name, &t.kind),
+        |r| super::record::active_code_dir(layout, r),
+    );
     if std::fs::symlink_metadata(&dir).is_ok_and(|m| m.is_dir()) {
         return Ok(());
     }
@@ -464,18 +549,28 @@ fn toggle_locked(
     let paths = ExtPaths::of(layout);
     let st = state::read(&paths).map_err(state_invalid)?;
     let cfg = host.config();
+    super::bundle_lifecycle::check_independent_toggle(&st, name)?;
+    if st.items.get(name).is_some_and(|r| r.kind == "bundle") {
+        return super::bundle_lifecycle::toggle_held(layout, host, name, o, on);
+    }
     let t = resolve(layout, &st, name)?;
     let agents = o.agents.clone().unwrap_or(Agents::All);
     check_agents(name, &t.kind, &cfg, &agents)?;
 
     // Enable: the code folder, overlays from a fresh re-hash, then the acknowledgment.
     let mut record = t.record.clone();
+    let missing = record.as_ref().map_or_else(Vec::new, |record| {
+        host.missing_secrets(name, &record.required_secrets)
+    });
     if on {
         refuse_missing_code(layout, &t)?;
         if let Some(rec) = record.as_mut() {
             rec.integrity = Some(rehash(layout, rec));
-            let found = overlays(&paths, Some(rec));
-            refuse_overlays(&paths, rec, &found)?;
+            let mut found = overlays(&paths, Some(rec));
+            if missing.is_empty() {
+                found.retain(|overlay| *overlay != Overlay::NeedsSetup);
+            }
+            refuse_overlays(&paths, rec, &found, &missing)?;
             check_acknowledged(&paths, rec, o)?;
         }
     }
@@ -545,15 +640,18 @@ fn toggle_locked(
                 }
             }
         }
+    } else if t.kind == "mcp-server" {
+        mcp_activation_changes(&cfg, name, &agents, on)
     } else {
-        let current = cfg["modules"][name]["enabled"] != false;
-        let section = cfg["modules"].get(name).cloned().unwrap_or(Value::Null);
+        let current = super::commit::enabled_now(layout, &cfg, name, &t.kind);
+        let section = super::record::config_section(&cfg, name, &t.kind);
+        let key = super::record::config_key(name, &t.kind);
         if current == on {
             (vec![], vec![], on)
         } else {
             (
-                vec![(format!("modules.{name}.enabled"), json!(on))],
-                vec![(format!("modules.{name}"), section)],
+                vec![(format!("{key}.enabled"), json!(on))],
+                vec![(key, section)],
                 on,
             )
         }
@@ -586,71 +684,75 @@ fn toggle_locked(
     if o.dry_run || noop {
         return Ok(result(&plan));
     }
-    // Every refusal and the no-op are behind us: the first write (X1-C16).
-    super::remove::prune_for(layout, &cfg);
+    super::commit::with_runtime_hold(host, name, t.kind == "mcp-server", |host| {
+        // Every refusal and the no-op are behind us: the first write (X1-C16).
+        super::remove::prune_for(layout, &cfg);
 
-    // The writes, each with its undo: the record (enable), config, the index.
-    let mut rb = Rollback::default();
-    let written = (|| -> Result<Value, ExtError> {
-        if on {
-            if let Some(rec) = record.as_mut() {
-                rec.capabilities_ack = Some(capabilities_hash(&rec.capabilities));
-                let mut next = st.clone();
-                next.items.insert(name.to_string(), rec.clone());
-                let before = read_bytes(&paths.state);
-                state::write(&paths, &next).map_err(|e| io_err("cannot write", &paths.state, e))?;
-                rb.push("state", restore_file(paths.state.clone(), before));
+        // The writes, each with its undo: the record (enable), config, the index.
+        let mut rb = Rollback::default();
+        let written = (|| -> Result<Value, ExtError> {
+            if on {
+                if let Some(rec) = record.as_mut() {
+                    rec.capabilities_ack = Some(capabilities_hash(&rec.capabilities));
+                    let mut next = st.clone();
+                    next.items.insert(name.to_string(), rec.clone());
+                    let before = read_bytes(&paths.state);
+                    state::write(&paths, &next)
+                        .map_err(|e| io_err("cannot write", &paths.state, e))?;
+                    rb.push("state", restore_file(paths.state.clone(), before));
+                }
             }
-        }
-        let mut applied = plan.clone();
-        if !changes.is_empty() {
-            applied = config_change(host, "config", changes.clone(), restore.clone(), &mut rb)?;
-        }
-        if let Some(entry) = &index_entry {
-            let ipath = index::index_path(layout);
-            let before = read_bytes(&ipath);
-            let mut idx = index::read_index(layout)?;
-            idx.upsert(entry.clone());
-            index::write_index(layout, &idx).map_err(|e| io_err("cannot write", &ipath, e))?;
-            rb.push("index", restore_file(ipath, before));
-        }
-        Ok(applied)
-    })();
-    let applied = match written {
-        Ok(p) => p,
-        Err(mut e) => {
-            let failed = rb.run(host);
-            if !failed.is_empty() {
-                e.message = format!(
-                    "{}; the rollback also failed: {}",
-                    e.message,
-                    failed.join("; ")
-                );
+            let mut applied = plan.clone();
+            if !changes.is_empty() {
+                applied = config_change(host, "config", changes.clone(), restore.clone(), &mut rb)?;
             }
-            return Err(e);
+            if let Some(entry) = &index_entry {
+                let ipath = index::index_path(layout);
+                let before = read_bytes(&ipath);
+                let mut idx = index::read_index(layout)?;
+                idx.upsert(entry.clone());
+                index::write_index(layout, &idx).map_err(|e| io_err("cannot write", &ipath, e))?;
+                rb.push("index", restore_file(ipath, before));
+            }
+            Ok(applied)
+        })();
+        let applied = match written {
+            Ok(p) => p,
+            Err(mut e) => {
+                let failed = rb.run(host);
+                if !failed.is_empty() {
+                    e.message = format!(
+                        "{}; the rollback also failed: {}",
+                        e.message,
+                        failed.join("; ")
+                    );
+                }
+                return Err(e);
+            }
+        };
+        let mut plan = applied;
+        if !on && !is_skill {
+            hold_dependents(&mut plan, layout, &cfg, name);
         }
-    };
-    let mut plan = applied;
-    if !on && !is_skill {
-        hold_dependents(&mut plan, layout, &cfg, name);
-    }
 
-    let action = if on { "ext.enable" } else { "ext.disable" };
-    let agents_detail = match &o.agents {
-        None => Value::Null,
-        Some(Agents::All) => json!("all"),
-        Some(Agents::Some(list)) => json!(list),
-    };
-    let detail = json!({ "kind": t.kind, "agents": agents_detail, "via": host.via() });
-    if let Err(e) = crate::audit::append(layout, action, name, detail) {
-        eprintln!("plur1bus: warning: cannot write the audit line for {action} {name}: {e}");
-    }
-    let shown: Vec<String> = overlays(&paths, record.as_ref())
-        .into_iter()
-        .map(overlay_name)
-        .collect();
-    host.notify(json!({
+        let action = if on { "ext.enable" } else { "ext.disable" };
+        let agents_detail = match &o.agents {
+            None => Value::Null,
+            Some(Agents::All) => json!("all"),
+            Some(Agents::Some(list)) => json!(list),
+        };
+        let detail = json!({ "kind": t.kind, "agents": agents_detail, "via": host.via() });
+        if let Err(e) = crate::audit::append(layout, action, name, detail) {
+            eprintln!("plur1bus: warning: cannot write the audit line for {action} {name}: {e}");
+        }
+        let shown: Vec<String> = overlays(&paths, record.as_ref())
+            .into_iter()
+            .filter(|overlay| *overlay != Overlay::NeedsSetup || !missing.is_empty())
+            .map(overlay_name)
+            .collect();
+        host.notify(json!({
         "name": name, "kind": t.kind, "state": state_name, "version": t.version, "overlays": shown
     }));
-    Ok(result(&plan))
+        Ok(result(&plan))
+    })
 }

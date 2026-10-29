@@ -57,6 +57,10 @@ fn shell_capability_is_local_only() {
             "allow-pair-code",
             "allow-pair-local",
             "allow-open-connection",
+            "allow-step-up-begin",
+            "allow-step-up-poll",
+            "allow-step-up-cancel",
+            "allow-step-up-open",
             "allow-transport-check",
             "allow-connection-transport-set",
             "allow-quit-request",
@@ -105,7 +109,10 @@ fn shell_capability_is_local_only() {
             "allow-uninstall-summary",
             "allow-uninstall-run",
             "allow-desktop-integration-get",
-            "allow-desktop-integration-set"
+            "allow-desktop-integration-set",
+            "allow-extension-upload",
+            "allow-host-file-pick",
+            "allow-host-import-snapshot"
         ])
     );
     assert_eq!(c["webviews"], serde_json::json!(["shell"]));
@@ -162,6 +169,13 @@ fn every_wp4_command_is_registered_guarded_and_no_pin_or_runtime_path_is_an_ipc_
             "update_later",
             "deep_link_next",
             "deep_link_open",
+            "extension_upload",
+            "step_up_begin",
+            "step_up_poll",
+            "step_up_cancel",
+            "step_up_open",
+            "host_file_pick",
+            "host_import_snapshot",
             "app_info",
             "settings_get",
             "settings_set",
@@ -201,6 +215,8 @@ fn every_wp4_command_is_registered_guarded_and_no_pin_or_runtime_path_is_an_ipc_
             registration.contains(&format!("commands::{command}"))
                 || registration.contains(&format!("host_commands::{command}"))
                 || registration.contains(&format!("deeplink::{command}"))
+                || registration.contains(&format!("extension_commands::{command}"))
+                || registration.contains(&format!("snapshot_commands::{command}"))
         );
         assert!(allowed_command("shell", command));
         assert!(!allowed_command("spa", command));

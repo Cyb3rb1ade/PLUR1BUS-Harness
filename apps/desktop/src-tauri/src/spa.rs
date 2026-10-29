@@ -56,6 +56,24 @@ fn cookie_guard_enabled() -> bool {
     }
 }
 impl SpaState {
+    pub(crate) fn active_connection_id(&self) -> Option<uuid::Uuid> {
+        self.current
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|active| active.connection.id)
+    }
+    pub(crate) fn upload_connection(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<(Connection, HarnessClient), String> {
+        let current = self.current.lock().unwrap();
+        let active = current
+            .as_ref()
+            .filter(|active| active.connection.id == id)
+            .ok_or("pairing-needed")?;
+        Ok((active.connection.clone(), active.proxy.native_client()))
+    }
     /// Called under the native generation fence after authenticated metadata persistence.
     pub fn update_trust_transport(
         &self,
@@ -153,7 +171,7 @@ impl SpaState {
             )
         };
         let ticket = if retry {
-            issue_ticket(connection, pin).await
+            issue_ticket(connection.clone(), pin).await
         } else {
             None
         };
@@ -166,24 +184,20 @@ impl SpaState {
                 return None;
             }
         }
-        let mut url = Url::parse(&format!(
-            "{}{}",
-            origin.as_str(),
-            if ticket.is_some() {
-                "/auth/ticket"
-            } else {
-                "/__shell/ticket-error"
-            }
-        ))
-        .unwrap();
-        if let Some(ticket) = ticket {
+        let mut url = match &ticket {
+            Some(ticket) => proxy
+                .start_session(ticket, &connection.device_id)
+                .await
+                .ok()?,
+            None => Url::parse(&format!("{}/__shell/ticket-error", origin.as_str())).ok()?,
+        };
+        if ticket.is_some() {
             // A fresh fragment alone is a same-document navigation and will not rerun redemption.
             url.set_query(Some("shell-retry=1"));
             #[cfg(debug_assertions)]
-            if let Some(observer) = self.secrets.lock().unwrap().clone() {
+            if let (Some(ticket), Some(observer)) = (ticket, self.secrets.lock().unwrap().clone()) {
                 observer(ticket.ticket.expose());
             }
-            url.set_fragment(Some(&format!("t={}", ticket.ticket.expose())));
         }
         Some(url)
     }
@@ -318,7 +332,9 @@ struct Active {
 /// Exact remote origin and exact SPA label; no shell capabilities are added.
 pub fn bridge_capability(origin: &Origin, retired: bool) -> Value {
     json!({"identifier":if retired {format!("spa-retired-{}",Url::parse(origin.as_str()).unwrap().port().unwrap())} else {"spa-bridge".into()},
-        "local":false,"webviews":["spa"],"remote":{"urls":[format!("{}/*",origin.as_str())]},"permissions":[if retired {"deny-shell-info"} else {"allow-shell-info"}]})
+        "local":false,"webviews":["spa"],"remote":{"urls":[format!("{}/*",origin.as_str())]},
+        "permissions":if retired {vec!["deny-shell-info","deny-host-file-pick","deny-host-import-snapshot"]}
+        else {vec!["allow-shell-info","allow-host-file-pick","allow-host-import-snapshot"]}})
 }
 /// Verify against the active window generation as well as label and top-level origin.
 pub fn check_caller(state: &SpaState, label: &str, current: &Url) -> Result<(), String> {
@@ -394,9 +410,10 @@ pub async fn open_spa(
     }
     app.add_capability(bridge_capability(proxy.origin(), false).to_string())
         .map_err(|_| "SPA capability failed")?;
-    let mut url =
-        Url::parse(&format!("{}/auth/ticket", proxy.origin().as_str())).map_err(|_| "invalid")?;
-    url.set_fragment(Some(&format!("t={}", ticket.ticket.expose())));
+    let url = proxy
+        .start_session(&ticket, &conn.device_id)
+        .await
+        .map_err(|e| crate::pair::PairError::Client(e).public_message())?;
     let origin = proxy.origin().clone();
     #[cfg(debug_assertions)]
     let title_callback_origin = origin.clone();
@@ -612,6 +629,35 @@ pub fn navigate_active(
     if !crate::deeplink::allowed_path(path) {
         return Err("invalid".into());
     }
+    navigate_native(app, connection, path)
+}
+
+/// Only native inspection receipts can select this query; OS links never provide an arbitrary query or path.
+pub fn navigate_inspection(
+    app: &tauri::AppHandle,
+    connection: uuid::Uuid,
+    inspection: &str,
+) -> Result<(), String> {
+    if inspection.is_empty()
+        || inspection.len() > 128
+        || !inspection
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"_-".contains(&b))
+    {
+        return Err("invalid".into());
+    }
+    navigate_native(
+        app,
+        connection,
+        &format!("/extensions/confirm?inspection={inspection}"),
+    )
+}
+
+fn navigate_native(
+    app: &tauri::AppHandle,
+    connection: uuid::Uuid,
+    path: &str,
+) -> Result<(), String> {
     let state = app.state::<SpaState>();
     let current = state.current.lock().unwrap();
     let active = current

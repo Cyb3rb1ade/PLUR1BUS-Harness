@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import { SCHEMA, buildCapabilities } from "@plur1bus/rpc-schema";
 import { buildWebMcpTools, isForbiddenMethod, selectMethods, toolNameFor } from "../src/index.ts";
 import { RPC_RULES, guardMethods } from "../../core/src/rbac/guard.ts";
+import { WEB_SUPERVISOR_METHODS } from "../../api/src/rpc-route.ts";
 import { POLICY, policyFor } from "../../core/src/rbac/policy.ts";
 import { createHostMethods, type HostMethodDependencies } from "../../core/src/engine/host-methods.ts";
 
@@ -130,7 +131,13 @@ describe("A. every core method has an RBAC or engine-principal classification", 
     }
   }
   it("supervisor, module and engine methods have no core RBAC rule (they authenticate with their own token)", () => {
-    for (const m of Object.keys(methods).filter((n) => methods[n]!["x-server"] !== "core")) assert.ok(!RPC_RULES[m], m);
+    // Exception: a supervisor method the Harness API forwards for a person (WEB_SUPERVISOR_METHODS) is authorized by the
+    // API against RPC_RULES before it is forwarded (packages/api/src/rpc-route.ts), so it must carry a rule there.
+    for (const m of Object.keys(methods).filter((n) => methods[n]!["x-server"] !== "core" && !WEB_SUPERVISOR_METHODS.has(n))) assert.ok(!RPC_RULES[m], m);
+    for (const m of WEB_SUPERVISOR_METHODS) {
+      assert.equal(methods[m]?.["x-server"], "supervisor", m);
+      if (m.startsWith("ext.") || m.startsWith("admin.")) assert.ok(RPC_RULES[m]?.humanOnly, `${m}: forwarded by the API without a person-only rule`);
+    }
   });
   it("every schema host method is engine-feature gated and its handler refuses ordinary callers before accessing any service", async () => {
     assert.ok(hostMethods.length > 0, "reverse RPC is part of the matrix");

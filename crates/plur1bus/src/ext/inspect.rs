@@ -2,8 +2,9 @@
 //!
 //! The package bytes are spooled to `run/inspect/<inspectionId>.p1x` (0600): stdin with the package cap enforced
 //! while reading, a `.p1x` file copied, a skill folder, `.zip` or `.skill` normalised into it (X1-R10). The spool then
-//! runs through `plur1bus_ext::verify::inspect_file` with this host's facts, trust store, reserved names, the
-//! `extensions.*` limits and `extensions.allowUnsigned` from `config.json`, and the revocation list. Then the name is
+//! runs through `plur1bus_ext::verify::inspect_file_kinds` with the X2 RPC kinds, this host's facts, trust store,
+//! reserved names, `extensions.*` limits and `extensions.allowUnsigned` from `config.json`, and the revocation list.
+//! Then the name is
 //! checked against what is installed (another id or kind → `E_CONFLICT name-taken`), a module's socket address is
 //! checked against this home (`socket-path-too-long`), and `replaces` is filled when the same id is installed. The
 //! record goes to `run/inspect/<inspectionId>.json`. Nothing outside `run/inspect/` is written; a refusal leaves
@@ -18,14 +19,19 @@ use super::record::{
 use super::state::{self, write_private_atomic};
 use super::{iso8601, ExtError};
 use crate::paths::Layout;
+#[cfg(test)]
+use plur1bus_ext::claude::NoNetwork;
+use plur1bus_ext::claude::{normalise_claude, ClaudeInput, EgressFetch};
 use plur1bus_ext::compat::acknowledged_capabilities;
 use plur1bus_ext::manifest::Kind;
+use plur1bus_ext::mcpb::{normalise_mcpb_with_context, McpbContext};
 use plur1bus_ext::normalise::{normalise_skill, SkillInput};
 use plur1bus_ext::refusal::{reason, Refusal};
-use plur1bus_ext::verify::{inspect_file, Policy};
+use plur1bus_ext::verify::{inspect_file_kinds, Policy, X2_RPC_KINDS};
 use plur1bus_ext::zipaudit::Limits;
 use serde_json::{json, Value};
-use std::io::{self, Read};
+use sha2::{Digest, Sha256};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
 /// Where the package comes from.
@@ -82,6 +88,34 @@ pub(super) fn allow_unsigned_policy(layout: &Layout) -> Result<bool, ExtError> {
     ext_config(layout).map(|c| c.allow_unsigned)
 }
 
+/// Runs worker preparation with inspection's current limits and revocations, without exposing package parsing to
+/// supervisor-safe code.
+pub(super) fn with_current_policy<T>(
+    layout: &Layout,
+    action: impl FnOnce(&Policy<'_>) -> Result<T, ExtError>,
+) -> Result<T, ExtError> {
+    with_config_policy(layout, &ext_config(layout)?, action)
+}
+
+fn with_config_policy<T>(
+    layout: &Layout,
+    cfg: &ExtConfig,
+    action: impl FnOnce(&Policy<'_>) -> Result<T, ExtError>,
+) -> Result<T, ExtError> {
+    let store = trust_store();
+    let host = host_facts();
+    let revs = load_revocations(&ExtPaths::of(layout));
+    let is_revoked = |id: &str, version: &str| revoked(&revs, id, version);
+    action(&Policy {
+        limits: cfg.limits.clone(),
+        skill_bytes: cfg.skill_bytes,
+        store: &store,
+        host: &host,
+        reserved: reserved_names(),
+        revoked: &is_revoked,
+    })
+}
+
 /// The spool and record of one inspection, removed on drop unless kept.
 struct Pending {
     p1x: PathBuf,
@@ -123,32 +157,115 @@ fn lower_ext(p: &Path) -> String {
         .to_ascii_lowercase()
 }
 
-/// Puts the package bytes at `to`. Returns whether the input was normalised.
-fn spool(src: &Source, to: &Path, cfg: &ExtConfig) -> Result<bool, ExtError> {
+/// Supplies the OS environment at the worker edge; the MCPB parser never reads process globals.
+fn mcpb_context(_layout: &Layout, _name: &str) -> Result<McpbContext, Refusal> {
+    let home = home::home_dir().ok_or_else(|| {
+        Refusal::invalid(
+            reason::PACKAGE_INVALID,
+            "cannot determine HOME for MCPB path variables",
+        )
+    })?;
+    let mut system_dirs = std::collections::BTreeMap::new();
+    system_dirs.insert("HOME".into(), home.to_string_lossy().into_owned());
+    for (key, directory) in [
+        ("DOCUMENTS", "Documents"),
+        ("DESKTOP", "Desktop"),
+        ("DOWNLOADS", "Downloads"),
+        ("PICTURES", "Pictures"),
+        ("MUSIC", "Music"),
+        ("VIDEOS", "Videos"),
+    ] {
+        system_dirs.insert(
+            key.into(),
+            home.join(directory).to_string_lossy().into_owned(),
+        );
+    }
+    for key in ["APPDATA", "LOCALAPPDATA", "TEMP", "TMP"] {
+        if let Some(path) = std::env::var_os(key) {
+            system_dirs.insert(key.into(), path.to_string_lossy().into_owned());
+        }
+    }
+    Ok(McpbContext {
+        platform: match std::env::consts::OS {
+            "macos" => "darwin",
+            "windows" => "win32",
+            other => other,
+        }
+        .into(),
+        // The authenticated active version/payload path is bound by Core at each start, never by a preview spool.
+        extension_dir: "${__dirname}".into(),
+        path_separator: std::path::MAIN_SEPARATOR.to_string(),
+        system_dirs,
+        user_config: Default::default(),
+    })
+}
+
+/// Puts the package bytes at `to`, returning normalization state and source disclosures.
+fn spool(
+    layout: &Layout,
+    src: &Source,
+    to: &Path,
+    cfg: &ExtConfig,
+    fetch: &mut impl EgressFetch,
+) -> Result<(bool, Vec<String>), ExtError> {
     let cap = cfg.limits.package_bytes;
     let path = match src {
         Source::Stdin => {
             spool_capped(&mut io::stdin().lock(), to, cap)?;
-            return Ok(false);
+            return Ok((false, Vec::new()));
         }
         Source::Path(p) => p,
     };
     let meta = std::fs::symlink_metadata(path).map_err(|e| io_error("cannot read", path, &e))?;
-    let normalise = |input: SkillInput| -> Result<bool, ExtError> {
+    let normalise = |input: SkillInput| -> Result<(bool, Vec<String>), ExtError> {
         let mut f = crate::audit::create_private(to, true)
             .map_err(|e| io_error("cannot create", to, &e))?;
         normalise_skill(&input, &super::now_iso(), &mut f)?;
         f.sync_all().map_err(|e| io_error("cannot write", to, &e))?;
-        Ok(true)
+        Ok((true, Vec::new()))
+    };
+    let claude = |input: ClaudeInput, fetch: &mut _| -> Result<(bool, Vec<String>), ExtError> {
+        let mut out = crate::audit::create_private(to, true)
+            .map_err(|e| io_error("cannot create", to, &e))?;
+        let report = normalise_claude(
+            &input,
+            |name| mcpb_context(layout, name),
+            fetch,
+            &cfg.limits,
+            &super::now_iso(),
+            &mut out,
+        )?;
+        out.sync_all()
+            .map_err(|e| io_error("cannot write", to, &e))?;
+        let mut warnings = report.warnings;
+        for skipped in report.skipped {
+            warnings.push(format!("Skipped {}: {}", skipped.name, skipped.reason));
+        }
+        for member in report.members {
+            warnings.push(format!(
+                "Member {} (unsigned, SHA256 {}): capabilities {}; runtime {}; scripts {}",
+                member.manifest.name,
+                member.sha256,
+                member.manifest.capabilities,
+                member.manifest.requires,
+                json!(member.manifest.scripts)
+            ));
+            warnings.extend(
+                member
+                    .warnings
+                    .into_iter()
+                    .map(|warning| format!("Member {}: {warning}", member.manifest.name)),
+            );
+        }
+        Ok((true, warnings))
     };
     if meta.is_dir() {
         if !path.join("SKILL.md").exists() {
-            if path.join(".claude-plugin").exists() {
-                return Err(ExtError::new(
-                    "E_NOT_AVAILABLE",
-                    reason::KIND_UNSUPPORTED,
-                    "Claude Code plugins arrive in X2",
-                ));
+            if path.join(".claude-plugin").exists()
+                || path.join("skills").exists()
+                || path.join(".mcp.json").exists()
+            {
+                return claude(ClaudeInput::Dir(path.clone()), fetch);
             }
             if path.join("module.json").exists() {
                 return Err(invalid(
@@ -169,19 +286,63 @@ fn spool(src: &Source, to: &Path, cfg: &ExtConfig) -> Result<bool, ExtError> {
         ));
     }
     match lower_ext(path).as_str() {
-        "zip" | "skill" => normalise(SkillInput::Zip(path.clone())),
-        e @ ("mcpb" | "dxt") => Err(ExtError::new(
-            "E_NOT_AVAILABLE",
-            reason::KIND_UNSUPPORTED,
-            format!(".{e} packages arrive in X2"),
-        )),
+        "zip" | "skill" => {
+            let mut input = open_regular(path)?;
+            let audited = plur1bus_ext::zipaudit::audit_zip(&mut input, &cfg.limits)?;
+            let skill = audited.entries.iter().any(|entry| entry.name == "SKILL.md")
+                || audited
+                    .entries
+                    .first()
+                    .and_then(|entry| entry.name.split_once('/'))
+                    .is_some_and(|(top, _)| {
+                        audited
+                            .entries
+                            .iter()
+                            .all(|entry| entry.name.starts_with(&format!("{top}/")))
+                            && audited
+                                .entries
+                                .iter()
+                                .any(|entry| entry.name == format!("{top}/SKILL.md"))
+                    });
+            let plugin = audited.entries.iter().any(|entry| {
+                let name = &entry.name;
+                name.starts_with(".claude-plugin/")
+                    || name.starts_with("skills/")
+                    || name == ".mcp.json"
+                    || name.split_once('/').is_some_and(|(_, rel)| {
+                        rel.starts_with(".claude-plugin/")
+                            || rel.starts_with("skills/")
+                            || rel == ".mcp.json"
+                    })
+            });
+            if plugin && !skill {
+                claude(ClaudeInput::Zip(path.clone()), fetch)
+            } else {
+                normalise(SkillInput::Zip(path.clone()))
+            }
+        }
+        "mcpb" | "dxt" => {
+            let mut input = open_regular(path)?;
+            let mut out = crate::audit::create_private(to, true)
+                .map_err(|e| io_error("cannot create", to, &e))?;
+            let report = normalise_mcpb_with_context(
+                &mut input,
+                |name| mcpb_context(layout, name),
+                &cfg.limits,
+                &super::now_iso(),
+                &mut out,
+            )?;
+            out.sync_all()
+                .map_err(|e| io_error("cannot write", to, &e))?;
+            Ok((true, report.warnings))
+        }
         _ => {
             if meta.len() > cap {
                 return Err(too_large(meta.len(), cap));
             }
             let mut f = open_regular(path)?;
             spool_capped(&mut f, to, cap)?;
-            Ok(false)
+            Ok((false, Vec::new()))
         }
     }
 }
@@ -240,19 +401,173 @@ fn changed_keys(old: &Value, new: &Value) -> Vec<String> {
     keys
 }
 
+/// Public verified child metadata, including replacement consent from the current state.
+pub(crate) fn member_disclosure(
+    child: &plur1bus_ext::verify::BundleMemberInspection,
+    st: &state::ExtState,
+) -> Value {
+    let i = &child.inspection;
+    let m = &i.manifest;
+    let mut out = json!({
+        "name": m.name, "kind": kind_name(m.kind), "version": m.version,
+        "sha256": i.sha256, "optional": child.optional,
+        "manifest": serde_json::from_slice::<Value>(&i.manifest_raw).unwrap_or(Value::Null),
+        "trust": trust_json(&i.trust), "checks": i.checks, "scripts": i.scripts,
+        "capabilities": acknowledged_capabilities(m), "requires": m.requires,
+    });
+    if let Some(old) = st.items.get(&m.name).filter(|old| old.id == m.id) {
+        out["replaces"] = json!({"version":old.version,"capabilityDiff":{"changed":changed_keys(&old.capabilities,&acknowledged_capabilities(m))}});
+    }
+    out
+}
+
 /// Spools, verifies and checks a package (see the module documentation) and writes its record. `id` comes from
 /// [`super::worker::new_inspection_id`].
+#[cfg(test)]
 pub fn inspect(layout: &Layout, src: Source, id: &str) -> Result<InspectionRecord, ExtError> {
     inspect_with(layout, src, id, false)
 }
 
 /// [`inspect`], aborting the process right after the package is spooled when `crash` (the worker's `--crash` test
 /// seam: a parser that crashes leaves its spool behind).
+#[cfg(test)]
 pub(crate) fn inspect_with(
     layout: &Layout,
     src: Source,
     id: &str,
     crash: bool,
+) -> Result<InspectionRecord, ExtError> {
+    inspect_with_fetch(layout, src, id, crash, &mut NoNetwork)
+}
+
+/// Production workers inject the existing Core egress boundary; direct local normalizer callers remain offline.
+#[cfg(test)]
+pub(crate) fn inspect_with_fetch(
+    layout: &Layout,
+    src: Source,
+    id: &str,
+    crash: bool,
+    fetch: &mut impl EgressFetch,
+) -> Result<InspectionRecord, ExtError> {
+    inspect_with_expected(layout, src, id, crash, fetch, None)
+}
+
+struct RawSource(PathBuf);
+impl Drop for RawSource {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+
+/// Read an upload once, without following its final component, and parse only the bounded verified snapshot.
+fn snapshot_source(
+    layout: &Layout,
+    source: &Source,
+    id: &str,
+    expected: (&str, u64),
+    limits: &Limits,
+) -> Result<RawSource, ExtError> {
+    let Source::Path(path) = source else {
+        return Err(invalid(reason::PACKAGE_INVALID, "upload requires a file"));
+    };
+    let (sha256, size) = expected;
+    let mismatch = || {
+        invalid(
+            reason::DIGEST,
+            "the upload bytes no longer match their recorded digest and size",
+        )
+    };
+    if size == 0
+        || size > limits.package_bytes
+        || sha256.len() != 64
+        || !sha256
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(mismatch());
+    }
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        options.custom_flags(windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT);
+    }
+    let mut input = options.open(path).map_err(|_| mismatch())?;
+    let info = input.metadata().map_err(|_| mismatch())?;
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        if info.file_attributes()
+            & windows_sys::Win32::Storage::FileSystem::FILE_ATTRIBUTE_REPARSE_POINT
+            != 0
+        {
+            return Err(mismatch());
+        }
+    }
+    if !info.is_file() || info.len() != size {
+        return Err(mismatch());
+    }
+    let mut raw = RawSource(
+        ExtPaths::of(layout)
+            .inspect
+            .join(format!("{id}.tmp-source")),
+    );
+    let mut output = crate::audit::create_private(&raw.0, true).map_err(|_| mismatch())?;
+    let mut hash = Sha256::new();
+    let mut count = 0u64;
+    let mut buffer = [0u8; 32 * 1024];
+    loop {
+        let n = input.read(&mut buffer).map_err(|_| mismatch())?;
+        if n == 0 {
+            break;
+        }
+        count += n as u64;
+        if count > size {
+            return Err(mismatch());
+        }
+        hash.update(&buffer[..n]);
+        output.write_all(&buffer[..n]).map_err(|_| mismatch())?;
+    }
+    if count != size || format!("{:x}", hash.finalize()) != sha256 {
+        return Err(mismatch());
+    }
+    output.sync_all().map_err(|_| mismatch())?;
+    drop(output);
+    // Browser filenames are discarded. Strict audited root names choose the existing worker parser.
+    // Appended MCPB signatures need that parser's own split/framing audit before ordinary ZIP validation.
+    let extension = match plur1bus_ext::zipaudit::audit_zip(&mut open_regular(&raw.0)?, limits) {
+        Ok(zip) if zip.entries.iter().any(|entry| entry.name == "p1x.json") => "p1x",
+        Ok(zip)
+            if zip
+                .entries
+                .iter()
+                .any(|entry| entry.name == "manifest.json") =>
+        {
+            "mcpb"
+        }
+        Ok(_) => "zip",
+        Err(_) => "mcpb",
+    };
+    let selected = raw.0.with_file_name(format!("{id}.tmp-source.{extension}"));
+    std::fs::rename(&raw.0, &selected).map_err(|_| mismatch())?;
+    raw.0 = selected;
+    Ok(raw)
+}
+
+/// API uploads bind their raw source digest before any format detection or normalization runs.
+pub(crate) fn inspect_with_expected(
+    layout: &Layout,
+    src: Source,
+    id: &str,
+    crash: bool,
+    fetch: &mut impl EgressFetch,
+    expected: Option<(&str, u64)>,
 ) -> Result<InspectionRecord, ExtError> {
     if !valid_id(id) {
         return Err(ExtError::new(
@@ -276,24 +591,26 @@ pub(crate) fn inspect_with(
         keep: false,
     };
     let cfg = ext_config(layout)?;
-    let normalised = spool(&src, &pending.p1x, &cfg)?;
+    let snapshot = expected
+        .map(|expected| snapshot_source(layout, &src, id, expected, &cfg.limits))
+        .transpose()?;
+    let verified = snapshot
+        .as_ref()
+        .map(|source| Source::Path(source.0.clone()));
+    let (normalised, warnings) = spool(
+        layout,
+        verified.as_ref().unwrap_or(&src),
+        &pending.p1x,
+        &cfg,
+        fetch,
+    )?;
     if crash {
         std::process::abort();
     }
 
-    let store = trust_store();
-    let host = host_facts();
-    let revs = load_revocations(&paths);
-    let is_revoked = |id: &str, version: &str| revoked(&revs, id, version);
-    let policy = Policy {
-        limits: cfg.limits.clone(),
-        skill_bytes: cfg.skill_bytes,
-        store: &store,
-        host: &host,
-        reserved: reserved_names(),
-        revoked: &is_revoked,
-    };
-    let insp = inspect_file(&pending.p1x, &policy)?;
+    let insp = with_config_policy(layout, &cfg, |policy| {
+        inspect_file_kinds(&pending.p1x, policy, &X2_RPC_KINDS).map_err(ExtError::from)
+    })?;
     let m = &insp.manifest;
     let tier = trust_json(&insp.trust)["tier"]
         .as_str()
@@ -325,11 +642,29 @@ pub(crate) fn inspect_with(
         })
         .collect();
     let ttl = inspect_ttl();
+    let mut checks = serde_json::to_value(&insp.checks).unwrap_or(Value::Null);
+    if let Some(rows) = checks.as_array_mut() {
+        for detail in warnings {
+            rows.push(json!({"id":"normalization", "status":"warn", "detail":detail}));
+        }
+    }
+    let mut members = Vec::new();
+    for child in &insp.members {
+        let m = &child.inspection.manifest;
+        let tier = trust_json(&child.inspection.trust)["tier"]
+            .as_str()
+            .unwrap_or("unsigned")
+            .to_string();
+        check_unsigned_policy(cfg.allow_unsigned, &tier, &m.id, &m.version)?;
+        check_name(layout, &st, &m.name, &m.id, kind_name(m.kind))?;
+        members.push(member_disclosure(child, &st));
+    }
     let rec = InspectionRecord {
         inspection_id: id.to_string(),
         expires_at: iso8601(now_ms().saturating_add(ttl.as_millis() as u64)),
         sha256: insp.sha256.clone(),
         source_path: match &src {
+            _ if expected.is_some() => None,
             Source::Path(p) => Some(p.to_string_lossy().into_owned()),
             Source::Stdin => None,
         },
@@ -337,11 +672,12 @@ pub(crate) fn inspect_with(
         manifest: serde_json::from_slice(&insp.manifest_raw)
             .map_err(|e| invalid(reason::PACKAGE_INVALID, e.to_string()))?,
         trust: trust_json(&insp.trust),
-        checks: serde_json::to_value(&insp.checks).unwrap_or(Value::Null),
+        checks,
         capabilities: acknowledged_capabilities(m),
         scripts: Value::Array(scripts),
         requires: m.requires.clone(),
         replaces,
+        members,
     };
     let mut text = serde_json::to_string_pretty(&rec).map_err(|e| {
         ExtError::new(
@@ -360,6 +696,30 @@ pub(crate) fn inspect_with(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_direct_local_caller_cannot_fetch_a_plugin_without_an_explicit_egress_port() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("plugin");
+        std::fs::create_dir_all(source.join(".claude-plugin")).unwrap();
+        std::fs::write(
+            source.join(".claude-plugin/plugin.json"),
+            br#"{"name":"demo-plugin","mcpServers":"https://example.invalid/demo.mcpb"}"#,
+        )
+        .unwrap();
+        let layout = Layout::new(dir.path().join("home"));
+        let error = inspect(
+            &layout,
+            Source::Path(source),
+            &super::super::worker::new_inspection_id(),
+        )
+        .unwrap_err();
+        assert_eq!(
+            (error.code, error.reason),
+            ("E_NOT_AVAILABLE", Some("kind-unsupported"))
+        );
+        assert!(!layout.home.join("mcp").exists());
+    }
 
     #[test]
     fn changed_keys_are_the_differing_top_level_keys() {

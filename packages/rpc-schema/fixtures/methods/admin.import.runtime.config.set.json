@@ -1,0 +1,26 @@
+{
+  "params": {
+    "runId": "12345678-1234-4123-8123-123456789012",
+    "planId": "12345678-1234-4123-8123-123456789012",
+    "planSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "changes": [
+      {
+        "key": "fixture",
+        "value": {}
+      }
+    ]
+  },
+  "result": {
+    "applied": false,
+    "dryRun": false,
+    "changed": [],
+    "restart": {
+      "live": [],
+      "core": false,
+      "modules": []
+    },
+    "revision": "fixture",
+    "restarted": [],
+    "durationMs": 0
+  }
+}

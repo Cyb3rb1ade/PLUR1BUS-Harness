@@ -363,7 +363,11 @@ pub fn run(out: &Out, layout: &Layout, cmd: ExtCmd) {
         ExtCmd::Pack { dir, output } => pack(out, &dir, output),
         ExtCmd::Verify { file } => verify(out, &file),
         // Dispatched by main before this module is reached.
-        ExtCmd::Worker { op } => crate::ext::stage::worker_main(layout, op),
+        ExtCmd::Worker { op } => crate::ext::stage::worker_main(
+            layout,
+            op,
+            &mut crate::commands::core::extension_source_fetch(layout),
+        ),
     }
 }
 

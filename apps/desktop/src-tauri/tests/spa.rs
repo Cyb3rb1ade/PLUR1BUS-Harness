@@ -12,13 +12,17 @@ use plur1bus_mock_harness::{MockHandle, MockHarness, MockOptions};
 use std::{sync::atomic::AtomicU8, time::Duration};
 use url::Url;
 #[test]
-fn shell_info_is_the_only_spa_command() {
+fn spa_commands_are_limited_to_shell_info_and_native_import_snapshots() {
     assert!(APP_COMMANDS.contains(&"shell_info"));
     assert!(!SHELL_COMMANDS.contains(&"shell_info"));
     assert!(!allowed_command("shell", "shell_info"));
     assert_eq!(
         bridge_capability(&Origin::parse("http://127.0.0.1:30001").unwrap(), false)["permissions"],
-        serde_json::json!(["allow-shell-info"])
+        serde_json::json!([
+            "allow-shell-info",
+            "allow-host-file-pick",
+            "allow-host-import-snapshot"
+        ])
     );
 }
 #[test]
@@ -188,7 +192,11 @@ async fn switching_connection_replaces_the_capability() {
         let retired = bridge_capability(&Origin::parse(old_url.as_str()).unwrap(), true);
         assert_eq!(
             retired["permissions"],
-            serde_json::json!(["deny-shell-info"])
+            serde_json::json!([
+                "deny-shell-info",
+                "deny-host-file-pick",
+                "deny-host-import-snapshot"
+            ])
         );
         assert_ne!(
             retired["remote"],

@@ -4,6 +4,8 @@ import { connect, coreAddress, corePidPath, coreTokenPath, readRecordedPid, read
 import type { CoreRpc } from "./core-rpc.ts";
 
 export interface CoreLinkOptions {
+  /** Test clock for the fixed active-run credential lifetime. */
+  now?: () => number;
   /** Test seam; default module-api's `connect`. */
   connect?: (o: ConnectOptions) => Promise<CoreClient>;
   readApiToken?: (home: string) => string;
@@ -41,6 +43,7 @@ export function createCoreLink(home: string, o: CoreLinkOptions = {}): CoreRpc &
   async function getService(): Promise<CoreClient> {
     if (closed) throw new Error("closed");
     const token = o.readApiToken?.(home) ?? readRunToken(home, join(home, "run", "api-delegation.token"));
+    delegated.observeApiCredential(token);
     if (service && serviceToken !== token) { const previous = service; service = undefined; await previous.close(); }
     if (service) return service;
     servicePending ??= (async () => {
@@ -62,7 +65,7 @@ export function createCoreLink(home: string, o: CoreLinkOptions = {}): CoreRpc &
       if (!new Set(["admin.api.person.resolve", "admin.api.invite.validate", "user.invite.redeem", "admin.api.desktop.redeem", "admin.api.desktop.token", "admin.api.desktop.resolve", "admin.api.device.pair", "admin.api.device.challenge", "admin.api.device.prove", "admin.api.device.announce"]).has(method)) throw new Error("API service operation refused");
       return (await getService()).call<T>(method, params);
     },
-    callAs: delegated.callAs, subscribeAs: delegated.subscribeAs,
+    callAs: delegated.callAs, subscribeAs: delegated.subscribeAs, subscribeImportAs: delegated.subscribeImportAs,
     async call<T = unknown>(method: string, params?: object): Promise<T> { return (await get()).call<T>(method, params); },
     async close() { closed = true; const c = client; client = undefined; await c?.close(); await service?.close(); await delegated.close(); },
   };

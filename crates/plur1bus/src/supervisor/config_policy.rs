@@ -290,6 +290,31 @@ pub fn audit(
 mod tests {
     use super::*;
     #[test]
+    fn ssh_setup_and_trust_are_owner_only_through_generic_config_changes() {
+        let configured = json!({"import":{"ssh":{"connections":{"source":{
+            "host":"source.invalid","port":22,"user":"reader","roots":["/home/reader"],
+            "allowPrivate":false,"hostKey":{"sha256":format!("SHA256:{}", "A".repeat(43))}
+        }}}}});
+        for (before, after) in [
+            (json!({}), configured.clone()),
+            (configured.clone(), json!({})),
+            (
+                configured.clone(),
+                json!({"import":{"ssh":{"connections":{}}}}),
+            ),
+        ] {
+            for role in ["admin", "operator", "member", "viewer"] {
+                assert_eq!(
+                    changes(schema(), &before, &after, role),
+                    Err("config-write-role")
+                );
+            }
+            assert!(!changes(schema(), &before, &after, "owner")
+                .unwrap()
+                .is_empty());
+        }
+    }
+    #[test]
     fn sandbox_task_cap_is_owner_only() {
         let before = json!({"tools":{"sandbox":{"maxTasks":512}}});
         let after = json!({"tools":{"sandbox":{"maxTasks":0}}});

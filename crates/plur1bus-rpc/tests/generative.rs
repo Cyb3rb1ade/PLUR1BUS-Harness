@@ -139,6 +139,60 @@ fn parse_pattern(p: &str) -> Pattern {
     }
 }
 
+fn class_char(c: &[char], i: &mut usize, pattern: &str) -> char {
+    let value = c[*i];
+    *i += 1;
+    if value != '\\' {
+        return value;
+    }
+    let escaped = c[*i];
+    *i += 1;
+    if escaped != 'u' {
+        return escaped;
+    }
+    let end = *i + 4;
+    assert!(
+        end <= c.len(),
+        "pattern {pattern}: incomplete Unicode escape"
+    );
+    let digits: String = c[*i..end].iter().collect();
+    *i = end;
+    char::from_u32(u32::from_str_radix(&digits, 16).expect("Unicode escape is hexadecimal"))
+        .expect("class escape is a Unicode scalar")
+}
+
+/// Complement only Unicode scalar ranges, so emitting a negated class cannot generate a surrogate.
+fn complement_class(ranges: &[(char, char)]) -> Vec<(char, char)> {
+    let mut denied: Vec<_> = ranges
+        .iter()
+        .map(|(lo, hi)| (*lo as u32, *hi as u32))
+        .collect();
+    denied.sort_unstable();
+    let mut allowed = Vec::new();
+    for (lo, hi) in [(0, 0xd7ff), (0xe000, 0x10ffff)] {
+        let mut next = lo;
+        for &(start, end) in &denied {
+            if end < next || start > hi {
+                continue;
+            }
+            if start > next {
+                allowed.push((
+                    char::from_u32(next).unwrap(),
+                    char::from_u32(start - 1).unwrap(),
+                ));
+            }
+            next = next.max(end.saturating_add(1));
+            if next > hi {
+                break;
+            }
+        }
+        if next <= hi {
+            allowed.push((char::from_u32(next).unwrap(), char::from_u32(hi).unwrap()));
+        }
+    }
+    allowed
+}
+
 fn parse_seq(c: &[char], mut i: usize, p: &str) -> (Vec<Item>, usize) {
     let mut items = Vec::new();
     while i < c.len() && c[i] != ')' && c[i] != '$' && c[i] != '|' {
@@ -163,22 +217,26 @@ fn parse_seq(c: &[char], mut i: usize, p: &str) -> (Vec<Item>, usize) {
             '[' => {
                 i += 1;
                 let mut ranges = Vec::new();
-                assert!(c[i] != '^', "pattern {p}: negated class not supported");
+                let negated = c.get(i) == Some(&'^');
+                if negated {
+                    i += 1;
+                }
                 while c[i] != ']' {
-                    let mut lo = c[i];
-                    if lo == '\\' {
+                    let lo = class_char(c, &mut i, p);
+                    if c.get(i) == Some(&'-') && c.get(i + 1) != Some(&']') {
                         i += 1;
-                        lo = c[i];
-                    }
-                    if c.get(i + 1) == Some(&'-') && c.get(i + 2) != Some(&']') {
-                        ranges.push((lo, c[i + 2]));
-                        i += 3;
+                        let hi = class_char(c, &mut i, p);
+                        assert!(lo <= hi, "pattern {p}: reversed character range");
+                        ranges.push((lo, hi));
                     } else {
                         ranges.push((lo, lo));
-                        i += 1;
                     }
                 }
                 i += 1;
+                if negated {
+                    ranges = complement_class(&ranges);
+                }
+                assert!(!ranges.is_empty(), "pattern {p}: empty character class");
                 Atom::Class(ranges)
             }
             '\\' => {
@@ -346,6 +404,8 @@ fn pattern_generation_intersects_length_bounds_without_truncating_regex() {
         ("^/", 20, 24),
         ("^(?:workspace:v1:|workspace-dir:v1:)", 0, 50),
         ("^user:v[12]:", 0, 50),
+        (r"^[^\u0000-\u0020\u007f]+$", 1, 24),
+        (r"^[\u0041-\u005A]{3}$", 3, 3),
     ] {
         for size in [Size::Min, Size::Max, Size::Random] {
             let mut rng = Rng::for_case(&["pattern intersection", pattern]);
@@ -1769,6 +1829,75 @@ fn get_at_opt<'a>(root: &'a Value, path: &[Seg]) -> Option<&'a Value> {
 // ---------------------------------------------------------------------------------------------------------------------
 
 table! {
+    Params "admin.extensions.auth.cancel" AdminExtensionsAuthCancelParams,
+    Result "admin.extensions.auth.cancel" AdminExtensionsAuthCancelResult,
+    Params "admin.extensions.auth.start" AdminExtensionsAuthStartParams,
+    Result "admin.extensions.auth.start" AdminExtensionsAuthStartResult,
+    Params "admin.extensions.auth.status" AdminExtensionsAuthStatusParams,
+    Result "admin.extensions.auth.status" AdminExtensionsAuthStatusResult,
+    Params "admin.extensions.auth.submit" AdminExtensionsAuthSubmitParams,
+    Result "admin.extensions.auth.submit" AdminExtensionsAuthSubmitResult,
+    Params "admin.extensions.runtime.hold" AdminExtensionsRuntimeHoldParams,
+    Result "admin.extensions.runtime.hold" AdminExtensionsRuntimeHoldResult,
+    Params "admin.extensions.runtime.reconcile" AdminExtensionsRuntimeReconcileParams,
+    Result "admin.extensions.runtime.reconcile" AdminExtensionsRuntimeReconcileResult,
+    Params "admin.extensions.runtime.release" AdminExtensionsRuntimeReleaseParams,
+    Result "admin.extensions.runtime.release" AdminExtensionsRuntimeReleaseResult,
+    Params "admin.extensions.runtime.status" AdminExtensionsRuntimeStatusParams,
+    Result "admin.extensions.runtime.status" AdminExtensionsRuntimeStatusResult,
+    Params "admin.extensions.setup.get" AdminExtensionsSetupGetParams,
+    Result "admin.extensions.setup.get" AdminExtensionsSetupGetResult,
+    Params "admin.extensions.setup.set" AdminExtensionsSetupSetParams,
+    Result "admin.extensions.setup.set" AdminExtensionsSetupSetResult,
+    Params "admin.import.abort" AdminImportAbortParams,
+    Result "admin.import.abort" AdminImportAbortResult,
+    Params "admin.import.apply" AdminImportApplyParams,
+    Result "admin.import.apply" AdminImportApplyResult,
+    Params "admin.import.detect" AdminImportDetectParams,
+    Result "admin.import.detect" AdminImportDetectResult,
+    Params "admin.import.plan" AdminImportPlanParams,
+    Result "admin.import.plan" AdminImportPlanResult,
+    Params "admin.import.preflight" AdminImportPreflightParams,
+    Result "admin.import.preflight" AdminImportPreflightResult,
+    Params "admin.import.rollback" AdminImportRollbackParams,
+    Result "admin.import.rollback" AdminImportRollbackResult,
+    Params "admin.import.runs" AdminImportRunsParams,
+    Result "admin.import.runs" AdminImportRunsResult,
+    Params "admin.import.runtime.complete" AdminImportRuntimeCompleteParams,
+    Result "admin.import.runtime.complete" AdminImportRuntimeCompleteResult,
+    Params "admin.import.runtime.config.set" AdminImportRuntimeConfigSetParams,
+    Result "admin.import.runtime.config.set" AdminImportRuntimeConfigSetResult,
+    Params "admin.import.runtime.release" AdminImportRuntimeReleaseParams,
+    Result "admin.import.runtime.release" AdminImportRuntimeReleaseResult,
+    Params "admin.import.runtime.status" AdminImportRuntimeStatusParams,
+    Result "admin.import.runtime.status" AdminImportRuntimeStatusResult,
+    Params "admin.import.skills" AdminImportSkillsParams,
+    Result "admin.import.skills" AdminImportSkillsResult,
+    Params "admin.import.ssh.connections.delete" AdminImportSshConnectionsDeleteParams,
+    Result "admin.import.ssh.connections.delete" AdminImportSshConnectionsDeleteResult,
+    Params "admin.import.ssh.connections.list" AdminImportSshConnectionsListParams,
+    Result "admin.import.ssh.connections.list" AdminImportSshConnectionsListResult,
+    Params "admin.import.ssh.connections.set" AdminImportSshConnectionsSetParams,
+    Result "admin.import.ssh.connections.set" AdminImportSshConnectionsSetResult,
+    Params "admin.import.ssh.hostKey.probe" AdminImportSshHostKeyProbeParams,
+    Result "admin.import.ssh.hostKey.probe" AdminImportSshHostKeyProbeResult,
+    Params "admin.import.ssh.hostKey.trust" AdminImportSshHostKeyTrustParams,
+    Result "admin.import.ssh.hostKey.trust" AdminImportSshHostKeyTrustResult,
+    Params "admin.import.ssh.key.delete" AdminImportSshKeyDeleteParams,
+    Result "admin.import.ssh.key.delete" AdminImportSshKeyDeleteResult,
+    Params "admin.import.ssh.key.generate" AdminImportSshKeyGenerateParams,
+    Result "admin.import.ssh.key.generate" AdminImportSshKeyGenerateResult,
+    Params "admin.import.ssh.key.rotate" AdminImportSshKeyRotateParams,
+    Result "admin.import.ssh.key.rotate" AdminImportSshKeyRotateResult,
+    Params "admin.import.ssh.key.status" AdminImportSshKeyStatusParams,
+    Result "admin.import.ssh.key.status" AdminImportSshKeyStatusResult,
+    Params "admin.import.status" AdminImportStatusParams,
+    Result "admin.import.status" AdminImportStatusResult,
+    Params "admin.import.wsl.list" AdminImportWslListParams,
+    Result "admin.import.wsl.list" AdminImportWslListResult,
+    Params "ext.inspection.get" ExtInspectionGetParams,
+    Result "ext.inspection.get" ExtInspectionGetResult,
+    Notification "import.progress" ImportProgressNotification,
     Params "engine.agent.close" EngineAgentCloseParams,
     Result "engine.agent.close" EngineAgentCloseResult,
     Params "host.journalBacklog" HostJournalBacklogParams,

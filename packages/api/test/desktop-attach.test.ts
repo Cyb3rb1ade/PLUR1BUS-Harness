@@ -7,12 +7,14 @@ import { buildAccountHandlers } from "../src/account-routes.ts";
 import { SessionStore } from "../src/session.ts";
 import { FakeClock } from "../src/clock.ts";
 import type { HandlerDeps, HandlerInput } from "../src/routes.ts";
+import { DesktopStepUp } from "../src/desktop-stepup.ts";
+import { MemoryUserDirectory } from "../src/memory-stores.ts";
 
 function rig(required=false) {
  const clock=new FakeClock(),sessions=new SessionStore(clock),origin="http://127.0.0.1:8123";
  const deps={clock,sessions,tls:false,requireSecondFactor:()=>required,core:{serviceCall:async(method:string)=>method==="admin.api.person.resolve"?{person:{userId:"alice",role:"member",kind:"person",disabled:false,version:1}}:{deviceId:"device",userId:"alice",scopes:["chat:read"],expiresAt:clock.now()+86400000}}} as unknown as HandlerDeps;
  const methods=buildDesktopAttachHandlers(deps,o=>o===origin);
- const call=async(name:string,body:object,source=origin)=>methods[name]!({body,origin:source} as HandlerInput);
+ const call=async(name:string,body:object,source=origin,headers?:Record<string,string>)=>methods[name]!({body,origin:source,...headers?{headers}:{}} as HandlerInput);
  const ticket=async()=> (await call("desktop.redeem",{token:"x".repeat(43),origin})).body as any;
  return {clock,sessions,origin,deps,call,ticket};
 }
@@ -44,6 +46,20 @@ test("remote listeners cannot bootstrap an Owner even if a proof would otherwise
    assert.equal(accounts.hasOwnerAccount(),false);assert.equal(accounts.bootstrapState()?.consumed,false);
  } finally {accounts.close();}
 });
-test("KNOWN GAP: native ticket redemption completes the existing TOTP/WebAuthn challenge while preserving device/origin/scopes",{todo:"Owner decision: bind native attach to the existing MFA continuation; mandatory MFA currently refuses attach without issuing a session"},async()=>{
- const r=rig(true);assert.equal((await r.ticket()).schema,"session.challenge/1");
+test("approved ordinary MFA session permits native ticket redemption while preserving device, origin and enrolled scopes",async()=>{
+ const r=rig(true),users=new MemoryUserDirectory();users.add({id:"alice",username:"alice",role:"member"});
+ const authority=new DesktopStepUp({core:r.deps.core,clock:r.clock,sessions:r.sessions,users,credentialVersion:()=>1});
+ r.deps.desktopStepUp=authority;
+ const c=await authority.start("x".repeat(43),"session");
+ const browser=r.sessions.create({kind:"user",id:"alice",role:"member"},{authVersion:1,stepUpAt:r.clock.now()});
+ await authority.decision(browser.session,c.userCode,"approve");
+ const poll=await authority.poll("x".repeat(43),c.challengeId);assert.ok("proofToken" in poll);
+ const ticket=(await r.call("desktop.redeem",{token:"x".repeat(43),origin:r.origin},r.origin,{"x-plur1bus-desktop-step-up":poll.proofToken})).body;
+ const opened=await r.call("desktop.ticket",{ticket:ticket.ticket,deviceId:"device"});
+ assert.equal(opened.body.schema,"desktop.ticket/1");assert.match(opened.headers!["Set-Cookie"]!,/HttpOnly; SameSite=Strict/);
+ const cookie=opened.headers!["Set-Cookie"]!.split(";",1)[0]!.split("=",2)[1]!;
+ const native=r.sessions.peek(cookie)!;
+ assert.equal(native.stepUpAt,browser.session.stepUpAt);assert.deepEqual(native.device?.scopes,["chat:read"]);
+ assert.equal(native.device?.deviceId,"device");assert.equal(native.device?.userId,"alice");
+ assert.ok(authority.sessionProof(native,{userId:"alice",kind:"person",role:"member",tokenScopes:["chat:read"]}));
 });

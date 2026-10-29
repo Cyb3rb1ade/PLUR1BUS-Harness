@@ -1,5 +1,5 @@
 //! `extensions/state.json`: one package record per installed extension (spec §6.2), schema-versioned, written
-//! atomically with mode 0600. `skills/index.json` and `modules.<name>.enabled` own the enabled flags; this file owns
+//! atomically with mode 0600. `skills/index.json`, `modules.<name>.enabled` and `mcp.servers.<name>.enabled` own the flags; this file owns
 //! everything else about where an item came from.
 use super::paths::ExtPaths;
 use plur1bus_ext::manifest::FileEntry;
@@ -32,6 +32,17 @@ pub struct ItemRecord {
     pub name: String,
     pub kind: String,
     pub version: String,
+    /// MCP activation pointer. `version` mirrors it for existing CLI/RPC consumers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub active_version: Option<String>,
+    /// Retained, immutable MCP version metadata; no version selector is exposed yet.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub versions: BTreeMap<String, McpVersionRecord>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub per_agent_versions: BTreeMap<String, String>,
+    /// Selected installed bundle children. Child ownership is derived solely from these parent records.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub members: Vec<BundleMemberRecord>,
     /// `file` in X1.
     pub source: String,
     /// A `plur1bus_ext::trust::Tier` in kebab case.
@@ -42,6 +53,9 @@ pub struct ItemRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_label: Option<String>,
     pub package_sha256: String,
+    /// Exact verified package manifest bytes, required by new MCP installs before the Core trusts root metadata.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_sha256: Option<String>,
     pub installed_at: String,
     #[serde(default)]
     pub previous_version: Option<String>,
@@ -55,6 +69,52 @@ pub struct ItemRecord {
     pub removed_by_user: bool,
     #[serde(default)]
     pub integrity: Option<Integrity>,
+}
+
+/// Exact selected child package, without executable settings or copied secret authority on the wrapper.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BundleMemberRecord {
+    pub name: String,
+    pub kind: String,
+    pub version: String,
+    pub sha256: String,
+    pub optional: bool,
+}
+
+/// Metadata bound to one immutable MCP version. Activation still has one default for every agent.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpVersionRecord {
+    pub package_sha256: String,
+    pub manifest_sha256: Option<String>,
+    pub trust: String,
+    pub key_id: Option<String>,
+    pub key_label: Option<String>,
+    pub installed_at: String,
+    pub files: BTreeMap<String, FileEntry>,
+    pub capabilities: Value,
+    pub capabilities_ack: Option<String>,
+    pub scripts: Vec<String>,
+    pub required_secrets: Vec<String>,
+}
+
+impl From<&ItemRecord> for McpVersionRecord {
+    fn from(r: &ItemRecord) -> Self {
+        Self {
+            package_sha256: r.package_sha256.clone(),
+            manifest_sha256: r.manifest_sha256.clone(),
+            trust: r.trust.clone(),
+            key_id: r.key_id.clone(),
+            key_label: r.key_label.clone(),
+            installed_at: r.installed_at.clone(),
+            files: r.files.clone(),
+            capabilities: r.capabilities.clone(),
+            capabilities_ack: r.capabilities_ack.clone(),
+            scripts: r.scripts.clone(),
+            required_secrets: r.required_secrets.clone(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -90,7 +150,7 @@ fn validator() -> &'static jsonschema::Validator {
 /// Reads `state.json`. A missing file is the empty state. A file written by a newer harness is refused before its
 /// content is looked at (an old binary must never rewrite a newer file); anything the schema rejects is an error that
 /// names the file and every violation.
-pub fn read(p: &ExtPaths) -> Result<ExtState, String> {
+pub(super) fn read_metadata(p: &ExtPaths) -> Result<ExtState, String> {
     let text = match std::fs::read_to_string(&p.state) {
         Ok(t) => t,
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(ExtState::default()),
@@ -113,7 +173,46 @@ pub fn read(p: &ExtPaths) -> Result<ExtState, String> {
     if !errs.is_empty() {
         return Err(format!("{}: {}", p.state.display(), errs.join("; ")));
     }
-    serde_json::from_value(v).map_err(|e| format!("{}: {e}", p.state.display()))
+    let st: ExtState =
+        serde_json::from_value(v).map_err(|e| format!("{}: {e}", p.state.display()))?;
+    Ok(st)
+}
+
+pub fn read(p: &ExtPaths) -> Result<ExtState, String> {
+    let st = read_metadata(p)?;
+    let mut owners = std::collections::BTreeSet::new();
+    for parent in st.items.values() {
+        if parent.kind != "bundle" && !parent.members.is_empty() {
+            return Err(format!(
+                "{}: a non-bundle has member records",
+                p.state.display()
+            ));
+        }
+        for member in &parent.members {
+            if member.name == parent.name || !owners.insert(member.name.clone()) {
+                return Err(format!(
+                    "{}: bundle child ownership is ambiguous",
+                    p.state.display()
+                ));
+            }
+        }
+    }
+    for r in st.items.values().filter(|r| r.kind == "mcp-server") {
+        if r.active_version.as_deref() != Some(&r.version)
+            || !super::packages::valid_version(&r.version)
+            || !r.versions.get(&r.version).is_some_and(|v| {
+                v.package_sha256 == r.package_sha256 && v.manifest_sha256 == r.manifest_sha256
+            })
+            || !r.per_agent_versions.is_empty()
+        {
+            return Err(format!(
+                "{}: MCP activeVersion and version metadata disagree for {}",
+                p.state.display(),
+                r.name
+            ));
+        }
+    }
+    Ok(st)
 }
 
 /// Writes `state.json` atomically: `state.json.tmp-<pid>`, fsync, rename; mode 0600.

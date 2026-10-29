@@ -1,0 +1,24 @@
+{
+  "params": {
+    "connection": {
+      "id": "fixture",
+      "host": "fixture",
+      "user": "fixture",
+      "roots": [
+        "fixture"
+      ]
+    }
+  },
+  "result": {
+    "connection": {
+      "id": "fixture",
+      "host": "fixture",
+      "user": "fixture",
+      "roots": [
+        "fixture"
+      ],
+      "port": 1,
+      "allowPrivate": false
+    }
+  }
+}

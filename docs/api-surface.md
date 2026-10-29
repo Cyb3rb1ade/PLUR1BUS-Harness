@@ -6,10 +6,19 @@ Every route is **deny by default**: a route that is not `public` answers 401 wit
 
 | Method | Path | Operation | Auth | Action | CSRF | Rate class | Stability · since |
 |---|---|---|---|---|---|---|---|
+| `GET` | `/api/v1/import/sources` | `imports.sources` | session | `imports.read` | no | read | experimental · 1.8.0 |
+| `POST` | `/api/v1/import/snapshots` | `imports.snapshot.upload` | session or token | `imports.manage` | yes | upload | experimental · 1.8.0 |
+| `POST` | `/api/v1/extensions/upload` | `extensions.upload` | session or token | `extensions.manage` | yes | upload | experimental · 1.8.0 |
+| `POST` | `/api/v1/extensions/inspect` | `extensions.inspect` | session or token | `extensions.manage` | yes | write | experimental · 1.8.0 |
 | `GET` | `/api/v1/meta` | `desktop.meta` | public | `public` | no | read | experimental · 1.0.0 |
 | `POST` | `/api/v1/desktop/pair` | `desktop.pair` | public | `public` | no | auth | experimental · 1.0.0 |
 | `POST` | `/api/v1/desktop/redeem` | `desktop.redeem` | public | `public` | no | auth | experimental · 1.0.0 |
 | `POST` | `/api/v1/desktop/ticket` | `desktop.ticket` | public | `public` | no | auth | experimental · 1.0.0 |
+| `POST` | `/api/v1/desktop/step-up/start` | `desktop.step-up.start` | public | `public` | no | auth | experimental · 1.8.0 |
+| `POST` | `/api/v1/desktop/step-up/poll` | `desktop.step-up.poll` | public | `public` | no | auth | experimental · 1.8.0 |
+| `POST` | `/api/v1/desktop/step-up/cancel` | `desktop.step-up.cancel` | public | `public` | no | auth | experimental · 1.8.0 |
+| `GET` | `/api/v1/desktop/step-up/approval/{userCode}` | `desktop.step-up.approval` | session | `authenticated` | no | read | experimental · 1.8.0 |
+| `POST` | `/api/v1/desktop/step-up/decision` | `desktop.step-up.decision` | session | `authenticated` | yes | write | experimental · 1.8.0 |
 | `POST` | `/rpc` | `web.rpc` | session | `delegated` | yes | rpc | experimental · 1.0.0 |
 | `GET` | `/events` | `web.events` | session | `delegated` | no | stream | experimental · 1.0.0 |
 | `POST` | `/api/v1/invitations/redeem` | `invitation.redeem` | public | `public` | no | auth | experimental · 1.0.0 |

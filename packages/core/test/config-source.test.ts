@@ -38,6 +38,20 @@ async function supervised(home: string, config: HarnessConfig, logger = capture(
 }
 
 describe("config source (B7)", () => {
+  it("maintenance model writes use only the run-bound private method and never ordinary config.set", async () => {
+    const home = homeWith(defaults());
+    const { source, sup } = await supervised(home, defaults());
+    const run = { runId: "12345678-1234-4123-8123-123456789011", planId: "12345678-1234-4123-8123-123456789012", planSha256: "a".repeat(64) };
+    const changes = [{ key: "embedding.model", value: "fixture/model" }];
+    await source.setDuringImport!(run, changes);
+    assert.deepEqual(sup.runtimeSets, [{ ...run, changes }]);
+    assert.equal(sup.sets.length, 0);
+    await sup.close();
+    await until(() => source.source === "file");
+    await assert.rejects(source.setDuringImport!(run, changes));
+    assert.equal(sup.sets.length, 0, "lost private transport never falls back to normal config.set or a file write");
+  });
+
   it("supervised source serves the snapshot, not the file", async () => {
     const home = homeWith(withLevel("info"));
     const { sup, source } = await supervised(home, withLevel("debug"));

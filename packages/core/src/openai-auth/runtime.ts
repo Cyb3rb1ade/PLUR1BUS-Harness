@@ -9,6 +9,7 @@ import type { CompositionDeps } from '../composition/index.ts';
 import { cacheRouteFor, type ProviderDefinition } from '../composition/auth.ts';
 import { providerFetch } from '../composition/http.ts';
 import { turnContext } from '../composition/context.ts';
+import { deferMaintenanceStart } from '../composition/maintenance.ts';
 export function createOpenAIRuntime(d: CompositionDeps) {
   const cfg = d.config().auth?.openai;
   const audit: import('./ports.ts').AuditPort = event => { const detail = { ...event }; d.audit.append({ at: d.clock(), actor: { user: 'core', host: 'core' }, action: 'auth.openai.' + event.kind, target: 'openai', detail }); d.logger.info('auth.openai.' + event.kind, detail); };
@@ -19,7 +20,9 @@ export function createOpenAIRuntime(d: CompositionDeps) {
   const auth = new AuthService({ http, store, clock: { now: d.clock }, audit, timeoutMs: cfg?.loopbackTimeoutMs ?? 600000, refreshSkewMs: (cfg?.refreshSkewSeconds ?? 120) * 1000 });
   mkdirSync(join(d.home, 'state'), { recursive: true, mode: 0o700 });
   const usage = new PlanUsageStore(join(d.home, 'state', 'openai-plan-usage.sqlite'));
-  d.options?.onOpenAI?.(auth);
-  return { auth, usage, http, audit, handles: isOpenAIManaged, adapter: (definition: ProviderDefinition) => openAIAdapter({ definition: definition.profile.kind === 'federated_token' && definition.openai ? { ...definition, openai: { ...definition.openai, federated: definition.openai.federated ?? cfg?.federated ?? {} } } : definition, auth, usage, clock: d.clock, fetch: providerFetch(d.egress, 'codex_responses', d.options?.fetch, cacheRouteFor(definition, true)), currentPerson: () => turnContext.getStore()?.approver?.person ?? turnContext.getStore()?.authenticatedPerson }), async close() { await auth.close(); usage.close(); } };
+  const publish = () => d.options?.onOpenAI?.(auth);
+  const unwatchPublish = deferMaintenanceStart(d.maintenance, publish);
+  if (!unwatchPublish) publish();
+  return { auth, usage, http, audit, handles: isOpenAIManaged, adapter: (definition: ProviderDefinition) => openAIAdapter({ definition: definition.profile.kind === 'federated_token' && definition.openai ? { ...definition, openai: { ...definition.openai, federated: definition.openai.federated ?? cfg?.federated ?? {} } } : definition, auth, usage, clock: d.clock, fetch: providerFetch(d.egress, 'codex_responses', d.options?.fetch, cacheRouteFor(definition, true)), currentPerson: () => turnContext.getStore()?.approver?.person ?? turnContext.getStore()?.authenticatedPerson }), async close() { unwatchPublish?.(); await auth.close(); usage.close(); } };
 }
 export type OpenAIRuntime = ReturnType<typeof createOpenAIRuntime>;
