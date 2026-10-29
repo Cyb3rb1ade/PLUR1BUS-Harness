@@ -109,7 +109,9 @@ describe("live turn eval configuration and gates", () => {
       await secrets.set({ kind: "owner" }, turnEvalSecretName("anthropic"), "store-key");
       const [headers] = await sentHeaders(model!, secrets);
       assert.equal(headers!.get("x-api-key"), "store-key");
-      assert.doesNotMatch(JSON.stringify([...headers!.entries()]), /env-decoy/);
+      const sent: string[] = [];
+      headers!.forEach((value, name) => sent.push(`${name}: ${value}`));
+      assert.doesNotMatch(sent.join("\n"), /env-decoy/);
     } finally {
       for (const [name, value] of Object.entries(saved)) { if (value === undefined) delete process.env[name]; else process.env[name] = value; }
     }

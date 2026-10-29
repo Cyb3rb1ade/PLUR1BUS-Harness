@@ -115,7 +115,7 @@ export class Compactor {
     const summaries = this.#applied(sessionId);
     const covered = this.#coveredTo(summaries);
     let clipped = 0;
-    const messages = this.#store.listMessages(sessionId, { afterSeq: covered }).map((m) => {
+    const messages: ContextView["messages"] = this.#store.listMessages(sessionId, { afterSeq: covered }).map((m) => {
       const t = truncateWithPointer(m.text, cfg.maxMessageTokens, `full text is message ${m.id} in the session transcript`);
       if (t.truncated) clipped++;
       return { id: m.id, role: m.role, text: t.text, seq: m.seq, turnId: m.turnId };

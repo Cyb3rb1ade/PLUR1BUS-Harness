@@ -175,7 +175,7 @@ test("N2/2: credential-style files in a skill folder are neither listed nor read
 
 test("N2/2: skill.read classifies credential paths as deny-list hits so the dispatcher refuses before any read", async () => {
   const { home, read } = await withCredentialFiles();
-  const flags = async (path: unknown) => (await read.classify!({ name: "reports", path })).flags.denyListHit;
+  const flags = async (path: unknown) => (await read.classify!({ name: "reports", path })).flags?.denyListHit;
   for (const path of CREDENTIAL_FILES) assert.equal(await flags(path), true, path);
   assert.equal(await flags("references/alpha.txt"), false);
   assert.equal(await flags("../escape"), false, "traversal is the path check's business, not the deny list's");
