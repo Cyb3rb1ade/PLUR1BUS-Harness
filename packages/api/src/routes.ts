@@ -20,9 +20,9 @@ import type { CoreRpc } from "./core-rpc.ts";
 import { ApiError, errors, fromCoreError } from "./errors.ts";
 import type { PasswordLogin } from "./login.ts";
 import type { LoginChallenges } from "./challenge.ts";
-import type { PublicToken, TokenService } from "./tokens.ts";
+import { parseTokenBinding, type PublicToken, type TokenService } from "./tokens.ts";
 import type { TotpService } from "./totp.ts";
-import type { UserDirectory } from "./ports.ts";
+import type { TokenBinding, UserDirectory } from "./ports.ts";
 import type { RateLimiter } from "./rate-limit.ts";
 import type { RateClass } from "./rate-limit.ts";
 import { LOCAL_OWNER, authorize, type RbacPrincipal } from "./rbac-bridge.ts";
@@ -83,7 +83,20 @@ export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
   SessionChallenge: obj({ schema: schemaId("session.challenge/1"), mfa: { enum: ["totp", "webauthn"] }, challenge: { type: "string", description: "One-time, valid for 5 minutes, dies after 5 wrong codes." }, expiresAt: iso }),
   BreakGlassGrant: obj({ id: { type: "string" }, targetUserId: { type: "string" }, reason: { type: "string" }, issuedAt: iso, expiresAt: iso }),
   Notice: obj({ kind: { const: "break-glass.granted" }, grantId: { type: "string" }, holderUserId: { type: "string" }, reason: { type: "string" }, expiresAt: iso }),
-  Token: obj({ id: { type: "string" }, prefix: { type: "string" }, name: { type: "string" }, scopes: { type: "array", items: { type: "string" } }, createdAt: iso, expiresAt: iso, lastUsedAt: iso, revokedAt: iso }, ["id", "prefix", "name", "scopes", "createdAt", "expiresAt"]),
+  TokenBinding: obj({
+    audience: { enum: ["mcp", "a2a"] },
+    agentId: { type: "string", minLength: 1, maxLength: 128 },
+    projectId: { type: "string", minLength: 1, maxLength: 128 },
+    system: { type: "string", minLength: 1, maxLength: 128 },
+    groups: { type: "array", maxItems: 10, items: { enum: ["memory", "memory_store", "agent", "skills"] } },
+    memory: obj({
+      recall: obj({ workspace: { type: "boolean" }, user: { type: "boolean" }, agentPrivate: { type: "boolean" }, project: { type: "boolean" } }, []),
+      filter: { type: "array", maxItems: 5, items: { enum: ["health", "financial", "credential", "identity", "personal"] } },
+      disclose: { enum: ["agent-decides", "never"] },
+      capture: { type: "boolean" },
+    }, []),
+  }, ["audience", "agentId"]),
+  Token: obj({ id: { type: "string" }, prefix: { type: "string" }, name: { type: "string" }, scopes: { type: "array", items: { type: "string" } }, createdAt: iso, expiresAt: iso, lastUsedAt: iso, revokedAt: iso, binding: ref("TokenBinding") }, ["id", "prefix", "name", "scopes", "createdAt", "expiresAt"]),
   Activity: obj({ state: { type: "string" }, since: { type: "integer" }, phase: { enum: ["light", "rem", "deep"] }, job: { type: "string" } }, ["state", "since"]),
 };
 
@@ -139,7 +152,7 @@ export const ROUTES: readonly RouteSpec[] = [
   {
     id: "whoami", method: "GET", path: `${API_PREFIX}/whoami`, tag: "status", summary: "The calling principal and the session or token it came in with",
     auth: "any", authz: "authenticated", csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
-    successStatus: 200, success: { description: "The principal behind the session cookie, with the role as it is now.", schema: obj({ schema: schemaId("whoami/1"), principal: ref("Principal"), via: { enum: ["session", "token"] }, session: obj(SESSION_TIMES), token: obj({ id: { type: "string" }, prefix: { type: "string" }, scopes: { type: "array", items: { type: "string" } }, expiresAt: iso }) }, ["schema", "principal", "via"]) },
+    successStatus: 200, success: { description: "The principal behind the session cookie, with the role as it is now.", schema: obj({ schema: schemaId("whoami/1"), principal: ref("Principal"), via: { enum: ["session", "token"] }, session: obj(SESSION_TIMES), token: obj({ id: { type: "string" }, prefix: { type: "string" }, scopes: { type: "array", items: { type: "string" } }, expiresAt: iso, binding: ref("TokenBinding") }, ["id", "prefix", "scopes", "expiresAt"]) }, ["schema", "principal", "via"]) },
   },
   {
     id: "agents.list", method: "GET", path: `${API_PREFIX}/agents`, tag: "agents", summary: "The agents the caller may see (core RPC `agent.list`, filtered by `agent.read`)",
@@ -163,6 +176,7 @@ export const ROUTES: readonly RouteSpec[] = [
       name: { type: "string", minLength: 1, maxLength: 64 },
       scopes: { type: "array", minItems: 1, maxItems: 20, items: { type: "string" }, description: "RBAC action names or `prefix.*` (e.g. `agent.*`). A token can only narrow what the caller's role allows, never widen it." },
       ttlDays: { type: "integer", minimum: 1, maximum: 365, description: "Default 90." },
+      binding: ref("TokenBinding"),
     }, ["name", "scopes"]),
     successStatus: 201,
     success: { description: "`token` is the full string (`plb_<id>_<secret>`), shown here and nowhere else; only its hash is kept.", schema: obj({ schema: schemaId("tokens.create/1"), token: { type: "string" }, record: ref("Token") }) },
@@ -255,7 +269,7 @@ export interface HandlerInput {
   /** How the caller authenticated: the session cookie or a personal API token. */
   via: "session" | "token" | undefined;
   /** Set when `via` is `token`: what whoami may show of it (never the hash, never the secret). */
-  token: { id: string; prefix: string; scopes: readonly string[]; expiresAt: number } | undefined;
+  token: { id: string; prefix: string; scopes: readonly string[]; expiresAt: number; binding?: TokenBinding } | undefined;
 }
 export interface HandlerOutput { chatStream?: {sessionId:string;turnId:string;afterSeq:number}; status?: number; body: Record<string, unknown>; headers?: Record<string, string> }
 export type Handler = (i: HandlerInput) => Promise<HandlerOutput> | HandlerOutput;
@@ -353,7 +367,11 @@ function grantJson(g: unknown): { id: string; targetUserId: string; reason: stri
 
 /** A token as the API shows it: times as ISO strings, nothing secret. */
 function tokenJson(t: PublicToken): Record<string, unknown> {
-  return { id: t.id, prefix: t.prefix, name: t.name, scopes: t.scopes, createdAt: iso8601(t.createdAt), expiresAt: iso8601(t.expiresAt), ...(t.lastUsedAt !== undefined ? { lastUsedAt: iso8601(t.lastUsedAt) } : {}), ...(t.revokedAt !== undefined ? { revokedAt: iso8601(t.revokedAt) } : {}) };
+  return {
+    id: t.id, prefix: t.prefix, name: t.name, scopes: t.scopes, createdAt: iso8601(t.createdAt), expiresAt: iso8601(t.expiresAt),
+    ...(t.lastUsedAt !== undefined ? { lastUsedAt: iso8601(t.lastUsedAt) } : {}), ...(t.revokedAt !== undefined ? { revokedAt: iso8601(t.revokedAt) } : {}),
+    ...(t.binding !== undefined ? { binding: t.binding } : {}),
+  };
 }
 
 export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
@@ -547,7 +565,17 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
     },
     "whoami": (i) => {
       if (!i.principal) throw errors.unauthenticated();
-      if (i.via === "token" && i.token) return { body: { schema: "whoami/1", principal: i.principal, via: "token", token: { id: i.token.id, prefix: i.token.prefix, scopes: i.token.scopes, expiresAt: iso8601(i.token.expiresAt) } } };
+      if (i.via === "token" && i.token) {
+        return {
+          body: {
+            schema: "whoami/1", principal: i.principal, via: "token",
+            token: {
+              id: i.token.id, prefix: i.token.prefix, scopes: i.token.scopes, expiresAt: iso8601(i.token.expiresAt),
+              ...(i.token.binding !== undefined ? { binding: i.token.binding } : {}),
+            },
+          },
+        };
+      }
       if (!i.session) throw errors.unauthenticated();
       return { body: { schema: "whoami/1", principal: i.principal, via: "session", session: { createdAt: iso8601(i.session.createdAt), expiresAt: iso8601(i.session.absoluteExpiresAt), idleExpiresAt: iso8601(i.session.idleExpiresAt) } } };
     },
@@ -560,14 +588,43 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
       if (!i.principal || !d.tokens) throw errors.unauthenticated();
       const b = i.body as Record<string, unknown> | null;
       const keys = b && typeof b === "object" && !Array.isArray(b) ? Object.keys(b) : [];
-      if (!b || !keys.includes("name") || !keys.includes("scopes") || keys.some((k) => !["name", "scopes", "ttlDays"].includes(k))) throw errors.badRequest("body", "body must be {\"name\": string, \"scopes\": string[], \"ttlDays\"?: integer}");
+      if (!b || !keys.includes("name") || !keys.includes("scopes") || keys.some((k) => !["name", "scopes", "ttlDays", "binding"].includes(k))) {
+        throw errors.badRequest("body", "body must be {\"name\": string, \"scopes\": string[], \"ttlDays\"?: integer, \"binding\"?: object}");
+      }
       let ttlMs: number | undefined;
       if (b.ttlDays !== undefined) {
         if (typeof b.ttlDays !== "number" || !Number.isInteger(b.ttlDays) || b.ttlDays < 1 || b.ttlDays > 365) throw errors.badRequest("ttl", "ttlDays must be an integer between 1 and 365");
         ttlMs = b.ttlDays * 86_400_000;
       }
-      const made = await d.tokens.create(i.principal.id, { name: b.name, scopes: b.scopes, ...(ttlMs !== undefined ? { ttlMs } : {}) });
-      d.audit.emit("auth.token.created", i.principal.id, `token:${made.record.id}`, { name: made.record.name, scopes: made.record.scopes, expiresAt: made.record.expiresAt, ip: i.ip });
+      let binding: TokenBinding | undefined;
+      if (b.binding !== undefined) {
+        binding = parseTokenBinding(b.binding);
+        let listedAgents: unknown;
+        try {
+          const r = await d.core.call<unknown>("agent.list");
+          if (!r || typeof r !== "object" || Array.isArray(r)) throw coreMalformed();
+          listedAgents = (r as { agents?: unknown }).agents;
+        } catch (e) { throw fromCoreError(e); }
+        const foundAgent = (Array.isArray(listedAgents) ? listedAgents : []).find((a) => {
+          if (!a || typeof a !== "object" || Array.isArray(a)) return false;
+          const rec = a as { agentId?: unknown; lifecycle?: { deleted?: unknown } };
+          return rec.agentId === binding!.agentId && rec.lifecycle?.deleted !== true;
+        });
+        if (!foundAgent) throw new ApiError(404, "E_NOT_FOUND", "no such agent", { reason: "agent" });
+        const useDec = authorize(i.rbac, "agent.use", { kind: "agent", agentId: binding.agentId });
+        if (useDec.effect !== "allow") throw errors.forbidden(useDec.reason);
+        if (binding.projectId !== undefined) {
+          try {
+            const proj = await d.core.call<unknown>("project.get", { projectId: binding.projectId });
+            if (!proj || typeof proj !== "object" || Array.isArray(proj)) throw new ApiError(404, "E_NOT_FOUND", "no such project", { reason: "project" });
+          } catch (e) { throw fromCoreError(e); }
+        }
+      }
+      const made = await d.tokens.create(i.principal.id, { name: b.name, scopes: b.scopes, ...(ttlMs !== undefined ? { ttlMs } : {}), ...(binding !== undefined ? { binding } : {}) });
+      d.audit.emit("auth.token.created", i.principal.id, `token:${made.record.id}`, {
+        name: made.record.name, scopes: made.record.scopes, expiresAt: made.record.expiresAt,
+        ...(made.record.binding !== undefined ? { binding: made.record.binding } : {}), ip: i.ip,
+      });
       return { status: 201, body: { schema: "tokens.create/1", token: made.token, record: tokenJson(made.record) } };
     },
     "tokens.revoke": async (i) => {

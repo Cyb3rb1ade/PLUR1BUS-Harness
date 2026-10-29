@@ -10925,6 +10925,9 @@
                         "expiresAt": {
                           "type": "string",
                           "format": "date-time"
+                        },
+                        "binding": {
+                          "$ref": "#/components/schemas/TokenBinding"
                         }
                       }
                     }
@@ -11327,6 +11330,9 @@
                     "minimum": 1,
                     "maximum": 365,
                     "description": "Default 90."
+                  },
+                  "binding": {
+                    "$ref": "#/components/schemas/TokenBinding"
                   }
                 }
               }
@@ -13404,6 +13410,97 @@
           }
         }
       },
+      "TokenBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "audience",
+          "agentId"
+        ],
+        "properties": {
+          "audience": {
+            "enum": [
+              "mcp",
+              "a2a"
+            ]
+          },
+          "agentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "system": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "groups": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "enum": [
+                "memory",
+                "memory_store",
+                "agent",
+                "skills"
+              ]
+            }
+          },
+          "memory": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [],
+            "properties": {
+              "recall": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [],
+                "properties": {
+                  "workspace": {
+                    "type": "boolean"
+                  },
+                  "user": {
+                    "type": "boolean"
+                  },
+                  "agentPrivate": {
+                    "type": "boolean"
+                  },
+                  "project": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "filter": {
+                "type": "array",
+                "maxItems": 5,
+                "items": {
+                  "enum": [
+                    "health",
+                    "financial",
+                    "credential",
+                    "identity",
+                    "personal"
+                  ]
+                }
+              },
+              "disclose": {
+                "enum": [
+                  "agent-decides",
+                  "never"
+                ]
+              },
+              "capture": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
       "Token": {
         "type": "object",
         "additionalProperties": false,
@@ -13446,6 +13543,9 @@
           "revokedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "binding": {
+            "$ref": "#/components/schemas/TokenBinding"
           }
         }
       },

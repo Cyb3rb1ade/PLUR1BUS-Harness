@@ -361,7 +361,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         throw errors.forbidden("web-session-only");
       }
       let sessionId: string | undefined; let session: Session | undefined; let resolved: Resolved | undefined; let rotated: string | undefined;
-      let via: "session" | "token" | undefined; let tokenInfo: { id: string; prefix: string; scopes: readonly string[]; expiresAt: number } | undefined; let rateKey: string | undefined;
+      let via: "session" | "token" | undefined; let tokenInfo: import("./routes.ts").HandlerInput["token"]; let rateKey: string | undefined;
       const authHeader = req.headers.authorization;
       const bearer = spec.auth === "any" && typeof authHeader === "string" && /^bearer(\s|$)/i.test(authHeader) ? authHeader.slice(6).trim() : undefined;
       if (bearer !== undefined && NATIVE_FILE_ROUTES.has(spec.id) && !bearer.startsWith("plb_")) {
@@ -399,7 +399,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         resolved = await resolveSubject(r.record.userId === OWNER.id ? "owner" : "user", r.record.userId);
         if (!resolved) { try { await tokens.revoke(r.record.userId, r.record.id); } catch { /* invalid credentials remain refused */ } audit.emit("auth.token.used-denied", "anonymous", `token:${r.record.id}`, { reason: "account", ip }); throw errors.unauthenticated("invalid-token"); }
         resolved = { ...resolved, rbac: { ...resolved.rbac, kind: "agent", tokenScopes: r.record.scopes } };
-        via = "token"; tokenInfo = { id: r.record.id, prefix: `plb_${r.record.id}`, scopes: r.record.scopes, expiresAt: r.record.expiresAt };
+        via = "token"; tokenInfo = { id: r.record.id, prefix: `plb_${r.record.id}`, scopes: r.record.scopes, expiresAt: r.record.expiresAt, ...(r.record.binding !== undefined ? { binding: r.record.binding } : {}) };
         if(secondFactorRequired(resolved.principal.role,!!o.remote,o.requireSecondFactor))throw errors.forbidden("second-factor-required");
         principalId = resolved.principal.id; rateKey = `token:${r.record.id}`;
         const tv = limiter.take(cls, rateKey);

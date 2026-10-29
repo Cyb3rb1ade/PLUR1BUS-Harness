@@ -15,6 +15,35 @@ export interface UserRecord {
   readonly version: number;
 }
 
+/** Protocol audience a bound token may authenticate against. */
+export type TokenAudience = "mcp" | "a2a";
+
+/** Memory sensitivity category that can be filtered on external protocol channels (Festlegung 5). */
+export type MemorySensitivityCategory = "health" | "financial" | "credential" | "identity" | "personal";
+
+/** Per-token narrowing override for memory exposure on an external protocol channel. */
+export interface TokenMemoryPolicyOverride {
+  readonly recall?: {
+    readonly workspace?: boolean;
+    readonly user?: boolean;
+    readonly agentPrivate?: boolean;
+    readonly project?: boolean;
+  };
+  readonly filter?: readonly MemorySensitivityCategory[];
+  readonly disclose?: "agent-decides" | "never";
+  readonly capture?: boolean;
+}
+
+/** Optional agent/protocol binding on a personal or OAuth-issued API token (Festlegung 3). */
+export interface TokenBinding {
+  readonly audience: TokenAudience;
+  readonly agentId: string;
+  readonly projectId?: string;
+  readonly system?: string;
+  readonly groups?: readonly string[];
+  readonly memory?: TokenMemoryPolicyOverride;
+}
+
 /** A personal API token as stored: the public `id` (part of the token string, shown in lists) and the SHA-256 of the
  *  secret part only. The full token string exists nowhere after it was shown once. */
 export interface TokenRecord {
@@ -24,6 +53,7 @@ export interface TokenRecord {
   readonly hash: string;
   readonly createdAt: number; readonly expiresAt: number;
   readonly lastUsedAt?: number; readonly revokedAt?: number;
+  readonly binding?: TokenBinding;
 }
 export interface TokenStore {
   put(rec: TokenRecord): Promise<void>;
