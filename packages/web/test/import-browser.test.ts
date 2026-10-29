@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { SOURCE_CATALOG } from "../../core/src/import/types.ts";
-import { openRoute, setup, teardown, withApp, type App } from "./harness.ts";
+import { browserSkip, openRoute, setup, teardown, withApp, type App } from "./harness.ts";
 import { expectAxeClean } from "./axe.ts";
 import type { MockHarnessServer } from "./mock-server.ts";
 import type { ImportRun } from "../../rpc-schema/generated/types.ts";
@@ -40,6 +40,7 @@ async function findRemoteSources(app: App): Promise<void> {
   await app.page.getByLabel("Source folder", { exact: true }).fill("/");
   await app.page.getByLabel("Configured SSH connection", { exact: true }).selectOption("known-source");
   await app.page.getByRole("button", { name: "Find installations", exact: true }).click();
+  await app.page.getByRole("heading", { name: "Detected installations", exact: true }).waitFor();
 }
 function seed(
   server: MockHarnessServer,
@@ -146,21 +147,21 @@ function seed(
   return run;
 }
 
-test("source summary, selected agents and immutable preview precede explicit downtime consent; cancellation waits for restoration", async () => {
+test("source summary, selected agents and immutable preview precede explicit downtime consent; cancellation waits for restoration", { skip: browserSkip }, async () => {
   await withApp({}, async (app) => {
     seed(app.server);
     await openRoute(app.page, "#/import");
     await app.page.getByLabel("Source format").selectOption(SOURCE_CATALOG[0]!.id);
     await app.page.getByRole("button", { name: "Inspect source", exact: true }).click();
     await app.page.getByRole("heading", { name: "Source summary", exact: true }).waitFor();
-    await app.page.getByLabel(/^Agent Two/).uncheck();
+    await app.page.getByRole("checkbox", { name: /^Agent Two/ }).uncheck();
     await app.page.getByRole("button", { name: "Create preview", exact: true }).click();
     await app.page.getByRole("heading", { name: "Immutable import preview", exact: true }).waitFor();
     assert.equal(app.server.rpc.calls.filter((call) => call.method === "admin.import.apply").length, 0);
     await app.page.getByRole("button", { name: "Run preflight", exact: true }).click();
     await app.page.getByText(/^Preflight passed\./).waitFor();
     assert.equal(await app.page.getByRole("button", { name: "Apply import", exact: true }).isDisabled(), true);
-    await app.page.getByLabel(/^I accept stopping the Core/).check();
+    await app.page.getByRole("checkbox", { name: /^I accept stopping the Core/ }).check();
     await app.page.getByRole("button", { name: "Apply import", exact: true }).click();
     await app.page.getByText("Applying import", { exact: true }).waitFor();
     await app.page.getByRole("button", { name: "Cancel and restore snapshot", exact: true }).click();
@@ -172,7 +173,7 @@ test("source summary, selected agents and immutable preview precede explicit dow
   });
 });
 
-test("Member invokes no import metadata/RPC; remote Admin cannot choose a free host path", async () => {
+test("Member invokes no import metadata/RPC; remote Admin cannot choose a free host path", { skip: browserSkip }, async () => {
   await withApp({ server: { role: "member" } }, async (app) => {
     seed(app.server);
     await openRoute(app.page, "#/import");
@@ -190,7 +191,7 @@ test("Member invokes no import metadata/RPC; remote Admin cannot choose a free h
   });
 });
 
-test("discovery is a source choice and cannot be mistaken for an inspected source or import plan", async () => {
+test("discovery is a source choice and cannot be mistaken for an inspected source or import plan", { skip: browserSkip }, async () => {
   await withApp({}, async (app) => {
     const run = seed(app.server),
       source = { kind: "snapshot", family: run.sourceType, snapshotId: "S".repeat(43) };
@@ -229,7 +230,7 @@ test("discovery is a source choice and cannot be mistaken for an inspected sourc
   });
 });
 
-test("an authorized apply survives reload when its first status request is interrupted", async () => {
+test("an authorized apply survives reload when its first status request is interrupted", { skip: browserSkip }, async () => {
   await withApp({}, async (app) => {
     const run = seed(app.server);
     let unavailable = true;
@@ -244,10 +245,10 @@ test("an authorized apply survives reload when its first status request is inter
     await openRoute(app.page, "#/import");
     await app.page.getByLabel("Source format").selectOption(SOURCE_CATALOG[0]!.id);
     await app.page.getByRole("button", { name: "Inspect source", exact: true }).click();
-    await app.page.getByLabel(/^Agent Two/).uncheck();
+    await app.page.getByRole("checkbox", { name: /^Agent Two/ }).uncheck();
     await app.page.getByRole("button", { name: "Create preview", exact: true }).click();
     await app.page.getByRole("button", { name: "Run preflight", exact: true }).click();
-    await app.page.getByLabel(/^I accept stopping the Core/).check();
+    await app.page.getByRole("checkbox", { name: /^I accept stopping the Core/ }).check();
     await app.page.getByRole("button", { name: "Apply import", exact: true }).click();
     await app.page.waitForFunction(
       (id) =>
@@ -266,7 +267,7 @@ test("an authorized apply survives reload when its first status request is inter
 
 for (const lang of ["en", "de"] as const)
   for (const state of ["loading", "empty", "error", "forbidden", "unavailable"] as const) {
-    test(`import axe: ${state}, ${lang}`, async () => {
+    test(`import axe: ${state}, ${lang}`, { skip: browserSkip }, async () => {
       await withApp({ locale: lang === "de" ? "de-DE" : "en-US" }, async (app) => {
         let release: (() => void) | undefined;
         app.server.extensions.push((_req, res, path) => {
@@ -305,7 +306,7 @@ for (const lang of ["en", "de"] as const)
     });
   }
 
-test("Owner SSH setup requires exact endpoint policy consent and independent host-key verification; Admin invokes no Owner setup methods", async () => {
+test("Owner SSH setup requires exact endpoint policy consent and independent host-key verification; Admin invokes no Owner setup methods", { skip: browserSkip }, async () => {
   await withApp({}, async (app) => {
     seed(app.server);
     const connection = {
@@ -443,7 +444,7 @@ test("Owner SSH setup requires exact endpoint policy consent and independent hos
   });
 });
 
-test("standalone discovered store requires a source and an explicit original-path assignment, including remote Admin", async () => {
+test("standalone discovered store requires a source and an explicit original-path assignment, including remote Admin", { skip: browserSkip }, async () => {
   await withApp({ server: { role: "admin" } }, async (app) => {
     const run = seed(app.server, { sources: SOURCE_CATALOG, hostPathsAllowed: false });
     const candidateId = "12345678-1234-4123-8123-123456789021";
@@ -541,7 +542,7 @@ test("standalone discovered store requires a source and an explicit original-pat
   });
 });
 
-test("a changed saved SSH endpoint cannot be mislabeled by an older connection card", async () => {
+test("a changed saved SSH endpoint cannot be mislabeled by an older connection card", { skip: browserSkip }, async () => {
   await withApp({}, async (app) => {
     seed(app.server);
     const saved = {
@@ -594,7 +595,7 @@ test("a changed saved SSH endpoint cannot be mislabeled by an older connection c
   });
 });
 
-test("container host metadata proposes a Docker endpoint without approving egress, private access or a connection", async () => {
+test("container host metadata proposes a Docker endpoint without approving egress, private access or a connection", { skip: browserSkip }, async () => {
   for (const container of [false, true])
     await withApp({}, async (app) => {
       seed(app.server, {
@@ -651,7 +652,7 @@ test("container host metadata proposes a Docker endpoint without approving egres
     });
 });
 
-test("source and actual target NC models require separate canonical ledger confirmations and preserve the separate settings decision", async () => {
+test("source and actual target NC models require separate canonical ledger confirmations and preserve the separate settings decision", { skip: browserSkip }, async () => {
   await withApp({}, async (app) => {
     const run = seed(app.server);
     const models = MODEL_CHOICES.filter((c) => c.kind === "embedding" && c.nc),
@@ -731,6 +732,7 @@ test("source and actual target NC models require separate canonical ledger confi
       };
     });
     await openRoute(app.page, "#/import");
+    await app.page.getByLabel("Source format").selectOption(SOURCE_CATALOG[0]!.id);
     await app.page.getByRole("button", { name: "Inspect source", exact: true }).click();
     await app.page.getByLabel("Source store to adopt (optional)", { exact: true }).selectOption("source-memory");
     await app.page.getByLabel("Store strategy", { exact: true }).selectOption("re-embed");
@@ -775,16 +777,17 @@ test("source and actual target NC models require separate canonical ledger confi
   });
 });
 
-test("a declined cancellation refreshes actual status without displaying a pending cancellation", async () => {
+test("a declined cancellation refreshes actual status without displaying a pending cancellation", { skip: browserSkip }, async () => {
   await withApp({}, async (app) => {
     seed(app.server);
     app.server.rpc.handle("admin.import.abort", () => ({ runId, accepted: false, state: "restarting-core" }));
     await openRoute(app.page, "#/import");
+    await app.page.getByLabel("Source format").selectOption(SOURCE_CATALOG[0]!.id);
     await app.page.getByRole("button", { name: "Inspect source", exact: true }).click();
-    await app.page.getByLabel(/^Agent Two/).uncheck();
+    await app.page.getByRole("checkbox", { name: /^Agent Two/ }).uncheck();
     await app.page.getByRole("button", { name: "Create preview", exact: true }).click();
     await app.page.getByRole("button", { name: "Run preflight", exact: true }).click();
-    await app.page.getByLabel(/^I accept stopping the Core/).check();
+    await app.page.getByRole("checkbox", { name: /^I accept stopping the Core/ }).check();
     await app.page.getByRole("button", { name: "Apply import", exact: true }).click();
     await app.page.getByText("Applying import", { exact: true }).waitFor();
     const previous = app.server.rpc.calls.filter((c) => c.method === "admin.import.status").length;
