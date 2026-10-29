@@ -738,7 +738,7 @@ test("source and actual target NC models require separate canonical ledger confi
     await app.page.getByText("Non-commercial model licence", { exact: true }).waitFor();
     const fields = app.page
       .locator("fieldset")
-      .filter({ has: app.page.getByText("Read CC BY-NC 4.0 terms", { exact: true }) });
+      .filter({ has: app.page.getByText("Licence terms: CC BY-NC 4.0; non-commercial use only.", { exact: true }) });
     assert.equal(await fields.count(), 2);
     assert.equal(
       original.calls.some((c) => c.method === "model.licence.confirm"),

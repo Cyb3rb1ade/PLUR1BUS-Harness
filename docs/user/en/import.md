@@ -137,15 +137,7 @@ For the existing CLI rollback workflow and its memory-card limits, see [Import r
 
 ### SSH sources
 
-[1] OpenSSH's [`sshd(8)` authorized-key options](https://github.com/openssh/openssh-portable/blob/master/sshd.8)
-    and [`sftp-server(8)` read-only mode](https://github.com/openssh/openssh-portable/blob/master/sftp-server.8).
-
-[2] OpenSSH's [Red Hat package recipe](https://github.com/openssh/openssh-portable/blob/master/contrib/redhat/openssh.spec)
-    and the [official archived Arch recipe](https://github.com/archlinux/svntogit-packages/blob/packages/openssh/trunk/PKGBUILD).
-
-[3] Apple's [OpenSSH build settings](https://github.com/apple-oss-distributions/OpenSSH/blob/main/xcconfigs/openssh.xcconfig)
-    and [installation paths](https://github.com/apple-oss-distributions/OpenSSH/blob/main/xcconfigs/base.xcconfig).
-    Current Remote Login settings navigation could not be independently verified here.
-
-[4] Microsoft's [OpenSSH key management](https://github.com/MicrosoftDocs/windowsserverdocs/blob/main/WindowsServerDocs/administration/OpenSSH/OpenSSH_KeyManagement.md)
-    and [server configuration](https://github.com/MicrosoftDocs/windowsserverdocs/blob/main/WindowsServerDocs/administration/OpenSSH/openssh-server-configuration.md).
+[1] OpenSSH authorized-key restrictions and read-only SFTP, [2] Red Hat and archived Arch package paths,
+[3] Apple OpenSSH build settings and [4] Microsoft OpenSSH account/ACL configuration are documented in the
+[official source references](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/blob/main/docs/import.md#ssh-setup-source-references).
+The per-OS verification limits in the table above remain applicable.

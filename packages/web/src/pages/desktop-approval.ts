@@ -1,4 +1,5 @@
 import { h } from "preact";
+import "../styles/devices.css";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../view.ts";
 import { Page } from "../components/page.ts";

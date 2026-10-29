@@ -92,7 +92,7 @@ export const en = {
   "imports.noCandidates": "No installation was detected. Choose another source location or upload a snapshot.",
   "imports.licenceTitle": "Non-commercial model licence",
   "imports.licenceRevision": "Pinned model revision",
-  "imports.licenceTerms": "Read CC BY-NC 4.0 terms",
+  "imports.licenceTerms": "Licence terms: CC BY-NC 4.0; non-commercial use only.",
   "imports.licenceUseClass":
     "Fresh acceptance requires a verified non-commercial use class. Existing recorded acceptances are checked again by preflight.",
   "imports.licenceFailed": "Licence acceptance failed. No import was started.",
@@ -298,7 +298,7 @@ export const de: Record<keyof typeof en, string> = {
   "imports.noCandidates": "Keine Installation erkannt. Wähle einen anderen Quellort oder lade einen Snapshot hoch.",
   "imports.licenceTitle": "Lizenz des nichtkommerziellen Modells",
   "imports.licenceRevision": "Festgelegte Modellrevision",
-  "imports.licenceTerms": "Bedingungen von CC BY-NC 4.0 lesen",
+  "imports.licenceTerms": "Lizenzbedingungen: CC BY-NC 4.0; nur nichtkommerzielle Nutzung.",
   "imports.licenceUseClass":
     "Eine neue Annahme benötigt eine bestätigte nichtkommerzielle Nutzungsklasse. Vorhandene Annahmen werden bei der Vorprüfung erneut geprüft.",
   "imports.licenceFailed": "Die Lizenzannahme ist fehlgeschlagen. Es wurde kein Import gestartet.",

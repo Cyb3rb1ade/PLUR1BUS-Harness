@@ -156,11 +156,7 @@ export function ImportModelLicence({
     h("legend", null, t(source ? "imports.sourceLicenceTitle" : "imports.licenceTitle")),
     h("p", null, `${model.name} · ${model.licence}`),
     h("p", null, t("imports.licenceRevision"), ": ", h("code", null, model.revision)),
-    h(
-      "a",
-      { href: "https://creativecommons.org/licenses/by-nc/4.0/", target: "_blank", rel: "noopener noreferrer" },
-      t("imports.licenceTerms"),
-    ),
+    h("p", { class: "field-hint" }, t("imports.licenceTerms")),
     authorityDenied
       ? h(
           Notice,

@@ -151,15 +151,7 @@ Der vorhandene CLI-Rollback und seine Grenzen bei Erinnerungskarten stehen unter
 
 ### SSH-Quellen
 
-[1] OpenSSHs [`sshd(8)`-Optionen für autorisierte Schlüssel](https://github.com/openssh/openssh-portable/blob/master/sshd.8)
-    und der [schreibgeschützte Modus von `sftp-server(8)`](https://github.com/openssh/openssh-portable/blob/master/sftp-server.8).
-
-[2] OpenSSHs [Red-Hat-Paketrezept](https://github.com/openssh/openssh-portable/blob/master/contrib/redhat/openssh.spec)
-    und das [offizielle archivierte Arch-Rezept](https://github.com/archlinux/svntogit-packages/blob/packages/openssh/trunk/PKGBUILD).
-
-[3] Apples [OpenSSH-Buildeinstellungen](https://github.com/apple-oss-distributions/OpenSSH/blob/main/xcconfigs/openssh.xcconfig)
-    und [Installationspfade](https://github.com/apple-oss-distributions/OpenSSH/blob/main/xcconfigs/base.xcconfig).
-    Der aktuelle Einstellungsort für die entfernte Anmeldung ließ sich hier nicht unabhängig bestätigen.
-
-[4] Microsofts [OpenSSH-Schlüsselverwaltung](https://github.com/MicrosoftDocs/windowsserverdocs/blob/main/WindowsServerDocs/administration/OpenSSH/OpenSSH_KeyManagement.md)
-    und [Serverkonfiguration](https://github.com/MicrosoftDocs/windowsserverdocs/blob/main/WindowsServerDocs/administration/OpenSSH/openssh-server-configuration.md).
+[1] OpenSSH-Schlüsselbeschränkungen und schreibgeschütztes SFTP, [2] Red-Hat- und archivierte Arch-Paketpfade,
+[3] Apple-OpenSSH-Buildeinstellungen und [4] Microsoft-OpenSSH-Konto-/ACL-Konfiguration stehen in den
+[offiziellen Quellenangaben](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/blob/main/docs/import.md#ssh-setup-source-references).
+Die Betriebssystemtabelle oben benennt weiterhin die Grenzen der Prüfung.

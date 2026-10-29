@@ -17,7 +17,8 @@ function host(value: string): string {
   const raw = value.trim().replace(/\.$/, "");
   if (!raw || raw.length > 253 || /[\s*\\/@?#\x00-\x1f\x7f]/.test(raw)) throw new Error("ssh-host");
   const authority = raw.includes(":") && !raw.startsWith("[") ? `[${raw}]` : raw;
-  const url = new URL(`https://${authority}/`);
+  // Parse an authority relative to the existing project origin; this never contacts a destination.
+  const url = new URL(`//${authority}/`, "https://plur1bus.app");
   if (url.port || url.username || url.password) throw new Error("ssh-host");
   const name = url.hostname.toLowerCase();
   if (name.startsWith("[")) return name.slice(1, -1);

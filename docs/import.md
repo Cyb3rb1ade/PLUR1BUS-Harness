@@ -975,3 +975,19 @@ writes promotion receipts. `engine.schicht15.maxPromotionsPerRun` sets the cap (
 This model-free Engine job is the deliberate alternative to LLM synthesis: it integrates already classified pending
 memories deterministically and performs no LLM completion or new semantic summarization. This path avoids introducing
 a second knowledge writer or bypassing the D109 tool dispatcher with an agent tool.
+
+
+## SSH setup source references
+
+[1] OpenSSH's [`sshd(8)` authorized-key options](https://github.com/openssh/openssh-portable/blob/master/sshd.8)
+    and [`sftp-server(8)` read-only mode](https://github.com/openssh/openssh-portable/blob/master/sftp-server.8).
+
+[2] OpenSSH's [Red Hat package recipe](https://github.com/openssh/openssh-portable/blob/master/contrib/redhat/openssh.spec)
+    and the [official archived Arch recipe](https://github.com/archlinux/svntogit-packages/blob/packages/openssh/trunk/PKGBUILD).
+
+[3] Apple's [OpenSSH build settings](https://github.com/apple-oss-distributions/OpenSSH/blob/main/xcconfigs/openssh.xcconfig)
+    and [installation paths](https://github.com/apple-oss-distributions/OpenSSH/blob/main/xcconfigs/base.xcconfig).
+    Current Remote Login settings navigation could not be independently verified here.
+
+[4] Microsoft's [OpenSSH key management](https://github.com/MicrosoftDocs/windowsserverdocs/blob/main/WindowsServerDocs/administration/OpenSSH/OpenSSH_KeyManagement.md)
+    and [server configuration](https://github.com/MicrosoftDocs/windowsserverdocs/blob/main/WindowsServerDocs/administration/OpenSSH/openssh-server-configuration.md).
