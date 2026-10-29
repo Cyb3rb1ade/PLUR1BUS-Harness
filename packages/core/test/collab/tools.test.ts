@@ -116,7 +116,7 @@ test('handoff transfers the assigned card after receiver ack and prevents any fu
   assert.deepEqual(f.collab.boardStore.getCard(f.project.id, card.id).assignees, [{ kind: 'agent', id: 'b1' }]);
   assert.match(JSON.stringify(await f.call('read_project_board')), /already handed off/);
 });
-test('malformed peer return is repaired once by the same target with no tools/private memory; repeated invalid repair fails', async t => {
+test('malformed peer return is repaired once by the same target with no tools (and, with no memory port wired, no memory); repeated invalid repair fails', async t => {
   for (const successful of [true, false]) {
     let repairs = 0; const requests: ChatRequest[] = [];
     const f = await fixture(t, { provider: { id: 'return-fixture', async *stream(req) {

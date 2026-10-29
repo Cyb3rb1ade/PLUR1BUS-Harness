@@ -27,13 +27,48 @@ Workflow roles from ADR-003 (`worker` / `reviewer`), the task board, note board,
 |---|---|---|
 | Shape | `consult({ fromAgent, toAgent, question, context, signal, traceId?, path? })` | `delegate({ fromAgent, toAgent, task, acceptanceCriteria, signal, traceId?, path? })` |
 | Sync | Awaits the answer | Returns a task (`queued` → `running` → terminal) plus `done` |
-| Callee context | Only `question` + `context`. Never the asker’s session history | Only the task contract |
+| Callee context | Only `question` + `context`, plus the callee’s own recalled memory. Never the asker’s session history | Only the task contract, plus the callee’s own recalled memory |
 | Result | Structured `consult.answer` with a provenance envelope (`agentId`, `projectId`, `traceId`, `spanId`, `at`, `cost`, `targetKind: "local"`) | Task with a **capped** body (default 2 000 tokens), a truncation **marker**, and a pointer `artifact:<id>` to the full body. Never silent clipping |
 | Scope | Target runs inside its own `AgentScope` (fail-closed if missing) | Same |
 
-Peer output is **data**, not instructions: the answer is a structured block with source, not system or assistant text. The callee’s `agent-private` / `user`-scope memory is never read by this library (the runner uses the session `ChatProvider` seam with empty `memory` / `summaries`).
+Peer output is **data**, not instructions: the answer is a structured block with source, not system or assistant text. The collaboration library itself reads no memory; the composed runner gives the callee its memory as described in [Memory of the asked agent](#memory-of-the-asked-agent) (owner decision 2026-10-29, ADR-003). Without a memory port, the runner still uses the session `ChatProvider` seam with empty `memory` / `summaries`.
 
 All agent runs go through the deterministic `FakeChatProvider` from `packages/core/src/session/provider.ts` until a follow-up wires real adapters. No network, no live models.
+
+## Memory of the asked agent
+
+Owner decision 2026-10-29: an internal turn is not a memory-less turn. When `consult_agent` or `delegate_task` runs the asked agent (`composedAgentRunner`, `packages/core/src/composition/collaboration.ts`), the agent recalls its memory and captures the exchange, through the memory port a normal turn uses (`session/memory-port.ts`, `engineTurnMemory`). There is no second path to the engine. The rule that the callee’s `agent-private` and `user`-scope memory is never read is gone.
+
+**Recall.** The asked agent (`input.agentId`) recalls as the asking person (`input.principal`; the harness user id, as a recurring job runs as its owner). The query is the question, or for a delegation the contract’s objective, reason and acceptance criteria. The text goes into `memory` of every provider request of the run: the acceptance check, the work stream and the return-repair stream. The engine is asked once per run. `summaries` stay empty: in a normal turn they are the session’s compaction summaries, not memory, and a collaboration hop has no compacted history. A recall that fails or degrades never fails the turn (logged as `collab.recall.failed` / `collab.recall.degraded`).
+
+**What the principal may read** follows the RBAC table (`rbac/policy.ts`, `memory.*.read`, ADR-007) combined with the agent’s switches. A switch can narrow, never widen:
+
+| Scope | Right | Switch |
+|---|---|---|
+| `user` (the asking person’s own cards) | own; an agent principal has none | `recall.user` |
+| `workspace` | `use` on the asked agent (owner and admin: role) | `recall.workspace` |
+| `agent-private` | `manage` on the asked agent (owner and admin: role) | `recall.agentPrivate` |
+
+**Capture.** After the turn has its answer, the exchange is captured in the background (the result does not wait for it) as the asked agent, for the asking person, if `capture` is on and a person asked. The user message is framed as `[collab] Request from agent "<id>" on behalf of the person asking:` so the engine never reads a peer’s question as the person’s own words; the assistant message is the answer (for a delegation the return summary). A capture without a known asking agent is skipped (`collab.capture.skipped`).
+
+**Provenance.** The engine has no field a host can set for the origin of a card (a card’s `origin` is `dm`, `group` or `cron`, and a capture whose agent context is not `user` is skipped altogether). The origin therefore travels where the memory port already carries it for any turn, and in the harness log:
+
+- the capture’s session key `session:<session id>` names the hop’s session (the replayable `project` session when the core keeps hop sessions, else `collab:<project id>`), its run id the id of the turn the provider ran (it ends up as the card’s source turn);
+- the log line `session capture done` carries `origin: "collab"`, `fromAgent`, `traceId` and `spanId`;
+- the framed message text above.
+
+**Switches.** `agents.<id>.memoryExposure.collab` in `config.json`, all default `true`, `x-restart: live`, `x-tier: advanced`, written by owner and admin and audited (`docs/config.md`):
+
+| Key | Effect |
+|---|---|
+| `recall.user` | Off: the asking person’s `user` scope is withheld; workspace and agent-private are still read. |
+| `recall.workspace` | Off: no recall for collab turns. |
+| `recall.agentPrivate` | Off: no recall for collab turns. |
+| `capture` | Off: nothing is captured. |
+
+**Limits.** The engine’s per-call contract (`RecallQuery`) has no scope filter. Its ACL (`acl-middleware.js`) grants the `agent-private` and `workspace` scopes to the agent itself whoever asks, and withholds the `user` scope when the principal carries no `user`. So only the `user` scope can be switched off on its own. For the other two a switch that is off, or a principal without the right (for example a member with only `use`, who does not hold `manage` for `agent-private`), means **no recall at all**: the memory port answers `degraded.reason = "scope-not-enforceable"` (logged as `memory.recall.refused`) without asking the engine. Filtering by scope needs an additive field in the engine contract (a `scopes` list on `RecallQuery`); until then the switches do what the engine can do and nothing pretends to more. `filter`, `disclose` and `project` exposure options are not part of this slice (work package P, M5+ WP3).
+
+The channels `a2a`, `mcp` and `acp` are not implemented; `packages/core/src/memory-exposure/` resolves per channel (`CHANNEL_DEFAULTS`, `resolveExposure`) so they can use the same structure.
 
 ## Guardrails (enforced in code)
 
