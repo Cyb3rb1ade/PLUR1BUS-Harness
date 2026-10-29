@@ -135,14 +135,15 @@ pub fn request(cmd: &ProjectCmd) -> (&'static str, Value) {
             ),
         },
         ProjectCmd::Repo { sub } => match sub {
-            RepoCmd::Bind { project, path, base } => (
+            RepoCmd::Bind {
+                project,
+                path,
+                base,
+            } => (
                 "project.repo.bind",
                 json!({"projectId":project,"repoPath":path,"baseBranch":base}),
             ),
-            RepoCmd::Unbind { project } => (
-                "project.repo.unbind",
-                json!({"projectId":project}),
-            ),
+            RepoCmd::Unbind { project } => ("project.repo.unbind", json!({"projectId":project})),
         },
     }
 }
@@ -189,12 +190,17 @@ mod tests {
             "plur1bus", "--json", "project", "repo", "bind", "prj_1", "/srv/app", "--base", "main",
         ])
         .unwrap();
-        let Cmd::Project { sub } = cli.cmd else { panic!() };
+        let Cmd::Project { sub } = cli.cmd else {
+            panic!()
+        };
         let (method, params) = request(&sub);
         assert_eq!(method, "project.repo.bind");
         assert_eq!(params["projectId"], "prj_1");
         assert_eq!(params["repoPath"], "/srv/app");
         assert_eq!(params["baseBranch"], "main");
-        assert!(Cli::try_parse_from(["plur1bus", "project", "repo", "bind", "prj_1", "/srv/app"]).is_err());
+        assert!(
+            Cli::try_parse_from(["plur1bus", "project", "repo", "bind", "prj_1", "/srv/app"])
+                .is_err()
+        );
     }
 }

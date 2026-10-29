@@ -2200,6 +2200,92 @@
                 "x-restart": "live",
                 "x-tier": "basic"
               },
+              "engine": {
+                "description": "External ACP agent (ADR-003 Q4). Stateless: the connector keeps no harness session. Real CLIs stay out of CI.",
+                "type": "object",
+                "additionalProperties": false,
+                "x-restart": "live",
+                "x-tier": "advanced",
+                "required": [
+                  "kind",
+                  "connector"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "external",
+                    "description": "External coding agent. The harness remains the only git writer."
+                  },
+                  "connector": {
+                    "enum": [
+                      "claude-code",
+                      "codex",
+                      "goose",
+                      "agy"
+                    ],
+                    "description": "Connector id. goose is gated; agy is best-effort."
+                  },
+                  "maxTurns": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200,
+                    "default": 20,
+                    "description": "Maximum ACP prompts for one delegation."
+                  },
+                  "timeoutMs": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 3600000,
+                    "default": 600000,
+                    "description": "Kills the connector process group after this many milliseconds."
+                  }
+                }
+              },
+              "memoryExposure": {
+                "description": "Shared with package P. The acp channel is not sent on ACP initialize or session/new. Default: workspace, user and project readable; all five personal categories filtered; no write; credentials always filtered.",
+                "type": "object",
+                "additionalProperties": false,
+                "x-restart": "live",
+                "x-tier": "advanced",
+                "properties": {
+                  "acp": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "read": {
+                        "type": "array",
+                        "uniqueItems": true,
+                        "maxItems": 3,
+                        "items": {
+                          "enum": [
+                            "workspace",
+                            "user",
+                            "project"
+                          ]
+                        },
+                        "default": [
+                          "workspace",
+                          "user",
+                          "project"
+                        ]
+                      },
+                      "write": {
+                        "const": false,
+                        "default": false
+                      },
+                      "personalFiltered": {
+                        "type": "boolean",
+                        "const": true,
+                        "default": true,
+                        "description": "All five personal categories stay filtered. Package P names the categories."
+                      },
+                      "credentials": {
+                        "const": "filtered",
+                        "default": "filtered"
+                      }
+                    }
+                  }
+                }
+              },
               "channels": {
                 "description": "Channel names selected for this agent. Does not enable installation channels.",
                 "type": "array",
