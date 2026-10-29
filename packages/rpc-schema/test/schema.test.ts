@@ -7,8 +7,8 @@ const EXT_METHODS = ["ext.disable", "ext.enable", "ext.inspect", "ext.inspection
 describe("rpc-schema", () => {
   const fx = loadFixtures();
 
-  it("declares rpc 1.7.0 and the closed error enum", () => {
-    assert.equal(RPC_VERSION, "1.7.0");
+  it("declares rpc 1.8.0 and the closed error enum", () => {
+    assert.equal(RPC_VERSION, "1.8.0");
     assert.deepEqual([...ERROR_CODES], [
       "E_UNAUTHORIZED", "E_RPC_VERSION", "E_NOT_AVAILABLE", "E_CORE_UNAVAILABLE", "E_INVALID_PARAMS",
       "E_AGENT_UNKNOWN", "E_AGENT_EXISTS", "E_AGENT_RIGHTS", "E_AGENT_SECRETS_MISSING", "E_CONFIG_INVALID", "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED",
@@ -116,7 +116,7 @@ describe("rpc-schema", () => {
   it("every ext method retains its introduction version and closed supervisor params", () => {
     const supervisor = buildCapabilities([], "supervisor");
     for (const m of EXT_METHODS) {
-      assert.deepEqual(supervisor.methods[m], { stability: "experimental", since: m === "ext.inspection.get" ? "1.7.0" : "1.4.0" }, m);
+      assert.deepEqual(supervisor.methods[m], { stability: "experimental", since: m === "ext.inspection.get" ? "1.8.0" : "1.4.0" }, m);
       const def = (SCHEMA as any).$defs.methods[m];
       assert.equal(def["x-server"], "supervisor", m);
       assert.equal(def.params.additionalProperties, false, `${m} params are closed`);
