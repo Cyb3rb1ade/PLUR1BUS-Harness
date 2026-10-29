@@ -213,7 +213,6 @@ describe("budget.set human-only RPC boundary",()=>{
     assert.deepEqual(Object.entries(RPC_RULES).filter(([,r])=>r.humanOnly).map(([m])=>m).sort(),[
       "ext.list","ext.show","ext.watch","ext.inspection.get","ext.inspect","ext.install","ext.uninstall","ext.restore","ext.enable","ext.disable",
       "admin.extensions.setup.get","admin.extensions.setup.set","admin.extensions.runtime.status","admin.extensions.runtime.hold","admin.extensions.runtime.release","admin.extensions.auth.start","admin.extensions.auth.status","admin.extensions.auth.submit","admin.extensions.auth.cancel",
-      "admin.extensions.runtime.reconcile",
       "admin.import.detect","admin.import.wsl.list","admin.import.plan","admin.import.preflight","admin.import.skills","admin.import.apply","admin.import.status","admin.import.abort","admin.import.runs","admin.import.rollback",
       "admin.import.ssh.key.status","admin.import.ssh.key.generate","admin.import.ssh.key.rotate","admin.import.ssh.key.delete","admin.import.ssh.connections.list","admin.import.ssh.connections.set","admin.import.ssh.connections.delete","admin.import.ssh.hostKey.probe","admin.import.ssh.hostKey.trust",
       "admin.engine.test","secret.describe","secret.grants.list","decision.status","decision.test",

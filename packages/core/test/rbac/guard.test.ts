@@ -19,6 +19,9 @@ const PRIVATE_IMPORT_RUNTIME = new Map([
   ["admin.import.runtime.status", "core"],
   ["admin.import.runtime.release", "core"],
 ] as const);
+/** Called only by the Core over its own supervisor connection after an extension secret changed; never by a person. */
+const PRIVATE_SUPERVISOR_CONTROLS = new Map([["admin.extensions.runtime.reconcile", "supervisor"]] as const);
+const PRIVATE_CONTROLS = new Map<string, string>([...PRIVATE_IMPORT_RUNTIME, ...PRIVATE_SUPERVISOR_CONTROLS]);
 
 const params: Record<string, unknown> = {
   "memory.curation.list": { agentId: "bernd" },
@@ -111,11 +114,11 @@ describe("rpc guard: rules", () => {
   it("every surface method is secured", () => {
     for (const name of Object.keys(findMethods(SCHEMA)).filter(n => /^(media|project|collab|identity|auth|channel)\./.test(n))) assert.ok(RPC_RULES[name], name);
   });
-  it("private import runtime controls have exact endpoint ownership and no human or Web admission", () => {
+  it("private import runtime and supervisor controls have exact endpoint ownership and no human or Web admission", () => {
     const methods = findMethods(SCHEMA);
     assert.deepEqual(Object.keys(methods).filter(method => method.startsWith("admin.import.runtime.")).sort(),
       [...PRIVATE_IMPORT_RUNTIME.keys()].sort(), "a new private control requires explicit classification");
-    for (const [method, server] of PRIVATE_IMPORT_RUNTIME) {
+    for (const [method, server] of PRIVATE_CONTROLS) {
       assert.equal(methods[method]?.["x-server"], server, method);
       assert.equal(Object.hasOwn(RPC_RULES, method), false, `${method} must retain its private handler authority`);
       assert.equal(webEndpoint(method), null, `${method} cannot cross the Web gateway`);
@@ -125,7 +128,7 @@ describe("rpc guard: rules", () => {
     const admin = Object.keys(findMethods(SCHEMA)).filter((m) => m.startsWith("admin."));
     assert.ok(admin.length >= 6);
     for (const m of admin) {
-      if (![...PRIVATE_IMPORT_RUNTIME.keys()].some(method => method === m)) {
+      if (!PRIVATE_CONTROLS.has(m)) {
         assert.ok(RPC_RULES[m], `${m} has no RBAC rule`);
       }
     }

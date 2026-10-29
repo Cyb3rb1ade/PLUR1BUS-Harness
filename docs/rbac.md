@@ -586,7 +586,10 @@ from the Web gateway.
 | `admin.extensions.auth.cancel` | `extensions.manage` | ✔ | ✔ | – | – | – |
 | `admin.extensions.runtime.hold` | `extensions.manage` | ✔ | ✔ | – | – | – |
 | `admin.extensions.runtime.release` | `extensions.manage` | ✔ | ✔ | – | – | – |
-| `admin.extensions.runtime.reconcile` | `extensions.manage` | ✔ | ✔ | – | – | – |
+
+`admin.extensions.runtime.reconcile` is a supervisor method that only the Core calls, with its own supervisor
+connection, after an extension's secret changed. Neither the Harness API nor a delegated person reaches it, so it has
+no rule in `RPC_RULES`.
 
 Config get/set and module list/graph use the supervisor, which obtains current identity from the core; config writes are Owner/Admin and additionally obey every affected x-write-roles annotation, including parent replacements. Annotations and sensitivity are checked at the mutation boundary. Internal lifecycle/auth/subscription RPCs, admin backup/import, secret reveal and raw caller-based memory calls remain excluded. For legacy methods without a guard, API admission is conservative: actual Owner only, except authorized diagnostics and filtered agent listing. This is narrower than the previous local-token compatibility path. Remaining exposed methods keep their existing Core policy and humanOnly requirements.
 

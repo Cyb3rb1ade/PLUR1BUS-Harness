@@ -45,7 +45,6 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
     "admin.import.skills", "admin.import.apply", "admin.import.status", "admin.import.abort", "admin.import.runs",
     "admin.import.rollback"].map(method => [method,
     { ...rule("imports.manage", system), humanOnly: true }])),
-  "admin.extensions.runtime.reconcile": { ...rule("extensions.manage", system), humanOnly: true },
   ...Object.fromEntries(["admin.import.ssh.key.status", "admin.import.ssh.connections.list"].map(method => [method,
     { ...rule("imports.read", system), humanOnly: true }])),
   ...Object.fromEntries(["admin.import.ssh.key.generate", "admin.import.ssh.key.rotate", "admin.import.ssh.key.delete",
