@@ -253,9 +253,10 @@ root and source `${__dirname}` expands to its `payload/` directory at start. The
 active version is shared; selecting different versions per agent is not built.
 Updates retain a previous version for fallback and never embed staging paths in a
 saved definition. A local payload declares its command/scripts and runtime. The
-harness Node is pinned; Python via `uv` requires a frozen lock and the approved
-pinned runtime port. That runtime producer is still audit-gated, so missing Python
-setup is reported as `needs-setup` and never falls back to ambient PATH.
+harness Node is pinned; Python via `uv` requires a frozen lock and a pinned runtime
+port. The harness ships no `uv` (owner decision of 2026-10-29), so a Python server
+from a bundle is reported as `needs-setup`; there is no `uv` producer, no fallback to
+ambient PATH and no advisory exception.
 
 Core refreshes registrations on extension/config changes. Disabled servers close
 connections and child processes. Per-agent tool visibility is checked again in the
@@ -290,7 +291,7 @@ and latest published SDK implements only the legacy revision.
 
 Remaining follow-ups include provider sampling and usage budgeting, broader
 elicitation callbacks, the MCP Apps renderer, persistent schema cache, official
-tasks/extensions, MCP server exposure and the separately audited UV runtime
-producer. Extension configuration, lazy registration, per-agent tool bindings,
+tasks/extensions and MCP server exposure. The harness ships no `uv` runtime.
+Extension configuration, lazy registration, per-agent tool bindings,
 human authentication interaction and private secret leases are implemented by
 M v2. Browser acceptance is tracked in [the UI validation status](web-ui.md#m-v2-extensionimport-validation-status).
