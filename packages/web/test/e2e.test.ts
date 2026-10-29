@@ -150,15 +150,10 @@ describe("shell", opts, () => {
     await withApp({}, async ({ page }) => {
       await signIn(page);
       await page.getByRole("heading", { name: "Chat", level: 1 }).waitFor();
-      // Loaded pages can name their heading differently from the sidebar and its temporary lazy frame.
-      for (const [name, heading] of [
-        ["Projects", "Projects"],
-        ["Skills", "Skills & Plugins"],
-        ["Break-Glass", "Break-Glass"],
-        ["Logs", "Logs"],
-        ["Settings", "Settings"],
-        ["Help", "User Handbook"],
-      ] as const) {
+      // [sidebar item, h1 of the loaded page]. While a page's chunk loads, its frame shows the item's label as h1, and the Help page
+      // is then retitled "User Handbook": waiting for "Help" only passes when the chunk is slower than the polling, so the test
+      // waits for the loaded page's own heading.
+      for (const [name, heading] of [["Projects", "Projects"], ["Skills", "Skills & Plugins"], ["Break-Glass", "Break-Glass"], ["Logs", "Logs"], ["Settings", "Settings"], ["Help", "User Handbook"]] as const) {
         await page.locator("#sidebar-nav").getByRole("link", { name, exact: true }).click();
         await page.getByRole("heading", { name: heading, level: 1 }).waitFor();
         assert.equal(await page.locator("#sidebar-nav").locator("[aria-current=page]").innerText().then((s) => s.trim()), name);

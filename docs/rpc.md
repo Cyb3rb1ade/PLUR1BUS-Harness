@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.8.0)
+# RPC reference (rpc 1.9.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -216,9 +216,9 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `memory.show`: experimental, since 1.0.0
 - `memory.forget`: experimental, since 1.0.0
 - `memory.correct`: experimental, since 1.0.0
-- `memory.sensitivity.clear`: experimental, since 1.8.0
-- `memory.sensitivity.get`: experimental, since 1.8.0
-- `memory.sensitivity.set`: experimental, since 1.8.0
+- `memory.sensitivity.clear`: experimental, since 1.9.0
+- `memory.sensitivity.get`: experimental, since 1.9.0
+- `memory.sensitivity.set`: experimental, since 1.9.0
 - `memory.share`: experimental, since 1.0.0
 - `memory.state`: experimental, since 1.0.0
 - `memory.propose`: experimental, since 1.1.0
@@ -11871,7 +11871,7 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 
 ### `memory.sensitivity.clear`
 
-**Stability:** experimental · since 1.8.0
+**Stability:** experimental · since 1.9.0
 
 **Served by:** core
 
@@ -11944,7 +11944,7 @@ Clear a specific sensitivity category or all sensitivity categories from a memor
 
 ### `memory.sensitivity.get`
 
-**Stability:** experimental · since 1.8.0
+**Stability:** experimental · since 1.9.0
 
 **Served by:** core
 
@@ -12014,7 +12014,7 @@ Get the sensitivity categories and source for a memory card.
 
 ### `memory.sensitivity.set`
 
-**Stability:** experimental · since 1.8.0
+**Stability:** experimental · since 1.9.0
 
 **Served by:** core
 

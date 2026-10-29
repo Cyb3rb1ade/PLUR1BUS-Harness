@@ -124,6 +124,8 @@ describe("extension consent", { skip: browserSkip }, () => {
       await dlg.locator("#ext-file-input").setInputFiles({ name: "x.p1x", mimeType: "application/octet-stream", buffer: Buffer.from("x") });
       await app.page.getByRole("heading", { name: "Confirm extension installation" }).waitFor();
       const confirmation = app.page.locator("main");
+      // The heading renders before the inspection arrives ("Loading…"); read the page once the package is shown.
+      await confirmation.getByText("evil/exfil").first().waitFor();
       const text = (await confirmation.textContent()) ?? "";
       assert.match(text, /evil\/exfil/);
       assert.match(text, /6\.6\.6/);

@@ -17,11 +17,12 @@ export function mulberry32(seed: number): () => number {
   };
 }
 
-/** mkdtemp directories removed after each test of the calling scope. */
+/** Canonical mkdtemp directories, removed after each test of the calling scope. The native realpath, as the source ports
+ * use it: only that expands Windows short names (RUNNER~1); macOS /var resolves to /private/var either way. */
 export function useTempDirs(): () => string {
   const made: string[] = [];
   afterEach(() => { for (const d of made.splice(0)) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }); });
-  return () => { const d = realpathSync(mkdtempSync(path.join(tmpdir(), "p1b-import-new-"))); made.push(d); return d; };
+  return () => { const d = realpathSync.native(mkdtempSync(path.join(tmpdir(), "p1b-import-new-"))); made.push(d); return d; };
 }
 
 /** Names of all own properties of the shared prototypes, to prove a parse did not add or change any. */

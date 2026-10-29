@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://plur1bus.dev/schema/rpc/1.8.0/rpc.schema.json",
-  "title": "PLUR1BUS harness RPC 1.8.0",
+  "$id": "https://plur1bus.dev/schema/rpc/1.9.0/rpc.schema.json",
+  "title": "PLUR1BUS harness RPC 1.9.0",
   "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch.",
-  "x-rpc-version": "1.8.0",
+  "x-rpc-version": "1.9.0",
   "$defs": {
     "EngineContractEngineCapabilitiesData": {
       "title": "EngineContractEngineCapabilitiesData",
@@ -17214,7 +17214,7 @@
       "memory.sensitivity.clear": {
         "description": "Clear a specific sensitivity category or all sensitivity categories from a memory card.",
         "x-stability": "experimental",
-        "x-since": "1.8.0",
+        "x-since": "1.9.0",
         "x-server": "core",
         "params": {
           "type": "object",
@@ -17275,7 +17275,7 @@
       "memory.sensitivity.get": {
         "description": "Get the sensitivity categories and source for a memory card.",
         "x-stability": "experimental",
-        "x-since": "1.8.0",
+        "x-since": "1.9.0",
         "x-server": "core",
         "params": {
           "type": "object",
@@ -17333,7 +17333,7 @@
       "memory.sensitivity.set": {
         "description": "Mark sensitivity categories (health, financial, credential, identity, personal) on a memory card.",
         "x-stability": "experimental",
-        "x-since": "1.8.0",
+        "x-since": "1.9.0",
         "x-server": "core",
         "params": {
           "type": "object",

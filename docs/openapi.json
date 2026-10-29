@@ -779,7 +779,484 @@
         "x-since": "1.0.0",
         "x-rate-class": "rpc",
         "x-csrf": false,
-        "x-authz": "authenticated"
+        "x-authz": "delegated"
+      }
+    },
+    "/.well-known/agent-card.json": {
+      "get": {
+        "operationId": "a2a.card.root",
+        "tags": [
+          "a2a"
+        ],
+        "summary": "A2A 1.0 Agent Card for the default agent",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "A2A Agent Card document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The credentials are wrong (`reason`: `invalid-token` for the owner token, `invalid-credentials` for a local account).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A foreign `Origin` or a cross-site fetch (`reason`: `origin`, `cross-site`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "read",
+        "x-csrf": false,
+        "x-authz": "public"
+      }
+    },
+    "/.well-known/agent.json": {
+      "get": {
+        "operationId": "a2a.card.root.alias",
+        "tags": [
+          "a2a"
+        ],
+        "summary": "A2A 1.0 Agent Card for the default agent (alias)",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "A2A Agent Card document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The credentials are wrong (`reason`: `invalid-token` for the owner token, `invalid-credentials` for a local account).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A foreign `Origin` or a cross-site fetch (`reason`: `origin`, `cross-site`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "read",
+        "x-csrf": false,
+        "x-authz": "public"
+      }
+    },
+    "/a2a/{agentId}/.well-known/agent-card.json": {
+      "get": {
+        "operationId": "a2a.card.agent",
+        "tags": [
+          "a2a"
+        ],
+        "summary": "A2A 1.0 Agent Card for a specific agent",
+        "security": [],
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A2A Agent Card document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The credentials are wrong (`reason`: `invalid-token` for the owner token, `invalid-credentials` for a local account).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A foreign `Origin` or a cross-site fetch (`reason`: `origin`, `cross-site`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "read",
+        "x-csrf": false,
+        "x-authz": "public"
+      }
+    },
+    "/a2a/{agentId}/.well-known/agent.json": {
+      "get": {
+        "operationId": "a2a.card.agent.alias",
+        "tags": [
+          "a2a"
+        ],
+        "summary": "A2A 1.0 Agent Card for a specific agent (alias)",
+        "security": [],
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A2A Agent Card document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The credentials are wrong (`reason`: `invalid-token` for the owner token, `invalid-credentials` for a local account).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A foreign `Origin` or a cross-site fetch (`reason`: `origin`, `cross-site`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "read",
+        "x-csrf": false,
+        "x-authz": "public"
+      }
+    },
+    "/a2a/{agentId}": {
+      "post": {
+        "operationId": "a2a.endpoint",
+        "tags": [
+          "a2a"
+        ],
+        "summary": "A2A 1.0 JSON-RPC endpoint per exposed agent",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A2A JSON-RPC response or SSE event stream",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A foreign `Origin` or a cross-site fetch (`reason`: `origin`, `cross-site`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "rpc",
+        "x-csrf": false,
+        "x-authz": "delegated"
       }
     },
     "/.well-known/oauth-authorization-server": {
@@ -1343,7 +1820,7 @@
             }
           },
           "403": {
-            "description": "A foreign `Origin` or a cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "description": "A foreign `Origin` or a cross-site fetch (`reason`: `origin`, `cross-site`).",
             "content": {
               "application/json": {
                 "schema": {
@@ -1397,7 +1874,7 @@
         "x-since": "1.0.0",
         "x-rate-class": "read",
         "x-csrf": false,
-        "x-authz": "my.read"
+        "x-authz": "authenticated"
       }
     },
     "/api/v1/oauth/grants/revoke": {
@@ -1475,7 +1952,7 @@
             }
           },
           "403": {
-            "description": "The one-time CSRF token is missing, wrong, spent or expired (`reason`: `csrf`); or a foreign `Origin` / cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "description": "The one-time CSRF token is missing, wrong, spent or expired (`reason`: `csrf`); or a foreign `Origin` / cross-site fetch (`reason`: `origin`, `cross-site`).",
             "content": {
               "application/json": {
                 "schema": {
@@ -1539,7 +2016,7 @@
         "x-since": "1.0.0",
         "x-rate-class": "write",
         "x-csrf": true,
-        "x-authz": "my.write"
+        "x-authz": "authenticated"
       }
     },
     "/api/v1/meta": {

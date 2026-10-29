@@ -1,10 +1,11 @@
 /** Read-only source access must enforce trust and budgets before returning any contents. */
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, symlink, rm, realpath } from "node:fs/promises";
+import type { Dirent } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
-import { createLocalFs, createNativeSourceFs, realpathWith } from "../src/local.ts";
+import { createLocalFs, createNativeSourceFs, wslShareLinkStat } from "../src/local.ts";
 import { RemoteFsError } from "../src/types.ts";
 
 async function fixture(run: (root: string, outside: string) => Promise<void>): Promise<void> {
@@ -107,18 +108,27 @@ test("abort, deadline and invalid limits refuse reads with fixed sanitized error
   await assert.rejects(timeout.readFile("card.md", -1), { reason: "timeout" });
 }));
 
-test("a WSL share falls back to the lstat walk when Windows' native realpath refuses it", async () => {
+test("a Linux symlink on a WSL share that Windows cannot lstat is a link by the share's own listing", async () => {
   const eisdir = Object.assign(new Error("EISDIR"), { code: "EISDIR" });
+  const entry = (name: string, link: boolean) => ({ name, isSymbolicLink: () => link }) as unknown as Dirent;
+  const listed: string[] = [];
+  const list = async (directory: string) => { listed.push(directory); return (async function* () {
+    yield entry("SKILL.md", false); yield entry("leaked_key", true);
+  })(); };
+  for (const share of ["\\\\wsl.localhost\\Ubuntu\\root\\notes", "\\\\wsl$\\Ubuntu\\root\\notes"]) {
+    assert.deepEqual(await wslShareLinkStat(`${share}\\leaked_key`, eisdir, "win32", list), { type: "symlink", size: 0, mode: 0, mtimeMs: 0 });
+    assert.equal(listed.pop(), share);
+    // A listed entry that is no link, and an entry the listing does not name, keep the native error.
+    assert.equal(await wslShareLinkStat(`${share}\\SKILL.md`, eisdir, "win32", list), undefined);
+    assert.equal(await wslShareLinkStat(`${share}\\gone`, eisdir, "win32", list), undefined);
+  }
+  // Any other error, path or platform is never answered from a listing.
+  listed.length = 0;
   const missing = Object.assign(new Error("ENOENT"), { code: "ENOENT" });
-  const refuse = (error: Error) => async (): Promise<string> => { throw error; };
-  const walk = async (path: string) => `walked:${path}`;
-  for (const share of ["\\\\wsl.localhost\\Ubuntu\\root\\source", "\\\\wsl$\\Ubuntu\\root\\source"])
-    assert.equal(await realpathWith(share, "win32", refuse(eisdir), walk), `walked:${share}`);
-  // A missing path, any other path and any other platform keep the native answer.
-  await assert.rejects(realpathWith("\\\\wsl.localhost\\Ubuntu\\missing", "win32", refuse(missing), walk), { code: "ENOENT" });
-  await assert.rejects(realpathWith("C:\\Users\\a", "win32", refuse(eisdir), walk), { code: "EISDIR" });
-  await assert.rejects(realpathWith("\\\\wsl.localhost\\Ubuntu\\root", "linux", refuse(eisdir), walk), { code: "EISDIR" });
-  assert.equal(await realpathWith("/x", "linux", async () => "/native", walk), "/native");
+  assert.equal(await wslShareLinkStat("\\\\wsl.localhost\\Ubuntu\\root\\leaked_key", missing, "win32", list), undefined);
+  assert.equal(await wslShareLinkStat("C:\\Users\\a\\leaked_key", eisdir, "win32", list), undefined);
+  assert.equal(await wslShareLinkStat("\\\\wsl.localhost\\Ubuntu\\root\\leaked_key", eisdir, "linux", list), undefined);
+  assert.deepEqual(listed, []);
 });
 
 test("a link the host cannot resolve is denied, a missing target is not found, and native failures name their call", async () => fixture(async root => {

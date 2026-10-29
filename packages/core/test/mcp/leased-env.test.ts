@@ -102,7 +102,8 @@ describe("leased MCP launch environment", { timeout: 30_000 }, () => {
     for (const abort of [false, true]) {
       const controller = new AbortController();
       let releases = 0;
-      const transport = new BoundedStdioTransport({ type: "stdio", command: "/missing-A7-program",
+      // A bare name found nowhere fails on every platform; Windows starts an absolute path through its job launcher.
+      const transport = new BoundedStdioTransport({ type: "stdio", command: "missing-A7-program",
         args: [], env: {}, fromHost: [] }, 1024, 50, {}, {
         signal: controller.signal,
         launchEnvironment: async () => {

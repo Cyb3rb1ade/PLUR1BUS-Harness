@@ -530,15 +530,15 @@
     },
     "memory.sensitivity.clear": {
       "stability": "experimental",
-      "since": "1.8.0"
+      "since": "1.9.0"
     },
     "memory.sensitivity.get": {
       "stability": "experimental",
-      "since": "1.8.0"
+      "since": "1.9.0"
     },
     "memory.sensitivity.set": {
       "stability": "experimental",
-      "since": "1.8.0"
+      "since": "1.9.0"
     },
     "memory.share": {
       "stability": "experimental",
