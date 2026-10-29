@@ -831,6 +831,96 @@
           "privacy": {"description": "Per-agent privacy override; an unset key inherits the installation value.", "type": "object", "additionalProperties": false, "x-restart": "live", "x-tier": "basic", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {
             "localOnly": {"description": "Only local models for this agent; overrides privacy.localOnly in both directions. The shared memory engine and media index stay local while the installation or any agent is local-only.", "type": "boolean", "x-restart": "live", "x-tier": "basic", "x-write-roles": ["owner", "admin"], "x-audit": true}
           }},
+          "memoryExposure": {
+            "description": "Which of this agent's memory scopes its internal channels expose, and whether the turns they cause are captured. Today only `collab` (consult_agent and delegate_task) exists. Every switch defaults to true.",
+            "type": "object",
+            "additionalProperties": false,
+            "x-restart": "live",
+            "x-tier": "advanced",
+            "x-write-roles": [
+              "owner",
+              "admin"
+            ],
+            "x-audit": true,
+            "properties": {
+              "collab": {
+                "description": "Turns this agent runs for another agent of the installation (consult_agent, delegate_task). The agent recalls with the requesting person as principal and, afterwards, captures the exchange with the requesting agent as its origin.",
+                "type": "object",
+                "additionalProperties": false,
+                "x-restart": "live",
+                "x-tier": "advanced",
+                "x-write-roles": [
+                  "owner",
+                  "admin"
+                ],
+                "x-audit": true,
+                "properties": {
+                  "recall": {
+                    "description": "Memory scopes read for the requesting person. The engine can only withhold the user scope; a switch for workspace or agentPrivate that is off, or a principal without the matching right (use for workspace, manage for agent-private), skips the recall entirely instead of filtering it.",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "x-restart": "live",
+                    "x-tier": "advanced",
+                    "x-write-roles": [
+                      "owner",
+                      "admin"
+                    ],
+                    "x-audit": true,
+                    "properties": {
+                      "workspace": {
+                        "description": "Read the agent's workspace scope. The principal needs at least use on the agent. Off: no recall for collab turns (the engine cannot exclude this scope alone).",
+                        "type": "boolean",
+                        "default": true,
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true
+                      },
+                      "user": {
+                        "description": "Read the requesting person's own user scope. Off: the user scope is withheld, the other scopes are still read.",
+                        "type": "boolean",
+                        "default": true,
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true
+                      },
+                      "agentPrivate": {
+                        "description": "Read the agent's agent-private scope. The principal needs manage on the agent. Off: no recall for collab turns (the engine cannot exclude this scope alone).",
+                        "type": "boolean",
+                        "default": true,
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true
+                      }
+                    }
+                  },
+                  "capture": {
+                    "description": "Capture the exchange after the turn, with origin collab and the requesting agent named. Off: nothing is captured.",
+                    "type": "boolean",
+                    "default": true,
+                    "x-restart": "live",
+                    "x-tier": "advanced",
+                    "x-write-roles": [
+                      "owner",
+                      "admin"
+                    ],
+                    "x-audit": true
+                  }
+                }
+              }
+            }
+          },
           "persona": {"description": "Inline persona text for a new agent (also scaffolded into SOUL.md).", "type": "string", "maxLength": 4000, "x-restart": "live", "x-tier": "basic"},
           "toolUse": {
             "description": "Per-agent tool use. Prefer forces the first model round when the harness detects a tool need; auto leaves the choice to the model; require-first requests a tool on every first round when supported.",
