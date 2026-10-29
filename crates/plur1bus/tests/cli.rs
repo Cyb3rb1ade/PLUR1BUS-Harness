@@ -2310,3 +2310,25 @@ fn memory_mark_and_unmark_sensitivity() {
     assert_eq!(value2["cleared"], true);
     assert_eq!(value2["remaining"], serde_json::json!([]));
 }
+
+#[test]
+fn mcp_serve_requires_token_and_valid_config() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().to_str().unwrap();
+
+    // 1. Missing token
+    bin()
+        .args(["--home", home, "mcp", "serve"])
+        .env_remove("PLUR1BUS_MCP_TOKEN")
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("PLUR1BUS_MCP_TOKEN"));
+
+    // 2. Disabled in config
+    bin()
+        .args(["--home", home, "mcp", "serve"])
+        .env("PLUR1BUS_MCP_TOKEN", "fake-token")
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("mcpServer.enabled"));
+}

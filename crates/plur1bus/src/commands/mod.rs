@@ -33,6 +33,7 @@ pub mod media_search;
 pub mod memory;
 pub mod memory_ops;
 pub mod memory_reembed;
+pub mod mcp;
 pub mod model;
 pub mod module;
 pub mod plugin;
