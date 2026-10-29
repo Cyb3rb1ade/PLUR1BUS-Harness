@@ -1,5 +1,5 @@
 //! The main scheduler owns all writer stops, fixed workers and the transition back to a usable Core.
-use super::import_recovery::{abort_intent, activation, block, publish_activation};
+use super::import_recovery::{abort_intent, activation, block};
 pub use super::import_recovery::{initial, scheduled};
 use super::imports::Job;
 use super::{imports, Monitors, Role, RoleKind, Shared};
@@ -25,6 +25,17 @@ fn failed() -> ExtError {
 
 fn stopping(shared: &Shared) -> bool {
     shared.lock().stopping.is_some()
+}
+
+fn check_abort(shared: &Shared, job: &Job) -> Result<(), ExtError> {
+    if imports::abort_requested(shared, job) {
+        return Err(ExtError::new(
+            "E_IMPORT_FAILED",
+            "import-aborted",
+            "import was aborted before activation",
+        ));
+    }
+    Ok(())
 }
 
 fn stop_writers(
@@ -105,10 +116,13 @@ fn wait_core(
     shared: &Shared,
     layout: &Layout,
     monitors: &Monitors,
+    job: &Job,
     deadline: Instant,
 ) -> Result<Client, ExtError> {
+    check_abort(shared, job)?;
     let ready_end = deadline.min(Instant::now() + Duration::from_secs(70));
     while Instant::now() < ready_end && !stopping(shared) {
+        check_abort(shared, job)?;
         if !monitors
             .get("core")
             .is_some_and(super::child::Monitor::is_running)
@@ -144,11 +158,12 @@ fn complete_runtime(
     job: &Job,
     deadline: Instant,
 ) -> Result<Client, ExtError> {
-    let mut core = wait_core(shared, layout, monitors, deadline)?;
+    let mut core = wait_core(shared, layout, monitors, job, deadline)?;
     let mut method = "admin.import.runtime.complete";
     let mut restarts = 0;
     let mut last_progress = Value::Null;
     while Instant::now() < deadline && !stopping(shared) {
+        check_abort(shared, job)?;
         let status = core.call(method, control(job)).map_err(|_| failed())?;
         if status["runId"] != job.run_id {
             return Err(failed());
@@ -166,7 +181,7 @@ fn complete_runtime(
                     return Err(failed());
                 }
                 super::restart_child(shared, layout, token, &Role::core(), monitors);
-                core = wait_core(shared, layout, monitors, deadline)?;
+                core = wait_core(shared, layout, monitors, job, deadline)?;
                 restarts += 1;
                 method = "admin.import.runtime.complete";
             }
@@ -251,7 +266,10 @@ fn activate(
         return Err(failed());
     }
     // Durable commit point: after routing is released, newly accepted user writes must never be rolled back.
-    publish_activation(layout, job, result)?;
+    if !imports::begin_activation(shared, layout, job, result)? {
+        check_abort(shared, job)?;
+        return Err(failed());
+    }
     if stopping(shared) {
         return Err(failed());
     }
@@ -264,7 +282,7 @@ fn activate(
         job.mode = "activate".into();
         imports::stage(shared, layout, job, "restarting-core")?;
         super::restart_child(shared, layout, token, &Role::core(), monitors);
-        wait_core(shared, layout, monitors, deadline)?;
+        wait_core(shared, layout, monitors, job, deadline)?;
     }
     imports::finish(shared, layout, job, result)
 }
@@ -422,8 +440,8 @@ fn finish_imported_core(
         };
         super::import_extensions::rollback_run(layout, &mut host, &job.run_id)?;
     }
-    match start_held(shared, layout, token, monitors, job, deadline) {
-        Ok(core) => activate(
+    let aborted = match start_held(shared, layout, token, monitors, job, deadline) {
+        Ok(core) => match activate(
             shared,
             layout,
             token,
@@ -434,30 +452,39 @@ fn finish_imported_core(
                 core: Some(core),
             },
             deadline,
-        )?,
-        Err(_) => {
-            stop_writers(shared, layout, token, monitors)?;
-            if stopping(shared) {
-                return Err(failed());
-            }
-            let restored = restored_worker(shared, layout, job)?;
-            let failure = json!({"ok":false,"status":"failed","restored":true,"resumable":restored["resumable"],
-                    "error":{"code":"E_IMPORT_FAILED","reason":"core-restart-failed"}});
-            let recovery_end = Instant::now() + Duration::from_secs(90);
-            let core = start_held(shared, layout, token, monitors, job, recovery_end)?;
-            activate(
-                shared,
-                layout,
-                token,
-                monitors,
-                job,
-                ActivationReady {
-                    result: &failure,
-                    core: Some(core),
-                },
-                recovery_end,
-            )?;
-        }
+        ) {
+            Ok(()) => return Ok(()),
+            Err(error) if error.reason == Some("import-aborted") => true,
+            Err(error) => return Err(error),
+        },
+        Err(_) => imports::abort_requested(shared, job),
+    };
+    stop_writers(shared, layout, token, monitors)?;
+    if stopping(shared) {
+        return Err(failed());
     }
+    let restored = restored_worker(shared, layout, job)?;
+    // Abort admission closes when restoration stages its recover job; include an intent accepted during child stop.
+    let aborted = aborted || abort_intent(layout, job)?;
+    let failure = json!({"ok":false,"status":if aborted {"aborted"} else {"failed"},"restored":true,"resumable":restored["resumable"],
+        "error":{"code":"E_IMPORT_FAILED","reason":if aborted {"aborted"} else {"core-restart-failed"}}});
+    let recovery_end = Instant::now() + Duration::from_secs(90);
+    let core = start_held(shared, layout, token, monitors, job, recovery_end)?;
+    activate(
+        shared,
+        layout,
+        token,
+        monitors,
+        job,
+        ActivationReady {
+            result: &failure,
+            core: Some(core),
+        },
+        recovery_end,
+    )?;
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "import_abort_tests.rs"]
+mod tests;

@@ -50,6 +50,8 @@ pub struct State {
     pub active: Option<Job>,
     pub blocked: bool,
     pub abort_requested: bool,
+    /// The activation marker may be visible; no later GUI abort may undo released user writes.
+    pub activating: bool,
     pub runs: BTreeMap<String, RunRecord>,
     pub(super) proofs: BTreeMap<String, Proof>,
 }
@@ -298,7 +300,7 @@ pub fn stage(shared: &Shared, layout: &Layout, job: &Job, phase: &str) -> Result
     Ok(())
 }
 
-/// Serialize the late-abort decision with abort admission. An accepted abort can never be lost at commit.
+/// Check cancellation before starting the held Core; activation remains a later, separate commit boundary.
 pub fn begin_restart(shared: &Shared, layout: &Layout, job: &Job) -> Result<bool, ExtError> {
     let mut state = relock(&shared.maintenance);
     if job.mode == "apply" && state.abort_requested {
@@ -316,6 +318,44 @@ pub fn begin_restart(shared: &Shared, layout: &Layout, job: &Job) -> Result<bool
     records::write(layout, &directory.join("maintenance-run.json"), &record)?;
     state.runs.insert(job.run_id.clone(), record);
     state.active = Some(job.clone());
+    Ok(true)
+}
+
+/// Whether this exact apply invocation has an accepted abort before its activation commit point.
+pub(super) fn abort_requested(shared: &Shared, job: &Job) -> bool {
+    let state = relock(&shared.maintenance);
+    job.mode == "apply"
+        && !job.automatic_rollback
+        && !state.activating
+        && state.abort_requested
+        && state.active.as_ref().is_some_and(|active| {
+            active.run_id == job.run_id
+                && active.attempt == job.attempt
+                && active.invocation_id == job.invocation_id
+        })
+}
+
+/// Publish the durable activation marker under the same lock as abort admission, before any routing release.
+pub(super) fn begin_activation(
+    shared: &Shared,
+    layout: &Layout,
+    job: &Job,
+    result: &Value,
+) -> Result<bool, ExtError> {
+    let mut state = relock(&shared.maintenance);
+    if !state.active.as_ref().is_some_and(|active| {
+        active.run_id == job.run_id
+            && active.attempt == job.attempt
+            && active.invocation_id == job.invocation_id
+    }) {
+        return Err(records::unavailable());
+    }
+    if job.mode == "apply" && !job.automatic_rollback && state.abort_requested {
+        return Ok(false);
+    }
+    // A failed sync can leave a visible marker too. Keep activation fenced until recovery determines its outcome.
+    state.activating = true;
+    super::import_recovery::publish_activation(layout, job, result)?;
     Ok(true)
 }
 
@@ -356,6 +396,7 @@ pub fn finish(shared: &Shared, layout: &Layout, job: &Job, result: &Value) -> Re
     state.active = None;
     state.pending = None;
     state.abort_requested = false;
+    state.activating = false;
     state.proofs.clear();
     shared.wake.notify_all();
     Ok(())

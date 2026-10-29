@@ -161,10 +161,11 @@ pub fn read_method(
             .active
             .as_ref()
             .or(state.pending.as_ref())
-            .is_some_and(|job| job.run_id == id && job.mode == "apply")
+            .is_some_and(|job| job.run_id == id && job.mode == "apply" && !job.automatic_rollback)
+            && !state.activating
             && !matches!(
                 current.run["state"].as_str(),
-                Some("rolling-back" | "restarting-core" | "completed" | "failed" | "aborted")
+                Some("rolling-back" | "completed" | "failed" | "aborted")
             );
         if accepted {
             audit(layout, &record.job, "import.abort.requested", json!({}))?;
