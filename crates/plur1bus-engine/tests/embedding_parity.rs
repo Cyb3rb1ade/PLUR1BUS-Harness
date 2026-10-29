@@ -122,14 +122,18 @@ fn vectors(directory: &Path, name: &str, nc: bool) {
         .take(17)
         .map(|row| row["text"].as_str().unwrap().to_owned())
         .collect();
+    // A padding-invariant model (e5, EmbeddingGemma 2) must batch to its one-by-one goldens. The quantized jina
+    // conversions are not padding-invariant in Node either, so their live recording carries Node's own batch.
+    let node_batch = nc.then(|| read(&directory.join(name.replace(".json", "-batched.json"))));
     for (name, kind) in [("query", EmbedKind::Query), ("passage", EmbedKind::Passage)] {
         let actual = batched.embed(&inputs, kind, &Cancel::never()).unwrap();
         assert_eq!(actual.len(), inputs.len());
-        for (row, expected) in actual
-            .iter()
-            .zip(golden["cases"].as_array().unwrap().iter().take(17))
-        {
-            let expected: Vec<f32> = serde_json::from_value(expected[name].clone()).unwrap();
+        for (index, row) in actual.iter().enumerate() {
+            let recorded = match &node_batch {
+                Some(batch) => batch[name][index].clone(),
+                None => golden["cases"][index][name].clone(),
+            };
+            let expected: Vec<f32> = serde_json::from_value(recorded).unwrap();
             assert_eq!(row.len(), expected.len());
             let dot = row
                 .iter()

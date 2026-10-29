@@ -306,7 +306,7 @@ async function recordEmbedding(context, profile, sentences, file, { accepted = f
     return { ...mod, AutoModel: { from_pretrained: async (...args) => {
       const model = await mod.AutoModel.from_pretrained(...args);
       return new Proxy(model, { apply(target, thisArg, args) {
-        observations.taskIds.push({ ...observations.current, task_id: Array.from(args[0].task_id.data, Number) });
+        if (!observations.batching) observations.taskIds.push({ ...observations.current, task_id: Array.from(args[0].task_id.data, Number) });
         return Reflect.apply(target, thisArg, args);
       } });
     } } };
@@ -324,6 +324,18 @@ async function recordEmbedding(context, profile, sentences, file, { accepted = f
       const passage = new Float32Array(await provider.embedPassage(row.text));
       assert.equal(query.length, dimensions); assert.equal(passage.length, dimensions);
       cases.push({ id: row.id, query, passage });
+    }
+    if (observations) {
+      // The quantized jina conversions are not padding-invariant: Node's own batched vectors differ from its
+      // one-by-one vectors (cosine ~0.988 for jina v3). Batched parity therefore compares against Node's batch.
+      observations.batching = true;
+      const texts = sentences.slice(0, 17).map(row => row.text), batched = {};
+      for (const purpose of ["query", "passage"]) {
+        batched[purpose] = (await provider._embedBatchForPurpose(texts, purpose)).map(vector => new Float32Array(vector));
+      }
+      observations.batching = false;
+      await writeSmall(context.outputDir, file.replace(/\.json$/u, "-batched.json"), { nodeCommit: context.nodeCommit,
+        model: profile.model, revision: profile.revision, count: texts.length, ...batched });
     }
   } finally { await provider.shutdown(); }
   await writeCases(context.outputDir, file, { nodeCommit: context.nodeCommit, model: profile.model,
