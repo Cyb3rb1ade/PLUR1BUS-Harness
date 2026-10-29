@@ -1,0 +1,600 @@
+{
+  "decision": "M-E6-owner-2026-10-28",
+  "packages": [
+    {
+      "name": "aead",
+      "version": "0.6.1",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-06-17T15:11:01Z",
+      "checksum": "1973cfbc1a2daf9cf550e74e1f088c28e7f7d8c1e1418fb6c9dc5184b7e84c99"
+    },
+    {
+      "name": "aes",
+      "version": "0.9.3",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-08-28T14:49:06Z",
+      "checksum": "35f0f96ce78e38c3dc6d8948aa8163d06385be74000f3c7a95bf1eef35d3ea32"
+    },
+    {
+      "name": "aes-gcm",
+      "version": "0.11.1",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-08-21T20:55:46Z",
+      "checksum": "7f2b8006a0c83f52b62ba44a97b58bf76fe2f70a329e588f67f89691d93d498f"
+    },
+    {
+      "name": "argon2",
+      "version": "0.6.0",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-08-27T16:54:18Z",
+      "checksum": "134c52ddac6d63c576bef8168db10c83c49c26444ecbc68060fef078925a901c"
+    },
+    {
+      "name": "base16ct",
+      "version": "1.0.0",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-01-03T17:10:19Z",
+      "checksum": "fd307490d624467aa6f74b0eabb77633d1f758a7b25f12bceb0b22e08d9726f6"
+    },
+    {
+      "name": "base64ct",
+      "version": "1.8.3",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-01-12T04:41:30Z",
+      "checksum": "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
+    },
+    {
+      "name": "bcrypt-pbkdf",
+      "version": "0.11.0",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-04-22T12:54:47Z",
+      "checksum": "144e573728da132683b9488acd528274c790e07fc06ff81ee29f9d8f8b1041e0"
+    },
+    {
+      "name": "blake2",
+      "version": "0.11.0",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-08-26T13:23:38Z",
+      "checksum": "5b5d4d889834ee8ecfc0f8426ad30faf7cdcb10f741a8e6d7224d95325479f6f"
+    },
+    {
+      "name": "block-buffer",
+      "version": "0.12.1",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-06-11T15:40:05Z",
+      "checksum": "d2f6c7dbe95a6ed67ad9f18e57daf93a2f034c524b99fd2b76d18fdfeb6660aa"
+    },
+    {
+      "name": "block-padding",
+      "version": "0.4.2",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2025-11-26T15:01:21Z",
+      "checksum": "710f1dd022ef4e93f8a438b4ba958de7f64308434fa6a87104481645cc30068b"
+    },
+    {
+      "name": "blowfish",
+      "version": "0.10.0",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-04-10T14:33:14Z",
+      "checksum": "62ce3946557b35e71d1bbe07ec385073ce9eda05043f95de134eb578fcf1a298"
+    },
+    {
+      "name": "cbc",
+      "version": "0.2.1",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-05-20T12:23:22Z",
+      "checksum": "ce2dc9ee5f88d11e0beb842c88b33c8a5cf0d1329c4b19494af42b07dbfe8896"
+    },
+    {
+      "name": "cipher",
+      "version": "0.5.2",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-05-19T16:06:33Z",
+      "checksum": "e8cf2a2c93cd704877c0858356ed03480ff301ee950b43f1cbe4573b088bfa6c"
+    },
+    {
+      "name": "cmov",
+      "version": "0.5.4",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-05-28T19:07:33Z",
+      "checksum": "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
+    },
+    {
+      "name": "const-oid",
+      "version": "0.10.2",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-01-07T23:11:57Z",
+      "checksum": "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
+    },
+    {
+      "name": "cpubits",
+      "version": "0.1.1",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-04-28T16:39:27Z",
+      "checksum": "15b85f9c39137c3a891689859392b1bd49812121d0d61c9caf00d46ed5ce06ae"
+    },
+    {
+      "name": "crypto-bigint",
+      "version": "0.7.10",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-10-26T04:00:33Z",
+      "checksum": "9c035cb64cba03dad2fb921f3e218785e8cf9a41790da5eb3a1400f62fa2be11"
+    },
+    {
+      "name": "crypto-common",
+      "version": "0.2.2",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-05-19T16:01:22Z",
+      "checksum": "ce6e4c961d6cd6c9a86db418387425e8bdeaf05b3c8bc1411e6dca4c252f1453"
+    },
+    {
+      "name": "ctr",
+      "version": "0.10.1",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-05-20T12:25:38Z",
+      "checksum": "baaca1c4b237092596f64d571e9db6ce4109c4ef9742e27590f1709594461f21"
+    },
+    {
+      "name": "ctutils",
+      "version": "0.4.6",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-10-25T23:01:15Z",
+      "checksum": "fe3e9d21d39e6f39ff46e03d5b621424f88ee23d8a1672c6bfc9ccc7f2da4f6a"
+    },
+    {
+      "name": "curve25519-dalek",
+      "version": "5.0.0",
+      "license": "BSD-3-Clause",
+      "pubtime": "2026-07-06T16:22:48Z",
+      "checksum": "b5eed333089e2e1c1ac8c6c0398e5e2497b4c9926ca6d0365ed1e099afa5bc23"
+    },
+    {
+      "name": "curve25519-dalek-derive",
+      "version": "0.1.1",
+      "license": "MIT/Apache-2.0",
+      "pubtime": "2023-10-31T17:58:09Z",
+      "checksum": "f46882e17999c6cc590af592290432be3bce0428cb0d5f8b6715e4dc7b383eb3"
+    },
+    {
+      "name": "data-encoding",
+      "version": "2.11.1",
+      "license": "MIT",
+      "pubtime": "2026-08-03T10:39:52Z",
+      "checksum": "4583a4551df46e2792f82ceeac45e850d2e2d5debba0b91f102385cda5b11f06"
+    },
+    {
+      "name": "delegate",
+      "version": "0.13.5",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2025-11-17T11:44:38Z",
+      "checksum": "780eb241654bf097afb00fc5f054a09b687dad862e485fdcf8399bb056565370"
+    },
+    {
+      "name": "der",
+      "version": "0.8.3",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-10-25T22:03:44Z",
+      "checksum": "6a996a108feb8b427a6e12fcf6af4aa83409b79d72c15337d7741368131ee004"
+    },
+    {
+      "name": "des",
+      "version": "0.9.0",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-04-10T14:34:10Z",
+      "checksum": "916a94e407b54f9034d71dd748234cd1e516ced6284009906ae246f177eafe5a"
+    },
+    {
+      "name": "digest",
+      "version": "0.11.3",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-05-03T12:54:48Z",
+      "checksum": "f1dd6dbb5841937940781866fa1281a1ff7bd3bf827091440879f9994983d5c2"
+    },
+    {
+      "name": "ecdsa",
+      "version": "0.17.0",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-07-02T14:36:09Z",
+      "checksum": "c0681a4fc24c767085329728d8dfba959af91228aa4610cca4f8ce317ba46ae0"
+    },
+    {
+      "name": "ed25519",
+      "version": "3.0.0",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-05-03T16:29:34Z",
+      "checksum": "29fcf32e6c73d1079f83ab4d782de2d81620346a5f38c6237a86a22f8368980a"
+    },
+    {
+      "name": "ed25519-dalek",
+      "version": "3.0.0",
+      "license": "BSD-3-Clause",
+      "pubtime": "2026-07-06T16:23:09Z",
+      "checksum": "6ebaa1a2bf1290ab3bfe5a7b771d050ebffab2711c19a81691c683a5144a25de"
+    },
+    {
+      "name": "elliptic-curve",
+      "version": "0.14.3",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-10-25T15:50:54Z",
+      "checksum": "900f37e7e18d74a2347389af6cd69e3a30d5cc9e697f40004865679aa75e9c7c"
+    },
+    {
+      "name": "enum_dispatch",
+      "version": "0.3.13",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2024-03-28T16:25:44Z",
+      "checksum": "aa18ce2bc66555b3218614519ac839ddb759a7d6720732f979ef8d13be147ecd"
+    },
+    {
+      "name": "ff",
+      "version": "0.14.0",
+      "license": "MIT/Apache-2.0",
+      "pubtime": "2026-05-30T04:23:29Z",
+      "checksum": "a1f686ab92a9fb0eaf188f6c6c87b89490baa6fdb0db4544ba4dc47f7942489f"
+    },
+    {
+      "name": "fiat-crypto",
+      "version": "0.3.0",
+      "license": "MIT OR Apache-2.0 OR BSD-1-Clause",
+      "pubtime": "2025-06-04T02:42:06Z",
+      "checksum": "64cd1e32ddd350061ae6edb1b082d7c54915b5c672c389143b9a63403a109f24"
+    },
+    {
+      "name": "generic-array",
+      "version": "1.4.5",
+      "license": "MIT",
+      "pubtime": "2026-08-13T23:24:49Z",
+      "checksum": "337d46834ee672ab3e48caca2cb0c78cc174fb12b3a68d0d88f99a0519a5e36e"
+    },
+    {
+      "name": "ghash",
+      "version": "0.6.0",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-02-28T19:17:45Z",
+      "checksum": "2eecf2d5dc9b66b732b97707a0210906b1d30523eb773193ab777c0c84b3e8d5"
+    },
+    {
+      "name": "gloo-timers",
+      "version": "0.4.0",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-03-25T12:05:58Z",
+      "checksum": "482ce8a491a501da4cd806bd190275363d674f2845005c6ddbd5d3e1dd54495d"
+    },
+    {
+      "name": "group",
+      "version": "0.14.0",
+      "license": "MIT/Apache-2.0",
+      "pubtime": "2026-06-01T21:35:19Z",
+      "checksum": "7fd1a1c7a5206c5b7a3f5a0d7ccd3ff85d0c8f5133d62a02680255b0004af5f4"
+    },
+    {
+      "name": "hex-literal",
+      "version": "1.1.0",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2025-10-29T12:50:41Z",
+      "checksum": "e712f64ec3850b98572bffac52e2c6f282b29fe6c5fa6d42334b30be438d95c1"
+    },
+    {
+      "name": "hkdf",
+      "version": "0.13.0",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-03-30T14:36:50Z",
+      "checksum": "4aaa26c720c68b866f2c96ef5c1264b3e6f473fe5d4ce61cd44bbe913e553018"
+    },
+    {
+      "name": "hmac",
+      "version": "0.13.0",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-03-29T23:19:21Z",
+      "checksum": "6303bc9732ae41b04cb554b844a762b4115a61bfaa81e3e83050991eeb56863f"
+    },
+    {
+      "name": "hybrid-array",
+      "version": "0.4.15",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-09-08T18:21:39Z",
+      "checksum": "27f864f10dfb56725ce5ce5472bc52252c8f93a4ab86327122cebf62c5f59a17"
+    },
+    {
+      "name": "inout",
+      "version": "0.2.5",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-10-19T13:23:21Z",
+      "checksum": "3b5cf4372d022092674a83b8febf5865f7a573cc0c5baec5e49c879b6a20978f"
+    },
+    {
+      "name": "keccak",
+      "version": "0.2.2",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-08-21T12:55:13Z",
+      "checksum": "d8f198d1db720e4940b5a493201d199d9f24f568f8f746bd13706243a2f71598"
+    },
+    {
+      "name": "kem",
+      "version": "0.3.0",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-04-03T13:43:25Z",
+      "checksum": "01737161ba802849cfd486b5bd209d38ba4943494c249a8126005170c7621edd"
+    },
+    {
+      "name": "md5",
+      "version": "0.8.1",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-07-09T09:41:18Z",
+      "checksum": "7ebb8d8732c6a6df3d8f032a82911cfc747e00efb95cc46e8d0acd5b5b88570c"
+    },
+    {
+      "name": "ml-kem",
+      "version": "0.3.3",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-10-17T18:53:35Z",
+      "checksum": "a9ba01ebcf90f6aff8e9b9f55bb69b19e6250e4ade5787d0040eaa27dd226238"
+    },
+    {
+      "name": "module-lattice",
+      "version": "0.2.3",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-05-10T18:53:28Z",
+      "checksum": "0c61b87c9683ab7cb1c6871d261ad5479b6b10ceb52c4352aaca3b5d35a8febe"
+    },
+    {
+      "name": "num-bigint",
+      "version": "0.5.1",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-07-05T01:19:13Z",
+      "checksum": "93e7820bc0a80a0238e650327316f929ba18d5be054b647490a3a6a339f3e7c0"
+    },
+    {
+      "name": "p256",
+      "version": "0.14.0",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-07-03T17:56:52Z",
+      "checksum": "d2c9239b2dbc807adbbe147e8cf72ea7450c3a0aabe62cb8e75ff4ec22e1f72a"
+    },
+    {
+      "name": "p384",
+      "version": "0.14.0",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-07-06T16:39:16Z",
+      "checksum": "d17b851e6b3e378ab4ecb07fa2ed23f4d15f075735f8fec9fa1e7bdce5f8301f"
+    },
+    {
+      "name": "p521",
+      "version": "0.14.0",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-07-08T21:10:14Z",
+      "checksum": "4ad64cc32c2dc466317c12ee5853e61f159f9eab1fe7efade0395dc2e7b43449"
+    },
+    {
+      "name": "pageant",
+      "version": "0.2.5",
+      "license": "Apache-2.0",
+      "pubtime": "2026-10-25T16:41:14Z",
+      "checksum": "e0bc922d9aa8cfcf598de27b3c6122cb2eeda9d6fe71527a22ebcb7f633540ff"
+    },
+    {
+      "name": "password-hash",
+      "version": "0.6.1",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-04-08T01:00:26Z",
+      "checksum": "aab41826031698d6ffcd9cff78ef56ef998e39dc7e5067cdfebe373842d4723b"
+    },
+    {
+      "name": "pbkdf2",
+      "version": "0.13.0",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-04-21T13:26:45Z",
+      "checksum": "112d82ceb8c5bf524d9af484d4e4970c9fd5a0cc15ba14ad93dccd28873b0629"
+    },
+    {
+      "name": "pem-rfc7468",
+      "version": "1.0.0",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2025-11-08T17:42:28Z",
+      "checksum": "a6305423e0e7738146434843d1694d621cce767262b2a86910beab705e4493d9"
+    },
+    {
+      "name": "phc",
+      "version": "0.6.1",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-03-09T21:55:56Z",
+      "checksum": "44dc769b75f93afdddd8c7fa12d685292ddeff1e66f7f0f3a234cf1818afe892"
+    },
+    {
+      "name": "pkcs5",
+      "version": "0.8.1",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-06-29T04:17:32Z",
+      "checksum": "63d440a804ec8d6fafbb6b84471e013286658d373248927692ab3366686220ca"
+    },
+    {
+      "name": "pkcs8",
+      "version": "0.11.0",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-04-27T20:07:44Z",
+      "checksum": "451913da69c775a56034ea8d9003d27ee8948e12443eae7c038ba100a4f21cb7"
+    },
+    {
+      "name": "poly1305",
+      "version": "0.9.1",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-07-08T16:33:33Z",
+      "checksum": "6e2d0073b297041425c7c3df6eb4792d598a15323fe63346852b092eca02904c"
+    },
+    {
+      "name": "polyval",
+      "version": "0.7.3",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-07-17T01:30:41Z",
+      "checksum": "f0fa31d631f2b2cb2a544d0aa321ce847a94764d701ca2becc411138b93d49cd"
+    },
+    {
+      "name": "primefield",
+      "version": "0.14.0",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-06-24T02:51:18Z",
+      "checksum": "c555a6e4eb7d4e158fcb028c835c3b8642206ddc279b5c6b202ef9a8bdb592f4"
+    },
+    {
+      "name": "primeorder",
+      "version": "0.14.0",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-07-03T00:18:00Z",
+      "checksum": "5c9f42978c78a00e3d68f69fc03e57a234debae69da4020a4fb588fcdcd07b06"
+    },
+    {
+      "name": "rfc6979",
+      "version": "0.6.0",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-06-30T02:21:44Z",
+      "checksum": "b4a459cddafb3fe76b31fd8f1108007566c40301feb64dc7b54656eb7388172b"
+    },
+    {
+      "name": "russh",
+      "version": "0.64.1",
+      "license": "Apache-2.0",
+      "pubtime": "2026-10-05T06:53:32Z",
+      "checksum": "ba61e87b9ec9a39a59a6bbed4c0b8ff7fb07073405b24a767a1f2c8560ac8f58"
+    },
+    {
+      "name": "russh-cryptovec",
+      "version": "0.62.0",
+      "license": "Apache-2.0",
+      "pubtime": "2026-07-02T18:15:11Z",
+      "checksum": "3aec6cb630dbe85d72ffd7bcd95f07e1bd69f9f270ee8adfa1afe443a6331438"
+    },
+    {
+      "name": "russh-sftp",
+      "version": "3.0.1",
+      "license": "Apache-2.0",
+      "pubtime": "2026-09-28T21:04:24Z",
+      "checksum": "9bb17f72aba4314656b359ffba72c68dcbd70ed9e97497898b75498fe7198042"
+    },
+    {
+      "name": "russh-util",
+      "version": "0.52.0",
+      "license": "Apache-2.0",
+      "pubtime": "2025-04-24T17:10:58Z",
+      "checksum": "668424a5dde0bcb45b55ba7de8476b93831b4aa2fa6947e145f3b053e22c60b6"
+    },
+    {
+      "name": "salsa20",
+      "version": "0.11.0",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-03-30T21:13:10Z",
+      "checksum": "2f874456e72520ff1375a06c588eaf074b0f01f9e9e1aada45bd9b7954a6e42c"
+    },
+    {
+      "name": "scrypt",
+      "version": "0.12.0",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-04-22T12:57:26Z",
+      "checksum": "d87af57419b594aa23fa95f09f0e06d80d84ba01c26148c43844cad6ff4485f0"
+    },
+    {
+      "name": "sec1",
+      "version": "0.8.1",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-03-31T21:47:09Z",
+      "checksum": "d56d437c2f19203ce5f7122e507831de96f3d2d4d3be5af44a0b0a09d8a80e4d"
+    },
+    {
+      "name": "serde_bytes",
+      "version": "0.11.19",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2025-09-15T12:15:42Z",
+      "checksum": "a5d440709e79d88e51ac01c4b72fc6cb7314017bb7da9eeff678aa94c10e3ea8"
+    },
+    {
+      "name": "serdect",
+      "version": "0.4.3",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-05-04T01:33:02Z",
+      "checksum": "66cf8fedced2fcf12406bcb34223dffb92eaf34908ede12fed414c82b7f00b3e"
+    },
+    {
+      "name": "sha1",
+      "version": "0.11.0",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-03-27T14:07:50Z",
+      "checksum": "aacc4cc499359472b4abe1bf11d0b12e688af9a805fa5e3016f9a386dc2d0214"
+    },
+    {
+      "name": "sha2",
+      "version": "0.11.1",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-10-12T18:58:22Z",
+      "checksum": "47d7069beb7d6ac7b9acd1039986e73443f24234f41074da099d6f994ac9ad19"
+    },
+    {
+      "name": "sha3",
+      "version": "0.12.0",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-05-15T18:32:15Z",
+      "checksum": "bc9bad02c26382724b2d2692c6f179285e4b54eeecd7968f52a50059c3c11759"
+    },
+    {
+      "name": "shake",
+      "version": "0.1.0",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-05-15T17:16:58Z",
+      "checksum": "09057cb2149ad4cbd2da1e26b351f9a4c354219421229c69c3063e6f61947c4a"
+    },
+    {
+      "name": "signature",
+      "version": "3.0.0",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-05-02T16:30:00Z",
+      "checksum": "28d567dcbaf0049cb8ac2608a76cd95ff9e4412e1899d389ee400918ca7537f5"
+    },
+    {
+      "name": "spki",
+      "version": "0.8.1",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-10-05T22:12:26Z",
+      "checksum": "7ef958a98b9d5da290cfc78946e9f3e61e1e62a18db0d92cac0b83cc161491a9"
+    },
+    {
+      "name": "sponge-cursor",
+      "version": "0.1.0",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-05-08T18:45:52Z",
+      "checksum": "3a0219bd7d979d58245a4f41f695e1ac9f8befdffadd7f61f1bae9e39abc6620"
+    },
+    {
+      "name": "ssh-cipher",
+      "version": "0.3.0",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-06-28T20:30:01Z",
+      "checksum": "d801accda99469cde6d73da741422610fdf6508a72d9a69d1b55cb241c720597"
+    },
+    {
+      "name": "ssh-encoding",
+      "version": "0.3.0",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-05-25T23:20:37Z",
+      "checksum": "7b54d0ed0498daf3f78d82e00e28c8eec9d75a067c4cfbcc7a0f7d0f4077749e"
+    },
+    {
+      "name": "ssh-key",
+      "version": "0.7.0-rc.11",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-06-29T16:07:31Z",
+      "checksum": "f9a32fae177b74a22aa9c5b01bf7e68b33545be32d9e381e248058d2adc15ce3"
+    },
+    {
+      "name": "universal-hash",
+      "version": "0.6.1",
+      "license": "MIT OR Apache-2.0",
+      "pubtime": "2026-02-27T16:05:55Z",
+      "checksum": "f4987bdc12753382e0bec4a65c50738ffaabc998b9cdd1f952fb5f39b0048a96"
+    },
+    {
+      "name": "wnaf",
+      "version": "0.14.1",
+      "license": "Apache-2.0 OR MIT",
+      "pubtime": "2026-09-03T19:10:50Z",
+      "checksum": "795ca18b3fdb5e62bf982199278341ddcf7ebf7d32e25e212ad05d496e95f6fa"
+    }
+  ]
+}

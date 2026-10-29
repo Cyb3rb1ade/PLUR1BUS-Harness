@@ -90,13 +90,15 @@ export function locateSource(o: {
   env: NodeJS.ProcessEnv;
   home: string | null;
   harnessHome?: string | null;
+  /** Async source readers have already authenticated and loaded any snapshot metadata. */
+  skipSnapshotCheck?: boolean;
 }): SourceLocation {
   const hostFlavour = flavourOf(o.platform);
   const H = pathFor(hostFlavour);
   const base = { hostFlavour, accessRoot: o.accessRoot };
   try {
     const metaPath = H.join(o.accessRoot, "snapshot.json");
-    if (existsSync(metaPath)) {
+    if (!o.skipSnapshotCheck && existsSync(metaPath)) {
       // Trust anchor check: snapshot.json is only accepted under the Harness home's import directory (<home>/import/<run>/snapshot/)
       const candidateHome = o.harnessHome ?? o.home;
       if (candidateHome) {

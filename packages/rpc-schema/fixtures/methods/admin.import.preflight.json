@@ -1,0 +1,15 @@
+{
+  "params": {
+    "planId": "00000000-0000-4000-8000-000000000001"
+  },
+  "result": {
+    "planId": "00000000-0000-4000-8000-000000000001",
+    "runId": "00000000-0000-4000-8000-000000000001",
+    "ok": false,
+    "issues": [],
+    "estimatedDowntimeMs": 0,
+    "requiredBytes": 0,
+    "availableBytes": 0,
+    "automaticRollback": false
+  }
+}

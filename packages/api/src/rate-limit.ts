@@ -4,9 +4,9 @@ export interface BucketSpec { capacity: number; refillPerSec: number }
 /** The route classes of ADR-004 *Rate limits*: `auth` (login), `totp` (second factor), `read`, `write`, `stream`
  *  (opening a long-lived SSE/WebSocket connection) and `expensive` (model-backed work: a chat turn, a job or dream run, a
  *  realtime voice session; it also sits under the global concurrency cap, `ConcurrencyLimit`). */
-export type RateClass = "auth" | "totp" | "read" | "write" | "stream" | "rpc" | "expensive";
+export type RateClass = "auth" | "totp" | "read" | "write" | "stream" | "rpc" | "expensive" | "upload";
 /** A configuration may name only `auth`, `read` and `write`; the other classes then keep their defaults. */
-export type RateClasses = Record<"auth" | "read" | "write", BucketSpec> & Partial<Record<"totp" | "stream" | "rpc" | "expensive", BucketSpec>>;
+export type RateClasses = Record<"auth" | "read" | "write", BucketSpec> & Partial<Record<"totp" | "stream" | "rpc" | "expensive" | "upload", BucketSpec>>;
 
 /** Per principal and per IP, per route class. `auth` is the login class: a handful of attempts, then one more every
  *  12 s. `totp` is stricter still: 5 codes, then one more a minute (a six-digit code has a million values; the ±1 window
@@ -19,6 +19,7 @@ export const DEFAULT_RATE_CLASSES: Record<RateClass, BucketSpec> = {
   rpc: { capacity: 60, refillPerSec: 10 },
   stream: { capacity: 6, refillPerSec: 0.2 },
   expensive: { capacity: 10, refillPerSec: 1 / 6 },
+  upload: { capacity: 4, refillPerSec: 1 / 30 },
 };
 
 /** How much wider an address bucket is when the address says nothing about the client: behind `tailscale serve` every

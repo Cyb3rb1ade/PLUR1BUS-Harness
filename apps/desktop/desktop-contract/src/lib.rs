@@ -65,6 +65,19 @@ pub mod exec {
             "device", "pair", "--json", "--kind", "desktop", "--name", name,
         ]
     }
+    /// Current API grants are fixed by the CLI code; callers must opt in to each privileged surface.
+    pub fn current_pair(extensions: bool, imports: bool) -> Vec<String> {
+        let mut args = ["device", "pair", "--json", "--kind", "desktop"]
+            .map(str::to_owned)
+            .to_vec();
+        if extensions {
+            args.push("--extensions".into());
+        }
+        if imports {
+            args.push("--imports".into());
+        }
+        args
+    }
     pub fn device_revoke(id: &str) -> Vec<&str> {
         vec!["device", "revoke", id, "--json"]
     }
@@ -100,6 +113,12 @@ pub mod exec {
             {
                 Some(Command::NativePair)
             }
+            ["device", "pair", "--json", "--kind", "desktop"]
+            | ["device", "pair", "--json", "--kind", "desktop", "--extensions"]
+            | ["device", "pair", "--json", "--kind", "desktop", "--imports"]
+            | ["device", "pair", "--json", "--kind", "desktop", "--extensions", "--imports"] => {
+                Some(Command::NativePair)
+            }
             ["device", "revoke", id, "--json"] if !id.is_empty() => Some(Command::DeviceRevoke),
             ["state", "snapshot", "--src", src, "--dst", dst, "--json"]
                 if !src.is_empty() && !dst.is_empty() =>
@@ -126,6 +145,47 @@ pub mod exec {
 #[cfg(test)]
 mod tests {
     use super::exec::{self, Command};
+    #[test]
+    fn current_api_pairing_keeps_privileged_grants_explicit() {
+        assert_eq!(
+            exec::current_pair(false, false),
+            ["device", "pair", "--json", "--kind", "desktop"]
+        );
+        assert_eq!(
+            exec::current_pair(true, false),
+            [
+                "device",
+                "pair",
+                "--json",
+                "--kind",
+                "desktop",
+                "--extensions"
+            ]
+        );
+        assert_eq!(
+            exec::current_pair(false, true),
+            ["device", "pair", "--json", "--kind", "desktop", "--imports"]
+        );
+        for args in [
+            exec::current_pair(false, false),
+            exec::current_pair(true, true),
+        ] {
+            let refs = args.iter().map(String::as_str).collect::<Vec<_>>();
+            assert_eq!(exec::classify(&refs), Some(Command::NativePair));
+        }
+        assert_eq!(
+            exec::classify(&[
+                "device",
+                "pair",
+                "--json",
+                "--kind",
+                "desktop",
+                "--imports",
+                "--imports"
+            ]),
+            None
+        );
+    }
     #[test]
     fn every_builder_matches_classifier() {
         let bundled = exec::bundled_pair("desk");

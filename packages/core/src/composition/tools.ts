@@ -21,6 +21,7 @@ import { createExecTool } from '../tools/exec/tool.ts';
 import { buildEnv, DEFAULT_ENV_ALLOW, envFingerprint } from '../tools/exec/env.ts';
 import { systemTimers } from '../tools/exec/node-process.ts';
 import { scopedMcpPort } from '../mcp/index.ts';
+import type { McpBridgeOptions } from '../tools/mcp-bridge.ts';
 import type { ExecConfig } from '../tools/exec/types.ts';
 import type { LogWriter } from '../logs/writer.ts';
 import type { AuditSink } from '../rbac/audit.ts';
@@ -43,7 +44,16 @@ export interface ToolCompositionOptions {
   coding?: CodingCompletion;
   home: string; budget?: CallBudget; degraded?: (service: string, error: unknown) => void; roots: readonly PathRoot[]; deny?: readonly DenyEntry[];
   host?: HostContext; exec?: Partial<ExecConfig>; audit: AuditSink; grants: GrantSource;
-  mcp?: { port: McpToolPort; servers: readonly string[] };
+  mcp?: {
+    port: McpToolPort;
+    servers: readonly string[] | (() => readonly string[]);
+    refresh?: () => Promise<void>;
+    /** Evaluated for descriptor discovery and again just before the underlying MCP call (M-A5). */
+    visible?: (server: string, agentId: string) => boolean;
+    /** Opaque registration generation: an old turn cannot use a replacement package under stale policy metadata. */
+    revision?: (server: string, agentId: string) => unknown;
+    declaration?: (server: string) => McpBridgeOptions['declaration'];
+  };
   media?: { adapter: ImageAdapter; store: OutputStore };
   extra?: readonly ToolDef[];
   hostctl?: ReturnType<typeof createHostctlPool>;
@@ -212,13 +222,23 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
     });
   }
   for (const tool of o.extra ?? []) register(tool);
-  if (o.mcp) for (const server of o.mcp.servers) {
+  if (o.mcp) await o.mcp.refresh?.();
+  const mcpServers = typeof o.mcp?.servers === 'function' ? o.mcp.servers() : o.mcp?.servers ?? [];
+  if (o.mcp) for (const server of mcpServers) {
     req.signal.throwIfAborted();
+    if (o.mcp.visible && !o.mcp.visible(server, req.agentId)) continue;
     // MCP visibility is checked by its registry under the agent/principal passed here.
     try {
       // Policy uses the authenticated approving person; MCP visibility keeps the turn's canonical identity.
-      const scoped = scopedMcpPort(o.mcp.port, req.principal!);
-      const bridge = await mcpToolDefs(scoped, server, { agentId: req.agentId, principal: req.principal! }, { signal: req.signal });
+      const live = o.mcp;
+      const revision = live.revision?.(server, req.agentId);
+      const scoped = scopedMcpPort(live.port, req.principal!, (name, caller) =>
+        (!live.visible || live.visible(name, caller.agentId)) &&
+        (!live.revision || live.revision(name, caller.agentId) === revision));
+      const declaration = live.declaration?.(server);
+      const bridge = await mcpToolDefs(scoped, server, { agentId: req.agentId, principal: req.principal! }, {
+        signal: req.signal, ...(declaration ? { declaration } : {}),
+      });
       for (const skipped of bridge.skipped) o.degraded?.(`mcp.${server}`, skipped);
       for (const tool of bridge.tools) register(tool);
     } catch (e) { req.signal.throwIfAborted(); o.degraded?.(`mcp.${server}`, e); }

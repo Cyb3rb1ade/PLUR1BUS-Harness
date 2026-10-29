@@ -29,7 +29,7 @@ export const STEPS: readonly StepDef[] = [
   { id: "switchboard", skippable: true, unavailable: true },
   { id: "voice", skippable: true, unavailable: false },
   { id: "backup", skippable: true, unavailable: false },
-  { id: "import", skippable: true, unavailable: true },
+  { id: "import", skippable: true, unavailable: false },
 ];
 export const stepsFor = (bundled: boolean): readonly StepDef[] => (bundled ? STEPS.filter((s) => s.id !== "account") : STEPS);
 

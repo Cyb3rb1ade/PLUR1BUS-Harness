@@ -5,7 +5,6 @@ use crate::commands::config::{call, route, Route};
 use crate::commands::module::try_offline_lock;
 use crate::ext;
 use crate::ext::commit::{install_commit, Agents, InstallOpts, OfflineHost};
-use crate::ext::inspect::Source;
 use crate::ext::lifecycle::{self, ToggleOpts};
 use crate::ext::list::{list_items, show_item, ListFilter};
 use crate::ext::remove::{self, RemoveOpts};
@@ -181,14 +180,32 @@ impl<'a> Backend<'a> {
                 r
             }
             Backend::Offline { layout, .. } => {
-                let src = match input {
-                    Input::Path(p) => Source::Path(p.clone()),
-                    Input::Stdin => Source::Stdin,
+                let (path, spool) = match input {
+                    Input::Path(p) => (p.clone(), None),
+                    Input::Stdin => {
+                        let s = spool_stdin(layout)?;
+                        (s.0.clone(), Some(s))
+                    }
                 };
                 let id = ext::worker::new_inspection_id();
-                ext::inspect::inspect(layout, src, &id)
-                    .map(|r| crate::supervisor::ext::inspection_result(&r))
-                    .map_err(Failure::from_ext)
+                let result = ext::worker::spawn_worker(
+                    layout,
+                    &["inspect", "--id", &id, "--path", &path.to_string_lossy()],
+                    ext::worker::deadline("inspect", ext::worker::INSPECT_DEADLINE),
+                )
+                .and_then(|value| {
+                    serde_json::from_value::<ext::record::InspectionRecord>(value).map_err(|_| {
+                        ext::ExtError::new(
+                            "E_INTERNAL",
+                            "worker-failed",
+                            "invalid inspection worker reply",
+                        )
+                    })
+                })
+                .map(|r| crate::supervisor::ext::inspection_result(&r))
+                .map_err(Failure::from_ext);
+                drop(spool);
+                result
             }
         }
     }
@@ -198,6 +215,7 @@ impl<'a> Backend<'a> {
         id: &str,
         acknowledge: &[String],
         enable: Option<&Agents>,
+        members: Option<&[String]>,
     ) -> Result<Value, Failure> {
         match self {
             Backend::Online { client: c, .. } => {
@@ -208,12 +226,16 @@ impl<'a> Backend<'a> {
                 if let Some(a) = enable {
                     params["enable"] = json!({ "agents": agents_json(a) });
                 }
+                if let Some(members) = members {
+                    params["members"] = json!(members);
+                }
                 Self::rpc(c, "ext.install", params)
             }
             Backend::Offline { layout, .. } => {
                 let opts = InstallOpts {
                     acknowledge: acknowledge.to_vec(),
                     enable: enable.cloned(),
+                    members: members.map(<[String]>::to_vec),
                 };
                 ext::record::load(layout, id)
                     .and_then(|rec| {
@@ -232,6 +254,7 @@ impl<'a> Backend<'a> {
         agents: Option<&Agents>,
         acknowledge: &[String],
         dry_run: bool,
+        expected_consent: Option<&str>,
     ) -> Result<Value, Failure> {
         check_name(name)?;
         match self {
@@ -246,6 +269,11 @@ impl<'a> Backend<'a> {
                 if dry_run {
                     params["dryRun"] = json!(true);
                 }
+                if on {
+                    if let Some(digest) = expected_consent {
+                        params["expectedConsentSha256"] = json!(digest);
+                    }
+                }
                 Self::rpc(c, if on { "ext.enable" } else { "ext.disable" }, params)
             }
             Backend::Offline { layout, .. } => {
@@ -253,6 +281,7 @@ impl<'a> Backend<'a> {
                     agents: agents.cloned(),
                     acknowledge: acknowledge.to_vec(),
                     dry_run,
+                    expected_consent_sha256: expected_consent.map(str::to_string),
                 };
                 let mut host = OfflineHost::new(layout);
                 if on {
@@ -317,7 +346,27 @@ pub(super) fn spool_stdin(layout: &Layout) -> Result<Spool, Failure> {
     let io = |what: &str, e: std::io::Error| {
         Failure::new("E_INTERNAL", "io", format!("{what} {}: {e}", dir.display()))
     };
-    std::fs::create_dir_all(&dir).map_err(|e| io("cannot create", e))?;
+    let mut builder = std::fs::DirBuilder::new();
+    builder.recursive(false);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        builder.mode(0o700);
+    }
+    // Backend::open has created run/. The supervisor validates inspect/ before spawning the worker, so this
+    // transport directory must already be private even under umask 0022. Existing directories still face its checks.
+    match builder.create(&dir) {
+        Ok(()) => {
+            #[cfg(windows)]
+            {
+                let user = plur1bus_rpc::win::user_sid().map_err(|e| io("cannot secure", e))?;
+                plur1bus_rpc::win::set_path_dacl(&dir, &plur1bus_rpc::acl::run_dir_sddl(&user))
+                    .map_err(|e| io("cannot secure", e))?;
+            }
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(e) => return Err(io("cannot create", e)),
+    }
     let cap = offline_config(layout)["extensions"]["limits"]["packageBytes"]
         .as_u64()
         .unwrap_or(268_435_456);

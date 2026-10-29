@@ -755,19 +755,51 @@ closing the view discards the offer.
 
 `plur1bus://open?path=%2Fsettings%2Fgeneral` changes only a permitted route in the
 active connection's already-open SPA. Links cannot choose another origin, reach
-API/auth routes, traverse directories, or create a connection. Chat links,
+API/auth routes, traverse directories, or create a connection. Chat links and
 catalogue install links (for example `plur1bus://install?id=plur1bus/zabbix-triage`)
-and `.p1x` file opens show “not available in this version”; no file is read and
-nothing is downloaded or installed. Unknown inputs are discarded with an
+show “not available in this version”. Unknown inputs are discarded with an
 argument-free diagnostic. The same checks apply to first- and second-launch argv.
 Portable AppImage desktop integration and Flatpak exports are packaging work;
 installed-bundle and native acceptance limits are in the [phase 1 report](handoff/status/2026-10-15-d1-p1.md).
+
+A `.p1x` offer retains its absolute file path only in Rust. The shell receives an
+opaque offer id, asks for a destination connection, and uploads only after an
+explicit review action. Native code reads a bounded regular file, refuses links,
+and sends one multipart `file` to `/api/v1/extensions/upload`; it then calls
+`/api/v1/extensions/inspect` and opens the selected SPA's package confirmation.
+This action does not install the package. The association uses
+`application/vnd.plur1bus.extension+zip` and the exported macOS type
+`app.plur1bus.extension`, conforming to `public.zip-archive`.
+
+The current API path requires both `desktop-pair-v1` and `desktop-ticket-v1`.
+Pairing uses a native Ed25519 key and the real device bearer token. Tickets and
+session cookies stay in Rust, including the cookie used by the confirmation SPA.
+Existing preview servers retain their older pairing protocol. Enrollment grants
+remain explicit: `plur1bus device pair --kind desktop --extensions` adds extension
+read/manage permissions; `--imports` independently adds import read/manage
+permissions. Both require a live Owner or Admin. Earlier enrolled devices keep
+their existing scopes and must be paired again to add these permissions.
+
+For a host folder import into a container or remote harness, the active SPA can
+request `host_file_pick` and `host_import_snapshot`. The native folder dialog
+returns a connection-bound opaque selection id that expires after ten minutes;
+JavaScript cannot supply or retrieve a local path. Only the current SPA generation
+receives these two capabilities. Snapshot production requires the signed bundle's
+Node and standalone producer resources, verifies their hashes before each spawn,
+and calls the shared snapshot copier in a private temporary directory. It omits
+credential files and produces a bounded tar.gz with `snapshot.json` at its root.
+Native code streams it to the distinct `/api/v1/import/snapshots` endpoint using
+the selected device's explicit import grant. Temporary artifacts are removed
+after upload or failure. Older bundles without these resources report that the
+host snapshot runtime is unavailable; there is no PATH-based fallback.
 
 ## D1 packaging preview (2026-10-15)
 
 WP13 implementation and limitations: [phase 2 handoff](handoff/status/2026-10-15-d1-p2.md). Direct native bundles support online and offline content; Store and Flatpak are online-only. `node apps/desktop/scripts/build-bundle.mjs --target aarch64-apple-darwin --variant offline --ci-fixture` builds a clearly labelled preview without usable host CLI, Apple installer, harness or model weights. Other supported targets are Windows x64/arm64 and Linux x64/arm64 triples. Run on the matching native toolchain.
 
-Production inputs are explicit environment paths: `PLUR1BUS_DESKTOP_RELEASE_MANIFEST`, `PLUR1BUS_DESKTOP_HOST_CLI`, `PLUR1BUS_DESKTOP_APPLE_PKG`, `PLUR1BUS_DESKTOP_OFFLINE_IMAGE`, `PLUR1BUS_DESKTOP_OFFLINE_MODELS`. Missing inputs fail closed. Metadata checksums must describe the actual release artifacts. Staging writes a separate provenance manifest and never downloads executable payloads. Use `--channel dev|beta|stable`; it selects the initial update channel while preserving saved user choices. Dev builds are debug previews; beta/stable use their independent signed feed keys.
+Production inputs are explicit environment paths: `PLUR1BUS_DESKTOP_RELEASE_MANIFEST`, `PLUR1BUS_DESKTOP_HOST_CLI`, `PLUR1BUS_DESKTOP_SNAPSHOT_NODE_ARCHIVE`, `PLUR1BUS_DESKTOP_APPLE_PKG`, `PLUR1BUS_DESKTOP_OFFLINE_IMAGE`, `PLUR1BUS_DESKTOP_OFFLINE_MODELS`. Missing inputs fail closed. Metadata checksums must describe the actual release artifacts. Staging writes a separate provenance manifest and never downloads executable payloads. Use `--channel dev|beta|stable`; it selects the initial update channel while preserving saved user choices. Dev builds are debug previews; beta/stable use their independent signed feed keys.
+
+The snapshot Node input is the official Node 24.21.0 archive for the selected target, verified against the Harness's committed `node-v24.21.0-SHASUMS256.txt`. Unix archives may be `.tar.gz` or `.tar.xz`; Windows uses `.zip`. Packaging requires `tar` (including Windows' archive-capable `tar.exe`) and extracts only the fixed Node executable and licence members. It bundles the shared snapshot producer into `snapshot/import-snapshot.mjs`, carries Node's licence as `snapshot/LICENSE-node.txt`, and records the executable and entry digests in `bundle.snapshotRuntime`. The native snapshot command uses these resources instead of a host Node installation. The packaging fixture carries an explicitly inert executable; its packaged JavaScript is separately exercised with the test runtime. A production Node archive is never replaced by that fixture.
 
 `--distribution store|flatpak --variant online` builds without updater features and stages the native format plan. `--execute-formats` runs MakeAppx/flatpak-builder explicitly; Windows requires `PLUR1BUS_MSIX_PUBLISHER` and the SDK on PATH. Set `PLUR1BUS_MSIX_IDENTITY` only from the owner’s assigned Store identity. Unsigned MSIX cannot be treated as an installed Store release. Flatpak runtime/ABI/portal acceptance requires a native Linux environment; no broad host filesystem permission is requested.
 
@@ -789,8 +821,8 @@ The server side of SSH-design §9 P1–P3 is implemented independently of a desk
 
 1. Read the private `run/api.json` through the locally authenticated server connection. The supervisor publishes address, port, API version, fingerprint, PID and instance only after verifying the loopback listener. `/api/v1/meta` exposes only version, capabilities and `pairingRequired`.
 2. Generate an Ed25519 device key and send the CLI code, `kind: desktop`, device name and canonical base64 DER SPKI public key to `POST /api/v1/desktop/pair`. The response contains the device record and a fixed-scope bearer token shown once, valid for thirty days. Store it in the client's credential store.
-3. Send `{token, origin}` to `POST /api/v1/desktop/redeem`. The origin must be an exact origin served by that listener. The response is a thirty-second, one-use ticket bound to that origin and device.
-4. The SPA sends `{ticket, deviceId}` to `POST /api/v1/desktop/ticket` with the matching Origin header. This sets an HttpOnly, SameSite=Strict cookie (Secure over TLS). Credentials never belong in a URL. Existing CSRF and rate limits still apply.
+3. Rust sends `{token, origin}` to `POST /api/v1/desktop/redeem`. The origin must be an exact origin served by that listener. Required MFA uses the browser-approval continuation below. The response is a thirty-second, one-use ticket bound to that origin and device.
+4. Rust spends `{ticket, deviceId}` at `POST /api/v1/desktop/ticket` with the matching Origin header and keeps the resulting HttpOnly, SameSite=Strict cookie (Secure over TLS) in its private proxy jar. Credentials and tickets never enter the renderer or a URL. Existing CSRF and rate limits still apply.
 
 The initial scope covers direct chat/session use and agent/model/status reads. It excludes settings, secrets, user administration, permission grants and credential minting. The exact actions are versioned in `DESKTOP_SCOPES`; current person roles/object rights and stored device scope can only narrow them. A desktop session cannot call a legacy RPC without a reviewed action rule. Device revocation and person disable/role-version changes invalidate the token and sessions; re-enabling a person does not revive old credentials. A revoke notification conservatively invalidates that person's current API sessions as well.
 
@@ -800,7 +832,11 @@ A fresh installation exposes the single first-owner account bootstrap on loopbac
 
 **Owner transport decision (2026-10-18):** `fingerprint: null` is allowed only when the published address is a literal IPv4 loopback address in 127.0.0.0/8 or IPv6 ::1. The supervisor currently publishes only verified 127.0.0.1 listeners. A client must reject every non-loopback descriptor unless it has both HTTPS and a certificate pin; there is no HTTP fallback. Network/Tailnet retain their real certificate pins. Loopback keeps session-cookie, CSRF and Host/Origin checks against DNS rebinding, with private 0600 `run/api.json` publication. Native client conformance remains part of subsequent client acceptance.
 
-**KNOWN GAP / Owner questions:** Confirm the initial restricted scope; the reply to that question repeated the Engine deferral and did not authorize additional actions. If a second factor is enrolled or the configured policy requires TOTP/WebAuthn, native redemption currently fails closed with `second-factor-required`; a device/origin/scope-preserving MFA continuation remains open, with an executable todo regression in `packages/api/test/desktop-attach.test.ts`. P1–P3 remote acceptance remains open until that continuation is resolved. Static SPA assets must already be installed under `runtime/web`, or supplied to the standalone API with `--web-root`; this change does not create a Desktop SSH client or a new image/package distribution.
+**MFA continuation (`desktop-stepup-v1`):** The shell starts a bounded approval for an already paired connection and the selected purpose: session, extensions or imports. It shows a public eight-character code, expiry and the fixed `/#/desktop/approve` verification page on the checked origin. In an ordinary browser, the same person signs in using the existing password/TOTP or passkey flow and approves the device request with one-use CSRF protection. PATs, bootstrap-token sessions and device cookies cannot approve it. Owner/Admin and explicitly enrolled permissions remain mandatory for extension/import purposes; `device pair --extensions` and `--imports` are separate opt-ins and older enrollments gain neither automatically.
+
+Only the native bearer can poll for operation proofs. The API hashes and atomically consumes each proof once; Rust retains private challenges and proofs in memory and sends them only in the protected request header. Public IPC contains no proof or private challenge ID, and nothing is stored in a URL, file or credential store. The fixed grant ends within five minutes of the actual factor check. Ticket spending revalidates the device/person/version/scopes and records API-private verified MFA provenance on the purpose-scoped device cookie. Every live request intersects its stored scopes with the current device grant. Browser logout revokes outstanding approvals/proofs/tickets; an already redeemed device cookie follows its own normal session lifetime and revocation rules.
+
+Only an imports-purpose cookie with that private provenance can retain access to its own freshly Core-authorized maintenance run while Core is stopped. The binding includes the exact cookie, device, person, scopes and local credential version, with a fixed maximum of 75 minutes and the session expiry. It permits that run's status/progress/abort and bounded session self-service; it does not provide general offline authorization. Existing ordinary device-cookie behavior is unchanged. `desktop-stepup-http.test.ts` exercises real Core enrollment and normal TOTP/passkey login; the native `desktop_stepup` test covers approval, upload/inspection and the Rust-only confirmation cookie. Browser and installed-platform acceptance still require their documented checks. Static SPA assets must already be installed under `runtime/web`, or supplied to the standalone API with `--web-root`.
 
 ## D1 CI and owner acceptance (2026-10-15)
 

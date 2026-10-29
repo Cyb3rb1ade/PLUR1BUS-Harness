@@ -1,6 +1,7 @@
 // The MCP server registry (ADR-014 §1, §2): servers per scope, started lazily, stopped when idle, with the tool-schema
 // cache kept across the stop. Not wired into a turn loop yet (2c/D106); callers pass the agent and principal in.
 import type { Clock } from "./clock.ts";
+import { isAbsolute } from "node:path";
 import { systemClock } from "./clock.ts";
 import { validateDefinition } from "./config.ts";
 import { McpConnection, type McpConnectionState, type McpResource, type McpPrompt, type McpResourceTemplate, type ConnectionDeps } from "./connection.ts";
@@ -9,6 +10,7 @@ import type { McpClientPorts } from "./ports.ts";
 import { SecretBearerAuthProvider, type McpAuthProvider } from "./auth.ts";
 import type { Egress } from "../egress/index.ts";
 import type { SecretStore } from "../secrets/index.ts";
+import type { McpLaunchEnvironment } from "./env.ts";
 import type { LogWriter } from "../logs/writer.ts";
 import { McpClientError } from "./errors.ts";
 import { makeProvenance, wrapToolResult } from "./provenance.ts";
@@ -29,6 +31,10 @@ export interface RegistryOptions {
   ports?: (server: McpServerDefinition) => McpClientPorts;
   auth?: (server: McpServerDefinition) => McpAuthProvider | undefined;
   secrets?: Pick<SecretStore, "lease" | "revokeLease">;
+  /** Trusted packaged-server hook. Leases never become part of a definition, cache, status or event. */
+  launchEnvironment?: McpLaunchEnvironment;
+  /** Host startup admission before either transport, authentication or spawn can cause external effects. */
+  admitStart?: () => void;
   egress?: Pick<Egress, "decide">;
   onEvent?: (event: { server: string; state?: McpConnectionState; method?: string; params?: Record<string, unknown> }) => void;
 }
@@ -107,6 +113,14 @@ export class McpRegistry {
     });
     this.logger.info("mcp.server.registered", { server: def.name, scope: def.scope.kind, transport: def.transport.type, trust: def.trust });
     return def;
+  }
+
+  /** Add only a host-resolved absolute runtime or verified installed binary to the stdio command policy (M-A4). */
+  allowCommand(command: string): void {
+    if (!isAbsolute(command)) throw new McpClientError("not-allowed", "MCP runtime command must be absolute");
+    if (!this.policy.allowedCommands.includes(command)) {
+      this.policy.allowedCommands = [...this.policy.allowedCommands, command];
+    }
   }
 
   async unregister(name: string, scope: McpCallerScope): Promise<boolean> {
@@ -239,6 +253,10 @@ export class McpRegistry {
     } catch (err) {
       const ce = err instanceof McpClientError ? err : new McpClientError("protocol", e.redactor.redact(String((err as Error)?.message ?? err)), { server: e.def.name });
       e.lastError = { code: ce.code, message: ce.message, at: this.clock.now() };
+      if (ce.code === "auth-required") {
+        e.connectionState = "failed";
+        this.emit({ server: e.def.name, state: "failed", params: { reason: "auth-required" } });
+      }
       throw ce;
     } finally {
       e.inFlight--;
@@ -248,6 +266,7 @@ export class McpRegistry {
   }
 
   private ensure(e: Entry): Promise<McpConnection> {
+    this.options.admitStart?.();
     this.clearReconnect(e);
     if (e.conn && !e.conn.isClosed) return Promise.resolve(e.conn);
     if (e.starting) return e.starting;
@@ -258,6 +277,7 @@ export class McpRegistry {
       ...(this.options.ports ? { ports: this.options.ports(e.def) } : {}),
       ...(this.options.egress ? { egress: this.options.egress } : {}),
       ...(this.options.output ? { output: this.options.output } : {}),
+      ...(this.options.launchEnvironment ? { launchEnvironment: this.options.launchEnvironment } : {}),
       ...this.authFor(e),
       onState: state => { e.connectionState = state; this.emit({ server: e.def.name, state }); },
       onNotification: (method, params) => this.emit({ server: e.def.name, method, params: this.safeData(e, params) }),

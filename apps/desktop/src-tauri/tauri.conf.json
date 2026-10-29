@@ -89,7 +89,13 @@
         ],
         "name": "PLUR1BUS extension",
         "role": "Viewer",
-        "mimeType": "application/x-plur1bus-extension"
+        "mimeType": "application/vnd.plur1bus.extension+zip",
+        "exportedType": {
+          "identifier": "app.plur1bus.extension",
+          "conformsTo": [
+            "public.zip-archive"
+          ]
+        }
       }
     ],
     "linux": {

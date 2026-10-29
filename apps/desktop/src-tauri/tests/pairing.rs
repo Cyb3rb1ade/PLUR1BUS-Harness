@@ -71,6 +71,34 @@ fn discover_ignores_stale_non_loopback_and_unknown_fields_and_never_opens_tokens
     assert!(discovery::discover(dir.path(), |_| true).is_none());
 }
 #[test]
+fn current_supervisor_publication_is_normalized_without_accepting_foreign_bind_addresses() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir(dir.path().join("run")).unwrap();
+    let mut value = serde_json::json!({"address":"127.0.0.1","port":18700,"version":"1.0.0","fingerprint":null,"pid":123,"instanceId":"current-instance"});
+    let write = |value: &serde_json::Value| {
+        std::fs::write(
+            dir.path().join("run/api.json"),
+            serde_json::to_vec(value).unwrap(),
+        )
+        .unwrap()
+    };
+    write(&value);
+    assert_eq!(
+        discovery::discover(dir.path(), |_| true)
+            .unwrap()
+            .url
+            .as_str(),
+        "http://127.0.0.1:18700"
+    );
+    value["address"] = "foreign.example".into();
+    write(&value);
+    assert!(discovery::discover(dir.path(), |_| true).is_none());
+    value["address"] = "127.0.0.1".into();
+    value["token"] = "untrusted".into();
+    write(&value);
+    assert!(discovery::discover(dir.path(), |_| true).is_none());
+}
+#[test]
 fn the_pin_is_never_taken_from_a_typed_field() {
     let value = serde_json::json!({"origin":"https://harness.test","name":"Desk","code":"invalid","repairId":null,"certPin":"untrusted"});
     assert!(serde_json::from_value::<plur1bus_desktop::commands::PairCodeRequest>(value).is_err());
@@ -152,6 +180,34 @@ async fn pair_local_spawns_fixed_args_and_parses_json_and_denied_falls_back() {
         pair::pair_local_with(&FakeExecutor { denied: true }, &cli, "Desk").await,
         Err(pair::PairError::Denied)
     ));
+}
+struct CurrentExecutor;
+impl pair::PairExecutor for CurrentExecutor {
+    fn execute<'a>(
+        &'a self,
+        _: &'a std::path::Path,
+        args: Vec<String>,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<pair::CliOutput, pair::PairError>> + Send + 'a>,
+    > {
+        Box::pin(async move {
+            assert_eq!(args, ["device", "pair", "--json", "--kind", "desktop"]);
+            Ok(pair::CliOutput { success: true, bytes: zeroize::Zeroizing::new(serde_json::to_vec(&serde_json::json!({
+                "schema":"device.pair/1", "code":"A".repeat(43), "expiresAt":4102444800000_u64,
+                "kind":"desktop", "scopes":["chat:read"]
+            })).unwrap()) })
+        })
+    }
+}
+#[tokio::test]
+async fn current_cli_pair_code_uses_epoch_millis_and_supported_arguments_without_implicit_grants() {
+    let dir = tempfile::tempdir().unwrap();
+    let offer =
+        pair::pair_local_current_with(&CurrentExecutor, &dir.path().join("plur1bus"), "Desk")
+            .await
+            .unwrap();
+    assert_eq!(offer.code, "A".repeat(43));
+    assert!(offer.origin.is_none());
 }
 #[tokio::test]
 async fn revoked_during_trust_or_ack_and_ticket_clears_credentials() {

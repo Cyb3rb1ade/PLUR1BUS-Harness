@@ -6,6 +6,25 @@
 
 The owner was not available for questions while this was written. Every open choice below has a default that the design runs on, and every choice that is really the owner's is listed in §13 with a recommendation.
 
+### Amendment 2026-10-28: M v2 Owner decisions
+
+The following decisions supersede conflicting defaults and historical acceptance examples below. The implementation guide is [docs/extensions.md](../../extensions.md); [docs/import.md](../../import.md) describes maintenance and source authority. They do not authorize catalogue/X5 work, a foreign-plugin execution bridge, or an unapproved runtime dependency.
+
+| Decision | Binding rule | Reason |
+|---|---|---|
+| 1 | Full apply/rollback runs as fixed `import.js` under the Supervisor after live-Core preflight; stop Core, run, restore on failure, restart. Detection, planning and skills-only import stay in Core. Configuration goes through Supervisor config controls. | One Engine owner and one config writer; failures found before downtime. |
+| 2 | Only human Owner/Admin can read/manage extensions and imports; importing secrets is Owner-only. Agents/WebMCP receive no such methods. | Installation and credential transfer require human authority. |
+| 3 | First-party installation activates for all agents. Other tiers remain disabled unless Owner/Admin explicitly chooses Install and activate after rights/trust confirmation and agent selection. `PINNED_KEYS` stays empty until X5. | Trusted defaults without silently running unreviewed inputs; resolves §6.1 and §13 Q5. |
+| 4 | Unsigned and unknown-signer inputs are allowed only through their tier-specific §8.3 acknowledgments, subject to policy. | Visible, explicit acceptance; resolves §13 Q6. |
+| 5 | Local MCP versions live at `mcp/<name>/<version>/`; reuse existing store transactions/recovery. Switch one active version atomically and retain the prior version through a clean start. Per-agent version choice is prepared, not implemented. | Multi-user/multi-agent layout without a second installer. |
+| 6 | MIME `application/vnd.plur1bus.extension+zip`; macOS UTI `app.plur1bus.extension`. | One identity across web, CLI and desktop. |
+| 7 | Separate the MCPB signature trailer before ZIP validation. Cryptographic verification requires an approved dependency; without it normalize as unsigned and show **signature not checked**. | Preserve strict ZIP rules without claiming envelope parsing authenticates a signature. |
+| 8 | Owner/Admin may enter free paths over verified loopback/Desktop; only Owner may enter them remotely. Remote Admin selects discovered sources. Every path remains confined and rejects links escaping authority and special files. | Transport locality and human role jointly constrain host reads. |
+| 9 | Reusable read-only local/SFTP source port, generated Ed25519 identity in Secret Store, explicit SHA256 host-key trust before key lease/authentication, configured roots and central egress approval. Desktop snapshot/CLI remain alternatives without SSH. | Container/remote sources without exposing shell or write access. |
+| 10 | Display/classify foreign plugins now; defer the separate-process MCP bridge and simple read-only hooks to the later J specification. Memory/channel/provider/context-engine plugins and rewriting hooks remain excluded. | Discovery must not imply portability or execute foreign code. |
+
+SSH uses the narrowly reviewed exact Rust dependency tree (`russh =0.64.1`, `russh-sftp =3.0.1`, ring, no default features), not a Node SSH package. The Owner exception covers only the reviewed version/age delta, not licences or advisories: [decision](../../ops/m-russh-dependency-decision.md) and [exact package inventory](../../ops/m-russh-reviewed-packages.json). The UV runtime producer remains separately audit-gated. Browser/axe execution is still pending; implementation status is not browser acceptance.
+
 ## 1. Goal
 
 A person can add capabilities to PLUR1BUS without a harness release, and can see and control what was added. Concretely:
@@ -33,7 +52,7 @@ A person can add capabilities to PLUR1BUS without a harness release, and can see
 ## 3. Non-goals
 
 - **No sandbox in v1.** Modules and local MCP servers run as the owner's OS user; modules keep the full harness authority that `docs/module-guide.md` §9 already states. Declared capabilities are disclosed and partly enforced (§8.6), not sandboxed. A sandbox for untrusted plugins is §13 Q16.
-- **No install hooks.** Installing never runs code from a package (no `postinstall`, no build step). Runtime dependencies are vendored in the payload or resolved by the harness's own pinned runtimes (D58 `uv`, the pinned Node) from a lockfile inside the package at first start.
+- **No install hooks.** Installing never runs code from a package (no `postinstall`, no build step). Node dependencies are vendored in the payload. Python through `uv` requires an approved pinned runtime, a frozen lockfile and locally available dependencies; the existing launch port is offline and disables Python downloads. Its production runtime producer remains dependency-audit blocked, so unavailable runtime setup stays `needs-setup`. Installing or starting a package does not approve a runtime download.
 - **No OpenClaw or Hermes plugin code is imported** (D9): their plugins are written against another host's API. The importer carries skills and MCP-server *configuration*, never plugin code (§7.3).
 - **No paid listings, ratings, reviews, telemetry or accounts** in the catalogue. Search is client-side over the signed index.
 - **No second update channel for the harness itself.** The harness product updates only through D78. Only extensions use the catalogue.
@@ -68,16 +87,20 @@ Validation uses `skills-ref validate`. Progressive disclosure means the name and
 
 ### 4.4 MCP Bundles and the MCP Registry
 
-- **MCPB** (`github.com/modelcontextprotocol/mcpb`) is a ZIP with `manifest.json` at its root and a local server. `mcpb sign` appends a DER PKCS#7 signature after the ZIP between the markers `MCPB_SIG_V1`/`MCPB_SIG_END`, using X.509 certificates, self-signed or CA-issued (`CLI.md`). The appended bytes trip strict ZIP parsers (issue #278). The harness already imports MCPB/DXT (D46).
+- **MCPB** (`github.com/modelcontextprotocol/mcpb`) is a ZIP with `manifest.json` at its root and a local server. `mcpb sign` appends a DER PKCS#7 signature after the ZIP between the markers `MCPB_SIG_V1`/`MCPB_SIG_END`, using X.509 certificates, self-signed or CA-issued (`CLI.md`). The appended bytes trip strict ZIP parsers (issue #278). **Amendment / D46 correction:** D46 reserved this import path; it was not implemented when this spec claimed it already existed. M-A9 implements normalization, with the signature limitation in decision 7 above.
 - **MCP Registry** (preview, `modelcontextprotocol.io/registry/package-types`): `server.json` (schema `…/schemas/2025-12-11/server.schema.json`) names servers `io.github.<user>/<name>` (reverse-DNS namespaces). `registryType: mcpb` packages are hosted on GitHub or GitLab Releases and **must carry `fileSha256`**, which "MCP clients do validate … before installation". OCI images must carry the `io.modelcontextprotocol.server.name` label.
 
 ### 4.5 Claude Code plugins and marketplaces (`code.claude.com/docs/en/plugin-marketplaces`, `…/plugins/manifest-reference`)
 
 - A marketplace is `.claude-plugin/marketplace.json` (`name`, `owner`, `plugins[]` of `{ name, source, description, … }`). Sources are a relative path, `github`, `git-subdir`, `url`, `archive` (a zip over HTTPS), `npm` or `command`, with `ref`/`sha` pinning for git sources.
-- A plugin is `.claude-plugin/plugin.json` (`name`, `version`, `description`, `author`, `license` as SPDX, `keywords`, `defaultEnabled`, `dependencies`, `userConfig`, component paths `skills`, `commands`, `agents`, `hooks`, `mcpServers` — which may name `.mcpb`/`.dxt` bundles — and `lspServers`).
+- A plugin may have `.claude-plugin/plugin.json`; when present only `name` is required. Without it the default `skills/` and `.mcp.json` layout is detected. Component declarations can name skill paths and MCPB/DXT paths, HTTPS references or supported inline MCP configs. Version, author or foreign trust metadata does not confer PLUR1BUS trust.
 - Neither the marketplace nor the plugin carries a signature. Trust is the git host plus the reserved official names.
 
-We copy the vocabulary where it fits: `defaultEnabled`, `dependencies`, `userConfig` → secret slots and config, and bundles as "a plugin with skills plus MCP servers". We do not copy the unsigned trust model.
+**Amendment, source fields:** MCPB manifests are the unmodified versioned 0.1–0.4 schemas pinned from `@anthropic-ai/mcpb@2.1.2` (MIT; checksums and notice in `crates/plur1bus-ext/schema/mcpb/README.md`). They include `dxt_version`, typed `user_config`, platform overrides and 0.4 `uv`/`pyproject.toml` constraints. The executable 0.4 schema's required `mcp_config` governs its disagreement with upstream prose. Sensitive defaults are removed; stable collision-free secret aliases and the source-key mapping live in authenticated `.plur1bus/mcpb.json` payload metadata. Raw nonsecret templates retain source variable names until runtime; secrets expand into environment only, never command/argv.
+
+Claude normalization emits an unsigned inert bundle of skills and MCP servers, with `members[].{name,path,sha256,optional}` and full separately verified member disclosures. It copies no source credentials or publisher trust claims. `commands` (including object maps), `agents`, `hooks`, `lspServers`, `outputStyles`, `workflows`, `experimental.*`, `bin/`, `settings` and `channels` are listed by name/reason and skipped. HTTPS references use the existing bounded Core egress port, not an unrestricted downloader. No source code or hook executes during normalization.
+
+**Amendment, reproducible source identity:** MCPB/Claude wrappers use an undated canonical creation field; install/inspection times remain separate and authored `.p1x` packers keep their own date. Inline MCP children inherit a valid plugin version, or receive a credential-stripped content-derived SemVer build ID. Build metadata does not establish downgrade precedence; exact full-version/full-SHA256 immutability remains enforced. Referenced upstream MCPB versions are preserved. Inline endpoint query/fragment forms are refused with fixed diagnostics, never rewritten or retained with possible credentials; authentication uses declared slots. Synthetic wrapper naming checks all child names before choosing a bounded suffix.
 
 ### 4.6 minisign
 
@@ -172,8 +195,8 @@ All of these end in the same staged-tree checks and the same state record. The l
 |---|---|---|
 | `.p1x` | `skill install`, `plugin install`, UI, D1 file association | as declared |
 | A skill folder with `SKILL.md`, a `.zip` or an Anthropic `.skill` holding one | `skill install` | `skill`, trust `unsigned` (the feat/import-detect contract, §7.3) |
-| `.mcpb`, `.dxt` | `plugin install` (and D46's `mcp import`, now an alias) | `mcp-server`. An MCPB PKCS#7 signature is verified and shown ("signed by <subject>, not a PLUR1BUS key"), and the trust tier is `unknown-signer` (§8.2) |
-| A Claude Code plugin directory or zip (`.claude-plugin/plugin.json`) | `plugin install` | `bundle` of its `skills/` and `mcpServers`; `commands`, `agents`, `hooks`, `lspServers`, `outputStyles` are listed as skipped |
+| `.mcpb`, `.dxt` | `plugin install` (and D46's `mcp import`, now an alias) | `mcp-server`, unsigned with **signature not checked** until an approved cryptographic verifier exists; bounded trailer framing is validated before ZIP audit |
+| A Claude Code plugin directory or zip (optional `.claude-plugin/plugin.json`) | `plugin install` | unsigned inert `bundle` of skills and MCP servers; unsupported components are named as skipped |
 | A module directory | `module install <dir>` (D14, unchanged) | `module`, trust `dev`, labelled *Developer install* everywhere |
 | An MCP Registry entry (`server.json`, `registryType: mcpb`, with `fileSha256`) | catalogue only, as `upstream.mcpRegistry` | `mcp-server` whose package is the upstream MCPB, re-wrapped and signed by us after review |
 
@@ -200,7 +223,7 @@ All of these end in the same staged-tree checks and the same state record. The l
   - `tampered`: file hashes no longer match the recorded manifest (§8.7).
   - `error`: a module that `gave-up`, or an MCP server with `auth-required`.
   - An item under any of these is **not run**. Its enable flag is kept, so it resumes once the condition clears, except for `revoked` (§8.5).
-- **Default after install.** A person's install from a file, the catalogue or the importer ends in **installed(disabled)**, exactly like the importer's "imported skills are disabled by default". The confirm dialog offers *Install* (primary) and *Install and enable for …* (one flow, two recorded transitions). Bundled items follow their `defaultEnabled` as decided per D-row (e.g. D62 `computer-use` off). §13 Q5.
+- **Amendment / default after install (§13 Q5).** First-party activates for all agents after applicable checks; every other tier remains disabled unless Owner/Admin explicitly selects *Install and activate* after rights/trust acknowledgment and agent selection. Bundled release items keep their separately decided defaults. A first-party bundle wrapper does not promote child trust or bypass selected-child acknowledgments; an unsigned wrapper leaves its children disabled. Production `PINNED_KEYS` remains empty until X5.
 - **Transitions are serialised per installation** by the supervisor, the way `module install` already is. A second mutation while one runs gets `E_CONFLICT reason=busy`.
 
 ### 6.2 One fact, one place
@@ -221,6 +244,8 @@ All of these end in the same staged-tree checks and the same state record. The l
 | Catalogue cache | `extensions/catalog/{index.json, index.json.minisig, last-serial}` | supervisor |
 | Trash | `extensions/trash/<name>-<version>-<utc>/` | supervisor |
 
+**Amendment, MCP storage:** each version holds `p1x.json`, `record.json`, and `payload/`; cwd is the active version root and `${__dirname}` resolves to its authenticated payload directory. Same-version replacement bytes are refused. Active/previous version metadata shares the existing transaction and recovery path; there is no per-agent version selector in M. Python requirements may carry `via: "uv"` and a payload lock path, but an unavailable approved pinned runtime remains `needs-setup`.
+
 `skills/index.json` and `extensions/state.json` overlap only in the skill's name and sha256. `1staid check extensions.consistency` reports any drift (an index entry without a package record is fine and means an imported or hand-placed skill; a package record without its files is `fail`).
 
 ### 6.3 Hot enable/disable
@@ -228,7 +253,7 @@ All of these end in the same staged-tree checks and the same state record. The l
 - **Skill.** The supervisor writes `skills/index.json` or the agent's `blocked` list and emits `ext.changed`. The core reloads its skill catalogue and applies it at the **next turn** of each agent; a running turn keeps its snapshot. D69 injection reads the new set. The skill name/description list sits in the prompt prefix, so a change costs one prompt-cache miss for that agent (ADR-010). This is accepted; `agents.<id>.skills.applyAt: next-turn | next-session` (default `next-turn`, `x-tier: advanced`) lets a person defer it. Until the 2c turn loop exists, the flag is honoured by every present consumer (the setup-copied skills, the 2b MCP server's skill resources, attached systems reading `skill list --json`).
 - **Module and channel.** `modules.<name>.enabled` goes through the supervisor's existing apply sequence: stop within the grace budget, dependents become `needs-unavailable`; start, dependents resume (module-guide §3, §8). The UI and `plugin disable` show the dependents from `module.graph` **before** applying, as `config set` shows its restart plan (ADR-013 §4 step 2).
 - **MCP server.** Disable closes the connection and stops the process; agents lose the tools at their next turn (one cache miss in zone 1). Enable connects lazily per ADR-008.
-- **Bundle.** Toggles every non-optional member; a member toggled alone shows the bundle as `partially enabled`.
+- **Amendment, bundle.** Group operations include all selected installed members. Required children cannot be toggled/removed independently; optional children can, producing `partially enabled`, including divergent agent coverage. Child digests and full disclosures bind consent. One durable transaction/recovery path covers the selected graph; independent child updates and nested bundles are refused. See `docs/extensions.md` §8c.
 
 ### 6.4 Uninstall, purge, restore
 
@@ -302,8 +327,8 @@ Every path runs *inspect → show → confirm → install* (§9.2); nothing inst
   - Imported skills get trust `imported` (unsigned). The import wizard is the confirmation, and it lists every skill whose folder contains scripts (§8.4) before apply.
   - The conflict modes (`skip`/`rename`/`overwrite`, `docs/import.md` §5.3) apply unchanged, and `rename` must produce a valid Agent Skills name (with `SKILL.md` `name` rewritten to match, recorded in the report).
   - A skill folder whose name violates the Agent Skills rules is renamed by the same rule.
-- **MCP servers configured in the source.** Their configuration is imported as `mcp-server` records (remote: URL + auth kind; stdio: command + args), disabled, with trust `imported`. Secrets move only through the importer's opt-in allowlist into the secret store (`docs/import.md`).
-- **Plugins of OpenClaw (`extensions/`) and Hermes** are listed in the report as "not portable" with their names, and never copied (D9, §3).
+- **Amendment, source MCP configuration.** Supported declarations normalize into unsigned `mcp-server` packages through the shared verifier/installer, disabled after import; unsupported command/auth/layout cases are named for manual setup. The additive candidate view carries sanitized metadata/fingerprint and required slots, never source credential values or trust claims. MCP env/header credentials require manual setup; the separate §5.6 source-secret allowlist does not import them automatically.
+- **Amendment, foreign plugins:** sanitized discovery carries `{source,profile,name,classification,parts,reasons}`, where classification is `bridge-possible`, `nonportable` or `unknown`. Only declared evidence is classified; tools/commands/services can be candidates for the future bridge, while memory/channel/provider/context-engine and rewriting hooks remain excluded. No source plugin is installed or executed. The existing CLI report projection stays unchanged; the additive GUI/RPC discovery view carries these fields.
 
 ### 7.4 Bundled (D57)
 
@@ -615,7 +640,7 @@ The first-party channel modules stay in their own repositories (D60). Their rele
 
 1. **A skill without scripts**, e.g. `zabbix-triage` (the canvas shows it among the owner's own skills). It proves the skill path, catalogue and updates with the smallest risk.
 2. **`channel-telegram`** as a `channel` `.p1x`. It proves module packaging, `modules.<name>.enabled` hot switching and the C6 add-on update without harness downtime.
-3. **One local MCP server**, e.g. MarkItDown's official MCP server (D58, MIT) wrapped as an MCPB tree. It proves the `uv` runtime path and tool-effect defaults.
+3. **One local MCP server**, e.g. MarkItDown's official MCP server (D58, MIT) wrapped as an MCPB tree. After the separately audited pinned runtime producer is approved, it can prove the `uv` runtime path and tool-effect defaults. Current M acceptance does not claim that producer is ready.
 
 ## 12. Milestones (track X) and acceptance
 
@@ -646,8 +671,8 @@ The first-party channel modules stay in their own repositories (D60). Their rele
 2. **Catalogue URL.** Recommended: `https://extensions.plur1bus.app/v1/index.json` (§7.2), not `plur1bus.app/catalog/v1/`.
 3. **Catalogue hosting.** Recommended: GitHub Pages of `Cyb3rb1ade/plur1bus-extensions` with the custom domain (free, versioned, same CI). Owner action: DNS `CNAME extensions → cyb3rb1ade.github.io`.
 4. **Key custody.** Recommended: `ext-primary` in the GitHub Environment `extensions-release` (owner as required reviewer), `ext-backup` offline in the password manager, both separate from the updater keys. Owner action: generate both with `minisign -G`.
-5. **State after a person's install.** Recommended: installed(disabled), with a one-click *Install and enable* in the dialog (consistent with the importer).
-6. **Unsigned and unknown-signer file installs.** Recommended: allowed with the explicit acknowledgment of §8.3; `extensions.allowUnsigned` lets an admin forbid them.
+5. **Decided 2026-10-28:** first-party activates for all agents; other tiers remain disabled unless Owner/Admin explicitly selects Install and activate after trust/rights confirmation and agent selection (§6.1 amendment). Production first-party keys remain empty until X5.
+6. **Decided 2026-10-28:** unsigned and unknown-signer inputs are allowed only with the appropriate §8.3 tier acknowledgment, subject to `extensions.allowUnsigned`; no bypass flow. An unverified MCPB trailer remains unsigned.
 7. **Third-party packages in the catalogue.** Recommended for v1: only after review, re-signed by `ext-primary`; publisher keys (v2) when a second regular publisher appears.
 8. **Automatic extension patch updates.** Recommended: on for `first-party`, off for every other tier; never for capability-widening updates.
 9. **Revoked packages.** Recommended: stopped and locked; re-enable only with `--force-revoked` + typed name, audit-logged.

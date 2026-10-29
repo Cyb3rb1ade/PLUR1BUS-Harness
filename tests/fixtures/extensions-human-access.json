@@ -1,0 +1,15 @@
+{
+  "roles": ["owner", "admin"],
+  "methods": [
+    "ext.watch",
+    "ext.list",
+    "ext.show",
+    "ext.inspect",
+    "ext.inspection.get",
+    "ext.install",
+    "ext.uninstall",
+    "ext.restore",
+    "ext.enable",
+    "ext.disable"
+  ]
+}

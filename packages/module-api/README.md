@@ -12,6 +12,14 @@ exclusive per-module lock, loads its `modules.<name>` configuration, and calls t
 `ModuleContext`. The context exposes the module identity, abort signal, logger, live configuration access and updates,
 optional core RPC connection, and a status-detail setter.
 
+`ctx.dataDir` is the module's persistent `<home>/data/ext/<name>` directory. The runtime creates it with owner-only
+permissions after validating the manifest, refuses symlink or junction traversal, and keeps existing files across
+restarts. Extension uninstall keeps this directory; explicit purge removes it. The supervisor also supplies this
+canonical path as `P1X_DATA`. An inherited `P1X_DATA` value never selects `ctx.dataDir`.
+
+Host launchers can use `createExtensionDataDir(home, name, securePath)` for the same path and permission checks.
+It rejects unsafe name components before filesystem writes; the launcher still validates the extension's manifest.
+
 After `start` resolves, the runtime writes the module's protected token and pid files, opens its authenticated control
 endpoint, and reports the module as ready. A module may be adopted by a replacement supervisor after the old
 supervisor disappears. If its stdin lifeline closes without adoption, the module is orphaned until the configured

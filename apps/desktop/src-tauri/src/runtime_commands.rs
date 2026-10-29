@@ -265,6 +265,10 @@ pub struct InstallRequest {
     pub agreed: bool,
     #[serde(default)]
     pub action: InstallAction,
+    #[serde(default)]
+    pub extensions: bool,
+    #[serde(default)]
+    pub imports: bool,
 }
 #[derive(Default, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -371,7 +375,7 @@ pub async fn bundle_install(
         }
         let tokens = tokens.get_or_insert_with(crate::secrets::open_default);
         let connection = runtime
-            .block_on(crate::pair::pair_bundled_controlled(
+            .block_on(crate::pair::pair_bundled_granted(
                 &c,
                 tokens.as_ref(),
                 &store,
@@ -380,6 +384,10 @@ pub async fn bundle_install(
                     let _ = app.emit_to("shell", "desktop-bundle-progress", step);
                 },
                 Some(&control),
+                crate::pair::PairGrants {
+                    extensions: request.extensions,
+                    imports: request.imports,
+                },
             ))
             .map_err(|e| e.public_message())?;
         Ok(InstalledResult {

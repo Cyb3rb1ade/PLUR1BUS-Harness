@@ -2,7 +2,7 @@ import { statSync, watch as watchDirectory } from "node:fs";
 import { basename, dirname } from "node:path";
 import { assertSharedEnginePrivacy } from "./privacy/shared-engine.ts";
 import { restartPlan, type HarnessConfig } from "@plur1bus/config-schema";
-import { watchSupervisorConfig, type ConfigWatch } from "@plur1bus/module-api";
+import { watchSupervisorConfig, type ConfigWatch, type ImportRunControl } from "@plur1bus/module-api";
 import { loadConfig, readConfigFile, validateConfig } from "./config-load.ts";
 import type { HarnessLogger } from "./logger.ts";
 import type { Layout } from "./paths.ts";
@@ -27,6 +27,8 @@ export interface ConfigSource {
   resubscribe(): Promise<void>;
   /** `config.set` on the supervisor; null while the configuration is the file. */
   set(changes: { key: string; value: unknown }[]): Promise<void> | null;
+  /** Private active-run write; unavailable/lost supervisor rejects without ordinary config.set or file fallback. */
+  setDuringImport?(run: ImportRunControl, changes: readonly { key: string; value: unknown }[]): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -206,6 +208,10 @@ export async function openConfigSource(o: ConfigSourceOptions): Promise<ConfigSo
     set(changes) {
       if (!watch) return null;
       return watch.set(changes).then(() => undefined);
+    },
+    async setDuringImport(run, changes) {
+      if (closed || !watch?.setDuringImport) throw { error: "E_NOT_AVAILABLE", reason: "import-config-transport" };
+      await watch.setDuringImport(run, changes);
     },
     async close() {
       closed = true;

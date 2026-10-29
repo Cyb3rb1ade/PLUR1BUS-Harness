@@ -43,6 +43,8 @@ mod install {
 }
 #[path = "../src/ext/mod.rs"]
 mod ext;
+#[path = "../src/supervisor/spawn_secrets.rs"]
+mod spawn_secrets;
 
 use ext::index;
 use ext::overlays::{self, Overlay, Revocation};
@@ -99,6 +101,11 @@ fn record(name: &str, kind: &str) -> ItemRecord {
         key_id: None,
         key_label: None,
         package_sha256: "ab".repeat(32),
+        active_version: None,
+        versions: std::collections::BTreeMap::new(),
+        per_agent_versions: std::collections::BTreeMap::new(),
+        members: Vec::new(),
+        manifest_sha256: None,
         installed_at: "2026-09-28T10:00:00.000Z".into(),
         previous_version: None,
         files: BTreeMap::new(),
@@ -946,4 +953,95 @@ fn index_writer_orders_known_fields_first_and_the_rest_alphabetically() {
 }
 "#;
     assert_eq!(got, want);
+}
+
+#[cfg(unix)]
+#[test]
+fn native_spawn_lease_acknowledges_only_after_spawn_and_disconnects_a_stale_revision() {
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::os::unix::{fs::PermissionsExt, net::UnixListener};
+    use std::process::{Command, Stdio};
+    let _guard = env_guard();
+    for stale in [false, true] {
+        let (_directory, layout) = home();
+        fs::create_dir_all(layout.run()).unwrap();
+        fs::set_permissions(layout.run(), fs::Permissions::from_mode(0o700)).unwrap();
+        fs::write(layout.core_token(), "fixture-private-token").unwrap();
+        let paths = ExtPaths::of(&layout);
+        let mut rec = record("fixture", "module");
+        rec.capabilities["secrets"] =
+            json!([{"slot":"apiKey","label":{"en":"Key"},"required":true}]);
+        rec.required_secrets = vec!["apiKey".into()];
+        let mut installed = ExtState::default();
+        installed.items.insert("fixture".into(), rec);
+        state::write(&paths, &installed).unwrap();
+        let address = paths::extension_secrets_address(&layout.home, "posix");
+        let listener = UnixListener::bind(address).unwrap();
+        let changed_layout = layout.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(3)))
+                .unwrap();
+            let mut request = String::new();
+            BufReader::new(stream.try_clone().unwrap())
+                .read_line(&mut request)
+                .unwrap();
+            let request: Value = serde_json::from_str(&request).unwrap();
+            assert_eq!(request["name"], "fixture");
+            assert_eq!(request["token"], "fixture-private-token");
+            if stale {
+                let paths = ExtPaths::of(&changed_layout);
+                let mut state = state::read(&paths).unwrap();
+                state.items.get_mut("fixture").unwrap().version = "2.0.0".into();
+                state::write(&paths, &state).unwrap();
+            }
+            let fixture: Value = serde_json::from_str(include_str!(
+                "../../../packages/core/test/fixtures/extension-spawn-secrets.json"
+            ))
+            .unwrap();
+            let bytes = fixture["valid"][0]["hex"]
+                .as_str()
+                .unwrap()
+                .as_bytes()
+                .chunks_exact(2)
+                .map(|p| u8::from_str_radix(std::str::from_utf8(p).unwrap(), 16).unwrap())
+                .collect::<Vec<_>>();
+            stream.write_all(&bytes).unwrap();
+            let mut ack = [0u8];
+            let read = stream.read(&mut ack).unwrap_or(0);
+            tx.send((read, ack[0])).unwrap();
+        });
+        let acquired = spawn_secrets::acquire(&layout, "fixture");
+        if stale {
+            assert_eq!(acquired.unwrap_err(), spawn_secrets::Failure::Unavailable);
+            assert_eq!(rx.recv_timeout(Duration::from_secs(3)).unwrap().0, 0);
+        } else {
+            let lease = acquired.unwrap();
+            assert!(!format!("{lease:?}").contains("fixture-value"));
+            assert!(rx.try_recv().is_err());
+            let node = std::env::var_os("PLUR1BUS_NODE")
+                .map(PathBuf::from)
+                .or_else(|| {
+                    std::env::split_paths(&std::env::var_os("PATH")?)
+                        .map(|p| p.join("node"))
+                        .find(|p| p.is_file())
+                })
+                .expect("Node is required; run test:prep");
+            let mut command = Command::new(node);
+            command.args(["-e","process.stdout.write(process.env.P1X_SECRET_apiKey==='fixture-value'?'leased':'missing')"]).stdout(Stdio::piped());
+            lease
+                .environment
+                .apply(&mut command, &layout.ext_data("fixture"));
+            let child = command.spawn().unwrap();
+            drop(command);
+            lease.spawned().unwrap();
+            assert_eq!(rx.recv_timeout(Duration::from_secs(3)).unwrap(), (1, 6));
+            let output = child.wait_with_output().unwrap();
+            assert!(output.status.success());
+            assert_eq!(output.stdout, b"leased");
+        }
+        server.join().unwrap();
+    }
 }

@@ -93,3 +93,43 @@ test("an agent whose Engine run throws is recorded as failed and the sweep goes 
   assert.equal(result.reason,"engine-job-failed");
   assert.deepEqual(result.detail,[{agentId:"alpha",outcome:"failed",reason:"engine-job-threw"},{agentId:"beta",runId:"r-beta",outcome:"completed"}]);
 });
+
+test("a fresh Core preserves the recorded knowledge schedule instead of appending another startup run", async () => {
+  const { createKnowledgeUpdateJob, armKnowledgeUpdate, KNOWLEDGE_UPDATE_INTERVAL_MS } =
+    await import("../../src/knowledge/job.ts");
+  const { mkdtemp, readFile, rm } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { createSystemJobs } = await import("../../src/system-jobs/index.ts");
+  const { FakeClock } = await import("../../src/discovery/testing.ts");
+  const directory = await mkdtemp(join(tmpdir(), "p1b-knowledge-restart-"));
+  const ledgerPath = join(directory, "ledger.jsonl");
+  const clock = new FakeClock(1000);
+  let calls = 0;
+  const engine = { jobs: {
+    list: () => [{ name: "knowledge-update" }],
+    run: async () => { calls++; return { outcome: "completed" }; },
+  } };
+  const options = { ledgerPath, clock, securePath: () => {}, logger: { warn() {} }, engineHasJob: () => false };
+  try {
+    const first = createSystemJobs(options);
+    first.register(createKnowledgeUpdateJob({ engine, agents: () => ["a"], now: () => clock.now() }));
+    await first.run("knowledge.update", {}, { trigger: "cron" });
+    const before = await readFile(ledgerPath);
+    await clock.advance(2000);
+    const prior = first.history({ job: "knowledge.update", limit: 1 })[0];
+    assert.ok(prior);
+    const restarted = createSystemJobs(options);
+    const job = createKnowledgeUpdateJob({ engine, agents: () => ["a"], now: () => clock.now(),
+      lastRunAt: prior.startedAt });
+    restarted.register(job);
+    const abort = new AbortController();
+    armKnowledgeUpdate(restarted, clock, abort.signal, { warn() {} });
+    assert.equal(job.nextRunAt(), prior.startedAt + KNOWLEDGE_UPDATE_INTERVAL_MS);
+    assert.equal(calls, 1);
+    assert.deepEqual(await readFile(ledgerPath), before, "opening the restarted scheduler preserves every ledger byte");
+    await clock.advance(KNOWLEDGE_UPDATE_INTERVAL_MS - 2000);
+    assert.equal(calls, 2, "the regular due run still executes");
+    abort.abort();
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});

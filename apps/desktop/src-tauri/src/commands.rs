@@ -202,7 +202,9 @@ pub struct ConnectionList {
 pub fn transports() -> crate::transport::Transports {
     crate::transport::Transports::production(std::sync::Arc::new(|line: &str| eprintln!("{line}")))
 }
-fn transport_store(app: &tauri::AppHandle) -> Result<crate::transport::TransportStore, String> {
+pub(crate) fn transport_store(
+    app: &tauri::AppHandle,
+) -> Result<crate::transport::TransportStore, String> {
     Ok(crate::transport::TransportStore::open(&app_config_dir(
         app,
     )?))
@@ -346,6 +348,10 @@ pub struct PairCodeRequest {
 #[serde(deny_unknown_fields)]
 pub struct PairLocalRequest {
     pub name: String,
+    #[serde(default)]
+    pub extensions: bool,
+    #[serde(default)]
+    pub imports: bool,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -552,9 +558,22 @@ pub async fn pair_local(
         return Err("cli-missing".into());
     }
     let cli = crate::pair::resolve_cli().ok_or("cli-missing")?;
-    let offer = crate::pair::pair_local(&cli, &request.name)
+    let offer = if record.current {
+        crate::pair::pair_local_current(
+            &cli,
+            &request.name,
+            crate::pair::PairGrants {
+                extensions: request.extensions,
+                imports: request.imports,
+            },
+        )
         .await
-        .map_err(|e| e.public_message())?;
+    } else if request.extensions || request.imports {
+        return Err("incompatible".into());
+    } else {
+        crate::pair::pair_local(&cli, &request.name).await
+    }
+    .map_err(|e| e.public_message())?;
     if offer
         .origin
         .as_ref()

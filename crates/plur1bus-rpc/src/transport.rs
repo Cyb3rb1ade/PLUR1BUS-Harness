@@ -16,6 +16,14 @@ pub trait Stream: Read + Write + Send {
     }
 }
 
+/// The OS-authenticated peer of an accepted Unix connection, using the same probe as outbound RPC streams.
+/// Unsupported platforms or unavailable credentials return `None`; callers requiring identity must fail closed.
+#[cfg(unix)]
+pub fn unix_peer_pid(stream: &std::os::unix::net::UnixStream) -> Option<u32> {
+    use std::os::fd::AsRawFd;
+    imp::peer_pid_of(stream.as_raw_fd())
+}
+
 #[cfg(unix)]
 mod imp {
     use super::*;
@@ -100,7 +108,7 @@ mod imp {
 
     /// The credentials the kernel recorded for the listening process when the connection was made.
     #[cfg(any(target_os = "linux", target_os = "android"))]
-    fn peer_pid_of(fd: std::os::unix::io::RawFd) -> Option<u32> {
+    pub(super) fn peer_pid_of(fd: std::os::unix::io::RawFd) -> Option<u32> {
         let mut cred = libc::ucred {
             pid: 0,
             uid: 0,
@@ -121,7 +129,7 @@ mod imp {
     }
 
     #[cfg(any(target_os = "macos", target_os = "ios"))]
-    fn peer_pid_of(fd: std::os::unix::io::RawFd) -> Option<u32> {
+    pub(super) fn peer_pid_of(fd: std::os::unix::io::RawFd) -> Option<u32> {
         let mut pid: libc::pid_t = 0;
         let mut len = std::mem::size_of::<libc::pid_t>() as libc::socklen_t;
         // SAFETY: getsockopt writes at most `len` bytes into `pid`, a live local of that size.
@@ -143,7 +151,7 @@ mod imp {
         target_os = "macos",
         target_os = "ios"
     )))]
-    fn peer_pid_of(_fd: std::os::unix::io::RawFd) -> Option<u32> {
+    pub(super) fn peer_pid_of(_fd: std::os::unix::io::RawFd) -> Option<u32> {
         None
     }
     /// A missing socket file fails at once (ENOENT) — that is the "core absent" case the CLI answers in < 300 ms.

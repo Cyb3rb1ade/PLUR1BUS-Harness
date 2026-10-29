@@ -21,7 +21,10 @@ pub enum DeepLink {
     Install {
         catalogue_id: String,
     },
-    P1x,
+    P1x {
+        #[serde(skip)]
+        path: std::path::PathBuf,
+    },
     Ignored,
 }
 /// Parse without side effects; reject ambiguous encodings before a URL parser normalizes them.
@@ -174,7 +177,9 @@ pub fn parse_argument(input: &str) -> DeepLink {
     if input.len() <= 4096 && !input.chars().any(char::is_control) {
         let path = std::path::Path::new(input);
         if path.is_absolute() && path.extension().is_some_and(|ext| ext == "p1x") {
-            return DeepLink::P1x;
+            return DeepLink::P1x {
+                path: path.to_path_buf(),
+            };
         }
         if let Ok(url) = url::Url::parse(input) {
             if url.scheme() == "file"
@@ -183,12 +188,12 @@ pub fn parse_argument(input: &str) -> DeepLink {
                     .is_none_or(|h| h.is_empty() || h == "localhost")
                 && url.query().is_none()
                 && url.fragment().is_none()
-                && url
-                    .to_file_path()
-                    .ok()
-                    .is_some_and(|p| p.extension().is_some_and(|ext| ext == "p1x"))
             {
-                return DeepLink::P1x;
+                if let Ok(path) = url.to_file_path() {
+                    if path.extension().is_some_and(|ext| ext == "p1x") {
+                        return DeepLink::P1x { path };
+                    }
+                }
             }
         }
     }
@@ -239,7 +244,7 @@ impl Inbox {
     pub fn take(&mut self) -> Option<Envelope> {
         self.offered.clear();
         let next = self.pending.pop_front()?;
-        if matches!(next.intent, DeepLink::Pair { .. }) {
+        if matches!(next.intent, DeepLink::Pair { .. } | DeepLink::P1x { .. }) {
             if self.offered.len() >= 16 {
                 self.offered.pop_first();
             }
@@ -250,6 +255,13 @@ impl Inbox {
     /// Forget a completed offer; a failed explicit attempt can be retried until dismissed.
     pub fn finish_pair(&mut self, id: u64) {
         self.offered.remove(&id);
+    }
+    /// The renderer receives only the offer id. Local file paths stay in the native mailbox.
+    pub fn confirm_p1x(&self, id: u64) -> Option<std::path::PathBuf> {
+        match self.offered.get(&id)? {
+            DeepLink::P1x { path } => Some(path.clone()),
+            _ => None,
+        }
     }
     /// A link pin applies only to the exact displayed origin and code.
     pub fn confirm_pair(&mut self, id: u64, origin: &str, code: &str) -> Option<DeepLink> {

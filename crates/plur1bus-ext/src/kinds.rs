@@ -159,7 +159,8 @@ pub fn check_kind(m: &P1xManifest) -> Result<(), Refusal> {
                 ));
             }
         }
-        Kind::Module | Kind::Channel | Kind::Bundle => {}
+        Kind::Module | Kind::Channel => {}
+        Kind::Bundle => check_bundle(m)?,
         Kind::McpServer => check_mcp(m)?,
         Kind::Provider => check_provider(m)?,
     }
@@ -183,6 +184,40 @@ fn no_code(m: &P1xManifest, what: &str) -> Result<(), Refusal> {
             "scripts: {what} carries no script ({})",
             m.scripts.join(", ")
         )));
+    }
+    Ok(())
+}
+
+/// A bundle is a verified composition, never an independently executing extension.
+fn check_bundle(m: &P1xManifest) -> Result<(), Refusal> {
+    no_code(m, "a bundle wrapper")?;
+    if net_mode(m) != "none" || !crate::rights::declared_rights(m).is_empty() {
+        return Err(bad("capabilities: a bundle wrapper has no operational rights; disclose its members separately"));
+    }
+    let members = m
+        .rest
+        .get("members")
+        .and_then(Value::as_array)
+        .filter(|a| !a.is_empty() && a.len() <= 256)
+        .ok_or_else(|| bad("members: a bundle names between 1 and 256 member packages"))?;
+    let (mut names, mut paths) = (BTreeSet::new(), BTreeSet::new());
+    for member in members {
+        let name = member["name"].as_str().unwrap_or("");
+        let path = member["path"].as_str().unwrap_or("");
+        if name == m.name || !names.insert(name) || !paths.insert(path) {
+            return Err(bad(
+                "members: member names and paths are unique and differ from the wrapper name",
+            ));
+        }
+        let file = m
+            .files
+            .get(path)
+            .ok_or_else(|| bad("members.path: every member is a recorded payload file"))?;
+        if member["sha256"].as_str() != Some(file.sha256.as_str()) || file.exec {
+            return Err(bad(
+                "members.sha256: the digest matches the non-executable payload file",
+            ));
+        }
     }
     Ok(())
 }

@@ -1,13 +1,15 @@
 //! `cargo run -p plur1bus-ext --features testkit --example make-fixtures -- <dir>`: writes the fixtures the X1 tests
-//! and the system test install from. Every key is generated in memory for this run; the public half goes to
+//! and the system tests install from. Every key is generated in memory for this run; the public half goes to
 //! `pubkeys.env` as `PLUR1BUS_TEST_EXT_PUBKEYS=test=<base64>` and nothing else is written.
 //!
 //! Files: `signed-skill.p1x`, `unsigned-folder-skill/` (with `scripts/run.sh`), `module-fixture.p1x` (payload from
 //! `$PLUR1BUS_FIXTURE_MODULE`, else `packages/module-fixture/dist`), `fixture-b.p1x` (needs `fixture`), the eight
-//! `Tamper` variants of the signed skill as `tampered-<slug>.p1x`, and `pubkeys.env`.
+//! `Tamper` variants as `tampered-<slug>.p1x`, unsigned module counterparts, immutable MCP versions,
+//! unsigned/first-party inert bundles with unsigned skill members, and `pubkeys.env`.
 use plur1bus_ext::pack::PayloadFile;
 use plur1bus_ext::testkit::{build_package_from, tamper, test_key, Tamper};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
 fn file(rel: &str, text: &str, exec: bool) -> PayloadFile {
@@ -67,6 +69,41 @@ fn module_template(name: &str, version: &str, dependencies: Value) -> Value {
             "harness": { "authority": "full" }
         }
     })
+}
+
+fn mcp_package(version: &str, text: &str) -> Vec<u8> {
+    let mut template = skill_template("versioned-server", no_capabilities());
+    template["version"] = json!(version);
+    template["kind"] = json!("mcp-server");
+    template["remote"] = json!({"url":"https://mcp.example.org/v1","auth":"none"});
+    template["capabilities"]["network"] = json!({"mode":"allowlist","hosts":["mcp.example.org"]});
+    build_package_from(&template, vec![file("README.md", text, false)], None)
+}
+
+fn bundle_package(key: Option<&plur1bus_ext::testkit::TestKey>) -> Vec<u8> {
+    let mut template = skill_template("fixture-bundle", no_capabilities());
+    template["kind"] = json!("bundle");
+    let mut members = Vec::new();
+    let mut files = Vec::new();
+    for (name, optional) in [("bundle-required", false), ("bundle-extra", true)] {
+        let text =
+            format!("---\nname: {name}\ndescription: Synthetic bundle member\n---\n\n# {name}\n");
+        let bytes = build_package_from(
+            &skill_template(name, no_capabilities()),
+            vec![file("SKILL.md", &text, false)],
+            None,
+        );
+        let rel = format!("members/{name}.p1x");
+        members.push(json!({"name":name,"path":format!("payload/{rel}"),
+            "sha256":format!("{:x}",Sha256::digest(&bytes)),"optional":optional}));
+        files.push(PayloadFile {
+            rel,
+            bytes,
+            exec: false,
+        });
+    }
+    template["members"] = json!(members);
+    build_package_from(&template, files, key)
 }
 
 fn read_tree(root: &Path) -> Vec<PayloadFile> {
@@ -173,6 +210,14 @@ fn main() {
             Some(&key),
         ),
     );
+    out(
+        "unsigned-module-fixture.p1x",
+        &build_package_from(
+            &module_template("fixture", &version, json!([])),
+            files.clone(),
+            None,
+        ),
+    );
     let mut b_files = files;
     for f in b_files.iter_mut().filter(|f| f.rel == "module.json") {
         let mut v: Value = serde_json::from_slice(&f.bytes).expect("module.json");
@@ -189,10 +234,39 @@ fn main() {
                 &version,
                 json!([{ "id": "fixtures/fixture", "range": ">=0.1.0" }]),
             ),
-            b_files,
+            b_files.clone(),
             Some(&key),
         ),
     );
+    out(
+        "unsigned-fixture-b.p1x",
+        &build_package_from(
+            &module_template(
+                "fixture-b",
+                &version,
+                json!([{ "id": "fixtures/fixture", "range": ">=0.1.0" }]),
+            ),
+            b_files,
+            None,
+        ),
+    );
+    out(
+        "mcp-server-v1.p1x",
+        &mcp_package("1.0.0", "MCP version one\n"),
+    );
+    out(
+        "mcp-server-v2.p1x",
+        &mcp_package("2.0.0", "MCP version two\n"),
+    );
+    out(
+        "mcp-server-v2-conflict.p1x",
+        &mcp_package(
+            "2.0.0",
+            "Different bytes in the same immutable MCP version\n",
+        ),
+    );
+    out("bundle.p1x", &bundle_package(None));
+    out("first-party-bundle.p1x", &bundle_package(Some(&key)));
 
     out(
         "pubkeys.env",

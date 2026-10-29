@@ -2,9 +2,10 @@
 // generation-layout.js, namespace-config.js, embedding-cache.js): stores, their vector schema, the embedding cache,
 // the re-embedding state and generation manifests, assembled into per-store identities (docs/import.md §8.4).
 import { readdirSync } from "node:fs";
+import { SourceReader } from "./source-reader.ts";
 import { basename, dirname, join } from "node:path";
 import { assembleIdentity, compareIdentity, type CacheGroup, type FieldSource, type Fingerprint, type Identity } from "./identity.ts";
-import { isDir, isFile, loadLanceDb, openSqliteReadOnly, readBounded, sqliteWarning } from "./readonly.ts";
+import { loadLanceDb, sqliteWarning } from "./readonly.ts";
 import type { StoreReport } from "./types.ts";
 
 const RESERVED = new Set([".plur1bus-shared", "control", "generations", "embedding-cache-v2"]);
@@ -18,6 +19,7 @@ export function subdirs(dir: string): string[] {
 }
 
 export interface StoreScanInput {
+  reader?: SourceReader;
   baseDbPath: string;
   baseDbPathSource: "config" | "default";
   /** The PLUR1BUS plugin config (`embedding`, `reranker`, `namespaces`, `reembedding`, `runtime`, …). */
@@ -35,30 +37,32 @@ export interface StoreScan {
   warnings: string[];
 }
 
-function readCacheGroups(cacheDir: string, warnings: string[]): Map<string, CacheGroup[]> {
+async function readCacheGroups(cacheDir: string, warnings: string[], reader: SourceReader): Promise<Map<string, CacheGroup[]>> {
+  const { join } = reader.paths;
   const out = new Map<string, CacheGroup[]>();
   let files: string[] = [];
-  try { files = readdirSync(cacheDir).filter((n) => n.endsWith(".db")).sort(); } catch { return out; }
+  try { files = (await reader.names(cacheDir)).filter((n) => n.endsWith(".db")).sort(); } catch (error) { SourceReader.refuseFatal(error); return out; }
   for (const name of files) {
     const scope = name.slice(0, -3);
     try {
-      const h = openSqliteReadOnly(join(cacheDir, name));
-      try {
+      await reader.sqlite(join(cacheDir, name), h => {
         // Only the identity columns; `debug_text` (message text) and `vector` are never selected.
         const rows = h.db.prepare("SELECT provider, model, dimensions, COUNT(*) AS entries FROM embeddings GROUP BY provider, model, dimensions ORDER BY provider, model, dimensions").all() as unknown as CacheGroup[];
         out.set(scope, rows.map((r) => ({ provider: String(r.provider), model: String(r.model), dimensions: Number(r.dimensions), entries: Number(r.entries) })));
         const w = sqliteWarning(h, `embedding cache ${name}`); if (w) warnings.push(w);
-      } finally { h.close(); }
+      });
     } catch (e) {
+      SourceReader.refuseFatal(e);
       warnings.push(`embedding cache ${name}: unreadable (${(e as Error).message})`);
     }
   }
   return out;
 }
 
-function readFingerprints(baseDbPath: string, warnings: string[]): { byId: Map<string, Fingerprint>; migrations: number } {
+async function readFingerprints(baseDbPath: string, warnings: string[], reader: SourceReader): Promise<{ byId: Map<string, Fingerprint>; migrations: number }> {
+  const { join } = reader.paths;
   const byId = new Map<string, Fingerprint>();
-  const text = readBounded(join(baseDbPath, "control", "reembedding-state.json"), 16 * 1024 * 1024);
+  const text = await reader.bounded(join(baseDbPath, "control", "reembedding-state.json"), 16 * 1024 * 1024);
   if (text === null) return { byId, migrations: 0 };
   try {
     const state = JSON.parse(text) as { migrations?: Record<string, { source?: { fingerprintId?: string; fingerprint?: Fingerprint }; target?: { fingerprintId?: string; fingerprint?: Fingerprint } }> };
@@ -71,25 +75,27 @@ function readFingerprints(baseDbPath: string, warnings: string[]): { byId: Map<s
   }
 }
 
-function readGenerations(baseDbPath: string): { generation: string; fingerprintId: string | null; dimensions: number | null }[] {
-  return subdirs(join(baseDbPath, "generations")).filter((g) => GENERATION.test(g)).map((generation) => {
-    const text = readBounded(join(baseDbPath, "generations", generation, "generation.json"), 4 * 1024 * 1024);
+async function readGenerations(baseDbPath: string, reader: SourceReader): Promise<{ generation: string; fingerprintId: string | null; dimensions: number | null }[]> {
+  const { join } = reader.paths;
+  return Promise.all((await reader.subdirs(join(baseDbPath, "generations"))).filter((g) => GENERATION.test(g)).map(async (generation) => {
+    const text = await reader.bounded(join(baseDbPath, "generations", generation, "generation.json"), 4 * 1024 * 1024);
     let m: { fingerprintId?: unknown; dimensions?: unknown } = {};
     try { if (text) m = JSON.parse(text); } catch { /* invalid manifest: reported with nulls */ }
     return { generation, fingerprintId: typeof m.fingerprintId === "string" ? m.fingerprintId : null, dimensions: Number.isSafeInteger(m.dimensions) ? (m.dimensions as number) : null };
-  });
+  }));
 }
 
-function modelCacheEvidence(modelCacheDir: string | null, model: unknown): { revisions: string[]; quantization: "q8" | "fp32" | null } | undefined {
+async function modelCacheEvidence(modelCacheDir: string | null, model: unknown, reader: SourceReader): Promise<{ revisions: string[]; quantization: "q8" | "fp32" | null } | undefined> {
+  const { join } = reader.paths;
   if (!modelCacheDir || typeof model !== "string" || model.split("/").some((p) => p === ".." || p === "")) return undefined;
   const dir = join(modelCacheDir, ...model.split("/"));
-  if (!isDir(dir)) return undefined;
-  const revisions = subdirs(dir);
+  if (!await reader.isDir(dir)) return undefined;
+  const revisions = await reader.subdirs(dir);
   let quantization: "q8" | "fp32" | null = null;
   if (revisions.length === 1) {
     const rev = join(dir, revisions[0]!);
-    if (isFile(join(rev, "onnx", "model_quantized.onnx"))) quantization = "q8";
-    else if (isFile(join(rev, "onnx", "model.onnx"))) quantization = "fp32";
+    if (await reader.isFile(join(rev, "onnx", "model_quantized.onnx"))) quantization = "q8";
+    else if (await reader.isFile(join(rev, "onnx", "model.onnx"))) quantization = "fp32";
   }
   return { revisions, quantization };
 }
@@ -122,6 +128,8 @@ async function lanceFacts(partition: string): Promise<LanceFacts> {
 }
 
 export async function scanStoreRoot(input: StoreScanInput): Promise<StoreScan> {
+  const reader = input.reader ?? await SourceReader.local();
+  const { basename, dirname, join } = reader.paths;
   const warnings: string[] = [];
   const cfg = input.config;
   const base = input.baseDbPath;
@@ -139,47 +147,47 @@ export async function scanStoreRoot(input: StoreScanInput): Promise<StoreScan> {
     activeRoot = writer ? join(genRoot, writer) : genRoot;
     sharedBase = genRoot;
   }
-  const generations = readGenerations(base);
-  const { byId, migrations } = readFingerprints(base, warnings);
+  const generations = await readGenerations(base, reader);
+  const { byId, migrations } = await readFingerprints(base, warnings, reader);
   const cacheDir = join(base, "embedding-cache-v2");
-  const cacheGroups = readCacheGroups(cacheDir, warnings);
+  const cacheGroups = await readCacheGroups(cacheDir, warnings, reader);
   const activeManifest = activeGeneration ? generations.find((g) => g.generation === activeGeneration) : undefined;
   if (activeGeneration && !activeManifest) warnings.push(`active generation ${activeGeneration} has no generation.json`);
   const activeFpId = activeManifest?.fingerprintId ?? selection?.fingerprintId ?? null;
   const fingerprint = activeFpId ? byId.get(activeFpId) : undefined;
   const emb = cfg.embedding && typeof cfg.embedding === "object" ? cfg.embedding as Record<string, any> : undefined;
   const configModel = emb?.provider === "local-transformers" ? (emb.local?.model ?? emb.model) : emb?.model;
-  const modelCache = modelCacheEvidence(input.modelCacheDir, fingerprint?.model ?? configModel);
+  const modelCache = await modelCacheEvidence(input.modelCacheDir, fingerprint?.model ?? configModel, reader);
   const configDim = Number.isSafeInteger(emb?.local?.dimensions) ? emb!.local.dimensions : Number.isSafeInteger(emb?.dimensions) ? emb!.dimensions : null;
   const cacheScope = cfg.runtime?.embeddingCacheScope === "shared" ? "shared" : "agent";
 
   const partitions: { storeId: string; kind: "agent" | "shared"; agentId: string | null; namespace: string | null; path: string }[] = [];
   const nsOf = layoutMode === "legacy-flat" ? null : writer;
-  for (const name of subdirs(activeRoot)) {
+  for (const name of await reader.subdirs(activeRoot)) {
     if (RESERVED.has(name) || name.startsWith("_") || name.startsWith(".") || !AGENT_ID.test(name)) continue;
-    if (!isDir(join(activeRoot, name, "memories.lance"))) continue;
+    if (!await reader.isDir(join(activeRoot, name, "memories.lance"))) continue;
     partitions.push({ storeId: `agent:${name}`, kind: "agent", agentId: name, namespace: nsOf, path: join(activeRoot, name) });
   }
   if (namespaces) {
     for (const ns of [...new Set([...(namespaces.activeRecallNamespaces ?? []), ...(namespaces.legacyReadOnlyNamespaces ?? [])])].filter((n) => n !== writer && AGENT_ID.test(n))) {
       const nsRoot = join(activeGeneration ? join(base, "generations", activeGeneration) : baseDir, ns);
-      for (const name of subdirs(nsRoot)) {
-        if (!AGENT_ID.test(name) || RESERVED.has(name) || !isDir(join(nsRoot, name, "memories.lance"))) continue;
+      for (const name of await reader.subdirs(nsRoot)) {
+        if (!AGENT_ID.test(name) || RESERVED.has(name) || !await reader.isDir(join(nsRoot, name, "memories.lance"))) continue;
         partitions.push({ storeId: `agent:${name}@${ns}`, kind: "agent", agentId: name, namespace: ns, path: join(nsRoot, name) });
       }
     }
   }
   for (const kind of ["workspaces", "users"] as const) {
     const kindRoot = join(sharedBase, ".plur1bus-shared", kind);
-    for (const key of subdirs(kindRoot)) {
-      if (!SHARED_KEY.test(key) || !isDir(join(kindRoot, key, "memories.lance"))) continue;
+    for (const key of await reader.subdirs(kindRoot)) {
+      if (!SHARED_KEY.test(key) || !await reader.isDir(join(kindRoot, key, "memories.lance"))) continue;
       partitions.push({ storeId: `shared:${kind}:${key}`, kind: "shared", agentId: null, namespace: null, path: join(kindRoot, key) });
     }
   }
 
   const stores: StoreReport[] = [];
   for (const p of partitions) {
-    const facts = await lanceFacts(p.path);
+    const facts = await reader.directory(p.path, local => lanceFacts(local));
     if (facts.error) warnings.push(`${p.storeId}: vector schema unreadable (${facts.error})`);
     const cache = cacheGroups.get(cacheScope === "shared" || p.kind === "shared" ? "shared" : p.agentId!) ?? [];
     const claims: { source: FieldSource; value: number }[] = [];
@@ -207,8 +215,8 @@ export async function scanStoreRoot(input: StoreScanInput): Promise<StoreScan> {
     });
   }
   return {
-    storeRoot: { baseDbPath: base, baseDbPathSource: input.baseDbPathSource, present: isDir(base), layout: layoutMode, activeRoot, activeGeneration, namespace: writer },
-    embeddingCache: { present: isDir(cacheDir), path: cacheDir, scope: cacheScope, databases: [...cacheGroups.entries()].map(([scope, groups]) => ({ scope, groups: groups.length, entries: groups.reduce((a, g) => a + g.entries, 0) })) },
+    storeRoot: { baseDbPath: base, baseDbPathSource: input.baseDbPathSource, present: await reader.isDir(base), layout: layoutMode, activeRoot, activeGeneration, namespace: writer },
+    embeddingCache: { present: await reader.isDir(cacheDir), path: cacheDir, scope: cacheScope, databases: [...cacheGroups.entries()].map(([scope, groups]) => ({ scope, groups: groups.length, entries: groups.reduce((a, g) => a + g.entries, 0) })) },
     reembedding: { migrations, generations, fingerprintRecords: byId.size, activeFingerprintId: activeFpId },
     stores,
     warnings,

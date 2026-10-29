@@ -293,6 +293,10 @@ fn caps() -> Value {
 /// A signed module package built from the fixture module: `module.json` names `name` and `version` and needs the core
 /// plus `needs`.
 fn module_pkg(h: &Home, name: &str, version: &str, needs: &[&str]) -> Vec<u8> {
+    module_pkg_with_key(name, version, needs, &h.key)
+}
+
+fn module_pkg_with_key(name: &str, version: &str, needs: &[&str], key: &TestKey) -> Vec<u8> {
     let src = fixture_dist();
     let mut files = Vec::new();
     for e in std::fs::read_dir(&src)
@@ -336,7 +340,7 @@ fn module_pkg(h: &Home, name: &str, version: &str, needs: &[&str]) -> Vec<u8> {
         "requires": { "runtime": { "type": "node", "range": ">=24" } },
         "capabilities": caps()
     });
-    build_package_from(&template, files, Some(&h.key))
+    build_package_from(&template, files, Some(key))
 }
 
 /// `ext.inspect` of `name`'s package (written beside the home): the result.
@@ -349,13 +353,19 @@ fn inspect(h: &Home, name: &str, needs: &[&str]) -> Value {
     )
 }
 
-/// Inspects and installs `name` (disabled).
-fn install(h: &Home, name: &str, needs: &[&str]) -> Value {
-    let insp = inspect(h, name, needs);
+/// Arranges an initially disabled lower-trust package for toggle, rollback and event tests. First-party defaults
+/// are exercised by the direct install and required-slot tests below.
+fn install_disabled(h: &Home, name: &str, needs: &[&str]) -> Value {
+    let key = test_key("unknown-fixture");
+    let path = h.write(
+        &format!("{name}.p1x"),
+        &module_pkg_with_key(name, "1.0.0", needs, &key),
+    );
+    let insp = ok(&h.home, "ext.inspect", json!({"source":{"path":path}}));
     ok(
         &h.home,
         "ext.install",
-        json!({ "inspectionId": insp["inspectionId"] }),
+        json!({"inspectionId":insp["inspectionId"],"acknowledge":["unknown-signer"]}),
     )
 }
 
@@ -379,11 +389,77 @@ fn entries(dir: &Path) -> Vec<String> {
     v
 }
 
+#[test]
+fn first_party_required_slots_hold_activation_before_the_config_reconcile_can_spawn() {
+    let h = Home::new();
+    let marker = h.dir.path().join("unexpected-spawn");
+    let mut capabilities = caps();
+    capabilities["secrets"] = json!([{"slot":"API_KEY","label":{"en":"API key"},"required":true}]);
+    let template = json!({
+        "$schema":"https://plur1bus.app/schema/p1x/1/p1x.schema.json","format":1,
+        "id":"demo/needs-secret","name":"needs-secret","version":"1.0.0","kind":"module",
+        "title":{"en":"Needs secret"},"summary":{"en":"Held until setup"},
+        "publisher":{"id":"demo","name":"Demo"},"licence":"MIT",
+        "compat":{"harness":">=0.0.0","moduleApi":["1"]},
+        "requires":{"runtime":{"type":"node","range":">=24"}},"capabilities":capabilities
+    });
+    let module = json!({"name":"needs-secret","version":"1.0.0","apiVersion":"1","entry":"index.js","scope":"installation","priority":500});
+    let source = h.write(
+        "needs-secret.p1x",
+        &build_package_from(
+            &template,
+            vec![
+                PayloadFile {
+                    rel: "module.json".into(),
+                    bytes: serde_json::to_vec(&module).unwrap(),
+                    exec: false,
+                },
+                PayloadFile {
+                    rel: "index.js".into(),
+                    bytes: format!(
+                        "require('node:fs').writeFileSync({}, 'spawned');\n",
+                        json!(marker)
+                    )
+                    .into_bytes(),
+                    exec: false,
+                },
+            ],
+            Some(&h.key),
+        ),
+    );
+    let mut supervisor = h.start_with_core(&[]);
+    let inspected = ok(&h.home, "ext.inspect", json!({"source":{"path":source}}));
+    let installed = ok(
+        &h.home,
+        "ext.install",
+        json!({"inspectionId":inspected["inspectionId"]}),
+    );
+    assert_eq!(installed["state"], "enabled");
+    assert_eq!(h.config()["modules"]["needs-secret"]["enabled"], true);
+    assert!(
+        !marker.exists(),
+        "the missing-slot module must never execute, including during config.set"
+    );
+    let held = wait_for(
+        &h.home,
+        "needs-secret",
+        "held until secret setup",
+        is("stopped", "ext-needs-setup"),
+    );
+    assert!(held["pid"].is_null());
+    let shown = ok(&h.home, "ext.show", json!({"name":"needs-secret"}));
+    assert!(shown["item"]["overlays"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("needs-setup")));
+    stop(&mut supervisor, &h.home);
+}
+
 // ---- tests ---------------------------------------------------------------------------------------------------------
 
-/// Spec §6.1, Q5: an install over RPC ends installed and disabled; nothing is spawned for it.
+/// Mv2 decision 3: a first-party install over RPC activates immediately.
 #[test]
-fn inspect_and_install_over_rpc_install_a_module_disabled_and_nothing_starts() {
+fn inspect_and_install_over_rpc_activate_a_first_party_module() {
     let h = Home::new();
     let mut s = h.start_with_core(&[]);
     let insp = inspect(&h, "fixture", &[]);
@@ -407,14 +483,13 @@ fn inspect_and_install_over_rpc_install_a_module_disabled_and_nothing_starts() {
     common::assert_valid("methods/ext.install/result", &r);
     assert_eq!(
         r,
-        json!({ "name": "fixture", "version": "1.0.0", "kind": "module", "replaced": false, "state": "installed" })
+        json!({ "name": "fixture", "version": "1.0.0", "kind": "module", "replaced": false, "state": "enabled" })
     );
     assert!(h.home.join("modules/fixture/module.json").is_file());
-    assert_eq!(h.config()["modules"]["fixture"]["enabled"], false);
-    let c = wait_for(&h.home, "fixture", "held back", is("stopped", "disabled"));
-    assert_eq!(c["pid"], Value::Null, "{c}");
-    std::thread::sleep(Duration::from_millis(300));
-    assert!(!h.home.join("run/module-fixture.pid").exists());
+    assert_eq!(h.config()["modules"]["fixture"]["enabled"], true);
+    let c = wait_for(&h.home, "fixture", "ready", is("ready", ""));
+    assert!(c["pid"].is_u64(), "{c}");
+    assert!(h.home.join("run/module-fixture.pid").exists());
     let list = ok(&h.home, "ext.list", json!({}));
     common::assert_valid("methods/ext.list/result", &list);
     let item = list["items"]
@@ -424,7 +499,7 @@ fn inspect_and_install_over_rpc_install_a_module_disabled_and_nothing_starts() {
         .find(|i| i["name"] == "fixture")
         .cloned()
         .unwrap();
-    assert_eq!(item["state"], "installed", "{item}");
+    assert_eq!(item["state"], "enabled", "{item}");
     let shown = ok(&h.home, "ext.show", json!({ "name": "fixture" }));
     common::assert_valid("methods/ext.show/result", &shown);
     // The inspection was consumed.
@@ -446,8 +521,8 @@ fn inspect_and_install_over_rpc_install_a_module_disabled_and_nothing_starts() {
 fn enable_starts_the_module_and_disable_holds_back_its_dependent() {
     let h = Home::new();
     let mut s = h.start_with_core(&[]);
-    install(&h, "fixture", &[]);
-    install(&h, "fixture-b", &["fixture"]);
+    install_disabled(&h, "fixture", &[]);
+    install_disabled(&h, "fixture-b", &["fixture"]);
     // The first enable needs the capability acknowledgment (X1-R13), with the disclosure in error.data.ext.
     let (e, r, err) = refused(&h.home, "ext.enable", json!({ "name": "fixture" }));
     assert_eq!(
@@ -490,8 +565,8 @@ fn enable_starts_the_module_and_disable_holds_back_its_dependent() {
 fn dry_run_disable_names_the_dependent_before_applying() {
     let h = Home::new();
     let mut s = h.start_no_core(&[]);
-    install(&h, "fixture", &[]);
-    install(&h, "fixture-b", &["fixture"]);
+    install_disabled(&h, "fixture", &[]);
+    install_disabled(&h, "fixture-b", &["fixture"]);
     enable(&h, "fixture");
     enable(&h, "fixture-b");
     let before = std::fs::read(h.home.join("config.json")).unwrap();
@@ -546,7 +621,7 @@ fn ext_watch_receives_ext_changed_for_install_enable_uninstall() {
     common::assert_valid("methods/ext.watch/result", &reply["result"]);
     assert_eq!(reply["result"]["items"], json!([]));
 
-    install(&h, "fixture", &[]);
+    install_disabled(&h, "fixture", &[]);
     enable(&h, "fixture");
     let removed = ok(&h.home, "ext.uninstall", json!({ "name": "fixture" }));
     common::assert_valid("methods/ext.uninstall/result", &removed);
@@ -568,6 +643,111 @@ fn ext_watch_receives_ext_changed_for_install_enable_uninstall() {
     stop(&mut s, &h.home);
 }
 
+#[test]
+fn mcp_activation_persists_agent_config_and_broadcasts_over_the_real_supervisor() {
+    let h = Home::new();
+    let mut cfg = plur1bus_config::defaults();
+    cfg["agents"] = json!({"bernd": {}, "anna": {}});
+    plur1bus_config::write_atomic(&h.home.join("config.json"), &cfg).unwrap();
+    let mut supervisor = h.start_no_core(&[]);
+    let mut connection = common::raw(&h.home);
+    writeln!(connection, "{}\n{}",
+        json!({"jsonrpc": "2.0", "id": 1, "method": "supervisor.auth", "params": {"token": common::token(&h.home)}}),
+        json!({"jsonrpc": "2.0", "id": 2, "method": "ext.watch", "params": {}})).unwrap();
+    connection.flush().unwrap();
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        for line in BufReader::new(connection).lines() {
+            let Ok(line) = line else {
+                return;
+            };
+            let Ok(value) = serde_json::from_str::<Value>(&line) else {
+                return;
+            };
+            if tx.send(value).is_err() {
+                return;
+            }
+        }
+    });
+    assert_eq!(rx.recv_timeout(WAIT).unwrap()["id"], 1);
+    assert_eq!(rx.recv_timeout(WAIT).unwrap()["id"], 2);
+    let manifest = json!({
+        "$schema": "https://plur1bus.app/schema/p1x/1/p1x.schema.json", "format": 1,
+        "id": "demo/docs", "name": "docs", "version": "1.0.0", "kind": "mcp-server",
+        "title": {"en": "Docs"}, "summary": {"en": "A remote MCP fixture"},
+        "publisher": {"id": "demo", "name": "Demo"}, "licence": "MIT",
+        "compat": {"harness": ">=0.0.0"}, "requires": {"runtime": {"type": "none"}},
+        "remote": {"url": "https://mcp.example.org/v1", "auth": "none"},
+        "capabilities": {"network": {"mode": "allowlist", "hosts": ["mcp.example.org"]},
+            "filesystem": [], "processes": {"spawn": false}, "harness": {"authority": "none"}}
+    });
+    let package = build_package_from(
+        &manifest,
+        vec![PayloadFile {
+            rel: "README.md".into(),
+            bytes: b"Remote fixture\n".to_vec(),
+            exec: false,
+        }],
+        Some(&h.key),
+    );
+    let source = h.write("docs.p1x", &package);
+    let inspected = ok(&h.home, "ext.inspect", json!({"source": {"path": source}}));
+    ok(
+        &h.home,
+        "ext.install",
+        json!({"inspectionId": inspected["inspectionId"]}),
+    );
+    assert_eq!(rx.recv_timeout(WAIT).unwrap()["params"]["state"], "enabled");
+    ok(
+        &h.home,
+        "ext.enable",
+        json!({"name": "docs", "agents": ["bernd"], "acknowledge": ["capabilities"]}),
+    );
+    let changed = rx.recv_timeout(WAIT).unwrap();
+    assert_eq!(changed["method"], "ext.changed");
+    assert_eq!(changed["params"]["kind"], "mcp-server");
+    assert_eq!(changed["params"]["state"], "enabled");
+    assert_eq!(
+        h.config()["mcp"]["servers"]["docs"],
+        json!({"enabled": true, "agents": ["bernd"]})
+    );
+    let selected = ok(
+        &h.home,
+        "ext.list",
+        json!({"kind": ["mcp-server"], "agent": "bernd"}),
+    );
+    assert_eq!(selected["items"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        ok(
+            &h.home,
+            "ext.list",
+            json!({"kind": ["mcp-server"], "agent": "anna"})
+        )["items"],
+        json!([])
+    );
+    ok(
+        &h.home,
+        "ext.disable",
+        json!({"name": "docs", "agents": ["bernd"]}),
+    );
+    assert_eq!(
+        rx.recv_timeout(WAIT).unwrap()["params"]["state"],
+        "installed"
+    );
+    assert_eq!(h.config()["mcp"]["servers"]["docs"]["enabled"], false);
+    assert_eq!(
+        refused(
+            &h.home,
+            "ext.enable",
+            json!({"name": "docs", "agents": ["unknown"]})
+        )
+        .0,
+        "E_AGENT_UNKNOWN"
+    );
+    assert!(rx.recv_timeout(Duration::from_millis(300)).is_err());
+    stop(&mut supervisor, &h.home);
+}
+
 fn daemon_status_text(h: &Home) -> String {
     let out = Command::new(assert_cmd::cargo::cargo_bin("plur1bus"))
         .arg("--home")
@@ -586,8 +766,8 @@ fn daemon_status_text(h: &Home) -> String {
 fn a_revoked_installed_module_is_held_back_at_start() {
     let h = Home::new();
     let mut s = h.start_with_core(&[]);
-    install(&h, "fixture", &[]);
-    install(&h, "fixture-b", &["fixture"]);
+    install_disabled(&h, "fixture", &[]);
+    install_disabled(&h, "fixture-b", &["fixture"]);
     enable(&h, "fixture");
     enable(&h, "fixture-b");
     wait_for(&h.home, "fixture", "ready", is("ready", ""));
@@ -633,7 +813,7 @@ fn a_revoked_installed_module_is_held_back_at_start() {
 fn a_tampered_module_is_held_back_at_start() {
     let h = Home::new();
     let mut s = h.start_with_core(&[]);
-    install(&h, "fixture", &[]);
+    install_disabled(&h, "fixture", &[]);
     enable(&h, "fixture");
     wait_for(&h.home, "fixture", "ready", is("ready", ""));
     stop(&mut s, &h.home);
@@ -708,7 +888,7 @@ fn the_supervisor_process_never_opens_the_package() {
     let r = ok(&h.home, "ext.install", json!({ "inspectionId": id }));
     done_tx.send(()).unwrap();
     let (samples, seen) = sampler.join().unwrap();
-    assert_eq!(r["state"], "installed");
+    assert_eq!(r["state"], "enabled");
     assert!(samples > 100, "only {samples} samples");
     assert!(seen.is_empty(), "the supervisor opened {seen:?}");
     // The spool moved into the cache.
@@ -773,7 +953,7 @@ fn a_worker_failure_is_worker_failed_and_the_supervisor_keeps_serving() {
 fn concurrent_install_and_enable_is_busy() {
     let h = Home::new();
     let mut s = h.start_no_core(&[("PLUR1BUS_TEST_EXT_WORKER_ARGS", "stage:--sleep-ms 2500")]);
-    install(&h, "fixture", &[]);
+    install_disabled(&h, "fixture", &[]);
     let insp = inspect(&h, "fixture-b", &[]);
     let home = h.home.clone();
     let id = insp["inspectionId"].clone();
@@ -790,12 +970,13 @@ fn concurrent_install_and_enable_is_busy() {
     );
     assert_eq!((e.as_str(), r.as_str()), ("E_CONFLICT", "busy"));
     let done = installing.join().unwrap();
-    assert_eq!(done["result"]["state"], "installed", "{done}");
+    assert_eq!(done["result"]["state"], "enabled", "{done}");
     let after: Value =
         serde_json::from_slice(&std::fs::read(h.home.join("config.json")).unwrap()).unwrap();
     let before: Value = serde_json::from_slice(&config_before).unwrap();
     assert_eq!(after["modules"]["fixture"], before["modules"]["fixture"]);
     assert_eq!(after["modules"]["fixture"]["enabled"], false);
+    assert_eq!(after["modules"]["fixture-b"]["enabled"], true);
     stop(&mut s, &h.home);
 }
 
@@ -804,7 +985,7 @@ fn concurrent_install_and_enable_is_busy() {
 fn uninstall_over_rpc_moves_the_module_into_the_trash_and_restore_brings_it_back_disabled() {
     let h = Home::new();
     let mut s = h.start_with_core(&[]);
-    install(&h, "fixture", &[]);
+    install_disabled(&h, "fixture", &[]);
     enable(&h, "fixture");
     let c = wait_for(&h.home, "fixture", "ready", is("ready", ""));
     assert!(c["pid"].is_u64());
@@ -979,7 +1160,7 @@ fn overlays_are_refreshed_after_a_mutation() {
     let revs = h.write("revocations.json", b"{\"revocations\": []}");
     let revs_path = revs.to_string_lossy().into_owned();
     let mut s = h.start_with_core(&[("PLUR1BUS_TEST_EXT_REVOCATIONS", &revs_path)]);
-    install(&h, "fixture", &[]);
+    install_disabled(&h, "fixture", &[]);
     enable(&h, "fixture");
     wait_for(&h.home, "fixture", "ready", is("ready", ""));
 
@@ -989,7 +1170,7 @@ fn overlays_are_refreshed_after_a_mutation() {
             .to_string(),
     )
     .unwrap();
-    install(&h, "fixture-c", &[]);
+    install_disabled(&h, "fixture-c", &[]);
     wait_for(&h.home, "fixture", "revoked", is("stopped", "ext-revoked"));
 
     std::fs::write(&revs, b"{\"revocations\": []}").unwrap();
@@ -1004,7 +1185,7 @@ fn overlays_are_refreshed_after_a_mutation() {
 fn an_unreadable_state_file_holds_packaged_modules_back_at_start() {
     let h = Home::new();
     let mut s = h.start_with_core(&[]);
-    install(&h, "fixture", &[]);
+    install_disabled(&h, "fixture", &[]);
     enable(&h, "fixture");
     wait_for(&h.home, "fixture", "ready", is("ready", ""));
     stop(&mut s, &h.home);
@@ -1046,7 +1227,7 @@ fn a_relative_inspect_path_is_invalid_params() {
 fn an_unreadable_state_json_is_state_invalid_over_rpc() {
     let h = Home::new();
     let mut s = h.start_no_core(&[]);
-    install(&h, "fixture", &[]);
+    install_disabled(&h, "fixture", &[]);
     std::fs::write(h.home.join("extensions/state.json"), b"{ broken").unwrap();
     for (method, params) in [
         ("ext.show", json!({ "name": "fixture" })),
@@ -1065,7 +1246,7 @@ fn an_unreadable_state_json_is_state_invalid_over_rpc() {
 }
 
 /// A `daemon.stop` while an install is committing waits for it (bounded), still running the module ops it queues: the
-/// install ends complete (code, record, config disabled), never as code without its record.
+/// install ends complete (code, record, first-party config enabled), never as code without its record.
 #[test]
 fn a_stop_during_a_commit_waits_for_it() {
     for point in ["config", "code"] {
@@ -1100,6 +1281,308 @@ fn a_stop_during_a_commit_waits_for_it() {
             "sleep:{point}: record {recorded}, code {code}; install answered {reply}; log: {}",
             std::fs::read_to_string(h.home.join("logs/supervisor.log")).unwrap_or_default()
         );
-        assert_eq!(h.config()["modules"]["fixture"]["enabled"], false);
+        assert_eq!(h.config()["modules"]["fixture"]["enabled"], true);
     }
+}
+
+fn secret_core_call(home: &Path, method: &str, params: Value) -> Value {
+    use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
+    wait_for(
+        home,
+        "core",
+        "ready before private Core RPC",
+        is("ready", ""),
+    );
+    let supervisor = common::address(home);
+    let address = if cfg!(windows) {
+        format!("{}-core", supervisor.strip_suffix("-supervisor").unwrap())
+    } else {
+        home.join("run/core.sock").to_string_lossy().into_owned()
+    };
+    let token = std::fs::read_to_string(home.join("run/core.token")).unwrap();
+    let pid = std::fs::read_to_string(home.join("run/core.pid"))
+        .ok()
+        .and_then(|value| value.split_whitespace().next()?.parse().ok());
+    let mut core = Client::connect(
+        &address,
+        token.trim(),
+        ConnectOptions {
+            endpoint: Endpoint::Core,
+            expected_server_pid: pid,
+            connect_timeout: Duration::from_secs(3),
+            call_timeout: Duration::from_secs(3),
+        },
+    )
+    .unwrap();
+    core.call(method, params).unwrap()
+}
+
+/// The Supervisor can answer and hold a missing-slot module before Core has bound its private endpoint.
+#[test]
+fn secret_core_calls_wait_until_the_core_is_ready() {
+    let h = Home::new();
+    let mut supervisor = h.start_with_core(&[("FAKE_CORE_MODE", "listen-on-signal")]);
+    let signal = h.home.join("state/fake-core-listen");
+    let releasing = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(250));
+        std::fs::create_dir_all(signal.parent().unwrap()).unwrap();
+        std::fs::write(signal, b"listen").unwrap();
+    });
+    assert_eq!(
+        secret_core_call(&h.home, "secret.status", json!({})),
+        json!({"backend":"none"})
+    );
+    releasing.join().unwrap();
+    stop(&mut supervisor, &h.home);
+}
+
+#[test]
+fn required_slots_setup_rotation_and_deletion_reconcile_a_real_leased_module_without_ambient_secrets(
+) {
+    use sha2::{Digest, Sha256};
+    let h = Home::new();
+    let name = "secret-fixture";
+    let mut files = Vec::new();
+    for entry in std::fs::read_dir(fixture_dist()).unwrap() {
+        let entry = entry.unwrap();
+        let rel = entry.file_name().to_string_lossy().into_owned();
+        if !entry.file_type().unwrap().is_file() || rel == "module.json" {
+            continue;
+        }
+        let mut bytes = std::fs::read(entry.path()).unwrap();
+        if rel == "index.js" {
+            let prefix=b"const a7fs = await import('node:fs/promises'); const a7crypto = await import('node:crypto'); await a7fs.mkdir(process.env.P1X_DATA,{recursive:true}); await a7fs.writeFile(process.env.P1X_DATA+'/env-'+process.pid+'.json',JSON.stringify({pid:process.pid,hash:process.env.P1X_SECRET_apiKey?a7crypto.createHash('sha256').update(process.env.P1X_SECRET_apiKey).digest('hex'):null,ambient:'AMBIENT_SECRET_CANARY' in process.env,undeclared:'P1X_SECRET_undeclared' in process.env,descriptor:'PLUR1BUS_NATIVE_BIN' in process.env}));\n";
+            let mut script = prefix.to_vec();
+            script.extend(bytes);
+            bytes = script;
+        }
+        files.push(PayloadFile {
+            rel,
+            bytes,
+            exec: false,
+        });
+    }
+    let module = json!({"name":name,"version":"1.0.0","apiVersion":"1","entry":"index.js","scope":"installation","priority":500,"needs":["core"]});
+    files.push(PayloadFile {
+        rel: "module.json".into(),
+        bytes: serde_json::to_vec(&module).unwrap(),
+        exec: false,
+    });
+    let mut capabilities = caps();
+    capabilities["secrets"] = json!([{"slot":"apiKey","label":{"en":"API key"},"required":true}]);
+    let manifest = json!({"$schema":"https://plur1bus.app/schema/p1x/1/p1x.schema.json","format":1,"id":format!("demo/{name}"),"name":name,"version":"1.0.0","kind":"module","title":{"en":"Secret fixture"},"summary":{"en":"Leased environment fixture"},"publisher":{"id":"demo","name":"Demo"},"licence":"MIT","compat":{"harness":">=0.0.0","moduleApi":["1"]},"requires":{"runtime":{"type":"node","range":">=24"}},"capabilities":capabilities});
+    let source = h.write(
+        "secret.p1x",
+        &build_package_from(&manifest, files, Some(&h.key)),
+    );
+    let mut supervisor = h.start_with_core(&[
+        ("FAKE_CORE_EXTENSION_SECRETS", "1"),
+        ("AMBIENT_SECRET_CANARY", "a7-ambient-canary-value"),
+        ("P1X_SECRET_undeclared", "a7-undeclared-canary-value"),
+        ("PLUR1BUS_NATIVE_BIN", "ambient-descriptor"),
+    ]);
+    let inspection = ok(&h.home, "ext.inspect", json!({"source":{"path":source}}));
+    assert_eq!(
+        ok(
+            &h.home,
+            "ext.install",
+            json!({"inspectionId":inspection["inspectionId"]})
+        )["state"],
+        "enabled"
+    );
+    wait_for(
+        &h.home,
+        name,
+        "missing required slot holds",
+        is("stopped", "ext-needs-setup"),
+    );
+    let data = h.home.join("data/ext").join(name);
+    assert!(entries(&data).is_empty());
+    let first = "a7-first-secret-canary-long-value";
+    let second = "a7-second-secret-canary-long-value";
+    let snapshots = |pid: u64| -> Value {
+        serde_json::from_slice(&std::fs::read(data.join(format!("env-{pid}.json"))).unwrap())
+            .unwrap()
+    };
+    secret_core_call(
+        &h.home,
+        "secret.set",
+        json!({"name":format!("ext:{name}:apiKey"),"value":first}),
+    );
+    assert_eq!(
+        ok(
+            &h.home,
+            "admin.extensions.runtime.reconcile",
+            json!({"name":name})
+        ),
+        json!({"name":name,"reconciled":true})
+    );
+    let first_pid = wait_for(&h.home, name, "leased module ready", is("ready", ""))["pid"]
+        .as_u64()
+        .unwrap();
+    let hash = |value: &str| {
+        Sha256::digest(value.as_bytes())
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    };
+    assert_eq!(
+        snapshots(first_pid),
+        json!({"pid":first_pid,"hash":hash(first),"ambient":false,"undeclared":false,"descriptor":false})
+    );
+    secret_core_call(
+        &h.home,
+        "secret.set",
+        json!({"name":format!("ext:{name}:apiKey"),"value":second}),
+    );
+    ok(
+        &h.home,
+        "admin.extensions.runtime.reconcile",
+        json!({"name":name}),
+    );
+    common::wait_until("rotation retires the old child", WAIT, || {
+        child(&status(&h.home), name).is_some_and(|child| {
+            child["process"]["state"] == "ready"
+                && child["pid"].as_u64().is_some_and(|pid| pid != first_pid)
+        })
+    });
+    let second_pid = wait_for(&h.home, name, "rotated module ready", is("ready", ""))["pid"]
+        .as_u64()
+        .unwrap();
+    assert_eq!(snapshots(second_pid)["hash"], hash(second));
+    #[cfg(target_os = "linux")]
+    assert!(!Path::new(&format!("/proc/{first_pid}")).exists());
+    secret_core_call(
+        &h.home,
+        "secret.delete",
+        json!({"name":format!("ext:{name}:apiKey")}),
+    );
+    ok(
+        &h.home,
+        "admin.extensions.runtime.reconcile",
+        json!({"name":name}),
+    );
+    wait_for(
+        &h.home,
+        name,
+        "deletion stops the credential-bearing child",
+        is("stopped", "ext-needs-setup"),
+    );
+    assert!(!h.home.join(format!("run/module-{name}.pid")).exists());
+    ok(&h.home, "ext.disable", json!({"name":name}));
+    secret_core_call(
+        &h.home,
+        "secret.set",
+        json!({"name":format!("ext:{name}:apiKey"),"value":first}),
+    );
+    ok(
+        &h.home,
+        "admin.extensions.runtime.reconcile",
+        json!({"name":name}),
+    );
+    assert_eq!(h.config()["modules"][name]["enabled"], false);
+    wait_for(
+        &h.home,
+        name,
+        "setup never enables a disabled module",
+        is("stopped", "disabled"),
+    );
+    assert_eq!(entries(&data).len(), 2);
+    let state = std::fs::read_to_string(h.home.join("extensions/state.json")).unwrap();
+    let declared: Value = serde_json::from_str(&state).unwrap();
+    assert_eq!(
+        declared["items"][name]["requiredSecrets"],
+        json!(["apiKey"])
+    );
+    for file in std::iter::once(h.home.join("extensions/state.json")).chain(
+        std::fs::read_dir(h.home.join("logs"))
+            .unwrap()
+            .flatten()
+            .map(|entry| entry.path()),
+    ) {
+        if file.is_file() {
+            let bytes = std::fs::read(file).unwrap();
+            let text = String::from_utf8_lossy(&bytes);
+            for marker in [
+                first,
+                second,
+                "a7-ambient-canary-value",
+                "a7-undeclared-canary-value",
+            ] {
+                assert!(
+                    !text.contains(marker),
+                    "secret marker reached persistent metadata or logs"
+                );
+            }
+        }
+    }
+    stop(&mut supervisor, &h.home);
+}
+
+#[test]
+fn startup_releases_a_recovered_hold_even_when_uninstall_removed_its_record() {
+    let h = Home::new();
+    let run = h.home.join("run");
+    std::fs::create_dir_all(&run).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&run, std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
+    let journal = run.join("ext-runtime-holds.json");
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    options
+        .open(&journal)
+        .unwrap()
+        .write_all(br#"{"version":1,"names":["removed-package"]}"#)
+        .unwrap();
+    let mut supervisor = h.start_with_core(&[]);
+    common::wait_until(
+        "recovered absent package hold is acknowledged",
+        WAIT,
+        || !journal.exists(),
+    );
+    assert_eq!(ok(&h.home, "ext.list", json!({}))["items"], json!([]));
+    stop(&mut supervisor, &h.home);
+}
+
+#[test]
+fn running_parallel_inspectors_block_maintenance_admission_before_plan_claim() {
+    let h = Home::new();
+    let mut supervisor =
+        h.start_with_core(&[("PLUR1BUS_TEST_EXT_WORKER_ARGS", "inspect:--sleep-ms 1200")]);
+    let mut client = common::client(&h.home);
+    common::wait_child(
+        &mut client,
+        "Core ready before inspector admission test",
+        WAIT,
+        |child| child["process"]["state"] == "ready",
+    );
+    let h = std::sync::Arc::new(h);
+    let first = h.clone();
+    let second = h.clone();
+    let a = std::thread::spawn(move || inspect(&first, "inspecting-a", &[]));
+    let b = std::thread::spawn(move || inspect(&second, "inspecting-b", &[]));
+    common::wait_until("both ordinary inspectors run concurrently", WAIT, || {
+        workers_of(&h.home).len() == 2
+    });
+    let reply = call(
+        &h.home,
+        "admin.import.apply",
+        json!({"planId":"11111111-1111-4111-8111-111111111111","preflightId":"22222222-2222-4222-8222-222222222222"}),
+    );
+    assert_eq!(
+        reply["error"]["data"]["error"], "E_CONFLICT",
+        "admission must refuse before looking up a missing plan: {reply}"
+    );
+    assert_eq!(reply["error"]["data"]["reason"], "busy");
+    assert_eq!(a.join().unwrap()["manifest"]["name"], "inspecting-a");
+    assert_eq!(b.join().unwrap()["manifest"]["name"], "inspecting-b");
+    stop(&mut supervisor, &h.home);
 }

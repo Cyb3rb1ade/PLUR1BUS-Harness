@@ -21,14 +21,14 @@ const refused = (reason: string) => (error: unknown) => {
 };
 
 describe("readSourceFileSafe", () => {
-  it("reads binary content byte-exact, including CRLF and NUL", { timeout }, () => {
+  it("reads binary content byte-exact, including CRLF and NUL", { timeout }, async () => {
     const path = join(tempDir("p1b-safe-"), "binary.md");
     const bytes = Buffer.from([0xff, 0x0d, 0x0a, 0x00, 0x80]);
     fs.writeFileSync(path, bytes);
     assert.deepEqual(readSourceFileSafe(path, 100), bytes);
   });
 
-  it("accepts the exact limit and refuses one byte more without leaking paths or contents", { timeout }, () => {
+  it("accepts the exact limit and refuses one byte more without leaking paths or contents", { timeout }, async () => {
     const path = join(tempDir("p1b-safe-"), "limit.md");
     fs.writeFileSync(path, "abcd");
     assert.deepEqual(readSourceFileSafe(path, 4), Buffer.from("abcd"));
@@ -40,7 +40,7 @@ describe("readSourceFileSafe", () => {
     });
   });
 
-  it("accepts an empty file with a zero-byte limit", { timeout }, () => {
+  it("accepts an empty file with a zero-byte limit", { timeout }, async () => {
     const path = join(tempDir("p1b-safe-"), "empty.md");
     fs.writeFileSync(path, "");
     assert.deepEqual(readSourceFileSafe(path, 0), Buffer.alloc(0));
@@ -61,11 +61,11 @@ describe("readSourceFileSafe", () => {
     assert.throws(() => readSourceFileSafe(path, 100), refused("unsafe-symlink"));
   });
 
-  it("refuses a directory", { timeout }, () => {
+  it("refuses a directory", { timeout }, async () => {
     assert.throws(() => readSourceFileSafe(tempDir("p1b-safe-"), 100), refused("not-regular-file"));
   });
 
-  it("refuses a FIFO without blocking open", { timeout, skip: process.platform === "win32" ? "mkfifo is POSIX-only" : undefined }, () => {
+  it("refuses a FIFO without blocking open", { timeout, skip: process.platform === "win32" ? "mkfifo is POSIX-only" : undefined }, async () => {
     const path = join(tempDir("p1b-safe-"), "pipe.md");
     execFileSync("mkfifo", [path], { timeout: 5_000 });
     // A subprocess deadline also interrupts a blocking synchronous open (node:test's timeout cannot).
@@ -233,7 +233,7 @@ describe("OpenClaw safe source reads", () => {
       fs.symlinkSync(fx.curatedFiles.memory, fx.curatedFiles.soul, "file");
       fs.unlinkSync(fx.curatedFiles.user);
       fs.symlinkSync(join(fx.root, "missing.md"), fx.curatedFiles.user, "file");
-      const { report } = planAndMigrateAgent(
+      const { report } = await planAndMigrateAgent(
         { agentId: "alpha", workspace: fx.agents.matching.workspace, workspaceSource: "config", agentDir: null, foundIn: [] },
         fx.root, layout(tempDir("p1b-safe-home-")), new Set(), false,
       );
@@ -254,7 +254,7 @@ describe("OpenClaw safe source reads", () => {
       fs.writeFileSync(join(outside, "2026-01-01.md"), CONTENT_MARKER);
       fs.rmSync(memory, { recursive: true });
       fs.symlinkSync(outside, memory, "junction");
-      const { report } = planAndMigrateAgent(
+      const { report } = await planAndMigrateAgent(
         { agentId: "alpha", workspace: fx.agents.matching.workspace, workspaceSource: "config", agentDir: null, foundIn: [] },
         fx.root, layout(tempDir("p1b-safe-home-")), new Set(), false,
       );
@@ -276,7 +276,7 @@ describe("OpenClaw safe source reads", () => {
       const agentDir = join(alias, "agent");
       fs.writeFileSync(join(agentDir, "SOUL.md"), CONTENT_MARKER);
       const home = tempDir("p1b-safe-home-");
-      const { report } = planAndMigrateAgent(
+      const { report } = await planAndMigrateAgent(
         { agentId: "alpha", workspace: fx.agents.matching.workspace, workspaceSource: "config", agentDir, foundIn: [] },
         fx.root, layout(home), new Set(), true,
       );
@@ -294,7 +294,7 @@ describe("OpenClaw safe source reads", () => {
       const output = execFileSync(process.execPath, ["--experimental-strip-types", "--conditions=source", "--input-type=module", "-e", `
         import { planAndMigrateAgent } from ${JSON.stringify(new URL("../../src/import/importers/openclaw-agents.ts", import.meta.url).href)};
         import { layout } from ${JSON.stringify(new URL("../../src/paths.ts", import.meta.url).href)};
-        const { report } = planAndMigrateAgent(
+        const { report } = await planAndMigrateAgent(
           { agentId: "alpha", workspace: ${JSON.stringify(fx.agents.matching.workspace)} },
           ${JSON.stringify(fx.root)}, layout(${JSON.stringify(tempDir("p1b-safe-home-"))}), new Set(), false,
         );

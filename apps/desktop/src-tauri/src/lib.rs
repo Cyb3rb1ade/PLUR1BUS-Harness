@@ -10,6 +10,8 @@ pub mod desktop_integration;
 pub mod diagnostics;
 pub mod discovery;
 pub mod events;
+pub mod extension_commands;
+pub mod file_dialog;
 #[cfg(unix)]
 pub mod gnome;
 pub mod helper;
@@ -31,8 +33,10 @@ pub mod runtime_commands;
 pub mod secrets;
 pub mod settings;
 mod shell_commands;
+pub mod snapshot_commands;
 pub mod spa;
 pub mod spa_proxy;
+pub mod stepup_commands;
 pub mod transport;
 pub mod tray;
 pub mod update_commands;
@@ -112,6 +116,7 @@ pub fn run() {
         .manage(runtime_commands::RuntimeState::default())
         .manage(spa::SpaState::default())
         .manage(host_commands::HostState::default())
+        .manage(snapshot_commands::HostSnapshotState::default())
         .manage(update_commands::UpdateState::default())
         .manage(commands::transports())
         .on_window_event(native::close)
@@ -194,6 +199,13 @@ pub fn run() {
             update_commands::update_later,
             deeplink::deep_link_next,
             deeplink::deep_link_open,
+            extension_commands::extension_upload,
+            stepup_commands::step_up_begin,
+            stepup_commands::step_up_poll,
+            stepup_commands::step_up_cancel,
+            stepup_commands::step_up_open,
+            snapshot_commands::host_file_pick,
+            snapshot_commands::host_import_snapshot,
             commands::app_info,
             commands::settings_get,
             commands::settings_set,

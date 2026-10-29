@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { connect } from "../src/client.ts";
 import { createRpcServer } from "../src/rpc-server.ts";
-import { apiPrincipal } from "../src/api-principal.ts";
+import { apiPrincipal, apiTransport, type ApiDelegation } from "../src/api-principal.ts";
 import { createLogger } from "../src/logger.ts";
 import { guardMethods } from "../../core/src/rbac/guard.ts";
 import { rpcAddress, selfServer } from "./helpers/endpoint.ts";
@@ -70,4 +70,27 @@ test("API authority-change notifications reach only the credential-authenticated
   server.notify("api.account.changed", { userId: "alice" }, { audience: serviceIds.map(connectionId => ({ connectionId })) });
   const end = Date.now() + 2000; while (!seen.length && Date.now() < end) await new Promise(r => setTimeout(r, 10));
   assert.deepEqual(seen, ["service"]);
+});
+
+test("verified transport is connection-bound and absent on ordinary local or legacy API contexts", async t => {
+  const dir = mkdtempSync(join(tmpdir(), "api-transport-")), address = rpcAddress(dir);
+  const token = randomBytes(32).toString("hex"), apiToken = randomBytes(32).toString("hex");
+  const logger = createLogger({ file: join(dir, "test.log"), role: "core", level: "error" });
+  const seen: unknown[] = [];
+  const server = createRpcServer({ address, token, apiToken, logger, hello: () => ({ rpc: "1.7.0", instanceId: "test", pid: process.pid }), methods: {
+    "events.subscribe": async (_params, ctx) => { seen.push(apiTransport(ctx)); },
+  } });
+  await server.listen(); t.after(async () => { await server.close(); await logger.close(); rmSync(dir, { recursive: true, force: true }); });
+  const person = { userId: "alice", kind: "person" as const, role: "admin" as const };
+  for (const transport of [undefined, "loopback", "remote"] as const) {
+    const api: ApiDelegation = { clientId: "harness-api", token: apiToken, principal: person, ...(transport ? { transport } : {}) };
+    const client = await connect({ address, token, ...selfServer, api });
+    try {
+      await client.call("events.subscribe", {});
+      if (transport) { api.transport = transport === "loopback" ? "remote" : "loopback"; await assert.rejects(client.call("events.subscribe", {}), e => (e as { reason?: string }).reason === "api-transport-change"); }
+    } finally { await client.close(); }
+  }
+  const local = await connect({ address, token, ...selfServer });
+  try { await local.call("events.subscribe", {}); } finally { await local.close(); }
+  assert.deepEqual(seen, [undefined, "loopback", "remote", undefined]);
 });

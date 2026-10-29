@@ -12,8 +12,8 @@ import type { SkillRoot } from "./types.ts";
 export const SKILL_ID = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 export const DEFAULT_MAX_SKILL_BYTES = 8 * 1024 * 1024;
 export const DEFAULT_MAX_SKILL_FILES = 2000;
-const SKIP_NAMES = new Set([".git", ".DS_Store", "__pycache__", ".hg", ".svn"]);
-const SCRIPT_EXT = new Set([".sh", ".bash", ".zsh", ".fish", ".py", ".js", ".mjs", ".cjs", ".ts", ".rb", ".pl", ".php", ".ps1", ".psm1", ".bat", ".cmd", ".exe", ".bin"]);
+export const SKIP_NAMES = new Set([".git", ".DS_Store", "__pycache__", ".hg", ".svn"]);
+export const SCRIPT_EXT = new Set([".sh", ".bash", ".zsh", ".fish", ".py", ".js", ".mjs", ".cjs", ".ts", ".rb", ".pl", ".php", ".ps1", ".psm1", ".bat", ".cmd", ".exe", ".bin"]);
 
 export interface CopyEntry {
   rel: string; abs: string; mode: number; bytes: number; sha256: string;
@@ -130,7 +130,7 @@ export function folderTextHash(entries: readonly CopyEntry[]): string {
 const utf8 = new TextDecoder("utf-8", { fatal: true });
 /** The text-normalised hash of a file's bytes: a file without NUL bytes that decodes as UTF-8 counts as text; its
  *  leading BOM is dropped and CRLF becomes LF (a lone CR stays). Anything else hashes its raw bytes. */
-function textHashOf(content: Buffer, raw: string): string {
+export function textHashOf(content: Buffer, raw: string): string {
   if (content.includes(0)) return raw;
   try { utf8.decode(content); } catch { return raw; }
   let b = content;

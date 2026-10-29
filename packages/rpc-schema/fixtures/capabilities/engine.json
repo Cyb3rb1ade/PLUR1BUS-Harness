@@ -1,254 +1,6 @@
 {
   "methods": {
-    "engine.agent.close": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.tombstones.reapply": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.snapshot.verify": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.snapshot.create": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.stores.adopt": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.admin.obsidian.confirm": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.admin.obsidian.prepare": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.admin.obsidian.detect": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.admin.migrate": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.admin.workspacePolicy.set": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.admin.workspacePolicy.list": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.admin.workspacePolicy.get": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.admin.reembedding.switch": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.admin.reembedding.status": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.admin.reembedding.rollback": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.admin.reembedding.validate": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.admin.reembedding.resume": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.admin.reembedding.apply": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.admin.reembedding.plan": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.admin.forget": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.admin.share": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.curation.drop": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.curation.keep": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.link": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.unimport": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.unbind": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.rebind": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.import": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.proposals.reject": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.proposals.accept": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.proposals.list": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.propose": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.state": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.share": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.correct": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.forget": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.show": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.list": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.curation.resolve": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.curation.list": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.promote": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.memory.stats": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.models": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.models.warm": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.models.status": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.config.normalizeEmbedding": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.embedding.fingerprint": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.embedding.serve": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.embedding.identities": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.embedding.probe": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.embedding.rerank": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.embedding.embed": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.jobs.history": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.jobs.run": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.jobs.list": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.systemSupplement": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.checkpoint": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.capture.abort": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.capture.wait": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.capture": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.recall": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.shutdown": {
-      "stability": "experimental",
-      "since": "1.7.0"
-    },
-    "engine.status": {
+    "engine.auth": {
       "stability": "experimental",
       "since": "1.7.0"
     },
@@ -256,7 +8,255 @@
       "stability": "experimental",
       "since": "1.7.0"
     },
-    "engine.auth": {
+    "engine.status": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.shutdown": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.recall": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.capture": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.capture.wait": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.capture.abort": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.checkpoint": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.systemSupplement": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.jobs.list": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.jobs.run": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.jobs.history": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.embedding.embed": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.embedding.rerank": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.embedding.probe": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.embedding.identities": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.embedding.serve": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.embedding.fingerprint": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.config.normalizeEmbedding": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.models.status": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.models.warm": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.models": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.stats": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.promote": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.curation.list": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.curation.resolve": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.list": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.show": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.forget": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.correct": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.share": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.state": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.propose": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.proposals.list": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.proposals.accept": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.proposals.reject": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.import": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.rebind": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.unbind": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.unimport": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.link": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.curation.keep": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.memory.curation.drop": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.admin.share": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.admin.forget": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.admin.reembedding.plan": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.admin.reembedding.apply": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.admin.reembedding.resume": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.admin.reembedding.validate": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.admin.reembedding.rollback": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.admin.reembedding.status": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.admin.reembedding.switch": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.admin.workspacePolicy.get": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.admin.workspacePolicy.list": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.admin.workspacePolicy.set": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.admin.migrate": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.admin.obsidian.detect": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.admin.obsidian.prepare": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.admin.obsidian.confirm": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.stores.adopt": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.snapshot.create": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.snapshot.verify": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.tombstones.reapply": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "engine.agent.close": {
       "stability": "experimental",
       "since": "1.7.0"
     }

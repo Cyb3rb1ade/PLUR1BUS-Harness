@@ -4,6 +4,7 @@ import { openRoute, type App } from "./harness.ts";
 import type { MockRpc } from "./mock-rpc.ts";
 import type { MockHarnessServer } from "./mock-server.ts";
 
+import { SOURCE_CATALOG } from "../../core/src/import/types.ts";
 import { installVoice } from "./voice-fixtures.ts";
 
 export const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
@@ -23,6 +24,7 @@ export function seed(target: MockRpc | MockHarnessServer, models: unknown[] | nu
   { provider: "local", id: "old", displayName: "Old", kind: "chat", status: "unavailable" },
 ]): void {
   const rpc = "rpc" in target ? target.rpc : target;
+  if ("extensions" in target) target.extensions.push((_req, res, path) => { if (path !== "/api/v1/import/sources") return false; res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ sources: SOURCE_CATALOG, hostPathsAllowed: true })); return true; });
   const agents = new Map<string,unknown>();
   rpc.handle("config.get", p => ({ value:agents.get((p as {key?:string}).key?.replace(/^agents\./,"") ?? ""), revision:"r1" }), {write:false});
   rpc.handle("agent.create", p => { const q = p as {name:string;displayName:string};agents.set(q.name,{displayName:q.displayName});return {agentId:q.name}; });

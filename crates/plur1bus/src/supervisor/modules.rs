@@ -101,6 +101,17 @@ fn push_op(
     budget: Duration,
     ext: bool,
 ) -> Result<OpHandle, OpError> {
+    let _idle = if ext {
+        None
+    } else {
+        Some(super::imports::idle(shared).map_err(|_| {
+            OpError::new(
+                "E_CONFLICT",
+                "import maintenance is in progress",
+                Some("busy"),
+            )
+        })?)
+    };
     let mut st = shared.lock();
     if st.stopping.is_some() && !(ext && st.ext_draining) {
         return Err(OpError::new(
@@ -516,6 +527,7 @@ fn wants_start(slot: &Slot, has_monitor: bool, in_plan: bool) -> bool {
                     | state::STOPPED_EXT_REVOKED
                     | state::STOPPED_EXT_TAMPERED
                     | state::STOPPED_EXT_INCOMPATIBLE
+                    | state::STOPPED_EXT_NEEDS_SETUP
             )
         );
     let held_crash = !has_monitor

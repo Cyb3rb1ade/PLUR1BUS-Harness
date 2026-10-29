@@ -184,6 +184,583 @@ fn module_pkg(name: &str, key: Option<&TestKey>) -> Vec<u8> {
     module_pkg_v(name, "1.0.0", key)
 }
 
+fn mcp_pkg_v(name: &str, version: &str, local: bool, key: &TestKey) -> Vec<u8> {
+    let mut t = template(name, "mcp-server", version);
+    let files = if local {
+        t["capabilities"]["processes"]["spawn"] = json!(true);
+        let manifest = json!({
+            "manifest_version": "0.3", "name": name, "version": version,
+            "description": "Fixture MCP server", "author": {"name": "Demo"}, "license": "MIT",
+            "server": {"type": "node", "entry_point": "server/main.js",
+                "mcp_config": {"command": "node", "args": ["${__dirname}/server/main.js"]}}
+        });
+        vec![
+            f(
+                "manifest.json",
+                &serde_json::to_vec(&manifest).unwrap(),
+                false,
+            ),
+            f(
+                "server/main.js",
+                format!("// MCP fixture {version}\n").as_bytes(),
+                false,
+            ),
+        ]
+    } else {
+        t["requires"]["runtime"] = json!({"type": "none"});
+        t["remote"] = json!({"url": "https://mcp.example.org/v1", "auth": "none"});
+        t["capabilities"]["network"] = json!({"mode": "allowlist", "hosts": ["mcp.example.org"]});
+        vec![f(
+            "README.md",
+            format!("Remote MCP fixture {version}\n").as_bytes(),
+            false,
+        )]
+    };
+    build_package_from(&t, files, Some(key))
+}
+
+#[test]
+fn mcp_versions_are_retained_and_the_active_state_switch_is_atomic() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    let old = mcp_pkg_v("docs", "1.0.0", false, &key);
+    let new = mcp_pkg_v("docs", "2.0.0", false, &key);
+    install(d.path(), &l, "old.p1x", &old, &opts(&[], None)).unwrap();
+    let old_dir = l.home.join("mcp/docs/1.0.0");
+    assert!(old_dir.join("p1x.json").is_file());
+    let old_tree = tree_hash(&old_dir);
+    install(d.path(), &l, "new.p1x", &new, &opts(&[], None)).unwrap();
+    assert_eq!(
+        tree_hash(&old_dir),
+        old_tree,
+        "the fallback tree is immutable"
+    );
+    assert!(l.home.join("mcp/docs/2.0.0/p1x.json").is_file());
+    assert!(!l.extensions().join("packages/docs").exists());
+    let current: Value =
+        serde_json::from_slice(&fs::read(l.extensions().join("state.json")).unwrap()).unwrap();
+    let rec = &current["items"]["docs"];
+    assert_eq!(rec["activeVersion"], "2.0.0");
+    assert_eq!(rec["version"], rec["activeVersion"]);
+    assert_eq!(rec["previousVersion"], "1.0.0");
+    assert_eq!(rec["versions"]["1.0.0"]["packageSha256"], sha_hex(&old));
+    assert_eq!(rec["versions"]["2.0.0"]["packageSha256"], sha_hex(&new));
+    let back = install(
+        d.path(),
+        &l,
+        "old-again.p1x",
+        &old,
+        &opts(&["downgrade"], None),
+    )
+    .unwrap();
+    assert_eq!(back["version"], "1.0.0");
+    assert_eq!(tree_hash(&old_dir), old_tree);
+    assert!(l.home.join("mcp/docs/2.0.0/p1x.json").is_file());
+    assert_eq!(
+        show_item(&l, &config(&l), "docs").unwrap()["item"]["integrity"],
+        "ok"
+    );
+}
+
+#[test]
+fn mcp_same_version_different_bytes_are_refused_without_writes() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    let old = mcp_pkg_v("docs", "1.0.0", false, &key);
+    install(d.path(), &l, "old.p1x", &old, &opts(&[], None)).unwrap();
+    let before = guarded(&l);
+    let mut changed = template("docs", "mcp-server", "1.0.0");
+    changed["requires"]["runtime"] = json!({"type": "none"});
+    changed["remote"] = json!({"url": "https://mcp.example.org/v1", "auth": "none"});
+    changed["capabilities"]["network"] = json!({"mode": "allowlist", "hosts": ["mcp.example.org"]});
+    let bytes = build_package_from(
+        &changed,
+        vec![f("README.md", b"changed bytes", false)],
+        Some(&key),
+    );
+    let refused = install(d.path(), &l, "changed.p1x", &bytes, &opts(&[], None)).unwrap_err();
+    assert_eq!(reason(&refused), ("E_CONFLICT", "version-conflict"));
+    assert_eq!(guarded(&l), before);
+}
+
+#[test]
+fn mcp_commit_rederives_the_version_from_the_inspection_before_touching_live_paths() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    let before = guarded(&l);
+    let (rec, mut staged) = prepare(
+        d.path(),
+        &l,
+        "docs.p1x",
+        &mcp_pkg_v("docs", "1.0.0", false, &key),
+    );
+    staged.record.version = "../../outside".into();
+    staged.dir =
+        record::package_staging_dir(&l, "docs", &staged.record.version, &rec.inspection_id);
+    let refused = install_commit(
+        &l,
+        &mut OfflineHost::new(&l),
+        &rec,
+        staged,
+        &opts(&[], None),
+    )
+    .unwrap_err();
+    assert_eq!(reason(&refused), ("E_INTERNAL", "worker-failed"));
+    assert_eq!(guarded(&l), before);
+}
+
+#[test]
+fn mcp_state_refuses_an_active_version_that_disagrees_with_its_metadata() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    install(
+        d.path(),
+        &l,
+        "old.p1x",
+        &mcp_pkg_v("docs", "1.0.0", false, &key),
+        &opts(&[], None),
+    )
+    .unwrap();
+    let p = ext::paths::ExtPaths::of(&l);
+    let mut v: Value = serde_json::from_slice(&fs::read(&p.state).unwrap()).unwrap();
+    v["items"]["docs"]["activeVersion"] = json!("2.0.0");
+    fs::write(&p.state, serde_json::to_vec(&v).unwrap()).unwrap();
+    assert!(state::read(&p).unwrap_err().contains("activeVersion"));
+}
+
+#[test]
+fn mcp_recover_migrates_the_superseded_flat_store_without_losing_bytes() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    for move_already_finished in [false, true] {
+        let (d, l) = home();
+        populate(&l);
+        install(
+            d.path(),
+            &l,
+            "old.p1x",
+            &mcp_pkg_v("docs", "1.0.0", false, &key),
+            &opts(&[], None),
+        )
+        .unwrap();
+        let version = l.home.join("mcp/docs/1.0.0");
+        let expected = tree_hash(&version);
+        let legacy = l.extensions().join("packages/docs");
+        if !move_already_finished {
+            fs::create_dir_all(legacy.parent().unwrap()).unwrap();
+            fs::rename(&version, &legacy).unwrap();
+            fs::remove_dir(version.parent().unwrap()).unwrap();
+            fs::remove_dir(l.home.join("mcp")).unwrap();
+        }
+        let p = ext::paths::ExtPaths::of(&l);
+        let mut old: Value = serde_json::from_slice(&fs::read(&p.state).unwrap()).unwrap();
+        old["items"]["docs"]
+            .as_object_mut()
+            .unwrap()
+            .remove("activeVersion");
+        old["items"]["docs"]
+            .as_object_mut()
+            .unwrap()
+            .remove("versions");
+        fs::write(&p.state, serde_json::to_vec(&old).unwrap()).unwrap();
+        ext::recover(&l);
+        assert_eq!(tree_hash(&version), expected);
+        assert!(!legacy.exists());
+        let current = state::read(&p).unwrap();
+        assert_eq!(
+            current.items["docs"].active_version.as_deref(),
+            Some("1.0.0")
+        );
+        assert!(ext::overlays::rehash(&l, &current.items["docs"]).ok);
+        let before = guarded(&l);
+        ext::recover(&l);
+        assert_eq!(guarded(&l), before, "migration recovery is idempotent");
+    }
+}
+
+#[test]
+fn mcp_recover_retained_version_activation_preserves_every_version() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    for step in ["code", "state"] {
+        let (d, l) = home();
+        populate(&l);
+        let old = mcp_pkg_v("docs", "1.0.0", false, &key);
+        install(d.path(), &l, "old.p1x", &old, &opts(&[], None)).unwrap();
+        install(
+            d.path(),
+            &l,
+            "new.p1x",
+            &mcp_pkg_v("docs", "2.0.0", false, &key),
+            &opts(&[], None),
+        )
+        .unwrap();
+        let trees = tree_hash(&l.home.join("mcp/docs"));
+        let (rec, staged) = prepare(d.path(), &l, "again.p1x", &old);
+        std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", format!("kill:{step}"));
+        assert!(install_commit(
+            &l,
+            &mut OfflineHost::new(&l),
+            &rec,
+            staged,
+            &opts(&["downgrade"], None)
+        )
+        .is_err());
+        std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+        ext::recover(&l);
+        assert_eq!(tree_hash(&l.home.join("mcp/docs")), trees);
+        let st = state::read(&ext::paths::ExtPaths::of(&l)).unwrap();
+        assert_eq!(
+            st.items["docs"].version,
+            if step == "state" { "1.0.0" } else { "2.0.0" }
+        );
+    }
+}
+
+#[test]
+fn mcp_install_lists_shows_and_hashes_the_complete_package_store_tree() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    for local in [false, true] {
+        let (d, l) = home();
+        populate(&l);
+        let pkg = mcp_pkg_v("docs", "1.0.0", local, &key);
+        let installed = install(d.path(), &l, "docs.p1x", &pkg, &opts(&[], None)).unwrap();
+        assert_eq!(
+            installed,
+            json!({"name": "docs", "version": "1.0.0", "kind": "mcp-server", "replaced": false, "state": "enabled"})
+        );
+        let dir = l.home.join("mcp/docs/1.0.0");
+        assert!(dir.join("p1x.json").is_file());
+        assert!(dir.join("record.json").is_file());
+        assert!(!l.modules_dir().join("docs").exists());
+        assert_eq!(config(&l)["mcp"]["servers"]["docs"]["enabled"], true);
+        let filtered = list_items(
+            &l,
+            &config(&l),
+            &ListFilter {
+                kind: Some(vec!["mcp-server".into()]),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(filtered["items"].as_array().unwrap().len(), 1);
+        assert_eq!(filtered["items"][0]["kind"], "mcp-server");
+        let detail = show_item(&l, &config(&l), "docs").unwrap();
+        assert_eq!(detail["item"]["integrity"], "ok");
+        let state: Value =
+            serde_json::from_slice(&fs::read(l.extensions().join("state.json")).unwrap()).unwrap();
+        assert_eq!(
+            state["items"]["docs"]["manifestSha256"],
+            sha_hex(&fs::read(dir.join("p1x.json")).unwrap())
+        );
+        let mut manifest: Value =
+            serde_json::from_slice(&fs::read(dir.join("p1x.json")).unwrap()).unwrap();
+        manifest["capabilities"]["tools"] = json!([{"name": "erase", "effect": "read"}]);
+        fs::write(dir.join("p1x.json"), serde_json::to_vec(&manifest).unwrap()).unwrap();
+        let changed = show_item(&l, &config(&l), "docs").unwrap();
+        assert_eq!(changed["item"]["integrity"], "tampered");
+    }
+}
+
+#[test]
+fn mcp_uninstall_purge_and_restore_keep_the_existing_trash_contract() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    for purge in [false, true] {
+        let (d, l) = home();
+        populate(&l);
+        install(
+            d.path(),
+            &l,
+            "docs.p1x",
+            &mcp_pkg_v("docs", "1.0.0", false, &key),
+            &opts(&[], None),
+        )
+        .unwrap();
+        fs::write(l.ext_data("docs").join("state.txt"), "keep this data").unwrap();
+        write_config(&l, |cfg| {
+            cfg["mcp"]["servers"]["docs"]["agents"] = json!(["bernd"]);
+        });
+        let removed = ext::remove::uninstall(
+            &l,
+            &mut OfflineHost::new(&l),
+            "docs",
+            &ext::remove::RemoveOpts {
+                purge,
+                cascade: false,
+            },
+        )
+        .unwrap();
+        let tid = removed["trashId"].as_str().unwrap();
+        assert!(!l.home.join("mcp/docs").exists());
+        assert!(l
+            .extensions()
+            .join("trash")
+            .join(tid)
+            .join("code/1.0.0/p1x.json")
+            .is_file());
+        assert_eq!(l.ext_data("docs").exists(), !purge);
+        assert_eq!(config(&l)["mcp"]["servers"].get("docs").is_some(), !purge);
+        let restored = ext::remove::restore(&l, &mut OfflineHost::new(&l), tid).unwrap();
+        assert_eq!(restored["state"], "installed");
+        assert_eq!(config(&l)["mcp"]["servers"]["docs"]["enabled"], false);
+        assert_eq!(
+            config(&l)["mcp"]["servers"]["docs"]["agents"],
+            json!(["bernd"])
+        );
+        assert_eq!(
+            fs::read_to_string(l.ext_data("docs").join("state.txt")).unwrap(),
+            "keep this data"
+        );
+        assert_eq!(
+            show_item(&l, &config(&l), "docs").unwrap()["item"]["integrity"],
+            "ok"
+        );
+    }
+}
+
+#[test]
+fn mcp_install_rolls_back_each_writing_step_and_recovers_killed_commits() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    for replace in [false, true] {
+        for step in ["config", "code", "state", "cache"] {
+            let (d, l) = home();
+            populate(&l);
+            if replace {
+                install(
+                    d.path(),
+                    &l,
+                    "old.p1x",
+                    &mcp_pkg_v("docs", "1.0.0", false, &key),
+                    &opts(&[], None),
+                )
+                .unwrap();
+            }
+            let before = guarded(&l);
+            let pkg = mcp_pkg_v("docs", "1.1.0", false, &key);
+            let (rec, staged) = prepare(d.path(), &l, "new.p1x", &pkg);
+            std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", step);
+            let result = install_commit(
+                &l,
+                &mut OfflineHost::new(&l),
+                &rec,
+                staged,
+                &opts(&[], None),
+            );
+            std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+            assert!(result.is_err(), "{step} must fail");
+            assert_eq!(guarded(&l), before, "replace={replace}, step={step}");
+        }
+        for step in ["code", "state"] {
+            let (d, l) = home();
+            populate(&l);
+            if replace {
+                install(
+                    d.path(),
+                    &l,
+                    "old.p1x",
+                    &mcp_pkg_v("docs", "1.0.0", false, &key),
+                    &opts(&[], None),
+                )
+                .unwrap();
+            }
+            let pkg = mcp_pkg_v("docs", "1.1.0", false, &key);
+            let (rec, staged) = prepare(d.path(), &l, "new.p1x", &pkg);
+            std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", format!("kill:{step}"));
+            assert!(install_commit(
+                &l,
+                &mut OfflineHost::new(&l),
+                &rec,
+                staged,
+                &opts(&[], None)
+            )
+            .is_err());
+            std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+            ext::recover(&l);
+            let state = state::read(&ext::paths::ExtPaths::of(&l)).unwrap();
+            let recorded = state.items.get("docs");
+            assert_eq!(l.home.join("mcp/docs").exists(), recorded.is_some());
+            if step == "state" || replace {
+                let rec = recorded.unwrap();
+                assert_eq!(rec.version, if step == "state" { "1.1.0" } else { "1.0.0" });
+                assert!(ext::overlays::rehash(&l, rec).ok);
+            }
+            assert!(staging_empty(&l));
+        }
+    }
+}
+
+#[test]
+fn mcp_plugin_cli_keeps_the_raw_list_and_show_json_contracts() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    install(
+        d.path(),
+        &l,
+        "docs.p1x",
+        &mcp_pkg_v("docs", "1.0.0", false, &key),
+        &opts(&[], None),
+    )
+    .unwrap();
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_plur1bus"))
+        .args([
+            "--home",
+            l.home.to_str().unwrap(),
+            "plugin",
+            "list",
+            "--kind",
+            "mcp-server",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let list: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(list["schema"], "plugin.list/1");
+    assert_eq!(list["items"].as_array().unwrap().len(), 1);
+    assert_eq!(list["items"][0]["name"], "docs");
+    assert_eq!(list["items"][0]["kind"], "mcp-server");
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_plur1bus"))
+        .args([
+            "--home",
+            l.home.to_str().unwrap(),
+            "plugin",
+            "show",
+            "docs",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let shown: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(shown["schema"], "plugin.show/1");
+    assert_eq!(
+        shown["manifest"]["remote"]["url"],
+        "https://mcp.example.org/v1"
+    );
+    assert_eq!(shown["item"]["integrity"], "ok");
+    assert!(shown["item"].get("manifestSha256").is_none());
+}
+
+#[test]
+fn mcp_preparation_never_acknowledges_an_unsigned_or_unknown_signer_install() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let unknown = test_key("unknown");
+    for (signer, acknowledgment) in [(None, "unsigned"), (Some(&unknown), "unknown-signer")] {
+        let (d, l) = home();
+        populate(&l);
+        let mut t = template("docs", "mcp-server", "1.0.0");
+        t["requires"]["runtime"] = json!({"type": "none"});
+        t["remote"] = json!({"url": "https://mcp.example.org/v1", "auth": "none"});
+        t["capabilities"]["network"] = json!({"mode": "allowlist", "hosts": ["mcp.example.org"]});
+        let pkg = build_package_from(&t, vec![f("README.md", b"Remote fixture\n", false)], signer);
+        let before = guarded(&l);
+        let error = install(d.path(), &l, "docs.p1x", &pkg, &opts(&[], None)).unwrap_err();
+        assert_eq!(error.code, "E_APPROVAL_REQUIRED");
+        assert_eq!(
+            error.reason.unwrap(),
+            format!("acknowledge-{acknowledgment}")
+        );
+        assert_eq!(guarded(&l), before);
+        let installed = install(
+            d.path(),
+            &l,
+            "docs.p1x",
+            &pkg,
+            &opts(&[acknowledgment], None),
+        )
+        .unwrap();
+        assert_eq!(installed["state"], "installed");
+    }
+}
+
+#[test]
+fn mcp_uninstall_and_restore_roll_back_each_own_writing_step() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    for step in ["trash", "code", "state", "cache", "data", "config"] {
+        let (d, l) = home();
+        populate(&l);
+        install(
+            d.path(),
+            &l,
+            "docs.p1x",
+            &mcp_pkg_v("docs", "1.0.0", false, &key),
+            &opts(&[], None),
+        )
+        .unwrap();
+        fs::write(l.ext_data("docs").join("state.txt"), "keep").unwrap();
+        let before = guarded(&l);
+        std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", format!("uninstall.{step}"));
+        let result = ext::remove::uninstall(
+            &l,
+            &mut OfflineHost::new(&l),
+            "docs",
+            &ext::remove::RemoveOpts {
+                purge: true,
+                cascade: false,
+            },
+        );
+        std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+        assert!(result.is_err(), "uninstall.{step}");
+        assert_eq!(guarded(&l), before, "uninstall.{step}");
+    }
+    for step in ["config", "code", "state", "data"] {
+        let (d, l) = home();
+        populate(&l);
+        install(
+            d.path(),
+            &l,
+            "docs.p1x",
+            &mcp_pkg_v("docs", "1.0.0", false, &key),
+            &opts(&[], None),
+        )
+        .unwrap();
+        fs::write(l.ext_data("docs").join("state.txt"), "keep").unwrap();
+        let removed = ext::remove::uninstall(
+            &l,
+            &mut OfflineHost::new(&l),
+            "docs",
+            &ext::remove::RemoveOpts {
+                purge: true,
+                cascade: false,
+            },
+        )
+        .unwrap();
+        let before = guarded(&l);
+        std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", format!("restore.{step}"));
+        let result = ext::remove::restore(
+            &l,
+            &mut OfflineHost::new(&l),
+            removed["trashId"].as_str().unwrap(),
+        );
+        std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+        assert!(result.is_err(), "restore.{step}");
+        assert_eq!(guarded(&l), before, "restore.{step}");
+    }
+}
+
 fn sha_hex(b: &[u8]) -> String {
     Sha256::digest(b)
         .iter()
@@ -228,10 +805,17 @@ fn tree_hash(p: &Path) -> String {
 
 /// `skills/`, `modules/`, `extensions/`, `config.json` (acceptance 2's byte-identity set) and `data/`.
 fn guarded(l: &Layout) -> Vec<String> {
-    ["skills", "modules", "extensions", "config.json", "data"]
-        .iter()
-        .map(|n| format!("{n}: {}", tree_hash(&l.home.join(n))))
-        .collect()
+    [
+        "skills",
+        "modules",
+        "mcp",
+        "extensions",
+        "config.json",
+        "data",
+    ]
+    .iter()
+    .map(|n| format!("{n}: {}", tree_hash(&l.home.join(n))))
+    .collect()
 }
 
 /// Writes config.json the way the config service does (defaults filled, serialised by `plur1bus_config`), with
@@ -283,6 +867,7 @@ fn opts(ack: &[&str], enable: Option<Agents>) -> InstallOpts {
     InstallOpts {
         acknowledge: ack.iter().map(|s| s.to_string()).collect(),
         enable,
+        members: None,
     }
 }
 
@@ -382,7 +967,7 @@ fn long_lived_child() -> std::process::Child {
 // ---- install --------------------------------------------------------------------------------------------------------
 
 #[test]
-fn a_signed_skill_installs_disabled_with_index_state_and_cache() {
+fn a_first_party_skill_installs_active_with_index_state_and_cache() {
     let key = test_key("test");
     let _g = env_with(&key);
     let (d, l) = home();
@@ -394,7 +979,7 @@ fn a_signed_skill_installs_disabled_with_index_state_and_cache() {
     let v = install_commit(&l, &mut host, &rec, staged, &opts(&[], None)).unwrap();
     assert_eq!(
         v,
-        json!({"name": "demo-skill", "version": "1.0.0", "kind": "skill", "replaced": false, "state": "installed"})
+        json!({"name": "demo-skill", "version": "1.0.0", "kind": "skill", "replaced": false, "state": "enabled"})
     );
 
     // Code in place, staging and the consumed inspection gone.
@@ -416,11 +1001,11 @@ fn a_signed_skill_installs_disabled_with_index_state_and_cache() {
         .join(format!("{}.json", rec.inspection_id))
         .exists());
 
-    // The index entry passes the importer's reader rules (the same refusals, the same key order), disabled.
+    // The trusted package activates while keeping the importer index format.
     let idx = index::read_index(&l).unwrap();
     let e = idx.entry("demo-skill").unwrap();
     assert_eq!(e["source"], "file");
-    assert_eq!(e["enabled"], false);
+    assert_eq!(e["enabled"], true);
     assert_eq!(
         e["sourcePath"],
         d.path().join("s.p1x").to_string_lossy().as_ref()
@@ -466,12 +1051,12 @@ fn a_signed_skill_installs_disabled_with_index_state_and_cache() {
     assert_eq!(host.notified.len(), 1);
     assert_eq!(host.notified[0]["name"], "demo-skill");
 
-    // Listed installed, not enabled, for no agent.
+    // First-party installation is active for all agents (Mv2 decision 3).
     let list = list_items(&l, &config(&l), &ListFilter::default()).unwrap();
     let it = item(&list, "demo-skill");
-    assert_eq!(it["state"], "installed");
-    assert_eq!(it["enabled"], false);
-    assert_eq!(it["agents"], json!([]));
+    assert_eq!(it["state"], "enabled");
+    assert_eq!(it["enabled"], true);
+    assert_eq!(it["agents"], json!("all"));
     assert_eq!(it["trust"], "first-party");
     assert_eq!(it["source"], "file");
     let v = rpc_def("ExtItem");
@@ -481,7 +1066,7 @@ fn a_signed_skill_installs_disabled_with_index_state_and_cache() {
 }
 
 #[test]
-fn a_module_package_installs_disabled_and_config_says_so() {
+fn a_first_party_module_installs_active_and_config_says_so() {
     let key = test_key("test");
     let _g = env_with(&key);
     let (d, l) = home();
@@ -495,11 +1080,11 @@ fn a_module_package_installs_disabled_and_config_says_so() {
     )
     .unwrap();
     assert_eq!(v["kind"], "module");
-    assert_eq!(v["state"], "installed");
+    assert_eq!(v["state"], "enabled");
     assert_eq!(v["replaced"], false);
     assert!(l.modules_dir().join("fixture/module.json").is_file());
     assert!(l.modules_dir().join("fixture/index.js").is_file());
-    assert_eq!(config(&l)["modules"]["fixture"]["enabled"], false);
+    assert_eq!(config(&l)["modules"]["fixture"]["enabled"], true);
     assert!(
         !l.skills().join("index.json").exists(),
         "no index for a module"
@@ -519,8 +1104,8 @@ fn a_module_package_installs_disabled_and_config_says_so() {
         (&it["kind"], &it["state"], &it["enabled"], &it["agents"]),
         (
             &json!("module"),
-            &json!("installed"),
-            &json!(false),
+            &json!("enabled"),
+            &json!(true),
             &json!("all")
         )
     );
@@ -603,14 +1188,14 @@ fn install_and_enable_needs_acknowledge_capabilities() {
     let (d, l) = home();
     populate(&l);
     let before = guarded(&l);
-    let pkg = skill_pkg("demo-skill", Some(&key));
+    let pkg = skill_pkg("demo-skill", None);
     let (rec, staged) = prepare(d.path(), &l, "s.p1x", &pkg);
     let e = install_commit(
         &l,
         &mut OfflineHost::new(&l),
         &rec,
         staged,
-        &opts(&[], Some(Agents::All)),
+        &opts(&["unsigned"], Some(Agents::All)),
     )
     .unwrap_err();
     assert_eq!(
@@ -626,7 +1211,7 @@ fn install_and_enable_needs_acknowledge_capabilities() {
         &mut OfflineHost::new(&l),
         &rec,
         staged,
-        &opts(&["capabilities"], Some(Agents::All)),
+        &opts(&["unsigned", "capabilities"], Some(Agents::All)),
     )
     .unwrap();
     assert_eq!(v["state"], "enabled");
@@ -643,7 +1228,7 @@ fn install_and_enable_needs_acknowledge_capabilities() {
         &l,
         "m.p1x",
         &module_pkg("fixture", Some(&key)),
-        &opts(&["capabilities"], Some(Agents::All)),
+        &opts(&["unsigned", "capabilities"], Some(Agents::All)),
     )
     .unwrap();
     assert_eq!(v["state"], "enabled");
@@ -787,7 +1372,7 @@ fn installing_the_identical_package_twice_is_a_no_op() {
     let v = install_commit(&l, &mut host, &rec, staged, &opts(&[], None)).unwrap();
     assert_eq!(
         v,
-        json!({"name": "demo-skill", "version": "1.0.0", "kind": "skill", "replaced": false, "state": "installed"})
+        json!({"name": "demo-skill", "version": "1.0.0", "kind": "skill", "replaced": false, "state": "enabled"})
     );
     assert_eq!(guarded(&l), before, "writes nothing");
     assert_eq!(audit_lines(&l).len(), audit, "no audit line");
@@ -1075,8 +1660,8 @@ fn list_reports_per_agent_effective_sets() {
         d.path(),
         &l,
         "o.p1x",
-        &skill_pkg("demo-off", Some(&key)),
-        &opts(&[], None),
+        &skill_pkg("demo-off", None),
+        &opts(&["unsigned"], None),
     )
     .unwrap();
     let list = list_items(&l, &config(&l), &ListFilter::default()).unwrap();
@@ -1312,16 +1897,16 @@ fn replacing_an_enabled_item_keeps_it_enabled() {
         d.path(),
         &l,
         "b1.p1x",
-        &module_pkg_v("fixture-b", "1.0.0", Some(&key)),
-        &opts(&[], None),
+        &module_pkg_v("fixture-b", "1.0.0", None),
+        &opts(&["unsigned"], None),
     )
     .unwrap();
     let v = install(
         d.path(),
         &l,
         "b2.p1x",
-        &module_pkg_v("fixture-b", "1.1.0", Some(&key)),
-        &opts(&[], None),
+        &module_pkg_v("fixture-b", "1.1.0", None),
+        &opts(&["unsigned"], None),
     )
     .unwrap();
     assert_eq!(v["state"], "installed");
@@ -1390,16 +1975,16 @@ fn replacing_an_enabled_item_with_other_capabilities_needs_acknowledge_capabilit
         d.path(),
         &l,
         "o1.p1x",
-        &skill_pkg_caps("demo-off", "1.0.0", base_caps(), Some(&key)),
-        &opts(&[], None),
+        &skill_pkg_caps("demo-off", "1.0.0", base_caps(), None),
+        &opts(&["unsigned"], None),
     )
     .unwrap();
     install(
         d.path(),
         &l,
         "o2.p1x",
-        &skill_pkg_caps("demo-off", "1.1.0", wide, Some(&key)),
-        &opts(&[], None),
+        &skill_pkg_caps("demo-off", "1.1.0", wide, None),
+        &opts(&["unsigned"], None),
     )
     .unwrap();
 }
@@ -1663,19 +2248,19 @@ fn commit_time_rechecks_refuse_and_write_nothing() {
     let mut caps = base_caps();
     caps["secrets"] =
         json!([{ "slot": "API_KEY", "label": { "en": "API key" }, "required": true }]);
-    let pkg = skill_pkg_caps("demo-skill", "1.0.0", caps, Some(&key));
+    let pkg = skill_pkg_caps("demo-skill", "1.0.0", caps, None);
     let (rec, staged) = prepare(d.path(), &l, "s.p1x", &pkg);
     let e = install_commit(
         &l,
         &mut OfflineHost::new(&l),
         &rec,
         staged,
-        &opts(&["capabilities"], Some(Agents::All)),
+        &opts(&["unsigned", "capabilities"], Some(Agents::All)),
     )
     .unwrap_err();
     assert_eq!(reason(&e), ("E_NOT_AVAILABLE", "needs-setup"));
     assert!(!written(&l));
-    install(d.path(), &l, "s.p1x", &pkg, &opts(&[], None)).unwrap();
+    install(d.path(), &l, "s.p1x", &pkg, &opts(&["unsigned"], None)).unwrap();
     let list = list_items(&l, &config(&l), &ListFilter::default()).unwrap();
     assert_eq!(
         item(&list, "demo-skill")["overlays"],
@@ -1723,6 +2308,7 @@ fn a_module_whose_socket_no_longer_fits_is_refused_at_commit() {
     let dir = format!("fixture-{id}");
     fs::rename(from.staging.join(&dir), to.staging.join(&dir)).unwrap();
     let staged = StagedItem {
+        members: Vec::new(),
         dir: to.staging.join(&dir).join("payload"),
         package: to.inspect.join(format!("{id}.p1x")),
         ..staged
@@ -2043,4 +2629,721 @@ fn install_and_enable_acknowledges_before_it_enables() {
     let st = state::read(&ext::paths::ExtPaths::of(&l)).unwrap();
     assert!(st.items["fixture"].capabilities_ack.is_some());
     assert_eq!(config(&l)["modules"]["fixture"]["enabled"], false);
+}
+
+#[test]
+fn mcp_commit_holds_before_writes_and_releases_after_commit_or_rollback() {
+    struct Controlled<'a> {
+        inner: OfflineHost<'a>,
+        calls: Vec<&'static str>,
+        fail_hold: bool,
+        fail_release: bool,
+    }
+    impl ModuleHost for Controlled<'_> {
+        fn config(&self) -> Value {
+            self.inner.config()
+        }
+        fn set_config(&mut self, c: Vec<(String, Value)>, d: bool) -> Result<Value, ExtError> {
+            self.inner.set_config(c, d)
+        }
+        fn install_module(&mut self, s: modules_install::Staged) -> Result<bool, ExtError> {
+            self.inner.install_module(s)
+        }
+        fn remove_module(&mut self, n: &str, p: &Path) -> Result<(), ExtError> {
+            self.inner.remove_module(n, p)
+        }
+        fn notify(&mut self, v: Value) {
+            self.inner.notify(v)
+        }
+        fn via(&self) -> &'static str {
+            "offline"
+        }
+        fn hold_runtime(&mut self, _: &str) -> Result<bool, ExtError> {
+            self.calls.push("hold");
+            if self.fail_hold {
+                Err(ExtError::new(
+                    "E_NOT_AVAILABLE",
+                    "core-unavailable",
+                    "runtime unavailable",
+                ))
+            } else {
+                Ok(true)
+            }
+        }
+        fn release_runtime(&mut self, _: &str) -> Result<(), ExtError> {
+            self.calls.push("release");
+            if self.fail_release {
+                Err(ExtError::new(
+                    "E_NOT_AVAILABLE",
+                    "core-unavailable",
+                    "marker-must-never-propagate",
+                ))
+            } else {
+                Ok(())
+            }
+        }
+    }
+    let key = test_key("test");
+    let _g = env_with(&key);
+    for (fail, fail_hold, fail_release) in [
+        (false, false, false),
+        (true, false, false),
+        (false, true, false),
+        (false, false, true),
+    ] {
+        let (d, l) = home();
+        populate(&l);
+        let before = guarded(&l);
+        let (rec, staged) = prepare(
+            d.path(),
+            &l,
+            "m.p1x",
+            &mcp_pkg_v("docs", "1.0.0", false, &key),
+        );
+        let mut host = Controlled {
+            inner: OfflineHost::new(&l),
+            calls: vec![],
+            fail_hold,
+            fail_release,
+        };
+        if fail {
+            std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", "code");
+        }
+        let result = install_commit(&l, &mut host, &rec, staged, &opts(&[], None));
+        std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+        if fail_hold {
+            assert_eq!(host.calls, ["hold"]);
+            assert!(result.is_err());
+            assert_eq!(guarded(&l), before);
+        } else {
+            assert_eq!(host.calls, ["hold", "release"]);
+            if fail {
+                assert!(result.is_err());
+                assert_eq!(guarded(&l), before);
+            } else if fail_release {
+                let error = result.unwrap_err();
+                assert_eq!(reason(&error), ("E_NOT_AVAILABLE", "runtime-unavailable"));
+                assert!(!format!("{error:?}").contains("marker-must-never-propagate"));
+                assert!(
+                    l.home.join("mcp/docs/1.0.0/p1x.json").is_file(),
+                    "release failure cannot roll back a completed disk commit"
+                );
+            } else {
+                assert!(result.is_ok());
+            }
+        }
+    }
+}
+
+// M-A10: bundle children are verified and committed under one approval and one rollback scope.
+fn bundle_pkg(version: &str, children: &[(&str, bool, Vec<u8>)], key: Option<&TestKey>) -> Vec<u8> {
+    let mut manifest = template("demo-pack", "skill", version);
+    manifest["kind"] = json!("bundle");
+    manifest["members"] = json!(children
+        .iter()
+        .map(|(name, optional, bytes)| json!({
+            "name":name,"optional":optional,"path":format!("payload/members/{name}.p1x"),
+            "sha256":format!("{:x}", Sha256::digest(bytes))
+        }))
+        .collect::<Vec<_>>());
+    let files = children
+        .iter()
+        .map(|(name, _, bytes)| f(&format!("members/{name}.p1x"), bytes, false))
+        .collect();
+    build_package_from(&manifest, files, key)
+}
+
+#[test]
+fn bundle_inspection_discloses_every_child_and_install_is_disabled_as_a_group() {
+    let key = test_key("bundle");
+    let _e = env_with(&key);
+    let (d, l) = home();
+    let pkg = bundle_pkg(
+        "1.0.0",
+        &[
+            ("required", false, skill_pkg("required", None)),
+            ("optional", true, skill_pkg("optional", Some(&key))),
+        ],
+        None,
+    );
+    let p = d.path().join("bundle.p1x");
+    fs::write(&p, pkg).unwrap();
+    let rec = inspect::inspect(&l, Source::Path(p), "bundle-inspect").unwrap();
+    let disclosure = serde_json::to_value(&rec).unwrap();
+    assert_eq!(disclosure["members"].as_array().map(Vec::len), Some(2));
+    assert_eq!(disclosure["members"][0]["trust"]["tier"], "unsigned");
+    let staged = stage::stage(&l, &rec.inspection_id).unwrap();
+    let mut host = OfflineHost::new(&l);
+    let result = install_commit(&l, &mut host, &rec, staged, &opts(&["unsigned"], None)).unwrap();
+    assert_eq!(result["state"], "installed");
+    let state = state::read(&ext::paths::ExtPaths::of(&l)).unwrap();
+    assert_eq!(state.items.len(), 3);
+    assert!(l.skills().join("required/SKILL.md").is_file());
+    assert!(l.skills().join("optional/SKILL.md").is_file());
+    let items = list_items(&l, &host.config(), &ListFilter::default()).unwrap();
+    for item in items["items"].as_array().unwrap() {
+        assert_eq!(
+            item["enabled"], false,
+            "unsigned parent must not promote its first-party child: {item}"
+        );
+    }
+}
+
+#[test]
+fn bundle_rolls_back_every_touched_tree_after_each_member_and_after_an_interruption() {
+    let key = test_key("bundle-atomic");
+    let _e = env_with(&key);
+    for killed in [false, true] {
+        for point in [
+            "code",
+            "state",
+            "cache",
+            "bundle.member.docs",
+            "bundle.member.guide",
+            "bundle.publish",
+        ] {
+            let (d, l) = home();
+            populate(&l);
+            let old = bundle_pkg(
+                "1.0.0",
+                &[
+                    ("docs", false, mcp_pkg_v("docs", "1.0.0", false, &key)),
+                    ("guide", false, skill_pkg_v("guide", "1.0.0", None)),
+                ],
+                None,
+            );
+            install(d.path(), &l, "old.p1x", &old, &opts(&["unsigned"], None)).unwrap();
+            let before = guarded(&l);
+            let next = bundle_pkg(
+                "2.0.0",
+                &[
+                    ("docs", false, mcp_pkg_v("docs", "2.0.0", false, &key)),
+                    ("guide", false, skill_pkg_v("guide", "2.0.0", None)),
+                ],
+                None,
+            );
+            let (rec, staged) = prepare(d.path(), &l, "next.p1x", &next);
+            std::env::set_var(
+                "PLUR1BUS_TEST_EXT_FAIL_AT",
+                if killed {
+                    format!("kill:{point}")
+                } else {
+                    point.to_string()
+                },
+            );
+            let result = install_commit(
+                &l,
+                &mut OfflineHost::new(&l),
+                &rec,
+                staged,
+                &opts(&["unsigned"], None),
+            );
+            std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+            assert!(result.is_err(), "{killed} {point}");
+            if killed {
+                ext::recover(&l);
+            }
+            assert_eq!(
+                guarded(&l),
+                before,
+                "whole bundle rollback at killed={killed}, {point}"
+            );
+            assert!(!l.home.join("mcp/docs/2.0.0").exists());
+            assert!(l.home.join("mcp/docs/1.0.0/p1x.json").is_file());
+        }
+    }
+}
+
+#[test]
+fn bundle_selection_and_staged_child_substitution_refuse_before_any_live_write() {
+    let key = test_key("bundle-selection");
+    let _e = env_with(&key);
+    for selection in [vec![], vec!["unknown"], vec!["required", "required"]] {
+        let (d, l) = home();
+        populate(&l);
+        let before = guarded(&l);
+        let bytes = bundle_pkg(
+            "1.0.0",
+            &[
+                ("required", false, skill_pkg("required", None)),
+                ("optional", true, skill_pkg("optional", None)),
+            ],
+            None,
+        );
+        let (rec, staged) = prepare(d.path(), &l, "pack.p1x", &bytes);
+        let mut install = opts(&["unsigned"], None);
+        install.members = Some(selection.into_iter().map(str::to_string).collect());
+        assert!(install_commit(&l, &mut OfflineHost::new(&l), &rec, staged, &install).is_err());
+        assert_eq!(guarded(&l), before);
+    }
+    let (d, l) = home();
+    populate(&l);
+    let before = guarded(&l);
+    let bytes = bundle_pkg(
+        "1.0.0",
+        &[("required", false, skill_pkg("required", None))],
+        None,
+    );
+    let (rec, mut staged) = prepare(d.path(), &l, "pack.p1x", &bytes);
+    staged.members[0].item.dir = l.home.join("stolen");
+    assert!(install_commit(
+        &l,
+        &mut OfflineHost::new(&l),
+        &rec,
+        staged,
+        &opts(&["unsigned"], None)
+    )
+    .is_err());
+    assert_eq!(guarded(&l), before);
+}
+
+#[test]
+fn plugin_cli_explicit_bundle_subset_installs_required_only_and_discloses_child_rights() {
+    let key = test_key("bundle-cli");
+    let _e = env_with(&key);
+    let (d, l) = home();
+    let path = d.path().join("pack.p1x");
+    fs::write(
+        &path,
+        bundle_pkg(
+            "1.0.0",
+            &[
+                ("required", false, skill_pkg("required", None)),
+                ("optional", true, skill_pkg("optional", None)),
+            ],
+            None,
+        ),
+    )
+    .unwrap();
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_plur1bus"))
+        .args([
+            "--home",
+            l.home.to_str().unwrap(),
+            "plugin",
+            "install",
+            path.to_str().unwrap(),
+            "--member",
+            "required",
+            "--allow-unsigned",
+            "--yes",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let st = state::read(&ext::paths::ExtPaths::of(&l)).unwrap();
+    assert_eq!(st.items.len(), 2);
+    assert!(l.skills().join("required/SKILL.md").is_file());
+    assert!(!l.skills().join("optional").exists());
+    let enable = std::process::Command::new(env!("CARGO_BIN_EXE_plur1bus"))
+        .args([
+            "--home",
+            l.home.to_str().unwrap(),
+            "plugin",
+            "enable",
+            "demo-pack",
+            "--yes",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        enable.status.success(),
+        "{}",
+        String::from_utf8_lossy(&enable.stderr)
+    );
+    assert_eq!(
+        item(
+            &list_items(&l, &OfflineHost::new(&l).config(), &ListFilter::default()).unwrap(),
+            "required"
+        )["enabled"],
+        true
+    );
+}
+
+#[test]
+fn bundle_identical_selection_is_a_noop_and_changed_optional_subset_is_atomic() {
+    let key = test_key("bundle-subsets");
+    let _e = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    let bytes = bundle_pkg(
+        "1.0.0",
+        &[
+            ("required", false, skill_pkg("required", None)),
+            ("optional", true, skill_pkg("optional", None)),
+        ],
+        None,
+    );
+    let mut selected = opts(&["unsigned"], None);
+    selected.members = Some(vec!["required".into()]);
+    install(d.path(), &l, "first.p1x", &bytes, &selected).unwrap();
+    let before = guarded(&l);
+    let same = InstallOpts {
+        members: Some(vec!["required".into()]),
+        ..Default::default()
+    };
+    install(d.path(), &l, "same.p1x", &bytes, &same).unwrap();
+    assert_eq!(guarded(&l), before);
+    install(d.path(), &l, "all.p1x", &bytes, &opts(&["unsigned"], None)).unwrap();
+    let st = state::read(&ext::paths::ExtPaths::of(&l)).unwrap();
+    assert_eq!(st.items.len(), 3);
+    assert_eq!(st.items["demo-pack"].members.len(), 2);
+    let shown = show_item(&l, &config(&l), "demo-pack").unwrap();
+    assert_eq!(shown["memberInspections"].as_array().map(Vec::len), Some(2));
+    install(d.path(), &l, "required.p1x", &bytes, &selected).unwrap();
+    let st = state::read(&ext::paths::ExtPaths::of(&l)).unwrap();
+    assert_eq!(st.items.len(), 2);
+    assert!(!l.skills().join("optional").exists());
+}
+
+#[test]
+fn bundle_update_preserves_prior_activation_and_trusted_widening_still_requires_consent() {
+    let key = test_key("bundle-update");
+    let _e = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    let old = bundle_pkg(
+        "1.0.0",
+        &[("guide", false, skill_pkg_v("guide", "1.0.0", None))],
+        None,
+    );
+    install(
+        d.path(),
+        &l,
+        "old.p1x",
+        &old,
+        &opts(&["unsigned", "capabilities"], Some(Agents::All)),
+    )
+    .unwrap();
+    let next = bundle_pkg(
+        "2.0.0",
+        &[("guide", false, skill_pkg_v("guide", "2.0.0", None))],
+        None,
+    );
+    let changed = install(
+        d.path(),
+        &l,
+        "next.p1x",
+        &next,
+        &opts(&["unsigned", "capabilities"], None),
+    )
+    .unwrap();
+    assert_eq!(changed["state"], "enabled");
+    assert_eq!(
+        item(
+            &list_items(&l, &config(&l), &ListFilter::default()).unwrap(),
+            "guide"
+        )["enabled"],
+        true
+    );
+    let (d, l) = home();
+    populate(&l);
+    let old = bundle_pkg(
+        "1.0.0",
+        &[("guide", false, skill_pkg_v("guide", "1.0.0", Some(&key)))],
+        Some(&key),
+    );
+    install(d.path(), &l, "trusted.p1x", &old, &InstallOpts::default()).unwrap();
+    let mut manifest = template("guide", "skill", "2.0.0");
+    manifest["capabilities"]["network"] = json!({"mode":"any"});
+    let child = build_package_from(
+        &manifest,
+        vec![f("SKILL.md", &skill_md("guide"), false)],
+        Some(&key),
+    );
+    let next = bundle_pkg("2.0.0", &[("guide", false, child)], Some(&key));
+    let before = guarded(&l);
+    let error = install(d.path(), &l, "widened.p1x", &next, &InstallOpts::default()).unwrap_err();
+    assert_eq!(
+        reason(&error),
+        ("E_APPROVAL_REQUIRED", "acknowledge-capabilities")
+    );
+    assert_eq!(guarded(&l), before);
+}
+
+#[test]
+fn bundle_update_keeps_mcp_agent_scope_optional_off_and_prechecks_new_required_members() {
+    let key = test_key("bundle-scopes");
+    let _e = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    write_config(
+        &l,
+        |cfg| cfg["agents"] = json!({"anna":{"createdAt":"2026-09-28T10:00:00.000Z"},"bernd":{"createdAt":"2026-09-28T10:00:00.000Z"}}),
+    );
+    let bytes = bundle_pkg(
+        "1.0.0",
+        &[
+            ("docs", false, mcp_pkg_v("docs", "1.0.0", false, &key)),
+            ("guide", true, skill_pkg_v("guide", "1.0.0", None)),
+        ],
+        None,
+    );
+    install(
+        d.path(),
+        &l,
+        "one.p1x",
+        &bytes,
+        &opts(
+            &["unsigned", "capabilities"],
+            Some(Agents::Some(vec!["anna".into()])),
+        ),
+    )
+    .unwrap();
+    ext::lifecycle::disable(
+        &l,
+        &mut OfflineHost::new(&l),
+        "guide",
+        &ext::lifecycle::ToggleOpts::default(),
+    )
+    .unwrap();
+    let bytes = bundle_pkg(
+        "2.0.0",
+        &[
+            ("docs", false, mcp_pkg_v("docs", "2.0.0", false, &key)),
+            ("guide", true, skill_pkg_v("guide", "2.0.0", None)),
+        ],
+        None,
+    );
+    install(
+        d.path(),
+        &l,
+        "two.p1x",
+        &bytes,
+        &opts(&["unsigned", "capabilities"], None),
+    )
+    .unwrap();
+    assert_eq!(
+        config(&l)["mcp"]["servers"]["docs"],
+        json!({"enabled":true,"agents":["anna"]})
+    );
+    let items = list_items(&l, &config(&l), &ListFilter::default()).unwrap();
+    assert_eq!(item(&items, "guide")["enabled"], false);
+    assert_eq!(item(&items, "demo-pack")["partial"], true);
+    let shown = show_item(&l, &config(&l), "demo-pack").unwrap();
+    let st = state::read(&ext::paths::ExtPaths::of(&l)).unwrap();
+    assert_eq!(
+        st.items["demo-pack"].capabilities_ack.as_deref(),
+        shown["consentSha256"].as_str()
+    );
+    let mut locked = template("locked", "mcp-server", "1.0.0");
+    locked["requires"]["runtime"] = json!({"type":"none"});
+    locked["remote"] = json!({"url":"https://mcp.example.org/v1","auth":"header"});
+    locked["capabilities"]["network"] = json!({"mode":"allowlist","hosts":["mcp.example.org"]});
+    locked["capabilities"]["secrets"] =
+        json!([{"slot":"apiKey","label":{"en":"Key"},"required":true}]);
+    let locked = build_package_from(
+        &locked,
+        vec![f("README.md", b"Requires setup", false)],
+        None,
+    );
+    for (name, extra, wanted) in [
+        ("worker", module_pkg("worker", None), "agents-not-supported"),
+        ("locked", locked, "needs-setup"),
+    ] {
+        let before = guarded(&l);
+        let bytes = bundle_pkg(
+            "3.0.0",
+            &[
+                ("docs", false, mcp_pkg_v("docs", "3.0.0", false, &key)),
+                ("guide", true, skill_pkg_v("guide", "2.0.0", None)),
+                (name, false, extra),
+            ],
+            None,
+        );
+        let error = install(
+            d.path(),
+            &l,
+            &format!("{name}.p1x"),
+            &bytes,
+            &opts(&["unsigned", "capabilities"], None),
+        )
+        .unwrap_err();
+        assert_eq!(error.reason, Some(wanted));
+        assert_eq!(
+            guarded(&l),
+            before,
+            "refused newrequiredmember {name} after touching code"
+        );
+    }
+    let bytes = bundle_pkg(
+        "3.0.0",
+        &[
+            ("docs", false, mcp_pkg_v("docs", "3.0.0", false, &key)),
+            ("guide", true, skill_pkg_v("guide", "2.0.0", None)),
+            ("newdoc", false, skill_pkg("newdoc", None)),
+        ],
+        None,
+    );
+    install(
+        d.path(),
+        &l,
+        "three.p1x",
+        &bytes,
+        &opts(&["unsigned", "capabilities"], None),
+    )
+    .unwrap();
+    let items = list_items(&l, &config(&l), &ListFilter::default()).unwrap();
+    assert_eq!(item(&items, "newdoc")["agents"], json!(["anna"]));
+    assert_eq!(item(&items, "docs")["agents"], json!(["anna"]));
+    assert_eq!(item(&items, "guide")["enabled"], false);
+}
+
+// C maintenance: abort is cooperative at existing atomic transaction boundaries, never a detached mutation.
+#[test]
+fn cancellation_after_code_publication_rolls_back_synchronously() {
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    };
+    struct CancelHost<'a> {
+        inner: OfflineHost<'a>,
+        cancel: Arc<AtomicBool>,
+    }
+    impl ModuleHost for CancelHost<'_> {
+        fn check_cancelled(&self) -> Result<(), ExtError> {
+            if self.cancel.load(Ordering::SeqCst) {
+                Err(ExtError::new(
+                    "E_NOT_AVAILABLE",
+                    "import-aborted",
+                    "the maintenance run was aborted",
+                ))
+            } else {
+                Ok(())
+            }
+        }
+        fn config(&self) -> Value {
+            self.inner.config()
+        }
+        fn set_config(&mut self, c: Vec<(String, Value)>, dry: bool) -> Result<Value, ExtError> {
+            self.inner.set_config(c, dry)
+        }
+        fn install_module(&mut self, s: modules_install::Staged) -> Result<bool, ExtError> {
+            self.inner.install_module(s)
+        }
+        fn remove_module(&mut self, n: &str, p: &Path) -> Result<(), ExtError> {
+            self.inner.remove_module(n, p)
+        }
+        fn notify(&mut self, c: Value) {
+            self.inner.notify(c)
+        }
+        fn via(&self) -> &'static str {
+            "offline"
+        }
+        fn config_bytes(&self) -> Option<Option<Vec<u8>>> {
+            self.inner.config_bytes()
+        }
+        fn restore_config_bytes(&mut self, b: Option<Vec<u8>>) -> Result<(), ExtError> {
+            self.inner.restore_config_bytes(b)
+        }
+    }
+    let key = test_key("cancel-boundary");
+    let _e = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    install(
+        d.path(),
+        &l,
+        "old.p1x",
+        &mcp_pkg_v("docs", "1.0.0", false, &key),
+        &InstallOpts::default(),
+    )
+    .unwrap();
+    let before = guarded(&l);
+    let (rec, staged) = prepare(
+        d.path(),
+        &l,
+        "new.p1x",
+        &mcp_pkg_v("docs", "2.0.0", false, &key),
+    );
+    let cancel = Arc::new(AtomicBool::new(false));
+    let signal = cancel.clone();
+    let target = l.home.join("mcp/docs/2.0.0/p1x.json");
+    let sender = std::thread::spawn(move || {
+        let until = std::time::Instant::now() + std::time::Duration::from_secs(3);
+        while std::time::Instant::now() < until && !target.is_file() {
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        signal.store(true, Ordering::SeqCst);
+    });
+    std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", "sleep:code:250");
+    let mut host = CancelHost {
+        inner: OfflineHost::new(&l),
+        cancel,
+    };
+    let result = install_commit(&l, &mut host, &rec, staged, &InstallOpts::default());
+    std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+    sender.join().unwrap();
+    assert_eq!(result.unwrap_err().reason, Some("import-aborted"));
+    assert_eq!(
+        guarded(&l),
+        before,
+        "the return must wait for rollback, with no orphan mutation"
+    );
+}
+
+#[test]
+fn cancellation_of_one_live_parser_reaps_it_and_allows_the_next_operation() {
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    };
+    use std::time::{Duration, Instant};
+    let key = test_key("cancel-parser");
+    let _e = env_with(&key);
+    let (d, l) = home();
+    let path = d.path().join("skill.p1x");
+    fs::write(&path, skill_pkg("guide", Some(&key))).unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let signal = cancel.clone();
+    let sender = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(100));
+        signal.store(true, Ordering::SeqCst);
+    });
+    let id = worker::new_inspection_id();
+    let started = Instant::now();
+    let result = worker::spawn_worker_with_check(
+        Path::new(env!("CARGO_BIN_EXE_plur1bus")),
+        &l,
+        &[
+            "inspect",
+            "--id",
+            &id,
+            "--path",
+            path.to_str().unwrap(),
+            "--sleep-ms",
+            "5000",
+        ],
+        Duration::from_secs(5),
+        &|| {
+            if cancel.load(Ordering::SeqCst) {
+                Err(ExtError::new(
+                    "E_NOT_AVAILABLE",
+                    "import-aborted",
+                    "the maintenance run was aborted",
+                ))
+            } else {
+                Ok(())
+            }
+        },
+    );
+    sender.join().unwrap();
+    assert_eq!(result.unwrap_err().reason, Some("import-aborted"));
+    assert!(started.elapsed() < Duration::from_secs(3));
+    assert!(!record::record_path(&l, &id).exists());
+    let id = worker::new_inspection_id();
+    worker::spawn_worker_with_check(
+        Path::new(env!("CARGO_BIN_EXE_plur1bus")),
+        &l,
+        &["inspect", "--id", &id, "--path", path.to_str().unwrap()],
+        Duration::from_secs(5),
+        &|| Ok(()),
+    )
+    .unwrap();
+    assert!(record::record_path(&l, &id).is_file());
 }

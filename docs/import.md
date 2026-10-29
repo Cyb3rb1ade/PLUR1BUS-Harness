@@ -1,6 +1,8 @@
 # Importers for OpenClaw and Hermes
 
-**Status:** Phase 0 draft · **Date:** 2026-09-22 · **Depends on:** ADR-003 (agent model), ADR-007 (users/roles/identity) — written in parallel, referenced here by name only.
+**Status:** source-format reference with implemented offline importers and M v2 supervised maintenance · **Started:** 2026-09-22 · **Depends on:** ADR-003 (agent model), ADR-007 (users/roles/identity).
+
+> **Amendment 2026-10-28 / M v2:** §10–§12 retain the offline importer and source-format history. [§13](#13-supervised-import-and-remote-sources-m-v2) is the current human API/GUI maintenance contract, including SSH, preflight, private source secrets and full cold rollback. The historical M7 placeholder below no longer describes the full importer. Browser/axe acceptance is tracked separately in [the UI validation status](web-ui.md#m-v2-extensionimport-validation-status).
 
 > **Amendment 2026-09-27 (owner, pulled forward):** two pieces of this importer ship ahead of M7 — the read-only **detect** step (`plur1bus import <openclaw|hermes> --detect`, §8) and the **skills import** (`plur1bus import <openclaw|hermes> --skills`, dry-run by default, `--apply` to write, `--rollback <report>`, §9). Everything else (stores, memory cards, soul, cron, channels, secrets, sessions, the wizard) stays in **M7** (`docs/milestones.md`). This resolves the old mismatch between the CLI stub ("M1b-3") and the milestone plan ("M7"): the stub label is gone, `plur1bus import` without `--detect`/`--skills`/`--rollback` answers `E_NOT_AVAILABLE` with `milestone: "M7"`. The reranker is now part of the detected configuration (§2.3.2).
 
@@ -13,6 +15,8 @@ Sources opened for this document: `/home/claude/refs/openclaw` (`b9421f4`, v2026
 ## 1. Scope and principles
 
 > **D28 (2026-09-25):** import is the one-time takeover of a legacy installation's data; it is not an operating mode. After a confirmed import with backup, the importer disables the PLUR1BUS plugin on that installation, because one store has exactly one engine owner (T7). A source system that keeps running and uses the harness as its memory attaches as a client instead and needs no import. No live installation is migrated before `docs/plugin-parity.md` is complete; the owner's VPS stays on the plugin until a test environment has proven the harness standalone and with attached systems.
+
+**M v2 clarification:** source access is read-only. Disabling the old host's plugin is a human follow-up, never an SFTP write, source edit or foreign command executed by the importer. Keep the one-owner rule when choosing between takeover and attachment.
 
 From auftrag §4.2 (binding per brief §1, "everything not touched by D1–D11 remains binding"):
 
@@ -325,11 +329,13 @@ TELEGRAM_BOT_TOKEN, OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY,
 ELEVENLABS_API_KEY, VOICE_TOOLS_OPENAI_KEY
 ```
 
-Extended for the harness's own provider matrix (ADR-006) with the equivalent env-var names for every chat/embedding/rerank provider the harness ships a profile for (Google AI, xAI, OpenRouter, Cohere, Jina, Voyage, etc.) — the exact extended list is an ADR-006/provider-matrix.md deliverable, not duplicated here; this document fixes the *policy* (allowlist, opt-in, never in the report), not the final list.
+The equivalent provider names extend this to sixteen entries. The single executable allowlist is `packages/core/src/import/source-secret-names.json`, imported by Core and included by Native; it includes Google/Gemini, xAI, Cohere, Jina, Voyage, DeepSeek, OpenCode, Nous and Ollama names. A declared MCP environment/header value is not thereby an allowlisted source secret.
 
 - `--migrate-secrets` (or the harness's own equivalently-named flag) is required **in addition to** whichever apply mode is chosen — never implied by "apply everything" alone, matching `hermes claw migrate`'s "secrets always require a second explicit flag regardless of preset" (§4.1).
 - Values matched to an allowlisted name are leased into the harness secret store (OS keychain / encrypted file fallback, per auftrag §6.3) immediately; the importer holds them in memory only for the duration of that write.
 - Any key/value pair encountered outside the allowlist (an unrecognized env var, an MCP server's env block, a provider config's inline header) is **never imported automatically** — it is named (key only, never its value) in the report as "found, not imported, add manually if needed."
+
+M v2 implements this opt-in for an authenticated Owner only. Core prepares a bounded lease tied to owner, exact plan/hash and preflight. Before Core stops, Native acquires it over the private role-i channel, checks the closed sixteen-name response and ACKs release. A consumed zeroing frame crosses only the worker's private stdin. The worker writes missing allowlisted values through the existing Secret Store and journals intent/ownership for rollback; an existing value is not overwritten. No source value enters a snapshot file, ordinary RPC, report, event or log.
 
 ### 5.7 Report format
 
@@ -649,7 +655,7 @@ What an apply does, in order: takes the single-writer lock, snapshots the target
 
   `USER.md` without a user binding stays `unresolved-user-scope` in every case (ADR-007 Q4 comes first; such cards are never parked, because no later run would import them either). The engine is opened only when a profile has cards to write, so a run whose cards are all parked or deferred never opens one. Rollback treats linked, parked and deferred Hermes cards like the OpenClaw ones (no card written, the run's engine-side links undone, §10.4). A run **without** `--adopt-store` in a home whose not rolled-back runs parked Hermes cards (`pending-reembed`) applies the same identity check on `state/lancedb` as a re-run with the same `--adopt-store`: the cards stay parked while the store is in another model's space, and are imported with duplicate linking once the migration has switched it (a home without parked cards keeps the plain import, §11.3).
 - **Interrupted run.** `--resume <runId>` continues it; a re-run converges without duplicates (every entity reports `matched-existing`).
-- **Secrets.** `--migrate-secrets` is refused with `secret-store-unavailable` until the M2 secret store exists. The report lists only allowlisted key names (`unmigrated_secrets`), never values.
+- **Secrets.** The historical standalone importer refused `--migrate-secrets` without a Secret Store port. M v2 supervised Owner-only migration uses the existing store and private lease contract in §5.6; no source value is serialized into a report or snapshot. The offline path still fails closed when that required port is absent.
 - **Deferred.** Cron jobs are reported (count, names, schedule, delivery kind) and **not** written anywhere; channel allowlists are reported with counts and fingerprints. See §11.3.
 
 ### 10.4 Rollback
@@ -712,7 +718,7 @@ Milestone acceptance 3 (Hermes soul, skills, cron, cards; OpenClaw memory card p
 
 | Item | State | Reason |
 |---|---|---|
-| Rollback of imported cards | KNOWN GAP | The engine has no undo, and `forget` writes a tombstone that blocks the same card from ever being imported again, so rolling back through `forget` would make a later re-import silently lose those cards. Rollback therefore reports exactly this run's cards (`memoryCardsNotReverted`, status `not-reverted (engine has no undo)`) and leaves the store byte-identical: `provenance-imported.test.ts` → "rollback reports exactly this run's cards as not reverted (the engine has no undo) and touches no card of any run". Owner question: should the engine get an `unimport(runId)` that removes without a tombstone? |
+| Rollback of imported cards | historical offline gap; supervised cold rollback restores stores | The offline ledger-only rollback cannot remove cards without Engine undo/tombstones and keeps its existing `memoryCardsNotReverted` report/tests. M v2 supervised rollback restores the complete cold target store while Core is stopped (§13.4), without an Engine change or a second writer. |
 | Provenance after an edit | KNOWN GAP (engine) | `memory.correct` supersedes a card with a new id; the origin marker is keyed by id, so the corrected card has no `provenance`. The archived original keeps it. `provenance-imported.test.ts` → "KNOWN GAP: editing a card (memory.correct) writes a new card id, so the new version loses provenance; the origin stays on the archived original" pins today's behaviour and fails the day the engine carries the marker over. Needs an engine change (not allowed in this package) |
 | OpenClaw memory cards | CLOSED | Built in `openclaw-memories.ts`. Imported through `memory.import` with provenance `imported`, `sourceRef: "openclaw:<agentId>:<file>#<n>;run=<runId>"`, duplicate skip and conflict handling. Proven by `hermes-acceptance3.test.ts` and `m7-gaps-closed.test.ts`. Agents with their own store: duplicates linked (`linked`), cards of a store in the re-embedding migration parked (`pending-reembed`) and imported once the store is taken over, proven by `openclaw-cards-own-store.test.ts` and `openclaw-store-takeover.test.ts`. |
 | Engine-side link of a duplicate card | CLOSED (engine contract 1.16.0) | A card that duplicates a memory already in the agent's store is linked in the engine through `memory.link` when the engine reports `capabilities.memoryLink` (the memory gains the card's `sourceRef` as an additional source, `links[]`; report `linkId`, ledger `details.linkId`/`engineLink`), and a rollback of the run unlinks it through `memory.unimport` (§10.4). Without the capability the link stays in the ledger and report. Proven by `openclaw-cards-own-store.test.ts` → "engine-side link (contract 1.16.0): the existing memory carries the card's source; rolling the run back unlinks it", `hermes-cards-own-store.test.ts` → "engine-side link (contract 1.16.0): …" and `card-links-engine.test.ts` (capability absent, refused link, reused link, second copy). |
@@ -722,9 +728,9 @@ Milestone acceptance 3 (Hermes soul, skills, cron, cards; OpenClaw memory card p
 | Hermes parked cards without `--adopt-store` | CLOSED | A run without `--adopt-store` in a home with live `pending-reembed` Hermes cards runs the engine identity check on `state/lancedb`: parked while the store is in a foreign vector space (the engine is not asked), imported with duplicate linking after the migration. Homes without parked cards are unchanged. Proven by `hermes-cards-own-store.test.ts` → "a run without --adopt-store after a reembed take-over applies the same identity check" and the counter-test "a plain run in a home without parked cards is unchanged". |
 | Hermes `USER.md` for several profiles | CLOSED | `--map profile=<p>:agent=<a>` maps profiles to agents. Multiple profiles mapping to the same agent require `--merge-profiles` (collision protection). When mapped target matches `userPrincipal.agentId`, user preferences bind to that agent. Proven by `m7-gaps-closed.test.ts`. |
 | Plan Task 2.5: identity back-fill (ADR-007 Q4) | CLI BUILT | Built CLI `plur1bus import backfill --agent <id> [--apply]` (schema `import.backfill/1`). Default mode is preview dry-run showing affected cards; `--apply` executes atomic rebind via engine port. Web/wizard surfaces deferred pending owner direction. |
-| Secret import (`--migrate-secrets`) | deliberately deferred | no M2 secret store; refused fail-closed (checklist 8) |
-| Sessions, desktop wizard | out of M7 | sessions are sensitive and not imported by default (§3); the wizard belongs to M3/D2 |
-| Host-to-container transport (`host.importSnapshot`, D91/D2) | open | outside the allowed paths of this work; §12 |
+| Secret import (`--migrate-secrets`) | M v2 supervised path implemented | Owner-only, exact owner/plan/preflight private leases; existing store values stay intact (§5.6). Standalone callers without the port fail closed. |
+| Sessions, desktop wizard | sessions excluded; M v2 wizard implemented | sessions remain sensitive and are not imported by default (§3); F37 and `/import` share the human flow, with browser acceptance pending |
+| Host-to-container transport (`host.importSnapshot`, D91/D2) | native snapshot producer/consumer implemented | opaque host-picked source, private bounded snapshot and owner-bound upload; actual native proof and platform limits are tracked with the desktop/UI docs |
 
 #### Design Note: Cron Import (Owner Question from #547 Point 3)
 
@@ -786,7 +792,7 @@ SQLite retains the no-source-writes rule: DB/WAL are copied to private staging, 
 
 `snapshot.json` version 1 contains origin, source-side root/home/flavour, UTC `timestamp`, `files[] { path, size, sha256, mtimeMs }`, SQLite/LanceDB statuses and optional `skippedLinks`, `skippedFiles`, `omittedCredentials`, `liveCopy`, `tarWarnings`. File paths are relative POSIX paths. Traversal, absolute/drive paths, ambiguous backslashes, duplicates, symlink escapes, unlisted files, size/hash differences are rejected before detect or full import reads the snapshot. The manifest detects corruption; it is not a signature against an attacker who can replace both data and manifest. Keep completed snapshots immutable during import.
 
-Credential deny-list files (`.env*`, `auth.json`, `auth-profiles.json`, `credentials.json`, private key files and existing exclusions) and files in `credentials/` are omitted from completed snapshots. This covers Codex-style `auth.json` within a selected source without scanning ambient user directories. `omittedCredentials` lists paths as found, not imported; `.env` metadata carries key names only. Inline config credentials remain in private source files and never enter reports or parser diagnostics.
+Credential deny-list files (`.env*`, `auth.json`, `auth-profiles.json`, `credentials.json`, private key files and existing exclusions) and files in `credentials/` are omitted from completed snapshots. This covers Codex-style `auth.json` within a selected source without scanning ambient user directories. `omittedCredentials` lists paths as found, not imported; `.env` metadata carries key names only. Current reader/upload producers also seal inline config credentials before writing the snapshot (§13.2). The original source files remain untouched; no value enters reports or parser diagnostics.
 
 ### 12.4 Errors and follow-ups
 
@@ -794,10 +800,147 @@ Malformed optional Hermes JSON adds `{ sourceRef, reason: "json-unparseable" }` 
 
 Follow-ups outside this change:
 
-- Explicit CLI snapshot production/transport and D2 host bridge RPC `host.importSnapshot` for remote host-to-container sources. Existing library production and `--source` consumption work; automatic CLI orchestration is not claimed.
+- M v2 provides native `host.importSnapshot` production/transport and CLI SSH sources. Native Windows/WSL infrastructure and browser acceptance remain distinct from portable fixture evidence (§13).
 - Native Windows/WSL infrastructure acceptance stays separate from mocked unit coverage. A WSL infrastructure failure does not establish a Windows unit failure.
-- Unrelated M7 store takeover, guided re-embedding, identity back-fill and secret migration gaps in §11.3 remain separate work.
+- Existing store takeover, guided re-embedding and identity back-fill semantics remain unchanged; M v2 adds the supervised private secret/rollback path in §13 rather than changing Engine behavior.
 - Parser limits recorded as `KNOWN GAP` todo tests (`packages/core/test/import/`) and not yet enforced: the JSON5 reader accepts a leading-zero number (`010` reads as 10), does not treat the Unicode space separators (U+1680, U+2000 to U+200A, U+202F, U+205F, U+3000) as whitespace, does not end a `//` comment at U+2028 or U+2029, and reads U+FEFF, U+2028 and U+2029 as identifier characters. The YAML-lite reader keeps one newline for the `|+` block scalar, swallows the siblings that follow a bare `-` item, turns `- - x` into the string `- x` without an `unsupported` note, raises a `RangeError` on a mapping nested several thousand levels deep, and takes quadratic time on a line with a very long run of spaces (about 1 s at 30,000).
+
+## 13. Supervised import and remote sources (M v2)
+
+### 13.1 Human workflow and authority
+
+The setup Import step (F37) and `/import` share one flow: choose a source, detect,
+review path mappings and re-embedding/licence requirements, select agents and
+conflict decisions, create an immutable plan, run preflight, explicitly confirm
+downtime, then follow progress/result and any rollback or host follow-ups. Detection
+shows each agent's persona/files, skills, classified plugins, MCP candidates and
+stores. Foreign plugins are display-only: `bridge-possible`, `nonportable` or
+`unknown`, with declared parts and reasons. Nothing loads or executes them. MCP
+candidates use the verified extension path, remain disabled after import and never
+carry source header/env credentials. The original CLI `--json` report shapes and
+business mappings remain unchanged; the GUI/RPC discovery projection is additive.
+
+Only human Owner/Admin can read or start imports. Source-secret migration is
+Owner-only. Free paths are allowed for Owner/Admin over verified loopback/Desktop;
+over a remote session only Owner may enter them, while Admin selects discovered
+sources. A browser-supplied header or path spelling cannot assert locality. Sources,
+uploads, plans, preflights and runs stay bound to the authenticated owner. Agents
+and WebMCP receive no import or SSH management methods.
+
+### 13.2 Source reads, SFTP and sealing
+
+Detection, snapshots and the offline importer helper graph use the reusable async
+`@plur1bus/remote-fs` port: `stat`, `lstat`, `readdir`, bounded `readFile`, `realpath`
+and `readlink`. It exposes no write, exec, raw client or descriptor. Local and SFTP
+backends enforce finite cumulative time/file/bytes/depth/entry budgets, including
+repeated reads. A selected descendant is canonicalized through the original
+configured authority; it cannot redefine the root through an escaping symlink.
+Unsafe names, special files and linked escapes are refused. SQLite and Lance
+parsers operate on verified private local copies, never on writable source handles.
+
+Discovery visits known homes and source/store locations that the account can read,
+not every directory on the disk. Windows WSL listing is metadata-only and never
+starts a stopped distribution; opening it requires the explicit probe consent.
+Readable running distributions use the confined UNC source port. SFTP Windows
+paths use server canonical POSIX spelling (for Win32-OpenSSH, `/C:/...`), separately
+from the source configuration's Windows path flavour. Portable controlled-server
+tests exercise these mappings; they do not establish native Windows/WSL host
+acceptance.
+
+An Owner creates the Harness Ed25519 identity in the existing Secret Store, shows
+its public key/authorized-key instructions, and configures host, port, account and
+allowed roots. Setup/rotation/deletion and host-key trust are Owner-only; Owner and
+Admin can use a configured connection. The first handshake only probes the actual
+server's SHA256 host-key fingerprint/algorithm. The Owner compares and confirms it.
+Every later connection matches that pin **before acquiring the private-key lease,
+authentication or source reads**. A changed key stops the operation. Rotation,
+deletion, connection changes and role loss invalidate active access. Central
+egress must admit the host/port before DNS; see [egress policy](egress.md).
+
+Node passes one vetted numeric IP to the process-isolated Rust helper; the helper
+does not resolve again. The helper uses the exact reviewed `russh=0.64.1` minimal
+ring / `russh-sftp=3.0.1` tree, with a narrowly scoped dependency exception recorded
+in [the decision](ops/m-russh-dependency-decision.md). The private key crosses only
+a bounded private stdin frame after host verification. It is never a file, argv,
+environment value, log, event, report or RPC result. Without a server, use the
+Desktop snapshot or the CLI; [English](user/en/import.md) and
+[German](user/de/import.md) user help contain OS-specific setup instructions.
+
+Source snapshots are sealed, bounded private files (0700 directories/0600 files,
+equivalent private Windows ACLs). Credential files and sensitive defaults/config
+values are omitted; only allowlisted source values may survive in a separate
+owner/plan-bound private memory lease. Original source modes are metadata for
+script disclosure, not looser staging permissions. Upload admission validates
+the original manifest/hash inventory while streaming and seals before writing,
+then emits a new whitelisted manifest. Upload claims are owner-bound, one-use and
+time-limited; failed/aborted admission removes its owned stage and claim. Neither
+the source nor the uploaded raw config is used as a mutable target.
+
+Sealed source records support immutable plan/reopen/resume. After successful
+private activation and runtime checks, cleanup removes the plan's sealed source
+snapshots, including mapped sources, when no other unexpired unfinished plan
+references them. Invalid or oversized plan metadata, linked paths and mismatched
+snapshot hashes prevent deletion. Failed/resumable runs keep their sources; durable
+plans, reports and the cold target baseline remain available for rollback.
+
+### 13.3 Live preflight before downtime
+
+`admin.import.preflight` runs with Core and its injected Engine alive. It binds the
+exact plan/source hash, owner, config revision and target fingerprint. It checks
+source parsing/readability, resolved conflicts, config dry-run schema validation,
+target store support/probes, free space for import plus cold backup and reserve,
+permissions/locks, model readiness/licence when re-embedding, and Secret Store
+availability when selected. It returns a failure list or a short-lived one-use
+ticket with a downtime estimate. A failed preflight keeps Core running. Apply,
+resume and manual rollback require fresh authorization and explicit confirmation;
+a second maintenance attempt receives `E_CONFLICT reason=busy`.
+
+The M methods are additive RPC 1.8.0 contracts. Full maintenance refuses an
+experimental unmanaged Rust Engine owner at preflight: stopping Core alone cannot
+prove that external writer has closed. It does not fall back to a different
+Engine or edit Engine code. The managed default Node Engine path is supported.
+
+### 13.4 Maintenance, failure and recovery
+
+The Supervisor claims the exact preflight, gates competing mutations, acquires any
+source-secret frame while Core is alive, closes the live Engine owner, stops Core
+and starts the fixed built `import.js --supervised` worker. Private bounded controls
+provide Supervisor config writes and extension transactions; the worker never
+starts a second config writer. Public progress carries run-bound phase/count
+metadata only. The ordinary importer runs against the authenticated sealed source.
+
+Before target mutation the worker durably records intent and makes a complete
+cold baseline of the declared mutation roots and config. A failure or abort restores
+that baseline and this run's missing-only secret writes before Core restarts. This
+supervised rollback also restores store bytes, avoiding the historical offline
+card-undo limitation in §11.3. The journal/manifest remain authoritative after a
+crash; an unproven dirty state keeps the gate closed instead of opening Core onto
+partially imported stores. Resume retains the original baseline and increments
+the authenticated attempt. Manual rollback refuses a later changed target; a
+refusal before any new attempt mutation preserves those user changes.
+
+For store takeover with re-embedding, the plan binds the selected source store,
+its vector identity and the final model. Preflight checks both pinned model
+artifacts/licences and probes a private source-store copy before downtime. The
+worker stages the store under the verified source model. Core then starts with
+public writes and background work held while the existing migration driver
+re-embeds, validates and switches to the selected target model. Any required
+restart finishes before activation opens admission. Failure restores the original
+cold baseline; selecting the existing source model avoids a redundant migration.
+
+Native independently verifies the exact journal run/attempt/phase, cold manifest
+digest and report raw SHA256/size before accepting completion/restoration. Reports
+remain at `<home>/imports/<runId>/report.json`; the Supervisor hashes bodies without
+parsing source or Engine data. Abort and total deadlines terminate the owned worker
+process tree; daemon stop keeps its existing budget. Recovery/undo ignores a GUI
+abort so restoration can finish, while its absolute/daemon deadlines still apply.
+
+Live source/detect and actual SFTP/worker tests cover both source families, private
+sealing, limits, source hashes, host-key-before-lease, cold rollback and bounded
+metadata. HTTP/native lifecycle and browser/axe evidence are separate: see
+[the UI validation status](web-ui.md#m-v2-extensionimport-validation-status).
+The UV runtime producer and foreign-plugin execution bridge remain outside the
+completed paths; source detection does not promise either can run.
 
 ## Canonical curated agent knowledge (A2, 2026-10-20)
 
@@ -832,3 +975,19 @@ writes promotion receipts. `engine.schicht15.maxPromotionsPerRun` sets the cap (
 This model-free Engine job is the deliberate alternative to LLM synthesis: it integrates already classified pending
 memories deterministically and performs no LLM completion or new semantic summarization. This path avoids introducing
 a second knowledge writer or bypassing the D109 tool dispatcher with an agent tool.
+
+
+## SSH setup source references
+
+[1] OpenSSH's [`sshd(8)` authorized-key options](https://github.com/openssh/openssh-portable/blob/master/sshd.8)
+    and [`sftp-server(8)` read-only mode](https://github.com/openssh/openssh-portable/blob/master/sftp-server.8).
+
+[2] OpenSSH's [Red Hat package recipe](https://github.com/openssh/openssh-portable/blob/master/contrib/redhat/openssh.spec)
+    and the [official archived Arch recipe](https://github.com/archlinux/svntogit-packages/blob/packages/openssh/trunk/PKGBUILD).
+
+[3] Apple's [OpenSSH build settings](https://github.com/apple-oss-distributions/OpenSSH/blob/main/xcconfigs/openssh.xcconfig)
+    and [installation paths](https://github.com/apple-oss-distributions/OpenSSH/blob/main/xcconfigs/base.xcconfig).
+    Current Remote Login settings navigation could not be independently verified here.
+
+[4] Microsoft's [OpenSSH key management](https://github.com/MicrosoftDocs/windowsserverdocs/blob/main/WindowsServerDocs/administration/OpenSSH/OpenSSH_KeyManagement.md)
+    and [server configuration](https://github.com/MicrosoftDocs/windowsserverdocs/blob/main/WindowsServerDocs/administration/OpenSSH/openssh-server-configuration.md).

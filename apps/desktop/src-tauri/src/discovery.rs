@@ -13,6 +13,8 @@ pub struct Discovery {
     pub instance_id: String,
     pub installation_id: String,
     pub api_version: String,
+    #[serde(skip)]
+    pub current: bool,
 }
 pub fn state_root() -> Option<PathBuf> {
     #[cfg(debug_assertions)]
@@ -42,7 +44,39 @@ pub fn discover_with_opener<R: Read>(
     if bytes.len() > 8192 {
         return None;
     }
-    let record: Discovery = serde_json::from_slice(&bytes).ok()?;
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields, rename_all = "camelCase")]
+    struct CurrentPublication {
+        address: String,
+        port: u16,
+        version: String,
+        fingerprint: Option<String>,
+        pid: u32,
+        instance_id: String,
+    }
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Publication {
+        Legacy(Discovery),
+        Current(CurrentPublication),
+    }
+    let record = match serde_json::from_slice::<Publication>(&bytes).ok()? {
+        Publication::Legacy(record) => record,
+        Publication::Current(record) => {
+            if record.address != "127.0.0.1" || record.port == 0 || record.fingerprint.is_some() {
+                return None;
+            }
+            let url = Origin::parse(&format!("http://127.0.0.1:{}", record.port)).ok()?;
+            Discovery {
+                installation_id: crate::client::Meta::current_identity(&url),
+                url,
+                pid: record.pid,
+                instance_id: record.instance_id,
+                api_version: record.version,
+                current: true,
+            }
+        }
+    };
     if !record.url.is_loopback()
         || record.pid == 0
         || record.pid > i32::MAX as u32
@@ -50,6 +84,11 @@ pub fn discover_with_opener<R: Read>(
         || record.instance_id.is_empty()
         || record.installation_id.is_empty()
         || record.api_version.split('.').next() != Some("1")
+        || record.api_version.len() > 32
+        || !record
+            .api_version
+            .split('.')
+            .all(|part| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit()))
     {
         return None;
     }
@@ -59,7 +98,10 @@ pub async fn reachable(record: &Discovery) -> bool {
     HarnessClient::new(record.url.clone(), None)
         .meta()
         .await
-        .is_ok_and(|meta| meta.installation_id == record.installation_id)
+        .is_ok_and(|meta| {
+            meta.installation_id == record.installation_id
+                && (!record.current || meta.current_desktop())
+        })
 }
 pub fn alive(pid: u32) -> bool {
     #[cfg(unix)]
