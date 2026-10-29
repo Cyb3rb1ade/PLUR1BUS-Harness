@@ -4,6 +4,8 @@
 // disconnecting a stream does not cancel the task.
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { isIP } from "node:net";
+import { lingerLimits, lingerUnread } from "@plur1bus/module-api";
+import { DEFAULT_LIMITS } from "./types.ts";
 import { BodyTooLarge, createA2aHandler, type A2aHandler, type A2aHandlerOptions, type A2aHttpRequest } from "./handler.ts";
 
 export function loopbackAddress(host: string): string {
@@ -40,18 +42,23 @@ export function createA2aServer(o: A2aServerOptions): A2aServer {
   let allowedHosts = new Set<string>();
   let handler: A2aHandler | undefined;
   let base = o.advertisedBaseUrl;
-  const send = (res: ServerResponse, status: number, headers: Record<string, string>, body: string): void => {
+  const lingerBytes = o.limits?.maxBodyBytes ?? DEFAULT_LIMITS.maxBodyBytes;
+  // An answer given before the upload is in (a 413, a 421) goes out at once, but the response is ended, and with it the
+  // connection closed, only after the rest of the upload was discarded within a bound: a socket closed under a sender ends
+  // in an RST, and on macOS that wipes the answer from the client's receive queue (`lingerUnread`).
+  const send = (req: IncomingMessage, res: ServerResponse, status: number, headers: Record<string, string>, body: string): void => {
     if (res.headersSent) { res.end(); return; }
     const payload = Buffer.from(body, "utf8");
     res.writeHead(status, { ...headers, "Content-Length": payload.length });
-    res.end(payload);
+    if (req.complete) { res.end(payload); return; }
+    res.write(payload); void lingerUnread(req, lingerLimits(lingerBytes)).then(() => res.end());
   };
   const server = createServer({ maxHeaderSize: 16 * 1024, requestTimeout: 0, headersTimeout: 10_000 }, (req, res) => {
     void (async () => {
       try {
         const host = req.headers.host?.toLowerCase();
         const target = req.url ?? "";
-        if (!handler || !host || !allowedHosts.has(host) || !target.startsWith("/")) { send(res, 421, { "Content-Type": "application/json" }, '{"error":"misdirected"}'); return; }
+        if (!handler || !host || !allowedHosts.has(host) || !target.startsWith("/")) { send(req, res, 421, { "Content-Type": "application/json" }, '{"error":"misdirected"}'); return; }
         const h: Record<string, string | undefined> = {};
         for (const [k, v] of Object.entries(req.headers)) h[k] = Array.isArray(v) ? v.join(", ") : v;
         const gone = new AbortController();
@@ -62,7 +69,6 @@ export function createA2aServer(o: A2aServerOptions): A2aServer {
           remote: (req.socket.remoteAddress ?? "unknown").replace(/^::ffff:/, ""), readBody: (limit) => readBody(req, limit),
         };
         const r = await handler.handle(areq);
-        if (r.status === 413) req.resume();
         if (r.stream) {
           if (res.headersSent) { res.end(); return; }
           res.writeHead(r.status, r.headers);
@@ -74,8 +80,8 @@ export function createA2aServer(o: A2aServerOptions): A2aServer {
           } finally { if (!res.writableEnded) res.end(); }
           return;
         }
-        send(res, r.status, r.headers, r.body);
-      } catch { send(res, 500, { "Content-Type": "application/json" }, '{"error":"internal"}'); }
+        send(req, res, r.status, r.headers, r.body);
+      } catch { send(req, res, 500, { "Content-Type": "application/json" }, '{"error":"internal"}'); }
     })();
   });
   server.maxConnections = 64;
