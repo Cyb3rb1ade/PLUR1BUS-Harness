@@ -44,17 +44,24 @@ const PARAMS: Record<string, object> = {
 };
 
 describe("grant.* and approval.* in a running core: who may call them", () => {
-  const restore = withMemoryKeyring();
+  let restore: (() => void) | undefined;
   const home = newHome();
   const audit = memoryAuditSink();
   let who: Principal | null = AGENT;
   let core: Core; let c: CoreClient;
   before(async () => {
+    restore = withMemoryKeyring();
     core = createCore({ home, testInternals: flatTestInternals(), rbac: { resolve: () => who, audit } });
     await core.start();
     c = await connect({ address: core.address, token: core.token });
   });
-  after(async () => { await c?.close(); await core?.stop({ budgetMs: 5000 }); restore(); });
+  after(async () => {
+    try { await c?.close(); }
+    finally {
+      try { await core?.stop({ budgetMs: 5000 }); }
+      finally { restore?.(); }
+    }
+  });
 
   it("an agent principal is refused every one of the eight methods, audited, and the stores are never opened", T, async () => {
     who = AGENT;
@@ -92,7 +99,7 @@ describe("grant.* and approval.* in a running core: who may call them", () => {
 });
 
 describe("grant.* and approval.* in a running core: the owner's path", () => {
-  const restore = withMemoryKeyring();
+  let restore: (() => void) | undefined;
   const home = newHome();
   const principals = new Map<string, Principal>();
   let core: Core; let c: CoreClient;
@@ -100,6 +107,7 @@ describe("grant.* and approval.* in a running core: the owner's path", () => {
   // The server-side attestation seam (CoreOptions.rbac.attest); a request cannot reach it. Off = a plain token connection.
   let attested = false;
   before(async () => {
+    restore = withMemoryKeyring();
     core = createCore({
       home, testInternals: flatTestInternals(),
       // A connection announces itself with its first call; the resolver is the core's own, so this is just a way to give two connections two principals.
@@ -108,7 +116,13 @@ describe("grant.* and approval.* in a running core: the owner's path", () => {
     await core.start();
     c = await connect({ address: core.address, token: core.token });
   });
-  after(async () => { await c?.close(); await core?.stop({ budgetMs: 5000 }); restore(); });
+  after(async () => {
+    try { await c?.close(); }
+    finally {
+      try { await core?.stop({ budgetMs: 5000 }); }
+      finally { restore?.(); }
+    }
+  });
 
   it("the approval store is opened by the first use, not by the start", T, async () => {
     assert.equal(existsSync(approvalsDbPath(home)), false);
@@ -200,16 +214,21 @@ describe("grant.* and approval.* in a running core: the owner's path", () => {
 });
 
 describe("OS attestation in a running core (#192 option C)", () => {
-  const restore = withMemoryKeyring();
+  let restore: (() => void) | undefined;
   const SHELL = { capability: "shell.exec", tool: "shell.run", effect: "local-destructive" as const, targets: [], args: { cmd: "ls" } };
   const PERSON: Principal = { userId: "christian", kind: "person", role: "owner" };
-  after(() => restore());
+  before(() => { restore = withMemoryKeyring(); });
+  after(() => restore?.());
 
   async function run<T>(attestation: { helper: HelperSpec | null }, body: (c: CoreClient, core: Core) => Promise<T>): Promise<T> {
     const core = createCore({ home: newHome(), testInternals: flatTestInternals(), attestation, rbac: { resolve: () => PERSON, audit: memoryAuditSink() } });
     await core.start();
     const c = await connect({ address: core.address, token: core.token });
-    try { return await body(c, core); } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
+    try { return await body(c, core); }
+    finally {
+      try { await c.close(); }
+      finally { await core.stop({ budgetMs: 5000 }); }
+    }
   }
   const park = async (core: Core) => {
     const service = await core.approvalService();
