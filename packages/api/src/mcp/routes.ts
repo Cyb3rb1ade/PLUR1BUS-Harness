@@ -13,7 +13,7 @@ export const MCP_ROUTES: readonly RouteSpec[] = [
     tag: "mcp",
     summary: "MCP server endpoint supporting 2026-07-28 and 2025-11-25 eras",
     auth: "any",
-    authz: "authenticated",
+    authz: "delegated",
     csrf: false,
     rate: "rpc",
     transport: "protocol",
