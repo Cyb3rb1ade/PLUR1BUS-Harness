@@ -115,19 +115,25 @@ pub struct ClaudeReport {
 
 /// Normalizes a bounded plugin tree without extracting archives or executing any source component.
 /// `context` supplies each MCP member's final installation context; `fetch` is the only network boundary.
+/// The compatibility date argument does not affect the canonical unsigned source identity.
 pub fn normalise_claude(
     input: &ClaudeInput,
     mut context: impl FnMut(&str) -> Result<McpbContext, Refusal>,
     fetch: &mut impl EgressFetch,
     limits: &Limits,
-    created: &str,
+    _created: &str,
     out: &mut (impl Write + Seek),
 ) -> Result<ClaudeReport, Refusal> {
     let mut tree = source::read(input, limits)?;
     let mut skipped = tree.skipped.clone();
     let metadata = source::manifest(&tree, limits, &mut skipped)?;
+    let created = crate::mcpb::NORMALIZED_CREATED;
+    let source_version = metadata["version"]
+        .as_str()
+        .filter(|s| s.len() <= 64 && semver::Version::parse(s).is_ok());
     source::exclude_components(&mut tree, &metadata);
-    let mut builder = members::Builder::new(&tree, &mut context, fetch, limits, created);
+    let mut builder =
+        members::Builder::new(&tree, &mut context, fetch, limits, created, source_version);
     builder.skills(&metadata)?;
     if tree.files.contains_key(".mcp.json") {
         builder.reference("./.mcp.json")?;
@@ -141,15 +147,27 @@ pub fn normalise_claude(
     let mut warnings=vec!["Claude Code plugin publisher is unverified; bundle and normalized members are unsigned".into(),
         "Bundle wrapper is inert; inspect every member's capabilities, runtime, scripts and secret slots before approval".into()];
     if children.iter().any(|c| c.manifest.name == name) {
-        name.truncate(name.len().min(55));
-        name.truncate(name.trim_end_matches('-').len());
-        name.push_str("-bundle");
+        let base = name.clone();
+        // At most N member names can occupy N+1 distinct bounded suffixes.
+        for counter in 0..=children.len() {
+            let suffix = if counter == 0 {
+                "-bundle".into()
+            } else {
+                format!("-bundle-{counter}")
+            };
+            let prefix = &base[..base.len().min(62 - suffix.len())];
+            let candidate = format!("{}{suffix}", prefix.trim_end_matches('-'));
+            if !children
+                .iter()
+                .any(|child| child.manifest.name == candidate)
+            {
+                name = candidate;
+                break;
+            }
+        }
         warnings.push("Bundle name uses a suffix to avoid colliding with its member".into());
     }
-    let version = metadata["version"]
-        .as_str()
-        .filter(|s| s.len() <= 64 && semver::Version::parse(s).is_ok())
-        .unwrap_or("0.0.0");
+    let version = source_version.unwrap_or("0.0.0");
     let mut table = Vec::new();
     let mut files = Vec::new();
     let mut reports = Vec::new();

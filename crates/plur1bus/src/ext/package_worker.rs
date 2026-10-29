@@ -116,7 +116,7 @@ impl PackageStore {
                 .as_str()
                 .and_then(|v| semver::Version::parse(v).ok())
                 .zip(semver::Version::parse(&m.version).ok())
-                .is_some_and(|(old, new)| new < old);
+                .is_some_and(|(old, new)| new.cmp_precedence(&old).is_lt());
             if lower && !opts.allow_downgrade {
                 return Err(approval(
                     "acknowledge-downgrade",

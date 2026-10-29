@@ -300,6 +300,7 @@ fn disclosures(source: &McpbManifest, signature: SignatureStatus) -> Vec<String>
 }
 
 /// Audits an MCPB/DXT archive and writes an unsigned p1x only after complete validation.
+/// The date argument remains for caller compatibility; source identity uses an undated canonical creation field.
 pub fn normalise_mcpb(
     input: &mut (impl Read + Seek),
     context: &McpbContext,
@@ -312,11 +313,12 @@ pub fn normalise_mcpb(
 
 /// Normalizes using a context port called with the validated, normalized package name before path expansion.
 /// The port can select the final installation directory without reading or parsing package bytes itself.
+/// The compatibility date argument does not affect normalized source bytes.
 pub fn normalise_mcpb_with_context(
     input: &mut (impl Read + Seek),
     context: impl FnOnce(&str) -> Result<McpbContext, Refusal>,
     limits: &Limits,
-    created: &str,
+    _created: &str,
     out: &mut (impl Write + Seek),
 ) -> Result<McpbReport, Refusal> {
     let package = payload(input, limits)?;
@@ -325,14 +327,45 @@ pub fn normalise_mcpb_with_context(
         &mut Vec::new(),
     );
     let context = context(&name)?;
-    finish_normalise_mcpb(package, &context, limits, created, out)
+    finish_normalise_mcpb(package, &context, limits, VersionPolicy::Upstream, out)
+}
+
+/// An unsigned normalized source has no authenticated creation time. A stable format epoch keeps repeated input
+/// byte-identical; install/inspection timestamps remain separate records. Ordinary packers still use their caller date.
+pub(crate) const NORMALIZED_CREATED: &str = "1970-01-01T00:00:00.000Z";
+
+enum VersionPolicy<'a> {
+    Upstream,
+    Inline(Option<&'a str>),
+}
+
+pub(crate) fn normalise_inline_mcpb(
+    input: &mut (impl Read + Seek),
+    context: impl FnOnce(&str) -> Result<McpbContext, Refusal>,
+    limits: &Limits,
+    version: Option<&str>,
+    out: &mut (impl Write + Seek),
+) -> Result<McpbReport, Refusal> {
+    let package = payload(input, limits)?;
+    let name = package_name(
+        package.0.source["name"].as_str().unwrap_or(""),
+        &mut Vec::new(),
+    );
+    let context = context(&name)?;
+    finish_normalise_mcpb(
+        package,
+        &context,
+        limits,
+        VersionPolicy::Inline(version),
+        out,
+    )
 }
 
 fn finish_normalise_mcpb(
     package: (McpbManifest, Vec<PayloadFile>, SignatureStatus),
     context: &McpbContext,
     limits: &Limits,
-    created: &str,
+    version: VersionPolicy<'_>,
     out: &mut (impl Write + Seek),
 ) -> Result<McpbReport, Refusal> {
     let (mut source, mut files, signature) = package;
@@ -359,11 +392,14 @@ fn finish_normalise_mcpb(
             .map_err(|_| invalid("MCPB metadata serialization failed"))?,
         exec: false,
     });
-    let prepared = prepare(
-        &template(&source.source, &secret_slots, &mut warnings),
-        files,
-        created,
-    )?;
+    let mut template = template(&source.source, &secret_slots, &mut warnings);
+    if let VersionPolicy::Inline(version) = version {
+        template["version"] = match version {
+            Some(version) => version.into(),
+            None => crate::pack::content_version(&template, &files)?.into(),
+        };
+    }
+    let prepared = prepare(&template, files, NORMALIZED_CREATED)?;
     let bytes = checked_zip(&entries_of(&prepared, None))?;
     audit_zip(&mut std::io::Cursor::new(&bytes), limits)?;
     check_mcpb_runtime(&source, &prepared.manifest.requires)?;

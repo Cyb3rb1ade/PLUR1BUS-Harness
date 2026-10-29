@@ -235,7 +235,7 @@ fn predicted(insp: &Value, enable: bool) -> Vec<String> {
     let new = semver::Version::parse(insp["manifest"]["version"].as_str().unwrap_or(""));
     let old = semver::Version::parse(insp["replaces"]["version"].as_str().unwrap_or(""));
     if let (Ok(n), Ok(o)) = (new, old) {
-        if n < o {
+        if n.cmp_precedence(&o).is_lt() {
             need.push("downgrade".into());
         }
     }

@@ -1,6 +1,6 @@
 //! Inline MCP definitions become credential-free local MCPB or remote p1x members (M-A11).
 use super::{inert_capabilities, invalid, members::Child, normalized_name, source};
-use crate::mcpb::{normalise_mcpb_with_context, McpbContext};
+use crate::mcpb::{normalise_inline_mcpb, McpbContext, NORMALIZED_CREATED};
 use crate::pack::{pack_files, write_zip, ZipEntry, ZipKind};
 use crate::refusal::Refusal;
 use crate::zipaudit::Limits;
@@ -14,10 +14,13 @@ fn template(name: &str, version: &str) -> Value {
         "defaultEnabled":false,"capabilities":inert_capabilities()})
 }
 
-fn remote(name: &str, definition: &Value, created: &str) -> Result<Child, Refusal> {
+fn remote(name: &str, definition: &Value, version: Option<&str>) -> Result<Child, Refusal> {
     let url = definition["url"]
         .as_str()
         .ok_or_else(|| invalid("plugin remote MCP server requires a URL"))?;
+    if url.contains(['?', '#']) {
+        return Err(invalid("plugin inline MCP endpoint queries and fragments are unsupported; configure authentication through the secret store"));
+    }
     let host = crate::kinds::url_host(url)
         .map_err(|_| invalid("plugin remote MCP URL requires HTTPS without credentials"))?;
     let mut template = template(name, "0.0.0");
@@ -49,8 +52,12 @@ fn remote(name: &str, definition: &Value, created: &str) -> Result<Child, Refusa
     };
     template["remote"] = json!({"url":url,"auth":auth});
     template["capabilities"]["network"] = json!({"mode":"allowlist","hosts":[host]});
+    template["version"] = match version {
+        Some(version) => version.into(),
+        None => crate::pack::content_version(&template, &[])?.into(),
+    };
     let mut output = Cursor::new(Vec::new());
-    let manifest = pack_files(&template, Vec::new(), created, &mut output)?;
+    let manifest = pack_files(&template, Vec::new(), NORMALIZED_CREATED, &mut output)?;
     Ok(Child {
         manifest,
         bytes: output.into_inner(),
@@ -75,7 +82,7 @@ fn local<C: FnMut(&str) -> Result<McpbContext, Refusal>>(
     tree: &source::SourceTree,
     context: &mut C,
     limits: &Limits,
-    created: &str,
+    version: Option<&str>,
 ) -> Result<Child, Refusal> {
     let command = definition["command"]
         .as_str()
@@ -139,7 +146,7 @@ fn local<C: FnMut(&str) -> Result<McpbContext, Refusal>>(
         );
     }
     config.insert("env".into(), Value::Object(env));
-    let mcpb = json!({"manifest_version":"0.4","name":name,"version":"0.0.0","description":"Imported plugin MCP server",
+    let mcpb = json!({"manifest_version":"0.4","name":name,"version":version.unwrap_or("0.0.0"),"description":"Imported plugin MCP server",
         "author":{"name":"Local"},"server":{"type":runtime,"entry_point":entry,"mcp_config":config},"user_config":declarations});
     let mut entries = vec![ZipEntry {
         name: "manifest.json".into(),
@@ -164,11 +171,11 @@ fn local<C: FnMut(&str) -> Result<McpbContext, Refusal>>(
     }
     let bytes = write_zip(&entries)?;
     let mut output = Cursor::new(Vec::new());
-    let report = normalise_mcpb_with_context(
+    let report = normalise_inline_mcpb(
         &mut Cursor::new(bytes),
         context,
         limits,
-        created,
+        version,
         &mut output,
     )?;
     warnings.extend(report.warnings);
@@ -186,7 +193,7 @@ pub(super) fn normalize<C: FnMut(&str) -> Result<McpbContext, Refusal>>(
     tree: &source::SourceTree,
     context: &mut C,
     limits: &Limits,
-    created: &str,
+    version: Option<&str>,
 ) -> Result<Child, Refusal> {
     if !definition.is_object() {
         return Err(invalid(
@@ -195,7 +202,7 @@ pub(super) fn normalize<C: FnMut(&str) -> Result<McpbContext, Refusal>>(
     }
     let name = normalized_name(name);
     if definition.get("url").is_some() {
-        remote(&name, definition, created)
+        remote(&name, definition, version)
     } else {
         local(
             &name,
@@ -204,7 +211,7 @@ pub(super) fn normalize<C: FnMut(&str) -> Result<McpbContext, Refusal>>(
             tree,
             context,
             limits,
-            created,
+            version,
         )
     }
 }

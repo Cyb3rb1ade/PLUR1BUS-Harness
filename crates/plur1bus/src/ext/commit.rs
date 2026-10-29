@@ -430,7 +430,7 @@ pub(crate) fn recheck(
 
 fn lower(new: &str, old: &str) -> bool {
     match (semver::Version::parse(new), semver::Version::parse(old)) {
-        (Ok(n), Ok(o)) => n < o,
+        (Ok(n), Ok(o)) => n.cmp_precedence(&o).is_lt(),
         _ => false,
     }
 }

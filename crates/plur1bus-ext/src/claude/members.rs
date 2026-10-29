@@ -21,6 +21,7 @@ pub(super) struct Builder<'a, C, F> {
     fetch: &'a mut F,
     limits: &'a Limits,
     created: &'a str,
+    version: Option<&'a str>,
     children: Vec<Child>,
     seen: BTreeSet<String>,
     active: BTreeSet<String>,
@@ -38,6 +39,7 @@ impl<'a, C: FnMut(&str) -> Result<McpbContext, Refusal>, F: EgressFetch> Builder
         fetch: &'a mut F,
         limits: &'a Limits,
         created: &'a str,
+        version: Option<&'a str>,
     ) -> Self {
         Self {
             tree,
@@ -45,6 +47,7 @@ impl<'a, C: FnMut(&str) -> Result<McpbContext, Refusal>, F: EgressFetch> Builder
             fetch,
             limits,
             created,
+            version,
             children: Vec::new(),
             seen: BTreeSet::new(),
             active: BTreeSet::new(),
@@ -160,7 +163,7 @@ impl<'a, C: FnMut(&str) -> Result<McpbContext, Refusal>, F: EgressFetch> Builder
                             self.tree,
                             self.context,
                             self.limits,
-                            self.created,
+                            self.version,
                         )?;
                         self.add(child)?;
                     }
