@@ -139,7 +139,8 @@ impl ModelTokenizer {
     fn encode(&self, text: &str, pair: Option<&str>) -> Result<Encoding, LocalModelError> {
         // No tokenizer truncation strategy is used: LongestFirst would remove tokens
         // from the query and retain the closing separator, unlike Transformers.js.
-        match pair {
+        // Transformers.js treats an empty `text_pair` as absent: an empty document is encoded as the query alone.
+        match pair.filter(|pair| !pair.is_empty()) {
             Some(pair) => self.tokenizer.encode((text, pair), true),
             None => self.tokenizer.encode(text, true),
         }
@@ -295,6 +296,20 @@ mod tests {
         assert_eq!(
             tokenizer.encode_ids("a b c d e", None).unwrap(),
             [2, 4, 5, 6]
+        );
+    }
+    #[test]
+    fn an_empty_document_is_encoded_as_the_query_alone_like_transformers_js() {
+        let directory = fixture(16, "right");
+        let tokenizer = e5(directory.path(), Some(16));
+        assert_eq!(
+            tokenizer.encode_ids("a b", Some("")).unwrap(),
+            tokenizer.encode_ids("a b", None).unwrap()
+        );
+        assert_eq!(tokenizer.encode_ids("a b", Some("")).unwrap(), [2, 4, 5, 3]);
+        assert_eq!(
+            tokenizer.encode_ids("a", Some("c")).unwrap(),
+            [2, 4, 3, 6, 3]
         );
     }
     #[test]

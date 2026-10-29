@@ -153,7 +153,12 @@ fn bge_token_ids_match_the_node_engine() {
                 .collect::<Vec<_>>()
                 .join(" ")
         };
-        let full = tokenizer.encode((query, document.as_str()), true).unwrap();
+        // Node (Transformers.js) encodes an empty document as the query alone, not as a pair.
+        let full = if document.is_empty() {
+            tokenizer.encode(query, true).unwrap()
+        } else {
+            tokenizer.encode((query, document.as_str()), true).unwrap()
+        };
         let retained = full.len().min(cap);
         let expected: Vec<u32> = serde_json::from_value(case["input_ids"].clone()).unwrap();
         let mask: Vec<u32> = serde_json::from_value(case["attention_mask"].clone()).unwrap();
