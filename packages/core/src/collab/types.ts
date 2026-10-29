@@ -23,6 +23,9 @@ export interface CollabSettings {
 }
 
 export interface ProjectMember { userId: string; role: ProjectRole }
+/** Root-project repository binding. M5+ adds remote and commit identity on this object. */
+export interface RepoBinding { repoPath: string; baseBranch: string }
+
 export interface Project {
   id: string;
   name: string;
@@ -33,6 +36,8 @@ export interface Project {
   createdAt: number;
   updatedAt: number;
   archivedAt: number | null;
+  /** Absent until `project.repo.bind`. */
+  repo?: RepoBinding;
 }
 
 export interface Provenance {

@@ -122,6 +122,8 @@ export const MIGRATIONS: readonly string[] = [
   `,
   `ALTER TABLE spans ADD COLUMN session_id TEXT;`,
   `ALTER TABLE spans ADD COLUMN target_kind TEXT; ALTER TABLE tasks ADD COLUMN target_kind TEXT;`,
+  // v5: optional root-project repo binding. Subprojects inherit it later; they do not get a second column set.
+  `ALTER TABLE projects ADD COLUMN repo_path TEXT; ALTER TABLE projects ADD COLUMN base_branch TEXT;`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

@@ -372,6 +372,14 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "project.repo.bind": {
+      "stability": "experimental",
+      "since": "1.9.0"
+    },
+    "project.repo.unbind": {
+      "stability": "experimental",
+      "since": "1.9.0"
+    },
     "task.complete": {
       "stability": "experimental",
       "since": "1.5.0"

@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://plur1bus.dev/schema/rpc/1.7.0/rpc.schema.json",
-  "title": "PLUR1BUS harness RPC 1.7.0",
+  "$id": "https://plur1bus.dev/schema/rpc/1.9.0/rpc.schema.json",
+  "title": "PLUR1BUS harness RPC 1.9.0",
   "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch.",
-  "x-rpc-version": "1.7.0",
+  "x-rpc-version": "1.9.0",
   "$defs": {
     "EngineTransportEvent": {
       "type": "object",
@@ -11273,6 +11273,38 @@
           "type": "object",
           "additionalProperties": true
         }
+      },
+      "project.repo.bind": {
+        "description": "Bind a root project to a git repository. A person who is a project lead. Refuses bare repositories and paths under the harness home.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.9.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projectId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "repoPath": { "type": "string", "minLength": 1, "maxLength": 4096 },
+            "baseBranch": { "type": "string", "minLength": 1, "maxLength": 128 }
+          },
+          "required": ["projectId", "repoPath", "baseBranch"]
+        },
+        "result": { "type": "object", "additionalProperties": true }
+      },
+      "project.repo.unbind": {
+        "description": "Remove a root project's repository binding. A person who is a project lead.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.9.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projectId": { "type": "string", "minLength": 1, "maxLength": 128 }
+          },
+          "required": ["projectId"]
+        },
+        "result": { "type": "object", "additionalProperties": true }
       },
       "task.complete": {
         "description": "Complete an assigned coding card after sandboxed verifiers and exact-tree review. Human project leads may override with an audited note.",

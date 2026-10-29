@@ -6,7 +6,7 @@ import { CollabError } from "./errors.ts";
 import { newId } from "./ids.ts";
 import { migrate, SCHEMA_VERSION } from "./migrations.ts";
 import type {
-  CollabSettings, CollabSpan, CollabTrace, DelegateTask, Project, ProjectMember, ProjectRole, SpanStatus, TaskStatus,
+  CollabSettings, CollabSpan, CollabTrace, DelegateTask, Project, ProjectMember, ProjectRole, RepoBinding, SpanStatus, TaskStatus,
 } from "./types.ts";
 import { traceparent } from "./ids.ts";
 
@@ -189,12 +189,32 @@ export class CollabStore {
       .map((m): ProjectMember => ({ userId: m.user_id as string, role: m.role as ProjectRole }));
     const agents = this.#all("SELECT agent_id FROM project_agents WHERE project_id = ? ORDER BY agent_id", id)
       .map((a) => a.agent_id as string);
+    const repoPath = r.repo_path as string | null;
+    const baseBranch = r.base_branch as string | null;
     return {
       id: r.id as string, name: r.name as string, owner: r.owner as string, members, agents,
       settings: mergeSettings(JSON.parse(r.settings as string)),
       createdAt: r.created_at as number, updatedAt: r.updated_at as number,
       archivedAt: (r.archived_at as number | null) ?? null,
+      ...(repoPath && baseBranch ? { repo: { repoPath, baseBranch } satisfies RepoBinding } : {}),
     };
+  }
+
+  /** Persists a binding already checked by `assertRepoBinding`. */
+  setRepo(id: string, repo: RepoBinding): Project {
+    return this.#tx(() => {
+      this.#live(id);
+      this.#run("UPDATE projects SET repo_path = ?, base_branch = ?, updated_at = ? WHERE id = ?", repo.repoPath, repo.baseBranch, this.#clock(), id);
+      return this.#project(id)!;
+    });
+  }
+
+  clearRepo(id: string): Project {
+    return this.#tx(() => {
+      this.#live(id);
+      this.#run("UPDATE projects SET repo_path = NULL, base_branch = NULL, updated_at = ? WHERE id = ?", this.#clock(), id);
+      return this.#project(id)!;
+    });
   }
 
   // ---- artifacts -------------------------------------------------------------------------------

@@ -240,6 +240,9 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus project agent`↴](#plur1bus-project-agent)
 * [`plur1bus project agent add`↴](#plur1bus-project-agent-add)
 * [`plur1bus project agent remove`↴](#plur1bus-project-agent-remove)
+* [`plur1bus project repo`↴](#plur1bus-project-repo)
+* [`plur1bus project repo bind`↴](#plur1bus-project-repo-bind)
+* [`plur1bus project repo unbind`↴](#plur1bus-project-repo-unbind)
 * [`plur1bus trace`↴](#plur1bus-trace)
 * [`plur1bus trace show`↴](#plur1bus-trace-show)
 * [`plur1bus trace list`↴](#plur1bus-trace-list)
@@ -3415,6 +3418,7 @@ Examples:
 * `archive` — [experimental] Archive a project
 * `member` — Project membership and roles
 * `agent` — Assigned project agents
+* `repo` — Bind or unbind the project's git repository (project lead)
 
 
 
@@ -3818,6 +3822,48 @@ Assigned project agents
 
 * `<PROJECT>`
 * `<AGENT>`
+
+
+
+## `plur1bus project repo`
+
+Bind or unbind the project's git repository (project lead)
+
+**Usage:** `plur1bus project repo <COMMAND>`
+
+###### **Subcommands:**
+
+* `bind` — [experimental] Bind a root project to a git repository
+* `unbind` — [experimental] Remove a project's repository binding
+
+
+
+## `plur1bus project repo bind`
+
+[experimental] Bind a root project to a git repository
+
+**Usage:** `plur1bus project repo bind --base <BASE> <PROJECT> <PATH>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+* `<PATH>` — Absolute path of the repository
+
+###### **Options:**
+
+* `--base <BASE>` — Branch the harness forks from
+
+
+
+## `plur1bus project repo unbind`
+
+[experimental] Remove a project's repository binding
+
+**Usage:** `plur1bus project repo unbind <PROJECT>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
 
 
 
