@@ -189,6 +189,8 @@ test("OK-8: human admin methods have Owner/Admin rules; exact private Core contr
     ["admin.import.runtime.release", "core"],
     ["admin.import.runtime.status", "core"],
     ["admin.import.runtime.complete", "core"],
+    // Called only by the Core over its own supervisor connection after an extension secret changed.
+    ["admin.extensions.runtime.reconcile", "supervisor"],
   ] as const);
   for (const [m, server] of privateCoreControls) {
     assert.ok(methods.includes(m), `private control ${m} exists in the schema`);
