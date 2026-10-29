@@ -1,6 +1,7 @@
 import {
   A2A_PROTOCOL_VERSION,
   A2A_VERSION_HEADER,
+  AgentCard,
   Extensions,
   HTTP_EXTENSION_HEADER,
 } from "@a2a-js/sdk";
@@ -10,14 +11,15 @@ import {
 } from "@a2a-js/sdk/compat/v0_3";
 import { A2A_ERROR_CODE, RequestMalformedError } from "@a2a-js/sdk/errors";
 import { JsonRpcTransportHandler, ServerCallContext } from "@a2a-js/sdk/server";
-import { errors } from "../errors.ts";
+import { ApiError, errors } from "../errors.ts";
 import type { HandlerDeps, HandlerInput, HandlerOutput, RouteSpec } from "../routes.ts";
 import {
   isAgentA2aExposed,
   isLegacy03Enabled,
   type A2aServerConfigLike,
 } from "./activation.ts";
-import { A2aServerCore, InMemoryTaskStore } from "./server.ts";
+import { A2aServerCore, buildAgentCard, InMemoryTaskStore } from "./server.ts";
+import { signAgentCard } from "./card.ts";
 import { A2A_MAX_BODY_BYTES } from "./types.ts";
 import type { TaskStore } from "@a2a-js/sdk/server";
 
@@ -30,6 +32,78 @@ export interface A2aHandlerDeps extends HandlerDeps {
 }
 
 export const A2A_ROUTES: readonly RouteSpec[] = [
+  {
+    id: "a2a.card.root",
+    method: "GET",
+    path: "/.well-known/agent-card.json",
+    tag: "a2a",
+    summary: "A2A 1.0 Agent Card for the default agent",
+    auth: "none",
+    authz: "public",
+    csrf: false,
+    rate: "read",
+    stability: "experimental",
+    since: "1.0.0",
+    successStatus: 200,
+    success: {
+      description: "A2A Agent Card document",
+      schema: { type: "object", additionalProperties: true },
+    },
+  },
+  {
+    id: "a2a.card.root.alias",
+    method: "GET",
+    path: "/.well-known/agent.json",
+    tag: "a2a",
+    summary: "A2A 1.0 Agent Card for the default agent (alias)",
+    auth: "none",
+    authz: "public",
+    csrf: false,
+    rate: "read",
+    stability: "experimental",
+    since: "1.0.0",
+    successStatus: 200,
+    success: {
+      description: "A2A Agent Card document",
+      schema: { type: "object", additionalProperties: true },
+    },
+  },
+  {
+    id: "a2a.card.agent",
+    method: "GET",
+    path: "/a2a/{agentId}/.well-known/agent-card.json",
+    tag: "a2a",
+    summary: "A2A 1.0 Agent Card for a specific agent",
+    auth: "none",
+    authz: "public",
+    csrf: false,
+    rate: "read",
+    stability: "experimental",
+    since: "1.0.0",
+    successStatus: 200,
+    success: {
+      description: "A2A Agent Card document",
+      schema: { type: "object", additionalProperties: true },
+    },
+  },
+  {
+    id: "a2a.card.agent.alias",
+    method: "GET",
+    path: "/a2a/{agentId}/.well-known/agent.json",
+    tag: "a2a",
+    summary: "A2A 1.0 Agent Card for a specific agent (alias)",
+    auth: "none",
+    authz: "public",
+    csrf: false,
+    rate: "read",
+    stability: "experimental",
+    since: "1.0.0",
+    successStatus: 200,
+    success: {
+      description: "A2A Agent Card document",
+      schema: { type: "object", additionalProperties: true },
+    },
+  },
   {
     id: "a2a.endpoint",
     method: "POST",
@@ -81,7 +155,77 @@ export function buildA2aHandlers(
     return server;
   };
 
+  const serveCard = async (
+    agentId: string | undefined,
+    i: HandlerInput,
+  ): Promise<HandlerOutput> => {
+    const a2aConfig =
+      typeof d.a2aConfig === "function" ? await d.a2aConfig() : d.a2aConfig;
+
+    let targetAgentId = agentId;
+    if (!targetAgentId) {
+      targetAgentId = a2aConfig?.a2aServer?.defaultAgentId;
+      if (!targetAgentId) {
+        if (isAgentA2aExposed(a2aConfig, "default")) {
+          targetAgentId = "default";
+        } else {
+          const exposed = Object.entries(a2aConfig?.agents ?? {}).find(
+            ([, a]) => a.a2aServer?.exposed === true,
+          );
+          if (exposed) {
+            targetAgentId = exposed[0];
+          }
+        }
+      }
+    }
+
+    if (!targetAgentId || !isAgentA2aExposed(a2aConfig, targetAgentId)) {
+      throw new ApiError(404, "E_NOT_FOUND", "Agent card not found or not exposed over A2A", {
+        reason: "agent",
+      });
+    }
+
+    const reqHeaders = i.headers ?? {};
+    const host = (reqHeaders["host"] as string | undefined) || "127.0.0.1";
+    const scheme = d.tls ? "https" : "http";
+    const baseUrl = `${scheme}://${host}`;
+
+    const agentCfg = a2aConfig?.agents?.[targetAgentId]?.a2aServer;
+    let card = buildAgentCard(baseUrl, targetAgentId, {
+      name: agentCfg?.name,
+      description: agentCfg?.description,
+      legacy03: isLegacy03Enabled(a2aConfig),
+    });
+
+    if (a2aConfig?.a2aServer?.signingKey?.privateKeyPem) {
+      card = await signAgentCard(card, a2aConfig.a2aServer.signingKey.privateKeyPem, {
+        kid: a2aConfig.a2aServer.signingKey.kid ?? "default",
+      });
+    }
+
+    return {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-cache, no-store",
+      },
+      body: AgentCard.toJSON(card) as Record<string, unknown>,
+    };
+  };
+
   return {
+    "a2a.card.root": async (i: HandlerInput): Promise<HandlerOutput> => {
+      return serveCard(undefined, i);
+    },
+    "a2a.card.root.alias": async (i: HandlerInput): Promise<HandlerOutput> => {
+      return serveCard(undefined, i);
+    },
+    "a2a.card.agent": async (i: HandlerInput): Promise<HandlerOutput> => {
+      return serveCard(i.pathParams?.agentId, i);
+    },
+    "a2a.card.agent.alias": async (i: HandlerInput): Promise<HandlerOutput> => {
+      return serveCard(i.pathParams?.agentId, i);
+    },
     "a2a.endpoint": async (i: HandlerInput): Promise<HandlerOutput> => {
       if (!i.tokenRecord || !i.tokenRecord.binding) {
         throw errors.unauthenticated("authentication required");

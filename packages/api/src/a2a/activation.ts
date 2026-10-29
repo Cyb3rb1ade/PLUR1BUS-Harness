@@ -4,10 +4,17 @@ export interface AgentA2aConfig {
   description?: string;
 }
 
+export interface A2aSigningKeyConfig {
+  privateKeyPem?: string;
+  kid?: string;
+}
+
 export interface A2aServerConfigLike {
   a2aServer?: {
     enabled?: boolean;
     legacy03?: boolean;
+    defaultAgentId?: string;
+    signingKey?: A2aSigningKeyConfig;
   };
   agents?: Record<
     string,

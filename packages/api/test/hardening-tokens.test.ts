@@ -40,7 +40,7 @@ const MIN_ROLE: Record<string, string> = {
   "breakglass.request": "admin", "breakglass.list": "admin", "breakglass.revoke": "admin", "notices.list": "viewer",
 };
 // Native approval start/poll/cancel perform their own exact enrolled-device bearer check; ordinary PAT auth is never substituted.
-const PUBLIC = ["desktop.meta", "desktop.pair", "desktop.redeem", "desktop.ticket", "desktop.step-up.start", "desktop.step-up.poll", "desktop.step-up.cancel", "invitation.redeem", "session.create", "session.totp", "account.bootstrap", "passkeys.login.options", "passkeys.login", "remote.pair-proof", "remote.device.pair", "oauth.metadata", "oauth.protected_resource", "oauth.authorize.get", "oauth.authorize.post", "oauth.token", "oauth.revoke"];
+const PUBLIC = ["desktop.meta", "desktop.pair", "desktop.redeem", "desktop.ticket", "desktop.step-up.start", "desktop.step-up.poll", "desktop.step-up.cancel", "invitation.redeem", "session.create", "session.totp", "account.bootstrap", "passkeys.login.options", "passkeys.login", "remote.pair-proof", "remote.device.pair", "oauth.metadata", "oauth.protected_resource", "oauth.authorize.get", "oauth.authorize.post", "oauth.token", "oauth.revoke", "a2a.card.root", "a2a.card.root.alias", "a2a.card.agent", "a2a.card.agent.alias"];
 const SELF_SERVICE = ["csrf.issue", "desktop.step-up.approval", "desktop.step-up.decision", "session.delete", "sessions.revoke-all", "whoami", "oauth.grants.list", "oauth.grants.revoke"];
 
 function minRoleOf(action: string): string | undefined {
