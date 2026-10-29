@@ -759,6 +759,24 @@ pub enum MemoryCmd {
         #[command(subcommand)]
         sub: CurationCmd,
     },
+    /// [experimental] Mark sensitivity categories on a memory entry
+    Mark {
+        id: String,
+        /// sensitivity categories (comma-separated or repeated): health, financial, credential, identity, personal
+        #[arg(long, value_delimiter = ',', required = true)]
+        category: Vec<String>,
+        #[arg(long)]
+        agent: Option<String>,
+    },
+    /// [experimental] Clear sensitivity categories from a memory entry
+    Unmark {
+        id: String,
+        /// specific sensitivity category to clear; clears all manual markings if omitted
+        #[arg(long)]
+        category: Option<String>,
+        #[arg(long)]
+        agent: Option<String>,
+    },
     /// [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
     Reembed(ReembedArgs),
 }

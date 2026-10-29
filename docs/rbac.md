@@ -176,6 +176,8 @@ needed, `bg` = a live break-glass grant, `–` = denied). The matrix test compar
 | `memory.workspace.read` | memory-agent:workspace | ✔ | ✔ | use | use | use |
 | `memory.workspace.write` | memory-agent:workspace | ✔ | ✔ | use | use | – |
 | `memory.forget` | agent | ✔ | ✔ | use | use | – |
+| `memory.sensitivity.read` | agent | ✔ | ✔ | use | use | use |
+| `memory.sensitivity.write` | agent | ✔ | ✔ | manage | manage | – |
 | `agent.list` | system | ✔ | ✔ | ✔ | ✔ | ✔ |
 | `agent.read` | agent | ✔ | ✔ | ✔ | use | use |
 | `agent.use` | agent | ✔ | ✔ | use | use | – |

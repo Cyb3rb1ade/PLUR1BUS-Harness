@@ -1,0 +1,2 @@
+{ "params": { "id": "m-1", "agentId": "bernd" },
+  "result": { "id": "m-1", "categories": ["financial", "health"], "source": "rule", "updatedAt": 1758000000000 } }

@@ -89,3 +89,27 @@ export function createSecretRedaction(): SecretRedaction {
     mask: (text) => { let out = text; for (const v of known().sort((a, b) => b.length - a.length)) if (out.includes(v)) out = out.split(v).join("[redacted]"); return out; },
   };
 }
+
+/**
+ * Redacts outgoing protocol text according to Festlegung 5/6:
+ * - A2A gets full secret redaction plus PII redaction (`pii: true`, including IBAN and card numbers).
+ * - MCP gets secret redaction (`pii: false`, keys, tokens, registered secrets).
+ */
+export function redactProtocolOutput(
+  text: string,
+  target: "a2a" | "mcp",
+  redaction: SecretRedaction,
+): string {
+  return redaction.redactor({ pii: target === "a2a" }).text(text);
+}
+
+/**
+ * Redacts an outgoing protocol value (e.g. tool output, message object) according to Festlegung 5/6.
+ */
+export function redactProtocolValue<T>(
+  value: T,
+  target: "a2a" | "mcp",
+  redaction: SecretRedaction,
+): T {
+  return redaction.redactor({ pii: target === "a2a" }).value(value);
+}

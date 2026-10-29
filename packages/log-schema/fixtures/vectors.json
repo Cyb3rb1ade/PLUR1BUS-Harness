@@ -14087,6 +14087,8 @@
         "id": "pii",
         "kind": "patterns",
         "patterns": [
+          "iban",
+          "card-number",
           "email",
           "phone-e164",
           "phone-nanp",
@@ -14337,6 +14339,42 @@
       "matches": [
         "QkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQkQk"
       ]
+    },
+    {
+      "rule": "pii",
+      "pattern": "iban",
+      "parts": [
+        "DE89",
+        " ",
+        "3704",
+        " ",
+        "0044",
+        " ",
+        "0532",
+        " ",
+        "0130",
+        " ",
+        "00"
+      ],
+      "matches": [
+        "DE89 3704 0044 0532 0130 00"
+      ]
+    },
+    {
+      "rule": "pii",
+      "pattern": "card-number",
+      "parts": [
+        "4111",
+        "-",
+        "2222",
+        "-",
+        "3333",
+        "-",
+        "4444"
+      ],
+      "matches": [
+        "4111-2222-3333-4444"
+      ]
     }
   ],
   "keyNames": {
@@ -14441,6 +14479,16 @@
       "pattern": "path-teams-webhook",
       "text": "https://example.test/webhook/list",
       "note": "no guid pair"
+    },
+    {
+      "pattern": "iban",
+      "text": "DE12",
+      "note": "too short for an IBAN"
+    },
+    {
+      "pattern": "card-number",
+      "text": "4111-222",
+      "note": "too short for a card number"
     }
   ]
 }

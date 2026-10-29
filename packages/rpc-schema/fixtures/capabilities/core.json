@@ -528,6 +528,18 @@
       "stability": "experimental",
       "since": "1.0.0"
     },
+    "memory.sensitivity.clear": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "memory.sensitivity.get": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "memory.sensitivity.set": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
     "memory.share": {
       "stability": "experimental",
       "since": "1.0.0"

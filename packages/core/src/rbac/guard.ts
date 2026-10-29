@@ -274,10 +274,22 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   // M6-A (Arbeitspaket P): memory.recall (agent.use or memory.*.read) and memory.capture (memory.*.write).
   "memory.recall": rule("agent.use", agent),
   "memory.capture": rule("memory.workspace.write", (params) => ({ kind: "memory", scope: "workspace", agentId: field(params, "agentId") })),
+  // M6-A (Arbeitspaket P): memory.sensitivity.* (Festlegung 5)
+  "memory.sensitivity.get": rule("memory.sensitivity.read", agent),
+  "memory.sensitivity.set": rule("memory.sensitivity.write", agent),
+  "memory.sensitivity.clear": rule("memory.sensitivity.write", agent),
 });
 
 function authorizeMemoryFallback(method: string, principal: Principal, params: unknown, ctx: CallContext, authCtx: AuthorizeContext): Decision | null {
   const agentId = field(params, "agentId");
+  if (method === "memory.sensitivity.set" || method === "memory.sensitivity.clear") {
+    const dec = authorize(principal, "memory.user.write", { kind: "memory", scope: "user", ownerUserId: principal.userId }, authCtx);
+    if (dec.effect === "allow") return dec;
+  }
+  if (method === "memory.sensitivity.get") {
+    const dec = authorize(principal, "memory.user.read", { kind: "memory", scope: "user", ownerUserId: principal.userId }, authCtx);
+    if (dec.effect === "allow") return dec;
+  }
   if (method === "memory.recall") {
     if (authorize({ ...principal, tokenScopes: undefined }, "agent.use", { kind: "agent", agentId }, authCtx).effect !== "allow") return null;
     for (const [action, resource] of [
