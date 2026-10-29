@@ -64,6 +64,7 @@ import { CodingGate } from '../collab/coding-gate.ts';
 import { sandboxVerifier } from '../collab/verifier.ts';
 import { codingMethods, reviewHooks, type CodingCompletion } from '../collab/coding-surface.ts';
 import { composedAgentRunner } from './collaboration.ts';
+import { externalSubject, wireExternalAgents } from './external-agents.ts';
 import { legacyAdapter } from './legacy.ts';
 import { composeMediaSearch, mediaSearchMethods } from './media-search.ts';
 import { mediaToInbox } from '../inbox/producers.ts';
@@ -130,7 +131,7 @@ export function approvalPolicyContext(permissions: Pick<PermissionRuntime, 'curr
   return ctx => {
     const opened = permissions.current();
     if (!opened) throw new Error('approval service unavailable');
-    return opened.service.policyContext()(ctx);
+    return { ...opened.service.policyContext()(ctx), ...externalSubject(ctx) };
   };
 }
 /** Router events and billing refusals go to the core log and the audit log, tagged with their turn. */
@@ -340,6 +341,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       } catch (error) { record(signal.aborted ? 'cancelled' : 'refused'); throw error; }
     };
     voice.setDelegate(provider);
+    wireExternalAgents(d, options, () => sessions);
     collab = budget ? isolated('collaboration', () => createCollab({ path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock, sessions: () => sessions.store, redact: liveLogsRedactionPort(() => registered),
       runner: provider ? composedAgentRunner(provider, alsAgentScopePort(), d.home, options.delegationTargets) : { async run() { throw new Error('no-provider'); } }, directory: { get: id => d.agents.has(id) || options.delegationTargets?.some(t => t.accepts(id)) ? { id, state: 'active' } : null },
       emit: { emit: event => d.logger.info(event.type, { projectId: event.projectId, traceId: event.traceId }) },

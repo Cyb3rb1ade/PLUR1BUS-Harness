@@ -42,6 +42,25 @@ test("filesystem writes stay in the worktree", async () => {
   await assert.rejects(containedWrite(box, join(worktree, "hard"), "b"), (e) => reason(e) === "hard-link");
 });
 
+test("a worktree under the harness home stays writable and the rest of home does not", async () => {
+  const root = tempDir("m6b-fs-home-");
+  const home = join(root, "home");
+  const repo = join(root, "repo");
+  const worktree = join(home, "state", "worktrees", "prj", "prj");
+  mkdirSync(repo, { recursive: true });
+  const git = (...args: string[]) => execFileSync("git", ["-C", repo, ...args], { stdio: "pipe" });
+  git("init", "-b", "main");
+  git("config", "user.email", "t@example.com");
+  git("config", "user.name", "t");
+  execFileSync("git", ["-C", repo, "commit", "--allow-empty", "-m", "init"], { stdio: "pipe" });
+  execFileSync("git", ["-C", repo, "worktree", "add", "-b", "p1b/demo-abcdef/main", worktree, "main"], { stdio: "pipe" });
+  const box = { worktree, home };
+  await containedWrite(box, "inside.txt", "yes");
+  assert.equal(await containedRead(box, "inside.txt"), "yes");
+  await assert.rejects(containedWrite(box, join(home, "secret.txt"), "no"), (e) => typeof reason(e) === "string");
+  assert.equal(existsSync(join(home, "secret.txt")), false);
+});
+
 test("windows name rules refuse 8.3 and device names through the same canonicaliser", async () => {
   const root = tempDir("m6b-win-");
   const { worktree, home } = gitWorktree(root);

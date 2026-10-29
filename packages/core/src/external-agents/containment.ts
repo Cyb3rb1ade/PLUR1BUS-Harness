@@ -2,8 +2,9 @@
 // The terminal sandbox keeps the worktree writable and the shared gitdir read-only. Windows has no backend.
 import { spawn } from "node:child_process";
 import { constants as fsc, existsSync, readFileSync, realpathSync, statSync } from "node:fs";
-import { isAbsolute, join, resolve } from "node:path";
+import { isAbsolute, join, resolve, sep } from "node:path";
 import { denyEntriesFor } from "../host-tools/denylist.ts";
+import type { HostPlatform } from "../host-tools/types.ts";
 import { canonicalisePath, type DenyEntry, type PathRefusal } from "../policy/paths.ts";
 
 export const FS_BYTES_MAX = 1_048_576;
@@ -50,10 +51,23 @@ export function gitDenyPaths(worktree: string): string[] {
   return out;
 }
 
+/** True when `parent` is the worktree or a directory that contains it. Denying that prefix would freeze the checkout. */
+function blocksWorktree(parent: string, worktree: string): boolean {
+  let base = parent;
+  let child = worktree;
+  try { base = realpathSync(parent); } catch { base = resolve(parent); }
+  try { child = realpathSync(worktree); } catch { child = resolve(worktree); }
+  return child === base || child.startsWith(base.endsWith(sep) ? base : base + sep);
+}
+
 function denyFor(root: ContainmentRoot): DenyEntry[] {
   const platform = root.platform ?? process.platform;
-  const host = platform === "win32" ? "win32" : "posix";
-  return [...denyEntriesFor(root.home, {}, host), { path: root.home }, ...gitDenyPaths(root.worktree).map((path) => ({ path }))];
+  const host: HostPlatform = platform === "win32" ? "win32" : platform === "linux" ? "linux" : "darwin";
+  const entries: DenyEntry[] = [...denyEntriesFor(root.home, {}, host), ...gitDenyPaths(root.worktree).map((path) => ({ path }))];
+  // Credential paths stay denied. The whole home is denied only when the worktree is not inside it:
+  // provisioned checkouts live under `<home>/state/worktrees`.
+  if (!blocksWorktree(root.home, root.worktree)) entries.push({ path: root.home });
+  return entries;
 }
 
 async function canon(root: ContainmentRoot, requestPath: string, access: "read" | "write") {
@@ -157,7 +171,7 @@ export function containedTerminal(o: {
   if (!o.argv.length || o.argv.some((a) => typeof a !== "string" || a.includes("\0") || !isAbsolute(a))) {
     return Promise.resolve({ ok: false, reason: "argv" });
   }
-  const denies = [o.home, ...gitDenyPaths(o.worktree)];
+  const denies = [o.home, ...gitDenyPaths(o.worktree)].filter((p) => !blocksWorktree(p, o.worktree));
   const network = o.network === true;
   let bin: string;
   let argv: string[];

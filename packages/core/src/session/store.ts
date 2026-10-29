@@ -5,8 +5,8 @@ import { chmodSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { migrate } from "./migrations.ts";
 import {
-  SESSION_KINDS, SessionError,
-  type EventRecord, type EventType, type MemoryMode, type MessageRecord, type MessageRole, type SearchHit, type SessionKind, type SessionRecord,
+  SESSION_KINDS, SESSION_ORIGINS, SessionError,
+  type EventRecord, type EventType, type MemoryMode, type MessageRecord, type MessageRole, type SearchHit, type SessionKind, type SessionOrigin, type SessionRecord,
   type SummaryRecord, type TurnRecord,
 } from "./types.ts";
 
@@ -21,6 +21,8 @@ export interface CreateSessionInput {
   chatKey?: string;
   /** D21 `/new`: archive the chat's active session and open the next in one transaction. */
   replaceActive?: boolean;
+  /** Immutable. Omitted or null is an internal session. */
+  origin?: SessionOrigin | null;
 }
 
 export type ArchivedFilter = "exclude" | "only" | "any";
@@ -51,6 +53,7 @@ const toSession = (r: Row): SessionRecord => ({
   chatKey: (r.chat_key as string | null) ?? null, title: r.title as string, pinned: r.pinned === 1, memoryMode: r.memory_mode as MemoryMode,
   createdAt: r.created_at as number, updatedAt: r.updated_at as number, lastTurnAt: (r.last_turn_at as number | null) ?? null,
   archivedAt: (r.archived_at as number | null) ?? null, turnCount: r.turn_count as number,
+  ...(typeof r.origin === "string" ? { origin: r.origin as SessionOrigin } : {}),
 });
 const toTurn = (r: Row): TurnRecord => ({
   id: r.id as string, sessionId: r.session_id as string, seq: r.seq as number, state: r.state as TurnRecord["state"], startedAt: r.started_at as number,
@@ -152,6 +155,7 @@ export class SessionStore {
     if (!i.owner) throw new SessionError("invalid", "owner is required", "owner");
     if (i.kind === "channel" && !i.chatKey) throw new SessionError("invalid", "a channel session needs a chatKey", "chat-key");
     if (i.kind !== "channel" && i.chatKey !== undefined) throw new SessionError("invalid", "only a channel session has a chatKey", "chat-key");
+    if (i.origin != null && !(SESSION_ORIGINS as readonly string[]).includes(i.origin)) throw new SessionError("invalid", "unknown session origin", "origin");
     const title = (i.title ?? "").slice(0, MAX_TITLE);
     const now = this.#clock(); const id = this.#newId("ses");
     let archivedId: string | undefined;
@@ -168,8 +172,8 @@ export class SessionStore {
         }
       }
       this.#run(
-        "INSERT INTO sessions (id, kind, agent_id, owner, scope, chat_key, title, memory_mode, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-        id, i.kind, i.agentId, i.owner, i.scope ?? "user", i.chatKey ?? null, title, i.memoryMode ?? "remember", now, now,
+        "INSERT INTO sessions (id, kind, agent_id, owner, scope, chat_key, title, memory_mode, created_at, updated_at, origin) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        id, i.kind, i.agentId, i.owner, i.scope ?? "user", i.chatKey ?? null, title, i.memoryMode ?? "remember", now, now, i.origin ?? null,
       );
       return toSession(this.#get("SELECT * FROM sessions WHERE id = ?", id)!);
     });

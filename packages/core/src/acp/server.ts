@@ -7,8 +7,9 @@ import type { Readable, Writable } from "node:stream";
 import path from "node:path";
 import type { AcpBackend, AcpTurnUpdate } from "./backend.ts";
 import { LineReader, MAX_LINE_BYTES, encodeLine } from "./framing.ts";
+import { ACP_PROTOCOL_VERSION } from "./protocol.ts";
 
-export const ACP_PROTOCOL_VERSION = 1;
+export { ACP_PROTOCOL_VERSION };
 /** `session.submit`'s text limit (rpc.schema.json): a longer prompt is refused here instead of by the core. */
 export const MAX_PROMPT_CHARS = 200_000;
 

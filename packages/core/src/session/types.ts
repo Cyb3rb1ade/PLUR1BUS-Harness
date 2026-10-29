@@ -3,6 +3,10 @@
 export const SESSION_KINDS = ["direct", "card", "project", "channel", "acp"] as const;
 export type SessionKind = (typeof SESSION_KINDS)[number];
 
+/** Shared with package P. NULL in the database is an internal session and is omitted here. */
+export const SESSION_ORIGINS = ["mcp", "a2a", "acp-agent"] as const;
+export type SessionOrigin = (typeof SESSION_ORIGINS)[number];
+
 export type MemoryMode = "remember" | "incognito";
 export type TurnState = "running" | "completed" | "failed";
 export type MessageRole = "system" | "user" | "assistant" | "tool";
@@ -32,6 +36,8 @@ export interface SessionRecord {
   lastTurnAt: number | null;
   archivedAt: number | null;
   turnCount: number;
+  /** Immutable. Set only at create. Absent means an internal session. */
+  origin?: SessionOrigin;
 }
 
 export interface TurnRecord {
