@@ -38,6 +38,7 @@ import { ConcurrencyLimit, DEFAULT_EXPENSIVE_CONCURRENCY, DEFAULT_RATE_CLASSES, 
 import { authorize, type AuditSink, type Decision, type RbacPrincipal, type Resource } from "./rbac-bridge.ts";
 import { redactFields } from "./redact.ts";
 import { createStaticServer } from "./static.ts";
+import { protocolUnauthenticatedError } from "./protocol-routes.ts";
 import { buildHandlers, COOKIE_NAME, COOKIE_NAME_TLS, CSRF_HEADER, ROUTES, sessionCookie, type Handler, type RouteSpec } from "./routes.ts";
 import { TokenService } from "./tokens.ts";
 import { TotpService } from "./totp.ts";
@@ -344,8 +345,10 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       }
       if (!route) throw errors.methodNotAllowed([...methods.keys()]);
       const { spec, handler } = route; routeId = spec.id;
-      if (spec.requestContentType === "multipart/form-data") bodyDeadline(UPLOAD_BODY_TIMEOUT_MS);
-      const bodyLimit = spec.requestContentType === "multipart/form-data" ? 1073741824 + 16384 : spec.id === "web.rpc" ? o.limits?.maxBodyBytes ?? 1024 * 1024 : limits.maxBodyBytes;
+      const isProtocol = spec.transport === "protocol";
+      if (isProtocol && spec.protocol?.bodyTimeoutMs !== undefined) bodyDeadline(spec.protocol.bodyTimeoutMs);
+      else if (spec.requestContentType === "multipart/form-data") bodyDeadline(UPLOAD_BODY_TIMEOUT_MS);
+      const bodyLimit = isProtocol && spec.protocol?.maxBodyBytes !== undefined ? spec.protocol.maxBodyBytes : spec.requestContentType === "multipart/form-data" ? 1073741824 + 16384 : spec.id === "web.rpc" ? o.limits?.maxBodyBytes ?? 1024 * 1024 : limits.maxBodyBytes;
       linger = lingerLimits(bodyLimit, lingerMs);
 
       const declared = req.headers["content-length"];
@@ -361,9 +364,13 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         throw errors.forbidden("web-session-only");
       }
       let sessionId: string | undefined; let session: Session | undefined; let resolved: Resolved | undefined; let rotated: string | undefined;
-      let via: "session" | "token" | undefined; let tokenInfo: import("./routes.ts").HandlerInput["token"]; let rateKey: string | undefined;
+      let via: "session" | "token" | undefined; let tokenInfo: import("./routes.ts").HandlerInput["token"]; let tokenRecord: import("./ports.ts").TokenRecord | undefined; let rateKey: string | undefined;
       const authHeader = req.headers.authorization;
-      const bearer = spec.auth === "any" && typeof authHeader === "string" && /^bearer(\s|$)/i.test(authHeader) ? authHeader.slice(6).trim() : undefined;
+      const bearer = (spec.auth === "any" || isProtocol && spec.auth !== "none") && typeof authHeader === "string" && /^bearer(\s|$)/i.test(authHeader) ? authHeader.slice(6).trim() : undefined;
+      const protocolOrigin = o.remote?.publicOrigin || [...allowedOrigins][0] || `${tls ? "https" : "http"}://${req.headers.host ?? "127.0.0.1"}`;
+      if (isProtocol && spec.auth !== "none" && (!bearer || bearer.length === 0)) {
+        throw protocolUnauthenticatedError("bearer-required", protocolOrigin, spec.protocol?.resourceMetadataPath);
+      }
       if (bearer !== undefined && NATIVE_FILE_ROUTES.has(spec.id) && !bearer.startsWith("plb_")) {
         // Narrow native file routes accept a live, explicitly enrolled device credential. PATs retain agent authority.
         if (!/^[A-Za-z0-9_-]{43}$/.test(bearer)) throw errors.unauthenticated("invalid-device-token");
@@ -394,12 +401,16 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         const r = await tokens.authenticate(bearer);
         if (!r.ok) {
           audit.emit("auth.token.used-denied", "anonymous", r.id ? `token:${r.id}` : "token:-", { reason: r.reason, ip });
-          throw errors.unauthenticated("invalid-token");
+          throw isProtocol ? protocolUnauthenticatedError("invalid-token", protocolOrigin, spec.protocol?.resourceMetadataPath) : errors.unauthenticated("invalid-token");
         }
         resolved = await resolveSubject(r.record.userId === OWNER.id ? "owner" : "user", r.record.userId);
-        if (!resolved) { try { await tokens.revoke(r.record.userId, r.record.id); } catch { /* invalid credentials remain refused */ } audit.emit("auth.token.used-denied", "anonymous", `token:${r.record.id}`, { reason: "account", ip }); throw errors.unauthenticated("invalid-token"); }
+        if (!resolved) {
+          try { await tokens.revoke(r.record.userId, r.record.id); } catch { /* invalid credentials remain refused */ }
+          audit.emit("auth.token.used-denied", "anonymous", `token:${r.record.id}`, { reason: "account", ip });
+          throw isProtocol ? protocolUnauthenticatedError("invalid-token", protocolOrigin, spec.protocol?.resourceMetadataPath) : errors.unauthenticated("invalid-token");
+        }
         resolved = { ...resolved, rbac: { ...resolved.rbac, kind: "agent", tokenScopes: r.record.scopes } };
-        via = "token"; tokenInfo = { id: r.record.id, prefix: `plb_${r.record.id}`, scopes: r.record.scopes, expiresAt: r.record.expiresAt, ...(r.record.binding !== undefined ? { binding: r.record.binding } : {}) };
+        via = "token"; tokenRecord = r.record; tokenInfo = { id: r.record.id, prefix: `plb_${r.record.id}`, scopes: r.record.scopes, expiresAt: r.record.expiresAt, ...(r.record.binding !== undefined ? { binding: r.record.binding } : {}) };
         if(secondFactorRequired(resolved.principal.role,!!o.remote,o.requireSecondFactor))throw errors.forbidden("second-factor-required");
         principalId = resolved.principal.id; rateKey = `token:${r.record.id}`;
         const tv = limiter.take(cls, rateKey);
@@ -409,7 +420,15 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
           if (req.method !== "GET") audit.emit("auth.denied", principalId, `route:${spec.id}`, { reason: d.reason, method: req.method, via: "token", token: tokenInfo.id, ip, ...(typeof spec.authz === "object" ? { action: spec.authz.action } : {}) });
           throw errors.forbidden(d.reason);
         }
-      } else if (spec.auth === "session" || spec.auth === "any") {
+        if (isProtocol && spec.protocol?.audience !== undefined) {
+          if (!r.record.binding) throw errors.forbidden("token-binding-required", "token requires an agent protocol binding");
+          if (r.record.binding.audience !== spec.protocol.audience) {
+            throw protocolUnauthenticatedError("invalid-audience", protocolOrigin, spec.protocol?.resourceMetadataPath);
+          }
+          const useDec = authorize(resolved.rbac, "agent.use", { kind: "agent", agentId: r.record.binding.agentId });
+          if (useDec.effect === "deny") throw errors.forbidden(useDec.reason);
+        }
+      } else if (!isProtocol && (spec.auth === "session" || spec.auth === "any")) {
         via = "session";
         sessionId = presented;
         session = sessions.get(sessionId);
@@ -486,10 +505,17 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         return;
       }
       let body: unknown = preReadBody;
-      if (spec.requestBody) {
+      let rawBody: Buffer | undefined;
+      if (isProtocol && !spec.requestBody) {
+        if (req.method !== "GET" && req.method !== "HEAD" || declared !== undefined && declared !== "0" || req.headers["transfer-encoding"] !== undefined) {
+          rawBody = await readBody(req, bodyLimit);
+          didReadBody = true;
+        }
+      } else if (spec.requestBody) {
         const ct = (req.headers["content-type"] ?? "").split(";", 1)[0]!.trim().toLowerCase();
         if (ct !== "application/json") throw errors.unsupportedMedia();
         const raw = didReadBody ? undefined : await readBody(req, bodyLimit);
+        rawBody = raw;
         try { if (!didReadBody) body = parseJson(raw!); }
         catch (e) { if (spec.id !== "web.rpc") throw e; status = 200; send(res, 200, rpcFailure(null, { error: "E_INVALID_PARAMS", code: -32700, reason: "parse-error" })); return; }
       } else if (declared !== undefined && declared !== "0" || req.headers["transfer-encoding"] !== undefined) {
@@ -510,12 +536,23 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       const candidate=ownCert&&"raw" in ownCert?ownCert.raw:undefined;
       const leaf=Buffer.isBuffer(candidate)?candidate:undefined;
       const remoteTransport={tls:!!leaf,origin:o.remote?.publicOrigin??"",...(leaf?{servedFingerprint:certPin(leaf)}:{}),...(o.remote?.publish==="tailnet"?{trustedGateway:true}:{})};
+      const handlerInputBase = {
+        remoteTransport, pathParams, query: new URL(target, "http://localhost").searchParams, headers: req.headers,
+        session, sessionId, body, ip, origin: typeof req.headers.origin === "string" ? req.headers.origin : undefined,
+        via, token: tokenInfo,
+        ...(isProtocol ? { rawBody, req, res, secHeaders, tokenRecord } : {}),
+      };
+      const handlerTimeoutMs = isProtocol && spec.protocol?.handlerTimeoutMs !== undefined
+        ? spec.protocol.handlerTimeoutMs
+        : spec.id === "web.rpc"
+          ? o.limits?.handlerTimeoutMs ?? 300_000
+          : limits.handlerTimeoutMs;
       const out = await Promise.race([
-        Promise.resolve(resolved ? perRequest.run(webPrincipal(resolved.rbac, resolved.principal.kind === "owner"), () => handler({ remoteTransport,pathParams, query:new URL(target,"http://localhost").searchParams,headers:req.headers, principal: resolved?.principal, session, sessionId, body, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined, ip, origin: typeof req.headers.origin === "string" ? req.headers.origin : undefined, via, token: tokenInfo }), session ? webConnection(session) : tokenInfo ? `token:${tokenInfo.id}` : undefined, !o.remote && /^(127\.|::1$|::ffff:127\.)/.test(req.socket.remoteAddress ?? "") ? "loopback" : "remote") : handler({ remoteTransport,pathParams,query:new URL(target,"http://localhost").searchParams,headers:req.headers, principal: undefined, session, sessionId, body, rbac: undefined, presentedSessionId: presented, ip, origin: typeof req.headers.origin === "string" ? req.headers.origin : undefined, via, token: tokenInfo })),
+        Promise.resolve(resolved ? perRequest.run(webPrincipal(resolved.rbac, resolved.principal.kind === "owner"), () => handler({ ...handlerInputBase, principal: resolved?.principal, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined }), session ? webConnection(session) : tokenInfo ? `token:${tokenInfo.id}` : undefined, !o.remote && /^(127\.|::1$|::ffff:127\.)/.test(req.socket.remoteAddress ?? "") ? "loopback" : "remote") : handler({ ...handlerInputBase, principal: undefined, rbac: undefined, presentedSessionId: presented })),
         new Promise<import("./routes.ts").HandlerOutput>((resolveTimeout, rej) => {
           timer = setTimeout(() => spec.id === "web.rpc"
             ? resolveTimeout({ body: rpcFailure((body as { id?: unknown })?.id ?? null, { error: "E_NOT_AVAILABLE", reason: "handler-timeout" }) })
-            : rej(errors.timeout()), spec.id === "web.rpc" ? o.limits?.handlerTimeoutMs ?? 300_000 : limits.handlerTimeoutMs);
+            : rej(errors.timeout()), handlerTimeoutMs);
         }),
       ]).finally(() => clearTimeout(timer));
       if (session && sessionId && spec.id === "web.rpc") {
@@ -524,7 +561,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
           maintenance?.remember({ session, sessionId, principal: webPrincipal(resolved!.rbac, resolved!.principal.kind === "owner"), connectionKey: webConnection(session), runId: response.result.runId });
         }
       }
-      if (o.accounts && spec.id === "web.rpc" && !out.body.error) {
+      if (o.accounts && spec.id === "web.rpc" && !out.body?.error) {
         const request = body as { method?: string; params?: { userId?: string } };
         if (["user.disable", "user.enable", "user.role.set", "agent.rights.set"].includes(request.method ?? "") && request.params?.userId) await o.accounts.findById(request.params.userId);
       }
@@ -536,6 +573,14 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         }});return;
       }
       status = out.status ?? spec.successStatus;
+      if (out.streamed) return;
+      if (out.body === undefined) {
+        if (!res.headersSent) {
+          res.writeHead(status, { ...secHeaders, "Content-Length": "0", ...(rotated ? { "Set-Cookie": rotated } : {}), ...out.headers });
+        }
+        res.end();
+        return;
+      }
       send(res, status, out.body, { ...(rotated ? { "Set-Cookie": rotated } : {}), ...out.headers });
     } catch (e) {
       if (bodyTimedOut) return;

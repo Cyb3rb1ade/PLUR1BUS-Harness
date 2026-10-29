@@ -57,6 +57,8 @@ export interface RouteSpec {
   csrf: boolean;
   rate: RateClass;
   stability: "experimental" | "stable"; since: string;
+  transport?: "protocol";
+  protocol?: import("./protocol-routes.ts").ProtocolRouteOptions;
   requestBody?: JsonSchema;
   requestContentType?: "application/json" | "multipart/form-data";
   successStatus: number; success: { description: string; schema: JsonSchema };
@@ -270,8 +272,14 @@ export interface HandlerInput {
   via: "session" | "token" | undefined;
   /** Set when `via` is `token`: what whoami may show of it (never the hash, never the secret). */
   token: { id: string; prefix: string; scopes: readonly string[]; expiresAt: number; binding?: TokenBinding } | undefined;
+  /** Populated on `transport: "protocol"` routes. */
+  rawBody?: Buffer | undefined;
+  req?: import("node:http").IncomingMessage | undefined;
+  res?: import("node:http").ServerResponse | undefined;
+  secHeaders?: Record<string, string> | undefined;
+  tokenRecord?: import("./ports.ts").TokenRecord | undefined;
 }
-export interface HandlerOutput { chatStream?: {sessionId:string;turnId:string;afterSeq:number}; status?: number; body: Record<string, unknown>; headers?: Record<string, string> }
+export interface HandlerOutput { chatStream?: {sessionId:string;turnId:string;afterSeq:number}; streamed?: boolean; status?: number; body?: Record<string, unknown>; headers?: Record<string, string> }
 export type Handler = (i: HandlerInput) => Promise<HandlerOutput> | HandlerOutput;
 
 export interface HandlerDeps {
