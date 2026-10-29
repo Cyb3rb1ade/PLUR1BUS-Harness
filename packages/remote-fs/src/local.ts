@@ -76,7 +76,18 @@ function localFs(budget: FsBudget, authority?: { root: string; selectedRoot: str
     }
     return within(full);
   };
-  const target = async (path: string): Promise<string> => within(await realpath(lexical(path)));
+  const target = async (path: string): Promise<string> => {
+    const full = lexical(path);
+    try {
+      return within(await realpath(full));
+    } catch (error) {
+      // A link this host cannot resolve (a Linux symlink seen through a WSL share points at a Linux path) is denied
+      // like a link that escapes, never followed; any other failure keeps its own reason.
+      if (!(error instanceof RemoteFsError) && (error as NodeJS.ErrnoException).code !== "ENOENT"
+        && await lstat(full).then(info => info.isSymbolicLink(), () => false)) throw new RemoteFsError("path-denied");
+      throw error;
+    }
+  };
   const noFollowTarget = async (path: string): Promise<string> => {
     const full = lexical(path);
     return full === root ? root : within(resolve(within(await realpath(dirname(full))), basename(full)));

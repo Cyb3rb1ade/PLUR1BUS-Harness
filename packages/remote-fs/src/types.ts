@@ -32,10 +32,15 @@ export class RemoteFsError extends Error {
     "entry-limit" | "path-denied" | "unsupported-type" | "not-found" | "unavailable" | "invalid-limit" |
     "worker-untrusted" | "host-key-mismatch" | "authentication-failed" | "limit-exceeded" | "remote-protocol" |
     "permission-denied";
-  constructor(reason: RemoteFsError["reason"]) {
+  /** The operating system's error code and failed call (`EPERM lstat`), never a path; set when a native call failed. */
+  readonly detail?: string;
+  constructor(reason: RemoteFsError["reason"], cause?: { code?: unknown; syscall?: unknown }) {
     super(`remote-fs: ${reason}`);
     this.name = "RemoteFsError";
     this.reason = reason;
+    const code = typeof cause?.code === "string" && /^[A-Z][A-Z0-9_]{0,31}$/.test(cause.code) ? cause.code : undefined;
+    const syscall = typeof cause?.syscall === "string" && /^[a-z_]{1,32}$/.test(cause.syscall) ? cause.syscall : undefined;
+    if (code) this.detail = syscall ? `${code} ${syscall}` : code;
   }
 }
 

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
 import { createLocalFs, createNativeSourceFs, realpathWith } from "../src/local.ts";
+import { RemoteFsError } from "../src/types.ts";
 
 async function fixture(run: (root: string, outside: string) => Promise<void>): Promise<void> {
   const base = await realpath(await mkdtemp(join(tmpdir(), "p1-remote-fs-")));
@@ -119,3 +120,19 @@ test("a WSL share falls back to the lstat walk when Windows' native realpath ref
   await assert.rejects(realpathWith("\\\\wsl.localhost\\Ubuntu\\root", "linux", refuse(eisdir), walk), { code: "EISDIR" });
   assert.equal(await realpathWith("/x", "linux", async () => "/native", walk), "/native");
 });
+
+test("a link the host cannot resolve is denied, a missing target is not found, and native failures name their call", async () => fixture(async root => {
+  await symlink("loop", join(root, "loop"));
+  await symlink("missing-target", join(root, "dangling"));
+  await writeFile(join(root, "plain"), "x");
+  for (const fs of [await createLocalFs({ root }), await createNativeSourceFs()]) {
+    const at = (name: string) => join(root, name);
+    await assert.rejects(fs.stat(at("loop")), { reason: "path-denied" });
+    await assert.rejects(fs.readFile(at("loop"), 16), { reason: "path-denied" });
+    assert.equal((await fs.lstat(at("loop"))).type, "symlink");
+    await assert.rejects(fs.stat(at("dangling")), { reason: "not-found" });
+    // Reading a file as a directory is a native failure: its code and call are kept, its path is not.
+    await assert.rejects(fs.readdir(at("plain")), (error: unknown) => error instanceof RemoteFsError && error.reason === "unavailable"
+      && error.detail === "ENOTDIR opendir" && !error.message.includes(root));
+  }
+}));

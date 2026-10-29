@@ -68,8 +68,8 @@ export class FsBudget {
       ]);
     } catch (error) {
       if (error instanceof RemoteFsError) throw error;
-      const code = (error as NodeJS.ErrnoException | undefined)?.code;
-      throw new RemoteFsError(code === "ENOENT" ? "not-found" : "unavailable");
+      const native = error as NodeJS.ErrnoException | undefined;
+      throw new RemoteFsError(native?.code === "ENOENT" ? "not-found" : "unavailable", native);
     } finally {
       if (timeout) clearTimeout(timeout);
       if (onAbort) this.signal?.removeEventListener("abort", onAbort);
