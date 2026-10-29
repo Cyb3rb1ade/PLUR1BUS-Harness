@@ -328,6 +328,9 @@ Examples:
 
 /// `plur1bus import` (docs/import.md §8, §9). Without --detect, --skills or --rollback it answers the M7 stub.
 #[derive(Args, Debug)]
+#[command(
+    after_help = "SSH examples:\n  plur1bus import ssh --key generate\n  plur1bus import ssh --ssh reader@host:22 --source /srv/source --allow-egress --probe-host-key\n  plur1bus import ssh --connection ID --trust-host-key SHA256:... --probe-id TOKEN\n  plur1bus import hermes --ssh reader@host:22 --source /srv/source --detect"
+)]
 pub struct ImportArgs {
     /// Source system to read (never modified)
     #[arg(value_enum)]
@@ -388,6 +391,45 @@ pub struct ImportArgs {
     /// Allow multiple Hermes profiles to merge into the same target agent
     #[arg(long = "merge-profiles")]
     pub merge_profiles: bool,
+    /// Read an SSH source through Core's read-only SFTP worker (requires an absolute --source or configured --connection)
+    #[arg(long, value_name = "USER@HOST[:PORT]")]
+    pub ssh: Option<String>,
+    /// Use this configured SSH connection instead of its stable endpoint identifier
+    #[arg(long, value_name = "ID")]
+    pub connection: Option<String>,
+    /// SSH identity operation; Owner-only, private key remains in Secret Store
+    #[arg(long, value_enum, value_name = "ACTION")]
+    pub key: Option<ImportSshKey>,
+    /// Explicitly permit private-address SSH endpoints for this connection
+    #[arg(long)]
+    pub allow_private: bool,
+    /// Owner consent: allow exactly this SSH host and TCP port in the central egress policy (SSH setup with --ssh and --source only)
+    #[arg(long)]
+    pub allow_egress: bool,
+    /// Probe the SSH host key without authenticating; never trusts it automatically
+    #[arg(long)]
+    pub probe_host_key: bool,
+    /// Trust the exact fingerprint from an earlier --probe-host-key result
+    #[arg(long, value_name = "SHA256")]
+    pub trust_host_key: Option<String>,
+    /// Expiring probe identifier returned by --probe-host-key
+    #[arg(long, value_name = "TOKEN")]
+    pub probe_id: Option<String>,
+    /// Delete the configured --connection and invalidate its active source handles
+    #[arg(long)]
+    pub remove_connection: bool,
+    /// Read an SSH import's maintenance status, including while Core is offline
+    #[arg(long, value_name = "RUN_ID")]
+    pub run_status: Option<String>,
+    /// Abort an SSH maintenance run through the supervisor
+    #[arg(long, value_name = "RUN_ID")]
+    pub abort_run: Option<String>,
+    /// List supervised import runs
+    #[arg(long)]
+    pub runs: bool,
+    /// Preflight a supervised rollback; --apply dispatches it after a fresh ticket
+    #[arg(long, value_name = "RUN_ID")]
+    pub rollback_run: Option<String>,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
@@ -395,6 +437,16 @@ pub enum ImportSource {
     Openclaw,
     Hermes,
     Backfill,
+    /// SSH identity, connection, host-key trust and supervised-run operations
+    Ssh,
+}
+
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ImportSshKey {
+    Status,
+    Generate,
+    Rotate,
+    Delete,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]

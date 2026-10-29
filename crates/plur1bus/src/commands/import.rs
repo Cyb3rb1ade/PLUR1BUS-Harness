@@ -1,7 +1,8 @@
-//! `plur1bus import <openclaw|hermes>` (docs/import.md §8, §9). The work runs in Node — `import.js`, the importer
+//! Legacy `plur1bus import <openclaw|hermes>` (docs/import.md §8, §9) runs in Node — `import.js`, the importer
 //! entry shipped beside `core.js` — because it reads the source's LanceDB stores and SQLite databases; this side only
 //! forwards the parsed flags, then prints the one envelope line Node answers with as the usual `--json` document
-//! (`schema` inserted by `Out::ok`) or as its human text. The importer never talks to a core or supervisor.
+//! (`schema` inserted by `Out::ok`) or as its human text. SSH setup and imports use the authenticated Core/Supervisor
+//! ports in [`ssh`], including sealed-source planning and the maintenance preflight.
 use crate::cli::{ImportArgs, ImportSource, OnConflict};
 use crate::commands::core::{locate_core_js, locate_node};
 use crate::output::Out;
@@ -10,6 +11,17 @@ use serde_json::{json, Value};
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+#[path = "import_ssh.rs"]
+mod ssh;
+
+/// The canonical importer family is shared by legacy argv and the generic SSH transport.
+fn family(source: ImportSource) -> Option<&'static str> {
+    match source {
+        ImportSource::Openclaw => Some("openclaw"),
+        ImportSource::Hermes => Some("hermes"),
+        _ => None,
+    }
+}
 
 /// `import.js`: `$PLUR1BUS_IMPORT_JS`, else `import.js` next to the core entry ([`locate_core_js`]).
 pub(crate) fn locate_import_js(layout: &Layout) -> PathBuf {
@@ -24,6 +36,7 @@ pub(crate) fn importer_args(a: &ImportArgs, layout: &Layout) -> Vec<OsString> {
         ImportSource::Openclaw => "openclaw".into(),
         ImportSource::Hermes => "hermes".into(),
         ImportSource::Backfill => "backfill".into(),
+        ImportSource::Ssh => "ssh".into(),
     }];
     if a.detect {
         v.push("--detect".into());
@@ -118,6 +131,10 @@ pub(crate) fn exit_code(env: &Value) -> i32 {
 }
 
 pub fn run(out: &Out, layout: &Layout, a: ImportArgs) {
+    if ssh::is_ssh(&a) {
+        ssh::run(out, layout, &a);
+        return;
+    }
     let js = locate_import_js(layout);
     if !js.exists() {
         out.fail(
