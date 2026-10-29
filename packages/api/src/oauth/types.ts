@@ -90,6 +90,7 @@ export interface OAuthTokenResponse {
   readonly expires_in: number;
   readonly refresh_token?: string | undefined;
   readonly scope?: string | undefined;
+  readonly _meta?: Record<string, unknown> | undefined;
 }
 
 export interface OAuthErrorResponse {
@@ -101,7 +102,7 @@ export interface OAuthStore {
   saveGrant(grant: OAuthGrantRecord): Promise<void>;
   getGrant(grantId: string): Promise<OAuthGrantRecord | undefined>;
   getGrantByFamily(familyId: string): Promise<OAuthGrantRecord | undefined>;
-  listGrantsByUser(userId: string): Promise<readonly OAuthGrantRecord[]>;
+  listGrantsByUser(userId?: string): Promise<readonly OAuthGrantRecord[]>;
   updateGrant(grantId: string, patch: Partial<OAuthGrantRecord>): Promise<void>;
   deleteGrant(grantId: string): Promise<void>;
 

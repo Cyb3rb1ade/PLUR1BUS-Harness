@@ -554,6 +554,34 @@ fn nothing_the_catalogue_writes_under_a_credential_name_or_description_is_unclas
             "audit_secret.name",
             "the secret's name, \"never the value\" (the group's own description)",
         ),
+        (
+            "mcp_server_call.tokenId",
+            "the token's public identifier, not the secret",
+        ),
+        (
+            "mcp_server_denied.tokenId",
+            "the token's public identifier if present, not the secret",
+        ),
+        (
+            "oauth_refresh.familyId",
+            "refresh token family identifier",
+        ),
+        (
+            "oauth_refresh.tokenId",
+            "new access token public identifier",
+        ),
+        (
+            "oauth_revoke.tokenId",
+            "revoked token public identifier if known",
+        ),
+        (
+            "oauth_token.agentId",
+            "target agent identifier the token is bound to",
+        ),
+        (
+            "oauth_token.tokenId",
+            "issued access token public identifier",
+        ),
     ];
     let words = regex::Regex::new(r"(?i)secret|token|password|credential|api.?key|private.?key|cookie|authoriz|bearer|passphrase").unwrap();
     let c = catalogue();

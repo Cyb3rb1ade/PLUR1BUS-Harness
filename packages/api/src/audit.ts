@@ -13,6 +13,7 @@ export const AUDIT_ACTIONS = [
   "auth.totp.enabled", "auth.totp.disabled", "auth.totp.failure", "auth.totp.backup-used",
   "auth.rate-limited", "auth.denied", "auth.csrf-refused",
   "mcp.server.call", "mcp.server.denied",
+  "oauth.authorize", "oauth.token", "oauth.refresh", "oauth.revoke", "oauth.denied",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

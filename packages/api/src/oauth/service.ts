@@ -224,6 +224,12 @@ export class OAuthService {
       expires_in: Math.floor(ACCESS_TOKEN_TTL_MS / 1000),
       refresh_token: refreshToken,
       scope: codeRec.scopes.join(" "),
+      _meta: {
+        tokenId: tokenRes.record.id,
+        audience: codeRec.audience,
+        agentId: codeRec.agentId,
+        clientId: codeRec.clientId,
+      },
     };
   }
 
@@ -341,12 +347,56 @@ export class OAuthService {
       expires_in: Math.floor(ACCESS_TOKEN_TTL_MS / 1000),
       refresh_token: newRefreshToken,
       scope: scopes.join(" "),
+      _meta: {
+        tokenId: tokenRes.record.id,
+        familyId: grant.familyId,
+        clientId: grant.clientId,
+      },
     };
   }
 
-  async revoke(token: string, tokenTypeHint?: string): Promise<void> {
+  async listGrantsForUser(userId: string): Promise<readonly OAuthGrantRecord[]> {
+    const list = await this.#store.listGrantsByUser(userId);
+    return list.filter((g) => g.revokedAt === undefined);
+  }
+
+  async revokeGrant(userId: string, grantId: string): Promise<OAuthGrantRecord | undefined> {
+    const grant = await this.#store.getGrant(grantId);
+    if (!grant) return undefined;
+    if (userId && grant.userId !== userId) return undefined;
+
+    await this.#store.revokeFamily(grant.familyId);
+    if (grant.activeTokenId) {
+      try {
+        await this.#tokens.revoke(grant.userId, grant.activeTokenId);
+      } catch {
+        // Ignore failure
+      }
+    }
+    const revokedAt = this.#clock.now();
+    await this.#store.updateGrant(grantId, { revokedAt });
+    return { ...grant, revokedAt };
+  }
+
+  async revokeActiveToken(userId: string, tokenId: string): Promise<boolean> {
+    const grants = await this.#store.listGrantsByUser(userId);
+    let found = false;
+    for (const g of grants) {
+      if (g.activeTokenId === tokenId) {
+        await this.#store.revokeFamily(g.familyId);
+        await this.#store.updateGrant(g.id, { revokedAt: this.#clock.now() });
+        found = true;
+      }
+    }
+    return found;
+  }
+
+  async revoke(
+    token: string,
+    tokenTypeHint?: string,
+  ): Promise<{ revoked: boolean; clientId?: string; tokenId?: string }> {
     if (typeof token !== "string" || token.length === 0) {
-      return;
+      return { revoked: false };
     }
 
     // 1. Try refresh token
@@ -363,7 +413,11 @@ export class OAuthService {
             // Ignore
           }
         }
-        return;
+        return {
+          revoked: true,
+          clientId: rt.clientId,
+          ...(grant?.activeTokenId ? { tokenId: grant.activeTokenId } : {}),
+        };
       }
     }
 
@@ -378,7 +432,8 @@ export class OAuthService {
           if (g.activeTokenId === tokenId) {
             await this.#tokens.revoke(g.userId, tokenId);
             await this.#store.updateGrant(g.id, { revokedAt: this.#clock.now() });
-            return;
+            await this.#store.revokeFamily(g.familyId);
+            return { revoked: true, clientId: g.clientId, tokenId };
           }
         }
       }
@@ -397,6 +452,13 @@ export class OAuthService {
           // Ignore
         }
       }
+      return {
+        revoked: true,
+        clientId: rt.clientId,
+        ...(grant?.activeTokenId ? { tokenId: grant.activeTokenId } : {}),
+      };
     }
+
+    return { revoked: false };
   }
 }

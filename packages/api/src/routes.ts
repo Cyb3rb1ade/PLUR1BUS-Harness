@@ -650,6 +650,9 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
       if (!b || typeof b !== "object" || Array.isArray(b) || typeof b.id !== "string" || Object.keys(b).length !== 1 || !/^[0-9a-f]{12}$/.test(b.id)) throw errors.badRequest("body", "body must be {\"id\": string}");
       if (!(await d.tokens.revoke(i.principal.id, b.id))) throw new ApiError(404, "E_NOT_FOUND", "no such token", { reason: "token" });
       d.audit.emit("auth.token.revoked", i.principal.id, `token:${b.id}`, { ip: i.ip });
+      if (d.oauthService) {
+        await d.oauthService.revokeActiveToken(i.principal.id, b.id);
+      }
       return { body: { schema: "tokens.revoke/1", revoked: true } };
     },
     "agents.list": async (i) => {

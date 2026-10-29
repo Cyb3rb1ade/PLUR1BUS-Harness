@@ -1863,6 +1863,106 @@
           "description": "Denial reason slug."
         }
       }
+    },
+    "oauth_authorize": {
+      "description": "Detail for `oauth.authorize` audit event: authorization code issued or consent approved.",
+      "open": true,
+      "properties": {
+        "clientId": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "OAuth client identifier."
+        },
+        "audience": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Protocol audience (e.g. mcp or a2a)."
+        },
+        "scopes": {
+          "type": "string",
+          "maxLength": 512,
+          "description": "Granted scope string."
+        }
+      }
+    },
+    "oauth_token": {
+      "description": "Detail for `oauth.token` audit event: authorization code exchanged for token.",
+      "open": true,
+      "properties": {
+        "clientId": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "OAuth client identifier."
+        },
+        "audience": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Protocol audience (e.g. mcp or a2a)."
+        },
+        "agentId": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Agent identifier the token is bound to."
+        },
+        "tokenId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Issued access token identifier."
+        }
+      }
+    },
+    "oauth_refresh": {
+      "description": "Detail for `oauth.refresh` audit event: token refreshed via refresh token.",
+      "open": true,
+      "properties": {
+        "clientId": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "OAuth client identifier."
+        },
+        "tokenId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "New access token identifier."
+        },
+        "familyId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Refresh token family identifier."
+        }
+      }
+    },
+    "oauth_revoke": {
+      "description": "Detail for `oauth.revoke` audit event: token or refresh token family revoked.",
+      "open": true,
+      "properties": {
+        "clientId": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "OAuth client identifier if known."
+        },
+        "tokenId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Revoked token identifier if known."
+        }
+      }
+    },
+    "oauth_denied": {
+      "description": "Detail for `oauth.denied` audit event: OAuth request denied or rejected.",
+      "open": true,
+      "properties": {
+        "clientId": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "OAuth client identifier."
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Denial reason."
+        }
+      }
     }
   },
   "events": [
@@ -4192,6 +4292,173 @@
             "tool": "control_execute",
             "agentId": "bernd",
             "reason": "tool-not-permitted"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "oauth.authorize",
+      "note": "An authorization code was issued or consent approved.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "oauth_authorize",
+      "requiredAttrs": [
+        "clientId",
+        "audience",
+        "scopes"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "alice",
+            "host": "127.0.0.1"
+          },
+          "action": "oauth.authorize",
+          "target": "agent:main",
+          "detail": {
+            "clientId": "client_123",
+            "audience": "mcp",
+            "scopes": "mcp.read agent.use"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "oauth.token",
+      "note": "An authorization code was exchanged for an access token.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "oauth_token",
+      "requiredAttrs": [
+        "clientId",
+        "audience",
+        "agentId",
+        "tokenId"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "oauth:client_123",
+            "host": "127.0.0.1"
+          },
+          "action": "oauth.token",
+          "target": "token:tok_1234567890ab",
+          "detail": {
+            "clientId": "client_123",
+            "audience": "mcp",
+            "agentId": "main",
+            "tokenId": "tok_1234567890ab"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "oauth.refresh",
+      "note": "An access token was renewed using a refresh token.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "oauth_refresh",
+      "requiredAttrs": [
+        "clientId",
+        "tokenId",
+        "familyId"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "oauth:client_123",
+            "host": "127.0.0.1"
+          },
+          "action": "oauth.refresh",
+          "target": "token:tok_1234567890ab",
+          "detail": {
+            "clientId": "client_123",
+            "tokenId": "tok_1234567890ab",
+            "familyId": "fam_abcdef123456"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "oauth.revoke",
+      "note": "An OAuth token or refresh token family was revoked.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "oauth_revoke",
+      "requiredAttrs": [
+        "clientId"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "alice",
+            "host": "127.0.0.1"
+          },
+          "action": "oauth.revoke",
+          "target": "token:tok_1234567890ab",
+          "detail": {
+            "clientId": "client_123",
+            "tokenId": "tok_1234567890ab"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "oauth.denied",
+      "note": "An OAuth authorization or token request was denied.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "oauth_denied",
+      "requiredAttrs": [
+        "clientId",
+        "reason"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "anonymous",
+            "host": "127.0.0.1"
+          },
+          "action": "oauth.denied",
+          "target": "oauth:client_123",
+          "detail": {
+            "clientId": "client_123",
+            "reason": "invalid_grant"
           },
           "v": 2
         }

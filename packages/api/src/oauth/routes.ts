@@ -140,6 +140,48 @@ export const OAUTH_ROUTES: readonly RouteSpec[] = [
       schema: { type: "object", additionalProperties: true },
     },
   },
+  {
+    id: "oauth.grants.list",
+    method: "GET",
+    path: "/api/v1/oauth/grants",
+    tag: "oauth",
+    summary: "List caller's active OAuth grants",
+    auth: "session",
+    authz: { action: "my.read", resource: "self" },
+    csrf: false,
+    rate: "read",
+    stability: "experimental",
+    since: "1.0.0",
+    successStatus: 200,
+    success: {
+      description: "List of active OAuth grants",
+      schema: { type: "object", additionalProperties: true },
+    },
+  },
+  {
+    id: "oauth.grants.revoke",
+    method: "POST",
+    path: "/api/v1/oauth/grants/revoke",
+    tag: "oauth",
+    summary: "Revoke an OAuth grant and its refresh token family",
+    auth: "session",
+    authz: { action: "my.write", resource: "self" },
+    csrf: true,
+    rate: "write",
+    stability: "experimental",
+    since: "1.0.0",
+    requestBody: {
+      type: "object",
+      required: ["id"],
+      properties: { id: { type: "string" } },
+      additionalProperties: false,
+    },
+    successStatus: 200,
+    success: {
+      description: "Grant revocation acknowledgement",
+      schema: { type: "object", additionalProperties: true },
+    },
+  },
 ];
 
 function getIssuer(headers?: Record<string, string | string[] | undefined>, tls?: boolean): string {
@@ -395,17 +437,24 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
 
       // 9. If approval confirmed, issue authorization code and redirect
       if (approve) {
+        const agentId = params.get("agent_id") || "main";
         const code = oauth.createAuthorizationCode({
           clientId,
           redirectUri,
           codeChallenge,
           codeChallengeMethod: "S256",
           userId: session.principal.id,
-          agentId: params.get("agent_id") || "main",
+          agentId,
           ...(params.get("project_id") ? { projectId: params.get("project_id")! } : {}),
           audience,
           scopes,
           ...(resource ? { resource } : {}),
+        });
+
+        d.audit.emit("oauth.authorize", session.principal.id, `agent:${agentId}`, {
+          clientId,
+          audience,
+          scopes: scopes.join(" "),
         });
 
         const target = new URL(redirectUri);
@@ -496,6 +545,10 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
 
       // 5. Handle denial
       if (!approve) {
+        d.audit.emit("oauth.denied", session.principal.id, `oauth:${clientId}`, {
+          clientId,
+          reason: "access_denied",
+        });
         const target = new URL(redirectUri);
         target.searchParams.set("error", "access_denied");
         target.searchParams.set("error_description", "user denied access");
@@ -545,6 +598,12 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
         ...(resource ? { resource } : {}),
       });
 
+      d.audit.emit("oauth.authorize", session.principal.id, `agent:${agentId}`, {
+        clientId,
+        audience,
+        scopes: scopes.join(" "),
+      });
+
       const target = new URL(redirectUri);
       target.searchParams.set("code", code);
       if (state) target.searchParams.set("state", state);
@@ -560,11 +619,11 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
       const oauth = getOAuthService();
       const params = parseFormOrJsonBody(i.rawBody, typeof i.headers?.["content-type"] === "string" ? i.headers["content-type"] : undefined);
       const grantType = params.grant_type;
+      const clientId = params.client_id;
 
       try {
         if (grantType === "authorization_code") {
           const code = params.code;
-          const clientId = params.client_id;
           const redirectUri = params.redirect_uri;
           const codeVerifier = params.code_verifier;
 
@@ -586,9 +645,19 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
             codeVerifier,
           });
 
+          const meta = tokenRes._meta as { tokenId?: string; audience?: string; agentId?: string } | undefined;
+          const tokenId = meta?.tokenId ?? "-";
+          d.audit.emit("oauth.token", `oauth:${clientId}`, `token:${tokenId}`, {
+            clientId,
+            audience: meta?.audience ?? "mcp",
+            agentId: meta?.agentId ?? "main",
+            tokenId,
+          });
+
+          const { _meta: _omit, ...respBody } = tokenRes;
           return {
             status: 200,
-            body: tokenRes as unknown as Record<string, unknown>,
+            body: respBody as unknown as Record<string, unknown>,
             headers: {
               "Cache-Control": "no-store",
               "Pragma": "no-cache",
@@ -599,7 +668,6 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
 
         if (grantType === "refresh_token") {
           const refreshToken = params.refresh_token;
-          const clientId = params.client_id;
           const scope = params.scope;
 
           if (!refreshToken || !clientId) {
@@ -619,9 +687,18 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
             ...(scope ? { scope } : {}),
           });
 
+          const meta = tokenRes._meta as { tokenId?: string; familyId?: string } | undefined;
+          const tokenId = meta?.tokenId ?? "-";
+          d.audit.emit("oauth.refresh", `oauth:${clientId}`, `token:${tokenId}`, {
+            clientId,
+            tokenId,
+            familyId: meta?.familyId ?? "-",
+          });
+
+          const { _meta: _omit, ...respBody } = tokenRes;
           return {
             status: 200,
-            body: tokenRes as unknown as Record<string, unknown>,
+            body: respBody as unknown as Record<string, unknown>,
             headers: {
               "Cache-Control": "no-store",
               "Pragma": "no-cache",
@@ -640,6 +717,11 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
         };
       } catch (e) {
         if (e instanceof OAuthApiError) {
+          const cId = clientId || "unknown";
+          d.audit.emit("oauth.denied", "anonymous", `oauth:${cId}`, {
+            clientId: cId,
+            reason: e.oauthError,
+          });
           return {
             status: e.status,
             body: {
@@ -658,9 +740,17 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
       const params = parseFormOrJsonBody(i.rawBody, typeof i.headers?.["content-type"] === "string" ? i.headers["content-type"] : undefined);
       const token = params.token;
       const tokenTypeHint = params.token_type_hint;
+      const clientId = params.client_id || "unknown";
 
       if (token) {
-        await oauth.revoke(token, tokenTypeHint);
+        const rev = await oauth.revoke(token, tokenTypeHint);
+        if (rev.revoked) {
+          const cId = rev.clientId ?? clientId;
+          d.audit.emit("oauth.revoke", i.principal?.id ?? `oauth:${cId}`, `token:${rev.tokenId ?? "-"}`, {
+            clientId: cId,
+            ...(rev.tokenId ? { tokenId: rev.tokenId } : {}),
+          });
+        }
       }
 
       // RFC 7009: 200 OK whether token existed or not
@@ -668,6 +758,49 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
         status: 200,
         body: { ok: true },
         headers: { "Cache-Control": "no-store" },
+      };
+    },
+
+    "oauth.grants.list": async (i: HandlerInput): Promise<HandlerOutput> => {
+      const oauth = getOAuthService();
+      if (!i.principal) throw errors.unauthenticated();
+      const grants = await oauth.listGrantsForUser(i.principal.id);
+      return {
+        status: 200,
+        body: {
+          schema: "oauth.grants.list/1",
+          grants: grants.map((g) => ({
+            id: g.id,
+            clientId: g.clientId,
+            agentId: g.agentId,
+            audience: g.audience,
+            scopes: g.scopes,
+            createdAt: g.createdAt,
+            lastUsedAt: g.lastUsedAt,
+            ...(g.revokedAt !== undefined ? { revokedAt: g.revokedAt } : {}),
+          })),
+        },
+      };
+    },
+
+    "oauth.grants.revoke": async (i: HandlerInput): Promise<HandlerOutput> => {
+      const oauth = getOAuthService();
+      if (!i.principal) throw errors.unauthenticated();
+      const body = (i.body ?? {}) as { id?: unknown };
+      if (!body.id || typeof body.id !== "string") {
+        throw errors.badRequest("id", "grant id is required");
+      }
+      const grant = await oauth.revokeGrant(i.principal.id, body.id);
+      if (!grant) {
+        throw new ApiError(404, "E_NOT_FOUND", "grant not found", { reason: "grant" });
+      }
+      d.audit.emit("oauth.revoke", i.principal.id, `token:${grant.activeTokenId ?? "-"}`, {
+        clientId: grant.clientId,
+        ...(grant.activeTokenId ? { tokenId: grant.activeTokenId } : {}),
+      });
+      return {
+        status: 200,
+        body: { schema: "oauth.grants.revoke/1", revoked: true },
       };
     },
   };

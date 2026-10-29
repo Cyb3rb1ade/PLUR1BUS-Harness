@@ -51,7 +51,7 @@ fn serve(out: &Out, layout: &Layout, agent: Option<String>) {
     let token = std::env::var("PLUR1BUS_MCP_TOKEN").unwrap_or_default();
     if token.trim().is_empty() {
         out.fail(
-            "E_AUTH",
+            "E_UNAUTHORIZED",
             "PLUR1BUS_MCP_TOKEN environment variable required for mcp serve",
             json!({ "reason": "token-missing" }),
         );

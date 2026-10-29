@@ -25,10 +25,10 @@ export class MemoryOAuthStore implements OAuthStore {
     return undefined;
   }
 
-  async listGrantsByUser(userId: string): Promise<readonly OAuthGrantRecord[]> {
+  async listGrantsByUser(userId?: string): Promise<readonly OAuthGrantRecord[]> {
     const list: OAuthGrantRecord[] = [];
     for (const g of this.#grants.values()) {
-      if (g.userId === userId) {
+      if (!userId || g.userId === userId) {
         list.push(structuredClone(g));
       }
     }
@@ -142,7 +142,7 @@ export class FileOAuthStore implements OAuthStore {
     return this.#memory.getGrantByFamily(familyId);
   }
 
-  async listGrantsByUser(userId: string): Promise<readonly OAuthGrantRecord[]> {
+  async listGrantsByUser(userId?: string): Promise<readonly OAuthGrantRecord[]> {
     return this.#memory.listGrantsByUser(userId);
   }
 
