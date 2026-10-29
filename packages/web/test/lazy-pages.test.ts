@@ -13,14 +13,26 @@ describe("lazy pages", opts, () => {
     await withApp({}, async ({ page, problems }) => {
       await signIn(page);
       await page.getByRole("heading", { name: "Chat", level: 1 }).waitFor();
-      const chunks: string[] = [];
-      page.on("request", (r) => { if (/\/[\w-]+-[A-Z0-9]+\.js$/.test(r.url())) chunks.push(r.url()); });
+      // The chunks the page has fetched so far, from the page's own resource timing: a listener for requests only sees what
+      // comes after it was attached, and a page frame is drawn (heading and all) before the import behind it has started.
+      const chunks = (): Promise<string[]> => page.evaluate(() => performance.getEntriesByType("resource").map((e) => e.name).filter((n) => /\/[\w-]+-[A-Z0-9]+\.js$/.test(n)));
+      // The Chat page is a chunk with chunks behind it: what it still fetches must not count as the Doctor page's.
+      let before = await chunks();
+      for (let i = 0; i < 40; i++) { // bounded: 10 s
+        await page.waitForTimeout(250);
+        const now = await chunks();
+        if (now.length === before.length) break;
+        before = now;
+      }
       // slow the chunk down so the loading frame is really shown
       await page.route(/\/[\w-]+-[A-Z0-9]+\.js$/, async (route) => { await new Promise((r) => setTimeout(r, 300)); await route.continue(); });
       await page.getByRole("navigation").getByRole("link", { name: "Doctor" }).click();
       await page.getByRole("heading", { name: "Doctor", level: 1 }).waitFor();
       await page.waitForFunction(() => document.activeElement?.tagName === "H1" && document.activeElement.textContent === "Doctor");
-      assert.ok(chunks.length >= 1, "the Doctor page came as a chunk");
+      await page.getByRole("button", { name: "Re-check" }).waitFor(); // the page itself has arrived and replaced the frame
+      await page.waitForFunction(() => document.activeElement?.tagName === "H1" && document.activeElement.textContent === "Doctor");
+      const after = await chunks();
+      assert.ok(after.some((c) => !before.includes(c)), `the Doctor page came as a chunk (fetched before the click: ${before.join(" ")}; after: ${after.join(" ")})`);
       assert.deepEqual(problems, []);
     });
   });
