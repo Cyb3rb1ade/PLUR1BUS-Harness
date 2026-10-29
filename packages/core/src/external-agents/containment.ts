@@ -1,8 +1,8 @@
 // Worktree containment for an external ACP agent. Paths go through the harness canonicaliser.
 // The terminal sandbox keeps the worktree writable and the shared gitdir read-only. Windows has no backend.
 import { spawn } from "node:child_process";
-import { constants as fsc, existsSync, readFileSync, realpathSync, statSync } from "node:fs";
-import { isAbsolute, join, resolve, sep } from "node:path";
+import { constants as fsc, existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { denyEntriesFor } from "../host-tools/denylist.ts";
 import type { HostPlatform } from "../host-tools/types.ts";
 import { canonicalisePath, type DenyEntry, type PathRefusal } from "../policy/paths.ts";
@@ -129,7 +129,40 @@ function seatbelt(worktree: string, denies: readonly string[], network: boolean)
     return `(deny file-write* (${filter}))`;
   }).join("");
   const net = network ? "" : "(deny network*)";
-  return `(version 1)(allow default)${net}(deny file-write* (require-all (require-not (subpath ${JSON.stringify(wt)})) (require-not (literal "/dev/null"))))${extra}`;
+  // Measured on this Mac on 2026-10-29. `(allow file-link (subpath DIR))` permits a link only when
+  // both paths are inside DIR. A second subpath filter allows a link whose source is outside the
+  // worktree. That is not a source rule, so new hard links are refused outright.
+  return `(version 1)(allow default)(deny file-link)${net}(deny file-write* (require-all (require-not (subpath ${JSON.stringify(wt)})) (require-not (literal "/dev/null"))))${extra}`;
+}
+
+export interface HardlinkHit { count: number; path: string }
+
+/** Regular files with more than one name. The worktree's own `.git` entry is not part of the scan. */
+export function findHardlink(worktree: string): HardlinkHit | null {
+  const root = realpathSync(worktree);
+  const gitEntry = join(root, ".git");
+  const stack = [root];
+  let count = 0;
+  let sample = "";
+  while (stack.length > 0) {
+    const dir = stack.pop()!;
+    let names: string[];
+    try { names = readdirSync(dir); }
+    catch { throw new ContainmentError("hardlink-in-worktree", "unreadable"); }
+    for (const name of names) {
+      const path = join(dir, name);
+      if (path === gitEntry) continue;
+      let st;
+      try { st = lstatSync(path); }
+      catch { throw new ContainmentError("hardlink-in-worktree", "unreadable"); }
+      if (st.isSymbolicLink()) continue;
+      if (st.isDirectory()) { stack.push(path); continue; }
+      if (!st.isFile() || st.nlink <= 1) continue;
+      count += 1;
+      if (!sample) sample = relative(root, path).split(sep).join("/");
+    }
+  }
+  return count > 0 ? { count, path: sample } : null;
 }
 
 function bwrapArgv(worktree: string, denies: readonly string[], argv: readonly string[], network: boolean): string[] {
@@ -154,7 +187,7 @@ function dirnameSafe(p: string): string {
 }
 
 export interface TerminalResult { ok: true; exitCode: number | null; stdout: string; stderr: string }
-export interface TerminalRefusal { ok: false; reason: "sandbox-unavailable" | "argv" | "timeout" | "aborted" | "spawn-failed" }
+export interface TerminalRefusal { ok: false; reason: "sandbox-unavailable" | "argv" | "timeout" | "aborted" | "spawn-failed" | "hardlink-in-worktree" }
 
 /** Absolute argv, no shell. Windows is refused. The gitdir stays read-only inside the sandbox. */
 export function containedTerminal(o: {
@@ -165,11 +198,22 @@ export function containedTerminal(o: {
   platform?: NodeJS.Platform;
   timeoutMs?: number;
   signal?: AbortSignal;
+  log?: (event: string, fields?: Record<string, number | string>) => void;
 }): Promise<TerminalResult | TerminalRefusal> {
   const platform = o.platform ?? process.platform;
   if (platform === "win32") return Promise.resolve({ ok: false, reason: "sandbox-unavailable" });
   if (!o.argv.length || o.argv.some((a) => typeof a !== "string" || a.includes("\0") || !isAbsolute(a))) {
     return Promise.resolve({ ok: false, reason: "argv" });
+  }
+  try {
+    const hit = findHardlink(o.worktree);
+    if (hit) {
+      o.log?.("hardlink-in-worktree", { count: hit.count, path: hit.path });
+      return Promise.resolve({ ok: false, reason: "hardlink-in-worktree" });
+    }
+  } catch (e) {
+    if (e instanceof ContainmentError) return Promise.resolve({ ok: false, reason: "hardlink-in-worktree" });
+    return Promise.resolve({ ok: false, reason: "spawn-failed" });
   }
   const denies = [o.home, ...gitDenyPaths(o.worktree)].filter((p) => !blocksWorktree(p, o.worktree));
   const network = o.network === true;

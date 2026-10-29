@@ -11,7 +11,7 @@ import type { AgentRunInput, AgentRunResult } from "../collab/runner.ts";
 import type { Principal } from "../rbac/types.ts";
 import type { SessionStore } from "../session/store.ts";
 import { AcpClient, AcpClientError, type AcpClientHandlers } from "./acp-client.ts";
-import { containedRead, containedTerminal, containedWrite, ContainmentError } from "./containment.ts";
+import { containedRead, containedTerminal, containedWrite, ContainmentError, findHardlink } from "./containment.ts";
 import { acpMemoryExposure, connectorArgv, type ResolvedEngine } from "./engine.ts";
 import { launchExternalAgent, type LaunchHandle } from "./launcher.ts";
 
@@ -62,6 +62,16 @@ export class ExternalDelegationTarget implements DelegationTarget {
     if (engine.connector === null) throw new CollabError("invalid", "external connector is not usable", { reason: "connector-unavailable" });
     const worktree = this.#d.worktreeOf(input.agentId, scope.projectId);
     if (!worktree) throw new CollabError("conflict", "no provisioned worktree", { reason: "worktree" });
+    let linked: ReturnType<typeof findHardlink>;
+    try { linked = findHardlink(worktree); }
+    catch (e) {
+      if (e instanceof ContainmentError) throw new CollabError("conflict", e.message, { reason: e.reason });
+      throw e;
+    }
+    if (linked) {
+      this.#d.log?.("hardlink-in-worktree", { count: linked.count, path: linked.path });
+      throw new CollabError("conflict", "hardlink-in-worktree", { reason: "hardlink-in-worktree" });
+    }
     const store = this.#d.sessions();
     const person = personId(input.principal);
     const transcript = store.createSession({
@@ -169,7 +179,7 @@ export class ExternalDelegationTarget implements DelegationTarget {
       if (!argv) throw new Error("argv");
       const abort = new AbortController();
       const id = idOf();
-      const done = containedTerminal({ argv, worktree, home: this.#d.home, signal: abort.signal });
+      const done = containedTerminal({ argv, worktree, home: this.#d.home, signal: abort.signal, ...(this.#d.log ? { log: this.#d.log } : {}) });
       terminals.set(id, { abort, done });
       return { terminalId: id };
     }

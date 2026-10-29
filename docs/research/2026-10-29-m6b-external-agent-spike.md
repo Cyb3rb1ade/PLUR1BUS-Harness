@@ -25,6 +25,16 @@ Observed with `/usr/bin/sandbox-exec` on macOS:
 
 `bwrap` is not installed on this Mac. The same read-only gitdir overlay is what the Linux containment tests bind.
 
+## Hardlinks
+
+Seatbelt checks paths. A hard link whose name sits in the worktree still writes the file outside it. Two checks close that, and both fail closed.
+
+New links are refused in the sandbox. On this Mac, `(allow file-link (subpath DIR))` allows a link only when both paths are inside `DIR`. Adding a second `subpath` filter allows a link from outside the worktree into it, so that is not a source rule. The profile therefore uses a blanket `(deny file-link)`. Tools that fall back to copying still run: `pnpm install` of a `file:` dependency finishes inside that profile, and the installed file has link count 1. Linux does not need a profile rule. A link to a path that is not mounted returns `ENOENT`. A link to a read-only bind of a system file returns `EXDEV`.
+
+Existing links are refused before a session is opened and again before `terminal/create`. The scan walks the worktree, skips the root `.git` entry, and refuses a regular file with `nlink > 1` (`hardlink-in-worktree`). The log carries the count and at most one path relative to the worktree. `containedWrite` already refuses a hard link through the canonicaliser.
+
+A process outside the sandbox could create a link after the scan and before the launch. That is outside the threat model: the external agent runs inside the sandbox, where new links are denied. Scanning this Harness checkout (`worktrees/agy-m6b-external-agents`, `node_modules` included) took 1.2 s on this Mac on 2026-10-29 and found no hard link. That cost is not optimised here.
+
 ## Windows
 
 `sandboxSpawn` refuses the platform `win32` before it starts a process (`SandboxFailure`, reason from `detectSandbox`: no restricted-token backend). Terminal callbacks use that refusal (`sandbox-unavailable`). There is no Windows sandbox in this package.
