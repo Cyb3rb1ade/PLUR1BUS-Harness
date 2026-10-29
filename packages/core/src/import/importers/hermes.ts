@@ -25,6 +25,8 @@ import { newRunId } from "../skills-import.ts";
 import { withTargetLock } from "../single-writer.ts";
 import { targetIdentity } from "../identity.ts";
 import { ImportError, type SourceCtx } from "../types.ts";
+import { createSourceDiscovery } from "../source-discovery.ts";
+import { importExtensions, type ImportedExtensionPort } from "../extensions-import.ts";
 import { writeAtomicSync } from "../fs-atomic.ts";
 import { RUN_ID_RE } from "../rollback.ts";
 import { planAndMigrateHermesAgent } from "./hermes-agents.ts";
@@ -120,6 +122,8 @@ function createImportHost(stateDir: string, workspaceDir: (id: string) => Promis
 
 export interface HermesImportOptions {
   home: string;
+  /** Native package-store injection; extension receipts are kept outside the legacy report. */
+  extensionPort?: ImportedExtensionPort | undefined;
   source?: string | undefined;
   profile?: string | undefined;
   apply?: boolean | undefined;
@@ -263,7 +267,9 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
     const repDir = join(l.home, "imports", runId);
 
     // Detect Hermes source
+    const extensionDiscovery = createSourceDiscovery("hermes");
     const ctx: SourceCtx = {
+      onSourceConfig: opts.extensionPort ? extensionDiscovery.capture : undefined,
       sourceType: "hermes",
       source: opts.source,
       profile: opts.profile,
@@ -717,6 +723,8 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
           writeAtomicSync(reportPath, `${JSON.stringify(resultReport, null, 2)}\n`, 0o600);
         }
 
+        await importExtensions({ home: l.home, runId, apply: isApply,
+          candidates: extensionDiscovery.discovery.mcpCandidates, port: opts.extensionPort });
         return resultReport;
       } finally {
         if (createdEngineLocally && engine) {

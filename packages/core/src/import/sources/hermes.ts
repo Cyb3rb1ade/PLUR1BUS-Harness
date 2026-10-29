@@ -118,6 +118,7 @@ export async function detectHermes(ctx: SourceCtx): Promise<SourceReport> {
     }
   }
   for (const p of profiles) if (p.unsupported.length) warnings.push(`${p.agentId}/config.yaml: unsupported YAML (${p.unsupported.join("; ")}); those keys are unknown`);
+  for (const profile of profiles) ctx.onSourceConfig?.(profile.config, profile.agentId);
 
   const versionWarnings: string[] = [];
   if (rootFacts.configVersion > TESTED_CONFIG_VERSION) versionWarnings.push(`config version ${rootFacts.configVersion} is newer than the tested ${TESTED_CONFIG_VERSION}`);

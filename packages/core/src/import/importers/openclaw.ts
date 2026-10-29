@@ -28,6 +28,8 @@ import { newRunId } from "../skills-import.ts";
 import { withTargetLock } from "../single-writer.ts";
 import { targetIdentity } from "../identity.ts";
 import { ImportError, type SourceCtx } from "../types.ts";
+import { createSourceDiscovery } from "../source-discovery.ts";
+import { importExtensions, type ImportedExtensionPort } from "../extensions-import.ts";
 import { planAndMigrateAgent, type AgentImportReport } from "./openclaw-agents.ts";
 import { readOpenclawChannels, type ChannelAllowlistReport } from "./openclaw-channels.ts";
 import { readOpenclawCronJobs, type OpenclawCronJob } from "./openclaw-cron.ts";
@@ -44,6 +46,8 @@ import { PARK_DEFERRED, PARK_PENDING_REEMBED, readPriorCardLinks, type OwnStoreC
 
 export interface OpenclawImportOptions {
   home: string;
+  /** Native package-store injection; extension receipts are kept outside the legacy report. */
+  extensionPort?: ImportedExtensionPort | undefined;
   source?: string | undefined;
   apply?: boolean | undefined;
   migrateSecrets?: boolean | undefined;
@@ -197,7 +201,9 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
     const repDir = join(l.home, "imports", runId);
 
     // Detect OpenClaw source
+    const extensionDiscovery = createSourceDiscovery("openclaw");
     const ctx: SourceCtx = {
+      onSourceConfig: opts.extensionPort ? extensionDiscovery.capture : undefined,
       sourceType: "openclaw",
       source: opts.source,
       env,
@@ -603,6 +609,8 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
       writeAtomicSync(reportPath, `${JSON.stringify(resultReport, null, 2)}\n`, 0o600);
     }
 
+    await importExtensions({ home: l.home, runId, apply: isApply,
+      candidates: extensionDiscovery.discovery.mcpCandidates, port: opts.extensionPort });
     return resultReport;
     } finally {
       if (createdEngineLocally && engine) {

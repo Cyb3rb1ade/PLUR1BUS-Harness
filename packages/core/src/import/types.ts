@@ -4,6 +4,11 @@ import type { Comparison, Identity, RerankerComparison, RerankerInfo, TargetIden
 
 export type SourceType = "openclaw" | "hermes";
 
+/** Validate an importer source family without duplicating foreign format names in host applications. */
+export function isSourceType(value: unknown): value is SourceType {
+  return value === "openclaw" || value === "hermes";
+}
+
 /** A refusal or failure the CLI reports as an `error/1` document with this code, reason and exit code. */
 export class ImportError extends Error {
   code: string; reason: string; exit: number;
@@ -12,6 +17,8 @@ export class ImportError extends Error {
 
 export interface SourceCtx {
   sourceType: SourceType;
+  /** Internal A13 tap for decoded source facts. Values can contain credentials: never serialize or retain them. */
+  onSourceConfig?: ((config: unknown, profile: string | null) => void) | undefined;
   source?: string | undefined;
   profile?: string | undefined;
   env: NodeJS.ProcessEnv;

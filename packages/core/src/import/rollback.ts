@@ -27,6 +27,7 @@ import type { Engine, Principal } from "@cyb3rb1ade/plur1bus-memory/types/engine
 import { defaults } from "@plur1bus/config-schema";
 import { buildEngineConfig } from "../engine-config.ts";
 import { createTempHost } from "./importers/hermes-stores.ts";
+import { readExtensionRun, requireExtensionRollbackPort, rollbackExtensions, type ImportedExtensionPort } from "./extensions-import.ts";
 
 export const RUN_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -145,6 +146,7 @@ function validateManifestKey(relPath: string, home: string): void {
 }
 
 export interface RollbackOptions {
+  extensionPort?: ImportedExtensionPort | undefined;
   home: string;
   reportPath: string;
   apply: boolean;
@@ -242,6 +244,9 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
     if (realReportPath !== expectedReportPath) {
       throw invalid("report-outside-home", `report path must match ${join(runDir, "report.json")}`);
     }
+
+    const extensionMetadata = readExtensionRun(l.home, runId);
+    if (opts.apply) requireExtensionRollbackPort(extensionMetadata, opts.extensionPort);
 
     const snapPath = join(runDir, "snapshot");
     if (!existsSync(snapPath)) {
@@ -555,6 +560,8 @@ export async function rollbackImport(opts: RollbackOptions): Promise<RollbackRep
     if (!opts.apply) {
       return out;
     }
+
+    await rollbackExtensions(l.home, extensionMetadata, opts.extensionPort);
 
     // 5. Execute apply atomically
     mkdirSync(rolledBackMarker, { recursive: true, mode: 0o700 });

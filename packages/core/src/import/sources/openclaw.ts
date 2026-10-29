@@ -186,6 +186,7 @@ export async function detectOpenclaw(ctx: SourceCtx): Promise<SourceReport> {
   const release = typeof obj(cfg.meta)?.lastTouchedVersion === "string" ? cfg.meta.lastTouchedVersion as string : null;
   const state = readStateSchema(root, warnings);
   if (release === null && state.schema === null) throw new ImportError("E_SOURCE_UNSUPPORTED", "version-undeterminable", `${root}: neither meta.lastTouchedVersion in openclaw.json nor a state schema version in state/openclaw.sqlite`);
+  ctx.onSourceConfig?.(cfg, null);
   const versionWarnings: string[] = [];
   if (state.schema !== null && state.schema > TESTED_STATE_SCHEMA) versionWarnings.push(`state schema ${state.schema} is newer than the tested ${TESTED_STATE_SCHEMA}`);
 
