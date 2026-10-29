@@ -11,10 +11,15 @@ const MAX_STRING_CHARS = 500;
 const MAX_EXCEPTION_CHARS = 300;
 const MAX_ID_CHARS = 128;
 const SOURCE_CODE = /^[a-z0-9_.-]{1,64}$/;
+// A path may arrive with doubled separators (the escaped spelling util.inspect and JSON give), so every separator is a run.
+const NAME = String.raw`[^\\/\r\n"'<>|:;,()[\]{}]+`;
 const USER_HOME = new RegExp(
   String.raw`(?:(?<![A-Za-z0-9_./\\~-])|(?<=file://)|(?<=file:///))` +
-  String.raw`(/(?:var/)?home|/Users|/mnt/[A-Za-z]/Users|(?:\\\\\?\\)?[A-Za-z]:[\\/]Users)` +
-  String.raw`([\\/])([^\\/\r\n"'<>|:;,()[\]{}]+)`, "gi",
+  String.raw`(/(?:var/)?home|/Users|/mnt/[A-Za-z]/Users|/Volumes/[^/\\\r\n"'<>|:;,()[\]{}]+/Users` +
+  String.raw`|(?:[\\/]{2,4}\?[\\/]{1,2})?[A-Za-z]:[\\/]+Users` +
+  // A WSL distribution seen from Windows: \\wsl$\<distro>\home and \\wsl.localhost\<distro>\home.
+  String.raw`|[\\/]{2,}wsl(?:\$|\.localhost)[\\/]+[^\\/\r\n"'<>|:;,()[\]{}]+[\\/]+(?:var[\\/]+)?home)` +
+  String.raw`([\\/]+)(${NAME})`, "gi",
 );
 const FIXED_MESSAGES: Record<InternalToolFailureCategory, string> = {
   "internal-error": "The tool call failed because of an internal error.",
@@ -51,8 +56,8 @@ function homePatterns(options: ModelToolErrorOptions): RegExp[] {
   return [...new Set([home, realHome])].filter(path => path.length > 1).sort((a, b) => b.length - a.length)
     .map(path => {
       const normal = path.replace(/^\\\\\?\\/, "").replace(/[\\/]+$/, "");
-      const prefix = /^[A-Za-z]:/.test(normal) ? String.raw`(?:\\\\\?\\)?` : "";
-      const body = normal.split(/[\\/]/).map(escapePattern).join(String.raw`[\\/]`);
+      const prefix = /^[A-Za-z]:/.test(normal) ? String.raw`(?:[\\/]{2,4}\?[\\/]{1,2})?` : "";
+      const body = normal.split(/[\\/]/).map(escapePattern).join(String.raw`[\\/]+`);
       return new RegExp(
         String.raw`(?:(?<![A-Za-z0-9_./\\~-])|(?<=file://)|(?<=file:///))` + prefix + body
           + String.raw`(?=$|[\\/\s"'<>|:;,()[\]{}])`, flags,

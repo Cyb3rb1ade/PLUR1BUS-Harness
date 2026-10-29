@@ -64,6 +64,17 @@ const PATHS = [
   ["C:/Users/alice/project/report.txt", "C:/Users/<user>/project/report.txt"],
   [String.raw`\\?\C:\Users\alice\project\report.txt`, String.raw`\\?\C:\Users\<user>\project\report.txt`],
   ["/mnt/c/Users/alice/project/report.txt", "/mnt/c/Users/<user>/project/report.txt"],
+  // N2/5: the escaped spelling of a Windows path (util.inspect of a Node argument error, JSON inside an error message).
+  [String.raw`C:\\Users\\alice\\project\\report.txt`, String.raw`C:\\Users\\<user>\\project\\report.txt`],
+  [String.raw`\\\\?\\C:\\Users\\alice\\project\\report.txt`, String.raw`\\\\?\\C:\\Users\\<user>\\project\\report.txt`],
+  // N2/5: a WSL distribution's home seen from Windows, plain and escaped, with either host name.
+  [String.raw`\\wsl$\Ubuntu\home\alice\project\report.txt`, String.raw`\\wsl$\Ubuntu\home\<user>\project\report.txt`],
+  [String.raw`\\wsl.localhost\Ubuntu-22.04\home\alice\project\report.txt`, String.raw`\\wsl.localhost\Ubuntu-22.04\home\<user>\project\report.txt`],
+  [String.raw`\\\\wsl$\\Ubuntu\\home\\alice\\project\\report.txt`, String.raw`\\\\wsl$\\Ubuntu\\home\\<user>\\project\\report.txt`],
+  ["//wsl$/Ubuntu/var/home/alice/project/report.txt", "//wsl$/Ubuntu/var/home/<user>/project/report.txt"],
+  // N2/5: a macOS home on another volume, a volume name may hold spaces.
+  ["/Volumes/Macintosh HD/Users/alice/project/report.txt", "/Volumes/Macintosh HD/Users/<user>/project/report.txt"],
+  ["file:///Volumes/Data/Users/alice/project/report.txt", "file:///Volumes/Data/Users/<user>/project/report.txt"],
 ] as const;
 
 describe("N1 modelToolError", () => {
@@ -218,13 +229,20 @@ describe("N1 modelToolError", () => {
       const result = modelToolError(raw, [], { home });
       assert.equal(result.error.code, "tool-failed");
       assert.match(result.error.message, /ENOENT/);
-      assert.match(result.error.message, /~\/report.txt/);
+      // Windows spells the separator with a backslash.
+      assert.match(result.error.message, /~[\\/]report\.txt/);
       assert.ok(!JSON.stringify(result).includes(home));
       assert.ok(!JSON.stringify(result).includes("alice"));
       assert.equal(result.error.sourceCode, undefined);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+
+  it("N2/5: the escaped spelling of this process's own home becomes ~, not <user>", () => {
+    const result = modelToolError(failure({ code: "tool-failed", message: String.raw`cannot read C:\\Users\\alice\\report.txt` }),
+      [], { home: String.raw`C:\Users\alice`, platform: "win32" });
+    assert.equal(result.error.message, String.raw`cannot read ~\\report.txt`);
   });
 
   it("preserves the FsFailure message and hint byte for byte", () => {
