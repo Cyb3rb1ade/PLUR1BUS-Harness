@@ -1,5 +1,7 @@
 // RBAC for human principals (ADR-007). Not D109 `policy.decide`, which governs what an *agent* may do.
 
+import type { ApiTokenBinding } from "@plur1bus/module-api";
+
 export const ROLES = ["owner", "admin", "operator", "member", "viewer"] as const;
 export type Role = (typeof ROLES)[number];
 
@@ -32,6 +34,8 @@ export interface Principal {
   readonly projectRights?: Readonly<Record<string, ProjectRight>>;
   /** API-token scopes: exact action names or `prefix.*`. Absent = a session (no narrowing); present = role ∩ scopes. */
   readonly tokenScopes?: readonly string[];
+  readonly tokenId?: string;
+  readonly binding?: ApiTokenBinding;
   readonly breakGlass?: readonly BreakGlassGrant[];
 }
 

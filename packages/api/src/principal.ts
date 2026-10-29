@@ -6,7 +6,8 @@ import type { RbacPrincipal } from "./rbac-bridge.ts";
 export function webPrincipal(p: RbacPrincipal, bootstrapOwner = false): ApiPrincipal {
   if (p.kind !== "person" && p.kind !== "agent") throw new Error("authenticated principal required");
   return { userId: bootstrapOwner && p.userId === "owner" ? "local-owner" : p.userId, kind: p.kind, role: p.role,
-    ...(p.agentRights ? { agentRights: p.agentRights } : {}), ...(p.projectRights ? { projectRights: p.projectRights } : {}), ...(p.tokenScopes ? { tokenScopes: p.tokenScopes } : {}) };
+    ...(p.agentRights ? { agentRights: p.agentRights } : {}), ...(p.projectRights ? { projectRights: p.projectRights } : {}), ...(p.tokenScopes ? { tokenScopes: p.tokenScopes } : {}),
+    ...(p.tokenId !== undefined ? { tokenId: p.tokenId } : {}), ...(p.binding !== undefined ? { binding: p.binding } : {}) };
 }
 
 const connections = new WeakMap<Session, string>();

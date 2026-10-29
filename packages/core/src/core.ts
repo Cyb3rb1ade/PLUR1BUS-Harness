@@ -680,7 +680,13 @@ export function createCore(o: CoreOptions): Core {
         if (!people.resolvePerson(p.userId)) return null;
         const current = o.rbac?.resolvePerson ? o.rbac.resolvePerson(p.userId) : { ...p, kind: "person" as const };
         if (!current || current.userId !== p.userId || current.kind !== "person") return null;
-        return { ...people.resolve(current), kind: p.kind, ...(p.tokenScopes ? { tokenScopes: p.tokenScopes } : {}) };
+        return {
+          ...people.resolve(current),
+          kind: p.kind,
+          ...(p.tokenScopes ? { tokenScopes: p.tokenScopes } : {}),
+          ...(p.tokenId !== undefined ? { tokenId: p.tokenId } : {}),
+          ...(p.binding !== undefined ? { binding: p.binding } : {}),
+        };
       });
       const resolvePrincipal: PrincipalResolver = async (ctx, method, params) => {
         const forwarded = apiPrincipal(ctx);

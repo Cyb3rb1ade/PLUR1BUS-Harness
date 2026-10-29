@@ -409,7 +409,16 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
           audit.emit("auth.token.used-denied", "anonymous", `token:${r.record.id}`, { reason: "account", ip });
           throw isProtocol ? protocolUnauthenticatedError("invalid-token", protocolOrigin, spec.protocol?.resourceMetadataPath) : errors.unauthenticated("invalid-token");
         }
-        resolved = { ...resolved, rbac: { ...resolved.rbac, kind: "agent", tokenScopes: r.record.scopes } };
+        resolved = {
+          ...resolved,
+          rbac: {
+            ...resolved.rbac,
+            kind: "agent",
+            tokenScopes: r.record.scopes,
+            tokenId: r.record.id,
+            ...(r.record.binding !== undefined ? { binding: r.record.binding } : {}),
+          },
+        };
         via = "token"; tokenRecord = r.record; tokenInfo = { id: r.record.id, prefix: `plb_${r.record.id}`, scopes: r.record.scopes, expiresAt: r.record.expiresAt, ...(r.record.binding !== undefined ? { binding: r.record.binding } : {}) };
         if(secondFactorRequired(resolved.principal.role,!!o.remote,o.requireSecondFactor))throw errors.forbidden("second-factor-required");
         principalId = resolved.principal.id; rateKey = `token:${r.record.id}`;

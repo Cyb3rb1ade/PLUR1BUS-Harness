@@ -18,9 +18,12 @@ import type { AgentRegistry } from "../agents.ts";
 import { buildDreamsMethods } from "../dreams/methods.ts";
 import { joinBlocks } from "../join.ts";
 import type { HarnessLogger } from "../logger.ts";
+import { apiPrincipal, isClientContext } from "@plur1bus/module-api";
 import { buildMemoryCurationMethods } from "../memory-curation.ts";
 import { buildMemoryOpMethods, requireAgent } from "../memory-ops.ts";
-import { AGENT_CONTEXT_CLI, callerToPrincipal } from "../principal.ts";
+import { AGENT_CONTEXT_CLI, callerToPrincipal, validIdentity } from "../principal.ts";
+import { deriveUserPrincipal } from "../identity/principals.ts";
+import { authenticatedPrincipal } from "../rbac/guard.ts";
 import { buildIdentityMethods } from "../identity/rpc.ts";
 import type { BudgetService } from "../budget/index.ts";
 import type { Egress } from "../egress/index.ts";
@@ -29,7 +32,7 @@ import { CatalogWriteError } from "../discovery/catalog-store.ts";
 import { buildSecretMethods } from "../secrets/rpc.ts";
 import { buildApprovalMethods, type ApprovalMethodDeps } from "../approvals/rpc.ts";
 import { RpcError } from "./errors.ts";
-import type { Handler } from "./server.ts";
+import type { CallContext, Handler } from "./server.ts";
 
 function mapDiscoveryError(err: unknown): never {
   if (err instanceof CatalogError) {
@@ -92,8 +95,29 @@ export interface MethodDeps {
   permissions?: ApprovalMethodDeps;
 }
 
-function identity(d: MethodDeps, caller: CallerIdentity, agentId: string): { principal: Principal; degraded: Degraded | null } {
-  return callerToPrincipal(caller, agentId, requireAgent(d.agents, agentId));
+function guardedPrincipal(ctx: CallContext | undefined): import("../rbac/types.ts").Principal | undefined {
+  if (!ctx) return undefined;
+  try { return authenticatedPrincipal(ctx); } catch { return undefined; }
+}
+
+function identity(d: MethodDeps, caller: CallerIdentity, agentId: string, ctx?: CallContext): { principal: Principal; degraded: Degraded | null } {
+  const workspace = requireAgent(d.agents, agentId);
+  if (ctx && !isClientContext(ctx)) {
+    const delegated = apiPrincipal(ctx);
+    const guarded = guardedPrincipal(ctx);
+    const effective = guarded ?? delegated ?? undefined;
+    const binding = guarded?.binding ?? delegated?.binding;
+    if (effective && (delegated != null || binding !== undefined)) {
+      if (binding ? binding.agentId !== agentId : effective.kind === "agent") {
+        throw new RpcError("E_DENIED", "agentId does not match token binding", { reason: "agent-binding-mismatch" });
+      }
+      const accountId = validIdentity(caller?.accountId) ? caller.accountId : (binding?.audience ?? "api");
+      const { principal } = callerToPrincipal({ channel: "cli", accountId, userId: effective.userId }, agentId, workspace);
+      principal.user = deriveUserPrincipal(effective.userId);
+      return { principal, degraded: null };
+    }
+  }
+  return callerToPrincipal(caller, agentId, workspace);
 }
 
 // The wire shapes are closed (rpc.schema.json): project every engine object onto exactly the schema's keys.
@@ -146,7 +170,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
       // H3-R21: a stopping core refuses a recall as core-unavailable (the client answers degraded core-unavailable),
       // instead of passing on the engine's "engine closed" as if the core had served it.
       if (d.isStopping()) throw coreStopping();
-      const { principal, degraded } = identity(d, p.caller, p.agentId);
+      const { principal, degraded } = identity(d, p.caller, p.agentId, ctx);
       const hardMs = p.budget?.hardMs ?? d.config().core.recall.hardBudgetMs;
       const softMs = p.budget?.softMs ?? d.config().core.recall.softBudgetMs;
       const capChars = p.budget?.capChars ?? d.config().core.recall.capChars;
@@ -171,11 +195,11 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
 
     // R19: a capture is never lost because of the wait. Its signal is the core's shutdown signal only — not the
     // connection (a client disconnect never aborts it) and not the waitMs timer (which bounds the reply, not the work).
-    "memory.capture": async (p: MemoryCaptureParams): Promise<MemoryCaptureResult> => {
+    "memory.capture": async (p: MemoryCaptureParams, ctx): Promise<MemoryCaptureResult> => {
       // A capture the core cannot take because it is stopping is refused as core-unavailable, never answered as the
       // engine's "not captured": the client (the CLI's memory add) then journals it for the next core (Task 12 soak).
       if (d.isStopping()) throw coreStopping();
-      const { principal } = identity(d, p.caller, p.agentId);
+      const { principal } = identity(d, p.caller, p.agentId, ctx);
       d.activity.set(p.agentId, { state: "capturing" });
       const handle = d.engine.capture({
         agentId: p.agentId, principal, agent: AGENT_CONTEXT_CLI, messages: p.messages, incognito: false, // the engine fails closed on anything but an explicit false

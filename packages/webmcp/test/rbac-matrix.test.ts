@@ -40,8 +40,6 @@ const UNRULED: Record<string, string> = {
   "core.shutdown": "docs/rbac.md 'Not yet secured': core.*; local token only; HM4 scoped clients are denied by the transport allowlist",
   "core.adopt": "docs/rbac.md 'Not yet secured': core.*; adoption nonce check, supervisor only",
   "events.unsubscribe": "connection-bound subscription, no data of its own",
-  "memory.recall": "docs/rbac.md 'Not yet secured': memory.recall; the engine ACL filters per principal",
-  "memory.capture": "docs/rbac.md 'Not yet secured': memory.capture; the engine ACL decides",
   "memory.checkpoint": "docs/rbac.md 'Not yet secured': memory.checkpoint",
   "memory.state": "docs/rbac.md 'Not yet secured': memory.state",
   "agent.list": "docs/rbac.md 'Not yet secured': agent.list (callers filter with canSee)",
