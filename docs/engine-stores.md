@@ -191,48 +191,31 @@ recordings. For example:
 ```sh
 cargo test -p plur1bus-engine --features real-models --test embedding_parity e5_vectors_match_the_node_engine -- --nocapture
 cargo test -p plur1bus-engine --features real-models --test embedding_parity gemma_vectors_match_the_node_engine -- --nocapture
+cargo test -p plur1bus-engine --features real-models --test embedding_parity bge_scores_order_matches_the_node_engine -- --nocapture
 ```
 
-This work package records jina vectors, token IDs, task IDs, prefix checks, padding cases, identities and reranker
-scores live into an explicitly named system-temporary directory outside the repository. The RE-D19 owner decision
-of 2026-10-28 permits separately reviewed goldens with `NOTICE-jina.md`; the current package retains its explicit
-live-temporary scope and does not generate repository goldens. Both `PLUR1BUS_ALLOW_TEST_INTERNALS=1`
-and `PLUR1BUS_TEST_ACCEPT_NC_MODELS=1` must be deliberately set before `record.mjs --jina --output-dir <temp-dir>`
-or the jina parity test runs. The recorder refuses before any NC fetch when either is absent. These are explicit
-test consent gates, not production licence records. Production still requires the host's persisted model/revision
-confirmation and explicit `modelPreparation.acceptNonCommercialLicense`; possession of model files grants no
+e5 and EmbeddingGemma 2 vectors, the Gemma runtime identity and token IDs (`e5-small.json`,
+`embeddinggemma-2*.json`, `identity-embeddinggemma-2-runtime.json`, `token-ids.json`, `token-ids-gemma.json`) are
+genuine recordings of the pinned Node engine; e5 is MIT, EmbeddingGemma 2 Apache-2.0 at their pinned model cards.
+The BGE conversion `woxpas-ai/bge-reranker-v2-m3-onnx@c44ebc43de724ae8816668bb44d2e728e17faa18` ships no LICENSE
+file of its own; by the owner's decision of 2026-10-29 the licence of the original `BAAI/bge-reranker-v2-m3`
+(Apache-2.0 at `953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e`) applies. `record.mjs --bge` writes `bge-scores.json` and
+`token-ids-bge.json` only against the exact receipt `tests/fixtures/vectors/licences/bge-reranker-v2-m3.json` (the
+conversion pin, the original's model card by size and SHA-256, the byte-exact licence text); `NOTICE-bge.md` carries
+the attribution. The BGE tokenizer is part of the pinned tokenizer manifest that `setup-tokenizers.mjs` fetches.
+
+jina v3, v5-nano and the jina reranker are CC-BY-NC-4.0. By the owner's decision of 2026-10-29 nothing derived from
+them (vectors, token IDs, scores, goldens) enters the repository, CI artefacts, logs or pull request texts; only the
+model name, revision and summary figures do. Their parity test therefore records jina vectors, token IDs, task IDs,
+prefix checks, padding cases, identities, reranker scores and Node's own batched vectors live into a system-temporary
+directory outside the repository and compares against them there. The quantized jina conversions are not
+padding-invariant in Node either, so the batched check compares a Rust batch with Node's batch, while e5 and
+EmbeddingGemma 2 batches must match their one-by-one goldens. Both `PLUR1BUS_ALLOW_TEST_INTERNALS=1` and
+`PLUR1BUS_TEST_ACCEPT_NC_MODELS=1` must be deliberately set before `record.mjs --jina --output-dir <temp-dir>` or the
+jina parity test runs; the recorder refuses before any NC model access when either is absent. These are explicit test
+consent gates, not production licence records: production still requires the host's persisted model/revision
+confirmation and explicit `modelPreparation.acceptNonCommercialLicense`, and possession of model files grants no
 consent. The full `embedding_parity` target includes jina and therefore also requires these gates.
-
-For this package's pinned local parity runs, the owner explicitly granted noncommercial test consent on
-2026-10-28. The two test variables were set only on those test processes. The consented recorder passed its
-consent check, then failed at the enforced HTTP proxy with CONNECT 403 before acquiring model artifacts.
-This test authorization does not populate production licence records or permit committing the temporary output.
-
-**Open prerequisites:** the implementation environment's Hugging Face requests returned proxy HTTP 403 for
-`--e5`, `--gemma` and `--token-ids`. Consequently their genuine model/token recordings and measured HF parity are
-still outstanding. BGE's `woxpas-ai/bge-reranker-v2-m3-onnx` conversion at
-`c44ebc43de724ae8816668bb44d2e728e17faa18` also lacks a verified pinned repository LICENSE/receipt.
-`--bge` refuses to produce derived goldens until that evidence exists; the normal tokenizer recorder records its
-explicit exclusion. No BGE or jina goldens are approved for commit by this implementation. Synthetic graph tests,
-catalogue/identity fixtures and recorder unit tests do not close these prerequisites or establish RE-03 completion.
-
-The official pinned model cards corroborate e5's [MIT declaration](https://huggingface.co/intfloat/multilingual-e5-small/blob/614241f622f53c4eeff9890bdc4f31cfecc418b3/README.md)
-and Gemma's [Apache-2.0 declaration and licence link](https://huggingface.co/onnx-community/embeddinggemma-2-ONNX/blob/daa72c51243991dfcaf9f9137d2c573d8f7790c0/README.md).
-BGE's [conversion README at its exact pin](https://huggingface.co/woxpas-ai/bge-reranker-v2-m3-onnx/blob/c44ebc43de724ae8816668bb44d2e728e17faa18/README.md)
-claims inherited MIT, but the [upstream model card](https://huggingface.co/BAAI/bge-reranker-v2-m3/blob/953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e/README.md)
-declares Apache-2.0. The [pinned conversion tree](https://huggingface.co/woxpas-ai/bge-reranker-v2-m3-onnx/tree/c44ebc43de724ae8816668bb44d2e728e17faa18)
-contains no LICENSE file in its root or ONNX directory. That mismatch does not establish the required licence
-receipt and does not authorize BGE-derived goldens. The local cache inventory found only RE-14's o200k tokenizer,
-with no pinned e5/Gemma tokenizer or ONNX payload to reuse.
-
-After the owner reported a Hugging Face allowlist update, actual pinned tokenizer GETs were repeated at
-2026-10-28 23:58:47 CET (Europe/Berlin) for
-`https://huggingface.co/intfloat/multilingual-e5-small/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/tokenizer.json`
-and at 23:59:07 CET for
-`https://huggingface.co/ldwformat/jina-embeddings-v3-Q8-onnx/resolve/68ed94909d564380f954be27ae2e133214c1adc9/tokenizer.json`.
-Both still returned `curl: (56) CONNECT tunnel failed, response 403`, with the proxy's first response
-`HTTP/1.1 403 Forbidden` (`server: envoy`), before any Hugging Face redirect. No redirected download host was
-reached. Local Jina test consent remains granted; Jina parity remains open because artifact access still fails.
 
 ### Release build measurement
 
