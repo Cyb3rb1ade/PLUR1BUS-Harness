@@ -280,7 +280,7 @@ export class A2aAgentExecutor implements AgentExecutor {
 export function buildAgentCard(
   baseUrl: string,
   agentId: string,
-  opts: { name?: string; description?: string; legacy03?: boolean } = {},
+  opts: { name?: string | undefined; description?: string | undefined; legacy03?: boolean } = {},
 ): AgentCard {
   const endpointUrl = `${baseUrl}/a2a/${encodeURIComponent(agentId)}`;
   const name = opts.name || `Agent ${agentId}`;

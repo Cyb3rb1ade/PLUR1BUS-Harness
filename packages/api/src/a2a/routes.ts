@@ -192,8 +192,8 @@ export function buildA2aHandlers(
 
     const agentCfg = a2aConfig?.agents?.[targetAgentId]?.a2aServer;
     let card = buildAgentCard(baseUrl, targetAgentId, {
-      name: agentCfg?.name,
-      description: agentCfg?.description,
+      ...(agentCfg?.name !== undefined ? { name: agentCfg.name } : {}),
+      ...(agentCfg?.description !== undefined ? { description: agentCfg.description } : {}),
       legacy03: isLegacy03Enabled(a2aConfig),
     });
 
