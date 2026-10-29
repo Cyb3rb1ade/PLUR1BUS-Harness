@@ -247,7 +247,7 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
         status: 200,
         body: metadata as unknown as Record<string, unknown>,
         headers: {
-          "Cache-Control": "no-cache, no-store",
+          "Cache-Control": "no-store",
           "Content-Type": "application/json; charset=utf-8",
         },
       };
@@ -269,7 +269,7 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
           status: 200,
           body: metadata as unknown as Record<string, unknown>,
           headers: {
-            "Cache-Control": "no-cache, no-store",
+            "Cache-Control": "no-store",
             "Content-Type": "application/json; charset=utf-8",
           },
         };
@@ -294,7 +294,7 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
           status: 200,
           body: metadata as unknown as Record<string, unknown>,
           headers: {
-            "Cache-Control": "no-cache, no-store",
+            "Cache-Control": "no-store",
             "Content-Type": "application/json; charset=utf-8",
           },
         };
@@ -318,7 +318,7 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
         status: 200,
         body: metadata as unknown as Record<string, unknown>,
         headers: {
-          "Cache-Control": "no-cache, no-store",
+          "Cache-Control": "no-store",
           "Content-Type": "application/json; charset=utf-8",
         },
       };

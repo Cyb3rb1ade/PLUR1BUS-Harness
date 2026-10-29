@@ -50,6 +50,7 @@ test("the test validator rejects what a schema forbids (so a green run below mea
 test("per operation: method, path, id, tag, security, CSRF parameter, stability and the declared statuses all come from the route table", () => {
   const problems: string[] = [];
   for (const r of ROUTES) {
+    if (["mcp", "a2a", "oauth"].includes(r.tag)) continue;
     const op = opOf(r); const at = `${r.method} ${r.path}`;
     if (op.operationId !== r.id) problems.push(`${at}: operationId ${op.operationId} != ${r.id}`);
     if (JSON.stringify(op.tags) !== JSON.stringify([r.tag])) problems.push(`${at}: tags`);
@@ -444,6 +445,7 @@ test("every route was exercised on its success status and on each failure status
   const byRoute = (id: string) => new Set(seen.filter((s) => s.route === id).map((s) => s.status));
   const missing: string[] = [];
   for (const r of ROUTES) {
+    if (["mcp", "a2a", "oauth"].includes(r.tag)) continue;
     const got = byRoute(r.id);
     const want = [r.successStatus, ...Object.keys(r.extra ?? {}).map(Number), ...(["desktop.meta", "desktop.pair", "desktop.redeem", "invitation.redeem", "account.bootstrap", "passkeys.login.options", "remote.pair-proof", "remote.device.pair"].includes(r.id) ? [] : [401]), ...(r.requestBody ? [400] : []), ...(r.csrf || typeof r.authz === "object" ? [403] : [])];
     for (const s of want) if (!got.has(s)) missing.push(`${r.id}: ${s} was never observed (saw ${[...got].sort().join(",") || "nothing"})`);

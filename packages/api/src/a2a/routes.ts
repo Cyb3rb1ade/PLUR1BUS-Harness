@@ -207,7 +207,7 @@ export function buildA2aHandlers(
       status: 200,
       headers: {
         "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-cache, no-store",
+        "Cache-Control": "no-store",
       },
       body: AgentCard.toJSON(card) as Record<string, unknown>,
     };
