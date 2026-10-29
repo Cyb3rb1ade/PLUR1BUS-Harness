@@ -49,6 +49,18 @@ export function resolveResourceAudience(resource?: string): { audience: TokenAud
   throw new OAuthApiError(400, "invalid_target", "unsupported target resource (expected /mcp or /a2a)");
 }
 
+export function validateAudienceScopes(audience: TokenAudience, requestedScopes: readonly string[]): readonly string[] {
+  for (const s of requestedScopes) {
+    if (audience === "mcp" && s.startsWith("a2a")) {
+      throw new OAuthApiError(400, "invalid_scope", `scope '${s}' is not permitted for mcp resource`);
+    }
+    if (audience === "a2a" && (s.startsWith("mcp") || s.startsWith("memory"))) {
+      throw new OAuthApiError(400, "invalid_scope", `scope '${s}' is not permitted for a2a resource`);
+    }
+  }
+  return requestedScopes;
+}
+
 export class OAuthService {
   readonly #tokens: TokenService;
   readonly #store: OAuthStore;
