@@ -17,6 +17,7 @@
     "test": "node ../../scripts/test-package.mjs"
   },
   "dependencies": {
+    "@a2a-js/sdk": "1.3.0",
     "@cyb3rb1ade/plur1bus-memory": "git+https://github.com/Cyb3rb1ade/openclaw-plur1bus-memory.git#9f34008c143c5da87b2194b5a28442b407ff8ba7",
     "@matrix-org/matrix-sdk-crypto-wasm": "18.9.0",
     "@modelcontextprotocol/sdk": "1.32.1",
