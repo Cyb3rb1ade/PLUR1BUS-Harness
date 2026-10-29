@@ -191,8 +191,8 @@ test("CI verifies pinned tokenizer caches before every workspace Cargo test with
     const setupStep = steps.find((step) => /node scripts\/tokens\/setup-tokenizers\.mjs/.test(step));
     assert.ok(setupStep, `${name}: explicit verified setup required`);
     assert.match(setupStep, directory, `${name}: setup writes the cache directory`);
-    const cargoSteps = steps.filter((step) => /run: cargo test --workspace/.test(step));
-    assert.equal(cargoSteps.length, 2, `${name}: separate build and execution`);
+    const cargoSteps = steps.filter((step) => /^(?:        run: |          )cargo test --workspace\b/m.test(step));
+    assert.equal(cargoSteps.length, 3, `${name}: library build, complete build and execution`);
     for (const step of cargoSteps) {
       assert.match(step, directory, `${name}: every Cargo test step reads the verified cache`);
       assert.ok(job.indexOf(setupStep) < job.indexOf(step), name);

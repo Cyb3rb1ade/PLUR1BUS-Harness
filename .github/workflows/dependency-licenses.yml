@@ -1,18 +1,10 @@
 name: dependency-licenses
 on:
+  # Every pull request, without a paths filter: `dependency-licenses-gate` is a required check and must report on each
+  # one. The platform legs run only when the pull request touches an input of the report (scripts/ci/license-changes.mjs).
   pull_request:
-    paths:
-      - '**/package.json'
-      - 'pnpm-lock.yaml'
-      - '**/Cargo.toml'
-      - '**/Cargo.lock'
-      - '**/pyproject.toml'
-      - 'hosts/hermes/plur1bus/**'
-      - 'docs/dependency-*'
-      - 'scripts/audit-deps.mjs'
-      - 'scripts/test/audit-deps.test.mjs'
-      - 'scripts/ci/license-workflow.test.mjs'
-      - '.github/workflows/dependency-licenses.yml'
+  merge_group:
+    types: [checks_requested]
   push:
     branches: [main]
   schedule:
@@ -24,10 +16,27 @@ concurrency:
   group: dependency-licenses-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      relevant: ${{ steps.plan.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0 }
+      - id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/ci/license-changes.mjs
   dependency-licenses:
-    # Informational until all three legs have run green; then it becomes required (owner decision 2026-10-28,
+    # Required through the gate below since all three legs ran green (owner decision 2026-10-28,
     # docs/dependency-policy.md).
-    continue-on-error: true
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -35,11 +44,13 @@ jobs:
         os: [ubuntu-24.04, macos-15, windows-2025]
         # A main push repeats what its pull request already checked on every platform.
         exclude: ${{ fromJSON(github.event_name == 'push' && '[{"os":"macos-15"},{"os":"windows-2025"}]' || '[]') }}
-    runs-on: ${{ matrix.os }}
+    # The macOS leg runs on the owner's macOS VM runner while MACOS_SELF_HOSTED is true, but only for code from this
+    # repository: a fork's pull request and a merge group keep macos-15 (docs/ci.md, "Self-hosted macOS runner").
+    runs-on: ${{ (matrix.os == 'macos-15' && vars.MACOS_SELF_HOSTED == 'true' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","plur1bus-macos-vm"]') || matrix.os }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with: { version: 10.28.0 }
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
@@ -68,7 +79,7 @@ jobs:
           node scripts/audit-deps.mjs --json > "$RUNNER_TEMP/dependency-licenses/licenses.json" 2> "$RUNNER_TEMP/dependency-licenses/errors.txt"
           code=$?
           printf '%s\n' "$code" > "$RUNNER_TEMP/dependency-licenses/exit-code.txt"
-          printf 'Licence audit exit code: %s (advisory; inspect dependency-licenses artifact).\n' "$code" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Licence audit exit code: %s (inspect the dependency-licenses artifact).\n' "$code" >> "$GITHUB_STEP_SUMMARY"
           exit "$code"
       - name: upload licence findings including failures
         if: always()
@@ -78,3 +89,25 @@ jobs:
           path: ${{ runner.temp }}/dependency-licenses
           if-no-files-found: error
           retention-days: 14
+  # THE check of this workflow (docs/dependency-policy.md, CLAUDE.md). It fails unless the selection ran and either every
+  # platform leg passed or none was selected, because the pull request touches no input of the report.
+  dependency-licenses-gate:
+    needs: [changes, dependency-licenses]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: every selected leg passed
+        shell: bash
+        env:
+          PLAN: ${{ needs.changes.result }}
+          RELEVANT: ${{ needs.changes.outputs.relevant }}
+          LEGS: ${{ needs.dependency-licenses.result }}
+        run: |
+          expected=skipped
+          if [ "$RELEVANT" = true ]; then expected=success; fi
+          if [ "$PLAN" != success ] || [ "$LEGS" != "$expected" ]; then
+            echo "::error::selection $PLAN (relevant: ${RELEVANT:-none}), licence legs $LEGS, expected $expected"
+            exit 1
+          fi
+          echo "selection $PLAN, licence legs $LEGS"

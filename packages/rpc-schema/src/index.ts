@@ -26,6 +26,8 @@ ajv.addKeyword("x-stability");
 ajv.addKeyword("x-since");
 ajv.addKeyword("x-deprecated");
 ajv.addKeyword("x-server");
+ajv.addKeyword("x-feature");
+ajv.addKeyword("x-engine-notification");
 ajv.addSchema(schemaJson);
 const SCHEMA_ID: string = (schemaJson as any).$id;
 
@@ -65,9 +67,10 @@ export function precompileMethods(methods: readonly string[]): void {
     validator(`/$defs/methods/${m}/params`); validator(`/$defs/methods/${m}/result`);
   }
 }
-export function validateNotification(name: string, value: unknown): Validation {
+export function validateNotification(name: string, value: unknown, server?: RpcServerRole): Validation {
   if (!NOTIFICATIONS.includes(name)) return { ok: false, errors: [`unknown notification ${name}`] };
-  return run(validator(`/$defs/notifications/${name}`), value);
+  const suffix = server === "engine" && (schemaJson as any).$defs.notifications[name]?.["x-engine-notification"] ? "/x-engine-notification" : "";
+  return run(validator(`/$defs/notifications/${name}${suffix}`), value);
 }
 export function validateJournalLine(value: unknown): Validation { return run(validator("/$defs/JournalLine"), value); }
 export function validateRequest(value: unknown): Validation { return run(validator("/$defs/Request"), value); }
@@ -94,14 +97,16 @@ export interface Capabilities {
 
 /** The process that serves a method or emits a notification: every one carries `x-server` (ruling S2). Since 1.3.0 a
  *  notification may be `supervisor` too (`config.changed`, sent on a `config.watch` connection), and a method may be
- *  `module` (served by every module process: `module.auth`, `module.status`, `module.adopt`, `module.shutdown`). */
-export type RpcServerRole = "core" | "supervisor" | "module";
-const serverOf = (def: { "x-server"?: string }): RpcServerRole => (def["x-server"] === "supervisor" || def["x-server"] === "module" ? def["x-server"] : "core");
+ *  `module` (served by every module process: `module.auth`, `module.status`, `module.adopt`, `module.shutdown`).
+ *  Since 1.7.0 `engine` serves the engine process; its engine.event projection preserves the legacy Core emitter. */
+export type RpcServerRole = "core" | "supervisor" | "module" | "engine";
+const serverOf = (def: { "x-server"?: string }): RpcServerRole => (def["x-server"] === "supervisor" || def["x-server"] === "module" || def["x-server"] === "engine" ? def["x-server"] : "core");
 
 const byServer = (names: readonly string[], defs: Record<string, { "x-server"?: string }>): Readonly<Record<RpcServerRole, readonly string[]>> => Object.freeze({
   core: Object.freeze(names.filter((n) => serverOf(defs[n]!) === "core")),
   supervisor: Object.freeze(names.filter((n) => serverOf(defs[n]!) === "supervisor")),
   module: Object.freeze(names.filter((n) => serverOf(defs[n]!) === "module")),
+  engine: Object.freeze(names.filter((n) => serverOf(defs[n]!) === "engine" || (defs[n] as any)?.["x-engine-notification"])),
 });
 
 /** Method names per serving process, in schema order. */
@@ -121,7 +126,10 @@ export function buildCapabilities(features: readonly string[], server: RpcServer
     ...(def["x-deprecated"] ? { deprecated: def["x-deprecated"] } : {}),
   });
   const map = (defs: Record<string, any>): Record<string, CapabilityEntry> =>
-    Object.fromEntries(Object.entries(defs).filter(([, def]) => serverOf(def) === server).map(([name, def]) => [name, entry(def)]));
+    Object.fromEntries(Object.entries(defs).flatMap(([name, def]) => {
+      const served = server === "engine" && def["x-engine-notification"] ? def["x-engine-notification"] : def;
+      return serverOf(served) === server && (!served["x-feature"] || features.includes(served["x-feature"])) ? [[name, entry(served)]] : [];
+    }));
   return {
     methods: map(schema.$defs.methods),
     notifications: map(schema.$defs.notifications),

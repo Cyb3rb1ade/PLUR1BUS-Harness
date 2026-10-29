@@ -1,0 +1,26 @@
+{
+  "params": {
+    "q": {},
+    "p": {
+      "agentId": "workspace:v1:test",
+      "workspace": "workspace:v1:test",
+      "channel": "workspace:v1:test",
+      "accountId": "workspace:v1:test",
+      "chat": {
+        "id": "workspace:v1:test",
+        "kind": "direct"
+      },
+      "trust": "proved"
+    },
+    "a": {
+      "origin": "user",
+      "background": false
+    }
+  },
+  "result": {
+    "agentId": "workspace:v1:test",
+    "items": [],
+    "truncated": false,
+    "unreadable": 0
+  }
+}

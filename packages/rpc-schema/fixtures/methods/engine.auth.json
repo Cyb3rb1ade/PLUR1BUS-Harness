@@ -1,0 +1,18 @@
+{
+  "params": {
+    "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "clientId": "workspace:v1:test"
+  },
+  "result": {
+    "contract": "workspace:v1:test",
+    "rpc": "workspace:v1:test",
+    "instanceId": "workspace:v1:test",
+    "pid": 0,
+    "capabilities": {
+      "methods": {},
+      "notifications": {},
+      "extensionPoints": {},
+      "features": []
+    }
+  }
+}

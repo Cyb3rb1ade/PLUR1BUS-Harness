@@ -136,7 +136,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -641,7 +643,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -1159,7 +1163,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -1665,6 +1671,7 @@
         }
       },
       "engine": {
+        "implementation": "node",
         "recallMinScore": 0.5
       },
       "providers": {},
@@ -2184,7 +2191,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -2693,7 +2702,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -3217,7 +3228,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -3722,7 +3735,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -4246,7 +4261,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -4755,7 +4772,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -5277,7 +5296,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -5782,7 +5803,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "providers": {
         "nvidia": {
           "apiKey": "x"
@@ -6306,7 +6329,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -6811,7 +6836,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -7332,7 +7359,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -7842,7 +7871,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -8367,7 +8398,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -8872,7 +8905,9 @@
           "backfill": "auto"
         }
       },
-      "engine": {},
+      "engine": {
+        "implementation": "node"
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",

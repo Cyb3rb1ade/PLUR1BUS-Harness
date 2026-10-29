@@ -12,7 +12,7 @@ fn fixture(server: &str) -> Value {
 
 #[test]
 fn capabilities_match_the_typescript_fixtures() {
-    for server in ["core", "supervisor", "module"] {
+    for server in ["core", "supervisor", "module", "engine"] {
         assert_eq!(
             plur1bus_rpc::capabilities(server, &[]),
             fixture(server),
@@ -100,4 +100,31 @@ fn capabilities_module_lists_only_module_methods() {
             );
         }
     }
+}
+
+#[test]
+fn engine_capabilities_are_isolated_and_host_methods_need_the_engine_feature() {
+    let engine = plur1bus_rpc::capabilities("engine", &[]);
+    assert!(engine["methods"]["engine.auth"].is_object());
+    assert!(engine["methods"]
+        .as_object()
+        .unwrap()
+        .keys()
+        .all(|n| n.starts_with("engine.")));
+    assert_eq!(engine["notifications"]["engine.event"]["since"], "1.7.0");
+    assert!(engine["notifications"]["engine.capture.done"].is_object());
+    let core = plur1bus_rpc::capabilities("core", &[]);
+    let delegated = plur1bus_rpc::capabilities("core", &["engine"]);
+    for method in [
+        "host.llm.complete",
+        "host.egress.decide",
+        "host.secret.get",
+        "host.workspaceDir",
+        "host.event",
+        "host.journalBacklog",
+    ] {
+        assert!(core["methods"][method].is_null(), "{method}");
+        assert!(delegated["methods"][method].is_object(), "{method}");
+    }
+    assert!(core["notifications"]["engine.event"]["deprecated"].is_object());
 }

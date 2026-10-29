@@ -26,8 +26,8 @@ const stabilityLine = (def) => {
   }
   return line;
 };
-// Ruling S2: one method namespace, two servers; x-server names the process that answers.
-const servedByLine = (def) => `**Served by:** ${def["x-server"]}`;
+// One method namespace, four serving roles; the legacy Core engine.event retains its own shape.
+const servedByLine = (def) => `**Served by:** ${def["x-server"]}${def["x-engine-notification"] ? " (legacy); engine (transport projection since 1.7.0)" : ""}`;
 
 let rpc = `# RPC reference (rpc ${schema["x-rpc-version"]})
 
@@ -37,7 +37,11 @@ JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on \`run/cor
 (this schema's version). Methods served by the supervisor (**Served by:** supervisor) are called on the supervisor's own
 endpoint, whose first call is \`supervisor.auth\`. Methods served by a module (**Served by:** module) are called on that
 module's own endpoint (\`run/module-<name>.sock\`, or the per-home \`-module-<name>\` pipe), whose first call is
-\`module.auth\`. Design and rationale: \`docs/adr/ADR-012-process-model-and-languages.md\`.
+\`module.auth\`. Engine methods use the engine endpoint (\`run/engine.sock\` or the per-home \`-engine\` pipe),
+whose first call is \`engine.auth\`. The Core serves \`host.*\` only to an engine-delegated connection; omission from ordinary
+capabilities is a convenience, while every handler enforces the principal at dispatch. Engine delegation is revalidated on every call. \`host.llm.complete\` additionally requires an outer \`agentId\` belonging to a registered, active agent opened by this Core or carrying its in-flight engine work; the optional schema field preserves compatibility, while production rejects absent or unrelated attribution before provider access. The engine transport also emits
+\`engine.event\` with its \`x-engine-notification\` schema; the deprecated Core emitter keeps its existing payload and opt-in rule.
+Design and rationale: \`docs/adr/ADR-012-process-model-and-languages.md\`.
 ${schema.description ? `\n${schema.description}\n` : ""}
 ## Local endpoint trust
 
@@ -65,13 +69,15 @@ ${Object.entries(schema.$defs.notifications).filter(([, d]) => d["x-stability"] 
 
 Everything else is experimental and may change in any minor release (ADR-016 §4).
 
+${["core", "supervisor", "module", "engine"].map(server => `### ${server} server\n\n${Object.entries(schema.$defs.methods).filter(([, d]) => d["x-server"] === server).map(([n, d]) => `- \`${n}\`: ${d["x-stability"]}, since ${d["x-since"]}${d["x-feature"] ? ` (feature ${d["x-feature"]})` : ""}`).join("\n")}`).join("\n\n")}
+
 ## Methods
 `;
 for (const [name, def] of Object.entries(schema.$defs.methods)) {
   const desc = def.description ?? def.params?.description ?? "";
   rpc += `\n### \`${name}\`\n\n${stabilityLine(def)}\n\n${servedByLine(def)}\n\n${desc ? `${desc}\n\n` : ""}**params**\n\n${fence(def.params)}\n\n**result**\n\n${fence(def.result)}\n`;
 }
-rpc += `\n## Notifications\n\nDelivered on the same connection to clients that called \`events.subscribe\`.\n`;
+rpc += `\n## Notifications\n\nCore notifications are delivered on the same connection to clients that called \`events.subscribe\`. Engine transport notifications are delivered on authenticated engine connections.\n`;
 for (const [name, def] of Object.entries(schema.$defs.notifications)) {
   rpc += `\n### \`${name}\`\n\n${stabilityLine(def)}\n\n${servedByLine(def)}\n\n${def.description ? `${def.description}\n\n` : ""}${fence(def)}\n`;
 }
@@ -119,6 +125,8 @@ const walkConfigNode = (path, node) => {
   if (tier === "basic" || tier === "advanced") {
     const row = `| \`${path}\` | ${configType(node)} | ${configDefault(node)} | ${node["x-restart"] ?? ""} | ${configDescription(path, node)} |`;
     (tier === "basic" ? basicRows : advancedRows).push(row);
+    // EngineConfig is documented separately; the Harness-owned implementation switch must stay visible here.
+    if (path === "engine" && node.properties?.implementation) walkConfigNode("engine.implementation", node.properties.implementation);
     return;
   }
   if (node.properties) {

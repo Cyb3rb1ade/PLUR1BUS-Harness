@@ -1,0 +1,22 @@
+{
+  "params": {},
+  "result": {
+    "embedder": {
+      "state": "loading",
+      "warming": false,
+      "checkedAt": 0,
+      "identity": {
+        "fingerprintId": "workspace:v1:test",
+        "provider": "workspace:v1:test",
+        "model": "workspace:v1:test",
+        "dimensions": 0
+      }
+    },
+    "reranker": {
+      "state": "loading",
+      "warming": false,
+      "checkedAt": 0,
+      "provider": "workspace:v1:test"
+    }
+  }
+}

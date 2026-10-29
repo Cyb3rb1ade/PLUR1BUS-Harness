@@ -255,11 +255,18 @@ describe('nothing a path can spell reaches outside the root', () => {
 
 describe('listing and search are bounded', () => {
   it('a directory of 3000 files lists at most the limit and says it is truncated; a tree 20 deep stops at 16; entries come back sorted and unique', async () => {
-    const h = make(); await mkdir(join(root, 'wide')); await Promise.all(Array.from({ length: 3000 }, (_, i) => writeFile(join(root, 'wide', `f${String(i).padStart(4, '0')}.txt`), 'x')));
-    const r = await call(h, 'fs.list', { path: 'wide', limit: 1000 }); expect(r.ok).toBe(true); expect(r.value.entries.length).toBeLessThanOrEqual(1000); expect(r.value.truncated).toBe(true);
+    const measured = async <T>(phase: string, run: () => Promise<T>): Promise<T> => {
+      const started = performance.now();
+      process.stderr.write(`hostctl listing (${process.platform}): ${phase} started\n`);
+      try { return await run(); }
+      finally { process.stderr.write(`hostctl listing (${process.platform}): ${phase} ${(performance.now() - started).toFixed(0)} ms\n`); }
+    };
+    const h = make();
+    await measured('create 3000 files', async () => { await mkdir(join(root, 'wide')); await Promise.all(Array.from({ length: 3000 }, (_, i) => writeFile(join(root, 'wide', `f${String(i).padStart(4, '0')}.txt`), 'x'))); });
+    const r = await measured('list wide directory', () => call(h, 'fs.list', { path: 'wide', limit: 1000 })); expect(r.ok).toBe(true); expect(r.value.entries.length).toBeLessThanOrEqual(1000); expect(r.value.truncated).toBe(true);
     expect(new Set(r.value.entries.map((e: { path: string }) => e.path)).size).toBe(r.value.entries.length);
-    let dir = join(root, 'deep'); for (let i = 0; i < 20; i++) { await mkdir(dir, { recursive: true }); await writeFile(join(dir, 'f.txt'), 'x'); dir = join(dir, `d${i}`); }
-    const deep = await call(h, 'fs.list', { path: 'deep', depth: 16, limit: 1000 }); expect(deep.ok).toBe(true); expect(Math.max(...deep.value.entries.map((e: { path: string }) => e.path.split('/').length))).toBeLessThanOrEqual(17);
+    await measured('create depth-20 tree', async () => { let dir = join(root, 'deep'); for (let i = 0; i < 20; i++) { await mkdir(dir, { recursive: true }); await writeFile(join(dir, 'f.txt'), 'x'); dir = join(dir, `d${i}`); } });
+    const deep = await measured('list depth-16 tree', () => call(h, 'fs.list', { path: 'deep', depth: 16, limit: 1000 })); expect(deep.ok).toBe(true); expect(Math.max(...deep.value.entries.map((e: { path: string }) => e.path.split('/').length))).toBeLessThanOrEqual(17);
     expect((await call(h, 'fs.list', { path: 'deep', depth: 17 })).error!.code).toBe('INVALID_ARGUMENT'); expect((await call(h, 'fs.list', { path: 'wide', limit: 1001 })).error!.code).toBe('INVALID_ARGUMENT');
   }, 60_000);
 

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { execRun, createExecTool, ExecFailure, buildEnv, DEFAULT_ENV_ALLOW } from "../../../src/tools/exec/index.ts";
+import { until } from "../../helpers/until.ts";
 import { ctx } from "../../policy/helpers.ts";
 import { FakeProcess, mk, tmpRoot } from "./helpers.ts";
 
@@ -347,7 +348,7 @@ describe("exec.run: foreign output wrapping", () => {
     const m = mk({ root }, { output: w });
     m.port.onSpawn = (proc) => { proc.stdout("no-newline-yet"); };
     const p = execRun({ program: "git", cwd: sub }, m.deps);
-    while (m.port.spawned.length === 0) await new Promise<void>((r) => setImmediate(r));
+    await until(() => m.port.spawned.length > 0, "the spawn", { run: p });
     m.timers.advance(999);
     assert.equal(rows(dir).length, 0);
     m.timers.advance(1);
