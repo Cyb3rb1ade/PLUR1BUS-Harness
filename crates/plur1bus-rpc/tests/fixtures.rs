@@ -40,6 +40,96 @@ fn pair<P: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize>(name: 
 fn method_fixture(name: &str, f: &Value) {
     use types::*;
     match name {
+        "admin.extensions.auth.cancel" => {
+            pair::<AdminExtensionsAuthCancelParams, AdminExtensionsAuthCancelResult>(name, f)
+        }
+        "admin.extensions.auth.start" => {
+            pair::<AdminExtensionsAuthStartParams, AdminExtensionsAuthStartResult>(name, f)
+        }
+        "admin.extensions.auth.status" => {
+            pair::<AdminExtensionsAuthStatusParams, AdminExtensionsAuthStatusResult>(name, f)
+        }
+        "admin.extensions.auth.submit" => {
+            pair::<AdminExtensionsAuthSubmitParams, AdminExtensionsAuthSubmitResult>(name, f)
+        }
+        "admin.extensions.runtime.hold" => {
+            pair::<AdminExtensionsRuntimeHoldParams, AdminExtensionsRuntimeHoldResult>(name, f)
+        }
+        "admin.extensions.runtime.reconcile" => pair::<
+            AdminExtensionsRuntimeReconcileParams,
+            AdminExtensionsRuntimeReconcileResult,
+        >(name, f),
+        "admin.extensions.runtime.release" => pair::<
+            AdminExtensionsRuntimeReleaseParams,
+            AdminExtensionsRuntimeReleaseResult,
+        >(name, f),
+        "admin.extensions.runtime.status" => {
+            pair::<AdminExtensionsRuntimeStatusParams, AdminExtensionsRuntimeStatusResult>(name, f)
+        }
+        "admin.extensions.setup.get" => {
+            pair::<AdminExtensionsSetupGetParams, AdminExtensionsSetupGetResult>(name, f)
+        }
+        "admin.extensions.setup.set" => {
+            pair::<AdminExtensionsSetupSetParams, AdminExtensionsSetupSetResult>(name, f)
+        }
+        "admin.import.abort" => pair::<AdminImportAbortParams, AdminImportAbortResult>(name, f),
+        "admin.import.apply" => pair::<AdminImportApplyParams, AdminImportApplyResult>(name, f),
+        "admin.import.detect" => pair::<AdminImportDetectParams, AdminImportDetectResult>(name, f),
+        "admin.import.plan" => pair::<AdminImportPlanParams, AdminImportPlanResult>(name, f),
+        "admin.import.preflight" => {
+            pair::<AdminImportPreflightParams, AdminImportPreflightResult>(name, f)
+        }
+        "admin.import.rollback" => {
+            pair::<AdminImportRollbackParams, AdminImportRollbackResult>(name, f)
+        }
+        "admin.import.runs" => pair::<AdminImportRunsParams, AdminImportRunsResult>(name, f),
+        "admin.import.runtime.complete" => {
+            pair::<AdminImportRuntimeCompleteParams, AdminImportRuntimeCompleteResult>(name, f)
+        }
+        "admin.import.runtime.config.set" => {
+            pair::<AdminImportRuntimeConfigSetParams, AdminImportRuntimeConfigSetResult>(name, f)
+        }
+        "admin.import.runtime.release" => {
+            pair::<AdminImportRuntimeReleaseParams, AdminImportRuntimeReleaseResult>(name, f)
+        }
+        "admin.import.runtime.status" => {
+            pair::<AdminImportRuntimeStatusParams, AdminImportRuntimeStatusResult>(name, f)
+        }
+        "admin.import.skills" => pair::<AdminImportSkillsParams, AdminImportSkillsResult>(name, f),
+        "admin.import.ssh.connections.delete" => pair::<
+            AdminImportSshConnectionsDeleteParams,
+            AdminImportSshConnectionsDeleteResult,
+        >(name, f),
+        "admin.import.ssh.connections.list" => pair::<
+            AdminImportSshConnectionsListParams,
+            AdminImportSshConnectionsListResult,
+        >(name, f),
+        "admin.import.ssh.connections.set" => {
+            pair::<AdminImportSshConnectionsSetParams, AdminImportSshConnectionsSetResult>(name, f)
+        }
+        "admin.import.ssh.hostKey.probe" => {
+            pair::<AdminImportSshHostKeyProbeParams, AdminImportSshHostKeyProbeResult>(name, f)
+        }
+        "admin.import.ssh.hostKey.trust" => {
+            pair::<AdminImportSshHostKeyTrustParams, AdminImportSshHostKeyTrustResult>(name, f)
+        }
+        "admin.import.ssh.key.delete" => {
+            pair::<AdminImportSshKeyDeleteParams, AdminImportSshKeyDeleteResult>(name, f)
+        }
+        "admin.import.ssh.key.generate" => {
+            pair::<AdminImportSshKeyGenerateParams, AdminImportSshKeyGenerateResult>(name, f)
+        }
+        "admin.import.ssh.key.rotate" => {
+            pair::<AdminImportSshKeyRotateParams, AdminImportSshKeyRotateResult>(name, f)
+        }
+        "admin.import.ssh.key.status" => {
+            pair::<AdminImportSshKeyStatusParams, AdminImportSshKeyStatusResult>(name, f)
+        }
+        "admin.import.status" => pair::<AdminImportStatusParams, AdminImportStatusResult>(name, f),
+        "admin.import.wsl.list" => {
+            pair::<AdminImportWslListParams, AdminImportWslListResult>(name, f)
+        }
+        "ext.inspection.get" => pair::<ExtInspectionGetParams, ExtInspectionGetResult>(name, f),
         "engine.agent.close" => pair::<EngineAgentCloseParams, EngineAgentCloseResult>(name, f),
         "host.journalBacklog" => {
             pair::<HostJournalBacklogParams, HostJournalBacklogResult>(name, f)
@@ -686,6 +776,40 @@ fn every_method_fixture_round_trips() {
     assert!(!files.is_empty());
     let names: BTreeSet<&str> = files.iter().map(|(n, _)| n.as_str()).collect();
     for m in [
+        "admin.extensions.auth.cancel",
+        "admin.extensions.auth.start",
+        "admin.extensions.auth.status",
+        "admin.extensions.auth.submit",
+        "admin.extensions.runtime.hold",
+        "admin.extensions.runtime.reconcile",
+        "admin.extensions.runtime.release",
+        "admin.extensions.runtime.status",
+        "admin.extensions.setup.get",
+        "admin.extensions.setup.set",
+        "admin.import.abort",
+        "admin.import.apply",
+        "admin.import.detect",
+        "admin.import.plan",
+        "admin.import.preflight",
+        "admin.import.rollback",
+        "admin.import.runs",
+        "admin.import.runtime.complete",
+        "admin.import.runtime.config.set",
+        "admin.import.runtime.release",
+        "admin.import.runtime.status",
+        "admin.import.skills",
+        "admin.import.ssh.connections.delete",
+        "admin.import.ssh.connections.list",
+        "admin.import.ssh.connections.set",
+        "admin.import.ssh.hostKey.probe",
+        "admin.import.ssh.hostKey.trust",
+        "admin.import.ssh.key.delete",
+        "admin.import.ssh.key.generate",
+        "admin.import.ssh.key.rotate",
+        "admin.import.ssh.key.status",
+        "admin.import.status",
+        "admin.import.wsl.list",
+        "ext.inspection.get",
         "chat.create",
         "chat.list",
         "chat.get",
@@ -795,6 +919,7 @@ fn every_notification_fixture_round_trips() {
     assert!(!files.is_empty());
     for (name, v) in &files {
         match name.as_str() {
+            "import.progress" => round_trip::<types::ImportProgressNotification>(v, name),
             "engine.capture.done" => round_trip::<types::EngineCaptureDoneNotification>(v, name),
             "egress.changed" => round_trip::<types::EgressChangedNotification>(v, name),
             "devices.trust.next" => round_trip::<types::DevicesTrustNextNotification>(v, name),
@@ -864,7 +989,7 @@ fn rpc_version_const_matches_the_schema() {
         plur1bus_rpc::RPC_VERSION,
         schema["x-rpc-version"].as_str().unwrap()
     );
-    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.7.0");
+    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.8.0");
     assert!(schema["$id"]
         .as_str()
         .unwrap()

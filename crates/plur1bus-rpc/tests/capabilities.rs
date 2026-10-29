@@ -28,6 +28,13 @@ fn supervisor_capabilities_list_only_supervisor_methods_and_sorted_features() {
     assert_eq!(
         methods,
         [
+            "admin.extensions.runtime.reconcile",
+            "admin.import.abort",
+            "admin.import.apply",
+            "admin.import.rollback",
+            "admin.import.runs",
+            "admin.import.runtime.config.set",
+            "admin.import.status",
             "config.get",
             "config.set",
             "config.watch",
@@ -37,6 +44,7 @@ fn supervisor_capabilities_list_only_supervisor_methods_and_sorted_features() {
             "ext.disable",
             "ext.enable",
             "ext.inspect",
+            "ext.inspection.get",
             "ext.install",
             "ext.list",
             "ext.restore",
@@ -51,7 +59,7 @@ fn supervisor_capabilities_list_only_supervisor_methods_and_sorted_features() {
             "module.stop",
             "module.uninstall",
             "module.watch",
-            "supervisor.auth"
+            "supervisor.auth",
         ]
     );
     assert_eq!(
@@ -59,7 +67,8 @@ fn supervisor_capabilities_list_only_supervisor_methods_and_sorted_features() {
         json!({
             "config.changed": { "stability": "experimental", "since": "1.3.0" },
             "module.state": { "stability": "experimental", "since": "1.3.0" },
-            "ext.changed": { "stability": "experimental", "since": "1.4.0" }
+            "ext.changed": { "stability": "experimental", "since": "1.4.0" },
+            "import.progress": { "stability": "experimental", "since": "1.8.0" }
         })
     );
     assert_eq!(caps["extensionPoints"], json!({}));
