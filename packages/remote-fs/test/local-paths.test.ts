@@ -8,7 +8,7 @@ test("native Windows source paths retain their own drive or UNC volume independe
   const cases = [
     ["C:\\Users\\runneradmin\\source", "Users\\runneradmin\\source"],
     ["D:\\repo\\source", "repo\\source"],
-    ["\\\\wsl.localhost\\Ubuntu\\home\\alice\\.openclaw", "home\\alice\\.openclaw"],
+    ["\\\\wsl.localhost\\Ubuntu\\home\\alice\\.source", "home\\alice\\.source"],
     ["\\\\server\\share\\source", "source"],
     ["\\\\?\\C:\\Users\\runneradmin\\source", "Users\\runneradmin\\source"],
   ] as const;
