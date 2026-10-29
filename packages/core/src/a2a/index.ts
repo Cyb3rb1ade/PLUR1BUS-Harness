@@ -7,4 +7,5 @@ export { parseParts, PartError } from "./parts.ts";
 export { parsePushConfig, createEgressPushTransport, PushDispatcher, PushError, assignPushId, toTaskPush, type PushTransport } from "./push.ts";
 export { createProviderTurnPort, createSessionTurnPort, openA2aSessionBackend, a2aCaller, type A2aTurnPort, type A2aSessionBackend } from "./turn-port.ts";
 export { statusUpdate, artifactUpdate, sseLines } from "./events.ts";
+export { createOutboundA2aClient, OutboundA2aClient, createA2aFetch, type OutboundA2aClientOptions, type A2aFetchOptions } from "./client.ts";
 export * from "./types.ts";
