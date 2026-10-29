@@ -1,3 +1,4 @@
+/** Human review of a public device request; private native credentials have no browser representation. */
 import { h } from "preact";
 import "../styles/devices.css";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -11,6 +12,13 @@ import { DesktopApprovalClient, type DesktopApproval } from "./desktop-approval-
 import type { PageProps } from "./registry.ts";
 registerArea("devices", area);
 
+const FAILURE_KEYS = {
+  "invalid-code": "devices.stepup.invalidCode", "fresh-mfa": "devices.stepup.freshMfa",
+  expired: "devices.stepup.expired", denied: "devices.stepup.denied",
+  network: "devices.stepup.network", unavailable: "devices.stepup.unavailable",
+} as const;
+
+/** Display the selected request and require the same person's explicit approval. */
 export function DesktopApprovalPage({ sub }: PageProps): View {
   const [code, setCode] = useState(""), [value, setValue] = useState<DesktopApproval | null>(null);
   const [pending, setPending] = useState(false), [failure, setFailure] = useState("");
@@ -35,7 +43,7 @@ export function DesktopApprovalPage({ sub }: PageProps): View {
       h("input", { id: "desktop-approval-code", value: code, maxLength: 32, autocomplete: "off", spellcheck: false,
         disabled: pending, onInput: (event: Event) => { setCode((event.target as HTMLInputElement).value); setValue(null); setFailure(""); } }),
       h("button", { type: "submit", class: "btn", disabled: pending || !code.trim() }, t("devices.stepup.review"))),
-    failure ? h("p", { role: "alert", class: "form-error" }, t(`devices.stepup.${failure as "invalid-code" | "expired" | "fresh-mfa" | "denied" | "network" | "unavailable"}`)) : null,
+    failure ? h("p", { role: "alert", class: "form-error" }, t(FAILURE_KEYS[failure as keyof typeof FAILURE_KEYS] ?? FAILURE_KEYS.unavailable)) : null,
     failure === "fresh-mfa" ? h("button", { type: "button", class: "btn", onClick: () => { void signOut(); } }, t("devices.stepup.login")) : null,
     value ? h("section", { "aria-live": "polite" },
       h("h2", null, t("devices.stepup.review")),
