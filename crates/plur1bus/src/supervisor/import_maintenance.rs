@@ -164,7 +164,13 @@ fn complete_runtime(
     let mut last_progress = Value::Null;
     while Instant::now() < deadline && !stopping(shared) {
         check_abort(shared, job)?;
-        let status = core.call(method, control(job)).map_err(|_| failed())?;
+        let status = core.call(method, control(job)).map_err(|_| {
+            shared.log.warn(
+                "import held runtime failed",
+                json!({"runId":job.run_id,"method":method,"reason":"runtime-control-failed"}),
+            );
+            failed()
+        })?;
         if status["runId"] != job.run_id {
             return Err(failed());
         }
@@ -199,7 +205,18 @@ fn complete_runtime(
                 method = "admin.import.runtime.status";
                 std::thread::sleep(Duration::from_millis(100));
             }
-            _ => return Err(failed()),
+            _ => {
+                let reason = match status["error"]["reason"].as_str() {
+                    Some("runtime-finalization-failed") => "runtime-finalization-failed",
+                    Some("reembed-failed") => "reembed-failed",
+                    _ => "runtime-status-invalid",
+                };
+                shared.log.warn(
+                    "import held runtime failed",
+                    json!({"runId":job.run_id,"method":method,"reason":reason}),
+                );
+                return Err(failed());
+            }
         }
     }
     Err(failed())
