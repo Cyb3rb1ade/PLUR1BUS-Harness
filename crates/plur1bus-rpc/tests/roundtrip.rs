@@ -1312,6 +1312,18 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::MemoryProposalsRejectParams,
                 types::MemoryProposalsRejectResult,
             >(name, fixture, &root_schema),
+            "memory.sensitivity.clear" => check_pair::<
+                types::MemorySensitivityClearParams,
+                types::MemorySensitivityClearResult,
+            >(name, fixture, &root_schema),
+            "memory.sensitivity.get" => check_pair::<
+                types::MemorySensitivityGetParams,
+                types::MemorySensitivityGetResult,
+            >(name, fixture, &root_schema),
+            "memory.sensitivity.set" => check_pair::<
+                types::MemorySensitivitySetParams,
+                types::MemorySensitivitySetResult,
+            >(name, fixture, &root_schema),
             "agent.list" => check_pair::<types::AgentListParams, types::AgentListResult>(
                 name,
                 fixture,
