@@ -2455,6 +2455,12 @@ pub enum DeviceCmd {
     Pair {
         #[arg(long, value_parser = ["desktop"])]
         kind: String,
+        /// Explicitly grant extension reading and management (Owner/Admin only)
+        #[arg(long)]
+        extensions: bool,
+        /// Explicitly grant source import reading and management (Owner/Admin only)
+        #[arg(long)]
+        imports: bool,
     },
     /// [experimental] List your devices (Owner/Admin: all), including revoked devices
     List,
