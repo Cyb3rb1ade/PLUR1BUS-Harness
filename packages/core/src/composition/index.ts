@@ -70,6 +70,7 @@ import { CodingGate } from '../collab/coding-gate.ts';
 import { sandboxVerifier } from '../collab/verifier.ts';
 import { codingMethods, reviewHooks, type CodingCompletion } from '../collab/coding-surface.ts';
 import { composedAgentRunner } from './collaboration.ts';
+import { collabMemory } from '../memory-exposure/index.ts';
 import { legacyAdapter } from './legacy.ts';
 import { composeMediaSearch, mediaSearchMethods } from './media-search.ts';
 import { mediaToInbox } from '../inbox/producers.ts';
@@ -416,7 +417,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     };
     voice.setDelegate(provider);
     collab = budget ? isolated('collaboration', () => createCollab({ path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock, sessions: () => sessions.store, redact: liveLogsRedactionPort(() => registered),
-      runner: provider ? composedAgentRunner(provider, alsAgentScopePort(), d.home, options.delegationTargets) : { async run() { throw new Error('no-provider'); } }, directory: { get: id => d.agents.has(id) || options.delegationTargets?.some(t => t.accepts(id)) ? { id, state: 'active' } : null },
+      runner: provider ? composedAgentRunner(provider, alsAgentScopePort(), d.home, options.delegationTargets, collabMemory({ memory, config: d.config, logger: d.logger })) : { async run() { throw new Error('no-provider'); } }, directory: { get: id => d.agents.has(id) || options.delegationTargets?.some(t => t.accepts(id)) ? { id, state: 'active' } : null },
       emit: { emit: event => d.logger.info(event.type, { projectId: event.projectId, traceId: event.traceId }) },
       logWarn: (msg, fields) => d.logger.warn(msg, fields),
       grants: { endTask: (taskId, by) => {
