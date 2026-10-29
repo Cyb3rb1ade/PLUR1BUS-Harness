@@ -1,10 +1,30 @@
 /** Local source reads with explicit confined or native authority; handles close even when a deadline wins. */
-import { constants, type Stats } from "node:fs";
-import { open, opendir, realpath, readlink, stat, lstat } from "node:fs/promises";
+import { constants, realpath as walkRealpath, type Stats } from "node:fs";
+import { open, opendir, realpath as nativeRealpath, readlink, stat, lstat } from "node:fs/promises";
 import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { promisify } from "node:util";
 import { FsBudget } from "./budget.ts";
 import { localSourceRelativePath } from "./local-paths.ts";
 import { RemoteFsError, type FsLimits, type FsStat, type ReadonlyFs } from "./types.ts";
+
+const WSL_SHARE = /^\\\\wsl(?:\$|\.localhost)\\/i;
+
+/**
+ * Canonical path. Windows' native realpath (GetFinalPathNameByHandle) fails on WSL shares (`\\wsl.localhost\…`,
+ * `\\wsl$\…`) although the path exists; there the lstat/readlink walk of `fs.realpath` resolves it instead. Every other
+ * path, and every missing path, keeps the native answer.
+ */
+export async function realpathWith(path: string, platform: NodeJS.Platform = process.platform,
+  native: (path: string) => Promise<string> = nativeRealpath,
+  walk: (path: string) => Promise<string> = promisify(walkRealpath)): Promise<string> {
+  try {
+    return await native(path);
+  } catch (error) {
+    if (platform !== "win32" || !WSL_SHARE.test(path) || (error as NodeJS.ErrnoException).code === "ENOENT") throw error;
+    return walk(path);
+  }
+}
+const realpath = (path: string): Promise<string> => realpathWith(path);
 
 /** The selected source root is the only filesystem authority held by the returned object. */
 export interface LocalFsOptions {

@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, symlink, rm, realpath } from "node:fs/promis
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
-import { createLocalFs, createNativeSourceFs } from "../src/local.ts";
+import { createLocalFs, createNativeSourceFs, realpathWith } from "../src/local.ts";
 
 async function fixture(run: (root: string, outside: string) => Promise<void>): Promise<void> {
   const base = await realpath(await mkdtemp(join(tmpdir(), "p1-remote-fs-")));
@@ -105,3 +105,17 @@ test("abort, deadline and invalid limits refuse reads with fixed sanitized error
   await assert.rejects(timeout.stat("card.md"), { reason: "timeout" });
   await assert.rejects(timeout.readFile("card.md", -1), { reason: "timeout" });
 }));
+
+test("a WSL share falls back to the lstat walk when Windows' native realpath refuses it", async () => {
+  const eisdir = Object.assign(new Error("EISDIR"), { code: "EISDIR" });
+  const missing = Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+  const refuse = (error: Error) => async (): Promise<string> => { throw error; };
+  const walk = async (path: string) => `walked:${path}`;
+  for (const share of ["\\\\wsl.localhost\\Ubuntu\\root\\source", "\\\\wsl$\\Ubuntu\\root\\source"])
+    assert.equal(await realpathWith(share, "win32", refuse(eisdir), walk), `walked:${share}`);
+  // A missing path, any other path and any other platform keep the native answer.
+  await assert.rejects(realpathWith("\\\\wsl.localhost\\Ubuntu\\missing", "win32", refuse(missing), walk), { code: "ENOENT" });
+  await assert.rejects(realpathWith("C:\\Users\\a", "win32", refuse(eisdir), walk), { code: "EISDIR" });
+  await assert.rejects(realpathWith("\\\\wsl.localhost\\Ubuntu\\root", "linux", refuse(eisdir), walk), { code: "EISDIR" });
+  assert.equal(await realpathWith("/x", "linux", async () => "/native", walk), "/native");
+});
