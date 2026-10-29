@@ -122,6 +122,8 @@ describe("extension installation through real browser HTTP", { skip: browserSkip
       await app.page.getByRole("heading", { name: "Confirm extension installation" }).waitFor();
       assert.ok(app.server.requests.some((request) => request.url === "/api/v1/extensions/upload"));
       assert.ok(app.server.rpc.calls.some((call) => call.method === "ext.inspection.get"));
+      // The page heading renders while the inspection still loads; read the disclosure once it is there.
+      await app.page.locator(".inspection-disclosure").first().waitFor();
       const text = await app.page.locator("main").innerText();
       for (const disclosure of ["Claimed publisher", "unverified", "test-key-id", "MIT", "#!/bin/sh", "scripts/run.sh"])
         assert.ok(text.includes(disclosure), disclosure);

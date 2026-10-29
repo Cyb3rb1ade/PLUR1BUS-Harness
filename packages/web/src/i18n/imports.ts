@@ -171,7 +171,7 @@ export const en = {
   "imports.preview": "Immutable import preview",
   "imports.fingerprint": "Source fingerprint",
   "imports.conflicts": "Conflicts",
-  "imports.choose": "Choose a resolution",
+  "imports.choose": "Choose an option",
   "imports.replan": "Update preview with these choices",
   "imports.preflight": "Run preflight",
   "imports.preflightReady":
@@ -380,7 +380,7 @@ export const de: Record<keyof typeof en, string> = {
   "imports.preview": "Unveränderliche Importvorschau",
   "imports.fingerprint": "Fingerabdruck der Quelle",
   "imports.conflicts": "Konflikte",
-  "imports.choose": "Lösung wählen",
+  "imports.choose": "Bitte wählen",
   "imports.replan": "Vorschau mit dieser Auswahl aktualisieren",
   "imports.preflight": "Vorprüfung ausführen",
   "imports.preflightReady":

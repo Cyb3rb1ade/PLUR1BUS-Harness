@@ -697,7 +697,7 @@ function ExtensionsContent({
       detail: detailPane,
       selected: Boolean(selected),
       listLabel: t("extensions.title"),
-      detailLabel: selected ?? t("extensions.title"),
+      detailLabel: selected ?? t("extensions.detail.label"),
       onBack: () => {
         setSelectedName(null);
         navigate(initialKind === "plugin" ? "/plugins" : "/skills");

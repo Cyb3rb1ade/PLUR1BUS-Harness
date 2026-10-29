@@ -40,6 +40,7 @@ async function findRemoteSources(app: App): Promise<void> {
   await app.page.getByLabel("Source folder", { exact: true }).fill("/");
   await app.page.getByLabel("Configured SSH connection", { exact: true }).selectOption("known-source");
   await app.page.getByRole("button", { name: "Find installations", exact: true }).click();
+  await app.page.getByRole("heading", { name: "Detected installations", exact: true }).waitFor();
 }
 function seed(
   server: MockHarnessServer,
@@ -153,14 +154,14 @@ test("source summary, selected agents and immutable preview precede explicit dow
     await app.page.getByLabel("Source format").selectOption(SOURCE_CATALOG[0]!.id);
     await app.page.getByRole("button", { name: "Inspect source", exact: true }).click();
     await app.page.getByRole("heading", { name: "Source summary", exact: true }).waitFor();
-    await app.page.getByLabel(/^Agent Two/).uncheck();
+    await app.page.getByRole("checkbox", { name: /^Agent Two/ }).uncheck();
     await app.page.getByRole("button", { name: "Create preview", exact: true }).click();
     await app.page.getByRole("heading", { name: "Immutable import preview", exact: true }).waitFor();
     assert.equal(app.server.rpc.calls.filter((call) => call.method === "admin.import.apply").length, 0);
     await app.page.getByRole("button", { name: "Run preflight", exact: true }).click();
     await app.page.getByText(/^Preflight passed\./).waitFor();
     assert.equal(await app.page.getByRole("button", { name: "Apply import", exact: true }).isDisabled(), true);
-    await app.page.getByLabel(/^I accept stopping the Core/).check();
+    await app.page.getByRole("checkbox", { name: /^I accept stopping the Core/ }).check();
     await app.page.getByRole("button", { name: "Apply import", exact: true }).click();
     await app.page.getByText("Applying import", { exact: true }).waitFor();
     await app.page.getByRole("button", { name: "Cancel and restore snapshot", exact: true }).click();
@@ -244,10 +245,10 @@ test("an authorized apply survives reload when its first status request is inter
     await openRoute(app.page, "#/import");
     await app.page.getByLabel("Source format").selectOption(SOURCE_CATALOG[0]!.id);
     await app.page.getByRole("button", { name: "Inspect source", exact: true }).click();
-    await app.page.getByLabel(/^Agent Two/).uncheck();
+    await app.page.getByRole("checkbox", { name: /^Agent Two/ }).uncheck();
     await app.page.getByRole("button", { name: "Create preview", exact: true }).click();
     await app.page.getByRole("button", { name: "Run preflight", exact: true }).click();
-    await app.page.getByLabel(/^I accept stopping the Core/).check();
+    await app.page.getByRole("checkbox", { name: /^I accept stopping the Core/ }).check();
     await app.page.getByRole("button", { name: "Apply import", exact: true }).click();
     await app.page.waitForFunction(
       (id) =>
@@ -731,6 +732,7 @@ test("source and actual target NC models require separate canonical ledger confi
       };
     });
     await openRoute(app.page, "#/import");
+    await app.page.getByLabel("Source format").selectOption(SOURCE_CATALOG[0]!.id);
     await app.page.getByRole("button", { name: "Inspect source", exact: true }).click();
     await app.page.getByLabel("Source store to adopt (optional)", { exact: true }).selectOption("source-memory");
     await app.page.getByLabel("Store strategy", { exact: true }).selectOption("re-embed");
@@ -780,11 +782,12 @@ test("a declined cancellation refreshes actual status without displaying a pendi
     seed(app.server);
     app.server.rpc.handle("admin.import.abort", () => ({ runId, accepted: false, state: "restarting-core" }));
     await openRoute(app.page, "#/import");
+    await app.page.getByLabel("Source format").selectOption(SOURCE_CATALOG[0]!.id);
     await app.page.getByRole("button", { name: "Inspect source", exact: true }).click();
-    await app.page.getByLabel(/^Agent Two/).uncheck();
+    await app.page.getByRole("checkbox", { name: /^Agent Two/ }).uncheck();
     await app.page.getByRole("button", { name: "Create preview", exact: true }).click();
     await app.page.getByRole("button", { name: "Run preflight", exact: true }).click();
-    await app.page.getByLabel(/^I accept stopping the Core/).check();
+    await app.page.getByRole("checkbox", { name: /^I accept stopping the Core/ }).check();
     await app.page.getByRole("button", { name: "Apply import", exact: true }).click();
     await app.page.getByText("Applying import", { exact: true }).waitFor();
     const previous = app.server.rpc.calls.filter((c) => c.method === "admin.import.status").length;

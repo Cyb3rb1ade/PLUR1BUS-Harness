@@ -44,7 +44,6 @@ export function InspectionDisclosure({
         "dd",
         null,
         inspection.trust.subject ??
-          inspection.trust.keyId ??
           inspection.trust.label ??
           t("extensions.install.notDeclared"),
       ),
