@@ -357,6 +357,17 @@ fn run_inner(
             return Err(failed());
         }
         let unchanged = super::import_worker::safe_refusal(layout, job, worked.as_ref().ok());
+        match &worked {
+            Ok(result) if result["ok"] != true => shared.log.warn(
+                "import worker did not complete",
+                json!({"runId": job.run_id, "mode": job.mode, "status": result["status"], "error": result["error"]}),
+            ),
+            Err(error) => shared.log.warn(
+                "import worker failed",
+                json!({"runId": job.run_id, "mode": job.mode, "error": error.code, "reason": error.reason}),
+            ),
+            _ => {}
+        }
         let mut result = match worked {
             Ok(result) if result["ok"] == true || result["restored"] == true => result,
             Ok(result) if unchanged => result,
@@ -455,9 +466,21 @@ fn finish_imported_core(
         ) {
             Ok(()) => return Ok(()),
             Err(error) if error.reason == Some("import-aborted") => true,
-            Err(error) => return Err(error),
+            Err(error) => {
+                shared.log.warn(
+                    "imported core activation failed",
+                    json!({"runId": job.run_id, "error": error.code, "reason": error.reason}),
+                );
+                return Err(error);
+            }
         },
-        Err(_) => imports::abort_requested(shared, job),
+        Err(error) => {
+            shared.log.warn(
+                "imported core did not start",
+                json!({"runId": job.run_id, "error": error.code, "reason": error.reason}),
+            );
+            imports::abort_requested(shared, job)
+        }
     };
     stop_writers(shared, layout, token, monitors)?;
     if stopping(shared) {
