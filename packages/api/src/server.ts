@@ -40,6 +40,9 @@ import { redactFields } from "./redact.ts";
 import { createStaticServer } from "./static.ts";
 import { protocolUnauthenticatedError } from "./protocol-routes.ts";
 import { buildHandlers, COOKIE_NAME, COOKIE_NAME_TLS, CSRF_HEADER, ROUTES, sessionCookie, type Handler, type RouteSpec } from "./routes.ts";
+import { FileOAuthStore, MemoryOAuthStore } from "./oauth/store.ts";
+import { OAuthService } from "./oauth/service.ts";
+import { join } from "node:path";
 import { TokenService } from "./tokens.ts";
 import { TotpService } from "./totp.ts";
 import { DEFAULT_SESSION_LIMITS, OWNER, ownerTokenVerifier, readCookie, SessionStore, type Principal, type Session, type SessionLimits } from "./session.ts";
@@ -93,6 +96,9 @@ export interface ApiServerOptions {
   logger?: ApiLogger; clock?: Clock;
   limits?: Partial<ApiLimits>; rateClasses?: RateClasses; /** Most model-backed operations (chat turn, job or dream run, realtime voice) running at once, installation-wide. Default 8. */ expensiveConcurrency?: number; sessionLimits?: SessionLimits; lockout?: Partial<LockoutPolicy>;
   mcpConfig?: import("./mcp/activation.ts").McpServerConfigLike | (() => Promise<import("./mcp/activation.ts").McpServerConfigLike | undefined> | import("./mcp/activation.ts").McpServerConfigLike | undefined) | undefined;
+  oauthStore?: import("./oauth/types.ts").OAuthStore | undefined;
+  oauthService?: import("./oauth/service.ts").OAuthService | undefined;
+  oauthClients?: Record<string, import("./oauth/types.ts").OAuthClientMetadata> | undefined;
   /** Test seam: routes served besides the table, to prove what the dispatcher does with a route that declares nothing. */
   extraRoutes?: ReadonlyArray<{ spec: RouteSpec; handler: Handler }>;
 }
@@ -192,7 +198,16 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   const maintenanceEvents = maintenance && maintenancePort ? createMaintenanceEvents(maintenance, maintenancePort) : undefined;
   const uploads = o.home ? new ExtensionUploads({ home: o.home, now: () => clock.now() }) : undefined;
   const snapshots = o.home ? new ImportSnapshotUploads({ home: o.home, now: () => clock.now() }) : undefined;
-  const handlerDeps = { core: perRequest.core, desktopStepUp, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, sharedAddress, audit, resolveBootstrap: o.resolveBootstrap, requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor), hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length, mcpConfig: o.mcpConfig };
+  const oauthStore = o.oauthStore ?? (o.home ? new FileOAuthStore(join(o.home, "state", "api", "oauth-grants.json")) : new MemoryOAuthStore());
+  const oauthService = o.oauthService ?? (tokens ? new OAuthService({
+    tokens,
+    store: oauthStore,
+    clock,
+    remote: !!o.remote,
+    requireSecondFactor: o.requireSecondFactor,
+    clients: o.oauthClients,
+  }) : undefined);
+  const handlerDeps = { core: perRequest.core, desktopStepUp, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, sharedAddress, audit, resolveBootstrap: o.resolveBootstrap, requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor), hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length, mcpConfig: o.mcpConfig, oauthService, isRemote: !!o.remote };
   const handlers = { ...buildHandlers(handlerDeps), ...extensionHandlers(o.core), ...buildDesktopAttachHandlers({...handlerDeps,core:o.core}, origin=>allowedOrigins.has(origin)), ...buildAccountHandlers(handlerDeps, o.accounts, o.core, o.bootstrapConsumed, !o.remote, () => { const sink=o.breakGlassAudit??o.audit; if(!sink)throw new Error("bootstrap audit unavailable"); sink.append({at:clock.now(),actor:{user:"local-owner",host:"api"},action:"account.bootstrap.commit-attempt",target:"account",detail:{}}); }),...buildWebAuthnHandlers(handlerDeps, o.accounts, (requestOrigin?: string) => o.remote?.publicOrigin ?? o.webauthnOrigin ?? requestOrigin ?? [...allowedOrigins][0]!, o.sharedWebauthnChallenges),...buildRemoteHandlers({core:o.core,home:o.home,audit:o.breakGlassAudit??o.audit,now:()=>clock.now(),certificates:o.remoteCertificates}),...buildRemotePairingHandlers(o.remotePairing) };
   if (o.webRoot !== undefined && !statSync(o.webRoot, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`webRoot ${JSON.stringify(o.webRoot)} is not a directory`);
   const staticFiles = o.webRoot !== undefined ? createStaticServer(o.webRoot) : undefined;

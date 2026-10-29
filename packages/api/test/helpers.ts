@@ -40,6 +40,10 @@ export interface StartOptions {
   accounts?: import("../src/account-store.ts").AccountStore;
   tokens?: import("../src/ports.ts").TokenStore;
   mcpConfig?: ApiServerOptions["mcpConfig"];
+  oauthStore?: ApiServerOptions["oauthStore"];
+  oauthService?: ApiServerOptions["oauthService"];
+  oauthClients?: ApiServerOptions["oauthClients"];
+  sharedSessions?: ApiServerOptions["sharedSessions"];
   users?: MemoryUserDirectory; lockout?: Partial<LockoutPolicy>; extraRoutes?: ApiServerOptions["extraRoutes"]; webRoot?: string;
   /** The API's own unbuffered sink (bootstrap, remote); `noAudit` configures no sink at all. Break-glass is the core's, see `miniCore`. */
   breakGlassAudit?: AuditSink; auditSink?: AuditSink; noAudit?: boolean;
@@ -57,6 +61,8 @@ export async function start(o: StartOptions = {}): Promise<Harness> {
     core, ownerToken: OWNER_TOKEN, clock, users, ...(o.accounts ? { accounts: o.accounts } : {}), ...(o.noAudit ? {} : { audit: o.auditSink ?? audit }), logger: { debug: sink("debug"), info: sink("info"), warn: sink("warn"), error: sink("error") },
     ...(o.limits ? { limits: o.limits } : {}), ...(o.rateClasses ? { rateClasses: o.rateClasses } : {}), ...(o.sessionLimits ? { sessionLimits: o.sessionLimits } : {}),
     ...(o.tokens ? { tokens: o.tokens } : {}), ...(o.mcpConfig ? { mcpConfig: o.mcpConfig } : {}),
+    ...(o.oauthStore ? { oauthStore: o.oauthStore } : {}), ...(o.oauthService ? { oauthService: o.oauthService } : {}), ...(o.oauthClients ? { oauthClients: o.oauthClients } : {}),
+    ...(o.sharedSessions ? { sharedSessions: o.sharedSessions } : {}),
     ...(o.lockout ? { lockout: o.lockout } : {}), ...(o.extraRoutes ? { extraRoutes: o.extraRoutes } : {}), ...(o.webRoot ? { webRoot: o.webRoot } : {}),
     ...(o.breakGlassAudit ? { breakGlassAudit: o.breakGlassAudit } : {}),
     ...(o.remote ? { remote: o.remote } : {}), ...(o.requireSecondFactor ? { requireSecondFactor: o.requireSecondFactor } : {}), ...(o.expensiveConcurrency ? { expensiveConcurrency: o.expensiveConcurrency } : {}),

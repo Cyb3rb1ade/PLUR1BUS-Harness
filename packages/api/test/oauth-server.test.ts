@@ -1,0 +1,500 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { randomBytes, createHash } from "node:crypto";
+import { FakeClock } from "../src/clock.ts";
+import { DEFAULT_SESSION_LIMITS, SessionStore } from "../src/session.ts";
+import { computeCodeChallenge, verifyPkce } from "../src/oauth/pkce.ts";
+import { matchRedirectUri } from "../src/oauth/client-metadata.ts";
+import { addUser, jsonHeaders, loginAs, raw, start, type Harness } from "./helpers.ts";
+import type { OAuthClientMetadata } from "../src/oauth/types.ts";
+
+const STATIC_CLIENT: OAuthClientMetadata = {
+  client_id: "test-client",
+  client_name: "Test OAuth Client",
+  redirect_uris: ["https://client.example.com/callback", "http://127.0.0.1:8080/callback"],
+  grant_types: ["authorization_code", "refresh_token"],
+  response_types: ["code"],
+  scope: "mcp.read mcp.write",
+  token_endpoint_auth_method: "none",
+};
+
+const wide = {
+  auth: { capacity: 1000, refillPerSec: 100 },
+  read: { capacity: 1000, refillPerSec: 100 },
+  write: { capacity: 1000, refillPerSec: 100 },
+  totp: { capacity: 1000, refillPerSec: 100 },
+  stream: { capacity: 1000, refillPerSec: 100 },
+};
+
+test("M6A-A3.1: PKCE enforces S256 and rejects plain", () => {
+  const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+  const challenge = computeCodeChallenge(verifier);
+
+  assert.equal(verifyPkce(verifier, challenge, "S256"), true);
+  // Plain method must be rejected outright
+  assert.equal(verifyPkce(verifier, verifier, "plain"), false);
+  // Invalid method rejected
+  assert.equal(verifyPkce(verifier, challenge, "S512"), false);
+  // Wrong verifier rejected
+  assert.equal(verifyPkce(verifier + "_wrong", challenge, "S256"), false);
+  // Too short verifier rejected
+  assert.equal(verifyPkce("short", challenge, "S256"), false);
+});
+
+test("M6A-A3.1: redirect_uri matching supports exact match and loopback dynamic port", () => {
+  const allowed = ["https://client.example.com/callback", "http://127.0.0.1:8080/callback"];
+
+  assert.equal(matchRedirectUri("https://client.example.com/callback", allowed), true);
+  assert.equal(matchRedirectUri("https://client.example.com/other", allowed), false);
+  // Exact loopback match
+  assert.equal(matchRedirectUri("http://127.0.0.1:8080/callback", allowed), true);
+  // Dynamic port on loopback per RFC 8252
+  assert.equal(matchRedirectUri("http://127.0.0.1:9999/callback", allowed), true);
+  assert.equal(matchRedirectUri("http://127.0.0.1:9999/wrong", allowed), false);
+});
+
+test("M6A-A3.1: GET /.well-known/oauth-authorization-server advertises RFC 8414 metadata", async (t) => {
+  const h = await start({ oauthClients: { "test-client": STATIC_CLIENT } });
+  t.after(() => h.close());
+
+  const res = await raw(h, {
+    method: "GET",
+    path: "/.well-known/oauth-authorization-server",
+  });
+
+  assert.equal(res.status, 200);
+  const data = JSON.parse(res.text) as Record<string, unknown>;
+  assert.equal(data.issuer, h.url);
+  assert.equal(data.authorization_endpoint, `${h.url}/oauth/authorize`);
+  assert.equal(data.token_endpoint, `${h.url}/oauth/token`);
+  assert.equal(data.revocation_endpoint, `${h.url}/oauth/revoke`);
+  assert.deepEqual(data.code_challenge_methods_supported, ["S256"]);
+  assert.deepEqual(data.response_types_supported, ["code"]);
+  assert.deepEqual(data.grant_types_supported, ["authorization_code", "refresh_token"]);
+  assert.equal(data.authorization_response_iss_parameter_supported, true);
+});
+
+test("M6A-A3.1: GET /oauth/authorize enforces session auth, client validation and PKCE", async (t) => {
+  const h = await start({ oauthClients: { "test-client": STATIC_CLIENT }, rateClasses: wide });
+  t.after(() => h.close());
+
+  await addUser(h, { id: "u-1", username: "user1", role: "member", agentRights: { main: "use" } });
+  const { cookie } = await loginAs(h, "user1");
+
+  const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+  const challenge = computeCodeChallenge(verifier);
+
+  // 1. Without session, JSON request returns 401
+  const unauth = await raw(h, {
+    method: "GET",
+    path: `/oauth/authorize?response_type=code&client_id=test-client&redirect_uri=${encodeURIComponent("https://client.example.com/callback")}&code_challenge=${challenge}&code_challenge_method=S256`,
+    headers: { Accept: "application/json" },
+  });
+  assert.equal(unauth.status, 401);
+
+  // 2. Unknown client returns 400 invalid_client
+  const badClient = await raw(h, {
+    method: "GET",
+    path: `/oauth/authorize?response_type=code&client_id=unknown&redirect_uri=${encodeURIComponent("https://client.example.com/callback")}&code_challenge=${challenge}&code_challenge_method=S256`,
+    headers: { Cookie: cookie, Accept: "application/json" },
+  });
+  assert.equal(badClient.status, 400);
+  assert.equal(JSON.parse(badClient.text).reason, "invalid_client");
+
+  // 3. Unregistered redirect_uri returns 400 invalid_request without redirecting
+  const badRedirect = await raw(h, {
+    method: "GET",
+    path: `/oauth/authorize?response_type=code&client_id=test-client&redirect_uri=${encodeURIComponent("https://evil.com/callback")}&code_challenge=${challenge}&code_challenge_method=S256`,
+    headers: { Cookie: cookie, Accept: "application/json" },
+  });
+  assert.equal(badRedirect.status, 400);
+  assert.equal(JSON.parse(badRedirect.text).reason, "invalid_request");
+
+  // 4. plain code challenge method redirects with error
+  const plainMethod = await raw(h, {
+    method: "GET",
+    path: `/oauth/authorize?response_type=code&client_id=test-client&redirect_uri=${encodeURIComponent("https://client.example.com/callback")}&code_challenge=${challenge}&code_challenge_method=plain`,
+    headers: { Cookie: cookie },
+  });
+  assert.equal(plainMethod.status, 302);
+  const plainLoc = new URL(plainMethod.headers.location as string);
+  assert.equal(plainLoc.searchParams.get("error"), "invalid_request");
+
+  // 5. Valid request with approve=true issues authorization code and redirects with iss
+  const approved = await raw(h, {
+    method: "GET",
+    path: `/oauth/authorize?response_type=code&client_id=test-client&redirect_uri=${encodeURIComponent("https://client.example.com/callback")}&code_challenge=${challenge}&code_challenge_method=S256&scope=mcp.read&state=xyz123&approve=true`,
+    headers: { Cookie: cookie },
+  });
+  assert.equal(approved.status, 302);
+  const target = new URL(approved.headers.location as string);
+  assert.equal(target.origin, "https://client.example.com");
+  assert.equal(target.pathname, "/callback");
+  assert.ok(target.searchParams.get("code")?.startsWith("plb_code_"));
+  assert.equal(target.searchParams.get("state"), "xyz123");
+  assert.equal(target.searchParams.get("iss"), h.url);
+});
+
+test("M6A-A3.1: remote listener enforces fresh 2FA on /oauth/authorize", async (t) => {
+  const clock = new FakeClock();
+  const sessions = new SessionStore(clock, DEFAULT_SESSION_LIMITS);
+  const h = await start({
+    clock,
+    oauthClients: { "test-client": STATIC_CLIENT },
+    requireSecondFactor: "always",
+    sharedSessions: sessions,
+  });
+  t.after(() => h.close());
+
+  // Create a session for owner without stepUpAt
+  const { id: sessionId } = sessions.create({ kind: "owner", id: "owner", role: "owner" });
+  const cookie = `plur1bus_session=${sessionId}`;
+
+  const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+  const challenge = computeCodeChallenge(verifier);
+
+  const res = await raw(h, {
+    method: "GET",
+    path: `/oauth/authorize?response_type=code&client_id=test-client&redirect_uri=${encodeURIComponent("https://client.example.com/callback")}&code_challenge=${challenge}&code_challenge_method=S256&approve=true`,
+    headers: { Cookie: cookie, Accept: "application/json" },
+  });
+  assert.equal(res.status, 403);
+  assert.equal(JSON.parse(res.text).reason, "second-factor-required");
+
+  // Now create a session WITH stepUpAt (fresh 2FA)
+  const { id: freshSessionId } = sessions.create({ kind: "owner", id: "owner", role: "owner" }, { stepUpAt: clock.now() });
+  const freshCookie = `plur1bus_session=${freshSessionId}`;
+
+  const freshRes = await raw(h, {
+    method: "GET",
+    path: `/oauth/authorize?response_type=code&client_id=test-client&redirect_uri=${encodeURIComponent("https://client.example.com/callback")}&code_challenge=${challenge}&code_challenge_method=S256&approve=true`,
+    headers: { Cookie: freshCookie, Accept: "application/json" },
+  });
+  assert.equal(freshRes.status, 200);
+  assert.ok(JSON.parse(freshRes.text).code?.startsWith("plb_code_"));
+});
+
+test("M6A-A3.1: POST /oauth/token exchanges authorization code and issues bound personal token", async (t) => {
+  const h = await start({
+    oauthClients: { "test-client": STATIC_CLIENT },
+    rateClasses: wide,
+    mcpConfig: {
+      mcpServer: { enabled: true },
+      agents: {
+        main: {
+          mcpServer: {
+            exposed: true,
+            groups: ["agent"],
+          },
+        },
+      },
+    },
+  });
+  t.after(() => h.close());
+
+  await addUser(h, { id: "u-1", username: "user1", role: "member", agentRights: { main: "use" } });
+  const { cookie } = await loginAs(h, "user1");
+
+  const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+  const challenge = computeCodeChallenge(verifier);
+
+  // 1. Authorize to get code
+  const authRes = await raw(h, {
+    method: "POST",
+    path: "/oauth/authorize",
+    headers: { Cookie: cookie, ...jsonHeaders() },
+    body: JSON.stringify({
+      approve: true,
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      scope: "agent.use",
+      state: "state1",
+    }),
+  });
+  assert.equal(authRes.status, 200);
+  const authBody = JSON.parse(authRes.text) as { code: string; redirect_uri: string };
+  const code = authBody.code;
+  assert.ok(code.startsWith("plb_code_"));
+
+  // 2. Exchange code for tokens (using form-urlencoded)
+  const tokenRes = await raw(h, {
+    method: "POST",
+    path: "/oauth/token",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      code,
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      code_verifier: verifier,
+    }).toString(),
+  });
+
+  assert.equal(tokenRes.status, 200);
+  const tokens = JSON.parse(tokenRes.text) as {
+    access_token: string;
+    token_type: string;
+    expires_in: number;
+    refresh_token: string;
+    scope: string;
+  };
+  assert.ok(tokens.access_token.startsWith("plb_"));
+  assert.equal(tokens.token_type, "Bearer");
+  assert.equal(tokens.expires_in, 3600);
+  assert.ok(tokens.refresh_token.startsWith("plb_rt_"));
+  assert.equal(tokens.scope, "agent.use");
+
+  // 3. Single-use: exchanging the same code again fails with 400 invalid_grant
+  const replayRes = await raw(h, {
+    method: "POST",
+    path: "/oauth/token",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      code,
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      code_verifier: verifier,
+    }).toString(),
+  });
+  assert.equal(replayRes.status, 400);
+  assert.equal(JSON.parse(replayRes.text).error, "invalid_grant");
+
+  // 4. The minted access token works on bound /mcp endpoint
+  const mcpRes = await raw(h, {
+    method: "POST",
+    path: "/mcp",
+    headers: {
+      Authorization: `Bearer ${tokens.access_token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json, text/event-stream",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/list",
+      params: {},
+    }),
+  });
+  assert.equal(mcpRes.status, 200);
+  const mcpData = JSON.parse(mcpRes.text) as { result?: { tools?: unknown[] } };
+  assert.ok(Array.isArray(mcpData.result?.tools));
+});
+
+test("M6A-A3.1: refresh token rotation and family revocation on replay", async (t) => {
+  const h = await start({ oauthClients: { "test-client": STATIC_CLIENT }, rateClasses: wide });
+  t.after(() => h.close());
+
+  await addUser(h, { id: "u-1", username: "user1", role: "member", agentRights: { main: "use" } });
+  const { cookie } = await loginAs(h, "user1");
+
+  const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+  const challenge = computeCodeChallenge(verifier);
+
+  const authRes = await raw(h, {
+    method: "POST",
+    path: "/oauth/authorize",
+    headers: { Cookie: cookie, ...jsonHeaders() },
+    body: JSON.stringify({
+      approve: true,
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      scope: "mcp.read mcp.write",
+    }),
+  });
+  const code = (JSON.parse(authRes.text) as { code: string }).code;
+
+  const t1Res = await raw(h, {
+    method: "POST",
+    path: "/oauth/token",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      grant_type: "authorization_code",
+      code,
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      code_verifier: verifier,
+    }),
+  });
+  const t1 = JSON.parse(t1Res.text) as { access_token: string; refresh_token: string };
+
+  // 1. Refreshing rotates to a new refresh token
+  const t2Res = await raw(h, {
+    method: "POST",
+    path: "/oauth/token",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      grant_type: "refresh_token",
+      refresh_token: t1.refresh_token,
+      client_id: "test-client",
+    }),
+  });
+  assert.equal(t2Res.status, 200);
+  const t2 = JSON.parse(t2Res.text) as { access_token: string; refresh_token: string };
+  assert.notEqual(t2.refresh_token, t1.refresh_token);
+  assert.notEqual(t2.access_token, t1.access_token);
+
+  // The old access token t1.access_token is revoked
+  const oldAccessCheck = await raw(h, {
+    method: "GET",
+    path: "/api/v1/whoami",
+    headers: { Authorization: `Bearer ${t1.access_token}` },
+  });
+  assert.equal(oldAccessCheck.status, 401);
+
+  // The new access token t2.access_token is active
+  const newAccessCheck = await raw(h, {
+    method: "GET",
+    path: "/api/v1/whoami",
+    headers: { Authorization: `Bearer ${t2.access_token}` },
+  });
+  assert.equal(newAccessCheck.status, 200);
+
+  // 2. REPLAY ATTACK: Re-using the old refresh token t1.refresh_token revokes the entire family!
+  const replayRes = await raw(h, {
+    method: "POST",
+    path: "/oauth/token",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      grant_type: "refresh_token",
+      refresh_token: t1.refresh_token,
+      client_id: "test-client",
+    }),
+  });
+  assert.equal(replayRes.status, 400);
+  assert.equal(JSON.parse(replayRes.text).error, "invalid_grant");
+
+  // Entire family is revoked: t2.access_token is now revoked!
+  const revokedAccessCheck = await raw(h, {
+    method: "GET",
+    path: "/api/v1/whoami",
+    headers: { Authorization: `Bearer ${t2.access_token}` },
+  });
+  assert.equal(revokedAccessCheck.status, 401);
+
+  // Even t2.refresh_token cannot be used anymore
+  const t2Retry = await raw(h, {
+    method: "POST",
+    path: "/oauth/token",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      grant_type: "refresh_token",
+      refresh_token: t2.refresh_token,
+      client_id: "test-client",
+    }),
+  });
+  assert.equal(t2Retry.status, 400);
+  assert.equal(JSON.parse(t2Retry.text).error, "invalid_grant");
+});
+
+test("M6A-A3.1: POST /oauth/revoke revokes tokens per RFC 7009", async (t) => {
+  const h = await start({ oauthClients: { "test-client": STATIC_CLIENT }, rateClasses: wide });
+  t.after(() => h.close());
+
+  await addUser(h, { id: "u-1", username: "user1", role: "member", agentRights: { main: "use" } });
+  const { cookie } = await loginAs(h, "user1");
+
+  const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+  const challenge = computeCodeChallenge(verifier);
+
+  const authRes = await raw(h, {
+    method: "POST",
+    path: "/oauth/authorize",
+    headers: { Cookie: cookie, ...jsonHeaders() },
+    body: JSON.stringify({
+      approve: true,
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      scope: "mcp.read",
+    }),
+  });
+  const code = (JSON.parse(authRes.text) as { code: string }).code;
+
+  const tokenRes = await raw(h, {
+    method: "POST",
+    path: "/oauth/token",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      grant_type: "authorization_code",
+      code,
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      code_verifier: verifier,
+    }),
+  });
+  const tokens = JSON.parse(tokenRes.text) as { access_token: string; refresh_token: string };
+
+  // Revoke refresh token
+  const revokeRes = await raw(h, {
+    method: "POST",
+    path: "/oauth/revoke",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      token: tokens.refresh_token,
+      token_type_hint: "refresh_token",
+    }).toString(),
+  });
+  assert.equal(revokeRes.status, 200);
+
+  // Access token is revoked
+  const whoami = await raw(h, {
+    method: "GET",
+    path: "/api/v1/whoami",
+    headers: { Authorization: `Bearer ${tokens.access_token}` },
+  });
+  assert.equal(whoami.status, 401);
+
+  // Revoking invalid/unknown token returns 200 OK
+  const revokeUnknown = await raw(h, {
+    method: "POST",
+    path: "/oauth/revoke",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ token: "unknown_token" }).toString(),
+  });
+  assert.equal(revokeUnknown.status, 200);
+});
+
+test("M6A-A3.1: client_id metadata document resolves dynamically and blocks SSRF", async (t) => {
+  const dynamicClientId = "https://app.example.com/oauth-metadata.json";
+  const fetchMock = async (url: string) => {
+    if (url === dynamicClientId) {
+      return {
+        client_id: dynamicClientId,
+        client_name: "Dynamic App",
+        redirect_uris: ["https://app.example.com/oauth/callback"],
+        grant_types: ["authorization_code"],
+        response_types: ["code"],
+      };
+    }
+    throw new Error("404");
+  };
+
+  const { ClientMetadataResolver } = await import("../src/oauth/client-metadata.ts");
+  const resolver = new ClientMetadataResolver({
+    fetchMetadata: fetchMock,
+  });
+
+  // Dynamic HTTPS client resolves
+  const client = await resolver.resolveClient(dynamicClientId);
+  assert.ok(client);
+  assert.equal(client.client_id, dynamicClientId);
+  assert.equal(client.client_name, "Dynamic App");
+  assert.deepEqual(client.redirect_uris, ["https://app.example.com/oauth/callback"]);
+
+  // SSRF protection blocks private IP ranges
+  const ssrfResolver = new ClientMetadataResolver({ allowLoopbackMetadata: false });
+  await assert.rejects(
+    async () => resolver.resolveClient("https://169.254.169.254/latest/meta-data"),
+    (err: { reason?: string }) => err.reason === "client_id",
+  );
+  await assert.rejects(
+    async () => resolver.resolveClient("https://10.0.0.1/metadata.json"),
+    (err: { reason?: string }) => err.reason === "client_id",
+  );
+});
