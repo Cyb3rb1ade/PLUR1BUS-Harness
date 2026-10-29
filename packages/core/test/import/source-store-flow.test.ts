@@ -208,7 +208,11 @@ it("copies proven foreign cards, migrates all rows to the target model, and cold
     }
     await runtime.close(); runtime = undefined; await engine.close(); engine = undefined;
     engine = open(); runtime = createRuntime();
-    const ready = await runtime.methods["admin.import.runtime.complete"]!(control, ctx) as { state: string; restartRequired: boolean };
+    let ready = await runtime.methods["admin.import.runtime.complete"]!(control, ctx) as { state: string; restartRequired: boolean };
+    for (let count = 0; count < 500 && ready.state === "pending"; count++) {
+      await new Promise(resolve => setTimeout(resolve, 10));
+      ready = await runtime.methods["admin.import.runtime.status"]!(control, ctx) as typeof ready;
+    }
     assert.equal(ready.state, "completed"); assert.equal(ready.restartRequired, false);
     assert.equal(engine.embedding.identities()[0]?.model, "intfloat/multilingual-e5-small");
     const selected = current(f.home).config.engine.reembedding?.activeGeneration;

@@ -16,6 +16,17 @@ import { loadLanceDb } from "../../src/import/readonly.ts";
 import { fingerprintMutationRoots } from "../../src/import/maintenance-snapshot.ts";
 
 const temp = useTempDirs();
+async function completeRuntime(client: Awaited<ReturnType<typeof connect>>, control: import("../../src/import/runtime.ts").ImportRunControl) {
+  await client.call("admin.import.runtime.complete", control);
+  const deadline = Date.now() + 10_000;
+  for (;;) {
+    const status = await client.call<import("../../src/import/runtime.ts").ImportRuntimeStatus>("admin.import.runtime.status", control);
+    assert.notEqual(status.state, "failed", "authenticated target finalization succeeds");
+    if (status.state === "completed") return status;
+    assert.ok(Date.now() < deadline, "authenticated target finalization completes");
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+}
 
 it("actual Core detects and imports skills live and rejects agent authority on the mounted methods", { timeout: 60_000 }, async () => {
   const home = temp();
@@ -140,7 +151,7 @@ it("held actual Core preserves seeded card and retrieval counters until normal r
     assert.deepEqual(await readCounts(), counts, "a refused semantic read cannot reinforce any card");
     assert.equal(retrievals(), retrieved, "a refused semantic read cannot append the Engine retrieval ledger");
     const control = { runId: plan.runId, planId: plan.id, planSha256: sha256 };
-    await client.call("admin.import.runtime.complete", control);
+    await completeRuntime(client, control);
     await client.call("admin.import.runtime.release", control);
     const recalled = await client.call<{ blocks: { text: string }[] }>("memory.recall", recall);
     assert.ok(recalled.blocks.some(block => block.text.includes("Atlas review")));
@@ -195,7 +206,7 @@ it("actual held Core answers reads but refuses a new secret write before any bac
     await assert.rejects(client.call("secret.set", { name: "import-new-user-write", value: "synthetic-new-user-secret" }),
       (error: { reason?: string }) => error.reason === "busy");
     const control = { runId: plan.runId, planId: plan.id, planSha256: sha256 };
-    const completed = await client.call<{ state: string; restartRequired: boolean }>("admin.import.runtime.complete", control);
+    const completed = await completeRuntime(client, control);
     assert.equal(completed.state, "completed");
     assert.equal(completed.restartRequired, false);
     const partition = join(home, "state", "lancedb", "main");

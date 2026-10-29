@@ -14,7 +14,8 @@ const temp = useTempDirs();
 const OWNER = { userId: "owner", kind: "person" as const, role: "owner" as const };
 const ctx = { requestId: "r", connectionId: "c", signal: new AbortController().signal };
 
-async function fixture(reembed = false, restored = false, sourceAlreadyTarget = false) {
+async function fixture(reembed = false, restored = false, sourceAlreadyTarget = false,
+  options: { prepareTarget?: (signal: AbortSignal) => Promise<void> } = {}) {
   const module = await import("../../src/import/runtime.ts").catch(() => undefined);
   assert.equal(typeof module?.createImportRuntime, "function", "Core must finish the selected existing reembed job");
   const home = temp();
@@ -50,6 +51,7 @@ async function fixture(reembed = false, restored = false, sourceAlreadyTarget = 
   const methods = module!.createImportRuntime({ home, heldRunId: () => plan.runId,
     resolvePrincipal: () => caller, person: () => actor,
     model: async () => ({ present: true, licenceAccepted: true }), runningModel: () => runningModel,
+    ...(options.prepareTarget ? { prepareTarget: options.prepareTarget } : {}),
     release: async () => { releases++; },
     driver: () => ({
       plan: async () => ({ plan: { id: "migration" }, probe: {} }),
@@ -69,10 +71,131 @@ async function fixture(reembed = false, restored = false, sourceAlreadyTarget = 
     switches: () => switches, releases: () => releases };
 }
 
+async function complete(f: Awaited<ReturnType<typeof fixture>>) {
+  let result = await f.methods.methods["admin.import.runtime.complete"]!(f.control, ctx) as { state: string; restartRequired?: boolean };
+  for (let n = 0; n < 200 && result.state === "pending"; n++) {
+    await new Promise(resolve => setTimeout(resolve, 5));
+    result = await f.methods.methods["admin.import.runtime.status"]!(f.control, ctx) as typeof result;
+  }
+  assert.notEqual(result.state, "pending", "held completion must eventually publish a terminal result");
+  return result;
+}
+
+it("returns pending promptly while one held target preparation is running and blocks release until it finishes", async () => {
+  let finish!: () => void;
+  const prepared = new Promise<void>(resolve => { finish = resolve; });
+  let preparations = 0;
+  const f = await fixture(false, false, false, { prepareTarget: async () => { preparations++; await prepared; } });
+  const prompt = async (method: string) => {
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      return await Promise.race([f.methods.methods[method]!(f.control, ctx), new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("held runtime RPC waited for target preparation")), 1000);
+      })]);
+    } finally { clearTimeout(timer); }
+  };
+  try {
+    const original = openMaintenanceJournal(f.home, f.plan.runId).read().targetSha256;
+    const first = await prompt("admin.import.runtime.complete") as { state: string };
+    assert.equal(first.state, "pending");
+    const statuses = await Promise.all(Array.from({ length: 4 }, () => prompt("admin.import.runtime.status")));
+    assert.ok(statuses.every(result => (result as { state: string }).state === "pending"));
+    for (let n = 0; n < 100 && preparations === 0; n++) await new Promise(resolve => setTimeout(resolve, 5));
+    assert.equal(preparations, 1);
+    await assert.rejects(f.methods.methods["admin.import.runtime.release"]!(f.control, ctx));
+    assert.equal(f.releases(), 0);
+    assert.equal(openMaintenanceJournal(f.home, f.plan.runId).read().targetSha256, original);
+    writeFileSync(join(f.home, "state", "held-bootstrap"), "fully prepared before final proof");
+    finish();
+    const publishing = await Promise.all(Array.from({ length: 16 }, () => prompt("admin.import.runtime.status")));
+    assert.ok(publishing.every(result => ["pending", "completed"].includes((result as { state: string }).state)));
+    let current: { state: string } = { state: "pending" };
+    for (let n = 0; n < 100 && current.state === "pending"; n++) {
+      current = await f.methods.methods["admin.import.runtime.status"]!(f.control, ctx) as { state: string };
+      if (current.state === "pending") await new Promise(resolve => setTimeout(resolve, 5));
+    }
+    assert.equal(current.state, "completed");
+    assert.equal(preparations, 1);
+    assert.equal(openMaintenanceJournal(f.home, f.plan.runId).read().targetSha256,
+      await fingerprintImportTarget(f.home, f.plan.roots));
+    await f.methods.methods["admin.import.runtime.release"]!(f.control, ctx);
+    assert.equal(f.releases(), 1);
+  } finally { finish(); await f.methods.close(); }
+});
+
+it("fails closed when asynchronous preparation fails and leaves the prior rollback proof intact", async () => {
+  let preparations = 0;
+  const f = await fixture(false, false, false, { prepareTarget: async () => { preparations++; throw new Error("private bootstrap failure"); } });
+  try {
+    const original = openMaintenanceJournal(f.home, f.plan.runId).read().targetSha256;
+    const result = await complete(f);
+    assert.equal(result.state, "failed");
+    assert.equal(JSON.stringify(result).includes("private bootstrap failure"), false);
+    assert.equal(openMaintenanceJournal(f.home, f.plan.runId).read().targetSha256, original);
+    assert.equal((await complete(f)).state, "failed");
+    assert.equal(preparations, 1);
+    await assert.rejects(f.methods.methods["admin.import.runtime.release"]!(f.control, ctx));
+    assert.equal(f.releases(), 0);
+  } finally { await f.methods.close(); }
+});
+
+it("refuses to finalize if the journal leaves the exact committed snapshot while preparation is pending", async () => {
+  let begin!: () => void;
+  let finish!: () => void;
+  const started = new Promise<void>(resolve => { begin = resolve; });
+  const gate = new Promise<void>(resolve => { finish = resolve; });
+  const f = await fixture(false, false, false, { prepareTarget: async () => { begin(); await gate; } });
+  try {
+    assert.equal((await f.methods.methods["admin.import.runtime.complete"]!(f.control, ctx) as { state: string }).state, "pending");
+    await started;
+    const journal = openMaintenanceJournal(f.home, f.plan.runId);
+    const original = journal.read().targetSha256;
+    journal.advance("rolling-back");
+    writeFileSync(join(f.home, "state", "changed-during-prepare"), "must never become a new committed proof");
+    finish();
+    assert.equal((await complete(f)).state, "failed");
+    assert.equal(openMaintenanceJournal(f.home, f.plan.runId).read().phase, "rolling-back");
+    assert.equal(openMaintenanceJournal(f.home, f.plan.runId).read().targetSha256, original);
+    await assert.rejects(f.methods.methods["admin.import.runtime.release"]!(f.control, ctx));
+    assert.equal(f.releases(), 0);
+  } finally { finish(); await f.methods.close(); }
+});
+
+it("cancels and drains held preparation before close returns without finalizing or admitting release", async () => {
+  let started = false;
+  let interrupted = false;
+  let settled = false;
+  const f = await fixture(false, false, false, { prepareTarget: async signal => {
+    started = true;
+    try {
+      await new Promise<void>((_, reject) => {
+        const abort = () => { interrupted = true; reject(new Error("stopping")); };
+        if (signal.aborted) abort();
+        else signal.addEventListener("abort", abort, { once: true });
+      });
+    } finally { settled = true; }
+  } });
+  try {
+    const original = openMaintenanceJournal(f.home, f.plan.runId).read().targetSha256;
+    const pending = await f.methods.methods["admin.import.runtime.complete"]!(f.control, ctx) as { state: string };
+    assert.equal(pending.state, "pending");
+    for (let n = 0; n < 100 && !started; n++) {
+      await new Promise(resolve => setTimeout(resolve, 5));
+    }
+    assert.equal(started, true);
+    await f.methods.close();
+    assert.equal(interrupted, true);
+    assert.equal(settled, true);
+    assert.equal(openMaintenanceJournal(f.home, f.plan.runId).read().targetSha256, original);
+    await assert.rejects(f.methods.methods["admin.import.runtime.release"]!(f.control, ctx), { error: "E_DENIED" });
+    assert.equal(f.releases(), 0);
+  } finally { await f.methods.close(); }
+});
+
 it("completes a no-action import and releases routing only for the exact private bound job", async () => {
   const f = await fixture();
   try {
-    const status = await f.methods.methods["admin.import.runtime.complete"]!(f.control, ctx);
+    const status = await complete(f);
     assert.deepEqual(status, { runId: f.control.runId, state: "completed", completed: 0, restartRequired: false });
     await assert.rejects(f.methods.methods["admin.import.runtime.release"]!({ ...f.control, planSha256: "c".repeat(64) }, ctx));
     assert.equal(f.releases(), 0);
@@ -102,7 +225,7 @@ it("private completion, status and release deny non-Owner roles and delegated or
     assert.equal(f.switches(), 0);
     assert.equal(f.releases(), 0);
     assert.equal(existsSync(join(f.home, "imports", f.plan.runId, "runtime.json")), false);
-    assert.equal((await f.methods.methods[names[0]!]!(f.control, ctx) as { state: string }).state, "completed");
+    assert.equal((await complete(f)).state, "completed");
   } finally { await f.methods.close(); }
 });
 
@@ -113,7 +236,7 @@ it("binds rollback to held bootstrap changes once and never absorbs a later targ
     writeFileSync(join(f.home, "state", "new-agent-bootstrap"), "legitimate held initialization");
     const expected = await fingerprintImportTarget(f.home, f.plan.roots);
     assert.notEqual(expected, before);
-    await f.methods.methods["admin.import.runtime.complete"]!(f.control, ctx);
+    await complete(f);
     assert.equal(openMaintenanceJournal(f.home, f.plan.runId).read().targetSha256, expected);
     writeFileSync(join(f.home, "state", "later-user-change"), "must remain a rollback conflict");
     await f.methods.methods["admin.import.runtime.status"]!(f.control, ctx);
@@ -137,7 +260,7 @@ it("runs the persisted selected model once and requires the selected Engine gene
     assert.equal(f.switches(), 1);
     await assert.rejects(f.methods.methods["admin.import.runtime.release"]!(f.control, ctx));
     f.setRunning();
-    const ready = await f.methods.methods["admin.import.runtime.complete"]!(f.control, ctx);
+    const ready = await complete(f);
     assert.equal((ready as { restartRequired: boolean }).restartRequired, false);
     assert.equal(f.switches(), 1);
     await f.methods.methods["admin.import.runtime.release"]!(f.control, ctx);
@@ -160,7 +283,7 @@ it("never re-applies the selected model after the native job restored the baseli
 it("accepts a proven source store already in the selected target vector space without a redundant migration", async () => {
   const f = await fixture(true, false, true);
   try {
-    const ready = await f.methods.methods["admin.import.runtime.complete"]!(f.control, ctx) as { state: string; restartRequired: boolean };
+    const ready = await complete(f);
     assert.equal(ready.state, "completed");
     assert.equal(ready.restartRequired, false);
     assert.equal(f.switches(), 0);
@@ -178,7 +301,7 @@ it("denies a revoked initiator's apply action and a stale activation from anothe
   } finally { await f.methods.close(); }
   const other = await fixture();
   try {
-    await other.methods.methods["admin.import.runtime.complete"]!(other.control, ctx);
+    await complete(other);
     other.staleActivation();
     await assert.rejects(other.methods.methods["admin.import.runtime.release"]!(other.control, ctx));
     assert.equal(other.releases(), 0);

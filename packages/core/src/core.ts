@@ -386,6 +386,8 @@ export function createCore(o: CoreOptions): Core {
 
   let hostClients: ReturnType<typeof hermesClientAuth> | null = null;
   async function start(): Promise<void> {
+    let prepareImportBootstrap: ((signal: AbortSignal) => Promise<void>) | undefined;
+    let importTargetPrepared = false;
     for (const d of [l.state, l.run, l.logs, l.agents, l.models, l.journal, l.catalog, l.systemJobs]) mkdirSync(d, { recursive: true, mode: 0o700 });
     // B7: what the config source logs before the logger exists (it is built from the configuration) is kept and
     // written once it does.
@@ -837,12 +839,17 @@ export function createCore(o: CoreOptions): Core {
       importRuntime = createImportRuntime({ home: l.home, heldRunId: () => importHold.runId, resolvePrincipal,
         person: id => people.resolvePerson(id), model: imported.model,
         runningModel: () => eng.embedding.identities()[0]?.model,
-        prepareTarget: async () => {
+        prepareTarget: async signal => {
+          const check = () => { shutdown.signal.throwIfAborted(); signal.throwIfAborted(); };
           for (const id of executionRegistry.list()) {
-            shutdown.signal.throwIfAborted();
+            check();
             const store = await eng.open(id);
-            await store.close();
+            try { check(); } finally { await store.close(); check(); }
           }
+          check();
+          if (importHold.held && !prepareImportBootstrap) throw new Error("Import bootstrap is not ready");
+          await prepareImportBootstrap?.(signal);
+          check();
         },
         release: runId => importHold.release(runId),
         cleanupSource: async plan => { await cleanupCompletedSource({ home: l.home, plan }); },
@@ -1128,6 +1135,64 @@ export function createCore(o: CoreOptions): Core {
       else setState(ready);
       const backgroundLogger = logger;
       const backgroundScan = scanScheduler;
+      let dreamsPrepared = false;
+      const prepareDreams = () => {
+        if (dreamsPrepared) return;
+        dreamsPrepared = true;
+        const logger = backgroundLogger;
+        // M1b-3: a dreams store that cannot open must not take the memory service down; `dreams.*` then answers not-available.
+        try {
+          // A1 is optional until the Controller pins Engine contract 1.17.0.
+          // These are public host operations under the agent's existing principal,
+          // never calls made by a model or a background AgentContext.
+          const dreamMemory = eng.memory as typeof eng.memory & A1MemoryOperations;
+          const dreamContext = { origin: "system", background: false } as const;
+          const dreamPrincipal = (agentId: string) => {
+            const ws = executionRegistry.workspaceOf(agentId);
+            if (!ws) throw new Error(`dreams agent workspace unavailable: ${agentId}`);
+            return callerToPrincipal(cliCaller(), agentId, ws).principal;
+          };
+          dreams = createDreams({
+            engine: eng, layout: l, clock: o.dreams?.clock ?? discClock, logger, agents: executionRegistry, securePath: platform.securePath,
+            // Agent-private public cards plus A1's persistent recall counters when
+            // available. Missing A1 keeps promotion closed, never maintenance. A
+            // truncated corpus fails closed after the independent jobs ran.
+            candidateMemory: {
+              async list(agentId) {
+                const ws = executionRegistry.workspaceOf(agentId);
+                if (!ws) return [];
+                return readCandidateMemory(query => dreamMemory.list(query, dreamPrincipal(agentId), dreamContext));
+              },
+              ...(typeof dreamMemory.stats === "function" ? {
+                stats: (agentId: string, ids: readonly string[]) => dreamMemory.stats!(ids, dreamPrincipal(agentId), dreamContext),
+              } : {}),
+              ...(typeof dreamMemory.promote === "function" ? {
+                promote: (agentId: string, ids: readonly string[]) => dreamMemory.promote!({ ids }, dreamPrincipal(agentId), dreamContext),
+              } : {}),
+            },
+            scheduler: { ...(o.dreams?.defaultTimezone ? { defaultTimezone: o.dreams.defaultTimezone } : {}), onEvent: event => { if (event.name === 'run.finished') void delivery?.notify('dreams', event.phase ?? 'unknown', event.agentId, String(event.outcome)).catch(err => log.warn("delivery notify failed", { err })); } },
+          });
+        } catch (err) { dreams = null; dreamsError = String((err as Error)?.message ?? err).slice(0, 300); logger.error("dreaming scheduler unavailable", { err }); }
+      };
+      // Complete local constructors and lazy read-pool initialization while the authenticated maintenance generation
+      // is held. memory.list by time opens the same agent read pool without loading models or calling an embedder.
+      // These legitimate bootstrap writes belong to the final rollback proof, before public admission opens.
+      prepareImportBootstrap = async signal => {
+        const check = () => { shutdown.signal.throwIfAborted(); signal.throwIfAborted(); };
+        check();
+        prepareDreams();
+        check();
+        dreams?.scheduler.syncAgents();
+        check();
+        for (const agentId of executionRegistry.list()) {
+          check();
+          const ws = executionRegistry.workspaceOf(agentId);
+          if (!ws) throw new Error("Import agent workspace is unavailable");
+          await eng.memory.list({ since: 0, limit: 1 }, callerToPrincipal(cliCaller(), agentId, ws).principal, AGENT_CONTEXT_CLI);
+          check();
+        }
+        importTargetPrepared = true;
+      };
       const startImportBackground = async () => {
       const logger = backgroundLogger;
       if (shutdown.signal.aborted) throw new Error("Core is stopping");
@@ -1140,40 +1205,8 @@ export function createCore(o: CoreOptions): Core {
         },
       }, shutdown.signal, log);
       if (o.discovery?.scheduler !== false) backgroundScan.start();
-      // M1b-3: a dreams store that cannot open must not take the memory service down; `dreams.*` then answers not-available.
-      try {
-        // A1 is optional until the Controller pins Engine contract 1.17.0.
-        // These are public host operations under the agent's existing principal,
-        // never calls made by a model or a background AgentContext.
-        const dreamMemory = eng.memory as typeof eng.memory & A1MemoryOperations;
-        const dreamContext = { origin: "system", background: false } as const;
-        const dreamPrincipal = (agentId: string) => {
-          const ws = executionRegistry.workspaceOf(agentId);
-          if (!ws) throw new Error(`dreams agent workspace unavailable: ${agentId}`);
-          return callerToPrincipal(cliCaller(), agentId, ws).principal;
-        };
-        dreams = createDreams({
-          engine: eng, layout: l, clock: o.dreams?.clock ?? discClock, logger, agents: executionRegistry, securePath: platform.securePath,
-          // Agent-private public cards plus A1's persistent recall counters when
-          // available. Missing A1 keeps promotion closed, never maintenance. A
-          // truncated corpus fails closed after the independent jobs ran.
-          candidateMemory: {
-            async list(agentId) {
-              const ws = executionRegistry.workspaceOf(agentId);
-              if (!ws) return [];
-              return readCandidateMemory(query => dreamMemory.list(query, dreamPrincipal(agentId), dreamContext));
-            },
-            ...(typeof dreamMemory.stats === "function" ? {
-              stats: (agentId: string, ids: readonly string[]) => dreamMemory.stats!(ids, dreamPrincipal(agentId), dreamContext),
-            } : {}),
-            ...(typeof dreamMemory.promote === "function" ? {
-              promote: (agentId: string, ids: readonly string[]) => dreamMemory.promote!({ ids }, dreamPrincipal(agentId), dreamContext),
-            } : {}),
-          },
-          scheduler: { ...(o.dreams?.defaultTimezone ? { defaultTimezone: o.dreams.defaultTimezone } : {}), onEvent: event => { if (event.name === 'run.finished') void delivery?.notify('dreams', event.phase ?? 'unknown', event.agentId, String(event.outcome)).catch(err => log.warn("delivery notify failed", { err })); } },
-        });
-        if (o.dreams?.scheduler ?? o.testInternals === undefined) void dreams.start().catch((err) => logger?.error("dreaming scheduler failed to start", { err }));
-      } catch (err) { dreams = null; dreamsError = String((err as Error)?.message ?? err).slice(0, 300); logger.error("dreaming scheduler unavailable", { err }); }
+      prepareDreams();
+      if (o.dreams?.scheduler ?? o.testInternals === undefined) void dreams?.start().catch((err) => logger.error("dreaming scheduler failed to start", { err }));
       logger.info("core ready", { instanceId, address, supervised: o.lifeline !== undefined });
       void initialDoctorCheck?.().catch(() => {});
       const runUserJobs = () => { if (userJobs && !shutdown.signal.aborted) void userJobs.tick().catch(() => log.warn("recurring scheduler failed")); };
@@ -1184,13 +1217,15 @@ export function createCore(o: CoreOptions): Core {
         engine: eng, logger, signal: shutdown.signal, onDone: () => refreshEngineStatus(),
         // H3-R23: a read-only pass per agent registered now (memory.list + rerank, never engine.recall); agents added
         // later are not warmed (their first recall pays the cold path). Not agent activity, emits no events.
-        recallPath: {
+        // After restoration no target initialization is allowed: opening the writable read pool can append a Lance
+        // bootstrap transaction. Model loading remains enabled; normal startup and prepared imports warm the full path.
+        ...(!importHold.held || importTargetPrepared ? { recallPath: {
           agents: () => executionRegistry.list(),
-          principal: (agentId) => {
+          principal: (agentId: string) => {
             const ws = registry.workspaceOf(agentId);
             return ws ? callerToPrincipal(cliCaller(), agentId, ws).principal : null;
           },
-        },
+        } } : {}),
         // The memory ops' RPC validators compile here, not in the first client call's end-to-end budget (spec §6.4).
         onRecallDone: () => {
           try { precompileMethods(["memory.recall", "memory.capture"]); } catch (err) { logger?.debug("rpc validator warm-up failed", { err }); }

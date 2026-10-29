@@ -43,7 +43,7 @@ interface RuntimeOptions {
   runningModel(): string | undefined;
   driver(control: ImportRunControl, plan: ImportPlanRecord): MigrationDriver;
   /** Existing Engine store provisioning only, while public effects remain held. */
-  prepareTarget?(): Promise<void>;
+  prepareTarget?(signal: AbortSignal): Promise<void>;
   release(runId: string): Promise<void>;
   cleanupSource?(plan: ImportPlanRecord): Promise<void>;
 }
@@ -56,7 +56,9 @@ const unavailable = () => new RpcError("E_CONFLICT", "Import runtime job changed
 export function createImportRuntime(options: RuntimeOptions) {
   const records = createImportRecords(options.home);
   const active = new Map<string, { driver?: MigrationDriver; done: Promise<void> }>();
+  const finalizations = new Map<string, { controller: AbortController; done: Promise<void>; state: "pending" | "completed" | "failed" }>();
   let closed = false;
+  let closing: Promise<void> | undefined;
   const path = (runId: string) => join(options.home, "imports", runId, "runtime.json");
   const save = (receipt: Receipt) => writeAtomicSync(path(receipt.runId), JSON.stringify(receipt) + "\n", 0o600);
   const receipt = async (control: ImportRunControl, attempt: number): Promise<Receipt | undefined> => {
@@ -64,7 +66,15 @@ export function createImportRuntime(options: RuntimeOptions) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw unavailable();
       return undefined;
     })) return undefined;
-    const raw = JSON.parse((await readColdBytes(path(control.runId), 4096)).toString("utf8")) as Receipt;
+    let bytes: Buffer;
+    for (let attempt = 0; ; attempt++) {
+      try { bytes = await readColdBytes(path(control.runId), 4096); break; }
+      catch (error) {
+        // An in-process finalizer atomically replaces this private receipt while status requests read it.
+        if (attempt === 2) throw error;
+      }
+    }
+    const raw = JSON.parse(bytes.toString("utf8")) as Receipt;
     if (raw.schema !== "import.runtime/1" || raw.runId !== control.runId || raw.planSha256 !== control.planSha256
       || !["pending", "completed", "failed"].includes(raw.state) || !Number.isSafeInteger(raw.attempt)
       || Object.keys(raw).some(key => !["schema", "runId", "planSha256", "attempt", "state", "migrationId", "finalizedInvocationId"].includes(key))
@@ -98,34 +108,82 @@ export function createImportRuntime(options: RuntimeOptions) {
     if (!restored && (actor?.kind !== "person" || !["owner", "admin"].includes(actor.role))) throw denied();
     return { control, plan, actor, attempt: job.attempt as number, restored, invocationId: job.invocationId };
   };
-  const status = async (control: ImportRunControl, plan: ImportPlanRecord, attempt: number,
-    restored: boolean, invocationId: string): Promise<ImportRuntimeStatus> => {
+  type RuntimeContext = Awaited<ReturnType<typeof authenticate>>;
+  const finalize = (context: RuntimeContext, ctx: CallContext) => {
+    const { control, plan, attempt, invocationId } = context;
+    let operation = finalizations.get(invocationId);
+    if (operation) return operation;
+    const controller = new AbortController();
+    operation = { controller, done: Promise.resolve(), state: "pending" };
+    finalizations.set(invocationId, operation);
+    const bound = operation;
+    const stillCurrent = async () => {
+      controller.signal.throwIfAborted();
+      const current = await authenticate(control, ctx, "admin.import.runtime.status", true);
+      if (current.attempt !== attempt || current.invocationId !== invocationId || current.restored) throw unavailable();
+      if (plan.options.reembed && options.runningModel() !== plan.options.reembed.model) throw unavailable();
+      controller.signal.throwIfAborted();
+      const saved = await receipt(control, attempt);
+      if (saved?.state !== "completed") throw unavailable();
+      controller.signal.throwIfAborted();
+      return saved;
+    };
+    bound.done = Promise.resolve().then(async () => {
+      try {
+        await stillCurrent();
+        const prior = openMaintenanceJournal(options.home, control.runId).read();
+        if (prior.phase !== "committed" || prior.attempt !== attempt || !prior.snapshotSha256) throw unavailable();
+        // Finalization runs outside RPC deadlines, but remains in this held generation's shutdown lifetime.
+        await options.prepareTarget?.(controller.signal);
+        controller.signal.throwIfAborted();
+        const targetSha256 = await fingerprintImportTarget(options.home, plan.roots, controller.signal);
+        const saved = await stillCurrent();
+        const journal = openMaintenanceJournal(options.home, control.runId);
+        const current = journal.read();
+        if (current.phase !== "committed" || current.attempt !== attempt || current.snapshotSha256 !== prior.snapshotSha256
+          || current.targetSha256 !== prior.targetSha256) throw unavailable();
+        controller.signal.throwIfAborted();
+        journal.finalizeCommittedTarget(targetSha256);
+        save({ ...saved, finalizedInvocationId: invocationId });
+        bound.state = "completed";
+      } catch {
+        bound.state = "failed";
+        if (!closed) {
+          try {
+            const saved = await stillCurrent();
+            controller.signal.throwIfAborted();
+            save({ ...saved, state: "failed" });
+          } catch { /* stale or canceled work cannot publish */ }
+        }
+      }
+    });
+    return operation;
+  };
+  const status = async (context: RuntimeContext, ctx: CallContext): Promise<ImportRuntimeStatus> => {
+    const { control, plan, attempt, restored, invocationId } = context;
     const saved = await receipt(control, attempt);
-    const state = saved?.state ?? "pending";
+    let state = saved?.state ?? "pending";
     const driver = active.get(control.runId)?.driver;
     const progress = await driver?.status();
     const completed = progress?.progress.rowsDone ?? 0;
     const total = progress?.progress.rows;
+    if (closed) throw denied();
     const restartRequired = !restored && !!plan.options.reembed && options.runningModel() !== plan.options.reembed.model;
     if (state === "completed" && !restartRequired && !restored && saved?.finalizedInvocationId !== invocationId) {
-      // Only this authenticated held generation can add legitimate bootstrap/reembed mutations to rollback's proof.
-      await options.prepareTarget?.();
-      const journal = openMaintenanceJournal(options.home, control.runId);
-      const prior = journal.read();
-      if (prior.phase !== "committed" || prior.attempt !== attempt || !prior.snapshotSha256) throw unavailable();
-      const targetSha256 = await fingerprintImportTarget(options.home, plan.roots);
-      journal.finalizeCommittedTarget(targetSha256);
-      save({ ...saved!, finalizedInvocationId: invocationId });
+      state = finalize(context, ctx).state;
     }
     return { runId: control.runId, state, completed, ...(total === undefined ? {} : { total }),
       ...(state === "completed" ? { restartRequired } : {}),
-      ...(state === "failed" ? { error: { code: "E_IMPORT_FAILED", reason: "reembed-failed" } } : {}) };
+      ...(state === "failed" ? { error: { code: "E_IMPORT_FAILED", reason:
+        finalizations.get(invocationId)?.state === "failed" ? "runtime-finalization-failed" : "reembed-failed" } } : {}) };
   };
   const start = async (context: Awaited<ReturnType<typeof authenticate>>) => {
     const { control, plan, actor, attempt, restored } = context;
     const saved = await receipt(control, attempt);
+    if (closed) throw denied();
     const metadata: Receipt = { schema: "import.runtime/1", runId: control.runId,
       planSha256: control.planSha256, attempt, state: "pending", ...(saved?.migrationId ? { migrationId: saved.migrationId } : {}) };
+    if (saved?.state === "failed" && !restored) return;
     if (restored || !plan.options.reembed) {
       if (saved?.state === "completed") return;
       save({ ...metadata, state: "completed" });
@@ -154,22 +212,24 @@ export function createImportRuntime(options: RuntimeOptions) {
         if (!target.ok) throw unavailable();
         const driver = operation.driver = options.driver(control, plan);
         const prior = await driver.status();
+        if (closed) throw unavailable();
         if (!metadata.migrationId) {
           const planned = await driver.plan({ target: target.fingerprint });
-          if (!planned.plan) throw unavailable();
+          if (!planned.plan || closed) throw unavailable();
           metadata.migrationId = planned.plan.id;
           save(metadata);
         } else if (prior.checkpoint?.id !== metadata.migrationId) throw unavailable();
         const current = await driver.status();
+        if (closed) throw unavailable();
         if (current.checkpoint?.phase !== "switched") {
           const checkpoint = current.checkpoint?.phase === "ready-to-switch" ? current.checkpoint
             : await (await driver.start()).done;
           if (checkpoint.phase !== "ready-to-switch" || closed) throw unavailable();
           if ((await driver.switch()).phase !== "switched") throw unavailable();
         }
-        save({ ...metadata, state: "completed" });
+        if (!closed) save({ ...metadata, state: "completed" });
       } catch {
-        save({ ...metadata, state: "failed" });
+        if (!closed) save({ ...metadata, state: "failed" });
       }
     });
     begin();
@@ -179,15 +239,15 @@ export function createImportRuntime(options: RuntimeOptions) {
     "admin.import.runtime.complete": async (input, ctx) => {
       const context = await authenticate(input, ctx, "admin.import.runtime.complete", true);
       await start(context);
-      return status(context.control, context.plan, context.attempt, context.restored, context.invocationId);
+      return status(context, ctx);
     },
     "admin.import.runtime.status": async (input, ctx) => {
       const context = await authenticate(input, ctx, "admin.import.runtime.status", true);
-      return status(context.control, context.plan, context.attempt, context.restored, context.invocationId);
+      return status(context, ctx);
     },
     "admin.import.runtime.release": async (input, ctx) => {
       const context = await authenticate(input, ctx, "admin.import.runtime.release", true);
-      const current = await status(context.control, context.plan, context.attempt, context.restored, context.invocationId);
+      const current = await status(context, ctx);
       if (current.state !== "completed" || current.restartRequired) throw unavailable();
       const marker = JSON.parse((await readColdBytes(join(options.home, "imports", context.control.runId,
         "activation.json"), 8192)).toString("utf8")) as Record<string, unknown>;
@@ -198,13 +258,21 @@ export function createImportRuntime(options: RuntimeOptions) {
       const result = marker.result as Record<string, unknown>;
       if (typeof result.ok !== "boolean" || typeof result.restored !== "boolean" || typeof result.resumable !== "boolean"
         || !["completed", "aborted", "failed"].includes(String(result.status))) throw unavailable();
+      if (closed) throw denied();
       if (!context.restored && result.ok === true && result.restored === false) await options.cleanupSource?.(context.plan);
       await options.release(context.control.runId);
       return { runId: context.control.runId, released: true };
     },
   };
-  return { methods, async close(): Promise<void> {
-    closed = true;
-    await Promise.allSettled([...active.values()].map(operation => operation.driver?.stop(1000)));
+  return { methods, close(): Promise<void> {
+    if (!closing) {
+      closed = true;
+      for (const operation of finalizations.values()) operation.controller.abort();
+      closing = Promise.allSettled([
+        ...[...active.values()].map(operation => operation.driver?.stop(1000)),
+        ...[...finalizations.values()].map(operation => operation.done),
+      ]).then(() => undefined);
+    }
+    return closing;
   } };
 }
