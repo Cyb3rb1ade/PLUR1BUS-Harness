@@ -4,7 +4,7 @@
 import { constants } from "node:fs";
 import { createHash } from "node:crypto";
 import { lstat, open, realpath, stat } from "node:fs/promises";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 import { homedir } from "node:os";
 import { extensionSecretName, type ExtensionSecretDefinition } from "../extensions/secret-env.ts";
 import type { McpServerDefinition } from "./types.ts";
@@ -169,7 +169,8 @@ function launchArgs(raw: unknown, payload: string, entry: string, setup: Extensi
       throw Error("MCP configuration needs setup");
     });
     if (expanded.includes("${")) throw Error("MCP configuration needs setup");
-    return expanded;
+    // `${__dirname}/server.mjs` is a payload path written with `/`; on Windows it gets the platform's separators.
+    return /^\$\{__(?:dirname|filename)\}/.test(arg) ? normalize(expanded) : expanded;
   });
 }
 
