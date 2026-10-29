@@ -1,5 +1,33 @@
 {
   "methods": {
+    "admin.import.runtime.config.set": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "admin.extensions.runtime.reconcile": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "admin.import.apply": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "admin.import.status": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "admin.import.abort": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "admin.import.runs": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
+    "admin.import.rollback": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
     "supervisor.auth": {
       "stability": "experimental",
       "since": "1.2.0"
@@ -72,6 +100,10 @@
       "stability": "experimental",
       "since": "1.4.0"
     },
+    "ext.inspection.get": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
     "ext.install": {
       "stability": "experimental",
       "since": "1.4.0"
@@ -98,6 +130,10 @@
     }
   },
   "notifications": {
+    "import.progress": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
     "config.changed": {
       "stability": "experimental",
       "since": "1.3.0"

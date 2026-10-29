@@ -29,6 +29,10 @@ export interface McpServerConfig {
 }
 
 export interface HarnessConfig {
+  import?: { ssh?: { connections?: Record<string, {
+    host: string; port: number; user: string; roots: string[]; allowPrivate: boolean;
+    hostKey?: { sha256: string; algorithm?: string };
+  }> } };
   collaboration: { fanoutEnabled: boolean };
   remote?: {publish:"local"|"tailnet"|"network";tls:"self-signed"|"company-ca";publicOrigin?:string;bind:{address?:string;port?:number;allowPublicInterface?:boolean};allowSubnets:string[];noticeAck?:{by:string;at:number;version:1}};
   approvals?: { maxGrantDays: number; requireOsConfirmation: boolean };
