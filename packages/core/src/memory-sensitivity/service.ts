@@ -4,14 +4,14 @@ import type { MemorySensitivityRecord, SensitivityCategory } from "./types.ts";
 
 export interface MemorySensitivityServiceOptions {
   store: MemorySensitivityStore;
-  scanner?: SensitivityScanner;
-  localModelClassifier?: (text: string, summary?: string) => Promise<SensitivityCategory[]>;
+  scanner?: SensitivityScanner | undefined;
+  localModelClassifier?: ((text: string, summary?: string | undefined) => Promise<SensitivityCategory[]>) | undefined;
 }
 
 export class MemorySensitivityService {
   readonly store: MemorySensitivityStore;
   readonly scanner: SensitivityScanner;
-  readonly #localModelClassifier?: (text: string, summary?: string) => Promise<SensitivityCategory[]>;
+  readonly #localModelClassifier?: ((text: string, summary?: string | undefined) => Promise<SensitivityCategory[]>) | undefined;
 
   constructor(options: MemorySensitivityServiceOptions) {
     this.store = options.store;

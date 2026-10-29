@@ -4,6 +4,7 @@ import { ALL_ITEMS, GALLERY_ENABLED, GALLERY_ITEM, HIDDEN_ITEMS, LANDING, type N
 export type Route =
   | { kind: "login" }
   | { kind: "join" }
+  | { kind: "consent" }
   /** `sub` is the path after the first segment (`/memories/dreams` -> "dreams", `/chat/ses_1` -> "ses_1"), absent when empty. */
   | { kind: "page"; item: NavItem; sub?: string }
   | { kind: "not-found"; path: string };
@@ -39,7 +40,13 @@ function trimSlashes(p: string): string {
 
 function currentPath(): string {
   const raw = globalThis.location?.hash ?? "";
-  const p = raw ? raw.startsWith("#") ? raw.slice(1) : raw : globalThis.location?.pathname === "/extensions/confirm" ? globalThis.location.pathname : "";
+  const p = raw
+    ? raw.startsWith("#")
+      ? raw.slice(1)
+      : raw
+    : globalThis.location?.pathname === "/extensions/confirm" || globalThis.location?.pathname === "/consent"
+      ? globalThis.location.pathname
+      : "";
   const q = p.indexOf("?");
   const clean = trimSlashes(q < 0 ? p : p.slice(0, q));
   if (clean === "" && new URLSearchParams(globalThis.location?.search ?? "").has("code")) return "/join";
@@ -50,7 +57,14 @@ function currentPath(): string {
 function currentQuery(): URLSearchParams {
   const raw = globalThis.location?.hash ?? "";
   const i = raw.indexOf("?");
-  return new URLSearchParams(i < 0 ? !raw && globalThis.location?.pathname === "/extensions/confirm" ? globalThis.location.search : "" : raw.slice(i + 1));
+  const isPathSpecial = globalThis.location?.pathname === "/extensions/confirm" || globalThis.location?.pathname === "/consent";
+  return new URLSearchParams(
+    i < 0
+      ? !raw && isPathSpecial
+        ? globalThis.location.search
+        : ""
+      : raw.slice(i + 1),
+  );
 }
 
 /** Routes that moved: a deep link to the old path lands on its new home. `/identities` is the Identities tab of Settings > Users & roles. */
@@ -80,6 +94,7 @@ export function resolve(p: string): Route {
   if (p.length > MAX_PATH) return { kind: "not-found", path: p.slice(0, MAX_PATH) };
   if (p === "/join" || p.startsWith("/invite/")) return { kind: "join" };
   if (p === "/login") return { kind: "login" };
+  if (p === "/consent") return { kind: "consent" };
   const segs = p.split("/").filter((seg) => seg !== "");
   if (segs.some(badSegment)) return { kind: "not-found", path: p };
   const [rawFirst = "", ...rest] = segs;

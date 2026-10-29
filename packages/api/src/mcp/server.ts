@@ -79,11 +79,12 @@ export function sendJsonRpcResult(
 }
 
 export interface McpRequestHandlerOptions {
-  config?: McpServerConfig;
+  config?: McpServerConfig | undefined;
   req: IncomingMessage;
   res: ServerResponse;
   preReadBody?: unknown;
-  signal?: AbortSignal;
+  rawBody?: Buffer | undefined;
+  signal?: AbortSignal | undefined;
 }
 
 export class McpServerCore {
@@ -92,7 +93,7 @@ export class McpServerCore {
   private readonly headerExtractors = new Map<string, (args: Record<string, unknown>) => Record<string, string>>();
   private readonly ttlMs: number;
   private readonly config: McpServerConfig;
-  private readonly audit?: import("../audit.ts").AuditEmitter;
+  private readonly audit?: import("../audit.ts").AuditEmitter | undefined;
   private readonly actor: string;
   private readonly agentId: string;
   private readonly tokenId: string;
@@ -130,7 +131,7 @@ export class McpServerCore {
       });
       throw new McpError(ErrorCode.MethodNotFound, `Tool not found: ${name}`);
     }
-    const effectiveCtx = toolCtx ?? {
+    const effectiveCtx: McpToolContext = toolCtx ?? {
       agentId: this.agentId,
       tokenId: this.tokenId,
       rbac: this.config.rbac,

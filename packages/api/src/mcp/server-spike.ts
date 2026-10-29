@@ -64,7 +64,7 @@ export async function createMcpSpikeServer(
 ): Promise<McpSpikeServerHandle> {
   const core = new McpServerCore({
     tools: options.tools,
-    ttlMs: options.ttlMs,
+    ...(options.ttlMs !== undefined ? { ttlMs: options.ttlMs } : {}),
   });
 
   const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
@@ -85,7 +85,10 @@ export async function createMcpSpikeServer(
     }
 
     await core.handleRequest({
-      config: { tools: options.tools, ttlMs: options.ttlMs },
+      config: {
+        tools: options.tools,
+        ...(options.ttlMs !== undefined ? { ttlMs: options.ttlMs } : {}),
+      },
       req,
       res,
     });

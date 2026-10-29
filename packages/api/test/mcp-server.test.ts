@@ -10,12 +10,12 @@ import {
   MCP_DEFAULT_TOOL_TTL_MS,
   MCP_MAX_BODY_BYTES,
   MCP_SERVER_INFO,
-  type McpSpikeToolDef,
+  type McpToolDef,
   SUPPORTED_MCP_SERVER_VERSIONS,
 } from "../src/mcp/index.ts";
 
 describe("M6A-A2.1: MCP Server Core (transport-neutral)", () => {
-  const tools: McpSpikeToolDef[] = [
+  const tools: McpToolDef[] = [
     {
       name: "zeta.calc",
       description: "Calculates sum",
@@ -316,7 +316,7 @@ describe("M6A-A2.1: MCP Server Core (transport-neutral)", () => {
       const client = new Client({ name: "legacy-v1-tester", version: "1.0.0" }, { capabilities: {} });
       const transport = new StreamableHTTPClientTransport(new URL(srv.url));
       try {
-        await client.connect(transport);
+        await client.connect(transport as any);
         const list = await client.listTools();
         assert.equal(list.tools.length, 2);
         assert.equal(list.tools[0]!.name, "alpha.echo");
@@ -327,7 +327,7 @@ describe("M6A-A2.1: MCP Server Core (transport-neutral)", () => {
           arguments: { msg: "ping-v1" },
         });
         assert.equal(callRes.isError, false);
-        assert.deepEqual(JSON.parse((callRes.content[0] as any).text), { echoed: "ping-v1" });
+        assert.deepEqual(JSON.parse(((callRes as any).content[0] as any).text), { echoed: "ping-v1" });
       } finally {
         await client.close();
         await srv.close();

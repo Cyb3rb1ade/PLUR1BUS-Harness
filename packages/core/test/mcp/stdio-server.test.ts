@@ -150,13 +150,13 @@ test("runMcpMain bridges stdio to HTTP endpoint when apiUrl is configured", asyn
     await new Promise((r) => setTimeout(r, 50));
 
     assert.equal(receivedBodies.length, 1);
-    assert.equal(receivedHeaders[0]["authorization"], "Bearer bridge-token-xyz");
-    assert.equal(receivedHeaders[0]["mcp-name"], "memory_recall");
-    assert.equal(receivedHeaders[0]["mcp-method"], "tools/call");
+    assert.equal(receivedHeaders[0]!["authorization"], "Bearer bridge-token-xyz");
+    assert.equal(receivedHeaders[0]!["mcp-name"], "memory_recall");
+    assert.equal(receivedHeaders[0]!["mcp-method"], "tools/call");
 
     assert.equal(responses.length, 1);
-    assert.equal(responses[0].id, 101);
-    assert.equal(responses[0].result.bridged, true);
+    assert.equal(responses[0]!.id, 101);
+    assert.equal((responses[0]!.result as Record<string, unknown>).bridged, true);
 
     stdin.end();
     const exitCode = await runPromise;

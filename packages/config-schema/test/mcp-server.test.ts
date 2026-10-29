@@ -19,13 +19,13 @@ describe("MCP server configuration", () => {
     const validTrue = validate({ ...defaults(), mcpServer: { enabled: true } });
     assert.equal(validTrue.ok, true);
     if (validTrue.ok) {
-      assert.equal(validTrue.config.mcpServer.enabled, true);
+      assert.equal(validTrue.config.mcpServer?.enabled, true);
     }
 
     const validFalse = validate({ ...defaults(), mcpServer: { enabled: false } });
     assert.equal(validFalse.ok, true);
     if (validFalse.ok) {
-      assert.equal(validFalse.config.mcpServer.enabled, false);
+      assert.equal(validFalse.config.mcpServer?.enabled, false);
     }
   });
 
@@ -69,7 +69,7 @@ describe("MCP server configuration", () => {
     const res = validate(config);
     assert.equal(res.ok, true);
     if (res.ok) {
-      assert.deepEqual(res.config.agents.bernd.mcpServer, {
+      assert.deepEqual(res.config.agents.bernd?.mcpServer, {
         exposed: true,
         groups: ["memory", "agent"],
       });
@@ -88,7 +88,7 @@ describe("MCP server configuration", () => {
     const res = validate(config);
     assert.equal(res.ok, true);
     if (res.ok) {
-      assert.deepEqual(res.config.agents.bernd.mcpServer, {
+      assert.deepEqual(res.config.agents.bernd?.mcpServer, {
         exposed: false,
         groups: ["memory", "agent", "skills"],
       });

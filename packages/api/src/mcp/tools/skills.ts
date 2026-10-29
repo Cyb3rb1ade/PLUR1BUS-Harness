@@ -17,9 +17,9 @@ export interface SkillDescriptor {
 }
 
 export interface SkillsToolGroupOptions {
-  home?: string;
-  skills?: SkillDescriptor[];
-  agentSkills?: (agentId: string) => SkillDescriptor[];
+  home?: string | undefined;
+  skills?: SkillDescriptor[] | undefined;
+  agentSkills?: ((agentId: string) => SkillDescriptor[]) | undefined;
 }
 
 export class SkillSecurityError extends Error {
@@ -59,9 +59,9 @@ function relativeParts(path: string): string[] {
 
 export class SkillsToolGroup implements McpToolGroup {
   readonly name = "skills";
-  private readonly home?: string;
+  private readonly home?: string | undefined;
   private readonly defaultSkills: SkillDescriptor[];
-  private readonly agentSkillsProvider?: (agentId: string) => SkillDescriptor[];
+  private readonly agentSkillsProvider?: ((agentId: string) => SkillDescriptor[]) | undefined;
 
   constructor(options: SkillsToolGroupOptions = {}) {
     this.home = options.home;

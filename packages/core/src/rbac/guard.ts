@@ -291,7 +291,8 @@ function authorizeMemoryFallback(method: string, principal: Principal, params: u
     if (dec.effect === "allow") return dec;
   }
   if (method === "memory.recall") {
-    if (authorize({ ...principal, tokenScopes: undefined }, "agent.use", { kind: "agent", agentId }, authCtx).effect !== "allow") return null;
+    const { tokenScopes: _omitRecall, ...noScopePrincipal } = principal;
+    if (authorize(noScopePrincipal, "agent.use", { kind: "agent", agentId }, authCtx).effect !== "allow") return null;
     for (const [action, resource] of [
       ["memory.workspace.read", { kind: "memory", scope: "workspace", agentId }],
       ["memory.user.read", { kind: "memory", scope: "user", ownerUserId: principal.userId }],
@@ -307,7 +308,8 @@ function authorizeMemoryFallback(method: string, principal: Principal, params: u
       const dec = authorize(principal, "agent.use", { kind: "agent", agentId }, authCtx);
       if (dec.effect === "allow") return dec;
     }
-    if (authorize({ ...principal, tokenScopes: undefined }, "agent.use", { kind: "agent", agentId }, authCtx).effect !== "allow") return null;
+    const { tokenScopes: _omitCapture, ...noScopeCapturePrincipal } = principal;
+    if (authorize(noScopeCapturePrincipal, "agent.use", { kind: "agent", agentId }, authCtx).effect !== "allow") return null;
     for (const [action, resource] of [
       ["memory.user.write", { kind: "memory", scope: "user", ownerUserId: principal.userId }],
       ["memory.agent-private.write", { kind: "memory", scope: "agent-private", agentId }],

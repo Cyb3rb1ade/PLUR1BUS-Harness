@@ -54,7 +54,7 @@ describe("M6A-A1.8: Acceptance Test 19 - No Memory Leak Across Protocols", () =>
 
       for (const name of methodNames) {
         try {
-          const schema = inputSchemaFor(name, SCHEMA as any);
+          const schema = inputSchemaFor(SCHEMA as any, name);
           if (schema) {
             assertNoMemoryLeak(schema, `inputSchemaFor(${name})`);
           }

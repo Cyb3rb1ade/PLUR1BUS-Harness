@@ -26,6 +26,7 @@ import * as users from "../src/i18n/users.ts";
 import * as inbox from "../src/i18n/inbox.ts";
 import * as breakglass from "../src/i18n/breakglass.ts";
 import * as modules from "../src/i18n/modules.ts";
+import * as oauth from "../src/i18n/oauth.ts";
 
 // The lazy areas register as their page chunk loads; load them here so every check below covers them too.
 registerArea("chat", chat);
@@ -50,13 +51,14 @@ registerArea("recurring", recurring);
 registerArea("inbox", inbox);
 registerArea("breakglass", breakglass);
 registerArea("modules", modules);
+registerArea("oauth", oauth);
 
 const placeholders = (s: string): string[] => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]!).sort();
 
 test("i18n areas: core plus the page areas are registered", () => {
   assert.deepEqual(AREAS.map((a) => a.name), [
     "surfaces", "core", "chat", "projects", "memory", "mediasearch", "models", "budget", "doctor", "palette",
-    "shared", "setup", "agents", "settings", "users", "providers", "secrets", "switchboard", "devices", "logs", "activity", "audit", "sessions", "approvals", "voice", "extensions", "recurring", "inbox", "breakglass", "modules",
+    "shared", "setup", "agents", "settings", "users", "providers", "secrets", "switchboard", "devices", "logs", "activity", "audit", "sessions", "approvals", "voice", "extensions", "recurring", "inbox", "breakglass", "modules", "oauth",
   ]);
 });
 

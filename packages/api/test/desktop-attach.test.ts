@@ -54,9 +54,9 @@ test("approved ordinary MFA session permits native ticket redemption while prese
  const browser=r.sessions.create({kind:"user",id:"alice",role:"member"},{authVersion:1,stepUpAt:r.clock.now()});
  await authority.decision(browser.session,c.userCode,"approve");
  const poll=await authority.poll("x".repeat(43),c.challengeId);assert.ok("proofToken" in poll);
- const ticket=(await r.call("desktop.redeem",{token:"x".repeat(43),origin:r.origin},r.origin,{"x-plur1bus-desktop-step-up":poll.proofToken})).body;
+ const ticket=(await r.call("desktop.redeem",{token:"x".repeat(43),origin:r.origin},r.origin,{"x-plur1bus-desktop-step-up":poll.proofToken})).body as { ticket: string };
  const opened=await r.call("desktop.ticket",{ticket:ticket.ticket,deviceId:"device"});
- assert.equal(opened.body.schema,"desktop.ticket/1");assert.match(opened.headers!["Set-Cookie"]!,/HttpOnly; SameSite=Strict/);
+ assert.equal((opened.body as Record<string, unknown>).schema,"desktop.ticket/1");assert.match(opened.headers!["Set-Cookie"]!,/HttpOnly; SameSite=Strict/);
  const cookie=opened.headers!["Set-Cookie"]!.split(";",1)[0]!.split("=",2)[1]!;
  const native=r.sessions.peek(cookie)!;
  assert.equal(native.stepUpAt,browser.session.stepUpAt);assert.deepEqual(native.device?.scopes,["chat:read"]);

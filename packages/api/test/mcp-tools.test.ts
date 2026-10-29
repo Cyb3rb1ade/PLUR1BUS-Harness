@@ -79,7 +79,7 @@ test("MemoryToolGroup provides memory_recall with secret redaction and optional 
   const defaultGroup = new MemoryToolGroup();
   const defaultTools = defaultGroup.buildTools({ agentId: "agent-x" });
   assert.equal(defaultTools.length, 1);
-  assert.equal(defaultTools[0].name, "memory_recall");
+  assert.equal(defaultTools[0]!.name, "memory_recall");
 
   const fullGroup = new MemoryToolGroup({ includeStore: true });
   const fullTools = fullGroup.buildTools({ agentId: "agent-x", core: fakeCore as any });
@@ -98,8 +98,8 @@ test("MemoryToolGroup provides memory_recall with secret redaction and optional 
   );
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].method, "memory.recall");
-  assert.deepEqual(calls[0].params, {
+  assert.equal(calls[0]!.method, "memory.recall");
+  assert.deepEqual(calls[0]!.params, {
     caller: "user-bob",
     agentId: "agent-x",
     query: "find secret",
@@ -127,8 +127,8 @@ test("MemoryToolGroup provides memory_recall with secret redaction and optional 
   );
 
   assert.equal(calls.length, 2);
-  assert.equal(calls[1].method, "memory.capture");
-  assert.deepEqual(calls[1].params, {
+  assert.equal(calls[1]!.method, "memory.capture");
+  assert.deepEqual(calls[1]!.params, {
     caller: "user-bob",
     agentId: "agent-x",
     text: "Remember to buy milk",
@@ -169,8 +169,8 @@ test("AgentToolGroup runs agent turns and queries status", async () => {
     { agentId: "agent-y", core: fakeCore as any, rbac: { userId: "user-alice" } as any },
   );
   assert.deepEqual(askRes, { reply: "I completed the request." });
-  assert.equal(calls[0].method, "chat.ask");
-  assert.deepEqual(calls[0].params, {
+  assert.equal(calls[0]!.method, "chat.ask");
+  assert.deepEqual(calls[0]!.params, {
     agentId: "agent-y",
     message: "Process data",
     caller: "user-alice",
@@ -276,7 +276,7 @@ test("Default registry integrates seamlessly with McpServerCore", async () => {
   const tools = registry.buildTools(["skills"], { agentId: "agent-1" });
   const server = new McpServerCore({
     tools,
-    context: { agentId: "agent-1" },
+    agentId: "agent-1",
   });
 
   // Verify tool definitions via list

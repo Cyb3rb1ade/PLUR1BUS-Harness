@@ -37,7 +37,7 @@ export function buildMcpHandlers(d: HandlerDeps): Record<string, (i: HandlerInpu
   return {
     "mcp.server": async (i: HandlerInput): Promise<HandlerOutput> => {
       if (!i.tokenRecord || !i.tokenRecord.binding) {
-        throw errors.unauthorized("authentication required");
+        throw errors.unauthenticated("authentication required");
       }
       const binding = i.tokenRecord.binding;
       if (binding.audience !== "mcp") {
