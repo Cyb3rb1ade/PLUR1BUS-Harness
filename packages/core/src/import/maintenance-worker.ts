@@ -1,12 +1,13 @@
+import { fingerprintImportTarget, readTargetConfigBytes } from "./target-fingerprint.ts";
+export { fingerprintImportTarget } from "./target-fingerprint.ts";
 /** Maintenance orchestration only: existing importers keep their business logic and injected Engine ownership. */
-import { createHash } from "node:crypto";
 import { lstat, mkdir, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { layout } from "../paths.ts";
 import { acquireLock } from "./skills-registry.ts";
 import { withTargetLock } from "./single-writer.ts";
 import { openMaintenanceJournal, type ImportMaintenanceJournal } from "./maintenance-journal.ts";
-import { createColdSnapshot, fingerprintMutationRoots, restoreColdSnapshot, type MutationRoot } from "./maintenance-snapshot.ts";
+import { createColdSnapshot, restoreColdSnapshot, type MutationRoot } from "./maintenance-snapshot.ts";
 import { noLinkedSegments, readColdBytes, syncDirectory } from "./maintenance-files.ts";
 import type { ImportProgress, MaintenanceReason } from "./maintenance-types.ts";
 
@@ -40,22 +41,6 @@ export interface ImportMaintenanceOptions {
   rollbackSecrets?: (journal: ImportMaintenanceJournal) => Promise<void>;
 }
 
-async function configBytes(home: string): Promise<Buffer | null> {
-  const path = join(home, "config.json");
-  const exists = await lstat(path).catch(error => {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    return undefined;
-  });
-  return exists ? readColdBytes(path, 4 * 1024 * 1024) : null;
-}
-
-export async function fingerprintImportTarget(home: string, mutationRoots: readonly MutationRoot[],
-  signal?: AbortSignal): Promise<string> {
-  const roots = await fingerprintMutationRoots(mutationRoots, signal);
-  const config = await configBytes(home);
-  return createHash("sha256").update(roots).update(config === null ? "absent" : "present")
-    .update(config ?? Buffer.alloc(0)).digest("hex");
-}
 
 const targetFingerprint = (options: ImportMaintenanceOptions) => fingerprintImportTarget(options.home, options.roots);
 
@@ -200,7 +185,7 @@ async function execute(options: ImportMaintenanceOptions): Promise<ImportMainten
     if (journal.read().phase === "prepared") journal.advance("snapshotting", { targetSha256: baselineTargetSha256 });
     await emit(options, "snapshot", 0);
     const snapshot = await createColdSnapshot({ home: options.home, runId: options.runId, roots: options.roots,
-      config: await configBytes(options.home), ...(options.signal ? { signal: options.signal } : {}),
+      config: await readTargetConfigBytes(options.home), ...(options.signal ? { signal: options.signal } : {}),
       ...(journal.read().snapshotSha256 ? { expectedSha256: journal.read().snapshotSha256! } : {}),
       ...(options.maxSnapshotBytes === undefined ? {} : { maxBytes: options.maxSnapshotBytes }) });
     journal.advance("snapshot-complete", { snapshotSha256: snapshot.sha256, targetSha256: baselineTargetSha256 });

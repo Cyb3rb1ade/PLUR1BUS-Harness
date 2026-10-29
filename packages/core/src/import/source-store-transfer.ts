@@ -11,8 +11,8 @@ import { buildEngineConfig, checkEngineConfigLicences } from "../engine-config.t
 import { targetFromModel } from "../embedding-migrate/target.ts";
 import { layout } from "../paths.ts";
 import type { ImportConfigChange, ImportStoreProbe } from "./execution.ts";
-import { prepareOpenclawStores } from "./importers/openclaw-stores.ts";
-import { inspectStoreAdopt } from "./importers/hermes-stores.ts";
+import { planOpenclawStores } from "./store-preview.ts";
+import { inspectStoreAdopt } from "./store-probe.ts";
 import { SourceReader } from "./source-reader.ts";
 import { sourceStoreModel, type SourceStoreModel } from "./source-store-model.ts";
 import type { SourceRegistry } from "./source-registry.ts";
@@ -126,11 +126,11 @@ export async function probeSourceStoreTransfer(options: { home: string; source: 
     const selected = options.source.read.report.plur1bus.stores.find(store => store.storeId === candidate.storeId)!;
     const internals = options.testInternals;
     const embeddings = internals?.embeddings;
-    const result = await prepareOpenclawStores({ stores: [{ ...selected,
+    const result = await planOpenclawStores({ stores: [{ ...selected,
       identity: { ...selected.identity, plannedAction: "take-over" } }], storeRoot: options.source.read.report.plur1bus.storeRoot,
     reader: new SourceReader({ ...options.source.reader, ...(options.signal ? { signal: options.signal } : {}) }),
     // Keep host policy/ledger authority at the real home; target store paths point only at this private scratch owner.
-    l: { ...layout(scratch), home: options.home }, isApply: false, runId: "source-probe", onConflict: "replace",
+    l: { ...layout(scratch), home: options.home }, runId: "source-probe", onConflict: "replace",
     targetConfig: config, targetEmbedding: selected.identity.fields,
     ...(internals ? { testInternals: { ...internals,
       ...(typeof embeddings === "function" ? { embeddings: embeddings(candidate.dimensions) } : {}) } } : {}),

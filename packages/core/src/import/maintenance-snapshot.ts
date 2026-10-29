@@ -8,7 +8,7 @@ import {
   checkedEntry, coldUnavailable, noLinkedSegments, normalizedRoots, privateBytes, readColdBytes,
   scanMutationRoot, streamRegular, syncDirectory, type ColdEntry, type ColdRoot, type MutationRoot,
 } from "./maintenance-files.ts";
-import { logicalSqliteFingerprint } from "./sqlite-fingerprint.ts";
+export { fingerprintMutationRoots } from "./target-fingerprint.ts";
 
 export type { MutationRoot } from "./maintenance-files.ts";
 
@@ -213,33 +213,6 @@ export async function restoreColdSnapshot(options: ColdRestoreOptions): Promise<
     for (const root of roots) current.push(await scanMutationRoot(root));
     for (let index = 0; index < roots.length; index++) await restoreRoot(base, manifest.roots[index]!, current[index]!);
     await options.restoreConfig(manifest.config.sha256);
-  } catch {
-    throw coldUnavailable();
-  }
-}
-
-/** Byte and path identity, excluding independently owned roots; modified mtimes alone are not a user conflict. */
-export async function fingerprintMutationRoots(roots: readonly MutationRoot[], signal?: AbortSignal): Promise<string> {
-  try {
-    const scanned: ColdRoot[] = [];
-    for (const root of normalizedRoots(roots)) {
-      const sqlite = new Set<string>();
-      const state = await scanMutationRoot(root, { signal, file: async (full, path) => {
-        if (["-wal", "-shm"].some(suffix => path.endsWith(suffix) && sqlite.has(path.slice(0, -suffix.length)))) {
-          return { sha256: "0".repeat(64), size: 0 };
-        }
-        const logical = await logicalSqliteFingerprint(full, signal);
-        if (logical) {
-          sqlite.add(path);
-          return { sha256: logical, size: 0 };
-        }
-        return streamRegular(full, { signal });
-      } });
-      state.entries = state.entries.filter(entry => !["-wal", "-shm"]
-        .some(suffix => entry.path.endsWith(suffix) && sqlite.has(entry.path.slice(0, -suffix.length))));
-      scanned.push(state);
-    }
-    return digest(Buffer.from(JSON.stringify(scanned)));
   } catch {
     throw coldUnavailable();
   }

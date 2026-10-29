@@ -64,8 +64,7 @@ export async function importCheckpoint(options: Pick<ImportExecutionOptions, "si
 }
 
 /** Importers currently add agent registrations only. Never forward the full target or unchanged legacy credentials. */
-export async function writeImportConfig(port: ImportConfigPort, before: Record<string, unknown>,
-  after: Record<string, unknown>, apply: boolean, revision: string): Promise<void> {
+export function planImportConfig(before: Record<string, unknown>, after: Record<string, unknown>): ImportConfigChange[] {
   const checked = validate(after);
   if (!checked.ok) throw new ImportError("E_CONFIG_INVALID", "config-invalid", "Import config is invalid");
   const { agents: previous, ...restBefore } = before;
@@ -83,7 +82,13 @@ export async function writeImportConfig(port: ImportConfigPort, before: Record<s
     }
     changes.push({ key: `agents.${name}`, value: newAgents[name] });
   }
-  if (!changes.length) return;
   if (changes.length > 64) throw new ImportError("E_LIMIT_EXCEEDED", "config-changes-limit", "Import config exceeds limit");
+  return changes;
+}
+
+export async function writeImportConfig(port: ImportConfigPort, before: Record<string, unknown>,
+  after: Record<string, unknown>, apply: boolean, revision: string): Promise<void> {
+  const changes = planImportConfig(before, after);
+  if (!changes.length) return;
   await port.set({ changes, dryRun: !apply, ifRevision: revision });
 }

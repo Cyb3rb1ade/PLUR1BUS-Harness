@@ -36,19 +36,8 @@ import { createCardLinker, recordParkedCard, type CardLink, type LinkCandidate, 
 export const IMPORT_CARD_BATCH_LIMIT = 500;
 export const MAX_MEMORY_FILE_BYTES = 16 * 1024 * 1024; // 16 MiB
 
-export function splitOpenclawCards(content: string): string[] {
-  if (!content) return [];
-  const normalized = content.replace(/\r\n/g, "\n");
-  const chunks = normalized.split(/(?:^|\n)§(?:\n|$)/);
-  const cards: string[] = [];
-  for (const chunk of chunks) {
-    const trimmed = chunk.trim();
-    if (trimmed.length > 0) {
-      cards.push(trimmed);
-    }
-  }
-  return cards;
-}
+import { CARD_FILES, splitImportedCards as splitOpenclawCards } from "../card-source.ts";
+export { splitImportedCards as splitOpenclawCards } from "../card-source.ts";
 
 /** A reason code only (never message text, which could echo card content): a short token, else "storage". */
 function importErrorCode(err: any): string {
@@ -59,7 +48,7 @@ function importErrorCode(err: any): string {
 /** Whether the workspace holds a card file (MEMORY.md / USER.md, any case the importer reads). */
 export async function hasOpenclawCardFiles(workspaceDir: string, sourceReader?: SourceReader): Promise<boolean> {
   const reader = sourceReader ?? await SourceReader.local();
-  return (await Promise.all(["MEMORY.md", "memory.md", "USER.md", "user.md"].map(name => reader.exists(reader.paths.join(workspaceDir, name))))).some(Boolean);
+  return (await Promise.all(CARD_FILES.openclaw.flatMap(([names]) => [...names]).map(name => reader.exists(reader.paths.join(workspaceDir, name))))).some(Boolean);
 }
 
 export interface OpenclawMemoryImportResult {
@@ -173,7 +162,7 @@ export async function importOpenclawMemories(opts: {
   if (opts.ownStore?.kind === "park") {
     const park = opts.ownStore;
     const { outcome: parkOutcome, reason: parkReason } = park;
-    for (const [names, file] of [[["MEMORY.md", "memory.md"], "MEMORY.md"], [["USER.md", "user.md"], "USER.md"]] as const) {
+    for (const [names, file] of CARD_FILES.openclaw) {
       let found: string | undefined;
       for (const name of names) { const candidate = reader.paths.join(workspaceDir, name); if (await reader.exists(candidate)) { found = candidate; break; } }
       if (found === undefined) continue;
@@ -242,7 +231,7 @@ export async function importOpenclawMemories(opts: {
 
   // 1. Process MEMORY.md / memory.md (agent-scoped)
   let memoryMdPath: string | null = null;
-  for (const cand of [reader.paths.join(workspaceDir, "MEMORY.md"), reader.paths.join(workspaceDir, "memory.md")]) {
+  for (const cand of CARD_FILES.openclaw[0][0].map(name => reader.paths.join(workspaceDir, name))) {
     if (await reader.exists(cand)) {
       memoryMdPath = cand;
       break;
@@ -407,7 +396,7 @@ export async function importOpenclawMemories(opts: {
 
   // 2. Process USER.md / user.md (user-scoped)
   let userMdPath: string | null = null;
-  for (const cand of [reader.paths.join(workspaceDir, "USER.md"), reader.paths.join(workspaceDir, "user.md")]) {
+  for (const cand of CARD_FILES.openclaw[1][0].map(name => reader.paths.join(workspaceDir, name))) {
     if (await reader.exists(cand)) {
       userMdPath = cand;
       break;

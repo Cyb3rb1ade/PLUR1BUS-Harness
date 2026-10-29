@@ -35,21 +35,8 @@ import { createCardLinker, recordParkedCard, type CardLink, type LinkCandidate, 
 export const IMPORT_CARD_BATCH_LIMIT = 500;
 export const MAX_MEMORY_FILE_BYTES = 16 * 1024 * 1024; // 16 MiB
 
-export function splitHermesCards(content: string): string[] {
-  if (!content) return [];
-  // Normalize CRLF to LF
-  const normalized = content.replace(/\r\n/g, "\n");
-  // Split on \n§\n, leading §\n, trailing \n§, or isolated §
-  const chunks = normalized.split(/(?:^|\n)§(?:\n|$)/);
-  const cards: string[] = [];
-  for (const chunk of chunks) {
-    const trimmed = chunk.trim();
-    if (trimmed.length > 0) {
-      cards.push(trimmed);
-    }
-  }
-  return cards;
-}
+import { CARD_FILES, splitImportedCards as splitHermesCards } from "../card-source.ts";
+export { splitImportedCards as splitHermesCards } from "../card-source.ts";
 
 /** A reason code only (never message text, which could echo card content): a short token, else "storage". */
 function importErrorCode(err: any): string {
@@ -60,7 +47,7 @@ function importErrorCode(err: any): string {
 /** Whether the profile holds a card the import would hand to the engine (MEMORY.md; USER.md only with a user binding). */
 export async function hasHermesCardFiles(profileDir: string, userBinding: boolean, sourceReader?: SourceReader): Promise<boolean> {
   const reader = sourceReader ?? await SourceReader.local();
-  return await reader.exists(reader.paths.join(profileDir, "memories", "MEMORY.md")) || userBinding && await reader.exists(reader.paths.join(profileDir, "memories", "USER.md"));
+  return await reader.exists(reader.paths.join(profileDir, ...CARD_FILES.hermes[0][0][0].split("/"))) || userBinding && await reader.exists(reader.paths.join(profileDir, ...CARD_FILES.hermes[1][0][0].split("/")));
 }
 
 export interface HermesMemoryImportResult {
@@ -327,7 +314,7 @@ export async function importHermesMemories(opts: {
   // now (they would land in a vector space the store is not in). The engine is not asked at all.
   if (opts.ownStore?.kind === "park") {
     const park = opts.ownStore;
-    for (const file of ["memories/MEMORY.md", "memories/USER.md"] as const) {
+    for (const [, file] of CARD_FILES.hermes) {
       const path = reader.paths.join(profileDir, ...file.split("/"));
       if (!await reader.exists(path)) continue;
       let content: string;
@@ -379,7 +366,7 @@ export async function importHermesMemories(opts: {
   };
 
   // 1. Process memories/MEMORY.md (agent-scoped)
-  const memoryMdPath = reader.paths.join(profileDir, "memories", "MEMORY.md");
+  const memoryMdPath = reader.paths.join(profileDir, ...CARD_FILES.hermes[0][0][0].split("/"));
   if (await reader.exists(memoryMdPath)) {
     let content: string | null = null;
     try {
@@ -578,7 +565,7 @@ export async function importHermesMemories(opts: {
   // 2. Process memories/USER.md
   // ADR-007 Q4: without an unambiguous user binding, USER.md memories are NOT imported to LanceDB.
   // They are reported as unresolved-user-scope.
-  const userMdPath = reader.paths.join(profileDir, "memories", "USER.md");
+  const userMdPath = reader.paths.join(profileDir, ...CARD_FILES.hermes[1][0][0].split("/"));
   if (await reader.exists(userMdPath)) {
     let content: string | null = null;
     try {

@@ -1,3 +1,4 @@
+import { previewImport, type ImportPreview } from "./preview.ts";
 /** Live Core source capabilities, immutable planning, preflight tickets and the independent skills path. */
 import { createHash, randomUUID } from "node:crypto";
 import { apiPrincipal, apiTransport, isClientContext } from "@plur1bus/module-api";
@@ -15,16 +16,14 @@ import { checkValue } from "../secrets/types.ts";
 import { acquireLease } from "../secrets/acquisition.ts";
 import type { ImportConfigPort, ImportStoreProbe } from "./execution.ts";
 import type { ImportedExtensionPort } from "./extensions-import.ts";
-import { importOpenclaw } from "./importers/openclaw.ts";
-import { importHermes } from "./importers/hermes.ts";
 import { createImportRecords, type ImportPlanRecord } from "./maintenance-records.ts";
 import { preflightImport } from "./maintenance-preflight.ts";
-import { fingerprintImportTarget } from "./maintenance-worker.ts";
+import { fingerprintImportTarget } from "./target-fingerprint.ts";
 import { readMaintenanceJournal } from "./maintenance-journal.ts";
 import { normalizedRoots, type MutationRoot } from "./maintenance-files.ts";
 import type { ImportProgress } from "./maintenance-types.ts";
 import { importSkills } from "./skills-import.ts";
-import { renderSkills } from "./render.ts";
+import { renderSkills } from "./skills-render.ts";
 import type { SourceRegistry } from "./source-registry.ts";
 import type { ImportSecretBinding, ImportSourceSecrets } from "./source-secrets.ts";
 import { listWslDistros } from "./wsl.ts";
@@ -34,7 +33,6 @@ import { sourceStoreModel, assertStoreModelsAvailable, type SourceStoreModel } f
 import { currentStoreTarget, sourceStoreConfig } from "./source-store-transfer.ts";
 import { sourceAgentId } from "./source-view.ts";
 import { lstat } from "node:fs/promises";
-import { assertImportReportComplete } from "./report-complete.ts";
 import { buildEngineConfig } from "../engine-config.ts";
 import { layout } from "../paths.ts";
 import { validate } from "@plur1bus/config-schema";
@@ -69,7 +67,7 @@ export interface ImportServiceOptions {
 }
 
 type Source = Awaited<ReturnType<SourceRegistry["get"]>>;
-type Preview = Awaited<ReturnType<typeof importOpenclaw>> | Awaited<ReturnType<typeof importHermes>>;
+type Preview = ImportPreview;
 const denied = () => new ImportError("E_DENIED", "import-person-required", "Import requires a human administrator");
 const conflict = (reason: string) => new ImportError("E_CONFLICT", reason, "Import plan changed or needs a decision");
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -122,18 +120,9 @@ export function createImportService(options: ImportServiceOptions) {
   };
   const preview = async (source: Source, settings: ImportPlanRecord["options"], signal?: AbortSignal,
     storeConflict: ImportPlanRecord["options"]["onConflict"] | null = settings.onConflict): Promise<Preview> => {
-    const common = { home: options.home, source: source.root, reader: source.reader, apply: false,
-      ...resolveImportOptions(source, settings),
-      ...(settings.adoptStoreId && settings.adoptStrategy !== "re-embed" ? { probeSourceStoreId: settings.adoptStoreId } : {}),
-      ...(storeConflict ? { storeConflict } : {}),
-      configPort: options.config, onConflict: settings.onConflict ?? "skip",
-      ...(options.storeProbe ? { storeProbe: options.storeProbe } : {}),
-      ...(signal ? { signal } : {}), ...(options.extensionPort ? { extensionPort: options.extensionPort } : {}) };
-    const report = source.record.sourceType === "openclaw" ? await importOpenclaw(common) : await importHermes({ ...common,
-      ...(settings.mapProfiles ? { mapProfiles: Object.fromEntries(settings.mapProfiles.map(item => [item.profile, item.agentId])) } : {}),
-      mergeProfiles: settings.mergeProfiles ?? false,
-      ...(settings.adoptStrategy === "re-embed" ? { adoptStrategy: "reembed" } : {}) });
-    assertImportReportComplete(report);
+    const report = await previewImport({ home: options.home, source, settings, config: options.config, storeConflict,
+      ...(options.storeProbe ? { storeProbe: options.storeProbe } : {}), ...(signal ? { signal } : {}) });
+    if (report.errors.length) throw new ImportError("E_IMPORT_FAILED", "entity-failed", "Import entity failed");
     if (settings.adoptStoreId && settings.adoptStrategy !== "re-embed") {
       const { onConflict: _fileConflict, ...selected } = settings;
       requireSelectedStoreTransfer(report, { ...selected, ...(storeConflict ? { onConflict: storeConflict } : {}) });

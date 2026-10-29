@@ -12,7 +12,7 @@ import { createImportRecords, type ImportPlanRecord } from "./maintenance-record
 import { readColdBytes } from "./maintenance-files.ts";
 import { writeAtomicSync } from "./fs-atomic.ts";
 import { openMaintenanceJournal } from "./maintenance-journal.ts";
-import { fingerprintImportTarget } from "./maintenance-worker.ts";
+import { fingerprintImportTarget } from "./target-fingerprint.ts";
 
 export interface ImportRunControl { runId: string; planId: string; planSha256: string }
 export interface ImportRuntimeStatus {

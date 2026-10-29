@@ -1,3 +1,4 @@
+import { planProfileTargets } from "../profile-plan.ts";
 import { assertNoPendingMaintenance } from "../pending-maintenance.ts";
 import { SourceReader, type SourceReaderOptions } from "../source-reader.ts";
 import { checkImportAbort, executionRunId, importCheckpoint, writeImportConfig, type ImportExecutionOptions } from "../execution.ts";
@@ -324,30 +325,7 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
     const mapProfiles = opts.mapProfiles ?? {};
     const mergeProfiles = opts.mergeProfiles === true;
 
-    // Check profile collisions under target mapping
-    const profilesByTarget = new Map<string, string[]>();
-    for (const agent of sourceReport.agents) {
-      const targetId = mapProfiles[agent.agentId] ?? agent.agentId;
-      const norm = targetId.toLowerCase();
-      const list = profilesByTarget.get(norm) ?? [];
-      list.push(agent.agentId);
-      profilesByTarget.set(norm, list);
-    }
-
-    const mergedProfiles: Array<{ agentId: string; profiles: string[] }> = [];
-    for (const [norm, profiles] of profilesByTarget.entries()) {
-      if (profiles.length > 1) {
-        const targetId = mapProfiles[profiles[0]!] ?? profiles[0]!;
-        if (!mergeProfiles) {
-          throw new ImportError(
-            "E_PROFILE_COLLISION",
-            "profile-collision",
-            `multiple profiles map to agent '${targetId}': ${profiles.join(", ")}; pass --merge-profiles to allow merging`,
-          );
-        }
-        mergedProfiles.push({ agentId: targetId, profiles });
-      }
-    }
+    const mergedProfiles = planProfileTargets(sourceReport.agents, mapProfiles, mergeProfiles);
 
     // 1. Store take-over (--adopt-store), part one: validate, stage a copy, inspect the copy. Runs before the
     // snapshot, the ledger and any engine, so an abort (incompatible, copy failure, rename refused) leaves the
