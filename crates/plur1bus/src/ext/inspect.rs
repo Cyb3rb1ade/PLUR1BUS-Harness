@@ -421,6 +421,7 @@ pub(crate) fn inspect_with(
 }
 
 /// Production workers inject the existing Core egress boundary; direct local normalizer callers remain offline.
+#[cfg(test)]
 pub(crate) fn inspect_with_fetch(
     layout: &Layout,
     src: Source,
@@ -438,7 +439,7 @@ impl Drop for RawSource { fn drop(&mut self) { let _ = std::fs::remove_file(&sel
 fn snapshot_source(layout: &Layout, source: &Source, id: &str, expected: (&str, u64), cap: u64) -> Result<RawSource, ExtError> {
     let Source::Path(path) = source else { return Err(invalid(reason::PACKAGE_INVALID, "upload requires a file")); };
     let (sha256, size) = expected;
-    let mismatch = || invalid(reason::DIGEST_MISMATCH, "the upload bytes no longer match their recorded digest and size");
+    let mismatch = || invalid(reason::DIGEST, "the upload bytes no longer match their recorded digest and size");
     if size == 0 || size > cap || sha256.len() != 64 || !sha256.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) {
         return Err(mismatch());
     }
