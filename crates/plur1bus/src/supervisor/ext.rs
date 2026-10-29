@@ -17,6 +17,7 @@
 //!   overlays are computed at start, after `ext::recover` (which re-hashes every enabled packaged module), and again
 //!   after every ext mutation; a module whose overlay changed is reconciled.
 use super::config::SetError;
+use super::extension_uploads::{self, Caller};
 use super::subscribers::Topic;
 use super::{relock, ModuleVerb, OpError, Shared, DEFAULT_STOP_BUDGET};
 use crate::ext::commit::{install_commit_held, Agents, InstallOpts, ModuleHost};
@@ -98,8 +99,17 @@ fn op_error(e: OpError) -> ExtError {
     }
 }
 
+fn require_no_maintenance(shared: &Shared) -> Result<(), ExtError> {
+    if super::imports::busy(shared) {
+        Err(super::imports::busy_error())
+    } else {
+        Ok(())
+    }
+}
+
 fn set_error(e: SetError) -> ExtError {
     match e {
+        SetError::MaintenanceBusy => super::imports::busy_error(),
         SetError::Invalid(errors) => ExtError {
             code: "E_CONFIG_INVALID",
             reason: None,
@@ -418,6 +428,7 @@ pub fn runtime_reconcile(
         return Err(invalid("invalid extension name"));
     }
     let _guard = ext::try_mutation()?;
+    require_no_maintenance(shared)?;
     let state = state::read(&ExtPaths::of(layout)).map_err(record::state_invalid)?;
     let result = || json!({"name":name,"reconciled":true});
     let Some(record) = state.items.get(name).filter(|record| {
@@ -574,20 +585,79 @@ fn clean_after_worker(layout: &Layout, id: &str, root_existed: bool) {
     }
 }
 
+static INSPECTIONS: Mutex<usize> = Mutex::new(0);
+/// Held across maintenance reservation/publication, after the ext mutation guard.
+pub(super) struct InspectionFence {
+    _held: std::sync::MutexGuard<'static, usize>,
+}
+pub(super) fn inspection_fence() -> Result<InspectionFence, ExtError> {
+    let held = relock(&INSPECTIONS);
+    if *held != 0 {
+        return Err(super::imports::busy_error());
+    }
+    Ok(InspectionFence { _held: held })
+}
+struct InspectionActive(bool);
+impl Drop for InspectionActive {
+    fn drop(&mut self) {
+        if self.0 {
+            *relock(&INSPECTIONS) -= 1;
+        }
+    }
+}
+fn begin_inspection(shared: &Shared) -> Result<InspectionActive, ExtError> {
+    let mut count = relock(&INSPECTIONS);
+    require_no_maintenance(shared)?;
+    *count += 1;
+    Ok(InspectionActive(true))
+}
+
 /// `ext.inspect { source: { path } }`: the worker inspects; the answer is the stored record as `ExtInspection`. The
 /// path must be absolute (a relative one would resolve against the supervisor's working directory, not the caller's);
 /// it reaches the worker as `--path=<p>`, so a path that starts with `-` is never read as a flag.
-pub fn inspect(layout: &Layout, params: &Value) -> Result<Value, ExtError> {
-    let path = params["source"]["path"].as_str().unwrap_or_default();
+pub fn inspect(
+    shared: &Shared,
+    layout: &Layout,
+    params: &Value,
+    caller: Caller<'_>,
+) -> Result<Value, ExtError> {
+    let _active = begin_inspection(shared)?;
+    let upload = params["source"]["upload"].as_str();
+    let claimed = upload
+        .map(|id| extension_uploads::claim(layout, id, caller))
+        .transpose()?;
+    if claimed.is_none() && !matches!(caller, Caller::LocalOwner) {
+        return Err(ExtError::new(
+            "E_DENIED",
+            "upload-required",
+            "browser extension inspection requires a private upload",
+        ));
+    }
+    let path = claimed
+        .as_ref()
+        .and_then(|claim| claim.path().to_str())
+        .or_else(|| params["source"]["path"].as_str())
+        .unwrap_or_default();
     if !Path::new(path).is_absolute() {
         return Err(invalid(format!(
             "source.path must be an absolute path, got {path:?}"
         )));
     }
     let id = worker::new_inspection_id();
+    // Reserve ownership before the worker can publish its record, including during concurrent getter calls.
+    extension_uploads::bind_inspection(layout, &id, caller)?;
     let path_arg = format!("--path={path}");
     let seam = worker::seam_args("inspect");
+    let expected = claimed.as_ref().map(|claim| {
+        [
+            format!("--expected-source-sha256={}", claim.sha256),
+            format!("--expected-source-size={}", claim.size),
+        ]
+    });
     let mut args = vec!["inspect", "--id", &id, path_arg.as_str()];
+    if let Some(expected) = &expected {
+        args.extend(expected.iter().map(String::as_str));
+    }
     args.extend(seam.iter().map(String::as_str));
     match worker::spawn_worker(
         layout,
@@ -603,15 +673,32 @@ pub fn inspect(layout: &Layout, params: &Value) -> Result<Value, ExtError> {
                     format!("the ext worker answered an unreadable inspection: {e}"),
                 )
             })?;
+            if rec.inspection_id != id {
+                clean_after_worker(layout, &id, true);
+                return Err(ExtError::new(
+                    "E_INTERNAL",
+                    "worker-failed",
+                    "the ext worker answered another inspection",
+                ));
+            }
             Ok(inspection_result(&rec))
         }
         Err(e) => {
-            if worker::is_worker_failure(&e) {
-                clean_after_worker(layout, &id, true);
-            }
+            clean_after_worker(layout, &id, true);
             Err(e)
         }
     }
+}
+
+/// Read the same disclosure only as its authenticated creator, without consuming the inspection.
+pub fn inspection_get(
+    layout: &Layout,
+    params: &Value,
+    caller: Caller<'_>,
+) -> Result<Value, ExtError> {
+    let id = params["inspectionId"].as_str().unwrap_or_default();
+    extension_uploads::check_inspection(layout, id, caller)?;
+    record::load(layout, id).map(|record| inspection_result(&record))
 }
 
 /// The stage half of `ext.install`, under the caller's mutation lock: the worker stages inspection `rec`. Only the
@@ -646,7 +733,12 @@ fn stage(layout: &Layout, id: &str) -> Result<StagedItem, ExtError> {
 
 /// `ext.install { inspectionId, acknowledge?, enable? }`: under the mutation lock, the worker stages the inspected
 /// package, then the commit puts it in place with a [`SupervisorHost`], and the overlays are refreshed.
-pub fn install(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Result<Value, ExtError> {
+pub fn install(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    params: &Value,
+    caller: Caller<'_>,
+) -> Result<Value, ExtError> {
     let opts = InstallOpts {
         acknowledge: strings(&params["acknowledge"]),
         members: params.get("members").map(strings),
@@ -659,13 +751,18 @@ pub fn install(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Result<
         .as_str()
         .unwrap_or_default()
         .to_string();
+    extension_uploads::check_inspection(layout, &id, caller)?;
     let guard = ext::try_mutation()?;
+    require_no_maintenance(shared)?;
     let mut host = SupervisorHost::new(shared, layout);
     let result = record::load(layout, &id).and_then(|rec| {
         let staged = stage(layout, &id)?;
         install_commit_held(layout, &mut host, &rec, staged, &opts, &guard)
     });
     refresh_overlays(shared, layout, &guard, &mut host.presence);
+    if result.is_ok() {
+        extension_uploads::remove_owner(layout, &id);
+    }
     result
 }
 
@@ -690,6 +787,7 @@ fn toggle(
     let name = params["name"].as_str().unwrap_or_default();
     let mut host = SupervisorHost::new(shared, layout);
     if o.dry_run {
+        require_no_maintenance(shared)?;
         return if on {
             lifecycle::enable(layout, &mut host, name, &o)
         } else {
@@ -697,6 +795,7 @@ fn toggle(
         };
     }
     let guard = ext::try_mutation()?;
+    require_no_maintenance(shared)?;
     let r = lifecycle::toggle_held(layout, &mut host, name, &o, on, &guard);
     refresh_overlays(shared, layout, &guard, &mut host.presence);
     r
@@ -720,6 +819,7 @@ pub fn uninstall(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Resul
     };
     let name = params["name"].as_str().unwrap_or_default();
     let guard = ext::try_mutation()?;
+    require_no_maintenance(shared)?;
     let mut host = SupervisorHost::new(shared, layout);
     let r = remove::uninstall_held(layout, &mut host, name, &o, &guard);
     refresh_overlays(shared, layout, &guard, &mut host.presence);
@@ -730,6 +830,7 @@ pub fn uninstall(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Resul
 pub fn restore(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Result<Value, ExtError> {
     let tid = params["trashId"].as_str().unwrap_or_default();
     let guard = ext::try_mutation()?;
+    require_no_maintenance(shared)?;
     let mut host = SupervisorHost::new(shared, layout);
     let r = remove::restore_held(layout, &mut host, tid, &guard);
     refresh_overlays(shared, layout, &guard, &mut host.presence);
@@ -852,5 +953,47 @@ mod tests {
         );
         assert_eq!(overlay_reason(Overlay::NeedsSetup), None);
         assert_eq!(overlay_reason(Overlay::Error), None);
+    }
+
+    #[test]
+    fn direct_extension_entry_points_recheck_the_maintenance_reservation() {
+        let temporary = tempfile::tempdir().unwrap();
+        let layout = Layout::new(temporary.path().join("home"));
+        let shared = Arc::new(Shared {
+            maintenance: Default::default(),
+            state: Mutex::new(crate::supervisor::test_state()),
+            wake: std::sync::Condvar::new(),
+            log: crate::supervisor::Log::open(&layout.logs().join("supervisor.log"), 1 << 20, 3),
+            config: Mutex::new(super::super::config::initial(&layout)),
+            subscribers: Default::default(),
+            out_logs: Mutex::new(Vec::new()),
+        });
+        std::fs::create_dir_all(layout.run().join("inspect")).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            for path in [layout.run(), layout.run().join("inspect")] {
+                std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700)).unwrap();
+            }
+        }
+        relock(&shared.maintenance).preparing = true;
+        // These calls deliberately bypass server pre-dispatch, like an already admitted concurrent RPC.
+        let results = [
+            enable(&shared, &layout, &json!({"name":"missing"})),
+            disable(&shared, &layout, &json!({"name":"missing"})),
+            uninstall(&shared, &layout, &json!({"name":"missing"})),
+            restore(&shared, &layout, &json!({"trashId":"missing-1"})),
+            install(
+                &shared,
+                &layout,
+                &json!({"inspectionId":"a"}),
+                Caller::LocalOwner,
+            ),
+        ];
+        for result in results {
+            let error = result.unwrap_err();
+            assert_eq!((error.code, error.reason), ("E_CONFLICT", Some("busy")));
+        }
+        assert!(!layout.extensions().join("staging").exists());
     }
 }

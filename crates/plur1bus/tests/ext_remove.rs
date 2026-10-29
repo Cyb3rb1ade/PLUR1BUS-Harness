@@ -325,6 +325,7 @@ fn acked() -> InstallOpts {
     InstallOpts {
         acknowledge: vec!["capabilities".into()],
         enable: None,
+        members: None,
     }
 }
 

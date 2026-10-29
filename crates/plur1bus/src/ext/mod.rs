@@ -15,6 +15,8 @@ pub mod bundle_transaction;
 pub mod bundle_update;
 pub mod commit;
 pub mod host;
+pub mod imported;
+pub mod imported_worker;
 pub mod index;
 pub mod inspect;
 pub mod lifecycle;

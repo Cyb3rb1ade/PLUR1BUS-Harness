@@ -1526,3 +1526,38 @@ fn startup_releases_a_recovered_hold_even_when_uninstall_removed_its_record() {
     assert_eq!(ok(&h.home, "ext.list", json!({}))["items"], json!([]));
     stop(&mut supervisor, &h.home);
 }
+
+#[test]
+fn running_parallel_inspectors_block_maintenance_admission_before_plan_claim() {
+    let h = Home::new();
+    let mut supervisor =
+        h.start_with_core(&[("PLUR1BUS_TEST_EXT_WORKER_ARGS", "inspect:--sleep-ms 1200")]);
+    let mut client = common::client(&h.home);
+    common::wait_child(
+        &mut client,
+        "Core ready before inspector admission test",
+        WAIT,
+        |child| child["process"]["state"] == "ready",
+    );
+    let h = std::sync::Arc::new(h);
+    let first = h.clone();
+    let second = h.clone();
+    let a = std::thread::spawn(move || inspect(&first, "inspecting-a", &[]));
+    let b = std::thread::spawn(move || inspect(&second, "inspecting-b", &[]));
+    common::wait_until("both ordinary inspectors run concurrently", WAIT, || {
+        workers_of(&h.home).len() == 2
+    });
+    let reply = call(
+        &h.home,
+        "admin.import.apply",
+        json!({"planId":"11111111-1111-4111-8111-111111111111","preflightId":"22222222-2222-4222-8222-222222222222"}),
+    );
+    assert_eq!(
+        reply["error"]["data"]["error"], "E_CONFLICT",
+        "admission must refuse before looking up a missing plan: {reply}"
+    );
+    assert_eq!(reply["error"]["data"]["reason"], "busy");
+    assert_eq!(a.join().unwrap()["manifest"]["name"], "inspecting-a");
+    assert_eq!(b.join().unwrap()["manifest"]["name"], "inspecting-b");
+    stop(&mut supervisor, &h.home);
+}

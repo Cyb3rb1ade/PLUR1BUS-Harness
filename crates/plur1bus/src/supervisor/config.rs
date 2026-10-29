@@ -50,6 +50,7 @@ pub struct Rejected {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SetError {
+    MaintenanceBusy,
     LocalOnly(crate::privacy::SharedPolicy),
     /// The schema refuses the result (`E_CONFIG_INVALID`).
     Invalid(Vec<String>),
@@ -295,7 +296,15 @@ pub fn set(
     if_revision: Option<&str>,
     dry_run: bool,
 ) -> Result<Value, SetError> {
-    set_inner(shared, layout, changes, if_revision, dry_run, false, None)
+    set_inner(
+        shared,
+        layout,
+        changes,
+        if_revision,
+        dry_run,
+        false,
+        WriteContext::Local,
+    )
 }
 
 /// Authenticated web config writes carry the person resolved by the core, never a browser role claim.
@@ -319,7 +328,7 @@ pub fn set_as(
         if_revision,
         dry_run,
         false,
-        Some(principal),
+        WriteContext::Person(principal),
     )
 }
 
@@ -331,7 +340,73 @@ pub fn set_removing_nulls(
     changes: Vec<(String, Value)>,
     dry_run: bool,
 ) -> Result<Value, SetError> {
-    set_inner(shared, layout, changes, None, dry_run, true, None)
+    set_inner(
+        shared,
+        layout,
+        changes,
+        None,
+        dry_run,
+        true,
+        WriteContext::Local,
+    )
+}
+
+enum WriteContext<'a> {
+    Local,
+    Person(&'a Value),
+    Maintenance(&'a Value),
+}
+
+/// Private import worker writes keep schema, revision, role and audit validation; the maintenance scheduler owns restarts.
+pub(crate) fn set_maintenance(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    changes: Vec<(String, Value)>,
+    if_revision: Option<&str>,
+    dry_run: bool,
+    remove_nulls: bool,
+    principal: &Value,
+) -> Result<Value, SetError> {
+    set_inner(
+        shared,
+        layout,
+        changes,
+        if_revision,
+        dry_run,
+        remove_nulls,
+        WriteContext::Maintenance(principal),
+    )
+}
+
+/// Restore authenticated raw configuration under its existing lock, without scheduling a child restart.
+pub(crate) fn restore_maintenance(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    bytes: Option<&[u8]>,
+) -> Result<Value, SetError> {
+    let config = match bytes {
+        Some(bytes) => parse(bytes).map_err(SetError::Invalid)?,
+        None => cfg::defaults(),
+    };
+    let mut state = relock(&shared.config);
+    if let Some(bytes) = bytes {
+        super::import_records::write_bytes(layout, &layout.config_path(), bytes)
+            .map_err(|_| SetError::Io("maintenance config restore unavailable".into()))?;
+    } else {
+        match fs::remove_file(layout.config_path()) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => {
+                return Err(SetError::Io(
+                    "maintenance config restore unavailable".into(),
+                ))
+            }
+        }
+    }
+    state.applied_hash = bytes.map(sha256);
+    state.stamp = file_stamp(&layout.config_path());
+    install(shared, &mut state, config, "maintenance-restore");
+    Ok(json!({"revision":state.revision}))
 }
 
 /// The plan of `changes` over `running`, a `null` value removing its key (validated once at the end).
@@ -360,13 +435,21 @@ fn set_inner(
     if_revision: Option<&str>,
     dry_run: bool,
     remove_nulls: bool,
-    principal: Option<&Value>,
+    context: WriteContext<'_>,
 ) -> Result<Value, SetError> {
+    let (principal, defer_restart) = match context {
+        WriteContext::Local => (None, false),
+        WriteContext::Person(person) => (Some(person), false),
+        WriteContext::Maintenance(person) => (Some(person), true),
+    };
     let started = Instant::now();
     // Serialised by the config mutex. It is released at the end of this block: a later step that waits for a
     // restart job (Task 5) must wait without it, because the restarted core's own `config.watch` needs it (H3B-R6).
     let (applied, changed, restart, revision, job, chain_unavailable) = {
         let mut st = relock(&shared.config);
+        if !defer_restart && super::imports::busy(shared) {
+            return Err(SetError::MaintenanceBusy);
+        }
         // I1: a hand edit the watcher has not seen yet is applied (or rejected) first, under this lock, so the set
         // builds on it: never overwritten unseen, and a stale `ifRevision` is a conflict.
         poll_locked(shared, layout, &mut st);
@@ -467,7 +550,7 @@ fn set_inner(
             let revision = st.revision.clone().unwrap_or_default();
             // Queued before the config lock is released, so the job precedes any the restarted core's own
             // `restartPending` could cause. A module key restarts its module (B13), `enabled` stops or starts it.
-            let job = (plan.restart.core || !plan.restart.modules.is_empty())
+            let job = (!defer_restart && (plan.restart.core || !plan.restart.modules.is_empty()))
                 .then(|| super::push_restart(shared, plan.restart.clone()))
                 .flatten();
             (
@@ -675,7 +758,9 @@ pub fn spawn_watcher(shared: &Arc<Shared>, layout: &Layout, scale: f64) -> std::
     let (s, l) = (shared.clone(), layout.clone());
     super::spawn_guarded(shared, "config-watch", move || loop {
         std::thread::sleep(tick);
-        poll_file(&s, &l);
+        if !super::imports::busy(&s) {
+            poll_file(&s, &l);
+        }
     })
 }
 
@@ -738,6 +823,7 @@ mod tests {
     /// its lines can be read back.
     fn shared_for(layout: &Layout) -> Arc<Shared> {
         Arc::new(Shared {
+            maintenance: Default::default(),
             state: std::sync::Mutex::new(crate::supervisor::test_state()),
             wake: std::sync::Condvar::new(),
             log: crate::supervisor::Log::open(&layout.logs().join("supervisor.log"), 1 << 20, 3),

@@ -3193,3 +3193,157 @@ fn bundle_update_keeps_mcp_agent_scope_optional_off_and_prechecks_new_required_m
     assert_eq!(item(&items, "docs")["agents"], json!(["anna"]));
     assert_eq!(item(&items, "guide")["enabled"], false);
 }
+
+// C maintenance: abort is cooperative at existing atomic transaction boundaries, never a detached mutation.
+#[test]
+fn cancellation_after_code_publication_rolls_back_synchronously() {
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    };
+    struct CancelHost<'a> {
+        inner: OfflineHost<'a>,
+        cancel: Arc<AtomicBool>,
+    }
+    impl ModuleHost for CancelHost<'_> {
+        fn check_cancelled(&self) -> Result<(), ExtError> {
+            if self.cancel.load(Ordering::SeqCst) {
+                Err(ExtError::new(
+                    "E_NOT_AVAILABLE",
+                    "import-aborted",
+                    "the maintenance run was aborted",
+                ))
+            } else {
+                Ok(())
+            }
+        }
+        fn config(&self) -> Value {
+            self.inner.config()
+        }
+        fn set_config(&mut self, c: Vec<(String, Value)>, dry: bool) -> Result<Value, ExtError> {
+            self.inner.set_config(c, dry)
+        }
+        fn install_module(&mut self, s: modules_install::Staged) -> Result<bool, ExtError> {
+            self.inner.install_module(s)
+        }
+        fn remove_module(&mut self, n: &str, p: &Path) -> Result<(), ExtError> {
+            self.inner.remove_module(n, p)
+        }
+        fn notify(&mut self, c: Value) {
+            self.inner.notify(c)
+        }
+        fn via(&self) -> &'static str {
+            "offline"
+        }
+        fn config_bytes(&self) -> Option<Option<Vec<u8>>> {
+            self.inner.config_bytes()
+        }
+        fn restore_config_bytes(&mut self, b: Option<Vec<u8>>) -> Result<(), ExtError> {
+            self.inner.restore_config_bytes(b)
+        }
+    }
+    let key = test_key("cancel-boundary");
+    let _e = env_with(&key);
+    let (d, l) = home();
+    populate(&l);
+    install(
+        d.path(),
+        &l,
+        "old.p1x",
+        &mcp_pkg_v("docs", "1.0.0", false, &key),
+        &InstallOpts::default(),
+    )
+    .unwrap();
+    let before = guarded(&l);
+    let (rec, staged) = prepare(
+        d.path(),
+        &l,
+        "new.p1x",
+        &mcp_pkg_v("docs", "2.0.0", false, &key),
+    );
+    let cancel = Arc::new(AtomicBool::new(false));
+    let signal = cancel.clone();
+    let target = l.home.join("mcp/docs/2.0.0/p1x.json");
+    let sender = std::thread::spawn(move || {
+        let until = std::time::Instant::now() + std::time::Duration::from_secs(3);
+        while std::time::Instant::now() < until && !target.is_file() {
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        signal.store(true, Ordering::SeqCst);
+    });
+    std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", "sleep:code:250");
+    let mut host = CancelHost {
+        inner: OfflineHost::new(&l),
+        cancel,
+    };
+    let result = install_commit(&l, &mut host, &rec, staged, &InstallOpts::default());
+    std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+    sender.join().unwrap();
+    assert_eq!(result.unwrap_err().reason, Some("import-aborted"));
+    assert_eq!(
+        guarded(&l),
+        before,
+        "the return must wait for rollback, with no orphan mutation"
+    );
+}
+
+#[test]
+fn cancellation_of_one_live_parser_reaps_it_and_allows_the_next_operation() {
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    };
+    use std::time::{Duration, Instant};
+    let key = test_key("cancel-parser");
+    let _e = env_with(&key);
+    let (d, l) = home();
+    let path = d.path().join("skill.p1x");
+    fs::write(&path, skill_pkg("guide", Some(&key))).unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let signal = cancel.clone();
+    let sender = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(100));
+        signal.store(true, Ordering::SeqCst);
+    });
+    let id = worker::new_inspection_id();
+    let started = Instant::now();
+    let result = worker::spawn_worker_with_check(
+        Path::new(env!("CARGO_BIN_EXE_plur1bus")),
+        &l,
+        &[
+            "inspect",
+            "--id",
+            &id,
+            "--path",
+            path.to_str().unwrap(),
+            "--sleep-ms",
+            "5000",
+        ],
+        Duration::from_secs(5),
+        &|| {
+            if cancel.load(Ordering::SeqCst) {
+                Err(ExtError::new(
+                    "E_NOT_AVAILABLE",
+                    "import-aborted",
+                    "the maintenance run was aborted",
+                ))
+            } else {
+                Ok(())
+            }
+        },
+    );
+    sender.join().unwrap();
+    assert_eq!(result.unwrap_err().reason, Some("import-aborted"));
+    assert!(started.elapsed() < Duration::from_secs(3));
+    assert!(!record::record_path(&l, &id).exists());
+    let id = worker::new_inspection_id();
+    worker::spawn_worker_with_check(
+        Path::new(env!("CARGO_BIN_EXE_plur1bus")),
+        &l,
+        &["inspect", "--id", &id, "--path", path.to_str().unwrap()],
+        Duration::from_secs(5),
+        &|| Ok(()),
+    )
+    .unwrap();
+    assert!(record::record_path(&l, &id).is_file());
+}

@@ -57,6 +57,11 @@ pub const COMMIT_STEPS: [&str; 6] = ["config", "code", "state", "cache", "index"
 /// What an ext mutation needs from whoever owns config.json and the module processes: the supervisor (Task 11) or the
 /// offline CLI ([`OfflineHost`]).
 pub trait ModuleHost {
+    /// A maintenance caller may cancel at transaction boundaries. Rollback itself never consults this port.
+    fn check_cancelled(&self) -> Result<(), ExtError> {
+        Ok(())
+    }
+
     /// The running `config.json` (defaults filled).
     fn config(&self) -> Value;
     /// Applies `changes` as one `config.set` (all or none). A `null` value removes the key (how a rollback restores a
@@ -765,6 +770,7 @@ fn commit_locked(
     staged: StagedItem,
     opts: &InstallOpts,
 ) -> Result<Value, ExtError> {
+    host.check_cancelled()?;
     validate_staged(
         layout,
         rec,
@@ -969,6 +975,7 @@ pub(crate) fn run_steps(
     host: &mut dyn ModuleHost,
     rb: &mut Rollback<'_>,
 ) -> Result<(ItemRecord, &'static str), ExtError> {
+    host.check_cancelled()?;
     let (layout, paths, staged) = (c.layout, c.paths, c.staged);
     let name = staged.name.clone();
     let is_skill = staged.kind == Kind::Skill;
@@ -1012,6 +1019,7 @@ pub(crate) fn run_steps(
             }
         }
         fail_at("config")?;
+        host.check_cancelled()?;
     }
 
     // code, for a skill: the index entry first, disabled, with `package` set (X1-C10).
@@ -1031,6 +1039,7 @@ pub(crate) fn run_steps(
         index::write_index(layout, &idx).map_err(|e| io_err("cannot write", &ipath, e))?;
         rb.push("code", restore_file(ipath.clone(), before));
         fail_at("code.index")?;
+        host.check_cancelled()?;
     }
 
     // code: a replaced item's code goes into the trash first (X1-R19), then the new code into place.
@@ -1049,6 +1058,7 @@ pub(crate) fn run_steps(
         // Its package follows the code (a kill in between: `ext::recover` puts both back, X1-C15).
         package_into_trash(paths, &old.package_sha256, &tdir, "code", rb)?;
         fail_at("code.trash")?;
+        host.check_cancelled()?;
     }
     // From here a kill can leave the new code under its final name without its record: the mark tells
     // `ext::recover` to finish the install (the record is there) or to remove that code (it is not).
@@ -1096,6 +1106,7 @@ pub(crate) fn run_steps(
         });
     }
     fail_at("code")?;
+    host.check_cancelled()?;
 
     // state: the package record.
     let mut next = c.st.clone();
@@ -1105,6 +1116,7 @@ pub(crate) fn run_steps(
     state::write(paths, &next).map_err(|e| io_err("cannot write", &paths.state, e))?;
     rb.push("state", restore_file(paths.state.clone(), before));
     fail_at("state")?;
+    host.check_cancelled()?;
 
     // cache: the package bytes, and what the inspection derived from them (X1-R2: `ext.show` reads this, never the
     // package). Trust lives in the record.
@@ -1136,6 +1148,7 @@ pub(crate) fn run_steps(
         });
     }
     fail_at("cache")?;
+    host.check_cancelled()?;
 
     // index (skills): the final entry; a replacement keeps `enabled` (X1-C9).
     let mut state_name = if !is_skill && c.prev.is_some() && c.prev_enabled {
@@ -1153,6 +1166,7 @@ pub(crate) fn run_steps(
             state_name = "enabled";
         }
         fail_at("index")?;
+        host.check_cancelled()?;
     }
 
     // enable (only when asked): the same writes as `ext.enable`, recorded with the acknowledged capability hash.
@@ -1164,10 +1178,12 @@ pub(crate) fn run_steps(
             "installed"
         };
         fail_at("enable")?;
+        host.check_cancelled()?;
     }
 
     // `data/ext/<name>/` (X1-R31); kept if an earlier install left it.
     ensure_dir(&layout.ext_data(&name), "data", rb)?;
+    host.check_cancelled()?;
     Ok((record, state_name))
 }
 
@@ -1329,6 +1345,7 @@ fn enable_now(
     state::write(paths, &st).map_err(|e| io_err("cannot write", &paths.state, e))?;
     rb.push("enable", restore_file(paths.state.clone(), before));
     fail_at("enable.state")?;
+    host.check_cancelled()?;
 
     let cfg = host.config();
     if c.staged.kind == Kind::Skill {

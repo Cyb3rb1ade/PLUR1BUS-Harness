@@ -372,6 +372,11 @@ pub fn extension_secrets_address(home: &Path, platform: &str) -> String {
     address(home, platform, "e")
 }
 
+/// Private one-use source credentials for the supervised importer; separate from extension spawn credentials.
+pub fn import_secrets_address(home: &Path, platform: &str) -> String {
+    address(home, platform, "i")
+}
+
 /// Same rule as packages/core/src/paths.ts supervisorAddress(): `run/supervisor.sock` on POSIX, the per-home
 /// `-supervisor` pipe on Windows.
 pub fn supervisor_address(home: &Path, platform: &str) -> String {

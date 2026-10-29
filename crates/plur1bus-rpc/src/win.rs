@@ -30,7 +30,7 @@ use windows_sys::Win32::Security::{
 use windows_sys::Win32::Storage::FileSystem::{
     ReadFile, WriteFile, FILE_FLAG_OVERLAPPED, SECURITY_IDENTIFICATION,
 };
-use windows_sys::Win32::System::Pipes::GetNamedPipeServerProcessId;
+use windows_sys::Win32::System::Pipes::{GetNamedPipeClientProcessId, GetNamedPipeServerProcessId};
 use windows_sys::Win32::System::SystemServices::{ACCESS_ALLOWED_ACE_TYPE, ACCESS_DENIED_ACE_TYPE};
 use windows_sys::Win32::System::Threading::{
     CreateEventW, GetCurrentProcess, OpenProcessToken, WaitForSingleObject, INFINITE,
@@ -122,6 +122,15 @@ pub fn pipe_server_pid(h: HANDLE) -> Option<u32> {
     let mut pid: u32 = 0;
     // SAFETY: `h` is an open pipe client handle owned by the caller; `pid` is a live local.
     let ok = unsafe { GetNamedPipeServerProcessId(h, &mut pid) };
+    (ok != 0 && pid != 0).then_some(pid)
+}
+
+/// The OS-authenticated client of an accepted pipe; absent process information never grants private Core authority.
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub fn pipe_client_pid(h: HANDLE) -> Option<u32> {
+    let mut pid = 0;
+    // SAFETY: Windows validates the opaque pipe handle; `pid` is a live writable local.
+    let ok = unsafe { GetNamedPipeClientProcessId(h, &mut pid) };
     (ok != 0 && pid != 0).then_some(pid)
 }
 

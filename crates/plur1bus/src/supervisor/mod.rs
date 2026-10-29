@@ -15,6 +15,19 @@ pub mod config;
 pub mod config_policy;
 pub mod cpu;
 pub mod ext;
+pub mod extension_uploads;
+pub mod import_admission;
+pub mod import_controls;
+pub mod import_extensions;
+#[cfg(test)]
+mod import_gate_tests;
+pub mod import_history;
+pub mod import_maintenance;
+pub mod import_records;
+pub mod import_recovery;
+pub mod import_secrets;
+pub mod import_worker;
+pub mod imports;
 pub mod logfile;
 pub mod modules;
 #[cfg(windows)]
@@ -185,6 +198,8 @@ impl SupervisorState {
 /// scheduled restart, `daemon.start`), and the log. `config` has its own mutex, taken before `state` when both are
 /// needed.
 pub struct Shared {
+    /// Import maintenance has its own bounded metadata state; no source or credential values are cached here.
+    pub maintenance: Mutex<imports::State>,
     pub state: Mutex<SupervisorState>,
     pub wake: Condvar,
     pub log: Log,
@@ -824,6 +839,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     }
 
     let shared = Arc::new(Shared {
+        maintenance: Mutex::new(imports::State::default()),
         state: Mutex::new(SupervisorState {
             instance_id: instance_id.clone(),
             pid,
@@ -857,6 +873,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         subscribers: subscribers::Subscribers::new(),
         out_logs: Mutex::new(Vec::new()),
     });
+    import_maintenance::initial(&shared, layout);
     // supervisor.maxCores binds the supervisor before it starts a thread or a child, so every one inherits it.
     let running = relock(&shared.config).running.clone();
     if let Some(running) = running {
@@ -901,7 +918,9 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     // up with a fatal child (H3-R11), and `daemon.start` tries again.
     let mut monitors = Monitors::new();
     if !opts.no_core {
-        start_child(&shared, layout, &token, &Role::core(), &mut monitors);
+        if !imports::busy(&shared) {
+            start_child(&shared, layout, &token, &Role::core(), &mut monitors);
+        }
         start_child(&shared, layout, &token, &Role::api(), &mut monitors);
         start_modules(&shared, layout);
     }
@@ -915,6 +934,18 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
                 if let Some(stop) = st.stopping {
                     break Err(stop);
                 }
+                let (maintenance_busy, import_job) = import_maintenance::scheduled(&shared);
+                if let Some(job) = import_job {
+                    break Ok(Next::Import(job));
+                }
+                if maintenance_busy {
+                    st = shared
+                        .wake
+                        .wait_timeout(st, Duration::from_millis(100))
+                        .unwrap_or_else(|error| error.into_inner())
+                        .0;
+                    continue;
+                }
                 // Before `daemon.start`: a job restarts a core that is down, and the start that follows is a no-op.
                 if !st.restart_jobs.is_empty() {
                     // M8: every job queued by now is coalesced into one run.
@@ -923,6 +954,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
                     break Ok(Next::Job(jobs));
                 }
                 if let Some(op) = st.module_ops.pop_front() {
+                    st.restart_running = true;
                     break Ok(Next::Op(op));
                 }
                 let now = Instant::now();
@@ -940,7 +972,9 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
                     let slot = &mut st.slots[i];
                     slot.start_requested = false;
                     slot.restart_at = None;
-                    break Ok(Next::Due(slot.role.clone()));
+                    let role = slot.role.clone();
+                    st.restart_running = true;
+                    break Ok(Next::Due(role));
                 }
                 st = match state::next_wake(&st.slots) {
                     Some(at) => match shared
@@ -956,6 +990,9 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         };
         match next {
             Err(stop) => break stop,
+            Ok(Next::Import(job)) => {
+                import_maintenance::run(&shared, layout, &token, &mut monitors, job)
+            }
             Ok(Next::Job(jobs)) => run_restart_jobs(&shared, layout, &token, &mut monitors, jobs),
             Ok(Next::Op(op)) => run_module_op(&shared, layout, &token, &mut monitors, op),
             // A module's first start probes for one to adopt, like the core's at start (S6).
@@ -966,6 +1003,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             }
             Ok(Next::Due(role)) => restart_child(&shared, layout, &token, &role, &mut monitors),
         }
+        shared.lock().restart_running = false;
     };
     // X1: a stage or inspect worker still running is killed and reaped; its caller answers worker-failed and removes
     // what it left (anything a late clean-up misses, `ext::recover` removes at the next start).
@@ -1003,7 +1041,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         .map(|s| (s.role.name.clone(), s.role.kind))
         .collect();
     let grace = child::stop_grace(time_scale);
-    let budget_end = Instant::now() + stop.budget;
+    let budget_end = stop.requested_at + stop.budget;
     let deadline = budget_end + grace;
     for (name, kind) in order {
         if let Some(m) = monitors.get_mut(&name) {
@@ -1025,6 +1063,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
 
 /// What the scheduler runs next.
 enum Next {
+    Import(imports::Job),
     /// The requested restarts queued so far (B8), run as one (M8).
     Job(Vec<RestartJob>),
     /// A slot whose `daemon.start` or scheduled restart is due.
@@ -1174,6 +1213,9 @@ pub fn push_restart(
     shared: &Shared,
     plan: plur1bus_config::Restart,
 ) -> Option<std::sync::mpsc::Receiver<Vec<String>>> {
+    if imports::busy(shared) {
+        return None;
+    }
     let mut st = shared.lock();
     if st.stopping.is_some() || (st.no_core && plan.modules.is_empty()) {
         return None;

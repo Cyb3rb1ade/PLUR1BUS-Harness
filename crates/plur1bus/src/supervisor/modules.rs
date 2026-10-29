@@ -102,6 +102,13 @@ fn push_op(
     ext: bool,
 ) -> Result<OpHandle, OpError> {
     let mut st = shared.lock();
+    if !ext && super::imports::busy(shared) {
+        return Err(OpError::new(
+            "E_CONFLICT",
+            "import maintenance is in progress",
+            Some("busy"),
+        ));
+    }
     if st.stopping.is_some() && !(ext && st.ext_draining) {
         return Err(OpError::new(
             "E_NOT_AVAILABLE",

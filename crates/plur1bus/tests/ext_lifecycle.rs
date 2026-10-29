@@ -347,6 +347,7 @@ fn first_party_mcp_install_uses_all_and_later_enable_can_narrow() {
         &InstallOpts {
             acknowledge: vec!["capabilities".into()],
             enable: Some(Agents::Some(vec!["anna".into()])),
+            members: None,
         },
     )
     .unwrap();
@@ -550,6 +551,7 @@ fn lower_trust() -> InstallOpts {
     InstallOpts {
         acknowledge: vec!["unknown-signer".into()],
         enable: None,
+        members: None,
     }
 }
 
@@ -561,6 +563,7 @@ fn acked() -> InstallOpts {
     InstallOpts {
         acknowledge: vec!["capabilities".into()],
         enable: None,
+        members: None,
     }
 }
 

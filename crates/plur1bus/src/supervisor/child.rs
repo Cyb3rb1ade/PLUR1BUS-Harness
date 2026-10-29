@@ -731,6 +731,17 @@ impl Monitor {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
+        // A maintenance hold belongs to this generation, never to the reusable child spec or ambient environment.
+        cmd.env_remove("PLUR1BUS_IMPORT_MAINTENANCE");
+        if self.ctx.role.kind == RoleKind::Core {
+            if let Some(job) = super::relock(&self.shared.maintenance)
+                .active
+                .as_ref()
+                .filter(|job| job.mode != "activate")
+            {
+                cmd.env("PLUR1BUS_IMPORT_MAINTENANCE", &job.run_id);
+            }
+        }
         if let Some(lease) = &lease {
             lease
                 .environment
@@ -1970,6 +1981,7 @@ mod tests {
     #[test]
     fn an_exit_is_logged_before_it_is_marked_exited() {
         let shared = Arc::new(Shared {
+            maintenance: Default::default(),
             state: Mutex::new(crate::supervisor::test_state()),
             wake: std::sync::Condvar::new(),
             log: crate::supervisor::Log::none(),
@@ -2015,6 +2027,7 @@ mod tests {
     #[test]
     fn the_health_interval_follows_the_running_configuration() {
         let shared = Shared {
+            maintenance: Default::default(),
             state: Mutex::new(crate::supervisor::test_state()),
             wake: std::sync::Condvar::new(),
             log: crate::supervisor::Log::none(),

@@ -90,7 +90,7 @@ pub(crate) fn await_start_gate() -> Result<(), ExtError> {
 }
 
 /// Owns only the group/job created for this child, including streaming fetch descendants.
-struct ProcessTree {
+pub(crate) struct ProcessTree {
     killed: std::cell::Cell<bool>,
     #[cfg(unix)]
     pid: u32,
@@ -99,7 +99,7 @@ struct ProcessTree {
 }
 
 impl ProcessTree {
-    fn attach(child: &std::process::Child) -> std::io::Result<Self> {
+    pub(crate) fn attach(child: &std::process::Child) -> std::io::Result<Self> {
         #[cfg(windows)]
         {
             use std::os::windows::io::AsRawHandle;
@@ -140,7 +140,7 @@ impl ProcessTree {
         }
     }
 
-    fn kill(&self) {
+    pub(crate) fn kill(&self) {
         if self.killed.replace(true) {
             return;
         }
@@ -256,6 +256,18 @@ pub fn spawn_worker(layout: &Layout, args: &[&str], deadline: Duration) -> Resul
     spawn_worker_with(&exe, layout, args, deadline)
 }
 
+/// A run-scoped cancellation check; cancelling one operation never shuts down future extension workers.
+pub fn spawn_worker_checked(
+    layout: &Layout,
+    args: &[&str],
+    deadline: Duration,
+    check: &dyn Fn() -> Result<(), ExtError>,
+) -> Result<Value, ExtError> {
+    let exe = std::env::current_exe()
+        .map_err(|error| failed(format!("cannot locate the harness binary: {error}")))?;
+    spawn_worker_with_check(&exe, layout, args, deadline, check)
+}
+
 fn drain(r: Option<impl Read + Send + 'static>, cap: u64) -> std::thread::JoinHandle<Vec<u8>> {
     std::thread::spawn(move || {
         let mut buf = Vec::new();
@@ -279,6 +291,17 @@ pub(crate) fn spawn_worker_with(
     args: &[&str],
     deadline: Duration,
 ) -> Result<Value, ExtError> {
+    spawn_worker_with_check(exe, layout, args, deadline, &|| Ok(()))
+}
+
+pub(crate) fn spawn_worker_with_check(
+    exe: &Path,
+    layout: &Layout,
+    args: &[&str],
+    deadline: Duration,
+    check: &dyn Fn() -> Result<(), ExtError>,
+) -> Result<Value, ExtError> {
+    check()?;
     // Counted before the stop flag is read: a `stop_all` that sees no worker running has set the flag first, so this
     // spawn then sees it and starts nothing.
     let _running = Running::start();
@@ -322,6 +345,13 @@ pub(crate) fn spawn_worker_with(
     let err = drain(child.stderr.take(), STDERR_CAP);
     let start = Instant::now();
     let status = loop {
+        if let Err(error) = check() {
+            tree.kill();
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = (out.join(), err.join());
+            return Err(error);
+        }
         match child.try_wait() {
             Ok(Some(status)) => break status,
             Ok(None) if STOPPING.load(Ordering::SeqCst) => {
@@ -357,6 +387,7 @@ pub(crate) fn spawn_worker_with(
     tree.kill();
     let stdout = out.join().unwrap_or_default();
     let stderr = err.join().unwrap_or_default();
+    check()?;
     answer(&stdout).unwrap_or_else(|| {
         let tail = String::from_utf8_lossy(&stderr);
         let tail = tail.trim();

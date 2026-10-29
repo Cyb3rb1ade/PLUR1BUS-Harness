@@ -465,7 +465,7 @@ fn snapshot_source(
     source: &Source,
     id: &str,
     expected: (&str, u64),
-    cap: u64,
+    limits: &Limits,
 ) -> Result<RawSource, ExtError> {
     let Source::Path(path) = source else {
         return Err(invalid(reason::PACKAGE_INVALID, "upload requires a file"));
@@ -478,7 +478,7 @@ fn snapshot_source(
         )
     };
     if size == 0
-        || size > cap
+        || size > limits.package_bytes
         || sha256.len() != 64
         || !sha256
             .bytes()
@@ -513,7 +513,11 @@ fn snapshot_source(
     if !info.is_file() || info.len() != size {
         return Err(mismatch());
     }
-    let raw = RawSource(ExtPaths::of(layout).inspect.join(format!("{id}.source")));
+    let mut raw = RawSource(
+        ExtPaths::of(layout)
+            .inspect
+            .join(format!("{id}.tmp-source")),
+    );
     let mut output = crate::audit::create_private(&raw.0, true).map_err(|_| mismatch())?;
     let mut hash = Sha256::new();
     let mut count = 0u64;
@@ -534,6 +538,25 @@ fn snapshot_source(
         return Err(mismatch());
     }
     output.sync_all().map_err(|_| mismatch())?;
+    drop(output);
+    // Browser filenames are discarded. Strict audited root names choose the existing worker parser.
+    // Appended MCPB signatures need that parser's own split/framing audit before ordinary ZIP validation.
+    let extension = match plur1bus_ext::zipaudit::audit_zip(&mut open_regular(&raw.0)?, limits) {
+        Ok(zip) if zip.entries.iter().any(|entry| entry.name == "p1x.json") => "p1x",
+        Ok(zip)
+            if zip
+                .entries
+                .iter()
+                .any(|entry| entry.name == "manifest.json") =>
+        {
+            "mcpb"
+        }
+        Ok(_) => "zip",
+        Err(_) => "mcpb",
+    };
+    let selected = raw.0.with_file_name(format!("{id}.tmp-source.{extension}"));
+    std::fs::rename(&raw.0, &selected).map_err(|_| mismatch())?;
+    raw.0 = selected;
     Ok(raw)
 }
 
@@ -569,7 +592,7 @@ pub(crate) fn inspect_with_expected(
     };
     let cfg = ext_config(layout)?;
     let snapshot = expected
-        .map(|expected| snapshot_source(layout, &src, id, expected, cfg.limits.package_bytes))
+        .map(|expected| snapshot_source(layout, &src, id, expected, &cfg.limits))
         .transpose()?;
     let verified = snapshot
         .as_ref()

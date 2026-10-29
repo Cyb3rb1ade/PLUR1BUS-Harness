@@ -361,6 +361,14 @@ pub fn prune(layout: &Layout) {
         else {
             continue;
         };
+        if let Some(id) = name.strip_suffix(".owner.json") {
+            // Browser ownership outlives any later inspection/prune pass, until its actual record is removed.
+            if !valid_id(id) || !dir.join(format!("{id}.json")).is_file() && older_than(&path, ttl)
+            {
+                let _ = state::remove_retrying(&path);
+            }
+            continue;
+        }
         if let Some(stem) = name.strip_suffix(".json") {
             let live = std::fs::read_to_string(&path)
                 .ok()

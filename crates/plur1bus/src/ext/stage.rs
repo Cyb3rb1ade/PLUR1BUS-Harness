@@ -34,6 +34,16 @@ use std::path::{Path, PathBuf};
 /// The hidden `plur1bus ext __worker` operations.
 #[derive(clap::Subcommand, Debug, Clone)]
 pub enum WorkerArgs {
+    /// Prepare an inert MCP package from the private import metadata boundary.
+    #[command(hide = true)]
+    ImportMcp {
+        #[arg(long)]
+        id: String,
+        #[arg(long)]
+        installation_id: String,
+        #[arg(long)]
+        candidate_file: PathBuf,
+    },
     /// Inspect a package into `run/inspect/<id>.{p1x,json}`
     Inspect {
         #[arg(long)]
@@ -436,7 +446,7 @@ pub fn stage(layout: &Layout, id: &str) -> Result<StagedItem, ExtError> {
 }
 
 /// [`stage`], aborting the process right after the extraction when `crash` (the worker's `--crash` test seam).
-fn stage_with(layout: &Layout, id: &str, crash: bool) -> Result<StagedItem, ExtError> {
+pub(crate) fn stage_with(layout: &Layout, id: &str, crash: bool) -> Result<StagedItem, ExtError> {
     let rec = super::record::load(layout, id)?;
     let pkg = spool_path(layout, id);
     stage_record(layout, &rec, &pkg, crash)
@@ -650,6 +660,11 @@ pub fn worker_main(
         }
     };
     let result: Result<Value, ExtError> = match args {
+        WorkerArgs::ImportMcp {
+            id,
+            installation_id,
+            candidate_file,
+        } => super::imported_worker::prepare(layout, &id, &installation_id, &candidate_file),
         WorkerArgs::Inspect {
             id,
             path,
