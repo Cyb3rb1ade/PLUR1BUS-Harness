@@ -126,6 +126,19 @@ describe("curated knowledge promotion cap", () => {
   });
 });
 
+describe("engine implementation", () => {
+  test("offers the default Node engine and experimental Rust selection with a Core restart", () => {
+    const field = buildFields({}, sectionById("memory")!).find(f => f.key === "engine.implementation");
+    assert.ok(field, "the generated palette target must have an editable field");
+    assert.equal(initialDraft([field])[field.key], "node");
+    assert.equal(parseDraft(field, "other").ok, false);
+    assert.deepEqual(collectChanges([field], { [field.key]: "rust" }), {
+      changes: [{ key: "engine.implementation", old: "node", value: "rust", restartClass: "core" }], errors: {},
+    });
+    assert.match(SETTINGS.find(s => s.key === field.key)!.help!, /experimental/);
+  });
+});
+
 describe("palette alignment", () => {
   test("every catalogued setting of a config section has a field with the id the deep link targets (engine is the one documented gap)", () => {
     const gaps: string[] = [];

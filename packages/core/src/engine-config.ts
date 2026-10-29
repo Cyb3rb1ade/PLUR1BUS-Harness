@@ -26,7 +26,7 @@ const BGE_RERANKER = "woxpas-ai/bge-reranker-v2-m3-onnx";
 export function buildEngineConfig(cfg: HarnessConfig, l: Layout, engineSchema: unknown = installedEngineSchema): Record<string, unknown> {
   assertSharedEnginePrivacy(cfg);
   const user = plain(cfg.engine);
-  const { baseDbPathOverride, baseDbPath: _b, autoRecall: _r, autoCapture: _c, media: _media, ...passthrough } = user;
+  const { implementation: _implementation, baseDbPathOverride, baseDbPath: _b, autoRecall: _r, autoCapture: _c, media: _media, ...passthrough } = user;
   const rer = plain(passthrough.reranker), rec = plain(passthrough.recall);
   const policy = providerPolicy(cfg);
   const memory = plain(plain(cfg).memory);

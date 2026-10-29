@@ -83,6 +83,27 @@ describe("client", () => {
     await assert.rejects(connect({ address: addr, token: "b".repeat(64), ...asPid(1) }), (e: any) => e instanceof RpcCallError && e.error === "E_UNAUTHORIZED");
   });
 
+  it("aborts a pending handshake and closes its socket", async () => {
+    const stalledAddress = address();
+    let sawRequest!: () => void;
+    const requested = new Promise<void>(resolve => { sawRequest = resolve; });
+    let peer: Socket | undefined;
+    const stalled = createServer(socket => { peer = socket; socket.on("data", sawRequest); });
+    await new Promise<void>(resolve => stalled.listen(stalledAddress, resolve));
+    const abort = new AbortController();
+    const pending = connect({ address: stalledAddress, token: TOKEN, signal: abort.signal, ...asPid(1) });
+    const rejected = assert.rejects(pending, (e: unknown) => e instanceof RpcCallError && e.error === "E_CORE_UNAVAILABLE");
+    try {
+      await requested;
+      abort.abort();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        assert.equal(await Promise.race([rejected.then(() => true), new Promise(resolve => { timer = setTimeout(() => resolve(false), 1000); })]), true,
+          "aborting the handshake must release its pending call before the normal RPC timeout");
+      } finally { clearTimeout(timer); }
+    } finally { peer?.destroy(); await new Promise<void>(resolve => stalled.close(() => resolve())); }
+  });
+
   it("delivers notifications and times out a slow call", async () => {
     const c = await connect({ address: addr, token: TOKEN, callTimeoutMs: 100, ...asPid(1) });
     const seen: unknown[] = []; c.onNotification((m, p) => seen.push([m, p]));

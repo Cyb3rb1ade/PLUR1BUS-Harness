@@ -1,9 +1,18 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { moduleAddress, supervisorAddress, unitAddress } from "../src/paths.ts";
+import path from "node:path";
+import { engineAddress, engineRunFiles, moduleAddress, supervisorAddress, unitAddress } from "../src/paths.ts";
 
 describe("address rule (parity with paths.rs)", () => {
+  it("the engine has its own address and run files beside the core", () => {
+    assert.equal(engineAddress("/h/.plur1bus/", "linux"), "/h/.plur1bus/run/engine.sock");
+    assert.equal(engineAddress("C:\\Users\\c\\AppData\\Local\\PLUR1BUS", "win32"), "\\\\.\\pipe\\plur1bus-741b3e0a44818d49-engine");
+    assert.deepEqual(engineRunFiles("/h/.plur1bus"), {
+      token: path.join("/h/.plur1bus", "run", "engine.token"),
+      pid: path.join("/h/.plur1bus", "run", "engine.pid"),
+    });
+  });
   it("the platform decides the format, not the characters in the home", () => {
     assert.equal(unitAddress("/tmp/a\\b", "core", "linux"), "/tmp/a\\b/run/core.sock", "a POSIX home with a backslash stays POSIX");
     assert.equal(unitAddress("/h/.plur1bus/", "core", "darwin"), "/h/.plur1bus/run/core.sock", "a trailing '/' is trimmed");

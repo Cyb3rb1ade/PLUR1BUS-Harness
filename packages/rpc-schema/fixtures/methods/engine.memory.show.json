@@ -1,0 +1,29 @@
+{
+  "params": {
+    "id": "workspace:v1:test",
+    "p": {
+      "agentId": "workspace:v1:test",
+      "workspace": "workspace:v1:test",
+      "channel": "workspace:v1:test",
+      "accountId": "workspace:v1:test",
+      "chat": {
+        "id": "workspace:v1:test",
+        "kind": "direct"
+      },
+      "trust": "proved"
+    },
+    "a": {
+      "origin": "user",
+      "background": false
+    }
+  },
+  "result": {
+    "id": "workspace:v1:test",
+    "scope": "agent-private",
+    "text": "workspace:v1:test",
+    "summary": "workspace:v1:test",
+    "createdAt": 0,
+    "origin": "workspace:v1:test",
+    "epistemicStatus": "workspace:v1:test"
+  }
+}

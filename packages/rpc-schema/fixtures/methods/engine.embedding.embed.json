@@ -1,0 +1,13 @@
+{
+  "params": {
+    "texts": [],
+    "kind": "query",
+    "identity": {
+      "fingerprintId": "workspace:v1:test",
+      "provider": "workspace:v1:test",
+      "model": "workspace:v1:test",
+      "dimensions": 0
+    }
+  },
+  "result": []
+}

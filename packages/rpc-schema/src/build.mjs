@@ -1,14 +1,15 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
+import { syncEngineSchema } from "./engine-contract.mjs";
 import { compile } from "json-schema-to-typescript";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const schemaPath = join(here, "..", "schema", "rpc.schema.json");
 const outDir = join(here, "..", "generated");
-const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
+const schema = syncEngineSchema(schemaPath, writeFileSync);
 
 // 1. The schema itself must be a valid 2020-12 schema.
 const ajv = new Ajv2020({ strict: true, allErrors: true, allowUnionTypes: true });
@@ -18,13 +19,15 @@ ajv.addKeyword("x-stability");
 ajv.addKeyword("x-since");
 ajv.addKeyword("x-deprecated");
 ajv.addKeyword("x-server");
+ajv.addKeyword("x-feature");
+ajv.addKeyword("x-engine-notification");
 if (!ajv.validateSchema(schema)) throw new Error(`rpc.schema.json is not a valid schema: ${ajv.errorsText()}`);
 
 // 2. Method and notification names come from the schema, never from a hand list.
 const methods = Object.keys(schema.$defs.methods);
 const notifications = Object.keys(schema.$defs.notifications);
-// Methods are served by the core, the supervisor or a module process (1.3.0); notifications come from the first two.
-for (const [kind, defs, servers] of [["method", schema.$defs.methods, ["core", "supervisor", "module"]], ["notification", schema.$defs.notifications, ["core", "supervisor"]]]) {
+// The four serving roles share one schema. Modules expose methods only; the engine also emits notifications.
+for (const [kind, defs, servers] of [["method", schema.$defs.methods, ["core", "supervisor", "module", "engine"]], ["notification", schema.$defs.notifications, ["core", "supervisor", "engine"]]]) {
   for (const [name, def] of Object.entries(defs)) {
     if (!servers.includes(def["x-server"])) throw new Error(`rpc.schema.json: ${kind} ${name} lacks x-server ${servers.join("|")}`);
   }
@@ -60,5 +63,5 @@ writeFileSync(join(outDir, "names.json"), JSON.stringify({ rpc: schema["x-rpc-ve
 const { buildCapabilities } = await import(pathToFileURL(join(here, "index.ts")).href);
 const capDir = join(here, "..", "fixtures", "capabilities");
 mkdirSync(capDir, { recursive: true });
-for (const server of ["core", "supervisor", "module"]) writeFileSync(join(capDir, `${server}.json`), JSON.stringify(buildCapabilities([], server), null, 2) + "\n");
+for (const server of ["core", "supervisor", "module", "engine"]) writeFileSync(join(capDir, `${server}.json`), JSON.stringify(buildCapabilities([], server), null, 2) + "\n");
 console.log(`rpc-schema: ${methods.length} methods, ${notifications.length} notifications → generated/`);

@@ -6,6 +6,7 @@ import unittest
 from tests import FIXTURES_DIR
 
 from plur1bus_memory_client import core_address, core_pid_path, core_token_path, default_home, is_absolute_home
+from plur1bus_memory_client.paths import _address
 
 
 def _load(name: str) -> list[dict]:
@@ -14,6 +15,12 @@ def _load(name: str) -> list[dict]:
 
 
 class PathsTest(unittest.TestCase):
+    def test_engine_address_matches_the_shared_vectors(self) -> None:
+        for v in _load("address-vectors.json"):
+            with self.subTest(home=v["home"], platform=v["platform"]):
+                self.assertIn("engineAddress", v)
+                self.assertEqual(_address(v["home"], v["platform"], "engine"), v["engineAddress"])
+
     def test_core_address_matches_the_shared_vectors(self) -> None:
         vectors = _load("address-vectors.json")
         self.assertGreaterEqual(len(vectors), 10)

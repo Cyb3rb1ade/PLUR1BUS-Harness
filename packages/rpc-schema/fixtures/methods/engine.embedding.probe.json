@@ -1,0 +1,15 @@
+{
+  "params": {},
+  "result": {
+    "ok": false,
+    "cached": false,
+    "identity": {
+      "fingerprintId": "workspace:v1:test",
+      "provider": "workspace:v1:test",
+      "model": "workspace:v1:test",
+      "dimensions": 0
+    },
+    "durationMs": 0,
+    "checkedAt": 0
+  }
+}

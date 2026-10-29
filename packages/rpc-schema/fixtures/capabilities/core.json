@@ -1034,6 +1034,10 @@
     }
   },
   "notifications": {
+    "egress.changed": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
     "devices.trust.next": {
       "stability": "experimental",
       "since": "1.6.0"
