@@ -479,11 +479,10 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         const type = req.headers["content-type"];
         if (typeof type !== "string" || !/^multipart\/form-data\s*;/i.test(type)) throw new ApiError(415, "E_INVALID_PARAMS", "multipart/form-data is required", { reason: "unsupported-media-type" });
         const owner = webPrincipal(resolved!.rbac, resolved!.principal.kind === "owner").userId;
-        try {
-          const result = await store.receive(req.iterator({ destroyOnReturn: false }), type, owner);
-          const body = spec.id === "extensions.upload" ? result : { snapshotId: result.uploadId, expiresAt: result.expiresAt, sha256: result.sha256 };
-          status = 200; send(res, 200, body, rotated ? { "Set-Cookie": rotated } : {});
-        } catch (error) { if (!req.complete) drain(req, 65536); throw error; }
+        // A refused upload is answered by the catch below, which lingers on the unread rest (lingerUnread) within bounds.
+        const result = await store.receive(req.iterator({ destroyOnReturn: false }), type, owner);
+        const body = spec.id === "extensions.upload" ? result : { snapshotId: result.uploadId, expiresAt: result.expiresAt, sha256: result.sha256 };
+        status = 200; send(res, 200, body, rotated ? { "Set-Cookie": rotated } : {});
         return;
       }
       let body: unknown = preReadBody;
