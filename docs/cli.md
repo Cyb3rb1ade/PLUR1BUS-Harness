@@ -4262,7 +4262,7 @@ Examples:
 
 **Usage:** `plur1bus import [OPTIONS] <SOURCE_TYPE>`
 
-SSH examples:
+Examples:
   plur1bus import ssh --key generate
   plur1bus import ssh --ssh reader@host:22 --source /srv/source --allow-egress --probe-host-key
   plur1bus import ssh --connection ID --trust-host-key SHA256:... --probe-id TOKEN

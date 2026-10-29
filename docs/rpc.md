@@ -4912,7 +4912,7 @@ List bounded human-owned maintenance history.
       "type": "integer",
       "minimum": 1,
       "maximum": 100,
-      "default": 25
+      "description": "Maximum number of runs. The server uses 25 when this field is omitted."
     },
     "before": {
       "type": "string",
@@ -9086,13 +9086,11 @@ Person-bound desktop attach operation. Private admin.api operations require the 
     },
     "extensions": {
       "type": "boolean",
-      "default": false,
-      "description": "Since 1.7.0: an explicit Owner/Admin request to enrol extensions.read and extensions.manage in this person-bound desktop grant; false preserves the initial fixed scopes. Never inferred from role."
+      "description": "Since 1.8.0: an explicit Owner/Admin request to enrol extensions.read and extensions.manage in this person-bound desktop grant; omission or false preserves the initial fixed scopes. Never inferred from role."
     },
     "imports": {
       "type": "boolean",
-      "default": false,
-      "description": "Since 1.7.0: an explicit Owner/Admin request to enrol imports.read and imports.manage in this person-bound desktop grant. Never inferred from role or a native upload request."
+      "description": "Since 1.8.0: an explicit Owner/Admin request to enrol imports.read and imports.manage in this person-bound desktop grant. The server uses false when omitted. Never inferred from role or a native upload request."
     }
   },
   "required": [
@@ -33905,7 +33903,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "type": "integer",
       "minimum": 1,
       "maximum": 65535,
-      "default": 22
+      "description": "SSH port. The server uses 22 when this field is omitted."
     },
     "user": {
       "type": "string",
@@ -33925,7 +33923,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "allowPrivate": {
       "type": "boolean",
-      "default": false
+      "description": "Explicit private-address consent for this connection. The server uses false when omitted."
     }
   }
 }

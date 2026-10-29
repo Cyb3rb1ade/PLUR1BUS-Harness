@@ -329,7 +329,7 @@ Examples:
 /// `plur1bus import` (docs/import.md §8, §9). Without --detect, --skills or --rollback it answers the M7 stub.
 #[derive(Args, Debug)]
 #[command(
-    after_help = "SSH examples:\n  plur1bus import ssh --key generate\n  plur1bus import ssh --ssh reader@host:22 --source /srv/source --allow-egress --probe-host-key\n  plur1bus import ssh --connection ID --trust-host-key SHA256:... --probe-id TOKEN\n  plur1bus import hermes --ssh reader@host:22 --source /srv/source --detect"
+    after_help = "Examples:\n  plur1bus import ssh --key generate\n  plur1bus import ssh --ssh reader@host:22 --source /srv/source --allow-egress --probe-host-key\n  plur1bus import ssh --connection ID --trust-host-key SHA256:... --probe-id TOKEN\n  plur1bus import hermes --ssh reader@host:22 --source /srv/source --detect"
 )]
 pub struct ImportArgs {
     /// Source system to read (never modified)
