@@ -107,6 +107,30 @@ export class McpServerCore {
     return this.sortedTools;
   }
 
+  async executeTool(
+    name: string,
+    args: Record<string, unknown> = {},
+    toolCtx?: McpToolContext,
+  ): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean }> {
+    const tool = this.toolByName.get(name);
+    if (!tool) {
+      throw new McpError(ErrorCode.MethodNotFound, `Tool not found: ${name}`);
+    }
+    const effectiveCtx = toolCtx ?? this.config.context;
+    try {
+      const result = await tool.handler(args, effectiveCtx);
+      const text = typeof result === "string" ? result : JSON.stringify(result);
+      return {
+        content: [{ type: "text", text }],
+      };
+    } catch (err) {
+      return {
+        content: [{ type: "text", text: err instanceof Error ? err.message : "Tool execution failed" }],
+        isError: true,
+      };
+    }
+  }
+
   private createLegacyMcpServer(toolCtx?: McpToolContext): McpServer {
     const mcpServer = new McpServer(MCP_SERVER_INFO, {
       capabilities: { tools: {} },

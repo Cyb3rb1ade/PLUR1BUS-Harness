@@ -1,4 +1,4 @@
-import type { Principal } from "@plur1bus/core";
+import type { RbacPrincipal as Principal } from "../rbac-bridge.ts";
 import type { ApiTokenRecord } from "../ports.ts";
 
 export const MCP_MAX_BODY_BYTES = 256 * 1024;
