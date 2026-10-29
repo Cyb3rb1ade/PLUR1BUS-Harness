@@ -94,6 +94,7 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libsecret-1-dev patchelf xvfb openbox dbus-x11
       - run: pnpm install --frozen-lockfile
+      - run: pnpm gen
       - name: Isolate UI test browser storage
         run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/plur1bus-playwright" >> "$GITHUB_ENV"
       - name: Lifecycle report path (runner.temp is not available in job-level env)
@@ -341,6 +342,7 @@ jobs:
         with:
           toolchain: "1.95"
       - run: pnpm install --frozen-lockfile
+      - run: pnpm gen
       - run: pnpm --filter @plur1bus/desktop-ui build
       - name: Run independent repetitions (no retries)
         timeout-minutes: ${{ matrix.suite == 'spa' && 100 || 60 }}
@@ -384,6 +386,7 @@ jobs:
       - name: Native test dependencies
         run: sudo apt-get update && sudo apt-get install -y podman libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libsecret-1-dev
       - run: pnpm install --frozen-lockfile
+      - run: pnpm gen
       - run: pnpm --filter @plur1bus/desktop-ui build
       - name: Upgrade and rollback with synthetic persisted device state
         run: node apps/desktop/scripts/upgrade-e2e.mjs "${{ matrix.runtime }}"
@@ -407,7 +410,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with: { toolchain: "1.95" }
       - run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libsecret-1-dev
-      - run: pnpm install --frozen-lockfile && pnpm --filter @plur1bus/desktop-ui build
+      - run: pnpm install --frozen-lockfile && pnpm gen && pnpm --filter @plur1bus/desktop-ui build
       - name: Compile actual shell with experimental runtime (advisory)
         shell: bash
         run: |
@@ -441,7 +444,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with: { toolchain: "1.95" }
       - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libsecret-1-dev patchelf
-      - run: pnpm install --frozen-lockfile && pnpm --filter @plur1bus/desktop-ui build
+      - run: pnpm install --frozen-lockfile && pnpm gen && pnpm --filter @plur1bus/desktop-ui build
       - name: Build twice and compare bundle hashes
         working-directory: apps/desktop
         shell: bash
