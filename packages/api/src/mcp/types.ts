@@ -1,5 +1,6 @@
 import type { RbacPrincipal as Principal } from "../rbac-bridge.ts";
 import type { ApiTokenRecord } from "../ports.ts";
+import type { AuditEmitter } from "../audit.ts";
 
 export const MCP_MAX_BODY_BYTES = 256 * 1024;
 export const MCP_DEFAULT_TOOL_TTL_MS = 60_000;
@@ -23,6 +24,8 @@ export interface McpToolContext {
   rbac?: Principal;
   signal?: AbortSignal;
   core?: unknown;
+  audit?: AuditEmitter;
+  actor?: string;
 }
 
 export interface McpToolDef {
@@ -40,4 +43,6 @@ export interface McpServerConfig {
   tokenId?: string;
   rbac?: Principal;
   core?: unknown;
+  audit?: AuditEmitter;
+  actor?: string;
 }

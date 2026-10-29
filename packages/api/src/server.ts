@@ -92,6 +92,7 @@ export interface ApiServerOptions {
   tls?: { key: string | Buffer; cert: string | Buffer };
   logger?: ApiLogger; clock?: Clock;
   limits?: Partial<ApiLimits>; rateClasses?: RateClasses; /** Most model-backed operations (chat turn, job or dream run, realtime voice) running at once, installation-wide. Default 8. */ expensiveConcurrency?: number; sessionLimits?: SessionLimits; lockout?: Partial<LockoutPolicy>;
+  mcpConfig?: import("./mcp/activation.ts").McpServerConfigLike | (() => Promise<import("./mcp/activation.ts").McpServerConfigLike | undefined> | import("./mcp/activation.ts").McpServerConfigLike | undefined) | undefined;
   /** Test seam: routes served besides the table, to prove what the dispatcher does with a route that declares nothing. */
   extraRoutes?: ReadonlyArray<{ spec: RouteSpec; handler: Handler }>;
 }
@@ -191,7 +192,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   const maintenanceEvents = maintenance && maintenancePort ? createMaintenanceEvents(maintenance, maintenancePort) : undefined;
   const uploads = o.home ? new ExtensionUploads({ home: o.home, now: () => clock.now() }) : undefined;
   const snapshots = o.home ? new ImportSnapshotUploads({ home: o.home, now: () => clock.now() }) : undefined;
-  const handlerDeps = { core: perRequest.core, desktopStepUp, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, sharedAddress, audit, resolveBootstrap: o.resolveBootstrap, requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor), hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length };
+  const handlerDeps = { core: perRequest.core, desktopStepUp, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, sharedAddress, audit, resolveBootstrap: o.resolveBootstrap, requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor), hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length, mcpConfig: o.mcpConfig };
   const handlers = { ...buildHandlers(handlerDeps), ...extensionHandlers(o.core), ...buildDesktopAttachHandlers({...handlerDeps,core:o.core}, origin=>allowedOrigins.has(origin)), ...buildAccountHandlers(handlerDeps, o.accounts, o.core, o.bootstrapConsumed, !o.remote, () => { const sink=o.breakGlassAudit??o.audit; if(!sink)throw new Error("bootstrap audit unavailable"); sink.append({at:clock.now(),actor:{user:"local-owner",host:"api"},action:"account.bootstrap.commit-attempt",target:"account",detail:{}}); }),...buildWebAuthnHandlers(handlerDeps, o.accounts, (requestOrigin?: string) => o.remote?.publicOrigin ?? o.webauthnOrigin ?? requestOrigin ?? [...allowedOrigins][0]!, o.sharedWebauthnChallenges),...buildRemoteHandlers({core:o.core,home:o.home,audit:o.breakGlassAudit??o.audit,now:()=>clock.now(),certificates:o.remoteCertificates}),...buildRemotePairingHandlers(o.remotePairing) };
   if (o.webRoot !== undefined && !statSync(o.webRoot, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`webRoot ${JSON.stringify(o.webRoot)} is not a directory`);
   const staticFiles = o.webRoot !== undefined ? createStaticServer(o.webRoot) : undefined;
@@ -538,6 +539,51 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         const v = limiter.take("expensive", scope);
         if (!v.ok) rateLimited(scope, "expensive", v.retryAfterSec);
         takeSlot();
+      }
+      if (spec.id === "mcp.server") {
+        let isMcpAsk = false;
+        const mcpMethod = req.headers["mcp-method"];
+        const mcpName = req.headers["mcp-name"];
+        if (mcpMethod === "tools/call" && (mcpName === "agent_ask" || mcpName === "%61%67%65%6e%74%5f%61%73%6b")) {
+          isMcpAsk = true;
+        } else if (rawBody && rawBody.length > 0) {
+          try {
+            const p = JSON.parse(rawBody.toString("utf8"));
+            if (p.method === "tools/call" && p.params?.name === "agent_ask") {
+              isMcpAsk = true;
+            }
+          } catch {
+            // invalid json handled by route handler
+          }
+        }
+        if (isMcpAsk) {
+          const scope = rateKey ?? (tokenRecord ? `token:${tokenRecord.id}` : principalId ? `principal:${principalId}` : `ip:${ip}`);
+          const v = limiter.take("expensive", scope);
+          if (!v.ok) {
+            const agentId = tokenRecord?.binding?.agentId ?? "unknown";
+            audit.emit("mcp.server.denied", principalId ?? tokenRecord?.id ?? "anonymous", `agent:${agentId}`, {
+              tokenId: tokenRecord?.id ?? "-",
+              tool: "agent_ask",
+              agentId,
+              reason: "rate-limited",
+            });
+            rateLimited(scope, "expensive", v.retryAfterSec);
+          }
+          const takeMcpSlot = (): void => {
+            releaseSlot = expensiveSlots.tryAcquire();
+            if (!releaseSlot) {
+              const agentId = tokenRecord?.binding?.agentId ?? "unknown";
+              audit.emit("mcp.server.denied", principalId ?? tokenRecord?.id ?? "anonymous", `agent:${agentId}`, {
+                tokenId: tokenRecord?.id ?? "-",
+                tool: "agent_ask",
+                agentId,
+                reason: "concurrency-limit",
+              });
+              rateLimited("expensive:concurrency", "expensive", 2);
+            }
+          };
+          takeMcpSlot();
+        }
       }
 
       let timer: NodeJS.Timeout | undefined;

@@ -38,6 +38,8 @@ export interface StartOptions {
   /** Share the clock with a core built beforehand (see `miniCore`). */
   clock?: FakeClock;
   accounts?: import("../src/account-store.ts").AccountStore;
+  tokens?: import("../src/ports.ts").TokenStore;
+  mcpConfig?: ApiServerOptions["mcpConfig"];
   users?: MemoryUserDirectory; lockout?: Partial<LockoutPolicy>; extraRoutes?: ApiServerOptions["extraRoutes"]; webRoot?: string;
   /** The API's own unbuffered sink (bootstrap, remote); `noAudit` configures no sink at all. Break-glass is the core's, see `miniCore`. */
   breakGlassAudit?: AuditSink; auditSink?: AuditSink; noAudit?: boolean;
@@ -54,6 +56,7 @@ export async function start(o: StartOptions = {}): Promise<Harness> {
     ...(o.remotePairing ? { remotePairing: o.remotePairing } : {}), ...(o.remoteCertificates ? { remoteCertificates: o.remoteCertificates } : {}),
     core, ownerToken: OWNER_TOKEN, clock, users, ...(o.accounts ? { accounts: o.accounts } : {}), ...(o.noAudit ? {} : { audit: o.auditSink ?? audit }), logger: { debug: sink("debug"), info: sink("info"), warn: sink("warn"), error: sink("error") },
     ...(o.limits ? { limits: o.limits } : {}), ...(o.rateClasses ? { rateClasses: o.rateClasses } : {}), ...(o.sessionLimits ? { sessionLimits: o.sessionLimits } : {}),
+    ...(o.tokens ? { tokens: o.tokens } : {}), ...(o.mcpConfig ? { mcpConfig: o.mcpConfig } : {}),
     ...(o.lockout ? { lockout: o.lockout } : {}), ...(o.extraRoutes ? { extraRoutes: o.extraRoutes } : {}), ...(o.webRoot ? { webRoot: o.webRoot } : {}),
     ...(o.breakGlassAudit ? { breakGlassAudit: o.breakGlassAudit } : {}),
     ...(o.remote ? { remote: o.remote } : {}), ...(o.requireSecondFactor ? { requireSecondFactor: o.requireSecondFactor } : {}), ...(o.expensiveConcurrency ? { expensiveConcurrency: o.expensiveConcurrency } : {}),

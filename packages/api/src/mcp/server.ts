@@ -92,6 +92,10 @@ export class McpServerCore {
   private readonly headerExtractors = new Map<string, (args: Record<string, unknown>) => Record<string, string>>();
   private readonly ttlMs: number;
   private readonly config: McpServerConfig;
+  private readonly audit?: import("../audit.ts").AuditEmitter;
+  private readonly actor: string;
+  private readonly agentId: string;
+  private readonly tokenId: string;
 
   constructor(config: McpServerConfig) {
     this.config = config;
@@ -101,6 +105,10 @@ export class McpServerCore {
       this.headerExtractors.set(tool.name, buildToolHeaderExtractor(tool.inputSchema));
     }
     this.ttlMs = config.ttlMs ?? MCP_DEFAULT_TOOL_TTL_MS;
+    this.audit = config.audit;
+    this.actor = config.actor ?? config.tokenId ?? "token-caller";
+    this.agentId = config.agentId ?? "main";
+    this.tokenId = config.tokenId ?? "-";
   }
 
   getTools(): readonly McpToolDef[] {
@@ -114,9 +122,27 @@ export class McpServerCore {
   ): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean }> {
     const tool = this.toolByName.get(name);
     if (!tool) {
+      this.audit?.emit("mcp.server.denied", this.actor, `agent:${this.agentId}`, {
+        tokenId: this.tokenId,
+        tool: name,
+        agentId: this.agentId,
+        reason: "tool-not-found",
+      });
       throw new McpError(ErrorCode.MethodNotFound, `Tool not found: ${name}`);
     }
-    const effectiveCtx = toolCtx ?? this.config.context;
+    const effectiveCtx = toolCtx ?? {
+      agentId: this.agentId,
+      tokenId: this.tokenId,
+      rbac: this.config.rbac,
+      core: this.config.core,
+      audit: this.audit,
+      actor: this.actor,
+    };
+    this.audit?.emit("mcp.server.call", this.actor, `agent:${this.agentId}`, {
+      tokenId: this.tokenId,
+      tool: name,
+      agentId: this.agentId,
+    });
     try {
       const result = await tool.handler(args, effectiveCtx);
       const text = typeof result === "string" ? result : JSON.stringify(result);
@@ -146,8 +172,19 @@ export class McpServerCore {
       const name = req.params.name;
       const tool = this.toolByName.get(name);
       if (!tool) {
+        this.audit?.emit("mcp.server.denied", this.actor, `agent:${this.agentId}`, {
+          tokenId: this.tokenId,
+          tool: name,
+          agentId: this.agentId,
+          reason: "tool-not-found",
+        });
         throw new McpError(ErrorCode.MethodNotFound, `Tool not found: ${name}`);
       }
+      this.audit?.emit("mcp.server.call", this.actor, `agent:${this.agentId}`, {
+        tokenId: this.tokenId,
+        tool: name,
+        agentId: this.agentId,
+      });
       try {
         const result = await tool.handler((req.params.arguments ?? {}) as Record<string, unknown>, toolCtx);
         const text = typeof result === "string" ? result : JSON.stringify(result);
@@ -260,11 +297,13 @@ export class McpServerCore {
       rpc.method === "server/discover";
 
     const toolCtx: McpToolContext = {
-      agentId: this.config.agentId ?? "main",
-      tokenId: this.config.tokenId,
+      agentId: this.agentId,
+      tokenId: this.tokenId,
       rbac: this.config.rbac,
       signal,
       core: this.config.core,
+      audit: this.audit,
+      actor: this.actor,
     };
 
     if (isModernRequest) {
@@ -310,12 +349,24 @@ export class McpServerCore {
         const toolName = typeof params.name === "string" ? params.name : "";
         const expectedNameHeader = encodeMcpHeaderValue(toolName);
         if (getSingleHeader(req, "mcp-name") !== expectedNameHeader) {
+          this.audit?.emit("mcp.server.denied", this.actor, `agent:${this.agentId}`, {
+            tokenId: this.tokenId,
+            tool: toolName || "unknown",
+            agentId: this.agentId,
+            reason: "header-mismatch",
+          });
           sendJsonRpcError(res, requestId, -32020, "Mcp-Name header missing or mismatched");
           return;
         }
 
         const tool = this.toolByName.get(toolName);
         if (!tool) {
+          this.audit?.emit("mcp.server.denied", this.actor, `agent:${this.agentId}`, {
+            tokenId: this.tokenId,
+            tool: toolName || "unknown",
+            agentId: this.agentId,
+            reason: "tool-not-found",
+          });
           sendJsonRpcError(res, requestId, ErrorCode.MethodNotFound, `Tool not found: ${toolName}`);
           return;
         }
@@ -331,22 +382,46 @@ export class McpServerCore {
           try {
             expectedParamHeaders = extractor(args);
           } catch {
+            this.audit?.emit("mcp.server.denied", this.actor, `agent:${this.agentId}`, {
+              tokenId: this.tokenId,
+              tool: toolName,
+              agentId: this.agentId,
+              reason: "invalid-parameter-header",
+            });
             sendJsonRpcError(res, requestId, -32020, "Invalid tool header parameter");
             return;
           }
           for (const [headerKey, expectedVal] of Object.entries(expectedParamHeaders)) {
             if (getSingleHeader(req, headerKey) !== expectedVal) {
+              this.audit?.emit("mcp.server.denied", this.actor, `agent:${this.agentId}`, {
+                tokenId: this.tokenId,
+                tool: toolName,
+                agentId: this.agentId,
+                reason: "header-mismatch",
+              });
               sendJsonRpcError(res, requestId, -32020, `Mismatched ${headerKey} header`);
               return;
             }
           }
           for (const key of Object.keys(req.headers)) {
             if (key.startsWith("mcp-param-") && !(key in expectedParamHeaders)) {
+              this.audit?.emit("mcp.server.denied", this.actor, `agent:${this.agentId}`, {
+                tokenId: this.tokenId,
+                tool: toolName,
+                agentId: this.agentId,
+                reason: "unexpected-parameter-header",
+              });
               sendJsonRpcError(res, requestId, -32020, `Unexpected ${key} header`);
               return;
             }
           }
         }
+
+        this.audit?.emit("mcp.server.call", this.actor, `agent:${this.agentId}`, {
+          tokenId: this.tokenId,
+          tool: toolName,
+          agentId: this.agentId,
+        });
 
         try {
           const out = await tool.handler(args, toolCtx);
@@ -372,6 +447,21 @@ export class McpServerCore {
     }
 
     // Legacy era (2025-11-25 and older): dispatch to v1 McpServer
+    if (parsedBody && typeof parsedBody === "object") {
+      const legacyRpc = parsedBody as Record<string, unknown>;
+      if (legacyRpc.method === "tools/call") {
+        const legacyParams = (legacyRpc.params && typeof legacyRpc.params === "object" ? legacyRpc.params : {}) as Record<string, unknown>;
+        const legacyToolName = typeof legacyParams.name === "string" ? legacyParams.name : "";
+        if (!this.toolByName.has(legacyToolName)) {
+          this.audit?.emit("mcp.server.denied", this.actor, `agent:${this.agentId}`, {
+            tokenId: this.tokenId,
+            tool: legacyToolName || "unknown",
+            agentId: this.agentId,
+            reason: "tool-not-found",
+          });
+        }
+      }
+    }
     const legacyServer = this.createLegacyMcpServer(toolCtx);
     const transport = new StreamableHTTPServerTransport({
       enableJsonResponse: true,

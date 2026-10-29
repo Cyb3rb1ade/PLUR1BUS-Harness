@@ -1,6 +1,7 @@
 import { CHANNEL_HANDOFF_ROUTES, channelHandoffHandlers } from "./channel-handoff-routes.ts";
 import { EXTENSION_COMPONENTS, EXTENSION_ROUTES, extensionHandlers } from "./extension-routes.ts";
 import { IMPORT_ROUTES, importHandlers } from "./import-routes.ts";
+import { MCP_ROUTES, buildMcpHandlers } from "./mcp/routes.ts";
 import { buildDesktopAttachHandlers } from "./desktop-attach-routes.ts";
 import { DESKTOP_ATTACH_ROUTES } from "./desktop-attach-contract.ts";
 import { DESKTOP_STEPUP_ROUTES } from "./desktop-stepup-contract.ts";
@@ -107,6 +108,7 @@ const SESSION_TIMES = { createdAt: iso, expiresAt: iso, idleExpiresAt: iso };
 export const ROUTES: readonly RouteSpec[] = [
   ...IMPORT_ROUTES,
   ...EXTENSION_ROUTES,
+  ...MCP_ROUTES,
   ...DESKTOP_ATTACH_ROUTES, ...DESKTOP_STEPUP_ROUTES, ...TRANSPORT_ROUTES, ...ACCOUNT_ROUTES, ...WEBAUTHN_ROUTES, ...CHAT_ROUTES, ...WS_ROUTES, ...REMOTE_ROUTES, ...REMOTE_PAIRING_ROUTES, ...CHANNEL_HANDOFF_ROUTES,
   {
     id: "session.create", method: "POST", path: `${API_PREFIX}/session`, tag: "session", summary: "Log in with a local account or an explicitly configured compatibility credential; sets the session cookie",
@@ -299,6 +301,7 @@ export interface HandlerDeps {
   /** All clients reach the API from one address (tailnet mode): login attempts are then also bucketed per account name. */
   sharedAddress?: boolean | undefined;
   audit: AuditEmitter;
+  mcpConfig?: import("./mcp/activation.ts").McpServerConfigLike | (() => Promise<import("./mcp/activation.ts").McpServerConfigLike | undefined> | import("./mcp/activation.ts").McpServerConfigLike | undefined) | undefined;
 }
 
 const iso8601 = (ms: number) => new Date(ms).toISOString();
@@ -387,6 +390,7 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
   return {
     ...importHandlers(),
     ...extensionHandlers(d.core),
+    ...buildMcpHandlers(d),
     ...buildDesktopAttachHandlers(d, () => false),
     ...buildDesktopStepUpHandlers(d),
     ...buildAccountHandlers(d, undefined, d.core),
