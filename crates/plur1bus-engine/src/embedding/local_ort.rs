@@ -16,6 +16,57 @@ mod session;
 /// Transformers.js-compatible encode-then-cut tokenization and batch padding.
 pub mod tokenizer;
 
+/// Width of one media feature row. EmbeddingGemma 2 declares `image_features`, `video_features` and `audio_features`
+/// as `f32 [n, 512]` beside its text inputs.
+pub const MEDIA_FEATURE_WIDTH: usize = 512;
+
+/// Rows of precomputed media features for one media input, `rows × MEDIA_FEATURE_WIDTH` finite values.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MediaFeatures {
+    rows: usize,
+    values: Vec<f32>,
+}
+
+impl MediaFeatures {
+    /// Checks the row width and that every value is finite.
+    pub fn new(rows: usize, values: Vec<f32>) -> Result<Self, LocalModelError> {
+        if rows.checked_mul(MEDIA_FEATURE_WIDTH) != Some(values.len())
+            || values.iter().any(|value| !value.is_finite())
+        {
+            return Err(LocalModelError::InvalidTensor);
+        }
+        Ok(Self { rows, values })
+    }
+    /// The number of feature rows.
+    pub fn rows(&self) -> usize {
+        self.rows
+    }
+}
+
+/// The media a model may receive beside text. Text-only embedding passes the default: a model that declares a known
+/// media input then gets it empty (`[0, 512]`). Encoders and preprocessing that produce real features are not part
+/// of this crate yet; they hand them to inference here, and a model without the matching input refuses them.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct MediaInputs {
+    /// `image_features`.
+    pub image: Option<MediaFeatures>,
+    /// `video_features`.
+    pub video: Option<MediaFeatures>,
+    /// `audio_features`.
+    pub audio: Option<MediaFeatures>,
+}
+
+impl MediaInputs {
+    /// The graph input names this crate knows as optional media inputs, with the features given for each.
+    fn by_name(&self) -> [(&'static str, Option<&MediaFeatures>); 3] {
+        [
+            ("image_features", self.image.as_ref()),
+            ("video_features", self.video.as_ref()),
+            ("audio_features", self.audio.as_ref()),
+        ]
+    }
+}
+
 /// Bounded local-model errors; input text and native runtime messages are never retained.
 #[derive(Debug)]
 pub enum LocalModelError {
@@ -291,6 +342,7 @@ pub(super) fn infer(
     prepared: &PreparedLocal,
     batch: &tokenizer::EncodedBatch,
     task_id: Option<i64>,
+    media: &MediaInputs,
     cancel: &Cancel,
 ) -> Result<session::InferenceOutputs, LocalModelError> {
     session::infer(
@@ -298,6 +350,7 @@ pub(super) fn infer(
         &prepared.model_path,
         batch,
         task_id,
+        media,
         cancel,
         || {
             // The single process session can be evicted by another model. Verify every
@@ -490,8 +543,15 @@ impl EmbeddingProvider for LocalEmbedding {
                 .tokenizer
                 .encode_batch(&prefixed, None)
                 .map_err(EmbedError::from)?;
-            let outputs =
-                infer(self.profile, &prepared, &batch, task, cancel).map_err(EmbedError::from)?;
+            let outputs = infer(
+                self.profile,
+                &prepared,
+                &batch,
+                task,
+                &MediaInputs::default(),
+                cancel,
+            )
+            .map_err(EmbedError::from)?;
             let rows = project_outputs(self.profile, &batch, self.width, &outputs)
                 .map_err(EmbedError::from)?;
             vectors.extend(rows);

@@ -1,11 +1,11 @@
 //! Shared CPU ONNX sessions; inference results own their buffers before the session lock is released.
 
-use super::{tokenizer::EncodedBatch, LocalModelError};
+use super::{tokenizer::EncodedBatch, LocalModelError, MediaInputs, MEDIA_FEATURE_WIDTH};
 use crate::contract::Cancel;
 use crate::embedding::artifacts::Artifact;
 use ort::environment::{Environment, GlobalThreadPoolOptions};
 use ort::session::{builder::GraphOptimizationLevel, RunOptions, Session};
-use ort::value::{Tensor, TensorElementType, ValueType};
+use ort::value::{DynValue, Tensor, TensorElementType, ValueType};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -136,9 +136,13 @@ fn shared_session(
     Ok(slot)
 }
 
+fn expected_tensor(dtype: &ValueType, element: TensorElementType, expected: &[usize]) -> bool {
+    matches!(dtype, ValueType::Tensor { ty, shape, .. }
+        if *ty == element && shape.len() == expected.len() && shape.iter().zip(expected).all(|(actual, wanted)| *actual == -1 || usize::try_from(*actual).ok() == Some(*wanted)))
+}
+
 fn expected_input(dtype: &ValueType, expected: &[usize]) -> bool {
-    matches!(dtype, ValueType::Tensor { ty: TensorElementType::Int64, shape, .. }
-        if shape.len() == expected.len() && shape.iter().zip(expected).all(|(actual, wanted)| *actual == -1 || usize::try_from(*actual).ok() == Some(*wanted)))
+    expected_tensor(dtype, TensorElementType::Int64, expected)
 }
 
 fn inputs(
@@ -146,7 +150,8 @@ fn inputs(
     profile: &Artifact,
     batch: &EncodedBatch,
     task_id: Option<i64>,
-) -> Result<Vec<(String, Tensor<i64>)>, LocalModelError> {
+    media: &MediaInputs,
+) -> Result<Vec<(String, DynValue)>, LocalModelError> {
     let count = batch
         .batch
         .checked_mul(batch.sequence)
@@ -171,6 +176,13 @@ fn inputs(
     {
         return Err(LocalModelError::InvalidTensor);
     }
+    let media = media.by_name();
+    // Features for a media input the graph does not declare are refused, never dropped.
+    if media.iter().any(|(name, given)| {
+        given.is_some() && !session.inputs().iter().any(|input| input.name() == *name)
+    }) {
+        return Err(LocalModelError::InvalidTensor);
+    }
     let mut values = Vec::with_capacity(session.inputs().len());
     for input in session.inputs() {
         let data = match input.name() {
@@ -192,11 +204,35 @@ fn inputs(
                 values.push((
                     input.name().to_owned(),
                     Tensor::from_array(([1usize], vec![task]))
-                        .map_err(|_| LocalModelError::InvalidTensor)?,
+                        .map_err(|_| LocalModelError::InvalidTensor)?
+                        .into_dyn(),
                 ));
                 continue;
             }
-            _ => return Err(LocalModelError::InvalidTensor),
+            name => {
+                // A known optional media input: f32 [n, 512], empty for text-only calls. Any other name is refused.
+                let (_, given) = media
+                    .iter()
+                    .find(|(known, _)| *known == name)
+                    .ok_or(LocalModelError::InvalidTensor)?;
+                let (rows, data) = given.map_or((0, Vec::new()), |features| {
+                    (features.rows, features.values.clone())
+                });
+                if !expected_tensor(
+                    input.dtype(),
+                    TensorElementType::Float32,
+                    &[rows, MEDIA_FEATURE_WIDTH],
+                ) {
+                    return Err(LocalModelError::InvalidTensor);
+                }
+                values.push((
+                    input.name().to_owned(),
+                    Tensor::from_array(([rows, MEDIA_FEATURE_WIDTH], data))
+                        .map_err(|_| LocalModelError::InvalidTensor)?
+                        .into_dyn(),
+                ));
+                continue;
+            }
         };
         if !expected_input(input.dtype(), &[batch.batch, batch.sequence]) {
             return Err(LocalModelError::InvalidTensor);
@@ -204,7 +240,8 @@ fn inputs(
         values.push((
             input.name().to_owned(),
             Tensor::from_array(([batch.batch, batch.sequence], data.clone()))
-                .map_err(|_| LocalModelError::InvalidTensor)?,
+                .map_err(|_| LocalModelError::InvalidTensor)?
+                .into_dyn(),
         ));
     }
     Ok(values)
@@ -283,13 +320,14 @@ pub(super) fn infer(
     model_path: &Path,
     batch: &EncodedBatch,
     task_id: Option<i64>,
+    media: &MediaInputs,
     cancel: &Cancel,
     load_verifier: impl FnOnce() -> Result<(), LocalModelError>,
 ) -> Result<InferenceOutputs, LocalModelError> {
     cancel.check()?;
     let mut slot = shared_session(profile, model_path, cancel, load_verifier)?;
     let session = &mut slot.as_mut().ok_or(LocalModelError::RuntimeFailed)?.session;
-    let values = inputs(session, profile, batch, task_id)?;
+    let values = inputs(session, profile, batch, task_id, media)?;
     cancel.check()?;
     let options = RunOptions::new().map_err(|_| LocalModelError::RuntimeFailed)?;
     let outputs = with_watchdog(cancel, &options, || {
@@ -328,6 +366,7 @@ pub(super) fn infer(
 mod tests {
     use super::*;
     use crate::embedding::artifacts::pinned_profile;
+    use crate::embedding::local_ort::MediaFeatures;
     use std::fs;
     use std::path::PathBuf;
     mod runtime {
@@ -344,7 +383,15 @@ mod tests {
         task_id: Option<i64>,
         cancel: &Cancel,
     ) -> Result<InferenceOutputs, LocalModelError> {
-        super::infer(profile, model_path, batch, task_id, cancel, || Ok(()))
+        super::infer(
+            profile,
+            model_path,
+            batch,
+            task_id,
+            &MediaInputs::default(),
+            cancel,
+            || Ok(()),
+        )
     }
     static TEST_SESSIONS: Mutex<()> = Mutex::new(());
     fn runtime() -> MutexGuard<'static, ()> {
@@ -373,10 +420,18 @@ mod tests {
         ]
         .concat()
     }
+    /// A symbolic (`dim_param`) dimension, as an exported graph declares a variable row count.
+    const DYNAMIC: u64 = u64::MAX;
     fn value_info(name: &str, kind: u64, shape: &[u64]) -> Vec<u8> {
         let dims: Vec<u8> = shape
             .iter()
-            .flat_map(|dim| message(1, integer(1, *dim)))
+            .flat_map(|dim| {
+                if *dim == DYNAMIC {
+                    message(1, message(2, "n"))
+                } else {
+                    message(1, integer(1, *dim))
+                }
+            })
             .collect();
         let tensor = [integer(1, kind), message(2, dims)].concat();
         [message(1, name), message(2, message(1, tensor))].concat()
@@ -388,6 +443,22 @@ mod tests {
         output: &str,
         cast: bool,
         extra: bool,
+        scalar_task: bool,
+    ) -> PathBuf {
+        let extras: &[(&str, u64, &[u64])] = if extra {
+            &[("pixel_values", 7, &[1, 2])]
+        } else {
+            &[]
+        };
+        graph_with(directory, source, output, cast, extras, scalar_task)
+    }
+    /// `graph` with further declared, unconsumed inputs `(name, ONNX element type, shape)`.
+    fn graph_with(
+        directory: &Path,
+        source: &str,
+        output: &str,
+        cast: bool,
+        extras: &[(&str, u64, &[u64])],
         scalar_task: bool,
     ) -> PathBuf {
         let task_tensor = source == "task_id" && !scalar_task;
@@ -440,8 +511,8 @@ mod tests {
                 value_info("task_id", 7, if scalar_task { &[] } else { &[1] }),
             ));
         }
-        if extra {
-            inputs.extend(message(11, value_info("pixel_values", 7, &[1, 2])));
+        for (name, kind, shape) in extras {
+            inputs.extend(message(11, value_info(name, *kind, shape)));
         }
         let shape: &[u64] = if task_tensor {
             &[1, 1, 1]
@@ -497,6 +568,90 @@ mod tests {
         );
         let result = infer(&e5(), &path, &batch(), None, &Cancel::never()).unwrap();
         assert_eq!(result["sentence_embedding"], (vec![1, 2], vec![3.0, 7.0]));
+    }
+    const FLOAT: u64 = 1;
+    const INT64: u64 = 7;
+    const MEDIA: [&str; 3] = ["image_features", "video_features", "audio_features"];
+    fn media_graph(directory: &Path, extras: &[(&str, u64, &[u64])]) -> PathBuf {
+        graph_with(
+            directory,
+            "input_ids",
+            "sentence_embedding",
+            true,
+            extras,
+            false,
+        )
+    }
+    fn infer_media(path: &Path, media: &MediaInputs) -> Result<InferenceOutputs, LocalModelError> {
+        super::infer(&e5(), path, &batch(), None, media, &Cancel::never(), || {
+            Ok(())
+        })
+    }
+    #[test]
+    fn known_media_inputs_receive_empty_features_for_text_and_real_rows_when_given() {
+        let _runtime = runtime();
+        let directory = tempfile::tempdir().unwrap();
+        let width = MEDIA_FEATURE_WIDTH as u64;
+        let shape = [DYNAMIC, width];
+        let extras: Vec<(&str, u64, &[u64])> = MEDIA
+            .iter()
+            .map(|name| (*name, FLOAT, &shape[..]))
+            .collect();
+        let path = media_graph(directory.path(), &extras);
+        let text = infer_media(&path, &MediaInputs::default()).unwrap();
+        assert_eq!(text["sentence_embedding"], (vec![1, 2], vec![3.0, 7.0]));
+        let image = MediaFeatures::new(2, vec![0.5; 2 * MEDIA_FEATURE_WIDTH]).unwrap();
+        let media = MediaInputs {
+            image: Some(image),
+            ..MediaInputs::default()
+        };
+        assert_eq!(infer_media(&path, &media).unwrap(), text);
+    }
+    #[test]
+    fn media_inputs_are_refused_unless_known_float_rows_of_the_declared_width() {
+        let _runtime = runtime();
+        let width = MEDIA_FEATURE_WIDTH as u64;
+        let refused: [&[(&str, u64, &[u64])]; 4] = [
+            &[("image_features", FLOAT, &[DYNAMIC, 256])],
+            &[("audio_features", INT64, &[DYNAMIC, width])],
+            &[("video_features", FLOAT, &[DYNAMIC, width, 1])],
+            // Only the three known names pass; an unknown input of the same shape is still refused.
+            &[("depth_features", FLOAT, &[DYNAMIC, width])],
+        ];
+        for extras in refused {
+            let directory = tempfile::tempdir().unwrap();
+            let path = media_graph(directory.path(), extras);
+            assert!(
+                matches!(
+                    infer_media(&path, &MediaInputs::default()),
+                    Err(LocalModelError::InvalidTensor)
+                ),
+                "{extras:?}"
+            );
+        }
+        // Features for a media input the graph does not declare are refused, not dropped.
+        let directory = tempfile::tempdir().unwrap();
+        let path = media_graph(
+            directory.path(),
+            &[("image_features", FLOAT, &[DYNAMIC, width])],
+        );
+        let audio = MediaFeatures::new(1, vec![0.0; MEDIA_FEATURE_WIDTH]).unwrap();
+        let media = MediaInputs {
+            audio: Some(audio),
+            ..MediaInputs::default()
+        };
+        assert!(matches!(
+            infer_media(&path, &media),
+            Err(LocalModelError::InvalidTensor)
+        ));
+        assert!(matches!(
+            MediaFeatures::new(1, vec![0.0; MEDIA_FEATURE_WIDTH - 1]),
+            Err(LocalModelError::InvalidTensor)
+        ));
+        assert!(matches!(
+            MediaFeatures::new(1, vec![f32::NAN; MEDIA_FEATURE_WIDTH]),
+            Err(LocalModelError::InvalidTensor)
+        ));
     }
     #[test]
     fn shared_session_survives_graph_removal_and_distinguishes_exact_profile_metadata() {
@@ -626,14 +781,32 @@ mod tests {
             calls.set(calls.get() + 1);
             Ok(())
         };
-        super::infer(&e5(), &first_path, &batch(), None, &Cancel::never(), verify).unwrap();
+        super::infer(
+            &e5(),
+            &first_path,
+            &batch(),
+            None,
+            &MediaInputs::default(),
+            &Cancel::never(),
+            verify,
+        )
+        .unwrap();
         assert_eq!(
             calls.get(),
             1,
             "a new native load must verify its current artifact bytes"
         );
         calls.set(0);
-        super::infer(&e5(), &first_path, &batch(), None, &Cancel::never(), verify).unwrap();
+        super::infer(
+            &e5(),
+            &first_path,
+            &batch(),
+            None,
+            &MediaInputs::default(),
+            &Cancel::never(),
+            verify,
+        )
+        .unwrap();
         assert_eq!(
             calls.get(),
             0,
@@ -644,6 +817,7 @@ mod tests {
             &second_path,
             &batch(),
             None,
+            &MediaInputs::default(),
             &Cancel::never(),
             verify,
         )
@@ -653,7 +827,16 @@ mod tests {
             1,
             "switching the native session must verify the replacement"
         );
-        super::infer(&e5(), &first_path, &batch(), None, &Cancel::never(), verify).unwrap();
+        super::infer(
+            &e5(),
+            &first_path,
+            &batch(),
+            None,
+            &MediaInputs::default(),
+            &Cancel::never(),
+            verify,
+        )
+        .unwrap();
         assert_eq!(
             calls.get(),
             2,
@@ -684,6 +867,7 @@ mod tests {
             &missing_graph,
             &batch(),
             None,
+            &MediaInputs::default(),
             &Cancel::never(),
             || {
                 calls.set(calls.get() + 1);
@@ -800,7 +984,8 @@ mod tests {
             });
             let result = with_watchdog(&cancel, &options, || {
                 while std::time::Instant::now() < until {
-                    let values = inputs(session, &profile, &batch, None).unwrap();
+                    let values =
+                        inputs(session, &profile, &batch, None, &MediaInputs::default()).unwrap();
                     if let Err(error) = session.run_with_options(values, &options) {
                         native_terminated.store(true, Ordering::Release);
                         return Err(error);
