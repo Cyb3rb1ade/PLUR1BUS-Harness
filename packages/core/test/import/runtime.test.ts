@@ -89,11 +89,12 @@ it("returns pending promptly while one held target preparation is running and bl
   const prepared = new Promise<void>(resolve => { finish = resolve; });
   let preparations = 0;
   const f = await fixture(false, false, false, { prepareTarget: async () => { preparations++; await prepared; } });
+  let phase = "first complete";
   const prompt = async (method: string) => {
     let timer: NodeJS.Timeout | undefined;
     try {
       return await Promise.race([f.methods.methods[method]!(f.control, ctx), new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error("held runtime RPC waited for target preparation")), 1000);
+        timer = setTimeout(() => reject(new Error(`held runtime RPC waited for target preparation (${method}, ${phase})`)), 1000);
       })]);
     } finally { clearTimeout(timer); }
   };
@@ -101,6 +102,7 @@ it("returns pending promptly while one held target preparation is running and bl
     const original = openMaintenanceJournal(f.home, f.plan.runId).read().targetSha256;
     const first = await prompt("admin.import.runtime.complete") as { state: string };
     assert.equal(first.state, "pending");
+    phase = "held statuses";
     const statuses = await Promise.all(Array.from({ length: 4 }, () => prompt("admin.import.runtime.status")));
     assert.ok(statuses.every(result => (result as { state: string }).state === "pending"));
     for (let n = 0; n < 100 && preparations === 0; n++) await new Promise(resolve => setTimeout(resolve, 5));
@@ -110,6 +112,7 @@ it("returns pending promptly while one held target preparation is running and bl
     assert.equal(openMaintenanceJournal(f.home, f.plan.runId).read().targetSha256, original);
     writeFileSync(join(f.home, "state", "held-bootstrap"), "fully prepared before final proof");
     finish();
+    phase = "publishing statuses";
     const publishing = await Promise.all(Array.from({ length: 16 }, () => prompt("admin.import.runtime.status")));
     assert.ok(publishing.every(result => ["pending", "completed"].includes((result as { state: string }).state)));
     let current: { state: string } = { state: "pending" };
