@@ -147,3 +147,41 @@ it("iterator return closes the adapter and reports cancellation without yielding
     assert.deepEqual(outcomes, ["cancelled"]);
   } finally { f.close(); }
 });
+
+it("N2/6: failed preloads do not count toward the model's error limit; the model runs and sees them", async () => {
+  const wire = scriptedAdapter([{ text: "I could not load the skills." }]);
+  const names = ["broken-a", "broken-b", "broken-c"];
+  let opened = 0;
+  const f = skills(names, wire.adapter, { beforeTools: async () => {
+    if (++opened === 1) for (const name of names) unlinkSync(join(f.home, "skills", name, "SKILL.md"));
+  } });
+  try {
+    const chunks = await collect(f.provider);
+    const results = chunks.filter(chunk => chunk.type === "tool.result");
+    assert.equal(results.length, 3);
+    for (const result of results) assert.equal(JSON.parse(result.output).isError, true);
+    // The model was asked, once, and the three failures are in front of it as paired tool results.
+    assert.equal(wire.requests.length, 1);
+    const seen = wire.requests[0]!.messages.filter(message => message.role === "tool");
+    assert.equal(seen.length, 3);
+    assert.ok(seen.every(message => JSON.parse(String(message.content)).isError === true));
+    const final = chunks.at(-1);
+    assert.equal(final?.type === "telemetry" && final.telemetry.endReason, "completed");
+    assert.equal(final?.type === "telemetry" && final.telemetry.errorsReturned, 3);
+  } finally { f.close(); }
+});
+
+it("N2/6: the model's own error limit still counts after failed preloads", async () => {
+  const wire = scriptedAdapter([{ calls: [{ id: "read", name: "file.read", args: { path: "x" } }] }]);
+  const names = ["broken-a", "broken-b"];
+  let opened = 0;
+  const f = skills(names, wire.adapter, { beforeTools: async () => {
+    if (++opened === 1) for (const name of names) unlinkSync(join(f.home, "skills", name, "SKILL.md"));
+  } });
+  f.registry.register(readTool("file.read", async () => { throw new Error("missing"); }));
+  try {
+    await assert.rejects(() => collect(f.provider), { code: "turn-tool-error-limit" });
+    // Three failed model calls, not five failures in all: the two preloads did not count.
+    assert.equal(wire.requests.length, 3);
+  } finally { f.close(); }
+});

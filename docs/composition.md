@@ -70,7 +70,8 @@ Behaviour at the edges (tests in `provider.test.ts`):
 * Unknown tools, invalid arguments after one repair, denied calls, timeouts and execution failures return typed
   `isError` tool results to the model. An unknown-tool result lists the offered tools and points to
   `capabilities.search`. The next model round can recover. Three consecutive failures end the turn with a clear
-  failure-limit reason; a successful tool call resets the count. The round limit remains 25 by default.
+  failure-limit reason; a successful tool call resets the count. The round limit remains 25 by default. A failed
+  skill preload (the harness's choice, not the model's) is shown to the model as a result and does not count.
   Approval requiring an authenticated person, local-only model refusal, budget refusal and cancellation still stop
   immediately. Human denial reasons otherwise remain typed tool results.
 * **Duplicate tool-call ids in one response are made unique, never merged** (`uniqueToolCallIds`). The first call keeps its

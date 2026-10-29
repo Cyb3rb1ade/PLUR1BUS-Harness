@@ -114,7 +114,8 @@ username words or existing `<deny:ssh>/…#hash` placeholders. The serialized fa
 Unknown-tool results list the offered tools and recommend `capabilities.search`. Invalid calls after the one repair,
 denials, tool errors and timeouts return correlated `tool.result` events and cost another model round. Three
 consecutive failures stop the turn; successful execution resets that count, and fixed internal-error sentences also
-count toward it. A required human approver, local-only refusal, budget refusal or abort still ends immediately.
+count toward it. A harness-chosen skill preload that fails is returned to the model like any failed call but does not count;
+the model always gets to run. A required human approver, local-only refusal, budget refusal or abort still ends immediately.
 Tests: `test/toolcall/model-tool-error.test.ts` and `test/composition/provider.test.ts`.
 
 ## Capability registration, search and routing

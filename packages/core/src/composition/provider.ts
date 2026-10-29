@@ -632,9 +632,9 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         if (output.error.code === 'tool-not-approved' && !output.error.internalFailure) {
           throw new TurnToolError('tool-not-approved', value);
         }
-        if (++consecutiveErrors >= 3) throw new TurnToolError('turn-tool-error-limit', value);
+        // The harness chose these loads, not the model: a failed one is a result the model sees, and only the model's own
+        // consecutive failures count toward the limit. A person's decision, an abort and the budget still end the turn at once.
       } else {
-        consecutiveErrors = 0;
         loaded.set(skill.entry.name, { id, name: skill.entry.name, text, turnId });
       }
     }
