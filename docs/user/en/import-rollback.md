@@ -2,11 +2,11 @@
 
 Every import run that you apply with `--apply` records a report and a snapshot of the state before it. Rollback uses them to put Plur1bus back to that state. The German version of this page is [../de/import-rollback.md](../de/import-rollback.md).
 
-> **Availability:** rolling back what the import wrote to your installation (skills, files, configuration) works today. Undoing the imported **memory cards** is available from Engine 1.15. Until then a rollback reports them as `not-reverted (engine has no undo)` and leaves the memory store as it is.
+> **Scope:** the CLI report distinguishes restored files/configuration, restored or removed stores, and engine-side links. Memory cards without a restorable store snapshot can remain `not-reverted (engine has no undo)`. Inspect the actual report; a rollback does not promise to erase every imported card.
 
-## How to
+## CLI workflow
 
-There is no web UI for this. Use the CLI.
+The [Web import flow](import.md) includes history, rollback preflight and explicit confirmation. Production verification of stopped-Core Web maintenance is still pending; use the existing CLI workflow below until that integration is verified. The Web interface has no force override.
 
 1. Inspect the source and what an import would find. This changes nothing:
 
@@ -32,7 +32,7 @@ The same works for the other import source: run `plur1bus import --help` to see 
 
 - **Preview first:** the rollback is a dry run unless you add `--apply`. The report lists what would be removed, restored or kept.
 - **Your changes are kept:** a file that the import created and that you changed afterwards is not deleted. It is backed up, left in place and reported as `kept-modified`. The option `--force` deletes such files after the backup.
-- **Memory cards:** see the availability note above. A rollback never deletes or changes memory cards today.
+- **Memory cards and links:** check the report. A snapshotted store may be restored or removed, and recorded engine-side links may be unlinked. Cards outside that recovery scope are reported as not reverted.
 - **Fail closed:** a damaged or missing ledger, or a snapshot that does not match its report, stops the rollback instead of reporting success with imported files left behind.
 - **The source is never modified:** your source directory (for example the Hermes directory) is only read, during the import and during the rollback.
 - **Run it once:** a run that was already rolled back is refused. You can import again at any time with other options.
@@ -48,6 +48,8 @@ The importer reports its own error codes; the `reason` says what is wrong.
 - Reason `target-running` (the importer's own error): the core is running. Stop it with `plur1bus daemon stop` and try again.
 
 ## Next
+
+- Source selection, preview and Web maintenance limits: [Import](import.md)
 
 - Routine operations and maintenance: [operations.md](operations.md)
 - Desktop bundles and data migration: [desktop.md](desktop.md)
