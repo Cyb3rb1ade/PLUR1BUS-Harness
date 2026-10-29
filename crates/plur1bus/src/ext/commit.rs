@@ -21,7 +21,7 @@ use super::index::{self, lock_skills, package_entry, ImportLock};
 use super::lifecycle::{
     capabilities_acknowledged, enable_prechecks, mcp_activation_changes, skill_enable_changes,
 };
-use super::overlays::{load_revocations, overlays_of, revoked};
+use super::overlays::{load_revocations, revoked};
 use super::paths::ExtPaths;
 use super::record::{
     allow_internals, check_name, check_unsigned_policy, code_dir, config_key, config_section,
@@ -77,6 +77,26 @@ pub trait ModuleHost {
     /// Holds a packaged module before configuration reconciliation can start newly placed code. A7 resolves the
     /// actual slot availability through fresh Core metadata; until then declared required slots fail closed.
     fn hold_for_setup(&mut self, _name: &str) {}
+    /// Fresh names-only availability, shared only within this host's one operation.
+    fn missing_secrets(&mut self, _name: &str, required: &[String]) -> Vec<String> {
+        required.to_vec()
+    }
+    fn hold_runtime(&mut self, _name: &str) -> Result<bool, ExtError> {
+        Ok(false)
+    }
+    fn release_runtime(&mut self, _name: &str) -> Result<(), ExtError> {
+        Ok(())
+    }
+    fn check_secret_store(&mut self) -> Result<(), ExtError> {
+        Err(ExtError::new(
+            "E_NOT_AVAILABLE",
+            "secret-store-unavailable",
+            "the authenticated Core secret store is required to purge declared slots",
+        ))
+    }
+    fn purge_secrets(&mut self, _name: &str, _slots: &[String]) -> Result<(), ExtError> {
+        self.check_secret_store()
+    }
     /// The raw bytes of `config.json` (`Some(None)`: no file) when this host can put them back exactly
     /// ([`ModuleHost::restore_config_bytes`], X1-C14); `None` when a rollback goes through [`ModuleHost::set_config`].
     fn config_bytes(&self) -> Option<Option<Vec<u8>>> {
@@ -108,6 +128,25 @@ pub struct InstallOpts {
 }
 
 pub(crate) use super::record::io_err;
+
+/// A Core hold encloses publication and rollback alike. A failed release never changes a successful disk commit
+/// into a rollback; the caller can retry activation after the authenticated Core is reachable again.
+pub(crate) fn with_runtime_hold<T>(
+    host: &mut dyn ModuleHost,
+    name: &str,
+    needed: bool,
+    operation: impl FnOnce(&mut dyn ModuleHost) -> Result<T, ExtError>,
+) -> Result<T, ExtError> {
+    let held = needed && host.hold_runtime(name)?;
+    let result = operation(host);
+    if held && host.release_runtime(name).is_err() {
+        return match result {
+            Ok(_) => Err(ExtError::new("E_NOT_AVAILABLE", "runtime-unavailable", "the package transaction completed, but runtime release could not be confirmed; retry activation")),
+            Err(mut error) => { error.message.push_str("; runtime release could not be confirmed; retry activation"); Err(error) }
+        };
+    }
+    result
+}
 
 pub(crate) fn install_err(e: modinstall::InstallError) -> ExtError {
     let code = if e.is_io() {
@@ -759,80 +798,80 @@ fn commit_locked(
         }
     }
     let acknowledged = acknowledgments(rec, &staged, prev.as_ref(), widened, &effective)?;
+    let missing = host.missing_secrets(&name, &staged.record.required_secrets);
     if let Some(agents) = &opts.enable {
-        let required = if first_party {
-            &[][..]
-        } else {
-            &staged.record.required_secrets
-        };
+        let required = if first_party { &[][..] } else { &missing };
         enable_prechecks(&name, kind, required, &cfg, agents)?;
     }
-    if matches!(staged.kind, Kind::Module | Kind::Channel)
-        && !staged.record.required_secrets.is_empty()
-    {
+    // Never let module.install restart new code against the previous record's secret declarations. The hold is
+    // refreshed from the newly committed record, including the zero-slot case, after the transaction finishes.
+    if matches!(staged.kind, Kind::Module | Kind::Channel) {
         host.hold_for_setup(&name);
     }
-    // Every refusal and the no-op are behind us: the first write (X1-C16).
-    super::remove::prune_for(layout, &cfg);
+    with_runtime_hold(host, &name, staged.kind == Kind::McpServer, |host| {
+        // Every refusal and the no-op are behind us: the first write (X1-C16).
+        super::remove::prune_for(layout, &cfg);
 
-    let mut rb = Rollback::default();
-    let ctx = Ctx {
-        layout,
-        paths,
-        rec,
-        staged: &staged,
-        prev: prev.as_ref(),
-        prev_enabled,
-        widened,
-        prev_index: if staged.kind == Kind::Skill {
-            index::read_index(layout)?.entry(&name).cloned()
-        } else {
-            None
-        },
-        st: &st,
-        cfg: &cfg,
-        opts: &effective,
-    };
-    let (record, state_name) = match run_steps(&ctx, host, &mut rb) {
-        Ok(x) => x,
-        Err(mut e) => {
-            if KILLED.load(Ordering::SeqCst) {
-                drop(rb); // a killed process undoes nothing
+        let mut rb = Rollback::default();
+        let ctx = Ctx {
+            layout,
+            paths,
+            rec,
+            staged: &staged,
+            prev: prev.as_ref(),
+            prev_enabled,
+            widened,
+            prev_index: if staged.kind == Kind::Skill {
+                index::read_index(layout)?.entry(&name).cloned()
+            } else {
+                None
+            },
+            st: &st,
+            cfg: &cfg,
+            opts: &effective,
+        };
+        let (record, state_name) = match run_steps(&ctx, host, &mut rb) {
+            Ok(x) => x,
+            Err(mut e) => {
+                if KILLED.load(Ordering::SeqCst) {
+                    drop(rb); // a killed process undoes nothing
+                    return Err(e);
+                }
+                let failed = rb.run(host);
+                if !failed.is_empty() {
+                    e.message = format!(
+                        "{}; the rollback also failed: {}",
+                        e.message,
+                        failed.join("; ")
+                    );
+                }
                 return Err(e);
             }
-            let failed = rb.run(host);
-            if !failed.is_empty() {
-                e.message = format!(
-                    "{}; the rollback also failed: {}",
-                    e.message,
-                    failed.join("; ")
-                );
-            }
-            return Err(e);
-        }
-    };
-    let replaced = prev.is_some();
+        };
+        let replaced = prev.is_some();
 
-    let detail = json!({
-        "id": record.id, "version": record.version, "kind": kind, "sha256": record.package_sha256,
-        "trust": record.trust, "keyId": record.key_id, "acknowledged": acknowledged, "replaced": replaced,
-        "via": host.via(),
-    });
-    if let Err(e) = crate::audit::append(layout, "ext.install", &name, detail) {
-        eprintln!("plur1bus: warning: cannot write the audit line for ext.install {name}: {e}");
-    }
-    let overlays = overlays_of(
-        &record,
-        &super::host::host_facts(),
-        &load_revocations(paths),
-        rec.manifest.get("compat"),
-    );
-    host.notify(json!({
+        let detail = json!({
+            "id": record.id, "version": record.version, "kind": kind, "sha256": record.package_sha256,
+            "trust": record.trust, "keyId": record.key_id, "acknowledged": acknowledged, "replaced": replaced,
+            "via": host.via(),
+        });
+        if let Err(e) = crate::audit::append(layout, "ext.install", &name, detail) {
+            eprintln!("plur1bus: warning: cannot write the audit line for ext.install {name}: {e}");
+        }
+        let overlays = super::overlays::overlays_with_missing(
+            &record,
+            &super::host::host_facts(),
+            &load_revocations(paths),
+            rec.manifest.get("compat"),
+            &missing,
+        );
+        host.notify(json!({
         "name": name, "kind": kind, "state": state_name, "version": record.version, "overlays": overlays
     }));
-    Ok(json!({
-        "name": name, "version": record.version, "kind": kind, "replaced": replaced, "state": state_name
-    }))
+        Ok(json!({
+            "name": name, "version": record.version, "kind": kind, "replaced": replaced, "state": state_name
+        }))
+    })
 }
 
 /// What the steps read.
@@ -1255,6 +1294,7 @@ fn enable_now<'a>(
 pub struct OfflineHost<'a> {
     layout: &'a Layout,
     pub notified: Vec<Value>,
+    presence: super::runtime::OperationPresence,
 }
 
 impl<'a> OfflineHost<'a> {
@@ -1262,6 +1302,7 @@ impl<'a> OfflineHost<'a> {
         OfflineHost {
             layout,
             notified: Vec::new(),
+            presence: Default::default(),
         }
     }
 }
@@ -1318,6 +1359,21 @@ pub(crate) fn apply_changes(
 }
 
 impl ModuleHost for OfflineHost<'_> {
+    fn check_secret_store(&mut self) -> Result<(), ExtError> {
+        self.presence.require_store(self.layout)
+    }
+    fn purge_secrets(&mut self, name: &str, slots: &[String]) -> Result<(), ExtError> {
+        super::runtime::delete_declared(self.layout, name, slots)
+    }
+    fn hold_runtime(&mut self, name: &str) -> Result<bool, ExtError> {
+        super::runtime::hold(self.layout, name)
+    }
+    fn release_runtime(&mut self, name: &str) -> Result<(), ExtError> {
+        super::runtime::release(self.layout, name)
+    }
+    fn missing_secrets(&mut self, name: &str, required: &[String]) -> Vec<String> {
+        self.presence.missing(self.layout, name, required)
+    }
     fn config(&self) -> Value {
         plur1bus_config::read(&self.layout.config_path()).unwrap_or(Value::Null)
     }

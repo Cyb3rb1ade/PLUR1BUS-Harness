@@ -579,7 +579,7 @@ pub(crate) fn uninstall(
             confirm(
                 out,
                 &format!(
-                    "also purge data/ext/{name} and its configuration section (no secrets are stored yet)?"
+                    "also purge data/ext/{name}, its configuration and declared secret slots? Deleted secret values cannot be restored"
                 ),
                 yes,
             );

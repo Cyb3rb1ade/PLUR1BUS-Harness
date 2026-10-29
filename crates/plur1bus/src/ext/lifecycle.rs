@@ -89,7 +89,7 @@ fn needs_setup(name: &str, required_secrets: &[String]) -> ExtError {
         "E_NOT_AVAILABLE",
         "needs-setup",
         format!(
-            "{name} needs secrets ({}) that cannot be set up yet; it installs, but cannot be enabled",
+            "{name} needs required secret slots ({}) before it can be activated",
             required_secrets.join(", ")
         ),
     )
@@ -338,7 +338,12 @@ fn overlays(paths: &ExtPaths, rec: Option<&ItemRecord>) -> Vec<Overlay> {
 
 /// Enable's overlay refusals (X1-R17; Q9: revoked is refused and locked), first match in the overlay order with
 /// `revoked` first.
-fn refuse_overlays(paths: &ExtPaths, rec: &ItemRecord, found: &[Overlay]) -> Result<(), ExtError> {
+fn refuse_overlays(
+    paths: &ExtPaths,
+    rec: &ItemRecord,
+    found: &[Overlay],
+    missing: &[String],
+) -> Result<(), ExtError> {
     if found.contains(&Overlay::Revoked) {
         let why = revoked(&load_revocations(paths), &rec.id, &rec.version)
             .unwrap_or_else(|| "revoked".into());
@@ -350,7 +355,7 @@ fn refuse_overlays(paths: &ExtPaths, rec: &ItemRecord, found: &[Overlay]) -> Res
     }
     for o in found {
         match o {
-            Overlay::NeedsSetup => return Err(needs_setup(&rec.name, &rec.required_secrets)),
+            Overlay::NeedsSetup => return Err(needs_setup(&rec.name, missing)),
             Overlay::Incompatible => {
                 return Err(ExtError::new(
                     "E_NOT_AVAILABLE",
@@ -533,12 +538,18 @@ fn toggle_locked(
 
     // Enable: the code folder, overlays from a fresh re-hash, then the acknowledgment.
     let mut record = t.record.clone();
+    let missing = record.as_ref().map_or_else(Vec::new, |record| {
+        host.missing_secrets(name, &record.required_secrets)
+    });
     if on {
         refuse_missing_code(layout, &t)?;
         if let Some(rec) = record.as_mut() {
             rec.integrity = Some(rehash(layout, rec));
-            let found = overlays(&paths, Some(rec));
-            refuse_overlays(&paths, rec, &found)?;
+            let mut found = overlays(&paths, Some(rec));
+            if missing.is_empty() {
+                found.retain(|overlay| *overlay != Overlay::NeedsSetup);
+            }
+            refuse_overlays(&paths, rec, &found, &missing)?;
             check_acknowledged(&paths, rec, o)?;
         }
     }
@@ -652,71 +663,75 @@ fn toggle_locked(
     if o.dry_run || noop {
         return Ok(result(&plan));
     }
-    // Every refusal and the no-op are behind us: the first write (X1-C16).
-    super::remove::prune_for(layout, &cfg);
+    super::commit::with_runtime_hold(host, name, t.kind == "mcp-server", |host| {
+        // Every refusal and the no-op are behind us: the first write (X1-C16).
+        super::remove::prune_for(layout, &cfg);
 
-    // The writes, each with its undo: the record (enable), config, the index.
-    let mut rb = Rollback::default();
-    let written = (|| -> Result<Value, ExtError> {
-        if on {
-            if let Some(rec) = record.as_mut() {
-                rec.capabilities_ack = Some(capabilities_hash(&rec.capabilities));
-                let mut next = st.clone();
-                next.items.insert(name.to_string(), rec.clone());
-                let before = read_bytes(&paths.state);
-                state::write(&paths, &next).map_err(|e| io_err("cannot write", &paths.state, e))?;
-                rb.push("state", restore_file(paths.state.clone(), before));
+        // The writes, each with its undo: the record (enable), config, the index.
+        let mut rb = Rollback::default();
+        let written = (|| -> Result<Value, ExtError> {
+            if on {
+                if let Some(rec) = record.as_mut() {
+                    rec.capabilities_ack = Some(capabilities_hash(&rec.capabilities));
+                    let mut next = st.clone();
+                    next.items.insert(name.to_string(), rec.clone());
+                    let before = read_bytes(&paths.state);
+                    state::write(&paths, &next)
+                        .map_err(|e| io_err("cannot write", &paths.state, e))?;
+                    rb.push("state", restore_file(paths.state.clone(), before));
+                }
             }
-        }
-        let mut applied = plan.clone();
-        if !changes.is_empty() {
-            applied = config_change(host, "config", changes.clone(), restore.clone(), &mut rb)?;
-        }
-        if let Some(entry) = &index_entry {
-            let ipath = index::index_path(layout);
-            let before = read_bytes(&ipath);
-            let mut idx = index::read_index(layout)?;
-            idx.upsert(entry.clone());
-            index::write_index(layout, &idx).map_err(|e| io_err("cannot write", &ipath, e))?;
-            rb.push("index", restore_file(ipath, before));
-        }
-        Ok(applied)
-    })();
-    let applied = match written {
-        Ok(p) => p,
-        Err(mut e) => {
-            let failed = rb.run(host);
-            if !failed.is_empty() {
-                e.message = format!(
-                    "{}; the rollback also failed: {}",
-                    e.message,
-                    failed.join("; ")
-                );
+            let mut applied = plan.clone();
+            if !changes.is_empty() {
+                applied = config_change(host, "config", changes.clone(), restore.clone(), &mut rb)?;
             }
-            return Err(e);
+            if let Some(entry) = &index_entry {
+                let ipath = index::index_path(layout);
+                let before = read_bytes(&ipath);
+                let mut idx = index::read_index(layout)?;
+                idx.upsert(entry.clone());
+                index::write_index(layout, &idx).map_err(|e| io_err("cannot write", &ipath, e))?;
+                rb.push("index", restore_file(ipath, before));
+            }
+            Ok(applied)
+        })();
+        let applied = match written {
+            Ok(p) => p,
+            Err(mut e) => {
+                let failed = rb.run(host);
+                if !failed.is_empty() {
+                    e.message = format!(
+                        "{}; the rollback also failed: {}",
+                        e.message,
+                        failed.join("; ")
+                    );
+                }
+                return Err(e);
+            }
+        };
+        let mut plan = applied;
+        if !on && !is_skill {
+            hold_dependents(&mut plan, layout, &cfg, name);
         }
-    };
-    let mut plan = applied;
-    if !on && !is_skill {
-        hold_dependents(&mut plan, layout, &cfg, name);
-    }
 
-    let action = if on { "ext.enable" } else { "ext.disable" };
-    let agents_detail = match &o.agents {
-        None => Value::Null,
-        Some(Agents::All) => json!("all"),
-        Some(Agents::Some(list)) => json!(list),
-    };
-    let detail = json!({ "kind": t.kind, "agents": agents_detail, "via": host.via() });
-    if let Err(e) = crate::audit::append(layout, action, name, detail) {
-        eprintln!("plur1bus: warning: cannot write the audit line for {action} {name}: {e}");
-    }
-    let shown: Vec<String> = overlays(&paths, record.as_ref())
-        .into_iter()
-        .map(overlay_name)
-        .collect();
-    host.notify(json!({
+        let action = if on { "ext.enable" } else { "ext.disable" };
+        let agents_detail = match &o.agents {
+            None => Value::Null,
+            Some(Agents::All) => json!("all"),
+            Some(Agents::Some(list)) => json!(list),
+        };
+        let detail = json!({ "kind": t.kind, "agents": agents_detail, "via": host.via() });
+        if let Err(e) = crate::audit::append(layout, action, name, detail) {
+            eprintln!("plur1bus: warning: cannot write the audit line for {action} {name}: {e}");
+        }
+        let shown: Vec<String> = overlays(&paths, record.as_ref())
+            .into_iter()
+            .filter(|overlay| *overlay != Overlay::NeedsSetup || !missing.is_empty())
+            .map(overlay_name)
+            .collect();
+        host.notify(json!({
         "name": name, "kind": t.kind, "state": state_name, "version": t.version, "overlays": shown
     }));
-    Ok(result(&plan))
+        Ok(result(&plan))
+    })
 }

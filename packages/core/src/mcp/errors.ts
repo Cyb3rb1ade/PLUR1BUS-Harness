@@ -2,6 +2,7 @@
 // not an exception; these are the protocol, transport, policy and deadline failures.
 export type McpErrorCode =
   | "invalid-config" | "not-allowed" | "not-registered"
+  | "auth-required"
   | "connect-failed" | "connect-timeout" | "call-timeout" | "aborted"
   | "unknown-tool" | "server-error" | "protocol" | "closed";
 

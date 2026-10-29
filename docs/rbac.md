@@ -419,6 +419,36 @@ Export reads live rights from AdminStore and includes them in its signed manifes
 Required secret names are metadata only; no secret values are imported.
 See [agents.md](agents.md) for CLI formats, compatibility and recovery behavior.
 
+### Extension setup and sign-in
+
+Extension inventory, setup and sign-in use human-only `extensions.read` and
+`extensions.manage` actions for Owner/Admin. Operator, Member, Viewer and agent
+principals are denied, including a personal API token carrying extension scopes.
+Token scopes continue to narrow an authenticated person's authority.
+
+Setup metadata contains declared secret slot names and availability. The secret
+setter additionally requires Owner authority and the authenticated secret surface;
+an Admin cannot store or reveal values. OAuth attempts belong to the initiating
+person and extension. Discovery never starts sign-in; status uses read authority,
+and start, callback submission and cancellation use manage authority.
+
+| Method | Action | Owner | Admin | Operator | Member | Viewer |
+|---|---|---|---|---|---|---|
+| `admin.extensions.setup.get` | `extensions.read` | ✔ | ✔ | – | – | – |
+| `admin.extensions.auth.status` | `extensions.read` | ✔ | ✔ | – | – | – |
+| `admin.extensions.runtime.status` | `extensions.read` | ✔ | ✔ | – | – | – |
+| `admin.extensions.setup.set` | `extensions.manage` | ✔ | ✔ | – | – | – |
+| `admin.extensions.auth.start` | `extensions.manage` | ✔ | ✔ | – | – | – |
+| `admin.extensions.auth.submit` | `extensions.manage` | ✔ | ✔ | – | – | – |
+| `admin.extensions.auth.cancel` | `extensions.manage` | ✔ | ✔ | – | – | – |
+| `admin.extensions.runtime.hold` | `extensions.manage` | ✔ | ✔ | – | – | – |
+| `admin.extensions.runtime.release` | `extensions.manage` | ✔ | ✔ | – | – | – |
+| `admin.extensions.runtime.reconcile` | `extensions.manage` | ✔ | ✔ | – | – | – |
+
+Internal runtime hold/release/status and reconciliation add a stricter local-token
+Owner check. API delegation cannot call them; their table entries describe the
+shared role gate, not permission to cross the native-only boundary.
+
 ## Web transport reachability
 
 The session-only `/rpc` gateway uses an explicit exposure list in `packages/api/src/rpc-route.ts`. It delegates the actual person through a separately registered local API credential; stored core roles and agent rights override forwarded snapshots. It never accepts a browser principal or actAs. Token-authenticated REST calls remain agents and retain scope narrowing. Existing RPC_RULES and the Guard remain unchanged.

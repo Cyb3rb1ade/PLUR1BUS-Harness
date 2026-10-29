@@ -1559,3 +1559,56 @@ fn enable_refuses_an_item_whose_code_folder_is_missing() {
     // Disable stays allowed.
     off(&l, "demo-skill", &toggle(None, false, false)).unwrap();
 }
+
+/// Fresh metadata resolves required slots without altering the installed declaration or recording availability.
+#[test]
+fn fresh_required_slot_metadata_allows_enable_without_erasing_the_declaration() {
+    struct Available<'a>(OfflineHost<'a>);
+    impl ModuleHost for Available<'_> {
+        fn config(&self) -> Value {
+            self.0.config()
+        }
+        fn set_config(&mut self, c: Vec<(String, Value)>, dry: bool) -> Result<Value, ExtError> {
+            self.0.set_config(c, dry)
+        }
+        fn install_module(&mut self, s: modules_install::Staged) -> Result<bool, ExtError> {
+            self.0.install_module(s)
+        }
+        fn remove_module(&mut self, n: &str, p: &Path) -> Result<(), ExtError> {
+            self.0.remove_module(n, p)
+        }
+        fn notify(&mut self, v: Value) {
+            self.0.notify(v)
+        }
+        fn via(&self) -> &'static str {
+            "offline"
+        }
+        fn missing_secrets(&mut self, name: &str, required: &[String]) -> Vec<String> {
+            assert_eq!(name, "demo-skill");
+            assert_eq!(required, ["API_KEY"]);
+            vec![]
+        }
+    }
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    write_config(&l, |_| {});
+    let mut caps = base_caps();
+    caps["secrets"] = json!([{"slot":"API_KEY","label":{"en":"API key"},"required":true}]);
+    install(
+        d.path(),
+        &l,
+        "s.p1x",
+        &skill_pkg_caps("demo-skill", "1.0.0", caps, &key),
+        &plain(),
+    )
+    .unwrap();
+    off(&l, "demo-skill", &toggle(None, false, false)).unwrap();
+    let mut host = Available(OfflineHost::new(&l));
+    let enabled = enable(&l, &mut host, "demo-skill", &toggle(None, true, false)).unwrap();
+    assert_eq!(enabled["state"], "enabled");
+    assert_eq!(record(&l, "demo-skill").required_secrets, ["API_KEY"]);
+    let refused = on(&l, "demo-skill", &toggle(None, true, false)).unwrap_err();
+    assert_eq!(reason(&refused), ("E_NOT_AVAILABLE", "needs-setup"));
+    assert_eq!(record(&l, "demo-skill").required_secrets, ["API_KEY"]);
+}

@@ -4398,7 +4398,7 @@ Inspects the package first and prints the disclosure: trust tier and why, signer
 
 ###### **Options:**
 
-* `--purge` — Also move its data (data/ext/<name>) and its configuration to the trash (asks separately)
+* `--purge` — Also trash its data/configuration and irreversibly delete declared secret slots (asks separately)
 * `--cascade` — Disable the enabled extensions that need it first, instead of refusing
 * `--yes` — Do not ask (required outside a terminal)
 
@@ -4534,7 +4534,7 @@ Inspects the package first and prints the disclosure (see `skill install`). A mo
 
 ###### **Options:**
 
-* `--purge` — Also move its data (data/ext/<name>) and its configuration section to the trash (asks separately)
+* `--purge` — Also trash its data/configuration and irreversibly delete declared secret slots (asks separately)
 * `--cascade` — Disable the enabled modules that need it first, instead of refusing
 * `--yes` — Do not ask (required outside a terminal)
 

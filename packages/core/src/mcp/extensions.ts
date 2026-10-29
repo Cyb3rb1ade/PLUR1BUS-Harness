@@ -25,6 +25,8 @@ export interface McpExtensionOptions {
   registry: Pick<McpRegistry, "register" | "unregister" | "allowCommand">;
   feed?: McpExtensionFeed;
   runtime?: McpExtensionRuntime;
+  /** Metadata only; queried lazily when an installed package actually declares secret slots. */
+  availableSecretNames?: () => Promise<ReadonlySet<string> | undefined>;
   onConfigChange?: (listener: () => void) => () => void;
   degraded?: (reason: string) => void;
 }
@@ -56,6 +58,8 @@ export class McpExtensionReconciler {
   #work: Promise<void> = Promise.resolve();
   #closed = false;
   #generation = 0;
+  readonly #holds = new Set<string>();
+  readonly #runtimeErrors = new Map<string, "auth-required" | "integrity-failed">();
   readonly #unwatch: (() => void) | undefined;
 
   constructor(options: McpExtensionOptions) {
@@ -71,8 +75,9 @@ export class McpExtensionReconciler {
   refresh(): Promise<void> {
     if (this.#closed) return this.#work;
     const config = this.#options.config();
-    const revoked = this.#remove([...this.#registrations].filter(([, entry]) => entry.extension &&
-      config.mcp?.servers?.[entry.definition.name]?.enabled !== true).map(([key]) => key));
+    const revoked = this.#remove([...this.#registrations].filter(([, entry]) =>
+      this.#holds.has(entry.definition.name) || (entry.extension &&
+      config.mcp?.servers?.[entry.definition.name]?.enabled !== true)).map(([key]) => key));
     this.#work = Promise.all([this.#work, revoked]).then(() => this.#reconcile()).catch(() => {
       this.#options.degraded?.("MCP extension reconciliation failed");
     });
@@ -102,12 +107,57 @@ export class McpExtensionReconciler {
 
   /** Derived setup/error state; does not write installation state or alter an enable flag. */
   status(name: string): InstalledMcpExtension | undefined {
-    return this.#statuses.get(name);
+    const status = this.#statuses.get(name);
+    if (!status || !this.#runtimeErrors.has(name)) return status;
+    const { reason: _reason, ...metadata } = status;
+    return { ...metadata, overlay: "error",
+      ...(this.#runtimeErrors.get(name) === "auth-required" ? { reason: "auth-required" as const } : {}) };
+  }
+
+  /** Stop a named registration before the supervisor moves its code; the hold blocks every concurrent refresh. */
+  async hold(name: string): Promise<{ name: string; held: true }> {
+    this.#holds.add(name);
+    await this.#remove([...this.#registrations].filter(([, entry]) => entry.definition.name === name).map(([key]) => key));
+    return { name, held: true };
+  }
+
+  /** The supervisor calls this after committing or rolling back its code transaction. */
+  async release(name: string): Promise<{ name: string; released: true }> {
+    this.#holds.delete(name);
+    await this.refresh();
+    return { name, released: true };
+  }
+
+  /** A setup/auth change explicitly permits a fresh attempt; changing a secret never changes an enable flag. */
+  retry(name: string): Promise<void> {
+    if (this.#closed) return this.#work;
+    this.#runtimeErrors.delete(name);
+    const removed = this.#remove([...this.#registrations].filter(([, entry]) =>
+      entry.extension && entry.definition.name === name).map(([key]) => key));
+    this.#work = Promise.all([this.#work, removed]).then(() => this.#reconcile()).catch(() => {
+      this.#options.degraded?.("MCP extension reconciliation failed");
+    });
+    return this.#work;
+  }
+
+  /** Registry observer metadata only. Authentication failures become overlays; a ready connection clears them. */
+  runtimeEvent(event: { server: string; state?: string; params?: Record<string, unknown> }): void {
+    if (event.state === "ready") this.#runtimeErrors.delete(event.server);
+    else if ((event.params?.reason === "auth-required" || event.params?.reason === "integrity-failed") &&
+        this.#statuses.has(event.server)) {
+      this.#runtimeErrors.set(event.server, event.params.reason);
+    }
+  }
+
+  /** Exact host-owned registration identity gates spawn leases; a legacy server sharing a name gets no extension slots. */
+  isPackagedDefinition(definition: McpServerDefinition): boolean {
+    return !this.#closed && !this.#holds.has(definition.name) && [...this.#registrations.values()].some(entry =>
+      entry.extension !== undefined && entry.definition === definition);
   }
 
   /** Live authorization is checked again at execution, independently of the earlier descriptor snapshot (M-A5). */
   visible(name: string, agentId: string): boolean {
-    if (this.#closed) return false;
+    if (this.#closed || this.#holds.has(name) || this.#runtimeErrors.has(name)) return false;
     const registration = this.#registrations.get(`agent:${agentId}:${name}`) ??
       this.#registrations.get(`installation:${name}`);
     if (!registration) return false;
@@ -154,14 +204,19 @@ export class McpExtensionReconciler {
         desired.set(registrationKey(raw.name, raw), { raw });
       }
     }
-    this.#statuses.clear();
     try {
-      const installed = await installedMcpExtensions(this.#options.home, this.#options.runtime);
+      let installed = await installedMcpExtensions(this.#options.home, this.#options.runtime);
+      if (this.#options.availableSecretNames && installed.some(item => item.setup?.slots.length)) {
+        const names = await this.#options.availableSecretNames();
+        installed = await installedMcpExtensions(this.#options.home, this.#options.runtime, names);
+      }
+      this.#statuses.clear();
+      // The supervisor may query runtime.status while serving ext.list; publish this metadata snapshot first.
+      for (const extension of installed) this.#statuses.set(extension.name, extension);
       this.#overlays = new Map((await this.#options.feed?.snapshot() ?? []).map(item => [item.name, item]));
       for (const extension of installed) {
-        this.#statuses.set(extension.name, extension);
         const setting = this.#options.config().mcp?.servers?.[extension.name];
-        if (setting?.enabled !== true || !extension.definition || [...desired.values()].some(target =>
+        if (this.#holds.has(extension.name) || setting?.enabled !== true || !extension.definition || [...desired.values()].some(target =>
           target.raw && typeof target.raw === "object" && "name" in target.raw &&
           target.raw.name === extension.name)) continue;
         const overlay = this.#overlays.get(extension.name);
@@ -169,6 +224,7 @@ export class McpExtensionReconciler {
         desired.set(registrationKey(extension.name, extension.definition), { raw: extension.definition, extension });
       }
     } catch {
+      this.#statuses.clear();
       this.#overlays.clear();
       this.#options.degraded?.("MCP extension metadata or supervisor catalogue unavailable");
     }
@@ -176,6 +232,8 @@ export class McpExtensionReconciler {
     await this.#remove([...this.#registrations].filter(([key, entry]) =>
       signature(desired.get(key)?.raw, desired.get(key)?.extension) !== entry.signature).map(([key]) => key));
     for (const [key, target] of desired) {
+      if (target.raw && typeof target.raw === "object" && "name" in target.raw &&
+          typeof target.raw.name === "string" && this.#holds.has(target.raw.name)) continue;
       if (this.#registrations.has(key)) continue;
       try {
         const command = target.extension?.definition?.transport;
@@ -184,6 +242,7 @@ export class McpExtensionReconciler {
         this.#registrations.set(key, { definition, generation: ++this.#generation,
           signature: signature(target.raw, target.extension),
           ...(target.extension ? { extension: target.extension } : {}) });
+        this.#runtimeErrors.delete(definition.name);
       } catch { this.#options.degraded?.("MCP server registration refused"); }
     }
   }

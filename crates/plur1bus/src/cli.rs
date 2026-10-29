@@ -1801,7 +1801,7 @@ pub enum SkillCmd {
     /// [experimental] Uninstall a skill into the trash (a bundled skill is hidden instead)
     Uninstall {
         name: String,
-        /// Also move its data (data/ext/<name>) and its configuration to the trash (asks separately)
+        /// Also trash its data/configuration and irreversibly delete declared secret slots (asks separately)
         #[arg(long)]
         purge: bool,
         /// Disable the enabled extensions that need it first, instead of refusing
@@ -1869,7 +1869,7 @@ pub enum PluginCmd {
     /// [experimental] Stop and uninstall a module or channel into the trash
     Uninstall {
         name: String,
-        /// Also move its data (data/ext/<name>) and its configuration section to the trash (asks separately)
+        /// Also trash its data/configuration and irreversibly delete declared secret slots (asks separately)
         #[arg(long)]
         purge: bool,
         /// Disable the enabled modules that need it first, instead of refusing

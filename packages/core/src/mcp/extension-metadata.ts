@@ -3,8 +3,10 @@
  */
 import { constants } from "node:fs";
 import { createHash } from "node:crypto";
-import { open, realpath, stat } from "node:fs/promises";
+import { lstat, open, realpath, stat } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { homedir } from "node:os";
+import { extensionSecretName, type ExtensionSecretDefinition } from "../extensions/secret-env.ts";
 import type { McpServerDefinition } from "./types.ts";
 import { DEFAULT_TIMEOUTS } from "./types.ts";
 
@@ -28,6 +30,8 @@ export interface McpExtensionDeclaration {
 /** Trusted runtime resolver result. The host supplies a pinned uv and an already provisioned Python; never PATH. */
 export interface McpExtensionRuntime {
   uv?: { command: string; version: string; python: string; pythonVersion: string };
+  /** True only when the host actually bound this server to its resource-scoped OAuth provider. */
+  oauthReady?: (name: string) => boolean;
 }
 
 /** One verified installed record and its current launch definition, or the overlay that prevents launching it. */
@@ -39,7 +43,12 @@ export interface InstalledMcpExtension {
   manifestSha256?: string;
   definition?: McpServerDefinition;
   declaration?: McpExtensionDeclaration;
+  /** Authenticated templates and declared names only; credential values are leased separately at spawn. */
+  setup?: ExtensionSecretDefinition;
   overlay?: "needs-setup" | "error";
+  reason?: "auth-required";
+  /** Authenticated resource binding remains available while OAuth awaits person interaction. */
+  remote?: { url: string; auth: "none" | "header" | "oauth" };
 }
 
 function object(value: unknown): ObjectValue {
@@ -60,7 +69,9 @@ async function contained(root: string, path: string): Promise<string> {
 
 async function readJson(root: string, path: string, maxBytes: number, expectedSha256?: string): Promise<ObjectValue> {
   await contained(root, path);
-  const handle = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  const entry = await lstat(path);
+  if (!entry.isFile() || entry.isSymbolicLink()) throw Error("invalid MCP extension metadata file");
+  const handle = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
   try {
     const info = await handle.stat();
     if (!info.isFile() || info.size > maxBytes) throw Error("MCP extension metadata exceeds its limit");
@@ -132,22 +143,50 @@ async function executable(path: string): Promise<string> {
   return path;
 }
 
-function launchArgs(raw: unknown, payload: string, entry: string): string[] {
+function launchArgs(raw: unknown, payload: string, entry: string, setup: ExtensionSecretDefinition): string[] {
   if (raw === undefined) return [entry];
   if (!Array.isArray(raw) || raw.length > 256) throw Error("invalid MCP launch arguments");
-  return raw.map(arg => {
+  return raw.flatMap(arg => {
     if (typeof arg !== "string" || arg.length > 8192 || arg.includes("\0")) throw Error("invalid MCP launch argument");
-    const expanded = arg.replaceAll("${__dirname}", payload).replaceAll("${__filename}", entry);
+    const multiple = /^\$\{user_config\.([^}]+)\}$/.exec(arg);
+    if (multiple && !Object.hasOwn(setup.userConfigSlots ?? {}, multiple[1]!)) {
+      const values = setup.userConfig?.[multiple[1]!];
+      if (Array.isArray(values)) {
+        if (values.length > 64 || values.some(value => !["string", "number", "boolean"].includes(typeof value))) {
+          throw Error("invalid MCP multiple configuration values");
+        }
+        return values.map(value => String(value));
+      }
+    }
+    const expanded = arg.replace(/\$\{([^}]+)\}/g, (_whole: string, key: string) => {
+      if (key.startsWith("user_config.")) {
+        const name = key.slice("user_config.".length);
+        const slot = setup.userConfigSlots?.[name] ?? name;
+        if (setup.slots.some(item => item.slot === slot)) throw Error("MCP secret arguments are forbidden");
+        const value = setup.userConfig?.[name];
+        if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+      } else if (setup.variables && Object.hasOwn(setup.variables, key)) return setup.variables[key]!;
+      throw Error("MCP configuration needs setup");
+    });
     if (expanded.includes("${")) throw Error("MCP configuration needs setup");
     return expanded;
   });
 }
 
-async function localDefinition(name: string, manifest: ObjectValue, packageRoot: string,
-  runtime: McpExtensionRuntime): Promise<McpServerDefinition | undefined> {
-  const requirement = object(object(manifest.requires).runtime);
-  if (requirement.type === "python" && !runtime.uv) return undefined;
-  if (requirement.type === "node" && !runtimeMatches(process.versions.node, requirement.range)) return undefined;
+function secretSlots(capabilities: unknown): ExtensionSecretDefinition["slots"] {
+  const raw = object(capabilities).secrets ?? [];
+  if (!Array.isArray(raw) || raw.length > 256) throw Error("invalid extension secret slots");
+  const seen = new Set<string>();
+  return raw.map(item => {
+    const value = object(item);
+    if (typeof value.slot !== "string" || !/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(value.slot) ||
+        typeof value.required !== "boolean" || seen.has(value.slot)) throw Error("invalid extension secret slots");
+    seen.add(value.slot);
+    return { slot: value.slot, required: value.required };
+  });
+}
+
+async function localMetadata(name: string, manifest: ObjectValue, packageRoot: string) {
   const payload = await contained(packageRoot, join(packageRoot, "payload"));
   const metadataFile = object(object(manifest.files)["payload/manifest.json"]);
   if (typeof metadataFile.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(metadataFile.sha256)) {
@@ -158,6 +197,50 @@ async function localDefinition(name: string, manifest: ObjectValue, packageRoot:
   if (typeof server.entry_point !== "string" || !server.entry_point.length || isAbsolute(server.entry_point) ||
       server.entry_point.startsWith("-")) throw Error("invalid MCP entry point");
   const entry = await contained(payload, resolve(payload, server.entry_point));
+  const slots = secretSlots(manifest.capabilities);
+  const userConfigSlots: Record<string, string> = Object.create(null) as Record<string, string>;
+  const wrapperFile = object(manifest.files)["payload/.plur1bus/mcpb.json"];
+  if (wrapperFile !== undefined) {
+    const file = object(wrapperFile);
+    if (typeof file.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(file.sha256)) throw Error("invalid MCPB wrapper digest");
+    const wrapper = await readJson(payload, join(payload, ".plur1bus", "mcpb.json"), MAX_METADATA_BYTES, file.sha256);
+    if (wrapper.format !== 1) throw Error("unsupported MCPB wrapper metadata");
+    for (const [key, slot] of Object.entries(object(wrapper.secretSlots))) {
+      if (typeof slot !== "string" || !slots.some(item => item.slot === slot)) throw Error("invalid MCPB secret mapping");
+      userConfigSlots[key] = slot;
+    }
+  }
+  const userConfig: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+  for (const [key, raw] of Object.entries(mcpb.user_config === undefined ? {} : object(mcpb.user_config))) {
+    const value = object(raw);
+    if (value.sensitive === true) {
+      const slot = userConfigSlots[key] ?? key;
+      if (!slots.some(item => item.slot === slot)) throw Error("MCPB secret slot is not declared");
+      userConfigSlots[key] = slot;
+    } else if (value.default !== undefined) userConfig[key] = value.default;
+  }
+  const base = server.mcp_config === undefined ? {} : object(server.mcp_config);
+  const overrides = base.platform_overrides === undefined ? {} : object(base.platform_overrides);
+  const selected = overrides[process.platform];
+  const config = { ...base, ...(selected === undefined ? {} : object(selected)) };
+  const rawEnv = config.env === undefined ? {} : object(config.env);
+  if (Object.keys(rawEnv).length > 256 || Object.values(rawEnv).some(value => typeof value !== "string")) {
+    throw Error("invalid MCPB environment templates");
+  }
+  const setup: ExtensionSecretDefinition = { name, slots, env: rawEnv as Record<string, string>,
+    userConfigSlots: { ...userConfigSlots },
+    userConfig, variables: { __dirname: payload, __filename: entry, pathSeparator: sep, "/": sep,
+      HOME: homedir(), DOCUMENTS: join(homedir(), "Documents"), DESKTOP: join(homedir(), "Desktop"),
+      DOWNLOADS: join(homedir(), "Downloads") } };
+  return { payload, server, entry, config, setup };
+}
+
+async function localDefinition(name: string, manifest: ObjectValue, packageRoot: string,
+  runtime: McpExtensionRuntime, metadata: Awaited<ReturnType<typeof localMetadata>>): Promise<McpServerDefinition | undefined> {
+  const requirement = object(object(manifest.requires).runtime);
+  if (requirement.type === "python" && !runtime.uv) return undefined;
+  if (requirement.type === "node" && !runtimeMatches(process.versions.node, requirement.range)) return undefined;
+  const { payload, server, entry, config, setup } = metadata;
   let command: string;
   let prefix: string[] = [];
   switch (requirement.type) {
@@ -183,16 +266,13 @@ async function localDefinition(name: string, manifest: ObjectValue, packageRoot:
       break;
     default: return undefined;
   }
-  const config = server.mcp_config === undefined ? {} : object(server.mcp_config);
-  // A7 supplies declared secret/config interpolation through trusted ports; never copy package env or ambient keys.
-  if (config.env && Object.keys(object(config.env)).length) return undefined;
-  const args = requirement.type === "binary" && config.args === undefined ? [] : launchArgs(config.args, payload, entry);
+  const args = requirement.type === "binary" && config.args === undefined ? [] : launchArgs(config.args, payload, entry, setup);
   return { name, scope: { kind: "installation" }, transport: { type: "stdio", command, args: [...prefix, ...args],
     cwd: packageRoot, env: {}, fromHost: [] }, trust: "untrusted", timeouts: { ...DEFAULT_TIMEOUTS } };
 }
 
 async function loadItem(mcpRoot: string, name: string, raw: unknown,
-  runtime: McpExtensionRuntime): Promise<InstalledMcpExtension> {
+  runtime: McpExtensionRuntime, availableSecrets?: ReadonlySet<string>): Promise<InstalledMcpExtension> {
   const record = object(raw);
   if (record.integrity && object(record.integrity).ok !== true) throw Error("installed MCP integrity failed");
   if (typeof record.manifestSha256 !== "string" || !/^[a-f0-9]{64}$/.test(record.manifestSha256)) {
@@ -207,25 +287,41 @@ async function loadItem(mcpRoot: string, name: string, raw: unknown,
   if (manifest.kind !== "mcp-server" || manifest.name !== name || record.name !== name ||
       manifest.id !== record.id || manifest.version !== record.version) throw Error("installed MCP record mismatch");
   const declared = declaration(manifest.capabilities);
-  const slots = object(manifest.capabilities).secrets ?? [];
-  if (!Array.isArray(slots)) throw Error("invalid MCP secret slots");
-  if (slots.some(slot => object(slot).required === true)) return { name, overlay: "needs-setup", declaration: declared };
+  const slots = secretSlots(manifest.capabilities);
+  const base = { name, activeVersion, manifestSha256: record.manifestSha256, declaration: declared };
+  const setup: ExtensionSecretDefinition = { name, slots };
+  const missing = slots.some(item => item.required && !availableSecrets?.has(extensionSecretName(name, item.slot)));
   let definition: McpServerDefinition | undefined;
   if (manifest.remote !== null && manifest.remote !== undefined) {
     const remote = object(manifest.remote);
-    if (remote.auth !== "none") return { name, overlay: "needs-setup", declaration: declared };
-    if (typeof remote.url !== "string") throw Error("invalid remote MCP URL");
+    if (typeof remote.url !== "string" || !["none", "header", "oauth"].includes(String(remote.auth))) {
+      throw Error("invalid remote MCP endpoint");
+    }
     const url = new URL(remote.url);
     if (url.username || url.password || url.hash) throw Error("invalid remote MCP URL");
+    const binding = { url: url.toString(), auth: remote.auth as "none" | "header" | "oauth" };
+    const required = slots.filter(item => item.required);
+    if (missing || (remote.auth === "header" && required.length !== 1)) {
+      return { ...base, setup, remote: binding, overlay: "needs-setup" };
+    }
+    if (remote.auth === "oauth" && runtime.oauthReady?.(name) !== true) {
+      return { ...base, setup, remote: binding, overlay: "error", reason: "auth-required" };
+    }
     definition = { name, scope: { kind: "installation" }, transport: { type: "http", url: url.toString(), headers: {} },
+      ...(remote.auth === "header" ? { authSecret: extensionSecretName(name, required[0]!.slot) } : {}),
       trust: "untrusted", timeouts: { ...DEFAULT_TIMEOUTS } };
-  } else definition = await localDefinition(name, manifest, packageRoot, runtime);
-  return { name, activeVersion, manifestSha256: record.manifestSha256, declaration: declared,
-    ...(definition ? { definition } : { overlay: "needs-setup" as const }) };
+    return { ...base, setup, remote: binding, definition };
+  } else {
+    const local = await localMetadata(name, manifest, packageRoot);
+    if (missing) return { ...base, setup: local.setup, overlay: "needs-setup" };
+    definition = await localDefinition(name, manifest, packageRoot, runtime, local);
+    return { ...base, setup: local.setup, ...(definition ? { definition } : { overlay: "needs-setup" as const }) };
+  }
 }
 
 /** Read installed records only. A malformed item is held back independently; malformed state refuses the whole snapshot. */
-export async function installedMcpExtensions(home: string, runtime: McpExtensionRuntime = {}): Promise<InstalledMcpExtension[]> {
+export async function installedMcpExtensions(home: string, runtime: McpExtensionRuntime = {},
+  availableSecrets?: ReadonlySet<string>): Promise<InstalledMcpExtension[]> {
   const root = await realpath(home);
   let state: ObjectValue;
   try { state = await readJson(root, join(root, "extensions", "state.json"), MAX_STATE_BYTES); }
@@ -234,16 +330,135 @@ export async function installedMcpExtensions(home: string, runtime: McpExtension
     throw error;
   }
   if (state.schemaVersion !== 1) throw Error("unsupported extension state version");
-  const items = Object.entries(object(state.items));
+  const items = Object.entries(object(state.items)).filter(([, raw]) => {
+    const item = object(raw);
+    return item.kind === "mcp-server" && item.removedByUser !== true;
+  });
   if (items.length > MAX_ITEMS) throw Error("too many installed MCP extensions");
+  if (!items.length) return [];
   const mcpRoot = await contained(root, join(root, "mcp"));
   const result: InstalledMcpExtension[] = [];
   for (const [name, raw] of items) {
     const item = object(raw);
     if (item.kind !== "mcp-server" || item.removedByUser === true) continue;
     if (!NAME.test(name)) throw Error("invalid installed MCP extension name");
-    try { result.push(await loadItem(mcpRoot, name, item, runtime)); }
+    try { result.push(await loadItem(mcpRoot, name, item, runtime, availableSecrets)); }
     catch { result.push({ name, overlay: "error" }); }
   }
   return result;
+}
+
+/** Declared slots for setup, across every installed kind; MCP launch templates also require authenticated payloads. */
+export async function installedExtensionSecretDefinition(home: string, name: string):
+  Promise<ExtensionSecretDefinition | undefined> {
+  extensionSecretName(name, "validation");
+  const root = await realpath(home);
+  let state: ObjectValue;
+  try { state = await readJson(root, join(root, "extensions", "state.json"), MAX_STATE_BYTES); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
+  if (state.schemaVersion !== 1) throw Error("unsupported extension state version");
+  const raw = object(state.items)[name];
+  if (raw === undefined) return undefined;
+  const record = object(raw);
+  if (record.name !== name || record.removedByUser === true) return undefined;
+  const slots = secretSlots(record.capabilities);
+  if (record.kind !== "mcp-server") return { name, slots };
+  const mcpRoot = await contained(root, join(root, "mcp"));
+  return (await loadItem(mcpRoot, name, record, {})).setup;
+}
+
+/** Recheck the approved active tree at each spawn; cached supervisor overlays never authenticate executable bytes. */
+export async function verifyInstalledMcpPayload(home: string, expected: InstalledMcpExtension,
+  signal?: AbortSignal): Promise<void> {
+  const checkAbort = () => { if (signal?.aborted) throw Error("MCP payload verification aborted"); };
+  checkAbort();
+  if (!NAME.test(expected.name) || !expected.activeVersion || !VERSION.test(expected.activeVersion) ||
+      !expected.manifestSha256 || !/^[a-f0-9]{64}$/.test(expected.manifestSha256)) {
+    throw Error("MCP payload has no approved registration");
+  }
+  const root = await realpath(home);
+  // Reject directory links as well as file links, including links which remain inside the package.
+  const directory = async (path: string) => {
+    if (!within(root, path)) throw Error("invalid MCP payload directory");
+    let current = root;
+    for (const component of relative(root, path).split(sep).filter(Boolean)) {
+      current = join(current, component);
+      const info = await lstat(current);
+      if (!info.isDirectory() || info.isSymbolicLink() || await realpath(current) !== current) {
+        throw Error("invalid MCP payload directory");
+      }
+    }
+  };
+  const approvedRecord = async () => {
+    await directory(join(root, "extensions"));
+    const state = await readJson(root, join(root, "extensions", "state.json"), MAX_STATE_BYTES);
+    const record = object(object(state.items)[expected.name]);
+    if (state.schemaVersion !== 1 || record.kind !== "mcp-server" || record.name !== expected.name ||
+        record.removedByUser === true || record.activeVersion !== expected.activeVersion ||
+        record.version !== expected.activeVersion || record.manifestSha256 !== expected.manifestSha256 ||
+        (record.integrity && object(record.integrity).ok !== true)) throw Error("MCP approval changed before launch");
+    return record;
+  };
+  const record = await approvedRecord();
+  const packageRoot = join(root, "mcp", expected.name, expected.activeVersion);
+  await directory(join(packageRoot, "payload"));
+  const manifest = await readJson(packageRoot, join(packageRoot, "p1x.json"), MAX_METADATA_BYTES,
+    expected.manifestSha256);
+  if (manifest.id !== record.id || manifest.name !== expected.name || manifest.kind !== "mcp-server" ||
+      manifest.version !== expected.activeVersion) throw Error("MCP package approval mismatch");
+  const files = object(manifest.files);
+  const entries = Object.entries(files);
+  if (!entries.length || entries.length > 20_000) throw Error("MCP payload file limit exceeded");
+  let total = 0;
+  for (const [path, raw] of entries) {
+    checkAbort();
+    const components = path.split("/");
+    const file = object(raw);
+    if (components[0] !== "payload" || components.length < 2 || components.length > 16 ||
+        Buffer.byteLength(path) > 240 || components.some(part => !part || part === "." || part === ".." ||
+          /[\\\u0000-\u001f\u007f:]/.test(part)) || typeof file.sha256 !== "string" ||
+        !/^[a-f0-9]{64}$/.test(file.sha256) || !Number.isSafeInteger(file.size) ||
+        (file.size as number) < 0 || (file.size as number) > 128 * 1024 * 1024 ||
+        (file.exec !== undefined && typeof file.exec !== "boolean")) throw Error("invalid approved MCP payload file");
+    total += file.size as number;
+    if (total > 256 * 1024 * 1024) throw Error("MCP payload byte limit exceeded");
+    const local = join(packageRoot, ...components);
+    await directory(join(local, ".."));
+    const handle = await open(local, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
+    try {
+      const before = await handle.stat();
+      if (!before.isFile() || before.size !== file.size ||
+          (process.platform !== "win32" && Boolean(before.mode & 0o111) !== (file.exec === true))) {
+        throw Error("MCP payload type, size or mode changed");
+      }
+      const hash = createHash("sha256");
+      const chunk = Buffer.alloc(64 * 1024);
+      let read = 0;
+      for (;;) {
+        checkAbort();
+        const { bytesRead } = await handle.read(chunk, 0, Math.min(chunk.length, before.size - read + 1), read);
+        if (!bytesRead) break;
+        read += bytesRead;
+        if (read > before.size) throw Error("MCP payload grew while verifying");
+        hash.update(chunk.subarray(0, bytesRead));
+      }
+      const after = await handle.stat();
+      const current = await lstat(local);
+      if (read !== file.size || hash.digest("hex") !== file.sha256 || !current.isFile() ||
+          [after, current].some(info => info.dev !== before.dev || info.ino !== before.ino ||
+            info.size !== before.size || info.mtimeMs !== before.mtimeMs || info.ctimeMs !== before.ctimeMs ||
+            info.mode !== before.mode)) throw Error("MCP payload changed while verifying");
+    } finally { await handle.close(); }
+  }
+  // The entry must be part of the approved file inventory, rather than just an existing contained path.
+  const local = await localMetadata(expected.name, manifest, packageRoot);
+  if (!Object.hasOwn(files, relative(packageRoot, local.entry).split(sep).join("/"))) {
+    throw Error("MCP entry has no approved payload digest");
+  }
+  await directory(join(packageRoot, "payload"));
+  await approvedRecord();
+  checkAbort();
 }

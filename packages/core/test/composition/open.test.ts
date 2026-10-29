@@ -9,10 +9,17 @@ import { createAgentRegistry } from "../../src/agents.ts";
 import { layout } from "../../src/paths.ts";
 import { memoryAuditSink } from "../../src/rbac/audit.ts";
 import { useTempDirs } from "./helpers.ts";
+import { createSecretStore } from "../../src/secrets/store.ts";
+import { createMemoryBackend } from "../../src/secrets/memory-backend.ts";
+import { createMemoryAuditSink } from "../../src/secrets/audit.ts";
 
 const tmp = useTempDirs("p1b-open-comp-");
 const MEDIA_METHODS = ["chat.promote.links", "chat.promote.preview", "chat.promote.commit", "task.complete", "media.generate", "media.edit", "media.job.get", "media.job.list", "media.job.cancel", "media.output.get", "media.output.list", "media.output.delete", "media.adapters.list", "media.preferences.get", "media.preferences.set"];
 const SEARCH_METHODS = ["media.search", "media.index.status", "media.index.pause", "media.index.resume", "media.index.reindex", "media.caption.set"];
+const EXTENSION_METHODS = ["admin.extensions.setup.get", "admin.extensions.setup.set",
+  "admin.extensions.runtime.hold", "admin.extensions.runtime.release",
+  "admin.extensions.runtime.status", "admin.extensions.auth.start", "admin.extensions.auth.status",
+  "admin.extensions.auth.submit", "admin.extensions.auth.cancel"];
 
 function recordingLogger() {
   const lines: [string, string, Record<string, unknown> | undefined][] = [];
@@ -28,7 +35,10 @@ async function open(over: Partial<CompositionDeps> = {}, prepare: (home: string)
   const identity = createIdentityService({ dbPath: join(home, "identity.sqlite"), clock: Date.now, audit: () => {} });
   const agents = createAgentRegistry({ config: () => cfg }, layout(home), logger);
   const deps: CompositionDeps = {
-    home, config: () => cfg, engine: {} as never, agents, logger, secrets: {} as never, egress: { decide: async () => ({ allowed: false }) } as never,
+    home, config: () => cfg, engine: {} as never, agents, logger,
+    secrets: createSecretStore({ keyring: createMemoryBackend(), file: createMemoryBackend(),
+      fileFallback: () => false, audit: createMemoryAuditSink() }),
+    egress: { decide: async () => ({ allowed: false }) } as never,
     permissions: { current: () => null, open: async () => { throw new Error("unused"); } } as never, audit: memoryAuditSink(), identity, clock: () => 1_000, signal: new AbortController().signal,
     isStopping: () => false, notify: () => {},
     options: { providers: { profiles: { default: [{ provider: "fixture", model: "gpt-4.1", adapter: { async *stream() { /* never called */ } } }] } } },
@@ -60,7 +70,7 @@ describe("composition openTurnComposition", () => {
       assert.equal(c.mining.status().state, "engine-unavailable");
       assert.ok(c.collab, "collaboration needs the call budget, which opened");
       assert.equal(typeof c.sessions.close, "function");
-      assert.deepEqual(Object.keys(c.surfaceMethods).sort(), [...MEDIA_METHODS, ...SEARCH_METHODS, "decision.status", "decision.test", "models.test"].sort());
+      assert.deepEqual(Object.keys(c.surfaceMethods).sort(), [...MEDIA_METHODS, ...SEARCH_METHODS, ...EXTENSION_METHODS, "decision.status", "decision.test", "models.test"].sort());
       for (const m of Object.values(c.surfaceMethods)) assert.equal(typeof m, "function");
     } finally { await c.close(); identity.close(); }
   });

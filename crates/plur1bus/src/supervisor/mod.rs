@@ -20,6 +20,7 @@ pub mod modules;
 #[cfg(windows)]
 pub mod pipe_windows;
 pub mod server;
+pub mod spawn_secrets;
 pub mod state;
 pub mod subscribers;
 
@@ -884,6 +885,13 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     }
     config::spawn_watcher(&shared, layout, time_scale)
         .unwrap_or_else(|e| fail(layout, 1, &format!("cannot start the config watcher: {e}")));
+    ext::spawn_hold_recovery(&shared, layout).unwrap_or_else(|e| {
+        fail(
+            layout,
+            1,
+            &format!("cannot start extension hold recovery: {e}"),
+        )
+    });
     shared.log.info(
         "supervisor ready",
         json!({ "pid": pid, "instanceId": instance_id, "address": address, "noCore": opts.no_core, "timeScale": time_scale }),

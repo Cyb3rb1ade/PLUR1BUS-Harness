@@ -2628,3 +2628,107 @@ fn install_and_enable_acknowledges_before_it_enables() {
     assert!(st.items["fixture"].capabilities_ack.is_some());
     assert_eq!(config(&l)["modules"]["fixture"]["enabled"], false);
 }
+
+#[test]
+fn mcp_commit_holds_before_writes_and_releases_after_commit_or_rollback() {
+    struct Controlled<'a> {
+        inner: OfflineHost<'a>,
+        calls: Vec<&'static str>,
+        fail_hold: bool,
+        fail_release: bool,
+    }
+    impl ModuleHost for Controlled<'_> {
+        fn config(&self) -> Value {
+            self.inner.config()
+        }
+        fn set_config(&mut self, c: Vec<(String, Value)>, d: bool) -> Result<Value, ExtError> {
+            self.inner.set_config(c, d)
+        }
+        fn install_module(&mut self, s: modules_install::Staged) -> Result<bool, ExtError> {
+            self.inner.install_module(s)
+        }
+        fn remove_module(&mut self, n: &str, p: &Path) -> Result<(), ExtError> {
+            self.inner.remove_module(n, p)
+        }
+        fn notify(&mut self, v: Value) {
+            self.inner.notify(v)
+        }
+        fn via(&self) -> &'static str {
+            "offline"
+        }
+        fn hold_runtime(&mut self, _: &str) -> Result<bool, ExtError> {
+            self.calls.push("hold");
+            if self.fail_hold {
+                Err(ExtError::new(
+                    "E_NOT_AVAILABLE",
+                    "core-unavailable",
+                    "runtime unavailable",
+                ))
+            } else {
+                Ok(true)
+            }
+        }
+        fn release_runtime(&mut self, _: &str) -> Result<(), ExtError> {
+            self.calls.push("release");
+            if self.fail_release {
+                Err(ExtError::new(
+                    "E_NOT_AVAILABLE",
+                    "core-unavailable",
+                    "marker-must-never-propagate",
+                ))
+            } else {
+                Ok(())
+            }
+        }
+    }
+    let key = test_key("test");
+    let _g = env_with(&key);
+    for (fail, fail_hold, fail_release) in [
+        (false, false, false),
+        (true, false, false),
+        (false, true, false),
+        (false, false, true),
+    ] {
+        let (d, l) = home();
+        populate(&l);
+        let before = guarded(&l);
+        let (rec, staged) = prepare(
+            d.path(),
+            &l,
+            "m.p1x",
+            &mcp_pkg_v("docs", "1.0.0", false, &key),
+        );
+        let mut host = Controlled {
+            inner: OfflineHost::new(&l),
+            calls: vec![],
+            fail_hold,
+            fail_release,
+        };
+        if fail {
+            std::env::set_var("PLUR1BUS_TEST_EXT_FAIL_AT", "code");
+        }
+        let result = install_commit(&l, &mut host, &rec, staged, &opts(&[], None));
+        std::env::remove_var("PLUR1BUS_TEST_EXT_FAIL_AT");
+        if fail_hold {
+            assert_eq!(host.calls, ["hold"]);
+            assert!(result.is_err());
+            assert_eq!(guarded(&l), before);
+        } else {
+            assert_eq!(host.calls, ["hold", "release"]);
+            if fail {
+                assert!(result.is_err());
+                assert_eq!(guarded(&l), before);
+            } else if fail_release {
+                let error = result.unwrap_err();
+                assert_eq!(reason(&error), ("E_NOT_AVAILABLE", "runtime-unavailable"));
+                assert!(!format!("{error:?}").contains("marker-must-never-propagate"));
+                assert!(
+                    l.home.join("mcp/docs/1.0.0/p1x.json").is_file(),
+                    "release failure cannot roll back a completed disk commit"
+                );
+            } else {
+                assert!(result.is_ok());
+            }
+        }
+    }
+}

@@ -1684,3 +1684,78 @@ fn the_cache_meta_travels_with_its_package() {
         .unwrap_or_default();
     assert!(left.is_empty(), "{left:?}");
 }
+
+#[test]
+fn purge_deletes_only_declared_slots_and_offline_refuses_before_removing_anything() {
+    use ext::commit::ModuleHost;
+    struct SecretHost<'a> {
+        inner: OfflineHost<'a>,
+        deleted: Vec<String>,
+    }
+    impl ModuleHost for SecretHost<'_> {
+        fn config(&self) -> Value {
+            self.inner.config()
+        }
+        fn set_config(&mut self, c: Vec<(String, Value)>, d: bool) -> Result<Value, ExtError> {
+            self.inner.set_config(c, d)
+        }
+        fn install_module(&mut self, s: modules_install::Staged) -> Result<bool, ExtError> {
+            self.inner.install_module(s)
+        }
+        fn remove_module(&mut self, n: &str, p: &Path) -> Result<(), ExtError> {
+            self.inner.remove_module(n, p)
+        }
+        fn notify(&mut self, v: Value) {
+            self.inner.notify(v)
+        }
+        fn via(&self) -> &'static str {
+            "offline"
+        }
+        fn check_secret_store(&mut self) -> Result<(), ExtError> {
+            Ok(())
+        }
+        fn purge_secrets(&mut self, name: &str, slots: &[String]) -> Result<(), ExtError> {
+            self.deleted
+                .extend(slots.iter().map(|slot| format!("ext:{name}:{slot}")));
+            Ok(())
+        }
+    }
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    write_config(&l, |_| {});
+    let mut caps = base_caps();
+    caps["secrets"] = json!([
+        {"slot":"API_KEY","label":{"en":"API key"},"required":true},
+        {"slot":"optional","label":{"en":"Optional"},"required":false}
+    ]);
+    install(
+        d.path(),
+        &l,
+        "s.p1x",
+        &skill_pkg_caps("demo-skill", "1.0.0", caps, &key),
+        &plain(),
+    )
+    .unwrap();
+    let before = guarded(&l);
+    let options = RemoveOpts {
+        purge: true,
+        cascade: false,
+    };
+    let unavailable = uninstall(&l, &mut OfflineHost::new(&l), "demo-skill", &options).unwrap_err();
+    assert_eq!(
+        reason(&unavailable),
+        ("E_NOT_AVAILABLE", "secret-store-unavailable")
+    );
+    assert_eq!(guarded(&l), before);
+    let mut host = SecretHost {
+        inner: OfflineHost::new(&l),
+        deleted: vec![],
+    };
+    let removed = uninstall(&l, &mut host, "demo-skill", &options).unwrap();
+    assert_eq!(removed["removed"], true);
+    assert_eq!(
+        host.deleted,
+        ["ext:demo-skill:API_KEY", "ext:demo-skill:optional"]
+    );
+}

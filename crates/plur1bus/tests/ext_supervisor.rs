@@ -1284,3 +1284,245 @@ fn a_stop_during_a_commit_waits_for_it() {
         assert_eq!(h.config()["modules"]["fixture"]["enabled"], true);
     }
 }
+
+fn secret_core_call(home: &Path, method: &str, params: Value) -> Value {
+    use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
+    let supervisor = common::address(home);
+    let address = if cfg!(windows) {
+        format!("{}-core", supervisor.strip_suffix("-supervisor").unwrap())
+    } else {
+        home.join("run/core.sock").to_string_lossy().into_owned()
+    };
+    let token = std::fs::read_to_string(home.join("run/core.token")).unwrap();
+    let pid = std::fs::read_to_string(home.join("run/core.pid"))
+        .ok()
+        .and_then(|value| value.split_whitespace().next()?.parse().ok());
+    let mut core = Client::connect(
+        &address,
+        token.trim(),
+        ConnectOptions {
+            endpoint: Endpoint::Core,
+            expected_server_pid: pid,
+            connect_timeout: Duration::from_secs(3),
+            call_timeout: Duration::from_secs(3),
+        },
+    )
+    .unwrap();
+    core.call(method, params).unwrap()
+}
+
+#[test]
+fn required_slots_setup_rotation_and_deletion_reconcile_a_real_leased_module_without_ambient_secrets(
+) {
+    use sha2::{Digest, Sha256};
+    let h = Home::new();
+    let name = "secret-fixture";
+    let mut files = Vec::new();
+    for entry in std::fs::read_dir(fixture_dist()).unwrap() {
+        let entry = entry.unwrap();
+        let rel = entry.file_name().to_string_lossy().into_owned();
+        if !entry.file_type().unwrap().is_file() || rel == "module.json" {
+            continue;
+        }
+        let mut bytes = std::fs::read(entry.path()).unwrap();
+        if rel == "index.js" {
+            let prefix=b"const a7fs = await import('node:fs/promises'); const a7crypto = await import('node:crypto'); await a7fs.mkdir(process.env.P1X_DATA,{recursive:true}); await a7fs.writeFile(process.env.P1X_DATA+'/env-'+process.pid+'.json',JSON.stringify({pid:process.pid,hash:process.env.P1X_SECRET_apiKey?a7crypto.createHash('sha256').update(process.env.P1X_SECRET_apiKey).digest('hex'):null,ambient:'AMBIENT_SECRET_CANARY' in process.env,undeclared:'P1X_SECRET_undeclared' in process.env,descriptor:'PLUR1BUS_NATIVE_BIN' in process.env}));\n";
+            let mut script = prefix.to_vec();
+            script.extend(bytes);
+            bytes = script;
+        }
+        files.push(PayloadFile {
+            rel,
+            bytes,
+            exec: false,
+        });
+    }
+    let module = json!({"name":name,"version":"1.0.0","apiVersion":"1","entry":"index.js","scope":"installation","priority":500,"needs":["core"]});
+    files.push(PayloadFile {
+        rel: "module.json".into(),
+        bytes: serde_json::to_vec(&module).unwrap(),
+        exec: false,
+    });
+    let mut capabilities = caps();
+    capabilities["secrets"] = json!([{"slot":"apiKey","label":{"en":"API key"},"required":true}]);
+    let manifest = json!({"$schema":"https://plur1bus.app/schema/p1x/1/p1x.schema.json","format":1,"id":format!("demo/{name}"),"name":name,"version":"1.0.0","kind":"module","title":{"en":"Secret fixture"},"summary":{"en":"Leased environment fixture"},"publisher":{"id":"demo","name":"Demo"},"licence":"MIT","compat":{"harness":">=0.0.0","moduleApi":["1"]},"requires":{"runtime":{"type":"node","range":">=24"}},"capabilities":capabilities});
+    let source = h.write(
+        "secret.p1x",
+        &build_package_from(&manifest, files, Some(&h.key)),
+    );
+    let mut supervisor = h.start_with_core(&[
+        ("FAKE_CORE_EXTENSION_SECRETS", "1"),
+        ("AMBIENT_SECRET_CANARY", "a7-ambient-canary-value"),
+        ("P1X_SECRET_undeclared", "a7-undeclared-canary-value"),
+        ("PLUR1BUS_NATIVE_BIN", "ambient-descriptor"),
+    ]);
+    let inspection = ok(&h.home, "ext.inspect", json!({"source":{"path":source}}));
+    assert_eq!(
+        ok(
+            &h.home,
+            "ext.install",
+            json!({"inspectionId":inspection["inspectionId"]})
+        )["state"],
+        "enabled"
+    );
+    wait_for(
+        &h.home,
+        name,
+        "missing required slot holds",
+        is("stopped", "ext-needs-setup"),
+    );
+    let data = h.home.join("data/ext").join(name);
+    assert!(entries(&data).is_empty());
+    let first = "a7-first-secret-canary-long-value";
+    let second = "a7-second-secret-canary-long-value";
+    let snapshots = |pid: u64| -> Value {
+        serde_json::from_slice(&std::fs::read(data.join(format!("env-{pid}.json"))).unwrap())
+            .unwrap()
+    };
+    secret_core_call(
+        &h.home,
+        "secret.set",
+        json!({"name":format!("ext:{name}:apiKey"),"value":first}),
+    );
+    assert_eq!(
+        ok(
+            &h.home,
+            "admin.extensions.runtime.reconcile",
+            json!({"name":name})
+        ),
+        json!({"name":name,"reconciled":true})
+    );
+    let first_pid = wait_for(&h.home, name, "leased module ready", is("ready", ""))["pid"]
+        .as_u64()
+        .unwrap();
+    let hash = |value: &str| {
+        Sha256::digest(value.as_bytes())
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    };
+    assert_eq!(
+        snapshots(first_pid),
+        json!({"pid":first_pid,"hash":hash(first),"ambient":false,"undeclared":false,"descriptor":false})
+    );
+    secret_core_call(
+        &h.home,
+        "secret.set",
+        json!({"name":format!("ext:{name}:apiKey"),"value":second}),
+    );
+    ok(
+        &h.home,
+        "admin.extensions.runtime.reconcile",
+        json!({"name":name}),
+    );
+    common::wait_until("rotation retires the old child", WAIT, || {
+        child(&status(&h.home), name).is_some_and(|child| {
+            child["process"]["state"] == "ready"
+                && child["pid"].as_u64().is_some_and(|pid| pid != first_pid)
+        })
+    });
+    let second_pid = wait_for(&h.home, name, "rotated module ready", is("ready", ""))["pid"]
+        .as_u64()
+        .unwrap();
+    assert_eq!(snapshots(second_pid)["hash"], hash(second));
+    #[cfg(target_os = "linux")]
+    assert!(!Path::new(&format!("/proc/{first_pid}")).exists());
+    secret_core_call(
+        &h.home,
+        "secret.delete",
+        json!({"name":format!("ext:{name}:apiKey")}),
+    );
+    ok(
+        &h.home,
+        "admin.extensions.runtime.reconcile",
+        json!({"name":name}),
+    );
+    wait_for(
+        &h.home,
+        name,
+        "deletion stops the credential-bearing child",
+        is("stopped", "ext-needs-setup"),
+    );
+    assert!(!h.home.join(format!("run/module-{name}.pid")).exists());
+    ok(&h.home, "ext.disable", json!({"name":name}));
+    secret_core_call(
+        &h.home,
+        "secret.set",
+        json!({"name":format!("ext:{name}:apiKey"),"value":first}),
+    );
+    ok(
+        &h.home,
+        "admin.extensions.runtime.reconcile",
+        json!({"name":name}),
+    );
+    assert_eq!(h.config()["modules"][name]["enabled"], false);
+    wait_for(
+        &h.home,
+        name,
+        "setup never enables a disabled module",
+        is("stopped", "disabled"),
+    );
+    assert_eq!(entries(&data).len(), 2);
+    let state = std::fs::read_to_string(h.home.join("extensions/state.json")).unwrap();
+    let declared: Value = serde_json::from_str(&state).unwrap();
+    assert_eq!(
+        declared["items"][name]["requiredSecrets"],
+        json!(["apiKey"])
+    );
+    for file in std::iter::once(h.home.join("extensions/state.json")).chain(
+        std::fs::read_dir(h.home.join("logs"))
+            .unwrap()
+            .flatten()
+            .map(|entry| entry.path()),
+    ) {
+        if file.is_file() {
+            let bytes = std::fs::read(file).unwrap();
+            let text = String::from_utf8_lossy(&bytes);
+            for marker in [
+                first,
+                second,
+                "a7-ambient-canary-value",
+                "a7-undeclared-canary-value",
+            ] {
+                assert!(
+                    !text.contains(marker),
+                    "secret marker reached persistent metadata or logs"
+                );
+            }
+        }
+    }
+    stop(&mut supervisor, &h.home);
+}
+
+#[test]
+fn startup_releases_a_recovered_hold_even_when_uninstall_removed_its_record() {
+    let h = Home::new();
+    let run = h.home.join("run");
+    std::fs::create_dir_all(&run).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&run, std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
+    let journal = run.join("ext-runtime-holds.json");
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    options
+        .open(&journal)
+        .unwrap()
+        .write_all(br#"{"version":1,"names":["removed-package"]}"#)
+        .unwrap();
+    let mut supervisor = h.start_with_core(&[]);
+    common::wait_until(
+        "recovered absent package hold is acknowledged",
+        WAIT,
+        || !journal.exists(),
+    );
+    assert_eq!(ok(&h.home, "ext.list", json!({}))["items"], json!([]));
+    stop(&mut supervisor, &h.home);
+}

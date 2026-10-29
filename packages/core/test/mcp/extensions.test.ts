@@ -118,7 +118,8 @@ describe("M-A4 installed MCP composition", () => {
       try {
         await reconciler.refresh();
         assert.deepEqual(reconciler.servers(), []);
-        assert.equal(reconciler.status("reports")?.overlay, "needs-setup");
+        assert.equal(reconciler.status("reports")?.overlay, remote?.auth === "oauth" ? "error" : "needs-setup");
+        if (remote?.auth === "oauth") assert.equal(reconciler.status("reports")?.reason, "auth-required");
       } finally { await reconciler.close(); await f.registry.shutdown(); }
     }
   });
@@ -337,4 +338,66 @@ describe("M-A4 installed MCP composition", () => {
     } finally { await reconciler.close(); await f.registry.shutdown(); }
   });
 
+  it("holds a live process before package mutation and prevents config/feed refreshes from restarting it until release", async () => {
+    const f = await fixture();
+    const reconciler = new McpExtensionReconciler({ home: f.home, config: () => f.config, registry: f.registry });
+    try {
+      await reconciler.refresh();
+      await f.registry.listTools("reports", caller);
+      const old = reconciler.revision("reports", caller.agentId);
+      const pid = f.registry.status("reports", caller.agentId).pid!;
+      const holding = reconciler.hold("reports");
+      assert.equal(reconciler.visible("reports", caller.agentId), false, "authority is revoked before hold resolves");
+      assert.deepEqual(await holding, { name: "reports", held: true });
+      assert.ok(await waitDead(pid));
+      await reconciler.refresh();
+      await reconciler.refresh();
+      assert.deepEqual(reconciler.servers(), []);
+      assert.deepEqual(await reconciler.release("reports"), { name: "reports", released: true });
+      assert.deepEqual(reconciler.servers(), ["reports"]);
+      assert.notEqual(reconciler.revision("reports", caller.agentId), old);
+    } finally { await reconciler.close(); await f.registry.shutdown(); }
+  });
+
+  it("derives auth-required runtime overlays without changing enable flags and clears them after explicit retry", async () => {
+    const f = await fixture({ url: "https://approved.example.test/mcp", auth: "none" });
+    const reconciler = new McpExtensionReconciler({ home: f.home, config: () => f.config, registry: f.registry });
+    try {
+      await reconciler.refresh();
+      reconciler.runtimeEvent({ server: "reports", state: "failed", params: { reason: "auth-required" } });
+      assert.equal(reconciler.status("reports")?.overlay, "error");
+      assert.equal(reconciler.status("reports")?.reason, "auth-required");
+      assert.equal(f.config.mcp.servers.reports.enabled, true);
+      assert.equal(reconciler.visible("reports", "A"), false);
+      await reconciler.refresh();
+      assert.equal(reconciler.status("reports")?.overlay, "error");
+      await reconciler.retry("reports");
+      assert.equal(reconciler.status("reports")?.overlay, undefined);
+      assert.equal(reconciler.visible("reports", "A"), true);
+      reconciler.runtimeEvent({ server: "reports", state: "failed", params: { reason: "auth-required" } });
+      reconciler.runtimeEvent({ server: "reports", state: "ready" });
+      assert.equal(reconciler.status("reports")?.overlay, undefined);
+    } finally { await reconciler.close(); await f.registry.shutdown(); }
+  });
+
+  it("uses current secret-store metadata to release required slots while keeping empty installations lazy", async () => {
+    const f = await fixture();
+    const available = new Set<string>();
+    let reads = 0;
+    const reconciler = new McpExtensionReconciler({ home: f.home, config: () => f.config, registry: f.registry,
+      availableSecretNames: async () => { reads++; return available; } });
+    try {
+      await reconciler.refresh();
+      assert.equal(reads, 0, "a package without slots must not open the keychain");
+      f.manifest.capabilities.secrets = [{ slot: "TOKEN", required: true }];
+      await f.approveManifest();
+      await reconciler.refresh();
+      assert.equal(reconciler.status("reports")?.overlay, "needs-setup");
+      available.add("ext:reports:TOKEN");
+      await reconciler.retry("reports");
+      assert.deepEqual(reconciler.servers(), ["reports"]);
+      assert.ok(reads >= 2);
+      assert.deepEqual(reconciler.definition("reports")!.transport.type, "stdio");
+    } finally { await reconciler.close(); await f.registry.shutdown(); }
+  });
 });

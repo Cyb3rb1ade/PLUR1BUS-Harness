@@ -367,6 +367,11 @@ pub fn core_address(home: &Path, platform: &str) -> String {
     address(home, platform, "core")
 }
 
+/// Private native-child spawn credentials; the Core owns role `e` beside its public endpoint.
+pub fn extension_secrets_address(home: &Path, platform: &str) -> String {
+    address(home, platform, "e")
+}
+
 /// Same rule as packages/core/src/paths.ts supervisorAddress(): `run/supervisor.sock` on POSIX, the per-home
 /// `-supervisor` pipe on Windows.
 pub fn supervisor_address(home: &Path, platform: &str) -> String {

@@ -41,6 +41,9 @@ export function authenticatedPrincipal(ctx: CallContext): Principal {
 }
 
 export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
+  "admin.extensions.runtime.reconcile": { ...rule("extensions.manage", system), humanOnly: true },
+  ...Object.fromEntries(["ext.list", "ext.show", "ext.watch", "ext.inspection.get", "admin.extensions.setup.get", "admin.extensions.runtime.status", "admin.extensions.auth.status"].map(method => [method, { ...rule("extensions.read", system), humanOnly: true }])),
+  ...Object.fromEntries(["ext.inspect", "ext.install", "ext.uninstall", "ext.restore", "ext.enable", "ext.disable", "admin.extensions.setup.set", "admin.extensions.auth.start", "admin.extensions.auth.submit", "admin.extensions.auth.cancel", "admin.extensions.runtime.hold", "admin.extensions.runtime.release"].map(method => [method, { ...rule("extensions.manage", system), humanOnly: true }])),
   "secret.describe": { ...rule("settings.write", system), humanOnly: true },
   "secret.grants.list": { ...rule("settings.read", system), humanOnly: true },
   "delivery.target.list": { ...rule("agent.list", system), humanOnly: true },

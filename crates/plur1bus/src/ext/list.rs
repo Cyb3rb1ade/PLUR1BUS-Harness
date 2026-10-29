@@ -6,7 +6,7 @@
 //! package bytes are never opened.
 use super::commit::enabled_in;
 use super::index::{self, SkillIndex};
-use super::overlays::{load_revocations, overlays_of, rehash, Revocation};
+use super::overlays::{load_revocations, overlays_with_missing, rehash, Revocation};
 use super::paths::ExtPaths;
 use super::record::{skill_id_ok, state_invalid, warn};
 use super::state::{self, ItemRecord};
@@ -126,6 +126,7 @@ fn item_json(
 }
 
 /// The `ExtItem` of a package record.
+#[allow(clippy::too_many_arguments)]
 fn record_item(
     layout: &Layout,
     paths: &ExtPaths,
@@ -134,13 +135,21 @@ fn record_item(
     rec: &ItemRecord,
     host: &HostFacts,
     revs: &[Revocation],
+    missing: &[String],
 ) -> Value {
     let enabled = enabled_in(layout, idx, cfg, &rec.name, &rec.kind);
     let meta = cached_meta(paths, &rec.package_sha256);
     let compat = meta
         .as_ref()
         .and_then(|m| m["manifest"].get("compat").cloned());
-    let overlays = overlays_of(rec, host, revs, compat.as_ref());
+    let mut overlays = overlays_with_missing(rec, host, revs, compat.as_ref(), missing);
+    if rec.kind == "mcp-server" {
+        if let Some(runtime) = super::runtime::status(layout, &rec.name) {
+            if !overlays.contains(&runtime) {
+                overlays.push(runtime);
+            }
+        }
+    }
     let mut item = item_json(
         &rec.name,
         Some(&rec.id),
@@ -163,7 +172,11 @@ fn record_item(
 /// Every item, sorted by name (see the module documentation). An unreadable `extensions/state.json` is `E_STORAGE
 /// state-invalid` (X1-C29): without the records, a packaged item would list as unknown or as a local one. An
 /// unreadable `skills/index.json` is read once here and fails closed: no skill is listed as enabled.
-fn collect(layout: &Layout, cfg: &Value) -> Result<Vec<Entry>, ExtError> {
+fn collect(
+    layout: &Layout,
+    cfg: &Value,
+    presence: &mut super::runtime::OperationPresence,
+) -> Result<Vec<Entry>, ExtError> {
     let paths = ExtPaths::of(layout);
     let st = state::read(&paths).map_err(state_invalid)?;
     let idx = index::read_index(layout)
@@ -193,7 +206,16 @@ fn collect(layout: &Layout, cfg: &Value) -> Result<Vec<Entry>, ExtError> {
         out.insert(
             rec.name.clone(),
             Entry {
-                item: record_item(layout, &paths, cfg, idx.as_ref(), rec, &host, &revs),
+                item: record_item(
+                    layout,
+                    &paths,
+                    cfg,
+                    idx.as_ref(),
+                    rec,
+                    &host,
+                    &revs,
+                    &presence.missing(layout, &rec.name, &rec.required_secrets),
+                ),
                 record: Some(rec.clone()),
                 dir: super::record::active_code_dir(layout, rec),
             },
@@ -338,7 +360,8 @@ fn keep(item: &Value, f: &ListFilter) -> bool {
 /// `ext.list`: `{items: ExtItem[]}`, sorted by name; `E_STORAGE state-invalid` when `extensions/state.json` cannot be
 /// read (X1-C29).
 pub fn list_items(layout: &Layout, cfg: &Value, filter: &ListFilter) -> Result<Value, ExtError> {
-    let items: Vec<Value> = collect(layout, cfg)?
+    let mut presence = super::runtime::OperationPresence::default();
+    let items: Vec<Value> = collect(layout, cfg, &mut presence)?
         .into_iter()
         .map(|e| e.item)
         .filter(|i| keep(i, filter))
@@ -437,7 +460,8 @@ pub(crate) fn scripts_of(meta: Option<&Value>, rec: &ItemRecord) -> Vec<Value> {
 /// `E_NOT_FOUND extension-unknown`; an unreadable `extensions/state.json` → `E_STORAGE state-invalid` (X1-C29).
 pub fn show_item(layout: &Layout, cfg: &Value, name: &str) -> Result<Value, ExtError> {
     let paths = ExtPaths::of(layout);
-    let entry = collect(layout, cfg)?
+    let mut presence = super::runtime::OperationPresence::default();
+    let entry = collect(layout, cfg, &mut presence)?
         .into_iter()
         .find(|e| e.item["name"] == name)
         .ok_or_else(|| {
@@ -464,7 +488,17 @@ pub fn show_item(layout: &Layout, cfg: &Value, name: &str) -> Result<Value, ExtE
     let host = super::host::host_facts();
     let revs = load_revocations(&paths);
     let idx = index::read_index(layout).ok();
-    let item = record_item(layout, &paths, cfg, idx.as_ref(), &rec, &host, &revs);
+    let missing = presence.missing(layout, &rec.name, &rec.required_secrets);
+    let item = record_item(
+        layout,
+        &paths,
+        cfg,
+        idx.as_ref(),
+        &rec,
+        &host,
+        &revs,
+        &missing,
+    );
     let meta = cached_meta(&paths, &rec.package_sha256);
     let manifest = meta
         .as_ref()

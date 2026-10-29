@@ -874,6 +874,18 @@ impl ConnCtx {
             }
         }
         let reply = match method {
+            "admin.extensions.runtime.reconcile" => {
+                match parse::<plur1bus_rpc::types::AdminExtensionsRuntimeReconcileParams>(&params) {
+                    Err(d) => (invalid_params(&id, d), After::Continue),
+                    Ok(_) => (
+                        ext_reply(
+                            &id,
+                            super::ext::runtime_reconcile(&self.shared, &self.layout, &params),
+                        ),
+                        After::Continue,
+                    ),
+                }
+            }
             "daemon.status" => match parse::<DaemonStatusParams>(&params) {
                 Err(d) => (invalid_params(&id, d), After::Continue),
                 Ok(_) => {

@@ -300,50 +300,79 @@ pub fn uninstall_held(
         )
         .with_data(json!({ "dependents": deps })));
     }
+    let mut purge_slots = std::collections::BTreeSet::new();
+    if o.purge {
+        if let Some(record) = &t.record {
+            purge_slots.extend(super::runtime::declared_slots(&record.capabilities)?);
+            for version in record.versions.values() {
+                purge_slots.extend(super::runtime::declared_slots(&version.capabilities)?);
+            }
+        }
+        if !purge_slots.is_empty() {
+            host.check_secret_store()?;
+        }
+    }
+    let purge_slots: Vec<String> = purge_slots.into_iter().collect();
     // The importer's lock before the index is read for writing (X1-R14), held to the end.
     let _lock: Option<ImportLock> = if is_skill {
         Some(lock_skills(layout)?)
     } else {
         None
     };
-    // Every refusal is behind us: the first write (X1-C16).
-    prune_for(layout, &cfg);
-    // X1-C17: dependents the cascade disabled stay disabled if the uninstall then fails; the error names them.
-    let mut disabled: Vec<String> = Vec::new();
-    for d in &deps {
-        if let Err(e) = disable_locked(layout, host, d, &ToggleOpts::default()) {
-            return Err(with_disabled(e, &disabled));
+    super::commit::with_runtime_hold(host, name, t.kind == "mcp-server", |host| {
+        // Every refusal is behind us: the first write (X1-C16).
+        prune_for(layout, &cfg);
+        // X1-C17: dependents the cascade disabled stay disabled if the uninstall then fails; the error names them.
+        let mut disabled: Vec<String> = Vec::new();
+        for d in &deps {
+            if let Err(e) = disable_locked(layout, host, d, &ToggleOpts::default()) {
+                return Err(with_disabled(e, &disabled));
+            }
+            disabled.push(d.clone());
         }
-        disabled.push(d.clone());
-    }
-    if bundled {
-        return hide_bundled(layout, &paths, host, &t);
-    }
+        if bundled {
+            return hide_bundled(layout, &paths, host, &t);
+        }
 
-    let mut rb = Rollback::default();
-    let (tid, moved) = match move_to_trash(layout, &paths, host, &t, o, &mut rb) {
-        Ok(x) => x,
-        Err(e) => return Err(with_disabled(roll_back(e, rb, host), &disabled)),
-    };
-    drop(rb);
-    let mut detail = json!({
-        "kind": t.kind, "version": t.version, "trashId": tid, "purged": o.purge, "cascade": deps,
-        "via": host.via(),
-    });
-    if o.purge {
-        detail["moved"] = json!(moved);
-        detail["secrets"] = json!([]); // X1-R31: no secret store yet, so none were deleted
-    }
-    let action = if o.purge {
-        "ext.purge"
-    } else {
-        "ext.uninstall"
-    };
-    audit(layout, action, name, detail);
-    host.notify(json!({
-        "name": name, "kind": t.kind, "state": "removed", "version": t.version, "overlays": []
-    }));
-    Ok(json!({ "name": name, "removed": true, "trashId": tid, "purged": o.purge }))
+        let mut rb = Rollback::default();
+        let (tid, moved) = match move_to_trash(layout, &paths, host, &t, o, &mut rb) {
+            Ok(x) => x,
+            Err(e) => return Err(with_disabled(roll_back(e, rb, host), &disabled)),
+        };
+        drop(rb);
+        let deletion = if o.purge && !purge_slots.is_empty() {
+            host.purge_secrets(name, &purge_slots)
+        } else {
+            Ok(())
+        };
+        let mut detail = json!({
+            "kind": t.kind, "version": t.version, "trashId": tid, "purged": o.purge, "cascade": deps,
+            "via": host.via(),
+        });
+        if o.purge {
+            detail["moved"] = json!(moved);
+            detail["secrets"] = json!(purge_slots
+                .iter()
+                .map(|slot| format!("ext:{name}:{slot}"))
+                .collect::<Vec<_>>());
+            if deletion.is_err() {
+                detail["secretDeletion"] = json!("incomplete");
+            }
+        }
+        let action = if o.purge {
+            "ext.purge"
+        } else {
+            "ext.uninstall"
+        };
+        audit(layout, action, name, detail);
+        host.notify(json!({
+            "name": name, "kind": t.kind, "state": "removed", "version": t.version, "overlays": []
+        }));
+        if deletion.is_err() {
+            return Err(ExtError::new("E_NOT_AVAILABLE", "secret-store-unavailable", "the extension was removed, but deletion of all declared secret slots could not be confirmed; deleted secret values cannot be restored"));
+        }
+        Ok(json!({ "name": name, "removed": true, "trashId": tid, "purged": o.purge }))
+    })
 }
 
 /// The config writes that take a purged skill's name out of every `agents.*.skills.{blocked,pinned}`, with each touched
@@ -728,40 +757,42 @@ pub fn restore_held(
             ),
         ));
     }
-    // Every refusal is behind us: the first write (X1-C16). This entry is not expired, so it stays.
-    prune_trash(layout, days);
+    super::commit::with_runtime_hold(host, &t.name, t.kind == "mcp-server", |host| {
+        // Every refusal is behind us: the first write (X1-C16). This entry is not expired, so it stays.
+        prune_trash(layout, days);
 
-    let mut rb = Rollback::default();
-    if let Err(e) = restore_steps(layout, &paths, host, &tdir, &t, &mut rb) {
-        return Err(roll_back(e, rb, host));
-    }
-    drop(rb);
-    // The entry is spent.
-    if let Err(e) = remove_dir_all_retrying(&tdir) {
-        eprintln!(
+        let mut rb = Rollback::default();
+        if let Err(e) = restore_steps(layout, &paths, host, &tdir, &t, &mut rb) {
+            return Err(roll_back(e, rb, host));
+        }
+        drop(rb);
+        // The entry is spent.
+        if let Err(e) = remove_dir_all_retrying(&tdir) {
+            eprintln!(
             "plur1bus: warning: {trash_id} is restored, but its trash entry could not be removed: {e}"
         );
-    }
-    audit(
-        layout,
-        "ext.restore",
-        &t.name,
-        json!({ "kind": t.kind, "version": t.version, "trashId": trash_id, "via": host.via() }),
-    );
-    let overlays = t.record.as_ref().map_or(json!([]), |r| {
-        let compat = cached_meta(&paths, &r.package_sha256)
-            .and_then(|m| m["manifest"].get("compat").cloned());
-        json!(overlays_of(
-            r,
-            &super::host::host_facts(),
-            &load_revocations(&paths),
-            compat.as_ref()
-        ))
-    });
-    host.notify(json!({
+        }
+        audit(
+            layout,
+            "ext.restore",
+            &t.name,
+            json!({ "kind": t.kind, "version": t.version, "trashId": trash_id, "via": host.via() }),
+        );
+        let overlays = t.record.as_ref().map_or(json!([]), |r| {
+            let compat = cached_meta(&paths, &r.package_sha256)
+                .and_then(|m| m["manifest"].get("compat").cloned());
+            json!(overlays_of(
+                r,
+                &super::host::host_facts(),
+                &load_revocations(&paths),
+                compat.as_ref()
+            ))
+        });
+        host.notify(json!({
         "name": t.name, "kind": t.kind, "state": "installed", "version": t.version, "overlays": overlays
     }));
-    Ok(json!({ "name": t.name, "version": t.version, "state": "installed" }))
+        Ok(json!({ "name": t.name, "version": t.version, "state": "installed" }))
+    })
 }
 
 fn write_entry<'a>(layout: &Layout, entry: Value, rb: &mut Rollback<'a>) -> Result<(), ExtError> {

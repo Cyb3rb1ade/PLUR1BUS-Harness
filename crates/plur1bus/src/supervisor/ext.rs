@@ -22,7 +22,7 @@ use super::{relock, ModuleVerb, OpError, Shared, DEFAULT_STOP_BUDGET};
 use crate::ext::commit::{install_commit_held, Agents, InstallOpts, ModuleHost};
 use crate::ext::lifecycle::{self, ToggleOpts};
 use crate::ext::list::{cached_meta, list_items, show_item, ListFilter};
-use crate::ext::overlays::{load_revocations, overlays_of, rehash, Overlay};
+use crate::ext::overlays::{load_revocations, overlays_with_missing, rehash, Overlay};
 use crate::ext::paths::ExtPaths;
 use crate::ext::record::StagedItem;
 use crate::ext::record::{self, strings, InspectionRecord};
@@ -34,6 +34,7 @@ use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 /// Held while `ext.changed` is broadcast and while `ext.watch` lists and subscribes, so a watcher reads its reply before
 /// any notification sent after the listing.
@@ -59,11 +60,16 @@ pub fn overlay_reason(o: Overlay) -> Option<&'static str> {
 pub struct SupervisorHost<'a> {
     shared: &'a Arc<Shared>,
     layout: &'a Layout,
+    presence: ext::runtime::OperationPresence,
 }
 
 impl<'a> SupervisorHost<'a> {
     pub fn new(shared: &'a Arc<Shared>, layout: &'a Layout) -> Self {
-        SupervisorHost { shared, layout }
+        SupervisorHost {
+            shared,
+            layout,
+            presence: Default::default(),
+        }
     }
 }
 
@@ -121,6 +127,21 @@ fn set_error(e: SetError) -> ExtError {
 }
 
 impl ModuleHost for SupervisorHost<'_> {
+    fn check_secret_store(&mut self) -> Result<(), ExtError> {
+        self.presence.require_store(self.layout)
+    }
+    fn purge_secrets(&mut self, name: &str, slots: &[String]) -> Result<(), ExtError> {
+        ext::runtime::delete_declared(self.layout, name, slots)
+    }
+    fn hold_runtime(&mut self, name: &str) -> Result<bool, ExtError> {
+        ext::runtime::hold(self.layout, name)
+    }
+    fn release_runtime(&mut self, name: &str) -> Result<(), ExtError> {
+        ext::runtime::release(self.layout, name)
+    }
+    fn missing_secrets(&mut self, name: &str, required: &[String]) -> Vec<String> {
+        self.presence.missing(self.layout, name, required)
+    }
     fn hold_for_setup(&mut self, name: &str) {
         self.shared
             .lock()
@@ -200,6 +221,13 @@ impl ModuleHost for SupervisorHost<'_> {
 /// read, the check fails closed (X1-C23): every module a cached package names (`extensions/cache/<sha256>.json`, kind
 /// `module` or `channel`) is held back as `tampered`.
 pub fn module_overlays(layout: &Layout) -> BTreeMap<String, Overlay> {
+    module_overlays_with(layout, &mut Default::default())
+}
+
+fn module_overlays_with(
+    layout: &Layout,
+    presence: &mut ext::runtime::OperationPresence,
+) -> BTreeMap<String, Overlay> {
     let paths = ExtPaths::of(layout);
     let st = match state::read(&paths) {
         Ok(st) => st,
@@ -219,7 +247,8 @@ pub fn module_overlays(layout: &Layout) -> BTreeMap<String, Overlay> {
         }
         let compat = cached_meta(&paths, &rec.package_sha256)
             .and_then(|m| m["manifest"].get("compat").cloned());
-        let found = overlays_of(rec, &host, &revs, compat.as_ref());
+        let missing = presence.missing(layout, &rec.name, &rec.required_secrets);
+        let found = overlays_with_missing(rec, &host, &revs, compat.as_ref(), &missing);
         let pick = [
             Overlay::Revoked,
             Overlay::Tampered,
@@ -307,8 +336,13 @@ pub fn at_start(
 /// After an ext mutation, while its caller still holds the mutation lock (so no later mutation's overlays can be
 /// overwritten by these): the overlays again; a module whose overlay changed is reconciled (held back, or released
 /// and started when it may run).
-fn refresh_overlays(shared: &Shared, layout: &Layout, _held: &ext::MutationGuard) {
-    let now = module_overlays(layout);
+fn refresh_overlays(
+    shared: &Shared,
+    layout: &Layout,
+    _held: &ext::MutationGuard,
+    presence: &mut ext::runtime::OperationPresence,
+) {
+    let now = module_overlays_with(layout, presence);
     let changed: BTreeSet<String> = {
         let mut st = shared.lock();
         let before = std::mem::replace(&mut st.ext_overlays, now.clone());
@@ -329,6 +363,103 @@ fn refresh_overlays(shared: &Shared, layout: &Layout, _held: &ext::MutationGuard
 }
 
 // ---- the handlers --------------------------------------------------------------------------------------------------
+
+/// Starts after disk recovery and the RPC server. The authenticated Core may become available later; a mutation
+/// guard prevents an old journal entry from releasing a hold owned by a currently running transaction.
+pub fn spawn_hold_recovery(shared: &Arc<Shared>, layout: &Layout) -> std::io::Result<()> {
+    let shared2 = shared.clone();
+    let layout = layout.clone();
+    super::spawn_guarded(shared, "extension-hold-recovery", move || {
+        let mut warned = false;
+        loop {
+            if shared2.lock().stopping.is_some() {
+                return;
+            }
+            if ext::runtime::recovery_needed(&layout) {
+                if let Ok(_guard) = ext::try_mutation() {
+                    match ext::runtime::settle(&layout) {
+                        Ok(()) => warned = false,
+                        Err(_) if !warned => {
+                            shared2.log.warn(
+                                "extension runtime release awaits authenticated Core recovery",
+                                json!({"reason":"runtime-unavailable"}),
+                            );
+                            warned = true;
+                        }
+                        Err(_) => {}
+                    }
+                }
+            }
+            for _ in 0..10 {
+                if shared2.lock().stopping.is_some() {
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        }
+    })
+}
+
+/// Local Core callback after secret setup, rotation or deletion. The authoritative enable switch is never changed.
+pub fn runtime_reconcile(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    params: &Value,
+) -> Result<Value, ExtError> {
+    let name = params["name"].as_str().unwrap_or_default();
+    if !record::skill_id_ok(name) {
+        return Err(invalid("invalid extension name"));
+    }
+    let _guard = ext::try_mutation()?;
+    let state = state::read(&ExtPaths::of(layout)).map_err(record::state_invalid)?;
+    let result = || json!({"name":name,"reconciled":true});
+    let Some(record) = state.items.get(name).filter(|record| {
+        !record.removed_by_user && matches!(record.kind.as_str(), "module" | "channel")
+    }) else {
+        return Ok(result());
+    };
+    let enabled = ext::commit::enabled_now(layout, &running_config(shared), name, &record.kind);
+    let now = module_overlays_with(layout, &mut Default::default());
+    let mut changed: BTreeSet<String> = {
+        let mut state = shared.lock();
+        let before = std::mem::replace(&mut state.ext_overlays, now.clone());
+        before
+            .keys()
+            .chain(now.keys())
+            .filter(|key| before.get(*key) != now.get(*key))
+            .cloned()
+            .collect()
+    };
+    if enabled {
+        changed.insert(name.to_string());
+    }
+    if !changed.is_empty() {
+        let receiver = super::push_restart(
+            shared,
+            plur1bus_config::Restart {
+                modules: changed.into_iter().collect(),
+                ..Default::default()
+            },
+        )
+        .ok_or_else(|| {
+            ExtError::new(
+                "E_NOT_AVAILABLE",
+                "stopping",
+                "extension reconciliation cannot run while the supervisor stops",
+            )
+        })?;
+        receiver
+            .recv_timeout(DEFAULT_STOP_BUDGET + Duration::from_secs(10))
+            .map_err(|_| {
+                ExtError::new(
+                    "E_NOT_AVAILABLE",
+                    "runtime-unavailable",
+                    "extension reconciliation did not finish within its deadline",
+                )
+            })?;
+    }
+    Ok(result())
+}
 
 /// `ExtInspection` from a stored inspection record: exactly the schema's closed keys (X1-C7: `sourcePath` and
 /// `normalised` are dropped).
@@ -510,12 +641,12 @@ pub fn install(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Result<
         .unwrap_or_default()
         .to_string();
     let guard = ext::try_mutation()?;
+    let mut host = SupervisorHost::new(shared, layout);
     let result = record::load(layout, &id).and_then(|rec| {
         let staged = stage(layout, &id)?;
-        let mut host = SupervisorHost::new(shared, layout);
         install_commit_held(layout, &mut host, &rec, staged, &opts, &guard)
     });
-    refresh_overlays(shared, layout, &guard);
+    refresh_overlays(shared, layout, &guard, &mut host.presence);
     result
 }
 
@@ -547,7 +678,7 @@ fn toggle(
     }
     let guard = ext::try_mutation()?;
     let r = lifecycle::toggle_held(layout, &mut host, name, &o, on, &guard);
-    refresh_overlays(shared, layout, &guard);
+    refresh_overlays(shared, layout, &guard, &mut host.presence);
     r
 }
 
@@ -569,14 +700,9 @@ pub fn uninstall(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Resul
     };
     let name = params["name"].as_str().unwrap_or_default();
     let guard = ext::try_mutation()?;
-    let r = remove::uninstall_held(
-        layout,
-        &mut SupervisorHost::new(shared, layout),
-        name,
-        &o,
-        &guard,
-    );
-    refresh_overlays(shared, layout, &guard);
+    let mut host = SupervisorHost::new(shared, layout);
+    let r = remove::uninstall_held(layout, &mut host, name, &o, &guard);
+    refresh_overlays(shared, layout, &guard, &mut host.presence);
     r
 }
 
@@ -584,13 +710,9 @@ pub fn uninstall(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Resul
 pub fn restore(shared: &Arc<Shared>, layout: &Layout, params: &Value) -> Result<Value, ExtError> {
     let tid = params["trashId"].as_str().unwrap_or_default();
     let guard = ext::try_mutation()?;
-    let r = remove::restore_held(
-        layout,
-        &mut SupervisorHost::new(shared, layout),
-        tid,
-        &guard,
-    );
-    refresh_overlays(shared, layout, &guard);
+    let mut host = SupervisorHost::new(shared, layout);
+    let r = remove::restore_held(layout, &mut host, tid, &guard);
+    refresh_overlays(shared, layout, &guard, &mut host.presence);
     r
 }
 

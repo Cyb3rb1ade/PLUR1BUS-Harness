@@ -43,8 +43,7 @@ import type { ChatProvider, ChatRequest } from '../session/provider.ts';
 import { createCallBudget, type CallBudget } from '../budget/index.ts';
 import { createPolicyAudit } from '../policy/audit.ts';
 import type { GrantSource } from '../policy/index.ts';
-import { createMcpRegistry } from '../mcp/index.ts';
-import { McpExtensionReconciler } from '../mcp/extensions.ts';
+import { composeExtensions, type ExtensionMcpAuth } from './extensions.ts';
 import { composeMedia, type MediaDefinition } from './media.ts';
 import { composeAuth, type ProviderDefinition, type RefusedProvider } from './auth.ts';
 import { composeTools, type ToolCompositionOptions } from './tools.ts';
@@ -94,6 +93,11 @@ export interface CompositionDeps {
   home: string; config: () => HarnessConfig; engine: Engine; agents: AgentRegistry; logger: HarnessLogger;
   /** Live configuration events owned by the existing ConfigSource; no filesystem watcher or polling. */
   configChanges?: (listener: () => void) => () => void;
+  /** Connection-derived trust for secret setup; no request field can supply it. */
+  surfaceOf?: import('./extensions.ts').ExtensionCompositionOptions['surfaceOf'];
+  /** Trusted provisioned runtime metadata; a missing uv/Python pair remains needs-setup. */
+  mcpRuntime?: import('../mcp/extension-metadata.ts').McpExtensionRuntime;
+  mcpAuth?: ExtensionMcpAuth;
   /** Already admitted turns retain memory access if the agent is paused while their reply is running. */
   memoryAgents?: AgentRegistry;
   secrets: SecretStore; egress: Egress; permissions: PermissionRuntime; audit: AuditSink; identity: IdentityService;
@@ -195,18 +199,15 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     // Registered before the registry so shutdown (reverse order) stops the servers, and flushes their last lines, before this writer closes.
     const mcpOutput = createWriter({ dir: join(d.home, 'logs'), role: 'core.out', source: { kind: 'harness', id: 'mcp', version: '0.1.0' }, now: d.clock });
     disposers.push(d.secrets.redaction?.subscribe(value => mcpOutput.registerSecret(value)) ?? (() => {}), () => mcpOutput.close());
-    const mcp = isolated('turn MCP', () => createMcpRegistry({ logger: d.logger, output: mcpOutput, secrets: d.secrets, egress: d.egress, policy: { allowedCommands: ((cfg.providers.mcp as { allowedCommands?: string[] } | undefined)?.allowedCommands ?? []) } }));
-    let mcpExtensions: McpExtensionReconciler | undefined;
-    if (mcp) {
-      disposers.push(() => mcp.shutdown());
-      const feed = d.supervised ? new ExtensionCapabilityFeed(d.home, undefined, ['mcp-server']) : undefined;
-      if (feed) disposers.push(() => feed.close());
-      mcpExtensions = new McpExtensionReconciler({ home: d.home, config: d.config, registry: mcp,
-        ...(feed ? { feed } : {}), ...(d.configChanges ? { onConfigChange: d.configChanges } : {}),
-        degraded: reason => d.logger.warn('turn MCP unavailable', { reason }) });
-      disposers.push(() => mcpExtensions!.close());
-      await mcpExtensions.refresh();
-    }
+    const extensions = await composeExtensions({ home: d.home, config: d.config, secrets: d.secrets, egress: d.egress,
+      logger: d.logger, output: mcpOutput, clock: d.clock, ...(d.supervised ? { supervised: true } : {}),
+      ...(d.configChanges ? { configChanges: d.configChanges } : {}),
+      ...(d.resolvePrincipal ? { resolvePrincipal: d.resolvePrincipal } : {}),
+      ...(d.surfaceOf ? { surfaceOf: d.surfaceOf } : {}), ...(d.mcpRuntime ? { runtime: d.mcpRuntime } : {}),
+      ...(d.mcpAuth ? { auth: d.mcpAuth } : {}) });
+    disposers.push(() => extensions.close());
+    const mcp = extensions.registry;
+    const mcpExtensions = extensions.controller;
     const mediaConfig = cfg.providers.media as { adapters?: MediaDefinition[] } | undefined;
     let media = options.tools?.media ?? null;
     // privacy.localOnly for media generation: per agent inside a turn, installation-wide for a direct RPC call.
@@ -267,7 +268,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       },
       principal: (request: ChatRequest) => { const id = request.approver?.person ?? request.authenticatedPerson; return id ? d.resolveCollaborationPerson?.(id) ?? null : null; },
       authority: { approvals: { get: (id: string) => d.permissions.current()?.stores.approvals.get(id) }, grants: { get: (id: string) => d.permissions.current()?.grants.get(id) }, now: d.clock, audit: (event: { reason: string; person: string; taskId: string }) => { d.audit.append({ at: d.clock(), actor: { user: event.person, host: 'core' }, action: 'collab.handoff.refused', target: event.taskId, detail: { reason: event.reason } }); } }
-    } } : {}), ...(d.webSearch ? { webSearch: d.webSearch } : {}), secretNames: secretNamesPort(d), ...(budget ? { budget } : {}), degraded: (service, error) => d.logger.warn('turn tool service degraded', { service, err: error }), ...options.tools, ...(media ? { media: { adapter: media.adapter, store: mediaSurface.storeFor(req.agentId, principal(req)) } } : {}), ...(options.tools?.mcp ? {} : mcp && mcpExtensions ? { mcp: { port: mcp, servers: () => mcpExtensions.servers(), refresh: () => mcpExtensions.refresh(), visible: (server, agent) => mcpExtensions.visible(server, agent), revision: (server, agent) => mcpExtensions.revision(server, agent), declaration: server => mcpExtensions.declaration(server) } } : {}) }, { ...req, principal: principal(req) });
+    } } : {}), ...(d.webSearch ? { webSearch: d.webSearch } : {}), secretNames: secretNamesPort(d), ...(budget ? { budget } : {}), degraded: (service, error) => d.logger.warn('turn tool service degraded', { service, err: error }), ...options.tools, ...(media ? { media: { adapter: media.adapter, store: mediaSurface.storeFor(req.agentId, principal(req)) } } : {}), ...(options.tools?.mcp ? {} : mcp && mcpExtensions ? { mcp: { port: mcp, servers: () => mcpExtensions.servers(), refresh: () => { extensions.retryPending(); return mcpExtensions.refresh(); }, visible: (server, agent) => mcpExtensions.visible(server, agent), revision: (server, agent) => mcpExtensions.revision(server, agent), declaration: server => mcpExtensions.declaration(server) } } : {}) }, { ...req, principal: principal(req) });
     // M2: isolated additive Session wiring; the existing turn/tool composition below is unchanged.
     const families = options.providers?.family ?? auth?.families ?? {};
     const reasoningFor = (provider: string, model: string): ReasoningDescriptor => fitToWire(d.chatModels?.reasoning(provider, model) ?? NO_REASONING, families[provider] ?? 'openai-chat');
@@ -380,7 +381,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     if (promotions) disposers.push(() => promotions.close());
     let closed = false;
     const opened = sessions;
-    return { budget, skillReview, mining, capabilities, refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, chatModels, surfaceMethods: { 'decision.status': async () => decisions.status(), 'decision.test': async (p: { agentId: string }, ctx) => {
+    return { budget, skillReview, mining, capabilities, refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, chatModels, surfaceMethods: { ...extensions.methods, 'decision.status': async () => decisions.status(), 'decision.test': async (p: { agentId: string }, ctx) => {
       if (!d.agents.has(p.agentId)) throw new RpcError('E_AGENT_UNKNOWN', 'Unknown agent');
       const principal = deriveUserPrincipal(authenticatedPrincipal(ctx).userId);
       const result = await decisions.choice({ useCase: 'routing', state: '2', question: 'Is this integer even or odd?', options: [{ id: 'even', description: 'Divisible by two' }, { id: 'odd', description: 'Not divisible by two' }] }, { agentId: p.agentId, principal, cloudEligible: true, signal: AbortSignal.any([ctx.signal, d.signal]) });

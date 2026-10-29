@@ -107,6 +107,8 @@ import { createConfiguredWebSearch } from "./sidecars/web-search-router.ts";
 import { WebFailure } from "./tools/web/failure.ts";
 import { createBudgetService, type BudgetService } from "./budget/index.ts";
 import { createCoreSecretStore } from "./secrets/runtime.ts";
+import { startExtensionSpawnSecrets } from "./extensions/spawn-secrets.ts";
+import { installedExtensionSecretDefinition } from "./mcp/extension-metadata.ts";
 import { createCatalogStore, type CatalogStore } from "./discovery/catalog-store.ts";
 import { defaultDiscoveryAdapters, type DiscoveryAdapters } from "./discovery/defaults.ts";
 import { createModelsScanJob } from "./discovery/job.ts";
@@ -295,6 +297,7 @@ export function createCore(o: CoreOptions): Core {
   let userJobsTimer: ReturnType<typeof setInterval> | null = null;
   let sessions: SessionService | null = null;
   let turnComposition: TurnComposition | null = null;
+  let extensionSpawnSecrets: Awaited<ReturnType<typeof startExtensionSpawnSecrets>> | null = null;
   let permissions: PermissionRuntime | null = null; // D109: grants + approvals (`state/approvals.sqlite`), opened on first use
   let permissionNotifier: PermissionNotifier | null = null;
   let switchboard: Switchboard | null = null; // R3: the channel adapters (Discord, Slack, Matrix, Signal, E-mail), started and stopped by `channels.<id>.enabled`
@@ -755,7 +758,9 @@ export function createCore(o: CoreOptions): Core {
         },
       });
       try { turnComposition = await openTurnComposition({ home: l.home, systemJobs, mediaHostFetchReady: typeof host.fetch === "function", supervised: o.supervisorConfig !== undefined, config: cfg, configChanges: listener => cs.onChange(() => listener()), engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
-        voiceConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal, resolveCollaborationPerson: id => people.resolvePerson(id), secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
+        voiceConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal,
+        surfaceOf: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }),
+        resolveCollaborationPerson: id => people.resolvePerson(id), secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
         // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or
         // grant-covered turns) and is refused with a typed error only when a call needs a person's approval.
         approver: async (ctx, params) => { const principal = await resolvePrincipal(ctx, "session.submit", params); return { person: principal && principal.kind === "person" ? principal.userId : null, surface: connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }; },
@@ -1052,6 +1057,8 @@ export function createCore(o: CoreOptions): Core {
       platform.securePath(engineModelsPath);
       writeFileSync(l.corePid, `${process.pid} ${instanceId}\n`, { mode: 0o600 }); // S6
       platform.securePath(l.coreToken); platform.securePath(l.corePid);
+      extensionSpawnSecrets = await startExtensionSpawnSecrets({ home: l.home, token, store: secretStore,
+        definition: name => installedExtensionSecretDefinition(l.home, name) });
       await server.listen();
       if (config.metrics.enabled) {
         // D3: a metrics endpoint that cannot start (port taken) never keeps the core from starting.
@@ -1147,6 +1154,9 @@ export function createCore(o: CoreOptions): Core {
       await step(log, "channels stop", async () => { await switchboard?.stop(); }); switchboard = null;
       if (userJobsTimer) { clearInterval(userJobsTimer); userJobsTimer = null; }
       await step(log, "sessions close", async () => { await turnComposition?.close(); turnComposition = null; }); sessions = null;
+      await step(log, "extension spawn secrets close", async () => {
+        await extensionSpawnSecrets?.close(); extensionSpawnSecrets = null;
+      });
       await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null; handoff?.close(); handoff = null;
       await step(log, "permissions close", async () => { permissionNotifier?.close(); await permissions?.close(); }); permissions = null; permissionNotifier = null;
       await step(log, "budget close", () => { budget?.close(); budget = null; });
@@ -1210,6 +1220,9 @@ export function createCore(o: CoreOptions): Core {
       warmup?.abort(); // first: the warm-up's wait ends before the engine closes under it
       if (warmingTimer) { clearTimeout(warmingTimer); warmingTimer = null; }
       shutdown.abort(new Error("core stopping"));
+      await step(logger, "extension spawn secrets close", async () => {
+        await extensionSpawnSecrets?.close(); extensionSpawnSecrets = null;
+      });
       orphans?.dispose(); // closing connections from here on is the stop itself, not a lost lifeline
       const errors: unknown[] = [];
       await step(logger, "config watch", async () => { await source?.close(); }, errors);

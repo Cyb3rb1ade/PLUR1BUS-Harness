@@ -228,11 +228,22 @@ pub fn overlays_of(
     revs: &[Revocation],
     manifest_compat: Option<&Value>,
 ) -> Vec<Overlay> {
+    overlays_with_missing(rec, host, revs, manifest_compat, &rec.required_secrets)
+}
+
+/// The same overlay decisions, with required slots resolved from this operation's fresh metadata snapshot.
+pub fn overlays_with_missing(
+    rec: &ItemRecord,
+    host: &HostFacts,
+    revs: &[Revocation],
+    manifest_compat: Option<&Value>,
+    missing: &[String],
+) -> Vec<Overlay> {
     let mut out = Vec::new();
     let Some(kind) = kind_of(&rec.kind) else {
         return vec![Overlay::Error];
     };
-    if !rec.required_secrets.is_empty() {
+    if !missing.is_empty() {
         out.push(Overlay::NeedsSetup);
     }
     if let Some(c) = manifest_compat {
