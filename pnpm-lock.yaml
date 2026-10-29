@@ -66,6 +66,9 @@ importers:
       '@a2a-js/sdk':
         specifier: 1.3.0
         version: 1.3.0(express@5.2.1)
+      '@modelcontextprotocol/sdk':
+        specifier: 1.32.1
+        version: 1.32.1
       '@plur1bus/module-api':
         specifier: workspace:*
         version: link:../module-api
