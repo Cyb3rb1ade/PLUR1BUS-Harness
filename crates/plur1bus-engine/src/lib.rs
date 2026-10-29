@@ -12,9 +12,11 @@
 pub mod cache_profiles;
 pub mod config;
 pub mod contract;
+pub mod embedding;
 pub mod store;
 pub mod text;
 pub mod tokens;
+pub mod transport;
 
 /// The crate version, which is the workspace version (`[workspace.package] version` in the root `Cargo.toml`).
 pub const CRATE_VERSION: &str = env!("CARGO_PKG_VERSION");

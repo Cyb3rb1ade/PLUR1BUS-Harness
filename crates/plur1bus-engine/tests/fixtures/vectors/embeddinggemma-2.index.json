@@ -1,0 +1,1 @@
+{"nodeCommit":"9f34008c143c5da87b2194b5a28442b407ff8ba7","model":"google/embeddinggemma-2","revision":"daa72c51243991dfcaf9f9137d2c573d8f7790c0","dtype":"q8","dimensions":768,"parts":["embeddinggemma-2.json","embeddinggemma-2-extra-1.json"]}
