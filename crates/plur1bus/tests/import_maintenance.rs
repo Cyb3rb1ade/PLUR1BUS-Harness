@@ -155,6 +155,7 @@ fn real_stack(mode: &str) {
             "restored",
             "baselineExact",
             "offlineAbort",
+            "secondImportBusy",
             "offlineStatus",
             "coreRestarted",
         ],
