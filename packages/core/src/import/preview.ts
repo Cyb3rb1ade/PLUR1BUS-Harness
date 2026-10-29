@@ -15,6 +15,8 @@ import { planProfileTargets } from "./profile-plan.ts";
 import { targetIdentity } from "./identity.ts";
 import { ImportError, type SourceType } from "./types.ts";
 import { resolveImportOptions } from "./plan-options.ts";
+import { readHermesPairings } from "./importers/hermes-platforms.ts";
+import { readHermesCronJobs } from "./importers/hermes-cron.ts";
 
 type Source = Awaited<ReturnType<SourceRegistry["get"]>>;
 export interface ImportPreview {
@@ -87,6 +89,16 @@ export async function previewImport(options: { home: string; source: Source; set
       : await previewSourceCards(reader, read.sourceType, agent.workspace ?? read.source.root, agent.agentId);
     if (cards) report.errors.push(...cards.errors);
     report.agents.push({ ...result, ...(cards ? { memory: { totalCards: cards.totalCards } } : {}) });
+  }
+  if (read.sourceType === "hermes") {
+    // Deferred records are still parsed by the stopped importer; refuse the same parse failures before downtime.
+    const searchDirs = [...new Set([read.source.root, ...agents.map(agent => agent.workspace)]
+      .filter((workspace): workspace is string => typeof workspace === "string" && workspace.length > 0))];
+    await readHermesPairings(searchDirs, report.errors, reader);
+    const profiles = agents.filter((agent): agent is typeof agent & { workspace: string } =>
+      typeof agent.workspace === "string" && agent.workspace.length > 0)
+      .map(agent => ({ agentId: agent.agentId, dir: agent.workspace }));
+    await readHermesCronJobs(profiles, report.errors, reader);
   }
   const changes = planImportConfig(before as unknown as Record<string, unknown>, next as unknown as Record<string, unknown>);
   if (changes.length) await config.set({ changes, dryRun: true, ifRevision: current.revision });

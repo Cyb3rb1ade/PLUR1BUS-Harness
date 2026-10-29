@@ -12,6 +12,8 @@ import { connect } from "../helpers/connect.ts";
 import { flatTestInternals } from "../helpers/flat-embedder.ts";
 import { E5, lanceStore } from "./fixtures.ts";
 import { useTempDirs } from "./helpers.ts";
+import { createImportRecords } from "../../src/import/maintenance-records.ts";
+import type { SourceRecord } from "../../src/import/source-registry.ts";
 
 const temp = useTempDirs();
 const MUTATION_ROOTS = ["state", "agents", "skills", "extensions", "mcp", "modules", "channels", "data"];
@@ -58,10 +60,20 @@ async function sourceFixture(family: "openclaw" | "hermes") {
   return source;
 }
 
-for (const family of ["openclaw", "hermes"] as const) {
-  it(`mounted Core ${family} detection, planning and successful preflight leave target bytes unchanged`, { timeout: 60_000 }, async () => {
+const CASES: readonly { family: "openclaw" | "hermes"; malformed?: string }[] = [
+  { family: "openclaw" }, { family: "hermes" },
+  { family: "hermes", malformed: "platforms/pairing/telegram-approved.json" },
+  { family: "hermes", malformed: "cron/jobs.json" },
+];
+for (const { family, malformed } of CASES) {
+  it(malformed ? `mounted Core refuses malformed ${malformed} before issuing any preflight ticket or changing targets`
+    : `mounted Core ${family} detection, planning and successful preflight leave target bytes unchanged`, { timeout: 60_000 }, async () => {
     const home = temp();
     const source = await sourceFixture(family);
+    if (malformed) {
+      mkdirSync(join(source, malformed, ".."), { recursive: true });
+      writeFileSync(join(source, malformed), "{ malformed private-pairing-or-cron-canary");
+    }
     const cfg = defaults();
     cfg.agents.resident = {};
     cfg.engine = { neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false },
@@ -104,6 +116,27 @@ for (const family of ["openclaw", "hermes"] as const) {
       assert.equal(detected.agents[0]?.hasPersona, true);
       assert.equal(detected.counts.skills, 1);
       unchanged();
+      if (malformed) {
+        // Existing immutable plans must also be revalidated after upgrading a Core that previously admitted this source.
+        const captured = JSON.parse(readFileSync(join(home, "imports", "sources", detected.sourceId + ".json"), "utf8")) as SourceRecord;
+        const { record: prior } = await createImportRecords(home).putPlan({ ownerId: OWNER.userId, sourceId: captured.id,
+          snapshotId: captured.snapshotId, sourceType: captured.sourceType, sourceSha256: captured.sourceSha256,
+          configRevision: supervisor.revision, options: { onConflict: "replace" }, importBytes: 0, coldBytes: 0,
+          entities: 1, unresolvedConflicts: 0, roots: MUTATION_ROOTS.map(id => ({ id, path: join(home, id),
+            kind: "directory" as const, ...(id === "state" ? { preserve: ["core.lock", "api", "secrets"] } : {}) })) });
+        const refused = await client.call<AdminImportPreflightResult>("admin.import.preflight", { planId: prior.id });
+        assert.equal(refused.ok, false, "the live preflight must parse every deferred file the stopped worker reads");
+        assert.ok(refused.issues.some(issue => issue.reason === "source-parse-failed"));
+        assert.equal(refused.preflightId, undefined);
+        const tickets = join(home, "imports", "preflight");
+        assert.deepEqual(existsSync(tickets) ? readdirSync(tickets) : [], []);
+        await assert.rejects(client.call("admin.import.plan", { sourceId: detected.sourceId }),
+          (error: { error?: string; reason?: string }) => error.error === "E_INVALID_PARAMS" && error.reason === "entity-failed");
+        unchanged();
+        assert.deepEqual(supervisor.runtimeSets, []);
+        assert.equal(readFileSync(join(home, "logs", "audit.log"), "utf8").includes("private-pairing-or-cron-canary"), false);
+        return;
+      }
       const plan = await client.call<AdminImportPlanResult>("admin.import.plan", { sourceId: detected.sourceId,
         options: { onConflict: "replace", ...(family === "openclaw" ? { adoptStoreId: "agent:foreign" } : {}) } });
       assert.equal(plan.counts.agents, 1);

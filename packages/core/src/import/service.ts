@@ -122,7 +122,7 @@ export function createImportService(options: ImportServiceOptions) {
     storeConflict: ImportPlanRecord["options"]["onConflict"] | null = settings.onConflict): Promise<Preview> => {
     const report = await previewImport({ home: options.home, source, settings, config: options.config, storeConflict,
       ...(options.storeProbe ? { storeProbe: options.storeProbe } : {}), ...(signal ? { signal } : {}) });
-    if (report.errors.length) throw new ImportError("E_IMPORT_FAILED", "entity-failed", "Import entity failed");
+    if (report.errors.length) throw new ImportError("E_INVALID_PARAMS", "entity-failed", "Import source is invalid");
     if (settings.adoptStoreId && settings.adoptStrategy !== "re-embed") {
       const { onConflict: _fileConflict, ...selected } = settings;
       requireSelectedStoreTransfer(report, { ...selected, ...(storeConflict ? { onConflict: storeConflict } : {}) });
