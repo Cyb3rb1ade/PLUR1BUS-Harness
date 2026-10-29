@@ -83,7 +83,7 @@ test('unit checks continue after earlier failures, stop on cancellation and time
     const block = jobBlocks(workflow())[name];
     const independent = block.slice(block.indexOf('      # The vacuous-run guard'));
     const steps = independent.split(/(?=^      - )/m).filter(step => /^      - /m.test(step));
-    assert.equal(steps.length, 10, `${name}: guard, release, installer, fmt, clippy, three tokenizer steps, build and run`);
+    assert.equal(steps.length, 12, `${name}: guard, release, installer, fmt, clippy, three tokenizer steps, library build, full build, run and diagnostics`);
     for (const step of steps) {
       const expression = /^ {6}(?:- |  )if: \$\{\{ (.*?) \}\}$/m.exec(step)?.[1];
       assert.ok(expression?.includes('!cancelled()'), `${name}: explicit status guard for ${step}`);
@@ -98,11 +98,17 @@ test('unit checks continue after earlier failures, stop on cancellation and time
         }
       }
     }
-    const build = steps.find(step => /run: cargo test --workspace --no-run\n/.test(step));
-    const run = steps.find(step => /run: cargo test --workspace --no-fail-fast\n/.test(step));
+    const library = steps.find(step => /^          cargo test --workspace --lib --no-run(?: [^\n]*)?\n/m.test(step));
+    const build = steps.find(step => /^          cargo test --workspace --no-run(?: [^\n]*)?\n/m.test(step));
+    const run = steps.find(step => /^          cargo test --workspace --no-fail-fast(?: [^\n]*)?\n/m.test(step));
+    assert.match(library, /timeout-minutes: 25/);
     assert.match(build, /timeout-minutes: 25/);
     assert.match(run, /timeout-minutes: 30/);
+    assert.equal(steps.indexOf(library) + 1, steps.indexOf(build));
     assert.equal(steps.indexOf(build) + 1, steps.indexOf(run));
+    for (const phase of [library, build, run]) {
+      assert.doesNotMatch(phase, /--(?:exclude|skip|features|no-default-features|target-dir|release)\b/);
+    }
   }
 });
 

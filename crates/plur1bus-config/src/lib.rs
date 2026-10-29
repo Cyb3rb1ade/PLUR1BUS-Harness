@@ -449,7 +449,36 @@ pub fn revision(config: &Value) -> String {
 /// written and fsynced, renamed over the target, then the directory fsynced (unix), so a power loss leaves either the
 /// old or the new file, never an empty one. Returns the temp file's metadata taken before the rename: a rename keeps
 /// mtime and length, so the supervisor records exactly its own write's stamp and any later write differs.
+/// Refuses ordinary Windows components ending in a space or dot before creating parents; explicit verbatim paths
+/// and navigation components retain their existing spelling rules.
 pub fn write_atomic(path: &Path, config: &Config) -> io::Result<fs::Metadata> {
+    write_atomic_for_platform(path, config, cfg!(windows))
+}
+
+fn validate_write_path(path: &Path, windows: bool) -> io::Result<()> {
+    let spelling = path.as_os_str().to_string_lossy();
+    // Ordinary Win32 paths trim these characters while creating parents. A later open can then fail after an
+    // unintended sibling directory has already been created. Explicit verbatim paths preserve their spelling.
+    if windows
+        && !spelling.starts_with(r"\\?\")
+        && spelling
+            .split(['\\', '/'])
+            .any(|part| part != "." && part != ".." && part.ends_with([' ', '.']))
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Windows path components ending in a space or dot cannot be preserved",
+        ));
+    }
+    Ok(())
+}
+
+fn write_atomic_for_platform(
+    path: &Path,
+    config: &Config,
+    windows: bool,
+) -> io::Result<fs::Metadata> {
+    validate_write_path(path, windows)?;
     use std::io::Write;
     let dir = path.parent().filter(|d| !d.as_os_str().is_empty());
     if let Some(dir) = dir {
@@ -490,6 +519,53 @@ pub fn write_atomic(path: &Path, config: &Config) -> io::Result<fs::Metadata> {
         fs::File::open(dir)?.sync_all()?;
     }
     Ok(meta)
+}
+
+#[cfg(test)]
+mod write_path_tests {
+    use super::*;
+
+    #[test]
+    fn windows_refuses_normalized_components_before_creating_any_parent() {
+        for component in ["  leading and trailing  ", "trailing."] {
+            let root = tempfile::tempdir().unwrap();
+            let path = root.path().join(component).join(".plur1bus/config.json");
+            let error = write_atomic_for_platform(&path, &defaults(), true).unwrap_err();
+            assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+            assert_eq!(fs::read_dir(root.path()).unwrap().count(), 0);
+        }
+    }
+
+    #[test]
+    fn posix_keeps_the_same_literal_components() {
+        for spelling in [
+            "/root/  leading and trailing  /config.json",
+            "/root/trailing./config.json",
+        ] {
+            assert!(validate_write_path(Path::new(spelling), false).is_ok());
+        }
+    }
+
+    #[test]
+    fn explicit_windows_verbatim_paths_keep_their_literal_spelling() {
+        assert!(validate_write_path(Path::new(r"\\?\C:\root\kept  \config.json"), true).is_ok());
+    }
+
+    #[test]
+    fn windows_navigation_components_remain_valid() {
+        for spelling in [
+            r".\config.json",
+            r"..\config.json",
+            r"C:\root\.\config.json",
+            r"C:\root\..\config.json",
+            "../config.json",
+        ] {
+            assert!(
+                validate_write_path(Path::new(spelling), true).is_ok(),
+                "{spelling}"
+            );
+        }
+    }
 }
 
 /// `config.json.tmp-<pid>`: the temp file [`write_atomic`] renames into place.
