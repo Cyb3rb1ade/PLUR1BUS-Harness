@@ -214,6 +214,11 @@ An audit entry's attribute group describes the line's `detail`. Groups marked *o
 | `agent.created` | harness | — | agent_creation |  | experimental | Successful Config Schema registration; settings and credentials never enter the audit detail. |
 | `mcp.server.call` | harness | — | mcp_server_call | `tokenId`, `tool`, `agentId` | activity, experimental | A tool was called by a foreign host on the harness MCP server. |
 | `mcp.server.denied` | harness | — | mcp_server_denied | `tokenId`, `tool`, `agentId` | activity, experimental | A tool call was denied on the harness MCP server. |
+| `oauth.authorize` | harness | — | oauth_authorize | `clientId`, `audience`, `scopes` | activity, experimental | An authorization code was issued or consent approved. |
+| `oauth.token` | harness | — | oauth_token | `clientId`, `audience`, `agentId`, `tokenId` | activity, experimental | An authorization code was exchanged for an access token. |
+| `oauth.refresh` | harness | — | oauth_refresh | `clientId`, `tokenId`, `familyId` | activity, experimental | An access token was renewed using a refresh token. |
+| `oauth.revoke` | harness | — | oauth_revoke | `clientId` | activity, experimental | An OAuth token or refresh token family was revoked. |
+| `oauth.denied` | harness | — | oauth_denied | `clientId`, `reason` | activity, experimental | An OAuth authorization or token request was denied. |
 | `licence.accept-nc` | harness | — | audit_licence | `useClass` |  | Records acceptance of the non-commercial licence for embedding use; pre-D111 HB12 action, unchanged. |
 | `setup.complete` | harness | — | audit_setup |  |  | Records successful completion of setup and the selected installation; pre-D111 HB12 action, unchanged. |
 | `repair.*` | harness | — | audit_repair | `status` |  | Records the outcome of an applied repair step; pre-D111 HB12 `repair.<step>` family: any name under `repair.` that satisfies the name rule. |
@@ -987,6 +992,55 @@ Detail for `mcp.server.denied` audit event: rejected MCP server call (no argumen
 | `tool` | `string` | Attempted tool name. |
 | `agentId` | `string` | Target agent identifier. |
 | `reason` | `string` | Denial reason slug. |
+
+#### `oauth_authorize` (open)
+
+Detail for `oauth.authorize` audit event: authorization code issued or consent approved.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `clientId` | `string` | OAuth client identifier. |
+| `audience` | `string` | Protocol audience (e.g. mcp or a2a). |
+| `scopes` | `string` | Granted scope string. |
+
+#### `oauth_token` (open)
+
+Detail for `oauth.token` audit event: authorization code exchanged for token.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `clientId` | `string` | OAuth client identifier. |
+| `audience` | `string` | Protocol audience (e.g. mcp or a2a). |
+| `agentId` | `string` | Agent identifier the token is bound to. |
+| `tokenId` | `string` | Issued access token identifier. |
+
+#### `oauth_refresh` (open)
+
+Detail for `oauth.refresh` audit event: token refreshed via refresh token.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `clientId` | `string` | OAuth client identifier. |
+| `tokenId` | `string` | New access token identifier. |
+| `familyId` | `string` | Refresh token family identifier. |
+
+#### `oauth_revoke` (open)
+
+Detail for `oauth.revoke` audit event: token or refresh token family revoked.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `clientId` | `string` | OAuth client identifier if known. |
+| `tokenId` | `string` | Revoked token identifier if known. |
+
+#### `oauth_denied` (open)
+
+Detail for `oauth.denied` audit event: OAuth request denied or rejected.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `clientId` | `string` | OAuth client identifier. |
+| `reason` | `string` | Denial reason. |
 
 ## Redaction data
 

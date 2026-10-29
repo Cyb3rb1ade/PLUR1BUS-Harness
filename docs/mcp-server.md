@@ -1,6 +1,6 @@
 # MCP-Server: Bereitstellung von Harness-Funktionen für externe Hosts
 
-**Status:** M6-A · **Companion:** [ADR-008](file:///Users/cyberblade/worktrees/codex-p-m6a-protocols/docs/adr/ADR-008-protocols-mcp-acp-a2a.md), [host-adapters.md](file:///Users/cyberblade/worktrees/codex-p-m6a-protocols/docs/host-adapters.md), [rbac.md](file:///Users/cyberblade/worktrees/codex-p-m6a-protocols/docs/rbac.md), [security.md](file:///Users/cyberblade/worktrees/codex-p-m6a-protocols/docs/security.md), [api.md](file:///Users/cyberblade/worktrees/codex-p-m6a-protocols/docs/api.md).
+**Status:** M6-A · **Companion:** [ADR-008](file:///Users/cyberblade/worktrees/codex-p-m6a-protocols/docs/adr/ADR-008-protocols-mcp-acp-a2a.md), [oauth.md](file:///Users/cyberblade/worktrees/codex-p-m6a-protocols/docs/oauth.md), [host-adapters.md](file:///Users/cyberblade/worktrees/codex-p-m6a-protocols/docs/host-adapters.md), [rbac.md](file:///Users/cyberblade/worktrees/codex-p-m6a-protocols/docs/rbac.md), [security.md](file:///Users/cyberblade/worktrees/codex-p-m6a-protocols/docs/security.md), [api.md](file:///Users/cyberblade/worktrees/codex-p-m6a-protocols/docs/api.md).
 
 Der MCP-Server des PLUR1BUS-Harness stellt Funktionen (Memory-Recall, Agent-Turns, Skills) für externe MCP-Hosts (wie Claude Desktop, Cursor, Codex CLI oder benutzerdefinierte Clients) bereit.
 
@@ -72,7 +72,7 @@ Der MCP-Server ist standardmäßig vollständig deaktiviert (deny-by-default):
 
 ## Authentifizierung und Agenten-Bindung
 
-Jeder Aufruf von `/mcp` erfordert ein persönliches API-Token mit spezifischer Protokollbindung:
+Jeder Aufruf von `/mcp` erfordert ein persönliches API-Token mit spezifischer Protokollbindung. Token können manuell über `POST /api/v1/tokens` oder automatisiert über den OAuth 2.1 Autorisierungsablauf ([oauth.md](file:///Users/cyberblade/worktrees/codex-p-m6a-protocols/docs/oauth.md)) bezogen werden:
 
 * **Token-Bindung:** Ein Token wird mit `binding: { audience: "mcp", agentId: "<id>" }` ausgestellt.
 * **Audience-Prüfung:** Ein Token für `audience: "a2a"` oder ohne Bindung wird auf `/mcp` abgewiesen.

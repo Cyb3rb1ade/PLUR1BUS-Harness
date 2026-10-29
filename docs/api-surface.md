@@ -11,6 +11,14 @@ Every route is **deny by default**: a route that is not `public` answers 401 wit
 | `POST` | `/api/v1/extensions/upload` | `extensions.upload` | session or token | `extensions.manage` | yes | upload | experimental · 1.8.0 |
 | `POST` | `/api/v1/extensions/inspect` | `extensions.inspect` | session or token | `extensions.manage` | yes | write | experimental · 1.8.0 |
 | `POST` | `/mcp` | `mcp.server` | session or token | `authenticated` | no | rpc | experimental · 1.0.0 |
+| `GET` | `/.well-known/oauth-authorization-server` | `oauth.metadata` | public | `public` | no | read | stable · 1.0.0 |
+| `GET` | `/.well-known/oauth-protected-resource` | `oauth.protected_resource` | public | `public` | no | read | stable · 1.0.0 |
+| `GET` | `/oauth/authorize` | `oauth.authorize.get` | public | `public` | no | auth | experimental · 1.0.0 |
+| `POST` | `/oauth/authorize` | `oauth.authorize.post` | public | `public` | no | auth | experimental · 1.0.0 |
+| `POST` | `/oauth/token` | `oauth.token` | public | `public` | no | auth | stable · 1.0.0 |
+| `POST` | `/oauth/revoke` | `oauth.revoke` | public | `public` | no | auth | stable · 1.0.0 |
+| `GET` | `/api/v1/oauth/grants` | `oauth.grants.list` | session | `my.read` | no | read | experimental · 1.0.0 |
+| `POST` | `/api/v1/oauth/grants/revoke` | `oauth.grants.revoke` | session | `my.write` | yes | write | experimental · 1.0.0 |
 | `GET` | `/api/v1/meta` | `desktop.meta` | public | `public` | no | read | experimental · 1.0.0 |
 | `POST` | `/api/v1/desktop/pair` | `desktop.pair` | public | `public` | no | auth | experimental · 1.0.0 |
 | `POST` | `/api/v1/desktop/redeem` | `desktop.redeem` | public | `public` | no | auth | experimental · 1.0.0 |

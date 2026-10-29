@@ -176,3 +176,15 @@ Pair-proof and code redemption are reviewed bootstrap exceptions to cookie authe
 | Abfluss von Daten über Audit-Logs | Audit-Ereignisse `mcp.server.call` und `mcp.server.denied` protokollieren ausschließlich Metadaten (`tokenId`, `tool`, `agentId`, `reason`). Argumente und Rückgaben werden nicht erfasst. | `mcp-route.test.ts`, `catalogue.json` |
 | Unerwünschte Werkzeugfreigabe | Werkzeuge sind in Gruppen gegliedert (`memory`, `agent`, `skills`). Nur explizit konfigurierte Gruppen werden instanziiert. Skills beachten Pfad-, Größen- und Geheimnisverbote. | `mcp-tools.test.ts`, `mcp-activation.test.ts` |
 
+## M6-A OAuth 2.1 Security Matrix
+
+| Attack / Risk | Protection / Enforcement | Evidence |
+|---|---|---|
+| Authorization Code Interception | Zwingende PKCE-Verifikation mit `S256`. Anfragen ohne `code_challenge` oder mit veraltetem `plain` werden abgewiesen. Einmalige Verwendung des Codes (10 min TTL). | `oauth-server.test.ts` |
+| Offene Weiterleitungen (Open Redirect) | Exakter Abgleich der `redirect_uri` gegen registrierte Client-URIs. Dynamische Portnummern ausschließlich für Loopback-URIs (`http://127.0.0.1`, `http://localhost`). | `oauth-server.test.ts` |
+| SSRF über Client-ID-Metadaten | Abruf von Metadatendokumenten blockiert private Netze, Loopback (`127.0.0.0/8`, `::1`), Link-Local (`169.254.0.0/16`) und Cloud-Metadatendienste (`169.254.169.254`). Nur HTTPS zulässig. | `oauth-server.test.ts` |
+| Wiederverwendung gestohlener Refresh-Tokens | Refresh-Token-Rotation (RTR). Jedes Refreshtoken ist strikt einmalig verwendbar. Wird ein gebrauchtes Token erneut eingereicht, wird die gesamte Token-Familie (`familyId`) samt aktivem Zugriffstoken widerrufen. | `oauth-server.test.ts`, `oauth-audit.test.ts` |
+| Privilegienerweiterung & Scope-Leck | Token werden an Ziel-Audience (`mcp` oder `a2a`) und Ziel-Agent gebunden. Scope-Filterung verhindert Berechtigungsübertragung zwischen Ressourcen. Cross-Audience-Nutzung liefert 401 `invalid-audience`. | `oauth-protected-resource.test.ts` |
+| Unbemerkte Drittanbieter-Zugriffe | Audit-Trail erfasst `oauth.authorize`, `oauth.token`, `oauth.refresh`, `oauth.revoke` und `oauth.denied`. Benutzer können aktive Grants unter `GET /api/v1/oauth/grants` einsehen und per `POST /api/v1/oauth/grants/revoke` entziehen. | `oauth-audit.test.ts` |
+
+
