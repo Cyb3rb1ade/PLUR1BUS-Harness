@@ -64,13 +64,20 @@ test('Flatpak exports protocol/file associations and Tauri resource and helper l
   }
   const desktop = await readFile(join(options.outDir, 'payload/exports/app.plur1bus.desktop.desktop'), 'utf8');
   assert.match(desktop, /Exec=plur1bus-desktop %U/);
-  assert.match(desktop, /x-scheme-handler\/plur1bus;application\/x-plur1bus-extension;/);
+  assert.match(desktop, /x-scheme-handler\/plur1bus;application\/vnd\.plur1bus\.extension\+zip;/);
   assert.match(await readFile(join(options.outDir, 'payload/exports/app.plur1bus.desktop.xml'), 'utf8'), /glob pattern="\*\.p1x"/);
   assert.equal(plan.commands[0].program, 'flatpak-builder');
   assert.equal(plan.commands[1].program, 'flatpak');
   assert.ok(plan.commands[1].args.includes('build-bundle'));
   assert.ok(plan.commands[0].args.includes('--arch=aarch64'));
   await assert.rejects(lstat(plan.artifactPath), { code: 'ENOENT' });
+});
+
+test('native association declares the canonical extension MIME and macOS UTI', async () => {
+  const config = JSON.parse(await readFile(new URL('../../src-tauri/tauri.conf.json', import.meta.url), 'utf8'));
+  const association = config.bundle.fileAssociations.find(item => item.ext.includes('p1x'));
+  assert.equal(association.mimeType, 'application/vnd.plur1bus.extension+zip');
+  assert.deepEqual(association.exportedType, { identifier: 'app.plur1bus.extension', conformsTo: ['public.zip-archive'] });
 });
 
 test('sandbox grants only named container sockets and required fixed host activation bus', () => {
