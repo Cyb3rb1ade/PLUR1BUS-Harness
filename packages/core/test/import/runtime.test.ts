@@ -155,13 +155,19 @@ for (const changedJob of [false, true]) {
     t.mock.method(promises, "open", async (path: Parameters<typeof open>[0], flags: Parameters<typeof open>[1],
       mode?: Parameters<typeof open>[2]) => {
       if (path === nativePath && replace) {
-        replace = false;
-        replacements++;
         const native = JSON.parse(readFileSync(nativePath, "utf8"));
         native.run.progress = { runId: f.plan.runId, phase: "verify", entity: "memory", completed: 0 };
         if (changedJob) native.job.planSha256 = "f".repeat(64);
         // Native publishes its first held-runtime progress between this reader's lstat and open.
-        writeAtomicSync(nativePath, JSON.stringify(native));
+        try {
+          writeAtomicSync(nativePath, JSON.stringify(native));
+          replace = false;
+          replacements++;
+        } catch (error) {
+          // Node's rename cannot replace a file another reader (a status poll) still holds open on Windows;
+          // the replacement then lands at the next open instead.
+          if (process.platform !== "win32" || !["EPERM", "EACCES", "EBUSY"].includes((error as NodeJS.ErrnoException).code ?? "")) throw error;
+        }
       }
       return open(path, flags, mode);
     });
