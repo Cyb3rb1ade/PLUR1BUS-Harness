@@ -68,6 +68,17 @@ const SCOPED = [
       },
     ],
   },
+  {
+    // External-agent discovery may lstat and access a login path. It must not read the file.
+    files: ["packages/core/src/external-agents/discovery.ts"],
+    patterns: [
+      {
+        id: "HYG-017",
+        re: /\b(readFileSync|readFile|createReadStream)\s*\(/,
+        why: "discovery must not read credential contents",
+      },
+    ],
+  },
 ];
 // Path -> the whole file is exempt (never scanned).
 const ALLOW_FILES = new Set([
