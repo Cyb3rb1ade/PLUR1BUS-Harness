@@ -15,6 +15,9 @@ export interface AgentRunInput {
   onTranscript?: (entry: { kind: string; data: unknown }) => void;
   onProgress?: (progress: AgentRunResult) => void;
   principal?: import("../rbac/types.ts").Principal;
+  /** Who asked, set by the service (never by the model): the asking agent and the trace position of this hop. A runner
+   *  that gives the callee memory uses it as the provenance of what the turn captures. */
+  origin?: { fromAgent: string; traceId: string; spanId: string };
 }
 
 export interface AgentRunResult {

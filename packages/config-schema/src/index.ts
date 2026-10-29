@@ -51,7 +51,7 @@ export interface HarnessConfig {
   supervisor: { graceMs: number; healthIntervalMs: number; maxCores: number };
   logs: { maxBytes: number; keep: number };
   metrics: { enabled: boolean; port: number };
-  agents: Record<string, { skills?: { blocked?: string[]; pinned?: string[]; applyAt?: "next-turn" | "next-session" }; createdAt?: string; behaviour?: BehaviourSet; displayName?: string; persona?: string; model?: string; modelPolicy?: ModelRoutingPolicy; toolUse?: ToolUsePolicy; channels?: string[]; voice?: VoiceV3Override; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> }; privacy?: { localOnly?: boolean } }>;
+  agents: Record<string, { skills?: { blocked?: string[]; pinned?: string[]; applyAt?: "next-turn" | "next-session" }; createdAt?: string; behaviour?: BehaviourSet; displayName?: string; persona?: string; model?: string; modelPolicy?: ModelRoutingPolicy; toolUse?: ToolUsePolicy; channels?: string[]; voice?: VoiceV3Override; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> }; privacy?: { localOnly?: boolean }; memoryExposure?: { collab?: { recall?: { workspace?: boolean; user?: boolean; agentPrivate?: boolean }; capture?: boolean } } }>;
   memory: { embedding?: { privacyAck?: PrivacyAcknowledgment }; reranker?: { privacyAck?: PrivacyAcknowledgment }; mediaEmbedding: MediaEmbeddingConfig };
   /** Installation-wide privacy switches (privacy.localOnly: no model call leaves the machine). */
   privacy: { localOnly: boolean; localEndpoints: string[] };
