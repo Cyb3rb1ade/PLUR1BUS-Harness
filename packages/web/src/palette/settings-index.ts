@@ -119,6 +119,8 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "engine.baseDbPathOverride", type: "string", tier: "advanced", help: "Testing/advanced only; default <home>/state/lancedb. An absolute path (POSIX, drive letter or UNC); a blank value keeps the default." },
   { key: "mcp", type: "object", tier: "advanced", help: "Installed MCP extension activation and per-agent tool visibility (X2)." },
   { key: "mcp.servers", type: "object", tier: "advanced", help: "Activation settings keyed by the installed MCP extension name." },
+  { key: "mcpServer", type: "object", tier: "advanced", help: "Harness MCP server for foreign hosts (M6-A): exposes harness functions, memory and skills behind agent-bound tokens." },
+  { key: "mcpServer.enabled", type: "boolean", tier: "advanced", help: "Allow foreign MCP hosts to connect to the harness MCP server." },
   { key: "providers", type: "object", tier: "basic", help: "Reserved namespace for model-provider configuration." },
   { key: "auth.requireSecondFactor", type: "string", tier: "advanced", help: "Require TOTP or WebAuthn for Owner and Admin on remote listeners by default; always or never are explicit overrides." },
   { key: "auth.openai.loopbackTimeoutMs", type: "integer", tier: "advanced", help: "Loopback login deadline." },

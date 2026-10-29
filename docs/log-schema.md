@@ -212,6 +212,8 @@ An audit entry's attribute group describes the line's `detail`. Groups marked *o
 |---|---|---|---|---|---|---|
 | `agent.create` | harness | — | agent_creation |  | experimental | Registration intent before settings, files and initial rights are committed; no submitted content. |
 | `agent.created` | harness | — | agent_creation |  | experimental | Successful Config Schema registration; settings and credentials never enter the audit detail. |
+| `mcp.server.call` | harness | — | mcp_server_call | `tokenId`, `tool`, `agentId` | activity, experimental | A tool was called by a foreign host on the harness MCP server. |
+| `mcp.server.denied` | harness | — | mcp_server_denied | `tokenId`, `tool`, `agentId` | activity, experimental | A tool call was denied on the harness MCP server. |
 | `licence.accept-nc` | harness | — | audit_licence | `useClass` |  | Records acceptance of the non-commercial licence for embedding use; pre-D111 HB12 action, unchanged. |
 | `setup.complete` | harness | — | audit_setup |  |  | Records successful completion of setup and the selected installation; pre-D111 HB12 action, unchanged. |
 | `repair.*` | harness | — | audit_repair | `status` |  | Records the outcome of an applied repair step; pre-D111 HB12 `repair.<step>` family: any name under `repair.` that satisfies the name rule. |
@@ -965,6 +967,27 @@ Audit chain recovery/journal metadata emitted by the shared writer.
 | `limitLines` | `integer` |  |
 | `limitBytes` | `integer` |  |
 
+#### `mcp_server_call` (open)
+
+Detail for `mcp.server.call` audit event: tool invocation by foreign host via MCP server (no arguments or results).
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `tokenId` | `string` | Identifier of the agent-bound token used for authentication. |
+| `tool` | `string` | Invoked MCP tool name. |
+| `agentId` | `string` | Target agent identifier. |
+
+#### `mcp_server_denied` (open)
+
+Detail for `mcp.server.denied` audit event: rejected MCP server call (no arguments or results).
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `tokenId` | `string` | Identifier of the agent-bound token if present. |
+| `tool` | `string` | Attempted tool name. |
+| `agentId` | `string` | Target agent identifier. |
+| `reason` | `string` | Denial reason slug. |
+
 ## Redaction data
 
 The writer applies these rules in order (`secret`, `key`, `pattern`, `url`, `path`, `pii`) to `msg`, `attrs`, `err`, wrapped text and audit detail; a match is
@@ -1008,6 +1031,8 @@ replaced by `[REDACTED:{rule}]`. Patterns use the subset common to ECMAScript an
   - `cloud-cli`: `.aws`, `.azure`, `.config/gcloud`, `.kube`, `.docker/config.json`, `.config/gh`
   - `dotenv`: `.env`, `.env.*`, `.npmrc`, `.netrc`, `.pgpass`
 - **`pii`** (patterns, §4 rule 6): Email addresses and phone numbers; applied only when logs.redactPii is true (default false). Enabled by `logs.redactPii` (default false).
+  - `iban`: `[A-Z]{2}[0-9]{2}(?:[ ]?[0-9A-Z]{4}){2,7}(?:[ ]?[0-9A-Z]{1,4})?` (flags `i`), left boundary — International Bank Account Number (IBAN)
+  - `card-number`: `(?:4[0-9]{3}(?:[ -]?[0-9]{4}){3}(?:[ -]?[0-9]{3})?|5[1-5][0-9]{2}(?:[ -]?[0-9]{4}){3}|2[2-7][0-9]{2}(?:[ -]?[0-9]{4}){3}|3[47][0-9]{2}[ -]?[0-9]{6}[ -]?[0-9]{5}|3[47][0-9]{13}|6(?:011|5[0-9]{2})(?:[ -]?[0-9]{4}){3}|(?:[0-9]{4}[ -]){3}[0-9]{4})`, left boundary — payment card number (credit or debit)
   - `email`: `[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}` — email address
   - `phone-e164`: `\+[1-9][0-9]{6,14}` — E.164 phone number
   - `phone-nanp`: `\(?[0-9]{3}\)?[ .-][0-9]{3}[ .-][0-9]{4}` — North American number with separators

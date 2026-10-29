@@ -165,3 +165,14 @@ No private passkey material or attestation certificate chain is persisted. Crede
 | Switch certificate before devices learn the new trust | Durable staged announcement, registered-key acknowledgements, missed-device repair | Remote pairing rollover tests |
 
 Pair-proof and code redemption are reviewed bootstrap exceptions to cookie authentication: a device cannot already have a paired identity. They are closed without an Owner-opened ephemeral code, bounded and rate limited, and never mint a password session. The MAC is not an authority to accept arbitrary TLS: the client must compare its own certificate and configured origin. No remote change strengthens the accepted same-OS-user boundary.
+
+## M6-A MCP Server Security Matrix
+
+| Attack / Risk | Protection / Enforcement | Evidence |
+|---|---|---|
+| Unbefugter MCP-Werkzeugaufruf | Bearer-Authentifizierung mit Bindung (`audience: "mcp"`, `agentId`). Fehlt Authentifizierung: 401 mit RFC 9728 `WWW-Authenticate: Bearer resource_metadata="..."`. Ist MCP oder der Agent nicht freigegeben: 403 `agent-not-exposed`. | `mcp-route.test.ts` |
+| Übergreifen auf fremde Agenten-Erinnerungen | `memory_recall` läuft strikt im Prinzipal- und Berechtigungskontext des gebundenen Agenten (`agent.use`). Automatische PII- und Geheimnismaskierung (IBAN, Kreditkarten, Kennwörter). | `no-memory-leak.test.ts`, `exposure-matrix.test.ts` |
+| Überlastung durch rechenintensive Turns | `agent_ask` zieht aus dem Kontingent der Rate-Klasse `expensive` und belegt einen Slot des globalen `expensiveConcurrency`-Limits. Bei Erschöpfung: 429 mit `Retry-After`. | `mcp-route.test.ts` |
+| Abfluss von Daten über Audit-Logs | Audit-Ereignisse `mcp.server.call` und `mcp.server.denied` protokollieren ausschließlich Metadaten (`tokenId`, `tool`, `agentId`, `reason`). Argumente und Rückgaben werden nicht erfasst. | `mcp-route.test.ts`, `catalogue.json` |
+| Unerwünschte Werkzeugfreigabe | Werkzeuge sind in Gruppen gegliedert (`memory`, `agent`, `skills`). Nur explizit konfigurierte Gruppen werden instanziiert. Skills beachten Pfad-, Größen- und Geheimnisverbote. | `mcp-tools.test.ts`, `mcp-activation.test.ts` |
+

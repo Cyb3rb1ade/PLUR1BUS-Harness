@@ -10,6 +10,7 @@ Every route is **deny by default**: a route that is not `public` answers 401 wit
 | `POST` | `/api/v1/import/snapshots` | `imports.snapshot.upload` | session or token | `imports.manage` | yes | upload | experimental · 1.8.0 |
 | `POST` | `/api/v1/extensions/upload` | `extensions.upload` | session or token | `extensions.manage` | yes | upload | experimental · 1.8.0 |
 | `POST` | `/api/v1/extensions/inspect` | `extensions.inspect` | session or token | `extensions.manage` | yes | write | experimental · 1.8.0 |
+| `POST` | `/mcp` | `mcp.server` | session or token | `authenticated` | no | rpc | experimental · 1.0.0 |
 | `GET` | `/api/v1/meta` | `desktop.meta` | public | `public` | no | read | experimental · 1.0.0 |
 | `POST` | `/api/v1/desktop/pair` | `desktop.pair` | public | `public` | no | auth | experimental · 1.0.0 |
 | `POST` | `/api/v1/desktop/redeem` | `desktop.redeem` | public | `public` | no | auth | experimental · 1.0.0 |

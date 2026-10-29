@@ -53,6 +53,58 @@ Evidence levels: **verified 2026-09-25** (read at the cited source today), **kno
 
 Owner decision of 2026-10-07 (core spec `docs/superpowers/specs/2026-09-24-m1b-2a-core-daemon-cli-design.md` §4.1): attach adapters for CLI and desktop systems (Claude Code, Codex CLI, Kimi Code CLI, Claude Desktop, Jan, LibreChat, …; catalogue in `docs/research/2026-10-07-agent-bridge-connectors.md`) are managed as **connectors of the `agent-bridge` module** (board `V2AgentBridge`, Settings › Agent Bridge). A connector's **Attach** role is one of the tiers above; its **Drive** role is ADR-011. The bridge detects the installed system (version and login state, never a secret), writes the attach configuration into it (MCP entry, hooks, a prompt snippet with the slim payload) visibly and reversibly, and reports health per connector under rule 1 below. It owns no transport: tier 0 is `memory-proxy`, tier 3 is `mcp-host`. The tier-1 host plugins for OpenClaw and Hermes keep their own distribution (their repositories and Track HM) but appear in the bridge as connectors with their health.
 
+## Beispiel Stufe 3: Anbindung über MCP (Tier 3)
+
+In Stufe 3 bindet ein externer Host die Funktionen des Harness als MCP-Client ein. Der Harness stellt die Werkzeuge `memory_recall` (und optional `memory_store`), `agent_ask` und `skills` bereit.
+
+### Konfiguration für externe Hosts
+
+#### Über stdio (`claude_desktop_config.json`, Cursor oder Kimi Code)
+
+```json
+{
+  "mcpServers": {
+    "plur1bus": {
+      "command": "plur1bus",
+      "args": ["mcp", "serve", "--agent", "bernd"],
+      "env": {
+        "PLUR1BUS_MCP_TOKEN": "plb_tok_1234567890abcdef"
+      }
+    }
+  }
+}
+```
+
+Die stdio-Bridge `plur1bus mcp serve` leitet JSON-RPC-Aufrufe an den lokalen API-Endpunkt `/mcp` weiter. Auf `stdout` fließen ausschließlich Protokollnachrichten, Protokolldiagnostik verbleibt auf `stderr`.
+
+#### Über HTTP (Streamable HTTP / MCP 2026-07-28)
+
+```json
+{
+  "mcpServers": {
+    "plur1bus": {
+      "url": "http://127.0.0.1:18080/mcp",
+      "headers": {
+        "Authorization": "Bearer plb_tok_1234567890abcdef"
+      }
+    }
+  }
+}
+```
+
+### System-Prompt-Auszug für den Host-Agenten
+
+Um die Erinnerungen des Harness abzurufen, wird dem Modell im Host folgender Hinweis im System-Prompt mitgegeben:
+
+```markdown
+You have access to the harness memory via the MCP tool `memory_recall`.
+When the user asks about prior context, projects, or preferences, query
+`memory_recall` with a concise keyword query before replying. Never disclose
+raw internal memory IDs unless specifically requested.
+```
+
+Details zur Konfiguration, Rechten und Absicherung siehe [mcp-server.md](mcp-server.md).
+
 ## Rules for every adapter
 
 1. **No engine in the host.** The adapter holds no store, no model, no journal; if the harness is unreachable it reports degraded to the host and drops nothing silently (a capture is retried through the kit's journal on the host side only if the host allows local files).

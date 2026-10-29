@@ -216,6 +216,9 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `memory.show`: experimental, since 1.0.0
 - `memory.forget`: experimental, since 1.0.0
 - `memory.correct`: experimental, since 1.0.0
+- `memory.sensitivity.clear`: experimental, since 1.8.0
+- `memory.sensitivity.get`: experimental, since 1.8.0
+- `memory.sensitivity.set`: experimental, since 1.8.0
 - `memory.share`: experimental, since 1.0.0
 - `memory.state`: experimental, since 1.0.0
 - `memory.propose`: experimental, since 1.1.0
@@ -11861,6 +11864,234 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
     },
     "archived": {
       "const": true
+    }
+  }
+}
+```
+
+### `memory.sensitivity.clear`
+
+**Stability:** experimental · since 1.8.0
+
+**Served by:** core
+
+Clear a specific sensitivity category or all sensitivity categories from a memory card.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/MemoryId"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "health",
+        "financial",
+        "credential",
+        "identity",
+        "personal"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "cleared",
+    "remaining"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "cleared": {
+      "type": "boolean"
+    },
+    "remaining": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "health",
+          "financial",
+          "credential",
+          "identity",
+          "personal"
+        ]
+      }
+    }
+  }
+}
+```
+
+### `memory.sensitivity.get`
+
+**Stability:** experimental · since 1.8.0
+
+**Served by:** core
+
+Get the sensitivity categories and source for a memory card.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/MemoryId"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "categories"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "health",
+          "financial",
+          "credential",
+          "identity",
+          "personal"
+        ]
+      }
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "rule",
+        "manual",
+        "model"
+      ]
+    },
+    "updatedAt": {
+      "type": "number"
+    }
+  }
+}
+```
+
+### `memory.sensitivity.set`
+
+**Stability:** experimental · since 1.8.0
+
+**Served by:** core
+
+Mark sensitivity categories (health, financial, credential, identity, personal) on a memory card.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "categories"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/MemoryId"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "health",
+          "financial",
+          "credential",
+          "identity",
+          "personal"
+        ]
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "categories",
+    "updated"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "health",
+          "financial",
+          "credential",
+          "identity",
+          "personal"
+        ]
+      }
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "rule",
+        "manual",
+        "model"
+      ]
+    },
+    "updated": {
+      "type": "boolean"
     }
   }
 }

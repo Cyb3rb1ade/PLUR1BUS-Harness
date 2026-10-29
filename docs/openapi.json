@@ -687,6 +687,101 @@
         "x-authz": "extensions.manage"
       }
     },
+    "/mcp": {
+      "post": {
+        "operationId": "mcp.server",
+        "tags": [
+          "mcp"
+        ],
+        "summary": "MCP server endpoint supporting 2026-07-28 and 2025-11-25 eras",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "MCP JSON-RPC response or SSE stream",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A foreign `Origin` or a cross-site fetch (`reason`: `origin`, `cross-site`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "rpc",
+        "x-csrf": false,
+        "x-authz": "authenticated"
+      }
+    },
     "/api/v1/meta": {
       "get": {
         "operationId": "desktop.meta",

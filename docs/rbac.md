@@ -644,6 +644,15 @@ only narrow access. It is forbidden as a WebMCP tool. The handler takes only a m
 set, memory and timeout are server-owned. It selects one configured candidate without fallback and admits the request
 through the same budget/router and adapter egress as ordinary model calls. It creates no session or transcript.
 
+### Protokoll-Endpunkte und Agent-gebundene Tokens (M6-A, 2026-10-29)
+
+Für externe Protokolle (MCP und A2A) werden persönliche API-Tokens mit einer festen Bindung ausgestellt (`binding: { audience: "mcp" | "a2a", agentId: string }`):
+
+* **Audience-Isolation:** Ein für `audience: "mcp"` ausgestelltes Token wird auf anderen Protokoll-Routen (`/a2a`) mit `401 invalid-audience` abgewiesen und umgekehrt. Tokens ohne Bindung erhalten `403 token-binding-required`.
+* **Prinzipal und Scopes:** Die API instanziiert das Token als Prinzipal der Art `agent` (`kind: "agent"`) mit gesetztem `tokenId` und `binding`. Die Scopes des Tokens engen die Rolle des Erstellers ein.
+* **Objektrechte:** Das Erstellen eines an einen Agenten gebundenen Tokens und jeder Zugriff über `/mcp` setzt die Berechtigung `agent.use` auf dem Ziel-Agenten (`agent:<id>`) voraus.
+* **Keine Menschen-Rechte:** Wie alle Tokens der Art `agent` können gebundene Tokens keine `humanOnly`-Aktionen ausführen.
+
 ### A4: human memory curation
 
 `memory.curation.list` and `memory.curation.resolve` are **humanOnly** and require
