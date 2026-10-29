@@ -29,6 +29,7 @@ fn main() {
     let home = paths::resolve_home_from_process(cli.home.as_deref());
     let layout = paths::Layout::new(home);
     match cli.cmd {
+        Cmd::RemoteFsWorker => plur1bus_remote_fs::run_worker(),
         Cmd::Core {
             sub: cli::CoreCmd::Run,
         } => commands::core::run(&out, &layout),

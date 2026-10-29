@@ -58,6 +58,9 @@ pub fn parse() -> Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Cmd {
+    /// Private bounded-pipe SSH/SFTP transport; no command or private-key argument is accepted.
+    #[command(name = "__remote-fs-worker", hide = true)]
+    RemoteFsWorker,
     /// [experimental] Install the harness: Node runtime, core, config, skills, OS service, start and first check
     ///
     /// Downloads the pinned Node runtime and the core payload and verifies their SHA-256 hashes, writes the config

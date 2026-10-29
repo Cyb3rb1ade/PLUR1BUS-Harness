@@ -1,4 +1,4 @@
 //! Private bounded-pipe worker for the remote-fs package; no public filesystem or execution RPC.
 fn main() {
-    std::process::exit(2);
+    plur1bus_remote_fs::run_worker();
 }

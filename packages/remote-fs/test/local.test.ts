@@ -1,0 +1,81 @@
+/** Read-only source access must enforce trust and budgets before returning any contents. */
+import assert from "node:assert/strict";
+import { mkdtemp, mkdir, writeFile, symlink, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { test } from "node:test";
+import { createLocalFs } from "../src/local.ts";
+
+async function fixture(run: (root: string, outside: string) => Promise<void>): Promise<void> {
+  const base = await mkdtemp(join(tmpdir(), "p1-remote-fs-"));
+  const root = join(base, "source");
+  const outside = join(base, "outside");
+  try {
+    await mkdir(root);
+    await writeFile(join(root, "card.md"), "public-card");
+    await writeFile(outside, "OUTSIDE-CONTENTS");
+    await run(root, outside);
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+}
+
+test("the local source exposes precisely the six read operations", async () => fixture(async root => {
+  const fs = await createLocalFs({ root });
+  assert.deepEqual(Object.keys(fs).sort(), ["lstat", "readFile", "readdir", "readlink", "realpath", "stat"]);
+  assert.ok(Object.isFrozen(fs));
+  assert.equal((await fs.stat("card.md")).type, "file");
+  assert.equal((await fs.lstat("card.md")).size, 11);
+  assert.deepEqual(await fs.readdir("."), ["card.md"]);
+  assert.equal((await fs.readFile("card.md", 11)).toString(), "public-card");
+  assert.equal(await fs.realpath("card.md"), join(root, "card.md"));
+}));
+
+test("the per-file and per-run budgets count actual repeated file bytes", async () => fixture(async root => {
+  const fs = await createLocalFs({ root, limits: { maxFileBytes: 11, maxTotalBytes: 15 } });
+  await assert.rejects(fs.readFile("card.md", 10), { reason: "file-limit" });
+  assert.equal((await fs.readFile("card.md", 11)).length, 11);
+  await assert.rejects(fs.readFile("card.md", 11), { reason: "total-limit" });
+  assert.equal((await fs.stat("card.md")).type, "file");
+}));
+
+test("lexical escapes and escaped symlinks cannot return external data or metadata", async () => fixture(async (root, outside) => {
+  await symlink(outside, join(root, "escape"));
+  const fs = await createLocalFs({ root });
+  for (const path of [outside, "../outside", "escape"]) {
+    await assert.rejects(fs.readFile(path, 1024), { reason: "path-denied" });
+    await assert.rejects(fs.stat(path), { reason: "path-denied" });
+  }
+  assert.equal((await fs.lstat("escape")).type, "symlink");
+  await assert.rejects(fs.realpath("escape"), { reason: "path-denied" });
+  await assert.rejects(fs.readlink("escape"), { reason: "path-denied" });
+}));
+
+test("internal symlinks remain readable and their target stays inside the selected root", async () => fixture(async root => {
+  await symlink("card.md", join(root, "alias"));
+  const fs = await createLocalFs({ root });
+  assert.equal(await fs.readlink("alias"), "card.md");
+  assert.equal((await fs.readFile("alias", 11)).toString(), "public-card");
+}));
+
+test("depth and directory-entry limits are cumulative and deterministic", async () => fixture(async root => {
+  await mkdir(join(root, "nested"));
+  await writeFile(join(root, "nested", "deep"), "x");
+  const depth = await createLocalFs({ root, limits: { maxDepth: 1 } });
+  await assert.rejects(depth.stat("nested/deep"), { reason: "depth-limit" });
+  const entries = await createLocalFs({ root, limits: { maxEntries: 2 } });
+  assert.equal((await entries.readdir(".")).length, 2);
+  await assert.rejects(entries.readdir("."), { reason: "entry-limit" });
+}));
+
+test("abort, deadline and invalid limits refuse reads with fixed sanitized errors", async () => fixture(async root => {
+  const abort = new AbortController();
+  const fs = await createLocalFs({ root, signal: abort.signal });
+  abort.abort(new Error("SECRET-BACKEND-DETAIL"));
+  await assert.rejects(fs.readFile("card.md", 11), { reason: "aborted", message: "remote-fs: aborted" });
+  await assert.rejects(createLocalFs({ root, limits: { timeoutMs: Infinity } }), { reason: "invalid-limit" });
+  const timeout = await createLocalFs({ root, limits: { timeoutMs: 5 } });
+  await new Promise(resolve => setTimeout(resolve, 15));
+  await assert.rejects(timeout.stat("card.md"), { reason: "timeout" });
+  await assert.rejects(timeout.readFile("card.md", -1), { reason: "timeout" });
+}));

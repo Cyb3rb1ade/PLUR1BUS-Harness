@@ -127,6 +127,9 @@ importers:
       '@plur1bus/module-api':
         specifier: workspace:*
         version: link:../module-api
+      '@plur1bus/remote-fs':
+        specifier: workspace:*
+        version: link:../remote-fs
       '@plur1bus/rpc-schema':
         specifier: workspace:*
         version: link:../rpc-schema
@@ -185,6 +188,8 @@ importers:
   packages/providers: {}
 
   packages/remote-access: {}
+
+  packages/remote-fs: {}
 
   packages/rpc-schema:
     dependencies:

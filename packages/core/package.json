@@ -23,6 +23,7 @@
     "@plur1bus/config-schema": "workspace:*",
     "@plur1bus/log-schema": "workspace:*",
     "@plur1bus/module-api": "workspace:*",
+    "@plur1bus/remote-fs": "workspace:*",
     "@plur1bus/rpc-schema": "workspace:*",
     "@plur1bus/channels-buzz": "workspace:*",
     "@plur1bus/channels-matrix": "workspace:*"

@@ -15,6 +15,7 @@ plur1bus-containers = { path = "../plur1bus-containers" }
 plur1bus-rpc = { path = "../plur1bus-rpc" }
 plur1bus-config = { path = "../plur1bus-config" }
 plur1bus-log-schema = { path = "../plur1bus-log-schema" }
+plur1bus-remote-fs = { path = "../plur1bus-remote-fs" }
 regex = "1"
 clap.workspace = true
 serde.workspace = true

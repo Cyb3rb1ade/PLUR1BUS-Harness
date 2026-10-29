@@ -5330,6 +5330,7 @@ dependencies = [
  "plur1bus-containers",
  "plur1bus-ext",
  "plur1bus-log-schema",
+ "plur1bus-remote-fs",
  "plur1bus-rpc",
  "predicates",
  "proptest",
@@ -5460,6 +5461,7 @@ dependencies = [
  "sha2 0.10.9",
  "tempfile",
  "tokio",
+ "zeroize",
 ]
 
 [[package]]

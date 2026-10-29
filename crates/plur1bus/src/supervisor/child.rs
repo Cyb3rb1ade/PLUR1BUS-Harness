@@ -76,7 +76,10 @@ pub fn core_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String
         role: "core".into(),
         program: locate_node(layout),
         args,
-        env: crate::commands::core::attest_env(),
+        env: crate::commands::core::attest_env()
+            .into_iter()
+            .chain(crate::commands::core::native_worker_env())
+            .collect(),
         cwd: None,
     })
 }

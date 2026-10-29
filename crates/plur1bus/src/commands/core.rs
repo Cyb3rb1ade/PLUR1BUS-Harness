@@ -110,6 +110,40 @@ pub(crate) fn attest_env() -> Vec<(std::ffi::OsString, std::ffi::OsString)> {
     env
 }
 
+/// Pin the Harness executable used for the fixed private remote-filesystem worker command. Only Core receives
+/// this metadata. Empty values overwrite inherited descriptors when the executable cannot be verified.
+pub(crate) fn native_worker_env() -> Vec<(std::ffi::OsString, std::ffi::OsString)> {
+    use sha2::{Digest, Sha256};
+    use std::ffi::OsString;
+    use std::io::Read;
+    static WORKER: std::sync::OnceLock<Option<(OsString, OsString)>> = std::sync::OnceLock::new();
+    let worker = WORKER.get_or_init(|| {
+        let path = std::env::current_exe().ok()?.canonicalize().ok()?;
+        let mut file = std::fs::File::open(&path).ok()?;
+        if !file.metadata().ok()?.is_file() {
+            return None;
+        }
+        let mut digest = Sha256::new();
+        let mut block = [0u8; 64 * 1024];
+        loop {
+            let count = file.read(&mut block).ok()?;
+            if count == 0 {
+                break;
+            }
+            digest.update(&block[..count]);
+        }
+        Some((
+            path.into_os_string(),
+            format!("{:x}", digest.finalize()).into(),
+        ))
+    });
+    let (path, digest) = worker.clone().unwrap_or_default();
+    vec![
+        ("PLUR1BUS_NATIVE_BIN".into(), path),
+        ("PLUR1BUS_NATIVE_SHA256".into(), digest),
+    ]
+}
+
 /// Locates the Node runtime ([`locate_node`]) and dist/core.js ([`locate_core_js`]) and runs the core in the
 /// foreground.
 pub fn run(out: &Out, layout: &Layout) -> ! {
@@ -128,6 +162,7 @@ pub fn run(out: &Out, layout: &Layout) -> ! {
     let mut cmd = Command::new(&node);
     cmd.arg(&core_js).arg("--home").arg(&layout.home);
     cmd.envs(attest_env());
+    cmd.envs(native_worker_env());
     if let Some(ti) = std::env::var_os("PLUR1BUS_TEST_INTERNALS") {
         cmd.arg("--test-internals").arg(ti);
     }
@@ -162,6 +197,26 @@ mod tests {
     fn touch(p: &std::path::Path) {
         std::fs::create_dir_all(p.parent().unwrap()).unwrap();
         std::fs::write(p, "").unwrap();
+    }
+
+    #[test]
+    fn native_worker_metadata_pins_this_canonical_executable() {
+        use sha2::{Digest, Sha256};
+        let env = native_worker_env();
+        let path = env
+            .iter()
+            .find(|(key, _)| key == "PLUR1BUS_NATIVE_BIN")
+            .unwrap();
+        let digest = env
+            .iter()
+            .find(|(key, _)| key == "PLUR1BUS_NATIVE_SHA256")
+            .unwrap();
+        let exe = std::env::current_exe().unwrap().canonicalize().unwrap();
+        assert_eq!(PathBuf::from(&path.1), exe);
+        assert_eq!(
+            digest.1,
+            format!("{:x}", Sha256::digest(std::fs::read(exe).unwrap())).as_str()
+        );
     }
 
     #[test]
