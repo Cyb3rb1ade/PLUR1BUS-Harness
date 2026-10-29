@@ -12,7 +12,8 @@ References: [modern specification](https://modelcontextprotocol.io/specification
 [legacy specification](https://modelcontextprotocol.io/specification/2025-11-25).
 The installed `@modelcontextprotocol/sdk@1.32.1` implements the legacy generation;
 the modern adapter is implemented locally behind the same `McpProtocol` interface.
-The SDK and lockfile are unchanged.
+The SDK remains pinned at that version. M's native SSH dependencies have a separate
+[reviewed exact-tree decision](ops/m-russh-dependency-decision.md).
 
 ## S1: baseline inventory
 
@@ -39,8 +40,9 @@ Paths below are relative to `packages/core` unless prefixed with `docs/`.
 
 Registration remains lazy. Construct `McpRegistry` with a logger, the existing
 `Egress` service, the existing core secret store when using `authSecret`, and
-optional per-server `ports` / `auth` factories. This PR does not wire these into
-`core.ts`, configuration schemas, a UI, or the turn loop.
+optional per-server `ports` / `auth` factories. M v2 wires the registry into Core
+composition, configuration, extension lifecycle and the normal turn tool path.
+The low-level example below is also available to embedded callers.
 
 ```ts
 const registry = new McpRegistry({
@@ -192,8 +194,13 @@ validates resource/issuer binding, requires PKCE S256, verifies state and a pres
 issuer before redeeming the code, and sends the RFC 8707 `resource` parameter.
 Token refresh retains issuer/resource binding. Concurrent challenges share one
 authorization flow, and a request gets at most one authenticated retry.
-Discovery never receives the MCP bearer token. Dynamic client registration,
-confidential-client secrets and browser/callback/UI integration are not installed.
+Discovery never receives the MCP bearer token. Dynamic client registration and
+confidential-client secrets are not installed. The extension host supplies a
+human-only authorization interaction: a pre-registered client ID and exact redirect
+are required, login starts explicitly, and a missing/expired interaction shows
+`auth-required`. Listing or lazy background connection never opens a browser.
+Codes, states, tokens and verifier values remain private to the flow; status and
+setup methods return metadata only.
 
 Known tokens, bearer values, environment secrets and OAuth verifier/code/state
 values are registered for redaction. Ports' and HTTP errors are reduced to fixed
@@ -238,6 +245,39 @@ expansion, secret slots and signature limitations are described in
 Appended signature framing is checked without a cryptographic verifier: inspection
 states **signature not checked**, and the normalized p1x remains **unsigned**.
 
+## Installed extensions in Core
+
+`mcp.servers.<name>.{enabled,agents}` controls the effective registration. Installed
+local code is authenticated under `mcp/<name>/<version>/`; the cwd is that version
+root and source `${__dirname}` expands to its `payload/` directory at start. The
+active version is shared; selecting different versions per agent is not built.
+Updates retain a previous version for fallback and never embed staging paths in a
+saved definition. A local payload declares its command/scripts and runtime. The
+harness Node is pinned; Python via `uv` requires a frozen lock and the approved
+pinned runtime port. That runtime producer is still audit-gated, so missing Python
+setup is reported as `needs-setup` and never falls back to ambient PATH.
+
+Core refreshes registrations on extension/config changes. Disabled servers close
+connections and child processes. Per-agent tool visibility is checked again in the
+ordinary tool dispatcher, including after reconnect and during a running session;
+MCP tools retain their declared effect and normal policy/approval gates.
+
+Required slots use `ext:<extension>:<slot>` in the existing Secret Store. The human
+setup API lists only declared slot names and availability. Arbitrary MCPB source
+keys have stable collision-free aliases in authenticated payload metadata. A
+spawn-only lease fills declared environment templates, then releases on success,
+failure, timeout or cancellation. Sensitive command and argv substitutions are
+unsupported. Configuration, registry definitions, logs, exports and inspection
+records never receive the leased values. Native runtime coordination uses a
+separate authenticated private broker; no launch credentials cross ordinary RPC.
+
+An initial first-party package activates for all agents; other packages remain
+disabled until explicit human activation and consent. Production pinned extension
+keys remain empty until X5. Unsigned and unknown-signer packages require their
+respective trust acknowledgments. A bundle discloses and binds every selected
+child's trust, rights and digest independently; its inert wrapper has no MCP process
+or secret namespace of its own.
+
 ## ADR differences and follow-ups
 
 ADR-014 stays **Proposed** and is unchanged. This owner-requested expansion differs
@@ -248,8 +288,9 @@ by default and are offered only through explicit ports for compatibility.
 The modern adapter also departs from SDK-only implementation because the pinned
 and latest published SDK implements only the legacy revision.
 
-Separate follow-ups: turn-loop/tool-registry integration; D109 policy/approval and
-per-agent enable bindings; provider sampling adapter and usage budgeting;
-elicitation UI/callback flows; core configuration/RPC bindings and schema changes;
-MCP Apps renderer; persistent schema cache; official tasks/extensions; MCP server
-exposure. This client PR changes none of those subsystems.
+Remaining follow-ups include provider sampling and usage budgeting, broader
+elicitation callbacks, the MCP Apps renderer, persistent schema cache, official
+tasks/extensions, MCP server exposure and the separately audited UV runtime
+producer. Extension configuration, lazy registration, per-agent tool bindings,
+human authentication interaction and private secret leases are implemented by
+M v2. Browser acceptance is tracked in [the UI validation status](web-ui.md#m-v2-extensionimport-validation-status).
