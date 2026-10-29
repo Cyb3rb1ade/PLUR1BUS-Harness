@@ -46,9 +46,17 @@ impl FakeEngine {
                         continue;
                     }
                 };
-                socket
-                    .set_read_timeout(Some(Duration::from_secs(2)))
-                    .unwrap();
+                // macOS hands out accepted sockets with the listener's non-blocking flag (Linux does not); a read
+                // that would block then ends the request early, and the reply closes the socket while curl still
+                // sends (`curl: (55) Send failure`). The wake-up connection from `Drop` may already be closed; macOS
+                // then refuses the timeout.
+                if socket.set_nonblocking(false).is_err()
+                    || socket
+                        .set_read_timeout(Some(Duration::from_secs(2)))
+                        .is_err()
+                {
+                    continue;
+                }
                 let mut header = vec![];
                 let mut byte = [0];
                 while !header.ends_with(b"\r\n\r\n") {
