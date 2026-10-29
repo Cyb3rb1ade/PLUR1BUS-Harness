@@ -27,6 +27,8 @@ export interface Api {
   put<T = unknown>(path: string, body?: unknown, opts?: RequestOptions): Promise<T>;
   patch<T = unknown>(path: string, body?: unknown, opts?: RequestOptions): Promise<T>;
   delete<T = unknown>(path: string, opts?: RequestOptions): Promise<T>;
+  /** Native browser file bytes, with session CSRF; filenames never stand for a harness path. */
+  upload?<T = unknown>(path: string, file: Blob, filename?: string, opts?: RequestOptions): Promise<T>;
   /** Opens the SSE stream; see EventsHandle. */
   events(opts: EventsOptions): EventsHandle;
 }
@@ -123,7 +125,7 @@ export class HttpApi implements Api {
   }
 
   /** One HTTP exchange with the CSRF protocol: token before a write, one retry on 403 csrf, 401 on a write = session-expired. */
-  async #exchange(path: string, init: { method: string; body?: string; write: boolean; signal?: AbortSignal }): Promise<Raw> {
+  async #exchange(path: string, init: { method: string; body?: string | FormData; write: boolean; signal?: AbortSignal }): Promise<Raw> {
     const { signal } = init;
     try {
       if (signal?.aborted) throw new AbortedError();
@@ -134,7 +136,7 @@ export class HttpApi implements Api {
           method: init.method, credentials: "same-origin",
           headers: {
             accept: "application/json",
-            ...(init.body === undefined ? {} : { "content-type": "application/json" }),
+            ...(typeof init.body === "string" ? { "content-type": "application/json" } : {}),
             ...(token === null ? {} : { [CSRF_HEADER]: token }),
           },
           ...(init.body === undefined ? {} : { body: init.body }),
@@ -194,6 +196,13 @@ export class HttpApi implements Api {
   put<T = unknown>(path: string, body?: unknown, opts?: RequestOptions): Promise<T> { return this.#rest<T>("PUT", path, body, true, opts); }
   patch<T = unknown>(path: string, body?: unknown, opts?: RequestOptions): Promise<T> { return this.#rest<T>("PATCH", path, body, true, opts); }
   delete<T = unknown>(path: string, opts?: RequestOptions): Promise<T> { return this.#rest<T>("DELETE", path, undefined, true, opts); }
+  async upload<T = unknown>(path: string, file: Blob, filename = "extension.p1x", opts?: RequestOptions): Promise<T> {
+    const form = new FormData(); form.append("file", file, filename);
+    const raw = await this.#exchange(path, { method: "POST", body: form, write: true, ...(opts?.signal ? { signal: opts.signal } : {}) });
+    if (raw.status < 200 || raw.status >= 300) throw httpFailure(raw);
+    if (raw.malformed) throw new UnavailableError("the server did not answer with JSON", "bad-response", { status: raw.status });
+    return raw.body as T;
+  }
 
   events(opts: EventsOptions): EventsHandle {
     return openEventStream({ fetch: this.#fetch, baseUrl: this.#base, sleep: this.#sleep, random: this.#random, notify: (e) => { this.#notify(e); } }, opts);

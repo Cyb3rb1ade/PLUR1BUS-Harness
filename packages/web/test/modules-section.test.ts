@@ -39,6 +39,7 @@ function seed(app: App, modules = MODULES): void {
   app.server.rpc.handle("module.list", () => ({ modules }), { write: false });
   app.server.rpc.handle("module.graph", () => GRAPH, { write: false });
   app.server.rpc.handle("module.watch", () => ({ subscriptionId: "sub-1", modules: [] }), { write: false });
+  app.server.rpc.handle("ext.list", () => ({ items: [] }), { write: false });
 }
 
 async function open(app: App, lang: "en" | "de" = "en"): Promise<void> {
@@ -191,31 +192,38 @@ describe("modules: uninstall and install", opts, () => {
     });
   });
 
-  test("the owner installs from a directory on the host; the browser only sends the path", async () => {
+  test("the owner uploads bytes and reviews an owned inspection without sending a host path", async () => {
     await withApp({}, async (app) => {
       seed(app);
-      app.server.rpc.handle("module.install", () => ({ name: "clock", version: "0.1.0", replaced: false }));
+      app.server.rpc.handle("ext.inspect", params => { assert.deepEqual(params, { source: { upload: "U".repeat(43) } }); return { inspectionId: "module-inspection" }; });
+      app.server.rpc.handle("ext.inspection.get", () => ({ inspectionId: "module-inspection", expiresAt: "2099-01-01T00:00:00Z", sha256: "a".repeat(64), manifest: { id: "fixture/clock", kind: "module", version: "0.1.0", licence: "MIT" }, trust: { tier: "unsigned" }, checks: [], scripts: [], requires: {}, capabilities: {} }), { write: false });
+      app.server.rpc.handle("agent.list", () => ({ agents: [] }), { write: false });
+      app.server.extensions.push((req, res, path, body) => {
+        if (path !== "/api/v1/extensions/upload") return false;
+        const session = app.server.sessionOf(req), csrf = req.headers["x-csrf-token"];
+        assert.ok(session && typeof csrf === "string" && session.csrf.delete(csrf));
+        assert.match(body, /module package bytes/);
+        res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ uploadId: "U".repeat(43), expiresAt: Date.now() + 600000, sha256: "a".repeat(64) })); return true;
+      });
       await open(app);
-      await app.page.getByRole("button", { name: "Install module" }).click();
-      const dialog = app.page.getByRole("dialog");
-      await dialog.getByLabel("Module directory").fill("/srv/modules/clock");
-      await dialog.getByRole("button", { name: "Install", exact: true }).click();
-      await app.page.getByRole("status").filter({ hasText: "clock 0.1.0 installed." }).waitFor();
-      assert.deepEqual(callsOf(app, "module.install"), [{ path: "/srv/modules/clock" }]);
+      await app.page.getByRole("button", { name: "Install from file", exact: true }).click();
+      await app.page.locator("#ext-file-input").setInputFiles({ name: "clock.p1x", mimeType: "application/octet-stream", buffer: Buffer.from("module package bytes") });
+      await app.page.getByRole("heading", { name: "Confirm extension installation" }).waitFor();
+      assert.deepEqual(callsOf(app, "module.install"), []);
+      assert.deepEqual(callsOf(app, "ext.install"), []);
     });
   });
 });
 
 describe("modules: roles", opts, () => {
-  test("admin can start, stop and restart, but not install or uninstall", async () => {
+  test("admin can operate modules and install extensions; native module uninstall remains owner-only", async () => {
     await withApp({ server: { role: "admin" } }, async (app) => {
       seed(app);
       await open(app);
       await list(app).getByRole("listitem").nth(3).waitFor();
       assert.equal(await app.page.getByRole("button", { name: "Stop: fixture" }).count(), 1);
       assert.equal(await app.page.getByRole("button", { name: /^Uninstall:/ }).count(), 0);
-      assert.equal(await app.page.getByRole("button", { name: "Install module" }).count(), 0);
-      await app.page.getByText("Only the owner can install or uninstall modules.").waitFor();
+      assert.equal(await app.page.getByRole("button", { name: "Install from file", exact: true }).count(), 1);
     });
   });
 
@@ -226,7 +234,8 @@ describe("modules: roles", opts, () => {
       await list(app).getByRole("listitem").nth(3).waitFor();
       await app.page.getByText("Read-only for your role.").waitFor();
       assert.equal(await app.page.getByRole("button", { name: /^(Stop|Start|Restart|Uninstall):/ }).count(), 0);
-      assert.equal(await app.page.getByRole("button", { name: "Install module" }).count(), 0);
+      assert.equal(await app.page.getByRole("button", { name: "Install from file", exact: true }).count(), 0);
+      assert.equal(callsOf(app, "ext.list").length, 0);
       assert.equal(callsOf(app, "module.stop").length, 0);
     });
   });

@@ -84,7 +84,7 @@ describe("routes: constants and table", () => {
       assert.ok(r.successStatus >= 200 && r.successStatus < 300 || r.id === "ws.reserved" && r.successStatus === 426);
       assert.ok(r.success.description.length > 0);
       if (typeof r.authz === "object") assert.ok(r.authz.action.includes(".") || ["chat:read", "chat:write", "chat:delete"].includes(r.authz.action));
-      if (r.auth === "any" && !r.id.startsWith("chats.")) assert.equal(r.method, "GET");
+      if (r.auth === "any" && !r.id.startsWith("chats.") && !["extensions.upload", "extensions.inspect", "imports.snapshot.upload"].includes(r.id)) assert.equal(r.method, "GET");
       if (r.id.startsWith("chats.")) { assert.equal(r.auth, "any"); assert.equal(r.csrf, r.method !== "GET"); }
     });
   }

@@ -9,8 +9,9 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { RPC_RULES } from "../../core/src/rbac/guard.ts";
-import { METHODS } from "@plur1bus/rpc-schema";
+import { METHODS, METHODS_BY_SERVER } from "@plur1bus/rpc-schema";
 import { ROUTES } from "../src/routes.ts";
+import { webEndpoint } from "../src/rpc-route.ts";
 import { ownerTokenVerifier } from "../src/session.ts";
 import { csrfToken, fakeCore, jsonHeaders, login, OWNER_TOKEN, raw, start, type Harness } from "./helpers.ts";
 
@@ -162,7 +163,7 @@ test("OK-7: the route table is deny-by-default and only explicit status, agent a
         if (r.auth !== "none") assert.equal(res.status, 401, `${r.id} anonymous`); else if(r.id==="desktop.meta"){assert.equal(res.status,200);assert.deepEqual(Object.keys(res.json).sort(),["capabilities","pairingRequired","version"]);assert.equal(res.headers["set-cookie"],undefined);} else assert.notEqual(res.status, 200);
       }
     }
-    assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id).sort(), [...REMOTE_PAIRING_BOOTSTRAP_IDS, "desktop.meta", "desktop.pair", "desktop.redeem", "desktop.ticket", "invitation.redeem", "account.bootstrap", "passkeys.login.options", "passkeys.login", "session.create", "session.totp"].sort());
+    assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id).sort(), [...REMOTE_PAIRING_BOOTSTRAP_IDS, "desktop.meta", "desktop.pair", "desktop.redeem", "desktop.ticket", "desktop.step-up.start", "desktop.step-up.poll", "desktop.step-up.cancel", "invitation.redeem", "account.bootstrap", "passkeys.login.options", "passkeys.login", "session.create", "session.totp"].sort());
     assert.ok(ROUTES.filter((r) => r.method !== "GET" && r.auth !== "none").every((r) => r.csrf), "every authenticated write needs CSRF");
     for (const r of ROUTES) if (r.auth !== "none" && r.method === "GET") await raw(h, { path: r.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), headers: { cookie } });
     const called = new Set(h.core.calls.map((c) => c.method));
@@ -176,14 +177,28 @@ test("OK-7: the route table is deny-by-default and only explicit status, agent a
   } finally { await h.close(); }
 });
 
-test("OK-8: routes, RPC_RULES (core guard) and docs/rbac.md agree: every admin.* RPC method has a rule and an Owner/Admin-only row", () => {
+test("OK-8: human admin methods have Owner/Admin rules; exact private Core controls have no human/Web admission", () => {
   const methods = METHODS;
   const text = readFileSync(path.join(repo, "docs/rbac.md"), "utf8");
   const guard = readFileSync(path.join(repo, "packages/core/src/rbac/guard.ts"), "utf8");
   const admin = new Set(Object.keys(RPC_RULES).filter(m => m.startsWith("admin.")));
   assert.ok(admin.size >= 11, "guard.ts lists the admin.* family");
   assert.ok(methods.some((m) => m.startsWith("admin.")), "the schema's method map was found");
-  for (const m of methods.filter((n) => n.startsWith("admin."))) assert.ok(admin.has(m), `RPC_RULES lacks ${m}`);
+  const privateCoreControls = new Map([
+    ["admin.import.runtime.config.set", "supervisor"],
+    ["admin.import.runtime.release", "core"],
+    ["admin.import.runtime.status", "core"],
+    ["admin.import.runtime.complete", "core"],
+  ] as const);
+  for (const [m, server] of privateCoreControls) {
+    assert.ok(methods.includes(m), `private control ${m} exists in the schema`);
+    assert.ok(METHODS_BY_SERVER[server].includes(m), `${m} belongs only to its private ${server} endpoint`);
+    assert.equal(webEndpoint(m), null, `${m} cannot cross the Web gateway`);
+    assert.equal(RPC_RULES[m], undefined, `${m} has no ordinary human allow rule`);
+    assert.ok(text.includes(`\`${m}\``), `${m} private peer/run policy is documented`);
+  }
+  for (const m of methods.filter((n) => n.startsWith("admin.") && ![...privateCoreControls.keys()].some(key => key === n)))
+    assert.ok(admin.has(m), `RPC_RULES lacks ${m}`);
   for (const m of admin) {
     const row = text.split("\n").find((l) => l.startsWith(`| \`${m}\``));
     assert.ok(row, `docs/rbac.md lacks a row for ${m}`);
@@ -218,7 +233,7 @@ test("OK-10: every content type but application/json is 415 on the login route (
   } finally { await h.close(); }
 });
 
-test("OK-11: an unbounded chunked body on a route that takes none cannot hold the server: the answer comes, the connection ends", async () => {
+test("OK-11: an unbounded chunked body on a route that takes none hits the byte cap and the connection ends", async () => {
   const h = await start({ limits: { requestTimeoutMs: 1500, headersTimeoutMs: 1500 } });
   try {
     const { cookie } = await login(h);
@@ -226,7 +241,8 @@ test("OK-11: an unbounded chunked body on a route that takes none cannot hold th
       s.write(`GET /api/v1/whoami HTTP/1.1\r\nHost: 127.0.0.1:${h.port}\r\nCookie: ${cookie}\r\nTransfer-Encoding: chunked\r\n\r\n`);
       const chunk = "a".repeat(4096); for (let i = 0; i < 50; i++) s.write(`1000\r\n${chunk}\r\n`); // never terminated
     }, 6000);
-    assert.match(out, /^HTTP\/1\.1 200 /);
+    assert.match(out, /^HTTP\/1\.1 413 /);
+    assert.ok(out.includes('"reason":"body-too-large"'));
     assert.equal((await raw(h, { path: "/api/v1/health", headers: { cookie } })).status, 200);
   } finally { await h.close(); }
 });

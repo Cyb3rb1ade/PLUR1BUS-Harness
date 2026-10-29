@@ -6,6 +6,10 @@ import type { CoreRpc } from "./core-rpc.ts";
 /** Explicit exposure, not a prefix match: additions require review and a test. Unsafe unguarded memory/caller paths,
  * lifecycle internals, subscriptions, admin backup/import and secret reveal are deliberately absent. */
 export const WEB_CORE_METHODS = new Set([
+  "admin.import.detect", "admin.import.wsl.list", "admin.import.plan", "admin.import.preflight", "admin.import.skills",
+  "admin.import.ssh.key.status", "admin.import.ssh.key.generate", "admin.import.ssh.key.rotate", "admin.import.ssh.key.delete",
+  "admin.import.ssh.connections.list", "admin.import.ssh.connections.set", "admin.import.ssh.connections.delete", "admin.import.ssh.hostKey.probe", "admin.import.ssh.hostKey.trust",
+  "admin.extensions.setup.get", "admin.extensions.setup.set", "admin.extensions.auth.start", "admin.extensions.auth.status", "admin.extensions.auth.submit", "admin.extensions.auth.cancel",
   "decision.status", "decision.test",
   "admin.engine.test",
   "chat.promote.links", "chat.promote.preview", "chat.promote.commit",
@@ -28,7 +32,9 @@ export const WEB_CORE_METHODS = new Set([
   "secret.status", "secret.list", "secret.set", "secret.delete", "models.list", "models.setOverride", "models.removeManual",
 ]);
 // daemon.status: Settings reads `cpu.detected` for the CPU core slider; the supervisor answers it to owner and admin only.
-export const WEB_SUPERVISOR_METHODS = new Set(["config.get", "config.set", "module.list", "module.graph", "daemon.status"]);
+export const WEB_EXTENSION_METHODS = ["ext.list", "ext.show", "ext.inspect", "ext.inspection.get", "ext.install", "ext.uninstall", "ext.restore", "ext.enable", "ext.disable", "ext.watch"] as const;
+export const WEB_SUPERVISOR_METHODS = new Set(["config.get", "config.set", "module.list", "module.graph", "daemon.status", ...WEB_EXTENSION_METHODS,
+  "admin.import.apply", "admin.import.status", "admin.import.abort", "admin.import.runs", "admin.import.rollback"]);
 export function webEndpoint(method: string): "core" | "supervisor" | null {
   if (WEB_CORE_METHODS.has(method) && METHODS_BY_SERVER.core.includes(method)) return "core";
   if (WEB_SUPERVISOR_METHODS.has(method) && METHODS_BY_SERVER.supervisor.includes(method)) return "supervisor";
@@ -52,6 +58,11 @@ export async function rpcRoute(core: CoreRpc, body: unknown, principal: ApiPrinc
   if (b.params !== undefined && (!b.params || typeof b.params !== "object" || Array.isArray(b.params))) return rpcFailure(id, { error: "E_INVALID_PARAMS" });
   const params = { ...(b.params as object ?? {}) } as Record<string, unknown>;
   delete params.principal; delete params.actAs;
+  if (b.method.startsWith("ext.") || b.method.startsWith("admin.extensions.") || b.method.startsWith("admin.import.")) {
+    const gate = RPC_RULES[b.method];
+    if (!gate || authorize(principal, gate.action, gate.resource(params)).effect !== "allow") return rpcFailure(id, { error: "E_DENIED", reason: "role-denied" });
+    if (b.method === "ext.inspect" && params.source && typeof params.source === "object" && "path" in params.source) return rpcFailure(id, { error: "E_DENIED", reason: "web-source-path" });
+  }
   if (!validateParams(b.method, params).ok) return rpcFailure(id, { error: "E_INVALID_PARAMS" });
   // A native device session has no ambient permission for legacy RPCs without an explicit action rule.
   if (principal.kind === "person" && principal.tokenScopes !== undefined) {

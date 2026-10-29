@@ -32,6 +32,7 @@ export interface Harness {
 }
 
 export interface StartOptions {
+  home?: string;
   remotePairing?: ApiServerOptions["remotePairing"]; remoteCertificates?: ApiServerOptions["remoteCertificates"];
   limits?: Partial<ApiLimits>; rateClasses?: RateClasses; sessionLimits?: SessionLimits; core?: FakeCore;
   /** Share the clock with a core built beforehand (see `miniCore`). */
@@ -49,6 +50,7 @@ export async function start(o: StartOptions = {}): Promise<Harness> {
   const audit = memoryAuditSink(); const users = o.users ?? new MemoryUserDirectory();
   const sink = (level: string) => (msg: string, fields?: Record<string, unknown>) => { logs.push(JSON.stringify({ level, msg, ...fields })); };
   const api = createApiServer({
+    ...(o.home ? { home: o.home } : {}),
     ...(o.remotePairing ? { remotePairing: o.remotePairing } : {}), ...(o.remoteCertificates ? { remoteCertificates: o.remoteCertificates } : {}),
     core, ownerToken: OWNER_TOKEN, clock, users, ...(o.accounts ? { accounts: o.accounts } : {}), ...(o.noAudit ? {} : { audit: o.auditSink ?? audit }), logger: { debug: sink("debug"), info: sink("info"), warn: sink("warn"), error: sink("error") },
     ...(o.limits ? { limits: o.limits } : {}), ...(o.rateClasses ? { rateClasses: o.rateClasses } : {}), ...(o.sessionLimits ? { sessionLimits: o.sessionLimits } : {}),

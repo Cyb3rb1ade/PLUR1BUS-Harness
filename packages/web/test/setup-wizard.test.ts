@@ -65,7 +65,7 @@ describe("setup wizard: flow", opts, () => {
       await next(page);
       await stepHeading(page, /Import/).waitFor();
       assert.equal(await page.locator("code").filter({ hasText: "plur1bus import" }).count(), 1);
-      await skip(page, "Skip and finish");
+      await skip(page);
       await stepHeading(page, "Setup summary").waitFor();
 
       const c = changes(app);

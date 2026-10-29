@@ -12,6 +12,8 @@
 export type SettingSpec = { readonly key: string; readonly type: string; readonly tier: "basic" | "advanced"; readonly help?: string };
 
 export const SETTINGS: readonly SettingSpec[] = [
+  { key: "import.ssh", type: "object", tier: "advanced", help: "Owner-managed SSH source identity and endpoint configuration." },
+  { key: "import.ssh.connections", type: "object", tier: "advanced", help: "Owner-managed named SSH source connections." },
   { key: "collaboration.fanoutEnabled", type: "boolean", tier: "advanced", help: "Enable collaboration fan-out only after owner review of the equal-token-budget evaluation." },
   { key: "approvals.maxGrantDays", type: "integer", tier: "advanced", help: "Always-grant idle lifetime in days. Explicit shorter expiries still apply." },
   { key: "approvals.requireOsConfirmation", type: "boolean", tier: "advanced", help: "Allow the required OS confirmation for an otherwise untrusted local decision. False disables this lift; it never bypasses surface trust." },

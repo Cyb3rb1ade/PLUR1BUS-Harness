@@ -24,7 +24,7 @@ async function eachStep(app: App, check: (label: string) => Promise<void>): Prom
   await stepHeading(page, /Language for voice features/).waitFor(); await check("voice"); await skip(page);
   await stepHeading(page, /Backups/).waitFor(); await check("backup");
   await page.getByRole("button", { name: "Create a backup now" }).click(); await page.getByText(/Backup created/).waitFor(); await next(page);
-  await stepHeading(page, /Import/).waitFor(); await check("import"); await skip(page, "Skip and finish");
+  await stepHeading(page, /Import/).waitFor(); await check("import"); await skip(page);
   await stepHeading(page, "Setup summary").waitFor(); await check("summary");
 }
 

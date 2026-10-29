@@ -1,4 +1,9 @@
 import { buildDesktopAttachHandlers } from "./desktop-attach-routes.ts";
+import { extensionHandlers, NATIVE_FILE_ROUTES } from "./extension-routes.ts";
+import { ExtensionUploads, ImportSnapshotUploads } from "./extension-uploads.ts";
+import { ImportMaintenanceContext, coreTransportUnavailable, type ImportMaintenancePort, type MaintenanceAdmission } from "./import-maintenance.ts";
+import { createMaintenanceEvents } from "./import-maintenance-events.ts";
+import { DesktopStepUp, DESKTOP_STEPUP_HEADER } from "./desktop-stepup.ts";
 import { buildWebAuthnHandlers, type PendingWebAuthn } from "./webauthn-routes.ts";
 import {TLSSocket} from "node:tls";
 import {certPin} from "../../remote-access/src/fingerprint.ts";
@@ -23,7 +28,7 @@ import type { HarnessLogger } from "@plur1bus/module-api";
 import { createAuditEmitter } from "./audit.ts";
 import { systemClock, type Clock } from "./clock.ts";
 import type { CoreRpc } from "./core-rpc.ts";
-import { ApiError, errorBody, errors } from "./errors.ts";
+import { ApiError, errorBody, errors, fromCoreError } from "./errors.ts";
 import { htmlCsp, injectNonce, newNonce, securityHeaders } from "./headers.ts";
 import { PasswordLogin, type LockoutPolicy } from "./login.ts";
 import { MemoryTokenStore, MemoryTotpStore } from "./memory-stores.ts";
@@ -46,12 +51,16 @@ export const DEFAULT_LIMITS: ApiLimits = {
   maxBodyBytes: 64 * 1024, handlerTimeoutMs: 10_000, healthTimeoutMs: 2_000,
   requestTimeoutMs: 15_000, headersTimeoutMs: 10_000, keepAliveTimeoutMs: 5_000, maxConnections: 128, maxHeaderBytes: 16 * 1024,
 };
+/** File transfer has a separate bounded body deadline; ordinary JSON and header deadlines stay short. */
+export const UPLOAD_BODY_TIMEOUT_MS = 600_000;
 
 export type ApiLogger = Pick<HarnessLogger, "debug" | "info" | "warn" | "error">;
 const noopLogger: ApiLogger = { debug() {}, info() {}, warn() {}, error() {} };
 
 export interface ApiServerOptions {
   core: CoreRpc;
+  /** Trusted native run authority, scoped to the initiating person and current maintenance job. */
+  importMaintenance?: ImportMaintenancePort;
   /** The owner credential `POST /api/v1/session` checks (ruling R2). At least 32 characters. */
   ownerToken: string;
   /** Local accounts (password login). Without it only the owner token logs in. */
@@ -169,8 +178,23 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   const challenges = o.sharedLoginChallenges ?? new LoginChallenges(clock);
   const events = createEventsRoute({ core: o.core, sessions, initTimeoutMs: limits.handlerTimeoutMs, now: () => clock.now() });
   const perRequest = requestCore(o.core);
-  const handlerDeps = { core: { ...perRequest.core, ...(o.core.callAs ? { callAs: o.core.callAs.bind(o.core) } : {}) }, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, sharedAddress, audit, resolveBootstrap: o.resolveBootstrap, requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor), hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length };
-  const handlers = { ...buildHandlers(handlerDeps), ...buildDesktopAttachHandlers({...handlerDeps,core:o.core}, origin=>allowedOrigins.has(origin)), ...buildAccountHandlers(handlerDeps, o.accounts, o.core, o.bootstrapConsumed, !o.remote, () => { const sink=o.breakGlassAudit??o.audit; if(!sink)throw new Error("bootstrap audit unavailable"); sink.append({at:clock.now(),actor:{user:"local-owner",host:"api"},action:"account.bootstrap.commit-attempt",target:"account",detail:{}}); }),...buildWebAuthnHandlers(handlerDeps, o.accounts, (requestOrigin?: string) => o.remote?.publicOrigin ?? o.webauthnOrigin ?? requestOrigin ?? [...allowedOrigins][0]!, o.sharedWebauthnChallenges),...buildRemoteHandlers({core:o.core,home:o.home,audit:o.breakGlassAudit??o.audit,now:()=>clock.now(),certificates:o.remoteCertificates}),...buildRemotePairingHandlers(o.remotePairing) };
+  const desktopStepUp = new DesktopStepUp({ core: o.core, sessions, clock,
+    ...(o.users ? { users: o.users } : {}), credentialVersion: id => o.accounts?.localCredentialVersion(id),
+  });
+  const maintenancePort = o.importMaintenance ?? (o.core.callAs ? {
+    status: (identity: import("./import-maintenance.ts").ImportMaintenanceIdentity) => o.core.callAs!<import("../../rpc-schema/generated/types.ts").AdminImportStatusResult>("admin.import.status", { runId: identity.runId }, identity.principal, "supervisor", identity.connectionKey),
+    abort: (identity: import("./import-maintenance.ts").ImportMaintenanceIdentity) => o.core.callAs!<import("../../rpc-schema/generated/types.ts").AdminImportAbortResult>("admin.import.abort", { runId: identity.runId }, identity.principal, "supervisor", identity.connectionKey),
+    ...(o.core.subscribeImportAs ? { subscribe: (identity: import("./import-maintenance.ts").ImportMaintenanceIdentity, progress: (value: import("../../rpc-schema/generated/types.ts").ImportProgress) => void, closed: () => void) => o.core.subscribeImportAs!(identity.principal, identity.runId, value => progress(value as import("../../rpc-schema/generated/types.ts").ImportProgress), closed, identity.connectionKey) } : {}),
+  } : undefined);
+  const maintenance = maintenancePort ? new ImportMaintenanceContext({ sessions, now: () => clock.now(), port: maintenancePort,
+    credentialVersion: id => o.accounts ? o.accounts.localCredentialVersion(id) : id === "local-owner" ? 0 : undefined,
+    importSessionProof: (session, principal) => desktopStepUp.importSessionProof(session, principal),
+  }) : undefined;
+  const maintenanceEvents = maintenance && maintenancePort ? createMaintenanceEvents(maintenance, maintenancePort) : undefined;
+  const uploads = o.home ? new ExtensionUploads({ home: o.home, now: () => clock.now() }) : undefined;
+  const snapshots = o.home ? new ImportSnapshotUploads({ home: o.home, now: () => clock.now() }) : undefined;
+  const handlerDeps = { core: perRequest.core, desktopStepUp, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, sharedAddress, audit, resolveBootstrap: o.resolveBootstrap, requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor), hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length };
+  const handlers = { ...buildHandlers(handlerDeps), ...extensionHandlers(o.core), ...buildDesktopAttachHandlers({...handlerDeps,core:o.core}, origin=>allowedOrigins.has(origin)), ...buildAccountHandlers(handlerDeps, o.accounts, o.core, o.bootstrapConsumed, !o.remote, () => { const sink=o.breakGlassAudit??o.audit; if(!sink)throw new Error("bootstrap audit unavailable"); sink.append({at:clock.now(),actor:{user:"local-owner",host:"api"},action:"account.bootstrap.commit-attempt",target:"account",detail:{}}); }),...buildWebAuthnHandlers(handlerDeps, o.accounts, (requestOrigin?: string) => o.remote?.publicOrigin ?? o.webauthnOrigin ?? requestOrigin ?? [...allowedOrigins][0]!, o.sharedWebauthnChallenges),...buildRemoteHandlers({core:o.core,home:o.home,audit:o.breakGlassAudit??o.audit,now:()=>clock.now(),certificates:o.remoteCertificates}),...buildRemotePairingHandlers(o.remotePairing) };
   if (o.webRoot !== undefined && !statSync(o.webRoot, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`webRoot ${JSON.stringify(o.webRoot)} is not a directory`);
   const staticFiles = o.webRoot !== undefined ? createStaticServer(o.webRoot) : undefined;
   const cookieName = tls ? COOKIE_NAME_TLS : COOKIE_NAME;
@@ -209,8 +233,12 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         if(!identity || identity.userId!==session.principal.id || identity.expiresAt<=clock.now())return undefined;
         const result=await o.core.serviceCall?.<{person:import("./account-store.ts").CorePerson|null}>("admin.api.person.resolve",{userId:identity.userId});
         const p=result?.person;if(!p||p.disabled)return undefined;
-        return {principal:{kind:"user",id:identity.userId,role:p.role},rbac:{...p,kind:"person",tokenScopes:identity.scopes.filter(s=>session.device!.scopes.includes(s))},version:p.version};
-      } catch {return undefined;}
+        const rbac = {...p,kind:"person" as const,tokenScopes:identity.scopes.filter(s=>session.device!.scopes.includes(s))};
+        const proof = desktopStepUp.sessionProof(session, rbac);
+        const required = secondFactorRequired(p.role,!!o.remote,o.requireSecondFactor) || await totp.isEnabled(identity.userId) || !!o.accounts?.passkeysFor(identity.userId).length;
+        if (required && (!proof || proof.coreVersion !== p.version)) return undefined;
+        return {principal:{kind:"user",id:identity.userId,role:p.role},rbac,version:p.version};
+      } catch (error) { if (coreTransportUnavailable(error)) throw error; return undefined; }
     }
     return resolveSubject(session.principal.kind, session.principal.id);
   }
@@ -244,6 +272,20 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
     const t0 = process.hrtime.bigint();
     const ip = (req.socket.remoteAddress ?? "unknown").replace(/^::ffff:/, "");
     let routeId = "-"; let principalId: string | undefined; let status = 500; let releaseSlot: (() => void) | undefined;
+    let preReadBody: unknown, didReadBody = false, offlineMaintenance: MaintenanceAdmission | undefined;
+    let bodyTimer: NodeJS.Timeout | undefined, bodyTimedOut = false;
+    const stopBodyTimer = (): void => { clearTimeout(bodyTimer); };
+    const bodyDeadline = (ms: number): void => {
+      stopBodyTimer(); if (req.complete) return;
+      bodyTimer = setTimeout(() => {
+        if (req.complete || res.writableEnded) return;
+        bodyTimedOut = true; status = 408;
+        res.once("finish", () => req.destroy());
+        send(res, 408, errorBody(errors.timeout("request-timeout")), { Connection: "close" });
+      }, ms); bodyTimer.unref();
+    };
+    req.once("end", stopBodyTimer); res.once("finish", stopBodyTimer);
+    bodyDeadline(limits.requestTimeoutMs);
     const rateLimited = (scope: string, cls: string, retryAfterSec: number): never => {
       audit.emit("auth.rate-limited", principalId ?? "anonymous", scope, { class: cls, route: routeId, ip });
       throw errors.rateLimited(retryAfterSec);
@@ -301,7 +343,8 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       }
       if (!route) throw errors.methodNotAllowed([...methods.keys()]);
       const { spec, handler } = route; routeId = spec.id;
-      const bodyLimit = spec.id === "web.rpc" ? o.limits?.maxBodyBytes ?? 1024 * 1024 : limits.maxBodyBytes;
+      if (spec.requestContentType === "multipart/form-data") bodyDeadline(UPLOAD_BODY_TIMEOUT_MS);
+      const bodyLimit = spec.requestContentType === "multipart/form-data" ? 1073741824 + 16384 : spec.id === "web.rpc" ? o.limits?.maxBodyBytes ?? 1024 * 1024 : limits.maxBodyBytes;
 
       const declared = req.headers["content-length"];
       if (declared !== undefined) {
@@ -319,7 +362,30 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       let via: "session" | "token" | undefined; let tokenInfo: { id: string; prefix: string; scopes: readonly string[]; expiresAt: number } | undefined; let rateKey: string | undefined;
       const authHeader = req.headers.authorization;
       const bearer = spec.auth === "any" && typeof authHeader === "string" && /^bearer(\s|$)/i.test(authHeader) ? authHeader.slice(6).trim() : undefined;
-      if (bearer !== undefined) {
+      if (bearer !== undefined && NATIVE_FILE_ROUTES.has(spec.id) && !bearer.startsWith("plb_")) {
+        // Narrow native file routes accept a live, explicitly enrolled device credential. PATs retain agent authority.
+        if (!/^[A-Za-z0-9_-]{43}$/.test(bearer)) throw errors.unauthenticated("invalid-device-token");
+        if (!o.core.serviceCall) throw new ApiError(503, "E_NOT_AVAILABLE", "native authentication unavailable");
+        let identity: import("./desktop-attach-routes.ts").DesktopIdentity;
+        try { identity = await o.core.serviceCall("admin.api.desktop.token", { token: bearer }); }
+        catch { throw errors.unauthenticated("invalid-device-token"); }
+        if (!identity || typeof identity.userId !== "string" || !identity.userId || !Array.isArray(identity.scopes) || identity.scopes.some(scope => typeof scope !== "string") || !Number.isSafeInteger(identity.expiresAt) || identity.expiresAt <= clock.now()) throw errors.unauthenticated("invalid-device-token");
+        const result = await o.core.serviceCall<{ person: import("./account-store.ts").CorePerson | null }>("admin.api.person.resolve", { userId: identity.userId });
+        let person = result.person;
+        if (!person || person.disabled || person.userId !== identity.userId) throw errors.unauthenticated("device-person");
+        let grantedScopes = identity.scopes;
+        if (secondFactorRequired(person.role, !!o.remote, o.requireSecondFactor) || await totp.isEnabled(identity.userId) || o.accounts?.passkeysFor(identity.userId).length || req.headers[DESKTOP_STEPUP_HEADER] !== undefined) {
+          const proof = await desktopStepUp.verify(bearer, req.headers[DESKTOP_STEPUP_HEADER], spec.id === "imports.snapshot.upload" ? "imports.manage" : "extensions.manage");
+          identity = proof.identity; person = proof.person; grantedScopes = proof.grantedScopes;
+        }
+        resolved = { principal: { kind: "user", id: identity.userId, role: person.role }, rbac: { ...person, userId: identity.userId, kind: "person", tokenScopes: grantedScopes }, version: person.version };
+        via = "token"; principalId = identity.userId; rateKey = `device:${identity.deviceId}`;
+        tokenInfo = { id: identity.deviceId, prefix: "device", scopes: grantedScopes, expiresAt: identity.expiresAt };
+        const verdict = limiter.takeAll(cls, [rateKey, `principal:${principalId}`]);
+        if (!verdict.ok) rateLimited(rateKey, cls, verdict.retryAfterSec);
+        const decision = decide(spec, resolved.rbac);
+        if (decision.effect === "deny") throw errors.forbidden(decision.reason);
+      } else if (bearer !== undefined) {
         // A personal API token. No cookie is consulted, so a bad token is a 401, never a fallback; no CSRF token is
         // needed because a browser never attaches this header by itself. A token acts as an agent principal: it can
         // never hold a human-only action, and its scopes only ever narrow the role it belongs to.
@@ -346,8 +412,18 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         sessionId = presented;
         session = sessions.get(sessionId);
         if (!session) throw errors.unauthenticated();
-        resolved = await resolve(session);
-        if (!resolved) { sessions.destroy(sessionId); throw errors.unauthenticated("session-expired"); }
+        try { resolved = await resolve(session); }
+        catch (error) {
+          if (!coreTransportUnavailable(error)) { maintenance?.revoke(session); throw fromCoreError(error); }
+          if (spec.id === "web.rpc" && (req.headers["content-type"] ?? "").split(";", 1)[0]!.trim().toLowerCase() === "application/json") {
+            preReadBody = parseJson(await readBody(req, bodyLimit)); didReadBody = true;
+          }
+          offlineMaintenance = await maintenance?.admit(sessionId, spec.id, preReadBody);
+          if (!offlineMaintenance) throw error instanceof ApiError ? error : new ApiError(503, "E_CORE_UNAVAILABLE", "Core authorization unavailable", { reason: "core-unavailable" });
+          resolved = { principal: { ...session.principal, role: offlineMaintenance.principal.role }, rbac: offlineMaintenance.principal, version: offlineMaintenance.authVersion };
+        }
+        if (!resolved) { maintenance?.revoke(session); sessions.destroy(sessionId); throw errors.unauthenticated("session-expired"); }
+        if (!offlineMaintenance) maintenance?.observe(session, webPrincipal(resolved.rbac, resolved.principal.kind === "owner"), resolved.version);
         if(secondFactorRequired(resolved.principal.role,!!o.remote,o.requireSecondFactor)&&session.stepUpAt===undefined)throw errors.forbidden("second-factor-required");
         principalId = resolved.principal.id;
         const pv = limiter.take(cls, `principal:${principalId}`);
@@ -387,6 +463,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
 
       if (spec.id === "web.events") {
         if (target.includes("?")) throw errors.badRequest("query", "event credentials and filters cannot be in a URL");
+        if (offlineMaintenance && maintenanceEvents) { status = 200; await maintenanceEvents.open(res, offlineMaintenance, secHeaders); return; }
         status = 200;
         await events.open(res, webPrincipal(resolved!.rbac, resolved!.principal.kind === "owner"), session!, sessionId!, webConnection(session!),
           typeof req.headers["last-event-id"] === "string" ? req.headers["last-event-id"] : undefined,
@@ -394,15 +471,31 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
           async () => { const now = await resolve(session!); return now !== undefined && now.version === resolved!.version; });
         return;
       }
-      let body: unknown;
+      if (spec.id === "extensions.upload" || spec.id === "imports.snapshot.upload") {
+        const store = spec.id === "extensions.upload" ? uploads : snapshots;
+        if (!store) throw new ApiError(503, "E_NOT_AVAILABLE", "upload storage unavailable");
+        const type = req.headers["content-type"];
+        if (typeof type !== "string" || !/^multipart\/form-data\s*;/i.test(type)) throw new ApiError(415, "E_INVALID_PARAMS", "multipart/form-data is required", { reason: "unsupported-media-type" });
+        const owner = webPrincipal(resolved!.rbac, resolved!.principal.kind === "owner").userId;
+        try {
+          const result = await store.receive(req.iterator({ destroyOnReturn: false }), type, owner);
+          const body = spec.id === "extensions.upload" ? result : { snapshotId: result.uploadId, expiresAt: result.expiresAt, sha256: result.sha256 };
+          status = 200; send(res, 200, body, rotated ? { "Set-Cookie": rotated } : {});
+        } catch (error) { if (!req.complete) drain(req, 65536); throw error; }
+        return;
+      }
+      let body: unknown = preReadBody;
       if (spec.requestBody) {
         const ct = (req.headers["content-type"] ?? "").split(";", 1)[0]!.trim().toLowerCase();
         if (ct !== "application/json") throw errors.unsupportedMedia();
-        const raw = await readBody(req, bodyLimit);
-        try { body = parseJson(raw); }
+        const raw = didReadBody ? undefined : await readBody(req, bodyLimit);
+        try { if (!didReadBody) body = parseJson(raw!); }
         catch (e) { if (spec.id !== "web.rpc") throw e; status = 200; send(res, 200, rpcFailure(null, { error: "E_INVALID_PARAMS", code: -32700, reason: "parse-error" })); return; }
-      } else if (declared !== undefined && declared !== "0") {
+      } else if (declared !== undefined && declared !== "0" || req.headers["transfer-encoding"] !== undefined) {
         await readBody(req, bodyLimit); // counted against the limit, then ignored
+      }
+      if (offlineMaintenance && spec.id === "web.rpc") {
+        status = 200; send(res, 200, await maintenance!.dispatch(offlineMaintenance, body)); return;
       }
       if (spec.id === "web.rpc" && EXPENSIVE_RPC_METHODS.has((body as { method?: unknown } | null)?.method as string)) {
         const scope = rateKey ?? `principal:${principalId}`;
@@ -417,13 +510,19 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       const leaf=Buffer.isBuffer(candidate)?candidate:undefined;
       const remoteTransport={tls:!!leaf,origin:o.remote?.publicOrigin??"",...(leaf?{servedFingerprint:certPin(leaf)}:{}),...(o.remote?.publish==="tailnet"?{trustedGateway:true}:{})};
       const out = await Promise.race([
-        Promise.resolve(resolved ? perRequest.run(webPrincipal(resolved.rbac, resolved.principal.kind === "owner"), () => handler({ remoteTransport,pathParams, query:new URL(target,"http://localhost").searchParams,headers:req.headers, principal: resolved?.principal, session, sessionId, body, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined, ip, origin: typeof req.headers.origin === "string" ? req.headers.origin : undefined, via, token: tokenInfo }), session ? webConnection(session) : tokenInfo ? `token:${tokenInfo.id}` : undefined) : handler({ remoteTransport,pathParams,query:new URL(target,"http://localhost").searchParams,headers:req.headers, principal: undefined, session, sessionId, body, rbac: undefined, presentedSessionId: presented, ip, origin: typeof req.headers.origin === "string" ? req.headers.origin : undefined, via, token: tokenInfo })),
+        Promise.resolve(resolved ? perRequest.run(webPrincipal(resolved.rbac, resolved.principal.kind === "owner"), () => handler({ remoteTransport,pathParams, query:new URL(target,"http://localhost").searchParams,headers:req.headers, principal: resolved?.principal, session, sessionId, body, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined, ip, origin: typeof req.headers.origin === "string" ? req.headers.origin : undefined, via, token: tokenInfo }), session ? webConnection(session) : tokenInfo ? `token:${tokenInfo.id}` : undefined, !o.remote && /^(127\.|::1$|::ffff:127\.)/.test(req.socket.remoteAddress ?? "") ? "loopback" : "remote") : handler({ remoteTransport,pathParams,query:new URL(target,"http://localhost").searchParams,headers:req.headers, principal: undefined, session, sessionId, body, rbac: undefined, presentedSessionId: presented, ip, origin: typeof req.headers.origin === "string" ? req.headers.origin : undefined, via, token: tokenInfo })),
         new Promise<import("./routes.ts").HandlerOutput>((resolveTimeout, rej) => {
           timer = setTimeout(() => spec.id === "web.rpc"
             ? resolveTimeout({ body: rpcFailure((body as { id?: unknown })?.id ?? null, { error: "E_NOT_AVAILABLE", reason: "handler-timeout" }) })
             : rej(errors.timeout()), spec.id === "web.rpc" ? o.limits?.handlerTimeoutMs ?? 300_000 : limits.handlerTimeoutMs);
         }),
       ]).finally(() => clearTimeout(timer));
+      if (session && sessionId && spec.id === "web.rpc") {
+        const request = body as { method?: string }, response = out.body as { result?: { runId?: unknown }; error?: unknown };
+        if (!response.error && ["admin.import.apply", "admin.import.rollback"].includes(request.method ?? "") && typeof response.result?.runId === "string") {
+          maintenance?.remember({ session, sessionId, principal: webPrincipal(resolved!.rbac, resolved!.principal.kind === "owner"), connectionKey: webConnection(session), runId: response.result.runId });
+        }
+      }
       if (o.accounts && spec.id === "web.rpc" && !out.body.error) {
         const request = body as { method?: string; params?: { userId?: string } };
         if (["user.disable", "user.enable", "user.role.set", "agent.rights.set"].includes(request.method ?? "") && request.params?.userId) await o.accounts.findById(request.params.userId);
@@ -438,18 +537,25 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       status = out.status ?? spec.successStatus;
       send(res, status, out.body, { ...(rotated ? { "Set-Cookie": rotated } : {}), ...out.headers });
     } catch (e) {
+      if (bodyTimedOut) return;
       let err: ApiError;
       if (e instanceof ApiError) err = e;
       else { err = errors.internal(); log.error("unhandled error", { route: routeId, error: e instanceof Error ? `${e.name}: ${e.message}` : "non-error thrown" }); }
       status = err.status;
-      send(res, err.status, errorBody(err), err.headers);
+      if (!req.complete) res.once("finish", () => req.destroy());
+      send(res, err.status, errorBody(err), { ...(!req.complete ? { Connection: "close" } : {}), ...err.headers });
     } finally {
+      stopBodyTimer();
+      if (!req.complete && res.writableEnded) {
+        const closeIncomplete = (): void => { if (!req.complete) req.destroy(); };
+        if (res.writableFinished) closeIncomplete(); else res.once("finish", closeIncomplete);
+      }
       releaseSlot?.();
       log.info("request", { method: req.method, route: routeId, status, ip, principal: principalId, ms: Number((process.hrtime.bigint() - t0) / 1_000_000n) });
     }
   }
 
-  const serverOptions = { maxHeaderSize: limits.maxHeaderBytes, requestTimeout: limits.requestTimeoutMs, headersTimeout: Math.min(limits.headersTimeoutMs, limits.requestTimeoutMs), keepAliveTimeout: limits.keepAliveTimeoutMs,
+  const serverOptions = { maxHeaderSize: limits.maxHeaderBytes, requestTimeout: Math.max(limits.requestTimeoutMs, UPLOAD_BODY_TIMEOUT_MS), headersTimeout: Math.min(limits.headersTimeoutMs, limits.requestTimeoutMs), keepAliveTimeout: limits.keepAliveTimeoutMs,
     // Node checks request/header timeouts only on this interval (default 30 s), so it must be shorter than they are.
     connectionsCheckingInterval: Math.max(25, Math.min(1000, Math.floor(Math.min(limits.requestTimeoutMs, limits.headersTimeoutMs) / 4))) };
   const server: Server = o.tls ? createHttpsServer({ ...serverOptions, key: o.tls.key, cert: o.tls.cert }, (q, r) => { void handle(q, r); }) : createHttpServer(serverOptions, (q, r) => { void handle(q, r); });
@@ -490,6 +596,11 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       });
     },
     close() {
+      uploads?.close();
+      snapshots?.close();
+      maintenance?.close();
+      maintenanceEvents?.close();
+      desktopStepUp.close();
       forgetConnection(); forgetEvictions(); ws.close(); events.close();
       return new Promise((resolveClose) => { server.close(() => resolveClose()); server.closeAllConnections(); });
     },

@@ -62,7 +62,7 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
   },
   {
     "slug": "extensions",
-    "title": "Skills and plugins"
+    "title": "Skills and extensions"
   },
   {
     "slug": "general-settings",
@@ -83,6 +83,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
   {
     "slug": "import-rollback",
     "title": "Undoing an import (import rollback)"
+  },
+  {
+    "slug": "import",
+    "title": "Import an existing installation"
   },
   {
     "slug": "inbox",
@@ -201,6 +205,7 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "home": return import("./en/home.ts").then(m => m.doc);
     case "host-tools": return import("./en/host-tools.ts").then(m => m.doc);
     case "import-rollback": return import("./en/import-rollback.ts").then(m => m.doc);
+    case "import": return import("./en/import.ts").then(m => m.doc);
     case "inbox": return import("./en/inbox.ts").then(m => m.doc);
     case "invitations": return import("./en/invitations.ts").then(m => m.doc);
     case "library": return import("./en/library.ts").then(m => m.doc);

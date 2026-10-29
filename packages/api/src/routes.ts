@@ -1,6 +1,10 @@
 import { CHANNEL_HANDOFF_ROUTES, channelHandoffHandlers } from "./channel-handoff-routes.ts";
+import { EXTENSION_COMPONENTS, EXTENSION_ROUTES, extensionHandlers } from "./extension-routes.ts";
+import { IMPORT_ROUTES, importHandlers } from "./import-routes.ts";
 import { buildDesktopAttachHandlers } from "./desktop-attach-routes.ts";
 import { DESKTOP_ATTACH_ROUTES } from "./desktop-attach-contract.ts";
+import { DESKTOP_STEPUP_ROUTES } from "./desktop-stepup-contract.ts";
+import { buildDesktopStepUpHandlers } from "./desktop-stepup-routes.ts";
 import { WEBAUTHN_ROUTES, buildWebAuthnHandlers } from "./webauthn-routes.ts";
 import {REMOTE_PAIRING_ROUTES,buildRemotePairingHandlers} from "./remote-pairing-routes.ts";
 import {REMOTE_ROUTES,buildRemoteHandlers} from "./remote-config-routes.ts";
@@ -54,6 +58,7 @@ export interface RouteSpec {
   rate: RateClass;
   stability: "experimental" | "stable"; since: string;
   requestBody?: JsonSchema;
+  requestContentType?: "application/json" | "multipart/form-data";
   successStatus: number; success: { description: string; schema: JsonSchema };
   /** Further documented statuses besides the shared ones (401, 403, 413, 429 …). */
   extra?: Record<number, { description: string; schema: JsonSchema }>;
@@ -67,6 +72,7 @@ const ROLE_NAMES = ["owner", "admin", "operator", "member", "viewer"];
 
 /** Reusable schemas of the OpenAPI document (`components.schemas`). */
 export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
+  ...EXTENSION_COMPONENTS,
   Error: obj({
     schema: schemaId("error/1"),
     error: { type: "string", description: "A member of the closed RPC `ErrorCode` enum (ADR-016 §2).", enum: [...ERROR_CODES] },
@@ -84,7 +90,9 @@ export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
 const SESSION_TIMES = { createdAt: iso, expiresAt: iso, idleExpiresAt: iso };
 
 export const ROUTES: readonly RouteSpec[] = [
-  ...DESKTOP_ATTACH_ROUTES, ...TRANSPORT_ROUTES, ...ACCOUNT_ROUTES, ...WEBAUTHN_ROUTES, ...CHAT_ROUTES, ...WS_ROUTES, ...REMOTE_ROUTES, ...REMOTE_PAIRING_ROUTES, ...CHANNEL_HANDOFF_ROUTES,
+  ...IMPORT_ROUTES,
+  ...EXTENSION_ROUTES,
+  ...DESKTOP_ATTACH_ROUTES, ...DESKTOP_STEPUP_ROUTES, ...TRANSPORT_ROUTES, ...ACCOUNT_ROUTES, ...WEBAUTHN_ROUTES, ...CHAT_ROUTES, ...WS_ROUTES, ...REMOTE_ROUTES, ...REMOTE_PAIRING_ROUTES, ...CHANNEL_HANDOFF_ROUTES,
   {
     id: "session.create", method: "POST", path: `${API_PREFIX}/session`, tag: "session", summary: "Log in with a local account or an explicitly configured compatibility credential; sets the session cookie",
     auth: "none", authz: "public", csrf: false, rate: "auth", stability: "experimental", since: "1.0.0",
@@ -253,6 +261,7 @@ export interface HandlerOutput { chatStream?: {sessionId:string;turnId:string;af
 export type Handler = (i: HandlerInput) => Promise<HandlerOutput> | HandlerOutput;
 
 export interface HandlerDeps {
+  desktopStepUp?: import("./desktop-stepup.ts").DesktopStepUp;
   core: CoreRpc; sessions: SessionStore; verifyOwner: (candidate: unknown) => boolean; clock: Clock; tls: boolean;
   principal: Principal; healthTimeoutMs: number; log: { info(msg: string, f?: Record<string, unknown>): void; warn(msg: string, f?: Record<string, unknown>): void };
   /** Password login; without it only the owner token logs in. */
@@ -350,7 +359,10 @@ function tokenJson(t: PublicToken): Record<string, unknown> {
 export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
   const clearCookie = { "Set-Cookie": sessionCookie(d.tls, "", 0) };
   return {
+    ...importHandlers(),
+    ...extensionHandlers(d.core),
     ...buildDesktopAttachHandlers(d, () => false),
+    ...buildDesktopStepUpHandlers(d),
     ...buildAccountHandlers(d, undefined, d.core),
     ...buildWebAuthnHandlers(d, undefined, () => "http://localhost"),
     ...buildTransportHandlers(d.core),

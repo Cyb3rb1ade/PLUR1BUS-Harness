@@ -62,7 +62,7 @@ describe("decision hint: setup wizard", opts, () => {
       await stepHeading(page, /Language for voice features/).waitFor(); await skip(page);
       await stepHeading(page, /Backups/).waitFor();
       await page.getByRole("button", { name: "Create a backup now" }).click(); await page.getByText(/Backup created/).waitFor(); await next(page);
-      await stepHeading(page, /Import/).waitFor(); await skip(page, "Skip and finish");
+      await stepHeading(page, /Import/).waitFor(); await skip(page);
       await stepHeading(page, "Setup summary").waitFor();
       await hint(app).waitFor();
       assert.equal(await hint(app).count(), 1);

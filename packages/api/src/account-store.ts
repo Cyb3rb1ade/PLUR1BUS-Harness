@@ -85,6 +85,11 @@ export class AccountStore implements UserDirectory {
     if (p) this.#safe(() => this.#db.prepare("UPDATE accounts SET core_version=? WHERE person_id=?").run(p.version, id));
     return { id, username: row.username as string, passwordHash: row.password_hash as string, role: p?.role ?? "member", disabled: !p || p.disabled, agentRights: p?.agentRights ?? {}, projectRights: p?.projectRights ?? {}, version: Number(row.version) + (changed ? 1 : 0) };
   }
+  /** Credential invalidation metadata only. Never reads or caches a Core role; used solely by an active import's cookie binding. */
+  localCredentialVersion(id: string): number | undefined {
+    const row = this.#safe(() => this.#db.prepare("SELECT version FROM accounts WHERE person_id=? AND pending=0").get(id));
+    return row ? Number(row.version) : undefined;
+  }
   async updatePasswordHash(id: string, hash: string): Promise<void> { this.#factor(id, () => { this.#db.prepare("UPDATE accounts SET password_hash=? WHERE person_id=?").run(hash, id); }); }
   passkeysFor(id: string): { id: string; name: string; publicKey: string; signCount: number }[] {
     return this.#safe(() => this.#db.prepare("SELECT id,name,public_key,sign_count FROM passkeys WHERE user_id=? ORDER BY id").all(id).map(r => ({ id: r.id as string, name: r.name as string, publicKey: r.public_key as string, signCount: Number(r.sign_count) })));
