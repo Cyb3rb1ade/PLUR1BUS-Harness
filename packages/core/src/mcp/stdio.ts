@@ -3,7 +3,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { PassThrough, type Readable, type Writable } from "node:stream";
 import { JSONRPCMessageSchema, type JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
 import type { McpTransportConfig } from "./types.ts";
-import { isolatedStdioEnv, stdioSpawnEnv, type LeasedLaunchEnvironment } from "./env.ts";
+import { isolatedStdioEnv, stdioSpawnEnv, windowsKeptEnv, type LeasedLaunchEnvironment } from "./env.ts";
 import { windowsJobCommand, windowsLauncherEnv } from "./windows-job.ts";
 import { acquireLease } from "../secrets/acquisition.ts";
 
@@ -84,7 +84,7 @@ export class BoundedStdioTransport {
       env = leased ? isolatedStdioEnv(leased.env) : stdioSpawnEnv(t, this.host);
       if (leased) for (const value of Object.values(env)) this.launch.redact?.(value);
       const command = process.platform === "win32"
-        ? windowsJobCommand(t.command, t.args, this.host, Object.keys(env))
+        ? windowsJobCommand(t.command, t.args, this.host, windowsKeptEnv(env, leased !== undefined))
         : { command: t.command, args: t.args };
       spawnEnv = process.platform === "win32" ? windowsLauncherEnv(env) : env;
       leased?.validate?.();

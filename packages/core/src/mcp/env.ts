@@ -30,6 +30,16 @@ export function isolatedStdioEnv(values: Record<string, string>): Record<string,
   return env;
 }
 
+/**
+ * The variables the Windows launcher keeps for the server. A packaged server's environment is isolated, but Windows
+ * programs, Node among them, expect %SystemRoot% (the MCP SDK inherits it for the same reason), so the launcher keeps the
+ * host's value of that one variable too. It is not a credential and is never leased or redacted.
+ */
+export function windowsKeptEnv(env: Record<string, string>, isolated: boolean): string[] {
+  const names = Object.keys(env);
+  return isolated && !names.some(name => name.toUpperCase() === "SYSTEMROOT") ? [...names, "SYSTEMROOT"] : names;
+}
+
 export interface ChildEnv {
   /** Declared variables only; the SDK adds its own minimal inherited set (PATH, HOME, USER, ...). */
   env: Record<string, string>;
