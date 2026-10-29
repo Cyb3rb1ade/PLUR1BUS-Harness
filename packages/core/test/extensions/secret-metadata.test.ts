@@ -2,13 +2,13 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { installedMcpExtensions } from "../../src/mcp/extension-metadata.ts";
 
 async function fixture(remote: boolean | "oauth" = false) {
-  const home = await mkdtemp(join(tmpdir(), "p1b-A7-meta-"));
+  const home = await realpath(await mkdtemp(join(tmpdir(), "p1b-A7-meta-")));
   const payload = join(home, "mcp", "example", "1.0.0", "payload");
   await mkdir(join(payload, ".plur1bus"), { recursive: true });
   await mkdir(join(home, "extensions"), { recursive: true });

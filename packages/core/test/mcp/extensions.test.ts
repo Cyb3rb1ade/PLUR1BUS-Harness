@@ -1,7 +1,7 @@
 /** M-A4: installed extension metadata becomes live, lazy MCP registrations without executing installation hooks. */
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { cp, mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readFile, rm, symlink, writeFile, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
@@ -16,7 +16,7 @@ const homes: string[] = [];
 afterEach(async () => { await Promise.all(homes.splice(0).map(home => rm(home, { recursive: true, force: true }))); });
 
 async function fixture(remote?: Record<string, unknown>) {
-  const home = await mkdtemp(join(tmpdir(), "p1b-mcp-ext-"));
+  const home = await realpath(await mkdtemp(join(tmpdir(), "p1b-mcp-ext-")));
   homes.push(home);
   let payload = join(home, "mcp", "reports", "1.0.0", "payload");
   await mkdir(payload, { recursive: true });

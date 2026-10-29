@@ -7,7 +7,8 @@ import { test } from "node:test";
 import { createLocalFs } from "../src/local.ts";
 
 async function fixture(run: (root: string, outside: string) => Promise<void>): Promise<void> {
-  const base = await mkdtemp(join(tmpdir(), "p1-remote-fs-"));
+  // Canonical, so paths compare equal where the temporary directory is itself an alias (macOS `/var`, Windows `RUNNER~1`).
+  const base = await realpath(await mkdtemp(join(tmpdir(), "p1-remote-fs-")));
   const root = join(base, "source");
   const outside = join(base, "outside");
   try {

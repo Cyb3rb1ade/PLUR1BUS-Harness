@@ -15,6 +15,8 @@ export interface SourceReaderOptions {
   /** Original configured authority, never replaced by a selected descendant before canonicalization. */
   root: string;
   remote?: boolean;
+  /** The whole local host (`SourceReader.local`): each filesystem root is its own confined port, so any root is inside. */
+  wholeHost?: boolean;
   signal?: AbortSignal;
 }
 
@@ -31,6 +33,8 @@ export class SourceReader {
   readonly paths: typeof native.posix;
   readonly root: string;
   readonly remote: boolean;
+  private readonly wholeHost: boolean;
+  private canonicalRoot: Promise<string> | undefined;
   private readonly files = new Map<string, { size: number; sha256: string }>();
   private readonly directories = new Map<string, string>();
   private readonly sourceModes = new Map<string, number>();
@@ -59,20 +63,49 @@ export class SourceReader {
       realpath: (path: string) => guarded(() => source.realpath(path)), readlink: (path: string) => guarded(() => source.readlink(path)) });
     this.root = options.root;
     this.remote = options.remote ?? false;
+    this.wholeHost = !this.remote && (options.wholeHost ?? false);
     this.paths = this.remote ? native.posix : native;
   }
 
+  /** Reads anywhere on this host. A Windows host has one root per drive and UNC share (`C:\`, `\\wsl.localhost\Ubuntu\`),
+   * so each root gets its own root-confined port when a path on it is first read; POSIX has the one root `/`. */
   static async local(limits?: Partial<FsLimits>, signal?: AbortSignal): Promise<SourceReader> {
-    const root = native.parse(process.cwd()).root;
-    const fs = await createLocalFs({ root, limits: { maxDepth: 128, maxEntries: 100_000,
-      maxFileBytes: 1024 ** 3, timeoutMs: 300_000, ...limits }, ...(signal ? { signal } : {}) });
-    return new SourceReader({ fs, root });
+    const options = { limits: { maxDepth: 128, maxEntries: 100_000, maxFileBytes: 1024 ** 3, timeoutMs: 300_000, ...limits },
+      ...(signal ? { signal } : {}) };
+    const ports = new Map<string, Promise<ReadonlyFs>>();
+    const port = (path: string): Promise<ReadonlyFs> => {
+      const root = native.parse(native.resolve(path)).root;
+      const key = process.platform === "win32" ? root.toLowerCase() : root;
+      let opened = ports.get(key);
+      if (!opened) {
+        opened = createLocalFs({ root, ...options });
+        // A root that cannot be opened now (a disconnected share) is tried again on the next read.
+        opened.catch(() => ports.delete(key));
+        ports.set(key, opened);
+      }
+      return opened;
+    };
+    const fs: ReadonlyFs = Object.freeze({
+      stat: async (path: string) => (await port(path)).stat(path),
+      lstat: async (path: string) => (await port(path)).lstat(path),
+      readdir: async (path: string) => (await port(path)).readdir(path),
+      readFile: async (path: string, maxBytes: number) => (await port(path)).readFile(path, maxBytes),
+      realpath: async (path: string) => (await port(path)).realpath(path),
+      readlink: async (path: string) => (await port(path)).readlink(path),
+    });
+    await port(process.cwd());
+    return new SourceReader({ fs, root: native.parse(process.cwd()).root, wholeHost: true });
   }
 
-  /** Selection is checked using the already-confined port before it becomes a new traversal base. */
+  /** Selection is checked using the already-confined port before it becomes a new traversal base. Both sides are
+   * canonical: the configured root can itself be an alias (`/var` is `/private/var` on macOS, `RUNNER~1` a short name). */
   async select(path: string): Promise<string> {
     const full = await this.fs.realpath(path);
-    const relative = this.paths.relative(this.root, full);
+    if (this.wholeHost && this.paths.isAbsolute(full)) return full;
+    let root = this.root;
+    try { root = await (this.canonicalRoot ??= this.fs.realpath(this.root)); }
+    catch { this.canonicalRoot = undefined; }
+    const relative = this.paths.relative(root, full);
     if (relative === ".." || relative.startsWith(`..${this.paths.sep}`) || this.paths.isAbsolute(relative)) {
       throw new ImportError("E_DENIED", "source-path-denied", "Source path is outside the configured root");
     }
