@@ -1,8 +1,8 @@
 # Workload Identity Federation as an auth-engine credential kind — design
 
 **Status:** Draft for owner review. Owner decisions of 2026-10-29 are binding (support WIF; not urgent, v0.2 /
-enterprise track; the personal default stays unchanged; **Q4 decided: full CLI setup parity**, §12.1, §12.5). The other
-owner questions are open (§17) · **Date:** 2026-10-29 (amended the same day: CLI setup and remote primary path) ·
+enterprise track; the personal default stays unchanged; **Q4: full CLI setup parity**, §12.1, §12.5; **all other
+owner questions decided as recommended**, §17) · **Date:** 2026-10-29 (amended the same day: CLI setup, remote primary path, owner decisions Q1–Q14) ·
 **Owner:** Christian (Cyb3rb1ade) · **Track:** auth engine (ADR-005), enterprise ·
 **Plan:** [`2026-10-29-workload-identity-federation.md`](../plans/2026-10-29-workload-identity-federation.md)
 
@@ -81,7 +81,7 @@ returns an access token that lives minutes. Revocation is a rule or IdP change, 
 | W1 | Kind | New kind **`workload_identity`**: the harness performs the exchange. `federated_token` keeps its D110 production meaning (a trusted external file/program supplies an already-minted bearer). | Overload `federated_token`: it is hard-wired to the OpenAI D110 service (`credentials.ts` refuses it, voice uses it as a parent) and its shipped path is a supplier, not an exchange. |
 | W2 | Exchange | Closed adapter set `anthropic` / `openai` with **endpoints fixed in code**; adding a vendor is code plus an ADR row. | A generic URL + body template in config: a configurable credential-forwarding endpoint and an untestable error mapping. |
 | W3 | Sources (v1) | `file` (re-read for every exchange) and `github_actions` (a fresh JWT per exchange, audience required). | Cloud metadata now: the egress gate refuses link-local/metadata addresses by design; that needs a named exception (§7.3). |
-| W4 | Minted token storage | **Memory only** by default; opt-in `auth.workloadIdentity.restartCache: "secret-store"` (owner Q2). | Always persist: a new at-rest bearer and a stale-state class for a token that is re-derivable in seconds. |
+| W4 | Minted token storage | **Memory only** by default; opt-in `auth.workloadIdentity.restartCache: "secret-store"` (decided, Q2). | Always persist: a new at-rest bearer and a stale-state class for a token that is re-derivable in seconds. |
 | W5 | Single use | **Spent-assertion ledger:** an identity token's SHA-256 is recorded *before* it is presented and it is never presented again, whatever the outcome; the hash (not the token) survives restart. | Retry the same JWT on timeout: Anthropic answers `jti_reused`, OpenAI requires a new assertion after an unknown outcome. |
 | W6 | Refresh | Through `RefreshOwner`, new mint path: advisory at expiry − 120 s (0–30 s early jitter), mandatory at expiry − 30 s, transient backoff 1–60 s; **no exchange while the identity token is unchanged**. | A separate timer per provider adapter: two owners, double-spent assertions. |
 | W7 | Failures | Opaque 401 → `workload_denied`, never retried with the same JWT, at most 3 consecutive denials with fresh JWTs, then background attempts stop; 400 → `workload_config_invalid`; 408/5xx/network → `refresh_failed` (transient); 429 → `rate_limited` (Retry-After honoured, then exponential backoff, §9.7). | Generic 401 handling: the harness cannot tell `jti_reused` from a rule mismatch, so blind retries burn assertions and flood the Console history. |
@@ -91,7 +91,7 @@ returns an access token that lives minutes. Revocation is a rule or IdP change, 
 | W11 | Scope | Accept `workspace:inference` and `workspace:developer`; refuse `org:admin` and `workspace:manage_tunnels`; docs recommend `workspace:inference`. | Accept any scope: an admin-scoped token behind a chat provider is an over-privileged bearer in memory. |
 | W12 | CLI (**owner decision 2026-10-29**) | **Full CLI setup parity** in the existing `plur1bus login` verb structure: `login <vendor> --workload-identity` (wizard, or `--non-interactive` flags + `--json`), `login status`, `login list`, `login test <id>`, `login logout <id>` (remove); a WIF choice in a new `plur1bus setup` step `auth`; the same flags drive SSH setup from a desktop (§12.1, §12.5). | Config-only (the earlier recommendation): rejected by the owner, because a headless CLI-only install, and a server set up from a remote desktop, must be first-class paths. |
 | W13 | Claude Code headless | Later, gated package: the harness owns the exchange and hands the token to the child; transport chosen by the WP0 decision tree (`apiKeyHelper`, else `ANTHROPIC_AUTH_TOKEN`, else parked, §10.1). Only the Claude Code child depends on it; the harness's own Anthropic calls use the bearer mode (W10). | Let the child exchange itself: needs non-bare mode and breaks the single owner and single use (§10). |
-| W14 | Repo CI | Optional package: the nightly live jobs may swap `secrets.ANTHROPIC_API_KEY` for GitHub OIDC. | Mandatory: PR CI calls no model API; only three nightly jobs do. |
+| W14 | Repo CI | Package WP11 (decided, Q8): `turn-eval-live` swaps `secrets.ANTHROPIC_API_KEY` for GitHub OIDC after the core packages; the other two live jobs keep the key. | Mandatory: PR CI calls no model API; only three nightly jobs do. |
 
 ## 4. External facts (read 2026-10-29)
 
@@ -217,7 +217,7 @@ What `main` has today:
 Decision (W1): `federated_token` keeps exactly its shipped meaning, "a trusted external supplier hands over an
 already-minted bearer", and is not changed. The exchange logic of `WorkloadIdentity` moves into the generic engine
 as the `openai` adapter (§8.2); `workload.ts` becomes a re-export and is then removed. The ADR-005 amendment states
-the split in one sentence per kind. Voice parents accepting `workload_identity` are a follow-up (owner Q9).
+the split in one sentence per kind. Voice parents accepting `workload_identity` are a follow-up (decided, Q9).
 
 ### 5.3 Exchange adapters
 
@@ -408,7 +408,7 @@ an empty or missing required variable refuses the import, naming the variables, 
 `E_CONFIG_INVALID reason=identity-token-in-env` (a single-use secret in the process environment cannot rotate and
 leaks to anything that dumps the environment); `ANTHROPIC_PROFILE`, `ANTHROPIC_CONFIG_DIR` and the Anthropic profile
 files are never read. `OPENAI_IDENTITY_TOKEN_FILE` is Codex's variable name (§4.3); reusing it for the import is a
-convenience for operators who already set it, and §6.5 keeps it away from any Codex child (owner Q10). The import is
+convenience for operators who already set it, and §6.5 keeps it away from any Codex child (decided, Q10). The import is
 audited (`auth.workload.env_imported`, variable names only) and visible in `login status` as `origin: env`.
 
 ### 6.5 Precedence and child environments
@@ -573,7 +573,7 @@ the recommended 600 s (§9.4). Core restarts follow every `x-restart: core` chan
 matters can set `restartCache: "secret-store"`: the minted record `{ v: 1, accessToken, expiresAt, generation,
 profileHash }` is written under the internal name `auth/workload/<profileId>` through the existing persist-before-
 release path, is used after restart only while unexpired and while `profileHash` matches, and is deleted when it
-expires or the profile changes (owner Q2).
+expires or the profile changes (decided, Q2).
 
 ### 9.2 Spent-assertion ledger ("persist before present")
 
@@ -702,7 +702,7 @@ Neither vendor documents rate limits for its token endpoint, so the harness beha
   the harness holds no credential for it. The spawn code is not on `main` yet (ADR-005 action item 2a is open; no
   `--bare` / `stream-json` invocation exists in `packages/` or `crates/`). WIF changes nothing on this personal
   route.
-- **"Claude Code on WIF" (enterprise, later package, owner Q7).** For an organisation that wants the Claude Code
+- **"Claude Code on WIF" (enterprise, later package; not in v0.2, decided Q7).** For an organisation that wants the Claude Code
   agent loop billed to a WIF service account:
   - The harness owns the exchange (single owner, §9). The child is started with
     `--settings '{"apiKeyHelper":"<absolute path of plur1bus> auth token-helper"}'` (bare mode honours
@@ -798,7 +798,7 @@ noted in the WP12 PR).
   fields of `auth.status` / `auth.credentials.list`; `auth.credentials.write` for `auth.workload.validate`, `.test`
   and `.remove`. The provider definition itself is written by the supervisor's existing `config.set` (its own
   `x-write-roles` and audit). Binding the installation to an organisation's service account is an owner decision like
-  every provider credential; owner Q11 asks whether Admin should manage it as well. The token-helper handle of §10 is
+  every provider credential; Admin does not manage it (decided, Q11). The token-helper handle of §10 is
   never available over the public RPC surface.
 
 ## 12. Surfaces
@@ -811,7 +811,7 @@ loopback sign-in over `auth.login.*`), plus the subcommands `login status`, `log
 `adc` and `external_cli` have no CLI route (ambient credentials, delegated vendor login); no provider offers
 `device_code`. WIF becomes a **third route flag**, `--workload-identity` (a `Route::WorkloadIdentity` next to
 `ApiKey` and `Oauth`), and adds exactly one subcommand, `login test <id>`; removal is the existing `login logout <id>`
-(owner Q12 asks for a `remove` alias). The CLI stays a thin client: validation, the identity-token pre-flight and
+(plus a visible `remove` alias for every kind, decided Q12). The CLI stays a thin client: validation, the identity-token pre-flight and
 the test run in the **core**, the process that will read the token file, and the config write goes through the
 existing config route (supervisor `config.set`, which waits for the core restart, H3B-R22). Like every other login
 route it needs a running core (`E_CORE_UNAVAILABLE`, hint `plur1bus daemon start`).
@@ -897,7 +897,7 @@ test exchange need it) and the following `check` step already reports `auth.work
   definition is equal.
 - **HB11 amendment:** the rule "setup asks only basic-tier questions" applies to the `config` step; the `auth` step
   is the documented exception (provider sign-in is not a config-tier question). `setup_asks_only_basic_tier_questions`
-  is scoped accordingly, and the frozen step-id vocabulary gains `auth` (owner Q13).
+  is scoped accordingly, and the frozen step-id vocabulary gains `auth` (decided, Q13).
 - **Headless server with web listener.** The CLI-only path is `plur1bus setup --non-interactive` on a host without a
   display (what `install.sh` hands over to and what the desktop's SSH install runs, §12.5). The harness API (the only
   listening surface, loopback, with `remote.publish` `local`, `tailnet` or `network`) is what a remote desktop
@@ -953,7 +953,7 @@ SSH transport spike (`apps/desktop/transport-spike/`) is built; the D113 work pa
 exist:** a flow that makes such a host the owner's *primary* server and turns the desktop's own instance into a client
 (so channels such as Telegram keep running while the notebook is off). No spec, ADR or code was found for it
 (searched: primary server, second instance, client role, remote install, SSH bootstrap). That role switch is
-therefore a **dependency** (owner Q14); this spec defines only the WIF contract it, and D113, call.
+therefore a **dependency**, owned by the desktop track as a D113 follow-up spec (decided, Q14); this spec defines only the WIF contract it, and D113, call.
 
 **Hook into D113 (specified now, built with D113 WP4).**
 
@@ -1007,7 +1007,7 @@ PR CI calls no model API. Three **nightly** jobs call Anthropic live with `secre
 eval home's secret store, the evaluation resolves it through the harness provider) and `b5-provider-cache` (the
 test reads the key from its environment).
 
-Optional package (owner Q8): `turn-eval-live` switches to a `workload_identity` profile with the `github_actions`
+Package WP11 (decided, Q8; scheduled after the core packages, outside the v1 total): `turn-eval-live` switches to a `workload_identity` profile with the `github_actions`
 source — no secret, and a real end-to-end run of this feature every night. Anthropic side: a GitHub issuer
 (`https://token.actions.githubusercontent.com`, discovery), a rule with `subject_prefix`
 `repo:Cyb3rb1ade/PLUR1BUS-Harness:ref:refs/heads/main` (exact, no wildcard: a wildcard also matches pull requests
@@ -1062,7 +1062,7 @@ green nightlies without it.
   token or JWT.
 - **Web:** unit tests and Playwright against the mock server (form validation from `validate`, test and remove
   flows, role gating).
-- **Live:** only the owner-run WP0 spike and, optionally, the nightly job of §13.
+- **Live:** only the owner-run WP0 spike and the nightly `turn-eval-live` job of §13 (WP11).
 
 ## 15. Rollout and compatibility
 
@@ -1079,36 +1079,36 @@ that provider only. Removing a WIF provider leaves nothing behind but ledger ent
 | R3 | Vendor drift (prefix, fields, endpoints) | Constant mapping, prefix as diagnostic, contract fixtures from the documented shapes, `policy_checked` re-check as for every profile |
 | R4 | Claude Code route unknowns (U1–U3) | Separate gated package (§10); the personal route is untouched |
 | R5 | Over-broad vendor rules (operator side) | Docs with narrow rule recipes per source; the harness cannot see rules |
-| R6 | Restart gap with `file` sources | Recommended 600 s projection; `restartCache` opt-in (Q2) |
+| R6 | Restart gap with `file` sources | Recommended 600 s projection; `restartCache` opt-in (decided, Q2) |
 | R7 | Egress friction (hosts must be listed) | `1staid check` names the missing entry; the wizard and `--wif-allow-egress` add it |
 | R8 | Projected token not readable for uid 10001 (U9) | Explicit FAIL with the fix; `docs/containers.md` example sets the security context |
 | R9 | Confusing `federated_token` with `workload_identity` | ADR-005 amendment, distinct validation messages, docs table |
 | R10 | One identity token file shared by two profiles of one vendor | Refused by validation (§6.3) |
 | R11 | One token file shared by two hosts (server and client) | Forbidden in docs; per-host sources (§9.7); a "shared token file?" hint on every `file`-source denial |
 | R12 | A desktop user enters a path that exists on the desktop, not the server | Invariant 2 (§12.5): only the server's core validates the path; the GUI never offers a local file picker |
-| R13 | The new setup step `auth` surprises a consumer of `setup/1` (the D113 desktop) | `--auth skip` default; D113 spec pointer; step ids are additive and consumers tolerate unknown fields (D113 §6.3); owner Q13 |
+| R13 | The new setup step `auth` surprises a consumer of `setup/1` (the D113 desktop) | `--auth skip` default; D113 spec pointer; step ids are additive and consumers tolerate unknown fields (D113 §6.3); decided, Q13 |
 | R14 | Token-endpoint rate limits are unknown (U7) | §9.7: one flight per profile per host, never per request, `Retry-After` plus backoff, visible `rate_limited` |
 
 ## 17. Owner questions
 
-Q4 is decided; every other row is an open question with a recommendation.
+All questions were decided by the owner on 2026-10-29: Q4 as recorded below, every other question as recommended.
 
-| # | Question | Recommendation / decision |
+| # | Question | Decision (2026-10-29) |
 |---|---|---|
-| Q1 | A new kind `workload_identity`, or extend `federated_token`? | New kind; keep `federated_token` as D110's external supplier (W1, §5.2). |
-| Q2 | May a minted token survive a core restart? | Memory only by default; offer `restartCache: "secret-store"` as an opt-in in v1 (§9.1). |
-| Q3 | Which sources in v1? | `file` + `github_actions`; `command` in v1.1; metadata sources later behind a named egress exception (§7.3). |
-| Q4 | CLI: config-only or a `login --workload-identity` writer? | **Decided by the owner, 2026-10-29: full CLI setup parity.** A headless CLI-only install must be a first-class path, and WIF must be configurable when a desktop sets up an SSH host as the primary server. Interactive wizard, equivalent non-interactive flags with `--json` and defined exit codes, status / test / remove / list, a WIF choice in `plur1bus setup`, configuration over SSH and over RPC (W12, §12.1, §12.2, §12.5). The earlier config-only recommendation is withdrawn. |
-| Q5 | Env import of the vendor variables? | Opt-in per vendor, file sources only, a literal token in the environment refused (§6.4). |
-| Q6 | Scope policy? | Accept `workspace:inference` and `workspace:developer`, refuse `org:admin` and `workspace:manage_tunnels`, document `workspace:inference` as the recommendation (W11). |
-| Q7 | Claude Code on WIF in v0.2? | No: a separate package after ADR-005 action 2a and the WP0 spike (§10). |
-| Q8 | Move the nightly live jobs to GitHub OIDC? | Only `turn-eval-live`, after the core packages; keep the secret until two green nightlies (§13). |
-| Q9 | `workload_identity` as a voice parent (Realtime / GPT-Live)? | Later; `federated_token` keeps serving voice. |
-| Q10 | Reuse `OPENAI_IDENTITY_TOKEN_FILE` (Codex's name) for the opt-in OpenAI import? | Yes, with the Codex-child strip of §6.5; the alternative is a harness-specific name operators must learn. |
-| Q11 | Who may configure WIF: Owner only (as every provider credential today) or Owner and Admin? | Owner only, reusing `auth.credentials.*` unchanged (§11); revisit with the M3 RBAC review if organisations need delegated admins. |
-| Q12 | Removal verb: the existing `login logout <id>` only, or also a `login remove <id>` alias? | Add `remove` as a visible clap alias of `logout` for **every** kind, so "remove" works without a second code path. |
-| Q13 | May `plur1bus setup` gain a tenth step `auth` (frozen step-id vocabulary, HB11 exception)? | Yes: `auth` between `start` and `check`, default `skip`; amend the D113 spec's step list in the same PR (§12.2). |
-| Q14 | Which track owns the "SSH host becomes the primary server, the desktop instance becomes a client" flow? | The desktop track as a D113 follow-up spec (role switch, channel ownership hand-over, desktop instance demotion); WIF provides only the §12.5 contract and is not blocked by it. |
+| Q1 | A new kind `workload_identity`, or extend `federated_token`? | **Decided 2026-10-29:** new kind; keep `federated_token` as D110's external supplier (W1, §5.2). |
+| Q2 | May a minted token survive a core restart? | **Decided 2026-10-29:** memory only by default; offer `restartCache: "secret-store"` as an opt-in in v1 (§9.1). |
+| Q3 | Which sources in v1? | **Decided 2026-10-29:** `file` + `github_actions`; `command` in v1.1; metadata sources later behind a named egress exception (§7.3). |
+| Q4 | CLI: config-only or a `login --workload-identity` writer? | **Decided 2026-10-29:** **full CLI setup parity** (owner decision against the earlier recommendation). A headless CLI-only install must be a first-class path, and WIF must be configurable when a desktop sets up an SSH host as the primary server. Interactive wizard, equivalent non-interactive flags with `--json` and defined exit codes, status / test / remove / list, a WIF choice in `plur1bus setup`, configuration over SSH and over RPC (W12, §12.1, §12.2, §12.5). The earlier config-only recommendation is withdrawn. |
+| Q5 | Env import of the vendor variables? | **Decided 2026-10-29:** opt-in per vendor, file sources only, a literal token in the environment refused (§6.4). |
+| Q6 | Scope policy? | **Decided 2026-10-29:** accept `workspace:inference` and `workspace:developer`, refuse `org:admin` and `workspace:manage_tunnels`, document `workspace:inference` as the recommended rule scope (W11). |
+| Q7 | Claude Code on WIF in v0.2? | **Decided 2026-10-29:** not in v0.2; a separate package after ADR-005 action 2a and the WP0 spike (§10). |
+| Q8 | Move the nightly live jobs to GitHub OIDC? | **Decided 2026-10-29:** only `turn-eval-live`, after the core packages; keep the secret until two green nightlies (§13). |
+| Q9 | `workload_identity` as a voice parent (Realtime / GPT-Live)? | **Decided 2026-10-29:** later; `federated_token` keeps serving voice. |
+| Q10 | Reuse `OPENAI_IDENTITY_TOKEN_FILE` (Codex's name) for the opt-in OpenAI import? | **Decided 2026-10-29:** yes, with the Codex-child strip of §6.5 (no harness-specific name). |
+| Q11 | Who may configure WIF: Owner only (as every provider credential today) or Owner and Admin? | **Decided 2026-10-29:** owner only, reusing `auth.credentials.*` unchanged (§11); revisit with the M3 RBAC review if organisations need delegated admins. |
+| Q12 | Removal verb: the existing `login logout <id>` only, or also a `login remove <id>` alias? | **Decided 2026-10-29:** add `remove` as a visible clap alias of `logout` for **every** kind, so "remove" works without a second code path. |
+| Q13 | May `plur1bus setup` gain a tenth step `auth` (frozen step-id vocabulary, HB11 exception)? | **Decided 2026-10-29:** yes: `auth` between `start` and `check`, default `skip`. The D113 spec has no step-id list to amend (its §6.4 renders whatever `setup/1` reports); the step is named in its pointer row (§18). |
+| Q14 | Which track owns the "SSH host becomes the primary server, the desktop instance becomes a client" flow? | **Decided 2026-10-29:** the desktop track as a D113 follow-up spec (role switch, channel ownership hand-over, desktop instance demotion); WIF provides only the §12.5 contract and is not blocked by it. |
 
 ## 18. Documents the implementation amends
 

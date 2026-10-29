@@ -15,9 +15,9 @@ the Anthropic Messages adapter; a vendor-credential deny set for every child env
 `auth` and a `1staid check` entry (Rust); a web form; the WIF hook into the desktop SSH install (D113).
 **Status.** Owner decisions 2026-10-29: support WIF, not urgent (v0.2 / enterprise track); personal default
 unchanged; **Q4 decided: full CLI setup parity**, including headless servers and the remote primary-server path
-(spec §12.1, §12.2, §12.5). The other owner questions (spec §17, now Q1–Q3, Q5–Q14) carry recommendations; WP1–WP4
-do not depend on any answer except Q1 (kind name) and Q2 (`restartCache`, a small part of WP4). WP0 needs owner
-credentials and the NAS Ubuntu VM.
+(spec §12.1, §12.2, §12.5); **all other owner questions (spec §17, Q1–Q3, Q5–Q14) decided as recommended** on the
+same day, so no package waits for an owner answer. The remaining gates are WP0 spike results, ADR-005 action 2a and
+the D113 packages. WP0 needs owner credentials and the NAS Ubuntu VM.
 **Executor.** TypeScript packages: the controller's choice of agent. **Rust packages (WP8a, WP8b, WP13 and the Rust
 half of WP12): Claude agent** (owner decision 2026-10-21: Rust by Claude, not Codex). One branch and one ready PR per package
 (`claude/wif-wp1-kind`, `…-wp2-sources`, …), each from fresh `origin/main` or stacked with `Stacked on #N`.
@@ -60,7 +60,7 @@ WP6 env import + hygiene (after WP1; parallel to WP2–WP5) ──────�
                                   WP7 RPC + RBAC + audit (after WP4) ──► WP8a CLI login setup + 1staid (Rust, Claude agent) ──► WP8b setup step `auth` (Rust, Claude agent)
                                                                     └──► WP9 web form + status
 WP10 docs + ADR-005 amendment (with WP5; final pass after WP8a/WP8b/WP9)
-WP11 optional: nightly turn-eval-live on GitHub OIDC (after WP5, WP7)
+WP11 nightly turn-eval-live on GitHub OIDC (decided Q8) (after WP5, WP7)
 WP12 gated: Claude Code on WIF (after ADR-005 action 2a + WP0, decision tree spec §10.1)
 WP13 gated: WIF hook in the desktop SSH install (after WP8a/WP8b + D113 WP3/WP4; Rust, Claude agent)
 ```
@@ -293,7 +293,7 @@ credentials directory; `redaction.test.ts` extended.
   through the owner's flight, result incl. rotation verdict), `auth.workload.status` (read), `auth.workload.remove`
   (drops ledger entries and the `restartCache` record after the supervisor removed the definition).
 - RBAC: the methods declared in `RPC_RULES` as human-only, mapped to the existing `auth.credentials.read` (status) and
-  `auth.credentials.write` (validate, test, remove), **Owner only** (spec §11, owner Q11); `docs/rbac.md` rows.
+  `auth.credentials.write` (validate, test, remove), **Owner only** (spec §11, decided Q11); `docs/rbac.md` rows.
 - `packages/api/src/rpc-route.ts` — the four methods join the API's RPC allowlist next to `auth.status` and
   `auth.login.*`, so the web UI and an attached desktop reach them; `config.set` stays as admitted today in
   `crates/plur1bus/src/supervisor/api_transport.rs` (no change there).
@@ -331,8 +331,8 @@ cookie; an audit test that every action carries only the listed fields; a payloa
     failed);
   - `login status` / `login list` workload rows (additive fields of `login.status/1`, `login.list/1`), new
     `login test <id>` (`login.test/1`), `login logout <id>` for workload profiles (config route removal, then
-    `auth.workload.remove`; confirmation, `--yes`; `login.logout/1` with `kind`); the `remove` alias if owner Q12 is
-    accepted;
+    `auth.workload.remove`; confirmation, `--yes`; `login.logout/1` with `kind`); the visible `remove` alias of `logout`
+    for every kind (decided Q12);
   - token-shaped values refused in every flag (`value-in-argument`, never echoed).
 - `crates/plur1bus/src/commands/firstaid.rs` — check `auth.workload` after `models.warm` in `CHECK_IDS`, reading
   `auth.workload.status` over the existing core connection, the findings table of spec §12.1 including
@@ -352,7 +352,7 @@ NAS Ubuntu VM (headless, over SSH) against a core with a fake exchange endpoint.
 ## WP8b — `plur1bus setup` step `auth` and the headless server path (Rust, **Claude agent**) (≈ 2 agent days)
 
 **Files.**
-- `crates/plur1bus/src/install/setup.rs` — `STEP_IDS` gains `auth` between `start` and `check` (owner Q13); the step
+- `crates/plur1bus/src/install/setup.rs` — `STEP_IDS` gains `auth` between `start` and `check` (decided Q13); the step
   offers `skip` (default) / `workload-identity` / `api-key` / `chatgpt`, runs the WP8a wizard or flag path for
   `workload-identity` and hands `api-key` / `chatgpt` to the existing interactive login routes; `detail` per spec
   §12.2; a refused configuration fails the step, a denied / rate-limited / rotation-wait test is `done` with a warning;
@@ -398,7 +398,7 @@ owner), including the headless CLI walkthrough.
 
 **Acceptance.** `node scripts/check-doc-links.mjs`, `node scripts/lint-hygiene.mjs`, `pnpm docs:check` green.
 
-## WP11 — Optional: nightly `turn-eval-live` on GitHub OIDC (≈ 1.5 agent days, owner Q8)
+## WP11 — Nightly `turn-eval-live` on GitHub OIDC (≈ 1.5 agent days; decided Q8, after the core packages)
 
 **Files.** `.github/workflows/nightly.yml` (`permissions: id-token: write` on `turn-eval-live` only; the secrets step
 replaced by writing a `workload_identity` profile with the `github_actions` source and the egress hosts into the
@@ -416,7 +416,7 @@ decision tree of spec §10.1: dual header accepted → `apiKeyHelper` (below); r
 `ANTHROPIC_AUTH_TOKEN` → the per-run variable variant (no helper; recycling of resident sessions before expiry);
 neither → **parked**, and any non-bare variant needs an owner decision recorded as an ADR-005 amendment first. U1/U2
 affect only this package; the harness's own Anthropic calls (WP5 bearer mode) ship regardless. Not part of the v0.2
-core scope (owner Q7).
+core scope (decided Q7).
 
 **Files (apiKeyHelper branch).** The Claude Code backend's child builder (deny set, `--settings` with
 `apiKeyHelper`, `CLAUDE_CODE_API_KEY_HELPER_TTL_MS=60000`); `crates/plur1bus/src/commands/auth.rs` (new hidden
@@ -436,7 +436,7 @@ send.
 **Gate.** WP8a and WP8b merged; the D113 packages it extends (`2026-10-18-desktop-ssh-remote.md` WP3 native commands,
 WP4 remote install/manage) exist on `main`. Built as a stacked follow-up to D113 WP4, or folded into it if WP4 is
 still open. The "SSH host becomes the primary server, the desktop instance a client" flow is **not** in scope here
-(owner Q14); it will call the same commands.
+(decided Q14: a D113 follow-up spec of the desktop track); it will call the same commands.
 
 **Files.**
 - `apps/desktop/src-tauri/src/ssh_remote/setup.rs` — the install plan's optional WIF answers become `--auth
@@ -480,21 +480,21 @@ against the NAS Ubuntu VM: install with WIF over SSH, test, status, remove.
 | Package | Est. (agent days) | Executor | Gate |
 |---|---|---|---|
 | WP0 | 1 (+ owner time) | controller + owner | owner credentials, NAS VM booted |
-| WP1 | 2 | TS agent | Q1 |
+| WP1 | 2 | TS agent | — |
 | WP2 | 2.5 | TS agent | WP1 (WP0 for the GitHub host, may land with the assumed default) |
 | WP3 | 2 | TS agent | WP1 |
-| WP4 | 4 (was 3.5: rate limits, `jti` key, rotation verdict) | TS agent | WP2, WP3; Q2 for `restartCache` |
+| WP4 | 4 (was 3.5: rate limits, `jti` key, rotation verdict) | TS agent | WP2, WP3 |
 | WP5 | 2 | TS agent | WP4 |
 | WP6 | 2 | TS agent | WP1 |
-| WP7 | 3 (was 2: validate/remove, RBAC, API route) | TS agent | WP4; Q11 |
-| WP8a | 4.5 (was WP8, 3) | **Claude agent** (Rust) | WP7; Q12 for the alias |
-| WP8b | 2 (new) | **Claude agent** (Rust) | WP8a; Q13 |
+| WP7 | 3 (was 2: validate/remove, RBAC, API route) | TS agent | WP4 |
+| WP8a | 4.5 (was WP8, 3) | **Claude agent** (Rust) | WP7 |
+| WP8b | 2 (new) | **Claude agent** (Rust) | WP8a |
 | WP9 | 3 (was 2: form instead of read-only) | TS agent | WP7 |
 | WP10 | 2 (was 1.5) | TS agent / controller | WP5; final pass after WP8a, WP8b, WP9 |
 | **v1 total (WP0–WP10)** | **≈ 30** (was ≈ 23.5) | | |
-| WP11 (optional) | 1.5 | TS agent + owner | WP5, WP7; Q8 |
-| WP12 (gated) | 3 | TS agent + **Claude agent** (Rust half) | ADR-005 action 2a, WP0 → spec §10.1; Q7 |
-| WP13 (gated) | 1.5 | **Claude agent** (Rust, desktop) | WP8a, WP8b, D113 WP3/WP4; Q14 for the primary-server flow |
+| WP11 (decided Q8, after core) | 1.5 | TS agent + owner | WP5, WP7 |
+| WP12 (gated) | 3 | TS agent + **Claude agent** (Rust half) | ADR-005 action 2a, WP0 → spec §10.1 (outside v0.2 core, Q7) |
+| WP13 (gated) | 1.5 | **Claude agent** (Rust, desktop) | WP8a, WP8b, D113 WP3/WP4 |
 
 Total ≈ 30 agent days for v1, ≈ 36 with WP11, WP12 and WP13.
 
@@ -502,18 +502,18 @@ Total ≈ 30 agent days for v1, ≈ 36 with WP11, WP12 and WP13.
 
 | Package | Rough size | Trigger |
 |---|---|---|
-| `command` identity-token source (spec §7.3) | 1.5 days | owner Q3 → v1.1 |
+| `command` identity-token source (spec §7.3) | 1.5 days | v1.1 (decided Q3) |
 | Metadata sources + named egress exception (GCP, Azure IMDS / App Service) | 3 days | first cloud-VM deployment |
 | Google ADC `external_account` (spec §5.4) | 2.5 days | Vertex on WIF requested |
 | Entra adapter + Azure OpenAI wire profile | 4 days | Azure OpenAI requested |
 | OpenAI X.509 (needs client certificates in the egress client) | 4 days | X.509 WIF leaves beta and is requested |
-| `workload_identity` as a voice parent | 1 day | owner Q9 |
-| Primary-server role switch (desktop track, D113 follow-up spec) | own spec | owner Q14 |
+| `workload_identity` as a voice parent | 1 day | after v1 (decided Q9) |
+| Primary-server role switch (desktop track, D113 follow-up spec) | own spec | desktop track (decided Q14) |
 
 ## Open points
 
-- Q4 is decided (full CLI setup parity, 2026-10-29). Owner questions Q1–Q3 and Q5–Q14 (spec §17) are open; the
-  recommendations are the plan's defaults.
+- All owner questions are decided (2026-10-29): Q4 as full CLI setup parity, Q1–Q3 and Q5–Q14 as recommended
+  (spec §17). No package waits for an owner answer; WP0-dependent gates (U1/U2 for WP12, U6, U8, U9) remain.
 - U8 (Anthropic's Kubernetes example vs. jti-bearing tokens) is an inference until WP0; the rotation verdict and the
   local `jti` refusal (WP4) mitigate it whatever WP0 finds, only the docs numbers in WP10 depend on it.
 - U7 (token-endpoint rate limits) stays undocumented; WP4 implements the defensive behaviour of spec §9.7.
