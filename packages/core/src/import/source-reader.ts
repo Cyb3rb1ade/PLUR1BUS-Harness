@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as native from "node:path";
-import { createLocalFs, RemoteFsError, type FsLimits, type FsStat, type ReadonlyFs } from "@plur1bus/remote-fs";
+import { createNativeSourceFs, RemoteFsError, type FsLimits, type FsStat, type ReadonlyFs } from "@plur1bus/remote-fs";
 import { createSecurePath } from "@plur1bus/module-api";
 import { decodeSourceText } from "./fs-safe.ts";
 import { openSqliteReadOnly, type SqliteHandle } from "./readonly.ts";
@@ -34,6 +34,7 @@ export class SourceReader {
   private readonly files = new Map<string, { size: number; sha256: string }>();
   private readonly directories = new Map<string, string>();
   private readonly sourceModes = new Map<string, number>();
+  private nativeLocal = false;
 
   constructor(options: SourceReaderOptions) {
     const source = options.fs;
@@ -62,17 +63,22 @@ export class SourceReader {
     this.paths = this.remote ? native.posix : native;
   }
 
+  /** Native CLI reads span drives and UNC shares; only explicitly configured readers hold a confined root. */
   static async local(limits?: Partial<FsLimits>, signal?: AbortSignal): Promise<SourceReader> {
     const root = native.parse(process.cwd()).root;
-    const fs = await createLocalFs({ root, limits: { maxDepth: 128, maxEntries: 100_000,
+    const fs = await createNativeSourceFs({ limits: { maxDepth: 128, maxEntries: 100_000,
       maxFileBytes: 1024 ** 3, timeoutMs: 300_000, ...limits }, ...(signal ? { signal } : {}) });
-    return new SourceReader({ fs, root });
+    const reader = new SourceReader({ fs, root });
+    reader.nativeLocal = true;
+    return reader;
   }
 
-  /** Selection is checked using the already-confined port before it becomes a new traversal base. */
+  /** Configured selections canonicalize both paths using the already-confined port before traversal. */
   async select(path: string): Promise<string> {
     const full = await this.fs.realpath(path);
-    const relative = this.paths.relative(this.root, full);
+    if (this.nativeLocal) return full;
+    const root = await this.fs.realpath(this.root);
+    const relative = this.paths.relative(root, full);
     if (relative === ".." || relative.startsWith(`..${this.paths.sep}`) || this.paths.isAbsolute(relative)) {
       throw new ImportError("E_DENIED", "source-path-denied", "Source path is outside the configured root");
     }

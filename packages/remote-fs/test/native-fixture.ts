@@ -2,7 +2,7 @@
 import { spawn } from "node:child_process";
 import { createHash, generateKeyPairSync } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
@@ -39,7 +39,7 @@ export async function buildNative(): Promise<void> {
 
 /** Holds only generated test key material, never a real account or persisted private-key file. */
 export async function fixture(mode: VerifiedWorker["mode"], readDelayMs = 0) {
-  const root = await mkdtemp(join(tmpdir(), "p1-sftp-"));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "p1-sftp-")));
   await mkdir(join(root, "first-home", "nested"), { recursive: true });
   await mkdir(join(root, "second-home"));
   await writeFile(join(root, "first-home", "config.json"), "public-config");
