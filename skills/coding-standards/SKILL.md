@@ -1,6 +1,8 @@
 ---
 name: coding-standards
 description: Default coding completion standards when the project has no more specific verifier conventions.
+category: code.test
+useWhen: Complete a coding task after checking the project's formatter, linter, type checks, tests and review requirements.
 ---
 
 Use project conventions first. The coding gate detects Node/pnpm, Python, Rust,

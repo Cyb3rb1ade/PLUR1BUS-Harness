@@ -4,8 +4,9 @@ The turn composition starts from `core.ts` after global configuration, secrets, 
 D111 logging, engine, identity and the permission runtime exist. `composition/index.ts`
 is the single assembly point for the persistent call budget, auth/refresh/pools,
 provider profiles, MCP lifecycle, media, scoped tool registry, prompt builder,
-capability index, triage, collaboration and session runner. There is no new RPC,
-CLI command, RBAC rule or configuration-schema change.
+capability index, triage, collaboration and session runner. N adds the live per-agent
+`toolUse.mode` configuration and additive turn telemetry; existing RPC methods,
+CLI JSON values and RBAC rules keep their contracts.
 
 ## AB1 — port inventory and integration work list
 
@@ -19,9 +20,9 @@ paragraphs lag several merged libraries; source/API ownership below is authorita
 | Identity principal | identity/service, principals | active exact handle link → v2; unlinked CLI retains proved v1 | Actual identity store test; no heuristic linking or owner migration |
 | RecallScopeProvider | identity/recall, engine public recall | engineTurnMemory reads v2 ∪ active linked v1, deduplicates identical blocks, applies final cap; writes canonical v2 | Two linked identities; scope revocation remains authoritative. Engine has a single-principal contract, so this adapter does multiple ACL reads, not engine-native RRF |
 | Memory recall/capture/checkpoint | session/memory-port, engine | existing engine port with identity scope; exactly one recall **stage**, capture after completion, no incognito capture | Real Core tests inspect recall/capture spans; model acceptance 3a remains a reference-hardware/live gate |
-| Triage | triage/index | rule baseline per turn, combined task categories, highest recommended initial class | Wire/integration traces; optional `decision.classProfiles` chooses configured router profiles only at turn boundaries |
-| Capability registration / Top-k | toolcall/CapabilityIndex | registry metadata → scoped index → top-k catalogue; dynamic MCP list before selection | Selected `file.read`, MCP and media; no global catalogue shared across agent scopes |
-| Prompt zones / snapshot | prompt/builder + session snapshot storage | tools/system/frozen first recall/conversation/live recall tail | B6 prefix hashes, reopen test; session schema v2 stores frozen memory; incognito stores no separate snapshot |
+| Triage | triage/index | decision model with rule fallback; selection routed per task; highest recommended initial class | Failure never removes core tools or skills; short followups restore completed skill choices; explicit boundaries keep active profiles stable |
+| Capability registration / Top-k | toolcall/CapabilityIndex + stable-tools | scoped registry → fixed core + retained session offer + relevant additions, within family cap | Search adds metadata and queues new tools for the next turn; no global catalogue shared across agent scopes |
+| Prompt zones / snapshot | prompt/builder + session snapshot storage | fixed instructions and sorted skill catalogue in system; loaded skill calls/results in conversation; live recall tail | B6 prefix hashes; next-session skill catalogue freeze; no repeated skill instructions in volatile suffix |
 | Cache breakpoint translation | prompt metadata, composition HTTP adapter | exact Anthropic system/tool/conversation markers applied to built body; volatile recall unmarked | Actual wire body checked; interior tool-block mapping and vendor live hit rates are separate acceptance work |
 | Cache telemetry | prompt/telemetry | normalised provider cache read/creation/input counts → hook/logger | Synthetic ≥.90 cache-read share from turn 3; no claim of live vendor cache hits |
 | Pre-call budget / reservations | budget/calls | router BudgetGuard before **every** initial, retry, fallback and repair attempt | Pre-call refusal, real usage settlement, unknown usage remains reserved |
@@ -124,9 +125,13 @@ wait and tool process. A completed turn's capture uses the Core-owned shutdown s
 Budget admission raises `CallBudgetExceededError` (`budget_exceeded`); retry exhaustion
 keeps `retry_budget_exceeded`. Router/provider errors retain their original taxonomy;
 auth never falls back, and no fallback happens after a streamed event. Dispatcher
-failures become typed `TurnToolError` with a redacted, bounded copy of the envelope
-(registered secrets removed, see [composition.md](../composition.md)); source error codes
-survive the adapter boundary. A second invalid argument set is `tool-call-invalid`.
+failures return correlated typed tool results through the model-only sanitizer
+(fixed internal messages, sanitized tool-exception first lines and structured typed
+errors; see [tool reliability](../tool-reliability.md#what-the-model-sees-when-a-tool-fails)).
+A second invalid argument set is `tool-call-invalid` and the next model round can
+recover. Three consecutive tool failures end the turn; successful execution resets
+the count. A required human approver, local-only refusal, budget refusal or abort
+still stops immediately. Logs and audit retain their existing output contracts.
 Unknown usage is **not zero usage**, but it never stays pending forever. An attempt
 whose request provably billed nothing (the adapter never ran, the credential lease
 failed, egress refused locally, or the provider answered an HTTP error before the
@@ -149,6 +154,14 @@ class cannot be determined is refused at load with `E_CONFIG_INVALID` (fail clos
 Each dispatched call gets the approval service's D109 context (repeat-denied, prompt
 cap per session) and the connection's derived surface. A non-person principal may
 chat; a call that needs a person's approval fails with `approval-requires-person`.
+
+Before round zero, tool need is derived from the task's routable categories, URLs,
+paths, DE/EN current-data words, attachments and selected skill tool declarations.
+The default `prefer` mode forces that initial round only when need exists; `auto`
+leaves selection to the model and `require-first` requests an initial tool whenever
+supported. The wrapper resolves compatibility per actual candidate and suppresses
+forcing for Anthropic Extended Thinking and unverified local servers. Only buffered
+paths can retry one first answer without a needed tool; streaming paths record it.
 
 Recall errors degrade to an empty/live context and remain logged. Failed captures
 leave the completed session outcome intact and are logged. Budget/auth/session store

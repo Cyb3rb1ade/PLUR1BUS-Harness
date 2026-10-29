@@ -741,6 +741,8 @@ jobs:
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
       PLUR1BUS_WEB_E2E_REQUIRED: "1"
+      # The shared macOS runner now and then stalls a page for seconds; the Linux shards keep the 5 s default (docs/ci.md).
+      PLUR1BUS_WEB_ACTION_TIMEOUT_MS: "15000"
       PLUR1BUS_TEST_SHARD: ${{ matrix.shard }}/${{ matrix.total }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { localOnlyFor } from '../privacy/local-only.ts';
 import { triage, type TriageDecision } from '../triage/index.ts';
 import { DecisionBackendError, type DecisionBackendName, type DecisionContext, type DecisionEvent, type DecisionFailure, type DecisionInput, type DecisionOptions, type DecisionPrimitive, type DecisionRequest, type DecisionResult, type ChoiceInput, type ScoreInput } from './types.ts';
-const budgets = { triage: 200, routing: 200, pruning: 100, skills: 100, placement: 200, zoom: 150, compaction: 200 };
+const budgets = { triage: 2000, routing: 200, pruning: 100, skills: 2000, placement: 200, zoom: 150, compaction: 200 };
 const floors = { triage: 0, routing: .7, pruning: .7, skills: .7, placement: .7, zoom: .35, compaction: .7 };
 const unit = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1;
 const text = (v: unknown, max: number): v is string => typeof v === 'string' && v.length <= max;
@@ -29,7 +29,7 @@ export class DecisionClient {
     const config = this.#options.config(), settings = config.decision;
     const selected = String(settings.backend ?? 'role');
     const cap = (settings.budgets as Record<string, number> | undefined)?.[input.useCase] ?? budgets[input.useCase];
-    const deadline = Math.min(context.deadline ?? Infinity, started + Math.min(Number(settings.timeoutMs ?? 200), cap));
+    const deadline = Math.min(context.deadline ?? Infinity, started + Math.min(Number(settings.timeoutMs ?? 2000), cap));
     const floor = (settings.confidence as Record<string, number> | undefined)?.[input.useCase] ?? floors[input.useCase];
     const finish = (result: DecisionResult<T>): DecisionResult<T> => {
       this.#requests++; if (!result.ok) this.#failures++;

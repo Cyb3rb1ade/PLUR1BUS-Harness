@@ -1,3 +1,7 @@
+import { createTurnObserver } from './turn-observer.ts';
+import { createMemoryTools } from '../tools/memory.ts';
+import { createWebFetch } from '../tools/web/fetch.ts';
+import { restoreSessionSkills } from './session-skills.ts';
 import { ruleSkills, selectDecisionSkills } from '../decision/skills.ts';
 import { SessionModelRouting } from './model-routing.ts';
 import { DecisionClient } from '../decision/client.ts';
@@ -113,6 +117,8 @@ export interface CompositionDeps {
   notify: (method: string, params: object, opts: import("../rpc/server.ts").NotifyOptions) => void;
   approver?: import("../session/methods.ts").SessionMethodDeps["approver"];
   onStoredCapture?: (agentId: string) => void;
+  /** Final session-turn observations for the core's metrics aggregate. */
+  onTurnTelemetry?: (telemetry: import("../session/turn-telemetry.ts").TurnTelemetry) => void;
   provider?: ChatProvider; options?: CompositionOptions;
   /** Inbox notices for media-index events; absent: the events only reach the log. */
   inbox?: import('../inbox/service.ts').InboxPort;
@@ -286,7 +292,8 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     const profilePolicy = (cfg.providers as { modelProfilePolicy?: Record<string, { allowCrossBilling?: unknown }> }).modelProfilePolicy ?? {};
     let collab: Collab | null = null;
     let coding: CodingCompletion | undefined;
-    const toolsForTurn = (req: ChatRequest) => composeTools({ sandbox: { required: cfg.tools.sandbox.required, maxTasks: d.config().tools.sandbox.maxTasks }, home: d.home, roots: options.tools?.roots ?? [{ id: req.agentId, path: d.agents.workspaceOf(req.agentId) ?? join(d.home, 'agents', req.agentId, 'workspace') }], grants, audit: d.audit, hostctl, output: execOutput, ...(coding ? { coding } : {}), ...(collab ? { collaboration: {
+    const webFetch = createWebFetch({ request: (url, options) => d.egress.request(url, options) });
+    const toolsForTurn = (req: ChatRequest) => composeTools({ webFetch, sandbox: { required: cfg.tools.sandbox.required, maxTasks: d.config().tools.sandbox.maxTasks }, home: d.home, roots: options.tools?.roots ?? [{ id: req.agentId, path: d.agents.workspaceOf(req.agentId) ?? join(d.home, 'agents', req.agentId, 'workspace') }], grants, audit: d.audit, hostctl, output: execOutput, ...(coding ? { coding } : {}), ...(collab ? { collaboration: {
       ...(coding ? { review: reviewHooks(coding) } : {}),
       collab, enabled: () => d.config().collaboration.fanoutEnabled,
       repair: async (input: unknown, issues: readonly string[]) => {
@@ -297,7 +304,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       },
       principal: (request: ChatRequest) => { const id = request.approver?.person ?? request.authenticatedPerson; return id ? d.resolveCollaborationPerson?.(id) ?? null : null; },
       authority: { approvals: { get: (id: string) => d.permissions.current()?.stores.approvals.get(id) }, grants: { get: (id: string) => d.permissions.current()?.grants.get(id) }, now: d.clock, audit: (event: { reason: string; person: string; taskId: string }) => { d.audit.append({ at: d.clock(), actor: { user: event.person, host: 'core' }, action: 'collab.handoff.refused', target: event.taskId, detail: { reason: event.reason } }); } }
-    } } : {}), ...(d.webSearch ? { webSearch: d.webSearch } : {}), secretNames: secretNamesPort(d), ...(budget ? { budget } : {}), degraded: (service, error) => d.logger.warn('turn tool service degraded', { service, err: error }), ...options.tools, ...(media ? { media: { adapter: media.adapter, store: mediaSurface.storeFor(req.agentId, principal(req)) } } : {}), ...(options.tools?.mcp ? {} : mcp && mcpExtensions ? { mcp: { port: mcp, servers: () => mcpExtensions.servers(), refresh: () => { extensions.retryPending(); return mcpExtensions.refresh(); }, visible: (server, agent) => mcpExtensions.visible(server, agent), revision: (server, agent) => mcpExtensions.revision(server, agent), declaration: server => mcpExtensions.declaration(server) } } : {}) }, { ...req, principal: principal(req) });
+    } } : {}), ...(d.webSearch ? { webSearch: d.webSearch } : {}), secretNames: secretNamesPort(d), ...(budget ? { budget } : {}), degraded: (service, error) => d.logger.warn('turn tool service degraded', { service, err: error }), ...options.tools, extra: [...createMemoryTools(memory, req), ...(options.tools?.extra ?? [])], ...(media ? { media: { adapter: media.adapter, store: mediaSurface.storeFor(req.agentId, principal(req)) } } : {}), ...(options.tools?.mcp ? {} : mcp && mcpExtensions ? { mcp: { port: mcp, servers: () => mcpExtensions.servers(), refresh: () => { extensions.retryPending(); return mcpExtensions.refresh(); }, visible: (server, agent) => mcpExtensions.visible(server, agent), revision: (server, agent) => mcpExtensions.revision(server, agent), declaration: server => mcpExtensions.declaration(server) } } : {}) }, { ...req, principal: principal(req) });
     // M2: isolated additive Session wiring; the existing turn/tool composition below is unchanged.
     const families = options.providers?.family ?? auth?.families ?? {};
     const reasoningFor = (provider: string, model: string): ReasoningDescriptor => fitToWire(d.chatModels?.reasoning(provider, model) ?? NO_REASONING, families[provider] ?? 'openai-chat');
@@ -344,18 +351,50 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
         }
       },
     });
-    const turnProviderOptions: TurnProviderOptions | null = budget && Object.keys(profiles).length ? { ...options.providers, modelRouting, onModelRouting: (event, turn) => {
+    const observeTurn = createTurnObserver(telemetry => d.onTurnTelemetry?.(telemetry));
+    const turnProviderOptions: TurnProviderOptions | null = budget && Object.keys(profiles).length ? { ...options.providers, modelRouting,
+      onTelemetry: (request, telemetry) => observeTurn(telemetry, { sessionId: request.sessionId,
+        turnId: request.turnId ?? request.sessionId, agentId: request.agentId }),
+      toolUseMode: agent => d.config().agents[agent]?.toolUse?.mode ?? 'prefer',
+      toolOffers: request => {
+        const store = sessions.forSession(request.sessionId).store;
+        const session = store.getSession(request.sessionId);
+        return session?.agentId === request.agentId && session.owner === request.principal
+          ? store.toolOffers(request.sessionId) : [];
+      },
+      rememberTools: (request, names) => {
+        const store = sessions.forSession(request.sessionId).store;
+        const session = store.getSession(request.sessionId);
+        if (session?.agentId === request.agentId && session.owner === request.principal) {
+          store.rememberToolOffers(request.sessionId, names);
+        }
+      },
+      restoreSkills: request => restoreSessionSkills(sessions.forSession(request.sessionId).store, request),
+      skillCatalogueSnapshot: (request, catalogue) => {
+        const store = sessions.forSession(request.sessionId).store;
+        const session = store.getSession(request.sessionId);
+        if (!session || session.agentId !== request.agentId || session.owner !== request.principal) return catalogue;
+        return store.freezeSkillCatalogue(request.sessionId, catalogue);
+      }, onModelRouting: (event, turn) => {
       const service = sessions.forSession(turn.sessionId), session = service.store.getSession(turn.sessionId);
       if (!session || session.agentId !== turn.agentId || session.owner !== turn.principal || service.store.getTurn(turn.turnId)?.sessionId !== session.id) return;
       const stored = service.store.appendEvent(turn.turnId, 'model.selected', { ...event });
       d.notify('session.event', { agentId: session.agentId, event: toWireEvent(stored) }, { optIn: true });
     }, onExecution: execution => { try { workflowEvidence.record(execution); } catch { d.logger.warn('mining execution evidence unavailable'); } }, selectSkills: async (request,candidates,signal) => {
       const selection = d.config().agents[request.agentId]?.skills ?? {};
-      const work = async (signal:AbortSignal) => selectDecisionSkills(decisions,{query:request.messages.filter(m=>m.role==='user').at(-1)?.text ?? '',candidates,...selection,maxMs:Math.min(Number(d.config().decision.timeoutMs ?? 200),Number((d.config().decision.budgets as Record<string,number>|undefined)?.skills ?? 100))},{agentId:request.agentId,sessionId:request.sessionId,...(request.turnId?{turnId:request.turnId}:{}),...(request.principal?{principal:request.principal}:{}),signal,chat:request});
+      const work = async (signal:AbortSignal) => selectDecisionSkills(decisions,{query:request.skillQuery ?? request.messages.filter(m=>m.role==='user').at(-1)?.text ?? '',candidates,...selection,maxMs:Math.min(Number(d.config().decision.timeoutMs ?? 2000),Number((d.config().decision.budgets as Record<string,number>|undefined)?.skills ?? 2000))},{agentId:request.agentId,sessionId:request.sessionId,...(request.turnId?{turnId:request.turnId}:{}),...(request.principal?{principal:request.principal}:{}),signal,chat:request});
       const selected=request.turnProfile ? await request.turnProfile.run('decisionService',work,ruleSkills({query:'',candidates,...selection}),signal) : await work(signal);
-      if(request.turnId){const store=sessions.forSession(request.sessionId).store;const session=store.getSession(request.sessionId);if(session?.agentId===request.agentId&&session.owner===request.principal){const event=store.appendEvent(request.turnId,'skills.selected',{skills:selected.map(s=>({id:s.id,source:s.source,...('confidence' in s && s.confidence!==undefined?{confidence:s.confidence}:{})}))});d.notify('session.event',{agentId:request.agentId,event:toWireEvent(event)},{optIn:true});}}
-      return selected.map(s=>s.id);
-    }, requireTriage: !!cfg.modelRoles.decision, triageTimeoutMs: typeof cfg.decision.timeoutMs === 'number' ? cfg.decision.timeoutMs : 200, profileForAgent: agent => d.config().agents[agent]?.model, capabilities, skillsForAgent: agent => d.config().agents[agent]?.skills ?? {}, profiles, reasoningFor, profile: auth?.resolved.defaultProfile ?? 'default', profileForClass: modelClass => loadClassProfiles(join(d.home, 'model-class-profiles.json'), (d.config().decision.classProfiles as Record<string, string> | undefined) ?? classProfiles)[modelClass as import('../triage/classes.ts').ModelClass], router: { profileDefaults: auth?.resolved.defaults ?? {}, unsupportedProfiles: auth?.resolved.unsupported ?? {}, ...options.providers?.router }, family: options.providers?.family ?? auth?.families ?? {}, billing: options.providers?.billing ?? auth?.billing ?? {}, cacheRoutes: auth?.cacheRoutes ?? {}, profileCache: Object.fromEntries(Object.entries(auth?.resolved.profiles ?? {}).map(([name, p]) => [name, p.cache])), allowCrossBilling: name => profilePolicy[name]?.allowCrossBilling === true, localOnly: agentId => localOnlyFor(d.config(), agentId), isLocalProvider, secrets: () => registered, onRouterEvent: routerEventSink(d), policyContext: approvalPolicyContext(d.permissions), registry: new ToolRegistry(), budget, principal, toolsForTurn, snapshot: (req, memory) => req.projectId ? memory : sessions.forSession(req.sessionId).store.freezePromptSnapshot(req.sessionId, memory), onUsage: record => d.logger.info('provider.cache_usage', { ...record }), onPrompt: prompt => { options.providers?.onPrompt?.(prompt); for (const event of prompt.events) d.logger.info(event.type, { ...event }); }, beforeTools: async () => { await d.permissions.open(); }, grants, grantUse: { markUsed: id => d.permissions.current()!.grants.markUsed(id), consumeOnce: (id, binding) => d.permissions.current()!.grants.consumeOnce(id, binding) }, approval: { request: async ask => (await d.permissions.open()).service.request(ask), begin: (answer, ask) => d.permissions.current()?.service.begin(answer, ask) ?? false }, audit, log: record => d.logger.info('turn.stage', { ...record }), resultStore: { async put(value) {
+      return selected;
+    }, onSkillsSelected: (request, selected) => {
+      if (!request.turnId) return;
+      const store = sessions.forSession(request.sessionId).store;
+      const session = store.getSession(request.sessionId);
+      if (!session || session.agentId !== request.agentId || session.owner !== request.principal) return;
+      const event = store.appendEvent(request.turnId, 'skills.selected', { skills: selected.map(skill => ({
+        id: skill.id, source: skill.source, ...(skill.confidence === undefined ? {} : { confidence: skill.confidence }),
+      })) });
+      d.notify('session.event', { agentId: request.agentId, event: toWireEvent(event) }, { optIn: true });
+    }, requireTriage: !!cfg.modelRoles.decision, triageTimeoutMs: typeof cfg.decision.timeoutMs === 'number' ? cfg.decision.timeoutMs : 2000, profileForAgent: agent => d.config().agents[agent]?.model, capabilities, skillsForAgent: agent => d.config().agents[agent]?.skills ?? {}, profiles, reasoningFor, profile: auth?.resolved.defaultProfile ?? 'default', profileForClass: modelClass => loadClassProfiles(join(d.home, 'model-class-profiles.json'), (d.config().decision.classProfiles as Record<string, string> | undefined) ?? classProfiles)[modelClass as import('../triage/classes.ts').ModelClass], router: { profileDefaults: auth?.resolved.defaults ?? {}, unsupportedProfiles: auth?.resolved.unsupported ?? {}, ...options.providers?.router }, family: options.providers?.family ?? auth?.families ?? {}, billing: options.providers?.billing ?? auth?.billing ?? {}, cacheRoutes: auth?.cacheRoutes ?? {}, profileCache: Object.fromEntries(Object.entries(auth?.resolved.profiles ?? {}).map(([name, p]) => [name, p.cache])), allowCrossBilling: name => profilePolicy[name]?.allowCrossBilling === true, localOnly: agentId => localOnlyFor(d.config(), agentId), isLocalProvider, secrets: () => registered, onRouterEvent: routerEventSink(d), policyContext: approvalPolicyContext(d.permissions), registry: new ToolRegistry(), budget, principal, toolsForTurn, snapshot: (req, memory) => req.projectId ? memory : sessions.forSession(req.sessionId).store.freezePromptSnapshot(req.sessionId, memory), onUsage: record => d.logger.info('provider.cache_usage', { ...record }), onPrompt: prompt => { options.providers?.onPrompt?.(prompt); for (const event of prompt.events) d.logger.info(event.type, { ...event }); }, beforeTools: async () => { await d.permissions.open(); }, grants, grantUse: { markUsed: id => d.permissions.current()!.grants.markUsed(id), consumeOnce: (id, binding) => d.permissions.current()!.grants.consumeOnce(id, binding) }, approval: { request: async ask => (await d.permissions.open()).service.request(ask), begin: (answer, ask) => d.permissions.current()?.service.begin(answer, ask) ?? false }, audit, log: record => d.logger.info('turn.stage', { ...record }), resultStore: { async put(value) {
       const dir = join(d.home, 'state', 'tool-results'); await mkdir(dir, { recursive: true, mode: 0o700 });
       const id = randomUUID(); await writeFile(join(dir, `${id}.json`), JSON.stringify(value), { flag: 'wx', mode: 0o600 }); return `tool-result:${id}`;
     } } } : null;
@@ -414,7 +453,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
         return;
       }
       void d.permissions.open().then(p => p.grants.endSession(id)).catch(err => d.logger.warn('grant session end failed', { err }));
-    }, ...(d.approver ? { approver: d.approver } : {}) });
+    }, ...(d.approver ? { approver: d.approver } : {}), onTurnTelemetry: observeTurn });
     const skillProposals = new UnavailableSkillProposals();
     const skillReview = new SkillReview(skillProposals, { request: async ask => (await d.permissions.open()).service.request(ask), begin: (answer, ask) => d.permissions.current()?.service.begin(answer, ask) ?? false });
     const mining = new SkillMining(sessions.store, async scope => {

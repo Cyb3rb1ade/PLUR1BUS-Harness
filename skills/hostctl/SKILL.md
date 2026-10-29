@@ -1,6 +1,8 @@
 ---
 name: hostctl
 description: Operate the human's local computer through root-contained D109 tools, with bounded files and owned process sessions.
+category: ops.system
+useWhen: Inspect or change local files, run an owned process or use native desktop tools through authorized hostctl operations.
 ---
 
 Use only registered `hostctl.*` tools. They run locally inside the Harness; never start a remote host or expose a server for computer control.

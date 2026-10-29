@@ -7,6 +7,8 @@ export type ChatChunk =
   /** With a tool dispatcher the loop executes the call and persists the envelope as `tool.result`; without one it persists a reported call/result and executes nothing. */
   | { type: "tool.call"; id: string; name: string; args?: unknown }
   | { type: "tool.result"; id: string; output: string }
+  /** A final additive observation; the provider still owns its existing success/failure behavior. */
+  | { type: "telemetry"; telemetry: import("./turn-telemetry.ts").TurnTelemetry }
   | { type: "usage"; inputTokens: number; outputTokens: number; model?: string; measurements?: UsageMeasurement[] };
 
 export interface TurnApprover { person: string | null; surface: 0 | 1 | 2 | 3 }
@@ -14,6 +16,15 @@ export interface TurnApprover { person: string | null; surface: 0 | 1 | 2 | 3 }
 export interface RecurringOrigin { jobId: string; jobName: string; runAs: string; trigger: "recurring" }
 
 export interface ChatRequest {
+  /** Session owner receives the final snapshot before persisting its authoritative outcome. */
+  onTurnTelemetry?: (telemetry: import("./turn-telemetry.ts").TurnTelemetry) => void;
+  /** Trusted per-turn override for scheduled, headless and delegated work; never an RPC parameter. */
+  toolUseMode?: import('../toolcall/tool-use.ts').ToolUseMode;
+  /** Buffered delivery permits one hidden first-answer retry; streamed answers cannot be retracted. */
+  buffered?: boolean;
+  hasAttachments?: boolean;
+  /** Trusted discovery query assembled from current task and prior user context. */
+  skillQuery?: string;
   /** Trusted scoped reviewer checkout. No transport accepts this field. */
   readOnlyWorktree?: string;
   collaborationTier?: 'cheap' | 'standard' | 'premium';
@@ -44,7 +55,11 @@ export interface ChatRequest {
   /** The recalled memory block for this turn (empty when recall returned nothing or degraded). */
   memory: string;
   /** The uncovered history ending with this turn's user message. */
-  messages: { role: "system" | "user" | "assistant" | "tool"; text: string }[];
+  messages: {
+    role: "system" | "user" | "assistant" | "tool"; text: string; turnId?: string;
+    /** A completed tool call/result pair the context view carries as this one message (see `ContextView`). */
+    toolCall?: { id: string; name: string; whole: boolean };
+  }[];
   /** The tools the harness will execute for this turn (B1); absent when the turn loop has no tool dispatcher. */
   tools?: { name: string; description: string; inputSchema: Record<string, unknown>; risk: string }[];
   signal: AbortSignal;

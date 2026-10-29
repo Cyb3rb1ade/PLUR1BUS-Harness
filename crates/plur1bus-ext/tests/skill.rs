@@ -592,17 +592,18 @@ fn between<'a>(src: &'a str, start: &str, end: &str) -> &'a str {
 #[test]
 fn rust_excluded_and_skip_cover_the_ts_importer_lists() {
     let ts = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/core/src/import");
-    let readonly = std::fs::read_to_string(ts.join("readonly.ts")).unwrap();
+    // isSecretFileName lives in secret-file-names.ts; readonly.ts re-exports it.
+    let secret = std::fs::read_to_string(ts.join("secret-file-names.ts")).unwrap();
     let scan = std::fs::read_to_string(ts.join("skills-scan.ts")).unwrap();
     // isSecretFileName: the SECRET_NAMES set plus the startsWith / endsWith tests in its body.
-    let names = quoted(between(&readonly, "SECRET_NAMES = new Set([", "]"));
+    let names = quoted(between(&secret, "SECRET_NAMES = new Set([", "]"));
     assert!(names.len() >= 6, "{names:?}");
     for n in &names {
         assert!(is_excluded(n), "SECRET_NAMES entry {n:?}");
         assert!(is_excluded(&n.to_uppercase()), "{n:?} in upper case");
     }
     let body = between(
-        &readonly,
+        &secret,
         "export function isSecretFileName",
         "
 }",

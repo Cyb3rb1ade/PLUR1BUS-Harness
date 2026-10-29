@@ -1,0 +1,26 @@
+{
+  "schema": "plur1bus.skill-selection-calibration/1",
+  "description": "Independent metadata relevance calibration using the G1 code and research skill descriptions.",
+  "skills": [
+    {
+      "id": "skill:code-work",
+      "name": "code-work",
+      "description": "Implement code, fix bugs and test code; programmiere Code und teste Fehler.",
+      "category": "code.edit"
+    },
+    {
+      "id": "skill:web-research",
+      "name": "web-research",
+      "description": "Search current web research and compare sources; suche aktuelle Webquellen.",
+      "category": "web.research"
+    }
+  ],
+  "cases": [
+    { "id": "code-en", "input": "Implement code and test file ./report.txt", "expected": ["code-work"] },
+    { "id": "code-de", "input": "Implementiere Code und teste die Datei ./report.txt", "expected": ["code-work"] },
+    { "id": "research-en", "input": "Search current web sources today", "expected": ["web-research"] },
+    { "id": "research-de", "input": "Suche aktuelle Webquellen heute", "expected": ["web-research"] },
+    { "id": "no-overlap", "input": "Tell me a joke", "expected": [] },
+    { "id": "weak-overlap", "input": "Hello and thanks", "expected": [] }
+  ]
+}

@@ -11,6 +11,8 @@ export const FIRST_PARTY_TOOL_NAMES: ReadonlySet<string> = Object.freeze(new Set
   "image.generate",
   "image.edit",
   "web.search",
+  "memory.recall",
+  "memory.capture",
   ...HOST_TOOLS.map((t) => t.name),
 ]));
 

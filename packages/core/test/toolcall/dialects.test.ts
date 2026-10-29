@@ -16,7 +16,11 @@ const FAMILIES: ProviderFamily[] = ["openai-chat", "openai-responses", "anthropi
 describe("quirks table", () => {
   it("documents the expected per-family limits", () => {
     const expected: Record<string, [number, number, number, boolean, boolean]> = {
-      "openai-chat": [128, 64, 1024, true, true], "openai-responses": [128, 64, 1024, true, true], anthropic: [64, 64, 4096, false, true], gemini: [64, 64, 1024, false, true], "local-small": [8, 64, 1024, false, false],
+      "openai-chat": [128, 64, 1024, true, true],
+      "openai-responses": [128, 64, 1024, true, true],
+      anthropic: [64, 64, 4096, false, true],
+      gemini: [64, 64, 1024, false, true],
+      "local-small": [16, 64, 1024, false, false],
     };
     for (const [name, [maxTools, maxName, maxDesc, strict, parallel]] of Object.entries(expected)) {
       const q = lookupQuirks(name);
@@ -24,10 +28,14 @@ describe("quirks table", () => {
     }
   });
 
-  it("unknown model families fall back to the conservative local-small profile with at most 4 tools", () => {
+  it("unknown model families keep the fixed core inside the bounded 16-tool local profile", () => {
     for (const name of ["", "gpt-9000", "ANTHROPIC", "openai-chat ", "unknown", "α"]) {
       const q = lookupQuirks(name);
-      assert.equal(q.maxTools, 4, name); assert.equal(q.parallel, false, name); assert.equal(q.strict, false, name); assert.equal(q.family, "openai-chat", name);
+      assert.equal(q.maxTools, 16, name);
+      assert.equal(q.parallel, false, name);
+      assert.equal(q.strict, false, name);
+      assert.equal(q.supportsForcedToolChoice, false, name);
+      assert.equal(q.family, "openai-chat", name);
     }
   });
 
@@ -39,9 +47,10 @@ describe("quirks table", () => {
   it("any name that is not an own table key (including 'constructor', '__proto__', 'toString') gets the conservative fallback", async () => {
     for (const name of ["constructor", "__proto__", "toString", "hasOwnProperty", "valueOf"]) {
       const q = lookupQuirks(name);
-      assert.equal(q.maxTools, 4, `${name}: maxTools`);
+      assert.equal(q.maxTools, 16, `${name}: maxTools`);
       assert.throws(() => compileDialect(tool({ name: "bad name with spaces" }), "openai-chat", { modelFamily: name }), /invalid tool name/, `${name}: name limits`);
-      assert.throws(() => compileCatalogue(Array.from({ length: 5 }, (_, i) => tool({ name: `t${i}` })), "openai-chat", name), /too many tools/, `${name}: tool count`);
+      const oversized = Array.from({ length: 17 }, (_, i) => tool({ name: `t${i}` }));
+      assert.throws(() => compileCatalogue(oversized, "openai-chat", name), /too many tools/, `${name}: tool count`);
       assert.equal((await prepareCall("t", { type: "object" }, "{}", undefined, name)).ok, true, `${name}: prepareCall`);
     }
   });
@@ -51,7 +60,8 @@ describe("quirks table", () => {
       assert.equal(lookupQuirks(name), QUIRKS[name], name);
     }
     assert.equal(lookupQuirks("openai-chat").maxTools, 128);
-    assert.equal(lookupQuirks("local-small").maxTools, 8);
+    assert.equal(lookupQuirks("local-small").maxTools, 16);
+    assert.equal(lookupQuirks("local-small").supportsForcedToolChoice, false);
   });
 });
 
@@ -291,7 +301,11 @@ describe("compileCatalogue", () => {
   const many = (n: number, prefix = "t") => Array.from({ length: n }, (_, i) => tool({ name: `${prefix}${i}`, parameters: closed() as never }));
 
   it("the tool-count limit is per model family: exactly the maximum passes, one more fails", () => {
-    const limits: [ProviderFamily, string, number][] = [["openai-chat", "openai-chat", 128], ["openai-responses", "openai-responses", 128], ["anthropic", "anthropic", 64], ["gemini", "gemini", 64], ["openai-chat", "local-small", 8], ["openai-chat", "unknown-model", 4]];
+    const limits: [ProviderFamily, string, number][] = [
+      ["openai-chat", "openai-chat", 128], ["openai-responses", "openai-responses", 128],
+      ["anthropic", "anthropic", 64], ["gemini", "gemini", 64],
+      ["openai-chat", "local-small", 16], ["openai-chat", "unknown-model", 16],
+    ];
     for (const [family, model, max] of limits) {
       assert.equal(compileCatalogue(many(max), family, model).length, max, `${model} at ${max}`);
       assert.throws(() => compileCatalogue(many(max + 1), family, model), /too many tools for model family/, `${model} at ${max + 1}`);

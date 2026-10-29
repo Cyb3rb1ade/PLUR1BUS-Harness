@@ -95,7 +95,8 @@ export function createEngineCompletion(create: typeof createTurnProvider, option
         const chunk = next.value;
         if (chunk.type === "delta") text += chunk.text;
         else if (chunk.type === "usage") usage = { inputTokens: chunk.inputTokens, outputTokens: chunk.outputTokens };
-        else throw toolsForbidden;
+        // The final turn observation is no tool traffic; every other chunk (a tool call or result) is refused.
+        else if (chunk.type !== "telemetry") throw toolsForbidden;
       } } finally { await active.run(context, () => stream.return?.()); }
       signal.throwIfAborted();
       return { text, ...(context.served === undefined ? {} : { model: context.served }), ...(usage === undefined ? {} : { usage }) };
