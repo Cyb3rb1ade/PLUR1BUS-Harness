@@ -2206,6 +2206,158 @@
                         "x-audit": true
                       }
                     }
+                  },
+                  "mcp": {
+                    "description": "Turns this agent runs for an external MCP host via agent_ask.",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "x-restart": "live",
+                    "x-tier": "advanced",
+                    "x-write-roles": [
+                      "owner",
+                      "admin"
+                    ],
+                    "x-audit": true,
+                    "properties": {
+                      "recall": {
+                        "description": "Memory scopes read for the external MCP caller.",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "properties": {
+                          "workspace": {
+                            "description": "Read the agent's workspace scope.",
+                            "type": "boolean",
+                            "default": true,
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true
+                          },
+                          "user": {
+                            "description": "Read the requesting person's user scope.",
+                            "type": "boolean",
+                            "default": false,
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true
+                          },
+                          "agentPrivate": {
+                            "description": "Read the agent's agent-private scope.",
+                            "type": "boolean",
+                            "default": false,
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true
+                          }
+                        }
+                      },
+                      "capture": {
+                        "description": "Capture the exchange after the turn into memory. Defaults to false.",
+                        "type": "boolean",
+                        "default": false,
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true
+                      }
+                    }
+                  },
+                  "a2a": {
+                    "description": "Turns this agent runs for an external A2A peer.",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "x-restart": "live",
+                    "x-tier": "advanced",
+                    "x-write-roles": [
+                      "owner",
+                      "admin"
+                    ],
+                    "x-audit": true,
+                    "properties": {
+                      "recall": {
+                        "description": "Memory scopes read for the external A2A peer.",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "properties": {
+                          "workspace": {
+                            "description": "Read the agent's workspace scope.",
+                            "type": "boolean",
+                            "default": true,
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true
+                          },
+                          "user": {
+                            "description": "Read the requesting person's user scope.",
+                            "type": "boolean",
+                            "default": false,
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true
+                          },
+                          "agentPrivate": {
+                            "description": "Read the agent's agent-private scope.",
+                            "type": "boolean",
+                            "default": false,
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true
+                          }
+                        }
+                      },
+                      "capture": {
+                        "description": "Capture the exchange after the turn into memory. Defaults to false.",
+                        "type": "boolean",
+                        "default": false,
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true
+                      }
+                    }
                   }
                 }
               },

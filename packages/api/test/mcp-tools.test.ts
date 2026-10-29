@@ -143,7 +143,7 @@ test("AgentToolGroup runs agent turns and queries status", async () => {
   const fakeCore = {
     call: async (method: string, params: any) => {
       calls.push({ method, params });
-      if (method === "chat.ask") {
+      if (method === "external.turn.start" || method === "chat.ask") {
         return { reply: "I completed the request." };
       }
       if (method === "agent.read") {
@@ -166,14 +166,16 @@ test("AgentToolGroup runs agent turns and queries status", async () => {
   // 2. agent_ask executes turn
   const askRes = await askTool.handler(
     { message: "Process data" },
-    { agentId: "agent-y", core: fakeCore as any, rbac: { userId: "user-alice" } as any },
+    { agentId: "agent-y", core: fakeCore as any, rbac: { userId: "user-alice" } as any, tokenId: "tok-test" },
   );
   assert.deepEqual(askRes, { reply: "I completed the request." });
-  assert.equal(calls[0]!.method, "chat.ask");
+  assert.equal(calls[0]!.method, "external.turn.start");
   assert.deepEqual(calls[0]!.params, {
     agentId: "agent-y",
     message: "Process data",
-    caller: "user-alice",
+    audience: "mcp",
+    tokenId: "tok-test",
+    wait: true,
   });
 
   // 3. agent_status queries state

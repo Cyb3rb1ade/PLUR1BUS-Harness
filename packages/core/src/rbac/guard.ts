@@ -278,10 +278,29 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "memory.sensitivity.get": rule("memory.sensitivity.read", agent),
   "memory.sensitivity.set": rule("memory.sensitivity.write", agent),
   "memory.sensitivity.clear": rule("memory.sensitivity.write", agent),
+  // M6-A (Arbeitspaket P): external.turn.* (M6A-A1.3)
+  "external.turn.start": rule("agent.use", agent),
+  "external.turn.events": rule("agent.read", agent),
+  "external.turn.get": rule("agent.read", agent),
+  "external.turn.cancel": rule("agent.use", agent),
 });
 
 function authorizeMemoryFallback(method: string, principal: Principal, params: unknown, ctx: CallContext, authCtx: AuthorizeContext): Decision | null {
-  const agentId = field(params, "agentId");
+  const agentId = field(params, "agentId") || (principal.binding?.agentId ?? "");
+  if (method === "external.turn.start" || method === "external.turn.cancel") {
+    if (principal.tokenScopes && (principal.tokenScopes.includes("a2a.task") || principal.tokenScopes.includes("mcp.write") || principal.tokenScopes.includes("mcp:call"))) {
+      const { tokenScopes: _omit, ...noScope } = principal;
+      const dec = authorize(noScope, "agent.use", { kind: "agent", agentId }, authCtx);
+      if (dec.effect === "allow") return dec;
+    }
+  }
+  if (method === "external.turn.events" || method === "external.turn.get") {
+    if (principal.tokenScopes && (principal.tokenScopes.includes("a2a.task") || principal.tokenScopes.includes("mcp.read") || principal.tokenScopes.includes("mcp:call"))) {
+      const { tokenScopes: _omit, ...noScope } = principal;
+      const dec = authorize(noScope, "agent.read", { kind: "agent", agentId }, authCtx);
+      if (dec.effect === "allow") return dec;
+    }
+  }
   if (method === "memory.sensitivity.set" || method === "memory.sensitivity.clear") {
     const dec = authorize(principal, "memory.user.write", { kind: "memory", scope: "user", ownerUserId: principal.userId }, authCtx);
     if (dec.effect === "allow") return dec;

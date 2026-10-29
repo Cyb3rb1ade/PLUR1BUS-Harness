@@ -28,17 +28,29 @@ export class AgentToolGroup implements McpToolGroup {
         }
 
         const caller = toolCtx?.rbac?.userId ?? ctx.rbac?.userId ?? "mcp-caller";
+        const tokenId = toolCtx?.tokenId ?? ctx.tokenId;
         try {
-          const res = await (core as any).call("chat.ask", {
+          const res = await (core as any).call("external.turn.start", {
             agentId,
             message,
-            caller,
+            audience: "mcp",
+            ...(tokenId !== undefined ? { tokenId } : {}),
+            wait: true,
           });
           return res;
         } catch {
-          // Fallback if chat.ask is not directly exposed as an RPC method
-          const status = await (core as any).call("agent.read", { agentId });
-          return { reply: `Agent ${agentId} received message. Status: ${JSON.stringify(status)}` };
+          try {
+            const res = await (core as any).call("chat.ask", {
+              agentId,
+              message,
+              caller,
+            });
+            return res;
+          } catch {
+            // Fallback if chat.ask is not directly exposed as an RPC method
+            const status = await (core as any).call("agent.read", { agentId });
+            return { reply: `Agent ${agentId} received message. Status: ${JSON.stringify(status)}` };
+          }
         }
       },
     };

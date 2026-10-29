@@ -70,7 +70,8 @@ import { CodingGate } from '../collab/coding-gate.ts';
 import { sandboxVerifier } from '../collab/verifier.ts';
 import { codingMethods, reviewHooks, type CodingCompletion } from '../collab/coding-surface.ts';
 import { composedAgentRunner } from './collaboration.ts';
-import { collabMemory } from '../memory-exposure/index.ts';
+import { collabMemory, externalMemory } from '../memory-exposure/index.ts';
+import { createExternalTurnService } from '../external-turn/index.ts';
 import { legacyAdapter } from './legacy.ts';
 import { composeMediaSearch, mediaSearchMethods } from './media-search.ts';
 import { mediaToInbox } from '../inbox/producers.ts';
@@ -473,9 +474,22 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     }, workflowEvidence, skillProposals);
     const promotions = collab ? new ChatPromotion({ path: join(d.home, 'state', 'chat-promotions.sqlite'), sessions: () => sessions, collab, now: d.clock, audit: event => { d.audit.append({ at: d.clock(), actor: { user: String(event.person), host: 'core' }, action: 'chat.promoted', target: 'project', detail: event }); } }) : null;
     if (promotions) disposers.push(() => promotions.close());
+    const extMemory = externalMemory({ memory, config: d.config, logger: d.logger });
+    const extTurns = createExternalTurnService({
+      store: sessions.store,
+      agents: d.agents,
+      provider: () => provider,
+      externalMemory: extMemory,
+      logger: d.logger,
+      audit: d.audit,
+      notify: (e, s) => d.notify('session.event', { agentId: s.agentId, event: toWireEvent(e) }, { optIn: true }),
+      now: d.clock,
+    });
+    disposers.push(() => extMemory.idle());
+    disposers.push(() => extTurns.idle());
     let closed = false;
     const opened = sessions;
-    return { importSsh, budget, engineComplete, skillReview, mining, capabilities, refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, chatModels, surfaceMethods: { ...extensions.methods, ...sshMethods, 'decision.status': async () => decisions.status(), 'decision.test': async (p: { agentId: string }, ctx) => {
+    return { importSsh, budget, engineComplete, skillReview, mining, capabilities, refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, chatModels, surfaceMethods: { ...extensions.methods, ...sshMethods, ...extTurns.methods, 'decision.status': async () => decisions.status(), 'decision.test': async (p: { agentId: string }, ctx) => {
       if (!d.agents.has(p.agentId)) throw new RpcError('E_AGENT_UNKNOWN', 'Unknown agent');
       const principal = deriveUserPrincipal(authenticatedPrincipal(ctx).userId);
       const result = await decisions.choice({ useCase: 'routing', state: '2', question: 'Is this integer even or odd?', options: [{ id: 'even', description: 'Divisible by two' }, { id: 'odd', description: 'Not divisible by two' }] }, { agentId: p.agentId, principal, cloudEligible: true, signal: AbortSignal.any([ctx.signal, d.signal]) });
