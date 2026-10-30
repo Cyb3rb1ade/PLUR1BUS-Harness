@@ -23,6 +23,10 @@ import { buildMemoryCurationMethods } from "../memory-curation.ts";
 import { buildMemoryOpMethods, requireAgent } from "../memory-ops.ts";
 import { AGENT_CONTEXT_CLI, callerToPrincipal, validIdentity } from "../principal.ts";
 import { deriveUserPrincipal } from "../identity/principals.ts";
+import { resolveExposure } from "../memory-exposure/resolve.ts";
+import { filterSensitiveBlocks, sensitivityRefusal, sensitivityService } from "../memory-exposure/sensitivity.ts";
+import type { Exposure } from "../memory-exposure/types.ts";
+import type { MemorySensitivityService } from "../memory-sensitivity/service.ts";
 import { authenticatedPrincipal } from "../rbac/guard.ts";
 import { buildIdentityMethods } from "../identity/rpc.ts";
 import type { BudgetService } from "../budget/index.ts";
@@ -57,6 +61,8 @@ function mapDiscoveryError(err: unknown): never {
 
 export interface MethodDeps {
   hostEvalHome?: string;
+  /** Read per external memory call; the service can become unavailable during shutdown. */
+  memorySensitivity?: () => MemorySensitivityService | null;
   /** The running configuration, read per use: `core.recall.*` and `core.capture.waitMs` are live keys. */
   engine: Engine; config: () => HarnessConfig; agents: AgentRegistry; activity: ActivityTracker; logger: HarnessLogger;
   status: () => CoreStatusResult; shutdown: (budgetMs?: number) => void; journalBacklog: () => number; clock: () => number;
@@ -98,6 +104,30 @@ export interface MethodDeps {
 function guardedPrincipal(ctx: CallContext | undefined): import("../rbac/types.ts").Principal | undefined {
   if (!ctx) return undefined;
   try { return authenticatedPrincipal(ctx); } catch { return undefined; }
+}
+
+/** Protocol policy follows the verified token binding, never the caller's self-reported channel. */
+function protocolExposure(d: MethodDeps, agentId: string, ctx: CallContext): {
+  exposure: Exposure; filter: readonly string[];
+} | undefined {
+  if (isClientContext(ctx)) return undefined;
+  const principal = guardedPrincipal(ctx) ?? apiPrincipal(ctx);
+  const binding = principal?.binding;
+  if (!binding) return undefined;
+  if (binding.agentId !== agentId) {
+    throw new RpcError("E_DENIED", "agentId does not match token binding", { reason: "agent-binding-mismatch" });
+  }
+  return {
+    exposure: resolveExposure({ channel: binding.audience, agentId, principal, config: d.config() }),
+    filter: binding.memory?.filter ?? [],
+  };
+}
+
+function refusedRecall(reason: string, capChars: number): RecallResult {
+  return {
+    blocks: [], capChars, degraded: { reason, capability: "recall" },
+    timing: { phases: null, totalMs: 0 }, deferrals: [],
+  };
 }
 
 function identity(d: MethodDeps, caller: CallerIdentity, agentId: string, ctx?: CallContext): { principal: Principal; degraded: Degraded | null } {
@@ -180,6 +210,18 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
       const hardMs = p.budget?.hardMs ?? d.config().core.recall.hardBudgetMs;
       const softMs = p.budget?.softMs ?? d.config().core.recall.softBudgetMs;
       const capChars = p.budget?.capChars ?? d.config().core.recall.capChars;
+      const protocol = protocolExposure(d, p.agentId, ctx);
+      const sensitivity = protocol?.filter.length ? sensitivityService(d.memorySensitivity) : undefined;
+      if (protocol) {
+        const { recall } = protocol.exposure;
+        // The engine always reads workspace and agent-private; its principal can only exclude user memory.
+        if (!(recall.workspace && recall.agentPrivate)) {
+          return serializeRecall(refusedRecall("scope-not-enforceable", capChars), p.joined === true, capChars);
+        }
+        const refusal = sensitivityRefusal(protocol.filter, sensitivity);
+        if (refusal) return serializeRecall(refusedRecall(refusal, capChars), p.joined === true, capChars);
+        if (!recall.user) delete principal.user;
+      }
       // The core enforces the hard budget (the engine reads no per-call budget, H3b-b Task 1) by aborting the engine's
       // signal, so the engine cannot tell it from a cancelled caller and answers `aborted`. Spec §6.4 ("Clients under
       // core loss"): a recall past the hard budget returns what is complete with `degraded: timeout`. `aborted` stays
@@ -194,6 +236,13 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
         if (r.degraded?.reason === "aborted" && hard.aborted && !ctx.signal.aborted) {
           r = { ...r, degraded: { reason: "timeout", capability: "recall", detail: `core hard budget ${hardMs} ms` } };
         }
+        if (protocol?.filter.length) {
+          const blocks = await filterSensitiveBlocks(r.blocks, protocol.filter, sensitivity);
+          // Engine traces may carry previews of excluded cards; there is no classified trace contract.
+          const refusal = sensitivityRefusal(protocol.filter, sensitivity);
+          r = { ...r, blocks, ...(r.trace ? { trace: {} } : {}),
+            ...(refusal ? { degraded: { reason: refusal, capability: "recall" } } : {}) };
+        }
         const out = serializeRecall(r, p.joined === true, capChars);
         return degraded && !out.degraded ? { ...out, degraded } : out;
       } finally { d.activity.idle(p.agentId); }
@@ -206,6 +255,10 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
       // engine's "not captured": the client (the CLI's memory add) then journals it for the next core (Task 12 soak).
       if (d.isStopping()) throw coreStopping();
       const { principal } = identity(d, p.caller, p.agentId, ctx);
+      const protocol = protocolExposure(d, p.agentId, ctx);
+      if (protocol && !protocol.exposure.capture) {
+        throw new RpcError("E_DENIED", "memory capture is not exposed", { reason: "memory-capture-disabled" });
+      }
       d.activity.set(p.agentId, { state: "capturing" });
       const handle = d.engine.capture({
         agentId: p.agentId, principal, agent: AGENT_CONTEXT_CLI, messages: p.messages, incognito: false, // the engine fails closed on anything but an explicit false

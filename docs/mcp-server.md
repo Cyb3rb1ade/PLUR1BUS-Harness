@@ -46,6 +46,19 @@ Werkzeuge sind modular in Gruppen gegliedert:
 | `agent` | `agent_ask`, `agent_status` | Starten eines externen Agenten-Turns (`agent_ask`) mit Streaming-Fortschritt sowie Abfrage des Agentenzustands (`agent_status`). |
 | `skills` | `skills/list`, `skills/get`, `resources/read` | MCP-Skills nach `io.modelcontextprotocol/skills`. Freigabe nur für dem Agent explizit zugeordnete Skills; Zugriff auf Ressourcen beachtet Pfad-, Größen- und Geheimnisgrenzen (kein Zugriff auf `.env*` oder sensitive Dateien). |
 
+Memory-Aufrufe werden im Core anhand der verifizierten Token-Bindung geprüft: Kanalfreigaben,
+aktuelle Objektberechtigungen und Token-Einschränkungen gelten gemeinsam. Kann die Engine einen ausgeschlossenen
+Workspace- oder Agent-Private-Scope nicht ausblenden, erfolgt kein Recall. Sensitivitätsfilter gelten auch für den
+zusammengesetzten Text; ungeprüfte Trace-Vorschauen werden dabei zurückgehalten. Ist der Sensitivitätsdienst nicht
+verfügbar, wird gefilterter Recall verweigert. Die Engine liefert zusammengefasste Kontextblöcke ohne verlässliche
+Zuordnung zu einzelnen Karten. Existiert irgendwo eine manuelle Kartenmarkierung für eine ausgeschlossene Kategorie,
+wird gefilterter Recall deshalb konservativ mit `sensitivity-not-enforceable` verweigert, auch für andere Agents.
+Andere manuelle Kategorien blockieren ihn nicht; nach dem Entfernen der passenden Markierung kann die Regel- und
+Modellklassifikation wieder filtern. Persönliche, an einen Agent gebundene Tokens behalten die
+Memory-Zuordnung ihres authentifizierten Benutzers und dürfen bei expliziter Schreibberechtigung speichern;
+ihr RBAC-Typ bleibt `agent`, damit sie keine nur Menschen erlaubten Aktionen erhalten. Auch automatische Captures
+nach externen Turns benötigen eine aktuelle Memory-Schreibberechtigung; `agent.use` oder reine Lesescopes genügen nicht.
+
 ## Konfiguration und Freigabe
 
 Der MCP-Server ist standardmäßig vollständig deaktiviert (deny-by-default):
