@@ -302,6 +302,10 @@ function authorizeMemoryFallback(method: string, principal: Principal, params: u
     }
   }
   if (method === "memory.recall") {
+    if (isClientContext(ctx)) {
+      const dec = authorize(principal, "agent.use", { kind: "agent", agentId }, authCtx);
+      if (dec.effect === "allow") return dec;
+    }
     const { tokenScopes: _omitRecall, ...noScopePrincipal } = principal;
     if (authorize(noScopePrincipal, "agent.use", { kind: "agent", agentId }, authCtx).effect !== "allow") return null;
     for (const [action, resource] of [
