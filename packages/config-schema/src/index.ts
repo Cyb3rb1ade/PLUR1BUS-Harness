@@ -21,8 +21,20 @@ export interface MediaEmbeddingConfig {
 type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 
 export interface ModelRoutingPolicy { mode: 'fixed' | 'auto'; tiers: string[]; perTurn: boolean }
+/** Sparse live per-agent override; an omitted mode uses prefer. */
+export interface ToolUsePolicy { mode?: 'auto' | 'prefer' | 'require-first' }
+
+/** Live activation of an installed MCP extension; an empty agent list exposes no tools. */
+export interface McpServerConfig {
+  enabled: boolean;
+  agents: "all" | string[];
+}
 
 export interface HarnessConfig {
+  import?: { ssh?: { connections?: Record<string, {
+    host: string; port: number; user: string; roots: string[]; allowPrivate: boolean;
+    hostKey?: { sha256: string; algorithm?: string };
+  }> } };
   collaboration: { fanoutEnabled: boolean };
   remote?: {publish:"local"|"tailnet"|"network";tls:"self-signed"|"company-ca";publicOrigin?:string;bind:{address?:string;port?:number;allowPublicInterface?:boolean};allowSubnets:string[];noticeAck?:{by:string;at:number;version:1}};
   approvals?: { maxGrantDays: number; requireOsConfirmation: boolean };
@@ -39,12 +51,13 @@ export interface HarnessConfig {
   supervisor: { graceMs: number; healthIntervalMs: number; maxCores: number };
   logs: { maxBytes: number; keep: number };
   metrics: { enabled: boolean; port: number };
-  agents: Record<string, { skills?: { blocked?: string[]; pinned?: string[]; applyAt?: "next-turn" | "next-session" }; createdAt?: string; behaviour?: BehaviourSet; displayName?: string; persona?: string; model?: string; modelPolicy?: ModelRoutingPolicy; channels?: string[]; voice?: VoiceV3Override; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> }; privacy?: { localOnly?: boolean }; engine?: { kind: "external"; connector: "claude-code" | "codex" | "goose" | "agy"; maxTurns?: number; timeoutMs?: number }; memoryExposure?: { acp?: { read?: ("workspace" | "user" | "project")[]; write?: false; personalFiltered?: true; credentials?: "filtered" } } }>;
+  agents: Record<string, { skills?: { blocked?: string[]; pinned?: string[]; applyAt?: "next-turn" | "next-session" }; createdAt?: string; behaviour?: BehaviourSet; displayName?: string; persona?: string; model?: string; modelPolicy?: ModelRoutingPolicy; toolUse?: ToolUsePolicy; channels?: string[]; voice?: VoiceV3Override; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> }; privacy?: { localOnly?: boolean }; engine?: { kind: "external"; connector: "claude-code" | "codex" | "goose" | "agy"; maxTurns?: number; timeoutMs?: number }; memoryExposure?: { acp?: { read?: ("workspace" | "user" | "project")[]; write?: false; personalFiltered?: true; credentials?: "filtered" }; collab?: { recall?: { workspace?: boolean; user?: boolean; agentPrivate?: boolean }; capture?: boolean } } }>;
   memory: { embedding?: { privacyAck?: PrivacyAcknowledgment }; reranker?: { privacyAck?: PrivacyAcknowledgment }; mediaEmbedding: MediaEmbeddingConfig };
   /** Installation-wide privacy switches (privacy.localOnly: no model call leaves the machine). */
   privacy: { localOnly: boolean; localEndpoints: string[] };
   embedding: { useClass: "general" | "research" | "commercial"; acceptedNcLicence: boolean; acceptedNcLicenceAt?: string };
   engine: Record<string, unknown> & { baseDbPathOverride?: string; implementation?: "node" | "rust" };
+  mcp: { servers: Record<string, McpServerConfig> };
   providers: Record<string, unknown>;
   auth?: { requireSecondFactor?:"remote"|"always"|"never"; openai: { clientRegistration: "dynamic_on_authorize"; storeBackend: "auto" | "keyring"; loopbackTimeoutMs: number; httpTimeoutMs: number; refreshSkewSeconds: number; liveHandleTtlSeconds: number; voiceDailySeconds: number; voiceCapacity: number; federated: { command?: string; file?: string; args: string[]; environment: Record<string, string> } } };
   oauth: Record<string, unknown>;

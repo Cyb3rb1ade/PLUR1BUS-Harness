@@ -10,11 +10,17 @@ export interface KnowledgeJobEngine {
     run(job: string, agentId: string, options: { trigger: "manual" | "cron" | "harness"; signal: AbortSignal }): Promise<{ runId?: string; outcome: string; reason?: string }>;
   };
 }
-export interface KnowledgeJobDeps { engine: KnowledgeJobEngine; agents(): string[]; now(): number }
+export interface KnowledgeJobDeps {
+  engine: KnowledgeJobEngine; agents(): string[]; now(): number;
+  /** Latest persisted system-job start; a process restart does not create another immediate sweep. */
+  lastRunAt?: number;
+}
 
 /** Compatibility boundary: Engine 1.17.0 is required for knowledge-update; older pins report an explicit skip. */
 export function createKnowledgeUpdateJob(deps: KnowledgeJobDeps): SystemJobHandler {
-  let next = deps.now();
+  const now = deps.now();
+  let next = deps.lastRunAt !== undefined && Number.isFinite(deps.lastRunAt) && deps.lastRunAt >= 0
+    ? Math.max(now, deps.lastRunAt + KNOWLEDGE_UPDATE_INTERVAL_MS) : now;
   let running = false;
   return {
     spec: { name: "knowledge.update", needsLlm: false, singleton: true, schedule: { every: KNOWLEDGE_UPDATE_INTERVAL_MS, jitter: 0 } },

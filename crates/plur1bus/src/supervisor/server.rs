@@ -11,12 +11,12 @@ use super::{ModuleVerb, OpError};
 use crate::paths::{supervisor_address, Layout};
 use plur1bus_rpc::client::MAX_LINE;
 use plur1bus_rpc::types::{
-    ConfigGetParams, ConfigGetParamsTier, ConfigSetParams, ConfigWatchParams, DaemonStartParams,
-    DaemonStatusParams, DaemonStopParams, ExtDisableParams, ExtEnableParams, ExtInspectParams,
-    ExtInstallParams, ExtListParams, ExtRestoreParams, ExtShowParams, ExtUninstallParams,
-    ExtWatchParams, ModuleGraphParams, ModuleInstallParams, ModuleListParams, ModuleRestartParams,
-    ModuleStartParams, ModuleStopParams, ModuleUninstallParams, ModuleWatchParams,
-    SupervisorAuthParams,
+    AdminImportRuntimeConfigSetParams, ConfigGetParams, ConfigGetParamsTier, ConfigSetParams,
+    ConfigWatchParams, DaemonStartParams, DaemonStatusParams, DaemonStopParams, ExtDisableParams,
+    ExtEnableParams, ExtInspectParams, ExtInspectionGetParams, ExtInstallParams, ExtListParams,
+    ExtRestoreParams, ExtShowParams, ExtUninstallParams, ExtWatchParams, ModuleGraphParams,
+    ModuleInstallParams, ModuleListParams, ModuleRestartParams, ModuleStartParams,
+    ModuleStopParams, ModuleUninstallParams, ModuleWatchParams, SupervisorAuthParams,
 };
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
@@ -39,6 +39,8 @@ const MAX_CHANGES: usize = 64;
 
 /// One accepted connection, split so the connection thread can read and write while a watchdog closes it.
 pub(crate) struct Accepted {
+    /// Kernel-authenticated peer process; never a request or handshake field.
+    pub peer_pid: Option<u32>,
     pub reader: Box<dyn Read + Send>,
     pub writer: Box<dyn Write + Send>,
     /// Ends the connection from another thread; a blocked read (and write) then returns. Callable more than once:
@@ -139,6 +141,7 @@ struct ConnCtx {
 
 /// One connection's output side, as the handlers need it.
 struct Conn {
+    peer_pid: Option<u32>,
     api_user: Option<String>,
     writer: SharedWriter,
     closer: Arc<dyn Fn() + Send + Sync>,
@@ -150,6 +153,7 @@ struct Conn {
     module_sub: Option<String>,
     /// The `ext.watch` subscription among them, reused by a second `ext.watch`.
     ext_sub: Option<String>,
+    import_sub: Option<(u128, String)>,
 }
 
 enum Line {
@@ -214,6 +218,14 @@ fn config_unavailable(id: &Value) -> Value {
 
 fn set_error_reply(id: &Value, e: SetError) -> Value {
     match e {
+        SetError::MaintenanceBusy => error_reply(
+            id,
+            "E_CONFLICT",
+            "import maintenance is in progress",
+            Some("busy"),
+            None,
+            None,
+        ),
         SetError::LocalOnly(policy) => error_reply(
             id,
             "E_DENIED",
@@ -328,6 +340,10 @@ impl ConnCtx {
     /// `daemon.start`: reset the core's backoff and ask the main thread for an immediate spawn (a no-op while the
     /// core runs). Under `--no-core` there is never a child.
     fn daemon_start(&self, id: &Value) -> Value {
+        let _idle = match super::imports::idle(&self.shared) {
+            Ok(idle) => idle,
+            Err(error) => return ext_reply(id, Err(error)),
+        };
         let mut st = self.shared.lock();
         if st.no_core {
             return error_reply(
@@ -365,12 +381,14 @@ impl ConnCtx {
 
     fn handle(&self, conn: Accepted) {
         let Accepted {
+            peer_pid,
             reader,
             writer,
             closer,
             mut drain,
         } = conn;
         let mut conn = Conn {
+            peer_pid,
             api_user: None,
             writer: Arc::new(Mutex::new(writer)),
             closer: closer.clone(),
@@ -378,6 +396,7 @@ impl ConnCtx {
             config_sub: None,
             module_sub: None,
             ext_sub: None,
+            import_sub: None,
         };
         // Watchdog: closes the connection unless `authed_tx` is dropped (auth succeeded, or the connection ended)
         // within AUTH_IDLE.
@@ -637,6 +656,70 @@ impl ConnCtx {
         }
     }
 
+    fn import_status(
+        &self,
+        id: &Value,
+        params: &Value,
+        principal: Option<&Value>,
+        conn: &mut Conn,
+    ) -> (Value, After) {
+        let mut queued = false;
+        let result = super::imports::watch_status(
+            &self.shared,
+            &self.layout,
+            params,
+            principal,
+            |value, topic| {
+                if conn
+                    .import_sub
+                    .as_ref()
+                    .is_some_and(|(current, _)| *current != topic)
+                {
+                    if let Some((_, old)) = conn.import_sub.take() {
+                        self.shared.subscribers.remove(&old);
+                        conn.subscriptions.retain(|id| *id != old);
+                    }
+                }
+                let sub = match &conn.import_sub {
+                    Some((_, sub)) => sub.clone(),
+                    None => {
+                        let closer = conn.closer.clone();
+                        let sub = self.shared.subscribers.add(
+                            Topic::Import(topic),
+                            conn.writer.clone(),
+                            Box::new(move || closer()),
+                        );
+                        conn.subscriptions.push(sub.clone());
+                        conn.import_sub = Some((topic, sub.clone()));
+                        sub
+                    }
+                };
+                queued = self
+                    .shared
+                    .subscribers
+                    .send_to(&sub, format!("{}\n", result_reply(id, value)));
+                if !queued {
+                    (conn.closer)();
+                }
+            },
+        );
+        match result {
+            Ok(()) if queued => (Value::Null, After::Queued),
+            Ok(()) => (
+                error_reply(
+                    id,
+                    "E_INTERNAL",
+                    "import subscription unavailable",
+                    None,
+                    None,
+                    None,
+                ),
+                After::Close,
+            ),
+            Err(error) => (ext_error_reply(id, error), After::Continue),
+        }
+    }
+
     fn config_set(&self, id: &Value, params: &Value, principal: Option<&Value>) -> Value {
         let p: ConfigSetParams = match parse(params) {
             Ok(p) => p,
@@ -679,6 +762,83 @@ impl ConnCtx {
         match applied {
             Ok(v) => result_reply(id, v),
             Err(e) => set_error_reply(id, e),
+        }
+    }
+
+    /// M-C: only the current Core process may apply an active run's validated configuration without scheduling a restart.
+    fn runtime_config_set(
+        &self,
+        id: &Value,
+        params: &Value,
+        principal: Option<&Value>,
+        conn: &Conn,
+    ) -> Value {
+        let refused = || {
+            error_reply(
+                id,
+                "E_DENIED",
+                "private import configuration refused",
+                Some("import-runtime-peer"),
+                None,
+                None,
+            )
+        };
+        if principal.is_some() || conn.api_user.is_some() || conn.peer_pid.is_none() {
+            return refused();
+        }
+        let current_core = self
+            .shared
+            .lock()
+            .slot("core")
+            .and_then(|slot| slot.child.as_ref())
+            .and_then(|child| child.pid);
+        if current_core.is_none() || current_core != conn.peer_pid {
+            return refused();
+        }
+        let parsed: AdminImportRuntimeConfigSetParams = match parse(params) {
+            Ok(parsed) => parsed,
+            Err(detail) => return invalid_params(id, detail),
+        };
+        if parsed.changes.is_empty()
+            || parsed.changes.len() > MAX_CHANGES
+            || params["changes"]
+                .as_array()
+                .is_none_or(|changes| changes.iter().any(|change| change.get("value").is_none()))
+        {
+            return invalid_params(
+                id,
+                "changes must hold 1 to 64 explicit key/value items".into(),
+            );
+        }
+        // Keep the active-run reservation until the private write finishes; completion cannot detach its authority mid-write.
+        let maintenance = relock(&self.shared.maintenance);
+        let Some(job) = maintenance.active.as_ref() else {
+            return refused();
+        };
+        if job.run_id != parsed.run_id.as_str()
+            || job.plan_id != parsed.plan_id.as_str()
+            || job.plan_sha256 != parsed.plan_sha256.as_str()
+            || !matches!(job.role.as_str(), "owner" | "admin")
+        {
+            return refused();
+        }
+        let actor = json!({"kind":"person","userId":job.owner_id,"role":job.role});
+        let applied = config::set_maintenance(
+            &self.shared,
+            &self.layout,
+            parsed
+                .changes
+                .into_iter()
+                .map(|change| (String::from(change.key), change.value))
+                .collect(),
+            None,
+            false,
+            false,
+            &actor,
+        );
+        match applied {
+            Ok(result) => result_reply(id, result),
+            Err(error) => set_error_reply(id, error),
         }
     }
 
@@ -785,6 +945,35 @@ impl ConnCtx {
                 {
                     Some(p)
                 }
+                Err("core-unavailable") => match super::imports::offline_principal(
+                    &self.shared,
+                    delegation,
+                    method,
+                    &params,
+                ) {
+                    Some(principal)
+                        if conn
+                            .api_user
+                            .as_deref()
+                            .is_none_or(|user| principal["userId"] == user) =>
+                    {
+                        Some(principal)
+                    }
+                    _ => {
+                        return Some((
+                            error_reply(
+                                &id,
+                                "E_UNAUTHORIZED",
+                                "maintenance authentication refused",
+                                Some("api-delegation"),
+                                None,
+                                None,
+                            ),
+                            After::Continue,
+                            false,
+                        ))
+                    }
+                },
                 _ => {
                     return Some((
                         error_reply(
@@ -853,12 +1042,26 @@ impl ConnCtx {
             return Some((reply, After::Continue, false));
         }
         if let Some(p) = &principal {
-            // Supervisor-only lifecycle/subscription operations never cross the browser transport.
-            if !matches!(
-                method,
-                "config.get" | "config.set" | "module.list" | "module.graph" | "daemon.status"
-            ) || !matches!(p["role"].as_str(), Some("owner" | "admin"))
+            if p.get("_maintenanceRun").is_some()
+                && !matches!(
+                    method,
+                    "admin.import.status" | "admin.import.abort" | "admin.import.runs"
+                )
             {
+                return Some((
+                    error_reply(
+                        &id,
+                        "E_DENIED",
+                        "maintenance operation denied",
+                        Some("role-denied"),
+                        None,
+                        None,
+                    ),
+                    After::Continue,
+                    true,
+                ));
+            }
+            if !super::api_transport::allowed(p, method) {
                 return Some((
                     error_reply(
                         &id,
@@ -873,7 +1076,75 @@ impl ConnCtx {
                 ));
             }
         }
+        if matches!(
+            method,
+            "config.set"
+                | "daemon.start"
+                | "module.start"
+                | "module.stop"
+                | "module.restart"
+                | "module.install"
+                | "module.uninstall"
+                | "ext.inspect"
+                | "ext.install"
+                | "ext.uninstall"
+                | "ext.restore"
+                | "ext.enable"
+                | "ext.disable"
+                | "admin.extensions.runtime.reconcile"
+        ) && super::imports::busy(&self.shared)
+        {
+            return Some((
+                ext_reply(&id, Err(super::imports::busy_error())),
+                After::Continue,
+                true,
+            ));
+        }
         let reply = match method {
+            "admin.import.runtime.config.set" => (
+                self.runtime_config_set(&id, &params, principal.as_ref(), conn),
+                After::Continue,
+            ),
+            "admin.import.apply" | "admin.import.rollback" => (
+                ext_reply(
+                    &id,
+                    super::imports::queue(
+                        &self.shared,
+                        &self.layout,
+                        method,
+                        &params,
+                        principal.as_ref(),
+                        msg.get("api"),
+                    ),
+                ),
+                After::Continue,
+            ),
+            "admin.import.status" => self.import_status(&id, &params, principal.as_ref(), conn),
+            "admin.import.runs" | "admin.import.abort" => (
+                ext_reply(
+                    &id,
+                    super::imports::read_method(
+                        &self.shared,
+                        &self.layout,
+                        method,
+                        &params,
+                        principal.as_ref(),
+                    ),
+                ),
+                After::Continue,
+            ),
+            "admin.extensions.runtime.reconcile" => {
+                match parse::<plur1bus_rpc::types::AdminExtensionsRuntimeReconcileParams>(&params) {
+                    Err(d) => (invalid_params(&id, d), After::Continue),
+                    Ok(_) => (
+                        ext_reply(
+                            &id,
+                            super::ext::runtime_reconcile(&self.shared, &self.layout, &params),
+                        ),
+                        After::Continue,
+                    ),
+                }
+            }
             "daemon.status" => match parse::<DaemonStatusParams>(&params) {
                 Err(d) => (invalid_params(&id, d), After::Continue),
                 Ok(_) => {
@@ -971,7 +1242,29 @@ impl ConnCtx {
             "ext.inspect" => match parse::<ExtInspectParams>(&params) {
                 Err(d) => (invalid_params(&id, d), After::Continue),
                 Ok(_) => (
-                    ext_reply(&id, super::ext::inspect(&self.layout, &params)),
+                    ext_reply(
+                        &id,
+                        super::ext::inspect(
+                            &self.shared,
+                            &self.layout,
+                            &params,
+                            super::extension_uploads::Caller::from_principal(principal.as_ref()),
+                        ),
+                    ),
+                    After::Continue,
+                ),
+            },
+            "ext.inspection.get" => match parse::<ExtInspectionGetParams>(&params) {
+                Err(d) => (invalid_params(&id, d), After::Continue),
+                Ok(_) => (
+                    ext_reply(
+                        &id,
+                        super::ext::inspection_get(
+                            &self.layout,
+                            &params,
+                            super::extension_uploads::Caller::from_principal(principal.as_ref()),
+                        ),
+                    ),
                     After::Continue,
                 ),
             },
@@ -980,7 +1273,12 @@ impl ConnCtx {
                 Ok(_) => (
                     ext_reply(
                         &id,
-                        super::ext::install(&self.shared, &self.layout, &params),
+                        super::ext::install(
+                            &self.shared,
+                            &self.layout,
+                            &params,
+                            super::extension_uploads::Caller::from_principal(principal.as_ref()),
+                        ),
                     ),
                     After::Continue,
                 ),
@@ -1085,9 +1383,11 @@ mod imp {
 
         pub fn accept(&self) -> io::Result<Accepted> {
             let (s, _) = self.0.accept()?;
+            let peer_pid = plur1bus_rpc::transport::unix_peer_pid(&s);
             let reader = s.try_clone()?;
             let closer = s.try_clone()?;
             Ok(Accepted {
+                peer_pid,
                 reader: Box::new(reader),
                 writer: Box::new(s),
                 closer: std::sync::Arc::new(move || {
@@ -1102,3 +1402,6 @@ mod imp {
 
 #[cfg(windows)]
 use super::pipe_windows as imp;
+
+#[cfg(all(test, unix))]
+mod runtime_config_tests;

@@ -1,0 +1,279 @@
+{
+  "nodeCommit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "cases": [
+    {
+      "name": "default-remote",
+      "raw": {
+        "provider": "openai"
+      },
+      "normalized": {
+        "provider": "openai",
+        "id": "openai",
+        "model": "text-embedding-3-small",
+        "dimensions": 1536,
+        "requestTimeoutMs": 15000,
+        "fallback": null
+      }
+    },
+    {
+      "name": "selectable-openai-width-and-timeout",
+      "raw": {
+        "provider": "openai",
+        "model": "text-embedding-3-small",
+        "dimensions": "512",
+        "requestTimeoutMs": "1000.9"
+      },
+      "normalized": {
+        "provider": "openai",
+        "id": "openai",
+        "model": "text-embedding-3-small",
+        "dimensions": 512,
+        "requestTimeoutMs": 1000,
+        "fallback": null
+      }
+    },
+    {
+      "name": "default-timeout-and-secret-reference",
+      "raw": {
+        "provider": "openai",
+        "model": "text-embedding-3-small",
+        "dimensions": 1536,
+        "requestTimeoutMs": "invalid",
+        "apiKeyRef": " fixture:key "
+      },
+      "normalized": {
+        "provider": "openai",
+        "id": "openai",
+        "apiKeyRef": "fixture:key",
+        "model": "text-embedding-3-small",
+        "dimensions": 1536,
+        "requestTimeoutMs": 15000,
+        "fallback": null
+      }
+    },
+    {
+      "name": "unknown-remote-explicit-width",
+      "raw": {
+        "provider": "openai-compatible",
+        "model": "fixture/embedding",
+        "dimensions": 768,
+        "baseUrl": "http://127.0.0.1:8000/v1",
+        "embeddingCacheMaxEntries": null,
+        "cacheMaxEntries": 7,
+        "embeddingCacheTtlMs": 90,
+        "cacheTtlMs": 40,
+        "embeddingCacheEnabled": false,
+        "embeddingCacheScope": "agent"
+      },
+      "normalized": {
+        "provider": "openai-compatible",
+        "id": "openai-compatible",
+        "model": "fixture/embedding",
+        "baseUrl": "http://127.0.0.1:8000/v1",
+        "dimensions": 768,
+        "requestTimeoutMs": 15000,
+        "fallback": null,
+        "embeddingCacheEnabled": false,
+        "cacheMaxEntries": 7,
+        "cacheTtlMs": 90,
+        "embeddingCacheScope": "agent"
+      }
+    },
+    {
+      "name": "local-custom-fields",
+      "raw": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": "384",
+          "cacheDir": "/fixture/models",
+          "queryPrefix": "search: ",
+          "passagePrefix": "document: ",
+          "maxTokens": 256
+        },
+        "embeddingCacheMaxEntries": 8,
+        "embeddingCachePersist": true,
+        "embeddingCacheCoalesce": false
+      },
+      "normalized": {
+        "provider": "local-transformers",
+        "id": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "dimensions": 384,
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+          "queryPrefix": "search: ",
+          "passagePrefix": "document: ",
+          "maxTokens": 256,
+          "cacheDir": "/fixture/models",
+          "acceptNonCommercialLicense": false
+        },
+        "fallback": null,
+        "cacheMaxEntries": 8,
+        "embeddingCachePersist": true,
+        "embeddingCacheCoalesce": false
+      }
+    },
+    {
+      "name": "local-null-token-cap",
+      "raw": {
+        "provider": "local-transformers",
+        "local": {
+          "cacheDir": "/fixture/models",
+          "maxTokens": null
+        }
+      },
+      "normalized": {
+        "provider": "local-transformers",
+        "id": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "dimensions": 384,
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+          "queryPrefix": "query: ",
+          "passagePrefix": "passage: ",
+          "maxTokens": null,
+          "cacheDir": "/fixture/models",
+          "acceptNonCommercialLicense": false
+        },
+        "fallback": null
+      }
+    },
+    {
+      "name": "gemma-width-and-batch",
+      "raw": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "google/embeddinggemma-2",
+          "dimensions": 128,
+          "dtype": "q4",
+          "maxBatchSize": 16,
+          "cacheDir": "/fixture/models"
+        }
+      },
+      "normalized": {
+        "provider": "local-transformers",
+        "id": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "dimensions": 128,
+        "local": {
+          "model": "google/embeddinggemma-2",
+          "dimensions": 128,
+          "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+          "queryPrefix": "task: search result | query: ",
+          "passagePrefix": "title: none | text: ",
+          "dtype": "q4",
+          "maxBatchSize": 16,
+          "cacheDir": "/fixture/models",
+          "acceptNonCommercialLicense": false
+        },
+        "fallback": null
+      }
+    },
+    {
+      "name": "unknown-local-model",
+      "raw": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "fixture/custom",
+          "cacheDir": "/fixture/models"
+        }
+      },
+      "normalized": {
+        "provider": "local-transformers",
+        "id": "local-transformers",
+        "model": "fixture/custom",
+        "dimensions": 384,
+        "local": {
+          "model": "fixture/custom",
+          "dimensions": 384,
+          "queryPrefix": "query: ",
+          "passagePrefix": "passage: ",
+          "cacheDir": "/fixture/models",
+          "acceptNonCommercialLicense": false
+        },
+        "fallback": null
+      }
+    },
+    {
+      "name": "fixed-e5-width",
+      "raw": {
+        "provider": "local-transformers",
+        "local": {
+          "dimensions": 385,
+          "cacheDir": "/fixture/models"
+        }
+      },
+      "error": "intfloat/multilingual-e5-small has fixed 384 dimensions; configured 385"
+    },
+    {
+      "name": "unsupported-gemma-width",
+      "raw": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "google/embeddinggemma-2",
+          "dimensions": 129,
+          "cacheDir": "/fixture/models"
+        }
+      },
+      "error": "google/embeddinggemma-2 supports only its declared dimensions: 128, 256, 512, 768; configured 129"
+    },
+    {
+      "name": "unpinned-local-dtype",
+      "raw": {
+        "provider": "local-transformers",
+        "local": {
+          "dtype": "q8",
+          "cacheDir": "/fixture/models"
+        }
+      },
+      "error": "local embedding dtype \"q8\" is not a pinned dtype of intfloat/multilingual-e5-small"
+    },
+    {
+      "name": "reranker-is-not-embedder",
+      "raw": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+          "cacheDir": "/fixture/models"
+        }
+      },
+      "error": "woxpas-ai/bge-reranker-v2-m3-onnx is a pinned reranker, not an embedding model"
+    },
+    {
+      "name": "oversized-openai-width",
+      "raw": {
+        "provider": "openai",
+        "model": "text-embedding-3-small",
+        "dimensions": 1537
+      },
+      "error": "text-embedding-3-small supports dimensions from 1 through 1536; configured 1537"
+    },
+    {
+      "name": "null-local-dtype",
+      "raw": {
+        "provider": "local-transformers",
+        "local": {
+          "dtype": null,
+          "cacheDir": "/fixture/models"
+        }
+      },
+      "error": "local embedding dtype null is not a pinned dtype of intfloat/multilingual-e5-small"
+    },
+    {
+      "name": "fractional-local-batch",
+      "raw": {
+        "provider": "local-transformers",
+        "local": {
+          "maxBatchSize": 1.5,
+          "cacheDir": "/fixture/models"
+        }
+      },
+      "error": "local embedding maxBatchSize must be an integer between 1 and 64, got 1.5"
+    }
+  ]
+}

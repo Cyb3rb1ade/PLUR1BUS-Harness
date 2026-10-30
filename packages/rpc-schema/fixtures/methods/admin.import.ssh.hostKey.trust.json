@@ -1,0 +1,19 @@
+{
+  "params": {
+    "connectionId": "fixture",
+    "probeId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "hostKeySha256": "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  },
+  "result": {
+    "connection": {
+      "id": "fixture",
+      "host": "fixture",
+      "user": "fixture",
+      "roots": [
+        "fixture"
+      ],
+      "port": 1,
+      "allowPrivate": false
+    }
+  }
+}

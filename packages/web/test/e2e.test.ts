@@ -150,9 +150,12 @@ describe("shell", opts, () => {
     await withApp({}, async ({ page }) => {
       await signIn(page);
       await page.getByRole("heading", { name: "Chat", level: 1 }).waitFor();
-      for (const name of ["Projects", "Skills", "Break-Glass", "Logs", "Settings", "Help"]) {
+      // [sidebar item, h1 of the loaded page]. While a page's chunk loads, its frame shows the item's label as h1, and the Help page
+      // is then retitled "User Handbook": waiting for "Help" only passes when the chunk is slower than the polling, so the test
+      // waits for the loaded page's own heading.
+      for (const [name, heading] of [["Projects", "Projects"], ["Skills", "Skills & Plugins"], ["Break-Glass", "Break-Glass"], ["Logs", "Logs"], ["Settings", "Settings"], ["Help", "User Handbook"]] as const) {
         await page.locator("#sidebar-nav").getByRole("link", { name, exact: true }).click();
-        await page.getByRole("heading", { name, level: 1 }).waitFor();
+        await page.getByRole("heading", { name: heading, level: 1 }).waitFor();
         assert.equal(await page.locator("#sidebar-nav").locator("[aria-current=page]").innerText().then((s) => s.trim()), name);
         assert.equal(await page.evaluate(() => document.activeElement?.tagName), "H1");
         assert.equal(await page.title(), `${name} · PLUR1BUS`);

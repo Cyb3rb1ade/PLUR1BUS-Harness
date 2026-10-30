@@ -81,3 +81,44 @@ test("the attach audit names neither the person nor the device in clear text, an
     } finally { attach.close(); }
   } finally { rmSync(dir,{recursive:true,force:true}); }
 });
+
+test("extension upload scope requires an explicit Owner/Admin grant and persists across the pairing-code boundary", async () => {
+  const { createDeviceSurface } = await import("../../src/rpc/device-surface.ts");
+  const { guardMethods } = await import("../../src/rbac/guard.ts");
+  const dir = mkdtempSync(join(tmpdir(), "desktop-extension-scope-"));
+  const stop = new AbortController();
+  try {
+    const audit = { append() {} };
+    const raw = createDeviceSurface({ state: dir, clock: Date.now, audit, securePath: () => {}, signal: stop.signal });
+    let principal: any = { userId: "alice", kind: "person", role: "member" };
+    const methods = guardMethods(raw, { resolve: () => principal, now: Date.now, audit });
+    const ctx = { signal: stop.signal, requestId: "extension-scope", connectionId: "extension-scope" };
+    await assert.rejects(methods["device.pair"]!({ kind: "desktop", extensions: true }, ctx),
+      (error: any) => error.error === "E_DENIED");
+    await assert.rejects(methods["device.pair"]!({ kind: "desktop", imports: true }, ctx),
+      (error: any) => error.error === "E_DENIED");
+    principal = { ...principal, role: "owner" };
+    const regular = await methods["device.pair"]!({ kind: "desktop" }, ctx) as any;
+    const grant = await methods["device.pair"]!({ kind: "desktop", extensions: true }, ctx) as any;
+    const importGrant = await methods["device.pair"]!({ kind: "desktop", imports: true }, ctx) as any;
+    assert.equal(regular.scopes.includes("extensions.manage"), false);
+    assert.equal(grant.scopes.includes("extensions.read"), true);
+    assert.equal(grant.scopes.includes("extensions.manage"), true);
+    assert.equal(grant.scopes.includes("imports.manage"), false);
+    assert.equal(importGrant.scopes.includes("imports.manage"), true);
+    assert.equal(importGrant.scopes.includes("extensions.manage"), false);
+    const devices = new DeviceStore({ file: join(dir, "devices.json"), clock: Date.now, audit, securePath: () => {} });
+    const attach = new DesktopAttach({ file: join(dir, "desktop-attach.db"), devices, now: Date.now, audit, securePath: () => {} });
+    try {
+      const key = () => generateKeyPairSync("ed25519").publicKey.export({ format: "der", type: "spki" }).toString("base64");
+      const old = attach.redeem(regular.code, "desktop", "Regular", key());
+      const optedIn = attach.redeem(grant.code, "desktop", "Extension manager", key());
+      assert.equal(attach.authenticate(old.token).scopes.includes("extensions.manage"), false);
+      assert.equal(attach.authenticate(optedIn.token).scopes.includes("extensions.manage"), true);
+      const importer = attach.redeem(importGrant.code, "desktop", "Importer", key());
+      assert.equal(attach.authenticate(importer.token).scopes.includes("imports.manage"), true);
+      devices.revoke(optedIn.device.id, "alice");
+      assert.throws(() => attach.authenticate(optedIn.token));
+    } finally { attach.close(); }
+  } finally { stop.abort(); rmSync(dir, { recursive: true, force: true }); }
+});

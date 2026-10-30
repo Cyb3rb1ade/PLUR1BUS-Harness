@@ -128,13 +128,28 @@ export const MIGRATIONS: readonly string[] = [
    ALTER TABLE tool_visibility ADD COLUMN confidence REAL;
    ALTER TABLE tool_visibility ADD COLUMN tokens_saved INTEGER NOT NULL DEFAULT 0;
    ALTER TABLE tool_visibility ADD COLUMN refetches INTEGER NOT NULL DEFAULT 0;`,
-  // v7: immutable session origin. NULL is internal. New kinds would rebuild the CHECK, so origin is its own column.
+  // v7: applyAt=next-session freezes authored skill catalogue bytes independently of the memory snapshot.
+  `CREATE TABLE skill_catalogue_snapshots (
+    session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+    catalogue TEXT NOT NULL
+  );
+  CREATE INDEX idx_skill_load_calls ON events(session_id,turn_id,json_extract(data,'$.id'),seq)
+    WHERE type='tool.call' AND json_extract(data,'$.name')='skill.load';`,
+  // v8: only canonical tool names and their admission order survive a remembered session restart.
+  `CREATE TABLE session_tool_offers (
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    name TEXT NOT NULL CHECK(name='sys.startupItems' OR
+      (length(name) BETWEEN 1 AND 64 AND name GLOB '[a-z]*' AND name NOT GLOB '*[^a-z0-9_.-]*')),
+    ordinal INTEGER NOT NULL CHECK(ordinal>=0 AND ordinal<128),
+    PRIMARY KEY(session_id,name),
+    UNIQUE(session_id,ordinal)
+  );`,
+  // v9: external protocol session origin (shared M6-A / M6-B contract; NULL = internal).
   `ALTER TABLE sessions ADD COLUMN origin TEXT CHECK (origin IS NULL OR origin IN ('mcp','a2a','acp-agent'));
-   DROP TRIGGER IF EXISTS sessions_immutable;
+   DROP TRIGGER sessions_immutable;
    CREATE TRIGGER sessions_immutable BEFORE UPDATE OF kind, agent_id, owner, scope, chat_key, origin ON sessions
    WHEN NEW.kind IS NOT OLD.kind OR NEW.agent_id IS NOT OLD.agent_id OR NEW.owner IS NOT OLD.owner
-     OR NEW.scope IS NOT OLD.scope OR NEW.chat_key IS NOT OLD.chat_key
-     OR NEW.origin IS NOT OLD.origin
+     OR NEW.scope IS NOT OLD.scope OR NEW.chat_key IS NOT OLD.chat_key OR NEW.origin IS NOT OLD.origin
    BEGIN SELECT RAISE(ABORT, 'I1: session kind, agent, owner, scope and origin are immutable'); END;`,
 ];
 

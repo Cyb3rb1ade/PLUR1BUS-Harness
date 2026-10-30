@@ -1,4 +1,7 @@
 import { describe, it } from "node:test";
+import { createSecretStore } from "../../src/secrets/store.ts";
+import { createMemoryBackend } from "../../src/secrets/memory-backend.ts";
+import { createMemoryAuditSink } from "../../src/secrets/audit.ts";
 import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -42,7 +45,7 @@ describe("D109 §9.9 core ends task and session grants (not the 24h bound)", () 
     });
     const opened = await permissions.open();
     const deps: CompositionDeps = {
-      home, config: () => cfg, engine: {} as never, agents, logger, secrets: {} as never,
+      home, config: () => cfg, engine: {} as never, agents, logger, secrets: createSecretStore({ keyring: createMemoryBackend(), file: createMemoryBackend(), fileFallback: () => false, audit: createMemoryAuditSink() }),
       egress: { decide: async () => ({ allowed: false }) } as never,
       permissions, audit: memoryAuditSink(), identity, clock: () => clock.now(),
       signal: new AbortController().signal, isStopping: () => false, notify: () => {},
@@ -81,7 +84,7 @@ describe("D109 §9.9 core ends task and session grants (not the 24h bound)", () 
     const seed = createPermissionRuntime({ dbPath, keys: staticKeySource(KEY), clock, audit });
     const openedSeed = await seed.open();
     const compositionA = await openTurnComposition({
-      home, config: () => cfg, engine: {} as never, agents, logger, secrets: {} as never,
+      home, config: () => cfg, engine: {} as never, agents, logger, secrets: createSecretStore({ keyring: createMemoryBackend(), file: createMemoryBackend(), fileFallback: () => false, audit: createMemoryAuditSink() }),
       egress: { decide: async () => ({ allowed: false }) } as never,
       permissions: seed, audit: memoryAuditSink(), identity, clock: () => clock.now(),
       signal: new AbortController().signal, isStopping: () => false, notify: () => {},
@@ -94,7 +97,7 @@ describe("D109 §9.9 core ends task and session grants (not the 24h bound)", () 
 
     const permissions = createPermissionRuntime({ dbPath, keys: staticKeySource(KEY), clock, audit });
     const composition = await openTurnComposition({
-      home, config: () => cfg, engine: {} as never, agents, logger, secrets: {} as never,
+      home, config: () => cfg, engine: {} as never, agents, logger, secrets: createSecretStore({ keyring: createMemoryBackend(), file: createMemoryBackend(), fileFallback: () => false, audit: createMemoryAuditSink() }),
       egress: { decide: async () => ({ allowed: false }) } as never,
       permissions, audit: memoryAuditSink(), identity, clock: () => clock.now(),
       signal: new AbortController().signal, isStopping: () => false, notify: () => {},

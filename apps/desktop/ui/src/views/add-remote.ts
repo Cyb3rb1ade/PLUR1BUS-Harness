@@ -3,7 +3,7 @@ import type { MessageKey } from "../i18n.ts";
 import { element, append } from "../components/dom.ts";
 import { button } from "../components/button.ts";
 import { normalizeOrigin } from "../models/origin-input.ts";
-import { pairingFailure } from "../models/pairing-model.ts";
+import { pairingCode, pairingFailure } from "../models/pairing-model.ts";
 import { createTransportModel, errorLine, originHost, type TransportModel } from "../models/transport-model.ts";
 import { transportChoice } from "./transport-choice.ts";
 export type Translate = (key: MessageKey, values?: Record<string, string>) => string;
@@ -66,6 +66,16 @@ export function addRemote(t: Translate, transport: DesktopTransport, done: (resu
         first.readOnly = second.readOnly = true;
     }
     form.append(codes, element("p", "field-note", t("pair.once")));
+    const complete = field(t("pair.cliCode"), "", "pair-cli-code");
+    complete.required = false;
+    complete.maxLength = 43;
+    complete.minLength = 43;
+    complete.autocomplete = "off";
+    complete.spellcheck = false;
+    complete.pattern = "[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]";
+    complete.addEventListener("input", () => { first.required = second.required = !complete.value; });
+    if (prefill) complete.closest("label")!.hidden = true;
+    else form.append(element("p", "field-note", t("pair.cliHint")));
     const status = element("p", "pair-status");
     status.setAttribute("role", "status");
     status.setAttribute("aria-live", "polite");
@@ -88,7 +98,7 @@ export function addRemote(t: Translate, transport: DesktopTransport, done: (resu
             // A refusal before any harness contact did not use the code: keep it and go to what needs fixing.
             if (refusal === "confirm") (form.querySelector<HTMLInputElement>("#pair-transport-public-ack") ?? form.querySelector<HTMLInputElement>("input[name=pair-transport-transport]:checked"))?.focus();
             else if (refusal === "target") (origin.readOnly ? submit : origin).focus();
-            else if (!prefill) { first.value = ""; second.value = ""; first.focus(); }
+            else if (!prefill) { first.value = ""; second.value = ""; complete.value = ""; first.required = second.required = true; first.focus(); }
             else submit.focus();
         },
     };
@@ -107,11 +117,13 @@ export function addRemote(t: Translate, transport: DesktopTransport, done: (resu
         const path = model.state.transport;
         if (!path || !model.ready())
             return;
+        const code = pairingCode(first.value, second.value, complete.value);
+        if (!code) return;
         pairing.busy = true;
         pairing.message = t("pair.working");
         pairing.live?.sync();
         try {
-            const result = await transport.pairCode({ name: name.value, origin: normalized, code: `${first.value}-${second.value}`, repairId: repair?.id ?? null, linkId: prefill?.linkId ?? null, transport: path, publicAck: model.state.ack });
+            const result = await transport.pairCode({ name: name.value, origin: normalized, code, repairId: repair?.id ?? null, linkId: prefill?.linkId ?? null, transport: path, publicAck: model.state.ack });
             first.value = "";
             second.value = "";
             pairing.busy = false;

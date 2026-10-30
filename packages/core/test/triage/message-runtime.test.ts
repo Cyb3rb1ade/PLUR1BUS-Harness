@@ -19,17 +19,28 @@ test('one decision per message; task class and effort remain fixed until an expl
   const middle = await runtime.decide(message, 'A', classify, { signal: signal(), task: { id: 'task1', atBoundary: false } }); assert.equal(middle.modelClass, 'small');
   const next = await runtime.decide(message, 'A', classify, { signal: signal(), task: { id: 'task2', atBoundary: true } }); assert.equal(next.modelClass, 'large'); assert.equal(calls, 2);
 });
-test('timeout and malformed decisions fall back to default/core-only; turn cancellation still aborts', async () => {
+test('timeout and malformed decisions fall back to rule triage; turn cancellation still aborts', async () => {
   const runtime = new MessageTriage(); let fallback = 0;
-  const result = await runtime.decide(message, 'A', () => new Promise(() => {}), { signal: signal(), timeoutMs: 5, onFallback: () => fallback++ }); assert(result.fallback && result.coreOnly); assert.equal(fallback, 1);
-  assert((await runtime.decide(message, 'A', async () => ({ schema: 'bad' }) as never, { signal: signal() })).fallback);
+  const result = await runtime.decide(message, 'A', () => new Promise(() => {}), { signal: signal(), timeoutMs: 5, onFallback: () => fallback++ }); assert(result.fallback && !result.coreOnly); assert.equal(fallback, 1);
+  assert.deepEqual(result.decision, decision()); assert.equal(result.modelClass, 'large'); assert.equal(result.effort, 'high');
+  const malformed = await runtime.decide(message, 'A', async () => ({ schema: 'bad' }) as never, { signal: signal() });
+  assert(malformed.fallback && !malformed.coreOnly); assert.deepEqual(malformed.decision, decision());
   const controller = new AbortController(); controller.abort(); await assert.rejects(runtime.decide(message, 'A', async () => decision(), { signal: controller.signal }));
 });
-test('provider fallback/chat uses agent default with only core search, never task shortlist or class profile', async () => {
+test('a chat decision keeps core capabilities available and rule fallback preserves task boundaries', async () => {
+  const runtime = new MessageTriage();
+  const chat = await runtime.decide('Hello!', 'chat', async () => triage('Hello!'), { signal: signal() });
+  assert.equal(chat.coreOnly, false); assert.equal(chat.decision.shape, 'chat'); assert.equal(chat.fallback, false);
+  const first = await runtime.decide(message, 'task', async () => { const d = decision(); d.tasks[0]!.modelClass = { small: 1, medium: 0, large: 0, frontier: 0 }; d.tasks[0]!.effort = 'low'; return d; }, { signal: signal(), task: { id: 'one', atBoundary: true } });
+  assert.equal(first.modelClass, 'small');
+  const fallback = await runtime.decide(message, 'task', async () => { throw Error('offline'); }, { signal: signal(), task: { id: 'one', atBoundary: false } });
+  assert.equal(fallback.modelClass, 'small'); assert.equal(fallback.effort, 'low'); assert.equal(fallback.coreOnly, false);
+});
+test('provider fallback preserves admitted tools and the agent default when the class profile is unavailable', async () => {
   const wire = scriptedAdapter([{ text: 'answer' }]); const home = dirs.make();
   const f = turnFixture(wire.adapter, { requireTriage: true, classifyMessage: async () => { throw Error('offline'); }, profileForClass: () => 'forbidden', profileForAgent: () => 'default' }, home);
   f.registry.register(readTool('private.tool', async () => 'secret'));
-  try { await collect(f.provider); assert.deepEqual(wire.requests[0]!.tools, []); assert(f.logs.some(r => r.stage === 'triage-fallback')); } finally { f.close(); }
+  try { await collect(f.provider); assert.deepEqual(wire.requests[0]!.tools!.map(tool => tool.name), ['private_tool']); assert(f.logs.some(r => r.stage === 'triage-fallback')); } finally { f.close(); }
 });
 test('class profiles reload at task boundaries without switching an active task', async () => {
   const home = dirs.make(), path = join(home, 'classes.json'); writeFileSync(path, JSON.stringify({ large: 'large' }));

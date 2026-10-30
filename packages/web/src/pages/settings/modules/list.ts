@@ -6,6 +6,7 @@ import { Badge, type BadgeTone } from "../../../components/card.ts";
 import { t, type Key } from "../../../i18n.ts";
 import { cycleMembers, dependencies, dependents, isRunning, unresolved, type ModuleAction, type ModuleEntry } from "./model.ts";
 import type { ModuleGraph } from "./rpc-types.ts";
+import type { ExtItem } from "../../common/surfaces-rpc.ts";
 
 const STATE_TONE: Record<string, BadgeTone> = { ready: "ok", starting: "info", stopping: "info", degraded: "warn", orphaned: "warn", stopped: "neutral", crashed: "err" };
 const ACTION_KEY: Record<ModuleAction, Key> = { start: "modules.action.start", stop: "modules.action.stop", restart: "modules.action.restart" };
@@ -19,6 +20,8 @@ const names = (xs: readonly string[]): string => (xs.length > 0 ? xs.join(", ") 
 
 export type ModuleListProps = {
   rows: ModuleEntry[];
+  extensions?: ExtItem[];
+  onExtension?: (name: string) => void;
   graph: ModuleGraph | null;
   /** Owner and Admin: start, stop and restart. */
   canOperate: boolean;
@@ -30,14 +33,19 @@ export type ModuleListProps = {
 
 export function ModuleList(props: ModuleListProps): View {
   return h("ul", { class: "plain-list modules-list", "aria-label": t("modules.list.label") },
-    props.rows.map((m) => h(ModuleRow, { key: m.name, m, ...props })));
+    props.rows.map((m) => h(ModuleRow, { key: m.name, m, ...props })),
+    (props.extensions ?? []).filter(item => !props.rows.some(row => row.name === item.name)).map(item => h("li", { key: `extension:${item.name}`, class: "modules-row", "data-extension": item.name },
+      h("div", { class: "modules-who" }, h("strong", { class: "modules-name" }, item.name), h("span", { class: "modules-id" }, item.version)),
+      h("div", { class: "modules-meta" }, h(Badge, {}, item.kind), h(Badge, {}, item.trust), h(Badge, { tone: item.partial ? "warn" : item.enabled ? "ok" : "neutral" }, t(item.partial ? "extensions.bundle.partial" : item.enabled ? "extensions.status.enabled" : "extensions.status.disabled"))),
+      h("button", { type: "button", class: "btn btn-quiet", onClick: () => props.onExtension?.(item.name) }, t("extensions.action.details")))));
 }
 
-function ModuleRow({ m, graph, canOperate, canInstall, onAction, onUninstall }: { m: ModuleEntry } & ModuleListProps): View {
+function ModuleRow({ m, graph, canOperate, canInstall, onAction, onUninstall, extensions }: { m: ModuleEntry } & ModuleListProps): View {
   const state = stateOf(m);
   const missing = unresolved(graph, m.name);
   const cycle = cycleMembers(graph, m.name);
   const actions: ModuleAction[] = isRunning(m) ? ["stop", "restart"] : ["start"];
+  const extension = extensions?.find(item => item.name === m.name);
   return h("li", { class: "modules-row", "data-module": m.name },
     h("div", { class: "modules-who" },
       h("strong", { class: "modules-name" }, m.name),
@@ -46,6 +54,8 @@ function ModuleRow({ m, graph, canOperate, canInstall, onAction, onUninstall }: 
         m.version !== null && m.apiVersion !== null ? " · " : null,
         m.apiVersion !== null ? t("modules.field.api", { version: m.apiVersion }) : null)),
     h("div", { class: "modules-meta" },
+      h(Badge, {}, extension?.kind ?? "module"),
+      extension ? h(Badge, {}, extension.trust) : null,
       h(Badge, { tone: state.tone }, state.text),
       h(Badge, { tone: m.enabled ? "info" : "warn" }, m.enabled ? t("modules.enabled.on") : t("modules.enabled.off")),
       m.child !== null && m.child.restarts > 0 ? h(Badge, {}, t("modules.field.restarts", { n: m.child.restarts })) : null),

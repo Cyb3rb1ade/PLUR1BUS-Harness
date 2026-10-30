@@ -3,15 +3,15 @@
 // src/cli/profile-utils.ts), the agent roster (src/agents/agent-roster.ts, agent-scope-config.ts), skill roots
 // (src/skills/loading/workspace-skill-sources.ts), plugin install dirs (src/plugins/install-paths.ts), the state DB
 // schema marker (src/state/openclaw-state-db-maintenance.ts). Read-only throughout.
-import { readdirSync } from "node:fs";
-import { verifySourceSnapshot } from "../snapshot-source.ts";
+import { SourceReader } from "../source-reader.ts";
+import { verifySourceSnapshotAsync } from "../snapshot-source.ts";
 import { join, resolve } from "node:path";
 import { envGet, expandTilde, locateSource, pathFor, portabilityOf, SourcePathMapper } from "../paths.ts";
 import { classifyReranker, compareReranker } from "../identity.ts";
 import { parseJson5 } from "../json5.ts";
-import { envKeyNames, isDir, isFile, openSqliteReadOnly, sqliteTables, sqliteWarning } from "../readonly.ts";
-import { existsNoFollow, readSourceTextSafe } from "../fs-safe.ts";
-import { scanStoreRoot, subdirs } from "../store-scan.ts";
+import { isDir, isFile, sqliteTables, sqliteWarning } from "../readonly.ts";
+
+import { scanStoreRoot } from "../store-scan.ts";
 import { ImportError, secretConfigKeys, type AgentInfo, type SecretsReport, type SkillRoot, type SourceCtx, type SourceReport } from "../types.ts";
 
 export const PLUGIN_ID = "memory-lancedb-namespaced";
@@ -52,7 +52,7 @@ export function resolveOpenclawRoot(o: RootInput): { root: string; resolvedFrom:
   let root: string; let resolvedFrom: string;
   if (o.source) {
     if (o.source.startsWith("wsl:")) {
-      const loc = locateSource({ accessRoot: o.source, platform, env: o.env, home: o.homedir });
+      const loc = locateSource({ skipSnapshotCheck: true, accessRoot: o.source, platform, env: o.env, home: o.homedir });
       root = loc.accessRoot;
     } else {
       root = P.resolve(expandTilde(o.source, o.homedir, platform));
@@ -86,12 +86,12 @@ const mapperPath = (m: SourcePathMapper): CfgPath => (v, key) => (typeof v === "
 
 const obj = (v: unknown): Record<string, any> | undefined => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, any>) : undefined);
 
-function readStateSchema(root: string, warnings: string[]): { schema: number | null; cronJobs: number | null } {
+async function readStateSchema(root: string, warnings: string[], reader: SourceReader): Promise<{ schema: number | null; cronJobs: number | null }> {
+  const { join } = reader.paths;
   const p = join(root, "state", "openclaw.sqlite");
-  if (!isFile(p)) return { schema: null, cronJobs: null };
+  if (!await reader.isFile(p)) return { schema: null, cronJobs: null };
   try {
-    const h = openSqliteReadOnly(p);
-    try {
+    return await reader.sqlite(p, h => {
       const w = sqliteWarning(h, "state/openclaw.sqlite"); if (w) warnings.push(w);
       const tables = sqliteTables(h.db);
       let schema: number | null = null;
@@ -101,23 +101,25 @@ function readStateSchema(root: string, warnings: string[]): { schema: number | n
       }
       const cronJobs = tables.includes("cron_jobs") ? Number((h.db.prepare("SELECT COUNT(*) AS n FROM cron_jobs").get() as { n: number }).n) : null;
       return { schema, cronJobs };
-    } finally { h.close(); }
+    });
   } catch (e) {
+    SourceReader.refuseFatal(e);
     warnings.push(`state/openclaw.sqlite unreadable (${(e as Error).message})`);
     return { schema: null, cronJobs: null };
   }
 }
 
-function pluginVersion(root: string, cfg: Record<string, any>): { version: string | null; versionSource: string | null; path: string | null } {
+async function pluginVersion(root: string, cfg: Record<string, any>, reader: SourceReader): Promise<{ version: string | null; versionSource: string | null; path: string | null }> {
+  const { join } = reader.paths;
   const candidates: string[] = [];
-  for (const d of subdirs(join(root, "extensions"))) candidates.push(join(root, "extensions", d));
-  for (const d of subdirs(join(root, "npm", "projects"))) candidates.push(join(root, "npm", "projects", d, "node_modules", ...ENGINE_PACKAGE.split("/")));
+  for (const d of await reader.subdirs(join(root, "extensions"))) candidates.push(join(root, "extensions", d));
+  for (const d of await reader.subdirs(join(root, "npm", "projects"))) candidates.push(join(root, "npm", "projects", d, "node_modules", ...ENGINE_PACKAGE.split("/")));
   candidates.push(join(root, "npm", "node_modules", ...ENGINE_PACKAGE.split("/")));
   for (const dir of candidates) {
     const packagePath = join(dir, "package.json");
-    if (!existsNoFollow(packagePath)) continue;
+    if (!await reader.exists(packagePath)) continue;
     let text: string;
-    try { text = readSourceTextSafe(packagePath, 1024 * 1024); }
+    try { text = await reader.text(packagePath, 1024 * 1024); }
     catch { continue; }
     try {
       const pkg = JSON.parse(text) as { name?: string; version?: string };
@@ -129,7 +131,8 @@ function pluginVersion(root: string, cfg: Record<string, any>): { version: strin
   return { version: null, versionSource: null, path: null };
 }
 
-function agents(root: string, cfg: Record<string, any>, cfgPath: CfgPath): AgentInfo[] {
+async function agents(root: string, cfg: Record<string, any>, cfgPath: CfgPath, reader: SourceReader): Promise<AgentInfo[]> {
+  const { join } = reader.paths;
   const a = obj(cfg.agents);
   const found = new Map<string, { entry: Record<string, any>; foundIn: Set<string> }>();
   const add = (id: unknown, entry: Record<string, any>, where: string) => {
@@ -142,7 +145,7 @@ function agents(root: string, cfg: Record<string, any>, cfgPath: CfgPath): Agent
   if (entries) for (const [id, e] of Object.entries(entries)) add(obj(e)?.id ?? id, obj(e) ?? {}, "config");
   else if (Array.isArray(a?.list)) for (const e of a!.list) add(obj(e)?.id, obj(e) ?? {}, "config");
   else add("main", {}, "implicit");
-  for (const d of subdirs(join(root, "agents"))) add(d, {}, "directory");
+  for (const d of await reader.subdirs(join(root, "agents"))) add(d, {}, "directory");
   const defaultsWs = cfgPath(obj(a?.defaults)?.workspace, "agents.defaults.workspace");
   const ids = [...found.keys()].sort();
   return ids.map((id) => {
@@ -157,25 +160,37 @@ function agents(root: string, cfg: Record<string, any>, cfgPath: CfgPath): Agent
   });
 }
 
-function countFiles(dir: string): number {
-  try { return readdirSync(dir).length; } catch { return 0; }
-}
+async function countFiles(dir: string, reader: SourceReader): Promise<number> { return (await reader.names(dir)).length; }
 
 export async function detectOpenclaw(ctx: SourceCtx): Promise<SourceReport> {
-  const { root, resolvedFrom, configPath: liveConfigPath } = resolveOpenclawRoot({ source: ctx.source, env: ctx.env, homedir: ctx.homedir, platform: ctx.platform });
+  const reader = ctx.reader ?? await SourceReader.local();
+  const { join, resolve } = reader.paths;
+  const input = { source: ctx.source, env: ctx.env, homedir: ctx.homedir, platform: reader.remote ? "linux" as const : ctx.platform };
+  const dirs = new Map<string, boolean>(); const files = new Map<string, boolean>();
+  let resolved = resolveOpenclawRoot({ ...input, exists: () => false, isFile: () => false });
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const missingDirs = new Set<string>(); const missingFiles = new Set<string>();
+    resolved = resolveOpenclawRoot({ ...input,
+      exists: path => { if (!dirs.has(path)) missingDirs.add(path); return dirs.get(path) ?? false; },
+      isFile: path => { if (!files.has(path)) missingFiles.add(path); return files.get(path) ?? false; } });
+    if (!missingDirs.size && !missingFiles.size) break;
+    for (const path of missingDirs) dirs.set(path, await reader.isDir(path));
+    for (const path of missingFiles) files.set(path, await reader.isFile(path));
+  }
+  const { root, resolvedFrom, configPath: liveConfigPath } = resolved;
   const warnings: string[] = [];
-  const snapshot = verifySourceSnapshot(root, ctx.home);
-  const configPath = snapshot ? join(root, "openclaw.json") : liveConfigPath;
+  const snapshot = await verifySourceSnapshotAsync(root, ctx.home, reader);
+  const configPath = snapshot && await reader.isFile(join(root, "openclaw.json")) ? join(root, "openclaw.json") : liveConfigPath;
   if (ctx.profile) throw new ImportError("E_INVALID_PARAMS", "profile-not-supported", "--profile applies to Hermes; select an OpenClaw profile with --source <state-dir> or OPENCLAW_PROFILE");
-  if (!isDir(root)) throw new ImportError("E_SOURCE_NOT_FOUND", "source-missing", `no directory at ${root}`);
-  const hasConfig = existsNoFollow(configPath);
-  if (!hasConfig && !isFile(join(root, "state", "openclaw.sqlite"))) {
+  if (!await reader.isDir(root)) throw new ImportError("E_SOURCE_NOT_FOUND", "source-missing", `no directory at ${root}`);
+  const hasConfig = await reader.exists(configPath);
+  if (!hasConfig && !await reader.isFile(join(root, "state", "openclaw.sqlite"))) {
     throw new ImportError("E_SOURCE_NOT_FOUND", "not-an-openclaw-state-dir", `${root} has neither openclaw.json nor state/openclaw.sqlite`);
   }
   let cfg: Record<string, any> = {};
   if (hasConfig) {
     let text: string;
-    try { text = readSourceTextSafe(configPath, 16 * 1024 * 1024); }
+    try { text = await reader.text(configPath, 16 * 1024 * 1024); }
     catch (error) {
       const reason = error instanceof ImportError ? error.reason : "source-unreadable";
       throw new ImportError("E_SOURCE_UNSUPPORTED", reason, `${configPath}: ${reason}`);
@@ -184,29 +199,30 @@ export async function detectOpenclaw(ctx: SourceCtx): Promise<SourceReport> {
     if (/["']?\$include["']?\s*:/.test(text)) warnings.push("openclaw.json uses $include; included files were not followed");
   }
   const release = typeof obj(cfg.meta)?.lastTouchedVersion === "string" ? cfg.meta.lastTouchedVersion as string : null;
-  const state = readStateSchema(root, warnings);
+  const state = await readStateSchema(root, warnings, reader);
   if (release === null && state.schema === null) throw new ImportError("E_SOURCE_UNSUPPORTED", "version-undeterminable", `${root}: neither meta.lastTouchedVersion in openclaw.json nor a state schema version in state/openclaw.sqlite`);
+  ctx.onSourceConfig?.(cfg, null);
   const versionWarnings: string[] = [];
   if (state.schema !== null && state.schema > TESTED_STATE_SCHEMA) versionWarnings.push(`state schema ${state.schema} is newer than the tested ${TESTED_STATE_SCHEMA}`);
 
-  const loc = locateSource({ accessRoot: root, platform: ctx.platform ?? process.platform, env: ctx.env, home: ctx.homedir, harnessHome: ctx.home });
+  const loc = await reader.location({ accessRoot: root, platform: ctx.platform ?? process.platform, env: ctx.env, home: ctx.homedir, harnessHome: ctx.home });
   const base = pathFor(loc.flavour).basename(loc.sourceRoot);
   const mapper = new SourcePathMapper(loc, { maps: ctx.maps, vars: { OPENCLAW_HOME: loc.sourceRoot }, rootNames: base === ".openclaw" || base === ".clawdbot" ? [".openclaw", ".clawdbot"] : [] });
   const cfgPath = mapperPath(mapper);
-  const agentList = agents(root, cfg, cfgPath);
+  const agentList = await agents(root, cfg, cfgPath, reader);
   const entry = obj(obj(obj(cfg.plugins)?.entries)?.[PLUGIN_ID]);
   const pcfg = obj(entry?.config) ?? {};
-  const pv = pluginVersion(root, cfg);
+  const pv = await pluginVersion(root, cfg, reader);
   const baseFromCfg = cfgPath(pcfg.baseDbPath, `plugins.entries.${PLUGIN_ID}.config.baseDbPath`);
   if (pcfg.baseDbPath && !baseFromCfg) warnings.push("PLUR1BUS baseDbPath could not be mapped to a local path (see portability.unmapped); the default path was scanned instead");
   const baseDbPath = baseFromCfg ?? join(root, "memory", "lancedb-namespaced");
-  const installed = !!entry || pv.version !== null || isDir(baseDbPath);
+  const installed = !!entry || pv.version !== null || await reader.isDir(baseDbPath);
   let plur1bus: SourceReport["plur1bus"] = { installed, plugin: null, storeRoot: null, embeddingCache: null, reembedding: null, stores: [] };
   if (installed) {
     const emb = obj(pcfg.embedding);
     const cacheDirCfg = emb?.local?.cacheDir ?? emb?.cacheDir;
     const modelCacheDir = cacheDirCfg ? cfgPath(cacheDirCfg, `plugins.entries.${PLUGIN_ID}.config.embedding.local.cacheDir`) : join(root, "models", "plur1bus");
-    const scan = await scanStoreRoot({ baseDbPath, baseDbPathSource: baseFromCfg ? "config" : "default", config: pcfg, modelCacheDir, target: ctx.target.embedding });
+    const scan = await scanStoreRoot({ reader, baseDbPath, baseDbPathSource: baseFromCfg ? "config" : "default", config: pcfg, modelCacheDir, target: ctx.target.embedding });
     warnings.push(...scan.warnings);
     plur1bus = {
       installed,
@@ -233,24 +249,26 @@ export async function detectOpenclaw(ctx: SourceCtx): Promise<SourceReport> {
   }
 
   const secrets: SecretsReport = { files: [], envKeys: [], configKeys: secretConfigKeys(cfg) };
-  if (isFile(join(root, ".env"))) { secrets.files.push({ path: ".env", kind: "dotenv", present: true }); secrets.envKeys.push({ file: ".env", keys: envKeyNames(join(root, ".env")) }); }
-  if (isDir(join(root, "credentials"))) secrets.files.push({ path: "credentials/", kind: "credential-store", present: true, entries: countFiles(join(root, "credentials")) });
-  if (isFile(join(root, "auth-profiles.json"))) secrets.files.push({ path: "auth-profiles.json", kind: "legacy-auth-profiles", present: true });
-  for (const a of subdirs(join(root, "agents"))) {
-    if (isFile(join(root, "agents", a, "agent", "openclaw-agent.sqlite"))) secrets.files.push({ path: `agents/${a}/agent/openclaw-agent.sqlite`, kind: "auth-store", present: true });
-    if (isFile(join(root, "agents", a, "agent", "auth-profiles.json"))) secrets.files.push({ path: `agents/${a}/agent/auth-profiles.json`, kind: "legacy-auth-profiles", present: true });
+  if (await reader.isFile(join(root, ".env"))) { secrets.files.push({ path: ".env", kind: "dotenv", present: true }); secrets.envKeys.push({ file: ".env", keys: await reader.envKeys(join(root, ".env")) }); }
+  if (await reader.isDir(join(root, "credentials"))) secrets.files.push({ path: "credentials/", kind: "credential-store", present: true, entries: await countFiles(join(root, "credentials"), reader) });
+  if (await reader.isFile(join(root, "auth-profiles.json"))) secrets.files.push({ path: "auth-profiles.json", kind: "legacy-auth-profiles", present: true });
+  for (const a of await reader.subdirs(join(root, "agents"))) {
+    if (await reader.isFile(join(root, "agents", a, "agent", "openclaw-agent.sqlite"))) secrets.files.push({ path: `agents/${a}/agent/openclaw-agent.sqlite`, kind: "auth-store", present: true });
+    if (await reader.isFile(join(root, "agents", a, "agent", "auth-profiles.json"))) secrets.files.push({ path: `agents/${a}/agent/auth-profiles.json`, kind: "legacy-auth-profiles", present: true });
   }
 
   const ws = agentList.map((a) => a.workspace).filter((w): w is string => !!w);
+  const has = async (name: string) => (await Promise.all(ws.map(path => reader.isFile(join(path, name))))).filter(Boolean).length;
   const other = {
-    soul: ws.filter((w) => isFile(join(w, "SOUL.md"))).length,
-    memoryFiles: ws.reduce((n, w) => n + (isFile(join(w, "MEMORY.md")) ? 1 : 0) + (isFile(join(w, "USER.md")) ? 1 : 0), 0),
-    dreamsFiles: ws.filter((w) => isFile(join(w, "DREAMS.md")) || isFile(join(w, "dreams.md"))).length,
+    soul: await has("SOUL.md"),
+    memoryFiles: await has("MEMORY.md") + await has("USER.md"),
+    dreamsFiles: (await Promise.all(ws.map(async path => await reader.isFile(join(path, "DREAMS.md")) || await reader.isFile(join(path, "dreams.md"))))).filter(Boolean).length,
     cronJobs: state.cronJobs,
     note: "presence only; imported by M7",
   };
   const errors = snapshot?.skippedFiles.map(file => ({ sourceRef: file.path, reason: file.reason })) ?? [];
   if (snapshot) {
+    for (const entry of snapshot.configKeys ?? []) if (!secrets.configKeys.some(existing => existing.path === entry.path && existing.form === entry.form)) secrets.configKeys.push(entry);
     for (const path of snapshot.omittedCredentials) secrets.files.push({ path, kind: "found-not-imported", present: true });
     for (const [file, keys] of Object.entries(snapshot.envKeys)) secrets.envKeys.push({ file, keys });
   }

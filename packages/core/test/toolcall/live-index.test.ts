@@ -9,6 +9,8 @@ import { loadCalibration, usagePrior } from '../../src/toolcall/calibration.ts';
 import { guardMethods } from '../../src/rbac/guard.ts';
 import { buildDoctorMethods } from '../../src/doctor-report.ts';
 import { collect, scriptedAdapter, turnFixture, turnRequest, readTool, useTempDirs } from '../composition/helpers.ts';
+import type { ChatChunk } from '../../src/session/provider.ts';
+import type { ChatRequest as WireRequest } from '../../../providers/src/index.ts';
 const dirs = useTempDirs('d103-live-');
 function setup() { const home = dirs.make(); mkdirSync(join(home, 'state')); return { home, live: new LiveCapabilityIndex(home) }; }
 function skill(home: string, enabled = true, text = '---\nname: reports\ndescription: Create quarterly report\ncategory: docs.create\n---\nUse the approved reporting workflow.') {
@@ -16,16 +18,40 @@ function skill(home: string, enabled = true, text = '---\nname: reports\ndescrip
   writeFileSync(join(home, 'skills', 'reports', 'SKILL.md'), text);
   writeFileSync(join(home, 'skills', 'index.json'), JSON.stringify({ version: 1, skills: [{ id: 'reports', enabled }] }));
 }
-test('install, edit and disable a skill are visible to the next real provider turn without restart', async () => {
+function systemText(request: WireRequest): string {
+  return request.messages.filter(message => message.role === 'system').map(message => message.content).join('\n');
+}
+function preloadNames(chunks: readonly ChatChunk[]): string[] {
+  return chunks.flatMap(chunk => chunk.type === 'tool.call' && chunk.name === 'skill.load'
+    ? [(chunk.args as { name: string }).name] : []);
+}
+test('skill metadata changes next turn, loaded instructions stay in the session and a new session loads edits', async () => {
   const { home, live } = setup(); const wire = scriptedAdapter([{ text: 'done' }]);
   const f = turnFixture(wire.adapter, { capabilities: live }, home);
   try {
     const req = turnRequest({ messages: [{ role: 'user', text: 'Create quarterly report' }] });
-    await collect(f.provider, req); assert(!JSON.stringify(wire.requests.at(-1)).includes('approved reporting workflow'));
-    skill(home); await collect(f.provider, req); assert(JSON.stringify(wire.requests.at(-1)).includes('approved reporting workflow'));
-    skill(home, true, readFileSync(join(home, 'skills/reports/SKILL.md'), 'utf8').replace('approved reporting workflow', 'revised reporting workflow'));
-    await collect(f.provider, req); assert(JSON.stringify(wire.requests.at(-1)).includes('revised reporting workflow'));
-    skill(home, false); await collect(f.provider, req); assert(!JSON.stringify(wire.requests.at(-1)).includes('revised reporting workflow'));
+    assert.deepEqual(preloadNames(await collect(f.provider, req)), []);
+    assert.doesNotMatch(systemText(wire.requests.at(-1)!), /reports:/);
+    assert(!JSON.stringify(wire.requests.at(-1)).includes('approved reporting workflow'));
+    skill(home);
+    assert.deepEqual(preloadNames(await collect(f.provider, req)), ['reports']);
+    assert.match(systemText(wire.requests.at(-1)!), /reports: Create quarterly report/);
+    assert(JSON.stringify(wire.requests.at(-1)).includes('approved reporting workflow'));
+    skill(home, true, readFileSync(join(home, 'skills/reports/SKILL.md'), 'utf8')
+      .replace('Create quarterly report', 'Create revised quarterly report')
+      .replace('approved reporting workflow', 'revised reporting workflow'));
+    assert.deepEqual(preloadNames(await collect(f.provider, req)), []);
+    assert.match(systemText(wire.requests.at(-1)!), /reports: Create revised quarterly report/);
+    assert(JSON.stringify(wire.requests.at(-1)).includes('approved reporting workflow'));
+    assert(!JSON.stringify(wire.requests.at(-1)).includes('revised reporting workflow'));
+    const nextSession = { ...req, sessionId: 'edited-session', turnId: 'edited-turn' };
+    assert.deepEqual(preloadNames(await collect(f.provider, nextSession)), ['reports']);
+    assert(JSON.stringify(wire.requests.at(-1)).includes('revised reporting workflow'));
+    assert(!JSON.stringify(wire.requests.at(-1)).includes('approved reporting workflow'));
+    skill(home, false);
+    assert.deepEqual(preloadNames(await collect(f.provider, nextSession)), []);
+    assert.doesNotMatch(systemText(wire.requests.at(-1)!), /reports:/);
+    assert(!wire.requests.at(-1)!.tools?.some(tool => tool.name === 'skill_load' || tool.name === 'skill_read'));
     assert(!live.registry.snapshot().some(e => e.kind === 'skill'));
   } finally { f.close(); live.close(); }
 });
@@ -96,16 +122,29 @@ test('nightly recheck uses the system-job contract and removes orphaned skills',
     assert(usagePrior({ offered: 20, used: 20, succeeded: 20, foundBySearch: 20 }, { offered: 0, used: 0, succeeded: 0, foundBySearch: 0 }, loadCalibration()) <= .2);
   } finally { live.close(); }
 });
-test('capabilities.search expands a missed tool only through dispatcher and scoped registry', async () => {
+test('capabilities.search stages a missed tool for the next turn while current-round declarations stay frozen', async () => {
   const { home, live } = setup(); const wire = scriptedAdapter([
     { calls: [{ id: 'find', name: 'capabilities_search', args: { query: 'zebra' } }] },
-    { calls: [{ id: 'read', name: 'zebra_read', args: { path: 'x' } }] }, { text: 'done' },
+    { text: 'discovered' }, { calls: [{ id: 'read', name: 'zebra_read', args: { path: 'x' } }] }, { text: 'done' },
   ]);
   const f = turnFixture(wire.adapter, { capabilities: live, topK: 1 }, home);
-  f.registry.register(readTool('aaa.read', async () => 'ordinary')); f.registry.register(readTool('zebra.read', async () => 'zebra'));
+  let zebraRuns = 0;
+  f.registry.register(readTool('aaa.read', async () => 'ordinary'));
+  f.registry.register(readTool('zebra.read', async () => { zebraRuns++; return 'zebra'; }));
   try {
-    const chunks = await collect(f.provider); assert(chunks.some(c => c.type === 'tool.result' && c.id === 'read'));
-    assert(!wire.requests[0]!.tools?.some(t => t.name === 'zebra_read')); assert(wire.requests[1]!.tools?.some(t => t.name === 'zebra_read'));
+    const discovered = await collect(f.provider);
+    const search = discovered.find(chunk => chunk.type === 'tool.result' && chunk.id === 'find');
+    assert(search && search.type === 'tool.result');
+    assert(JSON.parse(search.output).value.some((entry: { name: string }) => entry.name === 'zebra.read'));
+    assert.equal(zebraRuns, 0);
+    assert(!wire.requests[0]!.tools?.some(t => t.name === 'zebra_read'));
+    assert.deepEqual(wire.requests[0]!.tools, wire.requests[1]!.tools);
+    const chunks = await collect(f.provider, turnRequest({ turnId: 'next-turn' }));
+    assert(wire.requests[2]!.tools?.some(t => t.name === 'zebra_read'));
+    const result = chunks.find(chunk => chunk.type === 'tool.result' && chunk.id === 'read');
+    assert(result && result.type === 'tool.result');
+    assert.equal(JSON.parse(result.output).value, 'zebra');
+    assert.equal(zebraRuns, 1);
   } finally { f.close(); live.close(); }
 });
 test('calibration uses file defaults, symmetric caps, global fallback, decay and update reset with fixed clock', () => {
@@ -163,10 +202,21 @@ test('a policy context that is only available after beforeTools (permission stor
 test('a call to a tool withheld by tools.deny reaches the dispatcher and is refused as tool-denied, never executed', async () => {
   const home = dirs.make(); mkdirSync(join(home, 'state')); const live = new LiveCapabilityIndex(home, () => Date.UTC(2026, 9, 16));
   let runs = 0;
-  const wire = scriptedAdapter([{ calls: [{ id: 'c1', name: 'file_read', args: { path: 'x' } }] }]);
+  const wire = scriptedAdapter([{ calls: [{ id: 'c1', name: 'file_read', args: { path: 'x' } }] },
+    { text: 'The file read was denied.' }]);
   const f = turnFixture(wire.adapter, { capabilities: live, policyContext: () => ({ toolsDeny: ['fs.read'] }) }, home);
   f.registry.register(readTool('file.read', async () => { runs++; return 'bytes'; }));
-  try { await assert.rejects(() => collect(f.provider, turnRequest({ messages: [{ role: 'user', text: 'read file x' }] })), { code: 'tool-denied' }); assert.equal(runs, 0); assert(!wire.requests[0]!.tools?.some(t => t.name === 'file_read')); } finally { f.close(); live.close(); }
+  try {
+    const chunks = await collect(f.provider, turnRequest({ messages: [{ role: 'user', text: 'read file x' }] }));
+    const denied = chunks.find(chunk => chunk.type === 'tool.result' && chunk.id === 'c1');
+    assert(denied && denied.type === 'tool.result');
+    assert.equal(JSON.parse(denied.output).error.code, 'tool-denied');
+    assert.equal(runs, 0);
+    assert(!wire.requests[0]!.tools?.some(t => t.name === 'file_read'));
+    assert(wire.requests[1]!.messages.some(message => message.role === 'tool'
+      && JSON.parse(message.content).error.code === 'tool-denied'));
+    assert(chunks.some(chunk => chunk.type === 'delta' && chunk.text === 'The file read was denied.'));
+  } finally { f.close(); live.close(); }
 });
 test('supervisor skill snapshot enforces effective agents and fails closed after disconnect', async () => {
   const { home, live } = setup(); skill(home);
@@ -178,21 +228,31 @@ test('supervisor skill snapshot enforces effective agents and fails closed after
   } finally { live.close(); }
 });
 
-test('decision skill hook controls only the dynamic suffix after catalogue shortlisting', async()=>{
+test('the decision hook controls tool-result skill loading while stable catalogue prefixes stay unchanged', async()=>{
   const {home,live}=setup();skill(home);
   let pick=false;const prompts:import('../../src/prompt/types.ts').RenderedPrompt[]=[];
   const wire=scriptedAdapter([{text:'done'}]);
   const f=turnFixture(wire.adapter,{capabilities:live,onPrompt:p=>prompts.push(p),selectSkills:async(_req,candidates)=>pick?candidates.map(c=>c.id):[]},home);
   try{
     const req=turnRequest({messages:[{role:'user',text:'Create quarterly report'}]});
-    await collect(f.provider,req);assert.ok(!JSON.stringify(wire.requests.at(-1)).includes('approved reporting workflow'));
-    pick=true;await collect(f.provider,req);assert.ok(JSON.stringify(wire.requests.at(-1)).includes('approved reporting workflow'));
+    assert.deepEqual(preloadNames(await collect(f.provider,req)),[]);
+    assert.ok(!JSON.stringify(wire.requests.at(-1)).includes('approved reporting workflow'));
+    assert.match(systemText(wire.requests.at(-1)!),/reports: Create quarterly report/);
+    pick=true;
+    const loaded=await collect(f.provider,req);
+    assert.deepEqual(preloadNames(loaded),['reports']);
+    assert.ok(JSON.stringify(wire.requests.at(-1)).includes('approved reporting workflow'));
     assert.deepEqual(prompts[0]!.prefixHashes,prompts[1]!.prefixHashes);
-    assert.ok(prompts[1]!.segments.some(s=>s.zone==='volatile'&&s.text.includes('approved reporting workflow')));
+    assert.ok(prompts[1]!.segments.some(s=>s.zone==='conversation'&&s.kind==='tool_result'
+      &&s.text.includes('approved reporting workflow')));
+    assert.ok(!prompts[1]!.segments.some(s=>(s.zone==='volatile'||s.zone==='system')
+      &&s.text.includes('approved reporting workflow')));
+    assert.deepEqual(preloadNames(await collect(f.provider,req)),[]);
+    assert.deepEqual(prompts[1]!.prefixHashes,prompts[2]!.prefixHashes);
   }finally{f.close();live.close();}
 });
 
-test('automatic skill choice: no decision model injects the rule shortlist top-3, a decision keeps only its subset in its own order', async () => {
+test('automatic choice loads the rule top-3 or the decision subset in order while all skill metadata stays visible', async () => {
   const { defaults } = await import('@plur1bus/config-schema'); const { DecisionClient } = await import('../../src/decision/client.ts'); const { selectDecisionSkills } = await import('../../src/decision/skills.ts');
   const { home, live } = setup(); const names = ['alpha', 'beta', 'gamma', 'delta'];
   for (const n of names) { mkdirSync(join(home, 'skills', n), { recursive: true }); writeFileSync(join(home, 'skills', n, 'SKILL.md'), `---\nname: ${n}\ndescription: Create quarterly report ${n}\ncategory: docs.create\n---\nWorkflow ${n.toUpperCase()}.`); }
@@ -205,12 +265,25 @@ test('automatic skill choice: no decision model injects the rule shortlist top-3
     if (subset) return [candidates[2]!.id, candidates[0]!.id];
     return (await selectDecisionSkills(none, { query: 'Create quarterly report', candidates }, { agentId: req.agentId, signal })).map(s => s.id);
   } }, home);
-  const injected = () => { const text = JSON.stringify(wire.requests.at(-1)); return names.filter(n => text.includes(`Workflow ${n.toUpperCase()}.`)); };
+  const visible = () => systemText(wire.requests.at(-1)!).split('\n')
+    .filter(line => names.some(name => line.startsWith(`${name}:`))).map(line => line.split(':')[0]);
   try {
     const req = turnRequest({ messages: [{ role: 'user', text: 'Create quarterly report' }] });
-    await collect(f.provider, req); assert.equal(offered.length, 4);
-    assert.deepEqual(injected(), offered.slice(0, 3).map(c => c.name).sort((a, b) => names.indexOf(a) - names.indexOf(b)));
-    subset = true; await collect(f.provider, req);
-    assert.deepEqual(injected(), [offered[2]!.name, offered[0]!.name].sort((a, b) => names.indexOf(a) - names.indexOf(b)));
+    const rule = await collect(f.provider, req);
+    assert.equal(offered.length, 4);
+    assert.deepEqual(preloadNames(rule), offered.slice(0, 3).map(c => c.name));
+    assert.deepEqual(visible(), [...names].sort());
+    assert.doesNotMatch(systemText(wire.requests.at(-1)!), /Workflow [A-Z]+\./);
+    subset = true;
+    const refined = await collect(f.provider, { ...req, sessionId: 'decision-subset', turnId: 'subset-turn' });
+    assert.deepEqual(preloadNames(refined), [offered[2]!.name, offered[0]!.name]);
+    assert.deepEqual(visible(), [...names].sort());
+    const results = refined.filter(chunk => chunk.type === 'tool.result');
+    assert.equal(results.length, 2);
+    for (const result of results) {
+      const value = JSON.parse(result.output).value as { name: string; text: string };
+      assert.equal(value.text, `Workflow ${value.name.toUpperCase()}.`);
+      assert.doesNotMatch(value.text, /description:|category:/);
+    }
   } finally { f.close(); live.close(); }
 });

@@ -253,13 +253,51 @@ pub fn normalise_skill_with_warnings(
         SkillInput::Dir(d) => read_dir_input(d)?,
         SkillInput::Zip(z) => read_zip_input(z)?,
     };
+    normalise_files(dir_name.as_deref(), files, skipped, created, out)
+}
+
+/// Normalizes already bounded in-memory skill files through the existing frontmatter and capability pipeline.
+/// Paths are relative to the skill root; credentials are refused, scan exclusions are disclosed, and normal skill
+/// byte/file caps apply before any output. Used by plugin archive normalization without extracting source files.
+pub fn normalise_skill_files(
+    dir_name: Option<&str>,
+    files: Vec<PayloadFile>,
+    created: &str,
+    out: &mut (impl Write + Seek),
+) -> Result<(P1xManifest, Vec<String>), Refusal> {
+    if files.len() > MAX_SKILL_FILES
+        || files.iter().map(|f| f.bytes.len() as u64).sum::<u64>() > MAX_SKILL_BYTES
+    {
+        return Err(Refusal::invalid(
+            reason::TOO_LARGE,
+            "skill files exceed the skill byte or file limit",
+        ));
+    }
+    let (mut kept, mut skipped) = (Vec::new(), Vec::new());
+    for file in files {
+        if keep(&file.rel)? {
+            kept.push(file);
+        } else {
+            skipped.push(file.rel);
+        }
+    }
+    normalise_files(dir_name, kept, skipped, created, out)
+}
+
+fn normalise_files(
+    dir_name: Option<&str>,
+    files: Vec<PayloadFile>,
+    skipped: Vec<String>,
+    created: &str,
+    out: &mut (impl Write + Seek),
+) -> Result<(P1xManifest, Vec<String>), Refusal> {
     let skill_md = files
         .iter()
         .find(|f| f.rel == "SKILL.md")
         .ok_or_else(|| invalid("no SKILL.md at the root of the skill"))?;
     let raw = std::str::from_utf8(&skill_md.bytes)
         .map_err(|e| invalid(format!("SKILL.md is not UTF-8: {e}")))?;
-    let front = match &dir_name {
+    let front = match dir_name {
         Some(d) => validate_skill_md(raw, d)?,
         None => parse_skill_md(raw)?,
     };

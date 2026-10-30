@@ -133,7 +133,7 @@ fn entry_text(executable: &Path, kind: EntryKind) -> IntegrationResult<String> {
     } else {
         command.push_str(" %u");
     }
-    Ok(format!("[Desktop Entry]\nType=Application\nName=PLUR1BUS\nExec={command}\nTerminal=false\nCategories=Utility;\nMimeType=x-scheme-handler/plur1bus;application/x-plur1bus-extension;\nX-PLUR1BUS-Owner=app.plur1bus.desktop\nX-PLUR1BUS-Executable={encoded}\n"))
+    Ok(format!("[Desktop Entry]\nType=Application\nName=PLUR1BUS\nExec={command}\nTerminal=false\nCategories=Utility;\nMimeType=x-scheme-handler/plur1bus;application/vnd.plur1bus.extension+zip;\nX-PLUR1BUS-Owner=app.plur1bus.desktop\nX-PLUR1BUS-Executable={encoded}\n"))
 }
 fn is_owned(contents: &str, kind: EntryKind) -> bool {
     let Some(hex) = contents

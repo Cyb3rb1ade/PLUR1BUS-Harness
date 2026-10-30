@@ -85,6 +85,50 @@ describe("harness metrics", () => {
   it("carries no agent, user, path or host label anywhere", () => {
     const m = createMetrics({ ...base, connections: () => 0 });
     const labels = new Set(parseExposition(m.render()).flatMap((f) => f.samples.flatMap((s) => Object.keys(s.labels))));
-    for (const l of labels) assert.ok(["method", "result", "outcome", "provider", "kind", "le"].includes(l), `label ${l}`);
+    for (const l of labels) assert.ok(["method", "result", "outcome", "provider", "kind", "le", "reason", "status"].includes(l), `label ${l}`);
+  });
+
+  it("counts bounded tool usage, need reasons, skill loading and triage latency", () => {
+    const m = createMetrics({ ...base, connections: () => 0 });
+    m.turnTelemetry({
+      rounds: 3, toolCalls: 2, metaCalls: { search: 1, skillLoad: 2, skillRead: 3 },
+      skills: { injected: 1, loaded: 2 }, toolChoice: { status: "required", forced: true },
+      toolNeed: { detected: true, reasons: ["path", "url"] }, errorsReturned: 1,
+      endReason: "completed", triageDurationMs: 25,
+    });
+    const value = (name: string, key?: string) => fam(m.render(), name)!.samples
+      .find(s => key === undefined || Object.values(s.labels).includes(key))!.value;
+    assert.equal(value("plur1bus_turn_rounds_total"), 3);
+    assert.equal(value("plur1bus_turn_tool_calls_total", "real"), 2);
+    assert.equal(value("plur1bus_turn_tool_calls_total", "search"), 1);
+    assert.equal(value("plur1bus_turn_tool_calls_total", "skill_load"), 2);
+    assert.equal(value("plur1bus_turn_tool_calls_total", "skill_read"), 3);
+    assert.equal(value("plur1bus_turn_skills_total", "injected"), 1);
+    assert.equal(value("plur1bus_turn_skills_total", "loaded"), 2);
+    assert.equal(value("plur1bus_turn_tool_need_total", "path"), 1);
+    assert.equal(value("plur1bus_turn_tool_need_total", "url"), 1);
+    assert.equal(value("plur1bus_turn_tool_choice_total", "required"), 1);
+    assert.equal(value("plur1bus_turn_tool_errors_returned_total"), 1);
+    assert.equal(value("plur1bus_turn_end_total", "completed"), 1);
+    const latency = fam(m.render(), "plur1bus_turn_triage_duration_seconds")!;
+    assert.equal(latency.samples.find(s => s.name.endsWith("_sum"))!.value, 0.025);
+    assert.deepEqual(m.turnTelemetrySummary().triage, { count: 1, p50Ms: 25, p95Ms: 25 });
+  });
+
+  it("folds unknown telemetry strings and bounds the retained triage quantile sample", () => {
+    const m = createMetrics({ ...base, connections: () => 0 });
+    for (let i = 0; i < 1100; i++) m.turnTelemetry({
+      rounds: 1, toolCalls: 0, metaCalls: { search: 0, skillLoad: 0, skillRead: 0 },
+      skills: { injected: 0, loaded: 0 },
+      toolChoice: { status: "private-value" as "auto", forced: false },
+      toolNeed: { detected: true, reasons: ["private-value" as "path"] }, errorsReturned: 0,
+      endReason: "private-value" as "completed", triageDurationMs: i,
+    });
+    const text = m.render();
+    assert.equal(text.includes("private-value"), false);
+    const summary = m.turnTelemetrySummary();
+    assert.equal(summary.turns, 1100);
+    assert.equal(summary.withoutNeededTool, 1100);
+    assert.deepEqual(summary.triage, { count: 1024, p50Ms: 587, p95Ms: 1048 });
   });
 });

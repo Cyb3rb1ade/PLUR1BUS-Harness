@@ -6,6 +6,7 @@ import { readConfigFile } from "../config-load.ts";
 import { buildEngineConfig } from "../engine-config.ts";
 import { layout } from "../paths.ts";
 import { artefactDigest, CATALOG, ENGINE_DEFAULTS, type LicenceClass } from "./catalog.ts";
+import { normalizeEmbeddingConfig } from "@cyb3rb1ade/plur1bus-memory/lib/providers/config-normalize.js";
 
 export type FieldSource =
   | "store-metadata" | "config" | "cache" | "model-cache" | "vector-schema" | "derived" | "not-applicable" | "unknown"
@@ -212,6 +213,21 @@ export function targetIdentity(home: string): TargetIdentity {
     }
   }
   const engine = buildEngineConfig(cfg, l) as Record<string, any>;
+  const reranker = classifyReranker(engine.reranker as Record<string, any>, "default", (cfg.engine as Record<string, any> | undefined)?.reranker ? "harness-config" : "harness-default");
+  if (engine.embedding.provider !== "local-transformers") {
+    const effective = normalizeEmbeddingConfig(engine.embedding);
+    const configured = (cfg.engine as Record<string, any> | undefined)?.embedding ?? {};
+    const src = (key: string): FieldSource => configured[key] === undefined ? "harness-default" : "harness-config";
+    const na = () => f(null, "not-applicable");
+    const endpoint = endpointOf(effective.baseUrl);
+    const embedding: Identity = {
+      provider: f(effective.provider, src("provider")), model: f(effective.model, src("model")),
+      dimension: f(effective.dimensions, src("dimensions")),
+      revision: na(), artefactHash: na(), quantization: na(), prefixSchema: na(), normalization: na(), tokenCap: na(),
+      endpoint: endpoint === null ? f(null, "harness-default", "provider default endpoint") : f(endpoint, "harness-config"),
+    };
+    return { home, configSource, embedding, reranker, warnings };
+  }
   const userEmb = (cfg.engine as Record<string, any> | undefined)?.embedding?.local ?? {};
   const emb = engine.embedding.local as Record<string, any>;
   const src = (k: string): FieldSource => (userEmb[k] !== undefined ? "harness-config" : "harness-default");
@@ -232,6 +248,5 @@ export function targetIdentity(home: string): TargetIdentity {
     tokenCap: typeof emb.maxTokens === "number" ? f(emb.maxTokens, "harness-config") : f(ENGINE_DEFAULTS.localTokenCap, "engine-catalog"),
     endpoint: f(null, "not-applicable"),
   };
-  const reranker = classifyReranker(engine.reranker as Record<string, any>, "default", (cfg.engine as Record<string, any> | undefined)?.reranker ? "harness-config" : "harness-default");
   return { home, configSource, embedding, reranker, warnings };
 }

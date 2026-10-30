@@ -13,11 +13,17 @@ path = "src/lib.rs"
 name = "plur1bus-engine"
 path = "src/main.rs"
 
+[[test]]
+name = "embedding_parity"
+path = "tests/embedding_parity.rs"
+required-features = ["real-models"]
+
 [lints]
 workspace = true
 
 [features]
 testkit = []
+real-models = []
 
 [dependencies]
 serde.workspace = true
@@ -41,9 +47,17 @@ url = "2"
 chrono-tz.workspace = true
 regress.workspace = true
 tokenizers = { version = "=0.23.2", default-features = false, features = ["fancy-regex"] }
+# RE-03/T0: rc.14 (2026-10-12) is the newest release outside the two-week window.
+# Dynamic loading only: no build-time runtime downloads, static linkage, or second HTTP/TLS stack.
+ort = { version = "=2.0.0-rc.14", default-features = false, features = ["load-dynamic"] }
+# ureq-proto traces serialized HTTP bytes; strip TRACE even if a host enables it at runtime.
+# Sensitive header flags still protect the remaining Debug request diagnostics.
+log = { version = "0.4", features = ["max_level_debug"] }
 sha2 = "0.10"
 # One HTTP client policy in the workspace: the same version and features as crates/plur1bus (rustls, no native-tls).
 ureq = { version = "3", default-features = false, features = ["rustls", "platform-verifier"] }
+# Reuse the locked socket API for cancellation of ureq connections; this adds no HTTP/TLS stack.
+socket2 = "=0.6.5"
 
 # Keep these direct dependencies on the exact lines already resolved by lancedb 0.26.2.
 arrow-array = "=57.3.1"

@@ -41,6 +41,17 @@ export function authenticatedPrincipal(ctx: CallContext): Principal {
 }
 
 export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
+  ...Object.fromEntries(["admin.import.detect", "admin.import.wsl.list", "admin.import.plan", "admin.import.preflight",
+    "admin.import.skills", "admin.import.apply", "admin.import.status", "admin.import.abort", "admin.import.runs",
+    "admin.import.rollback"].map(method => [method,
+    { ...rule("imports.manage", system), humanOnly: true }])),
+  ...Object.fromEntries(["admin.import.ssh.key.status", "admin.import.ssh.connections.list"].map(method => [method,
+    { ...rule("imports.read", system), humanOnly: true }])),
+  ...Object.fromEntries(["admin.import.ssh.key.generate", "admin.import.ssh.key.rotate", "admin.import.ssh.key.delete",
+    "admin.import.ssh.connections.set", "admin.import.ssh.connections.delete", "admin.import.ssh.hostKey.probe",
+    "admin.import.ssh.hostKey.trust"].map(method => [method, { ...rule("imports.manage", system), humanOnly: true }])),
+  ...Object.fromEntries(["ext.list", "ext.show", "ext.watch", "ext.inspection.get", "admin.extensions.setup.get", "admin.extensions.runtime.status", "admin.extensions.auth.status"].map(method => [method, { ...rule("extensions.read", system), humanOnly: true }])),
+  ...Object.fromEntries(["ext.inspect", "ext.install", "ext.uninstall", "ext.restore", "ext.enable", "ext.disable", "admin.extensions.setup.set", "admin.extensions.auth.start", "admin.extensions.auth.submit", "admin.extensions.auth.cancel", "admin.extensions.runtime.hold", "admin.extensions.runtime.release"].map(method => [method, { ...rule("extensions.manage", system), humanOnly: true }])),
   "secret.describe": { ...rule("settings.write", system), humanOnly: true },
   "secret.grants.list": { ...rule("settings.read", system), humanOnly: true },
   "delivery.target.list": { ...rule("agent.list", system), humanOnly: true },

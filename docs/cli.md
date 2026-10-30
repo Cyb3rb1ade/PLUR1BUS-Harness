@@ -289,6 +289,8 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus plugin restore`↴](#plur1bus-plugin-restore)
 * [`plur1bus plugin enable`↴](#plur1bus-plugin-enable)
 * [`plur1bus plugin disable`↴](#plur1bus-plugin-disable)
+* [`plur1bus mcp`↴](#plur1bus-mcp)
+* [`plur1bus mcp import`↴](#plur1bus-mcp-import)
 * [`plur1bus ext`↴](#plur1bus-ext)
 * [`plur1bus ext inspect`↴](#plur1bus-ext-inspect)
 * [`plur1bus ext pack`↴](#plur1bus-ext-pack)
@@ -345,6 +347,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `uninstall` — [experimental] Remove the installation (service, daemon, binary, runtime); the data stays unless --purge
 * `skill` — Skills from packages, folders or archives: list, show, install, uninstall, restore, enable, disable
 * `plugin` — Plugins (modules and channels) from packages: list, show, install, uninstall, restore, enable, disable
+* `mcp` — MCP bundle compatibility commands
 * `ext` — Extension packages (`.p1x`): inspect, pack, verify
 * `completions` — [experimental] Print a shell completion script to stdout
 
@@ -2890,7 +2893,7 @@ One trailing newline is removed. Replacing a secret revokes the leases on the ol
 
 [experimental] Issue a person-bound desktop attach code valid for ten minutes
 
-**Usage:** `plur1bus device pair --kind <KIND>`
+**Usage:** `plur1bus device pair [OPTIONS] --kind <KIND>`
 
 ###### **Options:**
 
@@ -2898,6 +2901,8 @@ One trailing newline is removed. Replacing a secret revokes the leases on the ol
 
   Possible values: `desktop`
 
+* `--extensions` — Explicitly grant extension reading and management (Owner/Admin only)
+* `--imports` — Explicitly grant source import reading and management (Owner/Admin only)
 
 
 
@@ -4303,11 +4308,22 @@ Examples:
 
 **Usage:** `plur1bus import [OPTIONS] <SOURCE_TYPE>`
 
+Examples:
+  plur1bus import ssh --key generate
+  plur1bus import ssh --ssh reader@host:22 --source /srv/source --allow-egress --probe-host-key
+  plur1bus import ssh --connection ID --trust-host-key SHA256:... --probe-id TOKEN
+  plur1bus import hermes --ssh reader@host:22 --source /srv/source --detect
+
 ###### **Arguments:**
 
 * `<SOURCE_TYPE>` — Source system to read (never modified)
 
-  Possible values: `openclaw`, `hermes`, `backfill`
+  Possible values:
+  - `openclaw`
+  - `hermes`
+  - `backfill`
+  - `ssh`:
+    SSH identity, connection, host-key trust and supervised-run operations
 
 
 ###### **Options:**
@@ -4338,6 +4354,22 @@ Examples:
 * `--agent <AGENT>` — Target agent ID (required for backfill)
 * `--adopt-strategy <STRATEGY>` — Store adoption strategy when identity mismatches: 'reembed' or 'import'
 * `--merge-profiles` — Allow multiple Hermes profiles to merge into the same target agent
+* `--ssh <USER@HOST[:PORT]>` — Read an SSH source through Core's read-only SFTP worker (requires an absolute --source or configured --connection)
+* `--connection <ID>` — Use this configured SSH connection instead of its stable endpoint identifier
+* `--key <ACTION>` — SSH identity operation; Owner-only, private key remains in Secret Store
+
+  Possible values: `status`, `generate`, `rotate`, `delete`
+
+* `--allow-private` — Explicitly permit private-address SSH endpoints for this connection
+* `--allow-egress` — Owner consent: allow exactly this SSH host and TCP port in the central egress policy (SSH setup with --ssh and --source only)
+* `--probe-host-key` — Probe the SSH host key without authenticating; never trusts it automatically
+* `--trust-host-key <SHA256>` — Trust the exact fingerprint from an earlier --probe-host-key result
+* `--probe-id <TOKEN>` — Expiring probe identifier returned by --probe-host-key
+* `--remove-connection` — Delete the configured --connection and invalidate its active source handles
+* `--run-status <RUN_ID>` — Read an SSH import's maintenance status, including while Core is offline
+* `--abort-run <RUN_ID>` — Abort an SSH maintenance run through the supervisor
+* `--runs` — List supervised import runs
+* `--rollback-run <RUN_ID>` — Preflight a supervised rollback; --apply dispatches it after a fresh ticket
 
 
 
@@ -4369,7 +4401,7 @@ Skills from packages, folders or archives: list, show, install, uninstall, resto
 
 * `list` — [experimental] List the installed skills: version, state, source, trust and the agents that have each
 * `show` — [experimental] Show one skill: its package, trust, capabilities, scripts, files and trash entries
-* `install` — [experimental] Install a skill from a `.p1x`, a `.skill`, a `.zip`, a folder or stdin (`-`), disabled
+* `install` — [experimental] Install a skill; first-party packages activate for all agents, other packages stay disabled
 * `uninstall` — [experimental] Uninstall a skill into the trash (a bundled skill is hidden instead)
 * `restore` — [experimental] Restore a skill from the trash (disabled)
 * `enable` — [experimental] Enable a skill, for every agent or only the listed ones (prints its capabilities first)
@@ -4408,9 +4440,9 @@ Skills from packages, folders or archives: list, show, install, uninstall, resto
 
 ## `plur1bus skill install`
 
-[experimental] Install a skill from a `.p1x`, a `.skill`, a `.zip`, a folder or stdin (`-`), disabled
+[experimental] Install a skill; first-party packages activate for all agents, other packages stay disabled
 
-Inspects the package first and prints the disclosure: trust tier and why, signer key, id, version, publisher, licence, every capability, every script with its size and first line, the runtime, the secrets and what it replaces. A terminal asks once; with --yes the matching --allow-* flag acknowledges an unsigned, unknown-signer or downgrade package. A folder, `.zip` or `.skill` becomes an unsigned package. `--enable` enables it in the same step (for the listed agents only, with `--enable=bernd,anna`).
+Inspects the package first and prints the disclosure: trust tier and why, signer key, id, version, publisher, licence, every capability, every script with its size and first line, the runtime, the secrets and what it replaces. A terminal asks once; with --yes the matching --allow-* flag acknowledges an unsigned, unknown-signer or downgrade package. A folder, `.zip` or `.skill` becomes an unsigned package. For other trust tiers, `--enable` activates it in the same step (for the listed agents only, with `--enable=bernd,anna`). First-party installations always activate for all agents; a later enable can narrow them.
 
 **Usage:** `plur1bus skill install [OPTIONS] <PATH>`
 
@@ -4421,6 +4453,7 @@ Inspects the package first and prints the disclosure: trust tier and why, signer
 ###### **Options:**
 
 * `--enable <AGENT>` — Enable it right away, for every agent or (with `=<agent,…>`) only for those
+* `--member <NAME>` — Select a bundle member (repeatable); every nonoptional member is required. Omit to install all members
 * `--allow-unsigned` — Acknowledge that the package is not signed (with --yes; a terminal asks instead)
 * `--allow-unknown-signer` — Acknowledge that the package is signed by a key this harness does not trust (with --yes; a terminal asks)
 * `--allow-downgrade` — Acknowledge that the package is a lower version than the installed one (with --yes; a terminal asks)
@@ -4441,7 +4474,7 @@ Inspects the package first and prints the disclosure: trust tier and why, signer
 
 ###### **Options:**
 
-* `--purge` — Also move its data (data/ext/<name>) and its configuration to the trash (asks separately)
+* `--purge` — Also trash its data/configuration and irreversibly delete declared secret slots (asks separately)
 * `--cascade` — Disable the enabled extensions that need it first, instead of refusing
 * `--yes` — Do not ask (required outside a terminal)
 
@@ -4503,11 +4536,11 @@ Plugins (modules and channels) from packages: list, show, install, uninstall, re
 
 * `list` — [experimental] List the installed modules and channels: version, state, source, trust and overlays
 * `show` — [experimental] Show one module or channel: its package, trust, capabilities, files, dependents and trash entries
-* `install` — [experimental] Install a module or channel from a `.p1x` or stdin (`-`), disabled
+* `install` — [experimental] Install a module, channel or MCP server; first-party packages activate for all agents
 * `uninstall` — [experimental] Stop and uninstall a module or channel into the trash
 * `restore` — [experimental] Restore a module or channel from the trash (disabled)
-* `enable` — [experimental] Enable a module or channel: prints its capabilities and the restart plan first
-* `disable` — [experimental] Disable a module or channel: prints the modules that will be held back first
+* `enable` — [experimental] Enable a plugin: MCP servers can be limited to selected agents
+* `disable` — [experimental] Disable a plugin, or remove selected agents from an MCP server
 
 
 
@@ -4521,7 +4554,7 @@ Plugins (modules and channels) from packages: list, show, install, uninstall, re
 
 * `--kind <KIND>`
 
-  Possible values: `module`, `channel`
+  Possible values: `module`, `channel`, `mcp-server`, `bundle`
 
 * `--state <STATE>`
 
@@ -4544,9 +4577,9 @@ Plugins (modules and channels) from packages: list, show, install, uninstall, re
 
 ## `plur1bus plugin install`
 
-[experimental] Install a module or channel from a `.p1x` or stdin (`-`), disabled
+[experimental] Install a module, channel or MCP server; first-party packages activate for all agents
 
-Inspects the package first and prints the disclosure (see `skill install`). A module runs with the full authority of a harness process. A terminal asks once; with --yes the matching --allow-* flag acknowledges an unsigned, unknown-signer or downgrade package.
+Inspects the package first and prints the disclosure (see `skill install`). A module runs with the full authority of a harness process. A terminal asks once; with --yes the matching --allow-* flag acknowledges an unsigned, unknown-signer or downgrade package. For other trust tiers, `--enable` activates it in the same step; `--enable=bernd,anna` limits an MCP server to those agents. First-party installations always activate for all agents; a later enable can narrow them.
 
 **Usage:** `plur1bus plugin install [OPTIONS] <PATH>`
 
@@ -4556,7 +4589,8 @@ Inspects the package first and prints the disclosure (see `skill install`). A mo
 
 ###### **Options:**
 
-* `--enable` — Enable it right away
+* `--enable <AGENT>` — Enable it right away, for every agent or (for MCP servers, with `=<agent,…>`) only for those
+* `--member <NAME>` — Select a bundle member (repeatable); every nonoptional member is required. Omit to install all members
 * `--allow-unsigned` — Acknowledge that the package is not signed (with --yes; a terminal asks instead)
 * `--allow-unknown-signer` — Acknowledge that the package is signed by a key this harness does not trust (with --yes; a terminal asks)
 * `--allow-downgrade` — Acknowledge that the package is a lower version than the installed one (with --yes; a terminal asks)
@@ -4577,7 +4611,7 @@ Inspects the package first and prints the disclosure (see `skill install`). A mo
 
 ###### **Options:**
 
-* `--purge` — Also move its data (data/ext/<name>) and its configuration section to the trash (asks separately)
+* `--purge` — Also trash its data/configuration and irreversibly delete declared secret slots (asks separately)
 * `--cascade` — Disable the enabled modules that need it first, instead of refusing
 * `--yes` — Do not ask (required outside a terminal)
 
@@ -4597,7 +4631,7 @@ Inspects the package first and prints the disclosure (see `skill install`). A mo
 
 ## `plur1bus plugin enable`
 
-[experimental] Enable a module or channel: prints its capabilities and the restart plan first
+[experimental] Enable a plugin: MCP servers can be limited to selected agents
 
 **Usage:** `plur1bus plugin enable [OPTIONS] <NAME>`
 
@@ -4607,13 +4641,14 @@ Inspects the package first and prints the disclosure (see `skill install`). A mo
 
 ###### **Options:**
 
+* `--agent <ID>` — Only for this agent (repeatable; MCP servers only)
 * `--yes` — Acknowledge the capabilities without asking (required outside a terminal)
 
 
 
 ## `plur1bus plugin disable`
 
-[experimental] Disable a module or channel: prints the modules that will be held back first
+[experimental] Disable a plugin, or remove selected agents from an MCP server
 
 **Usage:** `plur1bus plugin disable [OPTIONS] <NAME>`
 
@@ -4623,7 +4658,41 @@ Inspects the package first and prints the disclosure (see `skill install`). A mo
 
 ###### **Options:**
 
+* `--agent <ID>` — Only for this agent (repeatable; MCP servers only)
 * `--yes` — Do not ask (required outside a terminal)
+
+
+
+## `plur1bus mcp`
+
+MCP bundle compatibility commands
+
+**Usage:** `plur1bus mcp <COMMAND>`
+
+###### **Subcommands:**
+
+* `import` — [experimental] Alias for `plugin install`: inspect and install an MCP bundle
+
+
+
+## `plur1bus mcp import`
+
+[experimental] Alias for `plugin install`: inspect and install an MCP bundle
+
+**Usage:** `plur1bus mcp import [OPTIONS] <PATH>`
+
+###### **Arguments:**
+
+* `<PATH>` — `.mcpb`, `.dxt`, `.p1x`, or `-` for a `.p1x` on stdin
+
+###### **Options:**
+
+* `--member <NAME>` — Select a bundle member (repeatable); every nonoptional member is required. Omit to install all members
+* `--allow-unsigned` — Acknowledge that the package is not signed (with --yes; a terminal asks instead)
+* `--allow-unknown-signer` — Acknowledge that the package is signed by a key this harness does not trust (with --yes; a terminal asks)
+* `--allow-downgrade` — Acknowledge that the package is a lower version than the installed one (with --yes; a terminal asks)
+* `--dry-run` — Only inspect: print the disclosure (`ext.inspect/1` with --json) and install nothing
+* `--yes` — Do not ask (required outside a terminal); acknowledges the capabilities, but never a trust tier or a downgrade: those need their --allow-* flag
 
 
 

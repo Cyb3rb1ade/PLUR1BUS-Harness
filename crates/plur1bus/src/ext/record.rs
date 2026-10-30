@@ -37,6 +37,9 @@ pub struct InspectionRecord {
     pub requires: Value,
     /// `{ version, capabilityDiff: { changed: [key] } }` when the same id is installed.
     pub replaces: Option<Value>,
+    /// Direct, fully verified member disclosures. No child inspection ids or private paths are public.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub members: Vec<Value>,
 }
 
 /// A package extracted and checked in staging, ready for the commit (Task 7): the worker's `stage` answer. Defined here,
@@ -47,12 +50,22 @@ pub struct InspectionRecord {
 pub struct StagedItem {
     pub name: String,
     pub kind: Kind,
-    /// `extensions/staging/<name>-<id>/payload`.
+    /// A skill/module payload, or the complete checked MCP tree at `<staging>/<name>-<id>/store/<name>/<version>`.
     pub dir: PathBuf,
     /// The state record the commit writes (its `installedAt` is the staging time).
     pub record: state::ItemRecord,
     /// `run/inspect/<id>.p1x`: the verified package bytes, for the cache.
     pub package: PathBuf,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub members: Vec<StagedMember>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StagedMember {
+    pub optional: bool,
+    pub inspection: InspectionRecord,
+    pub item: StagedItem,
 }
 
 // ---- small helpers the ext files share (X1-C11) ---------------------------------------------------------------
@@ -69,13 +82,60 @@ pub(crate) fn skill_id_ok(n: &str) -> bool {
         })
 }
 
-/// The code directory of an item: `skills/<name>` or `modules/<name>`.
+/// The complete code tree moved through install, trash and recovery; MCP trees retain their verified root files.
 pub(crate) fn code_dir(layout: &Layout, name: &str, kind: &str) -> PathBuf {
-    if kind == "skill" {
-        layout.skills().join(name)
-    } else {
-        layout.modules_dir().join(name)
+    match kind {
+        "skill" => layout.skills().join(name),
+        "mcp-server" => ExtPaths::of(layout).mcp.join(name),
+        "bundle" => ExtPaths::of(layout).root.join("bundles").join(name),
+        _ => layout.modules_dir().join(name),
     }
+}
+
+/// Recorded file paths are payload-relative, including for a complete MCP package tree.
+pub(crate) fn active_code_dir(layout: &Layout, rec: &state::ItemRecord) -> PathBuf {
+    let dir = code_dir(layout, &rec.name, &rec.kind);
+    if rec.kind == "mcp-server" {
+        dir.join(&rec.version)
+    } else {
+        dir
+    }
+}
+
+pub(crate) fn payload_dir(layout: &Layout, rec: &state::ItemRecord) -> PathBuf {
+    let dir = active_code_dir(layout, rec);
+    if rec.kind == "mcp-server" {
+        dir.join("payload")
+    } else {
+        dir
+    }
+}
+
+/// The sole activation config section; skill activation remains in the skills index and agent lists.
+pub(crate) fn config_key(name: &str, kind: &str) -> String {
+    if kind == "mcp-server" {
+        format!("mcp.servers.{name}")
+    } else {
+        format!("modules.{name}")
+    }
+}
+
+/// A configured activation section, absent as null for rollback/removal.
+pub(crate) fn config_section(cfg: &Value, name: &str, kind: &str) -> Value {
+    let map = if kind == "mcp-server" {
+        &cfg["mcp"]["servers"]
+    } else {
+        &cfg["modules"]
+    };
+    map.get(name).cloned().unwrap_or(Value::Null)
+}
+
+/// Whole package-store tree prepared beneath one inspection's private staging directory.
+pub(crate) fn package_staging_dir(layout: &Layout, name: &str, version: &str, id: &str) -> PathBuf {
+    staging_dir(layout, name, id)
+        .join("store")
+        .join(name)
+        .join(version)
 }
 
 /// The strings of a JSON array (anything else: none).
@@ -224,6 +284,13 @@ pub(crate) fn check_name(
     if std::fs::symlink_metadata(&module).is_ok() {
         return Err(name_taken(name, &module_dir_kind(&module), None));
     }
+    let package = ExtPaths::of(layout).mcp.join(name);
+    if std::fs::symlink_metadata(&package).is_ok() {
+        return Err(name_taken(name, "mcp-server", None));
+    }
+    if std::fs::symlink_metadata(code_dir(layout, name, "bundle")).is_ok() {
+        return Err(name_taken(name, "bundle", None));
+    }
     Ok(())
 }
 
@@ -294,6 +361,14 @@ pub fn prune(layout: &Layout) {
         else {
             continue;
         };
+        if let Some(id) = name.strip_suffix(".owner.json") {
+            // Browser ownership outlives any later inspection/prune pass, until its actual record is removed.
+            if !valid_id(id) || !dir.join(format!("{id}.json")).is_file() && older_than(&path, ttl)
+            {
+                let _ = state::remove_retrying(&path);
+            }
+            continue;
+        }
         if let Some(stem) = name.strip_suffix(".json") {
             let live = std::fs::read_to_string(&path)
                 .ok()

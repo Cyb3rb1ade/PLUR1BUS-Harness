@@ -3,7 +3,7 @@
 // handed out. Removal is best effort — a directory a still-running child holds open on Windows is left behind rather
 // than failing the file.
 import { after } from "node:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -16,7 +16,7 @@ after(() => {
 });
 
 export function tempDir(prefix: string): string {
-  const dir = mkdtempSync(join(tmpdir(), prefix));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
   made.push(dir);
   return dir;
 }

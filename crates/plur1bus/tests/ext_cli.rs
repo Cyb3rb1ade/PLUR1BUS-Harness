@@ -3,8 +3,8 @@
 //! `ext inspect|pack|verify`, stdin input, and the offline mode (no supervisor: the same `ext::` code in-process under
 //! the supervisor's single-instance lock), whose results and exit codes match the online path.
 //!
-//! Every test has its own temp home. Packages are signed with a throwaway key the code under test trusts through
-//! `PLUR1BUS_TEST_EXT_PUBKEYS`; the online tests run `supervise --no-core` with the same key. No test touches a real
+//! Every test has its own temp home. First-party packages use a throwaway key trusted through
+//! `PLUR1BUS_TEST_EXT_PUBKEYS`; approval tests use unsigned packages. Online tests run `supervise --no-core` with that key. No test touches a real
 //! service manager, a real home or another harness install; stdin is never a terminal here, so every question is answered
 //! by the flags.
 mod common;
@@ -60,8 +60,19 @@ impl Home {
 
     /// `run` with `bytes` on stdin.
     fn run_stdin(&self, args: &[&str], bytes: &[u8]) -> Output {
-        let mut child = self
-            .cmd()
+        let mut command = self.cmd();
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            // SAFETY: umask is async-signal-safe and changes only this child's process.
+            unsafe {
+                command.pre_exec(|| {
+                    libc::umask(0o022);
+                    Ok(())
+                });
+            }
+        }
+        let mut child = command
             .args(args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -234,6 +245,11 @@ fn skill_pkg(h: &Home, name: &str) -> Vec<u8> {
     )
 }
 
+/// An unsigned skill, so installation leaves activation and its capabilities consent to a later enable.
+fn unsigned_skill_pkg(name: &str) -> Vec<u8> {
+    build_package_from(&template(name, "skill", "1.0.0"), skill_files(name), None)
+}
+
 fn module_json(name: &str, needs: &[&str]) -> Vec<u8> {
     serde_json::to_vec_pretty(&json!({
         "name": name, "version": "1.0.0", "apiVersion": "1", "entry": "index.js",
@@ -251,6 +267,18 @@ fn module_pkg(h: &Home, name: &str, needs: &[&str]) -> Vec<u8> {
             f("index.js", b"// fixture\n", false),
         ],
         Some(&h.key),
+    )
+}
+
+/// An unsigned module for explicit activation and full-authority confirmation tests.
+fn unsigned_module_pkg(name: &str, needs: &[&str]) -> Vec<u8> {
+    build_package_from(
+        &template(name, "module", "1.0.0"),
+        vec![
+            f("module.json", &module_json(name, needs), false),
+            f("index.js", b"// fixture\n", false),
+        ],
+        None,
     )
 }
 
@@ -309,10 +337,10 @@ fn guarded(home: &Path) -> Vec<(String, Vec<u8>)> {
 
 // ---- tests ---------------------------------------------------------------------------------------------------------
 
-/// Acceptance 1 through the CLI, offline and through a running supervisor: a signed skill installs disabled, enables
-/// for one agent only, and disables again; `--json` answers the documented ids.
+/// Owner decision 3, offline and online: first-party installation activates for all agents even when narrower
+/// activation was requested. A later enable can narrow that scope, and disable still removes activation.
 #[test]
-fn skill_install_signed_then_enable_for_one_agent_then_disable() {
+fn first_party_skill_install_activates_all_agents_then_can_narrow_and_disable() {
     for online in [false, true] {
         let h = Home::new();
         h.two_agents();
@@ -320,14 +348,32 @@ fn skill_install_signed_then_enable_for_one_agent_then_disable() {
         let pkg = h.write("demo-skill.p1x", &skill_pkg(&h, "demo-skill"));
 
         let v = ok_doc(
-            &h.run(&["--json", "skill", "install", p(&pkg), "--yes"]),
+            &h.run(&[
+                "--json",
+                "skill",
+                "install",
+                p(&pkg),
+                "--enable=bernd",
+                "--yes",
+            ]),
             "skill.install/1",
         );
         assert_eq!(v["name"], "demo-skill", "{v}");
         assert_eq!(v["kind"], "skill");
-        assert_eq!(v["state"], "installed");
+        assert_eq!(v["state"], "enabled");
         assert_eq!(v["replaced"], false);
-        assert_eq!(h.index_enabled("demo-skill"), Some(false));
+        assert_eq!(h.index_enabled("demo-skill"), Some(true));
+        for agent in ["bernd", "anna"] {
+            let listed = ok_doc(
+                &h.run(&["--json", "skill", "list", "--agent", agent]),
+                "skill.list/1",
+            );
+            assert_eq!(listed["items"][0]["name"], "demo-skill", "{listed}");
+            assert_eq!(
+                h.config()["agents"][agent]["skills"]["blocked"],
+                Value::Null
+            );
+        }
 
         let v = ok_doc(
             &h.run(&[
@@ -581,9 +627,16 @@ fn enable_without_yes_on_a_non_tty_exits_2_with_the_capabilities() {
     for online in [false, true] {
         let h = Home::new();
         let _s = online.then(|| h.start());
-        let pkg = h.write("demo-skill.p1x", &skill_pkg(&h, "demo-skill"));
+        let pkg = h.write("demo-skill.p1x", &unsigned_skill_pkg("demo-skill"));
         ok_doc(
-            &h.run(&["--json", "skill", "install", p(&pkg), "--yes"]),
+            &h.run(&[
+                "--json",
+                "skill",
+                "install",
+                p(&pkg),
+                "--allow-unsigned",
+                "--yes",
+            ]),
             "skill.install/1",
         );
 
@@ -611,10 +664,10 @@ fn module_enable_prints_the_restart_plan_before_applying() {
     for online in [false, true] {
         let h = Home::new();
         let _s = online.then(|| h.start());
-        let pkg = h.write("fixture.p1x", &module_pkg(&h, "fixture", &["core"]));
-        // `--enable` needs the capabilities acknowledged: a module has the full authority of a harness process.
+        let pkg = h.write("fixture.p1x", &unsigned_module_pkg("fixture", &["core"]));
+        let signed = h.write("signed-fixture.p1x", &module_pkg(&h, "fixture", &["core"]));
         let v = err_doc(
-            &h.run(&["--json", "plugin", "install", p(&pkg), "--enable"]),
+            &h.run(&["--json", "plugin", "install", p(&signed), "--enable"]),
             2,
             "E_APPROVAL_REQUIRED",
             "acknowledge-capabilities",
@@ -622,9 +675,24 @@ fn module_enable_prints_the_restart_plan_before_applying() {
         assert_eq!(v["data"]["authority"], "full", "{v}");
         assert!(!h.home.join("modules").exists());
         ok_doc(
-            &h.run(&["--json", "plugin", "install", p(&pkg), "--yes"]),
+            &h.run(&[
+                "--json",
+                "plugin",
+                "install",
+                p(&pkg),
+                "--allow-unsigned",
+                "--yes",
+            ]),
             "plugin.install/1",
         );
+        assert!(h.home.join("modules/fixture").is_dir());
+        let v = err_doc(
+            &h.run(&["--json", "plugin", "enable", "fixture"]),
+            2,
+            "E_APPROVAL_REQUIRED",
+            "acknowledge-capabilities",
+        );
+        assert_eq!(v["data"]["authority"], "full", "{v}");
         assert_eq!(h.config()["modules"]["fixture"]["enabled"], false);
 
         let o = h.run(&["plugin", "enable", "fixture", "--yes"]);
@@ -662,11 +730,26 @@ fn install_from_stdin_works() {
         );
         assert_eq!(v["name"], "demo-skill", "online={online}: {v}");
         assert!(h.home.join("skills/demo-skill/SKILL.md").is_file());
+        assert!(entries(&h.home.join("run/inspect")).is_empty());
         let v = ok_doc(
             &h.run_stdin(&["--json", "ext", "inspect", "-"], &pkg),
             "ext.inspect/1",
         );
         assert_eq!(v["manifest"]["name"], "demo-skill");
+        let inspect = h.home.join("run/inspect");
+        let id = v["inspectionId"].as_str().unwrap();
+        assert_eq!(
+            std::fs::read(inspect.join(format!("{id}.p1x"))).unwrap(),
+            pkg
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                std::fs::metadata(&inspect).unwrap().permissions().mode() & 0o777,
+                0o700
+            );
+        }
         // The CLI's stdin spool is gone; only inspections are left in run/inspect/.
         assert!(
             entries(&h.home.join("run/inspect"))
@@ -675,6 +758,86 @@ fn install_from_stdin_works() {
             "{:?}",
             entries(&h.home.join("run/inspect"))
         );
+    }
+}
+
+/// A parser refusal removes both stdin's transport file and the worker's unfinished inspection.
+#[test]
+fn a_refused_stdin_inspection_removes_its_spools() {
+    for online in [false, true] {
+        let h = Home::new();
+        let _s = online.then(|| h.start());
+        let pkg = tamper(&skill_pkg(&h, "demo-skill"), Tamper::PayloadByte);
+        err_doc(
+            &h.run_stdin(&["--json", "skill", "install", "-", "--yes"], &pkg),
+            2,
+            "E_INVALID_PARAMS",
+            "digest-mismatch",
+        );
+        assert!(entries(&h.home.join("run/inspect")).is_empty());
+        assert!(guarded(&h.home).is_empty());
+    }
+}
+
+/// The stdin transport enforces the configured cap before inspection and removes an oversized partial copy.
+#[test]
+fn oversized_stdin_is_bounded_and_removes_its_spool() {
+    const CAP: usize = 1_048_576;
+    for online in [false, true] {
+        let h = Home::new();
+        let mut cfg = plur1bus_config::defaults();
+        cfg["extensions"]["limits"]["packageBytes"] = json!(CAP);
+        plur1bus_config::validate(&cfg).unwrap();
+        plur1bus_config::write_atomic(&h.home.join("config.json"), &cfg).unwrap();
+        let _s = online.then(|| h.start());
+        let before = guarded(&h.home);
+        err_doc(
+            &h.run_stdin(
+                &["--json", "skill", "install", "-", "--yes"],
+                &vec![0; CAP + 1],
+            ),
+            2,
+            "E_INVALID_PARAMS",
+            "download-too-large",
+        );
+        assert!(entries(&h.home.join("run/inspect")).is_empty());
+        assert_eq!(guarded(&h.home), before);
+    }
+}
+
+/// Expiry removes the worker-owned stdin inspection after the CLI's transport copy has already gone.
+#[test]
+fn an_expired_stdin_inspection_removes_its_package_and_record() {
+    for online in [false, true] {
+        let h = Home::new();
+        let _s = online.then(|| h.start());
+        let v = ok_doc(
+            &h.run_stdin(
+                &["--json", "ext", "inspect", "-"],
+                &skill_pkg(&h, "demo-skill"),
+            ),
+            "ext.inspect/1",
+        );
+        let id = v["inspectionId"].as_str().unwrap();
+        let inspect = h.home.join("run/inspect");
+        let record = inspect.join(format!("{id}.json"));
+        let package = inspect.join(format!("{id}.p1x"));
+        assert!(package.is_file());
+        let mut value: Value = serde_json::from_slice(&std::fs::read(&record).unwrap()).unwrap();
+        let transport = value["sourcePath"].as_str().unwrap();
+        assert!(
+            !Path::new(transport).exists(),
+            "stdin transport is already removed"
+        );
+        value["expiresAt"] = json!("2000-01-01T00:00:00.000Z");
+        std::fs::write(&record, serde_json::to_vec(&value).unwrap()).unwrap();
+        let o = h.run(&["ext", "__worker", "stage", "--id", id]);
+        let v = doc(&o);
+        assert_eq!(code(&o), 1, "{v}");
+        assert_eq!(v["error"]["code"], "E_NOT_FOUND", "{v}");
+        assert_eq!(v["error"]["reason"], "inspection-expired", "{v}");
+        assert!(!record.exists() && !package.exists());
+        assert!(guarded(&h.home).is_empty());
     }
 }
 
@@ -848,12 +1011,27 @@ fn installing_the_identical_package_with_enable_says_nothing_was_enabled() {
     for online in [false, true] {
         let h = Home::new();
         let _s = online.then(|| h.start());
-        let pkg = h.write("demo-skill.p1x", &skill_pkg(&h, "demo-skill"));
+        let pkg = h.write("demo-skill.p1x", &unsigned_skill_pkg("demo-skill"));
         ok_doc(
-            &h.run(&["--json", "skill", "install", p(&pkg), "--yes"]),
+            &h.run(&[
+                "--json",
+                "skill",
+                "install",
+                p(&pkg),
+                "--allow-unsigned",
+                "--yes",
+            ]),
             "skill.install/1",
         );
-        let o = h.run(&["--json", "skill", "install", p(&pkg), "--enable", "--yes"]);
+        let o = h.run(&[
+            "--json",
+            "skill",
+            "install",
+            p(&pkg),
+            "--enable",
+            "--allow-unsigned",
+            "--yes",
+        ]);
         let v = ok_doc(&o, "skill.install/1");
         assert_eq!(
             (v["replaced"].clone(), v["state"].clone()),
@@ -1089,9 +1267,16 @@ fn an_unreadable_state_json_is_state_invalid_for_show_list_and_uninstall() {
 #[test]
 fn a_closed_stdout_pipe_does_not_skip_the_work_of_enable_and_disable() {
     let h = Home::new();
-    let pkg = h.write("demo-skill.p1x", &skill_pkg(&h, "demo-skill"));
+    let pkg = h.write("demo-skill.p1x", &unsigned_skill_pkg("demo-skill"));
     ok_doc(
-        &h.run(&["--json", "skill", "install", p(&pkg), "--yes"]),
+        &h.run(&[
+            "--json",
+            "skill",
+            "install",
+            p(&pkg),
+            "--allow-unsigned",
+            "--yes",
+        ]),
         "skill.install/1",
     );
 

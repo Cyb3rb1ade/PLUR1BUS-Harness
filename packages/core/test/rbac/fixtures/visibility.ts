@@ -51,6 +51,11 @@ const owner = cells("yes", "none", "none", "none", "none"); // ADR-007 role tabl
 const ownerAdmin = cells("yes", "yes", "none", "none", "none");
 
 export const ENTRIES: readonly Entry[] = [
+  // M v2: both extension and import actions belong to human Owner/Admin only.
+  { action: "extensions.read", page: "Models, Providers & logins, Channels, Plugins, MCP/ACP/A2A", verb: "read", cells: ownerAdmin },
+  { action: "extensions.manage", page: "Models, Providers & logins, Channels, Plugins, MCP/ACP/A2A", verb: "write", cells: ownerAdmin },
+  { action: "imports.read", page: "Import, Doctor", verb: "read", cells: ownerAdmin },
+  { action: "imports.manage", page: "Import, Doctor", verb: "import", cells: ownerAdmin },
   { action: "chat:read", page: "My area, Projects", verb: "read" },
   { action: "chat:write", page: "My area, Projects", verb: "write" },
   { action: "chat:delete", page: "My area, Projects", verb: "write" },

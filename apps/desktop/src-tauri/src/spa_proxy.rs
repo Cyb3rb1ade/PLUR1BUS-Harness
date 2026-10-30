@@ -190,6 +190,27 @@ impl SpaProxy {
     pub fn origin(&self) -> &crate::connections::Origin {
         &self.inner.origin
     }
+    /// Current API tickets are spent in Rust and the resulting cookie stays in this window's private jar.
+    pub async fn start_session(
+        &self,
+        ticket: &crate::client::Ticket,
+        device_id: &str,
+    ) -> Result<Url, ClientError> {
+        let mut url = Url::parse(self.origin().as_str()).map_err(|_| ClientError::Protocol)?;
+        if ticket.desktop {
+            let client = self.inner.client.read().unwrap().clone();
+            let headers = client.desktop_cookie(ticket, device_id).await?;
+            let upstream = Url::parse(self.inner.upstream_origin.as_str())
+                .map_err(|_| ClientError::Protocol)?;
+            if !store_cookies(&self.inner, &headers, &upstream) {
+                return Err(ClientError::Protocol);
+            }
+        } else {
+            url.set_path("/auth/ticket");
+            url.set_fragment(Some(&format!("t={}", ticket.ticket.expose())));
+        }
+        Ok(url)
+    }
     /// Native-only per-window carrier. Never expose this through IPC or fixture output.
     pub fn user_agent(&self) -> &str {
         self.inner.user_agent.expose()
@@ -262,6 +283,9 @@ impl SpaProxy {
     /// The checked addresses this carrier's upstream client is pinned to (transport choice spec §9.2).
     pub fn pin(&self) -> Option<crate::transport::ConnectPin> {
         self.inner.client.read().unwrap().pin().cloned()
+    }
+    pub(crate) fn native_client(&self) -> HarnessClient {
+        self.inner.client.read().unwrap().clone()
     }
     /// Rust-only update after authenticated trust persistence. Admission and jar stay in this session. A pinned
     /// carrier only takes a pinned client.

@@ -29,4 +29,13 @@ describe("ToolRegistry reserved names from RPC schema", () => {
     r.register(tool("media.generate", { capability: "net.submit", effect: "money", risk: "high" }));
     assert.equal(r.size, 2);
   });
+  it("admits the exact memory tool names while keeping the other memory RPC names reserved", () => {
+    const registry = new ToolRegistry();
+    registry.register(tool("memory.recall"));
+    registry.register(tool("memory.capture"));
+    for (const name of ["memory.list", "memory.share", "memory.forget"]) {
+      assert.throws(() => registry.register(tool(name)), { reason: "reserved" });
+    }
+    assert.equal(registry.size, 2);
+  });
 });

@@ -1,0 +1,13 @@
+{
+  "params": {
+    "name": "fixture",
+    "attemptId": "00000000-0000-4000-8000-000000000001",
+    "callbackUrl": "fixture"
+  },
+  "result": {
+    "attemptId": "00000000-0000-4000-8000-000000000001",
+    "name": "fixture",
+    "status": "starting",
+    "expiresAt": 0
+  }
+}

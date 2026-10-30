@@ -2119,12 +2119,198 @@
                   }
                 }
               },
+              "memoryExposure": {
+                "description": "Which of this agent's memory scopes its internal channels expose, and whether the turns they cause are captured. `collab` (consult_agent and delegate_task) and `acp` (external ACP agents) exist. Every `collab` switch defaults to true; `acp` has its own defaults.",
+                "type": "object",
+                "additionalProperties": false,
+                "x-restart": "live",
+                "x-tier": "advanced",
+                "x-write-roles": [
+                  "owner",
+                  "admin"
+                ],
+                "x-audit": true,
+                "properties": {
+                  "acp": {
+                    "description": "What an external ACP agent (session origin acp-agent) may read from this agent's memory. Not sent on ACP initialize or session/new. Shared with the protocol package, which names the five personal categories.",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "read": {
+                        "description": "Memory scopes the external agent may read. The default is all three; the five personal categories stay filtered whatever is listed.",
+                        "type": "array",
+                        "uniqueItems": true,
+                        "maxItems": 3,
+                        "items": {
+                          "enum": [
+                            "workspace",
+                            "user",
+                            "project"
+                          ]
+                        },
+                        "default": [
+                          "workspace",
+                          "user",
+                          "project"
+                        ],
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true
+                      },
+                      "write": {
+                        "description": "External ACP agents never write memory. The only accepted value is false.",
+                        "const": false,
+                        "default": false,
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true
+                      },
+                      "personalFiltered": {
+                        "description": "All five personal categories stay filtered for external ACP agents. The only accepted value is true; the protocol package names the categories.",
+                        "type": "boolean",
+                        "const": true,
+                        "default": true,
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true
+                      },
+                      "credentials": {
+                        "description": "Credentials are always filtered from what an external ACP agent reads. The only accepted value is `filtered`.",
+                        "const": "filtered",
+                        "default": "filtered",
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true
+                      }
+                    },
+                    "x-restart": "live",
+                    "x-tier": "advanced",
+                    "x-write-roles": [
+                      "owner",
+                      "admin"
+                    ],
+                    "x-audit": true
+                  },
+                  "collab": {
+                    "description": "Turns this agent runs for another agent of the installation (consult_agent, delegate_task). The agent recalls with the requesting person as principal and, afterwards, captures the exchange with the requesting agent as its origin.",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "x-restart": "live",
+                    "x-tier": "advanced",
+                    "x-write-roles": [
+                      "owner",
+                      "admin"
+                    ],
+                    "x-audit": true,
+                    "properties": {
+                      "recall": {
+                        "description": "Memory scopes read for the requesting person. The engine can only withhold the user scope; a switch for workspace or agentPrivate that is off, or a principal without the matching right (use for workspace, manage for agent-private), skips the recall entirely instead of filtering it.",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "properties": {
+                          "workspace": {
+                            "description": "Read the agent's workspace scope. The principal needs at least use on the agent. Off: no recall for collab turns (the engine cannot exclude this scope alone).",
+                            "type": "boolean",
+                            "default": true,
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true
+                          },
+                          "user": {
+                            "description": "Read the requesting person's own user scope. Off: the user scope is withheld, the other scopes are still read.",
+                            "type": "boolean",
+                            "default": true,
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true
+                          },
+                          "agentPrivate": {
+                            "description": "Read the agent's agent-private scope. The principal needs manage on the agent. Off: no recall for collab turns (the engine cannot exclude this scope alone).",
+                            "type": "boolean",
+                            "default": true,
+                            "x-restart": "live",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true
+                          }
+                        }
+                      },
+                      "capture": {
+                        "description": "Capture the exchange after the turn, with origin collab and the requesting agent named. Off: nothing is captured.",
+                        "type": "boolean",
+                        "default": true,
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true
+                      }
+                    }
+                  }
+                }
+              },
               "persona": {
                 "description": "Inline persona text for a new agent (also scaffolded into SOUL.md).",
                 "type": "string",
                 "maxLength": 4000,
                 "x-restart": "live",
                 "x-tier": "basic"
+              },
+              "toolUse": {
+                "description": "Per-agent tool use. Prefer forces the first model round when the harness detects a tool need; auto leaves the choice to the model; require-first requests a tool on every first round when supported.",
+                "type": "object",
+                "additionalProperties": false,
+                "x-restart": "live",
+                "x-tier": "advanced",
+                "properties": {
+                  "mode": {
+                    "description": "How strongly the agent should request a tool in the first model round. Unsupported local servers and Anthropic Extended Thinking retain automatic choice.",
+                    "enum": [
+                      "auto",
+                      "prefer",
+                      "require-first"
+                    ],
+                    "default": "prefer",
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  }
+                }
               },
               "modelPolicy": {
                 "description": "Per-agent model routing. Omitted preserves existing D105 routing; fixed uses the agent model; auto selects among ordered named profiles once per session unless perTurn is explicitly enabled. Explicit session model selection wins.",
@@ -2240,52 +2426,6 @@
                   }
                 }
               },
-              "memoryExposure": {
-                "description": "Shared with package P. The acp channel is not sent on ACP initialize or session/new. Default: workspace, user and project readable; all five personal categories filtered; no write; credentials always filtered.",
-                "type": "object",
-                "additionalProperties": false,
-                "x-restart": "live",
-                "x-tier": "advanced",
-                "properties": {
-                  "acp": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                      "read": {
-                        "type": "array",
-                        "uniqueItems": true,
-                        "maxItems": 3,
-                        "items": {
-                          "enum": [
-                            "workspace",
-                            "user",
-                            "project"
-                          ]
-                        },
-                        "default": [
-                          "workspace",
-                          "user",
-                          "project"
-                        ]
-                      },
-                      "write": {
-                        "const": false,
-                        "default": false
-                      },
-                      "personalFiltered": {
-                        "type": "boolean",
-                        "const": true,
-                        "default": true,
-                        "description": "All five personal categories stay filtered. Package P names the categories."
-                      },
-                      "credentials": {
-                        "const": "filtered",
-                        "default": "filtered"
-                      }
-                    }
-                  }
-                }
-              },
               "channels": {
                 "description": "Channel names selected for this agent. Does not enable installation channels.",
                 "type": "array",
@@ -2311,7 +2451,7 @@
                 "maxLength": 128
               },
               "skills": {
-                "description": "Per-agent skill selection (X1-R11): `blocked` names skills this agent does not get although they are enabled installation-wide; `pinned` is stored and shown, not interpreted before D69; `applyAt` says when a change reaches a running agent.",
+                "description": "Per-agent skill selection (X1-R11): `blocked` names skills this agent does not get although they are enabled installation-wide; `pinned` preloads enabled visible skills before relevance candidates, within the three-skill limit; `applyAt` says when a change reaches a running agent.",
                 "type": "object",
                 "additionalProperties": false,
                 "x-restart": "live",
@@ -2328,7 +2468,7 @@
                     "default": []
                   },
                   "pinned": {
-                    "description": "Skill names pinned for this agent; currently stored and displayed but not interpreted.",
+                    "description": "Enabled visible skill names preloaded first for this agent; blocked names are excluded and at most three skills are selected.",
                     "type": "array",
                     "maxItems": 1024,
                     "items": {
@@ -2954,6 +3094,115 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "import": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {
+            "ssh": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [],
+              "properties": {
+                "connections": {
+                  "type": "object",
+                  "maxProperties": 128,
+                  "propertyNames": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+                  },
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "host",
+                      "user",
+                      "roots",
+                      "port",
+                      "allowPrivate"
+                    ],
+                    "properties": {
+                      "host": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 253,
+                        "description": "Source SSH hostname; vetted and pinned to a numeric address before connecting."
+                      },
+                      "port": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 65535,
+                        "default": 22,
+                        "description": "Source SSH port."
+                      },
+                      "user": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "description": "Read-only source account username."
+                      },
+                      "roots": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 32,
+                        "uniqueItems": true,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 4096
+                        },
+                        "description": "Explicit source roots admitted for this connection."
+                      },
+                      "allowPrivate": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Owner consent to this source connection using private destination addresses."
+                      },
+                      "hostKey": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "sha256"
+                        ],
+                        "properties": {
+                          "sha256": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 50,
+                            "pattern": "^SHA256:[A-Za-z0-9+/]{43}$",
+                            "description": "SHA-256 host-key fingerprint."
+                          },
+                          "algorithm": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "description": "Observed SSH host-key algorithm."
+                          }
+                        },
+                        "description": "Explicitly trusted source host key."
+                      }
+                    },
+                    "description": "A configured read-only SSH source connection with no credential values."
+                  },
+                  "default": {},
+                  "description": "Owner-managed named SSH source connections."
+                }
+              },
+              "description": "Owner-managed SSH source identity and endpoint configuration.",
+              "default": {},
+              "x-restart": "live",
+              "x-tier": "advanced",
+              "x-write-roles": [
+                "owner"
+              ],
+              "x-audit": true
+            }
+          },
+          "description": "Read-only import source configuration.",
+          "default": {}
+        },
         "collaboration": {
           "description": "Agent collaboration and owner-controlled fan-out.",
           "type": "object",
@@ -4054,6 +4303,69 @@
           },
           "additionalProperties": true
         },
+        "mcp": {
+          "description": "Installed MCP extension activation and per-agent tool visibility (X2).",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-since": "1.7.0",
+          "x-write-roles": [
+            "owner",
+            "admin"
+          ],
+          "x-audit": true,
+          "properties": {
+            "servers": {
+              "description": "Activation settings keyed by the installed MCP extension name.",
+              "type": "object",
+              "default": {},
+              "x-restart": "live",
+              "x-tier": "advanced",
+              "propertyNames": {
+                "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+                "maxLength": 62
+              },
+              "additionalProperties": {
+                "description": "Activation and agent selection for one installed MCP extension.",
+                "type": "object",
+                "additionalProperties": false,
+                "x-restart": "live",
+                "x-tier": "advanced",
+                "properties": {
+                  "enabled": {
+                    "description": "Allow this MCP extension to connect; newly installed servers stay disabled.",
+                    "type": "boolean",
+                    "default": false,
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  },
+                  "agents": {
+                    "description": "All agents or the unique agent identifiers allowed to use this server's tools.",
+                    "default": "all",
+                    "x-restart": "live",
+                    "x-tier": "advanced",
+                    "oneOf": [
+                      {
+                        "const": "all"
+                      },
+                      {
+                        "type": "array",
+                        "maxItems": 256,
+                        "uniqueItems": true,
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
         "auth": {
           "description": "Provider sign-in and credential lifecycle (D110): OAuth/PKCE login, federated tokens, refresh and the credential store.",
           "type": "object",
@@ -4369,7 +4681,7 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 60000,
-              "default": 200,
+              "default": 2000,
               "x-restart": "live",
               "x-tier": "advanced"
             },
@@ -4384,7 +4696,7 @@
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 60000,
-                  "default": 200,
+                  "default": 2000,
                   "x-restart": "live",
                   "x-tier": "advanced"
                 },
@@ -4411,7 +4723,7 @@
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 60000,
-                  "default": 100,
+                  "default": 2000,
                   "x-restart": "live",
                   "x-tier": "advanced"
                 },

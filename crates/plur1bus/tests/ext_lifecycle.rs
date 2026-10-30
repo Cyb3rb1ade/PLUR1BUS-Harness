@@ -203,6 +203,238 @@ fn module_pkg(name: &str, key: &TestKey) -> Vec<u8> {
     module_pkg_caps(name, "1.0.0", base_caps(), key)
 }
 
+fn mcp_pkg(name: &str, key: &TestKey) -> Vec<u8> {
+    let mut caps = base_caps();
+    caps["network"] = json!({"mode": "allowlist", "hosts": ["mcp.example.org"]});
+    let mut t = template(name, "mcp-server", "1.0.0", caps);
+    t["requires"]["runtime"] = json!({"type": "none"});
+    t["remote"] = json!({"url": "https://mcp.example.org/v1", "auth": "none"});
+    build_package_from(
+        &t,
+        vec![f("README.md", b"Remote fixture\n", false)],
+        Some(key),
+    )
+}
+
+#[test]
+fn mcp_agent_selection_is_config_backed_and_notifies_each_applied_change() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    two_agents(&l);
+    install(d.path(), &l, "docs.p1x", &mcp_pkg("docs", &key), &plain()).unwrap();
+    let mut host = OfflineHost::new(&l);
+    let before = guarded(&l);
+    let plan = enable(&l, &mut host, "docs", &toggle(some(&["bernd"]), true, true)).unwrap();
+    assert_eq!(plan["state"], "enabled");
+    assert_eq!(guarded(&l), before, "a dry run never writes");
+    assert!(host.notified.is_empty());
+
+    enable(
+        &l,
+        &mut host,
+        "docs",
+        &toggle(some(&["bernd"]), true, false),
+    )
+    .unwrap();
+    assert_eq!(
+        config(&l)["mcp"]["servers"]["docs"],
+        json!({"enabled": true, "agents": ["bernd"]})
+    );
+    assert_eq!(item(&l, "docs")["agents"], json!(["bernd"]));
+    for (agent, count) in [("bernd", 1), ("anna", 0)] {
+        let list = list_items(
+            &l,
+            &config(&l),
+            &ListFilter {
+                agent: Some(agent.into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(list["items"].as_array().unwrap().len(), count, "{agent}");
+    }
+    assert_eq!(host.notified.len(), 1);
+    assert_eq!(host.notified[0]["kind"], "mcp-server");
+    assert_eq!(host.notified[0]["state"], "enabled");
+    enable(
+        &l,
+        &mut host,
+        "docs",
+        &toggle(some(&["bernd"]), true, false),
+    )
+    .unwrap();
+    assert_eq!(host.notified.len(), 1, "a repeated selection is a no-op");
+
+    disable(
+        &l,
+        &mut host,
+        "docs",
+        &toggle(some(&["bernd"]), false, false),
+    )
+    .unwrap();
+    assert_eq!(
+        config(&l)["mcp"]["servers"]["docs"],
+        json!({"enabled": false, "agents": []})
+    );
+    assert_eq!(item(&l, "docs")["agents"], json!([]));
+    assert_eq!(host.notified.len(), 2);
+    enable(&l, &mut host, "docs", &toggle(None, true, false)).unwrap();
+    assert_eq!(
+        config(&l)["mcp"]["servers"]["docs"],
+        json!({"enabled": true, "agents": "all"})
+    );
+    disable(
+        &l,
+        &mut host,
+        "docs",
+        &toggle(some(&["anna"]), false, false),
+    )
+    .unwrap();
+    assert_eq!(
+        config(&l)["mcp"]["servers"]["docs"],
+        json!({"enabled": true, "agents": ["bernd"]})
+    );
+    disable(&l, &mut host, "docs", &toggle(None, false, false)).unwrap();
+    assert_eq!(item(&l, "docs")["enabled"], false);
+    assert_eq!(host.notified.len(), 5);
+}
+
+#[test]
+fn mcp_unknown_agent_and_duplicate_selection_refuse_before_any_write() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    two_agents(&l);
+    install(d.path(), &l, "docs.p1x", &mcp_pkg("docs", &key), &plain()).unwrap();
+    let before = guarded(&l);
+    let mut host = OfflineHost::new(&l);
+    for on in [true, false] {
+        let o = toggle(some(&["unknown"]), true, false);
+        let error = if on {
+            enable(&l, &mut host, "docs", &o)
+        } else {
+            disable(&l, &mut host, "docs", &o)
+        }
+        .unwrap_err();
+        assert_eq!(error.code, "E_AGENT_UNKNOWN");
+        assert_eq!(error.data["agentId"], "unknown");
+        assert_eq!(guarded(&l), before);
+    }
+    let error = enable(
+        &l,
+        &mut host,
+        "docs",
+        &toggle(some(&["bernd", "bernd"]), true, false),
+    )
+    .unwrap_err();
+    assert_eq!(error.code, "E_INVALID_PARAMS");
+    assert_eq!(guarded(&l), before);
+    assert!(host.notified.is_empty());
+}
+
+#[test]
+fn first_party_mcp_install_uses_all_and_later_enable_can_narrow() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    two_agents(&l);
+    let installed = install(
+        d.path(),
+        &l,
+        "docs.p1x",
+        &mcp_pkg("docs", &key),
+        &InstallOpts {
+            acknowledge: vec!["capabilities".into()],
+            enable: Some(Agents::Some(vec!["anna".into()])),
+            members: None,
+        },
+    )
+    .unwrap();
+    assert_eq!(installed["state"], "enabled");
+    assert_eq!(
+        config(&l)["mcp"]["servers"]["docs"],
+        json!({"enabled": true, "agents": "all"})
+    );
+    assert_eq!(item(&l, "docs")["agents"], "all");
+    on(
+        &l,
+        "docs",
+        &toggle(Some(Agents::Some(vec!["anna".into()])), true, false),
+    )
+    .unwrap();
+    assert_eq!(item(&l, "docs")["agents"], json!(["anna"]));
+}
+
+#[test]
+fn mcp_failed_config_write_restores_the_capability_acknowledgment() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    two_agents(&l);
+    install(d.path(), &l, "docs.p1x", &mcp_pkg("docs", &key), &plain()).unwrap();
+    let before = guarded(&l);
+    let mut host = FailingHost {
+        inner: OfflineHost::new(&l),
+    };
+    let error = enable(
+        &l,
+        &mut host,
+        "docs",
+        &toggle(some(&["bernd"]), true, false),
+    )
+    .unwrap_err();
+    assert_eq!(reason(&error), ("E_INTERNAL", "io"));
+    assert_eq!(guarded(&l), before);
+    assert!(host.inner.notified.is_empty());
+}
+
+#[test]
+fn mcp_plugin_cli_can_select_an_agent_without_changing_module_flags() {
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    two_agents(&l);
+    install(d.path(), &l, "docs.p1x", &mcp_pkg("docs", &key), &plain()).unwrap();
+    let run = |verb: &str| {
+        std::process::Command::new(env!("CARGO_BIN_EXE_plur1bus"))
+            .args([
+                "--home",
+                l.home.to_str().unwrap(),
+                "--json",
+                "plugin",
+                verb,
+                "docs",
+                "--agent",
+                "anna",
+                "--yes",
+            ])
+            .output()
+            .unwrap()
+    };
+    let enabled = run("enable");
+    assert!(
+        enabled.status.success(),
+        "{}",
+        String::from_utf8_lossy(&enabled.stdout)
+    );
+    let result: Value = serde_json::from_slice(&enabled.stdout).unwrap();
+    assert_eq!(result["schema"], "plugin.enable/1");
+    assert_eq!(
+        config(&l)["mcp"]["servers"]["docs"]["agents"],
+        json!(["anna"])
+    );
+    let disabled = run("disable");
+    assert!(
+        disabled.status.success(),
+        "{}",
+        String::from_utf8_lossy(&disabled.stdout)
+    );
+    let result: Value = serde_json::from_slice(&disabled.stdout).unwrap();
+    assert_eq!(result["schema"], "plugin.disable/1");
+    assert_eq!(config(&l)["mcp"]["servers"]["docs"]["enabled"], false);
+}
+
 /// A local module directory (no package record) that `needs` the given modules.
 fn local_module(l: &Layout, name: &str, needs: &[&str]) {
     let dir = l.modules_dir().join(name);
@@ -253,10 +485,17 @@ fn tree_hash(p: &Path) -> String {
 
 /// `skills/`, `modules/`, `extensions/`, `config.json`, `data/` and the audit log.
 fn guarded(l: &Layout) -> Vec<String> {
-    let mut v: Vec<String> = ["skills", "modules", "extensions", "config.json", "data"]
-        .iter()
-        .map(|n| format!("{n}: {}", tree_hash(&l.home.join(n))))
-        .collect();
+    let mut v: Vec<String> = [
+        "skills",
+        "modules",
+        "mcp",
+        "extensions",
+        "config.json",
+        "data",
+    ]
+    .iter()
+    .map(|n| format!("{n}: {}", tree_hash(&l.home.join(n))))
+    .collect();
     v.push(format!("audit: {}", tree_hash(&l.audit_log())));
     v
 }
@@ -306,6 +545,16 @@ fn install(
     install_commit(l, &mut OfflineHost::new(l), &rec, staged, o)
 }
 
+// These activation tests deliberately use the lower-trust, initially disabled branch; Mv2 first-party defaults
+// are covered independently by ext_first_party.rs.
+fn lower_trust() -> InstallOpts {
+    InstallOpts {
+        acknowledge: vec!["unknown-signer".into()],
+        enable: None,
+        members: None,
+    }
+}
+
 fn plain() -> InstallOpts {
     InstallOpts::default()
 }
@@ -314,6 +563,7 @@ fn acked() -> InstallOpts {
     InstallOpts {
         acknowledge: vec!["capabilities".into()],
         enable: None,
+        members: None,
     }
 }
 
@@ -326,6 +576,7 @@ fn toggle(agents: Option<Agents>, ack: bool, dry_run: bool) -> ToggleOpts {
             vec![]
         },
         dry_run,
+        expected_consent_sha256: None,
     }
 }
 
@@ -585,6 +836,7 @@ fn an_unindexed_local_skill_gets_its_entry_at_the_first_toggle() {
 fn first_enable_needs_acknowledge_capabilities_with_the_disclosure_in_data() {
     let key = test_key("test");
     let _g = env_with(&key);
+    std::env::remove_var("PLUR1BUS_TEST_EXT_PUBKEYS");
     let (d, l) = home();
     write_config(&l, |_| {});
     install(
@@ -592,7 +844,7 @@ fn first_enable_needs_acknowledge_capabilities_with_the_disclosure_in_data() {
         &l,
         "m.p1x",
         &module_pkg("fixture", &key),
-        &plain(),
+        &lower_trust(),
     )
     .unwrap();
     install(
@@ -600,7 +852,7 @@ fn first_enable_needs_acknowledge_capabilities_with_the_disclosure_in_data() {
         &l,
         "s.p1x",
         &skill_pkg("demo-scripts", &key),
-        &plain(),
+        &lower_trust(),
     )
     .unwrap();
     let before = guarded(&l);
@@ -656,6 +908,7 @@ fn first_enable_needs_acknowledge_capabilities_with_the_disclosure_in_data() {
 fn re_enable_after_disable_needs_no_new_acknowledgment_unless_capabilities_changed() {
     let key = test_key("test");
     let _g = env_with(&key);
+    std::env::remove_var("PLUR1BUS_TEST_EXT_PUBKEYS");
     let (d, l) = home();
     write_config(&l, |_| {});
     install(
@@ -663,7 +916,7 @@ fn re_enable_after_disable_needs_no_new_acknowledgment_unless_capabilities_chang
         &l,
         "s1.p1x",
         &skill_pkg("demo-skill", &key),
-        &plain(),
+        &lower_trust(),
     )
     .unwrap();
     on(&l, "demo-skill", &toggle(None, true, false)).unwrap();
@@ -677,7 +930,7 @@ fn re_enable_after_disable_needs_no_new_acknowledgment_unless_capabilities_chang
         &l,
         "s2.p1x",
         &skill_pkg_caps("demo-skill", "1.1.0", wide_caps(), &key),
-        &plain(),
+        &lower_trust(),
     )
     .unwrap();
     let before = guarded(&l);
@@ -869,6 +1122,7 @@ fn disable_is_always_allowed_even_when_revoked() {
 fn dry_run_writes_nothing_and_returns_the_plan_with_dependents() {
     let key = test_key("test");
     let _g = env_with(&key);
+    std::env::remove_var("PLUR1BUS_TEST_EXT_PUBKEYS");
     let (d, l) = home();
     two_agents(&l);
     install(
@@ -876,7 +1130,7 @@ fn dry_run_writes_nothing_and_returns_the_plan_with_dependents() {
         &l,
         "m.p1x",
         &module_pkg("fixture", &key),
-        &plain(),
+        &lower_trust(),
     )
     .unwrap();
     install(
@@ -884,7 +1138,7 @@ fn dry_run_writes_nothing_and_returns_the_plan_with_dependents() {
         &l,
         "s.p1x",
         &skill_pkg("demo-skill", &key),
-        &plain(),
+        &lower_trust(),
     )
     .unwrap();
     on(&l, "fixture", &toggle(None, true, false)).unwrap();
@@ -1105,6 +1359,7 @@ impl ModuleHost for FailingHost<'_> {
 fn a_failed_enable_rolls_back_what_it_wrote() {
     let key = test_key("test");
     let _g = env_with(&key);
+    std::env::remove_var("PLUR1BUS_TEST_EXT_PUBKEYS");
     let (d, l) = home();
     two_agents(&l);
     install(
@@ -1112,7 +1367,7 @@ fn a_failed_enable_rolls_back_what_it_wrote() {
         &l,
         "s.p1x",
         &skill_pkg("demo-skill", &key),
-        &plain(),
+        &lower_trust(),
     )
     .unwrap();
     install(
@@ -1120,7 +1375,7 @@ fn a_failed_enable_rolls_back_what_it_wrote() {
         &l,
         "m.p1x",
         &module_pkg("fixture", &key),
-        &plain(),
+        &lower_trust(),
     )
     .unwrap();
     let before = guarded(&l);
@@ -1250,6 +1505,7 @@ fn agents_all_on_a_module_is_accepted() {
 fn a_dry_run_succeeds_while_another_mutation_holds_the_lock() {
     let key = test_key("test");
     let _g = env_with(&key);
+    std::env::remove_var("PLUR1BUS_TEST_EXT_PUBKEYS");
     let (d, l) = home();
     write_config(&l, |_| {});
     install(
@@ -1257,7 +1513,7 @@ fn a_dry_run_succeeds_while_another_mutation_holds_the_lock() {
         &l,
         "m.p1x",
         &module_pkg("fixture", &key),
-        &plain(),
+        &lower_trust(),
     )
     .unwrap();
     let guard = ext::try_mutation().unwrap();
@@ -1306,4 +1562,57 @@ fn enable_refuses_an_item_whose_code_folder_is_missing() {
     assert_eq!(reason(&e), ("E_NOT_AVAILABLE", "tampered"));
     // Disable stays allowed.
     off(&l, "demo-skill", &toggle(None, false, false)).unwrap();
+}
+
+/// Fresh metadata resolves required slots without altering the installed declaration or recording availability.
+#[test]
+fn fresh_required_slot_metadata_allows_enable_without_erasing_the_declaration() {
+    struct Available<'a>(OfflineHost<'a>);
+    impl ModuleHost for Available<'_> {
+        fn config(&self) -> Value {
+            self.0.config()
+        }
+        fn set_config(&mut self, c: Vec<(String, Value)>, dry: bool) -> Result<Value, ExtError> {
+            self.0.set_config(c, dry)
+        }
+        fn install_module(&mut self, s: modules_install::Staged) -> Result<bool, ExtError> {
+            self.0.install_module(s)
+        }
+        fn remove_module(&mut self, n: &str, p: &Path) -> Result<(), ExtError> {
+            self.0.remove_module(n, p)
+        }
+        fn notify(&mut self, v: Value) {
+            self.0.notify(v)
+        }
+        fn via(&self) -> &'static str {
+            "offline"
+        }
+        fn missing_secrets(&mut self, name: &str, required: &[String]) -> Vec<String> {
+            assert_eq!(name, "demo-skill");
+            assert_eq!(required, ["API_KEY"]);
+            vec![]
+        }
+    }
+    let key = test_key("test");
+    let _g = env_with(&key);
+    let (d, l) = home();
+    write_config(&l, |_| {});
+    let mut caps = base_caps();
+    caps["secrets"] = json!([{"slot":"API_KEY","label":{"en":"API key"},"required":true}]);
+    install(
+        d.path(),
+        &l,
+        "s.p1x",
+        &skill_pkg_caps("demo-skill", "1.0.0", caps, &key),
+        &plain(),
+    )
+    .unwrap();
+    off(&l, "demo-skill", &toggle(None, false, false)).unwrap();
+    let mut host = Available(OfflineHost::new(&l));
+    let enabled = enable(&l, &mut host, "demo-skill", &toggle(None, true, false)).unwrap();
+    assert_eq!(enabled["state"], "enabled");
+    assert_eq!(record(&l, "demo-skill").required_secrets, ["API_KEY"]);
+    let refused = on(&l, "demo-skill", &toggle(None, true, false)).unwrap_err();
+    assert_eq!(reason(&refused), ("E_NOT_AVAILABLE", "needs-setup"));
+    assert_eq!(record(&l, "demo-skill").required_secrets, ["API_KEY"]);
 }

@@ -6,6 +6,7 @@ import { dirname } from "node:path";
 import { acquireExclusiveLock } from "@plur1bus/module-api";
 import type { Layout } from "../paths.ts";
 import { ImportError } from "./types.ts";
+import { assertNoPendingMaintenance } from "./pending-maintenance.ts";
 
 function checkCorePid(l: Layout): void {
   if (!existsSync(l.corePid)) return;
@@ -36,7 +37,8 @@ function checkCorePid(l: Layout): void {
  * Acquires the target home's core lock, runs `fn`, and releases the lock in `finally`.
  * Fail-closed: any failure to determine lock state or acquire lock throws ImportError.
  */
-export async function withTargetLock<T>(l: Layout, fn: () => Promise<T> | T): Promise<T> {
+export async function withTargetLock<T>(l: Layout, fn: () => Promise<T> | T,
+  options: { maintenanceRunId?: string } = {}): Promise<T> {
   // Check core.pid advisory hint
   checkCorePid(l);
 
@@ -60,6 +62,7 @@ export async function withTargetLock<T>(l: Layout, fn: () => Promise<T> | T): Pr
   }
 
   try {
+    assertNoPendingMaintenance(l.home, options.maintenanceRunId);
     return await fn();
   } finally {
     try {

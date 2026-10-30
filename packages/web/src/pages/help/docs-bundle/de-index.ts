@@ -86,7 +86,7 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
   },
   {
     "slug": "extensions",
-    "title": "Skills und Plugins"
+    "title": "Skills und Erweiterungen"
   },
   {
     "slug": "freigaben",
@@ -103,6 +103,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
   {
     "slug": "import-rollback",
     "title": "Import rückgängig machen (Import-Rollback)"
+  },
+  {
+    "slug": "import",
+    "title": "Vorhandene Installation importieren"
   },
   {
     "slug": "lange-gespraeche",
@@ -206,6 +210,7 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "hilfe": return import("./de/hilfe.ts").then(m => m.doc);
     case "host-tools": return import("./de/host-tools.ts").then(m => m.doc);
     case "import-rollback": return import("./de/import-rollback.ts").then(m => m.doc);
+    case "import": return import("./de/import.ts").then(m => m.doc);
     case "lange-gespraeche": return import("./de/lange-gespraeche.ts").then(m => m.doc);
     case "media": return import("./de/media.ts").then(m => m.doc);
     case "mediensuche": return import("./de/mediensuche.ts").then(m => m.doc);

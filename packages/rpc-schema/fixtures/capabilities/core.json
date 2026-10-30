@@ -1,5 +1,73 @@
 {
   "methods": {
+    "admin.import.runtime.release": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.import.runtime.status": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.import.runtime.complete": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.import.ssh.key.status": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.import.ssh.key.generate": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.import.ssh.key.rotate": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.import.ssh.key.delete": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.import.ssh.connections.list": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.import.ssh.connections.set": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.import.ssh.connections.delete": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.import.ssh.hostKey.probe": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.import.ssh.hostKey.trust": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.import.detect": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.import.wsl.list": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.import.plan": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.import.preflight": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.import.skills": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
     "channel.history.list": {
       "stability": "experimental",
       "since": "1.6.0"
@@ -374,11 +442,11 @@
     },
     "project.repo.bind": {
       "stability": "experimental",
-      "since": "1.9.0"
+      "since": "1.10.0"
     },
     "project.repo.unbind": {
       "stability": "experimental",
-      "since": "1.9.0"
+      "since": "1.10.0"
     },
     "task.complete": {
       "stability": "experimental",
@@ -715,6 +783,42 @@
     "budget.set": {
       "stability": "experimental",
       "since": "1.5.0"
+    },
+    "admin.extensions.setup.get": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.extensions.setup.set": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.extensions.runtime.hold": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.extensions.runtime.release": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.extensions.runtime.status": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.extensions.auth.start": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.extensions.auth.status": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.extensions.auth.submit": {
+      "stability": "experimental",
+      "since": "1.8.0"
+    },
+    "admin.extensions.auth.cancel": {
+      "stability": "experimental",
+      "since": "1.8.0"
     },
     "secret.status": {
       "stability": "experimental",

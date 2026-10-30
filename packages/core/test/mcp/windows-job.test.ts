@@ -3,6 +3,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { windowsJobCommand, windowsLauncherEnv } from "../../src/mcp/windows-job.ts";
+import { windowsKeptEnv } from "../../src/mcp/env.ts";
 
 describe("windows launcher environment", () => {
   it("overlays the declared environment on the host's, and the declared value wins whatever the case", () => {
@@ -19,6 +20,12 @@ describe("windows launcher environment", () => {
     assert.ok(m, "the script reads a keep list");
     assert.equal(Buffer.from(m[1]!, "base64").toString("utf8"), "PATH\nFIXTURE_WEDGE");
     assert.ok(script.indexOf("SetEnvironmentVariable") < script.indexOf("[McpJob]::Run"), "the strip happens before the server starts");
+  });
+  it("keeps %SystemRoot% for an isolated packaged server and only the declared names otherwise", () => {
+    assert.deepEqual(windowsKeptEnv({ TOKEN: "x", P1X_DATA: "d" }, true), ["TOKEN", "P1X_DATA", "SYSTEMROOT"]);
+    assert.deepEqual(windowsKeptEnv({ SystemRoot: "D:\\Win", TOKEN: "x" }, true), ["SystemRoot", "TOKEN"]);
+    assert.deepEqual(windowsKeptEnv({ PATH: "p", SYSTEMROOT: "C:\\Windows" }, false), ["PATH", "SYSTEMROOT"]);
+    assert.deepEqual(windowsKeptEnv({ TOKEN: "x" }, false), ["TOKEN"]);
   });
   it("silences PowerShell's own progress stream before anything can report progress", () => {
     // The server inherits the launcher's stderr, so a progress record (Windows PowerShell's first-run "Preparing modules

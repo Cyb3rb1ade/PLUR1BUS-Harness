@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+  "revision": "c44ebc43de724ae8816668bb44d2e728e17faa18",
+  "upstream": {
+    "repository": "BAAI/bge-reranker-v2-m3",
+    "revision": "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e",
+    "file": "README.md",
+    "url": "https://huggingface.co/BAAI/bge-reranker-v2-m3/resolve/953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e/README.md",
+    "size": 17229,
+    "sha256": "c887aa6dd2598f908bf0582ca7068cc816585c7a1b6a07df305b631ede0cb174",
+    "declares": "license: apache-2.0"
+  },
+  "license": "Apache-2.0",
+  "licenseText": {
+    "file": "Apache-2.0.txt",
+    "url": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  },
+  "decision": "Owner decision of 2026-10-29: the conversion carries no LICENSE file of its own, so the licence of the original BAAI/bge-reranker-v2-m3 applies (Apache-2.0); BGE recordings may enter the repository with attribution in NOTICE-bge.md."
+}

@@ -6,6 +6,7 @@ import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {gunzipSync} from 'node:zlib';
 import {writeTarGz} from '../../../scripts/release/archive.mjs';
+import {stageSnapshotRuntime} from './snapshot-runtime.mjs';
 
 const desktop=fileURLToPath(new URL('..',import.meta.url));
 const targets=new Map([
@@ -57,6 +58,7 @@ export async function prepareBundle(options){
  if(ciFixture){await mkdir(dirname(cliPath),{recursive:true});await writeFile(cliPath,platform.os==='windows'?'CI PLACEHOLDER - not a PE executable\n':'#!/bin/sh\nprintf "%s\\n" "CI PLACEHOLDER - no host CLI" >&2\nexit 2\n',{mode:0o755});}
  else await copy(options.cliPath,cliPath);
  manifest.cli={path:`cli/${platform.cli}`,sha256:await fileHash(cliPath)};
+ manifest.snapshotRuntime=await stageSnapshotRuntime({target,resources,archive:options.snapshotNodeArchive,fixture:ciFixture});
  if(platform.os==='macos'){
   const pkg=join(resources,'apple/container.pkg');
   if(ciFixture){await mkdir(dirname(pkg),{recursive:true});await writeFile(pkg,'CI PLACEHOLDER - not an Apple installer\n');}
@@ -95,7 +97,7 @@ async function cli(){
  while(args.length){const key=args.shift();if(key==='--ci-fixture')flags.set(key,true);else {if(!key?.startsWith('--')||!args.length)throw Error('invalid-packaging-arguments');flags.set(key,args.shift());}}
  const base=join(desktop,'../../.superpowers/d1');await mkdir(base,{recursive:true});
  const reserved=await mkdtemp(join(base,'payload-'));
- const result=await prepareBundle({outDir:join(reserved,'stage'),target:flags.get('--target'),variant:flags.get('--variant'),channel:flags.get('--channel')??'beta',distribution:flags.get('--distribution')??'direct',ciFixture:flags.get('--ci-fixture')===true,bundleInput:process.env.PLUR1BUS_DESKTOP_RELEASE_MANIFEST,cliPath:process.env.PLUR1BUS_DESKTOP_HOST_CLI,applePkgPath:process.env.PLUR1BUS_DESKTOP_APPLE_PKG,imagePath:process.env.PLUR1BUS_DESKTOP_OFFLINE_IMAGE,modelsDir:process.env.PLUR1BUS_DESKTOP_OFFLINE_MODELS,signingIdentity:process.env.APPLE_SIGNING_IDENTITY});
+ const result=await prepareBundle({outDir:join(reserved,'stage'),target:flags.get('--target'),variant:flags.get('--variant'),channel:flags.get('--channel')??'beta',distribution:flags.get('--distribution')??'direct',ciFixture:flags.get('--ci-fixture')===true,bundleInput:process.env.PLUR1BUS_DESKTOP_RELEASE_MANIFEST,cliPath:process.env.PLUR1BUS_DESKTOP_HOST_CLI,snapshotNodeArchive:flags.get('--snapshot-node-archive')??process.env.PLUR1BUS_DESKTOP_SNAPSHOT_NODE_ARCHIVE,applePkgPath:process.env.PLUR1BUS_DESKTOP_APPLE_PKG,imagePath:process.env.PLUR1BUS_DESKTOP_OFFLINE_IMAGE,modelsDir:process.env.PLUR1BUS_DESKTOP_OFFLINE_MODELS,signingIdentity:process.env.APPLE_SIGNING_IDENTITY});
  console.log(JSON.stringify({manifestPath:result.manifestPath,configPath:result.configPath,bundles:result.bundles,fixture:result.provenance.fixture}));
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))cli().catch(()=>{console.error('DESKTOP_PAYLOAD_PREPARATION_FAILED');process.exitCode=1;});

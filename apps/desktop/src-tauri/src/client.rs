@@ -25,6 +25,10 @@ use std::{
 pub enum ClientError {
     Revoked,
     Unauthorized,
+    SecondFactorRequired,
+    RateLimited {
+        retry_after_secs: u64,
+    },
     Incompatible {
         server: String,
         client: &'static str,
@@ -39,6 +43,13 @@ pub enum ClientError {
     TrustUnavailable,
     Protocol,
 }
+mod desktop;
+mod stepup;
+mod uploads;
+pub(crate) use stepup::forget as forget_step_up;
+pub use stepup::{StepUpPublic, StepUpPurpose, StepUpStatus};
+pub use uploads::SnapshotUpload;
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Meta {
@@ -50,10 +61,12 @@ pub struct Meta {
 pub struct Redeemed {
     pub device_id: String,
     pub token: SecretString,
+    pub signing_key: Option<SecretString>,
 }
 pub struct Ticket {
     pub ticket: SecretString,
     pub expires_at: SystemTime,
+    pub desktop: bool,
 }
 #[derive(Debug, Default)]
 struct Observed {
@@ -547,6 +560,13 @@ impl HarnessClient {
     }
     async fn bytes(&self, response: reqwest::Response, max: usize) -> Result<Vec<u8>, ClientError> {
         let status = response.status();
+        let retry_after_secs = response
+            .headers()
+            .get(reqwest::header::RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(12)
+            .clamp(1, 60);
         let mut response = response;
         let mut bytes = zeroize::Zeroizing::new(Vec::new());
         if response.content_length().is_some_and(|n| n > max as u64) {
@@ -567,6 +587,18 @@ impl HarnessClient {
                 ClientError::Unauthorized
             });
         }
+        if status == reqwest::StatusCode::FORBIDDEN {
+            let value: serde_json::Value =
+                serde_json::from_slice(&bytes).map_err(|_| ClientError::Unauthorized)?;
+            return Err(if value["reason"] == "second-factor-required" {
+                ClientError::SecondFactorRequired
+            } else {
+                ClientError::Unauthorized
+            });
+        }
+        if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            return Err(ClientError::RateLimited { retry_after_secs });
+        }
         if !status.is_success() {
             return Err(ClientError::Protocol);
         }
@@ -578,6 +610,15 @@ impl HarnessClient {
         body: Option<&serde_json::Value>,
         token: Option<&SecretString>,
     ) -> Result<T, ClientError> {
+        self.request_inner(path, body, token, None).await
+    }
+    async fn request_inner<T: serde::de::DeserializeOwned>(
+        &self,
+        path: &str,
+        body: Option<&serde_json::Value>,
+        token: Option<&SecretString>,
+        proof: Option<&SecretString>,
+    ) -> Result<T, ClientError> {
         let http = self.http()?;
         let url = format!("{}{path}", self.origin.as_str());
         let mut request = if let Some(body) = body {
@@ -587,6 +628,15 @@ impl HarnessClient {
         };
         if let Some(token) = token {
             request = request.bearer_auth(token.expose())
+        }
+        if let Some(proof) = proof {
+            if !matches!(
+                path,
+                "/api/v1/extensions/inspect" | "/api/v1/desktop/redeem"
+            ) {
+                return Err(ClientError::Protocol);
+            }
+            request = request.header(stepup::HEADER, stepup::sensitive(proof)?);
         }
         let response = request.send().await.map_err(|_| self.error())?;
         let bytes = zeroize::Zeroizing::new(self.bytes(response, trust::MAX_BODY).await?);
@@ -617,7 +667,8 @@ impl HarnessClient {
     }
 
     pub async fn meta(&self) -> Result<Meta, ClientError> {
-        let meta: Meta = self.request(route::META, None, None).await?;
+        let raw: serde_json::Value = self.request(route::META, None, None).await?;
+        let meta = desktop::meta(raw, &self.origin)?;
         if meta.api_version.split('.').next() != Some("1") {
             // Only the public dotted numeric API version may cross IPC, never an
             // arbitrary server string (which could contain credentials or markup).
@@ -637,7 +688,7 @@ impl HarnessClient {
         if !meta
             .capabilities
             .iter()
-            .any(|v| v == capability::SESSION_TICKET)
+            .any(|v| v == capability::SESSION_TICKET || v == "desktop-ticket-v1")
         {
             return Err(ClientError::MissingCapability);
         }
@@ -646,11 +697,12 @@ impl HarnessClient {
         }
         Ok(meta)
     }
-    async fn check_meta(&self, id: &str) -> Result<(), ClientError> {
-        if self.meta().await?.installation_id != id {
+    async fn check_meta(&self, id: &str) -> Result<Meta, ClientError> {
+        let meta = self.meta().await?;
+        if meta.installation_id != id {
             return Err(ClientError::InstallationMismatch);
         }
-        Ok(())
+        Ok(meta)
     }
     pub async fn redeem(&self, code: &str, name: &str) -> Result<Redeemed, ClientError> {
         let meta = self.meta().await?;
@@ -662,10 +714,12 @@ impl HarnessClient {
         code: &str,
         name: &str,
     ) -> Result<Redeemed, ClientError> {
+        if self.check_meta(installation).await?.current_desktop() {
+            return self.desktop_pair(code, name).await;
+        }
         if !trust::valid_code(code) || name.trim().is_empty() || name.len() > 120 {
             return Err(ClientError::Protocol);
         }
-        self.check_meta(installation).await?;
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields, rename_all = "camelCase")]
         struct Wire {
@@ -694,10 +748,14 @@ impl HarnessClient {
         Ok(Redeemed {
             device_id: wire.device_id,
             token,
+            signing_key: None,
         })
     }
     pub async fn whoami(&self, id: &str, token: &SecretString) -> Result<(), ClientError> {
-        self.check_meta(id).await?;
+        if self.check_meta(id).await?.current_desktop() {
+            self.desktop_ticket(token).await?;
+            return Ok(());
+        }
         let _: serde_json::Value = self.request(route::WHOAMI, None, Some(token)).await?;
         Ok(())
     }
@@ -706,7 +764,9 @@ impl HarnessClient {
         id: &str,
         token: &SecretString,
     ) -> Result<Ticket, ClientError> {
-        self.check_meta(id).await?;
+        if self.check_meta(id).await?.current_desktop() {
+            return self.desktop_ticket(token).await;
+        }
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase", deny_unknown_fields)]
         struct Wire {
@@ -727,7 +787,11 @@ impl HarnessClient {
         let expires_at = chrono::DateTime::parse_from_rfc3339(&wire.expires_at)
             .map_err(|_| ClientError::Protocol)?
             .into();
-        Ok(Ticket { ticket, expires_at })
+        Ok(Ticket {
+            ticket,
+            expires_at,
+            desktop: false,
+        })
     }
     async fn fetch_ca(&self, pin: &CertPin) -> Result<Vec<u8>, ClientError> {
         // A public certificate may be fetched before authentication; its digest is the authority.
@@ -912,7 +976,9 @@ impl HarnessClient {
         if self.origin != c.origin {
             return Err(ClientError::Protocol);
         }
-        self.check_meta(&c.installation_id).await?;
+        if self.check_meta(&c.installation_id).await?.current_desktop() {
+            return Ok(());
+        }
         let next: trust::Trust = self.request(trust::TRUST, None, Some(token)).await?;
         let parse = |v: Option<String>| {
             v.map(|s| CertPin::parse(&s))

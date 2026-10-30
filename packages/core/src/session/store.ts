@@ -37,6 +37,50 @@ const MUTABLE = new Set(["title", "pinned", "memoryMode"]);
 const MAX_TITLE = 200;
 const MAX_LIMIT = 200;
 const DEFAULT_LIMIT = 50;
+const MAX_RESTORED_SKILLS = 4096;
+const MAX_RESTORED_SKILL_OUTPUT_BYTES = 512 * 1024;
+const MAX_RESTORED_SKILL_TEXT_BYTES = 64 * 1024;
+const MAX_SESSION_TOOL_OFFERS = 128;
+// The ToolRegistry's canonical spelling, including D106's one camel-case host-tool exception.
+const CANONICAL_TOOL_NAME = /^(?:[a-z][a-z0-9_.-]{0,63}|sys\.startupItems)$/;
+
+// Deduplication happens before the distinct-skill bound: repeated loads cannot evict another skill's older pair.
+const SKILL_EVENTS_SQL = `
+  WITH calls AS (
+    SELECT e.*,json_extract(e.data,'$.id') AS call_id,json_extract(e.data,'$.args.name') AS skill_name
+    FROM events e JOIN turns t ON t.id=e.turn_id AND t.session_id=e.session_id
+    WHERE e.session_id=? AND t.state='completed' AND e.type='tool.call'
+      AND json_extract(e.data,'$.name')='skill.load' AND json_type(e.data,'$.id')='text'
+      AND json_type(e.data,'$.args.name')='text'
+  ), result_events AS MATERIALIZED (
+    SELECT e.*,json_extract(e.data,'$.id') AS result_id
+    FROM events e JOIN turns t ON t.id=e.turn_id AND t.session_id=e.session_id
+    WHERE e.session_id=? AND t.state='completed' AND e.type='tool.result'
+      AND json_extract(e.data,'$.isError') IS NOT 1
+  ), outputs AS (
+    SELECT e.*,c.seq AS call_seq,c.data AS call_data,c.skill_name,
+      CASE WHEN json_type(e.data,'$.output')='text'
+        AND length(CAST(json_extract(e.data,'$.output') AS BLOB))<=?
+        AND json_valid(json_extract(e.data,'$.output')) THEN json_extract(e.data,'$.output') ELSE '{}' END AS result
+    FROM result_events e JOIN calls c ON c.turn_id=e.turn_id AND c.session_id=e.session_id AND e.seq>c.seq
+      AND e.result_id=c.call_id
+  ), ranked AS (
+    SELECT *,row_number() OVER(PARTITION BY skill_name ORDER BY seq DESC,call_seq DESC) AS rank
+    FROM outputs WHERE json_type(result,'$.isError')='false'
+      AND (json_type(result,'$.truncated') IS NULL OR json_type(result,'$.truncated')='false')
+      AND (json_type(result,'$.tool') IS NULL OR json_extract(result,'$.tool')='skill.load')
+      AND json_type(result,'$.value.text')='text' AND json_extract(result,'$.value.name')=skill_name
+      AND length(CAST(json_extract(result,'$.value.text') AS BLOB))<=?
+      AND json_type(result,'$.value.files')='array' AND json_array_length(result,'$.value.files')<=1024
+      AND NOT EXISTS (SELECT 1 FROM json_each(result,'$.value.files')
+        WHERE type!='text' OR length(CAST(value AS BLOB))>16384)
+  ), latest AS (SELECT * FROM ranked WHERE rank=1 ORDER BY seq DESC LIMIT ?), selected AS (
+    SELECT e.* FROM events e JOIN turns t ON t.id=e.turn_id AND t.session_id=e.session_id
+    WHERE e.session_id=? AND t.state='completed' AND e.type='skills.selected' ORDER BY e.seq DESC LIMIT 1
+  )
+  SELECT session_id,turn_id,call_seq AS seq,'tool.call' AS type,call_data AS data,at FROM latest
+  UNION ALL SELECT session_id,turn_id,seq,'tool.result',data,at FROM latest
+  UNION ALL SELECT session_id,turn_id,seq,type,data,at FROM selected ORDER BY seq`;
 
 type Row = Record<string, unknown>;
 
@@ -102,6 +146,50 @@ export class SessionStore {
     if (session.memoryMode === "incognito") return memory;
     this.#db.prepare("INSERT OR IGNORE INTO prompt_snapshots(session_id,memory) VALUES (?,?)").run(sessionId, memory);
     return (this.#db.prepare("SELECT memory FROM prompt_snapshots WHERE session_id=?").get(sessionId) as { memory: string }).memory;
+  }
+
+  /** Remembered sessions retain the first authored catalogue across restarts; incognito uses its current bytes. */
+  freezeSkillCatalogue(sessionId: string, catalogue: string): string {
+    const session = this.getSession(sessionId);
+    if (!session) throw new SessionError("not-found", "session not found");
+    if (session.memoryMode === "incognito") return catalogue;
+    this.#db.prepare("INSERT OR IGNORE INTO skill_catalogue_snapshots(session_id,catalogue) VALUES (?,?)")
+      .run(sessionId, catalogue);
+    return (this.#db.prepare("SELECT catalogue FROM skill_catalogue_snapshots WHERE session_id=?")
+      .get(sessionId) as { catalogue: string }).catalogue;
+  }
+
+  /** Completed skill state only, with latest successful pairs deduplicated before the 4096 distinct-skill bound. */
+  skillEvents(sessionId: string): EventRecord[] {
+    return this.#all(SKILL_EVENTS_SQL, sessionId, sessionId, MAX_RESTORED_SKILL_OUTPUT_BYTES, MAX_RESTORED_SKILL_TEXT_BYTES,
+      MAX_RESTORED_SKILLS, sessionId).map(toEvent);
+  }
+
+  /** Admission order is stable; only names are retained. Incognito services keep this table in their RAM store. */
+  toolOffers(sessionId: string): string[] {
+    if (!this.getSession(sessionId)) throw new SessionError("not-found", "session not found");
+    return this.#all("SELECT name FROM session_tool_offers WHERE session_id=? ORDER BY ordinal", sessionId)
+      .map(row => row.name as string);
+  }
+
+  /** Record a pending union for the next turn boundary, retaining the earliest 128 distinct canonical names. */
+  rememberToolOffers(sessionId: string, names: readonly string[]): void {
+    if (!this.getSession(sessionId)) throw new SessionError("not-found", "session not found");
+    if (!Array.isArray(names) || names.some(name => typeof name !== "string" || !CANONICAL_TOOL_NAME.test(name))) {
+      throw new SessionError("invalid", "tool offers require canonical registered tool names", "tool-name");
+    }
+    this.#tx(() => {
+      const previous = this.toolOffers(sessionId);
+      const known = new Set(previous);
+      let ordinal = previous.length;
+      const insert = this.#db.prepare("INSERT INTO session_tool_offers(session_id,name,ordinal) VALUES (?,?,?)");
+      for (const name of names) {
+        if (known.has(name)) continue;
+        if (ordinal >= MAX_SESSION_TOOL_OFFERS) break;
+        insert.run(sessionId, name, ordinal++);
+        known.add(name);
+      }
+    });
   }
 
   modelProfile(sessionId: string): { profile: string | null; revision: number } {

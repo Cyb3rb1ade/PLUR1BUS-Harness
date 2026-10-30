@@ -44,7 +44,8 @@ use super::list::{cached_meta, install_units};
 use super::overlays::{load_revocations, overlays_of};
 use super::paths::ExtPaths;
 use super::record::{
-    module_dir_kind, name_taken, now_ms, parse_iso_ms, skill_id_ok, state_invalid,
+    code_dir, config_key, config_section, module_dir_kind, name_taken, now_ms, parse_iso_ms,
+    skill_id_ok, state_invalid,
 };
 use super::state::{self, remove_dir_all_retrying, remove_retrying, rename_retrying, ItemRecord};
 use super::{now_iso, ExtError};
@@ -228,7 +229,7 @@ fn with_disabled(mut e: ExtError, disabled: &[String]) -> ExtError {
     e
 }
 
-fn audit(layout: &Layout, action: &str, name: &str, detail: Value) {
+pub(crate) fn audit(layout: &Layout, action: &str, name: &str, detail: Value) {
     if let Err(e) = crate::audit::append(layout, action, name, detail) {
         eprintln!("plur1bus: warning: cannot write the audit line for {action} {name}: {e}");
     }
@@ -269,10 +270,15 @@ pub fn uninstall_held(
     o: &RemoveOpts,
     _held: &super::MutationGuard,
 ) -> Result<Value, ExtError> {
+    super::bundle_lifecycle::require_settled(layout)?;
     reset_kill();
     let cfg = host.config();
     let paths = ExtPaths::of(layout);
     let st = state::read(&paths).map_err(state_invalid)?;
+    super::bundle_lifecycle::check_independent_remove(&st, name)?;
+    if st.items.get(name).is_some_and(|r| r.kind == "bundle") {
+        return super::bundle_lifecycle::uninstall_held(layout, host, name, o);
+    }
     let t = resolve(layout, &st, name)?;
     let is_skill = t.kind == "skill";
     let bundled = is_skill && t.record.is_none() && bundled_skill(layout, name)?;
@@ -299,50 +305,79 @@ pub fn uninstall_held(
         )
         .with_data(json!({ "dependents": deps })));
     }
+    let mut purge_slots = std::collections::BTreeSet::new();
+    if o.purge {
+        if let Some(record) = &t.record {
+            purge_slots.extend(super::runtime::declared_slots(&record.capabilities)?);
+            for version in record.versions.values() {
+                purge_slots.extend(super::runtime::declared_slots(&version.capabilities)?);
+            }
+        }
+        if !purge_slots.is_empty() {
+            host.check_secret_store()?;
+        }
+    }
+    let purge_slots: Vec<String> = purge_slots.into_iter().collect();
     // The importer's lock before the index is read for writing (X1-R14), held to the end.
     let _lock: Option<ImportLock> = if is_skill {
         Some(lock_skills(layout)?)
     } else {
         None
     };
-    // Every refusal is behind us: the first write (X1-C16).
-    prune_for(layout, &cfg);
-    // X1-C17: dependents the cascade disabled stay disabled if the uninstall then fails; the error names them.
-    let mut disabled: Vec<String> = Vec::new();
-    for d in &deps {
-        if let Err(e) = disable_locked(layout, host, d, &ToggleOpts::default()) {
-            return Err(with_disabled(e, &disabled));
+    super::commit::with_runtime_hold(host, name, t.kind == "mcp-server", |host| {
+        // Every refusal is behind us: the first write (X1-C16).
+        prune_for(layout, &cfg);
+        // X1-C17: dependents the cascade disabled stay disabled if the uninstall then fails; the error names them.
+        let mut disabled: Vec<String> = Vec::new();
+        for d in &deps {
+            if let Err(e) = disable_locked(layout, host, d, &ToggleOpts::default()) {
+                return Err(with_disabled(e, &disabled));
+            }
+            disabled.push(d.clone());
         }
-        disabled.push(d.clone());
-    }
-    if bundled {
-        return hide_bundled(layout, &paths, host, &t);
-    }
+        if bundled {
+            return hide_bundled(layout, &paths, host, &t);
+        }
 
-    let mut rb = Rollback::default();
-    let (tid, moved) = match move_to_trash(layout, &paths, host, &t, o, &mut rb) {
-        Ok(x) => x,
-        Err(e) => return Err(with_disabled(roll_back(e, rb, host), &disabled)),
-    };
-    drop(rb);
-    let mut detail = json!({
-        "kind": t.kind, "version": t.version, "trashId": tid, "purged": o.purge, "cascade": deps,
-        "via": host.via(),
-    });
-    if o.purge {
-        detail["moved"] = json!(moved);
-        detail["secrets"] = json!([]); // X1-R31: no secret store yet, so none were deleted
-    }
-    let action = if o.purge {
-        "ext.purge"
-    } else {
-        "ext.uninstall"
-    };
-    audit(layout, action, name, detail);
-    host.notify(json!({
-        "name": name, "kind": t.kind, "state": "removed", "version": t.version, "overlays": []
-    }));
-    Ok(json!({ "name": name, "removed": true, "trashId": tid, "purged": o.purge }))
+        let mut rb = Rollback::default();
+        let (tid, moved) = match move_to_trash(layout, &paths, host, &t, o, &mut rb) {
+            Ok(x) => x,
+            Err(e) => return Err(with_disabled(roll_back(e, rb, host), &disabled)),
+        };
+        drop(rb);
+        let deletion = if o.purge && !purge_slots.is_empty() {
+            host.purge_secrets(name, &purge_slots)
+        } else {
+            Ok(())
+        };
+        let mut detail = json!({
+            "kind": t.kind, "version": t.version, "trashId": tid, "purged": o.purge, "cascade": deps,
+            "via": host.via(),
+        });
+        if o.purge {
+            detail["moved"] = json!(moved);
+            detail["secrets"] = json!(purge_slots
+                .iter()
+                .map(|slot| format!("ext:{name}:{slot}"))
+                .collect::<Vec<_>>());
+            if deletion.is_err() {
+                detail["secretDeletion"] = json!("incomplete");
+            }
+        }
+        let action = if o.purge {
+            "ext.purge"
+        } else {
+            "ext.uninstall"
+        };
+        audit(layout, action, name, detail);
+        host.notify(json!({
+            "name": name, "kind": t.kind, "state": "removed", "version": t.version, "overlays": []
+        }));
+        if deletion.is_err() {
+            return Err(ExtError::new("E_NOT_AVAILABLE", "secret-store-unavailable", "the extension was removed, but deletion of all declared secret slots could not be confirmed; deleted secret values cannot be restored"));
+        }
+        Ok(json!({ "name": name, "removed": true, "trashId": tid, "purged": o.purge }))
+    })
 }
 
 /// The config writes that take a purged skill's name out of every `agents.*.skills.{blocked,pinned}`, with each touched
@@ -377,7 +412,7 @@ fn purge_lists(cfg: &Value, name: &str) -> (Changes, Changes) {
 /// then (purge) data and config. The record goes right after the code, so a kill leaves either the item installed
 /// with its code in the trash (which `ext::recover` puts back, X1-C15) or the item uninstalled. Returns the trash id
 /// and what a purge moved or deleted.
-fn move_to_trash<'a>(
+pub(crate) fn move_to_trash<'a>(
     layout: &'a Layout,
     paths: &ExtPaths,
     host: &mut dyn ModuleHost,
@@ -395,7 +430,8 @@ fn move_to_trash<'a>(
         None
     };
     let section = if o.purge && !is_skill {
-        cfg["modules"].get(name).cloned()
+        let section = config_section(&cfg, name, &t.kind);
+        (!section.is_null()).then_some(section)
     } else {
         None
     };
@@ -406,7 +442,7 @@ fn move_to_trash<'a>(
     let mut extra: Vec<(&str, Vec<u8>)> = Vec::new();
     if let Some(sec) = &section {
         let mut saved = serde_json::Map::new();
-        saved.insert(format!("modules.{name}"), sec.clone());
+        saved.insert(config_key(name, &t.kind), sec.clone());
         extra.push(("config.json", pretty(&Value::Object(saved))));
     }
     let sha = t.record.as_ref().map(|r| r.package_sha256.clone());
@@ -420,9 +456,14 @@ fn move_to_trash<'a>(
     ensure_dir(&paths.trash, "trash", rb)?;
     let (tid, tdir) = build_trash_entry(paths, name, version, &now, &body, &extra)?;
     {
-        let (entry, n, data) = (tdir.clone(), name.to_string(), layout.ext_data(name));
+        let (entry, n, data, kind) = (
+            tdir.clone(),
+            name.to_string(),
+            layout.ext_data(name),
+            t.kind.clone(),
+        );
         rb.push("trash", move |h| {
-            put_code_back(layout, h, is_skill, &n, &entry.join("code"))?;
+            put_code_back(layout, h, &kind, &n, &entry.join("code"))?;
             let moved = entry.join("data");
             if fs::symlink_metadata(&moved).is_ok() {
                 rename_retrying(&moved, &data).map_err(|e| {
@@ -439,8 +480,8 @@ fn move_to_trash<'a>(
 
     // code
     let code = tdir.join("code");
-    if is_skill {
-        let dir = layout.skills().join(name);
+    if is_skill || t.kind == "mcp-server" || t.kind == "bundle" {
+        let dir = code_dir(layout, name, &t.kind);
         if fs::symlink_metadata(&dir).is_ok() {
             rename_retrying(&dir, &code)
                 .map_err(|e| io_err("cannot move to the trash", &dir, e))?;
@@ -495,8 +536,8 @@ fn move_to_trash<'a>(
             purge_lists(&host.config(), name)
         } else if let Some(sec) = &section {
             (
-                vec![(format!("modules.{name}"), Value::Null)],
-                vec![(format!("modules.{name}"), sec.clone())],
+                vec![(config_key(name, &t.kind), Value::Null)],
+                vec![(config_key(name, &t.kind), sec.clone())],
             )
         } else {
             (vec![], vec![])
@@ -541,6 +582,11 @@ fn hide_bundled(
         key_id: None,
         key_label: None,
         package_sha256: sha,
+        active_version: None,
+        versions: std::collections::BTreeMap::new(),
+        per_agent_versions: std::collections::BTreeMap::new(),
+        members: Vec::new(),
+        manifest_sha256: None,
         installed_at: now.clone(),
         previous_version: None,
         files: Default::default(),
@@ -596,7 +642,11 @@ fn hide_bundled(
 
 /// A restored name must be free: no record (a hidden bundled item's tombstone included), no skill folder or index
 /// entry, no module directory.
-fn check_free(layout: &Layout, st: &state::ExtState, name: &str) -> Result<(), ExtError> {
+pub(crate) fn check_free(
+    layout: &Layout,
+    st: &state::ExtState,
+    name: &str,
+) -> Result<(), ExtError> {
     if let Some(r) = st.items.get(name) {
         return Err(name_taken(name, &r.kind, Some(&r.id)));
     }
@@ -609,11 +659,17 @@ fn check_free(layout: &Layout, st: &state::ExtState, name: &str) -> Result<(), E
     if fs::symlink_metadata(&m).is_ok() {
         return Err(name_taken(name, &module_dir_kind(&m), None));
     }
+    if fs::symlink_metadata(code_dir(layout, name, "bundle")).is_ok() {
+        return Err(name_taken(name, "bundle", None));
+    }
+    if fs::symlink_metadata(ExtPaths::of(layout).mcp.join(name)).is_ok() {
+        return Err(name_taken(name, "mcp-server", None));
+    }
     Ok(())
 }
 
 /// `data/ext/<name>` exists and holds something: a restore does not merge data.
-fn data_in_the_way(layout: &Layout, name: &str) -> bool {
+pub(crate) fn data_in_the_way(layout: &Layout, name: &str) -> bool {
     fs::read_dir(layout.ext_data(name)).is_ok_and(|mut r| r.next().is_some())
         || fs::symlink_metadata(layout.ext_data(name)).is_ok_and(|m| !m.is_dir())
 }
@@ -622,15 +678,15 @@ fn data_in_the_way(layout: &Layout, name: &str) -> bool {
 pub(crate) const RESTORING: &str = "restoring";
 
 /// What a trash entry says about the item in it.
-struct Trashed {
-    name: String,
-    kind: String,
-    version: String,
-    record: Option<ItemRecord>,
-    body: Value,
+pub(crate) struct Trashed {
+    pub(crate) name: String,
+    pub(crate) kind: String,
+    pub(crate) version: String,
+    pub(crate) record: Option<ItemRecord>,
+    pub(crate) body: Value,
 }
 
-fn read_entry(tdir: &Path, id: &str, days: u32) -> Result<Trashed, ExtError> {
+pub(crate) fn read_entry(tdir: &Path, id: &str, days: u32) -> Result<Trashed, ExtError> {
     let body = read_json(&tdir.join("record.json")).ok_or_else(|| trash_expired(id))?;
     let at = body["removedAt"]
         .as_str()
@@ -652,8 +708,10 @@ fn read_entry(tdir: &Path, id: &str, days: u32) -> Result<Trashed, ExtError> {
         .or_else(|| record.as_ref().map(|r| r.kind.as_str()))
         .unwrap_or("skill")
         .to_string();
-    if !matches!(kind.as_str(), "skill" | "module" | "channel")
-        || record.as_ref().is_some_and(|r| r.name != name)
+    if !matches!(
+        kind.as_str(),
+        "skill" | "module" | "channel" | "mcp-server" | "bundle"
+    ) || record.as_ref().is_some_and(|r| r.name != name)
     {
         return Err(trash_expired(id));
     }
@@ -688,6 +746,7 @@ pub fn restore_held(
     trash_id: &str,
     _held: &super::MutationGuard,
 ) -> Result<Value, ExtError> {
+    super::bundle_lifecycle::require_settled(layout)?;
     reset_kill();
     let cfg = host.config();
     let days = trash_days(&cfg);
@@ -697,6 +756,9 @@ pub fn restore_held(
     }
     let tdir = paths.trash.join(trash_id);
     let t = read_entry(&tdir, trash_id, days)?;
+    if t.kind == "bundle" {
+        return super::bundle_restore::restore_held(layout, host, trash_id, t);
+    }
     let _lock: Option<ImportLock> = if t.kind == "skill" {
         Some(lock_skills(layout)?)
     } else {
@@ -714,40 +776,42 @@ pub fn restore_held(
             ),
         ));
     }
-    // Every refusal is behind us: the first write (X1-C16). This entry is not expired, so it stays.
-    prune_trash(layout, days);
+    super::commit::with_runtime_hold(host, &t.name, t.kind == "mcp-server", |host| {
+        // Every refusal is behind us: the first write (X1-C16). This entry is not expired, so it stays.
+        prune_trash(layout, days);
 
-    let mut rb = Rollback::default();
-    if let Err(e) = restore_steps(layout, &paths, host, &tdir, &t, &mut rb) {
-        return Err(roll_back(e, rb, host));
-    }
-    drop(rb);
-    // The entry is spent.
-    if let Err(e) = remove_dir_all_retrying(&tdir) {
-        eprintln!(
+        let mut rb = Rollback::default();
+        if let Err(e) = restore_steps(layout, &paths, host, &tdir, &t, &mut rb) {
+            return Err(roll_back(e, rb, host));
+        }
+        drop(rb);
+        // The entry is spent.
+        if let Err(e) = remove_dir_all_retrying(&tdir) {
+            eprintln!(
             "plur1bus: warning: {trash_id} is restored, but its trash entry could not be removed: {e}"
         );
-    }
-    audit(
-        layout,
-        "ext.restore",
-        &t.name,
-        json!({ "kind": t.kind, "version": t.version, "trashId": trash_id, "via": host.via() }),
-    );
-    let overlays = t.record.as_ref().map_or(json!([]), |r| {
-        let compat = cached_meta(&paths, &r.package_sha256)
-            .and_then(|m| m["manifest"].get("compat").cloned());
-        json!(overlays_of(
-            r,
-            &super::host::host_facts(),
-            &load_revocations(&paths),
-            compat.as_ref()
-        ))
-    });
-    host.notify(json!({
+        }
+        audit(
+            layout,
+            "ext.restore",
+            &t.name,
+            json!({ "kind": t.kind, "version": t.version, "trashId": trash_id, "via": host.via() }),
+        );
+        let overlays = t.record.as_ref().map_or(json!([]), |r| {
+            let compat = cached_meta(&paths, &r.package_sha256)
+                .and_then(|m| m["manifest"].get("compat").cloned());
+            json!(overlays_of(
+                r,
+                &super::host::host_facts(),
+                &load_revocations(&paths),
+                compat.as_ref()
+            ))
+        });
+        host.notify(json!({
         "name": t.name, "kind": t.kind, "state": "installed", "version": t.version, "overlays": overlays
     }));
-    Ok(json!({ "name": t.name, "version": t.version, "state": "installed" }))
+        Ok(json!({ "name": t.name, "version": t.version, "state": "installed" }))
+    })
 }
 
 fn write_entry<'a>(layout: &Layout, entry: Value, rb: &mut Rollback<'a>) -> Result<(), ExtError> {
@@ -761,7 +825,7 @@ fn write_entry<'a>(layout: &Layout, entry: Value, rb: &mut Rollback<'a>) -> Resu
 }
 
 /// The restore's writes in the install's order, each registering its undo.
-fn restore_steps<'a>(
+pub(crate) fn restore_steps<'a>(
     layout: &'a Layout,
     paths: &ExtPaths,
     host: &mut dyn ModuleHost,
@@ -775,15 +839,10 @@ fn restore_steps<'a>(
 
     // A restore in progress is marked in its entry, so `ext::recover` can finish or undo one a kill interrupted. For a
     // module the mark carries the config section as it was (`null`: absent), which an undo puts back.
-    let previous = if is_skill {
+    let previous = if is_skill || t.kind == "bundle" {
         None
     } else {
-        Some(
-            host.config()["modules"]
-                .get(name)
-                .cloned()
-                .unwrap_or(Value::Null),
-        )
+        Some(config_section(&host.config(), name, &t.kind))
     };
     let mut mark = json!({ "at": now });
     if let Some(prev) = &previous {
@@ -798,12 +857,9 @@ fn restore_steps<'a>(
 
     // config: a module comes back disabled, with its purged section if the entry holds one (only this item's own
     // section is taken from the entry). One write, first, so a kill after it never strands the section.
-    if !is_skill {
-        let key = format!("modules.{name}");
-        let current = host.config()["modules"]
-            .get(name)
-            .cloned()
-            .unwrap_or(Value::Null);
+    if !is_skill && t.kind != "bundle" {
+        let key = config_key(name, &t.kind);
+        let current = config_section(&host.config(), name, &t.kind);
         let saved = read_json(&tdir.join("config.json"))
             .and_then(|v| v.get(&key).cloned())
             .filter(Value::is_object);
@@ -846,9 +902,11 @@ fn restore_steps<'a>(
 
     // code
     let code = tdir.join("code");
-    if is_skill {
-        ensure_dir(&layout.skills(), "code", rb)?;
-        let dest = layout.skills().join(name);
+    if is_skill || t.kind == "mcp-server" || t.kind == "bundle" {
+        let dest = code_dir(layout, name, &t.kind);
+        if let Some(parent) = dest.parent() {
+            ensure_dir(parent, "code", rb)?;
+        }
         rename_retrying(&code, &dest).map_err(|e| io_err("cannot restore", &code, e))?;
         let (from, to) = (dest.clone(), code.clone());
         rb.push("code", move |_| {
@@ -944,10 +1002,10 @@ fn restore_steps<'a>(
 
 /// Sets `modules.<name>` in config.json to `section` (`null`: removes it), with no host: `ext::recover` runs before
 /// the supervisor serves config and while no offline command does. Unchanged config is not rewritten.
-fn restore_section(layout: &Layout, name: &str, section: Value) -> Result<(), String> {
+fn restore_section(layout: &Layout, name: &str, kind: &str, section: Value) -> Result<(), String> {
     let path = layout.config_path();
     let before = plur1bus_config::read(&path).map_err(|e| e.to_string())?;
-    let after = super::commit::apply_changes(&before, &[(format!("modules.{name}"), section)])
+    let after = super::commit::apply_changes(&before, &[(config_key(name, kind), section)])
         .map_err(|e| e.to_string())?;
     if after != before {
         plur1bus_config::write_atomic(&path, &after).map_err(|e| e.to_string())?;
@@ -1004,15 +1062,11 @@ pub(crate) fn reconcile_restores(layout: &Layout) -> Vec<String> {
             continue;
         };
         let kind = body["kind"].as_str().unwrap_or("skill").to_string();
-        if !matches!(kind.as_str(), "skill" | "module" | "channel") {
+        if !matches!(kind.as_str(), "skill" | "module" | "channel" | "mcp-server") {
             continue;
         }
         let is_skill = kind == "skill";
-        let dir = if is_skill {
-            layout.skills().join(&name)
-        } else {
-            layout.modules_dir().join(&name)
-        };
+        let dir = code_dir(layout, &name, &kind);
         let Ok(st) = state::read(&paths) else {
             continue;
         };
@@ -1076,7 +1130,7 @@ pub(crate) fn reconcile_restores(layout: &Layout) -> Vec<String> {
                 let prev = read_json(&entry.join(RESTORING))
                     .and_then(|m| m.get("previousSection").cloned());
                 if let Some(prev) = prev {
-                    if restore_section(layout, &name, prev).is_err() {
+                    if restore_section(layout, &name, &kind, prev).is_err() {
                         done.push(format!(
                             "could not put back the config section of {name}; {} stays marked",
                             entry.display()
