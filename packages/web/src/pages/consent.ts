@@ -47,12 +47,8 @@ export function ConsentPage(): View {
   const [clientName, setClientName] = useState(clientId);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgent, setSelectedAgent] = useState(requestedAgentId ?? "main");
-  const [availableScopes, setAvailableScopes] = useState<string[]>(() =>
-    rawScope.split(/[\s,]+/).filter(Boolean)
-  );
-  const [selectedScopes, setSelectedScopes] = useState<Set<string>>(() =>
-    new Set(rawScope.split(/[\s,]+/).filter(Boolean))
-  );
+  const [availableScopes, setAvailableScopes] = useState<string[]>([]);
+  const [selectedScopes, setSelectedScopes] = useState<Set<string>>(new Set());
   const [secondFactorRequired, setSecondFactorRequired] = useState(false);
   const [totpCode, setTotpCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -79,10 +75,12 @@ export function ConsentPage(): View {
         }
       }
 
-      // 2. Fetch authorize endpoint to resolve client metadata
+      // 2. Fetch authorize endpoint to resolve client metadata and permitted scopes
       if (clientId && redirectUri) {
         try {
-          const checkUrl = "/oauth/authorize?" + currentParams.toString();
+          const params = new URLSearchParams(currentParams);
+          if (selectedAgent) params.set("agent_id", selectedAgent);
+          const checkUrl = "/oauth/authorize?" + params.toString();
           const res = await fetch(checkUrl, {
             headers: { Accept: "application/json" },
             credentials: "same-origin",
@@ -117,7 +115,7 @@ export function ConsentPage(): View {
 
     void loadData();
     return () => { cancelled = true; };
-  }, [clientId, redirectUri]);
+  }, [clientId, redirectUri, selectedAgent]);
 
   let redirectHost = "";
   try {

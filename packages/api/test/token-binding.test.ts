@@ -17,14 +17,16 @@ const wide = {
   stream: { capacity: 1000, refillPerSec: 100 },
 };
 
-const protocolSpec = (id: string, path: string): RouteSpec => ({
+const protocolSpec = (id: string, path: string, audience?: "mcp" | "a2a"): RouteSpec => ({
   id,
   method: "POST",
   path,
   summary: id,
   tag: "protocol",
+  transport: "protocol",
+  ...(audience ? { protocol: { audience } } : {}),
   auth: "any",
-  authz: "authenticated",
+  authz: "delegated",
   csrf: false,
   rate: "write",
   stability: "experimental",
@@ -59,14 +61,14 @@ const setup = async () => {
     core,
     extraRoutes: [
       {
-        spec: protocolSpec("test.mcp", "/mcp"),
+        spec: protocolSpec("test.mcp", "/mcp", "mcp"),
         handler: (i) => {
           const binding = requireTokenBinding(i.token, "mcp");
           return { body: { ok: true, binding } };
         },
       },
       {
-        spec: protocolSpec("test.a2a", "/a2a"),
+        spec: protocolSpec("test.a2a", "/a2a", "a2a"),
         handler: (i) => {
           const binding = requireTokenBinding(i.token, "a2a");
           return { body: { ok: true, binding } };
@@ -87,7 +89,7 @@ const bearer = (h: Harness, token: string, path = "/api/v1/whoami", method = "GE
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
 
-test("A1.1: tokens.create accepts optional binding after verifying agent existence, agent.use and project access; whoami and tokens.list return binding", async () => {
+test("A1.1: tokens.create accepts optional binding after verifying agent existence, agent.use and project access; tokens.list returns binding and whoami rejects bound token", async () => {
   const h = await setup();
   try {
     const { cookie } = await loginAs(h, "mia");
@@ -113,10 +115,10 @@ test("A1.1: tokens.create accepts optional binding after verifying agent existen
     assert.equal(list.status, 200);
     assert.deepEqual(list.json.tokens[0].binding, binding);
 
+    // M6A-B6: Agent-bound tokens are rejected on general API routes like whoami
     const who = await bearer(h, r.json.token, "/api/v1/whoami");
-    assert.equal(who.status, 200);
-    assert.equal(who.json.via, "token");
-    assert.deepEqual(who.json.token.binding, binding);
+    assert.equal(who.status, 403);
+    assert.equal(who.json.reason, "token-bound-protocol-only");
 
     const createdAudit = h.audit.events.find((e) => e.action === "auth.token.created");
     assert.ok(createdAudit);
@@ -275,6 +277,19 @@ test("A1.1: a token without binding or with wrong audience is rejected on /mcp a
     const rOkA2a = await bearer(h, a2aBound.json.token, "/a2a", "POST");
     assert.equal(rOkA2a.status, 200);
     assert.deepEqual(rOkA2a.json.binding, { audience: "a2a", agentId: "main" });
+
+    // M6A-B6: Agent-bound tokens are rejected on all non-protocol routes
+    const rBoundOnWhoami = await bearer(h, mcpBound.json.token, "/api/v1/whoami", "GET");
+    assert.equal(rBoundOnWhoami.status, 403);
+    assert.equal(rBoundOnWhoami.json.reason, "token-bound-protocol-only");
+
+    const rA2aBoundOnWhoami = await bearer(h, a2aBound.json.token, "/api/v1/whoami", "GET");
+    assert.equal(rA2aBoundOnWhoami.status, 403);
+    assert.equal(rA2aBoundOnWhoami.json.reason, "token-bound-protocol-only");
+
+    // Unbound personal token continues to work on general API routes
+    const rUnboundWhoami = await bearer(h, unbound.json.token, "/api/v1/whoami", "GET");
+    assert.equal(rUnboundWhoami.status, 200);
   } finally {
     await h.close();
   }

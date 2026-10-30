@@ -348,7 +348,21 @@ test("M6A-A3.1: POST /oauth/token exchanges authorization code and issues bound 
 });
 
 test("M6A-A3.1: refresh token rotation and family revocation on replay", async (t) => {
-  const h = await start({ oauthClients: { "test-client": STATIC_CLIENT }, rateClasses: wide });
+  const h = await start({
+    oauthClients: { "test-client": STATIC_CLIENT },
+    rateClasses: wide,
+    mcpConfig: {
+      mcpServer: { enabled: true },
+      agents: {
+        main: {
+          mcpServer: {
+            exposed: true,
+            groups: ["agent"],
+          },
+        },
+      },
+    },
+  });
   t.after(() => h.close());
 
   await addUser(h, { id: "u-1", username: "user1", role: "member", agentRights: { main: "use" } });
@@ -404,17 +418,27 @@ test("M6A-A3.1: refresh token rotation and family revocation on replay", async (
 
   // The old access token t1.access_token is revoked
   const oldAccessCheck = await raw(h, {
-    method: "GET",
-    path: "/api/v1/whoami",
-    headers: { Authorization: `Bearer ${t1.access_token}` },
+    method: "POST",
+    path: "/mcp",
+    headers: {
+      Authorization: `Bearer ${t1.access_token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json, text/event-stream",
+    },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
   });
   assert.equal(oldAccessCheck.status, 401);
 
   // The new access token t2.access_token is active
   const newAccessCheck = await raw(h, {
-    method: "GET",
-    path: "/api/v1/whoami",
-    headers: { Authorization: `Bearer ${t2.access_token}` },
+    method: "POST",
+    path: "/mcp",
+    headers: {
+      Authorization: `Bearer ${t2.access_token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json, text/event-stream",
+    },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
   });
   assert.equal(newAccessCheck.status, 200);
 
@@ -434,9 +458,14 @@ test("M6A-A3.1: refresh token rotation and family revocation on replay", async (
 
   // Entire family is revoked: t2.access_token is now revoked!
   const revokedAccessCheck = await raw(h, {
-    method: "GET",
-    path: "/api/v1/whoami",
-    headers: { Authorization: `Bearer ${t2.access_token}` },
+    method: "POST",
+    path: "/mcp",
+    headers: {
+      Authorization: `Bearer ${t2.access_token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json, text/event-stream",
+    },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
   });
   assert.equal(revokedAccessCheck.status, 401);
 
@@ -456,7 +485,21 @@ test("M6A-A3.1: refresh token rotation and family revocation on replay", async (
 });
 
 test("M6A-A3.1: POST /oauth/revoke revokes tokens per RFC 7009", async (t) => {
-  const h = await start({ oauthClients: { "test-client": STATIC_CLIENT }, rateClasses: wide });
+  const h = await start({
+    oauthClients: { "test-client": STATIC_CLIENT },
+    rateClasses: wide,
+    mcpConfig: {
+      mcpServer: { enabled: true },
+      agents: {
+        main: {
+          mcpServer: {
+            exposed: true,
+            groups: ["agent"],
+          },
+        },
+      },
+    },
+  });
   t.after(() => h.close());
 
   await addUser(h, { id: "u-1", username: "user1", role: "member", agentRights: { main: "use" } });
@@ -570,12 +613,17 @@ test("M6A-A3.1: POST /oauth/revoke revokes tokens per RFC 7009", async (t) => {
   assert.equal(revokeFake.status, 200);
 
   // The real token was NOT revoked!
-  const whoami2 = await raw(h, {
-    method: "GET",
-    path: "/api/v1/whoami",
-    headers: { Authorization: `Bearer ${realToken}` },
+  const mcpCheck2 = await raw(h, {
+    method: "POST",
+    path: "/mcp",
+    headers: {
+      Authorization: `Bearer ${realToken}`,
+      "Content-Type": "application/json",
+      Accept: "application/json, text/event-stream",
+    },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
   });
-  assert.equal(whoami2.status, 200);
+  assert.equal(mcpCheck2.status, 200);
 
   // Now revoking with the real secret succeeds
   const revokeReal = await raw(h, {
@@ -587,12 +635,17 @@ test("M6A-A3.1: POST /oauth/revoke revokes tokens per RFC 7009", async (t) => {
   assert.equal(revokeReal.status, 200);
 
   // Now the real token is revoked
-  const whoami3 = await raw(h, {
-    method: "GET",
-    path: "/api/v1/whoami",
-    headers: { Authorization: `Bearer ${realToken}` },
+  const mcpCheck3 = await raw(h, {
+    method: "POST",
+    path: "/mcp",
+    headers: {
+      Authorization: `Bearer ${realToken}`,
+      "Content-Type": "application/json",
+      Accept: "application/json, text/event-stream",
+    },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
   });
-  assert.equal(whoami3.status, 401);
+  assert.equal(mcpCheck3.status, 401);
 });
 
 test("M6A-A3.1: client_id metadata document resolves dynamically and blocks SSRF", async (t) => {
@@ -718,4 +771,101 @@ test("M6A-B3: FileOAuthStore throws on persist write errors", async () => {
     async () => store.saveGrant(grant),
     (err: Error) => !!err,
   );
+});
+
+test("M6A-B6: OAuth limits scopes to protocol fixed set, intersects with user rights, and rejects bound tokens on non-protocol routes", async (t) => {
+  const h = await start({
+    oauthClients: { "test-client": STATIC_CLIENT },
+    rateClasses: wide,
+  });
+  t.after(() => h.close());
+
+  // User 1: member with "use" right on "main"
+  await addUser(h, { id: "u-member", username: "member1", role: "member", agentRights: { main: "use" } });
+  const { cookie: memberCookie } = await loginAs(h, "member1");
+
+  const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+  const challenge = computeCodeChallenge(verifier);
+
+  // 1. Requesting non-protocol scope is rejected as invalid_scope
+  const invalidScopeRes = await raw(h, {
+    method: "GET",
+    path: `/oauth/authorize?response_type=code&client_id=test-client&redirect_uri=${encodeURIComponent("https://client.example.com/callback")}&code_challenge=${challenge}&code_challenge_method=S256&scope=${encodeURIComponent("users.manage")}`,
+    headers: { Cookie: memberCookie },
+  });
+  assert.equal(invalidScopeRes.status, 302);
+  const invalidLoc = new URL(invalidScopeRes.headers.location as string);
+  assert.equal(invalidLoc.searchParams.get("error"), "invalid_scope");
+
+  // 2. Consent presentation filters scopes down to what the user actually can grant:
+  // Member with only "use" right requesting "mcp.read agent.manage" gets only ["mcp.read"]
+  const probeRes = await raw(h, {
+    method: "GET",
+    path: `/oauth/authorize?response_type=code&client_id=test-client&redirect_uri=${encodeURIComponent("https://client.example.com/callback")}&code_challenge=${challenge}&code_challenge_method=S256&scope=${encodeURIComponent("mcp.read agent.manage")}`,
+    headers: { Cookie: memberCookie, Accept: "application/json" },
+  });
+  assert.equal(probeRes.status, 200);
+  const probeData = JSON.parse(probeRes.text) as { scopes: string[] };
+  assert.deepEqual(probeData.scopes, ["mcp.read"]);
+
+  // 3. Requesting ONLY scopes the user cannot hold returns invalid_scope
+  const unpermittedRes = await raw(h, {
+    method: "GET",
+    path: `/oauth/authorize?response_type=code&client_id=test-client&redirect_uri=${encodeURIComponent("https://client.example.com/callback")}&code_challenge=${challenge}&code_challenge_method=S256&scope=${encodeURIComponent("agent.manage")}`,
+    headers: { Cookie: memberCookie },
+  });
+  assert.equal(unpermittedRes.status, 302);
+  const unpermLoc = new URL(unpermittedRes.headers.location as string);
+  assert.equal(unpermLoc.searchParams.get("error"), "invalid_scope");
+
+  // 4. Issue token to member1 and verify it is rejected on non-protocol routes (e.g. /api/v1/whoami)
+  const csrf = await csrfToken(h, memberCookie);
+  const authRes = await raw(h, {
+    method: "POST",
+    path: "/oauth/authorize",
+    headers: { Cookie: memberCookie, "x-csrf-token": csrf, ...jsonHeaders() },
+    body: JSON.stringify({
+      approve: true,
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      scope: "mcp.read agent.use",
+    }),
+  });
+  assert.equal(authRes.status, 200);
+  const code = (JSON.parse(authRes.text) as { code: string }).code;
+
+  const tokenRes = await raw(h, {
+    method: "POST",
+    path: "/oauth/token",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      grant_type: "authorization_code",
+      code,
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      code_verifier: verifier,
+    }),
+  });
+  assert.equal(tokenRes.status, 200);
+  const oauthTokens = JSON.parse(tokenRes.text) as { access_token: string };
+
+  // Agent-bound token is refused on /api/v1/whoami
+  const whoamiRes = await raw(h, {
+    method: "GET",
+    path: "/api/v1/whoami",
+    headers: { Authorization: `Bearer ${oauthTokens.access_token}` },
+  });
+  assert.equal(whoamiRes.status, 403);
+  assert.equal(JSON.parse(whoamiRes.text).reason, "token-bound-protocol-only");
+
+  // Agent-bound token is refused on /api/v1/agents
+  const agentsRes = await raw(h, {
+    method: "GET",
+    path: "/api/v1/agents",
+    headers: { Authorization: `Bearer ${oauthTokens.access_token}` },
+  });
+  assert.equal(agentsRes.status, 403);
+  assert.equal(JSON.parse(agentsRes.text).reason, "token-bound-protocol-only");
 });

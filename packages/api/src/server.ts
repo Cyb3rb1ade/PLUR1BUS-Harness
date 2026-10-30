@@ -441,6 +441,10 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         principalId = resolved.principal.id; rateKey = `token:${r.record.id}`;
         const tv = limiter.take(cls, rateKey);
         if (!tv.ok) rateLimited(rateKey, cls, tv.retryAfterSec);
+        if (!isProtocol && r.record.binding !== undefined) {
+          if (req.method !== "GET") audit.emit("auth.denied", principalId, `route:${spec.id}`, { reason: "token-bound-protocol-only", method: req.method, via: "token", token: tokenInfo.id, ip, ...(typeof spec.authz === "object" ? { action: spec.authz.action } : {}) });
+          throw errors.forbidden("token-bound-protocol-only", "agent-bound tokens may only be used on protocol routes");
+        }
         const d = decide(spec, resolved.rbac);
         if (d.effect === "deny") {
           if (req.method !== "GET") audit.emit("auth.denied", principalId, `route:${spec.id}`, { reason: d.reason, method: req.method, via: "token", token: tokenInfo.id, ip, ...(typeof spec.authz === "object" ? { action: spec.authz.action } : {}) });
@@ -451,7 +455,8 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
           if (r.record.binding.audience !== spec.protocol.audience) {
             throw protocolUnauthenticatedError("invalid-audience", protocolOrigin, spec.protocol?.resourceMetadataPath);
           }
-          const useDec = authorize(resolved.rbac, "agent.use", { kind: "agent", agentId: r.record.binding.agentId });
+          const { tokenScopes: _omit, ...userRbac } = resolved.rbac;
+          const useDec = authorize(userRbac, "agent.use", { kind: "agent", agentId: r.record.binding.agentId });
           if (useDec.effect === "deny") throw errors.forbidden(useDec.reason);
         }
       } else if (!isProtocol && (spec.auth === "session" || spec.auth === "any")) {

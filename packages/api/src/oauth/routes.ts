@@ -1,11 +1,18 @@
 import { URL, URLSearchParams } from "node:url";
 import { ApiError, errors } from "../errors.ts";
 import type { TokenAudience } from "../ports.ts";
+import { authorize, type RbacPrincipal } from "../rbac-bridge.ts";
 import type { Handler, HandlerDeps, HandlerInput, HandlerOutput, RouteSpec } from "../routes.ts";
 import { readCookie } from "../session.ts";
-import { validateScopes } from "../tokens.ts";
 import { matchRedirectUri } from "./client-metadata.ts";
-import { OAuthApiError, resolveResourceAudience, validateAudienceScopes, type OAuthService } from "./service.ts";
+import {
+  OAuthApiError,
+  PROTOCOL_SCOPES,
+  filterPermittedScopes,
+  resolveResourceAudience,
+  validateAudienceScopes,
+  type OAuthService,
+} from "./service.ts";
 import type { OAuthAuthorizationServerMetadata, OAuthProtectedResourceMetadata } from "./types.ts";
 
 export interface OAuthHandlerDeps extends HandlerDeps {
@@ -429,12 +436,12 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
         throw errors.forbidden("second-factor-required");
       }
 
-      // 8. Validate scopes
+      // 8. Validate scopes and person's permissions
       let scopes: readonly string[] = audience === "a2a" ? ["a2a.task"] : ["mcp.read"];
       if (scopeParam) {
         try {
           const split = scopeParam.split(/\s+/).filter(Boolean);
-          scopes = validateAudienceScopes(audience, validateScopes(split));
+          scopes = validateAudienceScopes(audience, split);
         } catch {
           const errUrl = new URL(redirectUri);
           errUrl.searchParams.set("error", "invalid_scope");
@@ -443,6 +450,38 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
           errUrl.searchParams.set("iss", issuer);
           return { status: 302, headers: { Location: errUrl.toString() } };
         }
+      }
+
+      const agentId = params.get("agent_id") || "main";
+      let rbac: RbacPrincipal = { userId: session.principal.id, role: session.principal.role, kind: "person" };
+      if (session.principal.kind === "owner") {
+        rbac = { userId: "owner", role: "owner", kind: "person" };
+      } else if (d.users) {
+        const u = await d.users.findById(session.principal.id);
+        if (u) {
+          rbac = { userId: u.id, role: u.role, kind: "person", ...(u.agentRights ? { agentRights: u.agentRights } : {}), ...(u.projectRights ? { projectRights: u.projectRights } : {}) };
+        }
+      }
+
+      const canAccessAgent = authorize(rbac, "agent.read", { kind: "agent", agentId }).effect === "allow"
+        || authorize(rbac, "agent.use", { kind: "agent", agentId }).effect === "allow";
+      if (!canAccessAgent) {
+        const errUrl = new URL(redirectUri);
+        errUrl.searchParams.set("error", "access_denied");
+        errUrl.searchParams.set("error_description", "user does not have access to the requested agent");
+        if (state) errUrl.searchParams.set("state", state);
+        errUrl.searchParams.set("iss", issuer);
+        return { status: 302, headers: { Location: errUrl.toString() } };
+      }
+
+      const permittedScopes = filterPermittedScopes(rbac, agentId, audience, scopes);
+      if (permittedScopes.length === 0) {
+        const errUrl = new URL(redirectUri);
+        errUrl.searchParams.set("error", "invalid_scope");
+        errUrl.searchParams.set("error_description", "no requested scopes are permitted for this user");
+        if (state) errUrl.searchParams.set("state", state);
+        errUrl.searchParams.set("iss", issuer);
+        return { status: 302, headers: { Location: errUrl.toString() } };
       }
 
       // 9. Consent screen presentation (approval only via POST /oauth/authorize)
@@ -455,7 +494,7 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
             client_id: client.client_id,
             client_name: client.client_name ?? client.client_id,
             redirect_uri: redirectUri,
-            scopes,
+            scopes: permittedScopes,
             audience,
             ...(state ? { state } : {}),
             ...(resource ? { resource } : {}),
@@ -544,11 +583,32 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
         audience = resAud.audience;
       }
 
-      // 8. Validate scopes
+      // 8. Validate scopes and person's permissions
       let scopes: readonly string[] = audience === "a2a" ? ["a2a.task"] : ["mcp.read"];
       if (body.scope) {
-        const split = Array.isArray(body.scope) ? body.scope : String(body.scope).split(/\s+/).filter(Boolean);
-        scopes = validateAudienceScopes(audience, validateScopes(split));
+        const split = Array.isArray(body.scope) ? body.scope.map(String) : String(body.scope).split(/\s+/).filter(Boolean);
+        scopes = validateAudienceScopes(audience, split);
+      }
+
+      let rbac: RbacPrincipal = i.rbac ?? { userId: session.principal.id, role: session.principal.role, kind: "person" };
+      if (session.principal.kind === "owner") {
+        rbac = { userId: "owner", role: "owner", kind: "person" };
+      } else if (d.users) {
+        const u = await d.users.findById(session.principal.id);
+        if (u) {
+          rbac = { userId: u.id, role: u.role, kind: "person", ...(u.agentRights ? { agentRights: u.agentRights } : {}), ...(u.projectRights ? { projectRights: u.projectRights } : {}) };
+        }
+      }
+
+      const canAccessAgent = authorize(rbac, "agent.read", { kind: "agent", agentId }).effect === "allow"
+        || authorize(rbac, "agent.use", { kind: "agent", agentId }).effect === "allow";
+      if (!canAccessAgent) {
+        throw new OAuthApiError(403, "access_denied", "user does not have access to the requested agent");
+      }
+
+      const permittedScopes = filterPermittedScopes(rbac, agentId, audience, scopes);
+      if (permittedScopes.length === 0) {
+        throw new OAuthApiError(400, "invalid_scope", "no requested scopes are permitted for this user on the selected agent");
       }
 
       // 9. Issue authorization code
@@ -561,14 +621,14 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
         agentId,
         ...(projectId ? { projectId } : {}),
         audience,
-        scopes,
+        scopes: permittedScopes,
         ...(resource ? { resource } : {}),
       });
 
       d.audit.emit("oauth.authorize", session.principal.id, `agent:${agentId}`, {
         clientId,
         audience,
-        scopes: scopes.join(" "),
+        scopes: permittedScopes.join(" "),
       });
 
       const target = new URL(redirectUri);

@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { Clock } from "../clock.ts";
 import { ApiError } from "../errors.ts";
 import type { TokenAudience } from "../ports.ts";
+import { authorize, type RbacPrincipal } from "../rbac-bridge.ts";
 import type { TokenService } from "../tokens.ts";
 import { ClientMetadataResolver } from "./client-metadata.ts";
 import { verifyPkce } from "./pkce.ts";
@@ -49,13 +50,61 @@ export function resolveResourceAudience(resource?: string): { audience: TokenAud
   throw new OAuthApiError(400, "invalid_target", "unsupported target resource (expected /mcp or /a2a)");
 }
 
+export const PROTOCOL_SCOPES: Record<TokenAudience, readonly string[]> = {
+  mcp: Object.freeze([
+    "mcp.read",
+    "mcp.write",
+    "agent.use",
+    "agent.manage",
+    "memory.read",
+    "memory.write",
+  ]),
+  a2a: Object.freeze([
+    "a2a.task",
+    "agent.use",
+  ]),
+};
+
+export function canGrantScope(rbac: RbacPrincipal, agentId: string, scope: string): boolean {
+  switch (scope) {
+    case "mcp.read":
+      return authorize(rbac, "agent.read", { kind: "agent", agentId }).effect === "allow";
+    case "mcp.write":
+      return rbac.role !== "viewer" && authorize(rbac, "agent.use", { kind: "agent", agentId }).effect === "allow";
+    case "agent.use":
+      return authorize(rbac, "agent.use", { kind: "agent", agentId }).effect === "allow";
+    case "agent.manage":
+      return authorize(rbac, "agent.manage", { kind: "agent", agentId }).effect === "allow";
+    case "memory.read":
+      return authorize(rbac, "memory.workspace.read", { kind: "memory", scope: "workspace", agentId }).effect === "allow"
+        || authorize(rbac, "agent.read", { kind: "agent", agentId }).effect === "allow";
+    case "memory.write":
+      return authorize(rbac, "memory.workspace.write", { kind: "memory", scope: "workspace", agentId }).effect === "allow";
+    case "a2a.task":
+      return rbac.role !== "viewer" && authorize(rbac, "agent.use", { kind: "agent", agentId }).effect === "allow";
+    default:
+      return false;
+  }
+}
+
+export function filterPermittedScopes(
+  rbac: RbacPrincipal,
+  agentId: string,
+  audience: TokenAudience,
+  candidateScopes: readonly string[],
+): string[] {
+  const allowed = PROTOCOL_SCOPES[audience] ?? [];
+  return candidateScopes.filter((s) => allowed.includes(s) && canGrantScope(rbac, agentId, s));
+}
+
 export function validateAudienceScopes(audience: TokenAudience, requestedScopes: readonly string[]): readonly string[] {
+  const allowed = PROTOCOL_SCOPES[audience];
+  if (!allowed) {
+    throw new OAuthApiError(400, "invalid_scope", `unknown audience '${audience}'`);
+  }
   for (const s of requestedScopes) {
-    if (audience === "mcp" && s.startsWith("a2a")) {
-      throw new OAuthApiError(400, "invalid_scope", `scope '${s}' is not permitted for mcp resource`);
-    }
-    if (audience === "a2a" && (s.startsWith("mcp") || s.startsWith("memory"))) {
-      throw new OAuthApiError(400, "invalid_scope", `scope '${s}' is not permitted for a2a resource`);
+    if (!allowed.includes(s)) {
+      throw new OAuthApiError(400, "invalid_scope", `scope '${s}' is not permitted for ${audience}`);
     }
   }
   return requestedScopes;
