@@ -1,4 +1,5 @@
 // The one git worktree implementation (subprojects spec §6.5). M5+ adds merge and revert here.
+import { createHash } from "node:crypto";
 import { mkdirSync, realpathSync, statSync } from "node:fs";
 import { dirname, join, sep } from "node:path";
 import type { ProjectWorktreePort, ProjectWorktreeProvisioner } from "../collab/coding-surface.ts";
@@ -27,8 +28,8 @@ export class GitWorktreeProvisioner implements ProjectWorktreeProvisioner {
     if (this.#store.liveWorktree(project.id, cardId)) throw new CollabError("conflict", "worktree already exists", { reason: "worktree-exists" });
     const rootId = assertId(project.id);
     const key = projectKey(project.name, project.id);
-    const branch = cardId ? cardBranch(key, assertId(cardId)) : rootBranch(key);
-    const path = cardId
+    let branch = cardId ? cardBranch(key, assertId(cardId)) : rootBranch(key);
+    let path = cardId
       ? join(this.#stateDir, "worktrees", rootId, "cards", `c-${hex6(cardId)}`)
       : join(this.#stateDir, "worktrees", rootId, rootId);
     if (path.startsWith(project.repo.repoPath + sep) || path === project.repo.repoPath) {
@@ -37,9 +38,40 @@ export class GitWorktreeProvisioner implements ProjectWorktreeProvisioner {
     const parent = cardId
       ? (this.#store.liveWorktree(project.id, null)?.branch ?? project.repo.baseBranch)
       : project.repo.baseBranch;
-    const baseSha = this.#exec.run(["rev-parse", parent], project.repo.repoPath).trim();
+    const common = realpathSync(this.#exec.run(["rev-parse", "--path-format=absolute", "--git-common-dir"], project.repo.repoPath).trim());
+    const exists = (name: string): boolean => {
+      try { this.#exec.run(["show-ref", "--verify", "--quiet", `refs/heads/${name}`], project.repo!.repoPath); return true; }
+      catch (error) { if ((error as { status?: number }).status === 1) return false; throw error; }
+    };
+    const previous = this.#store.previousWorktree(project.id, cardId);
+    const retained = previous?.commonGitDir === common && exists(previous.branch);
+    if (retained) {
+      // Only our DB-pinned branch in the same repository may be reattached. No reset/delete/force.
+      branch = previous.branch;
+      // Keep retained work, but always reattach in the current sibling layout (including old DB rows).
+      if (cardId) {
+        const suffix = /\/c-([a-f0-9]{6})$/.exec(branch)?.[1];
+        if (!suffix) throw new CollabError("conflict", "retained card branch is invalid", { reason: "worktree-unsafe" });
+        path = join(this.#stateDir, "worktrees", rootId, "cards", `c-${suffix}`);
+      }
+    } else {
+      // Abbreviated IDs can collide. Preserve unrelated/retained branches and choose a stable alternative.
+      const original = branch;
+      let attempt = 0;
+      while (exists(branch)) {
+        if (++attempt > 128) throw new CollabError("conflict", "worktree name space exhausted", { reason: "worktree-name" });
+        const suffix = createHash("sha256").update(`${project.id}:${cardId ?? "root"}:${attempt}`).digest("hex").slice(0, 6);
+        branch = cardId ? `p1b/${key}/c-${suffix}` : `${original}-g${suffix}`;
+        if (cardId) path = join(this.#stateDir, "worktrees", rootId, "cards", `c-${suffix}`);
+      }
+    }
+    const baseSha = this.#exec.run(["rev-parse", retained ? branch : parent], project.repo.repoPath).trim();
     mkdirSync(dirname(path), { recursive: true });
-    this.#exec.run(["worktree", "add", "-b", branch, path, parent], project.repo.repoPath);
+    try {
+      this.#exec.run(retained ? ["worktree", "add", path, branch] : ["worktree", "add", "-b", branch, path, parent], project.repo.repoPath);
+    } catch {
+      throw new CollabError("conflict", "worktree could not be safely attached; existing branches and paths were preserved", { reason: "worktree-unsafe" });
+    }
     const gitDir = realpathSync(this.#exec.run(["rev-parse", "--absolute-git-dir"], path).trim());
     const commonGitDir = realpathSync(this.#exec.run(["rev-parse", "--path-format=absolute", "--git-common-dir"], path).trim());
     const identity = statSync(path);

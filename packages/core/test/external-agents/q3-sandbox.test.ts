@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { linkSync, mkdirSync, readFileSync, renameSync, symlinkSync, unlinkSync, writeFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { test } from "node:test";
 import { backendArgv } from "../../src/tools/sandbox/backends.ts";
@@ -44,6 +44,12 @@ test("the ACP opt-in rejects forged, multiple, mismatched, symlinked and hard-li
   await assert.rejects(preparePolicy(f.policy), /symlinked|identity changed/);
   unlinkSync(f.worktree);
   renameSync(moved, f.worktree);
+  const parent = dirname(f.worktree), movedParent = parent + "-moved";
+  renameSync(parent, movedParent);
+  symlinkSync(movedParent, parent);
+  await assert.rejects(preparePolicy(f.policy), /symlinked/);
+  unlinkSync(parent);
+  renameSync(movedParent, parent);
 });
 
 test("ordinary backend callers retain writable-root refusal and approved Git dirs are mounted read-only", async () => {
@@ -77,7 +83,7 @@ test("host Git ignores a replaced .git pointer and never executes a clean filter
   assert.equal(existsSync(marker), false);
 });
 
-test("terminals see an isolated HOME, deny Harness state and run real Git/build commands", async () => {
+test("terminals see an isolated HOME, deny Harness state and run real Git commands", async () => {
   if (process.platform === "win32") {
     assert.deepEqual(await containedTerminal({ argv: ["cmd.exe"], home: "/missing", worktree: "/missing" }), { ok: false, reason: "sandbox-unavailable" });
     return;

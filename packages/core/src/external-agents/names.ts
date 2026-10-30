@@ -11,7 +11,7 @@ export function slug(name: string): string {
 }
 
 export function hex6(id: string): string {
-  return id.toLowerCase().replace(/[^0-9a-f]/g, "").slice(0, 6).padEnd(6, "0");
+  return id.replace(/^[A-Za-z][A-Za-z0-9]*_/, "").toLowerCase().replace(/[^0-9a-f]/g, "").slice(0, 6).padEnd(6, "0");
 }
 
 export function projectKey(name: string, id: string): string {

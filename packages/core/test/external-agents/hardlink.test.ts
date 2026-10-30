@@ -99,7 +99,7 @@ test("Windows terminal stays refused", async () => {
   assert.deepEqual(refused, { ok: false, reason: "sandbox-unavailable" });
 });
 
-test("pnpm installs locally and the next Linux mount refuses its resulting hardlinks", async () => {
+test("pnpm installs and builds offline; the next Linux mount refuses its resulting hardlinks", async () => {
   const pnpm = onPath("pnpm");
   assert.ok(pnpm, "pnpm is on PATH");
   const entry = pnpmEntry(pnpm);
@@ -111,16 +111,29 @@ test("pnpm installs locally and the next Linux mount refuses its resulting hardl
   mkdirSync(vendor, { recursive: true });
   writeFileSync(join(vendor, "package.json"), JSON.stringify({ name: "tiny-lib", version: "1.0.0", main: "index.js" }));
   writeFileSync(join(vendor, "index.js"), "module.exports = 1\n");
-  writeFileSync(join(worktree, "package.json"), JSON.stringify({ name: "app", private: true, dependencies: { "tiny-lib": "file:./vendor/tiny-lib" } }));
+  writeFileSync(join(worktree, "package.json"), JSON.stringify({ name: "app", private: true, scripts: { build: `${JSON.stringify(process.execPath)} build.cjs` }, dependencies: { "tiny-lib": "file:./vendor/tiny-lib" } }));
+  mkdirSync(join(worktree, "src"));
+  writeFileSync(join(worktree, "src", "index.ts"), "import tiny from 'tiny-lib'; const answer: number = tiny + 41; console.log(answer); export { answer };\n");
+  writeFileSync(join(worktree, "build.cjs"), "const fs=require('fs');const {stripTypeScriptTypes}=require('node:module');fs.mkdirSync('dist',{recursive:true});fs.writeFileSync('dist/index.mjs',stripTypeScriptTypes(fs.readFileSync('src/index.ts','utf8')));\n");
   const script = join(worktree, "install.cjs");
   const localEntry = join(worktree, "pnpm-pkg", "bin", "pnpm.cjs");
   const store = join(worktree, "store");
   writeFileSync(script, `const { spawn } = require("child_process");
 const child = spawn(process.execPath, ${JSON.stringify([localEntry, "install", "--offline", "--ignore-scripts", "--store-dir", store, "--dir", worktree])}, { cwd: ${JSON.stringify(worktree)}, stdio: "inherit" });
-child.on("exit", (code) => process.exit(code ?? 1));
+child.on("exit", (code) => {
+  if(code!==0) process.exit(code??1);
+  const build=spawn(process.execPath, ${JSON.stringify([localEntry, "run", "build"])}, {cwd:${JSON.stringify(worktree)},stdio:"inherit"});
+  build.on("exit",code=>{
+    if(code!==0) process.exit(code??1);
+    const check=spawn(process.execPath,["dist/index.mjs"],{cwd:${JSON.stringify(worktree)},stdio:"inherit"});
+    check.on("exit",code=>process.exit(code??1));
+  });
+});
 `);
   const result = await containedTerminal({ argv: [process.execPath, script], worktree, home, ...mountOptions(worktree), timeoutMs: 60_000 });
   assert.equal(result.ok && result.exitCode, 0, JSON.stringify(result));
+  assert.ok(result.ok && /42/.test(result.stdout), JSON.stringify(result));
+  assert.doesNotMatch(readFileSync(join(worktree, "dist", "index.mjs"), "utf8"), /: number/);
   const installed = join(worktree, "node_modules", "tiny-lib", "index.js");
   // Owner #820 Q3: Linux checks every alias before EACH mount. Same-run internal links are possible;
   // macOS denies file-link entirely. Neither backend permits linking an external source.

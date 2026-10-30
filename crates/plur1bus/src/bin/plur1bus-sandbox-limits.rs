@@ -152,18 +152,11 @@ fn probe_tasks(_: &[String]) -> Result<(), String> {
 }
 #[cfg(target_os = "macos")]
 mod watchdog {
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
     use std::sync::atomic::{AtomicI32, Ordering};
     use std::time::{Duration, Instant};
 
     static GROUP: AtomicI32 = AtomicI32::new(0);
-    unsafe extern "C" {
-        fn proc_listchildpids(
-            pid: libc::c_int,
-            buffer: *mut libc::c_void,
-            size: libc::c_int,
-        ) -> libc::c_int;
-    }
     extern "C" fn terminate(_: libc::c_int) {
         let group = GROUP.load(Ordering::Relaxed);
         if group > 0 {
@@ -172,16 +165,115 @@ mod watchdog {
             }
         }
     }
-    fn sample(root: libc::pid_t, tasks: usize, memory: u64) -> Result<(usize, u64), String> {
+    type Identity = (u64, u64);
+    enum Source {
+        Group,
+        Child(libc::pid_t),
+        Known(Identity),
+    }
+    fn check_time(deadline: Instant) -> Result<(), String> {
+        if Instant::now() >= deadline {
+            Err("watchdog sample deadline exceeded".into())
+        } else {
+            Ok(())
+        }
+    }
+    fn bsd_info(pid: libc::pid_t) -> Result<Option<libc::proc_bsdinfo>, String> {
+        let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
+        let size = std::mem::size_of_val(&info) as libc::c_int;
+        let got = unsafe {
+            libc::proc_pidinfo(
+                pid,
+                libc::PROC_PIDTBSDINFO,
+                0,
+                (&mut info as *mut libc::proc_bsdinfo).cast(),
+                size,
+            )
+        };
+        if got == size {
+            return Ok(Some(info));
+        }
+        if unsafe { libc::kill(pid, 0) } != 0
+            && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH)
+        {
+            return Ok(None);
+        }
+        Err("watchdog process identity unavailable".into())
+    }
+    fn identity(info: &libc::proc_bsdinfo) -> Identity {
+        (info.pbi_start_tvsec, info.pbi_start_tvusec)
+    }
+    fn list_pids(
+        pid: libc::pid_t,
+        group: bool,
+        deadline: Instant,
+    ) -> Result<Vec<libc::pid_t>, String> {
+        type List =
+            unsafe extern "C" fn(libc::pid_t, *mut libc::c_void, libc::c_int) -> libc::c_int;
+        let list: List = if group {
+            libc::proc_listpgrppids
+        } else {
+            libc::proc_listchildpids
+        };
+        check_time(deadline)?;
+        let count = unsafe { list(pid, std::ptr::null_mut(), 0) };
+        check_time(deadline)?;
+        if !(0..65536).contains(&count) {
+            return Err("watchdog PID list exceeds safety cap".into());
+        }
+        // libproc returns PID count (buffer size remains bytes). Leave bounded room for new forks.
+        let mut pids = vec![0; (count as usize + 64).min(65537)];
+        let count = unsafe {
+            list(
+                pid,
+                pids.as_mut_ptr().cast(),
+                (pids.len() * std::mem::size_of::<libc::pid_t>()) as libc::c_int,
+            )
+        };
+        check_time(deadline)?;
+        if count < 0 || count as usize >= pids.len() {
+            return Err("watchdog PID list unavailable or truncated".into());
+        }
+        pids.truncate(count as usize);
+        Ok(pids)
+    }
+    fn sample(
+        root: libc::pid_t,
+        tasks: usize,
+        memory: u64,
+        known: &mut HashMap<libc::pid_t, Identity>,
+    ) -> Result<(usize, u64), String> {
         let deadline = Instant::now() + Duration::from_millis(40);
-        let mut queue = vec![root];
+        let mut queue: Vec<_> = known
+            .iter()
+            .map(|(&pid, &id)| (pid, Source::Known(id)))
+            .collect();
+        queue.extend(
+            list_pids(root, true, deadline)?
+                .into_iter()
+                .map(|pid| (pid, Source::Group)),
+        );
+        queue.push((root, Source::Group));
         let mut seen = HashSet::new();
+        let mut next = HashMap::new();
         let mut rss = 0u64;
-        while let Some(pid) = queue.pop() {
-            if Instant::now() >= deadline {
-                return Err("watchdog sample deadline exceeded".into());
+        while let Some((pid, source)) = queue.pop() {
+            check_time(deadline)?;
+            if pid <= 0 {
+                continue;
             }
-            if !seen.insert(pid) {
+            let Some(info) = bsd_info(pid)? else {
+                continue;
+            };
+            check_time(deadline)?;
+            let id = identity(&info);
+            // Enumeration races must never turn a reused PID into an unrelated retained descendant.
+            let belongs = match source {
+                Source::Group => info.pbi_pgid == root as u32,
+                Source::Child(parent) => info.pbi_ppid == parent as u32,
+                Source::Known(expected) => id == expected,
+            };
+            if !belongs || !seen.insert((pid, id)) {
                 continue;
             }
             if seen.len() > 65536 {
@@ -190,51 +282,40 @@ mod watchdog {
             if seen.len() > tasks {
                 return Ok((seen.len(), rss));
             }
-            let mut info: libc::proc_taskinfo = unsafe { std::mem::zeroed() };
-            let size = std::mem::size_of_val(&info) as libc::c_int;
-            let result = unsafe {
+            let mut task: libc::proc_taskinfo = unsafe { std::mem::zeroed() };
+            let size = std::mem::size_of_val(&task) as libc::c_int;
+            let got = unsafe {
                 libc::proc_pidinfo(
                     pid,
                     libc::PROC_PIDTASKINFO,
                     0,
-                    (&mut info as *mut libc::proc_taskinfo).cast(),
+                    (&mut task as *mut libc::proc_taskinfo).cast(),
                     size,
                 )
             };
-            if result != size {
-                if unsafe { libc::kill(pid, 0) } != 0 {
-                    continue;
-                }
+            check_time(deadline)?;
+            let Some(after) = bsd_info(pid)? else {
+                continue;
+            };
+            check_time(deadline)?;
+            if identity(&after) != id {
+                continue;
+            }
+            if got != size {
                 return Err("watchdog proc_pidinfo failed".into());
             }
-            rss = rss.saturating_add(info.pti_resident_size);
+            next.insert(pid, id);
+            rss = rss.saturating_add(task.pti_resident_size);
             if rss > memory {
                 return Ok((seen.len(), rss));
             }
-            if Instant::now() >= deadline {
-                return Err("watchdog sample deadline exceeded".into());
-            }
-            let bytes = unsafe { proc_listchildpids(pid, std::ptr::null_mut(), 0) };
-            if bytes < 0 {
-                return Err("watchdog proc_listchildpids failed".into());
-            }
-            // Leave room for forks between sizing and listing; refuse an overflowing sample.
-            let mut children = vec![0i32; (bytes as usize + 64).min(65537)];
-            let count = unsafe {
-                proc_listchildpids(
-                    pid,
-                    children.as_mut_ptr().cast(),
-                    (children.len() * 4) as i32,
-                )
-            };
-            if count < 0 || count as usize >= children.len() {
-                return Err("watchdog child list unavailable or truncated".into());
-            }
-            if Instant::now() >= deadline {
-                return Err("watchdog sample deadline exceeded".into());
-            }
-            queue.extend(children.into_iter().take(count as usize).filter(|p| *p > 0));
+            queue.extend(
+                list_pids(pid, false, deadline)?
+                    .into_iter()
+                    .map(|child| (child, Source::Child(pid))),
+            );
         }
+        *known = next;
         Ok((seen.len(), rss))
     }
     pub(super) fn run(args: &[String]) -> Result<(), String> {
@@ -289,7 +370,8 @@ mod watchdog {
             libc::signal(libc::SIGINT, terminate as libc::sighandler_t);
         }
         // Attach and validate observation BEFORE releasing the target's exec gate.
-        let attached = sample(pid, tasks, memory);
+        let mut known = HashMap::new();
+        let attached = sample(pid, tasks, memory, &mut known);
         if !matches!(attached, Ok((count, rss)) if count <= tasks && rss <= memory) {
             terminate(0);
             unsafe {
@@ -314,7 +396,7 @@ mod watchdog {
                     128 + libc::WTERMSIG(status)
                 });
             }
-            let exceeded = match sample(pid, tasks, memory) {
+            let exceeded = match sample(pid, tasks, memory, &mut known) {
                 Ok((count, _)) if count > tasks => Some((121, "task-limit-exceeded")),
                 Ok((_, rss)) if rss > memory => Some((122, "rss-limit-exceeded")),
                 Err(_) => Some((125, "sandbox-unavailable")),

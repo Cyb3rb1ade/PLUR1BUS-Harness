@@ -54,12 +54,15 @@ Every agent, discovery probe and terminal uses the shared sandbox and native res
 HOME/TMPDIR, a fixed system PATH, no inherited credentials and no network. Discovery runs from empty scratch, never the
 user's home. Windows refuses before spawn. Four terminals may be live at once; release and run completion kill and await them.
 Terminal creation accepts command, args, cwd and outputByteLimit; output returns immediately with bounded output/truncated and
-an exitStatus when finished. wait_for_exit returns exitCode or signal.
+an exitStatus when finished. wait_for_exit returns exitCode or signal, including after an explicit terminal/kill.
+The live tools.sandbox.maxTasks value applies to agents and terminals. Configured agent deadlines through one hour are
+honored; ordinary sandbox callers retain their ten-minute ceiling. External read-only review handoffs refuse before any
+connection, session or worktree mutation until a read-only external process mode exists.
 
 Each write or terminal creation is evaluated by D109 with its canonical path/content or executable/argv/cwd hash. Only an
 allow_once permission option can be selected. A held permission binds its exact ToolCall-ID and action hash, and is consumed
 by the first matching action. Calls without that binding receive their own policy decision and, when necessary, their own
-human approval. Headless approval requests cancel. Abort is rechecked after asynchronous preparation and approval steps.
+human approval. Approved file identities and terminal executable/cwd identities stay bound across authorization; changed targets refuse. Headless approval requests cancel. Abort is rechecked after asynchronous preparation and approval steps.
 
 Linux's sole writable bind exception is an opaque grant from a live Harness worktree record. Its canonical path must be under
 state/worktrees, its provisioned device/inode must match, every ancestor must be free of symlinks, and the bounded pre-mount
@@ -68,7 +71,9 @@ per-worktree and common Git directories are read-only. A Linux process can creat
 those links make the next mount refuse. Outside link attempts fail with ENOENT or EXDEV. macOS denies file-link entirely.
 
 On macOS each ACP process has its own process group. The shared native helper attaches before releasing the target's exec
-gate, recursively enumerates children using proc_listchildpids/proc_pidinfo on 50 ms cycles, and sums their RSS.
+gate, enumerates all members of its process group with proc_listpgrppids, recursively enumerates children using
+proc_listchildpids/proc_pidinfo, and retains identity-checked known descendants across reparenting on 50 ms cycles.
+Each PID/start-time identity contributes once to task count and aggregate RSS; same-group orphan children remain measured.
 Task/RSS limits are checked during traversal; a scan exceeding 40 ms fails closed rather than extending the sampling interval. Exceeding maxTasks
 or RSS kills the entire group with SIGKILL and reports task-limit-exceeded or rss-limit-exceeded, including during streaming.
 Observation/attach failure is sandbox-unavailable. Enforcement is sampled: brief overshoot between observations is possible.
@@ -78,6 +83,8 @@ ordinary no-fork callers, denies Apple events and limits file reads/writes to me
 
 Root and card checkouts are siblings beneath state/worktrees/<rootId>; local coding and completion use the same provisioned
 checkout. Host verification uses DB-pinned Git metadata, never a writable .git pointer, and disables clean/smudge/process filters.
-Rebinding or unbinding refuses while worktrees are live. agents.<id>.engine is Owner/Admin writable and audited.
+Card suffixes use six UUID hex characters after the typed prefix; shortened collisions receive a deterministic alternate.
+Removed worktrees retain their branches, which subsequent provisioning safely reattaches without reset or force. Rebinding
+or unbinding refuses while worktrees are live. agents.<id>.engine is Owner/Admin writable and audited.
 
 Host completion reads also refuse special files, hardlinks and files over 16 MiB before reading their contents.

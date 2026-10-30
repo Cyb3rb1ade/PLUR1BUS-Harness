@@ -1,7 +1,8 @@
 /** #820: ACP processes use the shared sandbox, empty HOME and native resource supervision. */
 import { spawn } from "node:child_process";
 import { access, mkdtemp, realpath, rm } from "node:fs/promises";
-import { constants } from "node:fs";
+import { constants, lstatSync, realpathSync } from "node:fs";
+import type { Identity } from "../policy/paths.ts";
 import { basename, isAbsolute, join } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import type { Readable, Writable } from "node:stream";
@@ -13,6 +14,7 @@ import { DEFAULT_MAX_TASKS } from "../tools/sandbox/types.ts";
 
 export const DEFAULT_MAX_TURNS = 20;
 export const DEFAULT_RUN_TIMEOUT_MS = 600_000;
+export const MAX_RUN_TIMEOUT_MS = 3_600_000;
 export const TRUSTED_PATH = "/usr/bin:/bin:/usr/sbin:/sbin";
 const SHELLS = new Set(["sh", "bash", "zsh", "cmd", "cmd.exe", "powershell", "pwsh"]);
 
@@ -51,6 +53,11 @@ export interface LaunchOptions {
   limitsHelper?: string;
   maxTasks?: number;
   memoryBytes?: number;
+  /** Canonical targets retained by D109 classification, never accepted from ACP wire params. */
+  approvedCommand?: string;
+  approvedCwd?: string;
+  approvedCommandIdentity?: Identity;
+  approvedCwdIdentity?: Identity;
 }
 
 /** Resolve only the executable against the trusted system path; ordinary arguments remain unrestricted. */
@@ -77,12 +84,15 @@ export async function launchExternalAgent(o: LaunchOptions): Promise<LaunchHandl
   if (!o.argv.length || o.argv.some(a => typeof a !== "string" || a.includes("\0"))) throw new LaunchError("argv");
   if (!Number.isSafeInteger(o.maxTasks ?? DEFAULT_MAX_TASKS) || (o.maxTasks ?? DEFAULT_MAX_TASKS) < 1)
     throw new LaunchError("sandbox-unavailable");
+  const timeoutMs = o.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS;
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > MAX_RUN_TIMEOUT_MS)
+    throw new LaunchError("sandbox-unavailable");
   o.signal?.throwIfAborted();
   const program = await resolveCommand(o.argv[0]!, { ...(o.worktree ? { worktree: o.worktree } : {}), ...(o.probe ? { probe: true } : {}) });
   o.signal?.throwIfAborted();
+  if (o.approvedCommand && program !== o.approvedCommand) throw new LaunchError("argv");
   const scratch = await realpath(await mkdtemp(join(tmpdir(), "p1b-acp-")));
   const home = o.home ?? o.cwd;
-  const timeoutMs = Math.min(o.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS, DEFAULT_RUN_TIMEOUT_MS);
   try {
     o.signal?.throwIfAborted();
     const p = await preparePolicy({
@@ -95,6 +105,7 @@ export async function launchExternalAgent(o: LaunchOptions): Promise<LaunchHandl
         maxOutputBytes: 1024 * 1024, maxTasks: o.maxTasks ?? DEFAULT_MAX_TASKS },
     });
     o.signal?.throwIfAborted();
+    if (o.approvedCwd && p.cwd !== o.approvedCwd) throw new LaunchError("argv");
     if (matchDeny(program, p.denied)) throw new LaunchError("argv");
     // The absolute executable is trusted composition input. Mount the file, never its home directory.
     p.runtimePaths = [...new Set([...p.runtimePaths.filter(path => !path.startsWith("/dev/")), program, process.execPath, ...(process.platform === "linux" ? ["/etc/passwd"] : [])])];
@@ -105,10 +116,22 @@ export async function launchExternalAgent(o: LaunchOptions): Promise<LaunchHandl
       throw new LaunchError("sandbox-unavailable");
     const command = await backendArgv(p, detection, [program, ...o.argv.slice(1)]);
     o.signal?.throwIfAborted();
+    if (o.approvedCommand && await realpath(program) !== o.approvedCommand) throw new LaunchError("argv");
+    o.signal?.throwIfAborted();
+    if (o.approvedCwd && await realpath(p.cwd) !== o.approvedCwd) throw new LaunchError("argv");
+    o.signal?.throwIfAborted();
     const resource = [String(p.limits.cpuSeconds), String(p.limits.memoryBytes), ...command];
     const args = process.platform === "darwin"
       ? ["--watch-tree", String(p.limits.maxTasks), String(p.limits.memoryBytes), "--", p.limitsHelper, ...resource]
       : resource;
+    // Last check is synchronous: neither canonical target may change across the final async preparation step.
+    for (const [path, expected, identity] of [[program, o.approvedCommand, o.approvedCommandIdentity], [p.cwd, o.approvedCwd, o.approvedCwdIdentity]] as const) {
+      if (!expected) continue;
+      const stat = lstatSync(path, { bigint: true });
+      if (realpathSync(path) !== expected || (identity && (String(stat.dev) !== identity.dev || String(stat.ino) !== identity.ino
+        || (identity.birth !== undefined && String(stat.birthtimeNs) !== identity.birth)))) throw new LaunchError("argv");
+    }
+    o.signal?.throwIfAborted();
     const child = spawn(p.limitsHelper, args, {
       cwd: p.cwd, env: { PATH: TRUSTED_PATH, HOME: scratch, TMPDIR: scratch, LANG: "C.UTF-8" },
       detached: true, shell: false, stdio: ["pipe", "pipe", "pipe"], windowsHide: true,

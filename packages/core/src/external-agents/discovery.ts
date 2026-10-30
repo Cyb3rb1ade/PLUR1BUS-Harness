@@ -137,4 +137,3 @@ async function probeInitialize(bin: string, cwd: string, env: NodeJS.ProcessEnv 
     return { protocol: "refused", reason };
   } finally { stop(); await exited; }
 }
-

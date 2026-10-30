@@ -254,6 +254,12 @@ export class CollabStore {
     return r ? toWorktree(r) : null;
   }
 
+  /** Latest provisioner-owned record, including removed checkouts whose Git branch is retained. */
+  previousWorktree(projectId: string, cardId: string | null): WorktreeRow | null {
+    const row = this.#get("SELECT * FROM project_worktrees WHERE project_id = ? AND card_id IS ? ORDER BY rowid DESC LIMIT 1", projectId, cardId);
+    return row ? toWorktree(row) : null;
+  }
+
   /** Trusted metadata lookup for coding verification; never reads the checkout's .git pointer. */
   worktreeAt(path: string): WorktreeRow | null {
     const row = this.#get("SELECT * FROM project_worktrees WHERE path = ? AND removed_at IS NULL", path);

@@ -7,7 +7,7 @@ import { constants as fsc, openSync, closeSync, fstatSync, readSync, existsSync,
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { denyEntriesFor } from "../host-tools/denylist.ts";
 import type { HostPlatform } from "../host-tools/types.ts";
-import { canonicalisePath, openVerified, type DenyEntry, type PathRefusal } from "../policy/paths.ts";
+import { canonicalisePath, openVerified, type CanonicalPath, type Identity, type DenyEntry, type PathRefusal } from "../policy/paths.ts";
 
 export const FS_BYTES_MAX = 1_048_576;
 export const TERMINAL_TIMEOUT_MS = 30_000;
@@ -115,10 +115,11 @@ export async function containedRead(root: ContainmentRoot, requestPath: string):
   } finally { await opened.close(); }
 }
 
-export async function containedWrite(root: ContainmentRoot, requestPath: string, text: string): Promise<void> {
+export async function containedWrite(root: ContainmentRoot, requestPath: string, text: string, approved?: CanonicalPath): Promise<void> {
   const buf = Buffer.from(text, "utf8");
   if (buf.byteLength > FS_BYTES_MAX) throw new ContainmentError("too-large", "write exceeds the cap");
-  const path = await containedPath(root, requestPath, "write");
+  const path = approved ?? await containedPath(root, requestPath, "write");
+  if (approved && approved.canonical !== requestPath) throw new ContainmentError("identity-changed", "approved path changed");
   root.signal?.throwIfAborted();
   const opened = await openVerifiedFile(path, fsc.O_WRONLY | fsc.O_CREAT | fsc.O_NONBLOCK, root.signal);
   try {
@@ -188,6 +189,8 @@ export async function containedTerminal(o: {
   argv: readonly string[]; worktree: string; home: string; mount?: AcpWorktreeMount;
   cwd?: string; network?: boolean; platform?: NodeJS.Platform; timeoutMs?: number; signal?: AbortSignal;
   limitsHelper?: string; maxTasks?: number; memoryBytes?: number; outputByteLimit?: number;
+  killSignal?: AbortSignal; approvedCommand?: string; approvedCwd?: string;
+  approvedCommandIdentity?: Identity; approvedCwdIdentity?: Identity;
   onOutput?(output: string, truncated: boolean): void;
   log?: (event: string, fields?: Record<string, number | string>) => void;
 }): Promise<TerminalResult | TerminalRefusal> {
@@ -204,7 +207,9 @@ export async function containedTerminal(o: {
     // cwd is checked independently and cannot select a sibling tree.
     const cwd = o.cwd ? (await containedPath({ worktree: o.worktree, home: o.home, ...(o.signal ? { signal: o.signal } : {}) }, o.cwd, "read")).canonical : o.worktree;
     o.signal?.throwIfAborted();
-    const handle = await launchExternalAgent({ ...o, cwd, timeoutMs: o.timeoutMs ?? TERMINAL_TIMEOUT_MS });
+    if (o.approvedCwd && cwd !== o.approvedCwd) throw new ContainmentError("identity-changed", "approved cwd changed");
+    const launchSignal = o.killSignal ? AbortSignal.any([...(o.signal ? [o.signal] : []), o.killSignal]) : o.signal;
+    const handle = await launchExternalAgent({ ...o, cwd, ...(launchSignal ? { signal: launchSignal } : {}), timeoutMs: o.timeoutMs ?? TERMINAL_TIMEOUT_MS });
     const chunks: Buffer[] = [];
     let bytes = 0;
     let truncated = false;
@@ -226,6 +231,7 @@ export async function containedTerminal(o: {
     if (exitCode === 125) return { ok: false, reason: "sandbox-unavailable" };
     return { ok: true, exitCode, stdout: Buffer.concat(chunks).toString("utf8"), stderr: "", truncated, ...(handle.exitStatus.signal ? { signal: handle.exitStatus.signal } : {}) };
   } catch (error) {
+    if (o.killSignal?.aborted && !o.signal?.aborted) return { ok: true, exitCode: null, signal: "SIGTERM", stdout: "", stderr: "" };
     return { ok: false, reason: o.signal?.aborted ? "aborted" : error instanceof ContainmentError
       ? error.reason : "sandbox-unavailable" };
   }

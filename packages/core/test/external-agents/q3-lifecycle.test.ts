@@ -59,6 +59,18 @@ test("v1 terminals stream bounded output, enforce four slots, release and stop a
     assert.deepEqual(await request("terminal/wait_for_exit", { terminalId: completed }), { exitCode: 7 });
     assert.deepEqual((await request("terminal/output", { terminalId: completed })).exitStatus, { exitCode: 7 });
     await request("terminal/release", { terminalId: completed });
+    const killed = await terminal("process.stdout.write('ready');setInterval(()=>{},1000)");
+    for (let i = 0; ; i++) {
+      if (String((await request("terminal/output", { terminalId: killed })).output).includes("ready")) break;
+      assert.ok(i < 100, "terminal must execute before explicit kill");
+      await delay(20);
+    }
+    await request("terminal/kill", { terminalId: killed });
+    const afterKill = await request("terminal/output", { terminalId: killed });
+    const killedStatus = await request("terminal/wait_for_exit", { terminalId: killed });
+    assert.deepEqual(afterKill.exitStatus, killedStatus);
+    assert.ok(typeof killedStatus.signal === "string" || typeof killedStatus.exitCode === "number");
+    await request("terminal/release", { terminalId: killed });
     leftover = join(worktree, "heartbeat-1");
   };
   output.on("data", (data: Buffer) => {

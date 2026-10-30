@@ -1,6 +1,8 @@
 // Hardened git for the worktree provisioner. Fixed argv, no shell, no inherited environment.
 // The -c switches match gitText in collab/verifier.ts: hooks, fsmonitor, textconv and the global config stay off.
 import { execFileSync } from "node:child_process";
+import { statSync } from "node:fs";
+import { win32 } from "node:path";
 
 const NULL_DEV = process.platform === "win32" ? "NUL" : "/dev/null";
 
@@ -36,9 +38,23 @@ export function gitEnv(): Record<string, string> {
   };
 }
 
+/** Only absolute host PATH entries: Windows must never search the writable working directory for git.exe. */
+export function windowsGitCandidates(path: string): string[] {
+  return path.split(";").map(entry => entry.replace(/^"(.*)"$/, "$1")).filter(entry => win32.isAbsolute(entry))
+    .map(entry => win32.join(entry, "git.exe"));
+}
+export function hostGitExecutable(): string {
+  if (process.platform !== "win32") return "/usr/bin/git";
+  const executable = windowsGitCandidates(process.env.PATH ?? "").find(path => {
+    try { return statSync(path).isFile(); } catch { return false; }
+  });
+  if (!executable) throw new Error("trusted host Git executable unavailable");
+  return executable;
+}
+
 export const realGit: GitExec = {
   run(args, cwd) {
-    return execFileSync("git", gitArgv(args, cwd), {
+    return execFileSync(hostGitExecutable(), gitArgv(args, cwd), {
       encoding: "utf8",
       maxBuffer: 32 * 1024 * 1024,
       timeout: 15_000,
@@ -62,10 +78,11 @@ export function git(args: readonly string[], cwd?: string): string {
 
 /** Host Git for a provisioned checkout uses DB-pinned metadata and disables every configured clean filter. */
 export function pinnedGit(gitDir: string, worktree: string, args: readonly string[]): string {
+  const executable = hostGitExecutable();
   const bound = [...GIT_HARDENING, "--git-dir", gitDir, "--work-tree", worktree];
   let filters = "";
   try {
-    filters = execFileSync("/usr/bin/git", [...bound, "config", "--name-only", "--get-regexp", "^filter\\."],
+    filters = execFileSync(executable, [...bound, "config", "--name-only", "--get-regexp", "^filter\\."],
       { encoding: "utf8", timeout: 10000, maxBuffer: 65536, env: gitEnv(), stdio: ["ignore", "pipe", "pipe"] });
   } catch (error) {
     if ((error as { status?: number }).status !== 1) throw error;
@@ -74,7 +91,7 @@ export function pinnedGit(gitDir: string, worktree: string, args: readonly strin
   const overrides = disabled.flatMap(name => ["-c", `filter.${name}.clean=`, "-c", `filter.${name}.smudge=`,
     "-c", `filter.${name}.process=`, "-c", `filter.${name}.required=false`]);
   const command = args[0] === "diff" ? ["diff", "--no-ext-diff", "--no-textconv", ...args.slice(1)] : [...args];
-  return execFileSync("/usr/bin/git", [...bound, ...overrides, ...command], {
+  return execFileSync(executable, [...bound, ...overrides, ...command], {
     cwd: worktree, encoding: "utf8", timeout: 10000, maxBuffer: 32 * 1024 * 1024,
     env: gitEnv(), stdio: ["ignore", "pipe", "pipe"],
   });

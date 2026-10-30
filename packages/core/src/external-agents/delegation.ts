@@ -1,5 +1,7 @@
 // External DelegationTarget. One ACP run is stateless (ADR-003 Q4): session/new every time, no stored ACP session.
 // A side effect runs only after a D109 approval for subject acp-agent and only through B3 containment.
+import { lstat } from "node:fs/promises";
+import type { Identity } from "../policy/paths.ts";
 import { AcpActions, type AcpAction } from "./actions.ts";
 import type { AcpWorktreeMount } from "../tools/sandbox/acp-worktree.ts";
 import type { Context } from "../policy/decide.ts";
@@ -30,7 +32,7 @@ export interface ExternalTargetDeps {
   home: string;
   mountOf?(projectId: string, cardId?: string): AcpWorktreeMount;
   limitsHelper?: string;
-  maxTasks?: number;
+  maxTasks?: number | (() => number);
   policyContext?(agentId: string): Partial<Context>;
   sessions(): SessionStore;
   approvals(): Promise<ApprovalService | null>;
@@ -61,6 +63,8 @@ export class ExternalDelegationTarget implements DelegationTarget {
 
   async run(input: AgentRunInput): Promise<AgentRunResult> {
     input.signal.throwIfAborted();
+    if (input.handoff?.context.readOnlyWorktree)
+      throw new CollabError("invalid", "external read-only review is unavailable", { reason: "read-only-external-unavailable" });
     const scope = requireAgentScope();
     if (scope.agentId !== input.agentId) throw new CollabError("no-scope", "AgentScope agent does not match the target");
     const engine = this.#d.engineOf(input.agentId);
@@ -94,6 +98,8 @@ export class ExternalDelegationTarget implements DelegationTarget {
       output: string; truncated: boolean; result?: Awaited<ReturnType<typeof containedTerminal>> }>();
     const actions = new AcpActions({ signal, agentId: input.agentId, person, sessionId: transcript.id, turnId,
       approvals: this.#d.approvals, ...(this.#d.policyContext ? { context: () => this.#d.policyContext!(input.agentId) } : {}) });
+    const approvedFiles = new WeakMap<AcpAction, Awaited<ReturnType<typeof containedPath>>>();
+    const approvedProcesses = new WeakMap<AcpAction, { command: Identity; cwd: Identity }>();
     const actionOf = async (params: Record<string, unknown>, tool: string): Promise<AcpAction> => {
       signal.throwIfAborted();
       const callId = typeof params.toolCallId === "string" ? params.toolCallId : String(params._requestId ?? "");
@@ -102,15 +108,21 @@ export class ExternalDelegationTarget implements DelegationTarget {
         if (typeof params.path !== "string" || typeof params.content !== "string") throw new Error("path");
         const path = await containedPath({ worktree, home: this.#d.home, signal }, params.path, "write");
         signal.throwIfAborted();
-        return { callId, capability: "fs.write", tool, args: { path: path.canonical, content: params.content }, targets: [path.canonical] };
+        const action: AcpAction = { callId, capability: "fs.write", tool, args: { path: path.canonical, content: params.content }, targets: [path.canonical] };
+        approvedFiles.set(action, path);
+        return action;
       }
       const argv = argvOf(params);
       if (!argv) throw new Error("argv");
       const command = await resolveCommand(argv[0]!, { worktree });
       signal.throwIfAborted();
+      const stat = await lstat(command, { bigint: true });
+      signal.throwIfAborted();
       const cwd = await containedPath({ worktree, home: this.#d.home, signal }, typeof params.cwd === "string" ? params.cwd : worktree, "read");
       signal.throwIfAborted();
-      return { callId, capability: "shell.exec", tool: "terminal/create", args: { command, args: argv.slice(1), cwd: cwd.canonical }, targets: [cwd.canonical] };
+      const action: AcpAction = { callId, capability: "shell.exec", tool: "terminal/create", args: { command, args: argv.slice(1), cwd: cwd.canonical }, targets: [cwd.canonical] };
+      approvedProcesses.set(action, { command: { dev: String(stat.dev), ino: String(stat.ino), ...(stat.birthtimeNs > 0n ? { birth: String(stat.birthtimeNs) } : {}) }, cwd: cwd.identity });
+      return action;
     };
     try {
       if (engine.maxTurns < 1) throw new CollabError("invalid", "turn budget exhausted", { reason: "turn-budget" });
@@ -124,7 +136,7 @@ export class ExternalDelegationTarget implements DelegationTarget {
           const action = await actionOf({ ...params, path, content }, "fs/write_text_file");
           await actions.authorize(action);
           signal.throwIfAborted();
-          await containedWrite({ worktree, home: this.#d.home, signal }, String(action.args.path), content);
+          await containedWrite({ worktree, home: this.#d.home, signal }, String(action.args.path), content, approvedFiles.get(action));
         },
         permission: async params => {
           const toolCall = params.toolCall as Record<string, unknown> | undefined;
@@ -151,10 +163,12 @@ export class ExternalDelegationTarget implements DelegationTarget {
             };
             terminals.set(id, rec);
             rec.done = containedTerminal({ argv: [String(action.args.command), ...(action.args.args as string[])],
-              cwd: String(action.args.cwd), worktree, home: this.#d.home, signal: AbortSignal.any([signal, abort.signal]),
+              cwd: String(action.args.cwd), approvedCwd: String(action.args.cwd), approvedCommand: String(action.args.command),
+              approvedCommandIdentity: approvedProcesses.get(action)!.command, approvedCwdIdentity: approvedProcesses.get(action)!.cwd,
+              worktree, home: this.#d.home, signal, killSignal: abort.signal,
               ...(this.#d.mountOf ? { mount: this.#d.mountOf(scope.projectId, input.handoff?.contract.task.card) } : {}),
               ...(this.#d.limitsHelper ? { limitsHelper: this.#d.limitsHelper } : {}),
-              ...(this.#d.maxTasks !== undefined ? { maxTasks: this.#d.maxTasks } : {}),
+              ...(this.#d.maxTasks !== undefined ? { maxTasks: typeof this.#d.maxTasks === "function" ? this.#d.maxTasks() : this.#d.maxTasks } : {}),
               ...(typeof params.outputByteLimit === "number" ? { outputByteLimit: params.outputByteLimit } : {}),
               onOutput: (output, truncated) => { rec.output = output; rec.truncated = truncated; },
             }).then(result => { rec.result = result; return result; });
@@ -219,7 +233,7 @@ export class ExternalDelegationTarget implements DelegationTarget {
     const argv = connectorArgv(engine.connector);
     if (!argv) throw new CollabError("invalid", "connector has no command yet", { reason: "connector-unavailable" });
     const handle: LaunchHandle = await launchExternalAgent({ argv, cwd: worktree, worktree, home: this.#d.home,
-      timeoutMs: engine.timeoutMs, signal: input.signal, ...(this.#d.maxTasks !== undefined ? { maxTasks: this.#d.maxTasks } : {}),
+      timeoutMs: engine.timeoutMs, signal: input.signal, ...(this.#d.maxTasks !== undefined ? { maxTasks: typeof this.#d.maxTasks === "function" ? this.#d.maxTasks() : this.#d.maxTasks } : {}),
       ...(this.#d.mountOf ? { mount: this.#d.mountOf(requireAgentScope().projectId, input.handoff?.contract.task.card) } : {}),
       ...(this.#d.limitsHelper ? { limitsHelper: this.#d.limitsHelper } : {}) });
     handle.stderr.resume();

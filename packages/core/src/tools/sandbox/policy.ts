@@ -64,7 +64,7 @@ export async function preparePolicy(p: SandboxPolicy): Promise<PreparedPolicy> {
     throw new SandboxFailure('sandbox task cap must be 0 to 65536');
   for (const [key, n] of Object.entries(p.limits)) if (key !== 'maxTasks' && (!Number.isSafeInteger(n) || n <= 0))
     throw new SandboxFailure('sandbox limits must be positive safe integers');
-  if (p.limits.maxOutputBytes > 4 * 1024 * 1024 || p.limits.timeoutMs > 600000) throw new SandboxFailure('sandbox limits exceed hard caps');
+  if (p.limits.maxOutputBytes > 4 * 1024 * 1024 || p.limits.timeoutMs > (p.acpScratch ? 3600000 : 600000)) throw new SandboxFailure('sandbox limits exceed hard caps');
   const mount = p.acpWorktree ? await validateAcpMount(p.acpWorktree, p.writeRoots.map(r => r.path)) : undefined;
   const home = await absolute(p.home), userHome = await absolute(p.userHome);
   const denied: DenyEntry[] = [...denyEntriesFor(userHome, process.env, process.platform), { path: join(home, 'run') }, ...(mount ? [] : [{ path: join(home, 'state') }]), { path: join(home, 'secrets') }, { path: join(home, 'config.json') }, { path: join(home, 'bin') }, { path: join(home, 'runtime') }, ...(p.deny ?? [])];

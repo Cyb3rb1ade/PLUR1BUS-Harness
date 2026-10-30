@@ -56,7 +56,7 @@ const FORBIDDEN_EXACT = new Set([
   "core.auth", "core.shutdown", "core.adopt", "memory.checkpoint", "agent.open", "agent.close",
   "ext.install", "ext.uninstall", "ext.restore", "ext.enable", "ext.disable", "ext.update",
   "models.test", "models.scan", "models.setOverride", "models.removeManual", "models.acknowledge",
-  "budget.set",
+  "budget.set", "project.repo.bind", "project.repo.unbind",
   "voice.language.set", "voice.realtime.profile.set", "voice.agent.override.set", "voice.agent.override.clear",
   "voice.models.install", "voice.realtime.start", "voice.realtime.stop",
   // Human-only admin (B15, docs/rbac.md): agent lifecycle, rights, pairing and other people's data. Agent pause/resume
