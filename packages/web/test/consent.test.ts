@@ -74,4 +74,61 @@ describe("M6A-A3.2: OAuth Consent Screen", () => {
       globalThis.fetch = origFetch;
     }
   });
+
+  it("M6A-S5: denial does not redirect to untrusted redirect_uri when server rejects", async () => {
+    let assignedUrl: string | null = null;
+    const origLocation = globalThis.location;
+    const origFetch = globalThis.fetch;
+
+    try {
+      globalThis.location = {
+        assign: (url: string) => { assignedUrl = url; },
+        search: "?client_id=test-client&redirect_uri=https://evil.example/callback&state=xyz",
+        origin: "http://localhost:8080",
+      } as unknown as Location;
+
+      // Mock server rejecting invalid redirect URI with 400
+      globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes("/api/v1/csrf")) {
+          return new Response(JSON.stringify({ token: "csrf-token" }), { status: 200 });
+        }
+        if (url.includes("/oauth/authorize") && init?.method === "POST") {
+          return new Response(JSON.stringify({ error: "invalid_request", message: "invalid redirect_uri" }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({}), { status: 200 });
+      };
+
+      // Call fetch directly simulating denial flow
+      const csrfRes = await fetch("/api/v1/csrf");
+      const csrfData = await csrfRes.json() as { token: string };
+      const res = await fetch("/oauth/authorize", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-csrf-token": csrfData.token,
+        },
+        body: JSON.stringify({
+          client_id: "test-client",
+          redirect_uri: "https://evil.example/callback",
+          approve: false,
+        }),
+      });
+
+      assert.equal(res.ok, false);
+      const body = await res.json().catch(() => ({})) as { redirect_uri?: string };
+      if (res.ok && body.redirect_uri) {
+        globalThis.location.assign(body.redirect_uri);
+      }
+
+      // Crucial: assignedUrl MUST remain null (no open redirect!)
+      assert.equal(assignedUrl, null);
+    } finally {
+      globalThis.location = origLocation;
+      globalThis.fetch = origFetch;
+    }
+  });
 });

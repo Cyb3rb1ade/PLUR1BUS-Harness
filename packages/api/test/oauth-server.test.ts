@@ -1097,3 +1097,49 @@ test("M6A-S4: OAuth authorize validates requested projectId and user access", as
   const tokenData = JSON.parse(tokenRes.text);
   assert.ok(tokenData.access_token);
 });
+
+test("M6A-S5: consent denial with unregistered redirect_uri is rejected and never redirects", async (t) => {
+  const h = await start({ oauthClients: { "test-client": STATIC_CLIENT }, rateClasses: wide });
+  t.after(() => h.close());
+
+  await addUser(h, { id: "u-member", username: "denyuser", role: "member", agentRights: { main: "use" } });
+  const { cookie: userCookie } = await loginAs(h, "denyuser");
+  const csrf = await csrfToken(h, userCookie);
+
+  // 1. Denial with invalid/unregistered redirect_uri is rejected with 400 invalid_request
+  const badDeny = await raw(h, {
+    method: "POST",
+    path: "/oauth/authorize",
+    headers: { Cookie: userCookie, "x-csrf-token": csrf, ...jsonHeaders() },
+    body: JSON.stringify({
+      approve: false,
+      client_id: "test-client",
+      redirect_uri: "https://evil.example.com/callback",
+    }),
+  });
+  assert.equal(badDeny.status, 400);
+  assert.equal(JSON.parse(badDeny.text).reason, "invalid_request");
+  assert.equal(JSON.parse(badDeny.text).message, "invalid redirect_uri");
+
+  // 2. Denial with valid registered redirect_uri succeeds and returns verified redirect_uri
+  const csrf2 = await csrfToken(h, userCookie);
+  const goodDeny = await raw(h, {
+    method: "POST",
+    path: "/oauth/authorize",
+    headers: { Cookie: userCookie, "x-csrf-token": csrf2, ...jsonHeaders() },
+    body: JSON.stringify({
+      approve: false,
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      state: "state123",
+    }),
+  });
+  assert.equal(goodDeny.status, 200);
+  const goodData = JSON.parse(goodDeny.text) as { redirect_uri: string };
+  const target = new URL(goodData.redirect_uri);
+  assert.equal(target.origin, "https://client.example.com");
+  assert.equal(target.pathname, "/callback");
+  assert.equal(target.searchParams.get("error"), "access_denied");
+  assert.equal(target.searchParams.get("error_description"), "user denied access");
+  assert.equal(target.searchParams.get("state"), "state123");
+});
