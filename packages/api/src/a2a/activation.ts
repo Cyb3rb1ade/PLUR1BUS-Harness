@@ -6,7 +6,6 @@ export interface AgentA2aConfig {
 
 export interface A2aSigningKeyConfig {
   privateKeySecret?: string;
-  privateKeyPem?: string;
   kid?: string;
 }
 

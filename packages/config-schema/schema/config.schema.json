@@ -1617,11 +1617,6 @@
               "maxLength": 128,
               "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
             },
-            "privateKeyPem": {
-              "description": "PEM-encoded private key for signing agent cards (test fixtures only; production uses privateKeySecret).",
-              "type": "string",
-              "maxLength": 8192
-            },
             "kid": {
               "description": "Key identifier for the signing key.",
               "type": "string",

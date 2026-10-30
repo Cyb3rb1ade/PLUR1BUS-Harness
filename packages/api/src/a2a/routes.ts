@@ -202,8 +202,8 @@ export function buildA2aHandlers(
     });
 
     const signingKey = a2aConfig?.a2aServer?.signingKey;
-    let privateKeyPem = signingKey?.privateKeyPem;
-    if (!privateKeyPem && signingKey?.privateKeySecret) {
+    let privateKeyPem: string | undefined;
+    if (signingKey?.privateKeySecret) {
       try {
         if (d.secretStore) {
           const res = await d.secretStore.reveal({ kind: "owner", id: "local-owner" }, signingKey.privateKeySecret);

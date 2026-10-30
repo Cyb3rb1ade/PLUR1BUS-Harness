@@ -1312,6 +1312,22 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::MemoryProposalsRejectParams,
                 types::MemoryProposalsRejectResult,
             >(name, fixture, &root_schema),
+            "external.turn.cancel" => check_pair::<
+                types::ExternalTurnCancelParams,
+                types::ExternalTurnCancelResult,
+            >(name, fixture, &root_schema),
+            "external.turn.events" => check_pair::<
+                types::ExternalTurnEventsParams,
+                types::ExternalTurnEventsResult,
+            >(name, fixture, &root_schema),
+            "external.turn.get" => check_pair::<
+                types::ExternalTurnGetParams,
+                types::ExternalTurnGetResult,
+            >(name, fixture, &root_schema),
+            "external.turn.start" => check_pair::<
+                types::ExternalTurnStartParams,
+                types::ExternalTurnStartResult,
+            >(name, fixture, &root_schema),
             "memory.sensitivity.clear" => check_pair::<
                 types::MemorySensitivityClearParams,
                 types::MemorySensitivityClearResult,

@@ -1,0 +1,1 @@
+{ "params": {"agentId": "bernd", "message": "hello", "audience": "mcp", "tokenId": "tok_1", "sessionId": "ses_1", "wait": true, "attachments": ["file_1"]}, "result": {"sessionId": "ses_1", "turnId": "trn_1", "state": "completed", "reply": "hi"}}

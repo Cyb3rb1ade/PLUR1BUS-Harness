@@ -551,6 +551,14 @@ fn method_fixture(name: &str, f: &Value) {
         "memory.proposals.reject" => {
             pair::<MemoryProposalsRejectParams, MemoryProposalsRejectResult>(name, f)
         }
+        "external.turn.cancel" => {
+            pair::<ExternalTurnCancelParams, ExternalTurnCancelResult>(name, f)
+        }
+        "external.turn.events" => {
+            pair::<ExternalTurnEventsParams, ExternalTurnEventsResult>(name, f)
+        }
+        "external.turn.get" => pair::<ExternalTurnGetParams, ExternalTurnGetResult>(name, f),
+        "external.turn.start" => pair::<ExternalTurnStartParams, ExternalTurnStartResult>(name, f),
         "memory.sensitivity.clear" => {
             pair::<MemorySensitivityClearParams, MemorySensitivityClearResult>(name, f)
         }

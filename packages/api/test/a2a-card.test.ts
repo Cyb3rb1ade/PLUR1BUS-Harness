@@ -23,6 +23,13 @@ test("M6A-A4.2: serves default agent card at /.well-known/agent-card.json and /.
       },
     },
   });
+  const originalImpl = h.core.impl;
+  h.core.impl = async (method, params: any) => {
+    if (method === "secret.get" && params?.name === "agent-card-signing-key" && params?.reveal === true) {
+      return { secret: { name: "agent-card-signing-key" }, value: privateKeyPem };
+    }
+    return originalImpl(method, params);
+  };
   try {
     for (const p of ["/.well-known/agent-card.json", "/.well-known/agent.json"]) {
       const res = await raw(h, { method: "GET", path: p });
@@ -119,7 +126,7 @@ test("M6A-A4.2: signs agent card with Ed25519 when signingKey is configured and 
         enabled: true,
         defaultAgentId: "signedAgent",
         signingKey: {
-          privateKeyPem,
+          privateKeySecret: "agent-card-signing-key",
           kid: "test-ed25519-key",
         },
       },
