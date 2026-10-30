@@ -4666,7 +4666,7 @@
               "x-audit": true,
               "properties": {
                 "privateKeySecret": {
-                  "description": "Secret-store key name for the agent card signing private key.",
+                  "description": "Name of the secret holding the agent card signing private key; never the key itself.",
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 128,

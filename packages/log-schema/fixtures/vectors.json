@@ -455,6 +455,18 @@
       "expect": "ok"
     },
     {
+      "name": "example:a2a.server.call",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"token-caller\",\"host\":\"127.0.0.1\"},\"action\":\"a2a.server.call\",\"target\":\"agent:bernd\",\"detail\":{\"tokenId\":\"tok_1234567890abcdef\",\"method\":\"SendMessage\",\"agentId\":\"bernd\"},\"v\":2}",
+      "expect": "ok"
+    },
+    {
+      "name": "example:a2a.server.denied",
+      "validator": "audit",
+      "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"token-caller\",\"host\":\"127.0.0.1\"},\"action\":\"a2a.server.denied\",\"target\":\"agent:bernd\",\"detail\":{\"tokenId\":\"tok_1234567890abcdef\",\"method\":\"SendMessage\",\"agentId\":\"bernd\",\"reason\":\"agent-not-exposed\"},\"v\":2}",
+      "expect": "ok"
+    },
+    {
       "name": "example:oauth.authorize",
       "validator": "audit",
       "line": "{\"at\":1790846043218,\"actor\":{\"user\":\"alice\",\"host\":\"127.0.0.1\"},\"action\":\"oauth.authorize\",\"target\":\"agent:main\",\"detail\":{\"clientId\":\"client_123\",\"audience\":\"mcp\",\"scopes\":\"mcp.read agent.use\"},\"v\":2}",
@@ -6189,6 +6201,167 @@
         "required": [
           "tokenId",
           "tool",
+          "agentId"
+        ]
+      }
+    },
+    {
+      "event": "a2a.server.call",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "level": null,
+      "levels": null,
+      "attrs": "a2a_server_call",
+      "requiredAttrs": [
+        "tokenId",
+        "method",
+        "agentId"
+      ],
+      "streamed": false,
+      "family": false,
+      "activity": true,
+      "stability": "experimental",
+      "attrsSchema": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "repeat": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "dedup summary: all occurrences in the window, the first included (§2.9)"
+          },
+          "window_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "dedup or rate-limit window length"
+          },
+          "link_trace_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$",
+            "description": "a foreign trace id that was not adopted (§2.8)"
+          },
+          "foreign_message": {
+            "type": "string",
+            "maxLength": 2048,
+            "description": "untrusted foreign error text, truncated and redacted by the writer"
+          },
+          "untrusted": {
+            "type": "boolean",
+            "description": "true on wrapped third-party output"
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "the value was cut to its limit"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "original size in bytes when truncated"
+          },
+          "tokenId": {
+            "type": "string",
+            "maxLength": 128,
+            "description": "Identifier of the agent-bound token used for authentication."
+          },
+          "method": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "Invoked A2A JSON-RPC method name, truncated."
+          },
+          "agentId": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "Target agent identifier."
+          }
+        },
+        "required": [
+          "tokenId",
+          "method",
+          "agentId"
+        ]
+      }
+    },
+    {
+      "event": "a2a.server.denied",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "level": null,
+      "levels": null,
+      "attrs": "a2a_server_denied",
+      "requiredAttrs": [
+        "tokenId",
+        "method",
+        "agentId"
+      ],
+      "streamed": false,
+      "family": false,
+      "activity": true,
+      "stability": "experimental",
+      "attrsSchema": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "repeat": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "dedup summary: all occurrences in the window, the first included (§2.9)"
+          },
+          "window_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "dedup or rate-limit window length"
+          },
+          "link_trace_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$",
+            "description": "a foreign trace id that was not adopted (§2.8)"
+          },
+          "foreign_message": {
+            "type": "string",
+            "maxLength": 2048,
+            "description": "untrusted foreign error text, truncated and redacted by the writer"
+          },
+          "untrusted": {
+            "type": "boolean",
+            "description": "true on wrapped third-party output"
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "the value was cut to its limit"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "original size in bytes when truncated"
+          },
+          "tokenId": {
+            "type": "string",
+            "maxLength": 128,
+            "description": "Identifier of the agent-bound token if present."
+          },
+          "method": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "Attempted A2A JSON-RPC method name, truncated."
+          },
+          "agentId": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "Target agent identifier."
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 128,
+            "description": "Denial reason slug."
+          }
+        },
+        "required": [
+          "tokenId",
+          "method",
           "agentId"
         ]
       }

@@ -798,3 +798,37 @@ test("M6A-S12: enforce A2A task limits and cancel turn on timeout", async () => 
     await h.close();
   }
 });
+
+test("M6A-S13: bounds method name in audit to 64 chars", async () => {
+  const h = await setupA2a();
+  try {
+    const { cookie } = await loginAs(h, "a2auser");
+    const a2aToken = await mintBoundToken(h, cookie, "a2a", "main");
+
+    const longMethod = "CustomMethodWithExcessiveLength" + "X".repeat(100);
+    await raw(h, {
+      method: "POST",
+      path: "/a2a/main",
+      headers: {
+        authorization: `Bearer ${a2aToken.token}`,
+        "a2a-version": A2A_PROTOCOL_VERSION,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "long-method-1",
+        method: longMethod,
+        params: {},
+      }),
+    });
+
+    const callEvent = h.audit.events.find((e) => e.action === "a2a.server.call");
+    assert.ok(callEvent, "a2a.server.call must be emitted");
+    const methodLogged = (callEvent.detail as { method?: string }).method;
+    assert.ok(methodLogged);
+    assert.equal(methodLogged.length, 64);
+    assert.equal(methodLogged, longMethod.slice(0, 64));
+  } finally {
+    await h.close();
+  }
+});

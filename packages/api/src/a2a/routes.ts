@@ -339,7 +339,7 @@ export function buildA2aHandlers(
         params?: unknown;
       };
 
-      const methodName = typeof parsedRpc.method === "string" ? parsedRpc.method : "-";
+      const methodName = typeof parsedRpc.method === "string" ? parsedRpc.method.slice(0, 64) : "-";
       d.audit.emit("a2a.server.call", actor, `agent:${agentId}`, {
         tokenId,
         method: methodName,

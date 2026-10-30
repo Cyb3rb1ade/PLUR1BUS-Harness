@@ -128,7 +128,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "a2aServer.legacy03", type: "boolean", tier: "advanced", help: "Opt-in to legacy A2A 0.3 dotted method names." },
   { key: "a2aServer.defaultAgentId", type: "string", tier: "advanced", help: "Default agent id to expose when none is specified." },
   { key: "a2aServer.signingKey", type: "object", tier: "advanced", help: "Private key for signing agent cards." },
-  { key: "a2aServer.signingKey.privateKeySecret", type: "string", tier: "advanced", help: "Secret-store key name for the agent card signing private key." },
+  { key: "a2aServer.signingKey.privateKeySecret", type: "string", tier: "advanced", help: "Name of the secret holding the agent card signing private key; never the key itself." },
   { key: "a2aServer.signingKey.privateKeyPem", type: "string", tier: "advanced", help: "PEM-encoded private key for signing agent cards (test fixtures only; production uses privateKeySecret)." },
   { key: "a2aServer.signingKey.kid", type: "string", tier: "advanced", help: "Key identifier for the signing key." },
   { key: "providers", type: "object", tier: "basic", help: "Reserved namespace for model-provider configuration." },

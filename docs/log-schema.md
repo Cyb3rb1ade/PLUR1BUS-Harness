@@ -214,6 +214,8 @@ An audit entry's attribute group describes the line's `detail`. Groups marked *o
 | `agent.created` | harness | — | agent_creation |  | experimental | Successful Config Schema registration; settings and credentials never enter the audit detail. |
 | `mcp.server.call` | harness | — | mcp_server_call | `tokenId`, `tool`, `agentId` | activity, experimental | A tool was called by a foreign host on the harness MCP server. |
 | `mcp.server.denied` | harness | — | mcp_server_denied | `tokenId`, `tool`, `agentId` | activity, experimental | A tool call was denied on the harness MCP server. |
+| `a2a.server.call` | harness | — | a2a_server_call | `tokenId`, `method`, `agentId` | activity, experimental | A JSON-RPC method was called by a foreign peer on the harness A2A server. |
+| `a2a.server.denied` | harness | — | a2a_server_denied | `tokenId`, `method`, `agentId` | activity, experimental | A JSON-RPC call was denied on the harness A2A server. |
 | `oauth.authorize` | harness | — | oauth_authorize | `clientId`, `audience`, `scopes` | activity, experimental | An authorization code was issued or consent approved. |
 | `oauth.token` | harness | — | oauth_token | `clientId`, `audience`, `agentId`, `tokenId` | activity, experimental | An authorization code was exchanged for an access token. |
 | `oauth.refresh` | harness | — | oauth_refresh | `clientId`, `tokenId`, `familyId` | activity, experimental | An access token was renewed using a refresh token. |
@@ -990,6 +992,27 @@ Detail for `mcp.server.denied` audit event: rejected MCP server call (no argumen
 |---|---|---|
 | `tokenId` | `string` | Identifier of the agent-bound token if present. |
 | `tool` | `string` | Attempted tool name. |
+| `agentId` | `string` | Target agent identifier. |
+| `reason` | `string` | Denial reason slug. |
+
+#### `a2a_server_call` (open)
+
+Detail for `a2a.server.call` audit event: JSON-RPC method invocation by foreign peer via A2A server.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `tokenId` | `string` | Identifier of the agent-bound token used for authentication. |
+| `method` | `string` | Invoked A2A JSON-RPC method name, truncated. |
+| `agentId` | `string` | Target agent identifier. |
+
+#### `a2a_server_denied` (open)
+
+Detail for `a2a.server.denied` audit event: rejected A2A server call.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `tokenId` | `string` | Identifier of the agent-bound token if present. |
+| `method` | `string` | Attempted A2A JSON-RPC method name, truncated. |
 | `agentId` | `string` | Target agent identifier. |
 | `reason` | `string` | Denial reason slug. |
 

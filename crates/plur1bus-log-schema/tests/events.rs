@@ -555,6 +555,14 @@ fn nothing_the_catalogue_writes_under_a_credential_name_or_description_is_unclas
             "the secret's name, \"never the value\" (the group's own description)",
         ),
         (
+            "a2a_server_call.tokenId",
+            "the token's public identifier, not the secret",
+        ),
+        (
+            "a2a_server_denied.tokenId",
+            "the token's public identifier if present, not the secret",
+        ),
+        (
             "mcp_server_call.tokenId",
             "the token's public identifier, not the secret",
         ),
@@ -707,7 +715,7 @@ fn credential_named_config_properties() -> Vec<(String, Value)> {
 
 #[test]
 fn the_config_properties_that_only_name_a_secret_say_so_and_the_one_that_holds_a_value_is_known() {
-    // Eight properties are references ("Name of the secret holding …"): the value lives in the secret store, never in config.json.
+    // Nine properties are references ("Name of the secret holding …"): the value lives in the secret store, never in config.json.
     let found = credential_named_config_properties();
     let (refs, values): (Vec<_>, Vec<_>) = found.iter().partition(|(_, n)| {
         n["description"]
@@ -715,7 +723,7 @@ fn the_config_properties_that_only_name_a_secret_say_so_and_the_one_that_holds_a
             .unwrap_or("")
             .starts_with("Name of the secret")
     });
-    assert_eq!(refs.len(), 8, "{refs:?}");
+    assert_eq!(refs.len(), 9, "{refs:?}");
     let value_paths: Vec<&str> = values.iter().map(|(p, _)| p.as_str()).collect();
     assert_eq!(
         value_paths,

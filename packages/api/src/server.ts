@@ -612,9 +612,13 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       }
       if (spec.id === "a2a.endpoint") {
         let isTaskSend = false;
+        let rpcMethod = "-";
         if (rawBody && rawBody.length > 0) {
           try {
             const p = JSON.parse(rawBody.toString("utf8"));
+            if (typeof p.method === "string") {
+              rpcMethod = p.method.slice(0, 64);
+            }
             if (
               p.method === "SendMessage" ||
               p.method === "SendStreamingMessage" ||
@@ -635,7 +639,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
             const agentId = tokenRecord?.binding?.agentId ?? pathParams?.agentId ?? "unknown";
             audit.emit("a2a.server.denied", principalId ?? tokenRecord?.id ?? "anonymous", `agent:${agentId}`, {
               tokenId: tokenRecord?.id ?? "-",
-              method: "SendMessage",
+              method: rpcMethod,
               agentId,
               reason: "rate-limited",
             });
@@ -647,7 +651,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
               const agentId = tokenRecord?.binding?.agentId ?? pathParams?.agentId ?? "unknown";
               audit.emit("a2a.server.denied", principalId ?? tokenRecord?.id ?? "anonymous", `agent:${agentId}`, {
                 tokenId: tokenRecord?.id ?? "-",
-                method: "SendMessage",
+                method: rpcMethod,
                 agentId,
                 reason: "concurrency-limit",
               });
