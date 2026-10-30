@@ -6,14 +6,13 @@ a tree-sitter pre-write gate, outlines and symbol queries, crushed sensor output
 steer running turns and rewind with a lesson, give our agent its own coding CLI (`plur1bus code`, line-based then a TUI)
 and an ACP coding mode, measure all coding work on an own licence-clean benchmark set, prove every tool execution passes
 the one gate, and prepare Phase 4, as specified in [`2026-10-30-harness-hygiene-coding-aci-design.md`](../specs/2026-10-30-harness-hygiene-coding-aci-design.md)
-(cited as "spec §n"; register entry D120 proposed).
+(cited as "spec §n"; register entry D120, Q1 decided).
 **Architecture.** New components are Rust in one supervised module process, `plur1bus-tools` (`crates/plur1bus-tools`,
 `x-server: "tools"`), called by the TypeScript core over the harness RPC (spec §5, §12.3); changes to existing TypeScript
 (telemetry, turn loop, router, web, session store) stay TypeScript until their Phase 4 step (owner decision 3, spec §13).
-**Status.** Plan only. Owner decisions of 2026-10-30 recorded (spec §2, decisions 1–6); Q18 and Q20 decided the same day,
-the other questions open (spec §18), and every package assumes the recommendation until the owner answers. **Gates:** H2-3
-(the general baseline) lands before any package that changes behaviour, and B1 (the coding benchmark baseline) before
-the first ACI package; every later package reports its delta against them in its PR (spec §6.4, §6.6).
+**Status.** Plan only. Owner decisions of 2026-10-30 recorded (spec §2, decisions 1–6), and every owner question of
+spec §18 is decided (Q18 and Q20 on 2026-10-30, all others on 2026-10-31 as recommended). No package waits on an owner
+answer any more; the remaining gates are measurement, spike and dependency gates ("Gates" below).
 **Constraints.** JSON Schema stays the single source: every RPC addition carries `x-server`, `x-stability:
 "experimental"`, `x-since` (the next free minor at implementation time) and closed params; every config key `x-restart`
 and `x-tier`; no new RPC error codes (new reason strings only, in `docs/errors.md`); no network in tests (fake servers on
@@ -42,11 +41,27 @@ force-push, rebase, amend or stash; commits carry the owner's identity.
    (spec §8.8, §8.9).
 9. The benchmark job never puts a secret into a log or an uploaded report (spec §6.6).
 
+## Gates
+
+Only measurement, spike and dependency gates remain; none waits on an owner answer.
+
+1. **H2-3 (measurement):** the general `turn-eval-live` baseline lands before any package that changes behaviour.
+2. **B1 (measurement):** the coding benchmark baseline is committed before H1-1, the first ACI package.
+3. **H2-4 (measurement):** starts after H2-3 has measured the cache-miss cost per tool admission (Q8).
+4. **Delta rule (measurement):** every package reports its delta against the H2 and B1 baselines; a package that makes a
+   gated rate worse does not merge without an owner decision (spec §6.4).
+5. **C2 (spike):** starts by proving that the grammar crates build and load on the five release targets (spec U3).
+6. **H3-2 (document check):** starts after the barge-in mapping has been checked against the voice D45 phase-2 plan
+   (spec U12).
+7. **Phase 4 (spike and dependency):** starts after RE-11 and the P4 spike (Q19).
+8. **Dependencies:** code dependencies as in the diagram below (for example CLI-1 needs C1–C3 and H3-1); M6-Pi waits
+   for PR #820 to merge; every new crate passes the gate of `docs/dependency-policy.md` and `deny.toml`.
+
 ## Dependencies and order
 
 ```text
-WP0 owner answers, D120, ADR-019 text
- └─► H2-1 cache telemetry ─► H2-2 overhead + doctor rows ─► H2-3 live baseline (GATE) ─► H2-4 tool admission
+WP0 D120 register entry + ADR-019 (docs; runs alongside, gates nothing)
+ H2-1 cache telemetry ─► H2-2 overhead + doctor rows ─► H2-3 live baseline (GATE) ─► H2-4 tool admission
                                                                    │
                                                                    └─► B1 coding benchmark + baseline (GATE for ACI)
       ┌──────────────────────────────────────────────────────────────────────────────┘
@@ -73,15 +88,14 @@ CLI-1.
 
 ---
 
-## WP0 — Owner answers, register entry, ADR text (0.5 agent days; Claude, docs)
+## WP0 — Register entry and ADR-019 (0.5 agent days; Claude, docs)
 
-Record the owner's answers to the open questions of spec §18 (Q18 and Q20 are decided) and adjust the packages they
-change; enter D120 in the core spec's
+The owner's decisions are recorded in spec §18 (all decided by 2026-10-31). Enter D120 in the core spec's
 register (`docs/superpowers/specs/2026-09-24-m1b-2a-core-daemon-cli-design.md` §2); write `docs/adr/ADR-019-rust-new-components-and-core-strangler.md`
-from spec §13 (status Proposed until the owner accepts), add the amendment note to ADR-012's status line and after its
+from spec §13 (status Accepted: decision 3 of 2026-10-30, form decided 2026-10-31, Q2), add the amendment note to ADR-012's status line and after its
 §2, and mark the RE-D9 row in `docs/superpowers/plans/2026-10-23-rust-engine-rewrite.md` §6 and in
 `docs/superpowers/plans/rust-engine/README.md` as superseded by ADR-019. Tests: `node scripts/check-doc-links.mjs`,
-`node scripts/lint-hygiene.mjs`. Acceptance: the owner's answers are in the spec, D120 is registered, ADR-019 exists.
+`node scripts/lint-hygiene.mjs`. Acceptance: D120 is registered, ADR-019 exists, ADR-012 and the RE-D9 rows carry their notes.
 
 ## H2-1 — Cache telemetry read models and miss attribution (2 agent days; Sonnet, TypeScript) — first Sonnet package
 
@@ -119,7 +133,7 @@ PR can be compared with it.
 
 ## H2-4 — Tool admission without a full cache miss (2.5 agent days; Sonnet, TypeScript; after H2-3's numbers)
 
-Implement the answer to Q8 (assumed: pre-admission per agent profile plus the `tool.invoke` overflow): profile tool sets
+Implement Q8 as decided 2026-10-31 (pre-admission per agent profile plus the `tool.invoke` overflow): profile tool sets
 in the agent configuration (`packages/config-schema`, `x-restart: "live"`), the frozen per-session offer in
 `toolcall/stable-tools.ts` and `session_tool_offers`, `capabilities.search` returning input schemas of not-offered
 tools, and `tool.invoke` as a composition-level rewrite into an ordinary dispatcher call (`composition/provider.ts`);
@@ -278,7 +292,7 @@ methods still `-32601`, the stderr rule (no prompt text) unchanged. Docs: `docs/
 
 `collab/verifier.ts`: spool check output to an artifact (cap 16 MiB per check) instead of stopping at 64 KiB; evidence is
 the SHA-256 of the full output; `collab/coding-gate.ts`: `checks[].artifact` and `checks[].essence` (crushed by H1-3),
-the reuse rule of spec §8.6 behind Q16, per-project `timeoutMs` (at most 600 s) from `.plur1bus-verifiers.json`;
+the reuse rule of spec §8.6 (Q16), per-project `timeoutMs` (at most 600 s) from `.plur1bus-verifiers.json`;
 `collab/coding-surface.ts`: refusals carry the essence for `coding_complete` and `task.complete`; a new `code.check` tool
 running the same plan through the same `VerifierPort`. Tests: a 1 MiB test log no longer fails with `output-limit`; a
 refusal names the failing tests; reuse accepted only on an identical tree hash through the gate's own runner and never
@@ -291,8 +305,8 @@ Session schema v11 (`path_rewinds`, spec §10.1; v10 is CLI-1's `session_worktre
 built and in compaction (`session/compaction.ts`, summaries overlapping a hidden range dropped from the view); `/rewind` as
 a transcript command in `session/turn-loop.ts`; `chat.rewind`/`session.rewind` and `--undo` in `rpc/chat-surface.ts` with
 the audit record and `hiddenDigest`; lesson distillation through the `summarize` role with the deterministic fallback;
-the agent trigger behind Q13 (project setting, N = 3, unattended D115 cards only, propose-only otherwise); "Rewind to
-here" in the web; the optional `--files` checkpoint restore behind Q14 and an approval. Tests: the hidden range never
+the agent trigger as decided in Q13 (project setting, N = 3, unattended D115 cards only, propose-only otherwise); "Rewind to
+here" in the web; the optional `--files` checkpoint restore (Q14) behind an approval. Tests: the hidden range never
 reaches the model, undo restores it, messages and events stay byte-identical, the digest matches, FTS marks hidden
 messages, the cache prefix up to `parent_seq` is unchanged. Docs: `docs/architecture/compaction.md`, `docs/rpc.md`,
 `docs/web-ui.md`. Acceptance: spec §16 H4 row.
@@ -328,7 +342,7 @@ release targets (U18). Docs: `docs/cli.md`, the user guide. Acceptance: spec §1
 On a throwaway branch: compile each candidate of spec §12.5 for the five release targets, run `cargo deny`, record binary
 size and cold start; resolve U3–U8 where possible; write `docs/superpowers/plans/<date>-core-phase4-outline.md` with the
 strangler steps of spec §12.2, a work-package list per step and an estimate per step. No product code merges. Acceptance:
-the owner can decide Q19 with numbers.
+an estimate per Phase 4 step; Phase 4 starts after RE-11 and this spike (Q19, decided 2026-10-31).
 
 ## M6-Pi — Pi over ACP verification (1.5 agent days + owner; Claude agent; after PR #820)
 

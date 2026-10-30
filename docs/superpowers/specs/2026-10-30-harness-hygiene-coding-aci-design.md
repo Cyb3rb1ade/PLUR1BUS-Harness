@@ -1,15 +1,16 @@
 # Harness hygiene, steering, rewind and the coding ACI — design
 
 **Status:** Specification and plan only, no product code. Owner decisions of 2026-10-30 incorporated (§2: the four
-founding decisions, then decisions 5 and 6 on our own coding CLI and on Pi; Q18 and Q20 decided); open questions in §18 ·
+founding decisions, then decisions 5 and 6 on our own coding CLI and on Pi); every owner question in §18 is decided (Q18
+and Q20 on 2026-10-30, all others on 2026-10-31 as recommended) ·
 **Date:** 2026-10-30 · **Owner:** Christian (Cyb3rb1ade) · **Tracks:** harness hygiene (H1–H4), coding ACI (C1–C4),
 coding benchmark (B1), coding CLI (CLI-1, CLI-ACP, CLI-2), typestate gate (T1), core Phase 4 (P4), M6 Pi verification ·
-**Proposed register entry:** **D120**
+**Register entry:** **D120** (Q1, decided 2026-10-31)
 in the core spec's register ([`2026-09-24-m1b-2a-core-daemon-cli-design.md`](2026-09-24-m1b-2a-core-daemon-cli-design.md)
 §2), not entered yet. D117 is proposed by [`2026-10-21-media-image-verify-design.md`](2026-10-21-media-image-verify-design.md),
 D118 and D119 by open PR #825 (`docs/primary-client-role-switch`); no other open PR (#820, #829, #831) or local branch
-uses a number above D116, so D120 is the next free one · **Amends (proposed):** ADR-012 D7 and RE-D9, through a new
-ADR-019 (§13) · **Plan:** [`2026-10-30-harness-hygiene-coding-aci.md`](../plans/2026-10-30-harness-hygiene-coding-aci.md)
+uses a number above D116, so D120 is the next free one · **Amends:** ADR-012 D7 and RE-D9, through ADR-019
+(§13; Q2, decided 2026-10-31) · **Plan:** [`2026-10-30-harness-hygiene-coding-aci.md`](../plans/2026-10-30-harness-hygiene-coding-aci.md)
 
 **Inputs read for this spec** (harness `origin/main` at `d01314fa5d`, the branch point of
 `docs/harness-hygiene-coding-aci`): [ADR-003](../../adr/ADR-003-agent-model-and-collaboration.md),
@@ -75,6 +76,7 @@ budgets count tokens, turns and time).
 | 4 | Other agents attach only via ACP and MCP. Pi through `svkozak/pi-acp`. An M6 verification covers sessions, cancel/steer and permissions; if ACP is insufficient, that is an owner question before any native-RPC fallback. | §14, Q18 |
 | 5 | **Our own coding CLI: yes** (second set, 2026-10-30). `plur1bus code` is the coding mode of our own agent on the D120 ACI: it binds a repo or worktree (reusing the D115 `ProjectWorktreePort` and D98 where they fit), loads a coding profile with the ACI tools, follows Q9 for steer and queue keys in the terminal, shows diffs and approvals inline; line-based first, a full-screen TUI later, both Rust, reusing the existing CLI (`plur1bus chat`) and the core RPC. `plur1bus acp serve` stays the editor attachment and offers the coding mode too. Plus an own coding benchmark set in the nightly through `host-eval`/`turn-eval-live`, licence-clean, with a baseline and per-package deltas and no secrets in CI logs. | §6.6 (B1), §8.8, §8.9, Q20 |
 | 6 | **Pi** (second set, 2026-10-30): only the third-party `pi-acp` stays, as an optional attachment; the M6 verification runs as planned; Q18 is decided as recommended (accept the ACP limits). Our own Pi-ACP adapter goes onto a nice-to-have list with its design. | §14, Q18, plan "Nice to have" |
+| 7 | **All remaining owner questions decided as recommended** (2026-10-31, on PR #833): Q1–Q17, Q19 and Q21–Q25. | §18 |
 
 Decision 3's history matters for the ADR text: the owner originally wanted everything in Rust. ADR-012 §2 put the core in
 TypeScript for two reasons, "the engine is Node, and MCP/ACP/A2A SDKs are TypeScript". The first reason disappears with
@@ -244,8 +246,8 @@ Today every newly relevant tool changes zone 1. Four ways out:
 | (c) Pre-admission per agent profile | At session start the offer is the core set, `memory.*`, and the profile's tools (for a coding profile: `file.edit`, `file.write`, `file.outline`, `code.*`, `exec.run`, `artifact.read`, `coding_complete`, `request_review`), frozen for the session in `session_tool_offers` like the memory snapshot | A slightly larger fixed prefix; must stay under the model's `maxTools` | None during the session |
 | (d) Provider-native deferral | Where a provider offers deferred tool loading behind its own tool search, use it | Per wire; unverified for our emitters | Depends on the provider |
 
-**Recommendation (Q8):** (c) as the default plus (b) as the overflow path, decided only after the H2 baseline shows the
-measured miss rate per admission; (a) not as a default; (d) evaluated per provider later. `artifact.read` joins
+**Decided 2026-10-31 (Q8):** (c) as the default plus (b) as the overflow path; H2-4 starts only after the H2 baseline has
+measured the miss rate per admission (a measurement gate); (a) not as a default; (d) evaluated per provider later. `artifact.read` joins
 `CORE_TOOL_NAMES` (one cache bust at the upgrade, then stable; Q6).
 
 ### 6.6 B1 — The coding benchmark set (decision 5)
@@ -268,7 +270,7 @@ run nightly through `host-eval` and `turn-eval-live`. It lands right after H2 an
   `harbor-framework/terminal-bench-2-1`) carry Apache-2.0 at repository level, but single tasks can embed third-party
   files with their own terms; the SWE-bench harness is MIT, while its task instances are code from third-party Python
   repositories under their own licences and the dataset has its own terms, and both are widely present in training data;
-  the Aider polyglot benchmark repository shows no licence. **Recommendation (Q21): self-authored only.** Porting a few
+  the Aider polyglot benchmark repository shows no licence. **Decided 2026-10-31 (Q21): self-authored only.** Porting a few
   Terminal-Bench tasks with Apache-2.0 attribution is possible later, after a per-task file review.
 - **Two modes:** per pull request, a fixture self-test (no model): every checker fails on the starting tree and passes on
   the reference solution, every seed generates a valid instance. Nightly, real models through the `turn-eval-live`
@@ -450,12 +452,12 @@ read by line ranges (`fromLine`, `toLine`); `file.outline` (§8.5) is the way to
 - The patched buffer is parsed with tree-sitter before anything is written. Embedded grammars: Rust, TypeScript and TSX,
   JavaScript and JSX, Python, Go, JSON, YAML, TOML, Markdown (block and inline). The language comes from the extension
   (and a shebang for scripts); unknown languages pass with `gate: "none"`.
-- **Rule (Q17):** refuse only when the edit **adds** `ERROR` or `MISSING` nodes that intersect the changed ranges compared
+- **Rule (Q17, decided 2026-10-31):** refuse only when the edit **adds** `ERROR` or `MISSING` nodes that intersect the changed ranges compared
   with the parse of the original buffer. A file that was already broken elsewhere can still be edited. Markdown and YAML
   are error-tolerant grammars; for them the gate catches little, which is expected.
 - On refusal nothing is written. The model gets only the diff it attempted plus the diagnostic: `line:col`, the node kind,
   two lines of context, no full file.
-- **Linter on write (Q15):** off by default; a project opts in through `.plur1bus-verifiers.json` (`"onWrite": ["lint"]`),
+- **Linter on write (Q15, decided 2026-10-31):** off by default; a project opts in through `.plur1bus-verifiers.json` (`"onWrite": ["lint"]`),
   and then the project's lint command runs on the changed file in the D98 verifier sandbox after the write; its output goes
   through the H1 crusher. A lint failure does not undo the write; it is reported.
 
@@ -484,10 +486,10 @@ this version. Names follow the tool-name rule of `session_tool_offers` (lower ca
   check, then the check stops with `output-limit` as today). `GateResult.checks[]` keeps `evidence` (now the SHA-256 of the
   full spooled output) and gains `artifact` and `essence`. `coding_complete` refusals carry the essence, so the model sees
   the failing tests without running them again. `task.complete` gets the same fields.
-- **Reuse (Q16):** when `code.check` has recorded all four kinds green for exactly the current tree hash, through the
+- **Reuse (Q16, decided 2026-10-31):** when `code.check` has recorded all four kinds green for exactly the current tree hash, through the
   gate's own `VerifierPort` and plan, within the last 30 minutes of the same core process, `CodingGate.verify` may accept
   those records instead of running the four checks again. The review rule above 200 lines and the manifest check are
-  never skipped. Recommendation: yes.
+  never skipped. Decided 2026-10-31: yes.
 - **Timeouts.** The 60 s per check stays the default; a project may raise it in `.plur1bus-verifiers.json` (`timeoutMs`,
   at most 600 s), because real test suites exceed a minute.
 
@@ -598,7 +600,7 @@ stays TypeScript (decision 3).
 
 | Surface | Default | Choose the other |
 |---|---|---|
-| Web UI | While a turn runs, **Enter = steer**, **Alt/Option+Enter = queue** (Pi's convention; Q9). The composer shows which one Enter does and the queue as removable chips. A setting swaps the two keys. | the other key, or the split button |
+| Web UI | While a turn runs, **Enter = steer**, **Alt/Option+Enter = queue** (Pi's convention; Q9, decided 2026-10-31). The composer shows which one Enter does and the queue as removable chips. A setting swaps the two keys. | the other key, or the split button |
 | Telegram, Discord, Slack, Matrix, Signal, E-mail, Buzz | **Queue** (today's behaviour). | A message starting with `!` or `/steer ` steers; the prefix is stripped. |
 | CLI `plur1bus chat` | Queue | `/steer <text>` |
 | CLI `plur1bus code` | Like the web: Enter = steer, Alt+Enter = queue while a turn runs (§8.8) | `/queue <text>`, `/steer <text>` |
@@ -609,7 +611,7 @@ The channel default is configurable per agent and per channel kind (`agents.<id>
 `byChannelKind` map, `"queue" | "steer"`, `x-restart: "live"`, `x-tier: "advanced"`). It sits beside the ADR-003
 behaviour layers, not inside them, because those layers may only restrict and a delivery default is not a restriction.
 
-**Who may steer (Q10).** Only the person whose message started the running turn, or an owner or admin of the
+**Who may steer (Q10, decided 2026-10-31).** Only the person whose message started the running turn, or an owner or admin of the
 installation. Anyone else's steer request is queued as a follow-up. In group chats this prevents a third person from
 redirecting someone else's task.
 
@@ -628,7 +630,7 @@ redirecting someone else's task.
 
 ### 9.4 Approvals in flight
 
-A steer that arrives while the current call waits for an approval **withdraws** that approval request (Q11): the
+A steer that arrives while the current call waits for an approval **withdraws** that approval request (Q11, decided 2026-10-31): the
 approval service records `approval.withdrawn { reason: "superseded-by-steer" }` in its event chain, the dispatcher returns
 `tool-not-approved` with `reason: steered`, and, unlike a refusal today, the turn does **not** end: the provider loop
 treats this result like a skipped call and delivers the steer. An approval already answered is consumed as today; a
@@ -642,7 +644,7 @@ from the abort signal, so the audit can tell "aborted" from "superseded".
   same bound of 20 as channels), not a client-side one, so a reload keeps it.
 - **Channels:** the router recognises a steer request before it serialises the message behind the running turn, checks
   the sender rule, and calls `TurnLoop.steer`. A queued message keeps today's path and drop rule.
-- **Voice barge-in (Q12):** playback stops at once, always. If the agent turn is in a tool phase (a tool running or
+- **Voice barge-in (Q12, decided 2026-10-31):** playback stops at once, always. If the agent turn is in a tool phase (a tool running or
   calls pending), the interrupting utterance's final transcript is delivered as a **steer**: side-effecting tools finish,
   the rest is skipped. If the agent is only generating or speaking, today's behaviour stays (cancel and start a new turn),
   which is the same as a steer at a boundary with nothing to skip. Speculative turns are unchanged. `TalkSession` gets an
@@ -716,8 +718,8 @@ digest: the files changed in the hidden range, the last failing check's summary 
 - **User:** `/rewind [<seq> | last] [--lesson "…"]` as a D33-style transcript command (never reaches the model or the
   cached prefix), `chat.rewind { sessionId, toSeq, lesson? }` and `session.rewind`, and "Rewind to here" on a message in the
   web UI. Requires an idle session (`E_CONFLICT turn-running` otherwise). `/rewind --undo <id>` lifts the overlay.
-- **Agent (Q13):** after N failed edit-and-test cycles (a cycle = a write through `file.edit`/`file.write` followed by a
-  failing `code.check`, `exec.run` test run or gate refusal). Recommendation: off by default; on per project for unattended
+- **Agent (Q13, decided 2026-10-31):** after N failed edit-and-test cycles (a cycle = a write through `file.edit`/`file.write` followed by a
+  failing `code.check`, `exec.run` test run or gate refusal). Decided 2026-10-31: off by default; on per project for unattended
   D115 cards with N = 3, where the rewind is applied at the turn boundary and audited; in interactive sessions the agent
   may only propose (the person confirms with one click or `/rewind`).
 
@@ -729,7 +731,7 @@ digest: the files changed in the hidden range, the last failing check's summary 
 - **Search and export:** hidden messages stay in FTS, marked `rewound`; `chat.export` puts them in a "discarded" section.
 - **Memory:** turns in the hidden range were captured when they ran; rewind changes context, not memory. A memory from a
   discarded branch is corrected with the existing `memory.correct`/`memory.forget`.
-- **Worktree files (Q14):** rewind is conversation-only by default; files the hidden range changed stay changed, and the
+- **Worktree files (Q14, decided 2026-10-31):** rewind is conversation-only by default; files the hidden range changed stay changed, and the
   lesson lists them. Optional for D115 worktrees: a per-turn checkpoint ref (`refs/plur1bus/checkpoints/<session>/<turn>`,
   created with `git stash create` semantics without touching the index) and `/rewind --files`, which restores tracked
   files to the checkpoint behind an approval (effect `local-destructive`).
@@ -807,7 +809,7 @@ for last. Each step is its own plan with work packages; the spike estimates them
 
 ### 12.3 Process topology
 
-| | (A) Inside `plur1bus-engine` | **(B) One supervised `plur1bus-tools` module (recommended)** | (C) One process per component |
+| | (A) Inside `plur1bus-engine` | **(B) One supervised `plur1bus-tools` module (decided, Q3)** | (C) One process per component |
 |---|---|---|---|
 | Fault isolation | A grammar, crusher or file-system fault takes recall and capture down | Own process, own restart, own backoff | Finest |
 | Privilege | The engine would need read/write on worktrees beside its stores | Its own sandbox profile: granted roots and `state/artifacts/` only | Finest |
@@ -816,7 +818,7 @@ for last. Each step is its own plan with work packages; the spike estimates them
 | RAM | None extra | A small Rust process (no Node heap; ADR-012 counts 30–50 MB per Node process) | Several |
 | Phase 4 path | Muddles memory and core | Grows into the Rust core; methods move into it step by step | Fragmentation |
 
-Recommendation (Q3): **(B)**. The engine stays the memory process. In Phase 4, `plur1bus-tools` becomes the Rust core
+Decided 2026-10-31 (Q3): **(B)**. The engine stays the memory process. In Phase 4, `plur1bus-tools` becomes the Rust core
 process (renamed when step 3 moves sessions and turns into it); the TypeScript core shrinks until it disappears. The token
 counter stays one implementation (RE-D20): until the dispatcher moves, the core counts and passes `budgetTokens` and
 `bytesPerToken` to the tools process; when the dispatcher moves (step 1), `src/tokens/` is extracted from the engine into a
@@ -850,7 +852,7 @@ each server returns in its `*.auth` result (`buildCapabilities` filters by serve
 The spike builds a throwaway branch that compiles each candidate for the five release targets, runs `cargo deny`, and
 measures binary size and cold start; it ends with a Phase 4 estimate per step.
 
-## 13. ADR amendment (proposed text)
+## 13. ADR amendment (decided text)
 
 Decision 3 changes two recorded decisions: ADR-012 D7 ("TypeScript for the core and every module bound to a Node SDK")
 and RE-D9 ("a later rewrite of the TypeScript core — separate decision and plan; not implied by this one"; the briefs'
@@ -858,15 +860,15 @@ README: "not part of this programme"). Two ways to record it:
 
 - **An amendment section in ADR-012.** Keeps one place for languages, but ADR-012 is already 360 lines of decision plus
   implementation records, and a language policy change would sit between supervision details.
-- **A new ADR (recommended, Q2).** ADR-018 is reserved for the Rust engine (RE-11 T5), so this is **ADR-019**. It states
+- **A new ADR (decided 2026-10-31, Q2).** ADR-018 is reserved for the Rust engine (RE-11 T5), so this is **ADR-019**. It states
   the policy once, ADR-012 gets a short amendment note pointing to it (the pattern RE-11 uses for ADR-018), and the RE-D9
   row in the RE plan and its README changes to "superseded by ADR-019".
 
-Proposed text:
+The text WP0 commits:
 
 > **ADR-019: Rust for new components, and the core's strangler path to Rust**
 >
-> **Status:** Proposed (owner decision 2026-10-30, option B; D120). **Amends** ADR-012 §2 (D7) and supersedes RE-D9.
+> **Status:** Accepted (owner decision 2026-10-30, option B; form decided 2026-10-31, Q2; D120). **Amends** ADR-012 §2 (D7) and supersedes RE-D9.
 >
 > **Context.** ADR-012 chose TypeScript for the core because the engine was Node and the MCP, ACP and A2A SDKs were
 > TypeScript. RE-11 retires the Node engine; ACP is hand-written on both sides; the channel adapters have no runtime
@@ -969,35 +971,38 @@ Every package reports its delta against the H2 baseline (§6.4). Targets, to be 
 - **Benchmark:** credentials only in the setup step, a scrubbed task environment, logs with ids and counts only, a
   redacted report without transcripts, and a canary secret that the job searches for in its own log and report.
 
-## 18. Owner questions
+## 18. Owner questions and decisions
 
-| # | Question | Options | Recommendation |
+Every question is decided: Q18 and Q20 on 2026-10-30 (decisions 6 and 5), all others on 2026-10-31, when the owner
+accepted every recommendation on PR #833. The options are kept for the record.
+
+| # | Question | Options | Decision |
 |---|---|---|---|
-| Q1 | Register entry | one record D120 for H/C/T/P4; or separate records per track | **One record D120** with sub-ids H1–H4, C1–C4, B1, CLI, T1, P4; D117–D119 are taken by proposals |
-| Q2 | How to record decision 3 | amendment section in ADR-012; new ADR | **New ADR-019** (ADR-018 is reserved for the Rust engine) with an amendment note in ADR-012 and the RE-D9 row marked superseded; text in §13 |
-| Q3 | Where the new Rust components run | inside `plur1bus-engine`; one `plur1bus-tools` module; one process per component | **One supervised `plur1bus-tools` module** (§12.3) |
-| Q4 | RPC server value | reuse `x-server: "module"`; new `"tools"` | **New `"tools"`**, with a dispatch-level guard that admits only the core, like `host.*` for the engine |
-| Q5 | Budget, retention, quota | inline 1k/2k/4k tokens; retention session + 7/30/90 days; quota 512 MiB/1 GiB/4 GiB | **2,000 tokens; session + 30 days; 1 GiB** (matches media) |
-| Q6 | `artifact.read` in the fixed core set | core tool; admitted on demand | **Core tool** (one cache bust at the upgrade, never again) |
-| Q7 | Artifacts in backups and exports | included; excluded; opt-in | **Excluded by default**, envelopes stay in the transcript |
-| Q8 | Admitting newly relevant tools | batching; overflow via messages + `tool.invoke`; pre-admission per agent profile; provider-native deferral | **Pre-admission per profile plus the `tool.invoke` overflow**, decided on H2's measured miss rate; no batching default |
-| Q9 | Web keys while a turn runs | Enter = steer; Enter = queue | **Enter = steer, Alt/Option+Enter = queue**, swappable in settings |
-| Q10 | Who may steer | anyone allowed in the chat; the turn's originator plus owner/admin | **The turn's originator plus owner/admin**; others are queued |
-| Q11 | A steer while an approval is pending | the steer waits for the answer; the approval is withdrawn and the turn continues | **Withdraw and continue**, recorded in the approval chain |
-| Q12 | Voice barge-in | always cancel (today); steer in a tool phase, cancel while speaking | **Steer in a tool phase, cancel while speaking**; playback always stops at once |
-| Q13 | Agent-triggered rewind | never; propose only; automatic after N failed cycles | **Off by default; automatic with N = 3 only on unattended D115 cards where the project enables it; propose-only in interactive sessions** |
-| Q14 | Rewind and worktree files | conversation only; optional file restore from per-turn checkpoints | **Conversation only by default**; `--files` restore behind an approval in D115 worktrees |
-| Q15 | Linter on write | on; off; per project | **Off by default, per-project opt-in** in `.plur1bus-verifiers.json` |
-| Q16 | Gate reuse of `code.check` results | always re-run; reuse on an identical tree hash | **Reuse** when all four kinds ran green through the gate's own runner on the identical tree hash within 30 minutes; review and manifest checks never skipped |
-| Q17 | Syntax gate rule | refuse on any parse error; refuse only on new errors in changed ranges | **Only new errors intersecting the changed ranges** |
+| Q1 | Register entry | one record D120 for H/C/T/P4; or separate records per track | Decided 2026-10-31: **One record D120** with sub-ids H1–H4, C1–C4, B1, CLI, T1, P4; D117–D119 are taken by proposals |
+| Q2 | How to record decision 3 | amendment section in ADR-012; new ADR | Decided 2026-10-31: **New ADR-019** (ADR-018 is reserved for the Rust engine) with an amendment note in ADR-012 and the RE-D9 row marked superseded; text in §13 |
+| Q3 | Where the new Rust components run | inside `plur1bus-engine`; one `plur1bus-tools` module; one process per component | Decided 2026-10-31: **One supervised `plur1bus-tools` module** (§12.3) |
+| Q4 | RPC server value | reuse `x-server: "module"`; new `"tools"` | Decided 2026-10-31: **New `"tools"`**, with a dispatch-level guard that admits only the core, like `host.*` for the engine |
+| Q5 | Budget, retention, quota | inline 1k/2k/4k tokens; retention session + 7/30/90 days; quota 512 MiB/1 GiB/4 GiB | Decided 2026-10-31: **2,000 tokens; session + 30 days; 1 GiB** (matches media) |
+| Q6 | `artifact.read` in the fixed core set | core tool; admitted on demand | Decided 2026-10-31: **Core tool** (one cache bust at the upgrade, never again) |
+| Q7 | Artifacts in backups and exports | included; excluded; opt-in | Decided 2026-10-31: **Excluded by default**, envelopes stay in the transcript |
+| Q8 | Admitting newly relevant tools | batching; overflow via messages + `tool.invoke`; pre-admission per agent profile; provider-native deferral | Decided 2026-10-31: **Pre-admission per profile plus the `tool.invoke` overflow**; H2-4 starts after H2's measured miss rate (measurement gate); no batching default |
+| Q9 | Web keys while a turn runs | Enter = steer; Enter = queue | Decided 2026-10-31: **Enter = steer, Alt/Option+Enter = queue**, swappable in settings |
+| Q10 | Who may steer | anyone allowed in the chat; the turn's originator plus owner/admin | Decided 2026-10-31: **The turn's originator plus owner/admin**; others are queued |
+| Q11 | A steer while an approval is pending | the steer waits for the answer; the approval is withdrawn and the turn continues | Decided 2026-10-31: **Withdraw and continue**, recorded in the approval chain |
+| Q12 | Voice barge-in | always cancel (today); steer in a tool phase, cancel while speaking | Decided 2026-10-31: **Steer in a tool phase, cancel while speaking**; playback always stops at once |
+| Q13 | Agent-triggered rewind | never; propose only; automatic after N failed cycles | Decided 2026-10-31: **Off by default; automatic with N = 3 only on unattended D115 cards where the project enables it; propose-only in interactive sessions** |
+| Q14 | Rewind and worktree files | conversation only; optional file restore from per-turn checkpoints | Decided 2026-10-31: **Conversation only by default**; `--files` restore behind an approval in D115 worktrees |
+| Q15 | Linter on write | on; off; per project | Decided 2026-10-31: **Off by default, per-project opt-in** in `.plur1bus-verifiers.json` |
+| Q16 | Gate reuse of `code.check` results | always re-run; reuse on an identical tree hash | Decided 2026-10-31: **Reuse** when all four kinds ran green through the gate's own runner on the identical tree hash within 30 minutes; review and manifest checks never skipped |
+| Q17 | Syntax gate rule | refuse on any parse error; refuse only on new errors in changed ranges | Decided 2026-10-31: **Only new errors intersecting the changed ranges** |
 | Q18 | If ACP is insufficient for Pi (expected for steer and per-tool permissions) | accept the ACP limits; authorise a native `pi --mode rpc` adapter | **Decided 2026-10-30: accept the ACP limits** (decision 6). Third-party `pi-acp` stays an optional attachment; our own Pi-ACP adapter goes to the plan's nice-to-have list |
-| Q19 | When Phase 4 starts | right after RE-11; after RE-11 and the P4 spike; later | **After RE-11 and the P4 spike**, in the §12.2 order, one plan per step |
+| Q19 | When Phase 4 starts | right after RE-11; after RE-11 and the P4 spike; later | Decided 2026-10-31: **After RE-11 and the P4 spike**, in the §12.2 order, one plan per step |
 | Q20 | An own coding CLI | none (editors over ACP only); `plur1bus code` | **Decided 2026-10-30: yes** (decision 5): `plur1bus code` on the ACI, line-based first, TUI later, both Rust; ACP coding mode; own benchmark set in the nightly (§6.6, §8.8, §8.9) |
-| Q21 | Sources of the benchmark tasks | self-authored only; port Apache-2.0 Terminal-Bench tasks with attribution; use SWE-bench instances | **Self-authored only** for the first set (24 tasks, seeded variants); a later port of single Terminal-Bench tasks only after a per-task file review; no SWE-bench instances |
-| Q22 | Queue key in the terminal | Alt+Enter; Ctrl+Enter; Shift+Enter; typed prefix only | **Alt+Enter** (arrives as Esc then Enter in every terminal; Ctrl+Enter and Shift+Enter are indistinguishable from Enter in many terminals), with `/queue` and `/steer` as fallbacks |
-| Q23 | Terminal crates | `reedline` + `ratatui`/`crossterm`; `rustyline` + `ratatui`; hand-written | **`reedline` 0.52.1 for CLI-1, `ratatui` 0.30.x on `crossterm` 0.29 for CLI-2** (one terminal backend; licences inside `deny.toml`) |
-| Q24 | "Done" in a coding session without a D115 card | advisory `/check` only; create a card in a personal scratch project so D98 applies | **Advisory `/check`** with the gate's runners; the D98 gate stays bound to cards (`--project`/`--card`) |
-| Q25 | `plur1bus code` in a folder that is not a granted root | refuse; ask the person at the terminal for a D109 grant on that folder | **Ask once at the terminal** for a grant scoped to that folder, within D109's caps; ACP sessions refuse instead (no person is guaranteed at an editor) |
+| Q21 | Sources of the benchmark tasks | self-authored only; port Apache-2.0 Terminal-Bench tasks with attribution; use SWE-bench instances | Decided 2026-10-31: **Self-authored only** for the first set (24 tasks, seeded variants); a later port of single Terminal-Bench tasks only after a per-task file review; no SWE-bench instances |
+| Q22 | Queue key in the terminal | Alt+Enter; Ctrl+Enter; Shift+Enter; typed prefix only | Decided 2026-10-31: **Alt+Enter** (arrives as Esc then Enter in every terminal; Ctrl+Enter and Shift+Enter are indistinguishable from Enter in many terminals), with `/queue` and `/steer` as fallbacks |
+| Q23 | Terminal crates | `reedline` + `ratatui`/`crossterm`; `rustyline` + `ratatui`; hand-written | Decided 2026-10-31: **`reedline` 0.52.1 for CLI-1, `ratatui` 0.30.x on `crossterm` 0.29 for CLI-2** (one terminal backend; licences inside `deny.toml`) |
+| Q24 | "Done" in a coding session without a D115 card | advisory `/check` only; create a card in a personal scratch project so D98 applies | Decided 2026-10-31: **Advisory `/check`** with the gate's runners; the D98 gate stays bound to cards (`--project`/`--card`) |
+| Q25 | `plur1bus code` in a folder that is not a granted root | refuse; ask the person at the terminal for a D109 grant on that folder | Decided 2026-10-31: **Ask once at the terminal** for a grant scoped to that folder, within D109's caps; ACP sessions refuse instead (no person is guaranteed at an editor) |
 
 ## 19. Unknowns
 
@@ -1015,7 +1020,7 @@ Every package reports its delta against the H2 baseline (§6.4). Targets, to be 
 | U10 | Pi's RPC `steer`, `follow_up` and `prompt.streamingBehavior` were read on pi.dev (2026-10-30): a steer is delivered after the current assistant turn has executed its tool calls, before the next model call, so Pi does not skip the step's remaining calls as decision 2 does | Matters only for the nice-to-have adapter; pinned and tested there |
 | U11 | Provider-native deferred tool loading and its cache effect on our wire formats | After H2; per provider |
 | U12 | The voice D45 phase-2 plan (a project document outside the repository) was not read; the barge-in mapping (§9.5) is based on `voice/talk.ts` and `voice/v2.ts` | Checked before H3-2 starts |
-| U13 | RE-D1 is still listed as open in the RE plan (assumed by the briefs); this design uses the same pattern | Owner confirms RE-D1 together with Q3 |
+| U13 | RE-D1 is still listed as open in the RE plan (assumed by the briefs); this design uses the same pattern | Q3 is decided 2026-10-31 for `plur1bus-tools`; RE-D1 itself stays the RE programme's decision (plan §6) |
 | U14 | The inline budget is approximate (chars/4) until the Rust engine serves `engine.tokens.*` by default | Resolves with RE-08/RE-11 |
 | U15 | Whether ACP will gain a steering or queued-prompt primitive | Watched; Q18 revisited if it does |
 | U16 | Pi SDK details for the nice-to-have adapter: `createAgentSession` documents `tools`, `noTools`, `excludeTools` and `customTools`; `setActiveTools`, whether a same-name `registerTool` overrides a built-in, and whether a `tool_call` handler can block a call are not confirmed by the SDK page | Only if the adapter is scheduled; checked against the pinned Pi version |
