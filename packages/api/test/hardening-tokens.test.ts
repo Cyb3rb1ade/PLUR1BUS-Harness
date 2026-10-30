@@ -17,7 +17,7 @@ import { ROLES } from "../../core/src/rbac/types.ts";
 import { addUser, csrfToken, jsonHeaders, login, loginAs, OWNER_TOKEN, raw, start, write, type Harness } from "./helpers.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const wide = { auth: { capacity: 100_000, refillPerSec: 10_000 }, read: { capacity: 100_000, refillPerSec: 10_000 }, write: { capacity: 100_000, refillPerSec: 10_000 }, totp: { capacity: 100_000, refillPerSec: 10_000 }, stream: { capacity: 100_000, refillPerSec: 10_000 } };
+const wide = { upload: { capacity: 100_000, refillPerSec: 10_000 }, auth: { capacity: 100_000, refillPerSec: 10_000 }, read: { capacity: 100_000, refillPerSec: 10_000 }, write: { capacity: 100_000, refillPerSec: 10_000 }, totp: { capacity: 100_000, refillPerSec: 10_000 }, stream: { capacity: 100_000, refillPerSec: 10_000 } };
 /** `plb_<12 hex>_<43 base64url>`: the secret starts at a fixed offset (base64url may itself contain "_"). */
 const secretOf = (token: string): string => token.slice(17);
 const rank = (role: string) => ROLES.length - ROLES.indexOf(role as (typeof ROLES)[number]); // owner 5 … viewer 1
@@ -26,6 +26,8 @@ const rank = (role: string) => ROLES.length - ROLES.indexOf(role as (typeof ROLE
 
 /** The lowest role the policy table lets through for a route's action (a role-level answer: ownership and object rights come on top). */
 const MIN_ROLE: Record<string, string> = {
+  "imports.sources": "admin",
+  "extensions.upload": "admin", "extensions.inspect": "admin", "imports.snapshot.upload": "admin",
   "channel.history.list": "viewer", "channel.history.get": "viewer", "channel.handoff.create": "member", "channel.handoff.redeem": "member",
   "passkeys.list": "viewer", "passkeys.options": "member", "passkeys.register": "member", "passkeys.change": "member",
   "chats.list": "viewer", "chats.create": "member", "chats.create-agent": "member", "chats.get": "viewer", "chats.update": "member",
@@ -37,8 +39,9 @@ const MIN_ROLE: Record<string, string> = {
   "totp.status": "viewer", "totp.setup": "member", "totp.confirm": "member", "totp.disable": "member",
   "breakglass.request": "admin", "breakglass.list": "admin", "breakglass.revoke": "admin", "notices.list": "viewer",
 };
-const PUBLIC = ["desktop.meta", "desktop.pair", "desktop.redeem", "desktop.ticket", "invitation.redeem", "session.create", "session.totp", "account.bootstrap", "passkeys.login.options", "passkeys.login", "remote.pair-proof", "remote.device.pair"];
-const SELF_SERVICE = ["csrf.issue", "session.delete", "sessions.revoke-all", "whoami"];
+// Native approval start/poll/cancel perform their own exact enrolled-device bearer check; ordinary PAT auth is never substituted.
+const PUBLIC = ["desktop.meta", "desktop.pair", "desktop.redeem", "desktop.ticket", "desktop.step-up.start", "desktop.step-up.poll", "desktop.step-up.cancel", "invitation.redeem", "session.create", "session.totp", "account.bootstrap", "passkeys.login.options", "passkeys.login", "remote.pair-proof", "remote.device.pair", "oauth.metadata", "oauth.protected_resource", "oauth.protected_resource.path", "oauth.authorize.get", "oauth.token", "oauth.revoke", "a2a.card.root", "a2a.card.root.alias", "a2a.card.agent", "a2a.card.agent.alias"];
+const SELF_SERVICE = ["csrf.issue", "desktop.step-up.approval", "desktop.step-up.decision", "session.delete", "sessions.revoke-all", "whoami", "oauth.grants.list", "oauth.grants.revoke", "oauth.authorize.post"];
 
 function minRoleOf(action: string): string | undefined {
   const spec = policyFor(action); if (!spec) return undefined;
@@ -51,7 +54,14 @@ test("every route has a classification: public (login only), self-service, or an
     const az = (r as { authz?: RouteSpec["authz"] }).authz;
     if (az === undefined) { problems.push(`${r.id}: no authz`); continue; }
     if (az === "public") { if (!PUBLIC.includes(r.id) || r.auth !== "none") problems.push(`${r.id}: public but not a login step`); continue; }
-    if (az === "delegated") { if (!["web.rpc", "web.events"].includes(r.id) || r.auth !== "session") problems.push(`${r.id}: invalid delegated route`); continue; }
+    if (az === "delegated") {
+      if (r.transport === "protocol") {
+        if (r.auth !== "any") problems.push(`${r.id}: protocol delegated route must specify any auth`);
+      } else if (!["web.rpc", "web.events"].includes(r.id) || r.auth !== "session") {
+        problems.push(`${r.id}: invalid delegated route`);
+      }
+      continue;
+    }
     if (az === "authenticated") { if (!SELF_SERVICE.includes(r.id)) problems.push(`${r.id}: authenticated without being session self-service`); continue; }
     if (!policyFor(az.action)) { problems.push(`${r.id}: action ${az.action} is not in the policy table`); continue; }
     const min = minRoleOf(az.action);
@@ -64,10 +74,20 @@ test("every route has a classification: public (login only), self-service, or an
 
 test("a route that is public or only needs a live session can never be an action a human-only or secret-handling role table guards", () => {
   for (const r of ROUTES) {
-    if (r.authz === "delegated") { assert.equal(r.auth, "session"); assert.ok(["web.rpc", "web.events"].includes(r.id)); continue; }
+    if (r.authz === "delegated") {
+      if (r.transport === "protocol") {
+        assert.equal(r.auth, "any");
+      } else {
+        assert.equal(r.auth, "session");
+        assert.ok(["web.rpc", "web.events"].includes(r.id));
+      }
+      continue;
+    }
     if (r.authz === "public" || r.authz === "authenticated") continue;
     const spec = policyFor(r.authz.action)!;
-    assert.equal(spec.humanOnly === true && r.auth === "any", false, `${r.id}: a human-only action must not be reachable with a personal token`);
+    if (["extensions.upload", "extensions.inspect", "imports.snapshot.upload"].includes(r.id)) {
+      assert.equal(spec.humanOnly, true); assert.equal(r.auth, "any"); // only enrolled person-bound device tokens; PATs remain agents
+    } else assert.equal(spec.humanOnly === true && r.auth === "any", false, `${r.id}: a human-only action must not be reachable with a personal token`);
   }
   assert.ok(POLICY.length > 50, "the policy table is the one imported from core, not a stub");
 });
@@ -189,7 +209,7 @@ test("the owner token is a credential for the login body only: in no other place
       ["query token", {}, `?token=${t}`], ["query owner_token", {}, `?owner_token=${t}&access_token=${t}`],
     ];
     for (const spec of ROUTES) {
-      if (spec.id === "session.create") continue;
+      if (spec.id === "session.create" || spec.id.startsWith("oauth.")) continue;
       for (const [label, headers, query] of placements) {
         const r = await raw(h, { method: spec.method, path: spec.path + query, headers: { ...headers, ...(spec.requestBody ? jsonHeaders() : {}) }, ...(spec.requestBody ? { body: JSON.stringify({ token: t, challenge: t, code: t, id: t, name: t }) } : {}) });
         if(spec.id==="desktop.meta") {

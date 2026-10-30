@@ -1,0 +1,25 @@
+{
+  "params": {
+    "sourceId": "00000000-0000-4000-8000-000000000001"
+  },
+  "result": {
+    "planId": "00000000-0000-4000-8000-000000000001",
+    "runId": "00000000-0000-4000-8000-000000000001",
+    "sourceType": "fixture",
+    "sourceSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "planSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "expiresAt": "2026-10-29T00:00:00Z",
+    "counts": {
+      "agents": 0,
+      "skills": 0,
+      "memories": 0,
+      "stores": 0,
+      "channels": 0,
+      "extensions": 0,
+      "secrets": 0
+    },
+    "conflicts": [],
+    "warnings": [],
+    "requiresSecretOwner": false
+  }
+}

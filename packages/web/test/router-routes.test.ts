@@ -54,4 +54,10 @@ describe("router: hostile paths are not-found", () => {
     assert.equal(resolve("/chat/日本語").kind, "page");
     assert.equal(resolve("/日本語").kind, "not-found");
   });
+
+  test("special routes resolve to their own kinds", () => {
+    assert.equal(resolve("/consent").kind, "consent");
+    assert.equal(resolve("/login").kind, "login");
+    assert.equal(resolve("/join").kind, "join");
+  });
 });

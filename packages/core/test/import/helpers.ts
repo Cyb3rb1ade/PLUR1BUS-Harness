@@ -1,7 +1,7 @@
 // Shared helpers for the new import tests (new file; the existing import tests and fixtures are left alone).
 import { afterEach } from "node:test";
 import { createHash } from "node:crypto";
-import { lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, rmSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -17,11 +17,12 @@ export function mulberry32(seed: number): () => number {
   };
 }
 
-/** mkdtemp directories removed after each test of the calling scope. */
+/** Canonical mkdtemp directories, removed after each test of the calling scope. The native realpath, as the source ports
+ * use it: only that expands Windows short names (RUNNER~1); macOS /var resolves to /private/var either way. */
 export function useTempDirs(): () => string {
   const made: string[] = [];
   afterEach(() => { for (const d of made.splice(0)) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }); });
-  return () => { const d = mkdtempSync(path.join(tmpdir(), "p1b-import-new-")); made.push(d); return d; };
+  return () => { const d = realpathSync.native(mkdtempSync(path.join(tmpdir(), "p1b-import-new-"))); made.push(d); return d; };
 }
 
 /** Names of all own properties of the shared prototypes, to prove a parse did not add or change any. */

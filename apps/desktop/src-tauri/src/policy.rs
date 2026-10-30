@@ -77,6 +77,12 @@ pub fn check_spa_caller(label: &str, current: &Url, conn: &Origin) -> Result<(),
 /// A classified external URL; construction is the only entrance to the OS opener.
 pub struct ExternalUrl(Url);
 impl ExternalUrl {
+    /// Shell-only device approval: a fixed route on an already checked connection, never a renderer-supplied URL.
+    pub fn desktop_approval(origin: &Origin) -> Result<Self, PolicyError> {
+        Url::parse(&format!("{}/#/desktop/approve", origin.as_str()))
+            .map(Self)
+            .map_err(|_| PolicyError)
+    }
     /// Only URLs already classified as external may reach the operating system.
     pub fn classified(proxy: &Origin, conn: &Origin, url: &Url) -> Result<Self, PolicyError> {
         (navigation(proxy, conn, url) == NavDecision::OpenExternal)

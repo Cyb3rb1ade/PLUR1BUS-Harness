@@ -19,6 +19,7 @@ const DoctorPage = lazyPage(() => import("./doctor/page.ts").then((m) => m.Docto
 const AgentsPage = lazyPage(() => import("./agents/page.ts").then((m) => m.AgentsPage));
 const SettingsPage = lazyPage(() => import("./settings/page.ts").then((m) => m.SettingsPage));
 const LogsPage = lazyPage(() => import("./logs/page.ts").then((m) => m.LogsPage));
+const ImportPage = lazyPage(() => import("./import/page.ts").then(m => m.ImportPage));
 const SetupPage = lazyPage(() => import("./setup/page.ts").then((m) => m.SetupPage));
 const SwitchboardPage = lazyPage(() => import("./switchboard/page.ts").then((m) => m.SwitchboardPage));
 const HomePage = lazyPage(() => import("./home/page.ts").then((m) => m.HomePage), "settings");
@@ -29,11 +30,13 @@ const ApprovalsPage = lazyPage(() => import("./approvals/page.ts").then((m) => m
 const BreakglassPage = lazyPage(() => import("./breakglass/page.ts").then((m) => m.BreakglassPage));
 const RecurringPage = lazyPage(() => import("./recurring/page.ts").then((m) => m.RecurringPage));
 const InboxPage = lazyPage(() => import("./inbox/page.ts").then((m) => m.InboxPage));
+const DesktopApprovalPage = lazyPage(() => import("./desktop-approval.ts").then((m) => m.DesktopApprovalPage));
 
 /** Nav item id -> page. A page agent replaces exactly its own line (and adds its import above):
  *   import { MemoriesPage } from "./memories.ts";   ...   memories: MemoriesPage,
  * Pages render inside the shell's <main> and an ErrorBoundary; they own their <h1> (use `Page` from components/page.ts). */
 export const PAGES: Readonly<Record<string, PageComponent>> = {
+  desktop: DesktopApprovalPage,
   home: HomePage,
   chat: ChatPage,
   projects: ProjectsPage,
@@ -45,6 +48,7 @@ export const PAGES: Readonly<Record<string, PageComponent>> = {
   library: LibraryPage,
   skills: ExtensionsPage,
   plugins: ExtensionsPage,
+  extensions: ExtensionsPage,
   models: ModelsPage,
   switchboard: SwitchboardPage,
   recurring: RecurringPage,
@@ -56,6 +60,7 @@ export const PAGES: Readonly<Record<string, PageComponent>> = {
   settings: SettingsPage,
   help: HelpPage,
   setup: SetupPage,
+  import: ImportPage,
 };
 
 declare const __GALLERY__: boolean | undefined;

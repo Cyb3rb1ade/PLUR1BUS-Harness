@@ -18,12 +18,15 @@
 //! Config and module work go through a [`ModuleHost`], so the same code runs in the supervisor (Task 11) and in the
 //! offline CLI ([`OfflineHost`]).
 use super::index::{self, lock_skills, package_entry, ImportLock};
-use super::lifecycle::{capabilities_acknowledged, enable_prechecks, skill_enable_changes};
-use super::overlays::{load_revocations, overlays_of, revoked};
+use super::lifecycle::{
+    capabilities_acknowledged, enable_prechecks, mcp_activation_changes, skill_enable_changes,
+};
+use super::overlays::{load_revocations, revoked};
 use super::paths::ExtPaths;
 use super::record::{
-    allow_internals, check_name, check_unsigned_policy, kind_name, record_path, spool_path,
-    staging_dir, state_invalid, valid_id, InspectionRecord, StagedItem,
+    allow_internals, check_name, check_unsigned_policy, code_dir, config_key, config_section,
+    kind_name, package_staging_dir, record_path, spool_path, staging_dir, state_invalid, valid_id,
+    InspectionRecord, StagedItem,
 };
 use super::state::{
     self, remove_dir_all_retrying, remove_retrying, rename_retrying, write_private_atomic,
@@ -54,6 +57,11 @@ pub const COMMIT_STEPS: [&str; 6] = ["config", "code", "state", "cache", "index"
 /// What an ext mutation needs from whoever owns config.json and the module processes: the supervisor (Task 11) or the
 /// offline CLI ([`OfflineHost`]).
 pub trait ModuleHost {
+    /// A maintenance caller may cancel at transaction boundaries. Rollback itself never consults this port.
+    fn check_cancelled(&self) -> Result<(), ExtError> {
+        Ok(())
+    }
+
     /// The running `config.json` (defaults filled).
     fn config(&self) -> Value;
     /// Applies `changes` as one `config.set` (all or none). A `null` value removes the key (how a rollback restores a
@@ -71,6 +79,29 @@ pub trait ModuleHost {
     fn notify(&mut self, change: Value);
     /// `"supervisor"` or `"offline"` (the audit line's `detail.via`, X1-R32).
     fn via(&self) -> &'static str;
+    /// Holds a packaged module before configuration reconciliation can start newly placed code. A7 resolves the
+    /// actual slot availability through fresh Core metadata; until then declared required slots fail closed.
+    fn hold_for_setup(&mut self, _name: &str) {}
+    /// Fresh names-only availability, shared only within this host's one operation.
+    fn missing_secrets(&mut self, _name: &str, required: &[String]) -> Vec<String> {
+        required.to_vec()
+    }
+    fn hold_runtime(&mut self, _name: &str) -> Result<bool, ExtError> {
+        Ok(false)
+    }
+    fn release_runtime(&mut self, _name: &str) -> Result<(), ExtError> {
+        Ok(())
+    }
+    fn check_secret_store(&mut self) -> Result<(), ExtError> {
+        Err(ExtError::new(
+            "E_NOT_AVAILABLE",
+            "secret-store-unavailable",
+            "the authenticated Core secret store is required to purge declared slots",
+        ))
+    }
+    fn purge_secrets(&mut self, _name: &str, _slots: &[String]) -> Result<(), ExtError> {
+        self.check_secret_store()
+    }
     /// The raw bytes of `config.json` (`Some(None)`: no file) when this host can put them back exactly
     /// ([`ModuleHost::restore_config_bytes`], X1-C14); `None` when a rollback goes through [`ModuleHost::set_config`].
     fn config_bytes(&self) -> Option<Option<Vec<u8>>> {
@@ -99,9 +130,30 @@ pub enum Agents {
 pub struct InstallOpts {
     pub acknowledge: Vec<String>,
     pub enable: Option<Agents>,
+    /// Explicit selected bundle member names; omission selects every declared member.
+    pub members: Option<Vec<String>>,
 }
 
 pub(crate) use super::record::io_err;
+
+/// A Core hold encloses publication and rollback alike. A failed release never changes a successful disk commit
+/// into a rollback; the caller can retry activation after the authenticated Core is reachable again.
+pub(crate) fn with_runtime_hold<T>(
+    host: &mut dyn ModuleHost,
+    name: &str,
+    needed: bool,
+    operation: impl FnOnce(&mut dyn ModuleHost) -> Result<T, ExtError>,
+) -> Result<T, ExtError> {
+    let held = needed && host.hold_runtime(name)?;
+    let result = operation(host);
+    if held && host.release_runtime(name).is_err() {
+        return match result {
+            Ok(_) => Err(ExtError::new("E_NOT_AVAILABLE", "runtime-unavailable", "the package transaction completed, but runtime release could not be confirmed; retry activation")),
+            Err(mut error) => { error.message.push_str("; runtime release could not be confirmed; retry activation"); Err(error) }
+        };
+    }
+    result
+}
 
 pub(crate) fn install_err(e: modinstall::InstallError) -> ExtError {
     let code = if e.is_io() {
@@ -352,7 +404,7 @@ pub(crate) fn copy_atomic(from: &Path, to: &Path) -> Result<(), ExtError> {
 }
 
 /// The re-checks at commit time (the inspection can be up to ten minutes old).
-fn recheck(
+pub(crate) fn recheck(
     layout: &Layout,
     paths: &ExtPaths,
     st: &state::ExtState,
@@ -383,7 +435,7 @@ fn recheck(
 
 fn lower(new: &str, old: &str) -> bool {
     match (semver::Version::parse(new), semver::Version::parse(old)) {
-        (Ok(n), Ok(o)) => n < o,
+        (Ok(n), Ok(o)) => n.cmp_precedence(&o).is_lt(),
         _ => false,
     }
 }
@@ -393,7 +445,7 @@ fn lower(new: &str, old: &str) -> bool {
 /// replaced by one with other capabilities (`widened`). The first missing one is `E_APPROVAL_REQUIRED
 /// acknowledge-<x>` with the inspection in `data` (plus `authority` for the capability disclosure). Returns the
 /// acknowledgments given, deduplicated, for the audit line.
-fn acknowledgments(
+pub(crate) fn acknowledgments(
     rec: &InspectionRecord,
     staged: &StagedItem,
     prev: Option<&ItemRecord>,
@@ -464,7 +516,7 @@ fn acknowledgments(
 
 /// Whether an installed item is enabled now: a skill's index entry (an unindexed folder counts as enabled, X1-R12; an
 /// unreadable index counts as not enabled, X1-C29), a module's `modules.<name>.enabled` (absent means enabled) while
-/// its directory exists.
+/// its directory exists; an MCP server's explicit config flag while its checked package tree exists.
 pub(crate) fn enabled_now(layout: &Layout, cfg: &Value, name: &str, kind: &str) -> bool {
     let idx = if kind == "skill" {
         index::read_index(layout).ok()
@@ -490,6 +542,8 @@ pub(crate) fn enabled_in(
             Some(e) => e["enabled"] == true,
             None => layout.skills().join(name).is_dir(),
         }
+    } else if kind == "mcp-server" {
+        code_dir(layout, name, kind).is_dir() && cfg["mcp"]["servers"][name]["enabled"] == true
     } else {
         modinstall::installed_dir(layout, name).is_some()
             && cfg["modules"][name]["enabled"] != false
@@ -594,8 +648,18 @@ fn commit_and_clean(
     let paths = ExtPaths::of(layout);
     // Derived from the inspection, never from the staged item's own paths (the worker's answer).
     let staging = derived_staging(layout, rec);
+    let children: Vec<PathBuf> = staged
+        .members
+        .iter()
+        .filter_map(|m| derived_staging(layout, &m.inspection))
+        .collect();
     KILLED.store(false, Ordering::SeqCst);
     let result = match locked {
+        Ok(()) if super::bundle_transaction::pending(layout) => Err(ExtError::new(
+            "E_STORAGE",
+            "state-invalid",
+            "an interrupted bundle transaction requires recovery before another extension change",
+        )),
         Ok(()) => commit_locked(layout, &paths, host, rec, staged, opts),
         Err(e) => Err(e.clone()),
     };
@@ -604,6 +668,9 @@ fn commit_and_clean(
         return result;
     }
     // The staging directory is spent whichever way it went (a refusal must leave `extensions/` as it was).
+    for child in children {
+        let _ = remove_dir_all_retrying(&child);
+    }
     if let Some(d) = staging {
         let _ = remove_dir_all_retrying(&d);
         let _ = fs::remove_dir(&paths.staging);
@@ -617,22 +684,54 @@ fn commit_and_clean(
     result
 }
 
-fn commit_locked(
+/// The worker's answer is bound to a known inspection and derived staging tree before anything is moved.
+pub(crate) fn validate_staged(
     layout: &Layout,
-    paths: &ExtPaths,
-    host: &mut dyn ModuleHost,
     rec: &InspectionRecord,
-    staged: StagedItem,
-    opts: &InstallOpts,
-) -> Result<Value, ExtError> {
-    if !matches!(staged.kind, Kind::Skill | Kind::Module | Kind::Channel) {
+    staged: &StagedItem,
+    expected_package: &Path,
+) -> Result<(), ExtError> {
+    if !matches!(
+        staged.kind,
+        Kind::Skill | Kind::Module | Kind::Channel | Kind::McpServer | Kind::Bundle
+    ) {
         return Err(ExtError::new(
             "E_NOT_AVAILABLE",
             "kind-unsupported",
             format!("{} packages arrive in X2", kind_name(staged.kind)),
         ));
     }
-    if staged.record.package_sha256 != rec.sha256 || rec.manifest["name"] != staged.name.as_str() {
+    let required: Vec<String> = rec.capabilities["secrets"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|slot| slot["required"] == true)
+        .filter_map(|slot| slot["slot"].as_str().map(str::to_string))
+        .collect();
+    let files_match = rec.manifest["files"].as_object().is_some_and(|files| {
+        files.len() == staged.record.files.len()
+            && staged.record.files.iter().all(|(path, file)| {
+                let declared = &rec.manifest["files"][format!("payload/{path}")];
+                declared["sha256"].as_str() == Some(file.sha256.as_str())
+                    && declared["size"].as_u64() == Some(file.size)
+                    && declared["exec"].as_bool().unwrap_or(false) == file.exec
+            })
+    });
+    if staged.record.name != staged.name
+        || staged.record.kind != rec.manifest["kind"].as_str().unwrap_or("")
+        || !files_match
+        || staged.record.id != rec.manifest["id"].as_str().unwrap_or("")
+        || staged.record.capabilities != rec.capabilities
+        || staged.record.required_secrets != required
+        || staged.record.trust != rec.trust["tier"].as_str().unwrap_or("unsigned")
+        || staged.record.key_id.as_deref() != rec.trust["keyId"].as_str()
+        || staged.record.package_sha256 != rec.sha256
+        || rec.manifest["name"] != staged.name.as_str()
+        || rec.manifest["version"] != staged.record.version.as_str()
+        || staged.record.kind != kind_name(staged.kind)
+        || (staged.kind == Kind::McpServer
+            && !super::packages::valid_version(&staged.record.version))
+    {
         return Err(ExtError::new(
             "E_INTERNAL",
             "worker-failed",
@@ -641,16 +740,54 @@ fn commit_locked(
     }
     // The staged item's paths come from the worker's answer: they must be exactly the ones derived from the inspection
     // (`extensions/staging/<name>-<id>/payload`, `run/inspect/<id>.p1x`), else nothing is moved.
-    let derived = derived_staging(layout, rec).map(|d| d.join("payload"));
-    if derived.as_deref() != Some(staged.dir.as_path())
-        || staged.package != spool_path(layout, &rec.inspection_id)
-    {
+    let derived = derived_staging(layout, rec).map(|d| {
+        if staged.kind == Kind::McpServer {
+            package_staging_dir(
+                layout,
+                &staged.name,
+                &staged.record.version,
+                &rec.inspection_id,
+            )
+        } else {
+            d.join("payload")
+        }
+    });
+    if derived.as_deref() != Some(staged.dir.as_path()) || staged.package != expected_package {
         return Err(ExtError::new(
             "E_INTERNAL",
             "worker-failed",
             "the staged item names paths other than this inspection's staging directory and package",
         ));
     }
+    Ok(())
+}
+
+fn commit_locked(
+    layout: &Layout,
+    paths: &ExtPaths,
+    host: &mut dyn ModuleHost,
+    rec: &InspectionRecord,
+    staged: StagedItem,
+    opts: &InstallOpts,
+) -> Result<Value, ExtError> {
+    host.check_cancelled()?;
+    validate_staged(
+        layout,
+        rec,
+        &staged,
+        &spool_path(layout, &rec.inspection_id),
+    )?;
+    if staged.kind == Kind::Bundle {
+        return super::bundle_commit::install(layout, host, rec, staged, opts);
+    }
+    if opts.members.is_some() {
+        return Err(ExtError::new(
+            "E_INVALID_PARAMS",
+            "package-invalid",
+            "member selection applies only to a bundle",
+        ));
+    }
+    super::bundle_lifecycle::check_independent_update(layout, &staged.name)?;
     let name = staged.name.clone();
     let kind = kind_name(staged.kind);
     let cfg = host.config();
@@ -681,106 +818,169 @@ fn commit_locked(
     let st = state::read(paths).map_err(state_invalid)?;
     let prev = st.items.get(&name).cloned();
     recheck(layout, paths, &st, &staged, &cfg)?;
+    if staged.kind == Kind::McpServer {
+        check_mcp_destination(layout, paths, prev.as_ref(), &staged.record)?;
+    }
     let prev_enabled = prev.is_some() && enabled_now(layout, &cfg, &name, kind);
     // X1-C12, with the comparison `ext.enable` uses: the new capabilities against the acknowledged hash.
     let widened = prev_enabled
         && prev.as_ref().is_some_and(|p| {
             !capabilities_acknowledged(&staged.record.capabilities, p.capabilities_ack.as_deref())
         });
-    let acknowledged = acknowledgments(rec, &staged, prev.as_ref(), widened, opts)?;
-    if let Some(agents) = &opts.enable {
-        enable_prechecks(&name, kind, &staged.record.required_secrets, &cfg, agents)?;
+    let first_party = staged.record.trust == "first-party";
+    let mut effective = opts.clone();
+    if first_party {
+        // Mv2 decision 3: the trusted signing tier installs active for every agent. Capability widening and
+        // downgrades still require their existing explicit acknowledgments.
+        effective.enable = Some(Agents::All);
+        if !widened && !effective.acknowledge.iter().any(|a| a == "capabilities") {
+            effective.acknowledge.push("capabilities".into());
+        }
     }
-    // Every refusal and the no-op are behind us: the first write (X1-C16).
-    super::remove::prune_for(layout, &cfg);
+    let acknowledged = acknowledgments(rec, &staged, prev.as_ref(), widened, &effective)?;
+    let missing = host.missing_secrets(&name, &staged.record.required_secrets);
+    if let Some(agents) = &opts.enable {
+        let required = if first_party { &[][..] } else { &missing };
+        enable_prechecks(&name, kind, required, &cfg, agents)?;
+    }
+    // Never let module.install restart new code against the previous record's secret declarations. The hold is
+    // refreshed from the newly committed record, including the zero-slot case, after the transaction finishes.
+    if matches!(staged.kind, Kind::Module | Kind::Channel) {
+        host.hold_for_setup(&name);
+    }
+    with_runtime_hold(host, &name, staged.kind == Kind::McpServer, |host| {
+        // Every refusal and the no-op are behind us: the first write (X1-C16).
+        super::remove::prune_for(layout, &cfg);
 
-    let mut rb = Rollback::default();
-    let ctx = Ctx {
-        layout,
-        paths,
-        rec,
-        staged: &staged,
-        prev: prev.as_ref(),
-        prev_enabled,
-        widened,
-        prev_index: if staged.kind == Kind::Skill {
-            index::read_index(layout)?.entry(&name).cloned()
-        } else {
-            None
-        },
-        st: &st,
-        cfg: &cfg,
-        opts,
-    };
-    let (record, state_name) = match run_steps(&ctx, host, &mut rb) {
-        Ok(x) => x,
-        Err(mut e) => {
-            if KILLED.load(Ordering::SeqCst) {
-                drop(rb); // a killed process undoes nothing
+        let mut rb = Rollback::default();
+        let ctx = Ctx {
+            layout,
+            paths,
+            rec,
+            staged: &staged,
+            prev: prev.as_ref(),
+            prev_enabled,
+            widened,
+            prev_index: if staged.kind == Kind::Skill {
+                index::read_index(layout)?.entry(&name).cloned()
+            } else {
+                None
+            },
+            st: &st,
+            cfg: &cfg,
+            opts: &effective,
+        };
+        let (record, state_name) = match run_steps(&ctx, host, &mut rb) {
+            Ok(x) => x,
+            Err(mut e) => {
+                if KILLED.load(Ordering::SeqCst) {
+                    drop(rb); // a killed process undoes nothing
+                    return Err(e);
+                }
+                let failed = rb.run(host);
+                if !failed.is_empty() {
+                    e.message = format!(
+                        "{}; the rollback also failed: {}",
+                        e.message,
+                        failed.join("; ")
+                    );
+                }
                 return Err(e);
             }
-            let failed = rb.run(host);
-            if !failed.is_empty() {
-                e.message = format!(
-                    "{}; the rollback also failed: {}",
-                    e.message,
-                    failed.join("; ")
-                );
-            }
-            return Err(e);
-        }
-    };
-    let replaced = prev.is_some();
+        };
+        let replaced = prev.is_some();
 
-    let detail = json!({
-        "id": record.id, "version": record.version, "kind": kind, "sha256": record.package_sha256,
-        "trust": record.trust, "keyId": record.key_id, "acknowledged": acknowledged, "replaced": replaced,
-        "via": host.via(),
-    });
-    if let Err(e) = crate::audit::append(layout, "ext.install", &name, detail) {
-        eprintln!("plur1bus: warning: cannot write the audit line for ext.install {name}: {e}");
-    }
-    let overlays = overlays_of(
-        &record,
-        &super::host::host_facts(),
-        &load_revocations(paths),
-        rec.manifest.get("compat"),
-    );
-    host.notify(json!({
+        let detail = json!({
+            "id": record.id, "version": record.version, "kind": kind, "sha256": record.package_sha256,
+            "trust": record.trust, "keyId": record.key_id, "acknowledged": acknowledged, "replaced": replaced,
+            "via": host.via(),
+        });
+        if let Err(e) = crate::audit::append(layout, "ext.install", &name, detail) {
+            eprintln!("plur1bus: warning: cannot write the audit line for ext.install {name}: {e}");
+        }
+        let overlays = super::overlays::overlays_with_missing(
+            &record,
+            &super::host::host_facts(),
+            &load_revocations(paths),
+            rec.manifest.get("compat"),
+            &missing,
+        );
+        host.notify(json!({
         "name": name, "kind": kind, "state": state_name, "version": record.version, "overlays": overlays
     }));
-    Ok(json!({
-        "name": name, "version": record.version, "kind": kind, "replaced": replaced, "state": state_name
-    }))
+        Ok(json!({
+            "name": name, "version": record.version, "kind": kind, "replaced": replaced, "state": state_name
+        }))
+    })
+}
+
+pub(crate) fn check_mcp_destination(
+    layout: &Layout,
+    paths: &ExtPaths,
+    prev: Option<&ItemRecord>,
+    record: &ItemRecord,
+) -> Result<(), ExtError> {
+    for path in [&paths.mcp, &paths.mcp.join(&record.name)] {
+        if fs::symlink_metadata(path).is_ok_and(|m| !m.is_dir() || m.file_type().is_symlink()) {
+            return Err(ExtError::new(
+                "E_CONFLICT",
+                "version-conflict",
+                "the MCP destination is not a plain directory",
+            ));
+        }
+    }
+    if let Some(version) = prev.as_ref().and_then(|r| r.versions.get(&record.version)) {
+        if version.package_sha256 != record.package_sha256 {
+            return Err(ExtError::new("E_CONFLICT", "version-conflict", "this immutable MCP version already contains different package bytes; publish a new version"));
+        }
+        // Reactivating retained code never repairs it silently from the inspected package.
+        if !super::overlays::rehash(layout, record).ok {
+            return Err(ExtError::new(
+                "E_NOT_AVAILABLE",
+                "tampered",
+                "the retained MCP version no longer matches its verified package",
+            ));
+        }
+    } else if super::record::active_code_dir(layout, record).exists() {
+        return Err(ExtError::new(
+            "E_CONFLICT",
+            "version-conflict",
+            "an unrecorded MCP version already occupies this destination",
+        ));
+    }
+    Ok(())
 }
 
 /// What the steps read.
-struct Ctx<'c> {
-    layout: &'c Layout,
-    paths: &'c ExtPaths,
-    rec: &'c InspectionRecord,
-    staged: &'c StagedItem,
-    prev: Option<&'c ItemRecord>,
+pub(crate) struct Ctx<'c> {
+    pub(crate) layout: &'c Layout,
+    pub(crate) paths: &'c ExtPaths,
+    pub(crate) rec: &'c InspectionRecord,
+    pub(crate) staged: &'c StagedItem,
+    pub(crate) prev: Option<&'c ItemRecord>,
     /// The replaced item is enabled now (X1-C9 keeps it so).
-    prev_enabled: bool,
+    pub(crate) prev_enabled: bool,
     /// ... and its capabilities change, which the person acknowledged (X1-C12).
-    widened: bool,
+    pub(crate) widened: bool,
     /// The skill's index entry as it was when the commit started (for the trash's `record.json`).
-    prev_index: Option<Value>,
-    st: &'c state::ExtState,
-    cfg: &'c Value,
-    opts: &'c InstallOpts,
+    pub(crate) prev_index: Option<Value>,
+    pub(crate) st: &'c state::ExtState,
+    pub(crate) cfg: &'c Value,
+    pub(crate) opts: &'c InstallOpts,
 }
 
 /// The steps of [`COMMIT_STEPS`], each registering its undo in `rb`. Returns the written record and the final state.
-fn run_steps<'a>(
-    c: &Ctx<'a>,
+pub(crate) fn run_steps(
+    c: &Ctx<'_>,
     host: &mut dyn ModuleHost,
-    rb: &mut Rollback<'a>,
+    rb: &mut Rollback<'_>,
 ) -> Result<(ItemRecord, &'static str), ExtError> {
+    host.check_cancelled()?;
     let (layout, paths, staged) = (c.layout, c.paths, c.staged);
     let name = staged.name.clone();
     let is_skill = staged.kind == Kind::Skill;
+    let is_mcp = staged.kind == Kind::McpServer;
+    let is_bundle = staged.kind == Kind::Bundle;
     let now = now_iso();
 
     // The record the steps write: a replacement keeps the acknowledged capability hash (a widened set needs a new
@@ -794,22 +994,32 @@ fn run_steps<'a>(
         c.prev.and_then(|p| p.capabilities_ack.clone())
     };
     record.integrity = None;
+    if is_mcp {
+        record.active_version = Some(record.version.clone());
+        record.versions = c.prev.map(|r| r.versions.clone()).unwrap_or_default();
+        record.versions.insert(
+            record.version.clone(),
+            state::McpVersionRecord::from(&record),
+        );
+    }
 
-    // config: a fresh module is installed disabled. A replacement keeps its enable state (X1-C9).
-    if !is_skill {
+    // config: a fresh module or MCP server is installed disabled. A replacement keeps its enable state (X1-C9).
+    if !is_skill && !is_bundle {
         if c.prev.is_none() {
-            let section = c.cfg["modules"].get(&name).cloned().unwrap_or(Value::Null);
+            let section = config_section(c.cfg, &name, &record.kind);
+            let key = config_key(&name, &record.kind);
             if section.get("enabled") != Some(&json!(false)) {
                 config_change(
                     host,
                     "config",
-                    vec![(format!("modules.{name}.enabled"), json!(false))],
-                    vec![(format!("modules.{name}"), section)],
+                    vec![(format!("{key}.enabled"), json!(false))],
+                    vec![(key, section)],
                     rb,
                 )?;
             }
         }
         fail_at("config")?;
+        host.check_cancelled()?;
     }
 
     // code, for a skill: the index entry first, disabled, with `package` set (X1-C10).
@@ -829,14 +1039,15 @@ fn run_steps<'a>(
         index::write_index(layout, &idx).map_err(|e| io_err("cannot write", &ipath, e))?;
         rb.push("code", restore_file(ipath.clone(), before));
         fail_at("code.index")?;
+        host.check_cancelled()?;
     }
 
     // code: a replaced item's code goes into the trash first (X1-R19), then the new code into place.
-    if let Some(old) = c.prev {
+    if let Some(old) = c.prev.filter(|_| !is_mcp) {
         let tdir = new_trash_entry(c, old, &now, rb)?;
         let code = tdir.join("code");
-        if is_skill {
-            let dir = layout.skills().join(&name);
+        if is_skill || is_mcp || is_bundle {
+            let dir = code_dir(layout, &name, &record.kind);
             if fs::symlink_metadata(&dir).is_ok() {
                 rename_retrying(&dir, &code)
                     .map_err(|e| io_err("cannot move to the trash", &dir, e))?;
@@ -847,12 +1058,33 @@ fn run_steps<'a>(
         // Its package follows the code (a kill in between: `ext::recover` puts both back, X1-C15).
         package_into_trash(paths, &old.package_sha256, &tdir, "code", rb)?;
         fail_at("code.trash")?;
+        host.check_cancelled()?;
     }
     // From here a kill can leave the new code under its final name without its record: the mark tells
     // `ext::recover` to finish the install (the record is there) or to remove that code (it is not).
-    write_commit_mark(staged, &c.rec.inspection_id)?;
-    if is_skill {
-        let dest = layout.skills().join(&name);
+    write_commit_mark(layout, staged, &c.rec.inspection_id)?;
+    if is_mcp {
+        let dest = super::record::active_code_dir(layout, &record);
+        if !dest.exists() {
+            ensure_dir(&paths.mcp, "code", rb)?;
+            ensure_dir(&paths.mcp.join(&name), "code", rb)?;
+            // Same whole-tree transaction primitive as worker preparation; activation is the later atomic state write.
+            let mut tx = super::packages::Txn::default();
+            tx.place(&staged.dir, &dest)?;
+            rb.push("code", move |_| {
+                let failures = tx.rollback();
+                if failures.is_empty() {
+                    Ok(())
+                } else {
+                    Err(failures.join("; "))
+                }
+            });
+        }
+    } else if is_skill || is_bundle {
+        let dest = code_dir(layout, &name, &record.kind);
+        if let Some(parent) = dest.parent() {
+            ensure_dir(parent, "code", rb)?;
+        }
         rename_retrying(&staged.dir, &dest)
             .map_err(|e| io_err("cannot move into place", &staged.dir, e))?;
         rb.push("code", move |_| {
@@ -874,6 +1106,7 @@ fn run_steps<'a>(
         });
     }
     fail_at("code")?;
+    host.check_cancelled()?;
 
     // state: the package record.
     let mut next = c.st.clone();
@@ -883,6 +1116,7 @@ fn run_steps<'a>(
     state::write(paths, &next).map_err(|e| io_err("cannot write", &paths.state, e))?;
     rb.push("state", restore_file(paths.state.clone(), before));
     fail_at("state")?;
+    host.check_cancelled()?;
 
     // cache: the package bytes, and what the inspection derived from them (X1-R2: `ext.show` reads this, never the
     // package). Trust lives in the record.
@@ -901,7 +1135,10 @@ fn run_steps<'a>(
     }
     let meta = paths.cached_meta(&c.rec.sha256);
     if !meta.is_file() {
-        let body = json!({ "manifest": c.rec.manifest, "scripts": c.rec.scripts });
+        let mut body = json!({ "manifest": c.rec.manifest, "scripts": c.rec.scripts });
+        if is_bundle {
+            body["members"] = json!(c.rec.members);
+        }
         let mut text = serde_json::to_string_pretty(&body).unwrap_or_default();
         text.push('\n');
         write_private_atomic(&meta, text.as_bytes())
@@ -911,6 +1148,7 @@ fn run_steps<'a>(
         });
     }
     fail_at("cache")?;
+    host.check_cancelled()?;
 
     // index (skills): the final entry; a replacement keeps `enabled` (X1-C9).
     let mut state_name = if !is_skill && c.prev.is_some() && c.prev_enabled {
@@ -928,17 +1166,24 @@ fn run_steps<'a>(
             state_name = "enabled";
         }
         fail_at("index")?;
+        host.check_cancelled()?;
     }
 
     // enable (only when asked): the same writes as `ext.enable`, recorded with the acknowledged capability hash.
     if let Some(agents) = &c.opts.enable {
         enable_now(c, host, agents, &mut record, rb)?;
-        state_name = "enabled";
+        state_name = if enabled_now(layout, &host.config(), &name, &record.kind) {
+            "enabled"
+        } else {
+            "installed"
+        };
         fail_at("enable")?;
+        host.check_cancelled()?;
     }
 
     // `data/ext/<name>/` (X1-R31); kept if an earlier install left it.
     ensure_dir(&layout.ext_data(&name), "data", rb)?;
+    host.check_cancelled()?;
     Ok((record, state_name))
 }
 
@@ -956,17 +1201,26 @@ pub(crate) struct CommitMark {
     pub kind: String,
     pub sha256: String,
     pub inspection_id: String,
+    #[serde(default)]
+    pub version: Option<String>,
+    #[serde(default)]
+    pub version_preexisting: bool,
 }
 
-fn write_commit_mark(staged: &StagedItem, inspection_id: &str) -> Result<(), ExtError> {
-    let Some(dir) = staged.dir.parent() else {
-        return Ok(());
-    };
+fn write_commit_mark(
+    layout: &Layout,
+    staged: &StagedItem,
+    inspection_id: &str,
+) -> Result<(), ExtError> {
+    let dir = staging_dir(layout, &staged.name, inspection_id);
     let mark = CommitMark {
         name: staged.name.clone(),
         kind: kind_name(staged.kind).to_string(),
         sha256: staged.record.package_sha256.clone(),
         inspection_id: inspection_id.to_string(),
+        version: (staged.kind == Kind::McpServer).then(|| staged.record.version.clone()),
+        version_preexisting: staged.kind == Kind::McpServer
+            && super::record::active_code_dir(layout, &staged.record).exists(),
     };
     let path = dir.join(COMMIT_MARK);
     let text = serde_json::to_vec(&mark).unwrap_or_default();
@@ -1016,15 +1270,16 @@ pub(crate) fn build_trash_entry(
 /// Builds the trash entry of a replaced item ([`build_trash_entry`]) and registers its one undo: put `code/` back
 /// where it came from if it is there, and remove the entry only once that worked. A failed restore keeps the entry, so
 /// no code is lost. The caller then moves the old code to `<trashId>/code`.
-fn new_trash_entry<'a>(
-    c: &Ctx<'a>,
+fn new_trash_entry(
+    c: &Ctx<'_>,
     old: &ItemRecord,
     now: &str,
-    rb: &mut Rollback<'a>,
+    rb: &mut Rollback<'_>,
 ) -> Result<PathBuf, ExtError> {
     let (layout, paths) = (c.layout, c.paths);
     let name = old.name.clone();
     let is_skill = old.kind == "skill";
+    let kind = old.kind.clone();
     ensure_dir(&paths.trash, "code", rb)?;
     // The entry as it stood before this commit (the code step has already rewritten a skill's entry).
     let old_index = if is_skill { c.prev_index.clone() } else { None };
@@ -1034,8 +1289,9 @@ fn new_trash_entry<'a>(
     });
     let (_, tdir) = build_trash_entry(paths, &name, &old.version, now, &body, &[])?;
     let t = tdir.clone();
+    let layout = layout.clone();
     rb.push("code", move |h| {
-        put_code_back(layout, h, is_skill, &name, &t.join("code"))?;
+        put_code_back(&layout, h, &kind, &name, &t.join("code"))?;
         remove_dir_all_retrying(&t).map_err(|e| format!("{}: {e}", t.display()))
     });
     Ok(tdir)
@@ -1047,7 +1303,7 @@ fn new_trash_entry<'a>(
 pub(crate) fn put_code_back(
     layout: &Layout,
     host: &mut dyn ModuleHost,
-    is_skill: bool,
+    kind: &str,
     name: &str,
     code: &Path,
 ) -> Result<(), String> {
@@ -1060,8 +1316,8 @@ pub(crate) fn put_code_back(
             code.display()
         )
     };
-    if is_skill {
-        let dir = layout.skills().join(name);
+    if matches!(kind, "skill" | "mcp-server" | "bundle") {
+        let dir = code_dir(layout, name, kind);
         rename_retrying(code, &dir).map_err(|e| stays(&e))
     } else {
         let s = modinstall::stage(layout, code).map_err(|e| stays(&e))?;
@@ -1073,12 +1329,12 @@ pub(crate) fn put_code_back(
 /// and every agent's `blocked` list, a module's `modules.<name>.enabled` (the order of `ext.enable`: a kill in between
 /// leaves an acknowledged item disabled, never an enabled one without its acknowledgment). Task 8's `ext.enable` owns
 /// the same semantics for installed items.
-fn enable_now<'a>(
-    c: &Ctx<'a>,
+fn enable_now(
+    c: &Ctx<'_>,
     host: &mut dyn ModuleHost,
     agents: &Agents,
     record: &mut ItemRecord,
-    rb: &mut Rollback<'a>,
+    rb: &mut Rollback<'_>,
 ) -> Result<(), ExtError> {
     let (layout, paths) = (c.layout, c.paths);
     let name = c.staged.name.as_str();
@@ -1089,6 +1345,7 @@ fn enable_now<'a>(
     state::write(paths, &st).map_err(|e| io_err("cannot write", &paths.state, e))?;
     rb.push("enable", restore_file(paths.state.clone(), before));
     fail_at("enable.state")?;
+    host.check_cancelled()?;
 
     let cfg = host.config();
     if c.staged.kind == Kind::Skill {
@@ -1103,13 +1360,19 @@ fn enable_now<'a>(
         if !changes.is_empty() {
             config_change(host, "enable", changes, restore, rb)?;
         }
+    } else if c.staged.kind == Kind::McpServer {
+        let (changes, restore, _) = mcp_activation_changes(&cfg, name, agents, true);
+        if !changes.is_empty() {
+            config_change(host, "enable", changes, restore, rb)?;
+        }
     } else {
-        let section = cfg["modules"].get(name).cloned().unwrap_or(Value::Null);
+        let section = config_section(&cfg, name, &record.kind);
+        let key = config_key(name, &record.kind);
         config_change(
             host,
             "enable",
-            vec![(format!("modules.{name}.enabled"), json!(true))],
-            vec![(format!("modules.{name}"), section)],
+            vec![(format!("{key}.enabled"), json!(true))],
+            vec![(key, section)],
             rb,
         )?;
     }
@@ -1124,6 +1387,7 @@ fn enable_now<'a>(
 pub struct OfflineHost<'a> {
     layout: &'a Layout,
     pub notified: Vec<Value>,
+    presence: super::runtime::OperationPresence,
 }
 
 impl<'a> OfflineHost<'a> {
@@ -1131,6 +1395,7 @@ impl<'a> OfflineHost<'a> {
         OfflineHost {
             layout,
             notified: Vec::new(),
+            presence: Default::default(),
         }
     }
 }
@@ -1187,6 +1452,21 @@ pub(crate) fn apply_changes(
 }
 
 impl ModuleHost for OfflineHost<'_> {
+    fn check_secret_store(&mut self) -> Result<(), ExtError> {
+        self.presence.require_store(self.layout)
+    }
+    fn purge_secrets(&mut self, name: &str, slots: &[String]) -> Result<(), ExtError> {
+        super::runtime::delete_declared(self.layout, name, slots)
+    }
+    fn hold_runtime(&mut self, name: &str) -> Result<bool, ExtError> {
+        super::runtime::hold(self.layout, name)
+    }
+    fn release_runtime(&mut self, name: &str) -> Result<(), ExtError> {
+        super::runtime::release(self.layout, name)
+    }
+    fn missing_secrets(&mut self, name: &str, required: &[String]) -> Vec<String> {
+        self.presence.missing(self.layout, name, required)
+    }
     fn config(&self) -> Value {
         plur1bus_config::read(&self.layout.config_path()).unwrap_or(Value::Null)
     }

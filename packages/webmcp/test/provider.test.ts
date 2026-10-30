@@ -54,9 +54,14 @@ describe("tool naming and selection", () => {
 
   it("admin methods are never offered as WebMCP tools", () => {
     const admin = (Object.keys(caps.methods)).filter((m) => m.startsWith("admin."));
-    assert.equal(admin.length, 22, `the core advertises the admin.* methods: ${admin.join(", ")}`);
+    assert.equal(admin.length, 48, `the core advertises the admin.* methods: ${admin.join(", ")}`);
     assert.ok(admin.includes("admin.engine.test"));
     assert.ok(admin.includes("admin.embedding.check"));
+    // RPC 1.8: the import, SSH source and extension setup methods are person-only like every other admin.* method.
+    for (const m of ["admin.import.detect", "admin.import.plan", "admin.import.preflight", "admin.import.skills", "admin.import.wsl.list",
+      "admin.import.runtime.release", "admin.import.ssh.key.generate", "admin.import.ssh.hostKey.trust", "admin.import.ssh.connections.set",
+      "admin.extensions.setup.set", "admin.extensions.auth.submit", "admin.extensions.runtime.hold"])
+      assert.ok(admin.includes(m), m);
     // Even when the handshake calls them stable and core-served and the page names them in include (D55).
     const fakeCaps = { methods: { ...caps.methods } as Record<string, any> };
     const fakeSchema = structuredClone(SCHEMA) as any;

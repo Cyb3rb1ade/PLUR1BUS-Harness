@@ -7,6 +7,7 @@ import { createCallBudget, type CallBudgetEvent } from '../../src/budget/index.t
 import { ToolRegistry } from '../../src/tools/registry.ts';
 import { createTurnProvider } from '../../src/composition/provider.ts';
 import type { StreamingAdapter, ChatRequest as WireRequest } from '../../../providers/src/index.ts';
+import type { ToolFailure } from '../../src/tools/dispatcher.ts';
 import type { ChatRequest, ChatChunk } from '../../src/session/provider.ts';
 
 const usage = { inputTokens: 100, outputTokens: 10, cachedInputTokens: 95 };
@@ -22,6 +23,11 @@ async function fixture(adapter: StreamingAdapter, extra: Partial<Parameters<type
   return { provider, budget, budgetEvents, registry, logs, home, close: async () => { budget.close(); await rm(home, { recursive: true, force: true }); } };
 }
 async function collect(provider: ReturnType<typeof createTurnProvider>, request = req()) { const chunks: ChatChunk[] = []; for await (const c of provider.stream(request)) chunks.push(c); return chunks; }
+
+const toolFailures = (chunks: ChatChunk[]): ToolFailure[] => chunks
+  .filter(chunk => chunk.type === "tool.result")
+  .map(chunk => JSON.parse(chunk.output) as ToolFailure)
+  .filter(output => output.isError);
 
 test('chat traverses triage, index, prompt, pre-call budget, streaming and usage settlement', async () => {
   let seen: WireRequest | undefined;
@@ -80,7 +86,24 @@ for (const wire of ['chat_completions', 'anthropic_messages', 'codex_responses',
     const w = wireFixture(wire, [{ call: { name: 'file_read', args: { path: 7 } } }, { call: { name: 'file_read', args: { path: success ? 'fixed' : 9 } } }, { text: 'repaired' }]);
     const f = await fixture(wireAdapter(wire, w.fetch), { family: { fixture: family } });
     f.registry.register(fileTool(async () => { runs++; return 'file bytes'; }));
-    try { if (success) { await collect(f.provider); assert.equal(w.calls, 3); assert.equal(runs, 1); } else { await assert.rejects(() => collect(f.provider), { code: 'tool-call-invalid' }); assert.equal(w.calls, 2); assert.equal(runs, 0); } } finally { await f.close(); }
+    try {
+      const chunks = await collect(f.provider);
+      assert.equal(w.calls, 3, "one original call, one repair call and one normal follow-up");
+      assert.equal(runs, success ? 1 : 0);
+      assert.equal(f.budgetEvents.filter(event => event.type === "reserve").length, 3);
+      assert.equal(chunks.filter(chunk => chunk.type === "delta").map(chunk => chunk.text).join(""), "repaired");
+      const failures = toolFailures(chunks);
+      if (success) {
+        assert.deepEqual(failures, []);
+      } else {
+        assert.equal(failures.length, 1);
+        assert.equal(failures[0]!.error.code, "tool-call-invalid");
+        assert.equal(failures[0]!.error.issues?.[0]?.path, "/path");
+        assert.match(failures[0]!.error.hint ?? "", /schema/);
+        assert.equal(failures[0]!.provenance.origin.system, "harness:tools");
+        assert.match(JSON.stringify(w.bodies[2]), /tool-call-invalid/);
+      }
+    } finally { await f.close(); }
   });
 }
 
@@ -97,12 +120,36 @@ test('approval.requested parks, approval.decide resumes and consumes its actual 
   } finally { r.service.dispose(); r.stores.close(); await f.close(); }
 });
 
-test('never policy and headless without a standing grant refuse before execution', async () => {
+test("never policy and headless refusals reach the model three times without execution or approval prompts", async () => {
   for (const headless of [false, true]) {
-    let runs = 0;
-    const f = await fixture({ async *stream() { yield { type: 'done', result: result('', [{ id: 'c1', name: 'file.read', arguments: { path: 'fixture' }, argumentsRaw: '{"path":"fixture"}' }]) }; } }, { policyContext: () => headless ? { headless: { jobId: 'j1' } } : { toolsDeny: ['fs.read'] } });
-    f.registry.register({ ...fileTool(async () => { runs++; return ''; }), classify: () => ({ flags: { outsideRoots: true } }) });
-    try { await assert.rejects(() => collect(f.provider), { code: 'tool-denied' }); assert.equal(runs, 0); } finally { await f.close(); }
+    let runs = 0, calls = 0, prompts = 0;
+    const f = await fixture({ async *stream() {
+      calls++;
+      yield { type: "done", result: result("", [{
+        id: "c1", name: "file.read", arguments: { path: "fixture" }, argumentsRaw: '{"path":"fixture"}',
+      }]) };
+    } }, {
+      policyContext: () => headless ? { headless: { jobId: "j1" } } : { toolsDeny: ["fs.read"] },
+      approval: { async request() { prompts++; return { approved: false }; } },
+    });
+    f.registry.register({ ...fileTool(async () => { runs++; return ""; }),
+      classify: () => ({ flags: { outsideRoots: true } }) });
+    const chunks: ChatChunk[] = [];
+    try {
+      await assert.rejects(async () => {
+        for await (const chunk of f.provider.stream(req())) chunks.push(chunk);
+      }, { code: "turn-tool-error-limit" });
+      assert.equal(runs, 0);
+      assert.equal(prompts, 0);
+      assert.equal(calls, 3);
+      const failures = toolFailures(chunks);
+      assert.equal(failures.length, 3);
+      for (const failure of failures) {
+        assert.equal(failure.error.code, "tool-denied");
+        assert.equal(failure.provenance.origin.system, "harness:tools");
+        assert.equal(failure.provenance.origin.trust, "first-party");
+      }
+    } finally { await f.close(); }
   }
 });
 
@@ -235,10 +282,28 @@ for (const wire of ['chat_completions', 'anthropic_messages', 'codex_responses',
     f.registry.register({ ...fileTool(async () => { runs++; return 'approved bytes'; }), classify: () => ({ flags: { outsideRoots: true } }) });
     try { const pending = collect(f.provider); for (let i = 0; i < 50 && !r.events.some(e => e.name === 'approval.requested'); i++) await tick(); const { id, nonce } = lastNonce(r); assert.equal(runs, 0); assert.equal(w.calls, 1); assert.equal(r.service.decide({ requestId: id, nonce, person: req().principal!, surface: 2, decision: 'approve' }).ok, true); await pending; assert.equal(runs, 1); assert.equal(w.calls, 2); } finally { r.service.dispose(); r.stores.close(); await f.close(); }
   });
-  test(`${wire}: never denies before execution`, async () => {
-    let runs = 0; const w = wireFixture(wire, [{ call: { name: 'file_read', args: { path: 'fixture' } } }]);
-    const f = await fixture(wireAdapter(wire, w.fetch), { family: { fixture: family }, policyContext: () => ({ toolsDeny: ['fs.read'] }) }); f.registry.register(fileTool(async () => { runs++; return ''; }));
-    try { await assert.rejects(() => collect(f.provider), { code: 'tool-denied' }); assert.equal(runs, 0); } finally { await f.close(); }
+  test(`${wire}: a never-denied tool returns typed policy feedback before a normal final response`, async () => {
+    let runs = 0;
+    const w = wireFixture(wire, [
+      { call: { name: "file_read", args: { path: "fixture" } } }, { text: "refusal understood" },
+    ]);
+    const f = await fixture(wireAdapter(wire, w.fetch), {
+      family: { fixture: family }, policyContext: () => ({ toolsDeny: ["fs.read"] }),
+    });
+    f.registry.register(fileTool(async () => { runs++; return ""; }));
+    try {
+      const chunks = await collect(f.provider);
+      assert.equal(runs, 0);
+      assert.equal(w.calls, 2);
+      assert.equal(chunks.filter(chunk => chunk.type === "delta").map(chunk => chunk.text).join(""),
+        "refusal understood");
+      const failures = toolFailures(chunks);
+      assert.equal(failures.length, 1);
+      assert.equal(failures[0]!.error.code, "tool-denied");
+      assert.equal(failures[0]!.provenance.origin.system, "harness:tools");
+      assert.equal(failures[0]!.provenance.origin.trust, "first-party");
+      assert.match(JSON.stringify(w.bodies[1]), /tool-denied/);
+    } finally { await f.close(); }
   });
   test(`${wire}: budget refusal prevents even the HTTP fixture call`, async () => {
     const w = wireFixture(wire, [{ text: 'forbidden' }]); const f = await fixture(wireAdapter(wire, w.fetch), { family: { fixture: family } }); f.budget.setLimit({ scope: 'global', id: '', period: 'day', metric: 'tokens', hard: 0 });
@@ -347,21 +412,35 @@ test('finding 1: a media generate failure releases its reservation; an aborted g
 });
 
 test('finding 2: a denied action re-emitted next turn is repeat-denied without a prompt; the prompt cap refuses the 11th prompt', async () => {
-  const r = await rig(); let prompts = 0; let path = 'outside-0';
+  const r = await rig();
+  let prompts = 0, executions = 0;
+  let path = 'outside-0';
   const f = await fixture(toolOnce('file.read', () => ({ path })), { approval: { async request(ask) { prompts++; const pending = r.service.request(ask); await tick(); const { id, nonce } = lastNonce(r); assert.equal(r.service.decide({ requestId: id, nonce, person: req().principal!, surface: 2, decision: 'deny' }).ok, true); return pending; }, begin: (answer, ask) => r.service.begin(answer, ask) },
     grants: r.stores.grants, grantUse: r.stores.grants, audit: createPolicyAudit({ sink: r.audit, clock: r.clock }), policyContext: approvalPolicyContext({ current: () => ({ service: r.service }) as never }) });
-  f.registry.register({ ...fileTool(), classify: () => ({ flags: { outsideRoots: true } }) });
+  f.registry.register({
+    ...fileTool(async () => { executions++; return 'must not run'; }),
+    classify: () => ({ flags: { outsideRoots: true } }),
+  });
   const rules = () => r.audit.events.filter(e => e.action === 'policy.decision').map(e => String(e.detail.rule));
   try {
     await assert.rejects(() => collect(f.provider, { ...req(), turnId: 't0' }), { code: 'tool-not-approved' });
     assert.equal(prompts, 1);
-    await assert.rejects(() => collect(f.provider, { ...req(), turnId: 't0b' }), { code: 'tool-denied' });
+    const repeated = toolFailures(await collect(f.provider, { ...req(), turnId: 't0b' }));
+    assert.equal(repeated.length, 1);
+    assert.equal(repeated[0]!.error.code, 'tool-denied');
+    assert.match(repeated[0]!.error.message, /fatigue:repeat-denied/);
+    assert.equal(repeated[0]!.provenance.origin.system, 'harness:tools');
     assert.equal(prompts, 1, 'repeat-denied never prompts');
     assert.ok(rules().includes('fatigue:repeat-denied'), rules().join());
     for (let i = 1; i < 10; i++) { path = `outside-${i}`; await assert.rejects(() => collect(f.provider, { ...req(), turnId: `t${i}` }), { code: 'tool-not-approved' }); }
     assert.equal(prompts, 10);
     path = 'outside-10';
-    await assert.rejects(() => collect(f.provider, { ...req(), turnId: 't10' }), { code: 'tool-denied' });
+    const capped = toolFailures(await collect(f.provider, { ...req(), turnId: 't10' }));
+    assert.equal(capped.length, 1);
+    assert.equal(capped[0]!.error.code, 'tool-denied');
+    assert.match(capped[0]!.error.message, /fatigue:prompt-cap/);
+    assert.equal(capped[0]!.provenance.origin.system, 'harness:tools');
+    assert.equal(executions, 0);
     assert.equal(prompts, 10, 'over the cap = refused, not prompted');
     assert.ok(rules().includes('fatigue:prompt-cap'), rules().join());
   } finally { r.service.dispose(); r.stores.close(); await f.close(); }
@@ -442,12 +521,37 @@ test('finding 8: a budget refusal in the repair round stops the turn before any 
 
 test('finding 8: composeTools fs deny-list refuses ~/.ssh/id_ed25519 through the turn dispatcher', async () => {
   const home = await realTempDir('turn-deny-'); const audit = memoryAuditSink(); const target = join(homedir(), '.ssh', 'id_ed25519');
-  const registry = await composeTools({ home, roots: [{ id: 'a1', path: home }], grants: { get: () => undefined, list: () => [] }, audit }, req());
+  const composed = await composeTools({
+    home, roots: [{ id: 'a1', path: home }], grants: { get: () => undefined, list: () => [] }, audit,
+  }, req());
+  let executions = 0;
+  const registry = new ToolRegistry();
+  for (const tool of composed.entries()) {
+    registry.register({ ...tool, async execute(args, context) {
+      if (tool.name === 'file.read') executions++;
+      return tool.execute(args, context);
+    } });
+  }
   const classified = await registry.get('file.read')!.classify!({ path: target });
   assert.equal(classified.flags?.denyListHit, true);
   const policy = memoryAuditSink();
-  const f = await fixture(toolOnce('file.read', () => ({ path: target })), { registry, topK: 128, audit: createPolicyAudit({ sink: policy, clock: { now: Date.now } }), approval: { async request() { throw new Error('a deny-list hit is never asked'); } } });
-  try { await assert.rejects(() => collect(f.provider), { code: 'tool-denied' }); assert.ok(policy.events.some(e => e.action === 'policy.decision' && JSON.stringify(e.detail).includes('deny-list'))); } finally { await f.close(); await rm(home, { recursive: true, force: true }); }
+  let prompted = 0;
+  const f = await fixture(toolOnce('file.read', () => ({ path: target })), {
+    registry, topK: 128, audit: createPolicyAudit({ sink: policy, clock: { now: Date.now } }),
+    approval: { async request() { prompted++; throw new Error('a deny-list hit is never asked'); } },
+  });
+  try {
+    const failures = toolFailures(await collect(f.provider));
+    assert.equal(failures.length, 1);
+    const failure = failures[0]!;
+    assert.equal(failure.error.code, 'tool-denied');
+    assert.equal(failure.provenance.origin.system, 'harness:tools');
+    assert.equal(failure.provenance.origin.trust, 'first-party');
+    assert.equal(prompted, 0);
+    assert.equal(executions, 0);
+    assert.equal(failure.error.message.includes(target), false);
+    assert.ok(policy.events.some(e => e.action === 'policy.decision' && JSON.stringify(e.detail).includes('deny-list')));
+  } finally { await f.close(); await rm(home, { recursive: true, force: true }); }
 });
 
 test('finding 8: exec.run through composition runs an allowlisted program after D109 approval', async () => {

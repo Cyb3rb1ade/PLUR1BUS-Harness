@@ -33,11 +33,7 @@ export interface A2aTurnPort {
   available(): boolean;
 }
 
-const PAUSE_INPUT = /INPUT_REQUIRED/;
-const PAUSE_AUTH = /AUTH_REQUIRED/;
-const REJECT = /\bREJECT\b/;
-
-/** Deterministic ChatProvider wrapper. Special user-text markers drive A2A interrupt/reject states in tests. */
+/** ChatProvider wrapper for A2A turn execution. */
 export function createProviderTurnPort(provider: () => ChatProvider | null): A2aTurnPort {
   const sessions = new Map<string, string>();
   return {
@@ -52,9 +48,6 @@ export function createProviderTurnPort(provider: () => ChatProvider | null): A2a
       return { sessionId };
     },
     async *run(req) {
-      if (PAUSE_INPUT.test(req.text)) { yield { type: "pause", state: "input-required", message: "More information is required." }; return; }
-      if (PAUSE_AUTH.test(req.text)) { yield { type: "pause", state: "auth-required", message: "Authentication is required." }; return; }
-      if (REJECT.test(req.text)) { yield { type: "reject", message: "The agent rejected the task." }; return; }
       const p = provider();
       if (!p) throw Object.assign(new Error("no chat provider is configured"), { code: "no-provider" });
       const it = p.stream({
@@ -106,9 +99,6 @@ export function createSessionTurnPort(o: SessionTurnPortOptions): A2aTurnPort {
       return { sessionId: session.id };
     },
     async *run(req) {
-      if (PAUSE_INPUT.test(req.text)) { yield { type: "pause", state: "input-required", message: "More information is required." }; return; }
-      if (PAUSE_AUTH.test(req.text)) { yield { type: "pause", state: "auth-required", message: "Authentication is required." }; return; }
-      if (REJECT.test(req.text)) { yield { type: "reject", message: "The agent rejected the task." }; return; }
       const session = o.store.getSession(req.sessionId);
       if (!session) throw Object.assign(new Error("session missing"), { code: "no-provider" });
       const caller = callerOf(req.peerId);

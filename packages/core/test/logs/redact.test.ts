@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createRedactor, isSecretKey } from "../../src/logs/redact.ts";
+import { createSecretRedaction, redactProtocolOutput, redactProtocolValue } from "../../src/secrets/index.ts";
 
 const r = createRedactor();
 const SK = "sk-" + "A1b2C3d4E5f6G7h8I9j0K1l2";
@@ -45,7 +46,14 @@ describe("reader-side redaction (D111 section 4)", () => {
   });
   it("PII only when asked; secret registry values (and their encodings) when given", () => {
     assert.equal(r.text("mail a.b@example.test"), "mail a.b@example.test");
+    assert.equal(r.text("pay to DE89370400440532013000 now"), "pay to DE89370400440532013000 now");
+    assert.equal(r.text("card 4111-2222-3333-4444 exp"), "card 4111-2222-3333-4444 exp");
     assert.equal(createRedactor({ pii: true }).text("mail a.b@example.test"), "mail [REDACTED:pii]");
+    assert.equal(createRedactor({ pii: true }).text("pay to DE89370400440532013000 now"), "pay to [REDACTED:pii] now");
+    assert.equal(createRedactor({ pii: true }).text("pay to DE89 3704 0044 0532 0130 00 now"), "pay to [REDACTED:pii] now");
+    assert.equal(createRedactor({ pii: true }).text("card 4111-2222-3333-4444 exp"), "card [REDACTED:pii] exp");
+    assert.equal(createRedactor({ pii: true }).text("card 4111222233334444 exp"), "card [REDACTED:pii] exp");
+    assert.equal(createRedactor({ pii: true }).text("amex 3782-822463-10005"), "amex [REDACTED:pii]");
     const reg = createRedactor({ secrets: ["hunter2hunter2", "short"] });
     const b64 = Buffer.from("hunter2hunter2").toString("base64");
     assert.equal(reg.text(`a hunter2hunter2 b ${b64} c short`), "a [REDACTED:secret] b [REDACTED:secret] c short");
@@ -116,5 +124,38 @@ it("a generated path flood cannot stall redaction", async () => {
       r.text(run);
       assert.ok(Date.now() - t < 500, `took ${Date.now() - t} ms`);
     }
+  });
+
+  it("redactProtocolOutput and redactProtocolValue apply PII only for a2a, secrets for both", () => {
+    const secrets = createSecretRedaction();
+    secrets.register("my-super-secret-token", "agent-token");
+
+    const a2aText = redactProtocolOutput(
+      "IBAN: DE89 3704 0044 0532 0130 00, val: my-super-secret-token",
+      "a2a",
+      secrets,
+    );
+    assert.equal(a2aText, "IBAN: [REDACTED:pii], val: [REDACTED:secret]");
+
+    const mcpText = redactProtocolOutput(
+      "IBAN: DE89 3704 0044 0532 0130 00, val: my-super-secret-token",
+      "mcp",
+      secrets,
+    );
+    assert.equal(mcpText, "IBAN: DE89 3704 0044 0532 0130 00, val: [REDACTED:secret]");
+
+    const a2aVal = redactProtocolValue(
+      { iban: "DE89 3704 0044 0532 0130 00", customVal: "my-super-secret-token" },
+      "a2a",
+      secrets,
+    );
+    assert.deepEqual(a2aVal, { iban: "[REDACTED:pii]", customVal: "[REDACTED:secret]" });
+
+    const mcpVal = redactProtocolValue(
+      { iban: "DE89 3704 0044 0532 0130 00", customVal: "my-super-secret-token" },
+      "mcp",
+      secrets,
+    );
+    assert.deepEqual(mcpVal, { iban: "DE89 3704 0044 0532 0130 00", customVal: "[REDACTED:secret]" });
   });
 });

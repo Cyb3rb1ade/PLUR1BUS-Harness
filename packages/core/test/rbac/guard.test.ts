@@ -8,10 +8,20 @@ import { LOCAL_OWNER, RPC_RULES, guardMethods, type PrincipalResolver } from "..
 import { memoryAuditSink } from "../../src/rbac/audit.ts";
 import { POLICY } from "../../src/rbac/policy.ts";
 import type { Principal, Role } from "../../src/rbac/types.ts";
+import { webEndpoint } from "../../../api/src/rpc-route.ts";
 
 const ctx: CallContext = { requestId: "r1", connectionId: "c1", signal: new AbortController().signal };
 const caller = { channel: "cli", accountId: "a", userId: "u" };
 const SCHEMA = JSON.parse(readFileSync(fileURLToPath(new URL("../../../rpc-schema/schema/rpc.schema.json", import.meta.url)), "utf8"));
+const PRIVATE_IMPORT_RUNTIME = new Map([
+  ["admin.import.runtime.config.set", "supervisor"],
+  ["admin.import.runtime.complete", "core"],
+  ["admin.import.runtime.status", "core"],
+  ["admin.import.runtime.release", "core"],
+] as const);
+/** Called only by the Core over its own supervisor connection after an extension secret changed; never by a person. */
+const PRIVATE_SUPERVISOR_CONTROLS = new Map([["admin.extensions.runtime.reconcile", "supervisor"]] as const);
+const PRIVATE_CONTROLS = new Map<string, string>([...PRIVATE_IMPORT_RUNTIME, ...PRIVATE_SUPERVISOR_CONTROLS]);
 
 const params: Record<string, unknown> = {
   "memory.curation.list": { agentId: "bernd" },
@@ -61,6 +71,9 @@ const params: Record<string, unknown> = {
   "agent.rights.get": { agentId: "bernd" },
   "agent.rights.set": { agentId: "bernd" },
   "memory.forget": { caller, agentId: "bernd", id: "m1" },
+  "memory.sensitivity.get": { id: "m1", agentId: "bernd" },
+  "memory.sensitivity.set": { id: "m1", agentId: "bernd", categories: ["financial"] },
+  "memory.sensitivity.clear": { id: "m1", agentId: "bernd" },
   "agent.status": { agentId: "bernd" },
   "jobs.run": { job: "light", agentId: "bernd" },
   "egress.status": {},
@@ -71,13 +84,19 @@ const params: Record<string, unknown> = {
   "admin.reembed.plan": {}, "admin.reembed.run": {}, "admin.reembed.status": {}, "admin.reembed.abort": {}, "admin.backup.snapshot": {}, "audit.verify": {}, "logs.query": {}, "logs.tail": {}, "logs.levels": {}, "identity.list": {}, "identity.human.create": {}, "identity.link": {}, "identity.unlink": {}, "identity.pair.start": {}, "identity.pair.claim": {}, "identity.pair.confirm": {}, "dreams.run": {}, "dreams.schedule.set": {}, "dreams.enable": {}, "dreams.disable": {}, "dreams.diary": { agentId: "bernd" },
   "grant.list": {}, "grant.get": { id: "grt_1" }, "grant.create": { capability: "fs.write", agent: "bernd", scope: "always" }, "grant.revoke": { id: "grt_1" },
   "approval.list": {}, "approval.get": { id: "apr_1" }, "approval.decide": { id: "apr_1", decision: "approve" }, "approval.cancel": { id: "apr_1" }, "approval.verify": {}, "approval.audit": {},
+  "memory.recall": { caller, agentId: "bernd", query: "q" },
+  "memory.capture": { caller, agentId: "bernd", messages: [{ role: "user", content: "hi" }] },
+  "external.turn.start": { agentId: "bernd", message: "hi", audience: "mcp" },
+  "external.turn.events": { agentId: "bernd", sessionId: "s1" },
+  "external.turn.get": { agentId: "bernd", sessionId: "s1" },
+  "external.turn.cancel": { agentId: "bernd", sessionId: "s1" },
 };
 
 /** Stub handlers for every guarded method; they record that they ran. */
 function stubs(): { handlers: Record<string, Handler>; ran: string[] } {
   const ran: string[] = [];
   const handlers: Record<string, Handler> = {};
-  for (const m of [...Object.keys(RPC_RULES), "memory.recall", "core.status"]) handlers[m] = async () => { ran.push(m); return { ok: m }; };
+  for (const m of [...Object.keys(RPC_RULES), "memory.checkpoint", "core.status"]) handlers[m] = async () => { ran.push(m); return { ok: m }; };
   return { handlers, ran };
 }
 
@@ -93,21 +112,35 @@ const wrap = (resolve: PrincipalResolver, audit = memoryAuditSink()) => {
 };
 
 describe("rpc guard: rules", () => {
-  it("every rule names a real core method and a real policy action", () => {
-    const coreMethods = new Set(Object.entries<any>(findMethods(SCHEMA)).filter(([, v]) => v["x-server"] === "core").map(([k]) => k));
+  it("every shared rule names a real core or supervisor method and a real policy action", () => {
+    const guardedMethods = new Set(Object.entries<any>(findMethods(SCHEMA)).filter(([, v]) => ["core", "supervisor"].includes(v["x-server"])).map(([k]) => k));
     const actions = new Set(POLICY.map((p) => p.action));
     for (const [method, rule] of Object.entries(RPC_RULES)) {
-      assert.ok(coreMethods.has(method), `${method} is not a core RPC method`);
+      assert.ok(guardedMethods.has(method), `${method} is not a core or supervisor RPC method`);
       assert.ok(actions.has(rule.action), `${method} -> unknown action ${rule.action}`);
     }
   });
   it("every surface method is secured", () => {
     for (const name of Object.keys(findMethods(SCHEMA)).filter(n => /^(media|project|collab|identity|auth|channel)\./.test(n))) assert.ok(RPC_RULES[name], name);
   });
-  it("every admin.* method in the schema is guarded (an `admin.*` is never left open)", () => {
+  it("private import runtime and supervisor controls have exact endpoint ownership and no human or Web admission", () => {
+    const methods = findMethods(SCHEMA);
+    assert.deepEqual(Object.keys(methods).filter(method => method.startsWith("admin.import.runtime.")).sort(),
+      [...PRIVATE_IMPORT_RUNTIME.keys()].sort(), "a new private control requires explicit classification");
+    for (const [method, server] of PRIVATE_CONTROLS) {
+      assert.equal(methods[method]?.["x-server"], server, method);
+      assert.equal(Object.hasOwn(RPC_RULES, method), false, `${method} must retain its private handler authority`);
+      assert.equal(webEndpoint(method), null, `${method} cannot cross the Web gateway`);
+    }
+  });
+  it("every human admin method has an explicit rule; private controls retain their separate authority", () => {
     const admin = Object.keys(findMethods(SCHEMA)).filter((m) => m.startsWith("admin."));
     assert.ok(admin.length >= 6);
-    for (const m of admin) assert.ok(RPC_RULES[m], `${m} has no RBAC rule`);
+    for (const m of admin) {
+      if (!PRIVATE_CONTROLS.has(m)) {
+        assert.ok(RPC_RULES[m], `${m} has no RBAC rule`);
+      }
+    }
   });
 });
 
@@ -181,7 +214,7 @@ describe("rpc guard: decisions", () => {
 
   it("methods without a rule are passed through untouched", async () => {
     const { guarded, handlers } = wrap(() => null);
-    assert.equal(guarded["memory.recall"], handlers["memory.recall"]);
+    assert.equal(guarded["memory.checkpoint"], handlers["memory.checkpoint"]);
     assert.equal(guarded["core.status"], handlers["core.status"]);
   });
 

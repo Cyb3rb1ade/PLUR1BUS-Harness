@@ -89,6 +89,7 @@ pub const STOPPED_NEEDS_UNAVAILABLE: &str = "needs-unavailable";
 pub const STOPPED_EXT_REVOKED: &str = "ext-revoked";
 pub const STOPPED_EXT_TAMPERED: &str = "ext-tampered";
 pub const STOPPED_EXT_INCOMPATIBLE: &str = "ext-incompatible";
+pub const STOPPED_EXT_NEEDS_SETUP: &str = "ext-needs-setup";
 
 impl CrashReason {
     pub fn as_str(self) -> &'static str {

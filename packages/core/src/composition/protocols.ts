@@ -1,12 +1,19 @@
-// Shared with package P. NULL origin is an internal harness session.
 import type { SubjectKind } from "../policy/decide.ts";
-import { SESSION_ORIGINS, type SessionOrigin } from "../session/types.ts";
+import type { SessionOrigin } from "../session/types.ts";
 
-export { SESSION_ORIGINS, type SessionOrigin };
-
+/**
+ * Shared M6-A / M6-B contract: maps a session's immutable `origin` to its D109 `SubjectKind`
+ * (`mcp` -> `mcp-client`, `a2a` -> `a2a-peer`, `acp-agent` -> `acp-agent`, `NULL`/`undefined` -> `agent`).
+ */
 export function subjectForOrigin(origin: SessionOrigin | null | undefined): SubjectKind {
-  if (origin === "mcp") return "mcp-client";
-  if (origin === "a2a") return "a2a-peer";
-  if (origin === "acp-agent") return "acp-agent";
-  return "agent";
+  switch (origin) {
+    case "mcp":
+      return "mcp-client";
+    case "a2a":
+      return "a2a-peer";
+    case "acp-agent":
+      return "acp-agent";
+    default:
+      return "agent";
+  }
 }

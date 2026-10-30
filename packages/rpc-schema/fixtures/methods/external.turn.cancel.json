@@ -1,0 +1,1 @@
+{ "params": {"sessionId": "ses_1", "agentId": "bernd", "audience": "a2a", "tokenId": "tok_1"}, "result": {"sessionId": "ses_1", "turnId": "trn_1", "cancelled": true}}

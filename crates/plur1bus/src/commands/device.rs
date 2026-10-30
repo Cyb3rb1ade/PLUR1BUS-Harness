@@ -8,7 +8,20 @@ use std::time::Duration;
 
 pub fn request(cmd: &DeviceCmd) -> (&'static str, Value, &'static str) {
     match cmd {
-        DeviceCmd::Pair { kind } => ("device.pair", json!({"kind":kind}), "device.pair/1"),
+        DeviceCmd::Pair {
+            kind,
+            extensions,
+            imports,
+        } => {
+            let mut params = json!({"kind":kind});
+            if *extensions {
+                params["extensions"] = json!(true);
+            }
+            if *imports {
+                params["imports"] = json!(true);
+            }
+            ("device.pair", params, "device.pair/1")
+        }
         DeviceCmd::List => ("device.list", json!({}), "device.list/1"),
         DeviceCmd::Revoke { id } => ("device.revoke", json!({"id":id}), "device.revoke/1"),
         DeviceCmd::Rename { id, name } => (
@@ -64,10 +77,46 @@ pub fn run(out: &Out, layout: &Layout, cmd: DeviceCmd) {
 mod tests {
     use super::*;
     #[test]
+    fn extension_pairing_is_an_explicit_cli_opt_in() {
+        use clap::Parser;
+        let cli = crate::cli::Cli::try_parse_from([
+            "plur1bus",
+            "device",
+            "pair",
+            "--kind",
+            "desktop",
+            "--extensions",
+        ])
+        .expect("explicit extension enrollment flag");
+        let crate::cli::Cmd::Device { sub } = cli.cmd else {
+            panic!("device command")
+        };
+        assert_eq!(request(&sub).1, json!({"kind":"desktop","extensions":true}));
+    }
+    #[test]
+    fn import_pairing_is_separate_from_extension_management() {
+        use clap::Parser;
+        let cli = crate::cli::Cli::try_parse_from([
+            "plur1bus",
+            "device",
+            "pair",
+            "--kind",
+            "desktop",
+            "--imports",
+        ])
+        .expect("explicit import enrollment flag");
+        let crate::cli::Cmd::Device { sub } = cli.cmd else {
+            panic!("device command")
+        };
+        assert_eq!(request(&sub).1, json!({"kind":"desktop","imports":true}));
+    }
+    #[test]
     fn commands_only_send_device_fields_and_render_sanitizes_terminal_controls() {
         assert_eq!(
             request(&DeviceCmd::Pair {
-                kind: "desktop".into()
+                kind: "desktop".into(),
+                extensions: false,
+                imports: false,
             }),
             ("device.pair", json!({"kind":"desktop"}), "device.pair/1")
         );

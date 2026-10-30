@@ -12,6 +12,7 @@ import { estimateTokens } from "./compaction.ts";
 import type { TurnMemory } from "./memory-port.ts";
 import type { ChatProvider, TurnApprover } from "./provider.ts";
 import { isReasoningChoice } from "./chat-models.ts";
+import { createTurnTelemetry, type TurnTelemetry } from "./turn-telemetry.ts";
 import type { DispatchContext, ToolDispatcher } from "../tools/dispatcher.ts";
 import type { SessionStore } from "./store.ts";
 import { SessionError, type EventRecord, type SessionRecord } from "./types.ts";
@@ -27,6 +28,10 @@ export interface TurnRunnerDeps {
   /** Every persisted event, as it is persisted, with its session (the core relays it as `session.event`). */
   notify?: (e: EventRecord, session: SessionRecord) => void;
   logger?: TurnLoopLogger;
+  /** One final observation after a persisted completion/failure; observer errors cannot change the turn outcome. */
+  onTurnTelemetry?: (
+    telemetry: TurnTelemetry, context: { sessionId: string; turnId: string; agentId: string },
+  ) => void;
   /** B1: when set, a provider `tool.call` is executed through the dispatcher (policy gate, limits, provenance). Absent: nothing executes. */
   toolCalls?: { dispatcher: ToolDispatcher; context: (a: { session: SessionRecord; caller: CallerIdentity }) => Omit<DispatchContext, "signal"> };
   /** The core's shutdown signal: aborts running turns, which then end `failed` (reason `aborted`). */
@@ -86,10 +91,16 @@ export class TurnRunner {
     this.#emit(this.#d.store.appendEvent(turnId, type, data), session);
   }
 
+  #observeTelemetry(telemetry: TurnTelemetry, session: SessionRecord, turnId: string): void {
+    try { this.#d.onTurnTelemetry?.(telemetry, { sessionId: session.id, turnId, agentId: session.agentId }); }
+    catch (err) { this.#d.logger?.warn("turn telemetry observer failed", { err }); }
+  }
+
   async #run(session: SessionRecord, caller: CallerIdentity, text: string, turnId: string, incognito: boolean, provider: ChatProvider | null, cancelled: AbortSignal, approver?: TurnApprover, turnProfile?: TurnProfile, recurring?: import("./provider.ts").RecurringOrigin, authenticatedPerson?: string): Promise<TurnOutcome> {
     const { store, memory, compactor } = this.#d;
     const signal = turnProfile?.signal ? AbortSignal.any([cancelled, turnProfile.signal, ...(this.#d.signal ? [this.#d.signal] : [])]) : this.#d.signal ? AbortSignal.any([this.#d.signal, cancelled]) : cancelled;
     const trace = (r: import("../composition/trace.ts").PipelineRecord) => this.#d.logger?.info("turn.stage", { ...r });
+    let telemetry = createTurnTelemetry();
     try {
       // D33 transcript commands share the admitted session, event stream and cancellation switch.
       // They never enter recall/capture, the model, or the cached prefix.
@@ -98,8 +109,10 @@ export class TurnRunner {
         signal.throwIfAborted();
         const reply=restore ? JSON.stringify({ref:restore[1],restored:compactor.restoreToolRef(session.id,restore[1]!)}) : JSON.stringify(compactor.explain(session.id));
         this.#event(turnId,'delta',{index:0,text:reply},session);
-        const done=store.completeTurn(turnId,{text:reply,tokens:estimateTokens(reply),data:{provider:'harness-command'}});
+        telemetry.endReason = "command";
+        const done=store.completeTurn(turnId,{text:reply,tokens:estimateTokens(reply),data:{provider:'harness-command',telemetry}});
         if(!done)return {state:'failed',error:'turn-not-running'};
+        this.#observeTelemetry(telemetry, session, turnId);
         this.#emit(done.event,session);return {state:'completed',assistantMessageId:done.message.id,reply};
       }
       if(!provider)throw new NoProviderError();
@@ -122,23 +135,50 @@ export class TurnRunner {
 
       // 3. the provider stream, persisted event by event.
       let reply = ""; let usage: { inputTokens: number; outputTokens: number; model?: string; measurements?: import("./provider.ts").UsageMeasurement[] } | null = null; let index = 0;
+      telemetry.rounds = 1;
       for await (const chunk of provider.stream({
+        onTurnTelemetry: observation => { telemetry = structuredClone(observation); },
+        buffered: !!recurring || !['cli', 'web', 'api', 'voice'].includes(caller.channel),
         ...(selectedProfile ? { modelProfile: selectedProfile } : {}), ...(reasoning ? { reasoning } : {}),
         sessionId: session.id, turnId, caller, incognito, ...(recurring ? { recurring } : {}), ...((authenticatedPerson ?? recurring?.runAs) ? { authenticatedPerson: authenticatedPerson ?? recurring!.runAs } : {}), ...(turnProfile ? { turnProfile } : {}), ...(approver ? { approver } : {}), principal: session.owner, agentId: session.agentId, summaries: view.summaries.map((s) => s.text), memory: recalled.text,
-        messages: [...(recurring ? [{ role: "system" as const, text: `Automatically triggered by recurring task ${recurring.jobName} (${recurring.jobId}); runAs=${recurring.runAs}. This is a scheduled task, not a live message.` }] : []), ...view.messages.map((m) => ({ role: m.role, text: m.text }))], signal,
+        messages: [
+          ...(recurring ? [{
+            role: "system" as const,
+            text: `Automatically triggered by recurring task ${recurring.jobName} (${recurring.jobId}); `
+              + `runAs=${recurring.runAs}. This is a scheduled task, not a live message.`,
+          }] : []),
+          ...view.messages.map((m) => ({ role: m.role, text: m.text, ...(m.turnId ? { turnId: m.turnId } : {}), ...(m.toolCall ? { toolCall: m.toolCall } : {}) })),
+        ],
+        signal,
         ...(this.#d.toolCalls ? { tools: this.#d.toolCalls.dispatcher.describe() } : {}),
       })) {
+        // The generator may report its final observation while closing after cancellation.
+        if (chunk.type === "telemetry") { telemetry = structuredClone(chunk.telemetry); continue; }
+        if (signal.aborted && chunk.type === "tool.result" && !this.#d.toolCalls && chunk.output.length <= 4096) {
+          let aborted = false;
+          try {
+            const result: unknown = JSON.parse(chunk.output);
+            aborted = !!result && typeof result === "object" && "isError" in result && result.isError === true
+              && "error" in result && !!result.error && typeof result.error === "object"
+              && "code" in result.error && result.error.code === "aborted";
+          } catch { /* Only a typed final aborted envelope survives cancellation. */ }
+          if (aborted) this.#event(turnId, "tool.result", { id: chunk.id, output: chunk.output, isError: true }, session);
+        }
         signal.throwIfAborted();
         if (chunk.type === "delta") { turnProfile?.onDelta?.(chunk.text); reply += chunk.text; this.#event(turnId, "delta", { index: index++, text: chunk.text }, session); }
         else if (chunk.type === "tool.call") {
+          if (chunk.name === "capabilities.search") telemetry.metaCalls.search++;
+          else if (chunk.name === "skill.load") telemetry.metaCalls.skillLoad++;
+          else if (chunk.name === "skill.read") telemetry.metaCalls.skillRead++;
+          else telemetry.toolCalls++;
           if (turnProfile?.confirmed) await waitForVoiceConfirmation(turnProfile, signal);
           this.#event(turnId, "tool.call", { id: chunk.id, name: chunk.name, ...(chunk.args !== undefined ? { args: chunk.args } : {}) }, session);
           const tc = this.#d.toolCalls;
           if (tc) {
             // The dispatcher never throws; its error envelopes are results like any other. Only an abort ends the turn.
             const res = await tc.dispatcher.call({ id: chunk.id, name: chunk.name, args: chunk.args }, { ...tc.context({ session, caller }), signal });
-            signal.throwIfAborted();
             this.#event(turnId, "tool.result", { id: chunk.id, output: JSON.stringify(res), isError: res.isError }, session);
+            signal.throwIfAborted();
           }
         }
         // RULING: with a dispatcher the harness executes; a result the provider reports itself is ignored (it could forge provenance).
@@ -153,7 +193,7 @@ export class TurnRunner {
       if (turnProfile) signal.throwIfAborted();
       const done = store.completeTurn(turnId, {
         text: reply, tokens: usage?.outputTokens ?? estimateTokens(reply),
-        data: { provider: provider.id, ...(usage ? { usage } : {}), recall: { degraded: recalled.degraded }, ...(view.compaction.swapped || view.clipped ? { compaction: view.compaction, clipped: view.clipped } : {}) },
+        data: { provider: provider.id, ...(usage ? { usage } : {}), telemetry, recall: { degraded: recalled.degraded }, ...(view.compaction.swapped || view.clipped ? { compaction: view.compaction, clipped: view.clipped } : {}) },
       });
       if (usage && done) {
         const key = usage.model ?? (model ? `${model.provider}/${model.model}` : provider.id);
@@ -164,12 +204,16 @@ export class TurnRunner {
         if (!usage.measurements?.length || new Set(usage.measurements.map(m => m.model)).size === 1) store.recordMessageUsage(done.message.id, key, usage.outputTokens);
       }
       if (!done) return { state: "failed", error: "turn-not-running" };
+      this.#observeTelemetry(telemetry, session, turnId);
       this.#emit(done.event, session);
       await this.#after(session, caller, turnId, text, reply, incognito, turnProfile, recurring, authenticatedPerson);
       return { state: "completed", assistantMessageId: done.message.id, reply };
     } catch (e) {
       const error = cancelled.aborted ? "cancelled" : signal.aborted ? "aborted" : e && typeof e === 'object' && 'code' in e && typeof e.code === 'string' ? e.code : e && typeof e === 'object' && 'kind' in e && typeof e.kind === 'string' ? e.kind : e instanceof Error ? e.message : String(e);
-      try { const ev = store.failTurn(turnId, error); if (ev) this.#emit(ev, session); }
+      if (cancelled.aborted) telemetry.endReason = "cancelled";
+      else if (signal.aborted) telemetry.endReason = "aborted";
+      else if (telemetry.endReason === "completed") telemetry.endReason = "provider-error";
+      try { const ev = store.failTurn(turnId, error, { telemetry }); if (ev) { this.#observeTelemetry(telemetry, session, turnId); this.#emit(ev, session); } }
       catch (e2) { this.#d.logger?.warn("session turn could not be marked failed; recovery will at the next start", { sessionId: session.id, turnId, err: e2 }); }
       this.#d.logger?.warn("session turn failed", { sessionId: session.id, turnId, error });
       return { state: "failed", error };

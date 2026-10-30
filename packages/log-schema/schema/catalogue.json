@@ -1816,6 +1816,200 @@
           "minimum": 0
         }
       }
+    },
+    "mcp_server_call": {
+      "description": "Detail for `mcp.server.call` audit event: tool invocation by foreign host via MCP server (no arguments or results).",
+      "open": true,
+      "properties": {
+        "tokenId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Identifier of the agent-bound token used for authentication."
+        },
+        "tool": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Invoked MCP tool name."
+        },
+        "agentId": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Target agent identifier."
+        }
+      }
+    },
+    "mcp_server_denied": {
+      "description": "Detail for `mcp.server.denied` audit event: rejected MCP server call (no arguments or results).",
+      "open": true,
+      "properties": {
+        "tokenId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Identifier of the agent-bound token if present."
+        },
+        "tool": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Attempted tool name."
+        },
+        "agentId": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Target agent identifier."
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Denial reason slug."
+        }
+      }
+    },
+    "a2a_server_call": {
+      "description": "Detail for `a2a.server.call` audit event: JSON-RPC method invocation by foreign peer via A2A server.",
+      "open": true,
+      "properties": {
+        "tokenId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Identifier of the agent-bound token used for authentication."
+        },
+        "method": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Invoked A2A JSON-RPC method name, truncated."
+        },
+        "agentId": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Target agent identifier."
+        }
+      }
+    },
+    "a2a_server_denied": {
+      "description": "Detail for `a2a.server.denied` audit event: rejected A2A server call.",
+      "open": true,
+      "properties": {
+        "tokenId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Identifier of the agent-bound token if present."
+        },
+        "method": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Attempted A2A JSON-RPC method name, truncated."
+        },
+        "agentId": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Target agent identifier."
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Denial reason slug."
+        }
+      }
+    },
+    "oauth_authorize": {
+      "description": "Detail for `oauth.authorize` audit event: authorization code issued or consent approved.",
+      "open": true,
+      "properties": {
+        "clientId": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "OAuth client identifier."
+        },
+        "audience": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Protocol audience (e.g. mcp or a2a)."
+        },
+        "scopes": {
+          "type": "string",
+          "maxLength": 512,
+          "description": "Granted scope string."
+        }
+      }
+    },
+    "oauth_token": {
+      "description": "Detail for `oauth.token` audit event: authorization code exchanged for token.",
+      "open": true,
+      "properties": {
+        "clientId": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "OAuth client identifier."
+        },
+        "audience": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Protocol audience (e.g. mcp or a2a)."
+        },
+        "agentId": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Agent identifier the token is bound to."
+        },
+        "tokenId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Issued access token identifier."
+        }
+      }
+    },
+    "oauth_refresh": {
+      "description": "Detail for `oauth.refresh` audit event: token refreshed via refresh token.",
+      "open": true,
+      "properties": {
+        "clientId": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "OAuth client identifier."
+        },
+        "tokenId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "New access token identifier."
+        },
+        "familyId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Refresh token family identifier."
+        }
+      }
+    },
+    "oauth_revoke": {
+      "description": "Detail for `oauth.revoke` audit event: token or refresh token family revoked.",
+      "open": true,
+      "properties": {
+        "clientId": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "OAuth client identifier if known."
+        },
+        "tokenId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Revoked token identifier if known."
+        }
+      }
+    },
+    "oauth_denied": {
+      "description": "Detail for `oauth.denied` audit event: OAuth request denied or rejected.",
+      "open": true,
+      "properties": {
+        "clientId": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "OAuth client identifier."
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Denial reason."
+        }
+      }
     }
   },
   "events": [
@@ -4078,6 +4272,311 @@
             "extension": "plugin/example",
             "reason": "manifest-invalid"
           }
+        }
+      ]
+    },
+    {
+      "event": "mcp.server.call",
+      "note": "A tool was called by a foreign host on the harness MCP server.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "mcp_server_call",
+      "requiredAttrs": [
+        "tokenId",
+        "tool",
+        "agentId"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "token-caller",
+            "host": "127.0.0.1"
+          },
+          "action": "mcp.server.call",
+          "target": "agent:bernd",
+          "detail": {
+            "tokenId": "tok_1234567890abcdef",
+            "tool": "memory_recall",
+            "agentId": "bernd"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "mcp.server.denied",
+      "note": "A tool call was denied on the harness MCP server.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "mcp_server_denied",
+      "requiredAttrs": [
+        "tokenId",
+        "tool",
+        "agentId"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "token-caller",
+            "host": "127.0.0.1"
+          },
+          "action": "mcp.server.denied",
+          "target": "agent:bernd",
+          "detail": {
+            "tokenId": "tok_1234567890abcdef",
+            "tool": "control_execute",
+            "agentId": "bernd",
+            "reason": "tool-not-permitted"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "a2a.server.call",
+      "note": "A JSON-RPC method was called by a foreign peer on the harness A2A server.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "a2a_server_call",
+      "requiredAttrs": [
+        "tokenId",
+        "method",
+        "agentId"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "token-caller",
+            "host": "127.0.0.1"
+          },
+          "action": "a2a.server.call",
+          "target": "agent:bernd",
+          "detail": {
+            "tokenId": "tok_1234567890abcdef",
+            "method": "SendMessage",
+            "agentId": "bernd"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "a2a.server.denied",
+      "note": "A JSON-RPC call was denied on the harness A2A server.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "a2a_server_denied",
+      "requiredAttrs": [
+        "tokenId",
+        "method",
+        "agentId"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "token-caller",
+            "host": "127.0.0.1"
+          },
+          "action": "a2a.server.denied",
+          "target": "agent:bernd",
+          "detail": {
+            "tokenId": "tok_1234567890abcdef",
+            "method": "SendMessage",
+            "agentId": "bernd",
+            "reason": "agent-not-exposed"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "oauth.authorize",
+      "note": "An authorization code was issued or consent approved.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "oauth_authorize",
+      "requiredAttrs": [
+        "clientId",
+        "audience",
+        "scopes"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "alice",
+            "host": "127.0.0.1"
+          },
+          "action": "oauth.authorize",
+          "target": "agent:main",
+          "detail": {
+            "clientId": "client_123",
+            "audience": "mcp",
+            "scopes": "mcp.read agent.use"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "oauth.token",
+      "note": "An authorization code was exchanged for an access token.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "oauth_token",
+      "requiredAttrs": [
+        "clientId",
+        "audience",
+        "agentId",
+        "tokenId"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "oauth:client_123",
+            "host": "127.0.0.1"
+          },
+          "action": "oauth.token",
+          "target": "token:tok_1234567890ab",
+          "detail": {
+            "clientId": "client_123",
+            "audience": "mcp",
+            "agentId": "main",
+            "tokenId": "tok_1234567890ab"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "oauth.refresh",
+      "note": "An access token was renewed using a refresh token.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "oauth_refresh",
+      "requiredAttrs": [
+        "clientId",
+        "tokenId",
+        "familyId"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "oauth:client_123",
+            "host": "127.0.0.1"
+          },
+          "action": "oauth.refresh",
+          "target": "token:tok_1234567890ab",
+          "detail": {
+            "clientId": "client_123",
+            "tokenId": "tok_1234567890ab",
+            "familyId": "fam_abcdef123456"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "oauth.revoke",
+      "note": "An OAuth token or refresh token family was revoked.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "oauth_revoke",
+      "requiredAttrs": [
+        "clientId"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "alice",
+            "host": "127.0.0.1"
+          },
+          "action": "oauth.revoke",
+          "target": "token:tok_1234567890ab",
+          "detail": {
+            "clientId": "client_123",
+            "tokenId": "tok_1234567890ab"
+          },
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "oauth.denied",
+      "note": "An OAuth authorization or token request was denied.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "oauth_denied",
+      "requiredAttrs": [
+        "clientId",
+        "reason"
+      ],
+      "activity": true,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "anonymous",
+            "host": "127.0.0.1"
+          },
+          "action": "oauth.denied",
+          "target": "oauth:client_123",
+          "detail": {
+            "clientId": "client_123",
+            "reason": "invalid_grant"
+          },
+          "v": 2
         }
       ]
     },

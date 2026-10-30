@@ -22,6 +22,40 @@ pub struct PayloadFile {
     pub exec: bool,
 }
 
+/// Content identity for an unsigned inline source without a declared version; excludes its generated version/date.
+pub(crate) fn content_version(template: &Value, files: &[PayloadFile]) -> Result<String, Refusal> {
+    let mut template = template.clone();
+    if let Some(object) = template.as_object_mut() {
+        object.remove("version");
+        object.remove("created");
+    }
+    let mut digest = Sha256::new();
+    digest.update(b"plur1bus-inline-source-version/1\0");
+    let bytes = serde_json::to_vec(&template).map_err(|_| {
+        Refusal::invalid(
+            reason::PACKAGE_INVALID,
+            "inline source metadata cannot be serialized",
+        )
+    })?;
+    digest.update((bytes.len() as u64).to_be_bytes());
+    digest.update(bytes);
+    let mut files = files.iter().collect::<Vec<_>>();
+    files.sort_by(|a, b| a.rel.cmp(&b.rel));
+    for file in files {
+        digest.update((file.rel.len() as u64).to_be_bytes());
+        digest.update(file.rel.as_bytes());
+        digest.update([u8::from(file.exec)]);
+        digest.update((file.bytes.len() as u64).to_be_bytes());
+        digest.update(&file.bytes);
+    }
+    // Build metadata avoids inventing an ordering between unrelated content hashes. A collision still fails closed
+    // at the existing immutable-version full-SHA256 check; 160 bits keeps the full semver below its 64-byte cap.
+    Ok(format!(
+        "0.0.0+source.{}",
+        &crate::zipaudit::hex(&digest.finalize())[..40]
+    ))
+}
+
 /// One entry of the archive to write. `Symlink` exists for the testkit's tamper variants only.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum ZipKind {

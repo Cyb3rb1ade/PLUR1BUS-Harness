@@ -1,0 +1,11 @@
+{
+  "params": {
+    "id": "fixture"
+  },
+  "result": {
+    "connectionId": "fixture",
+    "probeId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "hostKeySha256": "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "changed": false
+  }
+}

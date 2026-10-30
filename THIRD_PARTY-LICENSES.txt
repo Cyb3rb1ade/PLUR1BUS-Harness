@@ -4824,6 +4824,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 
 SHA256 1fd6747d2c8e80f9fa766f57c5888864774621deb85cc2838ccaed727db32d45
 cargo:ndarray@0.16.1/LICENSE-MIT
+cargo:ndarray@0.17.2/LICENSE-MIT
 
 Copyright (c) 2015 - 2021 Ulrik Sverdrup "bluss",
 			  Jim Turner,
@@ -7839,6 +7840,7 @@ cargo:seq-macro@0.3.6/LICENSE-MIT
 cargo:serde-untagged@0.1.9/LICENSE-MIT
 cargo:serde@1.0.228/LICENSE-MIT
 cargo:serde@1.0.229/LICENSE-MIT
+cargo:serde_bytes@0.11.19/LICENSE-MIT
 cargo:serde_core@1.0.228/LICENSE-MIT
 cargo:serde_core@1.0.229/LICENSE-MIT
 cargo:serde_derive@1.0.228/LICENSE-MIT
@@ -16992,6 +16994,7 @@ DEALINGS IN THE SOFTWARE.
 
 SHA256 57a4d75c1d095bb94754a478f3cd15e60ac66a5c5627d844be01a918eea5fe88
 cargo:argon2@0.6.0/LICENSE-MIT
+cargo:crypto-bigint@0.7.10/LICENSE-MIT
 cargo:crypto-bigint@0.7.6/LICENSE-MIT
 cargo:phc@0.6.1/LICENSE-MIT
 cargo:pkcs5@0.8.1/LICENSE-MIT
@@ -18876,6 +18879,7 @@ cargo:seq-macro@0.3.6/LICENSE-APACHE
 cargo:serde-untagged@0.1.9/LICENSE-APACHE
 cargo:serde@1.0.228/LICENSE-APACHE
 cargo:serde@1.0.229/LICENSE-APACHE
+cargo:serde_bytes@0.11.19/LICENSE-APACHE
 cargo:serde_core@1.0.228/LICENSE-APACHE
 cargo:serde_core@1.0.229/LICENSE-APACHE
 cargo:serde_derive@1.0.228/LICENSE-APACHE
@@ -20592,6 +20596,36 @@ SOFTWARE.
 
 ============================================================
 
+SHA256 6bba08de46289c40986a2e6b310e2da61fcea33b3c112c8320f6093f8f9cb71b
+cargo:ort-sys@2.0.0-rc.14/LICENSE-MIT
+cargo:ort@2.0.0-rc.14/LICENSE-MIT
+
+MIT License
+
+Copyright (c) 2023-2026 pyke.io
+Copyright (c) 2020 Nicolas Bigaouette
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+============================================================
+
 SHA256 6bfc9e0412997fc00de5379aa3b2e919449d2adee1aee3b0cb9ee0a5fd367956
 cargo:salsa20@0.11.0/LICENSE-MIT
 
@@ -21714,6 +21748,7 @@ SHA256 73b9dc2e79c7308998dd30296e073aefaefb944a68fb89aa412c23c0edcabcaa
 cargo:const-oid@0.10.2/LICENSE-MIT
 cargo:cpufeatures@0.3.1/LICENSE-MIT
 cargo:der@0.8.2/LICENSE-MIT
+cargo:der@0.8.3/LICENSE-MIT
 cargo:pkcs8@0.11.0/LICENSE-MIT
 
 Copyright (c) 2020-2026 The RustCrypto Project Developers
@@ -24339,6 +24374,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 SHA256 831e0f43ad0bf014c1c4fec5767aae470434c1d66d6e671be2d823e729063e25
 cargo:sha1@0.11.0/LICENSE-MIT
 cargo:sha2@0.11.0/LICENSE-MIT
+cargo:sha2@0.11.1/LICENSE-MIT
 
 Copyright (c) 2016-2026 The RustCrypto Project Developers
 Copyright (c) 2016 Artyom Pavlov
@@ -26492,6 +26528,7 @@ DEALINGS IN THE SOFTWARE.
 
 SHA256 91585c36e4fb9ab4ca0d3dfac5d66d3c0c62cc51f640a0e1196542daf2267eae
 cargo:ctutils@0.4.5/LICENSE-MIT
+cargo:ctutils@0.4.6/LICENSE-MIT
 
 Copyright (c) 2025-2026 The RustCrypto Project Developers
 
@@ -28554,6 +28591,7 @@ SOFTWARE.
 
 SHA256 a07fcacc3c60de4dc0fab10ac9d6aaba7379974e28451c99da7f7df09c25b28c
 cargo:inout@0.2.2/LICENSE-MIT
+cargo:inout@0.2.5/LICENSE-MIT
 
 Copyright (c) 2022-2025 The RustCrypto Project Developers
 Copyright (c) 2022 Artyom Pavlov
@@ -29968,6 +30006,7 @@ cargo:mime@0.3.17/LICENSE-APACHE
 cargo:muda@0.20.0/LICENSE-APACHE
 cargo:multimap@0.10.1/LICENSE-APACHE
 cargo:ndarray@0.16.1/LICENSE-APACHE
+cargo:ndarray@0.17.2/LICENSE-APACHE
 cargo:num-bigint@0.4.8/LICENSE-APACHE
 cargo:num-bigint@0.5.1/LICENSE-APACHE
 cargo:num-complex@0.4.6/LICENSE-APACHE
@@ -31003,14 +31042,17 @@ cargo:const-oid@0.10.2/LICENSE-APACHE
 cargo:cpubits@0.1.1/LICENSE-APACHE
 cargo:cpufeatures@0.2.17/LICENSE-APACHE
 cargo:cpufeatures@0.3.1/LICENSE-APACHE
+cargo:crypto-bigint@0.7.10/LICENSE-APACHE
 cargo:crypto-bigint@0.7.6/LICENSE-APACHE
 cargo:crypto-common@0.1.7/LICENSE-APACHE
 cargo:crypto-common@0.2.2/LICENSE-APACHE
 cargo:ctr@0.10.1/LICENSE-APACHE
 cargo:der@0.8.2/LICENSE-APACHE
+cargo:der@0.8.3/LICENSE-APACHE
 cargo:digest@0.10.7/LICENSE-APACHE
 cargo:digest@0.11.3/LICENSE-APACHE
 cargo:elliptic-curve@0.14.1/LICENSE-APACHE
+cargo:elliptic-curve@0.14.3/LICENSE-APACHE
 cargo:ghash@0.6.0/LICENSE-APACHE
 cargo:hex-literal@1.1.0/LICENSE-APACHE
 cargo:hmac@0.12.1/LICENSE-APACHE
@@ -31018,6 +31060,7 @@ cargo:hmac@0.13.0/LICENSE-APACHE
 cargo:hybrid-array@0.4.15/LICENSE-APACHE
 cargo:inout@0.1.4/LICENSE-APACHE
 cargo:inout@0.2.2/LICENSE-APACHE
+cargo:inout@0.2.5/LICENSE-APACHE
 cargo:keccak@0.2.2/LICENSE-APACHE
 cargo:md-5@0.10.6/LICENSE-APACHE
 cargo:ml-kem@0.3.3/LICENSE-APACHE
@@ -31046,6 +31089,7 @@ cargo:sha1@0.10.7/LICENSE-APACHE
 cargo:sha1@0.11.0/LICENSE-APACHE
 cargo:sha2@0.10.9/LICENSE-APACHE
 cargo:sha2@0.11.0/LICENSE-APACHE
+cargo:sha2@0.11.1/LICENSE-APACHE
 cargo:sha3@0.12.0/LICENSE-APACHE
 cargo:shake@0.1.0/LICENSE-APACHE
 cargo:signature@3.0.0/LICENSE-APACHE
@@ -32722,6 +32766,7 @@ DEALINGS IN THE SOFTWARE.
 
 SHA256 b29f8b01452350c20dd1af16ef83b598fea3053578ccc1c7a0ef40e57be2620f
 cargo:libloading@0.7.4/LICENSE
+cargo:libloading@0.9.0/LICENSE
 
 Copyright © 2015, Simonas Kazlauskas
 
@@ -35001,6 +35046,7 @@ cargo:quinn-udp@0.5.15/LICENSE-APACHE
 cargo:quinn-udp@0.5.16/LICENSE-APACHE
 cargo:quinn@0.11.12/LICENSE-APACHE
 cargo:russh-sftp@2.1.1/LICENSE
+cargo:russh-sftp@3.0.1/LICENSE
 cargo:rustls-platform-verifier@0.7.1/LICENSE-APACHE
 cargo:serialize-to-javascript-impl@0.1.2/LICENSE-APACHE
 cargo:serialize-to-javascript@0.1.2/LICENSE-APACHE
@@ -35985,10 +36031,13 @@ cargo:arrow-string@57.3.1/LICENSE.txt
 cargo:arrow@57.3.1/LICENSE.txt
 cargo:cmov@0.5.4/LICENSE-APACHE
 cargo:ctutils@0.4.5/LICENSE-APACHE
+cargo:ctutils@0.4.6/LICENSE-APACHE
 cargo:embed_plist@1.2.2/LICENSE-APACHE
 cargo:encoding_rs@0.8.42/LICENSE-APACHE
 cargo:lru-slab@0.1.3/LICENSE-APACHE
 cargo:multiversion_no_op@1.0.0/LICENSE-APACHE
+cargo:ort-sys@2.0.0-rc.14/LICENSE-APACHE
+cargo:ort@2.0.0-rc.14/LICENSE-APACHE
 cargo:serdect@0.4.3/LICENSE-APACHE
 cargo:siphasher@1.0.4/LICENSE-APACHE
 cargo:spade@2.15.1/LICENSE-APACHE
@@ -35999,6 +36048,7 @@ cargo:utf16_iter@1.0.5/LICENSE-APACHE
 cargo:utf8_iter@1.0.4/LICENSE-APACHE
 cargo:write16@1.0.0/LICENSE-APACHE
 cargo:zeroize@1.9.0/LICENSE-APACHE
+npm:@a2a-js/sdk@1.3.0/LICENSE
 npm:@huggingface/transformers@4.3.1/LICENSE
 npm:flatbuffers@24.12.23/LICENSE
 npm:flatbuffers@25.9.23/LICENSE
@@ -37128,6 +37178,7 @@ SOFTWARE.
 
 SHA256 d8c4ab431f20da8452c9a217084163822e5fd9d134e1343903c929f2859fc8fd
 cargo:elliptic-curve@0.14.1/LICENSE-MIT
+cargo:elliptic-curve@0.14.3/LICENSE-MIT
 cargo:p256@0.14.0/LICENSE-MIT
 cargo:p521@0.14.0/LICENSE-MIT
 cargo:password-hash@0.6.1/LICENSE-MIT

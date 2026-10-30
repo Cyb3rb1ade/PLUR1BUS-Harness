@@ -53,8 +53,9 @@ test('guarded SPA keeps same-origin API usable while browser cookie APIs stay bl
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
-  const browser = await chromium.launch({headless:true});
+  let browser;
   try {
+    browser = await chromium.launch({headless:true});
     const context = await browser.newContext();
     await context.addInitScript(policy);
     const page = await context.newPage();
@@ -66,7 +67,7 @@ test('guarded SPA keeps same-origin API usable while browser cookie APIs stay bl
     }), {status:200, body:{ok:true}, cookie:''});
     assert.deepEqual(await context.cookies(), []);
   } finally {
-    await browser.close();
+    await browser?.close();
     await new Promise(resolve => server.close(resolve));
   }
 });
@@ -79,8 +80,9 @@ test('secure-context Cookie Store and service-worker prototype/frame bypasses ar
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
-  const browser = await chromium.launch({headless:true});
+  let browser;
   try {
+    browser = await chromium.launch({headless:true});
     const baseline = await browser.newContext();
     const control = await baseline.newPage();
     await control.goto(origin);
@@ -124,7 +126,7 @@ test('secure-context Cookie Store and service-worker prototype/frame bypasses ar
     assert.deepEqual(guarded, {main:true,frame:true,registrations:0,workerCookieStore:'undefined'});
     assert.deepEqual(await context.cookies(), []);
   } finally {
-    await browser.close();
+    await browser?.close();
     await new Promise(resolve => server.close(resolve));
   }
 });

@@ -1,13 +1,11 @@
+import { SourceReader } from "../source-reader.ts";
 // Hermes platform pairings allowlist extractor (docs/import.md §3.3, M7 Batch 3).
 // Scans platforms/pairing/*-approved.json and *-pending.json.
 // Approved pairing user IDs are non-reversibly fingerprinted (#104); plain text IDs never appear in reports or ledgers.
 // Pending pairing codes (*-pending.json) are strictly excluded (§3.2).
 // Channel allowlists are reported as "deferred" until target channel integration is configured.
-import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import { isDir } from "../readonly.ts";
 import { idFingerprints } from "../fingerprint.ts";
-import { existsNoFollow, readSourceTextSafe } from "../fs-safe.ts";
 import { ImportError } from "../types.ts";
 
 export interface HermesChannelAllowlistReport {
@@ -20,25 +18,27 @@ export interface HermesChannelAllowlistReport {
   pendingExcludedCount: number;
 }
 
-export function readHermesPairings(
+export async function readHermesPairings(
   searchDirs: string[],
   errors?: Array<{ sourceRef: string; reason: string }>,
-): HermesChannelAllowlistReport[] {
+  sourceReader?: SourceReader,
+): Promise<HermesChannelAllowlistReport[]> {
+  const reader = sourceReader ?? await SourceReader.local();
   const reportsByPlatform = new Map<string, { rawIds: Set<string>; pendingCount: number }>();
 
   for (const dir of searchDirs) {
-    const pairingDir = join(dir, "platforms", "pairing");
-    if (!isDir(pairingDir)) continue;
+    const pairingDir = reader.paths.join(dir, "platforms", "pairing");
+    if (!await reader.isDir(pairingDir)) continue;
 
     let entries: string[] = [];
     try {
-      entries = readdirSync(pairingDir);
+      entries = await reader.names(pairingDir);
     } catch {
       continue;
     }
 
     for (const ent of entries) {
-      const fullPath = join(pairingDir, ent);
+      const fullPath = reader.paths.join(pairingDir, ent);
       if (!ent.endsWith("-approved.json") && !ent.endsWith("-pending.json")) continue;
       // A refused file (symlink, FIFO, oversized) is reported by reason code, never read and never skipped silently.
       const refuse = (reason: string) => errors?.push({ sourceRef: `platforms/pairing/${ent}`, reason });
@@ -47,9 +47,9 @@ export function readHermesPairings(
         const platform = ent.slice(0, ent.length - "-approved.json".length);
         if (!platform) continue;
 
-        if (!existsNoFollow(fullPath)) continue;
+        if (!await reader.exists(fullPath)) continue;
         let content: string;
-        try { content = readSourceTextSafe(fullPath, 1024 * 1024); }
+        try { content = await reader.text(fullPath, 1024 * 1024); }
         catch (error) { refuse(error instanceof ImportError ? error.reason : "source-unreadable"); continue; }
 
         try {
@@ -73,9 +73,9 @@ export function readHermesPairings(
         const platform = ent.slice(0, ent.length - "-pending.json".length);
         if (!platform) continue;
 
-        if (!existsNoFollow(fullPath)) continue;
+        if (!await reader.exists(fullPath)) continue;
         let content: string;
-        try { content = readSourceTextSafe(fullPath, 1024 * 1024); }
+        try { content = await reader.text(fullPath, 1024 * 1024); }
         catch (error) { refuse(error instanceof ImportError ? error.reason : "source-unreadable"); continue; }
 
         try {

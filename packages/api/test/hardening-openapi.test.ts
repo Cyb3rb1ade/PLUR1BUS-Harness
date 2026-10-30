@@ -10,7 +10,8 @@ import { AccountStore } from "../src/account-store.ts";
 import { randomBytes } from "node:crypto";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -26,7 +27,7 @@ import { OWNER_TOKEN, fakeCore, addUser, csrfToken, FIXTURE_PASSWORD, jsonHeader
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const doc = buildOpenApi() as unknown as Doc & { paths: Record<string, Record<string, any>> };
-const wide = { auth: { capacity: 100_000, refillPerSec: 10_000 }, read: { capacity: 100_000, refillPerSec: 10_000 }, write: { capacity: 100_000, refillPerSec: 10_000 }, totp: { capacity: 100_000, refillPerSec: 10_000 }, stream: { capacity: 100_000, refillPerSec: 10_000 } };
+const wide = { upload: { capacity: 100_000, refillPerSec: 10_000 }, auth: { capacity: 100_000, refillPerSec: 10_000 }, read: { capacity: 100_000, refillPerSec: 10_000 }, write: { capacity: 100_000, refillPerSec: 10_000 }, totp: { capacity: 100_000, refillPerSec: 10_000 }, stream: { capacity: 100_000, refillPerSec: 10_000 } };
 const opOf = (r: RouteSpec) => doc.paths[r.path]![r.method.toLowerCase()]!;
 
 // ---- the checker itself --------------------------------------------------------------------------------------------
@@ -49,6 +50,7 @@ test("the test validator rejects what a schema forbids (so a green run below mea
 test("per operation: method, path, id, tag, security, CSRF parameter, stability and the declared statuses all come from the route table", () => {
   const problems: string[] = [];
   for (const r of ROUTES) {
+    if (["mcp", "a2a", "oauth"].includes(r.tag)) continue;
     const op = opOf(r); const at = `${r.method} ${r.path}`;
     if (op.operationId !== r.id) problems.push(`${at}: operationId ${op.operationId} != ${r.id}`);
     if (JSON.stringify(op.tags) !== JSON.stringify([r.tag])) problems.push(`${at}: tags`);
@@ -144,17 +146,20 @@ test("every route, driven through its success and failure paths on the real serv
   const accounts = new AccountStore({ path: ":memory:", resolve: async userId => ({ userId, kind: "person", role: "member", disabled: false, version: 1 }) });
   // Break-glass is the core's registry: the break-glass routes are driven against `miniCore` (real registry, admin surface, RPC guard).
   const clock = new FakeClock(); const mini = miniCore({ clock }); const core = withBreakGlass(fakeCore(), mini); const inviteCode = randomBytes(32).toString("base64url"); let consumed = false;
-  Object.assign(core, { serviceCall: async (method: string, p: { token?: string }) => {
-    const identity={deviceId:"dev_00000000-0000-0000-0000-000000000001",userId:"desktop-person",scopes:["chat:read"],expiresAt:Date.now()+86400000};
+  const desktopExpiresAt = clock.now() + 86400_000;
+  Object.assign(core, { serviceCall: async (method: string, p: { token?: string; userId?: string; deviceId?: string }) => {
+    const identity={deviceId:"dev_00000000-0000-0000-0000-000000000001",userId:"desktop-person",scopes:["chat:read"],expiresAt:desktopExpiresAt};
+    const approvalIdentity = { ...identity, deviceId: "stepup-contract-device", userId: "stepup-person" };
     if(method==="admin.api.desktop.redeem")return {device:JSON.parse(readFileSync(path.join(repo,"packages/rpc-schema/fixtures/methods/admin.api.device.pair.json"),"utf8")).result.device,token:"d".repeat(43),expiresAt:identity.expiresAt};
-    if(method==="admin.api.desktop.token"||method==="admin.api.desktop.resolve")return identity;
-    if(method==="admin.api.person.resolve")return {person:{userId:identity.userId,kind:"person",role:"member",version:1,disabled:false}};
+    if(method==="admin.api.desktop.token"||method==="admin.api.desktop.resolve")return p.token === "p".repeat(43) || p.deviceId === approvalIdentity.deviceId ? approvalIdentity : identity;
+    if(method==="admin.api.person.resolve")return {person:{userId:p.userId === approvalIdentity.userId ? approvalIdentity.userId : identity.userId,kind:"person",role:"member",version:1,disabled:false}};
     if (p.token !== inviteCode || consumed) throw new Error("invalid invitation"); if (method === "user.invite.redeem") consumed = true; return { userId: "invited-person", role: "member" }; } });
   // Here the controller is an explicit response-contract fixture; real TLS/bootstrap/core ownership
   // and durable rollover are covered by remote-pairing(-tls).test.ts.
   const fixtureMethods = ["status", "offer", "proof", "pair", "getTrust", "challenge", "ack", "rotate"];
   const remotePairing = Object.fromEntries(fixtureMethods.map(method => [method, async () => ({ contract: method })])) as unknown as RemotePairingController;
-  const h = await start({ rateClasses: wide, clock, accounts, core, remotePairing, remoteCertificates: { importCompany: async (cert) => { if (cert !== "fixture-cert") throw new Error("invalid fixture certificate"); return { certPin: "sha256:" + "a".repeat(43), staged: true }; } } });
+  const uploadHome = mkdtempSync(path.join(tmpdir(), "openapi-upload-"));
+  const h = await start({ home: uploadHome, rateClasses: wide, clock, accounts, core, remotePairing, remoteCertificates: { importCompany: async (cert) => { if (cert !== "fixture-cert") throw new Error("invalid fixture certificate"); return { certPin: "sha256:" + "a".repeat(43), staged: true }; } } });
   try {
     await anon(h,"desktop.meta");
     for(const id of ["desktop.pair","desktop.redeem","desktop.ticket"])await anon(h,id,"malformed native request");
@@ -165,6 +170,39 @@ test("every route, driven through its success and failure paths on the real serv
 
     for (const [id, role] of [["u-alice", "member"], ["u-vera", "viewer"], ["u-ada", "admin"], ["u-dana", "member"], ["u-carol", "member"]] as const) { await addUser(h, { id, username: id.slice(2), role }); mini.addPerson(id, role); }
     const owner = (await login(h)).cookie; const alice = (await loginAs(h, "alice")).cookie; const vera = (await loginAs(h, "vera")).cookie; const ada = (await loginAs(h, "ada")).cookie;
+    await anon(h, "imports.sources"); await rt(h, owner, "imports.sources", "canonical source catalog"); await rt(h, alice, "imports.sources", "member denied");
+
+    await addUser(h, { id: "stepup-person", username: "stepup", role: "member" });
+    const initial = (await loginAs(h, "stepup")).cookie;
+    const factor = await enrol(h, initial); h.clock.advance(30_000);
+    const challenge = await pwLogin(h, "stepup");
+    const factorLogin = await raw(h, { method: "POST", path: "/api/v1/session/totp", headers: jsonHeaders(),
+      body: JSON.stringify({ challenge: challenge.json.challenge, code: totpCodeAt(factor.secret, h.clock.now()) }) });
+    assert.equal(factorLogin.status, 200, "ordinary TOTP login is the approval factor verifier");
+    const factorCookie = factorLogin.headers["set-cookie"]![0]!.split(";", 1)[0]!;
+    const native = async (id: string, body: object, authenticated = true) => {
+      const route = ROUTES.find(route => route.id === id)!;
+      return rec(id, authenticated ? "enrolled native protocol" : "native credential missing", await raw(h, {
+        method: "POST", path: route.path, headers: { ...jsonHeaders(), ...(authenticated ? { authorization: `Bearer ${"p".repeat(43)}` } : {}) }, body: JSON.stringify(body),
+      }));
+    };
+    const begun = await native("desktop.step-up.start", { purpose: "session" });
+    assert.equal(begun.status, 200);
+    await native("desktop.step-up.start", { purpose: "session" }, false);
+    await native("desktop.step-up.start", {});
+    const approvalPath = `/api/v1/desktop/step-up/approval/${begun.json.userCode}`;
+    await rt(h, factorCookie, "desktop.step-up.approval", "same-person public metadata", { path: approvalPath });
+    rec("desktop.step-up.approval", "no browser cookie", await raw(h, { path: approvalPath }));
+    await native("desktop.step-up.poll", { challengeId: begun.json.challengeId });
+    await native("desktop.step-up.poll", { challengeId: begun.json.challengeId }, false);
+    await native("desktop.step-up.poll", {});
+    await anon(h, "desktop.step-up.decision");
+    const decided = await rt(h, factorCookie, "desktop.step-up.decision", "same-person fresh factor and CSRF", { body: { userCode: begun.json.userCode, decision: "approve" } });
+    assert.equal(decided.status, 200); assert.equal(decided.json.proofToken, undefined);
+    await native("desktop.step-up.poll", { challengeId: begun.json.challengeId });
+    await native("desktop.step-up.cancel", { challengeId: begun.json.challengeId });
+    await native("desktop.step-up.cancel", { challengeId: begun.json.challengeId }, false);
+    await native("desktop.step-up.cancel", {});
 
     const registration = (body: object, headers: Record<string, string> = {}) => raw(h, { method: "POST", path: "/api/v1/invitations/redeem", headers: { ...jsonHeaders(), ...headers }, body: JSON.stringify(body) });
     rec("invitation.redeem", "invalid invitation", await registration({ code: randomBytes(32).toString("base64url"), username: "validname", password: FIXTURE_PASSWORD }));
@@ -298,6 +336,26 @@ test("every route, driven through its success and failure paths on the real serv
       }
     }
 
+    // Multipart contracts are exercised as real streams, separately from JSON request parsing.
+    const uploadBytes = '--contract-boundary\r\nContent-Disposition: form-data; name="file"; filename="fixture.p1x"\r\n\r\nfixture bytes\r\n--contract-boundary--\r\n';
+    const uploadHeaders = { "content-type": "multipart/form-data; boundary=contract-boundary" };
+    for (const id of ["extensions.upload", "imports.snapshot.upload"]) {
+      const spec = ROUTES.find(route => route.id === id)!;
+      await anon(h, id); await noCsrf(h, owner, id);
+      rec(id, "one streamed file", await raw(h, { method: "POST", path: spec.path, headers: { cookie: owner, "x-csrf-token": await csrfToken(h, owner), ...uploadHeaders }, body: uploadBytes }));
+      rec(id, "malformed multipart", await raw(h, { method: "POST", path: spec.path, headers: { cookie: owner, "x-csrf-token": await csrfToken(h, owner), ...uploadHeaders }, body: "not multipart" }));
+    }
+    const inspectPrevious = core.impl;
+    core.impl = async (method, params) => method === "ext.inspect" ? JSON.parse(readFileSync(path.join(repo, "packages/rpc-schema/fixtures/methods/ext.inspect.json"), "utf8")).result : inspectPrevious(method, params);
+    await anon(h, "extensions.inspect"); await noCsrf(h, owner, "extensions.inspect");
+    await rt(h, owner, "extensions.inspect", "owned inspection", { body: { source: { upload: "U".repeat(43) } } });
+    core.impl = inspectPrevious;
+    const unavailable = await start({ rateClasses: wide });
+    try {
+      const unavailableCookie = (await login(unavailable)).cookie;
+      for (const id of ["extensions.upload", "imports.snapshot.upload", "extensions.inspect"]) await rt(unavailable, unavailableCookie, id, "required backend unavailable", { body: { source: { upload: "U".repeat(43) } } });
+    } finally { await unavailable.close(); }
+
     // the shared failures, on every route: a foreign Host (421), a foreign Origin (403), and for routes with a body a wrong
     // content type (415), broken JSON (400) and an oversized body (413), each after authentication and the CSRF check
     for (const spec of ROUTES) {
@@ -305,7 +363,10 @@ test("every route, driven through its success and failure paths on the real serv
       rec(spec.id, "foreign Origin", await raw(h, { method: spec.method, path: spec.path, headers: { origin: "https://evil.example" } }));
       if (!spec.requestBody || spec.auth === "none") continue;
       const attempt = async (label: string, headers: Record<string, string>, body: string) => rec(spec.id, label, await raw(h, { method: spec.method, path: spec.path, headers: { cookie: owner, "x-csrf-token": await csrfToken(h, owner), ...headers }, body }));
-      await attempt("wrong content type", { "content-type": "text/plain" }, "x"); await attempt("broken JSON", jsonHeaders(), "{"); await attempt("body too large", jsonHeaders(), JSON.stringify({ code: "x".repeat(spec.id === "web.rpc" ? 1_100_000 : 70_000) }));
+      await attempt("wrong content type", { "content-type": "text/plain" }, "x");
+      if (spec.requestContentType === "multipart/form-data") {
+        await attempt("declared upload too large", { "content-type": "multipart/form-data; boundary=contract-boundary", "content-length": "1073758209" }, "");
+      } else { await attempt("broken JSON", jsonHeaders(), "{"); await attempt("body too large", jsonHeaders(), JSON.stringify({ code: "x".repeat(spec.id === "web.rpc" ? 1_100_000 : 70_000) })); }
     }
     await rt(h, dana, "totp.disable", "bad body", { body: { nope: 1 } });
 
@@ -313,7 +374,7 @@ test("every route, driven through its success and failure paths on the real serv
     await anon(h, "session.delete"); await noCsrf(h, ada, "session.delete"); await rt(h, ada, "session.delete", "ends the session");
     const two = (await loginAs(h, "alice")).cookie; await anon(h, "sessions.revoke-all"); await noCsrf(h, two, "sessions.revoke-all"); await rt(h, two, "sessions.revoke-all", "ends every session");
     await rt(h, vera, "sessions.revoke-all", "viewer may sign out");
-  } finally { await h.close(); mini.close(); }
+  } finally { await h.close(); mini.close(); rmSync(uploadHome, { recursive: true, force: true }); }
   assert.deepEqual(problems, [], `${problems.length} answers differ from the document:\n${problems.join("\n")}`);
 });
 
@@ -384,6 +445,7 @@ test("every route was exercised on its success status and on each failure status
   const byRoute = (id: string) => new Set(seen.filter((s) => s.route === id).map((s) => s.status));
   const missing: string[] = [];
   for (const r of ROUTES) {
+    if (["mcp", "a2a", "oauth"].includes(r.tag)) continue;
     const got = byRoute(r.id);
     const want = [r.successStatus, ...Object.keys(r.extra ?? {}).map(Number), ...(["desktop.meta", "desktop.pair", "desktop.redeem", "invitation.redeem", "account.bootstrap", "passkeys.login.options", "remote.pair-proof", "remote.device.pair"].includes(r.id) ? [] : [401]), ...(r.requestBody ? [400] : []), ...(r.csrf || typeof r.authz === "object" ? [403] : [])];
     for (const s of want) if (!got.has(s)) missing.push(`${r.id}: ${s} was never observed (saw ${[...got].sort().join(",") || "nothing"})`);

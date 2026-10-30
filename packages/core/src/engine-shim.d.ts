@@ -38,10 +38,16 @@ declare module "@cyb3rb1ade/plur1bus-memory/lib/providers/config-normalize.js" {
   export function normalizeEmbeddingConfig(raw?: Record<string, unknown>, opts?: Record<string, unknown>): Record<string, unknown>;
 }
 declare module "@cyb3rb1ade/plur1bus-memory/lib/providers/local-model-artifacts.js" {
+  export function validatePinnedModelArtifacts(profile: unknown, cacheDir: string, options?: { signal?: AbortSignal }):
+    Promise<{ ok: boolean }>;
   /** The engine's pinned local models (embeddings and rerankers) by model id; null for a model it does not pin. */
   export function pinnedLocalModelProfile(model: string, opts?: { dtype?: string }): {
     role: "embedding" | "reranker"; model: string; revision: string; outputDimensions?: number; license?: string; commercialUse?: false;
   } | null;
   /** The closed list of `modelPreparation.profile` ids, one per pinned embedding model and width. */
   export const EMBEDDING_PREPARATION_TARGETS: readonly { id: string; model: string; revision: string; dimensions: number; license?: string; commercialUse?: false }[];
+}
+declare module "@cyb3rb1ade/plur1bus-memory/lib/namespace-config.js" {
+  export function resolveNamespaceLayout(baseDbPath: string, effectiveNamespaces?: unknown,
+    options?: { explicit?: boolean }): { baseDir: string };
 }

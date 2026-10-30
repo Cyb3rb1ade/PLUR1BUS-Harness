@@ -46,6 +46,187 @@ codec directly; records containing `JsString` implement the codec explicitly. Th
 containers and returns a distinct depth-limit error before descending into level 129. This is a deliberate bounded
 parser deviation: Node has no fixed JSON depth limit, while these engine files are only a few levels deep.
 
+## Local model artifacts and runtime (RE-03)
+
+The artifact catalogue in `embedding::artifacts` reproduces the Node pin's model, revision, dtype, source-file
+mapping, byte length and SHA-256. The cache uses the Node layout:
+
+```text
+<model-cache>/<logical-model-repository>/<revision>/<artifact-path>
+<model-cache>/intfloat/multilingual-e5-small/614241f622f53c4eeff9890bdc4f31cfecc418b3/tokenizer.json
+```
+
+The logical model name remains the directory name when an ONNX conversion comes from another repository.
+`artifactRepository`, `artifactRevision` and `sourcePath` identify its download source; they do not change this
+cache layout. Gemma q8, q4 and fp32 select separate pinned files and vector-space identities. Both the Node-filled
+cache and a host-prepared cache can be read by Rust. `resolve`/`resolve_dtype` only read and verify regular files;
+they do not fetch, repair or write model artifacts. Missing or non-regular files, wrong sizes and wrong digests fail
+explicitly. The host owns downloads, durable preparation state, licence confirmation and selecting a trusted cache
+root. The Rust factory supplies `<HostServices.state_dir()>/models` only when the host omitted a local cache path;
+it does not reproduce legacy plugin-home discovery or environment-based credential fallback.
+
+The lazy local providers validate the profile, revision, width, prefixes and noncommercial consent at construction.
+The first inference verifies the files and loads the runtime. e5 uses the tokenizer's 512-token cap; Gemma and jina
+use their configured cap, default 512. Tokenization adds special tokens first and then cuts the completed IDs and
+attention mask, so an over-cap input loses its closing special token. Gemma uses its profile prompts and bounded
+sub-batches; jina v3 supplies the purpose's `task_id`, and jina v5 selects the last attended token independently of
+padding side. The process has one active CPU inference session, serialized behind a mutex, with thread limits
+derived from the CPUs available to the process. These implementations and synthetic-runtime tests do not establish
+real-model parity by themselves.
+
+`embedding::service::Service` implements the RE-01 embedding and model-readiness ports. Successful probes are
+memoized; concurrent probes coalesce, refresh queues one new probe, and cancellation ends one caller's wait.
+`ServiceOptions::from_config` carries top-level `embeddingBatchSize` (default 8), cache entry/TTL policy and scope
+into the facade. Its bounded memory cache uses RE-02 `EmbeddingCache` for optional SQLite persistence. Concurrent
+misses coalesce per key in an owned shared worker, independently of the initiating caller's cancellation or deadline.
+Every caller waits with its own cancellation budget; an expired initiator cannot poison an active waiter. Provider
+computation releases the memory lock, so an unrelated warm hit can return within its own budget. Overlapping batches
+publish their owned keys before waiting on another caller's keys, and completed
+errors are observed across the batch. SQLite cache read/write failures are best effort and do not reject otherwise
+valid provider results. Keys retain
+the complete Node v2 tuple and JS trim/lowercase text hash. Local model keys include `:query`/`:passage`; Gemma
+includes `@dtype` before the purpose. A missing envelope space still uses the provider's canonical default identity.
+New entries start their TTL at compute completion; a hit preserves the original expiry. Serving returns the identity envelope;
+the RE-08 host owns RPC listeners and transport tokens. `FlatEmbedder::new(width, cold)` and explicit
+`bind_identity` support the configured-width test seam; RE-08 remains responsible for its environment guard.
+
+For RE-08 production integration, construct remote providers with `build_embedding_owned` and
+`build_reranker_owned`, passing `Arc<dyn HostServices>`. These retain live host ports and honor cancellation while
+waiting for policy, DNS, credentials, TLS, headers and response bodies. Cancellation/deadline shuts down the active
+socket. All hops and retries keep the same absolute deadline.
+
+The original `build_embedding(&EngineConfig, &dyn HostServices) -> Result<Box<dyn EmbeddingProvider>, EngineError>`
+and corresponding `build_reranker` signature remain available for lazy local providers and disabled rerankers.
+They return a structured invalid-configuration error naming the owned factory for an active remote configuration,
+including a remote primary with a local fallback. The current contract allows only disabled/local fallbacks;
+unsupported remote fallbacks fail configuration deserialization.
+
+This is an explicit ownership correction to the brief's host-borrowing remote mapping, not a claim that the
+borrowed path satisfies f.6. Arbitrary blocking synchronous borrowed gate/secret callbacks cannot safely be
+preempted without owning their lifetime. Direct borrowed client/provider constructors remain cooperative
+compatibility and test interfaces; their docs state that restriction. No unsafe lifetime widening or leaked
+borrowed worker is used. Current K and L sources have no production call to migrate; the RE-08 service wiring
+must select the owned factories.
+
+Remote providers share `transport::guarded` and named host secret ports. The host forwards `egress.changed` through
+`Service::invalidate_egress` to discard decisions in every embedding/reranker client. The Cargo `log` facade has
+the compile-time `max_level_debug` feature because `ureq-proto` 0.6.4's TRACE writer can serialize complete HTTP
+bytes, including Authorization; marking header values sensitive protects Debug formatting but does not protect
+that TRACE writer. A real diagnostic-leak regression test covers this boundary. The tradeoff is global to the
+co-built users of the `log` facade: their TRACE macros are disabled too. This feature does not itself disable events
+from the separate `tracing` facade.
+
+### Dynamic ONNX Runtime
+
+The crate pins `ort =2.0.0-rc.14` with only `load-dynamic`. It neither downloads a runtime during a Cargo build nor
+statically links one. Production supplies an absolute **file** path through `ORT_DYLIB_PATH`, or calls
+`embedding::local_ort::initialize_runtime` with a host-verified path. The runtime version is **1.30.0**, matching
+`onnxruntime-node` in the Node pin. Distribution and the production installation path remain host/RE-08 concerns.
+
+The test helper [`tests/common/onnx_runtime.rs`](../crates/plur1bus-engine/tests/common/onnx_runtime.rs) invokes
+[`setup-onnx-runtime.mjs`](../crates/plur1bus-engine/tests/common/setup-onnx-runtime.mjs) only when its cached CPU
+library is absent or invalid. It verifies archive size, SHA-256 and npm SHA-512 integrity, then the selected regular
+file's size and SHA-256. The archive SHA-256 is
+`6e3390d6b783e7be946fad629292799da28d0b42f84856e50d2c1b0383291e75`. No binary is committed. The test cache is
+`<target-directory>/ort/1.30.0/<target>/<filename>`:
+
+| Target | Filename | Extracted file SHA-256 |
+|---|---|---|
+| `linux-x64` | `libonnxruntime.so.1` | `ffb75a925ba05e47b235bb66e3e3911714a80b328a9c9425539feb204aa32a23` |
+| `linux-arm64` | `libonnxruntime.so.1` | `1f549d46250b005580b597f4164984aaf75b3bcb9f3aeb07c7f8a8fe60b23c76` |
+| `darwin-arm64` | `libonnxruntime.1.30.0.dylib` | `685d2be5dba1309c89d3a5324b7fd06a5c42f1a61bfea32d14c4cc28d072121d` |
+| `win32-x64` | `onnxruntime.dll` | `508c362f5673483dd3a086379c392795b2e42d10d5e6f3f90ebd7ac21c97af67` |
+| `win32-arm64` | `onnxruntime.dll` | `6c3a2abf5c6aca11c48a0d338a91af309f2266f25ce2e4084e6a87bbcb0fbfd0` |
+
+For example, prepare the Linux x64 test library with Node 24.21:
+
+```sh
+node --use-env-proxy crates/plur1bus-engine/tests/common/setup-onnx-runtime.mjs --target-directory target --target linux-x64
+cargo test -p plur1bus-engine --features real-models --lib embedding::local_ort::session::tests
+```
+
+The Rust helper passes the verified path directly to initialization and does not mutate process environment
+variables. The tiny graphs in these tests exercise real CPU inference, shapes, mutex waiting and native-run
+cancellation without any Hugging Face model files.
+
+### Tokenizers, recordings and the outstanding parity gate
+
+Normal `cargo test -p plur1bus-engine` includes `embedding_tokens`, which requires the genuine recorded
+`tests/fixtures/vectors/token-ids.json` and the pinned e5/Gemma tokenizer files. Missing inputs fail; they are not
+skipped. The existing RE-14 downloader also reads the embedding tokenizer manifest. It writes
+`<PLUR1BUS_TOKENIZER_DIR>/embedding-e5-small/tokenizer.json` and
+`<PLUR1BUS_TOKENIZER_DIR>/embeddinggemma-2/tokenizer.json`, with SHA-256 verification and no ONNX download:
+
+```sh
+export PLUR1BUS_TOKENIZER_DIR=/absolute/external/tokenizer-cache
+node --use-env-proxy scripts/tokens/setup-tokenizers.mjs --directory "$PLUR1BUS_TOKENIZER_DIR"
+cargo test -p plur1bus-engine --test embedding_tokens
+```
+
+The Node recorder resolves the exact engine package from `packages/core` with `createRequire`, checks commit
+`9f34008c143c5da87b2194b5a28442b407ff8ba7`, and resolves its Transformers.js **4.3.1**. `--sentences` writes only
+the 25 German, 25 English and three additional inputs. Vector modes run one input at a time, disable the provider
+cache, and explicitly set Gemma's `maxBatchSize` to 1. `--token-ids` prepares only pinned tokenizer metadata and
+encodes with special tokens before cutting IDs and masks. Model downloads reuse the Node artifact verifier in
+the external cache:
+
+```sh
+export PLUR1BUS_MODELS_CACHE=/absolute/external/model-cache
+node --experimental-strip-types --conditions=source crates/plur1bus-engine/tests/fixtures/vectors/record.mjs --sentences
+node --use-env-proxy --experimental-strip-types --conditions=source crates/plur1bus-engine/tests/fixtures/vectors/record.mjs --e5
+node --use-env-proxy --experimental-strip-types --conditions=source crates/plur1bus-engine/tests/fixtures/vectors/record.mjs --gemma
+node --use-env-proxy --experimental-strip-types --conditions=source crates/plur1bus-engine/tests/fixtures/vectors/record.mjs --token-ids
+node --test crates/plur1bus-engine/tests/fixtures/vectors/model-recording.test.mjs
+```
+
+Embedding recordings reference sentence IDs and store query/passage Float32 vectors using short decimals that
+round trip to the same Float32. Each file stays below 1 MB; large recordings use `*-extra-N.json` parts and a
+`*.index.json` manifest. Recordings are generated by the pinned provider, never filled in or edited by hand.
+`--gemma` preserves T1's identity cases and writes a separate runtime identity/token record.
+
+Vector and reranker parity are isolated in the **required-feature** test target `embedding_parity`; the feature is
+`real-models`. They require the pinned ONNX files in `PLUR1BUS_MODELS_CACHE`, the verified runtime, and genuine Node
+recordings. For example:
+
+```sh
+cargo test -p plur1bus-engine --features real-models --test embedding_parity e5_vectors_match_the_node_engine -- --nocapture
+cargo test -p plur1bus-engine --features real-models --test embedding_parity gemma_vectors_match_the_node_engine -- --nocapture
+cargo test -p plur1bus-engine --features real-models --test embedding_parity bge_scores_order_matches_the_node_engine -- --nocapture
+```
+
+e5 and EmbeddingGemma 2 vectors, the Gemma runtime identity and token IDs (`e5-small.json`,
+`embeddinggemma-2*.json`, `identity-embeddinggemma-2-runtime.json`, `token-ids.json`, `token-ids-gemma.json`) are
+genuine recordings of the pinned Node engine; e5 is MIT, EmbeddingGemma 2 Apache-2.0 at their pinned model cards.
+The BGE conversion `woxpas-ai/bge-reranker-v2-m3-onnx@c44ebc43de724ae8816668bb44d2e728e17faa18` ships no LICENSE
+file of its own; by the owner's decision of 2026-10-29 the licence of the original `BAAI/bge-reranker-v2-m3`
+(Apache-2.0 at `953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e`) applies. `record.mjs --bge` writes `bge-scores.json` and
+`token-ids-bge.json` only against the exact receipt `tests/fixtures/vectors/licences/bge-reranker-v2-m3.json` (the
+conversion pin, the original's model card by size and SHA-256, the byte-exact licence text); `NOTICE-bge.md` carries
+the attribution. The BGE tokenizer is part of the pinned tokenizer manifest that `setup-tokenizers.mjs` fetches.
+
+jina v3, v5-nano and the jina reranker are CC-BY-NC-4.0. By the owner's decision of 2026-10-29 nothing derived from
+them (vectors, token IDs, scores, goldens) enters the repository, CI artefacts, logs or pull request texts; only the
+model name, revision and summary figures do. Their parity test therefore records jina vectors, token IDs, task IDs,
+prefix checks, padding cases, identities, reranker scores and Node's own batched vectors live into a system-temporary
+directory outside the repository and compares against them there. The quantized jina conversions are not
+padding-invariant in Node either, so the batched check compares a Rust batch with Node's batch, while e5 and
+EmbeddingGemma 2 batches must match their one-by-one goldens. Both `PLUR1BUS_ALLOW_TEST_INTERNALS=1` and
+`PLUR1BUS_TEST_ACCEPT_NC_MODELS=1` must be deliberately set before `record.mjs --jina --output-dir <temp-dir>` or the
+jina parity test runs; the recorder refuses before any NC model access when either is absent. These are explicit test
+consent gates, not production licence records: production still requires the host's persisted model/revision
+confirmation and explicit `modelPreparation.acceptNonCommercialLicense`, and possession of model files grants no
+consent. The full `embedding_parity` target includes jina and therefore also requires these gates.
+
+### Release build measurement
+
+The [2026-10-28 release measurement](handoffs/2026-10-28-re03-release-measurement.md) compares fresh Cargo targets
+for baseline `f56f1bcf` and reviewed RE-03 `c2b2dd21`, with identical release flags and toolchain. Cargo reported
+29m 49s / 1,391,488 executable bytes versus 29m 26s / 1,391,120 bytes: observed differences of -23 s and -368 bytes.
+This single sample does not establish a speedup; source/OS caches were shared and compile-time variance remains.
+The unchanged placeholder entry point also allows unused inference code to be discarded. The report records
+binary digests, process evidence, monitoring limitations and why RE-00 dev timings cannot be used as release
+comparators. No binary or model payload is committed.
+
 ## Locks
 
 The public `Lock` type supports both existing Node layouts; callers select the appropriate acquisition API.

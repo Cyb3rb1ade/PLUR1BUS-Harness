@@ -46,6 +46,9 @@ export const POLICY: readonly ActionSpec[] = Object.freeze([
   spec("memory.workspace.write", "memory-agent:workspace", { owner: A, admin: A, operator: U, member: U }, "use"),
   // RPC level: forgetting in an agent's store (the engine's own ACL still decides which cards, per principal).
   spec("memory.forget", "agent", { owner: A, admin: A, operator: U, member: U }, "use"),
+  // M6-A: Memory sensitivity mark/unmark/get (Festlegung 5)
+  spec("memory.sensitivity.read", "agent", { owner: A, admin: A, operator: U, member: U, viewer: U }, "use"),
+  spec("memory.sensitivity.write", "agent", { owner: A, admin: A, operator: U, member: U }, "manage"),
 
   // Agents. Operator may read and run/pause (ADR-007 role summary) but uses one only through a `use` right.
   spec("agent.list", "system", { owner: A, admin: A, operator: A, member: A, viewer: A }), // callers filter with `canSee`
@@ -69,6 +72,11 @@ export const POLICY: readonly ActionSpec[] = Object.freeze([
   spec("logs.query", "system", OA),
 
   ...["models", "providers", "channels", "plugins", "mcp"].flatMap(catalogue),
+  // M v2 decision 2: extension inventory and changes are human Owner/Admin operations.
+  humanOnly(spec("extensions.read", "system", OA)),
+  humanOnly(spec("extensions.manage", "system", OA)),
+  humanOnly(spec("imports.read", "system", OA)),
+  humanOnly(spec("imports.manage", "system", OA)),
 
   // Users & roles, break-glass, ownership.
   spec("users.read", "system", OA),

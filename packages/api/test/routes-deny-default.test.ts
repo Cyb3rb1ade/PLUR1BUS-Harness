@@ -5,8 +5,8 @@ import { RPC_RULES } from "../../core/src/rbac/guard.ts";
 import { authorize, policyFor } from "../src/rbac-bridge.ts";
 import { start, fakeCore, addUser, raw, jsonHeaders, loginAs, write } from "./helpers.ts";
 const wide = { auth: { capacity: 10000, refillPerSec: 1000 }, read: { capacity: 10000, refillPerSec: 1000 }, write: { capacity: 10000, refillPerSec: 1000 }, stream: { capacity: 10000, refillPerSec: 1000 } };
-const publicIds = new Set(["desktop.meta", "desktop.pair", "desktop.redeem", "desktop.ticket", "invitation.redeem", "session.create", "session.totp", "account.bootstrap", "passkeys.login.options", "passkeys.login", "remote.pair-proof", "remote.device.pair"]);
-const selfIds = new Set(["csrf.issue", "session.delete", "sessions.revoke-all", "whoami"]);
+const publicIds = new Set(["desktop.meta", "desktop.pair", "desktop.redeem", "desktop.ticket", "desktop.step-up.start", "desktop.step-up.poll", "desktop.step-up.cancel", "invitation.redeem", "session.create", "session.totp", "account.bootstrap", "passkeys.login.options", "passkeys.login", "remote.pair-proof", "remote.device.pair", "oauth.metadata", "oauth.protected_resource", "oauth.protected_resource.path", "oauth.authorize.get", "oauth.token", "oauth.revoke", "a2a.card.root", "a2a.card.root.alias", "a2a.card.agent", "a2a.card.agent.alias"]);
+const selfIds = new Set(["csrf.issue", "session.delete", "sessions.revoke-all", "whoami", "desktop.step-up.approval", "desktop.step-up.decision", "oauth.grants.list", "oauth.grants.revoke", "oauth.authorize.post"]);
 const path = (value: string) => value.replace("{agentId}", "main").replace("{sessionId}", "deny-contract");
 const body = (id: string) => id === "chats.create" ? { agentId: "main" } : id === "chats.submit" ? { text: "Deny contract" } : {};
 test("every registered route has a reviewed auth classification and anonymous requests cannot enter authenticated routes", async t => {
@@ -15,7 +15,7 @@ test("every registered route has a reviewed auth classification and anonymous re
     assert.ok(r.authz, `${r.id} must declare authorization`);
     if (r.authz === "public") { assert.ok(publicIds.has(r.id), `${r.id} is an unreviewed public route`); assert.equal(r.auth, "none"); continue; }
     if (r.authz === "authenticated") assert.ok(selfIds.has(r.id), `${r.id} is unreviewed session self-service`);
-    else if (r.authz === "delegated") assert.ok(["web.rpc", "web.events"].includes(r.id), `${r.id} is unreviewed delegated route`);
+    else if (r.authz === "delegated") assert.ok(["web.rpc", "web.events", "mcp.server", "a2a.endpoint"].includes(r.id), `${r.id} is unreviewed delegated route`);
     else assert.ok(policyFor(r.authz.action), `${r.id} needs a registered policy`);
     const res = await raw(h, { method: r.method, path: path(r.path), headers: r.requestBody ? jsonHeaders() : {}, ...(r.requestBody ? { body: JSON.stringify(body(r.id)) } : {}) });
     assert.equal(res.status, 401, `${r.id} anonymous with a valid path`);

@@ -58,6 +58,9 @@ pub fn parse() -> Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Cmd {
+    /// Private bounded-pipe SSH/SFTP transport; no command or private-key argument is accepted.
+    #[command(name = "__remote-fs-worker", hide = true)]
+    RemoteFsWorker,
     /// [experimental] Install the harness: Node runtime, core, config, skills, OS service, start and first check
     ///
     /// Downloads the pinned Node runtime and the core payload and verifies their SHA-256 hashes, writes the config
@@ -279,6 +282,11 @@ Examples:
         #[command(subcommand)]
         sub: PluginCmd,
     },
+    /// MCP bundle compatibility commands
+    Mcp {
+        #[command(subcommand)]
+        sub: McpCmd,
+    },
     /// Extension packages (`.p1x`): inspect, pack, verify
     Ext {
         #[command(subcommand)]
@@ -320,6 +328,9 @@ Examples:
 
 /// `plur1bus import` (docs/import.md §8, §9). Without --detect, --skills or --rollback it answers the M7 stub.
 #[derive(Args, Debug)]
+#[command(
+    after_help = "Examples:\n  plur1bus import ssh --key generate\n  plur1bus import ssh --ssh reader@host:22 --source /srv/source --allow-egress --probe-host-key\n  plur1bus import ssh --connection ID --trust-host-key SHA256:... --probe-id TOKEN\n  plur1bus import hermes --ssh reader@host:22 --source /srv/source --detect"
+)]
 pub struct ImportArgs {
     /// Source system to read (never modified)
     #[arg(value_enum)]
@@ -380,6 +391,45 @@ pub struct ImportArgs {
     /// Allow multiple Hermes profiles to merge into the same target agent
     #[arg(long = "merge-profiles")]
     pub merge_profiles: bool,
+    /// Read an SSH source through Core's read-only SFTP worker (requires an absolute --source or configured --connection)
+    #[arg(long, value_name = "USER@HOST[:PORT]")]
+    pub ssh: Option<String>,
+    /// Use this configured SSH connection instead of its stable endpoint identifier
+    #[arg(long, value_name = "ID")]
+    pub connection: Option<String>,
+    /// SSH identity operation; Owner-only, private key remains in Secret Store
+    #[arg(long, value_enum, value_name = "ACTION")]
+    pub key: Option<ImportSshKey>,
+    /// Explicitly permit private-address SSH endpoints for this connection
+    #[arg(long)]
+    pub allow_private: bool,
+    /// Owner consent: allow exactly this SSH host and TCP port in the central egress policy (SSH setup with --ssh and --source only)
+    #[arg(long)]
+    pub allow_egress: bool,
+    /// Probe the SSH host key without authenticating; never trusts it automatically
+    #[arg(long)]
+    pub probe_host_key: bool,
+    /// Trust the exact fingerprint from an earlier --probe-host-key result
+    #[arg(long, value_name = "SHA256")]
+    pub trust_host_key: Option<String>,
+    /// Expiring probe identifier returned by --probe-host-key
+    #[arg(long, value_name = "TOKEN")]
+    pub probe_id: Option<String>,
+    /// Delete the configured --connection and invalidate its active source handles
+    #[arg(long)]
+    pub remove_connection: bool,
+    /// Read an SSH import's maintenance status, including while Core is offline
+    #[arg(long, value_name = "RUN_ID")]
+    pub run_status: Option<String>,
+    /// Abort an SSH maintenance run through the supervisor
+    #[arg(long, value_name = "RUN_ID")]
+    pub abort_run: Option<String>,
+    /// List supervised import runs
+    #[arg(long)]
+    pub runs: bool,
+    /// Preflight a supervised rollback; --apply dispatches it after a fresh ticket
+    #[arg(long, value_name = "RUN_ID")]
+    pub rollback_run: Option<String>,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
@@ -387,6 +437,16 @@ pub enum ImportSource {
     Openclaw,
     Hermes,
     Backfill,
+    /// SSH identity, connection, host-key trust and supervised-run operations
+    Ssh,
+}
+
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ImportSshKey {
+    Status,
+    Generate,
+    Rotate,
+    Delete,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
@@ -698,6 +758,24 @@ pub enum MemoryCmd {
     Curation {
         #[command(subcommand)]
         sub: CurationCmd,
+    },
+    /// [experimental] Mark sensitivity categories on a memory entry
+    Mark {
+        id: String,
+        /// sensitivity categories (comma-separated or repeated): health, financial, credential, identity, personal
+        #[arg(long, value_delimiter = ',', required = true)]
+        category: Vec<String>,
+        #[arg(long)]
+        agent: Option<String>,
+    },
+    /// [experimental] Clear sensitivity categories from a memory entry
+    Unmark {
+        id: String,
+        /// specific sensitivity category to clear; clears all manual markings if omitted
+        #[arg(long)]
+        category: Option<String>,
+        #[arg(long)]
+        agent: Option<String>,
     },
     /// [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
     Reembed(ReembedArgs),
@@ -1720,11 +1798,16 @@ pub enum ExtState {
 pub enum PluginKind {
     Module,
     Channel,
+    McpServer,
+    Bundle,
 }
 
 /// The install flags `skill install` and `plugin install` share.
 #[derive(Args, Debug, Clone)]
 pub struct InstallFlags {
+    /// Select a bundle member (repeatable); every nonoptional member is required. Omit to install all members
+    #[arg(long = "member", value_name = "NAME")]
+    pub members: Vec<String>,
     /// Acknowledge that the package is not signed (with --yes; a terminal asks instead)
     #[arg(long)]
     pub allow_unsigned: bool,
@@ -1743,6 +1826,27 @@ pub struct InstallFlags {
     pub yes: bool,
 }
 
+/// Compatibility entry point for importing an MCP bundle through plugin installation (M-A9).
+#[derive(Subcommand, Debug)]
+pub enum McpCmd {
+    /// [experimental] Alias for `plugin install`: inspect and install an MCP bundle
+    Import {
+        /// `.mcpb`, `.dxt`, `.p1x`, or `-` for a `.p1x` on stdin
+        path: String,
+        #[command(flatten)]
+        flags: InstallFlags,
+    },
+    /// [experimental] Serve the harness MCP server on stdin/stdout for foreign hosts (M6-A)
+    ///
+    /// stdout carries only MCP JSON-RPC lines; diagnostics go to stderr. Reads agent-bound
+    /// token from PLUR1BUS_MCP_TOKEN. Not affected by `--json`.
+    Serve {
+        /// The agent to expose on the MCP server (default: the only registered agent)
+        #[arg(long)]
+        agent: Option<String>,
+    },
+}
+
 /// `plur1bus skill` (spec §10.1).
 #[derive(Subcommand, Debug)]
 pub enum SkillCmd {
@@ -1759,13 +1863,14 @@ pub enum SkillCmd {
     },
     /// [experimental] Show one skill: its package, trust, capabilities, scripts, files and trash entries
     Show { name: String },
-    /// [experimental] Install a skill from a `.p1x`, a `.skill`, a `.zip`, a folder or stdin (`-`), disabled
+    /// [experimental] Install a skill; first-party packages activate for all agents, other packages stay disabled
     ///
     /// Inspects the package first and prints the disclosure: trust tier and why, signer key, id, version, publisher,
     /// licence, every capability, every script with its size and first line, the runtime, the secrets and what it
     /// replaces. A terminal asks once; with --yes the matching --allow-* flag acknowledges an unsigned, unknown-signer
-    /// or downgrade package. A folder, `.zip` or `.skill` becomes an unsigned package. `--enable` enables it in the
-    /// same step (for the listed agents only, with `--enable=bernd,anna`).
+    /// or downgrade package. A folder, `.zip` or `.skill` becomes an unsigned package. For other trust tiers,
+    /// `--enable` activates it in the same step (for the listed agents only, with `--enable=bernd,anna`). First-party
+    /// installations always activate for all agents; a later enable can narrow them.
     Install {
         /// `.p1x`, `.skill`, `.zip`, a skill folder, or `-` for a `.p1x` on stdin
         path: String,
@@ -1778,7 +1883,7 @@ pub enum SkillCmd {
     /// [experimental] Uninstall a skill into the trash (a bundled skill is hidden instead)
     Uninstall {
         name: String,
-        /// Also move its data (data/ext/<name>) and its configuration to the trash (asks separately)
+        /// Also trash its data/configuration and irreversibly delete declared secret slots (asks separately)
         #[arg(long)]
         purge: bool,
         /// Disable the enabled extensions that need it first, instead of refusing
@@ -1827,24 +1932,26 @@ pub enum PluginCmd {
     },
     /// [experimental] Show one module or channel: its package, trust, capabilities, files, dependents and trash entries
     Show { name: String },
-    /// [experimental] Install a module or channel from a `.p1x` or stdin (`-`), disabled
+    /// [experimental] Install a module, channel or MCP server; first-party packages activate for all agents
     ///
     /// Inspects the package first and prints the disclosure (see `skill install`). A module runs with the full
     /// authority of a harness process. A terminal asks once; with --yes the matching --allow-* flag acknowledges an
-    /// unsigned, unknown-signer or downgrade package.
+    /// unsigned, unknown-signer or downgrade package. For other trust tiers, `--enable` activates it in the same step;
+    /// `--enable=bernd,anna` limits an MCP server to those agents. First-party installations always activate for all
+    /// agents; a later enable can narrow them.
     Install {
         /// `.p1x`, or `-` for one on stdin
         path: String,
-        /// Enable it right away
-        #[arg(long)]
-        enable: bool,
+        /// Enable it right away, for every agent or (for MCP servers, with `=<agent,…>`) only for those
+        #[arg(long, num_args = 0..=1, require_equals = true, value_delimiter = ',', value_name = "AGENT")]
+        enable: Option<Vec<String>>,
         #[command(flatten)]
         flags: InstallFlags,
     },
     /// [experimental] Stop and uninstall a module or channel into the trash
     Uninstall {
         name: String,
-        /// Also move its data (data/ext/<name>) and its configuration section to the trash (asks separately)
+        /// Also trash its data/configuration and irreversibly delete declared secret slots (asks separately)
         #[arg(long)]
         purge: bool,
         /// Disable the enabled modules that need it first, instead of refusing
@@ -1859,16 +1966,22 @@ pub enum PluginCmd {
         #[arg(value_name = "TRASH_ID")]
         trash_id: String,
     },
-    /// [experimental] Enable a module or channel: prints its capabilities and the restart plan first
+    /// [experimental] Enable a plugin: MCP servers can be limited to selected agents
     Enable {
         name: String,
+        /// Only for this agent (repeatable; MCP servers only)
+        #[arg(long = "agent", value_name = "ID")]
+        agents: Vec<String>,
         /// Acknowledge the capabilities without asking (required outside a terminal)
         #[arg(long)]
         yes: bool,
     },
-    /// [experimental] Disable a module or channel: prints the modules that will be held back first
+    /// [experimental] Disable a plugin, or remove selected agents from an MCP server
     Disable {
         name: String,
+        /// Only for this agent (repeatable; MCP servers only)
+        #[arg(long = "agent", value_name = "ID")]
+        agents: Vec<String>,
         /// Do not ask (required outside a terminal)
         #[arg(long)]
         yes: bool,
@@ -2028,6 +2141,12 @@ mod tests {
         match parse(&["acp", "serve", "--agent", "bernd"]).cmd {
             Cmd::Acp {
                 sub: AcpCmd::Serve { agent },
+            } => assert_eq!(agent.as_deref(), Some("bernd")),
+            other => panic!("{other:?}"),
+        }
+        match parse(&["mcp", "serve", "--agent", "bernd"]).cmd {
+            Cmd::Mcp {
+                sub: McpCmd::Serve { agent },
             } => assert_eq!(agent.as_deref(), Some("bernd")),
             other => panic!("{other:?}"),
         }
@@ -2369,6 +2488,12 @@ pub enum DeviceCmd {
     Pair {
         #[arg(long, value_parser = ["desktop"])]
         kind: String,
+        /// Explicitly grant extension reading and management (Owner/Admin only)
+        #[arg(long)]
+        extensions: bool,
+        /// Explicitly grant source import reading and management (Owner/Admin only)
+        #[arg(long)]
+        imports: bool,
     },
     /// [experimental] List your devices (Owner/Admin: all), including revoked devices
     List,

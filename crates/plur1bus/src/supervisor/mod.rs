@@ -15,11 +15,25 @@ pub mod config;
 pub mod config_policy;
 pub mod cpu;
 pub mod ext;
+pub mod extension_uploads;
+pub mod import_admission;
+pub mod import_controls;
+pub mod import_extensions;
+#[cfg(test)]
+mod import_gate_tests;
+pub mod import_history;
+pub mod import_maintenance;
+pub mod import_records;
+pub mod import_recovery;
+pub mod import_secrets;
+pub mod import_worker;
+pub mod imports;
 pub mod logfile;
 pub mod modules;
 #[cfg(windows)]
 pub mod pipe_windows;
 pub mod server;
+pub mod spawn_secrets;
 pub mod state;
 pub mod subscribers;
 
@@ -184,6 +198,8 @@ impl SupervisorState {
 /// scheduled restart, `daemon.start`), and the log. `config` has its own mutex, taken before `state` when both are
 /// needed.
 pub struct Shared {
+    /// Import maintenance has its own bounded metadata state; no source or credential values are cached here.
+    pub maintenance: Mutex<imports::State>,
     pub state: Mutex<SupervisorState>,
     pub wake: Condvar,
     pub log: Log,
@@ -823,6 +839,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     }
 
     let shared = Arc::new(Shared {
+        maintenance: Mutex::new(imports::State::default()),
         state: Mutex::new(SupervisorState {
             instance_id: instance_id.clone(),
             pid,
@@ -856,6 +873,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         subscribers: subscribers::Subscribers::new(),
         out_logs: Mutex::new(Vec::new()),
     });
+    import_maintenance::initial(&shared, layout);
     // supervisor.maxCores binds the supervisor before it starts a thread or a child, so every one inherits it.
     let running = relock(&shared.config).running.clone();
     if let Some(running) = running {
@@ -884,6 +902,13 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     }
     config::spawn_watcher(&shared, layout, time_scale)
         .unwrap_or_else(|e| fail(layout, 1, &format!("cannot start the config watcher: {e}")));
+    ext::spawn_hold_recovery(&shared, layout).unwrap_or_else(|e| {
+        fail(
+            layout,
+            1,
+            &format!("cannot start extension hold recovery: {e}"),
+        )
+    });
     shared.log.info(
         "supervisor ready",
         json!({ "pid": pid, "instanceId": instance_id, "address": address, "noCore": opts.no_core, "timeScale": time_scale }),
@@ -893,7 +918,9 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     // up with a fatal child (H3-R11), and `daemon.start` tries again.
     let mut monitors = Monitors::new();
     if !opts.no_core {
-        start_child(&shared, layout, &token, &Role::core(), &mut monitors);
+        if !imports::busy(&shared) {
+            start_child(&shared, layout, &token, &Role::core(), &mut monitors);
+        }
         start_child(&shared, layout, &token, &Role::api(), &mut monitors);
         start_modules(&shared, layout);
     }
@@ -907,6 +934,18 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
                 if let Some(stop) = st.stopping {
                     break Err(stop);
                 }
+                let (maintenance_busy, import_job) = import_maintenance::scheduled(&shared);
+                if let Some(job) = import_job {
+                    break Ok(Next::Import(job));
+                }
+                if maintenance_busy {
+                    st = shared
+                        .wake
+                        .wait_timeout(st, Duration::from_millis(100))
+                        .unwrap_or_else(|error| error.into_inner())
+                        .0;
+                    continue;
+                }
                 // Before `daemon.start`: a job restarts a core that is down, and the start that follows is a no-op.
                 if !st.restart_jobs.is_empty() {
                     // M8: every job queued by now is coalesced into one run.
@@ -915,6 +954,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
                     break Ok(Next::Job(jobs));
                 }
                 if let Some(op) = st.module_ops.pop_front() {
+                    st.restart_running = true;
                     break Ok(Next::Op(op));
                 }
                 let now = Instant::now();
@@ -932,7 +972,9 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
                     let slot = &mut st.slots[i];
                     slot.start_requested = false;
                     slot.restart_at = None;
-                    break Ok(Next::Due(slot.role.clone()));
+                    let role = slot.role.clone();
+                    st.restart_running = true;
+                    break Ok(Next::Due(role));
                 }
                 st = match state::next_wake(&st.slots) {
                     Some(at) => match shared
@@ -948,6 +990,9 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         };
         match next {
             Err(stop) => break stop,
+            Ok(Next::Import(job)) => {
+                import_maintenance::run(&shared, layout, &token, &mut monitors, job)
+            }
             Ok(Next::Job(jobs)) => run_restart_jobs(&shared, layout, &token, &mut monitors, jobs),
             Ok(Next::Op(op)) => run_module_op(&shared, layout, &token, &mut monitors, op),
             // A module's first start probes for one to adopt, like the core's at start (S6).
@@ -958,6 +1003,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             }
             Ok(Next::Due(role)) => restart_child(&shared, layout, &token, &role, &mut monitors),
         }
+        shared.lock().restart_running = false;
     };
     // X1: a stage or inspect worker still running is killed and reaped; its caller answers worker-failed and removes
     // what it left (anything a late clean-up misses, `ext::recover` removes at the next start).
@@ -985,8 +1031,8 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     );
     // The slots are the core, then the modules in start order: stopped in reverse, the core last, all inside one
     // budget plus one grace (M3, H3B-R25). A module is asked to finish by the end of the budget and killed there; the
-    // grace is the core's reserve: it is asked for what is left of the budget, at least half the grace, and killed at
-    // the end of the grace, so a hung module never costs the core its clean stop.
+    // grace is the core's reserve: after other children it gets what is left of the budget, at least half the grace,
+    // and otherwise its full RPC allowance. It is killed at the fixed grace deadline in either case.
     let order: Vec<(String, RoleKind)> = shared
         .lock()
         .slots
@@ -995,15 +1041,13 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         .map(|s| (s.role.name.clone(), s.role.kind))
         .collect();
     let grace = child::stop_grace(time_scale);
-    let budget_end = Instant::now() + stop.budget;
-    let deadline = budget_end + grace;
+    let mut stopped_children = 0;
     for (name, kind) in order {
         if let Some(m) = monitors.get_mut(&name) {
-            let left = budget_end.saturating_duration_since(Instant::now());
-            match kind {
-                RoleKind::Api | RoleKind::Module => m.stop_until(left, budget_end),
-                RoleKind::Core => m.stop_until(left.max(grace / 2), deadline),
-            }
+            let (budget, deadline) =
+                child_stop_timing(stop, kind, grace, stopped_children, Instant::now());
+            m.stop_until(budget, deadline);
+            stopped_children += 1;
         }
     }
     // The last log line comes before the run files go: `daemon stop` returns once `run/supervisor.pid` is gone, and a
@@ -1015,8 +1059,34 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     0
 }
 
+/// The child's RPC allowance and fixed stop deadline; prior children spend one shared budget (H3B-R25).
+fn child_stop_timing(
+    stop: StopRequest,
+    kind: RoleKind,
+    grace: Duration,
+    stopped_children: usize,
+    now: Instant,
+) -> (Duration, Instant) {
+    let budget_end = stop.requested_at + stop.budget;
+    let left = budget_end.saturating_duration_since(now);
+    match kind {
+        RoleKind::Api | RoleKind::Module => (left, budget_end),
+        RoleKind::Core => {
+            // ADR-012 §10.12: without an earlier child, Core keeps its full nominal RPC budget. Scheduling or
+            // import cleanup never renews the acceptance-anchored hard deadline enforced by stop_until.
+            let allowance = if stopped_children == 0 {
+                stop.budget
+            } else {
+                left
+            };
+            (allowance.max(grace / 2), budget_end + grace)
+        }
+    }
+}
+
 /// What the scheduler runs next.
 enum Next {
+    Import(imports::Job),
     /// The requested restarts queued so far (B8), run as one (M8).
     Job(Vec<RestartJob>),
     /// A slot whose `daemon.start` or scheduled restart is due.
@@ -1166,6 +1236,16 @@ pub fn push_restart(
     shared: &Shared,
     plan: plur1bus_config::Restart,
 ) -> Option<std::sync::mpsc::Receiver<Vec<String>>> {
+    let idle = imports::idle(shared).ok()?;
+    push_restart_under_gate(&idle, plan)
+}
+
+/// Enqueues while the caller's idle admission guard fences import reservation, without recursively locking it.
+fn push_restart_under_gate(
+    idle: &imports::Idle<'_>,
+    plan: plur1bus_config::Restart,
+) -> Option<std::sync::mpsc::Receiver<Vec<String>>> {
+    let shared = idle.shared();
     let mut st = shared.lock();
     if st.stopping.is_some() || (st.no_core && plan.modules.is_empty()) {
         return None;
@@ -1414,6 +1494,50 @@ pub(crate) fn test_state() -> SupervisorState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_first_core_keeps_its_full_rpc_allowance_without_renewing_the_stop_deadline() {
+        let stop = StopRequest {
+            budget: Duration::from_millis(2000),
+            source: StopSource::Rpc,
+            requested_at: Instant::now(),
+        };
+        let grace = Duration::from_millis(100);
+        for elapsed in [Duration::from_millis(3), Duration::from_millis(2500)] {
+            let now = stop.requested_at + elapsed;
+            let (budget, deadline) = child_stop_timing(stop, RoleKind::Core, grace, 0, now);
+            assert_eq!(budget, stop.budget);
+            assert_eq!(deadline, stop.requested_at + stop.budget + grace);
+        }
+    }
+
+    #[test]
+    fn prior_children_share_the_remaining_stop_budget_and_the_core_keeps_its_grace() {
+        let stop = StopRequest {
+            budget: Duration::from_millis(2000),
+            source: StopSource::Rpc,
+            requested_at: Instant::now(),
+        };
+        let grace = Duration::from_millis(100);
+        let now = stop.requested_at + Duration::from_millis(500);
+        for kind in [RoleKind::Api, RoleKind::Module] {
+            assert_eq!(
+                child_stop_timing(stop, kind, grace, 0, now),
+                (Duration::from_millis(1500), stop.requested_at + stop.budget)
+            );
+        }
+        assert_eq!(
+            child_stop_timing(stop, RoleKind::Core, grace, 1, now),
+            (
+                Duration::from_millis(1500),
+                stop.requested_at + stop.budget + grace
+            )
+        );
+        assert_eq!(
+            child_stop_timing(stop, RoleKind::Core, grace, 1, now + stop.budget),
+            (grace / 2, stop.requested_at + stop.budget + grace)
+        );
+    }
 
     #[cfg(unix)]
     #[test]

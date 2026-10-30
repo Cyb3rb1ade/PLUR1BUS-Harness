@@ -46,11 +46,12 @@ uuid = { version = "=1.26.1", features = ["v7", "serde"] }
 url = "=2.5.8"
 base64 = "=0.22.1"
 sha2 = "=0.10.9"
+ring = "=0.17.14"
 regex = "=1.13.1"
 reqwest = { version = "=0.12.24", default-features = false, features = ["json", "rustls-tls-native-roots", "stream", "cookies"] }
 rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
 rustls-native-certs = "=0.8.2"
-tokio = { version = "=1.53.3", features = ["process", "time", "io-util", "net"] }
+tokio = { version = "=1.53.3", features = ["process", "time", "io-util", "net", "fs"] }
 chrono = "=0.4.42"
 rand = "=0.9.5"
 x509-parser = "=0.18.1"

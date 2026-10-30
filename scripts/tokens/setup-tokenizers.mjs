@@ -9,6 +9,7 @@ const LICENSES = new Set(["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "
 const HASH = /^[a-f0-9]{64}$/;
 const NAME = /^[a-z0-9][a-z0-9._-]*$/;
 const DEFAULT_MANIFEST = new URL("../../crates/plur1bus-engine/src/tokens/artifacts.json", import.meta.url);
+const EMBEDDING_MANIFEST = new URL("../../crates/plur1bus-engine/tests/fixtures/vectors/tokenizer-artifacts.json", import.meta.url);
 const NOTICE = new URL("./NOTICE", import.meta.url);
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
@@ -105,6 +106,7 @@ export async function setupTokenizers({ manifest, directory, fetchImpl = globalT
 
 async function main() {
   let manifestPath = DEFAULT_MANIFEST;
+  let explicitManifest = false;
   let directory = process.env.PLUR1BUS_TOKENIZER_DIR;
   const arguments_ = process.argv.slice(2);
   for (let index = 0; index < arguments_.length; index += 2) {
@@ -112,11 +114,14 @@ async function main() {
     if (!value || !["--manifest", "--directory"].includes(name)) {
       throw new Error("Usage: node scripts/tokens/setup-tokenizers.mjs [--manifest path] [--directory path]");
     }
-    if (name === "--manifest") manifestPath = value;
+    if (name === "--manifest") { manifestPath = value; explicitManifest = true; }
     else directory = value;
   }
-  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
-  for (const result of await setupTokenizers({ manifest, directory })) console.log(`${result.id}: ${result.state}`);
+  // Reuse the same pinned downloader for provider tokenizers; these are not LLM counter families.
+  for (const path of explicitManifest ? [manifestPath] : [manifestPath, EMBEDDING_MANIFEST]) {
+    const manifest = JSON.parse(await readFile(path, "utf8"));
+    for (const result of await setupTokenizers({ manifest, directory })) console.log(`${result.id}: ${result.state}`);
+  }
 }
 
 if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {

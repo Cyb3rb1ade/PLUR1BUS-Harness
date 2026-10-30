@@ -25,6 +25,8 @@ pub enum Topic {
     Modules,
     /// `ext.changed` (X1-R8).
     Ext,
+    /// A single owner-authorized import run; UUIDs preserve exact topic identity.
+    Import(u128),
 }
 
 /// A connection's writer, shared by its request loop (replies) and its subscribers' writer threads (notifications),

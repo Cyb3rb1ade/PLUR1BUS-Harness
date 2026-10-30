@@ -7,6 +7,7 @@ import { createServer, type Server, type Socket } from "node:net";
 import { LineDecoder, encodeLine } from "../../src/framing.ts";
 import { runDir, supervisorAddress, supervisorPidPath, supervisorTokenPath } from "../../src/paths.ts";
 import type { ConfigChanged } from "../../src/config-watch.ts";
+import type { AdminImportRuntimeConfigSetParams } from "@plur1bus/rpc-schema";
 
 export interface FakeSupervisor {
   readonly home: string;
@@ -15,6 +16,8 @@ export interface FakeSupervisor {
   readonly revision: string;
   /** Every `config.set` params received, in order. */
   readonly sets: { changes: { key: string; value: unknown }[] }[];
+  /** Private maintenance controls, separate from ordinary config.set for no-fallback regressions. */
+  readonly runtimeSets: AdminImportRuntimeConfigSetParams[];
   /** The token each successful `config.watch` connection authenticated with, in order. */
   readonly watches: string[];
   /** Makes `config` the running configuration and sends `config.changed` to every watcher. */
@@ -55,7 +58,7 @@ async function listenWithRetry(server: Server, address: string): Promise<void> {
  *  directly behind the reply (the I1 race). */
 interface Persona {
   token: string; config: Record<string, unknown>; revision: string; n: number; onWatch?: () => void;
-  sets: FakeSupervisor["sets"]; watches: string[]; watchers: Set<Socket>; sockets: Set<Socket>;
+  sets: FakeSupervisor["sets"]; runtimeSets: FakeSupervisor["runtimeSets"]; watches: string[]; watchers: Set<Socket>; sockets: Set<Socket>;
 }
 
 function persona(home: string, o: { config: Record<string, unknown>; revision?: string; token?: string; onWatch?: () => void }): Persona {
@@ -64,7 +67,7 @@ function persona(home: string, o: { config: Record<string, unknown>; revision?: 
   writeFileSync(supervisorTokenPath(home), token, { mode: 0o600 });
   // On Windows the client refuses a pipe whose expected server pid is unknown; the fake is served by this process.
   writeFileSync(supervisorPidPath(home), `${process.pid} fake-supervisor`, { mode: 0o600 });
-  return { token, config: o.config, revision: o.revision ?? "r1", n: 1, ...(o.onWatch ? { onWatch: o.onWatch } : {}), sets: [], watches: [], watchers: new Set(), sockets: new Set() };
+  return { token, config: o.config, revision: o.revision ?? "r1", n: 1, ...(o.onWatch ? { onWatch: o.onWatch } : {}), sets: [], runtimeSets: [], watches: [], watchers: new Set(), sockets: new Set() };
 }
 
 /** `onWatch` runs right after a `config.watch` reply is written, synchronously: a `push()` in it lands on the socket
@@ -103,6 +106,11 @@ export async function startFakeSupervisor(o: { home: string; config: Record<stri
           reply({ applied: true, dryRun: false, changed: msg.params.changes.map((c: { key: string }) => c.key), restart: { live: [], core: false, modules: [] }, revision: p.revision, restarted: [], durationMs: 0 });
           continue;
         }
+        if (msg.method === "admin.import.runtime.config.set") {
+          p.runtimeSets.push(msg.params);
+          reply({ applied: true, dryRun: false, changed: msg.params.changes.map((c: { key: string }) => c.key), restart: { live: [], core: false, modules: [] }, revision: p.revision, restarted: [], durationMs: 0 });
+          continue;
+        }
         fail("E_INTERNAL", "method-not-found");
       }
     });
@@ -114,7 +122,7 @@ export async function startFakeSupervisor(o: { home: string; config: Record<stri
     return {
       home: o.home, token: p.token,
       get config() { return p.config; }, get revision() { return p.revision; },
-      sets: p.sets, watches: p.watches,
+      sets: p.sets, runtimeSets: p.runtimeSets, watches: p.watches,
       push(next, extra = {}) {
         const previousRevision = p.revision;
         p.n += 1; p.config = next; p.revision = `r${p.n}`;

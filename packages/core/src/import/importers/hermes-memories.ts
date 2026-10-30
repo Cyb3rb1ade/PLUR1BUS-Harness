@@ -1,3 +1,5 @@
+import { SourceReader } from "../source-reader.ts";
+import { importCheckpoint, type ImportExecutionOptions } from "../execution.ts";
 // Hermes memory cards migration via Engine.memory.import (docs/import.md §3.2, M7 Batch 3).
 // Splits memories/MEMORY.md and memories/USER.md on \n§\n delimiter.
 // Normalizes CRLF, discards whitespace-only cards, enforces <= 500 cards batch limit.
@@ -24,29 +26,17 @@ import {
   type ImportLedger,
 } from "../ledger.ts";
 import { writeAtomicSync } from "../fs-atomic.ts";
-import { existsNoFollow, readSourceFileSafe, readSourceTextSafe } from "../fs-safe.ts";
+import { existsNoFollow, readSourceFileSafe } from "../fs-safe.ts";
 import { ImportError } from "../types.ts";
+import { isOperationalCardRejection } from "../report-complete.ts";
 import type { Engine, Principal } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { createCardLinker, recordParkedCard, type CardLink, type LinkCandidate, type OwnStoreCardMode } from "./card-links.ts";
 
 export const IMPORT_CARD_BATCH_LIMIT = 500;
 export const MAX_MEMORY_FILE_BYTES = 16 * 1024 * 1024; // 16 MiB
 
-export function splitHermesCards(content: string): string[] {
-  if (!content) return [];
-  // Normalize CRLF to LF
-  const normalized = content.replace(/\r\n/g, "\n");
-  // Split on \n§\n, leading §\n, trailing \n§, or isolated §
-  const chunks = normalized.split(/(?:^|\n)§(?:\n|$)/);
-  const cards: string[] = [];
-  for (const chunk of chunks) {
-    const trimmed = chunk.trim();
-    if (trimmed.length > 0) {
-      cards.push(trimmed);
-    }
-  }
-  return cards;
-}
+import { CARD_FILES, splitImportedCards as splitHermesCards } from "../card-source.ts";
+export { splitImportedCards as splitHermesCards } from "../card-source.ts";
 
 /** A reason code only (never message text, which could echo card content): a short token, else "storage". */
 function importErrorCode(err: any): string {
@@ -55,8 +45,9 @@ function importErrorCode(err: any): string {
 }
 
 /** Whether the profile holds a card the import would hand to the engine (MEMORY.md; USER.md only with a user binding). */
-export function hasHermesCardFiles(profileDir: string, userBinding: boolean): boolean {
-  return existsNoFollow(join(profileDir, "memories", "MEMORY.md")) || (userBinding && existsNoFollow(join(profileDir, "memories", "USER.md")));
+export async function hasHermesCardFiles(profileDir: string, userBinding: boolean, sourceReader?: SourceReader): Promise<boolean> {
+  const reader = sourceReader ?? await SourceReader.local();
+  return await reader.exists(reader.paths.join(profileDir, ...CARD_FILES.hermes[0][0][0].split("/"))) || userBinding && await reader.exists(reader.paths.join(profileDir, ...CARD_FILES.hermes[1][0][0].split("/")));
 }
 
 export interface HermesMemoryImportResult {
@@ -248,6 +239,7 @@ export function writeMirrorWithConflict(opts: {
 }
 
 export async function importHermesMemories(opts: {
+  reader?: SourceReader;
   profileDir: string;
   profileName: string;
   agentId: string;
@@ -260,7 +252,10 @@ export async function importHermesMemories(opts: {
   replacedBackupDir?: string | undefined;
   /** Set when --adopt-store names a store (see OwnStoreCardMode); absent: no store, the plain import. */
   ownStore?: OwnStoreCardMode | undefined;
-}): Promise<HermesMemoryImportResult> {
+} & Pick<ImportExecutionOptions, "runId" | "signal" | "onProgress">): Promise<HermesMemoryImportResult> {
+  const reader = opts.reader ?? await SourceReader.local();
+  let completedBatches = 0;
+  const checkpoint = () => importCheckpoint(opts, opts.runId ?? opts.ledger?.runId ?? "legacy", "memory", completedBatches++);
   const {
     profileDir,
     profileName,
@@ -319,13 +314,14 @@ export async function importHermesMemories(opts: {
   // now (they would land in a vector space the store is not in). The engine is not asked at all.
   if (opts.ownStore?.kind === "park") {
     const park = opts.ownStore;
-    for (const file of ["memories/MEMORY.md", "memories/USER.md"] as const) {
-      const path = join(profileDir, ...file.split("/"));
-      if (!existsNoFollow(path)) continue;
+    for (const [, file] of CARD_FILES.hermes) {
+      const path = reader.paths.join(profileDir, ...file.split("/"));
+      if (!await reader.exists(path)) continue;
       let content: string;
       try {
-        content = readSourceTextSafe(path, MAX_MEMORY_FILE_BYTES);
+        content = await reader.text(path, MAX_MEMORY_FILE_BYTES);
       } catch (error) {
+      SourceReader.refuseFatal(error);
         errors.push({ sourceRef: `${profileName}:${file}`, reason: error instanceof ImportError ? error.reason : "source-unreadable" });
         continue;
       }
@@ -370,12 +366,13 @@ export async function importHermesMemories(opts: {
   };
 
   // 1. Process memories/MEMORY.md (agent-scoped)
-  const memoryMdPath = join(profileDir, "memories", "MEMORY.md");
-  if (existsNoFollow(memoryMdPath)) {
+  const memoryMdPath = reader.paths.join(profileDir, ...CARD_FILES.hermes[0][0][0].split("/"));
+  if (await reader.exists(memoryMdPath)) {
     let content: string | null = null;
     try {
-      content = readSourceTextSafe(memoryMdPath, MAX_MEMORY_FILE_BYTES);
+      content = await reader.text(memoryMdPath, MAX_MEMORY_FILE_BYTES);
     } catch (error) {
+      SourceReader.refuseFatal(error);
       errors.push({ sourceRef: `${profileName}:memories/MEMORY.md`, reason: error instanceof ImportError ? error.reason : "source-unreadable" });
     }
     if (content !== null) {
@@ -430,6 +427,7 @@ export async function importHermesMemories(opts: {
       } else if (engine) {
         // Chunk into batches of at most 500 cards
         for (let b = 0; b < cardInputs.length; b += IMPORT_CARD_BATCH_LIMIT) {
+          await checkpoint();
           const batchIdx = Math.floor(b / IMPORT_CARD_BATCH_LIMIT);
           const fullBatch = cardInputs.slice(b, b + IMPORT_CARD_BATCH_LIMIT);
           const linked = await linker.split(fullBatch, { request: principal, caller: principal }, "memories/MEMORY.md");
@@ -505,6 +503,11 @@ export async function importHermesMemories(opts: {
               if (batchRejected > 0) batchRejected--;
             }
           }
+          for (const reason of new Set(cards.filter(isOperationalCardRejection).map(importErrorCode))) {
+            errors.push({ sourceRef: `${profileName}:memories/MEMORY.md#batch-${batchIdx}`,
+              reason: `memory-import-failed:${reason}` });
+            memoryBatchFailed = true;
+          }
 
           importedCount += batchCreated;
           skippedDuplicateCount += batchMatchedExisting;
@@ -562,12 +565,13 @@ export async function importHermesMemories(opts: {
   // 2. Process memories/USER.md
   // ADR-007 Q4: without an unambiguous user binding, USER.md memories are NOT imported to LanceDB.
   // They are reported as unresolved-user-scope.
-  const userMdPath = join(profileDir, "memories", "USER.md");
-  if (existsNoFollow(userMdPath)) {
+  const userMdPath = reader.paths.join(profileDir, ...CARD_FILES.hermes[1][0][0].split("/"));
+  if (await reader.exists(userMdPath)) {
     let content: string | null = null;
     try {
-      content = readSourceTextSafe(userMdPath, MAX_MEMORY_FILE_BYTES);
+      content = await reader.text(userMdPath, MAX_MEMORY_FILE_BYTES);
     } catch (error) {
+      SourceReader.refuseFatal(error);
       errors.push({ sourceRef: `${profileName}:memories/USER.md`, reason: error instanceof ImportError ? error.reason : "source-unreadable" });
     }
     if (content !== null) {
@@ -596,6 +600,7 @@ export async function importHermesMemories(opts: {
         } else if (engine) {
           const linkedUserKeys = new Set<string>();
           for (let b = 0; b < cardInputs.length; b += IMPORT_CARD_BATCH_LIMIT) {
+            await checkpoint();
             const batchIdx = Math.floor(b / IMPORT_CARD_BATCH_LIMIT);
             const fullBatch = cardInputs.slice(b, b + IMPORT_CARD_BATCH_LIMIT);
             const linked = await linker.split(fullBatch, { request: userPrincipal, caller: principal }, "memories/USER.md");
@@ -655,6 +660,11 @@ export async function importHermesMemories(opts: {
             importedCount += result.created;
             skippedDuplicateCount += result.matchedExisting;
             rejectedCount += result.rejected;
+            for (const reason of new Set(result.cards.filter(isOperationalCardRejection).map(importErrorCode))) {
+              errors.push({ sourceRef: `${profileName}:memories/USER.md#batch-${batchIdx}`,
+                reason: `memory-import-failed:${reason}` });
+              userBatchFailed = true;
+            }
 
             for (let j = 0; j < result.cards.length; j++) {
               const cr = result.cards[j];

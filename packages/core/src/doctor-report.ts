@@ -9,6 +9,7 @@ import { authenticatedPrincipal } from "./rbac/guard.ts";
 import { RpcError } from "./rpc/errors.ts";
 import type { Handler } from "./rpc/server.ts";
 import { createRedactor, type Redactor } from "./logs/redact.ts";
+import { TURN_END_REASONS, type TurnTelemetrySummary } from "./session/turn-telemetry.ts";
 
 type Status = "ok" | "warn" | "fail" | "skipped";
 type Check = { id: string; status: Status; summary: string; repair?: { kind: string; label: string } };
@@ -28,7 +29,9 @@ export function buildDoctorMethods(o: { home: string; clock: () => number; sandb
   sandboxMaxTasks?: () => number; detectSandbox?: (limitsHelper: string) => Promise<SandboxDetection>;
   toolEvalDefaults?: () => readonly ModelRef[]; redactor?: Redactor; /** Problems the Core itself found while composing (a refused turn provider); added to the report as checks. */ compositionChecks?: () => Check[]; check?: () => Promise<unknown>; miningStatus?: () => { available: boolean } | undefined; capabilityStatus?: () => { mode: string; sourceError: boolean; lastRecheck: number | null } | undefined; scheduleInitial?: (start: () => Promise<unknown>) => void;
   /** Checks the core answers itself from its live configuration (e.g. privacy.local-only); appended to the provisioning group. */
-  coreChecks?: () => Check[] }): Record<string, Handler> {
+  coreChecks?: () => Check[];
+  /** Numeric process-local turn usage, overlaid live without rerunning installation probes. */
+  turnTelemetry?: () => TurnTelemetrySummary }): Record<string, Handler> {
   let cached: Report | null = null;
   let lastStarted = -Infinity;
   let inFlight: Promise<Report> | null = null;
@@ -88,6 +91,24 @@ export function buildDoctorMethods(o: { home: string; clock: () => number; sandb
     if (capability) copy.groups[0]?.checks.push({ id: 'capabilities.index', status: capability.sourceError ? 'fail' : capability.mode === 'fts5-only' ? 'warn' : 'ok', summary: `Capability index: ${capability.mode}. Last recheck: ${capability.lastRecheck ?? 'pending'}.` });
     const mining = o.miningStatus?.();
     if (mining) copy.groups[0]?.checks.push({ id: 'skills.mining', status: mining.available ? 'ok' : 'skipped', summary: mining.available ? 'Skill mining proposes inactive artifacts for human review.' : 'Skill mining unavailable: the engine exposes memory corrections but no skill-artifact proposal API.' });
+    const usage = o.turnTelemetry?.();
+    if (usage) {
+      const latency = usage.triage.count
+        ? `Triage p50 ${usage.triage.p50Ms} ms, p95 ${usage.triage.p95Ms} ms (${usage.triage.count} recent samples).`
+        : "Triage p50/p95 unavailable: no samples.";
+      const endings = TURN_END_REASONS.filter(reason => usage.endReasons[reason] > 0)
+        .map(reason => `${reason}=${usage.endReasons[reason]}`).join(", ") || "none";
+      copy.groups[0]?.checks.push({
+        id: "tools.turn-usage",
+        status: usage.withoutNeededTool || usage.toolChoiceUnsupported ? "warn" : "ok",
+        summary: `${usage.turns} turns, ${usage.rounds} rounds, ${usage.toolCalls} tool calls; `
+          + `meta search/load/read ${usage.metaCalls.search}/${usage.metaCalls.skillLoad}/${usage.metaCalls.skillRead}; `
+          + `${usage.skills.injected} injected, ${usage.skills.loaded} loaded skills; `
+          + `${usage.errorsReturned} errors returned; ${usage.forcedTurns} forced; ${usage.toolNeedTurns} need detected; `
+          + `${usage.withoutNeededTool} needed tools unused, ${usage.toolChoiceUnsupported} unsupported; `
+          + `ends ${endings}. ${latency}`,
+      });
+    }
     return copy;
   }
   function start(): Promise<Report> {

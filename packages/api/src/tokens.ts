@@ -1,7 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Clock } from "./clock.ts";
 import { ApiError, errors } from "./errors.ts";
-import type { TokenRecord, TokenStore } from "./ports.ts";
+import type { MemorySensitivityCategory, TokenAudience, TokenBinding, TokenMemoryPolicyOverride, TokenRecord, TokenStore } from "./ports.ts";
 import { POLICY, policyFor } from "./rbac-bridge.ts";
 
 export const TOKEN_PREFIX = "plb_";
@@ -10,10 +10,110 @@ const SCOPE_SHAPE = /^[a-z][a-z0-9-]*(\.[a-z0-9-]+)*(\.\*)?$/;
 const DAY = 86_400_000;
 export const DEFAULT_TTL_MS = 90 * DAY; export const MAX_TTL_MS = 365 * DAY; export const MIN_TTL_MS = 3_600_000;
 export const MAX_TOKENS_PER_USER = 50; export const MAX_SCOPES = 20;
+export const ALLOWED_MCP_TOKEN_GROUPS = ["memory", "memory_store", "agent", "skills"] as const;
+export const ALLOWED_MEMORY_SENSITIVITY_CATEGORIES: readonly MemorySensitivityCategory[] = ["health", "financial", "credential", "identity", "personal"];
 /** `lastUsedAt` is written at most this often per token, so a busy script does not turn every request into a store write. */
 const TOUCH_EVERY_MS = 60_000;
 
 const sha256 = (s: string) => createHash("sha256").update(s, "utf8").digest();
+const isIdentifierText = (v: unknown, max = 128): v is string =>
+  typeof v === "string" && v.trim().length >= 1 && v.trim().length <= max && !/[\u0000-\u001f\u007f]/.test(v);
+
+const bindingError = (message: string) => errors.badRequest("binding", message);
+
+function parseMemoryOverride(raw: unknown): TokenMemoryPolicyOverride {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw bindingError("binding.memory must be an object");
+  const m = raw as Record<string, unknown>;
+  for (const k of Object.keys(m)) {
+    if (!["recall", "filter", "disclose", "capture"].includes(k)) throw bindingError(`unknown binding.memory field ${k}`);
+  }
+  let recall: TokenMemoryPolicyOverride["recall"];
+  if (m.recall !== undefined) {
+    if (!m.recall || typeof m.recall !== "object" || Array.isArray(m.recall)) throw bindingError("binding.memory.recall must be an object");
+    const r = m.recall as Record<string, unknown>;
+    for (const [rk, rv] of Object.entries(r)) {
+      if (!["workspace", "user", "agentPrivate", "project"].includes(rk) || typeof rv !== "boolean") {
+        throw bindingError(`invalid binding.memory.recall.${rk}`);
+      }
+    }
+    recall = Object.freeze({
+      ...(typeof r.workspace === "boolean" ? { workspace: r.workspace } : {}),
+      ...(typeof r.user === "boolean" ? { user: r.user } : {}),
+      ...(typeof r.agentPrivate === "boolean" ? { agentPrivate: r.agentPrivate } : {}),
+      ...(typeof r.project === "boolean" ? { project: r.project } : {}),
+    });
+  }
+  let filter: readonly MemorySensitivityCategory[] | undefined;
+  if (m.filter !== undefined) {
+    if (!Array.isArray(m.filter) || m.filter.length > ALLOWED_MEMORY_SENSITIVITY_CATEGORIES.length) {
+      throw bindingError("binding.memory.filter must be an array of sensitivity categories");
+    }
+    const set = new Set<MemorySensitivityCategory>();
+    for (const c of m.filter) {
+      if (typeof c !== "string" || !(ALLOWED_MEMORY_SENSITIVITY_CATEGORIES as readonly string[]).includes(c)) {
+        throw bindingError("invalid sensitivity category in binding.memory.filter");
+      }
+      set.add(c as MemorySensitivityCategory);
+    }
+    filter = Object.freeze([...set]);
+  }
+  if (m.disclose !== undefined && m.disclose !== "agent-decides" && m.disclose !== "never") {
+    throw bindingError("binding.memory.disclose must be \"agent-decides\" or \"never\"");
+  }
+  if (m.capture !== undefined && typeof m.capture !== "boolean") {
+    throw bindingError("binding.memory.capture must be a boolean");
+  }
+  return Object.freeze({
+    ...(recall !== undefined ? { recall } : {}),
+    ...(filter !== undefined ? { filter } : {}),
+    ...(m.disclose !== undefined ? { disclose: m.disclose } : {}),
+    ...(m.capture !== undefined ? { capture: m.capture } : {}),
+  });
+}
+
+/** Validates and normalizes a `TokenBinding` payload. Throws `400` (`reason: "binding"`) when malformed. */
+export function parseTokenBinding(raw: unknown): TokenBinding {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw bindingError("binding must be an object");
+  const b = raw as Record<string, unknown>;
+  for (const k of Object.keys(b)) {
+    if (!["audience", "agentId", "projectId", "system", "groups", "memory"].includes(k)) {
+      throw bindingError(`unknown binding field ${k}`);
+    }
+  }
+  if (b.audience !== "mcp" && b.audience !== "a2a") throw bindingError("binding.audience must be \"mcp\" or \"a2a\"");
+  if (!isIdentifierText(b.agentId)) throw bindingError("binding.agentId must be a non-empty string up to 128 characters");
+  if (b.projectId !== undefined && !isIdentifierText(b.projectId)) throw bindingError("binding.projectId must be a non-empty string up to 128 characters");
+  if (b.system !== undefined && !isIdentifierText(b.system)) throw bindingError("binding.system must be a non-empty string up to 128 characters");
+  let groups: readonly string[] | undefined;
+  if (b.groups !== undefined) {
+    if (!Array.isArray(b.groups) || b.groups.length > 10) throw bindingError("binding.groups must be an array of up to 10 group names");
+    const set = new Set<string>();
+    for (const g of b.groups) {
+      if (typeof g !== "string" || !(ALLOWED_MCP_TOKEN_GROUPS as readonly string[]).includes(g)) {
+        throw bindingError("unknown group in binding.groups");
+      }
+      set.add(g);
+    }
+    groups = Object.freeze([...set]);
+  }
+  const memory = b.memory !== undefined ? parseMemoryOverride(b.memory) : undefined;
+  return Object.freeze({
+    audience: b.audience,
+    agentId: b.agentId.trim(),
+    ...(b.projectId !== undefined ? { projectId: (b.projectId as string).trim() } : {}),
+    ...(b.system !== undefined ? { system: (b.system as string).trim() } : {}),
+    ...(groups !== undefined ? { groups } : {}),
+    ...(memory !== undefined ? { memory } : {}),
+  });
+}
+
+/** Enforces that an authenticated token carries a `binding` for `audience`. Unbound tokens are refused with 403
+ *  (`reason: "token-binding-required"`); tokens bound to a different audience are refused with 401 (`reason: "invalid-audience"`). */
+export function requireTokenBinding(token: { readonly binding?: TokenBinding | undefined } | undefined, audience: TokenAudience): TokenBinding {
+  if (!token?.binding) throw errors.forbidden("token-binding-required", "token requires an agent protocol binding");
+  if (token.binding.audience !== audience) throw errors.unauthenticated("invalid-audience");
+  return token.binding;
+}
 
 export function parseToken(t: unknown): { id: string; secret: string } | undefined {
   if (typeof t !== "string" || t.length > 80) return undefined;
@@ -38,10 +138,14 @@ export function validateScopes(scopes: unknown): string[] {
 }
 
 /** What a list or a creation answer shows: never the hash, never the secret. */
-export interface PublicToken { id: string; prefix: string; name: string; scopes: readonly string[]; createdAt: number; expiresAt: number; lastUsedAt?: number; revokedAt?: number }
+export interface PublicToken {
+  id: string; prefix: string; name: string; scopes: readonly string[]; createdAt: number; expiresAt: number;
+  lastUsedAt?: number; revokedAt?: number; binding?: TokenBinding;
+}
 const publicView = (r: TokenRecord): PublicToken => ({
   id: r.id, prefix: `${TOKEN_PREFIX}${r.id}`, name: r.name, scopes: r.scopes, createdAt: r.createdAt, expiresAt: r.expiresAt,
   ...(r.lastUsedAt !== undefined ? { lastUsedAt: r.lastUsedAt } : {}), ...(r.revokedAt !== undefined ? { revokedAt: r.revokedAt } : {}),
+  ...(r.binding !== undefined ? { binding: r.binding } : {}),
 });
 
 export type TokenAuth =
@@ -58,19 +162,20 @@ export class TokenService {
   constructor(o: TokenServiceOptions) { this.#store = o.store; this.#clock = o.clock; }
 
   /** Makes a token for `userId`. The returned `token` is the only time the full string exists. */
-  async create(userId: string, o: { name: unknown; scopes: unknown; ttlMs?: unknown }): Promise<{ token: string; record: PublicToken }> {
+  async create(userId: string, o: { name: unknown; scopes: unknown; ttlMs?: unknown; binding?: unknown }): Promise<{ token: string; record: PublicToken }> {
     const name = typeof o.name === "string" ? o.name.trim() : "";
     if (name.length < 1 || name.length > 64) throw errors.badRequest("name", "a token needs a name of 1 to 64 characters");
     const scopes = validateScopes(o.scopes);
     const ttl = o.ttlMs === undefined ? DEFAULT_TTL_MS : o.ttlMs;
     if (typeof ttl !== "number" || !Number.isInteger(ttl) || ttl < MIN_TTL_MS || ttl > MAX_TTL_MS) throw errors.badRequest("ttl", "the lifetime must be between 1 hour and 365 days");
+    const binding = o.binding !== undefined ? parseTokenBinding(o.binding) : undefined;
     // Count and store as one step per user: creations that overlapped would all count the same live tokens and all pass the cap.
     return this.#oneAtATime(userId, async () => {
       const now = this.#clock.now();
       const live = (await this.#store.listByUser(userId)).filter((t) => t.revokedAt === undefined && t.expiresAt > now).length;
       if (live >= MAX_TOKENS_PER_USER) throw new ApiError(409, "E_CONFLICT", "too many tokens", { reason: "token-limit" });
       const id = randomBytes(6).toString("hex"); const secret = randomBytes(32).toString("base64url");
-      const rec: TokenRecord = { id, userId, name, scopes, hash: sha256(secret).toString("hex"), createdAt: now, expiresAt: now + ttl };
+      const rec: TokenRecord = { id, userId, name, scopes, hash: sha256(secret).toString("hex"), createdAt: now, expiresAt: now + ttl, ...(binding !== undefined ? { binding } : {}) };
       await this.#store.put(rec);
       return { token: `${TOKEN_PREFIX}${id}_${secret}`, record: publicView(rec) };
     });

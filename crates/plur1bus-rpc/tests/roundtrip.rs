@@ -104,6 +104,142 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
 
     for (name, fixture) in &fixtures {
         match name.as_str() {
+            "admin.extensions.auth.cancel" => check_pair::<
+                types::AdminExtensionsAuthCancelParams,
+                types::AdminExtensionsAuthCancelResult,
+            >(name, fixture, &root_schema),
+            "admin.extensions.auth.start" => check_pair::<
+                types::AdminExtensionsAuthStartParams,
+                types::AdminExtensionsAuthStartResult,
+            >(name, fixture, &root_schema),
+            "admin.extensions.auth.status" => check_pair::<
+                types::AdminExtensionsAuthStatusParams,
+                types::AdminExtensionsAuthStatusResult,
+            >(name, fixture, &root_schema),
+            "admin.extensions.auth.submit" => check_pair::<
+                types::AdminExtensionsAuthSubmitParams,
+                types::AdminExtensionsAuthSubmitResult,
+            >(name, fixture, &root_schema),
+            "admin.extensions.runtime.hold" => check_pair::<
+                types::AdminExtensionsRuntimeHoldParams,
+                types::AdminExtensionsRuntimeHoldResult,
+            >(name, fixture, &root_schema),
+            "admin.extensions.runtime.reconcile" => check_pair::<
+                types::AdminExtensionsRuntimeReconcileParams,
+                types::AdminExtensionsRuntimeReconcileResult,
+            >(name, fixture, &root_schema),
+            "admin.extensions.runtime.release" => check_pair::<
+                types::AdminExtensionsRuntimeReleaseParams,
+                types::AdminExtensionsRuntimeReleaseResult,
+            >(name, fixture, &root_schema),
+            "admin.extensions.runtime.status" => check_pair::<
+                types::AdminExtensionsRuntimeStatusParams,
+                types::AdminExtensionsRuntimeStatusResult,
+            >(name, fixture, &root_schema),
+            "admin.extensions.setup.get" => check_pair::<
+                types::AdminExtensionsSetupGetParams,
+                types::AdminExtensionsSetupGetResult,
+            >(name, fixture, &root_schema),
+            "admin.extensions.setup.set" => check_pair::<
+                types::AdminExtensionsSetupSetParams,
+                types::AdminExtensionsSetupSetResult,
+            >(name, fixture, &root_schema),
+            "admin.import.abort" => check_pair::<
+                types::AdminImportAbortParams,
+                types::AdminImportAbortResult,
+            >(name, fixture, &root_schema),
+            "admin.import.apply" => check_pair::<
+                types::AdminImportApplyParams,
+                types::AdminImportApplyResult,
+            >(name, fixture, &root_schema),
+            "admin.import.detect" => check_pair::<
+                types::AdminImportDetectParams,
+                types::AdminImportDetectResult,
+            >(name, fixture, &root_schema),
+            "admin.import.plan" => check_pair::<
+                types::AdminImportPlanParams,
+                types::AdminImportPlanResult,
+            >(name, fixture, &root_schema),
+            "admin.import.preflight" => check_pair::<
+                types::AdminImportPreflightParams,
+                types::AdminImportPreflightResult,
+            >(name, fixture, &root_schema),
+            "admin.import.rollback" => check_pair::<
+                types::AdminImportRollbackParams,
+                types::AdminImportRollbackResult,
+            >(name, fixture, &root_schema),
+            "admin.import.runs" => check_pair::<
+                types::AdminImportRunsParams,
+                types::AdminImportRunsResult,
+            >(name, fixture, &root_schema),
+            "admin.import.runtime.complete" => check_pair::<
+                types::AdminImportRuntimeCompleteParams,
+                types::AdminImportRuntimeCompleteResult,
+            >(name, fixture, &root_schema),
+            "admin.import.runtime.config.set" => check_pair::<
+                types::AdminImportRuntimeConfigSetParams,
+                types::AdminImportRuntimeConfigSetResult,
+            >(name, fixture, &root_schema),
+            "admin.import.runtime.release" => check_pair::<
+                types::AdminImportRuntimeReleaseParams,
+                types::AdminImportRuntimeReleaseResult,
+            >(name, fixture, &root_schema),
+            "admin.import.runtime.status" => check_pair::<
+                types::AdminImportRuntimeStatusParams,
+                types::AdminImportRuntimeStatusResult,
+            >(name, fixture, &root_schema),
+            "admin.import.skills" => check_pair::<
+                types::AdminImportSkillsParams,
+                types::AdminImportSkillsResult,
+            >(name, fixture, &root_schema),
+            "admin.import.ssh.connections.delete" => check_pair::<
+                types::AdminImportSshConnectionsDeleteParams,
+                types::AdminImportSshConnectionsDeleteResult,
+            >(name, fixture, &root_schema),
+            "admin.import.ssh.connections.list" => check_pair::<
+                types::AdminImportSshConnectionsListParams,
+                types::AdminImportSshConnectionsListResult,
+            >(name, fixture, &root_schema),
+            "admin.import.ssh.connections.set" => check_pair::<
+                types::AdminImportSshConnectionsSetParams,
+                types::AdminImportSshConnectionsSetResult,
+            >(name, fixture, &root_schema),
+            "admin.import.ssh.hostKey.probe" => check_pair::<
+                types::AdminImportSshHostKeyProbeParams,
+                types::AdminImportSshHostKeyProbeResult,
+            >(name, fixture, &root_schema),
+            "admin.import.ssh.hostKey.trust" => check_pair::<
+                types::AdminImportSshHostKeyTrustParams,
+                types::AdminImportSshHostKeyTrustResult,
+            >(name, fixture, &root_schema),
+            "admin.import.ssh.key.delete" => check_pair::<
+                types::AdminImportSshKeyDeleteParams,
+                types::AdminImportSshKeyDeleteResult,
+            >(name, fixture, &root_schema),
+            "admin.import.ssh.key.generate" => check_pair::<
+                types::AdminImportSshKeyGenerateParams,
+                types::AdminImportSshKeyGenerateResult,
+            >(name, fixture, &root_schema),
+            "admin.import.ssh.key.rotate" => check_pair::<
+                types::AdminImportSshKeyRotateParams,
+                types::AdminImportSshKeyRotateResult,
+            >(name, fixture, &root_schema),
+            "admin.import.ssh.key.status" => check_pair::<
+                types::AdminImportSshKeyStatusParams,
+                types::AdminImportSshKeyStatusResult,
+            >(name, fixture, &root_schema),
+            "admin.import.status" => check_pair::<
+                types::AdminImportStatusParams,
+                types::AdminImportStatusResult,
+            >(name, fixture, &root_schema),
+            "admin.import.wsl.list" => check_pair::<
+                types::AdminImportWslListParams,
+                types::AdminImportWslListResult,
+            >(name, fixture, &root_schema),
+            "ext.inspection.get" => check_pair::<
+                types::ExtInspectionGetParams,
+                types::ExtInspectionGetResult,
+            >(name, fixture, &root_schema),
             "engine.agent.close" => check_pair::<
                 types::EngineAgentCloseParams,
                 types::EngineAgentCloseResult,
@@ -1183,6 +1319,34 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
             "memory.proposals.reject" => check_pair::<
                 types::MemoryProposalsRejectParams,
                 types::MemoryProposalsRejectResult,
+            >(name, fixture, &root_schema),
+            "external.turn.cancel" => check_pair::<
+                types::ExternalTurnCancelParams,
+                types::ExternalTurnCancelResult,
+            >(name, fixture, &root_schema),
+            "external.turn.events" => check_pair::<
+                types::ExternalTurnEventsParams,
+                types::ExternalTurnEventsResult,
+            >(name, fixture, &root_schema),
+            "external.turn.get" => check_pair::<
+                types::ExternalTurnGetParams,
+                types::ExternalTurnGetResult,
+            >(name, fixture, &root_schema),
+            "external.turn.start" => check_pair::<
+                types::ExternalTurnStartParams,
+                types::ExternalTurnStartResult,
+            >(name, fixture, &root_schema),
+            "memory.sensitivity.clear" => check_pair::<
+                types::MemorySensitivityClearParams,
+                types::MemorySensitivityClearResult,
+            >(name, fixture, &root_schema),
+            "memory.sensitivity.get" => check_pair::<
+                types::MemorySensitivityGetParams,
+                types::MemorySensitivityGetResult,
+            >(name, fixture, &root_schema),
+            "memory.sensitivity.set" => check_pair::<
+                types::MemorySensitivitySetParams,
+                types::MemorySensitivitySetResult,
             >(name, fixture, &root_schema),
             "agent.list" => check_pair::<types::AgentListParams, types::AgentListResult>(
                 name,

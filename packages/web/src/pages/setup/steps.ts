@@ -1,3 +1,6 @@
+import { ImportWizard } from "../import/page.ts";
+import { currentRole } from "../common/load.ts";
+import { PageState } from "../../components/page-state.ts";
 import { setupDefault } from '../../../../../config/shipped-models.ts';
 // Bodies of the seven wizard steps. They only show and edit the answers; the page owns validation, saving and navigation.
 import { getApi } from "../../api/shared.ts";
@@ -111,8 +114,9 @@ export function ImportStep(): View {
   const copy = async (): Promise<void> => {
     try { await navigator.clipboard.writeText(IMPORT_COMMAND); setNote(t("setup.import.copied")); } catch { setNote(t("setup.import.copyFailed")); }
   };
-  return h(UnavailableStep, { title: t("setup.import.title"), body: t("setup.import.body") },
-    h("div", {}, h("pre", { class: "setup-cmd", tabIndex: 0 }, h("code", {}, IMPORT_COMMAND)),
+  if (!["owner", "admin"].includes(currentRole() ?? "")) return h(PageState, { state: "forbidden" });
+  return h("div", {}, h(ImportWizard, {}),
+    h("div", {}, h("p", { class: "field-hint" }, t("setup.import.body")), h("pre", { class: "setup-cmd", tabIndex: 0 }, h("code", {}, IMPORT_COMMAND)),
       h("button", { type: "button", class: "btn", onClick: () => { void copy(); } }, t("setup.import.copy")),
       h("p", { role: "status", class: "field-hint" }, note)));
 }

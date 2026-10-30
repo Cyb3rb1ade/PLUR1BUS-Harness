@@ -49,6 +49,12 @@ export class SessionStore {
   onEvict(fn: (e: SessionEviction) => void): () => void { this.#evicted.add(fn); return () => { this.#evicted.delete(fn); }; }
   /** Checks expiry without renewing idle time; a stream never keeps a session alive. */
   peek(id: string | undefined): Session | undefined { return this.#entry(id); }
+  /** Object identity check for API-private grants; does not renew idle lifetime or accept copied session fields. */
+  isLive(session: Session): boolean {
+    this.#sweep(this.#clock.now());
+    for (const entry of this.#byId.values()) if (entry === session) return true;
+    return false;
+  }
   #remove(hash: string): boolean {
     const e = this.#byId.get(hash); if (!e) return false;
     this.#byId.delete(hash);

@@ -1,0 +1,1326 @@
+{
+  "nodeCommit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "cases": [
+    {
+      "name": "harness-default-e5",
+      "raw": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "cacheDir": "/fixture/home/models"
+        }
+      },
+      "identityInput": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimension": 384,
+        "normalization": "l2",
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          }
+        ]
+      },
+      "identity": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimension": 384,
+        "normalization": "l2",
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          }
+        ]
+      },
+      "identityId": "660740dd1c4502b3548a178f98fc7636c7cdb14bc3bf2a1ee345446464fe59f4",
+      "normalized": {
+        "provider": "local-transformers",
+        "id": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "dimensions": 384,
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+          "queryPrefix": "query: ",
+          "passagePrefix": "passage: ",
+          "cacheDir": "/fixture/home/models",
+          "acceptNonCommercialLicense": false
+        },
+        "fallback": null
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "query:",
+        "passagePrefix": "passage:",
+        "pooling": "mean",
+        "normalize": true,
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          }
+        ]
+      },
+      "fingerprintId": "embedding:v1:sha256:0e01e6b8a5d0c080d1a14b47881ad7873814a5720377118febe77acd08738323"
+    },
+    {
+      "name": "re02-fixture-store",
+      "raw": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "cacheDir": "/fixture/home/models"
+        }
+      },
+      "identityInput": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimension": 384,
+        "normalization": "l2",
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          }
+        ]
+      },
+      "identity": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimension": 384,
+        "normalization": "l2",
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          }
+        ]
+      },
+      "identityId": "660740dd1c4502b3548a178f98fc7636c7cdb14bc3bf2a1ee345446464fe59f4",
+      "normalized": {
+        "provider": "local-transformers",
+        "id": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "dimensions": 384,
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+          "queryPrefix": "query: ",
+          "passagePrefix": "passage: ",
+          "cacheDir": "/fixture/home/models",
+          "acceptNonCommercialLicense": false
+        },
+        "fallback": null
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "query:",
+        "passagePrefix": "passage:",
+        "pooling": "mean",
+        "normalize": true,
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          }
+        ]
+      },
+      "fingerprintId": "embedding:v1:sha256:0e01e6b8a5d0c080d1a14b47881ad7873814a5720377118febe77acd08738323"
+    },
+    {
+      "name": "openai-text-embedding-3-small",
+      "raw": {
+        "provider": "openai",
+        "model": "text-embedding-3-small",
+        "dimensions": 1536
+      },
+      "identityInput": {
+        "provider": "openai",
+        "model": "text-embedding-3-small",
+        "revision": "unspecified",
+        "dimension": 1536,
+        "normalization": "none",
+        "prefixScheme": "[\"\",\"\",\"\",null]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": null,
+        "pooling": "unspecified",
+        "artifacts": []
+      },
+      "identity": {
+        "provider": "openai",
+        "model": "text-embedding-3-small",
+        "revision": "unspecified",
+        "dimension": 1536,
+        "normalization": "none",
+        "prefixScheme": "[\"\",\"\",\"\",null]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": null,
+        "pooling": "unspecified",
+        "artifacts": []
+      },
+      "identityId": "3d5727ffae49164fa0f3191968efa59fc8c49a47d5e9d05cb7b1dc7ff738860b",
+      "normalized": {
+        "provider": "openai",
+        "id": "openai",
+        "model": "text-embedding-3-small",
+        "dimensions": 1536,
+        "requestTimeoutMs": 15000,
+        "fallback": null
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "openai",
+        "model": "text-embedding-3-small",
+        "dimensions": 1536,
+        "artifacts": []
+      },
+      "fingerprintId": "embedding:v1:sha256:91197ab5e24513bb71a7797c5bdb478d82b67bd1fa92f54a8daf4c9042a91e40"
+    },
+    {
+      "name": "dtype",
+      "raw": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "cacheDir": "/fixture/home/models"
+        }
+      },
+      "identityInput": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimension": 384,
+        "normalization": "l2",
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "q8",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          }
+        ]
+      },
+      "identity": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimension": 384,
+        "normalization": "l2",
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "q8",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          }
+        ]
+      },
+      "identityId": "e874616a8e8e4e1cddc8c0fc02ad5c635fe0679d37b3a6b07e2ba02b54d2f63a",
+      "normalized": {
+        "provider": "local-transformers",
+        "id": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "dimensions": 384,
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+          "queryPrefix": "query: ",
+          "passagePrefix": "passage: ",
+          "cacheDir": "/fixture/home/models",
+          "acceptNonCommercialLicense": false
+        },
+        "fallback": null
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "query:",
+        "passagePrefix": "passage:",
+        "pooling": "mean",
+        "normalize": true,
+        "dtype": "q8",
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          }
+        ]
+      },
+      "fingerprintId": "embedding:v1:sha256:4975d0e44c00bcfcd3e0a9c85d21d22b2f81f3a1939c4b5ba7f47ffe438c1be9",
+      "fingerprintInput": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "query:",
+        "passagePrefix": "passage:",
+        "pooling": "mean",
+        "normalize": true,
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "dtype": "q8"
+      },
+      "fingerprintArtifacts": [
+        {
+          "path": "config.json",
+          "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+        },
+        {
+          "path": "onnx/model.onnx",
+          "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+        },
+        {
+          "path": "tokenizer.json",
+          "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+        }
+      ]
+    },
+    {
+      "name": "prefix-scheme",
+      "raw": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "cacheDir": "/fixture/home/models"
+        }
+      },
+      "identityInput": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimension": 384,
+        "normalization": "l2",
+        "prefixScheme": "manual-prefix-v2",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          }
+        ]
+      },
+      "identity": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimension": 384,
+        "normalization": "l2",
+        "prefixScheme": "manual-prefix-v2",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          }
+        ]
+      },
+      "identityId": "10c73c4bf84e42930393b216b2bb527ba8c771d8f986d40b266183d5f69f2cb7",
+      "normalized": {
+        "provider": "local-transformers",
+        "id": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "dimensions": 384,
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+          "queryPrefix": "query: ",
+          "passagePrefix": "passage: ",
+          "cacheDir": "/fixture/home/models",
+          "acceptNonCommercialLicense": false
+        },
+        "fallback": null
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "query:",
+        "passagePrefix": "passage:",
+        "pooling": "mean",
+        "normalize": true,
+        "prefixScheme": "manual-prefix-v2",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          }
+        ]
+      },
+      "fingerprintId": "embedding:v1:sha256:169f5be73e0ae70c0593c4c863588af6e09ac0b66ee42b4d2b9aab4e66c84178",
+      "fingerprintInput": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "query:",
+        "passagePrefix": "passage:",
+        "pooling": "mean",
+        "normalize": true,
+        "prefixScheme": "manual-prefix-v2"
+      },
+      "fingerprintArtifacts": [
+        {
+          "path": "config.json",
+          "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+        },
+        {
+          "path": "onnx/model.onnx",
+          "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+        },
+        {
+          "path": "tokenizer.json",
+          "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+        }
+      ]
+    },
+    {
+      "name": "instruction",
+      "raw": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "cacheDir": "/fixture/home/models"
+        }
+      },
+      "identityInput": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimension": 384,
+        "normalization": "l2",
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "instruction": "Suche ähnliche Erinnerungen. 🧠",
+        "dtype": "float32",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          }
+        ]
+      },
+      "identity": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimension": 384,
+        "normalization": "l2",
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "instruction": "Suche ähnliche Erinnerungen. 🧠",
+        "dtype": "float32",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          }
+        ]
+      },
+      "identityId": "6533a48865f87d1df49feb9076918a8a40770b84ac3d974e6907a8b06bde4ce8",
+      "normalized": {
+        "provider": "local-transformers",
+        "id": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "dimensions": 384,
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+          "queryPrefix": "query: ",
+          "passagePrefix": "passage: ",
+          "cacheDir": "/fixture/home/models",
+          "acceptNonCommercialLicense": false
+        },
+        "fallback": null
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "query:",
+        "passagePrefix": "passage:",
+        "pooling": "mean",
+        "normalize": true,
+        "instruction": "Suche ähnliche Erinnerungen. 🧠",
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          }
+        ]
+      },
+      "fingerprintId": "embedding:v1:sha256:bdd50b4c8722ea6d4f972958d18b5083779d93c6e8302a52ff899d60d22a10b7",
+      "fingerprintInput": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "query:",
+        "passagePrefix": "passage:",
+        "pooling": "mean",
+        "normalize": true,
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "instruction": "Suche ähnliche Erinnerungen. 🧠"
+      },
+      "fingerprintArtifacts": [
+        {
+          "path": "config.json",
+          "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+        },
+        {
+          "path": "onnx/model.onnx",
+          "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+        },
+        {
+          "path": "tokenizer.json",
+          "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+        }
+      ]
+    },
+    {
+      "name": "token-cap",
+      "raw": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "cacheDir": "/fixture/home/models"
+        }
+      },
+      "identityInput": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimension": 384,
+        "normalization": "l2",
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": 128,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          }
+        ]
+      },
+      "identity": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimension": 384,
+        "normalization": "l2",
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": 128,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          }
+        ]
+      },
+      "identityId": "d6d3965a659dd5275a27150508a2f448a9303aa36c3e87d342351c4f263badca",
+      "normalized": {
+        "provider": "local-transformers",
+        "id": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "dimensions": 384,
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+          "queryPrefix": "query: ",
+          "passagePrefix": "passage: ",
+          "cacheDir": "/fixture/home/models",
+          "acceptNonCommercialLicense": false
+        },
+        "fallback": null
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "query:",
+        "passagePrefix": "passage:",
+        "pooling": "mean",
+        "normalize": true,
+        "tokenCap": 128,
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          }
+        ]
+      },
+      "fingerprintId": "embedding:v1:sha256:61ce436df7ecf4dce2f1dae60393946d16ef69c5461df1a7fbd0d17bad63bb01",
+      "fingerprintInput": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "query:",
+        "passagePrefix": "passage:",
+        "pooling": "mean",
+        "normalize": true,
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "tokenCap": 128
+      },
+      "fingerprintArtifacts": [
+        {
+          "path": "config.json",
+          "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+        },
+        {
+          "path": "onnx/model.onnx",
+          "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+        },
+        {
+          "path": "tokenizer.json",
+          "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+        }
+      ]
+    },
+    {
+      "name": "artifacts",
+      "raw": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "cacheDir": "/fixture/home/models"
+        }
+      },
+      "identityInput": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimension": 384,
+        "normalization": "l2",
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          }
+        ]
+      },
+      "identity": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimension": 384,
+        "normalization": "l2",
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "identityId": "2077c6cecf7231dfc3f5a2a4188c46ec85ee265510c71450badba19629502aed",
+      "normalized": {
+        "provider": "local-transformers",
+        "id": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "dimensions": 384,
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+          "queryPrefix": "query: ",
+          "passagePrefix": "passage: ",
+          "cacheDir": "/fixture/home/models",
+          "acceptNonCommercialLicense": false
+        },
+        "fallback": null
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "query:",
+        "passagePrefix": "passage:",
+        "pooling": "mean",
+        "normalize": true,
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          }
+        ]
+      },
+      "fingerprintId": "embedding:v1:sha256:12afa5dd2273345e3c8835e871684276a305c2745855ac7cdb0a6cd8e4e9e472",
+      "fingerprintInput": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "query:",
+        "passagePrefix": "passage:",
+        "pooling": "mean",
+        "normalize": true,
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]"
+      },
+      "fingerprintArtifacts": [
+        {
+          "path": "tokenizer_config.json",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "path": "tokenizer.json",
+          "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+        },
+        {
+          "path": "onnx/model.onnx",
+          "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+        },
+        {
+          "path": "config.json",
+          "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+        }
+      ]
+    },
+    {
+      "name": "undefined-defaults",
+      "raw": {
+        "provider": "openai",
+        "model": "text-embedding-3-small",
+        "dimensions": 1536
+      },
+      "identityInput": {
+        "provider": "openai",
+        "model": "fixture-remote",
+        "dimension": 3
+      },
+      "identity": {
+        "provider": "openai",
+        "model": "fixture-remote",
+        "revision": "unspecified",
+        "dimension": 3,
+        "normalization": "none",
+        "prefixScheme": "[\"\",\"\",\"\",null]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": null,
+        "pooling": "unspecified",
+        "artifacts": []
+      },
+      "identityId": "856466cb1b68e8f0306d844a5d5d1e10b5bd30f3a7fa3eeca881c8c84d837dcc",
+      "normalized": {
+        "provider": "openai",
+        "id": "openai",
+        "model": "text-embedding-3-small",
+        "dimensions": 1536,
+        "requestTimeoutMs": 15000,
+        "fallback": null
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "openai",
+        "model": "fixture-remote",
+        "dimensions": 3,
+        "artifacts": []
+      },
+      "fingerprintId": "embedding:v1:sha256:f450284e3a5cc77ff1a7f611fc485694b25e0cccc8aa8715a0194d2b7cc9a128",
+      "fingerprintInput": {
+        "provider": "openai",
+        "model": "fixture-remote",
+        "dimensions": 3
+      },
+      "fingerprintArtifacts": []
+    },
+    {
+      "name": "null-identity-defaults",
+      "raw": {
+        "provider": "openai",
+        "model": "text-embedding-3-small",
+        "dimensions": 1536
+      },
+      "identityInput": {
+        "provider": "openai",
+        "model": "fixture-remote",
+        "dimension": 3,
+        "revision": null,
+        "normalization": null,
+        "prefixScheme": null,
+        "instruction": null,
+        "dtype": null,
+        "tokenCap": null,
+        "pooling": null,
+        "artifacts": null
+      },
+      "identity": {
+        "provider": "openai",
+        "model": "fixture-remote",
+        "revision": "unspecified",
+        "dimension": 3,
+        "normalization": "none",
+        "prefixScheme": "[\"\",\"\",\"\",null]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": null,
+        "pooling": "unspecified",
+        "artifacts": []
+      },
+      "identityId": "856466cb1b68e8f0306d844a5d5d1e10b5bd30f3a7fa3eeca881c8c84d837dcc",
+      "normalized": {
+        "provider": "openai",
+        "id": "openai",
+        "model": "text-embedding-3-small",
+        "dimensions": 1536,
+        "requestTimeoutMs": 15000,
+        "fallback": null
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "openai",
+        "model": "fixture-remote",
+        "dimensions": 3,
+        "artifacts": []
+      },
+      "fingerprintId": "embedding:v1:sha256:f450284e3a5cc77ff1a7f611fc485694b25e0cccc8aa8715a0194d2b7cc9a128",
+      "fingerprintInput": {
+        "provider": "openai",
+        "model": "fixture-remote",
+        "dimensions": 3
+      },
+      "fingerprintArtifacts": []
+    },
+    {
+      "name": "endpoint-and-credential-exclusion",
+      "raw": {
+        "provider": "openai",
+        "model": "text-embedding-3-small",
+        "dimensions": 1536,
+        "baseUrl": "https://example.com/v1?token=removed#removed"
+      },
+      "identityInput": {
+        "provider": "openai",
+        "model": "text-embedding-3-small",
+        "revision": "unspecified",
+        "dimension": 1536,
+        "normalization": "none",
+        "prefixScheme": "[\"\",\"\",\"\",null]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": null,
+        "pooling": "unspecified",
+        "artifacts": []
+      },
+      "identity": {
+        "provider": "openai",
+        "model": "text-embedding-3-small",
+        "revision": "unspecified",
+        "dimension": 1536,
+        "normalization": "none",
+        "prefixScheme": "[\"\",\"\",\"\",null]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": null,
+        "pooling": "unspecified",
+        "artifacts": []
+      },
+      "identityId": "3d5727ffae49164fa0f3191968efa59fc8c49a47d5e9d05cb7b1dc7ff738860b",
+      "normalized": {
+        "provider": "openai",
+        "id": "openai",
+        "model": "text-embedding-3-small",
+        "baseUrl": "https://example.com/v1?token=removed#removed",
+        "dimensions": 1536,
+        "requestTimeoutMs": 15000,
+        "fallback": null
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "openai",
+        "model": "text-embedding-3-small",
+        "dimensions": 1536,
+        "endpoint": "https://example.com/v1",
+        "artifacts": []
+      },
+      "fingerprintId": "embedding:v1:sha256:2c7431d8b61b3e90ec30ef9c7d074166197b8e6cc0994e3fdebad765838e22db",
+      "fingerprintInput": {
+        "provider": "openai",
+        "model": "text-embedding-3-small",
+        "dimensions": 1536,
+        "baseUrl": "https://user:password@example.com:443/v1?token=removed#removed",
+        "credentialGeneration": 7
+      },
+      "fingerprintArtifacts": []
+    },
+    {
+      "name": "artifact-sort-orders",
+      "raw": {
+        "provider": "openai",
+        "model": "text-embedding-3-small",
+        "dimensions": 1536
+      },
+      "identityInput": {
+        "provider": "openai",
+        "model": "fixture-remote",
+        "dimension": 3,
+        "artifacts": [
+          {
+            "path": "z.json",
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "path": "A.json",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "path": "a.json",
+            "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          {
+            "path": "ä.json",
+            "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          }
+        ]
+      },
+      "identity": {
+        "provider": "openai",
+        "model": "fixture-remote",
+        "revision": "unspecified",
+        "dimension": 3,
+        "normalization": "none",
+        "prefixScheme": "[\"\",\"\",\"\",null]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": null,
+        "pooling": "unspecified",
+        "artifacts": [
+          {
+            "path": "A.json",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "path": "a.json",
+            "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          {
+            "path": "z.json",
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "path": "ä.json",
+            "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          }
+        ]
+      },
+      "identityId": "a23c97c9c40b5ad6567d1c2549afef5dda7d5d8ce4ef5b8a38aaeb5d068c8310",
+      "normalized": {
+        "provider": "openai",
+        "id": "openai",
+        "model": "text-embedding-3-small",
+        "dimensions": 1536,
+        "requestTimeoutMs": 15000,
+        "fallback": null
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "openai",
+        "model": "fixture-remote",
+        "dimensions": 3,
+        "artifacts": [
+          {
+            "path": "a.json",
+            "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          {
+            "path": "A.json",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "path": "ä.json",
+            "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          },
+          {
+            "path": "z.json",
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        ]
+      },
+      "fingerprintId": "embedding:v1:sha256:68384ee79d9beec60e104156d8e9bb2ed08fc2d5bc75303cf5f41e790cf45b52",
+      "fingerprintInput": {
+        "provider": "openai",
+        "model": "fixture-remote",
+        "dimensions": 3
+      },
+      "fingerprintArtifacts": [
+        {
+          "path": "A.json",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "path": "a.json",
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        {
+          "path": "z.json",
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        {
+          "path": "ä.json",
+          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      ]
+    }
+  ]
+}

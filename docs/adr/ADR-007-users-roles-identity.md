@@ -49,8 +49,8 @@ Deny by default. One `authorize(principal, action, object)` call, one policy tab
 |---|---|---|
 | Web UI | session cookie (`HttpOnly`, `SameSite`, CSRF one-time token for writes, auftrag §9) | |
 | CLI | local session or personal API token | loopback default |
-| API tokens | token → user + token scopes; effective capability = role ∩ token scopes | scopes can only narrow |
-| MCP server (ADR-008) | harness user or API token; stdio pulls credentials from the environment per spec, HTTP uses OAuth 2.1 | tool visibility is the agent's allowlist ∩ caller's rights |
+| API tokens | token → user + token scopes; effective capability = role ∩ token scopes; optional protocol binding (`audience`, `agentId`) | scopes can only narrow |
+| MCP server (ADR-008) | harness user or agent-bound API token; stdio pulls credentials from the environment per spec, HTTP uses OAuth 2.1 ([oauth.md](../oauth.md)) | tool visibility is the agent's allowlist ∩ caller's rights |
 | A2A server (ADR-008) | Agent Card security scheme → harness user/API token → RBAC | off by default |
 | Channels | channel identity → link record → harness user, or unlinked pseudo-principal | unlinked ⇒ Member-minus (no project writes, no agent management) |
 

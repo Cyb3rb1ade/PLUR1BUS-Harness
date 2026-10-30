@@ -1,0 +1,339 @@
+{
+  "nodeCommit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "profiles": [
+    {
+      "role": "embedding",
+      "model": "intfloat/multilingual-e5-small",
+      "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+      "artifacts": [
+        {
+          "path": "config.json",
+          "size": 655,
+          "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+        },
+        {
+          "path": "onnx/model.onnx",
+          "size": 470268510,
+          "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+        },
+        {
+          "path": "tokenizer.json",
+          "size": 17082730,
+          "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "size": 443,
+          "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+        }
+      ]
+    },
+    {
+      "role": "embedding",
+      "runtime": "jina-v3",
+      "model": "jinaai/jina-embeddings-v3",
+      "baseModelRevision": "ab036b023d30b4d1138c4c3bfa9f0c445ab455d6",
+      "artifactRepository": "ldwformat/jina-embeddings-v3-Q8-onnx",
+      "artifactRevision": "68ed94909d564380f954be27ae2e133214c1adc9",
+      "revision": "68ed94909d564380f954be27ae2e133214c1adc9",
+      "dtype": "q8",
+      "outputDimensions": 1024,
+      "matryoshkaDimensions": [
+        32,
+        64,
+        128,
+        256,
+        512,
+        768,
+        1024
+      ],
+      "taskAdaptations": [
+        "retrieval.query",
+        "retrieval.passage",
+        "separation",
+        "classification",
+        "text-matching"
+      ],
+      "queryPrefix": "",
+      "passagePrefix": "",
+      "license": "CC-BY-NC-4.0",
+      "commercialUse": false,
+      "artifacts": [
+        {
+          "path": "config.json",
+          "size": 1817,
+          "sha256": "9f62014fc8912befc019229c008f750a5059d5f83687b04854971914280c0adb"
+        },
+        {
+          "path": "onnx/model_quantized.onnx",
+          "sourcePath": "model.onnx",
+          "size": 563568622,
+          "sha256": "69696107398fa52aad80bd38ca4a3972cf6e8293d2e1883231fcf7228fcb1c21"
+        },
+        {
+          "path": "special_tokens_map.json",
+          "size": 964,
+          "sha256": "8c785abebea9ae3257b61681b4e6fd8365ceafde980c21970d001e834cf10835"
+        },
+        {
+          "path": "tokenizer.json",
+          "size": 17082734,
+          "sha256": "3a56def25aa40facc030ea8b0b87f3688e4b3c39eb8b45d5702b3a1300fe2a20"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "size": 1182,
+          "sha256": "06b31b8051d8fe3486a7242fa1039d41ca9d5b69ad314dbf97df4b2ace7621d0"
+        }
+      ]
+    },
+    {
+      "role": "embedding",
+      "runtime": "jina-v5",
+      "model": "jinaai/jina-embeddings-v5-text-nano-retrieval",
+      "revision": "ac5d898c8d382b17167c33e5c8af644a3519b47d",
+      "dtype": "q8",
+      "outputDimensions": 768,
+      "matryoshkaDimensions": [
+        32,
+        64,
+        128,
+        256,
+        512,
+        768
+      ],
+      "queryPrefix": "Query: ",
+      "passagePrefix": "Document: ",
+      "license": "CC-BY-NC-4.0",
+      "commercialUse": false,
+      "artifacts": [
+        {
+          "path": "config.json",
+          "size": 1361,
+          "sha256": "367857e3a726df6f1997bcb8443a4351e68b29c65f996e5874a4b3e7c5661a16"
+        },
+        {
+          "path": "onnx/model_quantized.onnx",
+          "size": 131365,
+          "sha256": "ac93a7417c216e5076e37da2b3599f7ef16513934098a477680440c09f735a08"
+        },
+        {
+          "path": "onnx/model_quantized.onnx_data",
+          "size": 247006208,
+          "sha256": "ee7870eb143a7353be08b33f79992a51de3e32b41f684ccd82953a710c2f2f9c"
+        },
+        {
+          "path": "tokenizer.json",
+          "size": 17210235,
+          "sha256": "98d4a1d32152d6cedf85b5e88f3b205106dca1fe72aaab34e0ac13c238421069"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "size": 487,
+          "sha256": "6c4640d432db970b2436a4386d3ee992b99e756b62c37446c3f581c8d09cbb05"
+        }
+      ]
+    },
+    {
+      "role": "embedding",
+      "runtime": "embeddinggemma-2",
+      "model": "google/embeddinggemma-2",
+      "baseModelRevision": "914f7f89142e33e77833254d9c9b90c3cef7303b",
+      "artifactRepository": "onnx-community/embeddinggemma-2-ONNX",
+      "artifactRevision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+      "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+      "dtype": "q8",
+      "outputDimensions": 768,
+      "matryoshkaDimensions": [
+        128,
+        256,
+        512,
+        768
+      ],
+      "maxContextTokens": 8192,
+      "defaultBatchSize": 16,
+      "queryPrefix": "task: search result | query: ",
+      "passagePrefix": "title: none | text: ",
+      "license": "Apache-2.0",
+      "artifacts": [
+        {
+          "path": "config.json",
+          "size": 5031,
+          "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+        },
+        {
+          "path": "onnx/model_quantized.onnx",
+          "size": 495165,
+          "sha256": "d06edd601f851c633a2519304cbeb8dc6170d7ceb61b436625c17fb9b6e74953"
+        },
+        {
+          "path": "onnx/model_quantized.onnx_data",
+          "size": 313724928,
+          "sha256": "278a7ff1248c3618e4bd11a607fc54f7bdc7778854230f3956d3f86bd9db4f3b"
+        },
+        {
+          "path": "tokenizer.json",
+          "size": 32170510,
+          "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "size": 1599,
+          "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+        }
+      ]
+    },
+    {
+      "role": "embedding",
+      "runtime": "embeddinggemma-2",
+      "model": "google/embeddinggemma-2",
+      "baseModelRevision": "914f7f89142e33e77833254d9c9b90c3cef7303b",
+      "artifactRepository": "onnx-community/embeddinggemma-2-ONNX",
+      "artifactRevision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+      "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+      "dtype": "q4",
+      "outputDimensions": 768,
+      "matryoshkaDimensions": [
+        128,
+        256,
+        512,
+        768
+      ],
+      "maxContextTokens": 8192,
+      "defaultBatchSize": 16,
+      "queryPrefix": "task: search result | query: ",
+      "passagePrefix": "title: none | text: ",
+      "license": "Apache-2.0",
+      "artifacts": [
+        {
+          "path": "config.json",
+          "size": 5031,
+          "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+        },
+        {
+          "path": "onnx/model_q4.onnx",
+          "size": 490742,
+          "sha256": "f9eeba97acddf139b8ee2ddf04bc30dceafa88de93fadf74d7644e0d61a477a9"
+        },
+        {
+          "path": "onnx/model_q4.onnx_data",
+          "size": 174028800,
+          "sha256": "c3975f2d1ab7a1878ae31a7d7a9b7804a827aff3800b60dfceafce21cac3df49"
+        },
+        {
+          "path": "tokenizer.json",
+          "size": 32170510,
+          "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "size": 1599,
+          "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+        }
+      ]
+    },
+    {
+      "role": "embedding",
+      "runtime": "embeddinggemma-2",
+      "model": "google/embeddinggemma-2",
+      "baseModelRevision": "914f7f89142e33e77833254d9c9b90c3cef7303b",
+      "artifactRepository": "onnx-community/embeddinggemma-2-ONNX",
+      "artifactRevision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+      "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+      "dtype": "fp32",
+      "outputDimensions": 768,
+      "matryoshkaDimensions": [
+        128,
+        256,
+        512,
+        768
+      ],
+      "maxContextTokens": 8192,
+      "defaultBatchSize": 16,
+      "queryPrefix": "task: search result | query: ",
+      "passagePrefix": "title: none | text: ",
+      "license": "Apache-2.0",
+      "artifacts": [
+        {
+          "path": "config.json",
+          "size": 5031,
+          "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+        },
+        {
+          "path": "onnx/model.onnx",
+          "size": 421421,
+          "sha256": "bc47de15f81208a5c99e5ab10f746d5e33b51ea228b7dc0bef9c133a94f1c1c3"
+        },
+        {
+          "path": "onnx/model.onnx_data",
+          "size": 1084170240,
+          "sha256": "9fd452bfc6916e5a92f080f8dada35598ca4512b21c65897d4c5974d5f9630a2"
+        },
+        {
+          "path": "tokenizer.json",
+          "size": 32170510,
+          "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "size": 1599,
+          "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+        }
+      ]
+    },
+    {
+      "role": "reranker",
+      "model": "jinaai/jina-reranker-v2-base-multilingual",
+      "revision": "9cfeff2df7d40d1b78e75e5e9cebec92a99813c9",
+      "artifacts": [
+        {
+          "path": "config.json",
+          "size": 1102,
+          "sha256": "af16fe07e9b623d5a47b42bde0daba1b6510344212c03363145c51a81e9e4572"
+        },
+        {
+          "path": "onnx/model_quantized.onnx",
+          "size": 279577152,
+          "sha256": "c5220cf8fe023f8aa0ed2a3eb787d4451a7f17cf53f6b787e35718dd4b8815c3"
+        },
+        {
+          "path": "tokenizer.json",
+          "size": 17082734,
+          "sha256": "3a56def25aa40facc030ea8b0b87f3688e4b3c39eb8b45d5702b3a1300fe2a20"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "size": 1148,
+          "sha256": "4bf8eb7ce5367af6f7bcef4bef6fa5945c345ee5a7ecbe6464712a7d96f98015"
+        }
+      ]
+    },
+    {
+      "role": "reranker",
+      "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+      "revision": "c44ebc43de724ae8816668bb44d2e728e17faa18",
+      "artifacts": [
+        {
+          "path": "config.json",
+          "size": 820,
+          "sha256": "36282ea6f54579cb2fdb2c64718407ac0c26fde2f9e87e51a6588c48425f8350"
+        },
+        {
+          "path": "onnx/model_quantized.onnx",
+          "size": 569986762,
+          "sha256": "1ed01a24f6e639dbd0a18e74e47b394abb78e6adb13dd23f34f94a79623fb3d3"
+        },
+        {
+          "path": "tokenizer.json",
+          "size": 17082900,
+          "sha256": "8bf8afbfd11306bd872018c53bfdf2e160a56f8edbcf49933324404791c148d3"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "size": 1203,
+          "sha256": "b87c8703482b0300d3da30e201519aa641f6a450f5eb5bf1e624afbf70c74d80"
+        }
+      ]
+    }
+  ]
+}

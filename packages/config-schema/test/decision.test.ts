@@ -6,16 +6,19 @@ const config = (decision: unknown) => ({ ...defaults(), decision });
 it('keeps existing decision timeout and model-class profiles valid', () => {
   const result = validate(config({ timeoutMs: 200, classProfiles: { small: 'cheap', frontier: 'quality' } }));
   assert.equal(result.ok, true);
-  if (result.ok) assert.deepEqual(result.config.decision.classProfiles, { small: 'cheap', frontier: 'quality' });
+  if (result.ok) {
+    assert.deepEqual(result.config.decision.classProfiles, { small: 'cheap', frontier: 'quality' });
+    assert.equal(result.config.decision.timeoutMs, 200);
+  }
 });
 it('defaults to the existing role backend without requiring a new backend installation', () => {
   const legacy = defaults() as unknown as Record<string, unknown>; delete legacy.decision;
   const result = validate(legacy);
   assert.equal(result.ok, true);
   if (result.ok) assert.deepEqual(result.config.decision, {
-    backend: 'role', timeoutMs: 200, classProfiles: {},
+    backend: 'role', timeoutMs: 2000, classProfiles: {},
     systemOne: { jev: { enabled: false, model: 'jev-1.13.0' }, kev: { enabled: false } },
-    budgets: { triage: 200, routing: 200, pruning: 100, skills: 100, placement: 200, zoom: 150, compaction: 200 },
+    budgets: { triage: 2000, routing: 200, pruning: 100, skills: 2000, placement: 200, zoom: 150, compaction: 200 },
     confidence: { triage: 0, routing: .7, pruning: .7, skills: .7, placement: .7, zoom: .35, compaction: .7 },
   });
 });

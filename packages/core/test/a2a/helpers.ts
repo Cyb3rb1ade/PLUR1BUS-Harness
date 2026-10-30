@@ -5,6 +5,7 @@ import { hashKey } from "../../src/a2a/policy.ts";
 import type { PushTransport } from "../../src/a2a/push.ts";
 import type { A2aAgentInfo, A2aPeerConfig } from "../../src/a2a/types.ts";
 import type { Scheduler } from "../../src/a2a/tasks.ts";
+import { createProviderTurnPort, type A2aTurnPort } from "../../src/a2a/turn-port.ts";
 
 export const KEY_A = "peer-a-key-0123456789abcdef0123456789abcdef";
 export const KEY_B = "peer-b-key-0123456789abcdef0123456789abcdef";
@@ -40,13 +41,33 @@ export const AGENTS: Record<string, A2aAgentInfo> = {
   hidden: { optIn: false },
 };
 
+const PAUSE_INPUT = /INPUT_REQUIRED/;
+const PAUSE_AUTH = /AUTH_REQUIRED/;
+const REJECT = /\bREJECT\b/;
+
+/** Test fixture wrapping an A2aTurnPort with text markers to simulate A2A task interrupts and rejections in tests. */
+export function withTestMarkers(port: A2aTurnPort): A2aTurnPort {
+  return {
+    available: () => port.available(),
+    ensureSession: (a) => port.ensureSession(a),
+    async *run(req) {
+      if (PAUSE_INPUT.test(req.text)) { yield { type: "pause", state: "input-required", message: "More information is required." }; return; }
+      if (PAUSE_AUTH.test(req.text)) { yield { type: "pause", state: "auth-required", message: "Authentication is required." }; return; }
+      if (REJECT.test(req.text)) { yield { type: "reject", message: "The agent rejected the task." }; return; }
+      yield* port.run(req);
+    },
+    cancel: (sessionId) => port.cancel(sessionId),
+  };
+}
+
 export interface Rig { h: A2aHandler; clock: TestClock; sched: ManualScheduler; audit: ReturnType<typeof memoryAuditSink>; provider: ChatProvider | null }
 export function rig(o: { provider?: ChatProvider | null; fake?: FakeProviderOptions; opts?: Partial<A2aHandlerOptions> } = {}): Rig {
   const clock = new TestClock(); const sched = new ManualScheduler(); const audit = memoryAuditSink();
   const provider = o.provider === undefined ? new FakeChatProvider(o.fake) : o.provider;
+  const turns = o.opts?.turns ?? withTestMarkers(createProviderTurnPort(() => provider));
   const h = createA2aHandler({
     peers: peers(), agents: (id) => (Object.hasOwn(AGENTS, id) ? AGENTS[id] : undefined), advertisedBaseUrl: BASE,
-    provider: () => provider, clock, scheduler: sched, audit, ...o.opts,
+    provider: () => provider, clock, scheduler: sched, audit, ...o.opts, turns,
   });
   return { h, clock, sched, audit, provider };
 }

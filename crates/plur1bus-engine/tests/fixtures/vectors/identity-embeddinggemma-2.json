@@ -1,0 +1,402 @@
+{
+  "nodeCommit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "cases": [
+    {
+      "name": "embeddinggemma-2-q8",
+      "raw": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "google/embeddinggemma-2",
+          "cacheDir": "/fixture/home/models"
+        }
+      },
+      "identityInput": {
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimension": 768,
+        "normalization": "l2",
+        "prefixScheme": "[\"task: search result | query: \",\"title: none | text: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "q8",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+          },
+          {
+            "path": "onnx/model_quantized.onnx",
+            "sha256": "d06edd601f851c633a2519304cbeb8dc6170d7ceb61b436625c17fb9b6e74953"
+          },
+          {
+            "path": "onnx/model_quantized.onnx_data",
+            "sha256": "278a7ff1248c3618e4bd11a607fc54f7bdc7778854230f3956d3f86bd9db4f3b"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+          }
+        ]
+      },
+      "identity": {
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimension": 768,
+        "normalization": "l2",
+        "prefixScheme": "[\"task: search result | query: \",\"title: none | text: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "q8",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+          },
+          {
+            "path": "onnx/model_quantized.onnx",
+            "sha256": "d06edd601f851c633a2519304cbeb8dc6170d7ceb61b436625c17fb9b6e74953"
+          },
+          {
+            "path": "onnx/model_quantized.onnx_data",
+            "sha256": "278a7ff1248c3618e4bd11a607fc54f7bdc7778854230f3956d3f86bd9db4f3b"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+          }
+        ]
+      },
+      "identityId": "d06ac77004042f77dac1ddb5b6017d7702e5592af934dce9636ca73c487d92b3",
+      "normalized": {
+        "provider": "local-transformers",
+        "id": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "dimensions": 768,
+        "local": {
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+          "queryPrefix": "task: search result | query: ",
+          "passagePrefix": "title: none | text: ",
+          "cacheDir": "/fixture/home/models",
+          "acceptNonCommercialLicense": false
+        },
+        "fallback": null
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimensions": 768,
+        "queryPrefix": "task: search result | query:",
+        "passagePrefix": "title: none | text:",
+        "pooling": "mean",
+        "normalize": true,
+        "dtype": "q8",
+        "prefixScheme": "[\"task: search result | query: \",\"title: none | text: \",\"mean\",null]",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+          },
+          {
+            "path": "onnx/model_quantized.onnx",
+            "sha256": "d06edd601f851c633a2519304cbeb8dc6170d7ceb61b436625c17fb9b6e74953"
+          },
+          {
+            "path": "onnx/model_quantized.onnx_data",
+            "sha256": "278a7ff1248c3618e4bd11a607fc54f7bdc7778854230f3956d3f86bd9db4f3b"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+          }
+        ]
+      },
+      "fingerprintId": "embedding:v1:sha256:04635e050be4c358a3496b5f8ccbd58af1deb2c46eb7f65e9f171876d8016a02"
+    },
+    {
+      "name": "embeddinggemma-2-q4",
+      "raw": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "google/embeddinggemma-2",
+          "cacheDir": "/fixture/home/models",
+          "dtype": "q4"
+        }
+      },
+      "identityInput": {
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimension": 768,
+        "normalization": "l2",
+        "prefixScheme": "[\"task: search result | query: \",\"title: none | text: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "q4",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+          },
+          {
+            "path": "onnx/model_q4.onnx",
+            "sha256": "f9eeba97acddf139b8ee2ddf04bc30dceafa88de93fadf74d7644e0d61a477a9"
+          },
+          {
+            "path": "onnx/model_q4.onnx_data",
+            "sha256": "c3975f2d1ab7a1878ae31a7d7a9b7804a827aff3800b60dfceafce21cac3df49"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+          }
+        ]
+      },
+      "identity": {
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimension": 768,
+        "normalization": "l2",
+        "prefixScheme": "[\"task: search result | query: \",\"title: none | text: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "q4",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+          },
+          {
+            "path": "onnx/model_q4.onnx",
+            "sha256": "f9eeba97acddf139b8ee2ddf04bc30dceafa88de93fadf74d7644e0d61a477a9"
+          },
+          {
+            "path": "onnx/model_q4.onnx_data",
+            "sha256": "c3975f2d1ab7a1878ae31a7d7a9b7804a827aff3800b60dfceafce21cac3df49"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+          }
+        ]
+      },
+      "identityId": "03ec3bf93e416f31d14e72f585e2eae9d059a0c709a8bef1b472af7767c6c2ce",
+      "normalized": {
+        "provider": "local-transformers",
+        "id": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "dimensions": 768,
+        "local": {
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+          "queryPrefix": "task: search result | query: ",
+          "passagePrefix": "title: none | text: ",
+          "dtype": "q4",
+          "cacheDir": "/fixture/home/models",
+          "acceptNonCommercialLicense": false
+        },
+        "fallback": null
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimensions": 768,
+        "queryPrefix": "task: search result | query:",
+        "passagePrefix": "title: none | text:",
+        "pooling": "mean",
+        "normalize": true,
+        "dtype": "q4",
+        "prefixScheme": "[\"task: search result | query: \",\"title: none | text: \",\"mean\",null]",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+          },
+          {
+            "path": "onnx/model_q4.onnx",
+            "sha256": "f9eeba97acddf139b8ee2ddf04bc30dceafa88de93fadf74d7644e0d61a477a9"
+          },
+          {
+            "path": "onnx/model_q4.onnx_data",
+            "sha256": "c3975f2d1ab7a1878ae31a7d7a9b7804a827aff3800b60dfceafce21cac3df49"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+          }
+        ]
+      },
+      "fingerprintId": "embedding:v1:sha256:1e50aeb89e77b71fb074d606dd7395425da8c0a3bc1c2fe79dae4347d78a0f9d"
+    },
+    {
+      "name": "embeddinggemma-2-fp32",
+      "raw": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "google/embeddinggemma-2",
+          "cacheDir": "/fixture/home/models",
+          "dtype": "fp32"
+        }
+      },
+      "identityInput": {
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimension": 768,
+        "normalization": "l2",
+        "prefixScheme": "[\"task: search result | query: \",\"title: none | text: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "fp32",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "bc47de15f81208a5c99e5ab10f746d5e33b51ea228b7dc0bef9c133a94f1c1c3"
+          },
+          {
+            "path": "onnx/model.onnx_data",
+            "sha256": "9fd452bfc6916e5a92f080f8dada35598ca4512b21c65897d4c5974d5f9630a2"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+          }
+        ]
+      },
+      "identity": {
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimension": 768,
+        "normalization": "l2",
+        "prefixScheme": "[\"task: search result | query: \",\"title: none | text: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "fp32",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "bc47de15f81208a5c99e5ab10f746d5e33b51ea228b7dc0bef9c133a94f1c1c3"
+          },
+          {
+            "path": "onnx/model.onnx_data",
+            "sha256": "9fd452bfc6916e5a92f080f8dada35598ca4512b21c65897d4c5974d5f9630a2"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+          }
+        ]
+      },
+      "identityId": "10feed5cb262e959256de8385fb0eef2020cc4ca63aec3ac5eb5a8cf4b9a1d6e",
+      "normalized": {
+        "provider": "local-transformers",
+        "id": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "dimensions": 768,
+        "local": {
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+          "queryPrefix": "task: search result | query: ",
+          "passagePrefix": "title: none | text: ",
+          "dtype": "fp32",
+          "cacheDir": "/fixture/home/models",
+          "acceptNonCommercialLicense": false
+        },
+        "fallback": null
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimensions": 768,
+        "queryPrefix": "task: search result | query:",
+        "passagePrefix": "title: none | text:",
+        "pooling": "mean",
+        "normalize": true,
+        "dtype": "fp32",
+        "prefixScheme": "[\"task: search result | query: \",\"title: none | text: \",\"mean\",null]",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "bc47de15f81208a5c99e5ab10f746d5e33b51ea228b7dc0bef9c133a94f1c1c3"
+          },
+          {
+            "path": "onnx/model.onnx_data",
+            "sha256": "9fd452bfc6916e5a92f080f8dada35598ca4512b21c65897d4c5974d5f9630a2"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+          }
+        ]
+      },
+      "fingerprintId": "embedding:v1:sha256:4dec5203c668f9764b3b90355b85c1a54c85126c44c859f9dedabca61bf77b39"
+    }
+  ]
+}

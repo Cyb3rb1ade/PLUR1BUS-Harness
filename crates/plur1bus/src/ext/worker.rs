@@ -6,7 +6,7 @@
 use super::ExtError;
 use crate::paths::Layout;
 use serde_json::Value;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -70,7 +70,104 @@ const REASONS: &[&str] = &[
     "index-invalid",
     "index-newer",
     "skills-locked",
+    "egress-denied",
+    "config-invalid",
+    "source-unreachable",
 ];
+
+/// Start barrier closes the Windows spawn-to-job-assignment race before the worker can create descendants.
+pub(crate) fn await_start_gate() -> Result<(), ExtError> {
+    if std::env::var("PLUR1BUS_EXT_WORKER_GATE").as_deref() == Ok("1") {
+        let mut byte = [0];
+        std::io::stdin()
+            .read_exact(&mut byte)
+            .map_err(|_| failed("ext worker start gate is closed"))?;
+        if byte != [1] {
+            return Err(failed("ext worker start gate is invalid"));
+        }
+    }
+    Ok(())
+}
+
+/// Owns only the group/job created for this child, including streaming fetch descendants.
+pub(crate) struct ProcessTree {
+    killed: std::cell::Cell<bool>,
+    #[cfg(unix)]
+    pid: u32,
+    #[cfg(windows)]
+    job: windows_sys::Win32::Foundation::HANDLE,
+}
+
+impl ProcessTree {
+    pub(crate) fn attach(child: &std::process::Child) -> std::io::Result<Self> {
+        #[cfg(windows)]
+        {
+            use std::os::windows::io::AsRawHandle;
+            use windows_sys::Win32::Foundation::CloseHandle;
+            use windows_sys::Win32::System::JobObjects::*;
+            unsafe {
+                let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
+                if job.is_null() {
+                    return Err(std::io::Error::last_os_error());
+                }
+                let mut limits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
+                limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+                if SetInformationJobObject(
+                    job,
+                    JobObjectExtendedLimitInformation,
+                    &limits as *const _ as *const _,
+                    std::mem::size_of_val(&limits) as u32,
+                ) == 0
+                    || AssignProcessToJobObject(job, child.as_raw_handle() as _) == 0
+                {
+                    let error = std::io::Error::last_os_error();
+                    CloseHandle(job);
+                    return Err(error);
+                }
+                Ok(Self {
+                    killed: std::cell::Cell::new(false),
+                    job,
+                })
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            Ok(Self {
+                killed: std::cell::Cell::new(false),
+                #[cfg(unix)]
+                pid: child.id(),
+            })
+        }
+    }
+
+    pub(crate) fn kill(&self) {
+        if self.killed.replace(true) {
+            return;
+        }
+        #[cfg(unix)]
+        if let Ok(pid) = i32::try_from(self.pid) {
+            if pid > 0 {
+                unsafe {
+                    libc::kill(-pid, libc::SIGKILL);
+                }
+            }
+        }
+        #[cfg(windows)]
+        unsafe {
+            windows_sys::Win32::System::JobObjects::TerminateJobObject(self.job, 1);
+        }
+    }
+}
+
+impl Drop for ProcessTree {
+    fn drop(&mut self) {
+        self.kill();
+        #[cfg(windows)]
+        unsafe {
+            windows_sys::Win32::Foundation::CloseHandle(self.job);
+        }
+    }
+}
 
 /// The test seam `PLUR1BUS_TEST_EXT_WORKER_ARGS=<op>:<arg> [<arg>…][;<op>:…]` (test internals only): extra arguments
 /// the supervisor passes to the worker for `op` (`inspect` or `stage`), such as `stage:--crash` or
@@ -159,6 +256,18 @@ pub fn spawn_worker(layout: &Layout, args: &[&str], deadline: Duration) -> Resul
     spawn_worker_with(&exe, layout, args, deadline)
 }
 
+/// A run-scoped cancellation check; cancelling one operation never shuts down future extension workers.
+pub fn spawn_worker_checked(
+    layout: &Layout,
+    args: &[&str],
+    deadline: Duration,
+    check: &dyn Fn() -> Result<(), ExtError>,
+) -> Result<Value, ExtError> {
+    let exe = std::env::current_exe()
+        .map_err(|error| failed(format!("cannot locate the harness binary: {error}")))?;
+    spawn_worker_with_check(&exe, layout, args, deadline, check)
+}
+
 fn drain(r: Option<impl Read + Send + 'static>, cap: u64) -> std::thread::JoinHandle<Vec<u8>> {
     std::thread::spawn(move || {
         let mut buf = Vec::new();
@@ -182,6 +291,17 @@ pub(crate) fn spawn_worker_with(
     args: &[&str],
     deadline: Duration,
 ) -> Result<Value, ExtError> {
+    spawn_worker_with_check(exe, layout, args, deadline, &|| Ok(()))
+}
+
+pub(crate) fn spawn_worker_with_check(
+    exe: &Path,
+    layout: &Layout,
+    args: &[&str],
+    deadline: Duration,
+    check: &dyn Fn() -> Result<(), ExtError>,
+) -> Result<Value, ExtError> {
+    check()?;
     // Counted before the stop flag is read: a `stop_all` that sees no worker running has set the flag first, so this
     // spawn then sees it and starts nothing.
     let _running = Running::start();
@@ -190,12 +310,19 @@ pub(crate) fn spawn_worker_with(
             "the supervisor is stopping; no ext worker is started",
         ));
     }
-    let mut child = Command::new(exe)
+    let mut command = Command::new(exe);
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.process_group(0);
+    }
+    let mut child = command
         .args(["ext", "__worker"])
         .args(args)
         .arg("--home")
         .arg(&layout.home)
-        .stdin(Stdio::null())
+        .env("PLUR1BUS_EXT_WORKER_GATE", "1")
+        .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -205,13 +332,30 @@ pub(crate) fn spawn_worker_with(
                 exe.display()
             ))
         })?;
+    let tree = ProcessTree::attach(&child).map_err(|_| {
+        let _ = child.kill();
+        let _ = child.wait();
+        failed("cannot isolate the ext worker process tree")
+    })?;
+    // The worker does not parse or spawn anything until it belongs to our process tree.
+    if let Some(mut input) = child.stdin.take() {
+        let _ = input.write_all(&[1]);
+    }
     let out = drain(child.stdout.take(), STDOUT_CAP);
     let err = drain(child.stderr.take(), STDERR_CAP);
     let start = Instant::now();
     let status = loop {
+        if let Err(error) = check() {
+            tree.kill();
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = (out.join(), err.join());
+            return Err(error);
+        }
         match child.try_wait() {
             Ok(Some(status)) => break status,
             Ok(None) if STOPPING.load(Ordering::SeqCst) => {
+                tree.kill();
                 let _ = child.kill();
                 let _ = child.wait();
                 let _ = (out.join(), err.join());
@@ -220,6 +364,7 @@ pub(crate) fn spawn_worker_with(
                 ));
             }
             Ok(None) if start.elapsed() >= deadline => {
+                tree.kill();
                 let _ = child.kill();
                 let _ = child.wait();
                 let _ = (out.join(), err.join());
@@ -230,6 +375,7 @@ pub(crate) fn spawn_worker_with(
             }
             Ok(None) => std::thread::sleep(Duration::from_millis(10)),
             Err(e) => {
+                tree.kill();
                 let _ = child.kill();
                 let _ = child.wait();
                 let _ = (out.join(), err.join());
@@ -237,8 +383,11 @@ pub(crate) fn spawn_worker_with(
             }
         }
     };
+    // Also close descendants' inherited stdout/stderr when a parser exits before its children.
+    tree.kill();
     let stdout = out.join().unwrap_or_default();
     let stderr = err.join().unwrap_or_default();
+    check()?;
     answer(&stdout).unwrap_or_else(|| {
         let tail = String::from_utf8_lossy(&stderr);
         let tail = tail.trim();

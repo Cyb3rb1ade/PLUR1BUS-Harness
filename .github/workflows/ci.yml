@@ -741,6 +741,8 @@ jobs:
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
       PLUR1BUS_WEB_E2E_REQUIRED: "1"
+      # The shared macOS runner now and then stalls a page for seconds; the Linux shards keep the 5 s default (docs/ci.md).
+      PLUR1BUS_WEB_ACTION_TIMEOUT_MS: "15000"
       PLUR1BUS_TEST_SHARD: ${{ matrix.shard }}/${{ matrix.total }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -1044,12 +1046,12 @@ jobs:
           wsl.exe -d Ubuntu-24.04 -e test -f /root/.openclaw/openclaw.json || { echo "Fixture creation failed in WSL"; exit 1; }
 
           # Run detect with --probe-wsl against the WSL candidate from the Windows host
-          out1=$(node packages/core/dist/import.js openclaw --detect --home "$RUNNER_TEMP/harness-home" --probe-wsl)
+          out1=$(node packages/core/dist/import.js openclaw --detect --home "$RUNNER_TEMP/harness-home" --probe-wsl) || { wsl_detect_status=$?; printf '%s\n' "$out1"; exit "$wsl_detect_status"; }
           echo "$out1"
           echo "$out1" | grep -q "Ubuntu-24.04" || { echo "WSL candidate Ubuntu-24.04 not found in candidate list"; exit 1; }
 
           # Run direct detect against wsl: syntax
-          out2=$(node packages/core/dist/import.js openclaw --detect --source "wsl:Ubuntu-24.04:/root/.openclaw" --home "$RUNNER_TEMP/harness-home")
+          out2=$(node packages/core/dist/import.js openclaw --detect --source "wsl:Ubuntu-24.04:/root/.openclaw" --home "$RUNNER_TEMP/harness-home") || { wsl_detect_status=$?; printf '%s\n' "$out2"; exit "$wsl_detect_status"; }
           echo "$out2"
           echo "$out2" | grep -q "wsl-agent" || { echo "wsl-agent not found in detect output"; exit 1; }
           echo "$out2" | grep -q "notes" || { echo "skill notes not found in detect output"; exit 1; }

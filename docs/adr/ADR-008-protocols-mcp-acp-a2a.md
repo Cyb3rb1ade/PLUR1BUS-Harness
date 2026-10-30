@@ -198,3 +198,15 @@ A2A `1.0.0` documents a migration with breaking changes (e.g. the `kind` discrim
 10. [ ] Spike (0.5 d): does `@a2a-js/sdk@1.2.0` still speak A2A 0.3? Record the answer and close Conflict 2.
 11. [ ] Windows audit of stdio subprocess handling for MCP stdio and ACP (pipe handles, `stdio` inheritance) before M6.
 12. [ ] Correct the ACP schema version in `docs/phase0/research/protocols-channels-coding-clis.md` to 1.23.0 @ `bba7ddf`.
+
+## Ergänzung M6-A: MCP-Server Architektur und Dual-Ära (2026-10-29)
+
+Im Rahmen von Milestone M6-A wurde die Bereitstellung des MCP-Servers wie folgt umgesetzt:
+
+1. **Laufzeit:** Der MCP-Server läuft direkt in der API (`packages/api/src/mcp`) und im Core (`packages/core/src/mcp`), ohne separaten Daemon-Prozess und ohne `uv` (Owner-Entscheidung).
+2. **Protokoll-Ären:** Der Endpunkt `/mcp` bedient sowohl die moderne Ära (`2026-07-28`, zustandsloses JSON-RPC mit Pflichtheadern `Mcp-*`, `_meta`-Matching und `cacheScope: private`) als auch die ältere Ära (`2025-11-25`, `StreamableHTTPServerTransport` des v1-SDK).
+3. **stdio-Bridge:** Der Befehl `plur1bus mcp serve [--agent <id>]` delegiert stdio-Verbindungen über `run/api.json` an den HTTP-Endpunkt `/mcp` (Festlegung 9), wodurch alle Autorisierungs-, Audit- und Rate-Limit-Prüfungen an einer zentralen Stelle stattfinden. Token aus `PLUR1BUS_MCP_TOKEN`.
+4. **Authentifizierung & Agent-Bindung:** Persönliche API-Tokens mit Bindung (`binding: { audience: "mcp", agentId: "<id>" }`). Bei fehlender Authentifizierung antwortet der Server mit HTTP 401 und RFC 9728 `WWW-Authenticate: Bearer resource_metadata="..."`.
+5. **Rate-Limits & Audit:** Route-Klasse `rpc`; model-backed Turns (`agent_ask`) ziehen aus `expensive` und reservieren einen Slot unter `expensiveConcurrency`. Auditierung über `mcp.server.call` und `mcp.server.denied` strikt ohne Argumente oder Ergebnisse.
+6. **OAuth 2.1 Autorisierungsserver:** Integrierter Autorisierungsserver (`packages/api/src/oauth`) nach OAuth 2.1, RFC 8414, RFC 9728, RFC 7636 (S256-Pflicht) und RFC 7009. Ausstellung agent-gebundener Tokens, Refresh-Token-Rotation mit Replay-Erkennung (Familien-Widerruf), dynamische Client-ID-Metadaten mit SSRF-Schutz und Grant-Verwaltung (`GET/POST /api/v1/oauth/grants`). Begleitdokumentation in [oauth.md](file:///Users/cyberblade/worktrees/codex-p-m6a-protocols/docs/oauth.md).
+

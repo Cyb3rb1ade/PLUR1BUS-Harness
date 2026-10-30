@@ -1,3 +1,4 @@
+// Module process lifecycle, authenticated control, configuration and persistent extension data (M-A12).
 import { randomBytes, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -8,6 +9,7 @@ import { checkAdoptionNonce } from "./adoption.ts";
 import { connect, type CoreClient } from "./client.ts";
 import { watchSupervisorConfig, type ConfigWatch } from "./config-watch.ts";
 import { createControlServer, type ControlServer } from "./control-server.ts";
+import { createExtensionDataDir } from "./data-dir.ts";
 import { acquireExclusiveLock, type ExclusiveLock } from "./lock.ts";
 import { createLogger, type HarnessLogger } from "./logger.ts";
 import { validateManifest, type ModuleManifest } from "./manifest.ts";
@@ -23,6 +25,8 @@ export type HarnessLikeLogger = Pick<HarnessLogger, "debug" | "info" | "warn" | 
 /** Identity, lifecycle, configuration, logger, and optional core access provided to `ModuleDefinition.start`. */
 export interface ModuleContext {
   name: string; home: string; instanceId: string;
+  /** Owner-only `<home>/data/ext/<name>`, created before start and retained across restarts and uninstall. */
+  dataDir: string;
   /** Aborted when the module starts to stop. */
   signal: AbortSignal;
   logger: HarnessLikeLogger;
@@ -202,6 +206,11 @@ export async function runModule(def: ModuleDefinition, argv: string[] = process.
     manifest = v.manifest;
   }
 
+  // M-A12: validated identity owns the data path; an inherited P1X_DATA never selects where the module writes.
+  let dataDir: string;
+  try { dataDir = createExtensionDataDir(home, manifest.name, createSecurePath()); }
+  catch (error) { return fail(EXIT_FAILED, `data directory unavailable: ${(error as Error).message}`); }
+
   // 2. The single-instance lock.
   const files = moduleRunFiles(home, name);
   mkdirSync(runDir(home), { recursive: true, mode: 0o700 });
@@ -319,7 +328,7 @@ export async function runModule(def: ModuleDefinition, argv: string[] = process.
 
   // 4. The module itself.
   const ctx: ModuleContext = {
-    name, home, instanceId, signal: shutdown.signal, logger,
+    name, home, instanceId, dataDir, signal: shutdown.signal, logger,
     config: () => section,
     onConfig: (fn) => { configListeners.add(fn); return () => { configListeners.delete(fn); }; },
     core: () => coreLink?.get() ?? null,

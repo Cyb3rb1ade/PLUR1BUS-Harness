@@ -295,7 +295,8 @@ export function createCollab(o: CollabOptions): Collab {
       if (!scope.current() || scope.current()!.agentId !== toAgent) {
         throw new CollabError("no-scope", "AgentScope is required; unscoped access is refused");
       }
-      if (!handoff) return runner.run({ ...(session ? { sessionId: session.id } : {}), agentId: toAgent, question, context, signal, ...(principal ? { principal } : {}) });
+      const origin = hop ? { origin: { fromAgent: hop.fromAgent, traceId: chain.traceId, spanId: hop.spanId } } : {};
+      if (!handoff) return runner.run({ ...(session ? { sessionId: session.id } : {}), agentId: toAgent, question, context, signal, ...(principal ? { principal } : {}), ...origin });
       let progress = { text: "", inputTokens: 0, outputTokens: 0 };
       let detach = () => {};
       const aborted = new Promise<import("./runner.ts").AgentRunResult>(resolve => {
@@ -305,7 +306,7 @@ export function createCollab(o: CollabOptions): Collab {
       });
       if (signal.aborted) return { ...progress, partial: true };
       try {
-        return await Promise.race([runner.run({ ...(session ? { sessionId: session.id } : {}), agentId: toAgent, question, context, signal, ...(principal ? { principal } : {}), ...(handoff ? { handoff } : {}), onTranscript: entry => { if (turn && sessions && !signal.aborted && !storeClosed) sessions.appendEvent(turn.id, 'tool.result', { kind: 'tool_result', trust: 'untrusted', provenance: { traceId: chain.traceId, spanId: hop!.spanId, agentId: toAgent }, entry: redact.value(entry) }); }, onProgress: p => { if (!signal.aborted) progress = { ...p }; } }), aborted]);
+        return await Promise.race([runner.run({ ...(session ? { sessionId: session.id } : {}), agentId: toAgent, question, context, signal, ...(principal ? { principal } : {}), ...origin, ...(handoff ? { handoff } : {}), onTranscript: entry => { if (turn && sessions && !signal.aborted && !storeClosed) sessions.appendEvent(turn.id, 'tool.result', { kind: 'tool_result', trust: 'untrusted', provenance: { traceId: chain.traceId, spanId: hop!.spanId, agentId: toAgent }, entry: redact.value(entry) }); }, onProgress: p => { if (!signal.aborted) progress = { ...p }; } }), aborted]);
       } finally { detach(); }
     });
     try {

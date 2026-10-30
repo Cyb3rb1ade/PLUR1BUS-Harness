@@ -15,6 +15,7 @@ import { createLogger } from "../src/logger.ts";
 import type { CatalogStore } from "../src/discovery/catalog-store.ts";
 import { appendJournalLine } from "../src/journal.ts";
 import { layout } from "../src/paths.ts";
+import { SystemJobsLedger } from "../src/system-jobs/ledger.ts";
 import { flatEmbedder, flatTestInternals } from "./helpers/flat-embedder.ts";
 import { tempDir } from "./helpers/temp-dir.ts";
 
@@ -203,9 +204,12 @@ describe("core", () => {
   });
 
   it("an invalid caller identity comes back degraded, not as an error (R18)", async () => {
-    const long = await c.call<any>("memory.recall", { caller: { ...caller, userId: "u".repeat(129) }, agentId: "bernd", query: "anything" });
+    // A generous budget like the other recall tests: the engine still runs, and its own `timeout` on a slow runner
+    // would replace the principal's degradation this test is about.
+    const budget = { softMs: 5000, hardMs: 10_000 };
+    const long = await c.call<any>("memory.recall", { caller: { ...caller, userId: "u".repeat(129) }, agentId: "bernd", query: "anything", budget });
     assert.equal(long.degraded?.reason, "principal-invalid");
-    const control = await c.call<any>("memory.recall", { caller: { ...caller, userId: "cyber\u0001blade" }, agentId: "bernd", query: "anything" });
+    const control = await c.call<any>("memory.recall", { caller: { ...caller, userId: "cyber\u0001blade" }, agentId: "bernd", query: "anything", budget });
     assert.equal(control.degraded?.reason, "principal-invalid");
   });
 
@@ -504,6 +508,29 @@ describe("core run files (S11)", () => {
 });
 
 describe("core model warm-up (E4, S7)", () => {
+  it("a first ordinary start still runs knowledge.update through the real system-job registry", async () => {
+    const home = newHome(); const l = layout(home); const started = Date.now();
+    assert.equal(existsSync(join(l.systemJobs, "ledger.jsonl")), false);
+    const core = createCore({ home, testInternals: flatTestInternals() });
+    await core.start();
+    const c = await connect({ address: core.address, token: core.token });
+    try {
+      type Run = { job: string; kind: string; trigger: string; startedAt: number; finishedAt: number; outcome: string };
+      let runs: Run[] = [];
+      const deadline = Date.now() + 5000;
+      do {
+        ({ runs } = await c.call<{ runs: Run[] }>("jobs.history", { job: "knowledge.update" }));
+        if (runs.length) break;
+        await new Promise(resolve => setTimeout(resolve, 20));
+      } while (Date.now() < deadline);
+      assert.equal(runs.length, 1, "the separate scheduled actor keeps its first-start run");
+      const run = runs[0]!;
+      assert.equal(run.job, "knowledge.update"); assert.equal(run.kind, "system"); assert.equal(run.trigger, "cron");
+      assert.ok(run.startedAt >= started && run.finishedAt >= run.startedAt);
+      assert.ok(["completed", "skipped"].includes(run.outcome), run.outcome);
+      assert.ok(readFileSync(join(l.systemJobs, "ledger.jsonl"), "utf8").includes('"knowledge.update"'));
+    } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
+  });
   // H3-R22/R23: the models' probes alone leave the first recall cold (a real query embedding, the first table
   // search); a recall that pays that inside the core's 600 ms hard budget answers `aborted` even though its phases
   // look fast. The flat embedder stands in for a cold model: its first three embedQuery calls take COLD_MS each (the
@@ -563,6 +590,13 @@ describe("core model warm-up (E4, S7)", () => {
     mkdirSync(dirname(pendingFile), { recursive: true });
     const pending = JSON.stringify({ pending: { "r-1": { id: "r-1", reminderKey: "r-1", text: "water the plants", remindAt: Date.now() - 3_600_000 } } });
     writeFileSync(pendingFile, pending);
+    // Isolate this read-only warm-up from the separate periodic knowledge actor, whose first-start behavior is
+    // exercised above. A recent real-format ledger record keeps that actor's next run outside this assertion window.
+    const now = Date.now();
+    new SystemJobsLedger({ ledgerPath: join(l.systemJobs, "ledger.jsonl"), securePath: () => {}, logger: { warn() {} } }).finish({
+      runId: "8874bc2a-bdda-40f6-b4a0-07d9ca3329d2", job: "knowledge.update", trigger: "cron",
+      startedAt: now, finishedAt: now, durationMs: 0, outcome: "completed",
+    });
     // The probe takes 300 ms, so the snapshot below is taken before the warm-up's memory.list runs.
     const core = createCore({ home, testInternals: flatTestInternals({ queryDelayMs: () => { const d = first ? 300 : 0; first = false; return d; } }) });
     await core.start();

@@ -143,11 +143,11 @@ test("logging out everywhere needs the CSRF token like any write", async () => {
 
 // ---- Q7: deny by default ----------------------------------------------------------------------------------------
 
-const SELF_SERVICE = ["csrf.issue", "session.delete", "sessions.revoke-all", "whoami"];
+const SELF_SERVICE = ["csrf.issue", "desktop.step-up.approval", "desktop.step-up.decision", "oauth.authorize.post", "oauth.grants.list", "oauth.grants.revoke", "session.delete", "sessions.revoke-all", "whoami"];
 
 test("the routes that need no role are exactly the session self-service routes, nothing else", () => {
   assert.deepEqual(ROUTES.filter((r) => r.authz === "authenticated").map((r) => r.id).sort(), SELF_SERVICE);
-  assert.deepEqual(ROUTES.filter((r) => r.authz === "public").map((r) => r.id), ["desktop.meta", "desktop.pair", "desktop.redeem", "desktop.ticket", "invitation.redeem", "account.bootstrap", "passkeys.login.options", "passkeys.login", "remote.pair-proof", "remote.device.pair", "session.create", "session.totp"], "invitation/login plus explicitly reviewed owner-opened pairing bootstrap grants");
+  assert.deepEqual(ROUTES.filter((r) => r.authz === "public").map((r) => r.id).sort(), ["desktop.meta", "desktop.pair", "desktop.redeem", "desktop.ticket", "desktop.step-up.start", "desktop.step-up.poll", "desktop.step-up.cancel", "invitation.redeem", "account.bootstrap", "passkeys.login.options", "passkeys.login", "remote.pair-proof", "remote.device.pair", "session.create", "session.totp", "oauth.metadata", "oauth.protected_resource", "oauth.protected_resource.path", "oauth.authorize.get", "oauth.token", "oauth.revoke", "a2a.card.root", "a2a.card.root.alias", "a2a.card.agent", "a2a.card.agent.alias"].sort(), "invitation/login plus explicitly reviewed enrolled-device handshake routes with independent credential checks");
   for (const r of ROUTES) assert.ok(r.authz !== undefined, `${r.id} declares an authorization`);
 });
 

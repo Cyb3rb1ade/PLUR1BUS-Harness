@@ -7,7 +7,7 @@ function operation(r: RouteSpec): Record<string, unknown> {
     [String(r.successStatus)]: { description: r.success.description, content: { [r.id === "web.events" ? "text/event-stream" : "application/json"]: { schema: r.success.schema } } },
   };
   for (const [status, x] of Object.entries(r.extra ?? {})) responses[status] = { description: x.description, content: { "application/json": { schema: x.schema } } };
-  if (r.requestBody) { responses["400"] = errorResponse("Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`)."); responses["415"] = errorResponse("The content type is not `application/json`."); }
+  if (r.requestBody) { responses["400"] = errorResponse(r.requestContentType === "multipart/form-data" ? "Malformed multipart: exactly one file field is required." : "Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`)."); responses["415"] = errorResponse(`The content type is not ${r.requestContentType ?? "application/json"}.`); }
   if (r.auth === "session") responses["401"] = errorResponse("No live session (`reason`: `no-session`).");
   else if (r.auth === "any") responses["401"] = errorResponse("No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).");
   else if (!["desktop.meta", "desktop.pair", "desktop.redeem"].includes(r.id)) responses["401"] = errorResponse("The credentials are wrong (`reason`: `invalid-token` for the owner token, `invalid-credentials` for a local account).");
@@ -27,7 +27,7 @@ function operation(r: RouteSpec): Record<string, unknown> {
       if(r.csrf)parameters.push({name:"X-CSRF-Token",in:"header",required:true,description:"A one-time token from GET /api/v1/csrf.",schema:{type:"string"}});
       return parameters.length?{parameters}:{};
     })(),
-    ...(r.requestBody ? { requestBody: { required: true, content: { "application/json": { schema: r.requestBody } } } } : {}),
+    ...(r.requestBody ? { requestBody: { required: true, content: { [r.requestContentType ?? "application/json"]: { schema: r.requestBody } } } } : {}),
     responses,
     "x-stability": r.stability, "x-since": r.since, "x-rate-class": r.rate, "x-csrf": r.csrf, "x-authz": authzLabel(r),
   };

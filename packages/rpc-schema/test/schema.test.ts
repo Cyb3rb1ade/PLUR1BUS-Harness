@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { ERROR_CODES, METHODS, NOTIFICATIONS, RPC_VERSION, SCHEMA, buildCapabilities, loadFixtures, precompileMethods, validateErrorObject, validateNotification, validateParams, validateResult } from "../src/index.ts";
 
-const EXT_METHODS = ["ext.disable", "ext.enable", "ext.inspect", "ext.install", "ext.list", "ext.restore", "ext.show", "ext.uninstall", "ext.watch"];
+const EXT_METHODS = ["ext.disable", "ext.enable", "ext.inspect", "ext.inspection.get", "ext.install", "ext.list", "ext.restore", "ext.show", "ext.uninstall", "ext.watch"];
 
 describe("rpc-schema", () => {
   const fx = loadFixtures();
@@ -27,6 +27,20 @@ describe("rpc-schema", () => {
     }
     const coveredMethods = new Set(Object.keys(fx.methods).map((k) => (k.endsWith(".system") ? k.slice(0, -".system".length) : k === "jobs.run.user" ? "jobs.run" : k)));
     assert.deepEqual([...coveredMethods].sort(), [...METHODS].sort(), "every method has a fixture");
+  });
+
+  it("advertises the current RPC version in status and process handshake fixtures", () => {
+    // core.auth is the historical 1.0 baseline fixture; these fixtures describe current process status.
+    for (const name of ["core.status", "module.auth", "supervisor.auth"]) {
+      const result = fx.methods[name]?.result;
+      assert.ok(result && typeof result === "object" && "rpc" in result, name);
+      assert.equal(result.rpc, RPC_VERSION, name);
+    }
+    const adopted = fx.methods["core.adopt"]?.result;
+    assert.ok(adopted && typeof adopted === "object" && "status" in adopted);
+    const status = adopted.status;
+    assert.ok(status && typeof status === "object" && "rpc" in status);
+    assert.equal(status.rpc, RPC_VERSION, "core.adopt.status");
   });
 
   it("has one fixture per error code and one per notification", () => {
@@ -113,16 +127,17 @@ describe("rpc-schema", () => {
     assert.equal(validateResult("admin.obsidian.confirm", { confirmed: false, vaultPath: "/v", vaultDigest: "d", alreadyConfirmed: false }).ok, false);
   });
 
-  it("every ext method is supervisor experimental since 1.4.0 with closed params", () => {
+  it("every ext method retains its introduction version and closed supervisor params", () => {
     const supervisor = buildCapabilities([], "supervisor");
     for (const m of EXT_METHODS) {
-      assert.deepEqual(supervisor.methods[m], { stability: "experimental", since: "1.4.0" }, m);
+      assert.deepEqual(supervisor.methods[m], { stability: "experimental", since: m === "ext.inspection.get" ? "1.8.0" : "1.4.0" }, m);
       const def = (SCHEMA as any).$defs.methods[m];
       assert.equal(def["x-server"], "supervisor", m);
       assert.equal(def.params.additionalProperties, false, `${m} params are closed`);
     }
     assert.equal(validateParams("ext.list", { kind: ["skill"], bogus: 1 }).ok, false);
-    assert.equal(validateParams("ext.list", { kind: ["mcp-server"] }).ok, false);
+    assert.deepEqual(validateParams("ext.list", { kind: ["mcp-server", "bundle"] }), { ok: true });
+    assert.equal(validateParams("ext.list", { kind: ["provider"] }).ok, false);
     assert.equal(validateParams("ext.list", { state: ["enabled"], agent: "bernd" }).ok, true);
     assert.equal(validateParams("ext.inspect", { source: { upload: "u" } }).ok, false);
     assert.equal(validateParams("ext.inspect", { source: { path: "/p", extra: 1 } }).ok, false);
@@ -163,13 +178,13 @@ describe("rpc-schema", () => {
     for (const m of ["ext.enable", "ext.disable"]) assert.match((SCHEMA as any).$defs.methods[m].description, /dryRun runs every refusal/, m);
   });
 
-  it("core.auth never lists ext methods and supervisor.auth lists all nine", () => {
+  it("core.auth never lists ext methods and supervisor.auth lists the complete extension surface", () => {
     const core = buildCapabilities([], "core");
     const supervisor = buildCapabilities([], "supervisor");
     assert.deepEqual(Object.keys(core.methods).filter((m) => m.startsWith("ext.")), []);
     assert.deepEqual(Object.keys(core.notifications).filter((m) => m.startsWith("ext.")), []);
     assert.deepEqual(Object.keys(supervisor.methods).filter((m) => m.startsWith("ext.")).sort(), EXT_METHODS);
-    assert.equal(EXT_METHODS.length, 9);
+    assert.equal(EXT_METHODS.length, 10);
   });
 
   it("module.auth capabilities list only module-served methods", () => {

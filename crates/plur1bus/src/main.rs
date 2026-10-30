@@ -29,6 +29,7 @@ fn main() {
     let home = paths::resolve_home_from_process(cli.home.as_deref());
     let layout = paths::Layout::new(home);
     match cli.cmd {
+        Cmd::RemoteFsWorker => plur1bus_remote_fs::run_worker(),
         Cmd::Core {
             sub: cli::CoreCmd::Run,
         } => commands::core::run(&out, &layout),
@@ -110,10 +111,15 @@ fn main() {
         Cmd::Dreams { sub } => commands::dreams::run(&out, &layout, sub),
         Cmd::Ext {
             cmd: cli::ExtCmd::Worker { op },
-        } => ext::stage::worker_main(&layout, op),
+        } => ext::stage::worker_main(
+            &layout,
+            op,
+            &mut commands::core::extension_source_fetch(&layout),
+        ),
         Cmd::Ext { cmd } => commands::ext::run(&out, &layout, cmd),
         Cmd::Skill { sub } => commands::skill::run(&out, &layout, sub),
         Cmd::Plugin { sub } => commands::plugin::run(&out, &layout, sub),
+        Cmd::Mcp { sub } => commands::mcp::run(&out, &layout, sub),
     }
     // A real stdout write error (not a closed pipe) lost the output the caller asked for: do not report success.
     // Commands that end the process themselves go through `output::exit`, which applies the same rule.

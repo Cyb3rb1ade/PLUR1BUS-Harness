@@ -48,7 +48,11 @@ export interface CompactionHooks {
 
 export interface ContextView {
   summaries: SummaryRecord[];
-  messages: { id: string; role: MessageRecord["role"]; text: string; seq: number; turnId: string | null }[];
+  messages: {
+    id: string; role: MessageRecord["role"]; text: string; seq: number; turnId: string | null;
+    /** Set on a completed tool call/result pair: the call it stands for, and whether `text` is the whole, unclipped pair. */
+    toolCall?: { id: string; name: string; whole: boolean };
+  }[];
   tokens: number;
   hidden: { ref: string; reason?: string }[];
   /** Messages cut with a pointer, or dropped from the view, to keep the bound. */
@@ -57,6 +61,10 @@ export interface ContextView {
 }
 
 const LINE_CHARS = 160;
+/** A loaded skill's instructions are what the model works from: a successful `skill.load` pair is kept whole up to this size
+ *  (the tool caps its result at 128 KiB) instead of being cut to `maxMessageTokens`. The view counts it in full. */
+const SKILL_LOAD = "skill.load";
+const MAX_WHOLE_SKILL_PAIR_CHARS = 256 * 1024;
 const oneLine = (s: string): string => s.replace(/\s+/g, " ").trim();
 
 /** The deterministic summariser: one capped line per message. */
@@ -107,7 +115,7 @@ export class Compactor {
     const summaries = this.#applied(sessionId);
     const covered = this.#coveredTo(summaries);
     let clipped = 0;
-    const messages = this.#store.listMessages(sessionId, { afterSeq: covered }).map((m) => {
+    const messages: ContextView["messages"] = this.#store.listMessages(sessionId, { afterSeq: covered }).map((m) => {
       const t = truncateWithPointer(m.text, cfg.maxMessageTokens, `full text is message ${m.id} in the session transcript`);
       if (t.truncated) clipped++;
       return { id: m.id, role: m.role, text: t.text, seq: m.seq, turnId: m.turnId };
@@ -117,9 +125,13 @@ export class Compactor {
     for (const pair of pairs) {
       const first = source.find(m => m.turnId === pair.turnId);
       if (!first || (first.seq <= covered && !pair.restored)) continue;
-      const t = truncateWithPointer(pair.text, cfg.maxMessageTokens, `originals ${pair.ref}, event:${pair.result.seq}`);
+      const keepWhole = pair.call.data.name === SKILL_LOAD && !pair.hidden && pair.result.data.isError !== true
+        && pair.text.length <= MAX_WHOLE_SKILL_PAIR_CHARS;
+      const t = keepWhole ? { text: pair.text, truncated: false }
+        : truncateWithPointer(pair.text, cfg.maxMessageTokens, `originals ${pair.ref}, event:${pair.result.seq}`);
       if (t.truncated) clipped++;
-      messages.push({ id: pair.ref, role: "tool", text: t.text, seq: first.seq, turnId: pair.turnId });
+      messages.push({ id: pair.ref, role: "tool", text: t.text, seq: first.seq, turnId: pair.turnId,
+        toolCall: { id: String(pair.call.data.id), name: String(pair.call.data.name), whole: !pair.hidden && !t.truncated } });
     }
     const paired = new Set(pairs.map(p => p.ref));
     for (const call of this.#store.toolEvents(sessionId)) {

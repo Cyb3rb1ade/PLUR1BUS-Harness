@@ -7,10 +7,11 @@ import type { Session, SessionStore } from "./session.ts";
 import { ApiError, errors } from "./errors.ts";
 
 export const AGENT_WEB_EVENTS = new Set(["recall.completed", "recall.degraded", "recall.block-clipped", "recall.block-dropped", "job.run", "dream.completed", "acl.denied", "agent.activity"]);
-export const WEB_EVENT_NAMES = new Set([...AGENT_WEB_EVENTS, "devices.trust.next", "core.state", "chat.models.changed", "inbox.changed", "approval.requested", "approval.resolved", "grant.changed", "session.event", "project.card.changed", "project.column.changed", "voice.realtime.state", "voice.realtime.transcript", "voice.download.progress"]);
+export const WEB_EVENT_NAMES = new Set([...AGENT_WEB_EVENTS, "ext.changed", "devices.trust.next", "core.state", "chat.models.changed", "inbox.changed", "approval.requested", "approval.resolved", "grant.changed", "session.event", "project.card.changed", "project.column.changed", "voice.realtime.state", "voice.realtime.transcript", "voice.download.progress"]);
 export const GLOBAL_WEB_EVENTS = new Set(["core.state", "chat.models.changed"]);
 export function webEventAllowed(method: string, principal: ApiPrincipal, delivery: { audience: readonly AudienceTarget[] | null; connectionId: string }): boolean {
   if (!WEB_EVENT_NAMES.has(method)) return false;
+  if (method === "ext.changed" && authorize(principal, "extensions.read", { kind: "system" }).effect !== "allow") return false;
   if (delivery.audience === null) return GLOBAL_WEB_EVENTS.has(method);
   if (!Array.isArray(delivery.audience)) return false;
   return delivery.audience.some(a => {
@@ -23,7 +24,7 @@ export function webEventAllowed(method: string, principal: ApiPrincipal, deliver
 }
 interface Event { id: string; wire: string }
 interface Stream { feedKey: string; person: string; session: Session; end(): void }
-interface Feed { person: string; session: Session; events: Event[]; bytes: number; listeners: Set<(event: Event) => void>; off?: () => void; ready: Promise<void>; epoch: string; seq: number; expiry?: NodeJS.Timeout }
+interface Feed { person: string; session: Session; events: Event[]; bytes: number; pending: number; pendingBytes: number; delivery: Promise<void>; listeners: Set<(event: Event) => void>; off?: () => void; ready: Promise<void>; epoch: string; seq: number; expiry?: NodeJS.Timeout }
 
 /** Buffers only already filtered events, per person and cookie session. No cookie or delegation credential enters an event/cursor. */
 export function createEventsRoute(o: { core: CoreRpc; sessions: SessionStore; maxPerPerson?: number; bufferSize?: number; heartbeatMs?: number; initTimeoutMs?: number; now: () => number }) {
@@ -33,6 +34,7 @@ export function createEventsRoute(o: { core: CoreRpc; sessions: SessionStore; ma
     for (const [key, feed] of feeds) if (feed.session === s) drop(key);
   });
   function drop(key: string): void { const f = feeds.get(key); if (!f) return; clearTimeout(f.expiry); f.off?.(); feeds.delete(key); }
+  function endFeed(key: string): void { for (const stream of streams) if (stream.feedKey === key) stream.end(); drop(key); }
   function revoke(person: string): void { for (const s of streams) if (s.person === person) s.end(); for (const [key, feed] of feeds) if (feed.person === person) drop(key); }
   return {
     revoke,
@@ -54,17 +56,24 @@ export function createEventsRoute(o: { core: CoreRpc; sessions: SessionStore; ma
         if (!feed) {
           if (!o.core.subscribeAs) throw new ApiError(503, "E_NOT_AVAILABLE", "event feed unavailable");
           if (feeds.size >= 64) throw errors.rateLimited(25);
-          feed = { person: principal.userId, session, events: [], bytes: 0, listeners: new Set(), epoch: randomUUID(), seq: 0, ready: Promise.resolve() };
+          feed = { person: principal.userId, session, events: [], bytes: 0, pending: 0, pendingBytes: 0, delivery: Promise.resolve(), listeners: new Set(), epoch: randomUUID(), seq: 0, ready: Promise.resolve() };
           const f = feed; feeds.set(connectionKey, f);
           f.ready = o.core.subscribeAs(principal, (method, params, delivery) => {
             if (!webEventAllowed(method, principal, delivery)) return;
-            const id = `${f.epoch}:${++f.seq}`;
-            const wire = `id: ${id}\nevent: ${method}\ndata: ${JSON.stringify(params)}\n\n`;
-            if (Buffer.byteLength(wire) > 256 * 1024) { for (const s of streams) if (s.feedKey === connectionKey) s.end(); drop(connectionKey); return; }
-            f.events.push({ id, wire }); f.bytes += Buffer.byteLength(wire);
-            while (f.events.length > (o.bufferSize ?? 256) || f.bytes > 1024 * 1024) f.bytes -= Buffer.byteLength(f.events.shift()!.wire);
-            for (const listener of f.listeners) listener({ id, wire });
-          }, () => { for (const s of streams) if (s.feedKey === connectionKey) s.end(); drop(connectionKey); }, connectionKey).then(off => { f.off = off; if (feeds.get(connectionKey) !== f) off(); }).catch(e => { drop(connectionKey); throw e; });
+            const data = JSON.stringify(params), bytes = Buffer.byteLength(data) + method.length + 100;
+            if (bytes > 256 * 1024 || f.pending >= 128 || f.pendingBytes + bytes > 1024 * 1024) { endFeed(connectionKey); return; }
+            f.pending++; f.pendingBytes += bytes;
+            // Native notifications have no Core audience recheck. Serialize bounded live-session authorization before delivery/replay.
+            f.delivery = f.delivery.then(async () => {
+              if (feeds.get(connectionKey) !== f) return;
+              if (!await current()) { endFeed(connectionKey); return; }
+              if (feeds.get(connectionKey) !== f) return;
+              const id = `${f.epoch}:${++f.seq}`, wire = `id: ${id}\nevent: ${method}\ndata: ${data}\n\n`;
+              f.events.push({ id, wire }); f.bytes += Buffer.byteLength(wire);
+              while (f.events.length > (o.bufferSize ?? 256) || f.bytes > 1024 * 1024) f.bytes -= Buffer.byteLength(f.events.shift()!.wire);
+              for (const listener of f.listeners) listener({ id, wire });
+            }).catch(() => { endFeed(connectionKey); }).finally(() => { f.pending--; f.pendingBytes -= bytes; });
+          }, () => endFeed(connectionKey), connectionKey).then(off => { f.off = off; if (feeds.get(connectionKey) !== f) off(); }).catch(e => { drop(connectionKey); throw e; });
         }
         clearTimeout(feed.expiry);
         let initTimer: NodeJS.Timeout | undefined;

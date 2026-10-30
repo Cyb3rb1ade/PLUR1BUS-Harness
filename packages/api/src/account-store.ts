@@ -7,6 +7,8 @@ import { ApiError } from "./errors.ts";
 import { normalizeUsername } from "./memory-stores.ts";
 import type { UserDirectory, UserRecord, TokenStore, TokenRecord, TotpStore, TotpRecord } from "./ports.ts";
 import type { RbacPrincipal } from "./rbac-bridge.ts";
+import { SqliteOAuthStore } from "./oauth/store.ts";
+import type { OAuthStore } from "./oauth/types.ts";
 
 export type CorePerson = RbacPrincipal & { disabled: boolean; version: number };
 export interface AccountStoreOptions { path: string; resolve: (personId: string) => Promise<CorePerson | null>; now?: () => number }
@@ -15,7 +17,7 @@ const conflict = () => new ApiError(409, "E_CONFLICT", "account already exists",
 export class AccountStore implements UserDirectory {
   readonly #db: DatabaseSync; readonly #resolve: AccountStoreOptions["resolve"]; readonly #now: () => number;
   #poll: NodeJS.Timeout | undefined;
-  readonly tokens: TokenStore; readonly totp: TotpStore;
+  readonly tokens: TokenStore; readonly totp: TotpStore; readonly oauth: OAuthStore;
   onChange?: (personId: string) => void;
   constructor(o: AccountStoreOptions) {
     this.#resolve = o.resolve; this.#now = o.now ?? Date.now;
@@ -32,6 +34,7 @@ export class AccountStore implements UserDirectory {
         CREATE TABLE IF NOT EXISTS bootstrap (id INTEGER PRIMARY KEY CHECK(id=1),hash TEXT,consumed INTEGER NOT NULL DEFAULT 0,expires_at INTEGER NOT NULL) STRICT;
         PRAGMA user_version=2;`);
     } catch { try { opened?.close(); } catch { /* preserve the redacted storage failure */ } throw storage(); }
+    this.oauth = new SqliteOAuthStore(this.#db, this.#safe.bind(this));
     this.totp = {
       get: async id => this.#safe(() => { const r = this.#db.prepare("SELECT record FROM totp WHERE user_id=?").get(id); return r ? JSON.parse(r.record as string) as TotpRecord : undefined; }),
       put: async r => { const previous = await this.totp.get(r.userId); const write = () => { this.#db.prepare("INSERT INTO totp VALUES (?,?) ON CONFLICT(user_id) DO UPDATE SET record=excluded.record").run(r.userId, JSON.stringify(r)); };
@@ -84,6 +87,11 @@ export class AccountStore implements UserDirectory {
     }
     if (p) this.#safe(() => this.#db.prepare("UPDATE accounts SET core_version=? WHERE person_id=?").run(p.version, id));
     return { id, username: row.username as string, passwordHash: row.password_hash as string, role: p?.role ?? "member", disabled: !p || p.disabled, agentRights: p?.agentRights ?? {}, projectRights: p?.projectRights ?? {}, version: Number(row.version) + (changed ? 1 : 0) };
+  }
+  /** Credential invalidation metadata only. Never reads or caches a Core role; used solely by an active import's cookie binding. */
+  localCredentialVersion(id: string): number | undefined {
+    const row = this.#safe(() => this.#db.prepare("SELECT version FROM accounts WHERE person_id=? AND pending=0").get(id));
+    return row ? Number(row.version) : undefined;
   }
   async updatePasswordHash(id: string, hash: string): Promise<void> { this.#factor(id, () => { this.#db.prepare("UPDATE accounts SET password_hash=? WHERE person_id=?").run(hash, id); }); }
   passkeysFor(id: string): { id: string; name: string; publicKey: string; signCount: number }[] {

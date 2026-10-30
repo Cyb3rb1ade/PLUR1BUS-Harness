@@ -4,6 +4,11 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -139,6 +144,19 @@
       "engine": {
         "implementation": "node"
       },
+      "mcp": {
+        "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -169,12 +187,12 @@
           }
         },
         "backend": "role",
-        "timeoutMs": 200,
+        "timeoutMs": 2000,
         "budgets": {
-          "triage": 200,
+          "triage": 2000,
           "routing": 200,
           "pruning": 100,
-          "skills": 100,
+          "skills": 2000,
           "placement": 200,
           "zoom": 150,
           "compaction": 200
@@ -511,6 +529,11 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -646,6 +669,19 @@
       "engine": {
         "implementation": "node"
       },
+      "mcp": {
+        "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -676,12 +712,12 @@
           }
         },
         "backend": "role",
-        "timeoutMs": 200,
+        "timeoutMs": 2000,
         "budgets": {
-          "triage": 200,
+          "triage": 2000,
           "routing": 200,
           "pruning": 100,
-          "skills": 100,
+          "skills": 2000,
           "placement": 200,
           "zoom": 150,
           "compaction": 200
@@ -1031,6 +1067,11 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -1166,6 +1207,19 @@
       "engine": {
         "implementation": "node"
       },
+      "mcp": {
+        "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -1196,12 +1250,12 @@
           }
         },
         "backend": "role",
-        "timeoutMs": 200,
+        "timeoutMs": 2000,
         "budgets": {
-          "triage": 200,
+          "triage": 2000,
           "routing": 200,
           "pruning": 100,
-          "skills": 100,
+          "skills": 2000,
           "placement": 200,
           "zoom": 150,
           "compaction": 200
@@ -1538,6 +1592,11 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -1674,6 +1733,19 @@
         "implementation": "node",
         "recallMinScore": 0.5
       },
+      "mcp": {
+        "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -1704,12 +1776,12 @@
           }
         },
         "backend": "role",
-        "timeoutMs": 200,
+        "timeoutMs": 2000,
         "budgets": {
-          "triage": 200,
+          "triage": 2000,
           "routing": 200,
           "pruning": 100,
-          "skills": 100,
+          "skills": 2000,
           "placement": 200,
           "zoom": 150,
           "compaction": 200
@@ -2059,6 +2131,11 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -2194,6 +2271,19 @@
       "engine": {
         "implementation": "node"
       },
+      "mcp": {
+        "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -2224,12 +2314,12 @@
           }
         },
         "backend": "role",
-        "timeoutMs": 200,
+        "timeoutMs": 2000,
         "budgets": {
-          "triage": 200,
+          "triage": 2000,
           "routing": 200,
           "pruning": 100,
-          "skills": 100,
+          "skills": 2000,
           "placement": 200,
           "zoom": 150,
           "compaction": 200
@@ -2566,6 +2656,11 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -2705,6 +2800,19 @@
       "engine": {
         "implementation": "node"
       },
+      "mcp": {
+        "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -2735,12 +2843,12 @@
           }
         },
         "backend": "role",
-        "timeoutMs": 200,
+        "timeoutMs": 2000,
         "budgets": {
-          "triage": 200,
+          "triage": 2000,
           "routing": 200,
           "pruning": 100,
-          "skills": 100,
+          "skills": 2000,
           "placement": 200,
           "zoom": 150,
           "compaction": 200
@@ -3092,6 +3200,11 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -3231,6 +3344,19 @@
       "engine": {
         "implementation": "node"
       },
+      "mcp": {
+        "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -3261,12 +3387,12 @@
           }
         },
         "backend": "role",
-        "timeoutMs": 200,
+        "timeoutMs": 2000,
         "budgets": {
-          "triage": 200,
+          "triage": 2000,
           "routing": 200,
           "pruning": 100,
-          "skills": 100,
+          "skills": 2000,
           "placement": 200,
           "zoom": 150,
           "compaction": 200
@@ -3603,6 +3729,11 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -3738,6 +3869,19 @@
       "engine": {
         "implementation": "node"
       },
+      "mcp": {
+        "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -3768,12 +3912,12 @@
           }
         },
         "backend": "role",
-        "timeoutMs": 200,
+        "timeoutMs": 2000,
         "budgets": {
-          "triage": 200,
+          "triage": 2000,
           "routing": 200,
           "pruning": 100,
-          "skills": 100,
+          "skills": 2000,
           "placement": 200,
           "zoom": 150,
           "compaction": 200
@@ -4125,6 +4269,11 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -4264,6 +4413,19 @@
       "engine": {
         "implementation": "node"
       },
+      "mcp": {
+        "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -4294,12 +4456,12 @@
           }
         },
         "backend": "role",
-        "timeoutMs": 200,
+        "timeoutMs": 2000,
         "budgets": {
-          "triage": 200,
+          "triage": 2000,
           "routing": 200,
           "pruning": 100,
-          "skills": 100,
+          "skills": 2000,
           "placement": 200,
           "zoom": 150,
           "compaction": 200
@@ -4636,6 +4798,11 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -4775,6 +4942,19 @@
       "engine": {
         "implementation": "node"
       },
+      "mcp": {
+        "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -4805,12 +4985,12 @@
           }
         },
         "backend": "role",
-        "timeoutMs": 200,
+        "timeoutMs": 2000,
         "budgets": {
-          "triage": 200,
+          "triage": 2000,
           "routing": 200,
           "pruning": 100,
-          "skills": 100,
+          "skills": 2000,
           "placement": 200,
           "zoom": 150,
           "compaction": 200
@@ -5164,6 +5344,11 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -5299,6 +5484,19 @@
       "engine": {
         "implementation": "node"
       },
+      "mcp": {
+        "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -5329,12 +5527,12 @@
           }
         },
         "backend": "role",
-        "timeoutMs": 200,
+        "timeoutMs": 2000,
         "budgets": {
-          "triage": 200,
+          "triage": 2000,
           "routing": 200,
           "pruning": 100,
-          "skills": 100,
+          "skills": 2000,
           "placement": 200,
           "zoom": 150,
           "compaction": 200
@@ -5671,6 +5869,11 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -5806,6 +6009,19 @@
       "engine": {
         "implementation": "node"
       },
+      "mcp": {
+        "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {
         "nvidia": {
           "apiKey": "x"
@@ -5840,12 +6056,12 @@
           }
         },
         "backend": "role",
-        "timeoutMs": 200,
+        "timeoutMs": 2000,
         "budgets": {
-          "triage": 200,
+          "triage": 2000,
           "routing": 200,
           "pruning": 100,
-          "skills": 100,
+          "skills": 2000,
           "placement": 200,
           "zoom": 150,
           "compaction": 200
@@ -6197,6 +6413,11 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -6332,6 +6553,19 @@
       "engine": {
         "implementation": "node"
       },
+      "mcp": {
+        "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -6362,12 +6596,12 @@
           }
         },
         "backend": "role",
-        "timeoutMs": 200,
+        "timeoutMs": 2000,
         "budgets": {
-          "triage": 200,
+          "triage": 2000,
           "routing": 200,
           "pruning": 100,
-          "skills": 100,
+          "skills": 2000,
           "placement": 200,
           "zoom": 150,
           "compaction": 200
@@ -6704,6 +6938,11 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -6839,6 +7078,19 @@
       "engine": {
         "implementation": "node"
       },
+      "mcp": {
+        "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -6869,12 +7121,12 @@
           }
         },
         "backend": "role",
-        "timeoutMs": 200,
+        "timeoutMs": 2000,
         "budgets": {
-          "triage": 200,
+          "triage": 2000,
           "routing": 200,
           "pruning": 100,
-          "skills": 100,
+          "skills": 2000,
           "placement": 200,
           "zoom": 150,
           "compaction": 200
@@ -7227,6 +7479,11 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -7362,6 +7619,19 @@
       "engine": {
         "implementation": "node"
       },
+      "mcp": {
+        "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -7392,12 +7662,12 @@
           }
         },
         "backend": "role",
-        "timeoutMs": 200,
+        "timeoutMs": 2000,
         "budgets": {
-          "triage": 200,
+          "triage": 2000,
           "routing": 200,
           "pruning": 100,
-          "skills": 100,
+          "skills": 2000,
           "placement": 200,
           "zoom": 150,
           "compaction": 200
@@ -7739,6 +8009,11 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -7874,6 +8149,19 @@
       "engine": {
         "implementation": "node"
       },
+      "mcp": {
+        "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -7904,12 +8192,12 @@
           }
         },
         "backend": "role",
-        "timeoutMs": 200,
+        "timeoutMs": 2000,
         "budgets": {
-          "triage": 200,
+          "triage": 2000,
           "routing": 200,
           "pruning": 100,
-          "skills": 100,
+          "skills": 2000,
           "placement": 200,
           "zoom": 150,
           "compaction": 200
@@ -8266,6 +8554,11 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -8401,6 +8694,19 @@
       "engine": {
         "implementation": "node"
       },
+      "mcp": {
+        "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -8431,12 +8737,12 @@
           }
         },
         "backend": "role",
-        "timeoutMs": 200,
+        "timeoutMs": 2000,
         "budgets": {
-          "triage": 200,
+          "triage": 2000,
           "routing": 200,
           "pruning": 100,
-          "skills": 100,
+          "skills": 2000,
           "placement": 200,
           "zoom": 150,
           "compaction": 200
@@ -8773,6 +9079,11 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "import": {
+        "ssh": {
+          "connections": {}
+        }
+      },
       "collaboration": {
         "fanoutEnabled": false
       },
@@ -8908,6 +9219,19 @@
       "engine": {
         "implementation": "node"
       },
+      "mcp": {
+        "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -8938,12 +9262,12 @@
           }
         },
         "backend": "role",
-        "timeoutMs": 200,
+        "timeoutMs": 2000,
         "budgets": {
-          "triage": 200,
+          "triage": 2000,
           "routing": 200,
           "pruning": 100,
-          "skills": 100,
+          "skills": 2000,
           "placement": 200,
           "zoom": 150,
           "compaction": 200

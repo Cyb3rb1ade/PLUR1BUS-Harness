@@ -3,12 +3,18 @@
 import { homedir as osHomedir } from "node:os";
 import type { Mount } from "./paths.ts";
 import { targetIdentity, type TargetIdentity } from "./identity.ts";
-import { DEFAULT_MAX_SKILL_BYTES, DEFAULT_MAX_SKILL_FILES, scanSkills, type ScannedSkill } from "./skills-scan.ts";
+import { DEFAULT_MAX_SKILL_BYTES, DEFAULT_MAX_SKILL_FILES, type ScannedSkill } from "./skills-scan.ts";
 import { detectHermes } from "./sources/hermes.ts";
 import { detectOpenclaw } from "./sources/openclaw.ts";
+import { createSourceDiscovery, type SourceDiscovery } from "./source-discovery.ts";
 import type { SourceReport, SourceType } from "./types.ts";
 
+import { SourceReader, type SourceReaderOptions } from "./source-reader.ts";
+import { scanSkillsAsync } from "./skills-read.ts";
+
 export interface SourceOptions {
+  reader?: SourceReaderOptions;
+  signal?: AbortSignal;
   sourceType: SourceType;
   source?: string | undefined;
   profile?: string | undefined;
@@ -25,10 +31,17 @@ export interface SourceOptions {
   wslRunner?: any;
 }
 
-export async function readSource(o: SourceOptions): Promise<{ report: SourceReport; target: TargetIdentity; skills: ScannedSkill[] }> {
+export async function readSource(o: SourceOptions): Promise<{
+  report: SourceReport; target: TargetIdentity; skills: ScannedSkill[]; discovery: SourceDiscovery; reader: SourceReader;
+}> {
   const target = targetIdentity(o.home);
+  const reader = o.reader ? new SourceReader({ ...o.reader, ...(o.signal ? { signal: o.signal } : {}) }) : await SourceReader.local(undefined, o.signal);
+  if (o.reader && o.source) await reader.select(o.source);
+  const discovery = createSourceDiscovery(o.sourceType);
   const ctx = {
     sourceType: o.sourceType,
+    reader,
+    onSourceConfig: discovery.capture,
     source: o.source,
     profile: o.profile,
     env: o.env ?? process.env,
@@ -43,7 +56,8 @@ export async function readSource(o: SourceOptions): Promise<{ report: SourceRepo
     wslRunner: o.wslRunner,
   };
   const report = o.sourceType === "openclaw" ? await detectOpenclaw(ctx) : await detectHermes(ctx);
-  const skills = scanSkills(report.skillRoots, { maxBytes: o.maxBytes ?? DEFAULT_MAX_SKILL_BYTES, maxFiles: DEFAULT_MAX_SKILL_FILES, targetPlatform: o.targetPlatform ?? o.platform ?? process.platform });
-  return { report, target, skills };
+  const skills = await scanSkillsAsync(report.skillRoots, { maxBytes: o.maxBytes ?? DEFAULT_MAX_SKILL_BYTES, maxFiles: DEFAULT_MAX_SKILL_FILES, reader, targetPlatform: o.targetPlatform ?? o.platform ?? process.platform });
+  await reader.verify();
+  return { report, target, skills, reader, discovery: discovery.discovery };
 }
 

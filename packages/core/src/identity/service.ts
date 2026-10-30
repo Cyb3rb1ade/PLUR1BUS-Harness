@@ -125,8 +125,12 @@ export function createIdentityService(o: IdentityOptions) {
     if (!h) throw new IdentityError("not-found", `no such human: ${String(id)}`);
     return h;
   };
-  const activeLink = (i: { channel: string; accountId: string; userId: string }): Row | undefined =>
-    one("SELECT * FROM identities WHERE channel = ? AND account_id = ? AND channel_user_id = ? AND revoked_at IS NULL", i.channel, i.accountId, i.userId);
+  const activeLink = (i: { channel: string; accountId: string; userId: string }): Row | undefined => {
+    if (i.channel === undefined || i.accountId === undefined || i.userId === undefined) {
+      throw new TypeError("incomplete identity triple");
+    }
+    return one("SELECT * FROM identities WHERE channel = ? AND account_id = ? AND channel_user_id = ? AND revoked_at IS NULL", i.channel, i.accountId, i.userId);
+  };
 
   function insertLink(humanId: string, i: ChannelIdentity, proof: ProofMethod, by: string): Link {
     const id = uuidv7(now());

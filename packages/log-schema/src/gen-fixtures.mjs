@@ -125,6 +125,8 @@ export function buildVectors() {
       { rule: "url", pattern: "path-discord-webhook", parts: canary(["https://discord.com", "/api/webhooks/123456789012345678/", "d1sc0rdT0ken_Abc-123Abc-123"]), matches: ["/api/webhooks/123456789012345678/", "d1sc0rdT0ken_Abc-123Abc-123"] },
       { rule: "url", pattern: "path-teams-webhook", parts: canary(["https://example.webhook.office.com", "/webhookb2/", "0a1b2c3d-aaaa-4e5f-8a9b-0c1d2e3f4a5b@0a1b2c3d-bbbb-4e5f-8a9b-0c1d2e3f4a5b", "/IncomingWebhook/0123456789abcdef0123456789abcdef/", "0a1b2c3d-cccc-4e5f-8a9b-0c1d2e3f4a5b"]), matches: ["/webhookb2/", "0a1b2c3d-aaaa-4e5f-8a9b-0c1d2e3f4a5b@0a1b2c3d-bbbb-4e5f-8a9b-0c1d2e3f4a5b", "/IncomingWebhook/0123456789abcdef0123456789abcdef/", "0a1b2c3d-cccc-4e5f-8a9b-0c1d2e3f4a5b"] },
       { rule: "pattern", pattern: "base64url-run", parts: canary(["x ", "Qk".repeat(22), " y"]), matches: ["Qk".repeat(22)] },
+      { rule: "pii", pattern: "iban", parts: canary(["DE89", " ", "3704", " ", "0044", " ", "0532", " ", "0130", " ", "00"]), matches: ["DE89 3704 0044 0532 0130 00"] },
+      { rule: "pii", pattern: "card-number", parts: canary(["4111", "-", "2222", "-", "3333", "-", "4444"]), matches: ["4111-2222-3333-4444"] },
     ],
     keyNames: {
       redact: ["authorization", "Authorization", "Proxy-Authorization", "access_token", "refresh_token", "token", "x-api-key", "api_key", "apiKey", "client_secret", "clientSecret", "password", "set-cookie", "id_token_hint", "idTokenHint", "code_verifier", "session-key", "accessToken", "X-Auth-Token", "private_key"],
@@ -143,6 +145,8 @@ export function buildVectors() {
       { pattern: "path-slack-webhook", text: "https://hooks.slack.com/services/", note: "no secret in the path" },
       { pattern: "path-discord-webhook", text: "https://example.test/api/webhooks/list", note: "no id and token" },
       { pattern: "path-teams-webhook", text: "https://example.test/webhook/list", note: "no guid pair" },
+      { pattern: "iban", text: "DE12", note: "too short for an IBAN" },
+      { pattern: "card-number", text: "4111-222", note: "too short for a card number" },
     ],
   };
 }

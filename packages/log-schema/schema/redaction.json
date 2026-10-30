@@ -84,6 +84,8 @@
       "enabledBy": "logs.redactPii",
       "enabledByDefault": false,
       "patterns": [
+        { "id": "iban", "pattern": "[A-Z]{2}[0-9]{2}(?:[ ]?[0-9A-Z]{4}){2,7}(?:[ ]?[0-9A-Z]{1,4})?", "flags": "i", "leftBoundary": true, "description": "International Bank Account Number (IBAN)" },
+        { "id": "card-number", "pattern": "(?:4[0-9]{3}(?:[ -]?[0-9]{4}){3}(?:[ -]?[0-9]{3})?|5[1-5][0-9]{2}(?:[ -]?[0-9]{4}){3}|2[2-7][0-9]{2}(?:[ -]?[0-9]{4}){3}|3[47][0-9]{2}[ -]?[0-9]{6}[ -]?[0-9]{5}|3[47][0-9]{13}|6(?:011|5[0-9]{2})(?:[ -]?[0-9]{4}){3}|(?:[0-9]{4}[ -]){3}[0-9]{4})", "leftBoundary": true, "description": "payment card number (credit or debit)" },
         { "id": "email", "pattern": "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", "description": "email address" },
         { "id": "phone-e164", "pattern": "\\+[1-9][0-9]{6,14}", "description": "E.164 phone number" },
         { "id": "phone-nanp", "pattern": "\\(?[0-9]{3}\\)?[ .-][0-9]{3}[ .-][0-9]{4}", "description": "North American number with separators" },

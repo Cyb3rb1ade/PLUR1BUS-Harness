@@ -45,7 +45,7 @@ export function createDeviceSurface(options: Omit<DeviceStoreOptions, "file"> & 
   const shared = () => store ??= new DeviceStore({ ...options, file: join(options.state, "devices.json") });
   let attach: DesktopAttach | undefined;
   const desktop = () => {
-    if (options.signal?.aborted) throw new RpcError("E_NOT_AVAILABLE", "core stopping");
+    if (options.signal?.aborted) throw new RpcError("E_CORE_UNAVAILABLE", "core stopping", { reason: "core-stopping" });
     return attach ??= new DesktopAttach({ file:join(options.state,"desktop-attach.db"), devices:shared(), now:options.clock, audit:options.audit, securePath:options.securePath, ...(options.personVersion ? {personVersion:options.personVersion} : {}) });
   };
   options.signal?.addEventListener("abort", () => { attach?.close(); attach=undefined; }, {once:true});
@@ -56,7 +56,11 @@ export function createDeviceSurface(options: Omit<DeviceStoreOptions, "file"> & 
   return { ...buildDeviceSurface(shared,options.revoked), ...buildRemoteDeviceServiceSurface(shared,options.notifyTrust),
     "device.pair": async (p,ctx) => {
       const who=authenticatedPrincipal(ctx); if(who.kind!=="person") throw new RpcError("E_DENIED","people only");
-      try { return desktop().issue(who.userId,(p as {kind:string}).kind); } catch(e) { return failure(e); }
+      const input = p as { kind: string; extensions?: boolean; imports?: boolean };
+      if ((input.extensions || input.imports) && who.role !== "owner" && who.role !== "admin") {
+        throw new RpcError("E_DENIED", "management pairing requires Owner or Admin", { reason: "management-pairing-role" });
+      }
+      try { return desktop().issue(who.userId,input.kind,input.extensions === true,input.imports === true); } catch(e) { return failure(e); }
     },
     "admin.api.desktop.redeem":service(p=>desktop().redeem(p.code,p.kind,p.name,p.publicKey)),
     "admin.api.desktop.token":service(p=>desktop().authenticate(p.token)),

@@ -1,6 +1,8 @@
 ---
 name: plur1bus-ops
 description: Diagnose, configure and repair a PLUR1BUS installation — `1staid check`/`1staid repair`, `config get|set`, logs and the audit trail. Use when a PLUR1BUS supervisor, core or module looks unhealthy, a config change needs to go out safely, or an installation needs repair.
+category: plur1bus.admin
+useWhen: Diagnose an unhealthy PLUR1BUS supervisor, core or module, apply a configuration change safely or repair an installation.
 ---
 
 # plur1bus-ops

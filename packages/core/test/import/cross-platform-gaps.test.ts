@@ -36,7 +36,7 @@ for (const encoding of ["utf8", "utf16le", "utf16be"] as const) {
   });
 }
 
-test("malformed optional JSON is reported per element without leaking parser input", () => {
+test("malformed optional JSON is reported per element without leaking parser input", async () => {
   const source = tempDir("p1b-cross-json-");
   mkdirSync(join(source, "cron"));
   mkdirSync(join(source, "platforms", "pairing"), { recursive: true });
@@ -44,8 +44,8 @@ test("malformed optional JSON is reported per element without leaking parser inp
   writeFileSync(join(source, "platforms", "pairing", "bad-approved.json"), '{"FAKE_TOKEN": broken');
   writeFileSync(join(source, "platforms", "pairing", "good-approved.json"), '{"synthetic-user":{}}');
   const errors: Array<{ sourceRef: string; reason: string }> = [];
-  readHermesCronJobs([{ agentId: "default", dir: source }], errors);
-  assert.equal(readHermesPairings([source], errors).length, 1);
+  await readHermesCronJobs([{ agentId: "default", dir: source }], errors);
+  assert.equal((await readHermesPairings([source], errors)).length, 1);
   assert.deepEqual(errors.map(e => e.reason), ["json-unparseable", "json-unparseable"]);
   assert.ok(!JSON.stringify(errors).includes("FAKE_TOKEN"));
 });

@@ -1,4 +1,5 @@
 import { runWithAgentScope, scopeFor } from "../agents/scope.ts";
+import { deferMaintenanceStart, type CompositionMaintenance } from "../composition/maintenance.ts";
 // Assembles the session subsystem for the core: store file, crash recovery, compactor with the pre-swap checkpoint,
 // the turn runner, the `session.*` handlers. Kept apart from core.ts so the wiring there is one contained block.
 import type { AgentRegistry } from "../agents.ts";
@@ -15,6 +16,7 @@ import { SessionStore } from "./store.ts";
 import { TurnRunner } from "./turn-loop.ts";
 
 export interface SessionServiceDeps {
+  maintenance?: CompositionMaintenance;
   dbPath: string; clock: () => number; logger: HarnessLogger; agents: AgentRegistry; isStopping: () => boolean;
   memory: TurnMemory;
   /** null: none configured; composition supplies the routed provider pipeline. */
@@ -32,6 +34,11 @@ export interface SessionServiceDeps {
   /** Local resources owned by an archived session; observes committed archive/replacement only. */
   onSessionEnd?: (id: string) => void;
   approver?: SessionMethodDeps["approver"];
+  /** Final identifier-free turn observations shared by persistent and ephemeral session runners. */
+  onTurnTelemetry?: (
+    telemetry: import("./turn-telemetry.ts").TurnTelemetry,
+    context: { sessionId: string; turnId: string; agentId: string },
+  ) => void;
 }
 
 export interface SessionService { ephemeral(): SessionService; forSession(id: string): SessionService; compactor: Compactor; pruner: ToolPruner; store: SessionStore; runner: TurnRunner; methods: Record<string, Handler>; recovered: number; close(budgetMs?: number): Promise<void> }
@@ -39,11 +46,14 @@ export interface SessionService { ephemeral(): SessionService; forSession(id: st
 export function openSessionService(d: SessionServiceDeps): SessionService {
   const store = new SessionStore({ path: d.dbPath, clock: d.clock });
   if (d.onSessionEnd) store.onArchived(d.onSessionEnd);
-  // Acceptance 7: a turn that was running when the previous core died is marked failed before anything is served.
+  // Acceptance 7: recover interrupted turns before admitting new work; maintenance can inspect their original state first.
   const maintenanceAbort = new AbortController();
   const maintenanceSignal = AbortSignal.any([d.signal,maintenanceAbort.signal]);
-  const recovered = store.recoverRunningTurns().length;
-  if (recovered > 0) d.logger.warn("session turns recovered as failed", { count: recovered });
+  let recovered = 0;
+  const recover = () => { recovered = store.recoverRunningTurns().length;
+    if (recovered > 0) d.logger.warn("session turns recovered as failed", { count: recovered }); };
+  const unwatchRecovery = deferMaintenanceStart(d.maintenance, recover);
+  if (!unwatchRecovery) recover();
   const pruner = new ToolPruner(store, d.prune ?? defaultPrune(), { ...(d.laya ? { decide: d.laya } : {}), ...(d.pruneConfidence ? { minConfidence: d.pruneConfidence } : {}), signal: maintenanceSignal, emit: (type, attrs) => d.logger.info(type, attrs) });
   const compactor = new Compactor(store, d.compaction ?? defaultCompaction(), {
     pruner,
@@ -71,6 +81,7 @@ export function openSessionService(d: SessionServiceDeps): SessionService {
     workspace: id => d.agents.workspaceOf?.(id) ?? `agents/${id}/workspace`,
     store, compactor, ...(d.catalog ? { catalog: d.catalog } : {}), memory: d.memory, provider: d.provider, signal: d.signal,
     logger: { info: (m, f) => d.logger.info(m, f), warn: (m, f) => d.logger.warn(m, f) },
+    ...(d.onTurnTelemetry ? { onTurnTelemetry: d.onTurnTelemetry } : {}),
     notify: (e, s) => d.notify("session.event", { agentId: s.agentId, event: toWireEvent(e) }, { optIn: true }),
   });
   const methods = buildSessionMethods({ runtimeFor: id => { const r = service.forSession(id); return { store: r.store, runner: r.runner, compactor: r.compactor }; }, ephemeral: () => { const r = service.ephemeral(); return { store: r.store, runner: r.runner, compactor: r.compactor }; }, storeFor: id => service.forSession(id).store, modelProfiles: () => d.provider()?.modelProfiles?.() ?? [], defaultProfile: id => d.provider()?.defaultModelProfile?.(id), store, runner, compactor, agents: d.agents, isStopping: d.isStopping, ...(d.approver ? { approver: d.approver } : {}) });
@@ -78,10 +89,11 @@ export function openSessionService(d: SessionServiceDeps): SessionService {
   const service: SessionService = {
     ephemeral: () => volatile ??= openSessionService({ ...d, dbPath: ":memory:" }),
     forSession: id => volatile?.store.getSession(id) ? volatile : service,
-    store, runner, compactor, pruner, methods, recovered,
+    store, runner, compactor, pruner, methods, get recovered() { return recovered; },
     // A turn that ignores the shutdown abort is not waited for beyond the budget: it stays `running` in the file and the
     // next start marks it failed (recovery), so nothing is lost by closing the store under it.
     async close(budgetMs = 5_000) {
+      unwatchRecovery?.();
       if (volatile) await volatile.close(budgetMs);
       maintenanceAbort.abort(Error("session-maintenance-closed"));
       compactor.stop();

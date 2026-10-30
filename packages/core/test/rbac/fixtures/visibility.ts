@@ -51,6 +51,11 @@ const owner = cells("yes", "none", "none", "none", "none"); // ADR-007 role tabl
 const ownerAdmin = cells("yes", "yes", "none", "none", "none");
 
 export const ENTRIES: readonly Entry[] = [
+  // M v2: both extension and import actions belong to human Owner/Admin only.
+  { action: "extensions.read", page: "Models, Providers & logins, Channels, Plugins, MCP/ACP/A2A", verb: "read", cells: ownerAdmin },
+  { action: "extensions.manage", page: "Models, Providers & logins, Channels, Plugins, MCP/ACP/A2A", verb: "write", cells: ownerAdmin },
+  { action: "imports.read", page: "Import, Doctor", verb: "read", cells: ownerAdmin },
+  { action: "imports.manage", page: "Import, Doctor", verb: "import", cells: ownerAdmin },
   { action: "chat:read", page: "My area, Projects", verb: "read" },
   { action: "chat:write", page: "My area, Projects", verb: "write" },
   { action: "chat:delete", page: "My area, Projects", verb: "write" },
@@ -63,6 +68,8 @@ export const ENTRIES: readonly Entry[] = [
   { action: "memory.user.read", page: "Memory (own user scope)", verb: "read", gate: { ...ALL_O, owner: "OB", admin: "OB" } },
   { action: "memory.user.write", page: "Memory (own user scope)", verb: "write", gate: ALL_O },
   { action: "memory.forget", page: "Memory (own user scope)", verb: "write", gate: { operator: "U", member: "U" } },
+  { action: "memory.sensitivity.read", page: "Memory (own user scope)", verb: "read", cells: cells("yes", "yes", "yes", "yes", "yes"), gate: { operator: "U", member: "U", viewer: "U" } },
+  { action: "memory.sensitivity.write", page: "Memory (own user scope)", verb: "write", cells: cells("yes", "yes", "yes", "yes", "none"), gate: { operator: "M", member: "M" } },
   // ADR-007 §Privacy: agent-private only with `manage` on the agent (Owner/Admin hold it by role, R4); workspace needs `use`.
   { action: "memory.agent-private.read", page: "Agents CRUD", verb: "crud", cells: cells("yes", "yes", "none", "yes", "none"), gate: { member: "M" } },
   { action: "memory.agent-private.write", page: "Agents CRUD", verb: "crud", cells: cells("yes", "yes", "none", "yes", "none"), gate: { member: "M" } },

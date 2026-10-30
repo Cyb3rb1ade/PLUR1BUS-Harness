@@ -1,3 +1,5 @@
+import type { SourceReader } from "./source-reader.ts";
+import { checkImportAbort, executionRunId, importCheckpoint, type ImportExecutionOptions } from "./execution.ts";
 // Skills import (docs/import.md §9): plan, apply, rollback. Copy-never-move, idempotent per folder hash, resumable
 // after interruption, conflicts per --on-conflict, imported skills disabled unless --enable, snapshot + report per run.
 import { randomBytes } from "node:crypto";
@@ -92,7 +94,12 @@ export interface SkillsReport {
   warnings: string[];
 }
 
-export interface SkillsOptions extends SourceOptions { apply: boolean; enable: boolean; onConflict: OnConflict; maxBytes: number; now?: () => Date }
+export interface SkillsOptions extends SourceOptions, ImportExecutionOptions {
+  apply: boolean; enable: boolean; onConflict: OnConflict; maxBytes: number; now?: () => Date;
+  /** Private full-import worker already holds imports/.lock and keeps the legacy full report at its original path. */
+  importLock?: () => () => void;
+  reportNamespace?: "skills";
+}
 
 const insideDir = (root: string, p: string) => { const r = resolve(root); const q = resolve(p); return q === r || q.startsWith(r.endsWith(sep) ? r : r + sep); };
 
@@ -111,7 +118,7 @@ function writeReportFiles(runDir: string, r: SkillsReport, human: (r: SkillsRepo
 }
 
 /** Copies one scanned skill into a fresh staging directory and verifies the copy's folder hash. */
-function stage(skill: ScannedSkill, stagingRoot: string): string {
+async function stage(skill: ScannedSkill, stagingRoot: string, reader: SourceReader): Promise<string> {
   const dir = join(stagingRoot, `${skill.id}-${randomBytes(4).toString("hex")}`);
   mkdirSync(dir, { recursive: true });
   for (const e of skill.entries) {
@@ -120,7 +127,7 @@ function stage(skill: ScannedSkill, stagingRoot: string): string {
     const dest = join(dir, ...parts);
     if (!insideDir(dir, dest)) throw new Error(`refused path ${e.rel}`);
     mkdirSync(join(dest, ".."), { recursive: true });
-    copyFileRetry(e.abs, dest);
+    writeFileSync(dest, await reader.read(e.abs, e.bytes), { flag: "wx", mode: 0o600 });
     chmodSync(dest, (e.mode & 0o755) | 0o600);
   }
   const check = scanSkill(dir, { tier: "staging", agentId: null, precedence: 0 }, { maxBytes: Number.MAX_SAFE_INTEGER, maxFiles: Number.MAX_SAFE_INTEGER });
@@ -130,8 +137,10 @@ function stage(skill: ScannedSkill, stagingRoot: string): string {
 
 export async function importSkills(o: SkillsOptions, human: (r: SkillsReport) => string): Promise<SkillsReport> {
   const now = o.now ?? (() => new Date());
-  const { report: src, skills } = await readSource(o);
-  const runId = newRunId(now());
+  const { report: src, skills: foundSkills, reader } = await readSource(o);
+  const skills = o.sourceAgentIds ? foundSkills.filter(skill => skill.agentId === null
+    || o.sourceAgentIds!.includes(skill.agentId)) : foundSkills;
+  const runId = executionRunId(o.runId, newRunId(now()));
   const home = resolve(o.home);
   const base: SkillsReport = {
     runId, sourceType: o.sourceType, source: { root: src.source.root, resolvedFrom: src.source.resolvedFrom, profile: src.source.profile }, version: src.version,
@@ -151,12 +160,12 @@ export async function importSkills(o: SkillsOptions, human: (r: SkillsReport) =>
     return base;
   }
 
-  const release = acquireLock(home);
+  const release = o.importLock ? o.importLock() : acquireLock(home);
   try {
     const sdir = skillsDir(home);
     const staging = join(sdir, ".staging");
     rmRetry(staging, { recursive: true, force: true });
-    const runDir = join(importsDir(home), runId);
+    const runDir = join(importsDir(home), runId, ...(o.reportNamespace ? [o.reportNamespace] : []));
     const snapDir = join(runDir, "snapshot");
     mkdirSync(snapDir, { recursive: true });
     const existed = existsSync(sdir);
@@ -170,6 +179,7 @@ export async function importSkills(o: SkillsOptions, human: (r: SkillsReport) =>
     const flush = () => { base.counts = counts(base.skills); base.indexSha256After = indexDigest(home); writeReportFiles(runDir, base, human); };
     flush();
     for (let i = 0; i < plan.length; i++) {
+      checkImportAbort(o.signal);
       const p = plan[i]!; const e = base.skills[i]!;
       try {
         if (p.action === "refuse") e.outcome = "refused";
@@ -179,7 +189,7 @@ export async function importSkills(o: SkillsOptions, human: (r: SkillsReport) =>
           if (!SKILL_ID.test(targetId)) throw new Error("invalid-target-id");
           const dest = join(sdir, targetId);
           if (p.action !== "adopt") {
-            const staged = stage(p.skill, staging);
+            const staged = await stage(p.skill, staging, reader);
             if (p.action === "replace") {
               const backup = join(runDir, "replaced", targetId);
               mkdirSync(join(runDir, "replaced"), { recursive: true });
@@ -202,6 +212,7 @@ export async function importSkills(o: SkillsOptions, human: (r: SkillsReport) =>
         base.errors.push({ id: e.id, reason: (err as Error).message });
       }
       flush();
+      await importCheckpoint(o, runId, "skill", i + 1, plan.length);
     }
     rmRetry(staging, { recursive: true, force: true });
     base.status = "completed";

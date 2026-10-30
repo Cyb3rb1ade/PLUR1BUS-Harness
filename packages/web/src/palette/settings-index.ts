@@ -12,6 +12,8 @@
 export type SettingSpec = { readonly key: string; readonly type: string; readonly tier: "basic" | "advanced"; readonly help?: string };
 
 export const SETTINGS: readonly SettingSpec[] = [
+  { key: "import.ssh", type: "object", tier: "advanced", help: "Owner-managed SSH source identity and endpoint configuration." },
+  { key: "import.ssh.connections", type: "object", tier: "advanced", help: "Owner-managed named SSH source connections." },
   { key: "collaboration.fanoutEnabled", type: "boolean", tier: "advanced", help: "Enable collaboration fan-out only after owner review of the equal-token-budget evaluation." },
   { key: "approvals.maxGrantDays", type: "integer", tier: "advanced", help: "Always-grant idle lifetime in days. Explicit shorter expiries still apply." },
   { key: "approvals.requireOsConfirmation", type: "boolean", tier: "advanced", help: "Allow the required OS confirmation for an otherwise untrusted local decision. False disables this lift; it never bypasses surface trust." },
@@ -115,6 +117,19 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "engine.schicht15", type: "object", tier: "advanced", help: "Curated knowledge promotion settings passed to the Engine." },
   { key: "engine.schicht15.maxPromotionsPerRun", type: "integer", tier: "advanced", help: "Maximum memories promoted by one knowledge-update run; 0 means unlimited." },
   { key: "engine.baseDbPathOverride", type: "string", tier: "advanced", help: "Testing/advanced only; default <home>/state/lancedb. An absolute path (POSIX, drive letter or UNC); a blank value keeps the default." },
+  { key: "mcp", type: "object", tier: "advanced", help: "Installed MCP extension activation and per-agent tool visibility (X2)." },
+  { key: "mcp.servers", type: "object", tier: "advanced", help: "Activation settings keyed by the installed MCP extension name." },
+  { key: "mcpServer", type: "object", tier: "advanced", help: "Harness MCP server for foreign hosts (M6-A): exposes harness functions, memory and skills behind agent-bound tokens." },
+  { key: "mcpServer.enabled", type: "boolean", tier: "advanced", help: "Allow foreign MCP hosts to connect to the harness MCP server." },
+  { key: "a2a", type: "object", tier: "advanced", help: "A2A configuration, including registered external peers." },
+  { key: "a2a.peers", type: "array", tier: "advanced", help: "Configured external A2A peers." },
+  { key: "a2aServer", type: "object", tier: "advanced", help: "Harness A2A server exposure configuration." },
+  { key: "a2aServer.enabled", type: "boolean", tier: "advanced", help: "Allow foreign A2A peers to connect to the harness A2A server." },
+  { key: "a2aServer.legacy03", type: "boolean", tier: "advanced", help: "Opt-in to legacy A2A 0.3 dotted method names." },
+  { key: "a2aServer.defaultAgentId", type: "string", tier: "advanced", help: "Default agent id to expose when none is specified." },
+  { key: "a2aServer.signingKey", type: "object", tier: "advanced", help: "Private key for signing agent cards." },
+  { key: "a2aServer.signingKey.privateKeySecret", type: "string", tier: "advanced", help: "Name of the secret holding the agent card signing private key; never the key itself." },
+  { key: "a2aServer.signingKey.kid", type: "string", tier: "advanced", help: "Key identifier for the signing key." },
   { key: "providers", type: "object", tier: "basic", help: "Reserved namespace for model-provider configuration." },
   { key: "auth.requireSecondFactor", type: "string", tier: "advanced", help: "Require TOTP or WebAuthn for Owner and Admin on remote listeners by default; always or never are explicit overrides." },
   { key: "auth.openai.loopbackTimeoutMs", type: "integer", tier: "advanced", help: "Loopback login deadline." },

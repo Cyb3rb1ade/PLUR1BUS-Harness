@@ -187,8 +187,8 @@ fn p1x_hook_never_reads_the_file_and_queue_is_bounded() {
         "/nonexistent/example.p1x",
         "file:///nonexistent/example.p1x",
     );
-    assert!(parse_argument(plain) == DeepLink::P1x);
-    assert!(parse_argument(url) == DeepLink::P1x);
+    assert!(matches!(parse_argument(plain), DeepLink::P1x { .. }));
+    assert!(matches!(parse_argument(url), DeepLink::P1x { .. }));
     assert!(parse_argument("file://foreign.test/nonexistent/example.p1x") == DeepLink::Ignored);
     let mut inbox = Inbox::default();
     for _ in 0..1000 {
@@ -225,6 +225,23 @@ fn install_hook_accepts_scoped_catalogue_ids_without_accepting_paths() {
             DeepLink::Ignored
         ));
     }
+}
+
+#[test]
+fn p1x_paths_stay_native_and_are_bound_to_the_offered_id() {
+    use plur1bus_desktop::deeplink::Inbox;
+    let path = std::env::temp_dir().join("private-extension.p1x");
+    let mut inbox = Inbox::default();
+    inbox.ingest(path.to_str().unwrap(), |_| {});
+    let offer = inbox.take().unwrap();
+    assert_eq!(
+        serde_json::to_value(&offer).unwrap()["intent"],
+        serde_json::json!({"kind":"p1x"})
+    );
+    assert_eq!(inbox.confirm_p1x(offer.id + 1), None);
+    assert_eq!(inbox.confirm_p1x(offer.id), Some(path));
+    inbox.finish_pair(offer.id);
+    assert_eq!(inbox.confirm_p1x(offer.id), None);
 }
 
 #[tokio::test]

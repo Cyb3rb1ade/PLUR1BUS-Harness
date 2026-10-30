@@ -10,7 +10,7 @@ import type { Egress } from "../egress/index.ts";
 import { OutputLines } from "../logs/output.ts";
 import type { LogWriter } from "../logs/writer.ts";
 import type { Clock } from "./clock.ts";
-import { buildChildEnv } from "./env.ts";
+import { buildChildEnv, type McpLaunchEnvironment } from "./env.ts";
 import { McpClientError } from "./errors.ts";
 import type { Redactor } from "./redact.ts";
 import { MAX_LIST_PAGES, type McpLogger, type McpServerDefinition, type McpToolDescriptor } from "./types.ts";
@@ -18,7 +18,7 @@ import { BoundedStdioTransport, MAX_FRAME_BYTES } from "./stdio.ts";
 import { ModernHttpTransport } from "./modern-http.ts";
 import { LegacyProtocol, ModernProtocol, type McpProtocol, type McpProtocolVersion, type ProtocolOptions } from "./protocol.ts";
 import { createMcpFetch } from "./http.ts";
-import { createAuthorizedFetch, type McpAuthProvider } from "./auth.ts";
+import { createAuthorizedFetch, McpAuthRequiredError, type McpAuthProvider } from "./auth.ts";
 import type { McpClientPorts } from "./ports.ts";
 import { toolHeaderExtractor } from "./tool-headers.ts";
 import { sanitizeOutputSchema } from "./output-schema.ts";
@@ -41,6 +41,8 @@ export interface ConnectionDeps {
   ports?: McpClientPorts; egress?: Pick<Egress, "decide">; auth?: McpAuthProvider;
   /** D111 writer for a stdio server's stderr (`process.output.line`, stream `stderr`). Absent: the legacy `mcp.server.stderr` debug line. */
   output?: LogWriter;
+  /** Packaged-server values are leased only at spawn; they never enter the registered definition. */
+  launchEnvironment?: McpLaunchEnvironment;
   /** Known era from the registry; absent means probe modern first. */
   knownVersion?: McpProtocolVersion;
   /** In-process pipe seam. A factory returns a fresh transport when fallback needs one. */
@@ -111,7 +113,7 @@ export class McpConnection {
   get processId(): number | null { return this.pidValue; }
   get isClosed(): boolean { return this.stopping || this.closing !== null || this.exited; }
 
-  private prepare(modern: boolean): void {
+  private prepare(modern: boolean, signal?: AbortSignal): void {
     const d = this.d; const t = d.def.transport;
     const options: ProtocolOptions = { server: d.def.name, ports: d.ports ?? {}, portTimeoutMs: d.def.timeouts.callMs,
       onNotification: (method, params) => {
@@ -128,7 +130,11 @@ export class McpConnection {
     else if (t.type === "stdio") {
       const env = buildChildEnv(t, d.hostEnv); for (const secret of env.secrets) d.redactor.add(secret, true);
       if (env.missing.length) d.logger.warn("mcp.server.env-missing", { server: d.def.name, names: env.missing });
-      const stdio = new BoundedStdioTransport(t, MAX_FRAME_BYTES, d.def.timeouts.closeGraceMs, d.hostEnv);
+      const stdio = new BoundedStdioTransport(t, MAX_FRAME_BYTES, d.def.timeouts.closeGraceMs, d.hostEnv, {
+        ...(signal ? { signal } : {}),
+        ...(d.launchEnvironment ? { launchEnvironment: () => d.launchEnvironment!(d.def, signal) } : {}),
+        redact: value => d.redactor.add(value, true),
+      });
       this.transport = stdio; this.attachStderr(stdio);
       d.logger.debug("mcp.server.spawn", { server: d.def.name, command: t.command, argCount: t.args.length, envNames: env.names });
     } else {
@@ -146,7 +152,7 @@ export class McpConnection {
     const deadline = new Deadline(d.clock, ms, signal);
     try {
       const modern = !d.knownVersion || d.knownVersion === "2026-07-28";
-      conn.prepare(modern);
+      conn.prepare(modern, deadline.signal);
       try { await conn.client.connect(conn.transport, { signal: deadline.signal, timeout: modern && d.def.transport.type === "stdio" ? Math.min(1000, ms) : ms + SDK_TIMER_SLACK_MS }); }
       catch (error) {
         const legacyVersions = error instanceof McpError && error.code === -32022 && Array.isArray((error.data as { supported?: unknown })?.supported) &&
@@ -158,8 +164,8 @@ export class McpConnection {
         const old = conn.transport;
         old.onclose = () => {};
         delete old.onmessage; delete old.onerror;
-        if (d.transportFactory) { conn.prepare(false); if (conn.transport !== old) await old.close(); else old.start = async () => {}; }
-        else { await conn.client.close(); conn.prepare(false); }
+        if (d.transportFactory) { conn.prepare(false, deadline.signal); if (conn.transport !== old) await old.close(); else old.start = async () => {}; }
+        else { await conn.client.close(); conn.prepare(false, deadline.signal); }
         conn.exited = false;
         await conn.client.connect(conn.transport, { signal: deadline.signal, timeout: ms + SDK_TIMER_SLACK_MS });
       }
@@ -170,6 +176,7 @@ export class McpConnection {
       return conn;
     } catch (error) {
       conn.state("failed"); await conn.close("hard");
+      if (error instanceof McpAuthRequiredError) throw new McpClientError("auth-required", error.message, { server: d.def.name });
       if (deadline.timedOut) throw new McpClientError("connect-timeout", `${d.def.name}: no protocol answer within ${ms} ms`, { server: d.def.name });
       if (signal?.aborted) throw new McpClientError("aborted", `${d.def.name}: connect aborted`, { server: d.def.name });
       throw new McpClientError("connect-failed", d.redactor.redact(`${d.def.name}: ${(error as Error).message}`), { server: d.def.name });
@@ -304,6 +311,7 @@ export class McpConnection {
       });
       const result = await Promise.race([operation, aborted]); this.state("ready"); return result;
     } catch (error) {
+      if (error instanceof McpAuthRequiredError) throw new McpClientError("auth-required", error.message, { server: name });
       if (error instanceof StreamableHTTPError && error.code === 404) {
         this.state("degraded"); await this.close("hard"); this.d.onRemoteClose();
         throw new McpClientError("closed", `${name}: MCP session expired; next use initializes a new session`, { server: name });

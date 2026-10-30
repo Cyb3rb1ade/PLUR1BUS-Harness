@@ -1,8 +1,7 @@
 // Settings > Modules & Updates (`/settings/modules`). module.list and module.graph give the installed modules and what depends on
 // what; Owner and Admin can start, stop and restart (each behind a confirmation that names the modules a stop or restart takes
-// down with it), and only the Owner can install from a host directory or uninstall (typed name). module.watch only hints that the
-// state changed: the list is reloaded with module.list, never built from the notification. There is no update hint: neither
-// module.list nor module.status carries an available version (rpc schema 1.3.0), so none is shown.
+// down with it). Owner/Admin install extensions by uploading bytes and reviewing the inspection; native module uninstall remains
+// Owner-only. module.watch only hints that state changed; ext.changed reloads extension metadata.
 import { h } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import type { View } from "../../../view.ts";
@@ -13,7 +12,10 @@ import * as modulesArea from "../../../i18n/modules.ts";
 import { FailureState, Notice } from "../../common/states.ts";
 import { currentRole, getApi, roleIn, useLoad } from "../../common/load.ts";
 import type { SectionProps } from "../page.ts";
-import { ActionConfirm, InstallDialog, UninstallConfirm } from "../modules/dialogs.ts";
+import { ActionConfirm, UninstallConfirm } from "../modules/dialogs.ts";
+import { InstallDialog } from "../../extensions/upload.ts";
+import { navigate, routePath } from "../../../router.ts";
+import type { ExtItem } from "../../common/surfaces-rpc.ts";
 import { ModuleList } from "../modules/list.ts";
 import { fetchModules, watchModules, type ModuleAction, type ModuleEntry } from "../modules/model.ts";
 import "../../../styles/modules.css";
@@ -29,6 +31,7 @@ export function ModulesSection({ section }: SectionProps): View {
   const canOperate = roleIn(role, ["owner", "admin"]);
   const canInstall = roleIn(role, ["owner"]);
   const { state, reload } = useLoad((signal) => fetchModules(signal), []);
+  const extensionRows = useLoad(signal => canOperate ? getApi().rpc("ext.list", {}, { write: false, signal }) as Promise<{ items: ExtItem[] }> : Promise.resolve({ items: [] }), [canOperate]);
   const [dlg, setDlg] = useState<Dlg>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [changed, setChanged] = useState(false);
@@ -38,7 +41,7 @@ export function ModulesSection({ section }: SectionProps): View {
     let stream: { close(): void } | null = null;
     try {
       stream = getApi().events({
-        onEvent: (ev) => { if (ev.event === "module.state") setChanged(true); },
+        onEvent: (ev) => { if (ev.event === "module.state") setChanged(true); if (ev.event === "ext.changed") extensionRows.reload(); },
       });
     } catch {
       // events are not served on this harness; the list still loads on demand
@@ -55,13 +58,14 @@ export function ModulesSection({ section }: SectionProps): View {
 
   const head = h("div", { class: "card-head" },
     h("h2", { id: "modules-list-h", class: "card-title" }, t("modules.list.title")),
-    canInstall ? h("button", { type: "button", class: "btn btn-primary", onClick: () => { setDlg({ kind: "install" }); } }, t("modules.action.install")) : null);
+    canOperate ? h("button", { type: "button", class: "btn btn-primary", onClick: () => { setDlg({ kind: "install" }); } }, t("extensions.action.installFile")) : null);
 
   let body: View;
   if (state.status === "loading") body = h(PageLoading, { label: t("state.loading") });
   else if (state.status === "fail") body = h(FailureState, { failure: state.failure, unavailable: t("modules.unavailable.title"), onRetry: reload });
   else {
     const { modules, graph } = state.data;
+    const extensions = extensionRows.state.status === "ok" ? extensionRows.state.data.items.filter(item => item.kind !== "skill") : [];
     body = h("div", null,
       notice ? h("p", { class: "form-notice", role: "status" }, notice) : null,
       changed ? h("div", { class: "modules-live", role: "status" },
@@ -69,15 +73,16 @@ export function ModulesSection({ section }: SectionProps): View {
         h("button", { type: "button", class: "btn btn-quiet", onClick: () => { setChanged(false); reload(); } }, t("modules.live.reload")))
         : null,
       graph === null ? h(Notice, { tone: "warn" }, t("modules.graph.unavailable")) : null,
-      modules.length === 0
+      modules.length === 0 && extensions.length === 0
         ? h(PageState, { state: "empty", title: t("modules.empty.title"), detail: t("modules.empty.body") })
         : h(ModuleList, {
-          rows: modules, graph, canOperate, canInstall,
+          rows: modules, graph, canOperate, canInstall, extensions,
+          onExtension: name => navigate(routePath("plugins", name)),
           onAction: (action, m) => { setDlg({ kind: "action", action, name: m.name }); },
           onUninstall: (m) => { setDlg({ kind: "uninstall", name: m.name }); },
         }),
       !canOperate ? h(Notice, {}, t("modules.readonly")) : null,
-      canOperate && !canInstall ? h(Notice, {}, t("modules.install.ownerOnly")) : null);
+      extensionRows.state.status === "fail" ? h(Notice, {}, t("shared.unavailable.inline")) : null);
   }
 
   const current = state.status === "ok" ? state.data : null;
@@ -101,12 +106,10 @@ export function ModulesSection({ section }: SectionProps): View {
         onDone: (name) => { finish(t("modules.notice.uninstalled", { name })); },
       })
       : null,
-    dlg?.kind === "install" && canInstall
+    dlg?.kind === "install" && canOperate
       ? h(InstallDialog, {
         onClose: () => { setDlg(null); },
-        onDone: (r) => { finish(r.replaced
-          ? t("modules.notice.replaced", { name: r.name, version: r.version })
-          : t("modules.notice.installed", { name: r.name, version: r.version })); },
+        onDone: () => { reload(); extensionRows.reload(); },
       })
       : null);
 }

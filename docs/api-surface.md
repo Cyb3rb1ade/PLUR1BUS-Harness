@@ -6,10 +6,34 @@ Every route is **deny by default**: a route that is not `public` answers 401 wit
 
 | Method | Path | Operation | Auth | Action | CSRF | Rate class | Stability · since |
 |---|---|---|---|---|---|---|---|
+| `GET` | `/api/v1/import/sources` | `imports.sources` | session | `imports.read` | no | read | experimental · 1.8.0 |
+| `POST` | `/api/v1/import/snapshots` | `imports.snapshot.upload` | session or token | `imports.manage` | yes | upload | experimental · 1.8.0 |
+| `POST` | `/api/v1/extensions/upload` | `extensions.upload` | session or token | `extensions.manage` | yes | upload | experimental · 1.8.0 |
+| `POST` | `/api/v1/extensions/inspect` | `extensions.inspect` | session or token | `extensions.manage` | yes | write | experimental · 1.8.0 |
+| `POST` | `/mcp` | `mcp.server` | session or token | `delegated` | no | rpc | experimental · 1.0.0 |
+| `GET` | `/.well-known/agent-card.json` | `a2a.card.root` | public | `public` | no | read | experimental · 1.0.0 |
+| `GET` | `/.well-known/agent.json` | `a2a.card.root.alias` | public | `public` | no | read | experimental · 1.0.0 |
+| `GET` | `/a2a/{agentId}/.well-known/agent-card.json` | `a2a.card.agent` | public | `public` | no | read | experimental · 1.0.0 |
+| `GET` | `/a2a/{agentId}/.well-known/agent.json` | `a2a.card.agent.alias` | public | `public` | no | read | experimental · 1.0.0 |
+| `POST` | `/a2a/{agentId}` | `a2a.endpoint` | session or token | `delegated` | no | rpc | experimental · 1.0.0 |
+| `GET` | `/.well-known/oauth-authorization-server` | `oauth.metadata` | public | `public` | no | read | stable · 1.0.0 |
+| `GET` | `/.well-known/oauth-protected-resource` | `oauth.protected_resource` | public | `public` | no | read | stable · 1.0.0 |
+| `GET` | `/.well-known/oauth-protected-resource/{resource}` | `oauth.protected_resource.path` | public | `public` | no | read | stable · 1.0.0 |
+| `GET` | `/oauth/authorize` | `oauth.authorize.get` | public | `public` | no | auth | experimental · 1.0.0 |
+| `POST` | `/oauth/authorize` | `oauth.authorize.post` | session | `authenticated` | yes | auth | experimental · 1.0.0 |
+| `POST` | `/oauth/token` | `oauth.token` | public | `public` | no | auth | stable · 1.0.0 |
+| `POST` | `/oauth/revoke` | `oauth.revoke` | public | `public` | no | auth | stable · 1.0.0 |
+| `GET` | `/api/v1/oauth/grants` | `oauth.grants.list` | session | `authenticated` | no | read | experimental · 1.0.0 |
+| `POST` | `/api/v1/oauth/grants/revoke` | `oauth.grants.revoke` | session | `authenticated` | yes | write | experimental · 1.0.0 |
 | `GET` | `/api/v1/meta` | `desktop.meta` | public | `public` | no | read | experimental · 1.0.0 |
 | `POST` | `/api/v1/desktop/pair` | `desktop.pair` | public | `public` | no | auth | experimental · 1.0.0 |
 | `POST` | `/api/v1/desktop/redeem` | `desktop.redeem` | public | `public` | no | auth | experimental · 1.0.0 |
 | `POST` | `/api/v1/desktop/ticket` | `desktop.ticket` | public | `public` | no | auth | experimental · 1.0.0 |
+| `POST` | `/api/v1/desktop/step-up/start` | `desktop.step-up.start` | public | `public` | no | auth | experimental · 1.8.0 |
+| `POST` | `/api/v1/desktop/step-up/poll` | `desktop.step-up.poll` | public | `public` | no | auth | experimental · 1.8.0 |
+| `POST` | `/api/v1/desktop/step-up/cancel` | `desktop.step-up.cancel` | public | `public` | no | auth | experimental · 1.8.0 |
+| `GET` | `/api/v1/desktop/step-up/approval/{userCode}` | `desktop.step-up.approval` | session | `authenticated` | no | read | experimental · 1.8.0 |
+| `POST` | `/api/v1/desktop/step-up/decision` | `desktop.step-up.decision` | session | `authenticated` | yes | write | experimental · 1.8.0 |
 | `POST` | `/rpc` | `web.rpc` | session | `delegated` | yes | rpc | experimental · 1.0.0 |
 | `GET` | `/events` | `web.events` | session | `delegated` | no | stream | experimental · 1.0.0 |
 | `POST` | `/api/v1/invitations/redeem` | `invitation.redeem` | public | `public` | no | auth | experimental · 1.0.0 |

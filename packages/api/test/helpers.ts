@@ -32,16 +32,27 @@ export interface Harness {
 }
 
 export interface StartOptions {
+  home?: string;
   remotePairing?: ApiServerOptions["remotePairing"]; remoteCertificates?: ApiServerOptions["remoteCertificates"];
   limits?: Partial<ApiLimits>; rateClasses?: RateClasses; sessionLimits?: SessionLimits; core?: FakeCore;
   /** Share the clock with a core built beforehand (see `miniCore`). */
   clock?: FakeClock;
   accounts?: import("../src/account-store.ts").AccountStore;
+  tokens?: import("../src/ports.ts").TokenStore;
+  mcpConfig?: ApiServerOptions["mcpConfig"];
+  a2aConfig?: ApiServerOptions["a2aConfig"];
+  taskStore?: ApiServerOptions["taskStore"];
+  oauthStore?: ApiServerOptions["oauthStore"];
+  oauthService?: ApiServerOptions["oauthService"];
+  oauthClients?: ApiServerOptions["oauthClients"];
+  sharedSessions?: ApiServerOptions["sharedSessions"];
   users?: MemoryUserDirectory; lockout?: Partial<LockoutPolicy>; extraRoutes?: ApiServerOptions["extraRoutes"]; webRoot?: string;
   /** The API's own unbuffered sink (bootstrap, remote); `noAudit` configures no sink at all. Break-glass is the core's, see `miniCore`. */
   breakGlassAudit?: AuditSink; auditSink?: AuditSink; noAudit?: boolean;
   /** Tailnet mode (every client arrives from 127.0.0.1) and the global cap on model-backed work. */
   remote?: ApiServerOptions["remote"]; requireSecondFactor?: ApiServerOptions["requireSecondFactor"]; expensiveConcurrency?: number;
+  publicOrigin?: string;
+  secretStore?: ApiServerOptions["secretStore"];
 }
 
 export async function start(o: StartOptions = {}): Promise<Harness> {
@@ -49,9 +60,17 @@ export async function start(o: StartOptions = {}): Promise<Harness> {
   const audit = memoryAuditSink(); const users = o.users ?? new MemoryUserDirectory();
   const sink = (level: string) => (msg: string, fields?: Record<string, unknown>) => { logs.push(JSON.stringify({ level, msg, ...fields })); };
   const api = createApiServer({
+    ...(o.publicOrigin ? { publicOrigin: o.publicOrigin } : {}),
+    ...(o.secretStore ? { secretStore: o.secretStore } : {}),
+    ...(o.home ? { home: o.home } : {}),
     ...(o.remotePairing ? { remotePairing: o.remotePairing } : {}), ...(o.remoteCertificates ? { remoteCertificates: o.remoteCertificates } : {}),
     core, ownerToken: OWNER_TOKEN, clock, users, ...(o.accounts ? { accounts: o.accounts } : {}), ...(o.noAudit ? {} : { audit: o.auditSink ?? audit }), logger: { debug: sink("debug"), info: sink("info"), warn: sink("warn"), error: sink("error") },
     ...(o.limits ? { limits: o.limits } : {}), ...(o.rateClasses ? { rateClasses: o.rateClasses } : {}), ...(o.sessionLimits ? { sessionLimits: o.sessionLimits } : {}),
+    ...(o.tokens ? { tokens: o.tokens } : {}), ...(o.mcpConfig ? { mcpConfig: o.mcpConfig } : {}),
+    ...(o.a2aConfig ? { a2aConfig: o.a2aConfig } : {}),
+    ...(o.taskStore ? { taskStore: o.taskStore } : {}),
+    ...(o.oauthStore ? { oauthStore: o.oauthStore } : {}), ...(o.oauthService ? { oauthService: o.oauthService } : {}), ...(o.oauthClients ? { oauthClients: o.oauthClients } : {}),
+    ...(o.sharedSessions ? { sharedSessions: o.sharedSessions } : {}),
     ...(o.lockout ? { lockout: o.lockout } : {}), ...(o.extraRoutes ? { extraRoutes: o.extraRoutes } : {}), ...(o.webRoot ? { webRoot: o.webRoot } : {}),
     ...(o.breakGlassAudit ? { breakGlassAudit: o.breakGlassAudit } : {}),
     ...(o.remote ? { remote: o.remote } : {}), ...(o.requireSecondFactor ? { requireSecondFactor: o.requireSecondFactor } : {}), ...(o.expensiveConcurrency ? { expensiveConcurrency: o.expensiveConcurrency } : {}),

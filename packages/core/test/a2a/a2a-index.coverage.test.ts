@@ -10,6 +10,7 @@ import * as parts from "../../src/a2a/parts.ts";
 import * as push from "../../src/a2a/push.ts";
 import * as turnPort from "../../src/a2a/turn-port.ts";
 import * as events from "../../src/a2a/events.ts";
+import * as client from "../../src/a2a/client.ts";
 import * as types from "../../src/a2a/types.ts";
 
 const reexports: [string, Record<string, unknown>, string[]][] = [
@@ -22,6 +23,7 @@ const reexports: [string, Record<string, unknown>, string[]][] = [
   ["push.ts", push, ["parsePushConfig", "createEgressPushTransport", "PushDispatcher", "PushError", "assignPushId", "toTaskPush"]],
   ["turn-port.ts", turnPort, ["createProviderTurnPort", "createSessionTurnPort", "openA2aSessionBackend", "a2aCaller"]],
   ["events.ts", events, ["statusUpdate", "artifactUpdate", "sseLines"]],
+  ["client.ts", client, ["createOutboundA2aClient", "OutboundA2aClient", "createA2aFetch"]],
 ];
 
 describe("a2a barrel", () => {

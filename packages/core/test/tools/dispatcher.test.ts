@@ -198,3 +198,89 @@ describe("ToolDispatcher", () => {
     assert.ok(r.isError && r.error.code === "tool-denied");
   });
 });
+
+
+describe("N1 dispatcher diagnostic categories", () => {
+  it("marks classification failures while retaining their original diagnostic text", async () => {
+    const { d } = rig([base({ classify: () => { throw new Error("cannot open /home/alice/project/report.txt"); } })]);
+    const result = await d.call(call("demo.echo", { q: "a" }), CTX);
+    assert.ok(result.isError);
+    assert.equal(result.error.internalFailure, "classification-failure");
+    assert.equal(result.error.message, "the call could not be classified: cannot open /home/alice/project/report.txt");
+  });
+
+  it("distinguishes a rejected approval port from a person using the same reason text", async () => {
+    const tool = base({ capability: "net.submit", effect: "external", risk: "medium" });
+    const failed = rig([tool], { approve: async () => { throw new Error("/home/alice/approval.db unavailable"); } });
+    const portResult = await failed.d.call(call("demo.echo", { q: "a" }), CTX);
+    assert.ok(portResult.isError);
+    assert.equal(portResult.error.internalFailure, "approval-port-failure");
+    assert.equal(portResult.error.message, "not approved: approval failed: /home/alice/approval.db unavailable");
+    const denied = rig([tool], { approve: async () => ({ approved: false, reason: "approval failed: /home/alice/approval.db unavailable" }) });
+    const personResult = await denied.d.call(call("demo.echo", { q: "a" }), CTX);
+    assert.ok(personResult.isError);
+    assert.equal(personResult.error.internalFailure, undefined);
+    assert.equal(personResult.error.message, portResult.error.message);
+  });
+
+  it("marks synchronous approval-port throws without changing the existing failure envelope", async () => {
+    const registry = new ToolRegistry();
+    registry.register(base({ capability: "net.submit", effect: "external", risk: "medium" }));
+    const d = new ToolDispatcher({
+      registry, grants: NOGRANTS, clock: { now: () => 1 },
+      approvals: { request() { throw new Error("/home/alice/approval.db unavailable"); } },
+    });
+    const result = await d.call(call("demo.echo", { q: "a" }), CTX);
+    assert.ok(result.isError);
+    assert.equal(result.error.internalFailure, "approval-port-failure");
+    assert.equal(result.error.code, "tool-failed");
+    assert.equal(result.error.message, "internal error: /home/alice/approval.db unavailable");
+  });
+
+  it("marks approval-port execution-start exceptions but keeps ordinary stale approvals typed", async () => {
+    for (const throws of [true, false]) {
+      const registry = new ToolRegistry();
+      registry.register(base({ capability: "net.submit", effect: "external", risk: "medium" }));
+      const d = new ToolDispatcher({
+        registry, grants: NOGRANTS, clock: { now: () => 1 },
+        approvals: {
+          request: async () => ({ approved: true }),
+          begin() {
+            if (throws) throw new Error("/home/alice/approval.db unavailable");
+            return false;
+          },
+        },
+      });
+      const result = await d.call(call("demo.echo", { q: "a" }), CTX);
+      assert.ok(result.isError);
+      assert.equal(result.error.internalFailure, throws ? "approval-port-failure" : undefined);
+      assert.equal(result.error.code, "tool-not-approved");
+      assert.equal(result.error.message,
+        "not approved: the approval could not be used (already used, expired or bound to another action)");
+    }
+  });
+
+  it("marks an unavailable audit before execution", async () => {
+    let ran = 0;
+    const registry = new ToolRegistry();
+    registry.register(base({ execute: async () => { ran++; return 1; } }));
+    const d = new ToolDispatcher({
+      registry, approvals: { request: async () => ({ approved: false }) }, grants: NOGRANTS,
+      clock: { now: () => 1 }, audit: { record() { throw new Error("/home/alice/audit.log"); } },
+    });
+    const result = await d.call(call("demo.echo", { q: "a" }), CTX);
+    assert.ok(result.isError);
+    assert.equal(result.error.internalFailure, "audit-unavailable");
+    assert.equal(result.error.message, "the audit trail is unavailable; nothing runs unrecorded");
+    assert.equal(ran, 0);
+  });
+
+  it("marks an internal dispatcher failure without discarding its diagnostic text", async () => {
+    const { d } = rig([base()]);
+    const request = { ...call("demo.echo", { q: "a" }), get args() { throw new Error("/home/alice/internal.txt"); } };
+    const result = await d.call(request, CTX);
+    assert.ok(result.isError);
+    assert.equal(result.error.internalFailure, "internal-error");
+    assert.equal(result.error.message, "internal error: /home/alice/internal.txt");
+  });
+});

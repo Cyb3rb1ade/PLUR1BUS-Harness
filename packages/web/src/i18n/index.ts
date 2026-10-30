@@ -19,6 +19,7 @@ import * as core from "./core.ts";
 import type * as devices from "./devices.ts";
 import type * as doctor from "./doctor.ts";
 import type * as extensions from "./extensions.ts";
+import type * as imports from "./imports.ts";
 import type * as logs from "./logs.ts";
 import * as memory from "./memory.ts";
 import * as mediasearch from "./mediasearch.ts";
@@ -41,6 +42,7 @@ import type * as inbox from "./inbox.ts";
 import type * as breakglass from "./breakglass.ts";
 import type * as libmedia from "./libmedia.ts";
 import type * as modules from "./modules.ts";
+import type * as oauth from "./oauth.ts";
 
 export type Area = { readonly name: string; readonly en: Readonly<Record<string, string>>; readonly de: Readonly<Record<string, string>> };
 
@@ -78,16 +80,18 @@ type LazyAreaName =
   | "sessions"
   | "voice"
   | "extensions"
+  | "imports"
   | "recurring"
   | "homeHelpLibrary"
   | "inbox"
   | "breakglass"
   | "modules"
-  | "libmedia";
+  | "libmedia"
+  | "oauth";
 
 const LAZY_ORDER: readonly string[] = [
   "surfaces", "core", "chat", "projects", "memory", "mediasearch", "models", "budget", "doctor", "palette", "shared", "setup", "agents", "settings", "users",
-  "providers", "secrets", "switchboard", "devices", "logs", "activity", "audit", "sessions", "approvals", "voice", "extensions", "recurring", "homeHelpLibrary", "inbox", "breakglass", "modules", "libmedia",
+  "providers", "secrets", "switchboard", "devices", "logs", "activity", "audit", "sessions", "approvals", "voice", "extensions", "imports", "recurring", "homeHelpLibrary", "inbox", "breakglass", "modules", "libmedia", "oauth",
 ];
 
 type AreaEn =
@@ -111,12 +115,14 @@ type AreaEn =
   | typeof sessions.en
   | typeof voice.en
   | typeof extensions.en
+  | typeof imports.en
   | typeof recurring.en
   | typeof homeHelpLibrary.en
   | typeof inbox.en
   | typeof breakglass.en
   | typeof modules.en
-  | typeof libmedia.en;
+  | typeof libmedia.en
+  | typeof oauth.en;
 type Intersect<U> = (U extends unknown ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
 
 export type Key = keyof Intersect<AreaEn> & string;

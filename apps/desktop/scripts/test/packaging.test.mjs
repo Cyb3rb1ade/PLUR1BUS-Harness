@@ -17,6 +17,13 @@ test('online and offline fixtures package separate resources with exact checksum
   assert.equal(config.bundle.macOS.signingIdentity,'-');
   assert.ok(Object.values(config.bundle.resources).includes('apple/container.pkg'));
   assert.ok(Object.values(config.bundle.resources).includes('cli/plur1bus'));
+  assert.equal(manifest.snapshotRuntime.nodeVersion,'24.21.0');
+  assert.equal(manifest.snapshotRuntime.node.path,'snapshot/node');
+  assert.equal(manifest.snapshotRuntime.entry.path,'snapshot/import-snapshot.mjs');
+  assert.match(manifest.snapshotRuntime.node.sha256,/^[a-f0-9]{64}$/);
+  assert.match(manifest.snapshotRuntime.entry.sha256,/^[a-f0-9]{64}$/);
+  assert.ok(Object.values(config.bundle.resources).includes('snapshot/node'));
+  assert.ok(Object.values(config.bundle.resources).includes('snapshot/import-snapshot.mjs'));
   assert.ok(Object.values(config.bundle.resources).includes('image/plur1bus-harness-arm64.oci.tar'));
   assert.equal(config.bundle.createUpdaterArtifacts,false);
   const image=await readFile(join(offline.root,'resources/image/plur1bus-harness-arm64.oci.tar'));

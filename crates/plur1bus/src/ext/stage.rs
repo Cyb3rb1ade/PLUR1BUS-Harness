@@ -21,8 +21,10 @@ use crate::install::archive;
 use crate::paths::Layout;
 use plur1bus_ext::compat::acknowledged_capabilities;
 use plur1bus_ext::manifest::{parse_manifest, Kind, P1xManifest};
+use plur1bus_ext::mcpb::{check_mcpb_runtime, check_mcpb_tree, parse_mcpb_manifest};
 use plur1bus_ext::refusal::{reason, Refusal};
 use plur1bus_ext::skill::validate_skill_md;
+use plur1bus_ext::verify::X2_RPC_KINDS;
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -32,6 +34,16 @@ use std::path::{Path, PathBuf};
 /// The hidden `plur1bus ext __worker` operations.
 #[derive(clap::Subcommand, Debug, Clone)]
 pub enum WorkerArgs {
+    /// Prepare an inert MCP package from the private import metadata boundary.
+    #[command(hide = true)]
+    ImportMcp {
+        #[arg(long)]
+        id: String,
+        #[arg(long)]
+        installation_id: String,
+        #[arg(long)]
+        candidate_file: PathBuf,
+    },
     /// Inspect a package into `run/inspect/<id>.{p1x,json}`
     Inspect {
         #[arg(long)]
@@ -42,6 +54,21 @@ pub enum WorkerArgs {
         /// Read the package from stdin
         #[arg(long)]
         stdin: bool,
+        /// Digest and byte count supplied only by the private API upload claim.
+        #[arg(
+            long,
+            hide = true,
+            requires = "expected_source_size",
+            conflicts_with = "stdin"
+        )]
+        expected_source_sha256: Option<String>,
+        #[arg(
+            long,
+            hide = true,
+            requires = "expected_source_sha256",
+            conflicts_with = "stdin"
+        )]
+        expected_source_size: Option<u64>,
         /// Test seam: sleep first (needs PLUR1BUS_ALLOW_TEST_INTERNALS=1)
         #[arg(long, hide = true)]
         sleep_ms: Option<u64>,
@@ -77,11 +104,15 @@ struct Cleanup {
     staging: PathBuf,
     root: Option<PathBuf>,
     armed: bool,
+    children: Vec<PathBuf>,
 }
 
 impl Drop for Cleanup {
     fn drop(&mut self) {
         if self.armed {
+            for child in &self.children {
+                let _ = std::fs::remove_dir_all(child);
+            }
             if self.dest_created {
                 let _ = std::fs::remove_dir_all(&self.dest);
             }
@@ -319,7 +350,28 @@ fn check_kind(payload: &Path, m: &P1xManifest) -> Result<(), ExtError> {
                 ));
             }
         }
-        Kind::McpServer | Kind::Provider | Kind::Bundle => {
+        Kind::McpServer => {
+            if m.rest.get("remote").is_some_and(|r| !r.is_null()) {
+                if m.files.keys().any(|p| p != "payload/README.md") {
+                    return Err(invalid(
+                        reason::PACKAGE_INVALID,
+                        "a remote MCP package contains only an optional README.md",
+                    ));
+                }
+            } else {
+                let raw = read_payload_text(payload, "manifest.json")?;
+                let source = parse_mcpb_manifest(raw.as_bytes())?;
+                check_mcpb_runtime(&source, &m.requires)?;
+                let paths: Vec<&str> = m
+                    .files
+                    .keys()
+                    .filter_map(|p| p.strip_prefix("payload/"))
+                    .collect();
+                check_mcpb_tree(&source, &paths)?;
+            }
+        }
+        Kind::Bundle => {}
+        Kind::Provider => {
             return Err(ExtError::new(
                 "E_NOT_AVAILABLE",
                 reason::KIND_UNSUPPORTED,
@@ -363,6 +415,10 @@ fn record_of(rec: &InspectionRecord, m: &P1xManifest) -> ItemRecord {
         key_id: rec.trust["keyId"].as_str().map(str::to_string),
         key_label: rec.trust["label"].as_str().map(str::to_string),
         package_sha256: rec.sha256.clone(),
+        active_version: None,
+        versions: std::collections::BTreeMap::new(),
+        per_agent_versions: std::collections::BTreeMap::new(),
+        manifest_sha256: None,
         installed_at: super::now_iso(),
         previous_version: rec
             .replaces
@@ -380,6 +436,7 @@ fn record_of(rec: &InspectionRecord, m: &P1xManifest) -> ItemRecord {
         required_secrets,
         removed_by_user: false,
         integrity: None,
+        members: Vec::new(),
     }
 }
 
@@ -389,10 +446,20 @@ pub fn stage(layout: &Layout, id: &str) -> Result<StagedItem, ExtError> {
 }
 
 /// [`stage`], aborting the process right after the extraction when `crash` (the worker's `--crash` test seam).
-fn stage_with(layout: &Layout, id: &str, crash: bool) -> Result<StagedItem, ExtError> {
+pub(crate) fn stage_with(layout: &Layout, id: &str, crash: bool) -> Result<StagedItem, ExtError> {
     let rec = super::record::load(layout, id)?;
     let pkg = spool_path(layout, id);
-    let actual = archive::sha256_file(&pkg).map_err(|e| io_error("cannot read", &pkg, &e))?;
+    stage_record(layout, &rec, &pkg, crash)
+}
+
+fn stage_record(
+    layout: &Layout,
+    rec: &InspectionRecord,
+    pkg: &Path,
+    crash: bool,
+) -> Result<StagedItem, ExtError> {
+    let id = &rec.inspection_id;
+    let actual = archive::sha256_file(pkg).map_err(|e| io_error("cannot read", pkg, &e))?;
     if actual != rec.sha256 {
         return Err(invalid(
             reason::DIGEST,
@@ -404,6 +471,17 @@ fn stage_with(layout: &Layout, id: &str, crash: bool) -> Result<StagedItem, ExtE
     }
     let raw = serde_json::to_vec(&rec.manifest).unwrap_or_default();
     let m = parse_manifest(&raw, super::host::reserved_names())?;
+    if !X2_RPC_KINDS.contains(&m.kind) {
+        return Err(ExtError::new(
+            "E_NOT_AVAILABLE",
+            reason::KIND_UNSUPPORTED,
+            format!(
+                "{} packages are not supported by the extension lifecycle",
+                kind_name(m.kind)
+            ),
+        ));
+    }
+    plur1bus_ext::kinds::check_kind(&m)?;
 
     let paths = ExtPaths::of(layout);
     let mut cleanup = Cleanup {
@@ -412,31 +490,135 @@ fn stage_with(layout: &Layout, id: &str, crash: bool) -> Result<StagedItem, ExtE
         staging: paths.staging.clone(),
         root: (!paths.root.exists()).then(|| paths.root.clone()),
         armed: true,
+        children: Vec::new(),
     };
     // A leftover of an earlier stage of this same inspection (its name carries the inspection id) is this stage's
     // own: it is replaced, never merged into.
     remove_leftover(&cleanup.dest)?;
-    archive::extract(&pkg, &cleanup.dest, 0).map_err(|e| {
-        let code = if e.reason() == "io" {
-            "E_INTERNAL"
-        } else {
-            "E_INVALID_PARAMS"
-        };
-        ExtError::new(code, e.reason(), e.to_string())
-    })?;
-    cleanup.dest_created = true;
+    let dir = if m.kind == Kind::McpServer {
+        // Preparation never exposes code: PackageStore writes only this inspection's private staging store.
+        // The supervisor commit checks the person's acknowledgments before any live tree changes.
+        std::fs::create_dir_all(&cleanup.dest)
+            .map_err(|e| io_error("cannot create", &cleanup.dest, e))?;
+        cleanup.dest_created = true;
+        let store = super::packages::PackageStore::versioned_at(cleanup.dest.join("store"));
+        inspect::with_current_policy(layout, |policy| {
+            store
+                .install(
+                    pkg,
+                    policy,
+                    &super::packages::InstallOpts {
+                        allow_unsigned: true,
+                        allow_unknown_signer: true,
+                        allow_downgrade: true,
+                    },
+                )
+                .map(drop)
+        })?;
+        let prepared = store
+            .record(&m.name)?
+            .ok_or_else(|| invalid(reason::PACKAGE_INVALID, "prepared MCP record is missing"))?;
+        if prepared["packageSha256"] != rec.sha256 {
+            return Err(invalid(
+                reason::DIGEST,
+                "the MCP package changed during preparation",
+            ));
+        }
+        super::record::package_staging_dir(layout, &m.name, &m.version, id)
+    } else {
+        archive::extract(pkg, &cleanup.dest, 0).map_err(|e| {
+            let code = if e.reason() == "io" {
+                "E_INTERNAL"
+            } else {
+                "E_INVALID_PARAMS"
+            };
+            ExtError::new(code, e.reason(), e.to_string())
+        })?;
+        cleanup.dest_created = true;
+        cleanup.dest.join("payload")
+    };
     if crash {
         std::process::abort();
     }
-    check_tree(&cleanup.dest, &m)?;
-    let dir = cleanup.dest.join("payload");
-    check_kind(&dir, &m)?;
+    let payload = if m.kind == Kind::McpServer {
+        dir.join("payload")
+    } else {
+        dir.clone()
+    };
+    if m.kind != Kind::McpServer {
+        check_tree(&cleanup.dest, &m)?;
+    }
+    check_kind(&payload, &m)?;
+    let mut record = record_of(rec, &m);
+    if m.kind == Kind::McpServer {
+        record.manifest_sha256 = Some(
+            archive::sha256_file(&dir.join("p1x.json"))
+                .map_err(|e| io_error("cannot hash", &dir, e))?,
+        );
+    }
+    let mut members = Vec::new();
+    if m.kind == Kind::Bundle {
+        // Re-verify exact bytes under the current policy; child metadata cannot be substituted after inspection.
+        let checked = inspect::with_current_policy(layout, |policy| {
+            plur1bus_ext::verify::inspect_file_kinds(pkg, policy, &X2_RPC_KINDS)
+                .map_err(ExtError::from)
+        })?;
+        let st = super::state::read(&paths).map_err(super::record::state_invalid)?;
+        let packages = cleanup.dest.join("child-packages");
+        std::fs::create_dir(&packages).map_err(|e| io_error("cannot create", &packages, e))?;
+        for (position, child) in checked.members.iter().enumerate() {
+            let public = inspect::member_disclosure(child, &st);
+            let approved = rec
+                .members
+                .iter()
+                .find(|member| member["name"] == public["name"]);
+            if !approved.is_some_and(|member| {
+                member["sha256"] == public["sha256"]
+                    && member["manifest"] == public["manifest"]
+                    && member["trust"] == public["trust"]
+            }) {
+                return Err(invalid(
+                    reason::DIGEST,
+                    "the bundle member no longer matches its approved inspection",
+                ));
+            }
+            let child_id = format!("{id}-{position}");
+            let child_pkg = packages.join(format!("{}.p1x", child.name));
+            std::fs::copy(cleanup.dest.join(&child.path), &child_pkg)
+                .map_err(|e| io_error("cannot copy", &child_pkg, e))?;
+            let child_rec = InspectionRecord {
+                inspection_id: child_id,
+                expires_at: rec.expires_at.clone(),
+                sha256: child.inspection.sha256.clone(),
+                source_path: None,
+                normalised: false,
+                manifest: public["manifest"].clone(),
+                trust: public["trust"].clone(),
+                checks: public["checks"].clone(),
+                capabilities: public["capabilities"].clone(),
+                scripts: public["scripts"].clone(),
+                requires: public["requires"].clone(),
+                replaces: public.get("replaces").cloned(),
+                members: Vec::new(),
+            };
+            cleanup
+                .children
+                .push(staging_dir(layout, &child.name, &child_rec.inspection_id));
+            let item = stage_record(layout, &child_rec, &child_pkg, false)?;
+            members.push(super::record::StagedMember {
+                optional: child.optional,
+                inspection: child_rec,
+                item,
+            });
+        }
+    }
     let item = StagedItem {
         name: m.name.clone(),
         kind: m.kind,
         dir,
-        record: record_of(&rec, &m),
-        package: pkg,
+        record,
+        package: pkg.to_path_buf(),
+        members,
     };
     cleanup.armed = false;
     Ok(item)
@@ -464,17 +646,31 @@ fn to_json<T: Serialize>(what: &str, v: T) -> Result<Value, ExtError> {
 
 /// `plur1bus ext __worker …`: runs one operation and prints exactly one JSON line, `{"ok":true,"result":…}` (exit 0)
 /// or `{"ok":false,"error":{"code","reason","message","data"}}` (exit 1).
-pub fn worker_main(layout: &Layout, args: WorkerArgs) -> ! {
+pub fn worker_main(
+    layout: &Layout,
+    args: WorkerArgs,
+    fetch: &mut impl plur1bus_ext::claude::EgressFetch,
+) -> ! {
+    if super::worker::await_start_gate().is_err() {
+        std::process::exit(1);
+    }
     let sleep = |ms: Option<u64>| {
         if let (Some(ms), true) = (ms, allow_internals()) {
             std::thread::sleep(std::time::Duration::from_millis(ms));
         }
     };
     let result: Result<Value, ExtError> = match args {
+        WorkerArgs::ImportMcp {
+            id,
+            installation_id,
+            candidate_file,
+        } => super::imported_worker::prepare(layout, &id, &installation_id, &candidate_file),
         WorkerArgs::Inspect {
             id,
             path,
             stdin,
+            expected_source_sha256,
+            expected_source_size,
             sleep_ms,
             crash,
         } => {
@@ -483,8 +679,16 @@ pub fn worker_main(layout: &Layout, args: WorkerArgs) -> ! {
                 (false, Some(p)) => Source::Path(p),
                 _ => Source::Stdin,
             };
-            inspect::inspect_with(layout, src, &id, crash && allow_internals())
-                .and_then(|r| to_json("inspection", r))
+            let expected = expected_source_sha256.as_deref().zip(expected_source_size);
+            inspect::inspect_with_expected(
+                layout,
+                src,
+                &id,
+                crash && allow_internals(),
+                fetch,
+                expected,
+            )
+            .and_then(|r| to_json("inspection", r))
         }
         WorkerArgs::Stage {
             id,

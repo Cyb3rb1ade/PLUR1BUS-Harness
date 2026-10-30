@@ -1,0 +1,29 @@
+{
+  "request": {
+    "model": "text-embedding-3-small",
+    "input": [
+      "first",
+      "second"
+    ],
+    "encoding_format": "float",
+    "dimensions": 2
+  },
+  "response": {
+    "data": [
+      {
+        "index": 0,
+        "embedding": [
+          0.1,
+          0.2
+        ]
+      },
+      {
+        "index": 1,
+        "embedding": [
+          0.3,
+          0.4
+        ]
+      }
+    ]
+  }
+}

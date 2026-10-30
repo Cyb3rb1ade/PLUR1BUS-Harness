@@ -1072,6 +1072,9 @@ mod fake_core {
             "memory.proposals.list",
             "memory.proposals.accept",
             "memory.proposals.reject",
+            "memory.sensitivity.get",
+            "memory.sensitivity.set",
+            "memory.sensitivity.clear",
         ] {
             if !missing_methods.contains(&m) {
                 methods.insert(
@@ -1117,6 +1120,8 @@ fn memory_help_names_every_subcommand() {
         "propose",
         "proposals",
         "curation",
+        "mark",
+        "unmark",
     ] {
         assert!(s.contains(sub), "memory --help does not mention {sub}\n{s}");
     }
@@ -2220,4 +2225,106 @@ fn memory_curation_list_keep_drop_preserve_raw_json_fields() {
         assert_eq!(value["future"], true, "raw unknown fields survive {method}");
         assert_eq!(value["agentId"], "bernd");
     }
+}
+
+#[cfg(unix)]
+#[test]
+fn memory_mark_and_unmark_sensitivity() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().to_str().unwrap();
+    bin()
+        .args(["--home", home, "agent", "create", "bernd"])
+        .assert()
+        .success();
+
+    // Test mark with json
+    fake_core::spawn(
+        dir.path(),
+        fake_core::hello_with_capabilities(&[]),
+        Some((
+            "memory.sensitivity.set",
+            serde_json::json!({
+                "result": {
+                    "id": "mem_01",
+                    "categories": ["financial", "health"],
+                    "source": "manual",
+                    "updated": true
+                }
+            }),
+        )),
+    );
+    let output = bin()
+        .args([
+            "--json",
+            "--home",
+            home,
+            "memory",
+            "mark",
+            "mem_01",
+            "--category",
+            "financial,health",
+            "--agent",
+            "bernd",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let value: serde_json::Value = serde_json::from_slice(&output).unwrap();
+    assert_eq!(value["id"], "mem_01");
+    assert_eq!(
+        value["categories"],
+        serde_json::json!(["financial", "health"])
+    );
+
+    // Test unmark with json
+    let dir2 = tempfile::tempdir().unwrap();
+    let home2 = dir2.path().to_str().unwrap();
+    fake_core::spawn(
+        dir2.path(),
+        fake_core::hello_with_capabilities(&[]),
+        Some((
+            "memory.sensitivity.clear",
+            serde_json::json!({
+                "result": {
+                    "id": "mem_01",
+                    "cleared": true,
+                    "remaining": []
+                }
+            }),
+        )),
+    );
+    let output2 = bin()
+        .args(["--json", "--home", home2, "memory", "unmark", "mem_01"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let value2: serde_json::Value = serde_json::from_slice(&output2).unwrap();
+    assert_eq!(value2["cleared"], true);
+    assert_eq!(value2["remaining"], serde_json::json!([]));
+}
+
+#[test]
+fn mcp_serve_requires_token_and_valid_config() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().to_str().unwrap();
+
+    // 1. Missing token
+    bin()
+        .args(["--home", home, "mcp", "serve"])
+        .env_remove("PLUR1BUS_MCP_TOKEN")
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("PLUR1BUS_MCP_TOKEN"));
+
+    // 2. Disabled in config
+    bin()
+        .args(["--home", home, "mcp", "serve"])
+        .env("PLUR1BUS_MCP_TOKEN", "fake-token")
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("mcpServer.enabled"));
 }
