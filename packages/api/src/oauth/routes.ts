@@ -251,9 +251,18 @@ function parseFormOrJsonBody(raw: Buffer | undefined, contentType?: string): Rec
   const params = new URLSearchParams(text);
   const res: Record<string, string> = {};
   for (const [k, v] of params.entries()) {
+    if (Object.hasOwn(res, k)) throw new OAuthApiError(400, "invalid_request", "repeated request parameter");
     res[k] = v;
   }
   return res;
+}
+
+function oauthErrorResponse(error: OAuthApiError): HandlerOutput {
+  return {
+    status: error.status,
+    body: { error: error.oauthError, error_description: error.oauthDescription },
+    headers: { "Cache-Control": "no-store", "Pragma": "no-cache" },
+  };
 }
 
 export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler> {
@@ -771,11 +780,12 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
 
     "oauth.token": async (i: HandlerInput): Promise<HandlerOutput> => {
       const oauth = getOAuthService();
-      const params = parseFormOrJsonBody(i.rawBody, typeof i.headers?.["content-type"] === "string" ? i.headers["content-type"] : undefined);
-      const grantType = params.grant_type;
-      const clientId = params.client_id;
+      let clientId: string | undefined;
 
       try {
+        const params = parseFormOrJsonBody(i.rawBody, typeof i.headers?.["content-type"] === "string" ? i.headers["content-type"] : undefined);
+        const grantType = params.grant_type;
+        clientId = params.client_id;
         if (grantType === "authorization_code") {
           const code = params.code;
           const redirectUri = params.redirect_uri;
@@ -876,14 +886,7 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
             clientId: cId,
             reason: e.oauthError,
           });
-          return {
-            status: e.status,
-            body: {
-              error: e.oauthError,
-              error_description: e.oauthDescription,
-            },
-            headers: { "Cache-Control": "no-store", "Pragma": "no-cache" },
-          };
+          return oauthErrorResponse(e);
         }
         throw e;
       }
@@ -891,20 +894,28 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
 
     "oauth.revoke": async (i: HandlerInput): Promise<HandlerOutput> => {
       const oauth = getOAuthService();
-      const params = parseFormOrJsonBody(i.rawBody, typeof i.headers?.["content-type"] === "string" ? i.headers["content-type"] : undefined);
+      let params: Record<string, string>;
+      try {
+        params = parseFormOrJsonBody(i.rawBody, typeof i.headers?.["content-type"] === "string" ? i.headers["content-type"] : undefined);
+      } catch (error) {
+        if (error instanceof OAuthApiError) return oauthErrorResponse(error);
+        throw error;
+      }
       const token = params.token;
       const tokenTypeHint = params.token_type_hint;
       const clientId = params.client_id || "unknown";
 
-      if (token) {
-        const rev = await oauth.revoke(token, tokenTypeHint);
-        if (rev.revoked) {
-          const cId = rev.clientId ?? clientId;
-          d.audit.emit("oauth.revoke", i.principal?.id ?? `oauth:${cId}`, `token:${rev.tokenId ?? "-"}`, {
-            clientId: cId,
-            ...(rev.tokenId ? { tokenId: rev.tokenId } : {}),
-          });
-        }
+      if (!token) {
+        return oauthErrorResponse(new OAuthApiError(400, "invalid_request", "token is required"));
+      }
+
+      const rev = await oauth.revoke(token, tokenTypeHint);
+      if (rev.revoked) {
+        const cId = rev.clientId ?? clientId;
+        d.audit.emit("oauth.revoke", i.principal?.id ?? `oauth:${cId}`, `token:${rev.tokenId ?? "-"}`, {
+          clientId: cId,
+          ...(rev.tokenId ? { tokenId: rev.tokenId } : {}),
+        });
       }
 
       // RFC 7009: 200 OK whether token existed or not

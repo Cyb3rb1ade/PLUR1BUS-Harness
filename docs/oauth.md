@@ -40,7 +40,9 @@ Der Autorisierungsserver implementiert den aktuellen Stand der OAuth-Spezifikati
 
 ### 4. Widerrufs-Endpunkt
 
-* **`POST /oauth/revoke`:** Widerruft ein Zugriffs- oder Refreshtoken gemäß RFC 7009. Antworten liefern stets HTTP 200, unabhängig davon, ob das Token zuvor existierte.
+* **`POST /oauth/revoke`:** Revokes an access or refresh token under RFC 7009. A non-empty `token` parameter is required; a missing or empty token returns HTTP 400 `invalid_request`. A valid request returns HTTP 200 whether or not the token exists, so it does not disclose token validity.
+
+The token and revocation endpoints reject repeated form parameters with HTTP 400 `invalid_request` before issuing, rotating or revoking credentials. Error responses use the OAuth error shape and `Cache-Control: no-store`. Public metadata endpoints expose issuer and capability information without creating a session or credentials; authorization consent and grant management retain their session and CSRF checks.
 
 ### 5. Verwaltung von Berechtigungen (Grants)
 
