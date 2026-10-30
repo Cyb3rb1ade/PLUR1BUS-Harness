@@ -44,14 +44,17 @@ export function bindApiPrincipal(ctx: CallContext, p: ApiPrincipal | null, trans
 export function apiPrincipal(ctx: CallContext): ApiPrincipal | null | undefined { return identities.get(ctx); }
 /** Verified API request locality; plain context fields, RPC params and principal snapshots cannot grant it. */
 export function apiTransport(ctx: CallContext): ApiTransport | undefined { return transports.get(ctx); }
+const isIdentifier = (v: unknown, max = 128): v is string =>
+  typeof v === "string" && v.trim().length >= 1 && v.trim().length <= max && !/[\u0000-\u001f\u007f]/.test(v);
+
 function validBinding(v: unknown): v is ApiTokenBinding {
   if (!v || typeof v !== "object" || Array.isArray(v)) return false;
   const b = v as Record<string, unknown>;
   if (Object.keys(b).some(k => !["audience", "agentId", "projectId", "system", "groups", "memory"].includes(k))) return false;
-  if ((b.audience !== "mcp" && b.audience !== "a2a") || typeof b.agentId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/.test(b.agentId)) return false;
-  if (b.projectId !== undefined && (typeof b.projectId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(b.projectId))) return false;
-  if (b.system !== undefined && (typeof b.system !== "string" || b.system.length === 0 || b.system.length > 128 || /[\u0000-\u001f\u007f]/.test(b.system))) return false;
-  if (b.groups !== undefined && (!Array.isArray(b.groups) || b.groups.some(g => typeof g !== "string" || !/^[a-zA-Z0-9_-]{1,64}$/.test(g)))) return false;
+  if ((b.audience !== "mcp" && b.audience !== "a2a") || !isIdentifier(b.agentId, 128)) return false;
+  if (b.projectId !== undefined && !isIdentifier(b.projectId, 128)) return false;
+  if (b.system !== undefined && !isIdentifier(b.system, 128)) return false;
+  if (b.groups !== undefined && (!Array.isArray(b.groups) || b.groups.some(g => !isIdentifier(g, 64)))) return false;
   if (b.memory !== undefined) {
     if (!b.memory || typeof b.memory !== "object" || Array.isArray(b.memory)) return false;
     const m = b.memory as Record<string, unknown>;
