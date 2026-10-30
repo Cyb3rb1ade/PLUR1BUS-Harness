@@ -563,3 +563,24 @@ test("M6A-B2: unauthenticated GET /oauth/authorize never fetches client metadata
     canaryServer.close();
   }
 });
+
+test("M6A-B3: FileOAuthStore throws on persist write errors", async () => {
+  const { FileOAuthStore } = await import("../src/oauth/store.ts");
+  // Non-writable path
+  const store = new FileOAuthStore("/non_existent_root_dir/not_possible/store.json");
+  const grant = {
+    id: "g-fail",
+    familyId: "fam-fail",
+    userId: "u-1",
+    clientId: "client-a",
+    agentId: "main",
+    audience: "mcp" as const,
+    scopes: ["mcp.read"],
+    createdAt: 1000,
+    lastUsedAt: 1000,
+  };
+  await assert.rejects(
+    async () => store.saveGrant(grant),
+    (err: Error) => !!err,
+  );
+});

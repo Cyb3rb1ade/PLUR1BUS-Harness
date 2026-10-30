@@ -23,7 +23,6 @@ import { SessionStore } from "./session.ts";
 import { systemClock } from "./clock.ts";
 import { loadRemoteStartup, startRemoteRuntime, type RemoteRuntime } from "./remote-runtime.ts";
 import { RemoteCertificates } from "./remote-certificates.ts";
-import { FileOAuthStore } from "./oauth/store.ts";
 
 import { RemotePairingController } from "./remote-pairing-controller.ts";
 import type { Pin } from "../../remote-access/src/fingerprint.ts";
@@ -84,7 +83,7 @@ async function main(): Promise<void> {
     expensive: { capacity: 1000, refillPerSec: 100 },
     upload: { capacity: 1000, refillPerSec: 100 },
   } : undefined;
-  const oauthStore = new FileOAuthStore(join(home, "state", "api", "oauth-grants.json"));
+  const oauthStore = accounts.oauth;
   const common = { core, home, bootstrapConsumed: cleanBootstrap, remotePairing, accounts, users: accounts, tokens: accounts.tokens, totp: accounts.totp, resolveBootstrap: () => resolve("local-owner"), ownerToken: randomBytes(32).toString("base64url"), logger, audit, breakGlassAudit: chain, sharedSessions, sharedLoginChallenges, sharedWebauthnChallenges, requireSecondFactor: startup.requireSecondFactor,
     mcpConfig: () => loadConfig(), a2aConfig: () => loadConfig(), oauthStore, oauthClients: loadConfig()?.oauth?.clients,
     ...(wideRates ? { rateClasses: wideRates } : {}),

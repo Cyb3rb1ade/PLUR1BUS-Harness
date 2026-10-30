@@ -199,7 +199,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   const maintenanceEvents = maintenance && maintenancePort ? createMaintenanceEvents(maintenance, maintenancePort) : undefined;
   const uploads = o.home ? new ExtensionUploads({ home: o.home, now: () => clock.now() }) : undefined;
   const snapshots = o.home ? new ImportSnapshotUploads({ home: o.home, now: () => clock.now() }) : undefined;
-  const oauthStore = o.oauthStore ?? (o.home ? new FileOAuthStore(join(o.home, "state", "api", "oauth-grants.json")) : new MemoryOAuthStore());
+  const oauthStore = o.oauthStore ?? o.accounts?.oauth ?? (o.home ? new FileOAuthStore(join(o.home, "state", "api", "oauth-grants.json")) : new MemoryOAuthStore());
   const oauthService = o.oauthService ?? (tokens ? new OAuthService({
     tokens,
     store: oauthStore,

@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { randomBytes } from "node:crypto";
+import { DatabaseSync } from "node:sqlite";
 import type { OAuthGrantRecord, OAuthRefreshTokenRecord, OAuthStore } from "./types.ts";
 
 export class MemoryOAuthStore implements OAuthStore {
@@ -94,6 +95,171 @@ export class MemoryOAuthStore implements OAuthStore {
   }
 }
 
+export class SqliteOAuthStore implements OAuthStore {
+  readonly #db: DatabaseSync;
+  readonly #safe: <T>(fn: () => T) => T;
+
+  constructor(db: DatabaseSync, safe?: <T>(fn: () => T) => T) {
+    this.#db = db;
+    this.#safe = safe ?? ((fn) => fn());
+    this.#init();
+  }
+
+  #init(): void {
+    this.#safe(() => {
+      this.#db.exec(`
+        CREATE TABLE IF NOT EXISTS oauth_grants (
+          id TEXT PRIMARY KEY,
+          family_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          client_id TEXT NOT NULL,
+          record TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          last_used_at INTEGER NOT NULL
+        ) STRICT;
+        CREATE INDEX IF NOT EXISTS idx_oauth_grants_user ON oauth_grants(user_id);
+        CREATE INDEX IF NOT EXISTS idx_oauth_grants_family ON oauth_grants(family_id);
+
+        CREATE TABLE IF NOT EXISTS oauth_refresh_tokens (
+          token_hash TEXT PRIMARY KEY,
+          grant_id TEXT NOT NULL,
+          family_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          record TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        ) STRICT;
+        CREATE INDEX IF NOT EXISTS idx_oauth_refresh_family ON oauth_refresh_tokens(family_id);
+      `);
+    });
+  }
+
+  async saveGrant(grant: OAuthGrantRecord): Promise<void> {
+    this.#safe(() => {
+      this.#db.prepare(`
+        INSERT INTO oauth_grants (id, family_id, user_id, client_id, record, created_at, last_used_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET record=excluded.record, last_used_at=excluded.last_used_at
+      `).run(
+        grant.id,
+        grant.familyId,
+        grant.userId,
+        grant.clientId,
+        JSON.stringify(grant),
+        grant.createdAt,
+        grant.lastUsedAt,
+      );
+    });
+  }
+
+  async getGrant(grantId: string): Promise<OAuthGrantRecord | undefined> {
+    return this.#safe(() => {
+      const row = this.#db.prepare("SELECT record FROM oauth_grants WHERE id = ?").get(grantId);
+      if (!row) return undefined;
+      return JSON.parse(row.record as string) as OAuthGrantRecord;
+    });
+  }
+
+  async getGrantByFamily(familyId: string): Promise<OAuthGrantRecord | undefined> {
+    return this.#safe(() => {
+      const row = this.#db.prepare("SELECT record FROM oauth_grants WHERE family_id = ? ORDER BY created_at DESC LIMIT 1").get(familyId);
+      if (!row) return undefined;
+      return JSON.parse(row.record as string) as OAuthGrantRecord;
+    });
+  }
+
+  async listGrantsByUser(userId?: string): Promise<readonly OAuthGrantRecord[]> {
+    return this.#safe(() => {
+      let rows: Array<{ record: unknown }>;
+      if (userId) {
+        rows = this.#db.prepare("SELECT record FROM oauth_grants WHERE user_id = ? ORDER BY created_at DESC").all(userId) as Array<{ record: unknown }>;
+      } else {
+        rows = this.#db.prepare("SELECT record FROM oauth_grants ORDER BY created_at DESC").all() as Array<{ record: unknown }>;
+      }
+      return Object.freeze(rows.map((r) => JSON.parse(r.record as string) as OAuthGrantRecord));
+    });
+  }
+
+  async updateGrant(grantId: string, patch: Partial<OAuthGrantRecord>): Promise<void> {
+    this.#safe(() => {
+      const row = this.#db.prepare("SELECT record FROM oauth_grants WHERE id = ?").get(grantId);
+      if (!row) return;
+      const current = JSON.parse(row.record as string) as OAuthGrantRecord;
+      const updated = { ...current, ...patch };
+      this.#db.prepare("UPDATE oauth_grants SET record = ?, last_used_at = ? WHERE id = ?").run(
+        JSON.stringify(updated),
+        updated.lastUsedAt ?? current.lastUsedAt,
+        grantId,
+      );
+    });
+  }
+
+  async deleteGrant(grantId: string): Promise<void> {
+    this.#safe(() => {
+      this.#db.prepare("DELETE FROM oauth_grants WHERE id = ?").run(grantId);
+    });
+  }
+
+  async saveRefreshToken(token: OAuthRefreshTokenRecord): Promise<void> {
+    this.#safe(() => {
+      this.#db.prepare(`
+        INSERT INTO oauth_refresh_tokens (token_hash, grant_id, family_id, user_id, record, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(token_hash) DO UPDATE SET record=excluded.record
+      `).run(
+        token.tokenHash,
+        token.grantId,
+        token.familyId,
+        token.userId,
+        JSON.stringify(token),
+        token.createdAt,
+      );
+    });
+  }
+
+  async getRefreshToken(tokenHash: string): Promise<OAuthRefreshTokenRecord | undefined> {
+    return this.#safe(() => {
+      const row = this.#db.prepare("SELECT record FROM oauth_refresh_tokens WHERE token_hash = ?").get(tokenHash);
+      if (!row) return undefined;
+      return JSON.parse(row.record as string) as OAuthRefreshTokenRecord;
+    });
+  }
+
+  async markRefreshTokenUsed(tokenHash: string): Promise<void> {
+    this.#safe(() => {
+      const row = this.#db.prepare("SELECT record FROM oauth_refresh_tokens WHERE token_hash = ?").get(tokenHash);
+      if (!row) return;
+      const current = JSON.parse(row.record as string) as OAuthRefreshTokenRecord;
+      current.used = true;
+      this.#db.prepare("UPDATE oauth_refresh_tokens SET record = ? WHERE token_hash = ?").run(
+        JSON.stringify(current),
+        tokenHash,
+      );
+    });
+  }
+
+  async revokeFamily(familyId: string): Promise<void> {
+    this.#safe(() => {
+      this.#db.exec("BEGIN IMMEDIATE");
+      try {
+        const now = Date.now();
+        this.#db.prepare("DELETE FROM oauth_refresh_tokens WHERE family_id = ?").run(familyId);
+        const grantRows = this.#db.prepare("SELECT id, record FROM oauth_grants WHERE family_id = ?").all(familyId) as Array<{ id: string; record: string }>;
+        for (const g of grantRows) {
+          const rec = JSON.parse(g.record) as OAuthGrantRecord;
+          if (rec.revokedAt === undefined) {
+            rec.revokedAt = now;
+            this.#db.prepare("UPDATE oauth_grants SET record = ? WHERE id = ?").run(JSON.stringify(rec), g.id);
+          }
+        }
+        this.#db.exec("COMMIT");
+      } catch (e) {
+        this.#db.exec("ROLLBACK");
+        throw e;
+      }
+    });
+  }
+}
+
 export class FileOAuthStore implements OAuthStore {
   readonly #filePath: string;
   readonly #memory = new MemoryOAuthStore();
@@ -117,16 +283,12 @@ export class FileOAuthStore implements OAuthStore {
   }
 
   #persist(): void {
-    try {
-      const dir = dirname(this.#filePath);
-      mkdirSync(dir, { recursive: true, mode: 0o700 });
-      const tmp = join(dir, `.tmp_${randomBytes(8).toString("hex")}`);
-      const content = JSON.stringify(this.#memory.dump(), null, 2);
-      writeFileSync(tmp, content, { mode: 0o600 });
-      renameSync(tmp, this.#filePath);
-    } catch {
-      // Non-fatal store write failure
-    }
+    const dir = dirname(this.#filePath);
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    const tmp = join(dir, `.tmp_${randomBytes(8).toString("hex")}`);
+    const content = JSON.stringify(this.#memory.dump(), null, 2);
+    writeFileSync(tmp, content, { mode: 0o600 });
+    renameSync(tmp, this.#filePath);
   }
 
   async saveGrant(grant: OAuthGrantRecord): Promise<void> {
@@ -179,6 +341,10 @@ export class FileOAuthStore implements OAuthStore {
 export function createOAuthStore(path?: string): OAuthStore {
   if (!path || path === ":memory:") {
     return new MemoryOAuthStore();
+  }
+  if (path.endsWith(".db") || path.endsWith(".sqlite")) {
+    const db = new DatabaseSync(path);
+    return new SqliteOAuthStore(db);
   }
   return new FileOAuthStore(path);
 }
