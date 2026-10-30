@@ -116,6 +116,10 @@ export class OAuthService {
   readonly #clock: Clock;
   readonly #resolver: ClientMetadataResolver;
   readonly #codes = new Map<string, OAuthAuthorizationCode>();
+  readonly #consumedCodes = new Map<
+    string,
+    { familyId: string; grantId: string; userId: string; accessTokenId: string; expiresAt: number }
+  >();
   readonly #baseUrl?: string | undefined;
 
   constructor(options: OAuthServiceOptions) {
@@ -152,6 +156,11 @@ export class OAuthService {
   }): string {
     const code = "plb_code_" + randomBytes(24).toString("base64url");
     const now = this.#clock.now();
+    if (this.#consumedCodes.size > 200) {
+      for (const [c, r] of this.#consumedCodes.entries()) {
+        if (now > r.expiresAt) this.#consumedCodes.delete(c);
+      }
+    }
     const record: OAuthAuthorizationCode = {
       code,
       clientId: params.clientId,
@@ -177,6 +186,10 @@ export class OAuthService {
     redirectUri: string,
     codeVerifier: string,
   ): OAuthAuthorizationCode {
+    if (this.#consumedCodes.has(code)) {
+      throw new OAuthApiError(400, "invalid_grant", "authorization code has already been consumed");
+    }
+
     const record = this.#codes.get(code);
     if (!record) {
       throw new OAuthApiError(400, "invalid_grant", "authorization code is invalid or already consumed");
@@ -210,6 +223,22 @@ export class OAuthService {
     redirectUri: string;
     codeVerifier: string;
   }): Promise<OAuthTokenResponse> {
+    const consumed = this.#consumedCodes.get(params.code);
+    if (consumed) {
+      // S1: A double-redeemed code revokes previously issued tokens and family
+      await this.#store.revokeFamily(consumed.familyId);
+      try {
+        await this.#tokens.revoke(consumed.userId, consumed.accessTokenId);
+      } catch {
+        // ignore
+      }
+      throw new OAuthApiError(
+        400,
+        "invalid_grant",
+        "authorization code reuse detected; associated tokens revoked",
+      );
+    }
+
     const codeRec = this.redeemAuthorizationCode(
       params.code,
       params.clientId,
@@ -266,6 +295,14 @@ export class OAuthService {
       used: false,
     };
     await this.#store.saveRefreshToken(rtRec);
+
+    this.#consumedCodes.set(params.code, {
+      familyId,
+      grantId,
+      userId: codeRec.userId,
+      accessTokenId: tokenRes.record.id,
+      expiresAt: codeRec.expiresAt + 600_000,
+    });
 
     return {
       access_token: tokenRes.token,

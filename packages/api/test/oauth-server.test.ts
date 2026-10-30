@@ -310,7 +310,27 @@ test("M6A-A3.1: POST /oauth/token exchanges authorization code and issues bound 
   assert.ok(tokens.refresh_token.startsWith("plb_rt_"));
   assert.equal(tokens.scope, "agent.use");
 
-  // 3. Single-use: exchanging the same code again fails with 400 invalid_grant
+  // 3. The minted access token works on bound /mcp endpoint before any replay
+  const mcpResBefore = await raw(h, {
+    method: "POST",
+    path: "/mcp",
+    headers: {
+      Authorization: `Bearer ${tokens.access_token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json, text/event-stream",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/list",
+      params: {},
+    }),
+  });
+  assert.equal(mcpResBefore.status, 200);
+  const mcpData = JSON.parse(mcpResBefore.text) as { result?: { tools?: unknown[] } };
+  assert.ok(Array.isArray(mcpData.result?.tools));
+
+  // 4. S1: Code reuse fails with 400 invalid_grant AND revokes the first issued tokens
   const replayRes = await raw(h, {
     method: "POST",
     path: "/oauth/token",
@@ -326,8 +346,8 @@ test("M6A-A3.1: POST /oauth/token exchanges authorization code and issues bound 
   assert.equal(replayRes.status, 400);
   assert.equal(JSON.parse(replayRes.text).error, "invalid_grant");
 
-  // 4. The minted access token works on bound /mcp endpoint
-  const mcpRes = await raw(h, {
+  // 5. Verify the previously minted access token is revoked and rejected on /mcp
+  const mcpResAfter = await raw(h, {
     method: "POST",
     path: "/mcp",
     headers: {
@@ -337,14 +357,26 @@ test("M6A-A3.1: POST /oauth/token exchanges authorization code and issues bound 
     },
     body: JSON.stringify({
       jsonrpc: "2.0",
-      id: 1,
+      id: 2,
       method: "tools/list",
       params: {},
     }),
   });
-  assert.equal(mcpRes.status, 200);
-  const mcpData = JSON.parse(mcpRes.text) as { result?: { tools?: unknown[] } };
-  assert.ok(Array.isArray(mcpData.result?.tools));
+  assert.equal(mcpResAfter.status, 401, "revoked access token must be rejected after code reuse");
+
+  // 6. Verify the refresh token is also revoked
+  const refreshRes = await raw(h, {
+    method: "POST",
+    path: "/oauth/token",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: tokens.refresh_token,
+      client_id: "test-client",
+    }).toString(),
+  });
+  assert.equal(refreshRes.status, 400);
+  assert.equal(JSON.parse(refreshRes.text).error, "invalid_grant");
 });
 
 test("M6A-A3.1: refresh token rotation and family revocation on replay", async (t) => {
