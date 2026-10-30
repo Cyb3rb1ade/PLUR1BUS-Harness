@@ -987,7 +987,13 @@ export function createCore(o: CoreOptions): Core {
           return current?.kind === 'person' && current.userId === id ? people.resolve(current) : null;
         }, clock, audit: rbacAudit, agentId: () => channelAgentId(executionRegistry), baseUrl: () => cfg().core.webHandoffBaseUrl });
       const rawMethods = {
-        ...(memorySensitivity ? buildMemorySensitivityMethods({ service: memorySensitivity, isStopping: () => state.state === "stopping" || state.state === "stopped" }) : {}),
+        ...(memorySensitivity ? buildMemorySensitivityMethods({
+          service: memorySensitivity,
+          isStopping: () => state.state === "stopping" || state.state === "stopped",
+          engine: eng,
+          audit: rbacAudit,
+          clock,
+        }) : {}),
         ...handoffMethods(() => handoff),
         ...deliveryMethods(() => delivery),
         ...buildMethods({ hostEvalHome: l.home,

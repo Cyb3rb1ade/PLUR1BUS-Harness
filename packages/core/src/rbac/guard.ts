@@ -301,14 +301,6 @@ function authorizeMemoryFallback(method: string, principal: Principal, params: u
       if (dec.effect === "allow") return dec;
     }
   }
-  if (method === "memory.sensitivity.set" || method === "memory.sensitivity.clear") {
-    const dec = authorize(principal, "memory.user.write", { kind: "memory", scope: "user", ownerUserId: principal.userId }, authCtx);
-    if (dec.effect === "allow") return dec;
-  }
-  if (method === "memory.sensitivity.get") {
-    const dec = authorize(principal, "memory.user.read", { kind: "memory", scope: "user", ownerUserId: principal.userId }, authCtx);
-    if (dec.effect === "allow") return dec;
-  }
   if (method === "memory.recall") {
     const { tokenScopes: _omitRecall, ...noScopePrincipal } = principal;
     if (authorize(noScopePrincipal, "agent.use", { kind: "agent", agentId }, authCtx).effect !== "allow") return null;
