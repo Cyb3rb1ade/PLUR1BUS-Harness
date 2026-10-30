@@ -55,11 +55,13 @@ export class MemoryOAuthStore implements OAuthStore {
     return t ? structuredClone(t) : undefined;
   }
 
-  async markRefreshTokenUsed(tokenHash: string): Promise<void> {
+  async markRefreshTokenUsed(tokenHash: string): Promise<boolean> {
     const t = this.#refreshTokens.get(tokenHash);
-    if (t) {
-      t.used = true;
+    if (!t || t.used) {
+      return false;
     }
+    t.used = true;
+    return true;
   }
 
   async revokeFamily(familyId: string): Promise<void> {
@@ -224,16 +226,18 @@ export class SqliteOAuthStore implements OAuthStore {
     });
   }
 
-  async markRefreshTokenUsed(tokenHash: string): Promise<void> {
-    this.#safe(() => {
+  async markRefreshTokenUsed(tokenHash: string): Promise<boolean> {
+    return this.#safe(() => {
       const row = this.#db.prepare("SELECT record FROM oauth_refresh_tokens WHERE token_hash = ?").get(tokenHash);
-      if (!row) return;
+      if (!row) return false;
       const current = JSON.parse(row.record as string) as OAuthRefreshTokenRecord;
+      if (current.used) return false;
       current.used = true;
-      this.#db.prepare("UPDATE oauth_refresh_tokens SET record = ? WHERE token_hash = ?").run(
+      const res = this.#db.prepare("UPDATE oauth_refresh_tokens SET record = ? WHERE token_hash = ?").run(
         JSON.stringify(current),
         tokenHash,
       );
+      return res.changes > 0;
     });
   }
 
@@ -327,9 +331,12 @@ export class FileOAuthStore implements OAuthStore {
     return this.#memory.getRefreshToken(tokenHash);
   }
 
-  async markRefreshTokenUsed(tokenHash: string): Promise<void> {
-    await this.#memory.markRefreshTokenUsed(tokenHash);
-    this.#persist();
+  async markRefreshTokenUsed(tokenHash: string): Promise<boolean> {
+    const marked = await this.#memory.markRefreshTokenUsed(tokenHash);
+    if (marked) {
+      this.#persist();
+    }
+    return marked;
   }
 
   async revokeFamily(familyId: string): Promise<void> {

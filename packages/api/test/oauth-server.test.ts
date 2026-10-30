@@ -516,6 +516,70 @@ test("M6A-A3.1: refresh token rotation and family revocation on replay", async (
   assert.equal(JSON.parse(t2Retry.text).error, "invalid_grant");
 });
 
+test("M6A-S2: parallel refreshes with the same refresh token are atomic and cannot both succeed", async (t) => {
+  const h = await start({
+    oauthClients: { "test-client": STATIC_CLIENT },
+    rateClasses: wide,
+  });
+  t.after(() => h.close());
+
+  await addUser(h, { id: "u-atomic", username: "user-atomic", role: "member", agentRights: { main: "use" } });
+  const { cookie } = await loginAs(h, "user-atomic");
+
+  const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+  const challenge = computeCodeChallenge(verifier);
+
+  const authRes = await raw(h, {
+    method: "POST",
+    path: "/oauth/authorize",
+    headers: { Cookie: cookie, "x-csrf-token": await csrfToken(h, cookie), ...jsonHeaders() },
+    body: JSON.stringify({
+      approve: true,
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      scope: "mcp.read",
+    }),
+  });
+  const code = (JSON.parse(authRes.text) as { code: string }).code;
+
+  const t1Res = await raw(h, {
+    method: "POST",
+    path: "/oauth/token",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      grant_type: "authorization_code",
+      code,
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      code_verifier: verifier,
+    }),
+  });
+  const t1 = JSON.parse(t1Res.text) as { refresh_token: string };
+
+  // Trigger two concurrent refresh calls simultaneously with the same refresh token
+  const refreshReq = () =>
+    raw(h, {
+      method: "POST",
+      path: "/oauth/token",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        grant_type: "refresh_token",
+        refresh_token: t1.refresh_token,
+        client_id: "test-client",
+      }),
+    });
+
+  const [resA, resB] = await Promise.all([refreshReq(), refreshReq()]);
+
+  // Both cannot succeed: at least one must fail with 400 invalid_grant
+  const statuses = [resA.status, resB.status];
+  assert.ok(statuses.includes(400), "concurrent refresh race must not both succeed");
+  const failed = statuses.find((s) => s === 400);
+  assert.equal(failed, 400);
+});
+
 test("M6A-A3.1: POST /oauth/revoke revokes tokens per RFC 7009", async (t) => {
   const h = await start({
     oauthClients: { "test-client": STATIC_CLIENT },

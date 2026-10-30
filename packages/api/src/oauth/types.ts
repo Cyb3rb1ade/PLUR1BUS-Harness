@@ -108,7 +108,7 @@ export interface OAuthStore {
 
   saveRefreshToken(token: OAuthRefreshTokenRecord): Promise<void>;
   getRefreshToken(tokenHash: string): Promise<OAuthRefreshTokenRecord | undefined>;
-  markRefreshTokenUsed(tokenHash: string): Promise<void>;
+  markRefreshTokenUsed(tokenHash: string): Promise<boolean>;
   revokeFamily(familyId: string): Promise<void>;
 }
 

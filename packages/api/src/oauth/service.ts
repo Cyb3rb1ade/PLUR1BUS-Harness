@@ -120,6 +120,7 @@ export class OAuthService {
     string,
     { familyId: string; grantId: string; userId: string; accessTokenId: string; expiresAt: number }
   >();
+  readonly #activeRefreshes = new Set<string>();
   readonly #baseUrl?: string | undefined;
 
   constructor(options: OAuthServiceOptions) {
@@ -325,120 +326,161 @@ export class OAuthService {
     scope?: string | undefined;
   }): Promise<OAuthTokenResponse> {
     const tokenHash = sha256(params.refreshToken).toString("hex");
-    const rt = await this.#store.getRefreshToken(tokenHash);
 
-    if (!rt || this.#clock.now() > rt.expiresAt) {
-      throw new OAuthApiError(400, "invalid_grant", "refresh token is invalid or expired");
-    }
-
-    if (rt.clientId !== params.clientId) {
-      throw new OAuthApiError(400, "invalid_grant", "client_id does not match the refresh token");
-    }
-
-    const grant = await this.#store.getGrant(rt.grantId);
-
-    // Replay detection: if this token was already used, revoke the whole family!
-    if (rt.used) {
-      await this.#store.revokeFamily(rt.familyId);
-      if (grant?.activeTokenId) {
-        try {
-          await this.#tokens.revoke(grant.userId, grant.activeTokenId);
-        } catch {
-          // Ignore failure to revoke old active token
+    if (this.#activeRefreshes.has(tokenHash)) {
+      const rt = await this.#store.getRefreshToken(tokenHash);
+      if (rt) {
+        await this.#store.revokeFamily(rt.familyId);
+        const grant = await this.#store.getGrant(rt.grantId);
+        if (grant?.activeTokenId) {
+          try {
+            await this.#tokens.revoke(grant.userId, grant.activeTokenId);
+          } catch {
+            // ignore
+          }
         }
       }
       throw new OAuthApiError(
         400,
         "invalid_grant",
-        "refresh token reuse detected; entire token family has been revoked",
+        "concurrent refresh token reuse detected; entire token family has been revoked",
       );
     }
 
-    if (!grant || grant.revokedAt !== undefined) {
-      throw new OAuthApiError(400, "invalid_grant", "grant has been revoked");
-    }
+    this.#activeRefreshes.add(tokenHash);
+    try {
+      const rt = await this.#store.getRefreshToken(tokenHash);
 
-    // Mark current refresh token as used
-    await this.#store.markRefreshTokenUsed(tokenHash);
+      if (!rt || this.#clock.now() > rt.expiresAt) {
+        throw new OAuthApiError(400, "invalid_grant", "refresh token is invalid or expired");
+      }
 
-    // Determine scopes (can narrow, cannot widen)
-    let scopes = grant.scopes;
-    if (params.scope) {
-      const requested = params.scope.split(/\s+/).filter(Boolean);
-      for (const s of requested) {
-        if (!grant.scopes.includes(s)) {
-          throw new OAuthApiError(
-            400,
-            "invalid_scope",
-            `requested scope '${s}' exceeds granted scopes`,
-          );
+      if (rt.clientId !== params.clientId) {
+        throw new OAuthApiError(400, "invalid_grant", "client_id does not match the refresh token");
+      }
+
+      const grant = await this.#store.getGrant(rt.grantId);
+
+      // Replay detection: if this token was already used, revoke the whole family!
+      if (rt.used) {
+        await this.#store.revokeFamily(rt.familyId);
+        if (grant?.activeTokenId) {
+          try {
+            await this.#tokens.revoke(grant.userId, grant.activeTokenId);
+          } catch {
+            // Ignore failure to revoke old active token
+          }
+        }
+        throw new OAuthApiError(
+          400,
+          "invalid_grant",
+          "refresh token reuse detected; entire token family has been revoked",
+        );
+      }
+
+      if (!grant || grant.revokedAt !== undefined) {
+        throw new OAuthApiError(400, "invalid_grant", "grant has been revoked");
+      }
+
+      // Mark current refresh token as used atomically (CAS)
+      const marked = await this.#store.markRefreshTokenUsed(tokenHash);
+      if (!marked) {
+        await this.#store.revokeFamily(rt.familyId);
+        if (grant.activeTokenId) {
+          try {
+            await this.#tokens.revoke(grant.userId, grant.activeTokenId);
+          } catch {
+            // Ignore failure
+          }
+        }
+        throw new OAuthApiError(
+          400,
+          "invalid_grant",
+          "refresh token reuse detected; entire token family has been revoked",
+        );
+      }
+
+      // Determine scopes (can narrow, cannot widen)
+      let scopes = grant.scopes;
+      if (params.scope) {
+        const requested = params.scope.split(/\s+/).filter(Boolean);
+        for (const s of requested) {
+          if (!grant.scopes.includes(s)) {
+            throw new OAuthApiError(
+              400,
+              "invalid_scope",
+              `requested scope '${s}' exceeds granted scopes`,
+            );
+          }
+        }
+        scopes = Object.freeze(requested);
+      }
+
+      // Mint new access token
+      const tokenRes = await this.#tokens.create(grant.userId, {
+        name: `oauth:${grant.clientId}`,
+        scopes,
+        ttlMs: ACCESS_TOKEN_TTL_MS,
+        binding: {
+          audience: grant.audience,
+          agentId: grant.agentId,
+          ...(grant.projectId !== undefined ? { projectId: grant.projectId } : {}),
+        },
+      });
+
+      // Revoke previous access token
+      if (grant.activeTokenId) {
+        try {
+          await this.#tokens.revoke(grant.userId, grant.activeTokenId);
+        } catch {
+          // Ignore failure
         }
       }
-      scopes = Object.freeze(requested);
-    }
 
-    // Mint new access token
-    const tokenRes = await this.#tokens.create(grant.userId, {
-      name: `oauth:${grant.clientId}`,
-      scopes,
-      ttlMs: ACCESS_TOKEN_TTL_MS,
-      binding: {
-        audience: grant.audience,
-        agentId: grant.agentId,
-        ...(grant.projectId !== undefined ? { projectId: grant.projectId } : {}),
-      },
-    });
+      // Mint new refresh token
+      const newRefreshToken = "plb_rt_" + randomBytes(32).toString("base64url");
+      const newTokenHash = sha256(newRefreshToken).toString("hex");
+      const now = this.#clock.now();
 
-    // Revoke previous access token
-    if (grant.activeTokenId) {
-      try {
-        await this.#tokens.revoke(grant.userId, grant.activeTokenId);
-      } catch {
-        // Ignore failure
-      }
-    }
-
-    // Mint new refresh token
-    const newRefreshToken = "plb_rt_" + randomBytes(32).toString("base64url");
-    const newTokenHash = sha256(newRefreshToken).toString("hex");
-    const now = this.#clock.now();
-
-    const newRtRec: OAuthRefreshTokenRecord = {
-      tokenHash: newTokenHash,
-      grantId: grant.id,
-      familyId: grant.familyId,
-      userId: grant.userId,
-      clientId: grant.clientId,
-      agentId: grant.agentId,
-      projectId: grant.projectId,
-      audience: grant.audience,
-      scopes,
-      resource: grant.resource,
-      createdAt: now,
-      expiresAt: now + REFRESH_TOKEN_TTL_MS,
-      used: false,
-    };
-    await this.#store.saveRefreshToken(newRtRec);
-
-    // Update grant
-    await this.#store.updateGrant(grant.id, {
-      activeTokenId: tokenRes.record.id,
-      lastUsedAt: now,
-      scopes,
-    });
-
-    return {
-      access_token: tokenRes.token,
-      token_type: "Bearer",
-      expires_in: Math.floor(ACCESS_TOKEN_TTL_MS / 1000),
-      refresh_token: newRefreshToken,
-      scope: scopes.join(" "),
-      _meta: {
-        tokenId: tokenRes.record.id,
+      const newRtRec: OAuthRefreshTokenRecord = {
+        tokenHash: newTokenHash,
+        grantId: grant.id,
         familyId: grant.familyId,
+        userId: grant.userId,
         clientId: grant.clientId,
-      },
-    };
+        agentId: grant.agentId,
+        projectId: grant.projectId,
+        audience: grant.audience,
+        scopes,
+        resource: grant.resource,
+        createdAt: now,
+        expiresAt: now + REFRESH_TOKEN_TTL_MS,
+        used: false,
+      };
+      await this.#store.saveRefreshToken(newRtRec);
+
+      // Update grant
+      await this.#store.updateGrant(grant.id, {
+        activeTokenId: tokenRes.record.id,
+        lastUsedAt: now,
+        scopes,
+      });
+
+      return {
+        access_token: tokenRes.token,
+        token_type: "Bearer",
+        expires_in: Math.floor(ACCESS_TOKEN_TTL_MS / 1000),
+        refresh_token: newRefreshToken,
+        scope: scopes.join(" "),
+        _meta: {
+          tokenId: tokenRes.record.id,
+          familyId: grant.familyId,
+          clientId: grant.clientId,
+        },
+      };
+    } finally {
+      this.#activeRefreshes.delete(tokenHash);
+    }
   }
 
   async listGrantsForUser(userId: string): Promise<readonly OAuthGrantRecord[]> {
