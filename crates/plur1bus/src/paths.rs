@@ -220,6 +220,16 @@ impl Layout {
     pub fn state(&self) -> PathBuf {
         self.home.join("state")
     }
+    /// Directory for role-switch working state (handover scratch space), under `state/`.
+    #[allow(dead_code)] // Wired by RS1 (supervisor gate) and RS4 (handover commands); remove then.
+    pub fn role_dir(&self) -> PathBuf {
+        self.state().join("role")
+    }
+    /// The single-writer role record of this node (`state/role.json`); absent means standalone.
+    #[allow(dead_code)] // Wired by RS1 (supervisor gate) and RS4 (handover commands); remove then.
+    pub fn role_record(&self) -> PathBuf {
+        self.state().join("role.json")
+    }
     pub fn journal(&self) -> PathBuf {
         self.state().join("journal")
     }
