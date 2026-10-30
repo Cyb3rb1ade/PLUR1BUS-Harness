@@ -79,21 +79,28 @@ function validate(value: unknown, runId: string): MaintenanceJournal {
     phase: raw.phase as MaintenancePhase, ...metadata, history, secrets };
 }
 
-/** Creates only validated private segments; no linked component can redirect a run's journal. */
-export function maintenanceRunDirectory(home: string, runId: string): string {
+/**
+ * Creates only validated private segments; no linked component can redirect a run's journal. With `create: false` (a
+ * read) the same segments are validated but nothing is created and no permission is applied again: on Windows each
+ * application runs icacls synchronously, which a status request must not pay for every record it reads.
+ */
+export function maintenanceRunDirectory(home: string, runId: string, options: { create?: boolean } = {}): string {
   if (!isAbsolute(home) || !RUN.test(runId)) fail("maintenance-run-invalid");
-  const secure = createSecurePath({ runDir: join(home, "run") });
+  const create = options.create ?? true;
+  const secure = create ? createSecurePath({ runDir: join(home, "run") }) : undefined;
   let current = home;
   for (const part of ["", "imports", runId]) {
     if (part) {
       current = join(current, part);
-      try { mkdirSync(current, { mode: 0o700 }); } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "EEXIST") fail();
+      if (create) {
+        try { mkdirSync(current, { mode: 0o700 }); } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "EEXIST") fail();
+        }
       }
     }
     const info = lstatSync(current, { throwIfNoEntry: false });
     if (!info?.isDirectory() || info.isSymbolicLink()) fail("maintenance-path-unsafe");
-    if (part && !secure(current, { mode: 0o700 }).applied) fail("maintenance-permissions-unavailable");
+    if (part && secure && !secure(current, { mode: 0o700 }).applied) fail("maintenance-permissions-unavailable");
   }
   return current;
 }

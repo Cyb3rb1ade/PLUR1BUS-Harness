@@ -142,12 +142,13 @@ function ticketRecord(value: unknown): ImportPreflightRecord {
 /** Factory has no side effects. Each operation validates fixed private segments before opening a record. */
 export function createImportRecords(home: string, options: { now?: () => number } = {}) {
   const now = options.now ?? Date.now;
-  const path = (kind: "plans" | "preflight", recordId: string) => {
+  // A write creates and secures the record directory; a read only validates it (no icacls per read on Windows).
+  const path = (kind: "plans" | "preflight", recordId: string, create = true) => {
     if (!id(recordId)) throw unavailable();
-    return join(maintenanceRunDirectory(home, kind), recordId + ".json");
+    return join(maintenanceRunDirectory(home, kind, { create }), recordId + ".json");
   };
   const read = async (kind: "plans" | "preflight", recordId: string) => {
-    const bytes = await readColdBytes(path(kind, recordId), MAX_RECORD_BYTES);
+    const bytes = await readColdBytes(path(kind, recordId, false), MAX_RECORD_BYTES);
     return { value: JSON.parse(bytes.toString("utf8")) as unknown,
       sha256: createHash("sha256").update(bytes).digest("hex") };
   };

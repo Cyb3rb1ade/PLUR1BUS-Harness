@@ -268,6 +268,8 @@ fn tls_sni_keeps_the_original_name_for_the_pinned_address() {
             );
             std::thread::sleep(Duration::from_millis(2));
         };
+        // Windows and macOS hand the listener's nonblocking mode to an accepted socket; read_exact below blocks.
+        socket.set_nonblocking(false).unwrap();
         socket
             .set_read_timeout(Some(Duration::from_secs(2)))
             .unwrap();
