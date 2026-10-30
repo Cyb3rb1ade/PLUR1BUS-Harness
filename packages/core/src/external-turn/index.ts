@@ -53,7 +53,8 @@ export interface ExternalTurnGetParams {
 }
 
 export interface ExternalTurnCancelParams {
-  sessionId: string;
+  sessionId?: string | undefined;
+  turnId?: string | undefined;
   agentId?: string | undefined;
   audience?: "mcp" | "a2a" | undefined;
   tokenId?: string | undefined;
@@ -330,22 +331,43 @@ export function createExternalTurnService(d: ExternalTurnDeps): {
   };
 
   const cancelTurn = async (p: ExternalTurnCancelParams, ctx: CallContext): Promise<unknown> => {
-    if (!p || typeof p !== "object" || typeof p.sessionId !== "string") {
-      throw new RpcError("E_INVALID_PARAMS", "sessionId is required");
+    let sessionId = typeof p?.sessionId === "string" ? p.sessionId : undefined;
+    if (!sessionId && typeof p?.turnId === "string") {
+      const turn = d.store.getTurn(p.turnId);
+      if (turn) sessionId = turn.sessionId;
+      if (!sessionId) {
+        for (const [sId, tId] of activeTurns.entries()) {
+          if (tId === p.turnId) {
+            sessionId = sId;
+            break;
+          }
+        }
+      }
+    }
+    if (!sessionId) {
+      throw new RpcError("E_INVALID_PARAMS", "sessionId or turnId is required");
     }
     const principal = authenticatedPrincipal(ctx);
-    const { owner, origin } = resolveOwnerAndOrigin(p, principal, d.store);
-    const s = d.store.getSession(p.sessionId);
-    if (s && s.origin && s.origin !== origin) {
-      throw new RpcError("E_DENIED", "session origin mismatch", { reason: "origin-mismatch" });
+    const s = d.store.getSession(sessionId);
+    if (!s) {
+      throw new RpcError("E_NOT_FOUND", "session not found");
     }
-    const session = d.store.getOwned(p.sessionId, owner);
-    if (session.origin !== origin) throw new RpcError("E_DENIED", "session origin mismatch", { reason: "origin-mismatch" });
+    const isOwner = principal.role === "owner" && !principal.tokenId && !principal.binding;
+    const { owner, origin } = resolveOwnerAndOrigin({ ...p, sessionId }, principal, d.store);
+    if (!isOwner) {
+      if (s.origin && s.origin !== origin) {
+        throw new RpcError("E_DENIED", "session origin mismatch", { reason: "origin-mismatch" });
+      }
+      if (s.owner !== owner) {
+        throw new RpcError("E_NOT_FOUND", "session not found");
+      }
+    }
+    const session = s;
     verifyAgentRight(principal, "agent.use", session.agentId);
 
     const controller = cancels.get(session.id);
     const runningTurn = d.store.runningTurn(session.id);
-    const turnId = runningTurn?.id ?? activeTurns.get(session.id) ?? null;
+    const turnId = runningTurn?.id ?? activeTurns.get(session.id) ?? p?.turnId ?? null;
 
     if (controller && !controller.signal.aborted) {
       controller.abort(new Error("cancelled"));

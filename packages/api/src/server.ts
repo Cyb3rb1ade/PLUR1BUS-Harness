@@ -313,6 +313,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       audit.emit("auth.rate-limited", principalId ?? "anonymous", scope, { class: cls, route: routeId, ip });
       throw errors.rateLimited(retryAfterSec);
     };
+    let cancelTurnIfRunning = () => {};
     try {
       const host = req.headers.host?.toLowerCase();
       if (!host || !allowedHosts.has(host)) throw errors.misdirected();
@@ -658,6 +659,28 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       }
 
       let timer: NodeJS.Timeout | undefined;
+      let activeTurn: { turnId: string; sessionId?: string | undefined } | undefined;
+      const onTurnStart = (turnId: string, sessionId?: string) => {
+        activeTurn = { turnId, sessionId };
+      };
+      cancelTurnIfRunning = () => {
+        if (activeTurn) {
+          const toCancel = activeTurn;
+          activeTurn = undefined;
+          void o.core.call("external.turn.cancel", {
+            turnId: toCancel.turnId,
+            ...(toCancel.sessionId ? { sessionId: toCancel.sessionId } : {}),
+          }).catch(() => {});
+        }
+      };
+
+      const onClose = () => {
+        if (!res.writableEnded) {
+          cancelTurnIfRunning();
+        }
+      };
+      req.once("close", onClose);
+
       const ownCert=req.socket instanceof TLSSocket?req.socket.getCertificate():undefined;
       const candidate=ownCert&&"raw" in ownCert?ownCert.raw:undefined;
       const leaf=Buffer.isBuffer(candidate)?candidate:undefined;
@@ -674,13 +697,19 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
           ? o.limits?.handlerTimeoutMs ?? 300_000
           : limits.handlerTimeoutMs;
       const out = await Promise.race([
-        Promise.resolve(resolved ? perRequest.run(webPrincipal(resolved.rbac, resolved.principal.kind === "owner"), () => handler({ ...handlerInputBase, principal: resolved?.principal, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined }), session ? webConnection(session) : tokenInfo ? `token:${tokenInfo.id}` : undefined, !o.remote && /^(127\.|::1$|::ffff:127\.)/.test(req.socket.remoteAddress ?? "") ? "loopback" : "remote") : handler({ ...handlerInputBase, principal: undefined, rbac: undefined, presentedSessionId: presented })),
+        Promise.resolve(perRequest.run(resolved ? webPrincipal(resolved.rbac, resolved.principal.kind === "owner") : undefined, () => handler({ ...handlerInputBase, principal: resolved?.principal, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined }), session ? webConnection(session) : tokenInfo ? `token:${tokenInfo.id}` : undefined, !o.remote && /^(127\.|::1$|::ffff:127\.)/.test(req.socket.remoteAddress ?? "") ? "loopback" : "remote", onTurnStart)),
         new Promise<import("./routes.ts").HandlerOutput>((resolveTimeout, rej) => {
-          timer = setTimeout(() => spec.id === "web.rpc"
-            ? resolveTimeout({ body: rpcFailure((body as { id?: unknown })?.id ?? null, { error: "E_NOT_AVAILABLE", reason: "handler-timeout" }) })
-            : rej(errors.timeout()), handlerTimeoutMs);
+          timer = setTimeout(() => {
+            cancelTurnIfRunning();
+            spec.id === "web.rpc"
+              ? resolveTimeout({ body: rpcFailure((body as { id?: unknown })?.id ?? null, { error: "E_NOT_AVAILABLE", reason: "handler-timeout" }) })
+              : rej(errors.timeout());
+          }, handlerTimeoutMs);
         }),
-      ]).finally(() => clearTimeout(timer));
+      ]).finally(() => {
+        clearTimeout(timer);
+        req.off("close", onClose);
+      });
       if (session && sessionId && spec.id === "web.rpc") {
         const request = body as { method?: string }, response = out.body as { result?: { runId?: unknown }; error?: unknown };
         if (!response.error && ["admin.import.apply", "admin.import.rollback"].includes(request.method ?? "") && typeof response.result?.runId === "string") {
@@ -709,6 +738,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       }
       send(res, status, out.body, { ...(rotated ? { "Set-Cookie": rotated } : {}), ...out.headers });
     } catch (e) {
+      cancelTurnIfRunning();
       if (bodyTimedOut) return;
       let err: ApiError;
       if (e instanceof ApiError) err = e;

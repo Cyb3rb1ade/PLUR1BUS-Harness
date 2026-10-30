@@ -33,7 +33,7 @@ import {
 } from "@a2a-js/sdk/server";
 import type { ServerResponse } from "node:http";
 import { once } from "node:events";
-import { A2A_DEFAULT_PAGE_SIZE } from "./types.ts";
+import { A2A_DEFAULT_PAGE_SIZE, A2A_TASK_LIMITS, REPLY_TRUNCATED_MARKER } from "./types.ts";
 import { InMemoryTaskStore, SqliteTaskStore } from "./task-store.ts";
 import { createSecretRedaction, redactProtocolOutput } from "../../../core/src/secrets/redaction.ts";
 
@@ -70,6 +70,16 @@ function createErrorMessage(taskId: string, contextId: string, errorText: string
   };
 }
 
+function clipUtf8(text: string, maxBytes: number): string {
+  if (maxBytes <= 0) return "";
+  const head = text.length > maxBytes ? text.slice(0, maxBytes) : text;
+  const buf = Buffer.from(head, "utf8");
+  if (buf.length <= maxBytes) return head;
+  let end = maxBytes;
+  while (end > 0 && (buf[end]! & 0xc0) === 0x80) end--;
+  return buf.subarray(0, end).toString("utf8");
+}
+
 export class A2aAgentExecutor implements AgentExecutor {
   private readonly agentId: string;
   private tokenId: string;
@@ -78,6 +88,7 @@ export class A2aAgentExecutor implements AgentExecutor {
   private readonly taskContexts = new Map<string, string>();
   private readonly taskTokenIds = new Map<string, string>();
   private readonly contextSessions = new Map<string, string>();
+  private readonly liveTasksPerPeer = new Map<string, Set<string>>();
 
   constructor(opts: A2aAgentExecutorOptions) {
     this.agentId = opts.agentId;
@@ -97,6 +108,30 @@ export class A2aAgentExecutor implements AgentExecutor {
     }
     const callerTokenId = requestContext.context?.user?.userName || this.tokenId;
     this.taskTokenIds.set(taskId, callerTokenId);
+
+    const liveTasks = this.liveTasksPerPeer.get(callerTokenId) ?? new Set<string>();
+    if (liveTasks.size >= A2A_TASK_LIMITS.maxLiveTasksPerPeer) {
+      eventBus.publish(
+        AgentEvent.statusUpdate({
+          taskId,
+          contextId,
+          status: {
+            state: TaskState.TASK_STATE_FAILED,
+            message: createErrorMessage(
+              taskId,
+              contextId,
+              `exceeded maximum live tasks per peer (${A2A_TASK_LIMITS.maxLiveTasksPerPeer})`,
+            ),
+            timestamp: new Date().toISOString(),
+          },
+          metadata: undefined,
+        }),
+      );
+      eventBus.finished();
+      return;
+    }
+    liveTasks.add(taskId);
+    this.liveTasksPerPeer.set(callerTokenId, liveTasks);
 
     const now = new Date().toISOString();
     const initialTask: Task = task ?? {
@@ -126,21 +161,33 @@ export class A2aAgentExecutor implements AgentExecutor {
       }),
     );
 
-    const inputText =
-      userMessage.parts
-        .map((p) => {
-          if (p.content?.$case === "text") return p.content.value;
-          if (typeof (p as unknown as { text?: unknown }).text === "string") {
-            return (p as unknown as { text: string }).text;
-          }
-          return "";
-        })
-        .join("") || "";
-
-    const sessionKey = `${callerTokenId}:${contextId}`;
-    const existingSessionId = contextId ? this.contextSessions.get(sessionKey) : undefined;
-
     try {
+      if (userMessage?.parts && userMessage.parts.length > A2A_TASK_LIMITS.maxParts) {
+        throw new Error(`message parts exceed maximum ${A2A_TASK_LIMITS.maxParts}`);
+      }
+
+      if (task?.history && task.history.length > A2A_TASK_LIMITS.maxHistoryLength) {
+        throw new Error(`task history exceeds maximum length ${A2A_TASK_LIMITS.maxHistoryLength}`);
+      }
+
+      const inputText =
+        userMessage.parts
+          .map((p) => {
+            if (p.content?.$case === "text") return p.content.value;
+            if (typeof (p as unknown as { text?: unknown }).text === "string") {
+              return (p as unknown as { text: string }).text;
+            }
+            return "";
+          })
+          .join("") || "";
+
+      if (Buffer.byteLength(inputText, "utf8") > A2A_TASK_LIMITS.maxTextBytes) {
+        throw new Error(`message text exceeds ${A2A_TASK_LIMITS.maxTextBytes} bytes limit`);
+      }
+
+      const sessionKey = `${callerTokenId}:${contextId}`;
+      const existingSessionId = contextId ? this.contextSessions.get(sessionKey) : undefined;
+
       const result = await this.core.call<{
         sessionId: string;
         turnId: string;
@@ -162,10 +209,28 @@ export class A2aAgentExecutor implements AgentExecutor {
       }
 
       if (result.state === "completed") {
-        const chunks =
+        const rawChunks =
           result.chunks && result.chunks.length > 0
             ? result.chunks
             : [result.reply ?? ""];
+
+        let totalBytes = 0;
+        const chunks: string[] = [];
+        let hitLimit = false;
+
+        for (const rawChunk of rawChunks) {
+          if (hitLimit) break;
+          const chunkBytes = Buffer.byteLength(rawChunk, "utf8");
+          if (totalBytes + chunkBytes > A2A_TASK_LIMITS.maxReplyBytes) {
+            const allowed = A2A_TASK_LIMITS.maxReplyBytes - totalBytes - Buffer.byteLength(REPLY_TRUNCATED_MARKER, "utf8");
+            const clipped = (allowed > 0 ? clipUtf8(rawChunk, allowed) : "") + REPLY_TRUNCATED_MARKER;
+            chunks.push(clipped);
+            hitLimit = true;
+          } else {
+            chunks.push(rawChunk);
+            totalBytes += chunkBytes;
+          }
+        }
 
         for (let i = 0; i < chunks.length; i++) {
           const redactedChunk = redactProtocolOutput(chunks[i] ?? "", "a2a", this.secretRedaction);
@@ -240,6 +305,11 @@ export class A2aAgentExecutor implements AgentExecutor {
         }),
       );
     } finally {
+      const live = this.liveTasksPerPeer.get(callerTokenId);
+      if (live) {
+        live.delete(taskId);
+        if (live.size === 0) this.liveTasksPerPeer.delete(callerTokenId);
+      }
       eventBus.finished();
     }
   }

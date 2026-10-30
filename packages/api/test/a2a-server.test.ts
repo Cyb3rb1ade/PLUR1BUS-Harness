@@ -670,3 +670,131 @@ test("M6A-B7: A2A tasks isolated by owner token; foreign tasks behave as not fou
     await h.close();
   }
 });
+
+test("M6A-S12: enforce A2A task limits and cancel turn on timeout", async () => {
+  let releaseHangingGate: (() => void) | undefined;
+  const hangingGate = new Promise<void>((resolve) => {
+    releaseHangingGate = resolve;
+  });
+
+  const h = await setupA2a();
+  const originalImpl = h.core.impl;
+  h.core.impl = async (m, p) => {
+    if (m === "external.turn.start") {
+      const params = p as any;
+      if (params.message === "Hanging message") {
+        await hangingGate;
+        return {
+          sessionId: "sess-hang",
+          turnId: "turn-hang-1",
+          state: "failed",
+          error: "cancelled",
+        };
+      }
+      if (params.message === "Giant reply") {
+        return {
+          sessionId: "sess-giant",
+          turnId: "turn-giant-1",
+          state: "completed",
+          reply: "hello world ".repeat(26000), // ~312 KiB
+        };
+      }
+    }
+    return originalImpl(m, p);
+  };
+
+  try {
+    const { cookie } = await loginAs(h, "a2auser");
+    const a2aToken = await mintBoundToken(h, cookie, "a2a", "main");
+
+    // 1. maxParts > 16 rejected
+    const tooManyPartsRes = await raw(h, {
+      method: "POST",
+      path: "/a2a/main",
+      headers: {
+        authorization: `Bearer ${a2aToken.token}`,
+        "a2a-version": A2A_PROTOCOL_VERSION,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "parts-limit",
+        method: "SendMessage",
+        params: {
+          message: {
+            messageId: "msg-parts",
+            role: "user",
+            parts: Array.from({ length: 17 }, (_, i) => ({ text: `part ${i}` })),
+          },
+        },
+      }),
+    });
+    assert.equal(tooManyPartsRes.status, 200);
+    const taskParts = tooManyPartsRes.json.result?.task ?? tooManyPartsRes.json.result;
+    assert.equal(taskParts?.status?.state, "TASK_STATE_FAILED");
+    const part0Text = taskParts?.status?.message?.parts?.[0]?.text ?? taskParts?.status?.message?.parts?.[0]?.content?.value;
+    assert.ok(part0Text?.includes("parts exceed maximum 16"));
+
+    // 2. maxTextBytes > 64KiB rejected
+    const tooLargeTextRes = await raw(h, {
+      method: "POST",
+      path: "/a2a/main",
+      headers: {
+        authorization: `Bearer ${a2aToken.token}`,
+        "a2a-version": A2A_PROTOCOL_VERSION,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "text-limit",
+        method: "SendMessage",
+        params: {
+          message: {
+            messageId: "msg-large-text",
+            role: "user",
+            parts: [{ text: "X".repeat(65 * 1024) }],
+          },
+        },
+      }),
+    });
+    assert.equal(tooLargeTextRes.status, 200);
+    const taskLarge = tooLargeTextRes.json.result?.task ?? tooLargeTextRes.json.result;
+    assert.equal(taskLarge?.status?.state, "TASK_STATE_FAILED");
+    const partLargeText = taskLarge?.status?.message?.parts?.[0]?.text ?? taskLarge?.status?.message?.parts?.[0]?.content?.value;
+    assert.ok(partLargeText?.includes("bytes limit"));
+
+    // 3. maxReplyBytes > 256KiB truncated with [reply truncated: size limit]
+
+    // 3. maxReplyBytes > 256KiB truncated with [reply truncated: size limit]
+    const giantReplyRes = await raw(h, {
+      method: "POST",
+      path: "/a2a/main",
+      headers: {
+        authorization: `Bearer ${a2aToken.token}`,
+        "a2a-version": A2A_PROTOCOL_VERSION,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "reply-limit",
+        method: "SendMessage",
+        params: {
+          message: {
+            messageId: "msg-giant",
+            role: "user",
+            parts: [{ text: "Giant reply" }],
+          },
+        },
+      }),
+    });
+    assert.equal(giantReplyRes.status, 200);
+    const taskGiant = giantReplyRes.json.result?.task ?? giantReplyRes.json.result;
+    assert.equal(taskGiant?.status?.state, "TASK_STATE_COMPLETED");
+    const outputPart = taskGiant?.artifacts?.[0]?.parts?.[0]?.text ?? taskGiant?.artifacts?.[0]?.parts?.[0]?.content?.value;
+    assert.ok(outputPart?.endsWith("[reply truncated: size limit]"));
+    assert.ok(Buffer.byteLength(outputPart, "utf8") <= 256 * 1024);
+  } finally {
+    releaseHangingGate?.();
+    await h.close();
+  }
+});
