@@ -458,6 +458,77 @@ test("M6A-A3.1: POST /oauth/revoke revokes tokens per RFC 7009", async (t) => {
     body: new URLSearchParams({ token: "unknown_token" }).toString(),
   });
   assert.equal(revokeUnknown.status, 200);
+
+  // M6A-B4: Revocation with token ID but wrong secret has no effect
+  // Issue another token
+  const authRes2 = await raw(h, {
+    method: "POST",
+    path: "/oauth/authorize",
+    headers: { Cookie: cookie, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      response_type: "code",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      approve: true,
+      scopes: ["mcp.read"],
+    }),
+  });
+  const code2 = (JSON.parse(authRes2.text) as { code: string }).code;
+  const tokenRes2 = await raw(h, {
+    method: "POST",
+    path: "/oauth/token",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      grant_type: "authorization_code",
+      code: code2,
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      code_verifier: verifier,
+    }),
+  });
+  const tokens2 = JSON.parse(tokenRes2.text) as { access_token: string; refresh_token: string };
+  const realToken = tokens2.access_token;
+  const match = /^plb_([0-9a-f]{12})_([A-Za-z0-9_-]{43})$/.exec(realToken);
+  assert.ok(match);
+  const tokenId = match[1]!;
+  // Fake secret with real token ID
+  const fakeToken = `plb_${tokenId}_0000000000000000000000000000000000000000000`;
+
+  // POST /oauth/revoke with fake secret returns 200 per RFC 7009
+  const revokeFake = await raw(h, {
+    method: "POST",
+    path: "/oauth/revoke",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ token: fakeToken, token_type_hint: "access_token" }).toString(),
+  });
+  assert.equal(revokeFake.status, 200);
+
+  // The real token was NOT revoked!
+  const whoami2 = await raw(h, {
+    method: "GET",
+    path: "/api/v1/whoami",
+    headers: { Authorization: `Bearer ${realToken}` },
+  });
+  assert.equal(whoami2.status, 200);
+
+  // Now revoking with the real secret succeeds
+  const revokeReal = await raw(h, {
+    method: "POST",
+    path: "/oauth/revoke",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ token: realToken, token_type_hint: "access_token" }).toString(),
+  });
+  assert.equal(revokeReal.status, 200);
+
+  // Now the real token is revoked
+  const whoami3 = await raw(h, {
+    method: "GET",
+    path: "/api/v1/whoami",
+    headers: { Authorization: `Bearer ${realToken}` },
+  });
+  assert.equal(whoami3.status, 401);
 });
 
 test("M6A-A3.1: client_id metadata document resolves dynamically and blocks SSRF", async (t) => {

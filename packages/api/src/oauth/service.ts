@@ -422,12 +422,10 @@ export class OAuthService {
     }
 
     // 2. Try access token
-    if (token.startsWith("plb_")) {
-      // Extract token id: plb_<id>_<secret>
-      const match = /^plb_([0-9a-f]{12})_/.exec(token);
-      if (match) {
-        const tokenId = match[1]!;
-        // Find grant by activeTokenId
+    if (token.startsWith("plb_") && !token.startsWith("plb_rt_")) {
+      const auth = await this.#tokens.authenticate(token);
+      if (auth.ok || auth.reason === "revoked" || auth.reason === "expired") {
+        const tokenId = auth.ok ? auth.record.id : auth.id!;
         for (const g of await this.#store.listGrantsByUser("")) {
           if (g.activeTokenId === tokenId) {
             await this.#tokens.revoke(g.userId, tokenId);
