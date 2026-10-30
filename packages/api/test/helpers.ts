@@ -41,6 +41,7 @@ export interface StartOptions {
   tokens?: import("../src/ports.ts").TokenStore;
   mcpConfig?: ApiServerOptions["mcpConfig"];
   a2aConfig?: ApiServerOptions["a2aConfig"];
+  taskStore?: ApiServerOptions["taskStore"];
   oauthStore?: ApiServerOptions["oauthStore"];
   oauthService?: ApiServerOptions["oauthService"];
   oauthClients?: ApiServerOptions["oauthClients"];
@@ -63,6 +64,7 @@ export async function start(o: StartOptions = {}): Promise<Harness> {
     ...(o.limits ? { limits: o.limits } : {}), ...(o.rateClasses ? { rateClasses: o.rateClasses } : {}), ...(o.sessionLimits ? { sessionLimits: o.sessionLimits } : {}),
     ...(o.tokens ? { tokens: o.tokens } : {}), ...(o.mcpConfig ? { mcpConfig: o.mcpConfig } : {}),
     ...(o.a2aConfig ? { a2aConfig: o.a2aConfig } : {}),
+    ...(o.taskStore ? { taskStore: o.taskStore } : {}),
     ...(o.oauthStore ? { oauthStore: o.oauthStore } : {}), ...(o.oauthService ? { oauthService: o.oauthService } : {}), ...(o.oauthClients ? { oauthClients: o.oauthClients } : {}),
     ...(o.sharedSessions ? { sharedSessions: o.sharedSessions } : {}),
     ...(o.lockout ? { lockout: o.lockout } : {}), ...(o.extraRoutes ? { extraRoutes: o.extraRoutes } : {}), ...(o.webRoot ? { webRoot: o.webRoot } : {}),

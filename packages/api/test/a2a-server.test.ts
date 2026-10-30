@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { A2A_PROTOCOL_VERSION } from "@a2a-js/sdk";
 import { TaskState } from "@a2a-js/sdk";
+import { SqliteTaskStore } from "../src/a2a/task-store.ts";
 import {
   addUser,
   fakeCore,
@@ -28,6 +29,7 @@ const setupA2a = async (opts: {
   legacy03?: boolean;
   expensiveCapacity?: number;
   expensiveConcurrency?: number;
+  taskStore?: (agentId: string) => import("../src/a2a/task-store.ts").TaskStore;
 } = {}) => {
   const core = fakeCore();
   let releaseCancelGate: (() => void) | undefined;
@@ -101,6 +103,7 @@ const setupA2a = async (opts: {
     core,
     a2aConfig,
     expensiveConcurrency: opts.expensiveConcurrency ?? 8,
+    ...(opts.taskStore ? { taskStore: opts.taskStore } : {}),
   });
 
   await addUser(h, { id: "u-a2a", username: "a2auser", role: "member", agentRights: { main: "use", agent2: "use" } });
@@ -480,6 +483,190 @@ test("M6A-A4.5: enables 0.3 compatibility when legacy03 is true and handles lega
     const resTask = legacyRes.json.result;
     assert.ok(resTask.id || resTask.task?.id);
   } finally {
+    await h.close();
+  }
+});
+
+test("M6A-B7: A2A tasks isolated by owner token; foreign tasks behave as not found; per-owner task limits enforced", async () => {
+  const stores = new Map<string, SqliteTaskStore>();
+  const taskStore = (agentId: string) => {
+    let s = stores.get(agentId);
+    if (!s) {
+      s = new SqliteTaskStore({ path: ":memory:", agentId, maxTasksPerOwner: 2 });
+      stores.set(agentId, s);
+    }
+    return s;
+  };
+
+  const h = await setupA2a({ taskStore });
+  try {
+    const { cookie } = await loginAs(h, "a2auser");
+    const tokenA = await mintBoundToken(h, cookie, "a2a", "main");
+    const tokenB = await mintBoundToken(h, cookie, "a2a", "main");
+
+    // 1. Peer A creates a task
+    const sendResA = await raw(h, {
+      method: "POST",
+      path: "/a2a/main",
+      headers: {
+        authorization: `Bearer ${tokenA.token}`,
+        "a2a-version": A2A_PROTOCOL_VERSION,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "create-task-a",
+        method: "SendMessage",
+        params: {
+          message: {
+            messageId: "msg-a-1",
+            role: "user",
+            parts: [{ text: "Task from Peer A" }],
+          },
+        },
+      }),
+    });
+    assert.equal(sendResA.status, 200);
+    const taskA = sendResA.json.result?.task ?? sendResA.json.result;
+    assert.ok(taskA?.id);
+    const taskIdA = taskA.id;
+
+    // 2. Peer A lists tasks -> sees taskA
+    const listResA = await raw(h, {
+      method: "POST",
+      path: "/a2a/main",
+      headers: {
+        authorization: `Bearer ${tokenA.token}`,
+        "a2a-version": A2A_PROTOCOL_VERSION,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: "list-a", method: "ListTasks", params: {} }),
+    });
+    assert.equal(listResA.status, 200);
+    assert.equal(listResA.json.result?.tasks?.length, 1);
+    assert.equal(listResA.json.result?.tasks?.[0]?.id, taskIdA);
+
+    // 3. Peer B lists tasks -> receives empty list (Peer A's task is NOT visible to Peer B)
+    const listResB = await raw(h, {
+      method: "POST",
+      path: "/a2a/main",
+      headers: {
+        authorization: `Bearer ${tokenB.token}`,
+        "a2a-version": A2A_PROTOCOL_VERSION,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: "list-b", method: "ListTasks", params: {} }),
+    });
+    assert.equal(listResB.status, 200);
+    assert.equal(listResB.json.result?.tasks?.length, 0);
+
+    // 4. Peer B attempts GetTask for taskA -> Task not found (-32001)
+    const getResB = await raw(h, {
+      method: "POST",
+      path: "/a2a/main",
+      headers: {
+        authorization: `Bearer ${tokenB.token}`,
+        "a2a-version": A2A_PROTOCOL_VERSION,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: "get-b", method: "GetTask", params: { id: taskIdA } }),
+    });
+    assert.equal(getResB.status, 200);
+    assert.equal(getResB.json.error?.code, -32001);
+
+    // 5. Peer B attempts CancelTask for taskA -> Task not found (-32001)
+    const cancelResB = await raw(h, {
+      method: "POST",
+      path: "/a2a/main",
+      headers: {
+        authorization: `Bearer ${tokenB.token}`,
+        "a2a-version": A2A_PROTOCOL_VERSION,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: "cancel-b", method: "CancelTask", params: { id: taskIdA } }),
+    });
+    assert.equal(cancelResB.status, 200);
+    assert.equal(cancelResB.json.error?.code, -32001);
+
+    // 6. Peer B attempts to send a follow-up message referencing Peer A's taskId -> Task not found (-32001)
+    const sendFollowupB = await raw(h, {
+      method: "POST",
+      path: "/a2a/main",
+      headers: {
+        authorization: `Bearer ${tokenB.token}`,
+        "a2a-version": A2A_PROTOCOL_VERSION,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "followup-b",
+        method: "SendMessage",
+        params: {
+          message: {
+            taskId: taskIdA,
+            messageId: "msg-b-hijack",
+            role: "user",
+            parts: [{ text: "Hijack attempt" }],
+          },
+        },
+      }),
+    });
+    assert.equal(sendFollowupB.status, 200);
+    assert.equal(sendFollowupB.json.error?.code, -32001);
+
+    // 7. Enforce per-owner task limit (maxTasksPerOwner: 2)
+    // Peer A creates task 2 -> succeeds
+    const sendResA2 = await raw(h, {
+      method: "POST",
+      path: "/a2a/main",
+      headers: {
+        authorization: `Bearer ${tokenA.token}`,
+        "a2a-version": A2A_PROTOCOL_VERSION,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "create-task-a2",
+        method: "SendMessage",
+        params: {
+          message: {
+            messageId: "msg-a-2",
+            role: "user",
+            parts: [{ text: "Task 2 from Peer A" }],
+          },
+        },
+      }),
+    });
+    assert.equal(sendResA2.status, 200);
+    const taskA2 = sendResA2.json.result?.task ?? sendResA2.json.result;
+    assert.ok(taskA2?.id);
+
+    // Peer A creates task 3 -> rejected with quota exceeded
+    const sendResA3 = await raw(h, {
+      method: "POST",
+      path: "/a2a/main",
+      headers: {
+        authorization: `Bearer ${tokenA.token}`,
+        "a2a-version": A2A_PROTOCOL_VERSION,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "create-task-a3",
+        method: "SendMessage",
+        params: {
+          message: {
+            messageId: "msg-a-3",
+            role: "user",
+            parts: [{ text: "Task 3 from Peer A" }],
+          },
+        },
+      }),
+    });
+    assert.equal(sendResA3.status, 200);
+    assert.equal(sendResA3.json.error?.code, -32004); // UnsupportedOperation / quota exceeded
+  } finally {
+    for (const s of stores.values()) s.close();
     await h.close();
   }
 });

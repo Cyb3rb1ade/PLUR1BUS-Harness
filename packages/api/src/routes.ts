@@ -307,6 +307,7 @@ export interface HandlerDeps {
   audit: AuditEmitter;
   mcpConfig?: import("./mcp/activation.ts").McpServerConfigLike | (() => Promise<import("./mcp/activation.ts").McpServerConfigLike | undefined> | import("./mcp/activation.ts").McpServerConfigLike | undefined) | undefined;
   a2aConfig?: import("./a2a/activation.ts").A2aServerConfigLike | (() => Promise<import("./a2a/activation.ts").A2aServerConfigLike | undefined> | import("./a2a/activation.ts").A2aServerConfigLike | undefined) | undefined;
+  taskStore?: ((agentId: string) => import("./a2a/task-store.ts").TaskStore) | undefined;
   oauthService?: import("./oauth/service.ts").OAuthService | undefined;
   isRemote?: boolean | undefined;
 }

@@ -73,6 +73,7 @@ export class A2aAgentExecutor implements AgentExecutor {
   private tokenId: string;
   private readonly core: CoreLike;
   private readonly taskContexts = new Map<string, string>();
+  private readonly taskTokenIds = new Map<string, string>();
   private readonly contextSessions = new Map<string, string>();
 
   constructor(opts: A2aAgentExecutorOptions) {
@@ -90,6 +91,8 @@ export class A2aAgentExecutor implements AgentExecutor {
     if (contextId) {
       this.taskContexts.set(taskId, contextId);
     }
+    const callerTokenId = requestContext.context?.user?.userName || this.tokenId;
+    this.taskTokenIds.set(taskId, callerTokenId);
 
     const now = new Date().toISOString();
     const initialTask: Task = task ?? {
@@ -130,7 +133,8 @@ export class A2aAgentExecutor implements AgentExecutor {
         })
         .join("") || "";
 
-    const existingSessionId = contextId ? this.contextSessions.get(contextId) : undefined;
+    const sessionKey = `${callerTokenId}:${contextId}`;
+    const existingSessionId = contextId ? this.contextSessions.get(sessionKey) : undefined;
 
     try {
       const result = await this.core.call<{
@@ -145,12 +149,12 @@ export class A2aAgentExecutor implements AgentExecutor {
         ...(existingSessionId ? { sessionId: existingSessionId } : {}),
         message: inputText,
         audience: "a2a",
-        tokenId: this.tokenId,
+        tokenId: callerTokenId,
         wait: true,
       });
 
       if (contextId && result.sessionId) {
-        this.contextSessions.set(contextId, result.sessionId);
+        this.contextSessions.set(sessionKey, result.sessionId);
       }
 
       if (result.state === "completed") {
@@ -237,12 +241,13 @@ export class A2aAgentExecutor implements AgentExecutor {
 
   async cancelTask(taskId: string, eventBus: ExecutionEventBus): Promise<void> {
     const sessionId = this.taskContexts.get(taskId) || taskId;
+    const taskToken = this.taskTokenIds.get(taskId) || this.tokenId;
     try {
       await this.core.call("external.turn.cancel", {
         sessionId,
         agentId: this.agentId,
         audience: "a2a",
-        tokenId: this.tokenId,
+        tokenId: taskToken,
       });
     } catch {
       // ignore cancel error if turn already terminated

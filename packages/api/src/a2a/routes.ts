@@ -326,6 +326,8 @@ export function buildA2aHandlers(
       const callContext = new ServerCallContext({
         requestedExtensions: Extensions.parseServiceParameter(extHeader),
         ...(versionHeader !== undefined ? { requestedVersion: versionHeader } : {}),
+        user: { isAuthenticated: true, userName: tokenId },
+        tenant: agentId,
       });
 
       const host = (reqHeaders["host"] as string | undefined) || "127.0.0.1";
@@ -346,7 +348,6 @@ export function buildA2aHandlers(
             taskStore,
           }),
       );
-      serverCore.executor.setTokenId(tokenId);
 
       let resultOrStream: unknown;
       try {
