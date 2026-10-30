@@ -1581,9 +1581,6 @@
                   },
                   "project_id": {
                     "type": "string"
-                  },
-                  "totp_code": {
-                    "type": "string"
                   }
                 }
               }

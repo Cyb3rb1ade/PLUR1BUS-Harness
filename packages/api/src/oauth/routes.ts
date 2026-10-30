@@ -101,7 +101,6 @@ export const OAUTH_ROUTES: readonly RouteSpec[] = [
         scope: { type: "string" },
         agent_id: { type: "string" },
         project_id: { type: "string" },
-        totp_code: { type: "string" },
       },
     },
     successStatus: 200,

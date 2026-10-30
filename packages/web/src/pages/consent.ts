@@ -49,8 +49,6 @@ export function ConsentPage(): View {
   const [selectedAgent, setSelectedAgent] = useState(requestedAgentId ?? "main");
   const [availableScopes, setAvailableScopes] = useState<string[]>([]);
   const [selectedScopes, setSelectedScopes] = useState<Set<string>>(new Set());
-  const [secondFactorRequired, setSecondFactorRequired] = useState(false);
-  const [totpCode, setTotpCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -88,22 +86,18 @@ export function ConsentPage(): View {
           if (res.status === 403) {
             const body = await res.json().catch(() => ({})) as { error?: string; reason?: string };
             if (body.error === "second-factor-required" || body.reason === "second-factor-required") {
-              if (!cancelled) setSecondFactorRequired(true);
+              if (!cancelled) setError(t("oauth.mfa.required"));
             }
           } else if (res.ok) {
             const data = await res.json() as {
               client_name?: string;
               scopes?: string[];
-              second_factor_required?: boolean;
             };
             if (!cancelled) {
               if (data.client_name) setClientName(data.client_name);
               if (Array.isArray(data.scopes) && data.scopes.length > 0) {
                 setAvailableScopes(data.scopes);
                 setSelectedScopes(new Set(data.scopes));
-              }
-              if (data.second_factor_required) {
-                setSecondFactorRequired(true);
               }
             }
           }
@@ -164,7 +158,6 @@ export function ConsentPage(): View {
           agent_id: selectedAgent,
           project_id: projectId,
           scope: Array.from(selectedScopes).join(" "),
-          ...(totpCode ? { totp_code: totpCode } : {}),
         }),
       });
 
@@ -175,7 +168,7 @@ export function ConsentPage(): View {
       }
 
       if (body.error === "second-factor-required" || body.reason === "second-factor-required") {
-        setSecondFactorRequired(true);
+        setError(t("oauth.mfa.required"));
         setStatusMessage(null);
         setSubmitting(false);
         return;
@@ -281,19 +274,6 @@ export function ConsentPage(): View {
             ),
           )
         ),
-      ) : null,
-
-      secondFactorRequired ? h("div", { class: "field", role: "alert", style: "background: var(--warn-bg); padding: 12px; border-radius: 8px;" },
-        h("p", { style: "margin: 0 0 8px; font-size: 0.9em;" }, t("oauth.mfa.required")),
-        h("label", { for: "consent-totp" }, t("oauth.mfa.code")),
-        h("input", {
-          id: "consent-totp",
-          type: "text",
-          value: totpCode,
-          autocomplete: "one-time-code",
-          disabled: submitting,
-          onInput: (e: Event) => setTotpCode((e.target as HTMLInputElement).value),
-        }),
       ) : null,
 
       error ? h("p", { class: "form-notice", role: "alert" }, error) : null,

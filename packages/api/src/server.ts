@@ -439,7 +439,6 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
           },
         };
         via = "token"; tokenRecord = r.record; tokenInfo = { id: r.record.id, prefix: `plb_${r.record.id}`, scopes: r.record.scopes, expiresAt: r.record.expiresAt, ...(r.record.binding !== undefined ? { binding: r.record.binding } : {}) };
-        if(secondFactorRequired(resolved.principal.role,!!o.remote,o.requireSecondFactor))throw errors.forbidden("second-factor-required");
         principalId = resolved.principal.id; rateKey = `token:${r.record.id}`;
         const tv = limiter.take(cls, rateKey);
         if (!tv.ok) rateLimited(rateKey, cls, tv.retryAfterSec);
