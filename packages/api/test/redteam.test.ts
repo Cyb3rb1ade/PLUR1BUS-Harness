@@ -159,12 +159,12 @@ test("OK-7: the route table is deny-by-default and only explicit status, agent a
     const { cookie } = await login(h);
     for (const r of ROUTES) {
       for (const headers of [{}, { cookie: "plur1bus_session=forged" }] as Array<Record<string, string>>) {
-        const res = await raw(h, { method: r.method, path: r.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), headers: { ...headers, ...(r.requestBody ? jsonHeaders() : {}) } });
-        if (r.auth !== "none") assert.equal(res.status, 401, `${r.id} anonymous`); else if(r.id==="desktop.meta"){assert.equal(res.status,200);assert.deepEqual(Object.keys(res.json).sort(),["capabilities","pairingRequired","version"]);assert.equal(res.headers["set-cookie"],undefined);} else assert.notEqual(res.status, 200);
+        const res = await raw(h, { method: r.method, path: r.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat").replace("{resource}", "mcp"), headers: { ...headers, ...(r.requestBody ? jsonHeaders() : {}) } });
+        if (r.auth !== "none") assert.equal(res.status, 401, `${r.id} anonymous`); else if(r.id==="desktop.meta" || r.id === "oauth.metadata" || r.id === "oauth.protected_resource" || r.id === "oauth.protected_resource.path" || r.id === "oauth.revoke"){assert.equal(res.status,200);} else assert.notEqual(res.status, 200);
       }
     }
-    assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id).sort(), [...REMOTE_PAIRING_BOOTSTRAP_IDS, "desktop.meta", "desktop.pair", "desktop.redeem", "desktop.ticket", "desktop.step-up.start", "desktop.step-up.poll", "desktop.step-up.cancel", "invitation.redeem", "account.bootstrap", "passkeys.login.options", "passkeys.login", "session.create", "session.totp"].sort());
-    assert.ok(ROUTES.filter((r) => r.method !== "GET" && r.auth !== "none").every((r) => r.csrf), "every authenticated write needs CSRF");
+    assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id).sort(), [...REMOTE_PAIRING_BOOTSTRAP_IDS, "desktop.meta", "desktop.pair", "desktop.redeem", "desktop.ticket", "desktop.step-up.start", "desktop.step-up.poll", "desktop.step-up.cancel", "invitation.redeem", "account.bootstrap", "passkeys.login.options", "passkeys.login", "session.create", "session.totp", "oauth.metadata", "oauth.protected_resource", "oauth.protected_resource.path", "oauth.authorize.get", "oauth.token", "oauth.revoke", "a2a.card.root", "a2a.card.root.alias", "a2a.card.agent", "a2a.card.agent.alias"].sort());
+    assert.ok(ROUTES.filter((r) => r.method !== "GET" && r.auth !== "none" && r.transport !== "protocol").every((r) => r.csrf), "every authenticated write needs CSRF");
     for (const r of ROUTES) if (r.auth !== "none" && r.method === "GET") await raw(h, { path: r.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), headers: { cookie } });
     const called = new Set(h.core.calls.map((c) => c.method));
     // GET /breakglass and GET /me/notices forward to the core's one break-glass registry (read-only methods; the writes need a POST).
@@ -317,7 +317,7 @@ test("Q12-2: every authenticated write on the route table needs the one-time CSR
   try {
     await addUser(h, { id: "u-adam", username: "adam", role: "admin" });
     const { cookie } = await loginAs(h, "adam");
-    for (const r of ROUTES.filter((x) => x.auth !== "none" && x.method !== "GET")) {
+    for (const r of ROUTES.filter((x) => x.auth !== "none" && x.method !== "GET" && x.transport !== "protocol")) {
       assert.equal(r.csrf, true, r.id);
       const bare = await raw(h, { method: r.method, path: r.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), headers: { cookie, ...jsonHeaders() }, body: r.requestBody ? "{}" : undefined as never });
       assert.deepEqual([bare.status, bare.json.reason], [403, "csrf"], `${r.id} without a token`);

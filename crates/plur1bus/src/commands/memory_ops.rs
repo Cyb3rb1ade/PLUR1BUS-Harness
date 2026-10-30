@@ -532,6 +532,82 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                 );
             }
         },
+        MemoryCmd::Mark {
+            id,
+            category,
+            agent,
+        } => {
+            let mut params = json!({ "id": id, "categories": category });
+            if let Some(ref a) = agent {
+                require_agent(out, &config, a);
+                params["agentId"] = json!(a);
+            }
+            call(
+                out,
+                layout,
+                "memory.sensitivity.set",
+                params,
+                "memory.sensitivity.set/1",
+                |v| {
+                    let cats = v["categories"]
+                        .as_array()
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|c| c.as_str())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        })
+                        .unwrap_or_default();
+                    format!(
+                        "marked {} [{}] (source: {})",
+                        v["id"].as_str().unwrap_or("?"),
+                        cats,
+                        v["source"].as_str().unwrap_or("?")
+                    )
+                },
+            );
+        }
+        MemoryCmd::Unmark {
+            id,
+            category,
+            agent,
+        } => {
+            let mut params = json!({ "id": id });
+            if let Some(ref c) = category {
+                params["category"] = json!(c);
+            }
+            if let Some(ref a) = agent {
+                require_agent(out, &config, a);
+                params["agentId"] = json!(a);
+            }
+            call(
+                out,
+                layout,
+                "memory.sensitivity.clear",
+                params,
+                "memory.sensitivity.clear/1",
+                |v| {
+                    let remaining = v["remaining"]
+                        .as_array()
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|c| c.as_str())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        })
+                        .unwrap_or_default();
+                    if remaining.is_empty() {
+                        format!("unmarked {} (cleared all)", v["id"].as_str().unwrap_or("?"))
+                    } else {
+                        format!(
+                            "unmarked {} (remaining: [{}])",
+                            v["id"].as_str().unwrap_or("?"),
+                            remaining
+                        )
+                    }
+                },
+            );
+        }
     }
 }
 

@@ -76,6 +76,7 @@ import { buildCollabSurface } from "./rpc/collab-surface.ts";
 import { buildIdentitySurface } from "./rpc/identity-surface.ts";
 import { AdminStore } from "./identity/admin-store.ts";
 import { deriveUserPrincipal } from "./identity/principals.ts";
+import { MemorySensitivityStore, MemorySensitivityService, buildMemorySensitivityMethods } from "./memory-sensitivity/index.ts";
 import { AgentLifecycle } from "./agents/lifecycle.ts";
 import { activeAgents, lifecycleAdmission, lifecycleEngine } from "./agents/admission.ts";
 import { registerAgentConfig, unregisterAgentConfig } from "./agents/config.ts";
@@ -177,6 +178,8 @@ export interface Core {
   approvalService(): Promise<ApprovalService>;
   /** In-process composition port; no collab RPC or RBAC surface is added. */
   collaboration(): import("./collab/service.ts").Collab | null;
+  /** Festlegung 5: memory sensitivity marking and cache service. */
+  memorySensitivity(): MemorySensitivityService | null;
 }
 type State = ProcessState & { since: number };
 
@@ -296,6 +299,7 @@ export function createCore(o: CoreOptions): Core {
   let inbox: InboxComposition | null = null; const inboxPort = lateInboxPort(() => inbox?.service ?? null);
   let modelLicences: LicenceLedger | null = null;
   let adminPeople: AdminStore | null = null; let agentLifecycle: AgentLifecycle | null = null;
+  let memorySensitivity: MemorySensitivityService | null = null;
   let identity: IdentityService | null = null; // M3: humans, linked channel identities and pairing (`state/identity.sqlite`)
   let budget: BudgetService | null = null;
   let auditChain: AuditChain | null = null;
@@ -499,6 +503,8 @@ export function createCore(o: CoreOptions): Core {
         scaffold: (id) => supervised.scaffold(id), workspaceOf: (id) => pick((r) => r.workspaceOf(id)),
       };
       const lifecycle = new AgentLifecycle({ path: path.join(l.state, "agent-lifecycle.sqlite") }); agentLifecycle = lifecycle;
+      const sensitivityStore = new MemorySensitivityStore({ path: path.join(l.state, "memory-sensitivity.sqlite") });
+      memorySensitivity = new MemorySensitivityService({ store: sensitivityStore });
       const executionRegistry = activeAgents(registry, lifecycle);
       agents = registry;
       registry.list(); // trigger scaffold of initial agents via refresh()
@@ -680,7 +686,13 @@ export function createCore(o: CoreOptions): Core {
         if (!people.resolvePerson(p.userId)) return null;
         const current = o.rbac?.resolvePerson ? o.rbac.resolvePerson(p.userId) : { ...p, kind: "person" as const };
         if (!current || current.userId !== p.userId || current.kind !== "person") return null;
-        return { ...people.resolve(current), kind: p.kind, ...(p.tokenScopes ? { tokenScopes: p.tokenScopes } : {}) };
+        return {
+          ...people.resolve(current),
+          kind: p.kind,
+          ...(p.tokenScopes ? { tokenScopes: p.tokenScopes } : {}),
+          ...(p.tokenId !== undefined ? { tokenId: p.tokenId } : {}),
+          ...(p.binding !== undefined ? { binding: p.binding } : {}),
+        };
       });
       const resolvePrincipal: PrincipalResolver = async (ctx, method, params) => {
         const forwarded = apiPrincipal(ctx);
@@ -773,7 +785,7 @@ export function createCore(o: CoreOptions): Core {
         maintenance: { held: () => importHold.held, onRelease: callback => importHold.onRelease(callback) },
         voiceConfigSource: changes => cs.set(changes), importConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal,
         surfaceOf: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }),
-        resolveCollaborationPerson: id => people.resolvePerson(id), secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
+        resolveCollaborationPerson: id => people.resolvePerson(id), secrets: secretStore, memorySensitivity: () => memorySensitivity, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
         // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or
         // grant-covered turns) and is refused with a typed error only when a call needs a person's approval.
         approver: async (ctx, params) => { const principal = await resolvePrincipal(ctx, "session.submit", params); return { person: principal && principal.kind === "person" ? principal.userId : null, surface: connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }; },
@@ -975,9 +987,17 @@ export function createCore(o: CoreOptions): Core {
           return current?.kind === 'person' && current.userId === id ? people.resolve(current) : null;
         }, clock, audit: rbacAudit, agentId: () => channelAgentId(executionRegistry), baseUrl: () => cfg().core.webHandoffBaseUrl });
       const rawMethods = {
+        ...(memorySensitivity ? buildMemorySensitivityMethods({
+          service: memorySensitivity,
+          isStopping: () => state.state === "stopping" || state.state === "stopped",
+          engine: eng,
+          audit: rbacAudit,
+          clock,
+        }) : {}),
         ...handoffMethods(() => handoff),
         ...deliveryMethods(() => delivery),
         ...buildMethods({ hostEvalHome: l.home,
+        memorySensitivity: () => memorySensitivity,
         engine: eng, config: cfg, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
         isStopping: () => state.state === "stopping" || state.state === "stopped",
         // Deferred so the core.shutdown reply is written before the server closes its connections.
@@ -1266,7 +1286,7 @@ export function createCore(o: CoreOptions): Core {
       await step(log, "budget close", () => { budget?.close(); budget = null; });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
       await step(log, "metrics close", async () => { await metricsHttp?.close(); }); metricsHttp = null;
-      await step(log, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; hostClients?.close(); hostClients = null; agentLifecycle?.close(); agentLifecycle = null; });
+      await step(log, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; hostClients?.close(); hostClients = null; agentLifecycle?.close(); agentLifecycle = null; memorySensitivity?.close(); memorySensitivity = null; });
       await step(log, "identity close", () => { identity?.close(); identity = null; });
       await step(log, "server close", async () => { await server?.close({ graceMs: 1000 }); }); server = null;
       await step(log, "lock release", () => { lock?.release(); }); lock = null;
@@ -1352,7 +1372,7 @@ export function createCore(o: CoreOptions): Core {
       // A re-embedding run in flight ends at its next batch boundary (aborted, resumable) before the engine closes under it.
       await step(logger, "re-embedding run", async () => { await reembed?.stop(Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
-      await step(logger, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; hostClients?.close(); hostClients = null; agentLifecycle?.close(); agentLifecycle = null; }, errors);
+      await step(logger, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; hostClients?.close(); hostClients = null; agentLifecycle?.close(); agentLifecycle = null; memorySensitivity?.close(); memorySensitivity = null; }, errors);
       await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null; handoff?.close(); handoff = null;
       await step(logger, "identity close", () => { identity?.close(); identity = null; }, errors);
       await step(logger, "budget close", () => { budget?.close(); budget = null; }, errors);
@@ -1379,5 +1399,5 @@ export function createCore(o: CoreOptions): Core {
     if (!permissions) throw new RpcError("E_NOT_AVAILABLE", "the core is not running", { reason: "stopping" });
     return (await permissions.open()).service;
   };
-  return { start, stop, status, address, token, layout: l, currentConfig: () => source?.current() ?? null, metrics, approvalService, collaboration: () => turnComposition?.collab ?? null };
+  return { start, stop, status, address, token, layout: l, currentConfig: () => source?.current() ?? null, metrics, approvalService, collaboration: () => turnComposition?.collab ?? null, memorySensitivity: () => memorySensitivity };
 }

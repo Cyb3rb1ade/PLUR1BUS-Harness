@@ -185,11 +185,22 @@ caller typed (a failed login records a stable hash of it).
 | `auth.rate-limited`, `auth.csrf-refused` | throttled to one per actor and target per minute |
 | `auth.denied` | a refused write (method other than GET) |
 | `break-glass.granted`, `.used`, `.expired`, `.revoked`, `.notify-failed` | written by core's registry (the only one) |
+| `mcp.server.call` | an MCP tool was executed by a foreign host (detail: `tokenId`, `tool`, `agentId`) |
+| `mcp.server.denied` | an MCP tool call was denied (detail: `tokenId`, `tool`, `agentId`, `reason`) |
 
 Auth events are queued and written off the request path (core shares the chain's OS lock, and a contended append would stop
 the event loop); a few retries, then the event is counted and logged by action name only. Break-glass writes the chain
 directly and fails closed. A tampered chain refuses new lines, so after tampering auth events are dropped and logged while
 requests keep answering and break-glass refuses.
+
+## Protocol routes (/mcp)
+
+Protocol routes (`transport: "protocol"`) handle non-browser client protocols such as MCP and A2A.
+
+* `POST /mcp`: Dual-era MCP endpoint supporting both 2026-07-28 (stateless JSON-RPC with mandatory `Mcp-*` headers and `_meta`) and 2025-11-25 (Streamable HTTP via SDK v1).
+* **Authentication:** Bearer token only. The personal API token must carry `binding: { audience: "mcp", agentId: "<id>" }`. Missing authentication returns HTTP 401 with `WWW-Authenticate: Bearer resource_metadata="..."` (RFC 9728).
+* **Limits:** Route rate class `rpc`; model-backed turns (`agent_ask`) draw from `expensive` and acquire an installation-wide `expensiveConcurrency` slot. Request body cap 256 KiB, body timeout 10 s, handler timeout 60 s.
+* See [mcp-server.md](mcp-server.md) for full protocol details.
 
 ## Running it
 

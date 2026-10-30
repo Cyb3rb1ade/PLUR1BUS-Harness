@@ -212,6 +212,15 @@ An audit entry's attribute group describes the line's `detail`. Groups marked *o
 |---|---|---|---|---|---|---|
 | `agent.create` | harness | — | agent_creation |  | experimental | Registration intent before settings, files and initial rights are committed; no submitted content. |
 | `agent.created` | harness | — | agent_creation |  | experimental | Successful Config Schema registration; settings and credentials never enter the audit detail. |
+| `mcp.server.call` | harness | — | mcp_server_call | `tokenId`, `tool`, `agentId` | activity, experimental | A tool was called by a foreign host on the harness MCP server. |
+| `mcp.server.denied` | harness | — | mcp_server_denied | `tokenId`, `tool`, `agentId` | activity, experimental | A tool call was denied on the harness MCP server. |
+| `a2a.server.call` | harness | — | a2a_server_call | `tokenId`, `method`, `agentId` | activity, experimental | A JSON-RPC method was called by a foreign peer on the harness A2A server. |
+| `a2a.server.denied` | harness | — | a2a_server_denied | `tokenId`, `method`, `agentId` | activity, experimental | A JSON-RPC call was denied on the harness A2A server. |
+| `oauth.authorize` | harness | — | oauth_authorize | `clientId`, `audience`, `scopes` | activity, experimental | An authorization code was issued or consent approved. |
+| `oauth.token` | harness | — | oauth_token | `clientId`, `audience`, `agentId`, `tokenId` | activity, experimental | An authorization code was exchanged for an access token. |
+| `oauth.refresh` | harness | — | oauth_refresh | `clientId`, `tokenId`, `familyId` | activity, experimental | An access token was renewed using a refresh token. |
+| `oauth.revoke` | harness | — | oauth_revoke | `clientId` | activity, experimental | An OAuth token or refresh token family was revoked. |
+| `oauth.denied` | harness | — | oauth_denied | `clientId`, `reason` | activity, experimental | An OAuth authorization or token request was denied. |
 | `licence.accept-nc` | harness | — | audit_licence | `useClass` |  | Records acceptance of the non-commercial licence for embedding use; pre-D111 HB12 action, unchanged. |
 | `setup.complete` | harness | — | audit_setup |  |  | Records successful completion of setup and the selected installation; pre-D111 HB12 action, unchanged. |
 | `repair.*` | harness | — | audit_repair | `status` |  | Records the outcome of an applied repair step; pre-D111 HB12 `repair.<step>` family: any name under `repair.` that satisfies the name rule. |
@@ -965,6 +974,97 @@ Audit chain recovery/journal metadata emitted by the shared writer.
 | `limitLines` | `integer` |  |
 | `limitBytes` | `integer` |  |
 
+#### `mcp_server_call` (open)
+
+Detail for `mcp.server.call` audit event: tool invocation by foreign host via MCP server (no arguments or results).
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `tokenId` | `string` | Identifier of the agent-bound token used for authentication. |
+| `tool` | `string` | Invoked MCP tool name. |
+| `agentId` | `string` | Target agent identifier. |
+
+#### `mcp_server_denied` (open)
+
+Detail for `mcp.server.denied` audit event: rejected MCP server call (no arguments or results).
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `tokenId` | `string` | Identifier of the agent-bound token if present. |
+| `tool` | `string` | Attempted tool name. |
+| `agentId` | `string` | Target agent identifier. |
+| `reason` | `string` | Denial reason slug. |
+
+#### `a2a_server_call` (open)
+
+Detail for `a2a.server.call` audit event: JSON-RPC method invocation by foreign peer via A2A server.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `tokenId` | `string` | Identifier of the agent-bound token used for authentication. |
+| `method` | `string` | Invoked A2A JSON-RPC method name, truncated. |
+| `agentId` | `string` | Target agent identifier. |
+
+#### `a2a_server_denied` (open)
+
+Detail for `a2a.server.denied` audit event: rejected A2A server call.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `tokenId` | `string` | Identifier of the agent-bound token if present. |
+| `method` | `string` | Attempted A2A JSON-RPC method name, truncated. |
+| `agentId` | `string` | Target agent identifier. |
+| `reason` | `string` | Denial reason slug. |
+
+#### `oauth_authorize` (open)
+
+Detail for `oauth.authorize` audit event: authorization code issued or consent approved.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `clientId` | `string` | OAuth client identifier. |
+| `audience` | `string` | Protocol audience (e.g. mcp or a2a). |
+| `scopes` | `string` | Granted scope string. |
+
+#### `oauth_token` (open)
+
+Detail for `oauth.token` audit event: authorization code exchanged for token.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `clientId` | `string` | OAuth client identifier. |
+| `audience` | `string` | Protocol audience (e.g. mcp or a2a). |
+| `agentId` | `string` | Agent identifier the token is bound to. |
+| `tokenId` | `string` | Issued access token identifier. |
+
+#### `oauth_refresh` (open)
+
+Detail for `oauth.refresh` audit event: token refreshed via refresh token.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `clientId` | `string` | OAuth client identifier. |
+| `tokenId` | `string` | New access token identifier. |
+| `familyId` | `string` | Refresh token family identifier. |
+
+#### `oauth_revoke` (open)
+
+Detail for `oauth.revoke` audit event: token or refresh token family revoked.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `clientId` | `string` | OAuth client identifier if known. |
+| `tokenId` | `string` | Revoked token identifier if known. |
+
+#### `oauth_denied` (open)
+
+Detail for `oauth.denied` audit event: OAuth request denied or rejected.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `clientId` | `string` | OAuth client identifier. |
+| `reason` | `string` | Denial reason. |
+
 ## Redaction data
 
 The writer applies these rules in order (`secret`, `key`, `pattern`, `url`, `path`, `pii`) to `msg`, `attrs`, `err`, wrapped text and audit detail; a match is
@@ -1008,6 +1108,8 @@ replaced by `[REDACTED:{rule}]`. Patterns use the subset common to ECMAScript an
   - `cloud-cli`: `.aws`, `.azure`, `.config/gcloud`, `.kube`, `.docker/config.json`, `.config/gh`
   - `dotenv`: `.env`, `.env.*`, `.npmrc`, `.netrc`, `.pgpass`
 - **`pii`** (patterns, §4 rule 6): Email addresses and phone numbers; applied only when logs.redactPii is true (default false). Enabled by `logs.redactPii` (default false).
+  - `iban`: `[A-Z]{2}[0-9]{2}(?:[ ]?[0-9A-Z]{4}){2,7}(?:[ ]?[0-9A-Z]{1,4})?` (flags `i`), left boundary — International Bank Account Number (IBAN)
+  - `card-number`: `(?:4[0-9]{3}(?:[ -]?[0-9]{4}){3}(?:[ -]?[0-9]{3})?|5[1-5][0-9]{2}(?:[ -]?[0-9]{4}){3}|2[2-7][0-9]{2}(?:[ -]?[0-9]{4}){3}|3[47][0-9]{2}[ -]?[0-9]{6}[ -]?[0-9]{5}|3[47][0-9]{13}|6(?:011|5[0-9]{2})(?:[ -]?[0-9]{4}){3}|(?:[0-9]{4}[ -]){3}[0-9]{4})`, left boundary — payment card number (credit or debit)
   - `email`: `[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}` — email address
   - `phone-e164`: `\+[1-9][0-9]{6,14}` — E.164 phone number
   - `phone-nanp`: `\(?[0-9]{3}\)?[ .-][0-9]{3}[ .-][0-9]{4}` — North American number with separators

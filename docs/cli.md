@@ -65,6 +65,8 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus memory curation list`↴](#plur1bus-memory-curation-list)
 * [`plur1bus memory curation keep`↴](#plur1bus-memory-curation-keep)
 * [`plur1bus memory curation drop`↴](#plur1bus-memory-curation-drop)
+* [`plur1bus memory mark`↴](#plur1bus-memory-mark)
+* [`plur1bus memory unmark`↴](#plur1bus-memory-unmark)
 * [`plur1bus memory reembed`↴](#plur1bus-memory-reembed)
 * [`plur1bus session`↴](#plur1bus-session)
 * [`plur1bus session list`↴](#plur1bus-session-list)
@@ -288,6 +290,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus plugin disable`↴](#plur1bus-plugin-disable)
 * [`plur1bus mcp`↴](#plur1bus-mcp)
 * [`plur1bus mcp import`↴](#plur1bus-mcp-import)
+* [`plur1bus mcp serve`↴](#plur1bus-mcp-serve)
 * [`plur1bus ext`↴](#plur1bus-ext)
 * [`plur1bus ext inspect`↴](#plur1bus-ext-inspect)
 * [`plur1bus ext pack`↴](#plur1bus-ext-pack)
@@ -888,6 +891,8 @@ Memory: add and recall through the core
 * `propose` — [experimental] Propose a correction to a shared memory
 * `proposals` — [experimental] List, accept or reject shared-memory correction proposals
 * `curation` — [experimental] Human curation of memory candidates (separate from correction proposals)
+* `mark` — [experimental] Mark sensitivity categories on a memory entry
+* `unmark` — [experimental] Clear sensitivity categories from a memory entry
 * `reembed` — [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
 
 
@@ -1163,6 +1168,40 @@ Recall relevant memory blocks through the core (stable, ADR-016 §4)
 
 ###### **Options:**
 
+* `--agent <AGENT>`
+
+
+
+## `plur1bus memory mark`
+
+[experimental] Mark sensitivity categories on a memory entry
+
+**Usage:** `plur1bus memory mark [OPTIONS] --category <CATEGORY> <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+###### **Options:**
+
+* `--category <CATEGORY>` — sensitivity categories (comma-separated or repeated): health, financial, credential, identity, personal
+* `--agent <AGENT>`
+
+
+
+## `plur1bus memory unmark`
+
+[experimental] Clear sensitivity categories from a memory entry
+
+**Usage:** `plur1bus memory unmark [OPTIONS] <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+###### **Options:**
+
+* `--category <CATEGORY>` — specific sensitivity category to clear; clears all manual markings if omitted
 * `--agent <AGENT>`
 
 
@@ -4626,6 +4665,7 @@ MCP bundle compatibility commands
 ###### **Subcommands:**
 
 * `import` — [experimental] Alias for `plugin install`: inspect and install an MCP bundle
+* `serve` — [experimental] Serve the harness MCP server on stdin/stdout for foreign hosts (M6-A)
 
 
 
@@ -4647,6 +4687,20 @@ MCP bundle compatibility commands
 * `--allow-downgrade` — Acknowledge that the package is a lower version than the installed one (with --yes; a terminal asks)
 * `--dry-run` — Only inspect: print the disclosure (`ext.inspect/1` with --json) and install nothing
 * `--yes` — Do not ask (required outside a terminal); acknowledges the capabilities, but never a trust tier or a downgrade: those need their --allow-* flag
+
+
+
+## `plur1bus mcp serve`
+
+[experimental] Serve the harness MCP server on stdin/stdout for foreign hosts (M6-A)
+
+stdout carries only MCP JSON-RPC lines; diagnostics go to stderr. Reads agent-bound token from PLUR1BUS_MCP_TOKEN. Not affected by `--json`.
+
+**Usage:** `plur1bus mcp serve [OPTIONS]`
+
+###### **Options:**
+
+* `--agent <AGENT>` — The agent to expose on the MCP server (default: the only registered agent)
 
 
 

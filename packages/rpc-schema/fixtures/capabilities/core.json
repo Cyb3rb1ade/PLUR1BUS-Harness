@@ -528,6 +528,18 @@
       "stability": "experimental",
       "since": "1.0.0"
     },
+    "memory.sensitivity.clear": {
+      "stability": "experimental",
+      "since": "1.9.0"
+    },
+    "memory.sensitivity.get": {
+      "stability": "experimental",
+      "since": "1.9.0"
+    },
+    "memory.sensitivity.set": {
+      "stability": "experimental",
+      "since": "1.9.0"
+    },
     "memory.share": {
       "stability": "experimental",
       "since": "1.0.0"
@@ -727,6 +739,22 @@
     "events.unsubscribe": {
       "stability": "stable",
       "since": "1.0.0"
+    },
+    "external.turn.start": {
+      "stability": "experimental",
+      "since": "1.9.0"
+    },
+    "external.turn.events": {
+      "stability": "experimental",
+      "since": "1.9.0"
+    },
+    "external.turn.get": {
+      "stability": "experimental",
+      "since": "1.9.0"
+    },
+    "external.turn.cancel": {
+      "stability": "experimental",
+      "since": "1.9.0"
     },
     "decision.status": {
       "stability": "experimental",

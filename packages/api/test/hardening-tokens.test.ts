@@ -40,8 +40,8 @@ const MIN_ROLE: Record<string, string> = {
   "breakglass.request": "admin", "breakglass.list": "admin", "breakglass.revoke": "admin", "notices.list": "viewer",
 };
 // Native approval start/poll/cancel perform their own exact enrolled-device bearer check; ordinary PAT auth is never substituted.
-const PUBLIC = ["desktop.meta", "desktop.pair", "desktop.redeem", "desktop.ticket", "desktop.step-up.start", "desktop.step-up.poll", "desktop.step-up.cancel", "invitation.redeem", "session.create", "session.totp", "account.bootstrap", "passkeys.login.options", "passkeys.login", "remote.pair-proof", "remote.device.pair"];
-const SELF_SERVICE = ["csrf.issue", "desktop.step-up.approval", "desktop.step-up.decision", "session.delete", "sessions.revoke-all", "whoami"];
+const PUBLIC = ["desktop.meta", "desktop.pair", "desktop.redeem", "desktop.ticket", "desktop.step-up.start", "desktop.step-up.poll", "desktop.step-up.cancel", "invitation.redeem", "session.create", "session.totp", "account.bootstrap", "passkeys.login.options", "passkeys.login", "remote.pair-proof", "remote.device.pair", "oauth.metadata", "oauth.protected_resource", "oauth.protected_resource.path", "oauth.authorize.get", "oauth.token", "oauth.revoke", "a2a.card.root", "a2a.card.root.alias", "a2a.card.agent", "a2a.card.agent.alias"];
+const SELF_SERVICE = ["csrf.issue", "desktop.step-up.approval", "desktop.step-up.decision", "session.delete", "sessions.revoke-all", "whoami", "oauth.grants.list", "oauth.grants.revoke", "oauth.authorize.post"];
 
 function minRoleOf(action: string): string | undefined {
   const spec = policyFor(action); if (!spec) return undefined;
@@ -54,7 +54,14 @@ test("every route has a classification: public (login only), self-service, or an
     const az = (r as { authz?: RouteSpec["authz"] }).authz;
     if (az === undefined) { problems.push(`${r.id}: no authz`); continue; }
     if (az === "public") { if (!PUBLIC.includes(r.id) || r.auth !== "none") problems.push(`${r.id}: public but not a login step`); continue; }
-    if (az === "delegated") { if (!["web.rpc", "web.events"].includes(r.id) || r.auth !== "session") problems.push(`${r.id}: invalid delegated route`); continue; }
+    if (az === "delegated") {
+      if (r.transport === "protocol") {
+        if (r.auth !== "any") problems.push(`${r.id}: protocol delegated route must specify any auth`);
+      } else if (!["web.rpc", "web.events"].includes(r.id) || r.auth !== "session") {
+        problems.push(`${r.id}: invalid delegated route`);
+      }
+      continue;
+    }
     if (az === "authenticated") { if (!SELF_SERVICE.includes(r.id)) problems.push(`${r.id}: authenticated without being session self-service`); continue; }
     if (!policyFor(az.action)) { problems.push(`${r.id}: action ${az.action} is not in the policy table`); continue; }
     const min = minRoleOf(az.action);
@@ -67,7 +74,15 @@ test("every route has a classification: public (login only), self-service, or an
 
 test("a route that is public or only needs a live session can never be an action a human-only or secret-handling role table guards", () => {
   for (const r of ROUTES) {
-    if (r.authz === "delegated") { assert.equal(r.auth, "session"); assert.ok(["web.rpc", "web.events"].includes(r.id)); continue; }
+    if (r.authz === "delegated") {
+      if (r.transport === "protocol") {
+        assert.equal(r.auth, "any");
+      } else {
+        assert.equal(r.auth, "session");
+        assert.ok(["web.rpc", "web.events"].includes(r.id));
+      }
+      continue;
+    }
     if (r.authz === "public" || r.authz === "authenticated") continue;
     const spec = policyFor(r.authz.action)!;
     if (["extensions.upload", "extensions.inspect", "imports.snapshot.upload"].includes(r.id)) {
@@ -194,7 +209,7 @@ test("the owner token is a credential for the login body only: in no other place
       ["query token", {}, `?token=${t}`], ["query owner_token", {}, `?owner_token=${t}&access_token=${t}`],
     ];
     for (const spec of ROUTES) {
-      if (spec.id === "session.create") continue;
+      if (spec.id === "session.create" || spec.id.startsWith("oauth.")) continue;
       for (const [label, headers, query] of placements) {
         const r = await raw(h, { method: spec.method, path: spec.path + query, headers: { ...headers, ...(spec.requestBody ? jsonHeaders() : {}) }, ...(spec.requestBody ? { body: JSON.stringify({ token: t, challenge: t, code: t, id: t, name: t }) } : {}) });
         if(spec.id==="desktop.meta") {

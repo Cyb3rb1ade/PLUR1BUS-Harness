@@ -11,9 +11,10 @@ import { Palette } from "./palette/palette.ts";
 import { bindPalette } from "./palette/hotkey.ts";
 import { JoinPage } from "./pages/join.ts";
 import { LoginPage } from "./pages/login.ts";
+import { ConsentPage } from "./pages/consent.ts";
 import { NotFoundPage } from "./pages/not-found.ts";
 import { pageFor } from "./pages/registry.ts";
-import { navigate, path, resolve, route, type Route } from "./router.ts";
+import { navigate, path, query, resolve, route, type Route } from "./router.ts";
 import { sessionState } from "./session.ts";
 
 let returnTo: string | null = null;
@@ -27,7 +28,9 @@ export function bindApp(): () => void {
       if (s.status === "checking") return;
       if (s.status === "anonymous" && r.kind !== "login" && r.kind !== "join" && !(r.kind === "page" && r.item.id === "setup")) {
         const p = path.value;
-        returnTo = resolve(p).kind === "page" ? p : null;
+        const q = query.value.toString();
+        const full = q ? `${p}?${q}` : p;
+        returnTo = r.kind === "consent" ? full : resolve(p).kind === "page" ? p : null;
         navigate("/login", { replace: true, force: true });
       } else if (s.status === "authenticated" && r.kind === "login") {
         const to = returnTo ?? LANDING;
@@ -39,7 +42,7 @@ export function bindApp(): () => void {
     effect(() => { document.documentElement.lang = lang.value; }),
     effect(() => {
       const r = route.value;
-      const name = r.kind === "page" ? t(r.item.label) : r.kind === "login" ? t("login.title") : t("notfound.title");
+      const name = r.kind === "page" ? t(r.item.label) : r.kind === "login" ? t("login.title") : r.kind === "consent" ? t("oauth.title") : t("notfound.title");
       document.title = `${name} · PLUR1BUS`;
     }),
   ];
@@ -80,6 +83,7 @@ export function App(): View | null {
   if (s.status === "checking") return h("div", { class: "boot", role: "status" }, t("app.loading"));
   if (r.kind === "join") return h(JoinPage, {});
   if (r.kind === "login") return h(LoginPage, {});
+  if (r.kind === "consent") return h(ConsentPage, {});
   if (s.status === "anonymous" && r.kind === "page" && r.item.id === "setup") return h("main", { id: "main", class: "page" }, h(Routed, { r }));
   if (s.status !== "authenticated") return h("div", { class: "boot", role: "status" }, t("app.loading"));
   return h(Shell, { r });

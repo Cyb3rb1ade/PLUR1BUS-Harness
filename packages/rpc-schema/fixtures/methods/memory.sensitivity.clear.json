@@ -1,0 +1,2 @@
+{ "params": { "id": "m-1", "agentId": "bernd", "category": "health" },
+  "result": { "id": "m-1", "cleared": true, "remaining": ["financial"] } }

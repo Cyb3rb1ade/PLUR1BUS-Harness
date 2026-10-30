@@ -26,3 +26,37 @@ test("transport is a closed delegation fact, separate from person authority", ()
   const forged = { requestId: "r", connectionId: "c", signal: new AbortController().signal, transport: "loopback", principal: { ...principal, transport: "loopback" } };
   assert.equal(apiTransport(forged), undefined);
 });
+
+test("M6A-S9: validApiPrincipal accepts aligned token bindings with groups and freer agent IDs", () => {
+  const base = { userId: "alice", kind: "agent" as const, role: "member" as const };
+  // Freer agentId up to 128 characters with dots and colons
+  const longAgentId = "agent.workspace:sub-agent-with-long-name-1234567890-abcdefghijklmnopqrstuvwxyz";
+  assert.equal(validApiPrincipal({
+    ...base,
+    binding: {
+      audience: "mcp",
+      agentId: longAgentId,
+      groups: ["memory", "agent"],
+    },
+  }), true);
+
+  // Binding with projectId and system
+  assert.equal(validApiPrincipal({
+    ...base,
+    binding: {
+      audience: "a2a",
+      agentId: "main",
+      projectId: "proj-123",
+      system: "system-instruction",
+    },
+  }), true);
+
+  // Control characters rejected
+  assert.equal(validApiPrincipal({
+    ...base,
+    binding: {
+      audience: "mcp",
+      agentId: "agent\0null",
+    },
+  }), false);
+});

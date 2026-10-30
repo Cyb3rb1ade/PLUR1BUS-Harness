@@ -20,12 +20,15 @@ const RPC_NAMES: ReadonlySet<string> = new Set([...METHODS, ...NOTIFICATIONS]);
 const FIRST_PARTY_PREFIXES: ReadonlySet<string> = new Set(
   [...FIRST_PARTY_TOOL_NAMES].map((n) => n.split(".")[0]!),
 );
-const RPC_PREFIXES: ReadonlySet<string> = new Set([...RPC_NAMES].map((n) => n.split(".")[0]!));
+const RPC_PREFIXES: ReadonlySet<string> = new Set(
+  [...RPC_NAMES].map((n) => (n.startsWith("external.turn.") ? "external.turn" : n.split(".")[0]!)),
+);
 
 /** True when `name` must not be registered as a tool. */
 export function isReservedToolName(name: string): boolean {
   if (FIRST_PARTY_TOOL_NAMES.has(name)) return false;
   if (RPC_NAMES.has(name)) return true;
+  if (name.startsWith("external.turn.")) return true;
   const prefix = name.split(".")[0]!;
   return RPC_PREFIXES.has(prefix) && !FIRST_PARTY_PREFIXES.has(prefix);
 }

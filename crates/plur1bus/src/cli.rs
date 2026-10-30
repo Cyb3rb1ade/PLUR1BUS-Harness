@@ -759,6 +759,24 @@ pub enum MemoryCmd {
         #[command(subcommand)]
         sub: CurationCmd,
     },
+    /// [experimental] Mark sensitivity categories on a memory entry
+    Mark {
+        id: String,
+        /// sensitivity categories (comma-separated or repeated): health, financial, credential, identity, personal
+        #[arg(long, value_delimiter = ',', required = true)]
+        category: Vec<String>,
+        #[arg(long)]
+        agent: Option<String>,
+    },
+    /// [experimental] Clear sensitivity categories from a memory entry
+    Unmark {
+        id: String,
+        /// specific sensitivity category to clear; clears all manual markings if omitted
+        #[arg(long)]
+        category: Option<String>,
+        #[arg(long)]
+        agent: Option<String>,
+    },
     /// [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
     Reembed(ReembedArgs),
 }
@@ -1818,6 +1836,15 @@ pub enum McpCmd {
         #[command(flatten)]
         flags: InstallFlags,
     },
+    /// [experimental] Serve the harness MCP server on stdin/stdout for foreign hosts (M6-A)
+    ///
+    /// stdout carries only MCP JSON-RPC lines; diagnostics go to stderr. Reads agent-bound
+    /// token from PLUR1BUS_MCP_TOKEN. Not affected by `--json`.
+    Serve {
+        /// The agent to expose on the MCP server (default: the only registered agent)
+        #[arg(long)]
+        agent: Option<String>,
+    },
 }
 
 /// `plur1bus skill` (spec §10.1).
@@ -2114,6 +2141,12 @@ mod tests {
         match parse(&["acp", "serve", "--agent", "bernd"]).cmd {
             Cmd::Acp {
                 sub: AcpCmd::Serve { agent },
+            } => assert_eq!(agent.as_deref(), Some("bernd")),
+            other => panic!("{other:?}"),
+        }
+        match parse(&["mcp", "serve", "--agent", "bernd"]).cmd {
+            Cmd::Mcp {
+                sub: McpCmd::Serve { agent },
             } => assert_eq!(agent.as_deref(), Some("bernd")),
             other => panic!("{other:?}"),
         }

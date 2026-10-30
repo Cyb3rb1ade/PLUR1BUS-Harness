@@ -119,17 +119,7 @@ fn main() {
         Cmd::Ext { cmd } => commands::ext::run(&out, &layout, cmd),
         Cmd::Skill { sub } => commands::skill::run(&out, &layout, sub),
         Cmd::Plugin { sub } => commands::plugin::run(&out, &layout, sub),
-        Cmd::Mcp {
-            sub: cli::McpCmd::Import { path, flags },
-        } => commands::plugin::run(
-            &out,
-            &layout,
-            cli::PluginCmd::Install {
-                path,
-                enable: None,
-                flags,
-            },
-        ),
+        Cmd::Mcp { sub } => commands::mcp::run(&out, &layout, sub),
     }
     // A real stdout write error (not a closed pipe) lost the output the caller asked for: do not report success.
     // Commands that end the process themselves go through `output::exit`, which applies the same rule.

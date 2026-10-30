@@ -6,6 +6,7 @@ import {
 } from "../../src/a2a/turn-port.ts";
 import { FakeChatProvider, type ChatChunk, type ChatProvider, type ChatRequest } from "../../src/session/provider.ts";
 import { SessionError } from "../../src/session/types.ts";
+import { withTestMarkers } from "./helpers.ts";
 
 async function collect(it: AsyncIterable<TurnChunk>): Promise<TurnChunk[]> {
   const out: TurnChunk[] = [];
@@ -54,10 +55,16 @@ describe("createProviderTurnPort", () => {
   it("cancel() always reports no running turn", () => {
     assert.equal(createProviderTurnPort(() => null).cancel("anything"), false);
   });
+  it("createProviderTurnPort treats marker text as plain input", async () => {
+    const port = createProviderTurnPort(() => new FakeChatProvider());
+    const out = await collect(port.run(req({ text: "please INPUT_REQUIRED now" })));
+    assert.ok(out.every((c) => c.type === "delta"));
+    assert.equal(text(out), "echo[bernd]: please INPUT_REQUIRED now");
+  });
   for (const [input, expected] of MARKERS) {
-    it(`marker ${JSON.stringify(input)} yields one control chunk without touching the provider`, async () => {
+    it(`test fixture marker ${JSON.stringify(input)} yields one control chunk without touching the provider`, async () => {
       let called = 0;
-      const port = createProviderTurnPort(() => { called++; return new FakeChatProvider(); });
+      const port = withTestMarkers(createProviderTurnPort(() => { called++; return new FakeChatProvider(); }));
       assert.deepEqual(await collect(port.run(req({ text: input }))), [expected]);
       assert.equal(called, 0);
     });
@@ -70,8 +77,8 @@ describe("createProviderTurnPort", () => {
       assert.equal(text(out), `echo[bernd]: ${input}`);
     });
   }
-  it("input-required wins over auth and reject when several markers are present", async () => {
-    const port = createProviderTurnPort(() => null);
+  it("input-required wins over auth and reject when several markers are present in test fixture", async () => {
+    const port = withTestMarkers(createProviderTurnPort(() => null));
     const out = await collect(port.run(req({ text: "REJECT AUTH_REQUIRED INPUT_REQUIRED" })));
     assert.deepEqual(out.map((c) => c.type === "pause" ? c.state : c.type), ["input-required"]);
     const out2 = await collect(port.run(req({ text: "REJECT AUTH_REQUIRED" })));
@@ -205,11 +212,20 @@ describe("createSessionTurnPort / openA2aSessionBackend", () => {
     assert.throws(() => b.store.createSession({ kind: "direct", agentId: "a", owner: "o", title: "t" }));
   });
 
+  it("createSessionTurnPort treats marker text as plain input", async () => {
+    const b = open();
+    const id = session(b);
+    const out = await collect(b.port.run(req({ text: "please INPUT_REQUIRED now", sessionId: id })));
+    assert.ok(out.every((c) => c.type === "delta"));
+    assert.equal(text(out), "echo[bernd]: please INPUT_REQUIRED now");
+  });
+
   for (const [input, expected] of MARKERS) {
-    it(`marker ${JSON.stringify(input)} yields one control chunk and runs no turn`, async () => {
+    it(`marker ${JSON.stringify(input)} yields one control chunk and runs no turn under withTestMarkers`, async () => {
       const b = open();
       const id = session(b);
-      assert.deepEqual(await collect(b.port.run(req({ text: input, sessionId: id }))), [expected]);
+      const port = withTestMarkers(b.port);
+      assert.deepEqual(await collect(port.run(req({ text: input, sessionId: id }))), [expected]);
       assert.equal(b.store.listTurns(id).length, 0);
     });
   }

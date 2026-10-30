@@ -147,6 +147,16 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -661,6 +671,16 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
       },
       "providers": {},
       "auth": {
@@ -1190,6 +1210,16 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -1705,6 +1735,16 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
       },
       "providers": {},
       "auth": {
@@ -2234,6 +2274,16 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -2752,6 +2802,16 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
       },
       "providers": {},
       "auth": {
@@ -3287,6 +3347,16 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -3801,6 +3871,16 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
       },
       "providers": {},
       "auth": {
@@ -4336,6 +4416,16 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -4854,6 +4944,16 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
       },
       "providers": {},
       "auth": {
@@ -5387,6 +5487,16 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -5901,6 +6011,16 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
       },
       "providers": {
         "nvidia": {
@@ -6436,6 +6556,16 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -6950,6 +7080,16 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
       },
       "providers": {},
       "auth": {
@@ -7482,6 +7622,16 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -8001,6 +8151,16 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
       },
       "providers": {},
       "auth": {
@@ -8537,6 +8697,16 @@
       "mcp": {
         "servers": {}
       },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
+      },
       "providers": {},
       "auth": {
         "requireSecondFactor": "remote",
@@ -9051,6 +9221,16 @@
       },
       "mcp": {
         "servers": {}
+      },
+      "mcpServer": {
+        "enabled": false
+      },
+      "a2a": {
+        "peers": []
+      },
+      "a2aServer": {
+        "enabled": false,
+        "legacy03": false
       },
       "providers": {},
       "auth": {

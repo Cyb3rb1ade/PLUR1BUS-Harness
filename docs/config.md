@@ -69,6 +69,9 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `engine` | object | `{}` | core | Pass-through to the engine's EngineConfig — [57 engine keys, all advanced and core](config-engine-keys.md). |
 | `engine.implementation` | string | `"node"` | core | Memory engine implementation. Rust is experimental and requires the separately running engine process; unavailable engines leave the Core running and recall reports engine-unavailable. |
 | `mcp` | object | `{}` | live | Installed MCP extension activation and per-agent tool visibility (X2). |
+| `mcpServer` | object | `{}` | live | Harness MCP server for foreign hosts (M6-A): exposes harness functions, memory and skills behind agent-bound tokens. |
+| `a2a` | object | `{}` | live | A2A configuration, including registered external peers. |
+| `a2aServer` | object | `{}` | live | Harness A2A server exposure configuration. |
 | `auth.requireSecondFactor` | string | `"remote"` | core | Require TOTP or WebAuthn for Owner and Admin on remote listeners by default; always or never are explicit overrides. |
 | `auth.openai.loopbackTimeoutMs` | integer | `600000` | core | Loopback login deadline. |
 | `auth.openai.httpTimeoutMs` | integer | `30000` | core | Bounded OpenAI HTTP deadline. |

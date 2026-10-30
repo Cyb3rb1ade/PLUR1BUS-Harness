@@ -4,6 +4,8 @@ import type { ChannelSwitches, ExposureChannel } from "./types.ts";
 /** Standard everywhere: exposed and captured. Owner decision 2026-10-29 (ADR-003). */
 export const CHANNEL_DEFAULTS: Readonly<Record<ExposureChannel, ChannelSwitches>> = Object.freeze({
   collab: Object.freeze({ recall: Object.freeze({ workspace: true, user: true, agentPrivate: true }), capture: true }),
+  mcp: Object.freeze({ recall: Object.freeze({ workspace: true, user: true, agentPrivate: true }), capture: true }),
+  a2a: Object.freeze({ recall: Object.freeze({ workspace: true, user: true, agentPrivate: true }), capture: true }),
 });
 
 /** The configured switches of one agent for one channel; an unset switch keeps its default. Read on every call, so a

@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.8.0)
+# RPC reference (rpc 1.9.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -216,6 +216,9 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `memory.show`: experimental, since 1.0.0
 - `memory.forget`: experimental, since 1.0.0
 - `memory.correct`: experimental, since 1.0.0
+- `memory.sensitivity.clear`: experimental, since 1.9.0
+- `memory.sensitivity.get`: experimental, since 1.9.0
+- `memory.sensitivity.set`: experimental, since 1.9.0
 - `memory.share`: experimental, since 1.0.0
 - `memory.state`: experimental, since 1.0.0
 - `memory.propose`: experimental, since 1.1.0
@@ -266,6 +269,10 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `admin.reembed.abort`: experimental, since 1.5.0
 - `events.subscribe`: stable, since 1.0.0
 - `events.unsubscribe`: stable, since 1.0.0
+- `external.turn.start`: experimental, since 1.9.0
+- `external.turn.events`: experimental, since 1.9.0
+- `external.turn.get`: experimental, since 1.9.0
+- `external.turn.cancel`: experimental, since 1.9.0
 - `decision.status`: experimental, since 1.6.0
 - `decision.test`: experimental, since 1.6.0
 - `admin.engine.test`: experimental, since 1.6.0
@@ -11866,6 +11873,234 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 }
 ```
 
+### `memory.sensitivity.clear`
+
+**Stability:** experimental · since 1.9.0
+
+**Served by:** core
+
+Clear a specific sensitivity category or all sensitivity categories from a memory card.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/MemoryId"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "health",
+        "financial",
+        "credential",
+        "identity",
+        "personal"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "cleared",
+    "remaining"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "cleared": {
+      "type": "boolean"
+    },
+    "remaining": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "health",
+          "financial",
+          "credential",
+          "identity",
+          "personal"
+        ]
+      }
+    }
+  }
+}
+```
+
+### `memory.sensitivity.get`
+
+**Stability:** experimental · since 1.9.0
+
+**Served by:** core
+
+Get the sensitivity categories and source for a memory card.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/MemoryId"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "categories"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "health",
+          "financial",
+          "credential",
+          "identity",
+          "personal"
+        ]
+      }
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "rule",
+        "manual",
+        "model"
+      ]
+    },
+    "updatedAt": {
+      "type": "number"
+    }
+  }
+}
+```
+
+### `memory.sensitivity.set`
+
+**Stability:** experimental · since 1.9.0
+
+**Served by:** core
+
+Mark sensitivity categories (health, financial, credential, identity, personal) on a memory card.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "categories"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/MemoryId"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "health",
+          "financial",
+          "credential",
+          "identity",
+          "personal"
+        ]
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "categories",
+    "updated"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "health",
+          "financial",
+          "credential",
+          "identity",
+          "personal"
+        ]
+      }
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "rule",
+        "manual",
+        "model"
+      ]
+    },
+    "updated": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
 ### `memory.share`
 
 **Stability:** experimental · since 1.0.0
@@ -17302,6 +17537,311 @@ Returns every installed extension and subscribes this connection to ext.changed.
       "items": {
         "$ref": "#/$defs/ExtItem"
       }
+    }
+  }
+}
+```
+
+### `external.turn.start`
+
+**Stability:** experimental · since 1.9.0
+
+**Served by:** core
+
+Start an external turn on an agent session via MCP or A2A.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "message",
+    "audience"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "message": {
+      "type": "string"
+    },
+    "audience": {
+      "type": "string",
+      "enum": [
+        "mcp",
+        "a2a"
+      ]
+    },
+    "tokenId": {
+      "type": "string"
+    },
+    "sessionId": {
+      "type": "string"
+    },
+    "wait": {
+      "type": "boolean"
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "turnId",
+    "state"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "turnId": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "running",
+        "completed",
+        "failed"
+      ]
+    },
+    "reply": {
+      "type": "string"
+    },
+    "error": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `external.turn.events`
+
+**Stability:** experimental · since 1.9.0
+
+**Served by:** core
+
+Read events of an external turn session.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "audience": {
+      "type": "string",
+      "enum": [
+        "mcp",
+        "a2a"
+      ]
+    },
+    "tokenId": {
+      "type": "string"
+    },
+    "afterSeq": {
+      "type": "integer"
+    },
+    "limit": {
+      "type": "integer"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "events",
+    "lastSeq",
+    "running"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionEvent"
+      }
+    },
+    "lastSeq": {
+      "type": "integer"
+    },
+    "running": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `external.turn.get`
+
+**Stability:** experimental · since 1.9.0
+
+**Served by:** core
+
+Get session details and optional messages for an external turn session.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "audience": {
+      "type": "string",
+      "enum": [
+        "mcp",
+        "a2a"
+      ]
+    },
+    "tokenId": {
+      "type": "string"
+    },
+    "messages": {
+      "type": "integer"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "session",
+    "runningTurnId"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    },
+    "runningTurnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionMessage"
+      }
+    }
+  }
+}
+```
+
+### `external.turn.cancel`
+
+**Stability:** experimental · since 1.9.0
+
+**Served by:** core
+
+Cancel an active turn on an external turn session.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "audience": {
+      "type": "string",
+      "enum": [
+        "mcp",
+        "a2a"
+      ]
+    },
+    "tokenId": {
+      "type": "string"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "turnId",
+    "cancelled"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "turnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "cancelled": {
+      "type": "boolean"
     }
   }
 }

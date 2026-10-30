@@ -4,6 +4,23 @@ import type { Principal } from "../rbac/types.ts";
 import { channelSwitches } from "./config.ts";
 import { NO_SCOPES, type Exposure, type ExposureChannel, type ScopeAccess } from "./types.ts";
 
+/** Bound personal API tokens keep kind=agent for human-only RBAC, but Core verifies their backing person.
+ *  True agents without a personal token id cannot acquire that person's user scope or capture attribution. */
+function personBacked(principal: Principal, agentId: string): boolean {
+  return principal.kind !== "agent" || !!(principal.tokenId && principal.binding?.agentId === agentId);
+}
+
+/** Capture writes must retain a current memory write grant, including any token action narrowing. */
+function canCapture(principal: Principal, agentId: string): boolean {
+  if (!personBacked(principal, agentId)) return false;
+  const resources = [
+    ["memory.workspace.write", { kind: "memory", scope: "workspace", agentId }],
+    ["memory.user.write", { kind: "memory", scope: "user", ownerUserId: principal.userId }],
+    ["memory.agent-private.write", { kind: "memory", scope: "agent-private", agentId }],
+  ] as const;
+  return resources.some(([action, resource]) => authorize(principal, action, resource).effect === "allow");
+}
+
 /** What the principal may read of the agent's memory, by the RBAC table (`memory.*.read`, ADR-007 "Privacy"): the user
  *  scope only its own, the workspace scope with at least `use` on the agent, the agent-private scope with `manage`. */
 export function readRights(principal: Principal | null | undefined, agentId: string): ScopeAccess {
@@ -11,8 +28,10 @@ export function readRights(principal: Principal | null | undefined, agentId: str
   const allowed = (action: string, resource: Parameters<typeof authorize>[2]) => authorize(principal, action, resource).effect === "allow";
   return {
     workspace: allowed("memory.workspace.read", { kind: "memory", scope: "workspace", agentId }),
-    // An agent acting through a tool has no person behind it: there is no user scope to read.
-    user: principal.kind !== "agent" && allowed("memory.user.read", { kind: "memory", scope: "user", ownerUserId: principal.userId }),
+    // A true agent has no user scope; a personal token remains narrowed by its explicit action scopes.
+    user: personBacked(principal, agentId) && allowed("memory.user.read", {
+      kind: "memory", scope: "user", ownerUserId: principal.userId,
+    }),
     agentPrivate: allowed("memory.agent-private.read", { kind: "memory", scope: "agent-private", agentId }),
   };
 }
@@ -22,17 +41,31 @@ export function readRights(principal: Principal | null | undefined, agentId: str
 export function resolveExposure(a: { channel: ExposureChannel; agentId: string; principal: Principal | null | undefined; config: HarnessConfig }): Exposure {
   const switches = channelSwitches(a.config, a.agentId, a.channel);
   const rights = readRights(a.principal, a.agentId);
+
+  const memOverride = a.principal?.binding?.memory;
+  const groups = a.principal?.binding?.groups;
+  const groupsAllowMemory = groups === undefined || groups.includes("memory");
+
+  const discloseNever = memOverride?.disclose === "never";
+
+  const effectiveWorkspace = groupsAllowMemory && !discloseNever && switches.recall.workspace && rights.workspace && (memOverride?.recall?.workspace ?? true);
+  const effectiveUser = groupsAllowMemory && !discloseNever && switches.recall.user && rights.user && (memOverride?.recall?.user ?? true);
+  const effectiveAgentPrivate = groupsAllowMemory && !discloseNever && switches.recall.agentPrivate && rights.agentPrivate && (memOverride?.recall?.agentPrivate ?? true);
+
+  const effectiveCapture = groupsAllowMemory && switches.capture && !!a.principal
+    && canCapture(a.principal, a.agentId) && (memOverride?.capture ?? true);
+
   return {
     channel: a.channel,
     agentId: a.agentId,
     switches,
     rights,
     recall: {
-      workspace: switches.recall.workspace && rights.workspace,
-      user: switches.recall.user && rights.user,
-      agentPrivate: switches.recall.agentPrivate && rights.agentPrivate,
+      workspace: effectiveWorkspace,
+      user: effectiveUser,
+      agentPrivate: effectiveAgentPrivate,
     },
     // A capture is attributed to a person; without one there is nothing to attribute it to.
-    capture: switches.capture && !!a.principal && a.principal.kind !== "agent",
+    capture: effectiveCapture,
   };
 }
