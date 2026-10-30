@@ -24,6 +24,15 @@ export interface ExternalRunLink {
   input: Readable;
   output: Writable;
   stop: () => void;
+  /** Trusted launcher metadata; transport stderr and arbitrary errors are never a diagnostic source. */
+  exited?: LaunchHandle["exited"];
+  exitStatus?: LaunchHandle["exitStatus"];
+}
+
+/** Preserve native supervision metadata across the production connector transport boundary. */
+export function externalRunLink(handle: LaunchHandle): ExternalRunLink {
+  handle.stderr.resume();
+  return { input: handle.stdout, output: handle.stdin, stop: handle.stop, exited: handle.exited, exitStatus: handle.exitStatus };
 }
 
 export interface ExternalTargetDeps {
@@ -129,6 +138,12 @@ export class ExternalDelegationTarget implements DelegationTarget {
       if (engine.maxTurns < 1) throw new CollabError("invalid", "turn budget exhausted", { reason: "turn-budget" });
       const link = await this.#open({ ...input, signal }, engine, worktree);
       stop = link.stop;
+      // stdout can close before the helper's dedicated diagnostic pipe. Observe its final trusted status
+      // independently, preserving the existing transport/timeout result while retaining the actual cause.
+      void link.exited?.then(code => {
+        const detail = link.exitStatus?.detail;
+        if (code === 125 && detail) this.#d.log?.("sandbox-watchdog-failure", { process: "connector", ...detail });
+      }).catch(() => { /* Diagnostic observation must not change process/transport failure handling. */ });
       signal.throwIfAborted();
       let termN = 0;
       const handlers: AcpClientHandlers = {
@@ -237,8 +252,7 @@ export class ExternalDelegationTarget implements DelegationTarget {
       timeoutMs: engine.timeoutMs, signal: input.signal, ...(this.#d.maxTasks !== undefined ? { maxTasks: typeof this.#d.maxTasks === "function" ? this.#d.maxTasks() : this.#d.maxTasks } : {}),
       ...(this.#d.mountOf ? { mount: this.#d.mountOf(requireAgentScope().projectId, input.handoff?.contract.task.card) } : {}),
       ...(this.#d.limitsHelper ? { limitsHelper: this.#d.limitsHelper } : {}) });
-    handle.stderr.resume();
-    return { input: handle.stdout, output: handle.stdin, stop: handle.stop };
+    return externalRunLink(handle);
   }
 
 }
