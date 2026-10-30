@@ -71,6 +71,8 @@ Token werden strikt für eine Zielressource ausgestellt:
 * Scopes für A2A (`a2a.task`) können nicht für MCP angefordert werden.
 * Ein Token trägt eine feste Bindung an die Ziel-Audience und den Ziel-Agenten (`binding: { audience, agentId }`). Cross-Resource-Aufrufe werden mit HTTP 401 `invalid-audience` abgewiesen.
 
+Beim Code-Austausch und bei der Erneuerung werden `a2a.task`, `memory.read` und `memory.write` in die passenden bestehenden RBAC-Aktionen übersetzt. Grant und OAuth-Antwort behalten die angeforderten Protokoll-Scopes. Aktuelle Rollen, Objektrechte und die Agent-Bindung begrenzen jeden Zugriff weiterhin; eine Erneuerung kann die ursprünglichen Scopes nur einschränken.
+
 ## Audit-Ereignisse (D111)
 
 Alle sicherheitsrelevanten Vorgänge werden im manipulationssicheren Audit-Log festgehalten:
