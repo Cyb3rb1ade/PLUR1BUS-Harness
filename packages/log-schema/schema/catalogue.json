@@ -2010,6 +2010,133 @@
           "description": "Denial reason."
         }
       }
+    },
+    "sandbox_watchdog_failure": {
+      "description": "Trusted, bounded native watchdog measurement failure after fail-closed exit125. Static labels and safe integers match the dedicated-fd parser; no process names, commands, argv, paths, usernames, contents or credentials.",
+      "properties": {
+        "process": {
+          "const": "connector",
+          "description": "Supervised ACP connector, never a process name or command."
+        },
+        "version": {
+          "const": 1
+        },
+        "cause": {
+          "enum": [
+            "sample-deadline",
+            "identity-unavailable",
+            "list-safety-cap",
+            "list-unavailable",
+            "descendant-safety-cap",
+            "task-info-unavailable",
+            "attach-limit"
+          ]
+        },
+        "operation": {
+          "enum": [
+            "sample",
+            "bsd-info",
+            "alive",
+            "group-size",
+            "group-list",
+            "group-member",
+            "child-size",
+            "child-list",
+            "child-member",
+            "task-info",
+            "membership"
+          ]
+        },
+        "phase": {
+          "enum": [
+            "attach",
+            "runtime"
+          ]
+        },
+        "sample": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "elapsedMicros": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Elapsed sample time in microseconds; diagnostic collection can add measurement overhead."
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "returned": {
+          "type": "integer",
+          "minimum": -1,
+          "maximum": 9007199254740991
+        },
+        "expected": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "errno": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Captured immediately after libproc. Meaningful with the return value; successful calls may leave stale errno."
+        },
+        "probeReturned": {
+          "type": "integer",
+          "minimum": -1,
+          "maximum": 9007199254740991
+        },
+        "probeErrno": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Captured immediately after the PID liveness probe, separately from libproc errno."
+        },
+        "ppid": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "pgid": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "status": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "startSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "startMicros": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "processRssBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "rssBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
     }
   },
   "events": [
@@ -7826,6 +7953,82 @@
             "dropped": 1,
             "limitLines": 1000,
             "limitBytes": 8388608
+          }
+        }
+      ]
+    },
+    {
+      "event": "sandbox.watchdog.failure",
+      "note": "The supervised ACP connector exited125 with a validated native sampling cause. Detail comes from the target-closed helper fd, never child stderr; transport results and enforcement decisions are unchanged. Example values illustrate the format and are not a diagnosis of a native failure.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "sandbox.watchdog.failure",
+      "attrs": "sandbox_watchdog_failure",
+      "requiredAttrs": [
+        "process",
+        "version",
+        "cause",
+        "operation",
+        "phase",
+        "sample",
+        "elapsedMicros",
+        "pid",
+        "returned",
+        "expected",
+        "errno",
+        "probeReturned",
+        "probeErrno",
+        "ppid",
+        "pgid",
+        "status",
+        "startSeconds",
+        "startMicros",
+        "processRssBytes",
+        "count",
+        "rssBytes"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "core",
+            "version": "0.1.0"
+          },
+          "event": "sandbox.watchdog.failure",
+          "msg": "sandbox.watchdog.failure",
+          "attrs": {
+            "process": "connector",
+            "version": 1,
+            "cause": "task-info-unavailable",
+            "operation": "task-info",
+            "phase": "runtime",
+            "sample": 2,
+            "elapsedMicros": 1234,
+            "pid": 321,
+            "returned": 0,
+            "expected": 96,
+            "errno": 3,
+            "probeReturned": 0,
+            "probeErrno": 0,
+            "ppid": 123,
+            "pgid": 123,
+            "status": 5,
+            "startSeconds": 1700000000,
+            "startMicros": 500,
+            "processRssBytes": 0,
+            "count": 2,
+            "rssBytes": 1048576
           }
         }
       ]

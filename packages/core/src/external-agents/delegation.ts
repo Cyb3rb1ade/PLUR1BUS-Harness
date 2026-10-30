@@ -142,7 +142,7 @@ export class ExternalDelegationTarget implements DelegationTarget {
       // independently, preserving the existing transport/timeout result while retaining the actual cause.
       void link.exited?.then(code => {
         const detail = link.exitStatus?.detail;
-        if (code === 125 && detail) this.#d.log?.("sandbox-watchdog-failure", { process: "connector", ...detail });
+        if (code === 125 && detail) this.#d.log?.("sandbox.watchdog.failure", { process: "connector", ...detail });
       }).catch(() => { /* Diagnostic observation must not change process/transport failure handling. */ });
       signal.throwIfAborted();
       let termN = 0;

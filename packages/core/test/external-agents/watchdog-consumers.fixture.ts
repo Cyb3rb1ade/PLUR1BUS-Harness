@@ -1,5 +1,6 @@
 /** No native process: exercise production consumers with a validated fd record and delayed exit metadata. */
 import assert from "node:assert/strict";
+import { lookupEvent, validateRecord } from "@plur1bus/log-schema";
 import { mock } from "node:test";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -73,7 +74,13 @@ try {
           principal: { kind: "person", userId: "owner", role: "owner" }, question: "Work", context: "", signal: new AbortController().signal })),
           { reason: trusted ? "closed" : "transport-error" });
         await handle.exited; await tick();
-        assert.deepEqual(events, trusted ? [{ event: "sandbox-watchdog-failure", fields: { process: "connector", ...detail } }] : []);
+        assert.deepEqual(events, trusted ? [{ event: "sandbox.watchdog.failure", fields: { process: "connector", ...detail } }] : []);
+        if (trusted) {
+          const emitted = events[0]!;
+          const entry = lookupEvent(emitted.event);
+          assert.ok(entry, "the actual emitted event must be registered");
+          assert.deepEqual(validateRecord({ ...entry.examples[0], attrs: emitted.fields }), { ok: true, entry });
+        }
         assert.doesNotMatch(JSON.stringify(events), /PRIVATE/);
       } finally { sessions.close(); }
     }
