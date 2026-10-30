@@ -160,6 +160,10 @@ export interface RedactOptions {
   pii?: boolean;
   /** Rule `secret`: exact secret values this process holds (≥ 8 characters), with their base64, base64url, hex and URL-encoded forms. */
   secrets?: Iterable<string>;
+  /** Only rule `secret` applies: exact registered values and their encodings, in strings and in object keys. The key, pattern, url,
+   *  path and pii rules do not, so text that merely looks like a credential survives. For output that is not a log line (a tool
+   *  result), where only a value this process holds may change. Default false. */
+  secretsOnly?: boolean;
 }
 
 export interface Redactor {
@@ -189,6 +193,7 @@ export function createRedactor(o: RedactOptions = {}): Redactor {
   const text = (input: string): string => {
     let s = input;
     for (const f of secretForms) if (f.length > 0) s = s.split(f).join(tag("secret"));
+    if (o.secretsOnly === true) return s;
     s = s.replace(/\b((?:proxy-)?authorization|(?:set-)?cookie)([ \t]*:[ \t]*)([^\r\n]*)/gi,
       (_m, name: string, sep: string) => `${name}${sep}${tag("key")}`);
     // Header values can contain spaces and semicolon-separated cookies: redact the whole line.
@@ -219,7 +224,8 @@ export function createRedactor(o: RedactOptions = {}): Redactor {
         const out: Record<string, unknown> = {};
         for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
           // defineProperty: a plain assignment to `__proto__` would set the prototype and lose the key.
-          Object.defineProperty(out, k, { value: isSecretKey(k) && x !== null && x !== undefined ? tag("key") : walk(x, ancestors), enumerable: true, writable: true, configurable: true });
+          // secretsOnly: a registered value used as a key is masked too, and no key name replaces its value.
+          Object.defineProperty(out, o.secretsOnly === true ? text(k) : k, { value: o.secretsOnly !== true && isSecretKey(k) && x !== null && x !== undefined ? tag("key") : walk(x, ancestors), enumerable: true, writable: true, configurable: true });
         }
         return out;
       } finally { ancestors.pop(); }

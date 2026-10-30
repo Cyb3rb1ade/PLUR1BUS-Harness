@@ -88,7 +88,8 @@ Failed operations are retained too, since an error may occur after a side effect
 
 The dispatcher keeps its diagnostic envelope. Immediately before a failed result is serialized into the model
 conversation, `toolcall/model-tool-error.ts` makes a separate sanitized copy. Successful results and the existing
-log/audit output paths are unchanged. There are three cases:
+log/audit output paths do not pass through it (a successful result is redacted against registered secret values in the
+dispatcher instead; see [composition.md](composition.md)). There are three cases:
 
 1. **Internal failures:** the dispatcher marks the category explicitly. The model receives one fixed sentence;
    arbitrary exception text and stacks are omitted.

@@ -127,6 +127,13 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Fixed
 
+- **A successful tool result is redacted against the registered secret values before the model, the transcript or a result file
+  sees it.** Only a failed call was redacted, so a tool that printed a secret (a shell command echoing a variable, a file read
+  of a config, a fetch that reflects a token) put the value into the model context, the session transcript, the offloaded
+  `state/tool-results/` file and the capture. The dispatcher now masks the exact value and its base64, hex and URL-encoded
+  forms with `[REDACTED:secret]`, once, as the result leaves it; a failed call is masked against the same registry. Values
+  under 8 characters are still not masked (`secret.set` warns about them), and a result that holds no registered value is
+  unchanged. See `docs/composition.md`.
 - **An agent's first chat turn no longer holds the core for seconds on a slow disk.** The turn writes every tool of the
   agent's capability view into `state/capabilities.sqlite`, one transaction per tool. With the rollback journal each one
   waited for about four fsyncs, which kept the core's event loop busy for 5 to 8 s on the Windows CI runner's system drive

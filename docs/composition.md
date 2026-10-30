@@ -83,8 +83,10 @@ Behaviour at the edges (tests in `provider.test.ts`):
 * Failed dispatcher results cross a separate model-only boundary before they enter `tool.result` and the next model
   request. Internal failures expose fixed sentences; tool exceptions expose only a sanitized first line, capped at
   300 characters; typed failures retain their structured hints and issues when they fit. Every string passes the
-  existing secret redactor and the home-path sanitizer. Logs, audit output and successful values keep their existing
-  contracts. Details and regression tests: [tool-reliability.md](tool-reliability.md#what-the-model-sees-when-a-tool-fails).
+  existing secret redactor and the home-path sanitizer. Logs and audit output keep their existing contracts. A successful
+  result is redacted inside the dispatcher, once, against the registered secret values only (rule `secret`: the value and
+  its base64, hex and URL-encoded forms, `[REDACTED:secret]`, nothing under 8 characters) before it reaches the model, the
+  transcript, an offloaded result file or any audit line; a result that holds none of them is unchanged. Details and regression tests: [tool-reliability.md](tool-reliability.md#what-the-model-sees-when-a-tool-fails).
 
 The cached system zone contains stable working instructions and the agent's sorted `Available skills` catalogue.
 Descriptions retain the author's text, capped at 1024 characters per skill and about 4000 tokens overall; overflow

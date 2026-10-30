@@ -10,6 +10,7 @@ import { repairMessage, validateArgs, type RepairHook, type ValidationIssue } fr
 import type { RegisteredTool, ToolClassification, ToolRegistry, ToolTrust } from "./registry.ts";
 import { ToolAdapterError } from "./tool-adapter-error.ts";
 import { FsFailure } from "./fs/failure.ts";
+import { createRedactor } from "../logs/redact.ts";
 
 /** Arguments are bounded before they are validated or hashed. */
 export const MAX_ARGS_BYTES = 256 * 1024;
@@ -97,6 +98,14 @@ export interface ToolDispatcherDeps {
   repair?: RepairHook;
   /** Extra policy context per call (tools.deny, overrides, taint, hand-off, subject kind …). Merged over the defaults. */
   policyContext?: (ctx: DispatchContext) => Partial<Context>;
+  /**
+   * The secret values this process holds, read at every call. A successful result is redacted against them (rule `secret` of the
+   * log redactor: the exact value and its base64, hex and URL-encoded forms, nothing shorter than the rule's minimum) before it
+   * leaves the dispatcher, so the model, the transcript, an offloaded result file, memory capture and every log or audit line
+   * only ever see the redacted value. A result that holds none of them is returned as it is (one nested deeper than 64 levels is cut
+   * there, as the log redactor does, while any value is registered). Without it nothing is redacted.
+   */
+  secrets?: () => Iterable<string>;
 }
 
 /** Stable JSON: object keys sorted, so equal arguments hash equal. */
@@ -249,10 +258,18 @@ export class ToolDispatcher {
       let json: string | undefined;
       try { json = JSON.stringify(ran.value === undefined ? null : ran.value); } catch { json = undefined; }
       if (json === undefined) return out(fail("tool-result-invalid", `${tool.name} returned a value that is not JSON`, via, {}, true));
+      let value = JSON.parse(json) as unknown;
+      // 4b. The one place a successful result is redacted: every consumer below (the model, the transcript, capResult's offload
+      // file, memory capture, the audit outcome) takes its value and its size from this envelope. Fail closed: a result that
+      // cannot be checked is withheld, never passed on.
+      try {
+        const known = this.#d.secrets ? [...this.#d.secrets()] : [];
+        if (known.length > 0) { value = createRedactor({ secrets: known, secretsOnly: true }).value(value); json = JSON.stringify(value); }
+      } catch { return out(fail("tool-result-invalid", `${tool.name} returned a result that could not be checked for secret values; it was withheld`, via, {}, true)); }
       const bytes = Buffer.byteLength(json, "utf8");
       if (bytes > tool.limits.maxResultBytes) return out(fail("tool-result-too-large", `${tool.name} returned ${bytes} bytes, over its ${tool.limits.maxResultBytes}-byte limit`, via, {}, true));
       return out({
-        callId: req.id, tool: tool.name, isError: false, value: JSON.parse(json) as unknown,
+        callId: req.id, tool: tool.name, isError: false, value,
         provenance: provenance(ctx, tool), meta: { decision: via, durationMs: Math.max(0, this.#d.clock.now() - started), bytes },
       });
     } catch (e) {
