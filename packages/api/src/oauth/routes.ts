@@ -74,17 +74,28 @@ export const OAUTH_ROUTES: readonly RouteSpec[] = [
     path: "/oauth/authorize",
     tag: "oauth",
     summary: "OAuth 2.1 authorization consent submission",
-    transport: "protocol",
-    auth: "none",
-    authz: "public",
-    csrf: false,
+    auth: "session",
+    authz: "authenticated",
+    csrf: true,
     rate: "auth",
     stability: "experimental",
     since: "1.0.0",
-    protocol: {
-      maxBodyBytes: 64 * 1024,
-      bodyTimeoutMs: 10_000,
-      handlerTimeoutMs: 15_000,
+    requestBody: {
+      type: "object",
+      additionalProperties: true,
+      properties: {
+        client_id: { type: "string" },
+        redirect_uri: { type: "string" },
+        approve: { type: "boolean" },
+        code_challenge: { type: "string" },
+        code_challenge_method: { type: "string" },
+        state: { type: "string" },
+        resource: { type: "string" },
+        scope: { type: "string" },
+        agent_id: { type: "string" },
+        project_id: { type: "string" },
+        totp_code: { type: "string" },
+      },
     },
     successStatus: 200,
     success: {
@@ -337,7 +348,6 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
       const scopeParam = params.get("scope");
       const state = params.get("state") ?? undefined;
       const resource = params.get("resource") ?? undefined;
-      const approve = params.get("approve") === "true" || params.get("approve") === "1";
 
       // 1. Check user session first to prevent anonymous SSRF probing via client_id
       const rawCookie = readCookie(typeof i.headers?.cookie === "string" ? i.headers.cookie : undefined, cookieName);
@@ -435,44 +445,7 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
         }
       }
 
-      // 9. If approval confirmed, issue authorization code and redirect
-      if (approve) {
-        const agentId = params.get("agent_id") || "main";
-        const code = oauth.createAuthorizationCode({
-          clientId,
-          redirectUri,
-          codeChallenge,
-          codeChallengeMethod: "S256",
-          userId: session.principal.id,
-          agentId,
-          ...(params.get("project_id") ? { projectId: params.get("project_id")! } : {}),
-          audience,
-          scopes,
-          ...(resource ? { resource } : {}),
-        });
-
-        d.audit.emit("oauth.authorize", session.principal.id, `agent:${agentId}`, {
-          clientId,
-          audience,
-          scopes: scopes.join(" "),
-        });
-
-        const target = new URL(redirectUri);
-        target.searchParams.set("code", code);
-        if (state) target.searchParams.set("state", state);
-        target.searchParams.set("iss", issuer);
-
-        const accept = typeof i.headers?.accept === "string" ? i.headers.accept : "";
-        if (accept.includes("application/json")) {
-          return {
-            status: 200,
-            body: { redirect_uri: target.toString(), code, ...(state ? { state } : {}) },
-          };
-        }
-        return { status: 302, headers: { Location: target.toString() } };
-      }
-
-      // 10. Consent screen presentation
+      // 9. Consent screen presentation (approval only via POST /oauth/authorize)
       const accept = typeof i.headers?.accept === "string" ? i.headers.accept : "";
       if (accept.includes("application/json")) {
         return {
@@ -500,6 +473,7 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
     "oauth.authorize.post": async (i: HandlerInput): Promise<HandlerOutput> => {
       const oauth = getOAuthService();
       const issuer = getIssuer(i.headers, d.tls);
+      const session = i.session!;
 
       let body: Record<string, unknown> = {};
       if (i.body && typeof i.body === "object") {
@@ -518,19 +492,12 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
       const agentId = body.agent_id ? String(body.agent_id) : "main";
       const projectId = body.project_id ? String(body.project_id) : undefined;
 
-      // 1. Check session first
-      const rawCookie = readCookie(typeof i.headers?.cookie === "string" ? i.headers.cookie : undefined, cookieName);
-      const session = rawCookie ? d.sessions.peek(rawCookie) : undefined;
-      if (!session) {
-        throw errors.unauthenticated("session-required");
-      }
-
-      // 2. Validate client
+      // 1. Validate client
       if (!clientId) throw new OAuthApiError(400, "invalid_request", "missing client_id");
       const client = await oauth.resolveClient(clientId);
       if (!client) throw new OAuthApiError(400, "invalid_client", "unknown client_id");
 
-      // 3. Validate redirect_uri
+      // 2. Validate redirect_uri
       if (!redirectUri || !matchRedirectUri(redirectUri, client.redirect_uris)) {
         throw new OAuthApiError(400, "invalid_request", "invalid redirect_uri");
       }

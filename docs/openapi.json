@@ -1528,7 +1528,68 @@
           "oauth"
         ],
         "summary": "OAuth 2.1 authorization consent submission",
-        "security": [],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "A one-time token from GET /api/v1/csrf.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "properties": {
+                  "client_id": {
+                    "type": "string"
+                  },
+                  "redirect_uri": {
+                    "type": "string"
+                  },
+                  "approve": {
+                    "type": "boolean"
+                  },
+                  "code_challenge": {
+                    "type": "string"
+                  },
+                  "code_challenge_method": {
+                    "type": "string"
+                  },
+                  "state": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "type": "string"
+                  },
+                  "scope": {
+                    "type": "string"
+                  },
+                  "agent_id": {
+                    "type": "string"
+                  },
+                  "project_id": {
+                    "type": "string"
+                  },
+                  "totp_code": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Consent response with redirect_uri and authorization code",
@@ -1541,8 +1602,18 @@
               }
             }
           },
+          "400": {
+            "description": "Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "401": {
-            "description": "The credentials are wrong (`reason`: `invalid-token` for the owner token, `invalid-credentials` for a local account).",
+            "description": "No live session (`reason`: `no-session`).",
             "content": {
               "application/json": {
                 "schema": {
@@ -1552,7 +1623,7 @@
             }
           },
           "403": {
-            "description": "A foreign `Origin` or a cross-site fetch (`reason`: `origin`, `cross-site`).",
+            "description": "The one-time CSRF token is missing, wrong, spent or expired (`reason`: `csrf`); or a foreign `Origin` / cross-site fetch (`reason`: `origin`, `cross-site`).",
             "content": {
               "application/json": {
                 "schema": {
@@ -1563,6 +1634,16 @@
           },
           "413": {
             "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1605,8 +1686,8 @@
         "x-stability": "experimental",
         "x-since": "1.0.0",
         "x-rate-class": "auth",
-        "x-csrf": false,
-        "x-authz": "public"
+        "x-csrf": true,
+        "x-authz": "authenticated"
       }
     },
     "/oauth/token": {

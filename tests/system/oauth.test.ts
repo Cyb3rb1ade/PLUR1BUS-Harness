@@ -96,27 +96,39 @@ test("system: oauth authorization server against live daemon", { timeout: 60000 
     const verifier = randomBytes(32).toString("base64url");
     const challenge = computeCodeChallenge(verifier);
 
-    const authUrl = `${url}/oauth/authorize?response_type=code&client_id=test-client&redirect_uri=${encodeURIComponent(
-      "http://127.0.0.1:9999/callback"
-    )}&code_challenge=${challenge}&code_challenge_method=S256&scope=${encodeURIComponent(
-      "agent.use mcp.read"
-    )}&state=state123&approve=true`;
-
-    const authRes = await fetch(authUrl, {
+    // 2. Obtain CSRF token and submit consent via POST /oauth/authorize
+    const csrfRes = await fetch(`${url}/api/v1/csrf`, {
       method: "GET",
-      headers: { cookie },
-      redirect: "manual",
+      headers: { cookie, accept: "application/json" },
     });
-    if (authRes.status !== 302) {
+    assert.equal(csrfRes.status, 200);
+    const { token: csrfToken } = (await csrfRes.json()) as { token: string };
+    assert.ok(csrfToken);
+
+    const authRes = await fetch(`${url}/oauth/authorize`, {
+      method: "POST",
+      headers: {
+        cookie,
+        "x-csrf-token": csrfToken,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        approve: true,
+        client_id: "test-client",
+        redirect_uri: "http://127.0.0.1:9999/callback",
+        code_challenge: challenge,
+        code_challenge_method: "S256",
+        scope: "agent.use mcp.read",
+        state: "state123",
+      }),
+    });
+    if (authRes.status !== 200) {
       throw new Error(`authorize failed: ${authRes.status} ${await authRes.text()}`);
     }
-    assert.equal(authRes.status, 302);
-    const redirectLocation = authRes.headers.get("location");
-    assert.ok(redirectLocation);
-    const redirectUrl = new URL(redirectLocation);
-    const code = redirectUrl.searchParams.get("code");
-    assert.ok(code?.startsWith("plb_code_"));
-    assert.equal(redirectUrl.searchParams.get("state"), "state123");
+    const authData = (await authRes.json()) as { redirect_uri: string; code: string; state?: string };
+    assert.ok(authData.code?.startsWith("plb_code_"));
+    assert.equal(authData.state, "state123");
+    const code = authData.code;
 
     // 3. Exchange code at token endpoint
     const tokenRes = await fetch(`${url}/oauth/token`, {

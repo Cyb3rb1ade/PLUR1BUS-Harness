@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addUser, jsonHeaders, loginAs, raw, start, write } from "./helpers.ts";
+import { addUser, csrfToken, jsonHeaders, loginAs, raw, start, write } from "./helpers.ts";
 import type { OAuthClientMetadata } from "../src/oauth/types.ts";
 import { computeCodeChallenge } from "../src/oauth/pkce.ts";
 
@@ -41,16 +41,17 @@ test("M6A-A3.4: oauth audit lifecycle emits authorize, token, refresh, revoke, a
     headers: {
       cookie,
       host: `127.0.0.1:${h.port}`,
-      "content-type": "application/x-www-form-urlencoded",
+      "x-csrf-token": await csrfToken(h, cookie),
+      ...jsonHeaders(),
     },
-    body: new URLSearchParams({
+    body: JSON.stringify({
       client_id: "test-client",
       redirect_uri: "https://client.example.com/callback",
       code_challenge: challenge,
       code_challenge_method: "S256",
-      approve: "false",
+      approve: false,
       resource: "/mcp",
-    }).toString(),
+    }),
   });
   assert.equal(denyRes.status, 200);
 
@@ -67,17 +68,18 @@ test("M6A-A3.4: oauth audit lifecycle emits authorize, token, refresh, revoke, a
     headers: {
       cookie,
       host: `127.0.0.1:${h.port}`,
-      "content-type": "application/x-www-form-urlencoded",
+      "x-csrf-token": await csrfToken(h, cookie),
+      ...jsonHeaders(),
     },
-    body: new URLSearchParams({
+    body: JSON.stringify({
       client_id: "test-client",
       redirect_uri: "https://client.example.com/callback",
       code_challenge: challenge,
       code_challenge_method: "S256",
-      approve: "true",
+      approve: true,
       scope: "mcp.read agent.use",
       resource: "/mcp",
-    }).toString(),
+    }),
   });
   assert.equal(authRes.status, 200);
   const code = authRes.json.code as string;
@@ -187,17 +189,18 @@ test("M6A-A3.4: user can list and revoke OAuth grants via API", async (t) => {
     headers: {
       cookie,
       host: `127.0.0.1:${h.port}`,
-      "content-type": "application/x-www-form-urlencoded",
+      "x-csrf-token": await csrfToken(h, cookie),
+      ...jsonHeaders(),
     },
-    body: new URLSearchParams({
+    body: JSON.stringify({
       client_id: "test-client",
       redirect_uri: "https://client.example.com/callback",
       code_challenge: challenge,
       code_challenge_method: "S256",
-      approve: "true",
+      approve: true,
       scope: "mcp.read agent.use",
       resource: "/mcp",
-    }).toString(),
+    }),
   });
   assert.equal(authRes.status, 200);
   const code = authRes.json.code as string;

@@ -5,7 +5,7 @@ import { FakeClock } from "../src/clock.ts";
 import { DEFAULT_SESSION_LIMITS, SessionStore } from "../src/session.ts";
 import { computeCodeChallenge, verifyPkce } from "../src/oauth/pkce.ts";
 import { matchRedirectUri } from "../src/oauth/client-metadata.ts";
-import { addUser, jsonHeaders, loginAs, raw, start, type Harness } from "./helpers.ts";
+import { addUser, csrfToken, jsonHeaders, loginAs, raw, start, type Harness } from "./helpers.ts";
 import type { OAuthClientMetadata } from "../src/oauth/types.ts";
 
 const STATIC_CLIENT: OAuthClientMetadata = {
@@ -120,17 +120,57 @@ test("M6A-A3.1: GET /oauth/authorize enforces session auth, client validation an
   const plainLoc = new URL(plainMethod.headers.location as string);
   assert.equal(plainLoc.searchParams.get("error"), "invalid_request");
 
-  // 5. Valid request with approve=true issues authorization code and redirects with iss
-  const approved = await raw(h, {
+  // 5. GET request with approve=true does NOT issue code (consent only via POST)
+  const getAttempt = await raw(h, {
     method: "GET",
     path: `/oauth/authorize?response_type=code&client_id=test-client&redirect_uri=${encodeURIComponent("https://client.example.com/callback")}&code_challenge=${challenge}&code_challenge_method=S256&scope=mcp.read&state=xyz123&approve=true`,
-    headers: { Cookie: cookie },
+    headers: { Cookie: cookie, Accept: "application/json" },
   });
-  assert.equal(approved.status, 302);
-  const target = new URL(approved.headers.location as string);
+  assert.equal(getAttempt.status, 200);
+  assert.equal((JSON.parse(getAttempt.text) as { code?: string }).code, undefined);
+
+  // 6. POST /oauth/authorize requires CSRF token
+  const noCsrf = await raw(h, {
+    method: "POST",
+    path: "/oauth/authorize",
+    headers: { Cookie: cookie, ...jsonHeaders() },
+    body: JSON.stringify({
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      scope: "mcp.read",
+      state: "xyz123",
+      approve: true,
+    }),
+  });
+  assert.equal(noCsrf.status, 403);
+  assert.equal(JSON.parse(noCsrf.text).reason, "csrf");
+
+  // 7. POST /oauth/authorize with valid CSRF token issues authorization code
+  const token = await csrfToken(h, cookie);
+  const approved = await raw(h, {
+    method: "POST",
+    path: "/oauth/authorize",
+    headers: { Cookie: cookie, "x-csrf-token": token, ...jsonHeaders() },
+    body: JSON.stringify({
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      scope: "mcp.read",
+      state: "xyz123",
+      approve: true,
+    }),
+  });
+  assert.equal(approved.status, 200);
+  const authPayload = JSON.parse(approved.text) as { redirect_uri: string; code: string; state?: string };
+  assert.ok(authPayload.code.startsWith("plb_code_"));
+  assert.equal(authPayload.state, "xyz123");
+  const target = new URL(authPayload.redirect_uri);
   assert.equal(target.origin, "https://client.example.com");
   assert.equal(target.pathname, "/callback");
-  assert.ok(target.searchParams.get("code")?.startsWith("plb_code_"));
+  assert.equal(target.searchParams.get("code"), authPayload.code);
   assert.equal(target.searchParams.get("state"), "xyz123");
   assert.equal(target.searchParams.get("iss"), h.url);
 });
@@ -153,10 +193,26 @@ test("M6A-A3.1: remote listener enforces fresh 2FA on /oauth/authorize", async (
   const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
   const challenge = computeCodeChallenge(verifier);
 
-  const res = await raw(h, {
+  const getRes = await raw(h, {
     method: "GET",
-    path: `/oauth/authorize?response_type=code&client_id=test-client&redirect_uri=${encodeURIComponent("https://client.example.com/callback")}&code_challenge=${challenge}&code_challenge_method=S256&approve=true`,
+    path: `/oauth/authorize?response_type=code&client_id=test-client&redirect_uri=${encodeURIComponent("https://client.example.com/callback")}&code_challenge=${challenge}&code_challenge_method=S256`,
     headers: { Cookie: cookie, Accept: "application/json" },
+  });
+  assert.equal(getRes.status, 403);
+  assert.equal(JSON.parse(getRes.text).reason, "second-factor-required");
+
+  const t1 = sessions.issueCsrf(sessionId)!.token;
+  const res = await raw(h, {
+    method: "POST",
+    path: "/oauth/authorize",
+    headers: { Cookie: cookie, "x-csrf-token": t1, ...jsonHeaders() },
+    body: JSON.stringify({
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      approve: true,
+    }),
   });
   assert.equal(res.status, 403);
   assert.equal(JSON.parse(res.text).reason, "second-factor-required");
@@ -165,10 +221,18 @@ test("M6A-A3.1: remote listener enforces fresh 2FA on /oauth/authorize", async (
   const { id: freshSessionId } = sessions.create({ kind: "owner", id: "owner", role: "owner" }, { stepUpAt: clock.now() });
   const freshCookie = `plur1bus_session=${freshSessionId}`;
 
+  const t2 = sessions.issueCsrf(freshSessionId)!.token;
   const freshRes = await raw(h, {
-    method: "GET",
-    path: `/oauth/authorize?response_type=code&client_id=test-client&redirect_uri=${encodeURIComponent("https://client.example.com/callback")}&code_challenge=${challenge}&code_challenge_method=S256&approve=true`,
-    headers: { Cookie: freshCookie, Accept: "application/json" },
+    method: "POST",
+    path: "/oauth/authorize",
+    headers: { Cookie: freshCookie, "x-csrf-token": t2, ...jsonHeaders() },
+    body: JSON.stringify({
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      approve: true,
+    }),
   });
   assert.equal(freshRes.status, 200);
   assert.ok(JSON.parse(freshRes.text).code?.startsWith("plb_code_"));
@@ -202,7 +266,7 @@ test("M6A-A3.1: POST /oauth/token exchanges authorization code and issues bound 
   const authRes = await raw(h, {
     method: "POST",
     path: "/oauth/authorize",
-    headers: { Cookie: cookie, ...jsonHeaders() },
+    headers: { Cookie: cookie, "x-csrf-token": await csrfToken(h, cookie), ...jsonHeaders() },
     body: JSON.stringify({
       approve: true,
       client_id: "test-client",
@@ -296,7 +360,7 @@ test("M6A-A3.1: refresh token rotation and family revocation on replay", async (
   const authRes = await raw(h, {
     method: "POST",
     path: "/oauth/authorize",
-    headers: { Cookie: cookie, ...jsonHeaders() },
+    headers: { Cookie: cookie, "x-csrf-token": await csrfToken(h, cookie), ...jsonHeaders() },
     body: JSON.stringify({
       approve: true,
       client_id: "test-client",
@@ -404,7 +468,7 @@ test("M6A-A3.1: POST /oauth/revoke revokes tokens per RFC 7009", async (t) => {
   const authRes = await raw(h, {
     method: "POST",
     path: "/oauth/authorize",
-    headers: { Cookie: cookie, ...jsonHeaders() },
+    headers: { Cookie: cookie, "x-csrf-token": await csrfToken(h, cookie), ...jsonHeaders() },
     body: JSON.stringify({
       approve: true,
       client_id: "test-client",
@@ -464,7 +528,7 @@ test("M6A-A3.1: POST /oauth/revoke revokes tokens per RFC 7009", async (t) => {
   const authRes2 = await raw(h, {
     method: "POST",
     path: "/oauth/authorize",
-    headers: { Cookie: cookie, "Content-Type": "application/json" },
+    headers: { Cookie: cookie, "x-csrf-token": await csrfToken(h, cookie), ...jsonHeaders() },
     body: JSON.stringify({
       client_id: "test-client",
       redirect_uri: "https://client.example.com/callback",
@@ -472,7 +536,7 @@ test("M6A-A3.1: POST /oauth/revoke revokes tokens per RFC 7009", async (t) => {
       code_challenge: challenge,
       code_challenge_method: "S256",
       approve: true,
-      scopes: ["mcp.read"],
+      scope: "mcp.read",
     }),
   });
   const code2 = (JSON.parse(authRes2.text) as { code: string }).code;

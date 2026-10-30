@@ -126,6 +126,20 @@ export function ConsentPage(): View {
     redirectHost = redirectUri;
   }
 
+  async function fetchCsrfToken(): Promise<string | undefined> {
+    try {
+      const res = await fetch("/api/v1/csrf", {
+        credentials: "same-origin",
+        headers: { accept: "application/json" },
+      });
+      if (!res.ok) return undefined;
+      const data = await res.json().catch(() => ({})) as { token?: string };
+      return data.token;
+    } catch {
+      return undefined;
+    }
+  }
+
   const handleApprove = async () => {
     if (submitting) return;
     setError(null);
@@ -133,9 +147,13 @@ export function ConsentPage(): View {
     setStatusMessage(t("oauth.redirecting"));
 
     try {
+      const csrf = await fetchCsrfToken();
       const res = await fetch("/oauth/authorize", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrf ? { "x-csrf-token": csrf } : {}),
+        },
         credentials: "same-origin",
         body: JSON.stringify({
           client_id: clientId,
@@ -182,9 +200,13 @@ export function ConsentPage(): View {
     setStatusMessage(t("oauth.redirecting"));
 
     try {
+      const csrf = await fetchCsrfToken();
       const res = await fetch("/oauth/authorize", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrf ? { "x-csrf-token": csrf } : {}),
+        },
         credentials: "same-origin",
         body: JSON.stringify({
           client_id: clientId,
@@ -195,17 +217,14 @@ export function ConsentPage(): View {
       });
 
       const body = await res.json().catch(() => ({})) as { redirect_uri?: string };
-      if (body.redirect_uri) {
+      if (res.ok && body.redirect_uri) {
         globalThis.location.assign(body.redirect_uri);
         return;
       }
 
-      // Fallback redirect with access_denied
-      const errUrl = new URL(redirectUri);
-      errUrl.searchParams.set("error", "access_denied");
-      errUrl.searchParams.set("error_description", "user denied access");
-      if (state) errUrl.searchParams.set("state", state);
-      globalThis.location.assign(errUrl.toString());
+      setError(t("oauth.error.rejected"));
+      setStatusMessage(null);
+      setSubmitting(false);
     } catch {
       setError(t("oauth.error.rejected"));
       setStatusMessage(null);
