@@ -204,9 +204,12 @@ describe("core", () => {
   });
 
   it("an invalid caller identity comes back degraded, not as an error (R18)", async () => {
-    const long = await c.call<any>("memory.recall", { caller: { ...caller, userId: "u".repeat(129) }, agentId: "bernd", query: "anything" });
+    // A generous budget like the other recall tests: the engine still runs, and its own `timeout` on a slow runner
+    // would replace the principal's degradation this test is about.
+    const budget = { softMs: 5000, hardMs: 10_000 };
+    const long = await c.call<any>("memory.recall", { caller: { ...caller, userId: "u".repeat(129) }, agentId: "bernd", query: "anything", budget });
     assert.equal(long.degraded?.reason, "principal-invalid");
-    const control = await c.call<any>("memory.recall", { caller: { ...caller, userId: "cyber\u0001blade" }, agentId: "bernd", query: "anything" });
+    const control = await c.call<any>("memory.recall", { caller: { ...caller, userId: "cyber\u0001blade" }, agentId: "bernd", query: "anything", budget });
     assert.equal(control.degraded?.reason, "principal-invalid");
   });
 

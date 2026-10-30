@@ -57,6 +57,8 @@ impl Stub {
                     thread::sleep(Duration::from_millis(2));
                     continue;
                 };
+                // Windows and macOS hand the listener's nonblocking mode to an accepted socket; the reads below block.
+                stream.set_nonblocking(false).unwrap();
                 stream
                     .set_read_timeout(Some(Duration::from_secs(1)))
                     .unwrap();
@@ -166,6 +168,8 @@ impl StalledPeer {
                     Err(_) => return,
                 }
             };
+            // Windows and macOS hand the listener's nonblocking mode to an accepted socket; reads wait up to 10 ms.
+            stream.set_nonblocking(false).unwrap();
             stream
                 .set_read_timeout(Some(Duration::from_millis(10)))
                 .unwrap();

@@ -52,6 +52,7 @@ interface RuntimeOptions {
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$(?![\s\S])/;
 const HASH = /^[a-f0-9]{64}$(?![\s\S])/;
 const NATIVE_JOB_READ_ATTEMPTS = 3;
+const RECEIPT_SAVE_ATTEMPTS = 100;
 const denied = () => new RpcError("E_DENIED", "Import runtime control is unavailable", { reason: "local-core-only" });
 const unavailable = () => new RpcError("E_CONFLICT", "Import runtime job changed", { reason: "import-job-changed" });
 
@@ -78,7 +79,18 @@ export function createImportRuntime(options: RuntimeOptions) {
   let closed = false;
   let closing: Promise<void> | undefined;
   const path = (runId: string) => join(options.home, "imports", runId, "runtime.json");
-  const save = (receipt: Receipt) => writeAtomicSync(path(receipt.runId), JSON.stringify(receipt) + "\n", 0o600);
+  const save = async (receipt: Receipt) => {
+    const bytes = JSON.stringify(receipt) + "\n";
+    for (let attempt = 1; ; attempt++) {
+      try { writeAtomicSync(path(receipt.runId), bytes, 0o600); return; } catch (error) {
+        // Windows cannot rename over the receipt while a status request still reads it; that reader closes within a
+        // few event-loop turns, so the writer yields to it instead of failing the run.
+        if (process.platform !== "win32" || attempt >= RECEIPT_SAVE_ATTEMPTS
+          || !["EPERM", "EACCES", "EBUSY"].includes((error as NodeJS.ErrnoException).code ?? "")) throw error;
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+    }
+  };
   const receipt = async (control: ImportRunControl, attempt: number): Promise<Receipt | undefined> => {
     if (!await lstat(path(control.runId)).catch(error => {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw unavailable();
@@ -162,7 +174,7 @@ export function createImportRuntime(options: RuntimeOptions) {
           || current.targetSha256 !== prior.targetSha256) throw unavailable();
         controller.signal.throwIfAborted();
         journal.finalizeCommittedTarget(targetSha256);
-        save({ ...saved, finalizedInvocationId: invocationId });
+        await save({ ...saved, finalizedInvocationId: invocationId });
         bound.state = "completed";
       } catch {
         bound.state = "failed";
@@ -170,7 +182,7 @@ export function createImportRuntime(options: RuntimeOptions) {
           try {
             const saved = await stillCurrent();
             controller.signal.throwIfAborted();
-            save({ ...saved, state: "failed" });
+            await save({ ...saved, state: "failed" });
           } catch { /* stale or canceled work cannot publish */ }
         }
       }
@@ -204,7 +216,7 @@ export function createImportRuntime(options: RuntimeOptions) {
     if (saved?.state === "failed" && !restored) return;
     if (restored || !plan.options.reembed) {
       if (saved?.state === "completed") return;
-      save({ ...metadata, state: "completed" });
+      await save({ ...metadata, state: "completed" });
       return;
     }
     if (plan.sourceEmbedding?.model === plan.options.reembed.model) {
@@ -212,7 +224,7 @@ export function createImportRuntime(options: RuntimeOptions) {
       if (!actor) throw denied();
       const check = await options.model(plan.options.reembed.model, plan.options.reembed.licenceId, actor);
       if (!check.present || !check.licenceAccepted) throw unavailable();
-      save({ ...metadata, state: "completed" });
+      await save({ ...metadata, state: "completed" });
       return;
     }
     if (saved?.state === "completed" || saved?.state === "failed" || active.has(control.runId)) return;
@@ -235,7 +247,7 @@ export function createImportRuntime(options: RuntimeOptions) {
           const planned = await driver.plan({ target: target.fingerprint });
           if (!planned.plan || closed) throw unavailable();
           metadata.migrationId = planned.plan.id;
-          save(metadata);
+          await save(metadata);
         } else if (prior.checkpoint?.id !== metadata.migrationId) throw unavailable();
         const current = await driver.status();
         if (closed) throw unavailable();
@@ -245,9 +257,9 @@ export function createImportRuntime(options: RuntimeOptions) {
           if (checkpoint.phase !== "ready-to-switch" || closed) throw unavailable();
           if ((await driver.switch()).phase !== "switched") throw unavailable();
         }
-        if (!closed) save({ ...metadata, state: "completed" });
+        if (!closed) await save({ ...metadata, state: "completed" });
       } catch {
-        if (!closed) save({ ...metadata, state: "failed" });
+        if (!closed) await save({ ...metadata, state: "failed" });
       }
     });
     begin();

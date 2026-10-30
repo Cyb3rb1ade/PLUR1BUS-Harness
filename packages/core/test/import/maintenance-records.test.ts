@@ -2,7 +2,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import { readFileSync, writeFileSync, symlinkSync, mkdirSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, statSync, writeFileSync, symlinkSync, mkdirSync } from "node:fs";
 import { useTempDirs } from "./helpers.ts";
 
 const temp = useTempDirs();
@@ -24,6 +24,23 @@ function plan(home: string) {
 }
 
 describe("durable GUI import records", () => {
+  it("a read validates the record directory but neither creates it nor applies its permissions again", async () => {
+    // On Windows applying them runs icacls synchronously; a held status request reads a plan on every call.
+    const api = await factory();
+    const home = temp();
+    await assert.rejects(api.createImportRecords(home).readPlan("7c1a3b0e-2f4d-4c5e-9a6b-8d7e6f5a4b3c", "owner"));
+    assert.equal(existsSync(join(home, "imports")), false, "a read creates no record directory");
+    const records = api.createImportRecords(home);
+    const created = await records.putPlan(plan(home));
+    if (process.platform !== "win32") {
+      chmodSync(join(home, "imports", "plans"), 0o750);
+      assert.deepEqual(await records.readPlan(created.record.id, "owner"), created);
+      assert.equal(statSync(join(home, "imports", "plans")).mode & 0o777, 0o750, "a read applies no permissions");
+      await records.putPlan(plan(home));
+      assert.equal(statSync(join(home, "imports", "plans")).mode & 0o777, 0o700, "a write still secures the directory");
+    }
+  });
+
   it("persists an immutable plan with a content digest and retrieves it after Core restart for the same Owner", async () => {
     const api = await factory();
     const home = temp();
