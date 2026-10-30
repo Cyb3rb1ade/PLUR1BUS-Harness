@@ -17,6 +17,7 @@ mod paths;
 mod privacy;
 mod proc;
 mod repair;
+mod role;
 mod service;
 mod supervisor;
 mod update;
