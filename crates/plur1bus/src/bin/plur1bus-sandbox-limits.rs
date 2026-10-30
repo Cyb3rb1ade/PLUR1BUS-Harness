@@ -366,8 +366,8 @@ mod watchdog {
         }
         GROUP.store(pid, Ordering::Relaxed);
         unsafe {
-            libc::signal(libc::SIGTERM, terminate as libc::sighandler_t);
-            libc::signal(libc::SIGINT, terminate as libc::sighandler_t);
+            libc::signal(libc::SIGTERM, terminate as *const () as libc::sighandler_t);
+            libc::signal(libc::SIGINT, terminate as *const () as libc::sighandler_t);
         }
         // Attach and validate observation BEFORE releasing the target's exec gate.
         let mut known = HashMap::new();
