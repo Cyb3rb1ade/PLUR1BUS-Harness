@@ -34,7 +34,8 @@ jobs:
     timeout-minutes: 20
     continue-on-error: true
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: checkout harness
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10.28.0
@@ -46,9 +47,39 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: build packages
         run: pnpm build
-      - name: run A2A 1.0 server & streaming TCK suite
+      - name: run internal A2A 1.0 server & streaming suite
         run: |
           node --import ./scripts/test-prerequisites.mjs --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test packages/api/test/a2a-card.test.ts packages/api/test/a2a-server.test.ts packages/api/test/a2a-streaming.test.ts
-      - name: run A2A 1.0 outbound client & egress boundaries
+      - name: run internal A2A 1.0 outbound client & egress boundaries
         run: |
           node --import ./scripts/test-prerequisites.mjs --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test packages/core/test/a2a/outbound-client.test.ts
+      - name: setup python for A2A TCK
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - name: checkout official A2A TCK (pinned commit)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: a2aproject/a2a-tck
+          ref: d4d6fae7887f88ef607fb461c13e3b0e1802f19b
+          path: a2a-tck
+      - name: install A2A TCK
+        working-directory: a2a-tck
+        run: |
+          pip install uv
+          uv venv
+          . .venv/bin/activate
+          uv pip install -e .
+      - name: run A2A TCK full conformance suite
+        working-directory: a2a-tck
+        continue-on-error: true
+        run: |
+          . .venv/bin/activate
+          pytest tests/unit -v --tb=short
+      - name: upload TCK reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: a2a-tck-reports
+          path: a2a-tck/reports/
+          if-no-files-found: ignore
