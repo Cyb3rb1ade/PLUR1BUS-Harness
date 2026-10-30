@@ -1,25 +1,29 @@
-import { createSecretRedaction, redactProtocolOutput } from "../../../../core/src/secrets/redaction.ts";
+import { createSecretRedaction, redactProtocolValue } from "../../../../core/src/secrets/redaction.ts";
 import type { McpToolContext, McpToolDef } from "../types.ts";
 import type { McpToolGroup } from "./group.ts";
 
 export interface MemoryToolGroupOptions {
-  secretRedaction?: ReturnType<typeof createSecretRedaction>;
-  includeStore?: boolean;
+  secretRedaction?: ReturnType<typeof createSecretRedaction> | undefined;
+  includeStore?: boolean | undefined;
 }
 
 export class MemoryToolGroup implements McpToolGroup {
   readonly name = "memory";
-  private readonly secretRedaction = createSecretRedaction();
+  private readonly secretRedaction: ReturnType<typeof createSecretRedaction>;
   private readonly includeStore: boolean;
 
   constructor(options: MemoryToolGroupOptions = {}) {
-    this.includeStore = options.includeStore ?? false;
-    if (options.secretRedaction) {
-      this.secretRedaction = options.secretRedaction;
-    }
+    this.includeStore = options.includeStore ?? true;
+    this.secretRedaction = options.secretRedaction ?? createSecretRedaction();
   }
 
   buildTools(ctx: McpToolContext): readonly McpToolDef[] {
+    const binding = (ctx.rbac as any)?.binding;
+    if (binding?.groups && !binding.groups.includes("memory")) {
+      return [];
+    }
+
+    const boundMemory = binding?.memory;
     const tools: McpToolDef[] = [];
 
     const recallTool: McpToolDef = {
@@ -40,11 +44,17 @@ export class MemoryToolGroup implements McpToolGroup {
       handler: async (args, toolCtx) => {
         const query = typeof args.query === "string" ? args.query.trim() : "";
         if (!query) throw new Error("query is required");
+
+        const effectiveBinding = (toolCtx?.rbac as any)?.binding ?? binding;
+        const memoryBinding = effectiveBinding?.memory;
+        if (args.disclose === "never" || memoryBinding?.disclose === "never") {
+          return { blocks: [], query, text: "", joined: "", degraded: { reason: "disclose-never", capability: "recall" } };
+        }
+
         const agentId = toolCtx?.agentId ?? ctx.agentId;
         const core = toolCtx?.core ?? ctx.core;
 
         if (!core || typeof (core as any).call !== "function") {
-          // If no live core is attached (e.g. standalone test), return empty memory result
           return { blocks: [], query, degraded: { reason: "core-unavailable" } };
         }
 
@@ -57,28 +67,18 @@ export class MemoryToolGroup implements McpToolGroup {
           joined: true,
         };
         if (typeof args.capChars === "number") {
-          params.capChars = args.capChars;
-        }
-        if (typeof args.filter === "object" && args.filter !== null) {
-          params.filter = args.filter;
-        }
-        if (typeof args.disclose === "string") {
-          params.disclose = args.disclose;
-        }
-        if (typeof args.project === "string") {
-          params.project = args.project;
+          params.budget = { capChars: args.capChars };
         }
 
         const result = await (core as any).call("memory.recall", params);
-        const serialized = JSON.stringify(result);
-        const redacted = redactProtocolOutput(serialized, "mcp", this.secretRedaction);
-        return JSON.parse(redacted);
+        return redactProtocolValue(result, "mcp", this.secretRedaction);
       },
     };
 
     tools.push(recallTool);
 
-    if (this.includeStore) {
+    const allowCapture = boundMemory?.capture !== false;
+    if (this.includeStore && allowCapture) {
       const storeTool: McpToolDef = {
         name: "memory_store",
         description: "Captures a new memory fact in authorized scope.",
@@ -102,20 +102,20 @@ export class MemoryToolGroup implements McpToolGroup {
             throw new Error("Core memory storage unavailable");
           }
 
-          const caller = toolCtx?.rbac?.userId ?? ctx.rbac?.userId ?? "mcp-caller";
-          const scope = args.scope === "workspace" ? "workspace" : "user";
+          const userId = toolCtx?.rbac?.userId ?? ctx.rbac?.userId ?? "mcp-caller";
+          const caller = { channel: "mcp", accountId: userId, userId };
           const params: Record<string, unknown> = {
             caller,
             agentId,
-            text,
-            scope,
+            messages: [{ role: "user", content: text }],
+            wait: true,
           };
           if (typeof args.session === "string" && args.session) {
-            params.session = args.session;
+            params.sessionKey = args.session;
           }
 
           const res = await (core as any).call("memory.capture", params);
-          return res;
+          return redactProtocolValue(res, "mcp", this.secretRedaction);
         },
       };
 

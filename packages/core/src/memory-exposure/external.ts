@@ -1,5 +1,8 @@
 import type { HarnessConfig } from "@plur1bus/config-schema";
+import { joinBlocks } from "../join.ts";
 import type { HarnessLogger } from "../logger.ts";
+import type { MemorySensitivityService } from "../memory-sensitivity/service.ts";
+import type { AuditSink } from "../rbac/audit.ts";
 import type { Principal } from "../rbac/types.ts";
 import type { TurnMemory } from "../session/memory-port.ts";
 import { resolveExposure } from "./resolve.ts";
@@ -10,6 +13,8 @@ export interface ExternalMemoryDeps {
   memory: TurnMemory;
   config: () => HarnessConfig;
   logger: Pick<HarnessLogger, "info" | "warn">;
+  sensitivity?: MemorySensitivityService | (() => MemorySensitivityService | null | undefined) | undefined;
+  audit?: AuditSink | undefined;
 }
 
 /** What an external turn tells the memory about itself. */
@@ -18,7 +23,11 @@ export interface ExternalTurn {
   agentId: string;
   principal: Principal | undefined;
   sessionId: string;
+  turnId?: string | undefined;
   signal?: AbortSignal | undefined;
+  filter?: readonly string[] | undefined;
+  disclose?: "agent-decides" | "never" | string | undefined;
+  project?: string | undefined;
 }
 
 export interface ExternalMemory {
@@ -40,6 +49,13 @@ export function externalMemory(d: ExternalMemoryDeps): ExternalMemory {
 
   return {
     async recall(turn, query) {
+      const disclose = turn.disclose ?? turn.principal?.binding?.memory?.disclose;
+      if (disclose === "never") return "";
+
+      if (turn.principal?.binding?.groups && !turn.principal.binding.groups.includes("memory")) {
+        return "";
+      }
+
       const exposure = resolveExposure({
         channel: turn.channel as ExposureChannel,
         agentId: turn.agentId,
@@ -48,6 +64,18 @@ export function externalMemory(d: ExternalMemoryDeps): ExternalMemory {
       });
       const { recall } = exposure;
       if (!turn.principal || !(recall.workspace || recall.user || recall.agentPrivate)) return "";
+
+      // Engine limit: the engine can only withhold the user scope. If workspace or agentPrivate is off,
+      // fail closed with degraded reason scope-not-enforceable without querying the engine.
+      if (!(recall.workspace && recall.agentPrivate)) {
+        d.logger.info(`${turn.channel}.recall.refused`, {
+          agentId: turn.agentId,
+          reason: "scope-not-enforceable",
+          scopes: [!recall.workspace && "workspace", !recall.agentPrivate && "agent-private"].filter(Boolean).join(", "),
+        });
+        return "";
+      }
+
       try {
         const r = await d.memory.recall({
           agentId: turn.agentId,
@@ -64,6 +92,52 @@ export function externalMemory(d: ExternalMemoryDeps): ExternalMemory {
             ...(r.degraded.detail ? { detail: r.degraded.detail } : {}),
           });
         }
+        if (!r.text) return "";
+
+        let blocks = r.blocks ?? [];
+        const sensService = typeof d.sensitivity === "function" ? d.sensitivity() : d.sensitivity;
+        const filter = (turn.filter ?? turn.principal?.binding?.memory?.filter ?? []) as readonly string[];
+
+        if (sensService && filter.length > 0 && blocks.length > 0) {
+          const kept: typeof blocks = [];
+          for (const b of blocks) {
+            const sens = sensService.getSensitivity(b.name) ?? (await sensService.assessCard({ id: b.name, text: b.text }));
+            const categories = Array.isArray(sens) ? sens : sens?.categories ?? [];
+            const hasFiltered = categories.some((c: string) => filter.includes(c));
+            if (!hasFiltered) {
+              kept.push(b);
+            }
+          }
+          blocks = kept;
+          if (blocks.length === 0) return "";
+        }
+
+        const cardIds = blocks.map((b) => b.name);
+        if (turn.channel === "a2a" && d.audit) {
+          d.audit.append({
+            at: Date.now(),
+            actor: { user: turn.principal.userId || "anonymous", host: "local" },
+            action: "a2a.memory.recalled",
+            target: `agent:${turn.agentId}`,
+            detail: {
+              turnId: turn.turnId ?? turn.sessionId,
+              sessionId: turn.sessionId,
+              cardIds,
+            },
+          });
+        }
+
+        if (blocks.length !== (r.blocks?.length ?? 0)) {
+          const capChars = d.config().core.recall.capChars;
+          const contextBlocks = blocks.map((b) => ({
+            name: b.name,
+            text: b.text,
+            droppable: b.droppable ?? false,
+            chars: b.chars ?? b.text.length,
+          }));
+          return joinBlocks(contextBlocks, capChars).text;
+        }
+
         return r.text;
       } catch (err) {
         d.logger.warn(`${turn.channel}.recall.failed`, { agentId: turn.agentId, err });
@@ -72,6 +146,9 @@ export function externalMemory(d: ExternalMemoryDeps): ExternalMemory {
     },
 
     capture(turn, exchange) {
+      if (turn.principal?.binding?.memory?.capture === false) return;
+      if (turn.principal?.binding?.groups && !turn.principal.binding.groups.includes("memory")) return;
+
       const exposure = resolveExposure({
         channel: turn.channel as ExposureChannel,
         agentId: turn.agentId,
@@ -94,7 +171,7 @@ export function externalMemory(d: ExternalMemoryDeps): ExternalMemory {
         provenance: {
           origin: turn.channel,
           ...(turn.traceId ? { traceId: turn.traceId } : {}),
-          ...(turn.spanId ? { spanId: turn.spanId } : {})
+          ...(turn.spanId ? { spanId: turn.spanId } : {}),
         },
       }).then(
         (outcome) => {
@@ -114,5 +191,25 @@ export function externalMemory(d: ExternalMemoryDeps): ExternalMemory {
     async idle() {
       while (pending.size) await Promise.allSettled([...pending]);
     },
+  };
+}
+
+/** Channel adapter for MCP turns (analogous to collabMemory). */
+export function mcpMemory(d: ExternalMemoryDeps): ExternalMemory {
+  const ext = externalMemory(d);
+  return {
+    recall: (turn, query) => ext.recall({ ...turn, channel: "mcp" }, query),
+    capture: (turn, exchange) => ext.capture({ ...turn, channel: "mcp" }, exchange),
+    idle: () => ext.idle(),
+  };
+}
+
+/** Channel adapter for A2A turns (analogous to collabMemory). */
+export function a2aMemory(d: ExternalMemoryDeps): ExternalMemory {
+  const ext = externalMemory(d);
+  return {
+    recall: (turn, query) => ext.recall({ ...turn, channel: "a2a" }, query),
+    capture: (turn, exchange) => ext.capture({ ...turn, channel: "a2a" }, exchange),
+    idle: () => ext.idle(),
   };
 }

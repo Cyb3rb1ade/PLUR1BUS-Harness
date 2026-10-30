@@ -78,8 +78,9 @@ test("MemoryToolGroup provides memory_recall with secret redaction and optional 
 
   const defaultGroup = new MemoryToolGroup();
   const defaultTools = defaultGroup.buildTools({ agentId: "agent-x" });
-  assert.equal(defaultTools.length, 1);
+  assert.equal(defaultTools.length, 2);
   assert.equal(defaultTools[0]!.name, "memory_recall");
+  assert.equal(defaultTools[1]!.name, "memory_store");
 
   const fullGroup = new MemoryToolGroup({ includeStore: true });
   const fullTools = fullGroup.buildTools({ agentId: "agent-x", core: fakeCore as any });
@@ -103,7 +104,7 @@ test("MemoryToolGroup provides memory_recall with secret redaction and optional 
     caller: { channel: "mcp", accountId: "user-bob", userId: "user-bob" },
     agentId: "agent-x",
     query: "find secret",
-    capChars: 5000,
+    budget: { capChars: 5000 },
     joined: true,
   });
 
@@ -127,13 +128,30 @@ test("MemoryToolGroup provides memory_recall with secret redaction and optional 
   assert.equal(calls.length, 2);
   assert.equal(calls[1]!.method, "memory.capture");
   assert.deepEqual(calls[1]!.params, {
-    caller: "user-bob",
+    caller: { channel: "mcp", accountId: "user-bob", userId: "user-bob" },
     agentId: "agent-x",
-    text: "Remember to buy milk",
-    scope: "workspace",
-    session: "sess-1",
+    messages: [{ role: "user", content: "Remember to buy milk" }],
+    sessionKey: "sess-1",
+    wait: true,
   });
   assert.deepEqual(storeRes, { ok: true, memoryId: "mem-999" });
+
+  // 5. disclose: "never" returns empty memory immediately without RPC call
+  const discloseRes = await recallTool.handler(
+    { query: "secret stuff", disclose: "never" },
+    { agentId: "agent-x", core: fakeCore as any, rbac: { userId: "user-bob" } as any },
+  );
+  assert.deepEqual(discloseRes, { blocks: [], query: "secret stuff", text: "", joined: "", degraded: { reason: "disclose-never", capability: "recall" } });
+  assert.equal(calls.length, 2, "no new RPC call on disclose: never");
+
+  // 6. binding.groups excluding memory returns empty tool list
+  const boundNoMemory = fullGroup.buildTools({ agentId: "agent-x", core: fakeCore as any, rbac: { binding: { groups: ["agent"] } } as any });
+  assert.equal(boundNoMemory.length, 0);
+
+  // 7. binding.memory.capture: false omits memory_store tool
+  const boundNoCapture = fullGroup.buildTools({ agentId: "agent-x", core: fakeCore as any, rbac: { binding: { groups: ["memory"], memory: { capture: false } } } as any });
+  assert.equal(boundNoCapture.length, 1);
+  assert.equal(boundNoCapture[0]!.name, "memory_recall");
 });
 
 test("AgentToolGroup runs agent turns and queries status", async () => {

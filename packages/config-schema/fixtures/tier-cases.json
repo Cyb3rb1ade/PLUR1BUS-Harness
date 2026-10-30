@@ -2246,7 +2246,7 @@
                           "user": {
                             "description": "Read the requesting person's user scope.",
                             "type": "boolean",
-                            "default": false,
+                            "default": true,
                             "x-restart": "live",
                             "x-tier": "advanced",
                             "x-write-roles": [
@@ -2258,7 +2258,7 @@
                           "agentPrivate": {
                             "description": "Read the agent's agent-private scope.",
                             "type": "boolean",
-                            "default": false,
+                            "default": true,
                             "x-restart": "live",
                             "x-tier": "advanced",
                             "x-write-roles": [
@@ -2270,9 +2270,9 @@
                         }
                       },
                       "capture": {
-                        "description": "Capture the exchange after the turn into memory. Defaults to false.",
+                        "description": "Capture the exchange after the turn into memory. Defaults to true.",
                         "type": "boolean",
-                        "default": false,
+                        "default": true,
                         "x-restart": "live",
                         "x-tier": "advanced",
                         "x-write-roles": [
@@ -2322,7 +2322,7 @@
                           "user": {
                             "description": "Read the requesting person's user scope.",
                             "type": "boolean",
-                            "default": false,
+                            "default": true,
                             "x-restart": "live",
                             "x-tier": "advanced",
                             "x-write-roles": [
@@ -2334,7 +2334,7 @@
                           "agentPrivate": {
                             "description": "Read the agent's agent-private scope.",
                             "type": "boolean",
-                            "default": false,
+                            "default": true,
                             "x-restart": "live",
                             "x-tier": "advanced",
                             "x-write-roles": [
@@ -2346,9 +2346,9 @@
                         }
                       },
                       "capture": {
-                        "description": "Capture the exchange after the turn into memory. Defaults to false.",
+                        "description": "Capture the exchange after the turn into memory. Defaults to true.",
                         "type": "boolean",
-                        "default": false,
+                        "default": true,
                         "x-restart": "live",
                         "x-tier": "advanced",
                         "x-write-roles": [

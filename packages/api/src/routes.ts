@@ -309,6 +309,7 @@ export interface HandlerDeps {
   a2aConfig?: import("./a2a/activation.ts").A2aServerConfigLike | (() => Promise<import("./a2a/activation.ts").A2aServerConfigLike | undefined> | import("./a2a/activation.ts").A2aServerConfigLike | undefined) | undefined;
   taskStore?: ((agentId: string) => import("./a2a/task-store.ts").TaskStore) | undefined;
   oauthService?: import("./oauth/service.ts").OAuthService | undefined;
+  secretRedaction?: import("../../core/src/secrets/redaction.ts").SecretRedaction | undefined;
   isRemote?: boolean | undefined;
 }
 

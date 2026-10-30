@@ -22,17 +22,30 @@ export function readRights(principal: Principal | null | undefined, agentId: str
 export function resolveExposure(a: { channel: ExposureChannel; agentId: string; principal: Principal | null | undefined; config: HarnessConfig }): Exposure {
   const switches = channelSwitches(a.config, a.agentId, a.channel);
   const rights = readRights(a.principal, a.agentId);
+
+  const memOverride = a.principal?.binding?.memory;
+  const groups = a.principal?.binding?.groups;
+  const groupsAllowMemory = groups === undefined || groups.includes("memory");
+
+  const discloseNever = memOverride?.disclose === "never";
+
+  const effectiveWorkspace = groupsAllowMemory && !discloseNever && switches.recall.workspace && rights.workspace && (memOverride?.recall?.workspace ?? true);
+  const effectiveUser = groupsAllowMemory && !discloseNever && switches.recall.user && rights.user && (memOverride?.recall?.user ?? true);
+  const effectiveAgentPrivate = groupsAllowMemory && !discloseNever && switches.recall.agentPrivate && rights.agentPrivate && (memOverride?.recall?.agentPrivate ?? true);
+
+  const effectiveCapture = groupsAllowMemory && switches.capture && !!a.principal && a.principal.kind !== "agent" && (memOverride?.capture ?? true);
+
   return {
     channel: a.channel,
     agentId: a.agentId,
     switches,
     rights,
     recall: {
-      workspace: switches.recall.workspace && rights.workspace,
-      user: switches.recall.user && rights.user,
-      agentPrivate: switches.recall.agentPrivate && rights.agentPrivate,
+      workspace: effectiveWorkspace,
+      user: effectiveUser,
+      agentPrivate: effectiveAgentPrivate,
     },
     // A capture is attributed to a person; without one there is nothing to attribute it to.
-    capture: switches.capture && !!a.principal && a.principal.kind !== "agent",
+    capture: effectiveCapture,
   };
 }

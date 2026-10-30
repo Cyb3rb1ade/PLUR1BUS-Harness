@@ -35,6 +35,7 @@ import type { ServerResponse } from "node:http";
 import { once } from "node:events";
 import { A2A_DEFAULT_PAGE_SIZE } from "./types.ts";
 import { InMemoryTaskStore, SqliteTaskStore } from "./task-store.ts";
+import { createSecretRedaction, redactProtocolOutput } from "../../../core/src/secrets/redaction.ts";
 
 export interface CoreLike {
   call<T = unknown>(method: string, params: unknown): Promise<T>;
@@ -46,6 +47,7 @@ export interface A2aAgentExecutorOptions {
   agentId: string;
   tokenId: string;
   core: CoreLike;
+  secretRedaction?: ReturnType<typeof createSecretRedaction> | undefined;
 }
 
 function createErrorMessage(taskId: string, contextId: string, errorText: string): Message {
@@ -72,6 +74,7 @@ export class A2aAgentExecutor implements AgentExecutor {
   private readonly agentId: string;
   private tokenId: string;
   private readonly core: CoreLike;
+  private readonly secretRedaction: ReturnType<typeof createSecretRedaction>;
   private readonly taskContexts = new Map<string, string>();
   private readonly taskTokenIds = new Map<string, string>();
   private readonly contextSessions = new Map<string, string>();
@@ -80,6 +83,7 @@ export class A2aAgentExecutor implements AgentExecutor {
     this.agentId = opts.agentId;
     this.tokenId = opts.tokenId;
     this.core = opts.core;
+    this.secretRedaction = opts.secretRedaction ?? createSecretRedaction();
   }
 
   setTokenId(tokenId: string): void {
@@ -164,6 +168,7 @@ export class A2aAgentExecutor implements AgentExecutor {
             : [result.reply ?? ""];
 
         for (let i = 0; i < chunks.length; i++) {
+          const redactedChunk = redactProtocolOutput(chunks[i] ?? "", "a2a", this.secretRedaction);
           eventBus.publish(
             AgentEvent.artifactUpdate({
               taskId,
@@ -174,7 +179,7 @@ export class A2aAgentExecutor implements AgentExecutor {
                 description: "Agent turn output",
                 parts: [
                   {
-                    content: { $case: "text", value: chunks[i] ?? "" },
+                    content: { $case: "text", value: redactedChunk },
                     metadata: undefined,
                     filename: "",
                     mediaType: "text/plain",
@@ -210,7 +215,7 @@ export class A2aAgentExecutor implements AgentExecutor {
             contextId,
             status: {
               state: isCancelled ? TaskState.TASK_STATE_CANCELED : TaskState.TASK_STATE_FAILED,
-              message: result.error ? createErrorMessage(taskId, contextId, result.error) : undefined,
+              message: result.error ? createErrorMessage(taskId, contextId, redactProtocolOutput(result.error, "a2a", this.secretRedaction)) : undefined,
               timestamp: new Date().toISOString(),
             },
             metadata: undefined,
@@ -227,7 +232,7 @@ export class A2aAgentExecutor implements AgentExecutor {
             message: createErrorMessage(
               taskId,
               contextId,
-              err instanceof Error ? err.message : String(err),
+              redactProtocolOutput(err instanceof Error ? err.message : String(err), "a2a", this.secretRedaction),
             ),
             timestamp: new Date().toISOString(),
           },
@@ -353,10 +358,11 @@ export interface A2aServerCoreOptions {
   tokenId: string;
   baseUrl: string;
   core: CoreLike;
-  legacy03?: boolean;
-  name?: string;
-  description?: string;
-  taskStore?: TaskStore;
+  legacy03?: boolean | undefined;
+  name?: string | undefined;
+  description?: string | undefined;
+  taskStore?: TaskStore | undefined;
+  secretRedaction?: ReturnType<typeof createSecretRedaction> | undefined;
 }
 
 export class A2aServerCore {
@@ -380,6 +386,7 @@ export class A2aServerCore {
       agentId: opts.agentId,
       tokenId: opts.tokenId,
       core: opts.core,
+      ...(opts.secretRedaction !== undefined ? { secretRedaction: opts.secretRedaction } : {}),
     });
     this.requestHandler = new DefaultRequestHandler(this.card, this.taskStore, this.executor);
     this.v1Transport = new JsonRpcTransportHandler(this.requestHandler);

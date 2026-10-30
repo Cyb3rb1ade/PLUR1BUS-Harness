@@ -22,6 +22,7 @@ import { A2aServerCore, buildAgentCard, InMemoryTaskStore } from "./server.ts";
 import { signAgentCard } from "./card.ts";
 import { A2A_MAX_BODY_BYTES } from "./types.ts";
 import type { TaskStore } from "@a2a-js/sdk/server";
+import { redactProtocolValue } from "../../../core/src/secrets/redaction.ts";
 
 export interface A2aHandlerDeps extends HandlerDeps {
   a2aConfig?:
@@ -346,6 +347,7 @@ export function buildA2aHandlers(
             core: d.core,
             legacy03,
             taskStore,
+            secretRedaction: d.secretRedaction,
           }),
       );
 
@@ -387,10 +389,14 @@ export function buildA2aHandlers(
         resHeaders[extHeaderName] = Extensions.toServiceParameter(callContext.activatedExtensions);
       }
 
+      const body = d.secretRedaction
+        ? redactProtocolValue(resultOrStream as Record<string, unknown>, "a2a", d.secretRedaction)
+        : (resultOrStream as Record<string, unknown>);
+
       return {
         status: 200,
         headers: resHeaders,
-        body: resultOrStream as Record<string, unknown>,
+        body,
       };
     },
   };

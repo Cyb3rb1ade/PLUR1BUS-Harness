@@ -785,7 +785,7 @@ export function createCore(o: CoreOptions): Core {
         maintenance: { held: () => importHold.held, onRelease: callback => importHold.onRelease(callback) },
         voiceConfigSource: changes => cs.set(changes), importConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal,
         surfaceOf: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }),
-        resolveCollaborationPerson: id => people.resolvePerson(id), secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
+        resolveCollaborationPerson: id => people.resolvePerson(id), secrets: secretStore, memorySensitivity: () => memorySensitivity, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
         // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or
         // grant-covered turns) and is refused with a typed error only when a call needs a person's approval.
         approver: async (ctx, params) => { const principal = await resolvePrincipal(ctx, "session.submit", params); return { person: principal && principal.kind === "person" ? principal.userId : null, surface: connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }; },

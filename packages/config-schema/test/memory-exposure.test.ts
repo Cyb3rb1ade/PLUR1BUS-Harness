@@ -20,9 +20,9 @@ test("agents.<id>.memoryExposure has collab, mcp and a2a switches with their def
     assert.deepEqual(Object.keys(p).sort(), ["capture", "recall"]);
     assert.deepEqual(Object.keys(p.recall.properties).sort(), ["agentPrivate", "user", "workspace"]);
     assert.equal(p.recall.properties.workspace.default, true);
-    assert.equal(p.recall.properties.user.default, false);
-    assert.equal(p.recall.properties.agentPrivate.default, false);
-    assert.equal(p.capture.default, false);
+    assert.equal(p.recall.properties.user.default, true);
+    assert.equal(p.recall.properties.agentPrivate.default, true);
+    assert.equal(p.capture.default, true);
   }
 });
 

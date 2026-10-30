@@ -114,6 +114,12 @@ function identity(d: MethodDeps, caller: CallerIdentity, agentId: string, ctx?: 
       const accountId = validIdentity(caller?.accountId) ? caller.accountId : (binding?.audience ?? "api");
       const { principal } = callerToPrincipal({ channel: "cli", accountId, userId: effective.userId }, agentId, workspace);
       principal.user = deriveUserPrincipal(effective.userId);
+      if (effective.tokenScopes) {
+        (principal as any).tokenScopes = effective.tokenScopes;
+      }
+      if (binding) {
+        (principal as any).binding = binding;
+      }
       return { principal, degraded: null };
     }
   }

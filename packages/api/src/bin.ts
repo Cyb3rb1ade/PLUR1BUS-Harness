@@ -16,6 +16,8 @@ import { createAuditChain } from "./rbac-bridge.ts";
 import { createApiServer } from "./server.ts";
 import { API_VERSION } from "./routes.ts";
 import { SqliteTaskStore } from "./a2a/task-store.ts";
+import { createCoreSecretStore } from "../../core/src/secrets/runtime.ts";
+import { layout } from "../../core/src/paths.ts";
 
 import { mkdirSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { hostname } from "node:os";
@@ -95,8 +97,9 @@ async function main(): Promise<void> {
     }
     return s;
   };
+  const secretStore = createCoreSecretStore({ layout: layout(home), securePath: secure, fileFallback: () => false });
   const common = { core, home, bootstrapConsumed: cleanBootstrap, remotePairing, accounts, users: accounts, tokens: accounts.tokens, totp: accounts.totp, resolveBootstrap: () => resolve("local-owner"), ownerToken: randomBytes(32).toString("base64url"), logger, audit, breakGlassAudit: chain, sharedSessions, sharedLoginChallenges, sharedWebauthnChallenges, requireSecondFactor: startup.requireSecondFactor,
-    mcpConfig: () => loadConfig(), a2aConfig: () => loadConfig(), taskStore, oauthStore, oauthClients: loadConfig()?.oauth?.clients,
+    mcpConfig: () => loadConfig(), a2aConfig: () => loadConfig(), taskStore, oauthStore, oauthClients: loadConfig()?.oauth?.clients, secretRedaction: secretStore.redaction,
     ...(wideRates ? { rateClasses: wideRates } : {}),
     remoteCertificates: { importCompany: async (certPem: string, keyPem: string) => { const current = certificates.hasCurrent(), staged = await certificates.stageCompany({ certChainPem: certPem, keyPem }); if (!current) certificates.activateStaged(); return { certPin: staged.certPin, staged: current }; } },
     ...(arg("--web-root") ? { webRoot: arg("--web-root")! } : existsSync(join(home,"runtime","web","index.html")) ? {webRoot:join(home,"runtime","web")} : {}) };

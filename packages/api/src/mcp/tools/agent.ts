@@ -1,8 +1,18 @@
+import { createSecretRedaction, redactProtocolValue } from "../../../../core/src/secrets/redaction.ts";
 import type { McpToolContext, McpToolDef } from "../types.ts";
 import type { McpToolGroup } from "./group.ts";
 
+export interface AgentToolGroupOptions {
+  secretRedaction?: ReturnType<typeof createSecretRedaction> | undefined;
+}
+
 export class AgentToolGroup implements McpToolGroup {
   readonly name = "agent";
+  private readonly secretRedaction: ReturnType<typeof createSecretRedaction>;
+
+  constructor(options: AgentToolGroupOptions = {}) {
+    this.secretRedaction = options.secretRedaction ?? createSecretRedaction();
+  }
 
   buildTools(ctx: McpToolContext): readonly McpToolDef[] {
     const askTool: McpToolDef = {
@@ -24,34 +34,18 @@ export class AgentToolGroup implements McpToolGroup {
         const core = toolCtx?.core ?? ctx.core;
 
         if (!core || typeof (core as any).call !== "function") {
-          return { reply: `Agent ${agentId} simulated reply to: ${message}` };
+          throw new Error("Core service unavailable");
         }
 
-        const caller = toolCtx?.rbac?.userId ?? ctx.rbac?.userId ?? "mcp-caller";
         const tokenId = toolCtx?.tokenId ?? ctx.tokenId;
-        try {
-          const res = await (core as any).call("external.turn.start", {
-            agentId,
-            message,
-            audience: "mcp",
-            ...(tokenId !== undefined ? { tokenId } : {}),
-            wait: true,
-          });
-          return res;
-        } catch {
-          try {
-            const res = await (core as any).call("chat.ask", {
-              agentId,
-              message,
-              caller,
-            });
-            return res;
-          } catch {
-            // Fallback if chat.ask is not directly exposed as an RPC method
-            const status = await (core as any).call("agent.read", { agentId });
-            return { reply: `Agent ${agentId} received message. Status: ${JSON.stringify(status)}` };
-          }
-        }
+        const res = await (core as any).call("external.turn.start", {
+          agentId,
+          message,
+          audience: "mcp",
+          ...(tokenId !== undefined ? { tokenId } : {}),
+          wait: true,
+        });
+        return redactProtocolValue(res, "mcp", this.secretRedaction);
       },
     };
 
@@ -68,15 +62,11 @@ export class AgentToolGroup implements McpToolGroup {
         const core = toolCtx?.core ?? ctx.core;
 
         if (!core || typeof (core as any).call !== "function") {
-          return { agentId, state: "idle", ready: true };
+          throw new Error("Core service unavailable");
         }
 
-        try {
-          const res = await (core as any).call("agent.read", { agentId });
-          return res;
-        } catch {
-          return { agentId, state: "idle" };
-        }
+        const res = await (core as any).call("agent.read", { agentId });
+        return redactProtocolValue(res, "mcp", this.secretRedaction);
       },
     };
 

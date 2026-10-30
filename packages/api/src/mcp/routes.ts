@@ -60,8 +60,10 @@ export function buildMcpHandlers(d: HandlerDeps): Record<string, (i: HandlerInpu
       }
 
       const groups = getAgentMcpGroups(mcpConfig, agentId);
-      const registry = createDefaultToolRegistry();
-      const tools = registry.buildTools(groups, {
+      const tokenGroups = (i.tokenRecord?.binding as any)?.groups as readonly string[] | undefined;
+      const effectiveGroups = tokenGroups ? groups.filter(g => tokenGroups.includes(g)) : groups;
+      const registry = createDefaultToolRegistry({ secretRedaction: d.secretRedaction });
+      const tools = registry.buildTools(effectiveGroups, {
         agentId,
         tokenId,
         rbac: i.rbac,

@@ -6,5 +6,5 @@
 export { CHANNEL_DEFAULTS, channelSwitches } from "./config.ts";
 export { readRights, resolveExposure } from "./resolve.ts";
 export { collabMemory, type CollabMemory, type CollabMemoryDeps, type CollabTurn } from "./collab.ts";
-export { externalMemory, type ExternalMemory, type ExternalMemoryDeps, type ExternalTurn } from "./external.ts";
+export { externalMemory, mcpMemory, a2aMemory, type ExternalMemory, type ExternalMemoryDeps, type ExternalTurn } from "./external.ts";
 export { NO_SCOPES, type ChannelSwitches, type Exposure, type ExposureChannel, type MemoryExposureConfig, type ScopeAccess } from "./types.ts";

@@ -128,6 +128,7 @@ export interface CompositionDeps {
   inbox?: import('../inbox/service.ts').InboxPort;
   /** web.search over the SearXNG sidecar (`sidecars/web-search.ts`); absent, no search tool is registered. */
   webSearch?: import('../tools/web/search.ts').WebSearch;
+  memorySensitivity?: import("../memory-sensitivity/service.ts").MemorySensitivityService | (() => import("../memory-sensitivity/service.ts").MemorySensitivityService | null | undefined);
   /** Per-chat model choice (D112 catalog): reasoning per model before the wire fit, catalog facts and provider endpoints. */
   chatModels?: Pick<ChatModelSources, 'catalog' | 'endpoint'> & { reasoning(provider: string, model: string): ReasoningDescriptor };
 }
@@ -474,7 +475,13 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     }, workflowEvidence, skillProposals);
     const promotions = collab ? new ChatPromotion({ path: join(d.home, 'state', 'chat-promotions.sqlite'), sessions: () => sessions, collab, now: d.clock, audit: event => { d.audit.append({ at: d.clock(), actor: { user: String(event.person), host: 'core' }, action: 'chat.promoted', target: 'project', detail: event }); } }) : null;
     if (promotions) disposers.push(() => promotions.close());
-    const extMemory = externalMemory({ memory, config: d.config, logger: d.logger });
+    const extMemory = externalMemory({
+      memory,
+      config: d.config,
+      logger: d.logger,
+      audit: d.audit,
+      sensitivity: d.memorySensitivity,
+    });
     const extTurns = createExternalTurnService({
       store: sessions.store,
       agents: d.agents,

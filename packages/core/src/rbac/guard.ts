@@ -271,8 +271,8 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "approval.audit": rule("approval.read", system),
   "approval.decide": rule("approval.decide", system),
   "approval.cancel": rule("approval.decide", system),
-  // M6-A (Arbeitspaket P): memory.recall (agent.use or memory.*.read) and memory.capture (memory.*.write).
-  "memory.recall": rule("agent.use", agent),
+  // M6-A (Arbeitspaket P): memory.recall (memory.workspace.read fallback to memory.*.read) and memory.capture (memory.*.write).
+  "memory.recall": rule("memory.workspace.read", (params) => ({ kind: "memory", scope: "workspace", agentId: field(params, "agentId") })),
   "memory.capture": rule("memory.workspace.write", (params) => ({ kind: "memory", scope: "workspace", agentId: field(params, "agentId") })),
   // M6-A (Arbeitspaket P): memory.sensitivity.* (Festlegung 5)
   "memory.sensitivity.get": rule("memory.sensitivity.read", agent),

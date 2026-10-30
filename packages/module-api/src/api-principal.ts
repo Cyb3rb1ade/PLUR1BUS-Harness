@@ -19,6 +19,7 @@ export interface ApiTokenBinding {
   readonly agentId: string;
   readonly projectId?: string;
   readonly system?: string;
+  readonly groups?: readonly string[];
   readonly memory?: ApiTokenMemoryPolicyOverride;
 }
 export interface ApiPrincipal {
@@ -46,10 +47,11 @@ export function apiTransport(ctx: CallContext): ApiTransport | undefined { retur
 function validBinding(v: unknown): v is ApiTokenBinding {
   if (!v || typeof v !== "object" || Array.isArray(v)) return false;
   const b = v as Record<string, unknown>;
-  if (Object.keys(b).some(k => !["audience", "agentId", "projectId", "system", "memory"].includes(k))) return false;
+  if (Object.keys(b).some(k => !["audience", "agentId", "projectId", "system", "groups", "memory"].includes(k))) return false;
   if ((b.audience !== "mcp" && b.audience !== "a2a") || typeof b.agentId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/.test(b.agentId)) return false;
   if (b.projectId !== undefined && (typeof b.projectId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(b.projectId))) return false;
   if (b.system !== undefined && (typeof b.system !== "string" || b.system.length === 0 || b.system.length > 128 || /[\u0000-\u001f\u007f]/.test(b.system))) return false;
+  if (b.groups !== undefined && (!Array.isArray(b.groups) || b.groups.some(g => typeof g !== "string" || !/^[a-zA-Z0-9_-]{1,64}$/.test(g)))) return false;
   if (b.memory !== undefined) {
     if (!b.memory || typeof b.memory !== "object" || Array.isArray(b.memory)) return false;
     const m = b.memory as Record<string, unknown>;
