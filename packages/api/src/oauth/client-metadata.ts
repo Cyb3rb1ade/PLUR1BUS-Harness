@@ -14,18 +14,23 @@ export function matchRedirectUri(requestedUri: string, allowedUris: readonly str
   }
   try {
     const reqUrl = new URL(requestedUri);
-    // RFC 8252 §7.3 loopback port variance
-    if (
-      reqUrl.protocol === "http:" &&
-      (reqUrl.hostname === "127.0.0.1" || reqUrl.hostname === "[::1]" || reqUrl.hostname === "localhost")
-    ) {
+    // RFC 8252 §7.3 loopback port variance:
+    // Only port variance is permitted on loopback. Scheme, exact host, pathname, and query MUST match.
+    // Hostnames MUST NOT be cross-mixed (127.0.0.1 !== localhost !== [::1]).
+    const isLoopbackHost =
+      reqUrl.hostname === "127.0.0.1" ||
+      reqUrl.hostname === "[::1]" ||
+      reqUrl.hostname === "localhost";
+
+    if (reqUrl.protocol === "http:" && isLoopbackHost) {
       for (const allowed of allowedUris) {
         try {
           const allowedUrl = new URL(allowed);
           if (
             allowedUrl.protocol === "http:" &&
-            (allowedUrl.hostname === "127.0.0.1" || allowedUrl.hostname === "[::1]" || allowedUrl.hostname === "localhost") &&
-            allowedUrl.pathname === reqUrl.pathname
+            allowedUrl.hostname === reqUrl.hostname &&
+            allowedUrl.pathname === reqUrl.pathname &&
+            allowedUrl.search === reqUrl.search
           ) {
             return true;
           }

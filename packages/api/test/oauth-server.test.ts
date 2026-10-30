@@ -41,16 +41,35 @@ test("M6A-A3.1: PKCE enforces S256 and rejects plain", () => {
   assert.equal(verifyPkce("short", challenge, "S256"), false);
 });
 
-test("M6A-A3.1: redirect_uri matching supports exact match and loopback dynamic port", () => {
-  const allowed = ["https://client.example.com/callback", "http://127.0.0.1:8080/callback"];
+test("M6A-A3.1/S7: redirect_uri matching supports exact match and loopback dynamic port without mixing hosts or ignoring query", () => {
+  const allowed = [
+    "https://client.example.com/callback",
+    "http://127.0.0.1:8080/callback",
+    "http://127.0.0.1:8080/callback?action=login",
+    "http://[::1]:8080/callback",
+  ];
 
   assert.equal(matchRedirectUri("https://client.example.com/callback", allowed), true);
   assert.equal(matchRedirectUri("https://client.example.com/other", allowed), false);
+
   // Exact loopback match
   assert.equal(matchRedirectUri("http://127.0.0.1:8080/callback", allowed), true);
+
   // Dynamic port on loopback per RFC 8252
   assert.equal(matchRedirectUri("http://127.0.0.1:9999/callback", allowed), true);
   assert.equal(matchRedirectUri("http://127.0.0.1:9999/wrong", allowed), false);
+
+  // RFC 8252 §7.3: Port variation with exact query match succeeds
+  assert.equal(matchRedirectUri("http://127.0.0.1:9999/callback?action=login", allowed), true);
+  // RFC 8252 §7.3: Query variation is NOT ignored and must be rejected
+  assert.equal(matchRedirectUri("http://127.0.0.1:9999/callback?evil=1", allowed), false);
+  assert.equal(matchRedirectUri("http://127.0.0.1:9999/callback?action=other", allowed), false);
+
+  // RFC 8252 §7.3: MUST NOT cross-mix localhost, 127.0.0.1, and [::1]
+  assert.equal(matchRedirectUri("http://localhost:8080/callback", allowed), false);
+  assert.equal(matchRedirectUri("http://localhost:9999/callback", allowed), false);
+  assert.equal(matchRedirectUri("http://[::1]:9999/callback", allowed), true);
+  assert.equal(matchRedirectUri("http://[::1]:9999/other", allowed), false);
 });
 
 test("M6A-A3.1: GET /.well-known/oauth-authorization-server advertises RFC 8414 metadata", async (t) => {
