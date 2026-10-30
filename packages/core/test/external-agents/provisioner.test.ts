@@ -7,7 +7,7 @@ import { CollabError } from "../../src/collab/errors.ts";
 import { createCollab } from "../../src/collab/service.ts";
 import { CollabStore } from "../../src/collab/store.ts";
 import { gitArgv, realGit, type GitExec } from "../../src/external-agents/git.ts";
-import { cardBranch, projectKey, rootBranch } from "../../src/external-agents/names.ts";
+import { cardBranch, projectKey, rootBranch, hex6 } from "../../src/external-agents/names.ts";
 import { GitWorktreeProvisioner, provisionedWorktreePort } from "../../src/external-agents/provisioner.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 import { owner } from "../collab/helpers.ts";
@@ -49,9 +49,11 @@ test("fork names the branch and worktree, remove keeps the branch, and argv stay
     const head = execFileSync("git", ["-C", repo, "rev-parse", "main"], { encoding: "utf8" }).trim();
     assert.equal(forked.baseSha, head);
     const card = provisioner.fork({ projectId: id, cardId: "crd_aabbcc" });
+    assert.equal(card.path.startsWith(forked.path + sep), false);
+    assert.equal(card.path, realpathSync(join(state, "worktrees", id, "cards", `c-${hex6("crd_aabbcc")}`)));
     assert.equal(card.branch, cardBranch(key, "crd_aabbcc"));
     assert.equal(provisionedWorktreePort(store, () => "/workspace").root("agent", id, "crd_aabbcc"), card.path);
-    assert.equal(provisionedWorktreePort(store, () => "/workspace").root("agent", id, "missing"), forked.path);
+    assert.equal(provisionedWorktreePort(store, () => "/workspace").root("agent", id, "missing"), null);
     const flat = calls.flat();
     assert.ok(flat.includes("core.hooksPath=/dev/null"));
     assert.equal(flat.includes("--force"), false);
@@ -59,6 +61,7 @@ test("fork names the branch and worktree, remove keeps the branch, and argv stay
     assert.ok(calls.every((c) => c[0] === "git"));
     const again = createCollab({ path: db, home, git });
     try {
+      assert.throws(() => again.bindRepo(lead, id, repo, "main"), (e: unknown) => e instanceof CollabError && e.reason === "worktree-live");
       assert.throws(() => again.unbindRepo(lead, id), (e: unknown) => e instanceof CollabError && e.reason === "worktree-live");
     } finally { again.close(); }
     provisioner.remove({ projectId: id, cardId: "crd_aabbcc" });

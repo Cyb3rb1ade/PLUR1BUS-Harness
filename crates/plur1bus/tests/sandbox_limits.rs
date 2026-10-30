@@ -234,3 +234,61 @@ fn the_launcher_refuses_missing_or_zero_limits() {
         );
     }
 }
+
+#[cfg(target_os = "macos")]
+#[test]
+fn acp_watchdog_counts_four_bounded_forks_against_two_tasks() {
+    let out = launcher()
+        .args([
+            "--watch-tree",
+            "2",
+            "1073741824",
+            "--",
+            "/usr/bin/perl",
+            "-e",
+            "for(1..4){if(fork()==0){sleep 2;exit 0}} sleep 2",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(121), "{out:?}");
+    assert!(String::from_utf8_lossy(&out.stderr).contains("task-limit-exceeded"));
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn acp_watchdog_counts_descendant_rss_during_streaming() {
+    let out = launcher()
+        .args([
+            "--watch-tree",
+            "16",
+            "33554432",
+            "--",
+            "/usr/bin/perl",
+            "-e",
+            "$|=1;print qq(streaming\\n);if(fork()==0){$x='x' x (128*1024*1024);sleep 3}sleep 3",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(122), "{out:?}");
+    assert!(String::from_utf8_lossy(&out.stderr).contains("rss-limit-exceeded"));
+    assert!(String::from_utf8_lossy(&out.stdout).contains("streaming"));
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn acp_task_mode_refuses_shared_namespace_before_target_exec() {
+    let out = launcher()
+        .args([
+            "--tasks-required",
+            "7",
+            &own_userns(),
+            "--",
+            "/bin/echo",
+            "executed",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(125));
+    assert!(out.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("shared user namespace"));
+}

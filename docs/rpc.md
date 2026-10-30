@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.9.0)
+# RPC reference (rpc 1.11.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -194,8 +194,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `project.member.role`: experimental, since 1.5.0
 - `project.agent.add`: experimental, since 1.5.0
 - `project.agent.remove`: experimental, since 1.5.0
-- `project.repo.bind`: experimental, since 1.9.0
-- `project.repo.unbind`: experimental, since 1.9.0
+- `project.repo.bind`: experimental, since 1.11.0
+- `project.repo.unbind`: experimental, since 1.11.0
 - `task.complete`: experimental, since 1.5.0
 - `collab.session.replay`: experimental, since 1.5.0
 - `collab.trace.get`: experimental, since 1.5.0
@@ -10654,7 +10654,7 @@ Authenticated project agent.remove using ADR-007 object rights.
 
 ### `project.repo.bind`
 
-**Stability:** experimental · since 1.9.0
+**Stability:** experimental · since 1.11.0
 
 **Served by:** core
 
@@ -10702,7 +10702,7 @@ Bind a root project to a git repository. A person who is a project lead. Refuses
 
 ### `project.repo.unbind`
 
-**Stability:** experimental · since 1.9.0
+**Stability:** experimental · since 1.11.0
 
 **Served by:** core
 

@@ -1,5 +1,5 @@
 // External-agent record (ADR-003 Q4): stateless, one connector id, a turn and runtime budget.
-// `memoryExposure.acp` is package P's channel. It is stored on the agent and never placed on the ACP wire.
+// D32(d) memory access is deferred; no memory policy or marker travels on the ACP wire.
 
 export const CONNECTORS = ["claude-code", "codex", "goose", "agy"] as const;
 export type ConnectorId = (typeof CONNECTORS)[number];
@@ -9,19 +9,6 @@ export interface ExternalEngineConfig {
   connector: ConnectorId;
   maxTurns?: number;
   timeoutMs?: number;
-}
-
-/** What an external agent may read once P attaches the harness MCP server. Not serialised into initialize or session/new. */
-export interface AcpMemoryExposure {
-  read: readonly ["workspace", "user", "project"];
-  write: false;
-  /** All five personal categories stay filtered. Package P names them; this record only records the filter. */
-  personalFiltered: true;
-  credentials: "filtered";
-}
-
-export function acpMemoryExposure(): AcpMemoryExposure {
-  return { read: ["workspace", "user", "project"], write: false, personalFiltered: true, credentials: "filtered" };
 }
 
 export interface ResolvedEngine {

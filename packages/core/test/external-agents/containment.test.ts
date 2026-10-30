@@ -1,3 +1,4 @@
+import { provisionFixture, mountOptions } from "./fixture.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync, linkSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
@@ -9,7 +10,7 @@ import { tempDir } from "../helpers/temp-dir.ts";
 function gitWorktree(root: string): { repo: string; worktree: string; home: string } {
   const home = join(root, "home");
   const repo = join(root, "repo");
-  const worktree = join(root, "wt");
+  let worktree: string;
   mkdirSync(home, { recursive: true });
   mkdirSync(repo, { recursive: true });
   const git = (...args: string[]) => execFileSync("git", ["-C", repo, ...args], { stdio: "pipe" });
@@ -17,7 +18,7 @@ function gitWorktree(root: string): { repo: string; worktree: string; home: stri
   git("config", "user.email", "t@example.com");
   git("config", "user.name", "t");
   execFileSync("git", ["-C", repo, "commit", "--allow-empty", "-m", "init"], { stdio: "pipe" });
-  execFileSync("git", ["-C", repo, "worktree", "add", "-b", "p1b/demo-abcdef/main", worktree, "main"], { stdio: "pipe" });
+  worktree = provisionFixture(home, repo);
   return { repo, worktree, home };
 }
 
@@ -64,7 +65,7 @@ test("a worktree under the harness home stays writable and the rest of home does
 test("windows name rules refuse 8.3 and device names through the same canonicaliser", async () => {
   const root = tempDir("m6b-win-");
   const { worktree, home } = gitWorktree(root);
-  const box = { worktree, home, windowsRules: true };
+  const box = { worktree, home, ...mountOptions(worktree), windowsRules: true };
   await assert.rejects(containedWrite(box, join(worktree, "CON"), "x"), (e) => typeof reason(e) === "string");
   await assert.rejects(containedWrite(box, join(worktree, "NOTES~1.TXT"), "x"), (e) => typeof reason(e) === "string");
   await assert.rejects(() => containedRead(box, join(worktree, "ok.txt:secret")), (e) => typeof reason(e) === "string");
@@ -77,16 +78,16 @@ test("terminal callbacks are refused on Windows and cannot write the shared gitd
   const root = tempDir("m6b-term-");
   const { repo, worktree, home } = gitWorktree(root);
   const touch = process.platform === "darwin" ? "/usr/bin/touch" : "/usr/bin/touch";
-  const inside = await containedTerminal({ argv: [touch, join(worktree, "from-terminal.txt")], worktree, home });
+  const inside = await containedTerminal({ argv: [touch, join(worktree, "from-terminal.txt")], worktree, home, ...mountOptions(worktree) });
   assert.equal(inside.ok, true, JSON.stringify(inside));
   if (inside.ok) assert.equal(inside.exitCode, 0, inside.stderr);
   assert.equal(existsSync(join(worktree, "from-terminal.txt")), true);
   const hook = join(repo, ".git", "hooks", "pre-commit");
-  const denied = await containedTerminal({ argv: [touch, hook], worktree, home });
+  const denied = await containedTerminal({ argv: [touch, hook], worktree, home, ...mountOptions(worktree) });
   assert.equal(existsSync(hook), false);
   if (denied.ok) assert.notEqual(denied.exitCode, 0);
   const git = process.platform === "darwin" ? "/usr/bin/git" : "/usr/bin/git";
-  const cfg = await containedTerminal({ argv: [git, "-C", repo, "config", "core.hooksPath", "/tmp/evil"], worktree, home });
+  const cfg = await containedTerminal({ argv: [git, "-C", repo, "config", "core.hooksPath", "/tmp/evil"], worktree, home, ...mountOptions(worktree) });
   if (cfg.ok) assert.notEqual(cfg.exitCode, 0, cfg.stderr);
   let hooks = "";
   try { hooks = execFileSync("git", ["-C", repo, "config", "--get", "core.hooksPath"], { encoding: "utf8" }).trim(); } catch { hooks = ""; }

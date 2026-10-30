@@ -567,7 +567,7 @@ export async function canonicalisePath(input: string, o: CanonicaliseOptions): P
  * since the check is an error rather than a redirect. Residual race: a parent directory swapped between the pre-check
  * and the `open` call is detected after the fact (parent identity, and `/proc/self/fd` on Linux), not prevented.
  */
-export async function openVerified(c: CanonicalPath, flags: number): Promise<FileHandle | PathRefusal> {
+export async function openVerified(c: CanonicalPath, flags: number, signal?: AbortSignal): Promise<FileHandle | PathRefusal> {
   const write = (flags & (fsc.O_WRONLY | fsc.O_RDWR | fsc.O_APPEND | fsc.O_TRUNC | fsc.O_CREAT)) !== 0;
   if (write && c.access !== "write") return refuse("unsupported-open", "canonicalised for read, opened for write");
   const windows = process.platform === "win32";
@@ -590,6 +590,7 @@ export async function openVerified(c: CanonicalPath, flags: number): Promise<Fil
     } catch { return c.exists ? refuse("identity-changed", "the parent directory is gone") : refuse("not-found", "the target's parent does not exist"); }
   };
   const pre = await checkParent();
+  signal?.throwIfAborted();
   if (pre) return pre;
   // Windows has no O_NOFOLLOW, and CREATE_NEW opened through a planted (dangling) symlink creates the file at the link's
   // target, outside the root. So a create there first requires that nothing at all exists at the leaf (a link included).
@@ -598,6 +599,7 @@ export async function openVerified(c: CanonicalPath, flags: number): Promise<Fil
     if (planted) return refuse("identity-changed", "the target appeared since it was checked");
   }
 
+  signal?.throwIfAborted();
   let fh: FileHandle;
   try {
     fh = await open(c.canonical, f);

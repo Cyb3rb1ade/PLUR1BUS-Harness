@@ -6,17 +6,19 @@ import { PassThrough } from "node:stream";
 import { test } from "node:test";
 import { AcpServer } from "../../src/acp/server.ts";
 import { encodeLine, MAX_LINE_BYTES } from "../../src/acp/framing.ts";
-import { ACP_ERROR, ACP_MAX_UPDATES, ACP_PROTOCOL_VERSION } from "../../src/acp/protocol.ts";
+import { ACP_ERROR, ACP_MAX_UPDATE_BYTES, ACP_PROTOCOL_VERSION } from "../../src/acp/protocol.ts";
 import { alsAgentScopePort, scopeFor } from "../../src/collab/scope.ts";
 import { createCollab } from "../../src/collab/service.ts";
 import { CollabStore } from "../../src/collab/store.ts";
 import { composedAgentRunner } from "../../src/composition/collaboration.ts";
-import { bindExternalOrigin, externalSubject } from "../../src/composition/external-agents.ts";
+import { approvalPolicyContext } from "../../src/composition/index.ts";
+import { AcpWorktreeMount } from "../../src/tools/sandbox/acp-worktree.ts";
+import { limitsHelper } from "./fixture.ts";
 import { subjectForOrigin } from "../../src/composition/protocols.ts";
 import { containedWrite } from "../../src/external-agents/containment.ts";
 import { AcpClient, AcpClientError, type AcpClientHandlers } from "../../src/external-agents/acp-client.ts";
 import { ExternalDelegationTarget } from "../../src/external-agents/delegation.ts";
-import { acpMemoryExposure } from "../../src/external-agents/engine.ts";
+import { CONNECTORS, connectorArgv } from "../../src/external-agents/engine.ts";
 import { LaunchError, launchExternalAgent } from "../../src/external-agents/launcher.ts";
 import { GitWorktreeProvisioner } from "../../src/external-agents/provisioner.ts";
 import { SessionStore } from "../../src/session/store.ts";
@@ -49,8 +51,8 @@ function pipes() {
   return { fromAgent, toAgent, lines };
 }
 
-function client(p: ReturnType<typeof pipes>, over: Partial<AcpClientHandlers> = {}, forbiddenPayload?: readonly string[]) {
-  return new AcpClient({ input: p.fromAgent, output: p.toAgent, handlers: handlers(over), ...(forbiddenPayload ? { forbiddenPayload } : {}) });
+function client(p: ReturnType<typeof pipes>, over: Partial<AcpClientHandlers> = {}) {
+  return new AcpClient({ input: p.fromAgent, output: p.toAgent, handlers: handlers(over) });
 }
 
 async function until(pred: () => boolean, ms = 2000): Promise<void> {
@@ -77,7 +79,6 @@ test("the client completes initialize and session/new against AcpServer", async 
   const done = server.run();
   const acp = new AcpClient({
     input: s2c, output: c2s, handlers: handlers({ onUpdate: (params) => seen.push(JSON.stringify(params)) }),
-    forbiddenPayload: ["MEMORY-MARKER", "memoryExposure", JSON.stringify(acpMemoryExposure())],
   });
   assert.equal((await acp.initialize()).protocolVersion, ACP_PROTOCOL_VERSION);
   const id = await acp.newSession(cwd, []);
@@ -103,15 +104,18 @@ test("a different protocol version is refused", async () => {
 
 test("initialize and session/new carry no memory marker", async () => {
   const p = pipes();
-  const acp = client(p, {}, ["MEMORY-MARKER", "memoryExposure", JSON.stringify(acpMemoryExposure())]);
+  const acp = client(p);
   const pending = acp.initialize();
   await until(() => p.lines.length === 1);
   assert.equal(p.lines[0]!.includes("MEMORY-MARKER"), false);
   assert.equal(p.lines[0]!.includes("memoryExposure"), false);
   p.fromAgent.write(encodeLine({ jsonrpc: "2.0", id: JSON.parse(p.lines[0]!).id, result: { protocolVersion: 1 } }));
   await pending;
-  await assert.rejects(() => acp.newSession("/tmp/MEMORY-MARKER"), (e: unknown) => e instanceof AcpClientError && e.reason === "payload-contained-memory");
-  assert.equal(p.lines.length, 1);
+  const session = acp.newSession("/tmp/worktree");
+  await until(() => p.lines.length === 2);
+  p.fromAgent.write(encodeLine({ jsonrpc: "2.0", id: JSON.parse(p.lines[1]!).id, result: { sessionId: "s" } }));
+  assert.equal(await session, "s");
+  assert.equal(p.lines.some(line => line.includes("MEMORY-MARKER") || line.includes("memoryExposure")), false);
 });
 
 test("unknown methods are -32601, unknown notifications are counted, and a stray result is ignored", async () => {
@@ -131,8 +135,8 @@ test("an update flood fails the prompt", async () => {
   const acp = client(p);
   const pending = acp.prompt("s", "hi");
   await until(() => p.lines.length === 1);
-  for (let i = 0; i < ACP_MAX_UPDATES + 1; i++) {
-    p.fromAgent.write(encodeLine({ jsonrpc: "2.0", method: "session/update", params: { sessionId: "s", update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "x" } } } }));
+  for (let i = 0; i < Math.ceil(ACP_MAX_UPDATE_BYTES / 100000) + 1; i++) {
+    p.fromAgent.write(encodeLine({ jsonrpc: "2.0", method: "session/update", params: { sessionId: "s", update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "x".repeat(100000) } } } }));
   }
   await assert.rejects(pending, (e: unknown) => e instanceof AcpClientError && e.reason === "update-limit");
 });
@@ -167,7 +171,7 @@ test("the child process does not inherit a parent secret and Windows is refused"
   const previous = process.env.SUPER_SECRET;
   process.env.SUPER_SECRET = "hunter2";
   try {
-    const handle = launchExternalAgent({ argv: [process.execPath, "-e", "process.stdout.write(JSON.stringify(process.env))"], cwd, timeoutMs: 10_000 });
+    const handle = await launchExternalAgent({ argv: [process.execPath, "-e", "process.stdout.write(JSON.stringify(process.env))"], cwd, probe: true, limitsHelper, timeoutMs: 10_000 });
     let out = "";
     handle.stdout.on("data", (chunk: Buffer) => { out += chunk.toString("utf8"); });
     await handle.exited;
@@ -178,8 +182,8 @@ test("the child process does not inherit a parent secret and Windows is refused"
     if (previous === undefined) delete process.env.SUPER_SECRET;
     else process.env.SUPER_SECRET = previous;
   }
-  assert.throws(() => launchExternalAgent({ argv: [process.execPath, "-e", ""], cwd, platform: "win32" }), (e: unknown) => e instanceof LaunchError && e.reason === "sandbox-unavailable");
-  assert.throws(() => launchExternalAgent({ argv: ["/bin/bash", "-lc", "true"], cwd }), (e: unknown) => e instanceof LaunchError && e.reason === "argv");
+  await assert.rejects(() => launchExternalAgent({ argv: [process.execPath, "-e", ""], cwd, platform: "win32" }), (e: unknown) => e instanceof LaunchError && e.reason === "sandbox-unavailable");
+  await assert.rejects(() => launchExternalAgent({ argv: ["/bin/bash", "-lc", "true"], cwd, probe: true }), (e: unknown) => e instanceof LaunchError && e.reason === "argv");
 });
 
 test("a tool call in an acp-agent session is decided as subject acp-agent", async () => {
@@ -187,12 +191,12 @@ test("a tool call in an acp-agent session is decided as subject acp-agent", asyn
   const sessions = new SessionStore({ path: ":memory:" });
   const acp = sessions.createSession({ kind: "acp", agentId: "coder", owner: "u-owner", origin: "acp-agent" });
   const internal = sessions.createSession({ kind: "acp", agentId: "coder", owner: "u-owner" });
-  bindExternalOrigin((id) => sessions.getSession(id)?.origin ?? null);
+  const policy = approvalPolicyContext({ current: () => ({ service: r.service }) } as Parameters<typeof approvalPolicyContext>[0], id => sessions.getSession(id)?.origin);
   try {
     assert.equal(subjectForOrigin("acp-agent"), "acp-agent");
     assert.equal(subjectForOrigin(null), "agent");
-    assert.deepEqual(externalSubject({ sessionId: acp.id, agentId: "coder" }).subject?.kind, "acp-agent");
-    assert.equal(externalSubject({ sessionId: internal.id, agentId: "coder" }).subject, undefined);
+    assert.equal(subjectForOrigin(sessions.getSession(acp.id)?.origin), "acp-agent");
+    assert.equal(subjectForOrigin(sessions.getSession(internal.id)?.origin), "agent");
     const registry = new ToolRegistry();
     const tool: ToolDef = {
       name: "fs.read", description: "read", inputSchema: { type: "object", additionalProperties: false, properties: { path: { type: "string" } } },
@@ -203,7 +207,7 @@ test("a tool call in an acp-agent session is decided as subject acp-agent", asyn
     registry.register(tool);
     const dispatcher = new ToolDispatcher({
       registry, approvals: r.service, grants: r.stores.grants, clock: r.clock, timers: r.timers,
-      policyContext: (ctx) => ({ ...r.service.policyContext()(ctx), ...externalSubject(ctx) }),
+      policyContext: ctx => policy(ctx, { sessionId: ctx.sessionId } as Parameters<typeof policy>[1]),
     });
     const ctx = (sessionId: string): DispatchContext => ({ agentId: "coder", principal: "u-owner", sessionId, surface: 3, signal: new AbortController().signal });
     const first = dispatcher.call({ id: "c1", name: "fs.read", args: { path: "/outside/a.txt" } }, ctx(acp.id));
@@ -215,7 +219,6 @@ test("a tool call in an acp-agent session is decided as subject acp-agent", asyn
     r.service.dispose();
     assert.equal((await first).isError, true);
   } finally {
-    bindExternalOrigin(() => undefined);
     sessions.close();
     r.service.dispose();
   }
@@ -235,15 +238,16 @@ test("delegate_task runs the stub in the worktree, asks a person, and refuses an
   const sessionStore = new SessionStore({ path: join(home, "state", "sessions.sqlite") });
   const approvals = await approvalRig();
   const who = owner({ kind: "person" });
+  let activeProject = "";
   const target = new ExternalDelegationTarget({
     engineOf: (id) => id === "coder" ? { kind: "external", connector: "agy", maxTurns: 20, timeoutMs: 30_000 } : null,
     worktreeOf: (agentId, projectId) => provisioned.root(agentId, projectId, ""),
-    home,
+    home, limitsHelper,
+    mountOf: projectId => AcpWorktreeMount.fromStore(collabStore, join(home, "state"), projectId, null),
     sessions: () => sessionStore,
     approvals: async () => approvals.service,
-    forbiddenPayload: ["MEMORY-MARKER"],
-    connect: ({ cwd, signal, timeoutMs }) => {
-      const handle = launchExternalAgent({ argv: [process.execPath, script], cwd, signal, timeoutMs });
+    connect: async ({ cwd, signal, timeoutMs }) => {
+      const handle = await launchExternalAgent({ argv: [process.execPath, join(cwd, "stub.cjs")], cwd, signal, timeoutMs, home, limitsHelper, mount: AcpWorktreeMount.fromStore(collabStore, join(home, "state"), activeProject, null) });
       return { input: handle.stdout, output: handle.stdin, stop: handle.stop };
     },
   });
@@ -260,6 +264,8 @@ test("delegate_task runs the stub in the worktree, asks a person, and refuses an
     collab.addAgent(who, project.id, "coder");
     collab.bindRepo(who, project.id, repo, "main");
     const fork = new GitWorktreeProvisioner(collabStore, join(home, "state")).fork({ projectId: project.id });
+    activeProject = project.id;
+    writeFileSync(join(fork.path, "stub.cjs"), stubSource(outside));
     provisioned = { root: () => fork.path };
     const handle = collab.delegate({ principal: who, projectId: project.id, fromAgent: "lead", toAgent: "coder", task: "write a note", acceptanceCriteria: "note exists" });
     const requested = await Promise.race([
@@ -359,10 +365,10 @@ async function handle(msg) {
     global.mcp = Array.isArray(msg.params && msg.params.mcpServers) ? msg.params.mcpServers.length : -1;
     send({ jsonrpc: "2.0", id: msg.id, result: { sessionId: "stub" } });
   } else if (msg.method === "session/prompt") {
-    await request("session/request_permission", { sessionId: "stub", options: [{ optionId: "allow", kind: "allow_once", name: "allow" }] });
+    await request("session/request_permission", { sessionId: "stub", toolCall: { toolCallId: "term-call", rawInput: { command: "/usr/bin/true", args: [] } }, options: [{ optionId: "allow", kind: "allow_once", name: "allow" }] });
     const outside = await request("fs/write_text_file", { path: ${JSON.stringify(outside)}, content: "nope" });
     const inside = await request("fs/write_text_file", { path: "note.txt", content: "ok" });
-    const created = await request("terminal/create", { command: "/usr/bin/true", args: [] });
+    const created = await request("terminal/create", { toolCallId: "term-call", command: "/usr/bin/true", args: [] });
     const id = created.result && created.result.terminalId;
     let term = created.error ? "err" : "missing";
     if (id) {
@@ -379,3 +385,7 @@ async function handle(msg) {
 `;
 }
 
+
+test("real connectors remain disabled until credential-bind acceptance", () => {
+  for (const connector of CONNECTORS) assert.equal(connectorArgv(connector), null);
+});

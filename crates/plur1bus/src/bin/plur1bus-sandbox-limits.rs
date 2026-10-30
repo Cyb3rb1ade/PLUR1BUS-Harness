@@ -52,10 +52,16 @@ fn task_cap(args: &[String]) -> Result<(), String> {
         return Err("task limit must be positive".into());
     }
     if shares_userns(&args[2]) {
+        if args[0] == "--tasks-required" {
+            return Err("sandbox-unavailable: shared user namespace".into());
+        }
         eprintln!(
             "sandbox launcher: process cap skipped: the sandbox shares the caller's user namespace"
         );
     } else if let Err(e) = set_tasks(n) {
+        if args[0] == "--tasks-required" {
+            return Err(e);
+        }
         // The cap is best effort: an unavailable kernel facility must not prevent the program from starting.
         eprintln!("sandbox launcher: process cap skipped: {e}");
     }
@@ -144,12 +150,197 @@ fn task_cap(_: &[String]) -> Result<(), String> {
 fn probe_tasks(_: &[String]) -> Result<(), String> {
     Err("the task cap mode is Linux-only".into())
 }
+#[cfg(target_os = "macos")]
+mod watchdog {
+    use std::collections::HashSet;
+    use std::sync::atomic::{AtomicI32, Ordering};
+    use std::time::{Duration, Instant};
+
+    static GROUP: AtomicI32 = AtomicI32::new(0);
+    unsafe extern "C" {
+        fn proc_listchildpids(
+            pid: libc::c_int,
+            buffer: *mut libc::c_void,
+            size: libc::c_int,
+        ) -> libc::c_int;
+    }
+    extern "C" fn terminate(_: libc::c_int) {
+        let group = GROUP.load(Ordering::Relaxed);
+        if group > 0 {
+            unsafe {
+                libc::kill(-group, libc::SIGKILL);
+            }
+        }
+    }
+    fn sample(root: libc::pid_t, tasks: usize, memory: u64) -> Result<(usize, u64), String> {
+        let deadline = Instant::now() + Duration::from_millis(40);
+        let mut queue = vec![root];
+        let mut seen = HashSet::new();
+        let mut rss = 0u64;
+        while let Some(pid) = queue.pop() {
+            if Instant::now() >= deadline {
+                return Err("watchdog sample deadline exceeded".into());
+            }
+            if !seen.insert(pid) {
+                continue;
+            }
+            if seen.len() > 65536 {
+                return Err("watchdog descendant scan exceeds safety cap".into());
+            }
+            if seen.len() > tasks {
+                return Ok((seen.len(), rss));
+            }
+            let mut info: libc::proc_taskinfo = unsafe { std::mem::zeroed() };
+            let size = std::mem::size_of_val(&info) as libc::c_int;
+            let result = unsafe {
+                libc::proc_pidinfo(
+                    pid,
+                    libc::PROC_PIDTASKINFO,
+                    0,
+                    (&mut info as *mut libc::proc_taskinfo).cast(),
+                    size,
+                )
+            };
+            if result != size {
+                if unsafe { libc::kill(pid, 0) } != 0 {
+                    continue;
+                }
+                return Err("watchdog proc_pidinfo failed".into());
+            }
+            rss = rss.saturating_add(info.pti_resident_size);
+            if rss > memory {
+                return Ok((seen.len(), rss));
+            }
+            if Instant::now() >= deadline {
+                return Err("watchdog sample deadline exceeded".into());
+            }
+            let bytes = unsafe { proc_listchildpids(pid, std::ptr::null_mut(), 0) };
+            if bytes < 0 {
+                return Err("watchdog proc_listchildpids failed".into());
+            }
+            // Leave room for forks between sizing and listing; refuse an overflowing sample.
+            let mut children = vec![0i32; (bytes as usize + 64).min(65537)];
+            let count = unsafe {
+                proc_listchildpids(
+                    pid,
+                    children.as_mut_ptr().cast(),
+                    (children.len() * 4) as i32,
+                )
+            };
+            if count < 0 || count as usize >= children.len() {
+                return Err("watchdog child list unavailable or truncated".into());
+            }
+            if Instant::now() >= deadline {
+                return Err("watchdog sample deadline exceeded".into());
+            }
+            queue.extend(children.into_iter().take(count as usize).filter(|p| *p > 0));
+        }
+        Ok((seen.len(), rss))
+    }
+    pub(super) fn run(args: &[String]) -> Result<(), String> {
+        use std::os::unix::process::CommandExt;
+        if args.len() < 5 || args[3] != "--" {
+            return Err("expected --watch-tree tasks rss -- program [args]".into());
+        }
+        let tasks: usize = args[1].parse().map_err(|_| "invalid watchdog task limit")?;
+        let memory: u64 = args[2].parse().map_err(|_| "invalid watchdog RSS limit")?;
+        if tasks == 0 || memory == 0 {
+            return Err("watchdog limits must be positive".into());
+        }
+        let mut command = std::process::Command::new(&args[4]);
+        command.args(&args[5..]);
+        // A pipe, rather than pre_exec(SIGSTOP), avoids Command::spawn waiting for exec forever.
+        let mut gate = [0; 2];
+        if unsafe { libc::pipe(gate.as_mut_ptr()) } != 0 {
+            return Err("watchdog gate unavailable".into());
+        }
+        let pid = unsafe { libc::fork() };
+        if pid < 0 {
+            unsafe {
+                libc::close(gate[0]);
+                libc::close(gate[1]);
+            }
+            return Err("watchdog fork failed".into());
+        }
+        if pid == 0 {
+            unsafe {
+                libc::close(gate[1]);
+                if libc::setpgid(0, 0) != 0 {
+                    libc::_exit(125);
+                }
+                let mut byte = 0u8;
+                if libc::read(gate[0], (&mut byte as *mut u8).cast(), 1) != 1 {
+                    libc::_exit(125);
+                }
+                libc::close(gate[0]);
+            }
+            let _ = command.exec();
+            unsafe {
+                libc::_exit(125);
+            }
+        }
+        unsafe {
+            libc::close(gate[0]);
+            libc::setpgid(pid, pid);
+        }
+        GROUP.store(pid, Ordering::Relaxed);
+        unsafe {
+            libc::signal(libc::SIGTERM, terminate as libc::sighandler_t);
+            libc::signal(libc::SIGINT, terminate as libc::sighandler_t);
+        }
+        // Attach and validate observation BEFORE releasing the target's exec gate.
+        let attached = sample(pid, tasks, memory);
+        if !matches!(attached, Ok((count, rss)) if count <= tasks && rss <= memory) {
+            terminate(0);
+            unsafe {
+                libc::close(gate[1]);
+                libc::waitpid(pid, std::ptr::null_mut(), 0);
+            }
+            return Err("sandbox-unavailable: watchdog attach failed".into());
+        }
+        unsafe {
+            libc::write(gate[1], b"x".as_ptr().cast(), 1);
+            libc::close(gate[1]);
+        }
+        loop {
+            let started = Instant::now();
+            let mut status = 0;
+            let done = unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) };
+            if done == pid {
+                terminate(0);
+                std::process::exit(if libc::WIFEXITED(status) {
+                    libc::WEXITSTATUS(status)
+                } else {
+                    128 + libc::WTERMSIG(status)
+                });
+            }
+            let exceeded = match sample(pid, tasks, memory) {
+                Ok((count, _)) if count > tasks => Some((121, "task-limit-exceeded")),
+                Ok((_, rss)) if rss > memory => Some((122, "rss-limit-exceeded")),
+                Err(_) => Some((125, "sandbox-unavailable")),
+                _ => None,
+            };
+            if let Some((code, reason)) = exceeded {
+                terminate(0);
+                unsafe {
+                    libc::waitpid(pid, std::ptr::null_mut(), 0);
+                }
+                eprintln!("sandbox launcher: {reason}");
+                std::process::exit(code);
+            }
+            std::thread::sleep(Duration::from_millis(50).saturating_sub(started.elapsed()));
+        }
+    }
+}
+
 #[cfg(unix)]
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let run = || -> Result<(), String> {
         match args.first().map(String::as_str) {
-            Some("--tasks") => return task_cap(&args),
+            #[cfg(target_os = "macos")]
+            Some("--watch-tree") => return watchdog::run(&args),
+            Some("--tasks" | "--tasks-required") => return task_cap(&args),
             Some("--probe-tasks") => return probe_tasks(&args),
             _ => {}
         }

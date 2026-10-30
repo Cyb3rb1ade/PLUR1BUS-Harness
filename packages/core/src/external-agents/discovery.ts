@@ -1,8 +1,9 @@
 // Finds installed external CLIs. Login state is existence and mode only. File contents are never inspected.
 import { constants as fsc, accessSync, lstatSync } from "node:fs";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { AcpClient, AcpClientError } from "./acp-client.ts";
-import { childEnv } from "./containment.ts";
 import type { ConnectorId } from "./engine.ts";
 import { launchExternalAgent, LaunchError } from "./launcher.ts";
 
@@ -39,6 +40,7 @@ export async function discoverConnectors(o: {
   env?: NodeJS.ProcessEnv;
   timeoutMs?: number;
   platform?: NodeJS.Platform;
+  limitsHelper?: string;
 }): Promise<ConnectorProbe[]> {
   const pathEnv = o.pathEnv ?? o.env?.PATH ?? "";
   const platform = o.platform ?? process.platform;
@@ -55,8 +57,14 @@ export async function discoverConnectors(o: {
       out.push({ id: descriptor.id, effort: descriptor.effort, bin, version: null, protocol: "unprobed", reason: "sandbox-unavailable", login });
       continue;
     }
-    const version = await captureVersion(bin, o.home, o.env, timeoutMs, platform);
-    const handshake = await probeInitialize(bin, o.home, o.env, timeoutMs, platform);
+    const scratch = await realpath(await mkdtemp(join(tmpdir(), "p1b-acp-probe-")));
+    let version: string | null;
+    let handshake: { protocol: "ok" | "refused"; reason?: string };
+    try {
+      const options = { home: o.home, probe: true, ...(o.limitsHelper ? { limitsHelper: o.limitsHelper } : {}) };
+      version = await captureVersion(bin, scratch, o.env, timeoutMs, platform, options);
+      handshake = await probeInitialize(bin, scratch, o.env, timeoutMs, platform, options);
+    } finally { await rm(scratch, { recursive: true, force: true }); }
     out.push({ id: descriptor.id, effort: descriptor.effort, bin, version, protocol: handshake.protocol, ...(handshake.reason ? { reason: handshake.reason } : {}), login });
   }
   return out;
@@ -89,10 +97,11 @@ function loginStatus(home: string, rel: string): LoginProbe {
   }
 }
 
-async function captureVersion(bin: string, cwd: string, env: NodeJS.ProcessEnv | undefined, timeoutMs: number, platform: NodeJS.Platform): Promise<string | null> {
+async function captureVersion(bin: string, cwd: string, env: NodeJS.ProcessEnv | undefined, timeoutMs: number, platform: NodeJS.Platform, options: { home: string; probe: boolean; limitsHelper?: string }): Promise<string | null> {
   try {
-    const handle = launchExternalAgent({ argv: [bin, "--version"], cwd, ...(env ? { env } : {}), timeoutMs, platform });
+    const handle = await launchExternalAgent({ ...options, argv: [bin, "--version"], cwd, ...(env ? { env } : {}), timeoutMs, platform });
     let out = "";
+    handle.stderr.resume();
     handle.stdout.on("data", (chunk: Buffer) => { if (out.length < 200) out += chunk.toString("utf8").slice(0, 200 - out.length); });
     await handle.exited;
     const text = out.trim();
@@ -102,11 +111,14 @@ async function captureVersion(bin: string, cwd: string, env: NodeJS.ProcessEnv |
   }
 }
 
-async function probeInitialize(bin: string, cwd: string, env: NodeJS.ProcessEnv | undefined, timeoutMs: number, platform: NodeJS.Platform): Promise<{ protocol: "ok" | "refused"; reason?: string }> {
+async function probeInitialize(bin: string, cwd: string, env: NodeJS.ProcessEnv | undefined, timeoutMs: number, platform: NodeJS.Platform, options: { home: string; probe: boolean; limitsHelper?: string }): Promise<{ protocol: "ok" | "refused"; reason?: string }> {
   let stop = () => {};
+  let exited: Promise<number | null> | undefined;
   try {
-    const handle = launchExternalAgent({ argv: [bin], cwd, ...(env ? { env } : {}), timeoutMs, platform });
+    const handle = await launchExternalAgent({ ...options, argv: [bin], cwd, ...(env ? { env } : {}), timeoutMs, platform });
     stop = handle.stop;
+    exited = handle.exited;
+    handle.stderr.resume();
     const client = new AcpClient({
       input: handle.stdout,
       output: handle.stdin,
@@ -117,13 +129,12 @@ async function probeInitialize(bin: string, cwd: string, env: NodeJS.ProcessEnv 
         async terminal() { throw new AcpClientError("not-in-probe"); },
         onUpdate() {},
       },
-      forbiddenPayload: ["memoryExposure"],
     });
     await client.initialize();
     return { protocol: "ok" };
   } catch (e) {
     const reason = e instanceof AcpClientError ? e.reason : e instanceof LaunchError ? e.reason : "handshake";
     return { protocol: "refused", reason };
-  } finally { stop(); }
+  } finally { stop(); await exited; }
 }
 

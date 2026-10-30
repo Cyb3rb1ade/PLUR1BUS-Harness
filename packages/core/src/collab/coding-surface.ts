@@ -17,7 +17,7 @@ export interface ProjectWorktreePort { root(agentId: string, projectId: string, 
 /**
  * One git implementation, shared with M5+ (subprojects spec §6.5).
  * `mergePreview`, `merge` and `revert` are added on this interface by M5+ WP4. This package implements fork, remove and status.
- * Card worktrees are the documented variant `p1b/<rootKey>/c-<6 hex>` under `<state>/worktrees/<rootId>/<projectId>/cards/`.
+ * Card worktrees are the documented variant `p1b/<rootKey>/c-<6 hex>` under `<state>/worktrees/<rootId>/cards/`.
  */
 export interface ProjectWorktreeProvisioner {
   fork(input: { projectId: string; cardId?: string }): { baseSha: string; branch: string; path: string };

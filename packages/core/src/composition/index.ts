@@ -1,3 +1,5 @@
+import { pinnedGit } from "../external-agents/git.ts";
+import { gitText } from "../collab/verifier.ts";
 import { createTurnObserver } from './turn-observer.ts';
 import { createMemoryTools } from '../tools/memory.ts';
 import { createWebFetch } from '../tools/web/fetch.ts';
@@ -428,9 +430,9 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       } catch (error) { record(signal.aborted ? 'cancelled' : 'refused'); throw error; }
     };
     voice.setDelegate(provider);
-    wireExternalAgents(d, options, () => sessions);
-    collab = budget ? isolated('collaboration', () => createCollab({ path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock, sessions: () => sessions.store, redact: liveLogsRedactionPort(() => registered),
-      runner: provider ? composedAgentRunner(provider, alsAgentScopePort(), d.home, options.delegationTargets, collabMemory({ memory, config: d.config, logger: d.logger })) : { async run() { throw new Error('no-provider'); } }, directory: { get: id => d.agents.has(id) || options.delegationTargets?.some(t => t.accepts(id)) ? { id, state: 'active' } : null },
+    wireExternalAgents(d, options, () => sessions, () => { if (!collab) throw new Error("collaboration unavailable"); return collab.worktreeStore; });
+    collab = budget ? isolated('collaboration', () => createCollab({ home: d.home, provisionWorktrees: true, path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock, sessions: () => sessions.store, redact: liveLogsRedactionPort(() => registered),
+      runner: provider ? composedAgentRunner(provider, alsAgentScopePort(), d.home, options.delegationTargets, collabMemory({ memory, config: d.config, logger: d.logger }), options.projectWorktrees) : { async run() { throw new Error('no-provider'); } }, directory: { get: id => d.agents.has(id) || options.delegationTargets?.some(t => t.accepts(id)) ? { id, state: 'active' } : null },
       emit: { emit: event => d.logger.info(event.type, { projectId: event.projectId, traceId: event.traceId }) },
       logWarn: (msg, fields) => d.logger.warn(msg, fields),
       grants: { endTask: (taskId, by) => {
@@ -449,6 +451,12 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     if (collab) {
       disposers.push(() => collab.shutdown());
       const gate = new CodingGate({ path: join(d.home, 'state', 'coding-gate.sqlite'),
+        git: (root, args) => {
+          const row = collab!.worktreeStore.worktreeAt(root);
+          if (!row) return gitText(root, args);
+          if (!row.gitDir) throw new Error('provisioned Git metadata unavailable');
+          return pinnedGit(row.gitDir, root, args);
+        },
         verifier: sandboxVerifier(60000, { limitsHelper: join(d.home, 'bin', 'plur1bus-sandbox-limits'), maxTasks: () => d.config().tools.sandbox.maxTasks }), audit: event => { d.audit.append({ at: d.clock(), actor: { user: 'core', host: 'core' }, action: 'coding.gate', target: 'task', detail: { ...event } }); } });
       disposers.push(() => gate.close());
       coding = { collab, gate, worktrees: options.projectWorktrees ?? { root: agentId => d.agents.workspaceOf(agentId) ?? null } };

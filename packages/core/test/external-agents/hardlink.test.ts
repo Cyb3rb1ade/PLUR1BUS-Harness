@@ -1,3 +1,4 @@
+import { provisionFixture, mountOptions } from "./fixture.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { cpSync, existsSync, linkSync, mkdirSync, readFileSync, realpathSync, statSync, symlinkSync, writeFileSync } from "node:fs";
@@ -12,7 +13,7 @@ import { tempDir } from "../helpers/temp-dir.ts";
 function gitWorktree(root: string): { worktree: string; home: string; outside: string } {
   const home = join(root, "home");
   const repo = join(root, "repo");
-  const worktree = join(root, "wt");
+  let worktree: string;
   const outside = join(root, "outside.txt");
   mkdirSync(home, { recursive: true });
   mkdirSync(repo, { recursive: true });
@@ -21,7 +22,7 @@ function gitWorktree(root: string): { worktree: string; home: string; outside: s
   git("config", "user.email", "t@example.com");
   git("config", "user.name", "t");
   execFileSync("git", ["-C", repo, "commit", "--allow-empty", "-m", "init"], { stdio: "pipe" });
-  execFileSync("git", ["-C", repo, "worktree", "add", "-b", "p1b/demo-abcdef/main", worktree, "main"], { stdio: "pipe" });
+  worktree = provisionFixture(home, repo);
   writeFileSync(outside, "safe");
   return { worktree, home, outside };
 }
@@ -42,7 +43,7 @@ test("an existing hard link refuses the terminal and leaves the outside file unc
   const logs: { event: string; fields?: Record<string, number | string> }[] = [];
   const result = await containedTerminal({
     argv: ["/usr/bin/true"],
-    worktree, home,
+    worktree, home, ...mountOptions(worktree),
     log: (event, fields) => logs.push({ event, ...(fields ? { fields } : {}) }),
   });
   assert.deepEqual(result, { ok: false, reason: "hardlink-in-worktree" });
@@ -63,7 +64,7 @@ try { fs.linkSync(src, dst); console.log("OK"); }
 catch (e) { console.log(e.code); }
 `);
   const dst = join(worktree, "new-hard");
-  const run = (src: string) => containedTerminal({ argv: [process.execPath, script, src, dst], worktree, home, timeoutMs: 15_000 });
+  const run = (src: string) => containedTerminal({ argv: [process.execPath, script, src, dst], worktree, home, ...mountOptions(worktree), timeoutMs: 15_000 });
   if (process.platform === "linux") {
     const hidden = join(root, "not-mounted.txt");
     writeFileSync(hidden, "safe");
@@ -79,7 +80,7 @@ catch (e) { console.log(e.code); }
     if (created.ok) assert.match(created.stdout, /EPERM/);
     assert.equal(existsSync(dst), false);
   } else {
-    const refused = await containedTerminal({ argv: [process.execPath, script], worktree, home, platform: "win32" });
+    const refused = await containedTerminal({ argv: [process.execPath, script], worktree, home, ...mountOptions(worktree), platform: "win32" });
     assert.deepEqual(refused, { ok: false, reason: "sandbox-unavailable" });
   }
   assert.equal(readFileSync(outside, "utf8"), "safe");
@@ -98,7 +99,7 @@ test("Windows terminal stays refused", async () => {
   assert.deepEqual(refused, { ok: false, reason: "sandbox-unavailable" });
 });
 
-test("pnpm still installs a local package when new hard links are denied", async () => {
+test("pnpm installs locally and the next Linux mount refuses its resulting hardlinks", async () => {
   const pnpm = onPath("pnpm");
   assert.ok(pnpm, "pnpm is on PATH");
   const entry = pnpmEntry(pnpm);
@@ -118,10 +119,16 @@ test("pnpm still installs a local package when new hard links are denied", async
 const child = spawn(process.execPath, ${JSON.stringify([localEntry, "install", "--offline", "--ignore-scripts", "--store-dir", store, "--dir", worktree])}, { cwd: ${JSON.stringify(worktree)}, stdio: "inherit" });
 child.on("exit", (code) => process.exit(code ?? 1));
 `);
-  const result = await containedTerminal({ argv: [process.execPath, script], worktree, home, timeoutMs: 60_000 });
+  const result = await containedTerminal({ argv: [process.execPath, script], worktree, home, ...mountOptions(worktree), timeoutMs: 60_000 });
   assert.equal(result.ok && result.exitCode, 0, JSON.stringify(result));
   const installed = join(worktree, "node_modules", "tiny-lib", "index.js");
-  assert.equal(statSync(installed).nlink, 1);
+  // Owner #820 Q3: Linux checks every alias before EACH mount. Same-run internal links are possible;
+  // macOS denies file-link entirely. Neither backend permits linking an external source.
+  assert.equal(statSync(installed).nlink, process.platform === "linux" ? 2 : 1);
+  if (process.platform === "linux") assert.deepEqual(
+    await containedTerminal({ argv: ["/usr/bin/true"], worktree, home, ...mountOptions(worktree) }),
+    { ok: false, reason: "hardlink-in-worktree" },
+  );
   assert.equal(spawnSync(process.execPath, ["-e", "process.exit(require(process.argv[1]) === 1 ? 0 : 2)", installed]).status, 0);
 });
 

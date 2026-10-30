@@ -59,3 +59,23 @@ export function setGitExec(exec: GitExec | null): void {
 export function git(args: readonly string[], cwd?: string): string {
   return current.run(args, cwd);
 }
+
+/** Host Git for a provisioned checkout uses DB-pinned metadata and disables every configured clean filter. */
+export function pinnedGit(gitDir: string, worktree: string, args: readonly string[]): string {
+  const bound = [...GIT_HARDENING, "--git-dir", gitDir, "--work-tree", worktree];
+  let filters = "";
+  try {
+    filters = execFileSync("/usr/bin/git", [...bound, "config", "--name-only", "--get-regexp", "^filter\\."],
+      { encoding: "utf8", timeout: 10000, maxBuffer: 65536, env: gitEnv(), stdio: ["ignore", "pipe", "pipe"] });
+  } catch (error) {
+    if ((error as { status?: number }).status !== 1) throw error;
+  }
+  const disabled = [...new Set(filters.trim().split("\n").filter(Boolean).map(key => key.split(".").slice(1, -1).join(".")))];
+  const overrides = disabled.flatMap(name => ["-c", `filter.${name}.clean=`, "-c", `filter.${name}.smudge=`,
+    "-c", `filter.${name}.process=`, "-c", `filter.${name}.required=false`]);
+  const command = args[0] === "diff" ? ["diff", "--no-ext-diff", "--no-textconv", ...args.slice(1)] : [...args];
+  return execFileSync("/usr/bin/git", [...bound, ...overrides, ...command], {
+    cwd: worktree, encoding: "utf8", timeout: 10000, maxBuffer: 32 * 1024 * 1024,
+    env: gitEnv(), stdio: ["ignore", "pipe", "pipe"],
+  });
+}

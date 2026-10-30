@@ -1,3 +1,4 @@
+import { limitsHelper } from "./fixture.ts";
 import assert from "node:assert/strict";
 import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -37,7 +38,7 @@ rl.on("line", (line) => {
   const previous = process.env.SUPER_SECRET;
   process.env.SUPER_SECRET = "hunter2";
   try {
-    const found = await discoverConnectors({ home, pathEnv: binDir, env: process.env, timeoutMs: 5_000 });
+    const found = await discoverConnectors({ home, limitsHelper, pathEnv: binDir, env: process.env, timeoutMs: 5_000 });
     assert.equal(JSON.stringify(found).includes(SECRET), false);
     const codex = found.find((c) => c.id === "codex");
     assert.equal(codex?.bin, null);
@@ -56,4 +57,18 @@ rl.on("line", (line) => {
     if (previous === undefined) delete process.env.SUPER_SECRET;
     else process.env.SUPER_SECRET = previous;
   }
+});
+
+test("login discovery never opens FIFO or mode-000 credential contents", async () => {
+  const root = tempDir("acp-login-metadata-");
+  mkdirSync(join(root, ".codex"));
+  writeFileSync(join(root, ".codex", "auth.json"), SECRET, { mode: 0 });
+  if (process.platform !== "win32") {
+    const { execFileSync } = await import("node:child_process");
+    mkdirSync(join(root, ".claude"));
+    execFileSync("mkfifo", [join(root, ".claude", ".credentials.json")]);
+  }
+  const found = await discoverConnectors({ home: root, pathEnv: "" });
+  assert.equal(found.find(row => row.id === "codex")?.login[0]?.exists, true);
+  assert.doesNotMatch(JSON.stringify(found), new RegExp(SECRET));
 });

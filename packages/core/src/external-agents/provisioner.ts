@@ -1,5 +1,5 @@
 // The one git worktree implementation (subprojects spec §6.5). M5+ adds merge and revert here.
-import { mkdirSync, realpathSync } from "node:fs";
+import { mkdirSync, realpathSync, statSync } from "node:fs";
 import { dirname, join, sep } from "node:path";
 import type { ProjectWorktreePort, ProjectWorktreeProvisioner } from "../collab/coding-surface.ts";
 import { CollabError } from "../collab/errors.ts";
@@ -29,7 +29,7 @@ export class GitWorktreeProvisioner implements ProjectWorktreeProvisioner {
     const key = projectKey(project.name, project.id);
     const branch = cardId ? cardBranch(key, assertId(cardId)) : rootBranch(key);
     const path = cardId
-      ? join(this.#stateDir, "worktrees", rootId, rootId, "cards", `c-${hex6(cardId)}`)
+      ? join(this.#stateDir, "worktrees", rootId, "cards", `c-${hex6(cardId)}`)
       : join(this.#stateDir, "worktrees", rootId, rootId);
     if (path.startsWith(project.repo.repoPath + sep) || path === project.repo.repoPath) {
       throw new CollabError("invalid", "worktree path must stay outside the repository", { reason: "worktree-inside-repo" });
@@ -40,7 +40,10 @@ export class GitWorktreeProvisioner implements ProjectWorktreeProvisioner {
     const baseSha = this.#exec.run(["rev-parse", parent], project.repo.repoPath).trim();
     mkdirSync(dirname(path), { recursive: true });
     this.#exec.run(["worktree", "add", "-b", branch, path, parent], project.repo.repoPath);
-    this.#store.insertWorktree({ projectId: project.id, rootId, cardId, branch, path: realpathSync(path), baseSha });
+    const gitDir = realpathSync(this.#exec.run(["rev-parse", "--absolute-git-dir"], path).trim());
+    const commonGitDir = realpathSync(this.#exec.run(["rev-parse", "--path-format=absolute", "--git-common-dir"], path).trim());
+    const identity = statSync(path);
+    this.#store.insertWorktree({ projectId: project.id, rootId, cardId, branch, path: realpathSync(path), baseSha, gitDir, commonGitDir, dev: String(identity.dev), ino: String(identity.ino) });
     return { baseSha, branch, path: realpathSync(path) };
   }
 
@@ -60,11 +63,16 @@ export class GitWorktreeProvisioner implements ProjectWorktreeProvisioner {
 }
 
 /** Bound projects use the provisioned checkout. Without a binding, the previous workspace fallback stays. */
-export function provisionedWorktreePort(store: CollabStore, fallback: (agentId: string) => string | null): ProjectWorktreePort {
+export function provisionedWorktreePort(store: CollabStore, fallback: (agentId: string) => string | null, stateDir?: string): ProjectWorktreePort {
   return { root(_agentId, projectId, cardId) {
     const project = store.getProject(projectId);
     if (!project?.repo) return fallback(_agentId);
-    return store.liveWorktree(projectId, cardId)?.path ?? store.liveWorktree(projectId, null)?.path ?? null;
+    if (stateDir) {
+      const provisioner = new GitWorktreeProvisioner(store, stateDir);
+      if (!store.liveWorktree(projectId, null)) provisioner.fork({ projectId });
+      if (cardId && !store.liveWorktree(projectId, cardId)) provisioner.fork({ projectId, cardId });
+    }
+    return store.liveWorktree(projectId, cardId || null)?.path ?? null;
   } };
 }
 

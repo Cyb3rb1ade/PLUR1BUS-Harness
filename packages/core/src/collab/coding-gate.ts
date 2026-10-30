@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFileSync, existsSync, realpathSync, chmodSync } from 'node:fs';
+import { constants, openSync, closeSync, fstatSync, readSync, lstatSync, existsSync, realpathSync, chmodSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { gitText, sandboxVerifier, type VerifierPort, type VerifierCommand, type CheckKind } from './verifier.ts';
@@ -27,29 +27,54 @@ export function detectVerifiers(files: Readonly<Record<string, string>>): { tool
   throw new CollabError('invalid', 'no supported coding toolchain or project conventions');
 }
 const MANIFESTS = ['.plur1bus-verifiers.json', 'package.json', 'pnpm-lock.yaml', 'pyproject.toml', 'requirements.txt', 'Cargo.toml', 'go.mod', 'build.gradle', 'build.gradle.kts'];
-export function worktreeSnapshot(root: string): { root: string; treeHash: string; changedLines: number; files: string[]; head: string } {
+/** Worktree files are untrusted, including special files planted by a terminal. */
+function worktreeFile(root: string, name: string): Buffer {
+  const path = realpathSync.native(join(root, name));
+  if (!path.startsWith(realpathSync.native(root) + sep)) throw new CollabError('invalid', 'file leaves worktree');
+  const fd = openSync(path, constants.O_RDONLY | constants.O_NONBLOCK | constants.O_NOFOLLOW);
+  try {
+    const stat = fstatSync(fd);
+    if (!stat.isFile() || stat.nlink > 1 || stat.size > 16 * 1024 * 1024) throw new CollabError('invalid', 'worktree file must be a bounded regular file without hardlinks');
+    const bytes = Buffer.alloc(stat.size + 1);
+    const count = readSync(fd, bytes, 0, bytes.length, 0);
+    if (count > stat.size) throw new CollabError('invalid', 'worktree file changed while reading');
+    return bytes.subarray(0, count);
+  } finally { closeSync(fd); }
+}
+export function worktreeSnapshot(root: string, git: typeof gitText = gitText): { root: string; treeHash: string; changedLines: number; files: string[]; head: string } {
   // Native resolution on both sides: Git for Windows reports the top level by its long name with `/` separators, while
   // the bound root may be spelled with an 8.3 alias (`C:\Users\RUNNER~1\...`) that only the native call expands.
-  const canonical = realpathSync.native(root), top = realpathSync.native(gitText(root, ['rev-parse', '--show-toplevel']).trim());
+  const canonical = realpathSync.native(root), top = realpathSync.native(git(root, ['rev-parse', '--show-toplevel']).trim());
   if (canonical !== top) throw new CollabError('invalid', 'verifier requires the bound Git worktree root');
-  const head = gitText(root, ['rev-parse', 'HEAD']).trim();
-  const untracked = gitText(root, ['ls-files', '--others', '--exclude-standard', '-z']).split('\0').filter(Boolean);
-  const diff = gitText(root, ['diff', '--binary', 'HEAD', '--']);
-  const stats = gitText(root, ['diff', '--numstat', 'HEAD', '--']).trim().split('\n').filter(Boolean);
+  const head = git(root, ['rev-parse', 'HEAD']).trim();
+  // Git diff opens tracked files too. Reject a FIFO/device before invoking it, not only before our own reads.
+  const tracked = git(root, ['ls-files', '-z']).split('\0').filter(Boolean);
+  if (tracked.length > 20000) throw new CollabError('invalid', 'worktree file scan exceeds safety cap');
+  for (const name of tracked) {
+    let stat;
+    try { stat = lstatSync(join(root, name)); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
+    if ((!stat.isFile() && !stat.isSymbolicLink()) || (stat.isFile() && (stat.nlink > 1 || stat.size > 16 * 1024 * 1024)))
+      throw new CollabError('invalid', 'worktree file must be a bounded regular file without hardlinks');
+  }
+  const untracked = git(root, ['ls-files', '--others', '--exclude-standard', '-z']).split('\0').filter(Boolean);
+  const diff = git(root, ['diff', '--binary', 'HEAD', '--']);
+  const stats = git(root, ['diff', '--numstat', 'HEAD', '--']).trim().split('\n').filter(Boolean);
   let lines = stats.reduce((n, line) => { const [a, d] = line.split('\t'); return n + (a === '-' || d === '-' ? 200 : Number(a) + Number(d)); }, 0);
-  const extra = untracked.map(path => { const absolute = realpathSync.native(join(root, path)); if (!absolute.startsWith(canonical + sep)) throw new CollabError('invalid', 'untracked file leaves worktree'); const bytes = readFileSync(absolute); lines += bytes.toString('utf8').split('\n').length; return `${path}:${hash(bytes)}`; });
-  const files = [...gitText(root, ['diff', '--name-only', 'HEAD', '--']).trim().split('\n').filter(Boolean), ...untracked];
+  const extra = untracked.map(path => { const bytes = worktreeFile(root, path); lines += bytes.toString('utf8').split('\n').length; return `${path}:${hash(bytes)}`; });
+  const files = [...git(root, ['diff', '--name-only', 'HEAD', '--']).trim().split('\n').filter(Boolean), ...untracked];
   return { root: canonical, head, treeHash: hash(JSON.stringify([head, diff, extra])), changedLines: lines, files };
 }
 export interface GateResult { ok: boolean; treeHash: string; changedLines: number; checks: { kind: CheckKind; ok: boolean; exitCode: number | null; evidence: string; reason?: string }[]; docGaps: string[]; reason?: string; override?: boolean }
 export class CodingGate {
+  readonly #git: typeof gitText;
   readonly #db: DatabaseSync; readonly #run: VerifierPort; readonly #audit: (event: object) => void;
-  constructor(options: { path: string; verifier?: VerifierPort; audit: (event: object) => void }) {
+  constructor(options: { path: string; verifier?: VerifierPort; audit: (event: object) => void; git?: typeof gitText }) {
+    this.#git = options.git ?? gitText;
     this.#db = new DatabaseSync(options.path); if (options.path !== ':memory:' && process.platform !== 'win32') chmodSync(options.path, 0o600); this.#run = options.verifier ?? sandboxVerifier(); this.#audit = options.audit;
     this.#db.exec('CREATE TABLE IF NOT EXISTS coding_reviews(task TEXT, tree_hash TEXT, reviewer TEXT, caller TEXT, PRIMARY KEY(task,tree_hash,reviewer));');
   }
   close() { this.#db.close(); }
-  snapshot(root: string) { return worktreeSnapshot(root); }
+  snapshot(root: string) { return worktreeSnapshot(root, this.#git); }
   recordReview(task: string, snapshot: ReturnType<typeof worktreeSnapshot>, reviewer: string, caller: string): void {
     if (reviewer === caller || this.snapshot(snapshot.root).treeHash !== snapshot.treeHash) throw new CollabError('conflict', 'independent review of current tree required');
     this.#audit({ kind: 'coding.review', task, treeHash: snapshot.treeHash, reviewer, caller });
@@ -65,8 +90,8 @@ export class CodingGate {
     }
     const manifests: Record<string, string> = {};
     for (const file of MANIFESTS) {
-      let committed: string | undefined; try { committed = gitText(before.root, ['show', `${before.head}:${file}`]); } catch {}
-      const current = existsSync(join(before.root, file)) ? readFileSync(join(before.root, file), 'utf8') : undefined;
+      let committed: string | undefined; try { committed = this.#git(before.root, ['show', `${before.head}:${file}`]); } catch {}
+      const current = existsSync(join(before.root, file)) ? worktreeFile(before.root, file).toString('utf8') : undefined;
       if (current !== committed) return { ok: false, treeHash: before.treeHash, changedLines: before.changedLines, checks: [], docGaps, reason: 'verifier-conventions-changed' };
       if (committed !== undefined) manifests[file] = committed;
     }

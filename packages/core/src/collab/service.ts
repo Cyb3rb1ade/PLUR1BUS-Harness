@@ -1,3 +1,4 @@
+import { GitWorktreeProvisioner } from "../external-agents/provisioner.ts";
 import type { ChatProvider } from "../session/provider.ts";
 import { FakeChatProvider } from "../session/provider.ts";
 import { estimateTokens, truncateWithPointer } from "../session/compaction.ts";
@@ -13,7 +14,7 @@ import {
 } from "./ports.ts";
 import { providerRunner, type AgentRunner } from "./runner.ts";
 import { alsAgentScopePort, scopeFor } from "./scope.ts";
-import { dirname, sep } from "node:path";
+import { dirname, join, sep } from "node:path";
 import { CollabStore, type TaskGrantEnd } from "./store.ts";
 import type {
   CollabEvent, CollabSettings, CollabTrace, ConsultAnswer, ConsultInput, DelegateHandle, DelegateInput,
@@ -42,6 +43,7 @@ export interface CollabOptions {
   /** Harness home. `project.repo.bind` refuses a repository inside it. */
   home?: string;
   git?: GitExec;
+  provisionWorktrees?: boolean;
 }
 
 interface Chain {
@@ -60,6 +62,7 @@ interface Chain {
 }
 
 export interface Collab {
+  readonly worktreeStore: CollabStore;
   readonly boardStore: import("./board.ts").ProjectBoardStore;
   boardProject(id: string): Project | null;
   close(): void;
@@ -323,6 +326,7 @@ export function createCollab(o: CollabOptions): Collab {
   };
 
   const api: Collab = {
+    worktreeStore: store,
     async shutdown(budgetMs = 5_000) {
       for (const chain of chains.values()) chain.abort.abort(new Error("core stopping"));
       const busy = () => [...chains.values()].filter(chain => chain.inflight.size > 0);
@@ -397,7 +401,9 @@ export function createCollab(o: CollabOptions): Collab {
       requireLead(principal, projectId);
       if (!harnessHome) throw new CollabError("invalid", "harness home is required to bind a repository", { reason: "home-required" });
       const binding: RepoBinding = assertRepoBinding(repoPath, baseBranch, harnessHome, o.git);
-      return store.setRepo(projectId, binding);
+      const project = store.setRepo(projectId, binding);
+      if (o.provisionWorktrees) new GitWorktreeProvisioner(store, join(harnessHome, "state"), o.git).fork({ projectId });
+      return project;
     },
 
     unbindRepo(principal, projectId) {

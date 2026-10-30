@@ -1,17 +1,19 @@
 // Worktree containment for an external ACP agent. Paths go through the harness canonicaliser.
 // The terminal sandbox keeps the worktree writable and the shared gitdir read-only. Windows has no backend.
-import { spawn } from "node:child_process";
-import { constants as fsc, existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { homedir } from "node:os";
+import { launchExternalAgent, TRUSTED_PATH } from "./launcher.ts";
+import type { AcpWorktreeMount } from "../tools/sandbox/acp-worktree.ts";
+import { constants as fsc, openSync, closeSync, fstatSync, readSync, existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { denyEntriesFor } from "../host-tools/denylist.ts";
 import type { HostPlatform } from "../host-tools/types.ts";
-import { canonicalisePath, type DenyEntry, type PathRefusal } from "../policy/paths.ts";
+import { canonicalisePath, openVerified, type DenyEntry, type PathRefusal } from "../policy/paths.ts";
 
 export const FS_BYTES_MAX = 1_048_576;
 export const TERMINAL_TIMEOUT_MS = 30_000;
 export const TERMINAL_OUTPUT_MAX = 65_536;
 
-const ENV_ALLOW = ["PATH", "LANG", "LC_ALL", "TERM", "TMPDIR", "HOME"] as const;
+const ENV_ALLOW = ["LANG", "LC_ALL", "TERM"] as const;
 
 export class ContainmentError extends Error {
   readonly reason: string;
@@ -28,10 +30,21 @@ export interface ContainmentRoot {
   home: string;
   platform?: NodeJS.Platform;
   windowsRules?: boolean;
+  signal?: AbortSignal;
 }
 
 function refusal(v: unknown): v is PathRefusal {
   return typeof v === "object" && v !== null && "ok" in v && (v as { ok: unknown }).ok === false;
+}
+
+function smallGitFile(path: string): string {
+  const fd = openSync(path, fsc.O_RDONLY | fsc.O_NONBLOCK | fsc.O_NOFOLLOW);
+  try {
+    const stat = fstatSync(fd);
+    if (!stat.isFile() || stat.nlink > 1 || stat.size > 4096) throw new ContainmentError("git-metadata", "invalid Git metadata");
+    const bytes = Buffer.alloc(4096);
+    return bytes.subarray(0, readSync(fd, bytes, 0, bytes.length, 0)).toString("utf8");
+  } finally { closeSync(fd); }
 }
 
 /** `.git` file of a linked worktree, its gitdir, and the shared config, hooks and info. */
@@ -39,12 +52,12 @@ export function gitDenyPaths(worktree: string): string[] {
   const gitFile = join(worktree, ".git");
   const out = [gitFile];
   let text = "";
-  try { text = readFileSync(gitFile, "utf8"); } catch { return out; }
+  try { text = smallGitFile(gitFile); } catch { return out; }
   if (!text.startsWith("gitdir:")) return out;
   const gitdir = resolve(worktree, text.slice("gitdir:".length).trim());
   out.push(gitdir);
   try {
-    const common = readFileSync(join(gitdir, "commondir"), "utf8").trim();
+    const common = smallGitFile(join(gitdir, "commondir")).trim();
     const main = resolve(gitdir, common);
     out.push(main, join(main, "config"), join(main, "hooks"), join(main, "info"));
   } catch { /* a linked worktree without commondir still denies its gitdir */ }
@@ -63,15 +76,16 @@ function blocksWorktree(parent: string, worktree: string): boolean {
 function denyFor(root: ContainmentRoot): DenyEntry[] {
   const platform = root.platform ?? process.platform;
   const host: HostPlatform = platform === "win32" ? "win32" : platform === "linux" ? "linux" : "darwin";
-  const entries: DenyEntry[] = [...denyEntriesFor(root.home, {}, host), ...gitDenyPaths(root.worktree).map((path) => ({ path }))];
+  const entries: DenyEntry[] = [...denyEntriesFor(homedir(), process.env, host), ...["run", "secrets", "config.json", "bin", "runtime"].map(p => ({ path: join(root.home, p) })), ...gitDenyPaths(root.worktree).map((path) => ({ path }))];
   // Credential paths stay denied. The whole home is denied only when the worktree is not inside it:
   // provisioned checkouts live under `<home>/state/worktrees`.
   if (!blocksWorktree(root.home, root.worktree)) entries.push({ path: root.home });
   return entries;
 }
 
-async function canon(root: ContainmentRoot, requestPath: string, access: "read" | "write") {
+export async function containedPath(root: ContainmentRoot, requestPath: string, access: "read" | "write") {
   const platform = root.platform ?? process.platform;
+  root.signal?.throwIfAborted();
   const found = await canonicalisePath(requestPath, {
     roots: [{ id: "worktree", path: root.worktree }],
     deny: denyFor(root),
@@ -81,31 +95,44 @@ async function canon(root: ContainmentRoot, requestPath: string, access: "read" 
     platform,
     windowsRules: root.windowsRules ?? platform === "win32",
   });
+  root.signal?.throwIfAborted();
   if (refusal(found)) throw new ContainmentError(found.reason, found.detail);
   return found;
 }
 
 export async function containedRead(root: ContainmentRoot, requestPath: string): Promise<string> {
-  const path = await canon(root, requestPath, "read");
-  const opened = await openVerifiedFile(path, fsc.O_RDONLY);
+  const path = await containedPath(root, requestPath, "read");
+  const opened = await openVerifiedFile(path, fsc.O_RDONLY | fsc.O_NONBLOCK, root.signal);
   try {
-    const buf = await opened.readFile();
-    if (buf.byteLength > FS_BYTES_MAX) throw new ContainmentError("too-large", "file exceeds the read cap");
-    return buf.toString("utf8");
+    const stat = await opened.stat();
+    root.signal?.throwIfAborted();
+    if (!stat.isFile()) throw new ContainmentError("not-regular", "file must be regular");
+    if (stat.size > FS_BYTES_MAX) throw new ContainmentError("too-large", "file exceeds the read cap");
+    const buf = Buffer.alloc(FS_BYTES_MAX + 1);
+    const { bytesRead } = await opened.read(buf, 0, buf.length, 0);
+    if (bytesRead > FS_BYTES_MAX) throw new ContainmentError("too-large", "file exceeds the read cap");
+    return buf.subarray(0, bytesRead).toString("utf8");
   } finally { await opened.close(); }
 }
 
 export async function containedWrite(root: ContainmentRoot, requestPath: string, text: string): Promise<void> {
   const buf = Buffer.from(text, "utf8");
   if (buf.byteLength > FS_BYTES_MAX) throw new ContainmentError("too-large", "write exceeds the cap");
-  const path = await canon(root, requestPath, "write");
-  const opened = await openVerifiedFile(path, fsc.O_WRONLY | fsc.O_CREAT | fsc.O_TRUNC);
-  try { await opened.writeFile(buf); } finally { await opened.close(); }
+  const path = await containedPath(root, requestPath, "write");
+  root.signal?.throwIfAborted();
+  const opened = await openVerifiedFile(path, fsc.O_WRONLY | fsc.O_CREAT | fsc.O_NONBLOCK, root.signal);
+  try {
+    const stat = await opened.stat();
+    root.signal?.throwIfAborted();
+    if (!stat.isFile()) throw new ContainmentError("not-regular", "file must be regular");
+    await opened.truncate(0);
+    root.signal?.throwIfAborted();
+    await opened.writeFile(buf);
+  } finally { await opened.close(); }
 }
 
-async function openVerifiedFile(path: Awaited<ReturnType<typeof canon>>, flags: number) {
-  const { openVerified } = await import("../policy/paths.ts");
-  const opened = await openVerified(path, flags);
+async function openVerifiedFile(path: Awaited<ReturnType<typeof containedPath>>, flags: number, signal?: AbortSignal) {
+  const opened = await openVerified(path, flags, signal);
   if (refusal(opened)) throw new ContainmentError(opened.reason, opened.detail);
   return opened;
 }
@@ -116,23 +143,8 @@ export function childEnv(source: NodeJS.ProcessEnv = process.env): Record<string
     const value = source[key];
     if (typeof value === "string" && value.length > 0 && !value.includes("\0")) env[key] = value;
   }
-  if (!env.PATH) env.PATH = process.platform === "win32" ? "C:\\Windows\\System32" : "/usr/bin:/bin";
+  env.PATH = TRUSTED_PATH;
   return env;
-}
-
-function seatbelt(worktree: string, denies: readonly string[], network: boolean): string {
-  const wt = realpathSync(worktree);
-  const extra = denies.map((p) => {
-    if (!existsSync(p)) return "";
-    const real = realpathSync(p);
-    const filter = statSync(real).isDirectory() ? `subpath ${JSON.stringify(real)}` : `literal ${JSON.stringify(real)}`;
-    return `(deny file-write* (${filter}))`;
-  }).join("");
-  const net = network ? "" : "(deny network*)";
-  // Measured on this Mac on 2026-10-29. `(allow file-link (subpath DIR))` permits a link only when
-  // both paths are inside DIR. A second subpath filter allows a link whose source is outside the
-  // worktree. That is not a source rule, so new hard links are refused outright.
-  return `(version 1)(allow default)(deny file-link)${net}(deny file-write* (require-all (require-not (subpath ${JSON.stringify(wt)})) (require-not (literal "/dev/null"))))${extra}`;
 }
 
 export interface HardlinkHit { count: number; path: string }
@@ -143,6 +155,7 @@ export function findHardlink(worktree: string): HardlinkHit | null {
   const gitEntry = join(root, ".git");
   const stack = [root];
   let count = 0;
+  let visited = 0;
   let sample = "";
   while (stack.length > 0) {
     const dir = stack.pop()!;
@@ -150,6 +163,7 @@ export function findHardlink(worktree: string): HardlinkHit | null {
     try { names = readdirSync(dir); }
     catch { throw new ContainmentError("hardlink-in-worktree", "unreadable"); }
     for (const name of names) {
+      if (++visited > 20000) throw new ContainmentError("hardlink-in-worktree", "alias scan exceeds safety cap");
       const path = join(dir, name);
       if (path === gitEntry) continue;
       let st;
@@ -165,96 +179,54 @@ export function findHardlink(worktree: string): HardlinkHit | null {
   return count > 0 ? { count, path: sample } : null;
 }
 
-function bwrapArgv(worktree: string, denies: readonly string[], argv: readonly string[], network: boolean): string[] {
-  const wt = realpathSync(worktree);
-  const args = ["/usr/bin/bwrap", "--die-with-parent", "--unshare-all", ...(network ? ["--share-net"] : [])];
-  for (const p of ["/usr", "/bin", "/lib", "/lib64", "/etc"]) if (existsSync(p)) args.push("--ro-bind", p, p);
-  const nodeDir = dirnameSafe(process.execPath);
-  if (nodeDir && !["/usr", "/bin"].some((p) => nodeDir === p || nodeDir.startsWith(p + "/"))) args.push("--ro-bind", nodeDir, nodeDir);
-  args.push("--dev", "/dev", "--proc", "/proc", "--bind", wt, wt);
-  for (const p of denies) {
-    if (!existsSync(p)) continue;
-    const real = realpathSync(p);
-    args.push("--ro-bind", real, real);
-  }
-  args.push("--chdir", wt, ...argv);
-  return args;
-}
+/** Bounded terminal result, shared by streaming snapshots and wait_for_exit. */
+export interface TerminalResult { ok: true; exitCode: number | null; stdout: string; stderr: string; signal?: string; truncated?: boolean }
+export interface TerminalRefusal { ok: false; reason: string }
 
-function dirnameSafe(p: string): string {
-  const i = p.lastIndexOf("/");
-  return i > 0 ? p.slice(0, i) : "";
-}
-
-export interface TerminalResult { ok: true; exitCode: number | null; stdout: string; stderr: string }
-export interface TerminalRefusal { ok: false; reason: "sandbox-unavailable" | "argv" | "timeout" | "aborted" | "spawn-failed" | "hardlink-in-worktree" }
-
-/** Absolute argv, no shell. Windows is refused. The gitdir stays read-only inside the sandbox. */
-export function containedTerminal(o: {
-  argv: readonly string[];
-  worktree: string;
-  home: string;
-  network?: boolean;
-  platform?: NodeJS.Platform;
-  timeoutMs?: number;
-  signal?: AbortSignal;
+/** The same shared sandbox and native helper supervise agents, terminals and probes. */
+export async function containedTerminal(o: {
+  argv: readonly string[]; worktree: string; home: string; mount?: AcpWorktreeMount;
+  cwd?: string; network?: boolean; platform?: NodeJS.Platform; timeoutMs?: number; signal?: AbortSignal;
+  limitsHelper?: string; maxTasks?: number; memoryBytes?: number; outputByteLimit?: number;
+  onOutput?(output: string, truncated: boolean): void;
   log?: (event: string, fields?: Record<string, number | string>) => void;
 }): Promise<TerminalResult | TerminalRefusal> {
-  const platform = o.platform ?? process.platform;
-  if (platform === "win32") return Promise.resolve({ ok: false, reason: "sandbox-unavailable" });
-  if (!o.argv.length || o.argv.some((a) => typeof a !== "string" || a.includes("\0") || !isAbsolute(a))) {
-    return Promise.resolve({ ok: false, reason: "argv" });
-  }
+  if ((o.platform ?? process.platform) === "win32") return { ok: false, reason: "sandbox-unavailable" };
   try {
+    o.signal?.throwIfAborted();
     const hit = findHardlink(o.worktree);
     if (hit) {
       o.log?.("hardlink-in-worktree", { count: hit.count, path: hit.path });
-      return Promise.resolve({ ok: false, reason: "hardlink-in-worktree" });
+      return { ok: false, reason: "hardlink-in-worktree" };
     }
-  } catch (e) {
-    if (e instanceof ContainmentError) return Promise.resolve({ ok: false, reason: "hardlink-in-worktree" });
-    return Promise.resolve({ ok: false, reason: "spawn-failed" });
+    const limit = Math.min(o.outputByteLimit ?? TERMINAL_OUTPUT_MAX, TERMINAL_OUTPUT_MAX);
+    if (!Number.isSafeInteger(limit) || limit < 1) return { ok: false, reason: "output-limit" };
+    // cwd is checked independently and cannot select a sibling tree.
+    const cwd = o.cwd ? (await containedPath({ worktree: o.worktree, home: o.home, ...(o.signal ? { signal: o.signal } : {}) }, o.cwd, "read")).canonical : o.worktree;
+    o.signal?.throwIfAborted();
+    const handle = await launchExternalAgent({ ...o, cwd, timeoutMs: o.timeoutMs ?? TERMINAL_TIMEOUT_MS });
+    const chunks: Buffer[] = [];
+    let bytes = 0;
+    let truncated = false;
+    const take = (chunk: Buffer) => {
+      const room = limit - bytes;
+      if (chunk.length > room) truncated = true;
+      const copy = Buffer.from(chunk.subarray(0, Math.max(0, room)));
+      if (copy.length) chunks.push(copy);
+      bytes += copy.length;
+      o.onOutput?.(Buffer.concat(chunks).toString("utf8"), truncated);
+    };
+    handle.stdout.on("data", take);
+    handle.stderr.on("data", take);
+    const exitCode = await handle.exited;
+    if (o.signal?.aborted) return { ok: false, reason: "aborted" };
+    if (handle.exitStatus.reason) return { ok: false, reason: handle.exitStatus.reason };
+    if (exitCode === 121) return { ok: false, reason: "task-limit-exceeded" };
+    if (exitCode === 122) return { ok: false, reason: "rss-limit-exceeded" };
+    if (exitCode === 125) return { ok: false, reason: "sandbox-unavailable" };
+    return { ok: true, exitCode, stdout: Buffer.concat(chunks).toString("utf8"), stderr: "", truncated, ...(handle.exitStatus.signal ? { signal: handle.exitStatus.signal } : {}) };
+  } catch (error) {
+    return { ok: false, reason: o.signal?.aborted ? "aborted" : error instanceof ContainmentError
+      ? error.reason : "sandbox-unavailable" };
   }
-  const denies = [o.home, ...gitDenyPaths(o.worktree)].filter((p) => !blocksWorktree(p, o.worktree));
-  const network = o.network === true;
-  let bin: string;
-  let argv: string[];
-  if (platform === "darwin" && existsSync("/usr/bin/sandbox-exec")) {
-    bin = "/usr/bin/sandbox-exec";
-    argv = ["-p", seatbelt(o.worktree, denies, network), ...o.argv];
-  } else if (platform === "linux" && existsSync("/usr/bin/bwrap")) {
-    const full = bwrapArgv(o.worktree, denies, o.argv, network);
-    bin = full[0]!;
-    argv = full.slice(1);
-  } else return Promise.resolve({ ok: false, reason: "sandbox-unavailable" });
-  const timeoutMs = o.timeoutMs ?? TERMINAL_TIMEOUT_MS;
-  return new Promise((resolvePromise) => {
-    let stdout = "", stderr = "", reason: string | undefined;
-    const child = spawn(bin, argv, { cwd: o.worktree, detached: true, stdio: ["ignore", "pipe", "pipe"], env: childEnv(), windowsHide: true });
-    const stop = (why: string) => {
-      if (reason) return;
-      reason = why;
-      try { if (child.pid) process.kill(-child.pid, "SIGTERM"); } catch { /* already gone */ }
-      setTimeout(() => { try { if (child.pid) process.kill(-child.pid, "SIGKILL"); } catch { /* already gone */ } }, 100).unref();
-    };
-    const take = (into: "out" | "err") => (chunk: Buffer) => {
-      const cur = into === "out" ? stdout : stderr;
-      if (cur.length >= TERMINAL_OUTPUT_MAX) stop("output-limit");
-      else if (into === "out") stdout += chunk.toString("utf8");
-      else stderr += chunk.toString("utf8");
-    };
-    child.stdout.on("data", take("out"));
-    child.stderr.on("data", take("err"));
-    child.once("error", () => { reason = "spawn-failed"; });
-    const timer = setTimeout(() => stop("timeout"), timeoutMs);
-    const abort = () => stop("aborted");
-    if (o.signal?.aborted) abort(); else o.signal?.addEventListener("abort", abort, { once: true });
-    child.once("close", (code) => {
-      clearTimeout(timer);
-      o.signal?.removeEventListener("abort", abort);
-      if (reason === "timeout" || reason === "aborted" || reason === "spawn-failed") resolvePromise({ ok: false, reason });
-      else resolvePromise({ ok: true, exitCode: code, stdout, stderr });
-    });
-  });
 }
-

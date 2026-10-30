@@ -1,17 +1,25 @@
-// Bounded process start for an external ACP agent. No shell. The child env is the allowlist from containment.
-import { spawn, type ChildProcess } from "node:child_process";
-import { basename, isAbsolute } from "node:path";
+/** #820: ACP processes use the shared sandbox, empty HOME and native resource supervision. */
+import { spawn } from "node:child_process";
+import { access, mkdtemp, realpath, rm } from "node:fs/promises";
+import { constants } from "node:fs";
+import { basename, isAbsolute, join } from "node:path";
+import { homedir, tmpdir } from "node:os";
 import type { Readable, Writable } from "node:stream";
-import { childEnv } from "./containment.ts";
+import { backendArgv, detectSandbox } from "../tools/sandbox/backends.ts";
+import { preparePolicy } from "../tools/sandbox/policy.ts";
+import type { AcpWorktreeMount } from "../tools/sandbox/acp-worktree.ts";
+import { matchDeny } from "../policy/paths.ts";
+import { DEFAULT_MAX_TASKS } from "../tools/sandbox/types.ts";
 
 export const DEFAULT_MAX_TURNS = 20;
 export const DEFAULT_RUN_TIMEOUT_MS = 600_000;
+export const TRUSTED_PATH = "/usr/bin:/bin:/usr/sbin:/sbin";
+const SHELLS = new Set(["sh", "bash", "zsh", "cmd", "cmd.exe", "powershell", "pwsh"]);
 
-const SHELLS = new Set(["sh", "bash", "zsh", "cmd", "cmd.exe", "powershell", "powershell.exe", "pwsh", "pwsh.exe"]);
-
+/** A typed refusal before the target starts. */
 export class LaunchError extends Error {
-  readonly reason: "sandbox-unavailable" | "argv" | "spawn-failed";
-  constructor(reason: "sandbox-unavailable" | "argv" | "spawn-failed") {
+  readonly reason: "sandbox-unavailable" | "argv" | "spawn-failed" | "aborted";
+  constructor(reason: LaunchError["reason"]) {
     super(reason);
     this.name = "LaunchError";
     this.reason = reason;
@@ -21,62 +29,120 @@ export class LaunchError extends Error {
 export interface LaunchHandle {
   stdin: Writable;
   stdout: Readable;
+  stderr: Readable;
   pid: number | undefined;
-  stop: () => void;
+  stop(): void;
   exited: Promise<number | null>;
+  exitStatus: { exitCode?: number; signal?: string; reason?: "spawn-failed" | "timeout" };
 }
 
-/** Starts `argv[0]` directly. Windows is refused. A timeout or abort kills the process group. */
-export function launchExternalAgent(o: {
+export interface LaunchOptions {
   argv: readonly string[];
   cwd: string;
+  home?: string;
+  worktree?: string;
+  mount?: AcpWorktreeMount;
+  /** Discovery only: read-only scratch cwd and no writable bind. */
+  probe?: boolean;
   env?: NodeJS.ProcessEnv;
   timeoutMs?: number;
   signal?: AbortSignal;
   platform?: NodeJS.Platform;
-}): LaunchHandle {
-  const platform = o.platform ?? process.platform;
-  if (platform === "win32") throw new LaunchError("sandbox-unavailable");
-  if (!argvOk(o.argv)) throw new LaunchError("argv");
-  const timeoutMs = o.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS;
-  let child: ChildProcess;
-  try {
-    child = spawn(o.argv[0]!, o.argv.slice(1), {
-      cwd: o.cwd,
-      env: childEnv(o.env),
-      detached: true,
-      shell: false,
-      stdio: ["pipe", "pipe", "pipe"],
-      windowsHide: true,
-    });
-  } catch {
-    throw new LaunchError("spawn-failed");
-  }
-  child.stderr?.resume();
-  let stopped = false;
-  const stop = () => {
-    if (stopped) return;
-    stopped = true;
-    try { if (child.pid) process.kill(-child.pid, "SIGTERM"); } catch { /* already gone */ }
-    setTimeout(() => { try { if (child.pid) process.kill(-child.pid, "SIGKILL"); } catch { /* already gone */ } }, 100).unref();
-  };
-  const timer = setTimeout(stop, timeoutMs);
-  timer.unref?.();
-  const onAbort = () => stop();
-  if (o.signal?.aborted) stop();
-  else o.signal?.addEventListener("abort", onAbort, { once: true });
-  const exited = new Promise<number | null>((resolve) => {
-    child.once("error", () => resolve(null));
-    child.once("close", (code) => {
-      clearTimeout(timer);
-      o.signal?.removeEventListener("abort", onAbort);
-      resolve(code);
-    });
-  });
-  return { stdin: child.stdin!, stdout: child.stdout!, pid: child.pid, stop, exited };
+  limitsHelper?: string;
+  maxTasks?: number;
+  memoryBytes?: number;
 }
 
-function argvOk(argv: readonly string[]): boolean {
-  if (argv.length === 0 || !argv[0] || !isAbsolute(argv[0])) return false;
-  return argv.every((a) => typeof a === "string" && a.length > 0 && !a.includes("\0") && !SHELLS.has(basename(a).toLowerCase()));
+/** Resolve only the executable against the trusted system path; ordinary arguments remain unrestricted. */
+export async function resolveCommand(command: string, scope: { worktree?: string; probe?: boolean } = {}): Promise<string> {
+  if (!command || command.includes("\0") || SHELLS.has(basename(command))) throw new LaunchError("argv");
+  const candidates = isAbsolute(command) ? [command] : TRUSTED_PATH.split(":").map(p => join(p, command));
+  for (const path of candidates) {
+    try {
+      await access(path, constants.X_OK);
+      const canonical = await realpath(path);
+      const system = TRUSTED_PATH.split(":").some(root => canonical.startsWith(root + "/"));
+      const local = scope.worktree !== undefined && canonical.startsWith(scope.worktree + "/");
+      if (!scope.probe && !system && !local && canonical !== await realpath(process.execPath)) continue;
+      return canonical;
+    } catch { /* Try the next trusted system directory. */ }
+  }
+  throw new LaunchError("argv");
+}
+
+/** Every async preparation step is followed by a cancellation check before the single spawn boundary. */
+export async function launchExternalAgent(o: LaunchOptions): Promise<LaunchHandle> {
+  if ((o.platform ?? process.platform) === "win32") throw new LaunchError("sandbox-unavailable");
+  if (!o.probe && !o.mount) throw new LaunchError("sandbox-unavailable");
+  if (!o.argv.length || o.argv.some(a => typeof a !== "string" || a.includes("\0"))) throw new LaunchError("argv");
+  if (!Number.isSafeInteger(o.maxTasks ?? DEFAULT_MAX_TASKS) || (o.maxTasks ?? DEFAULT_MAX_TASKS) < 1)
+    throw new LaunchError("sandbox-unavailable");
+  o.signal?.throwIfAborted();
+  const program = await resolveCommand(o.argv[0]!, { ...(o.worktree ? { worktree: o.worktree } : {}), ...(o.probe ? { probe: true } : {}) });
+  o.signal?.throwIfAborted();
+  const scratch = await realpath(await mkdtemp(join(tmpdir(), "p1b-acp-")));
+  const home = o.home ?? o.cwd;
+  const timeoutMs = Math.min(o.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS, DEFAULT_RUN_TIMEOUT_MS);
+  try {
+    o.signal?.throwIfAborted();
+    const p = await preparePolicy({
+      home, userHome: homedir(), cwd: o.cwd, readRoots: [{ id: "cwd", path: o.worktree ?? o.cwd }],
+      writeRoots: o.mount ? [{ id: "worktree", path: o.worktree ?? o.cwd }] : [],
+      ...(o.mount ? { acpWorktree: o.mount } : {}), acpScratch: scratch,
+      network: "none", envAllow: ["PATH", "HOME", "TMPDIR", "LANG"],
+      limitsHelper: o.limitsHelper ?? join(home, "bin", "plur1bus-sandbox-limits"),
+      limits: { timeoutMs, cpuSeconds: 60, memoryBytes: o.memoryBytes ?? 8 * 1024 ** 3,
+        maxOutputBytes: 1024 * 1024, maxTasks: o.maxTasks ?? DEFAULT_MAX_TASKS },
+    });
+    o.signal?.throwIfAborted();
+    if (matchDeny(program, p.denied)) throw new LaunchError("argv");
+    // The absolute executable is trusted composition input. Mount the file, never its home directory.
+    p.runtimePaths = [...new Set([...p.runtimePaths.filter(path => !path.startsWith("/dev/")), program, process.execPath, ...(process.platform === "linux" ? ["/etc/passwd"] : [])])];
+    p.runtimeRoots = [...new Set([...p.runtimeRoots, program, process.execPath, ...(process.platform === "linux" ? ["/etc/passwd"] : [])])];
+    const detection = await detectSandbox(p.limitsHelper);
+    o.signal?.throwIfAborted();
+    if (!detection.available || (process.platform === "linux" && detection.tasks.mechanism !== "namespace-limit"))
+      throw new LaunchError("sandbox-unavailable");
+    const command = await backendArgv(p, detection, [program, ...o.argv.slice(1)]);
+    o.signal?.throwIfAborted();
+    const resource = [String(p.limits.cpuSeconds), String(p.limits.memoryBytes), ...command];
+    const args = process.platform === "darwin"
+      ? ["--watch-tree", String(p.limits.maxTasks), String(p.limits.memoryBytes), "--", p.limitsHelper, ...resource]
+      : resource;
+    const child = spawn(p.limitsHelper, args, {
+      cwd: p.cwd, env: { PATH: TRUSTED_PATH, HOME: scratch, TMPDIR: scratch, LANG: "C.UTF-8" },
+      detached: true, shell: false, stdio: ["pipe", "pipe", "pipe"], windowsHide: true,
+    });
+    let stopped = false;
+    const stop = () => {
+      if (stopped) return;
+      stopped = true;
+      try { if (child.pid) process.kill(-child.pid, "SIGTERM"); } catch { /* Already reaped. */ }
+      setTimeout(() => {
+        try { if (child.pid) process.kill(-child.pid, "SIGKILL"); } catch { /* Already reaped. */ }
+      }, 100).unref();
+    };
+    const exitStatus: LaunchHandle["exitStatus"] = {};
+    const timer = setTimeout(() => { exitStatus.reason = "timeout"; stop(); }, timeoutMs);
+    const abort = () => stop();
+    o.signal?.addEventListener("abort", abort, { once: true });
+    if (o.signal?.aborted) stop();
+    const exited = new Promise<number | null>(resolve => {
+      child.once("error", () => { exitStatus.reason = "spawn-failed"; resolve(null); });
+      child.once("close", (code, signal) => {
+        if (code !== null) exitStatus.exitCode = code;
+        if (signal) exitStatus.signal = signal;
+        resolve(code);
+      });
+    }).finally(async () => {
+      clearTimeout(timer);
+      o.signal?.removeEventListener("abort", abort);
+      stop();
+      await rm(scratch, { recursive: true, force: true });
+    });
+    return { stdin: child.stdin, stdout: child.stdout, stderr: child.stderr, pid: child.pid, stop, exited, exitStatus };
+  } catch (error) {
+    await rm(scratch, { recursive: true, force: true });
+    throw error;
+  }
 }

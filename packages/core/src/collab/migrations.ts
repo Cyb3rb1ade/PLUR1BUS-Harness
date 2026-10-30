@@ -137,6 +137,11 @@ export const MIGRATIONS: readonly string[] = [
     removed_at INTEGER
   );
   CREATE UNIQUE INDEX idx_project_worktrees_live ON project_worktrees(project_id, ifnull(card_id, '')) WHERE removed_at IS NULL;`,
+  // v7: host Git uses immutable provisioner metadata, never the writable .git pointer.
+  `ALTER TABLE project_worktrees ADD COLUMN git_dir TEXT;
+   ALTER TABLE project_worktrees ADD COLUMN common_git_dir TEXT;
+   ALTER TABLE project_worktrees ADD COLUMN device TEXT;
+   ALTER TABLE project_worktrees ADD COLUMN inode TEXT;`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
