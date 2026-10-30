@@ -2,6 +2,7 @@ import { URL, URLSearchParams } from "node:url";
 import { ApiError, errors } from "../errors.ts";
 import type { TokenAudience } from "../ports.ts";
 import { authorize, type RbacPrincipal } from "../rbac-bridge.ts";
+import { webPrincipal } from "../principal.ts";
 import type { Handler, HandlerDeps, HandlerInput, HandlerOutput, RouteSpec } from "../routes.ts";
 import { readCookie } from "../session.ts";
 import { matchRedirectUri } from "./client-metadata.ts";
@@ -354,6 +355,7 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
       const scopeParam = params.get("scope");
       const state = params.get("state") ?? undefined;
       const resource = params.get("resource") ?? undefined;
+      const projectId = params.get("project_id") ?? undefined;
 
       // 1. Check user session first to prevent anonymous SSRF probing via client_id
       const rawCookie = readCookie(typeof i.headers?.cookie === "string" ? i.headers.cookie : undefined, cookieName);
@@ -473,6 +475,44 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
         return { status: 302, headers: { Location: errUrl.toString() } };
       }
 
+      if (projectId) {
+        let proj: any;
+        try {
+          const apiPrincipal = webPrincipal(rbac, session.principal.kind === "owner");
+          proj = d.core.callAs
+            ? await d.core.callAs<unknown>("project.get", { projectId }, apiPrincipal, "core")
+            : await d.core.call<unknown>("project.get", { projectId });
+        } catch {
+          const errUrl = new URL(redirectUri);
+          errUrl.searchParams.set("error", "invalid_request");
+          errUrl.searchParams.set("error_description", "no such project");
+          if (state) errUrl.searchParams.set("state", state);
+          errUrl.searchParams.set("iss", issuer);
+          return { status: 302, headers: { Location: errUrl.toString() } };
+        }
+        if (!proj || typeof proj !== "object") {
+          const errUrl = new URL(redirectUri);
+          errUrl.searchParams.set("error", "invalid_request");
+          errUrl.searchParams.set("error_description", "no such project");
+          if (state) errUrl.searchParams.set("state", state);
+          errUrl.searchParams.set("iss", issuer);
+          return { status: 302, headers: { Location: errUrl.toString() } };
+        }
+        const hasProjectAccess =
+          ["owner", "admin", "operator"].includes(rbac.role) ||
+          proj.owner === rbac.userId ||
+          (Array.isArray(proj.members) && proj.members.some((m: any) => m.userId === rbac.userId)) ||
+          rbac.projectRights?.[projectId] !== undefined;
+        if (!hasProjectAccess) {
+          const errUrl = new URL(redirectUri);
+          errUrl.searchParams.set("error", "access_denied");
+          errUrl.searchParams.set("error_description", "user does not have access to the requested project");
+          if (state) errUrl.searchParams.set("state", state);
+          errUrl.searchParams.set("iss", issuer);
+          return { status: 302, headers: { Location: errUrl.toString() } };
+        }
+      }
+
       const permittedScopes = filterPermittedScopes(rbac, agentId, audience, scopes);
       if (permittedScopes.length === 0) {
         const errUrl = new URL(redirectUri);
@@ -495,6 +535,7 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
             redirect_uri: redirectUri,
             scopes: permittedScopes,
             audience,
+            ...(projectId ? { project_id: projectId } : {}),
             ...(state ? { state } : {}),
             ...(resource ? { resource } : {}),
           },
@@ -603,6 +644,29 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
         || authorize(rbac, "agent.use", { kind: "agent", agentId }).effect === "allow";
       if (!canAccessAgent) {
         throw new OAuthApiError(403, "access_denied", "user does not have access to the requested agent");
+      }
+
+      if (projectId) {
+        let proj: any;
+        try {
+          const apiPrincipal = webPrincipal(rbac, session.principal.kind === "owner");
+          proj = d.core.callAs
+            ? await d.core.callAs<unknown>("project.get", { projectId }, apiPrincipal, "core")
+            : await d.core.call<unknown>("project.get", { projectId });
+        } catch {
+          throw new OAuthApiError(400, "invalid_request", "no such project");
+        }
+        if (!proj || typeof proj !== "object") {
+          throw new OAuthApiError(400, "invalid_request", "no such project");
+        }
+        const hasProjectAccess =
+          ["owner", "admin", "operator"].includes(rbac.role) ||
+          proj.owner === rbac.userId ||
+          (Array.isArray(proj.members) && proj.members.some((m: any) => m.userId === rbac.userId)) ||
+          rbac.projectRights?.[projectId] !== undefined;
+        if (!hasProjectAccess) {
+          throw new OAuthApiError(403, "access_denied", "user does not have access to the requested project");
+        }
       }
 
       const permittedScopes = filterPermittedScopes(rbac, agentId, audience, scopes);

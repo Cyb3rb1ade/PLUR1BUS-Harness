@@ -965,3 +965,135 @@ test("M6A-B6: OAuth limits scopes to protocol fixed set, intersects with user ri
   assert.equal(agentsRes.status, 403);
   assert.equal(JSON.parse(agentsRes.text).reason, "token-bound-protocol-only");
 });
+
+test("M6A-S4: OAuth authorize validates requested projectId and user access", async (t) => {
+  const h = await start({ oauthClients: { "test-client": STATIC_CLIENT }, rateClasses: wide });
+  t.after(() => h.close());
+
+  const originalImpl = h.core.impl;
+  h.core.impl = async (method, params: any) => {
+    if (method === "project.get") {
+      if (params?.projectId === "proj-exists-allowed") {
+        return { id: "proj-exists-allowed", owner: "u-member", members: [{ userId: "u-member", role: "lead" }] };
+      }
+      if (params?.projectId === "proj-exists-forbidden") {
+        return { id: "proj-exists-forbidden", owner: "other-user", members: [{ userId: "other-user", role: "lead" }] };
+      }
+      throw new Error("project not found");
+    }
+    return originalImpl(method, params);
+  };
+
+  await addUser(h, { id: "u-member", username: "projuser", role: "member", agentRights: { main: "use" } });
+  const { cookie: userCookie } = await loginAs(h, "projuser");
+  const csrf = await csrfToken(h, userCookie);
+
+  const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+  const challenge = computeCodeChallenge(verifier);
+
+  // 1. GET with non-existent project returns 302 invalid_request
+  const nonExistentGet = await raw(h, {
+    method: "GET",
+    path: `/oauth/authorize?response_type=code&client_id=test-client&redirect_uri=${encodeURIComponent("https://client.example.com/callback")}&code_challenge=${challenge}&code_challenge_method=S256&scope=mcp.read&project_id=proj-missing`,
+    headers: { Cookie: userCookie },
+  });
+  assert.equal(nonExistentGet.status, 302);
+  const nonExistentLoc = new URL(nonExistentGet.headers.location as string);
+  assert.equal(nonExistentLoc.searchParams.get("error"), "invalid_request");
+  assert.equal(nonExistentLoc.searchParams.get("error_description"), "no such project");
+
+  // 2. POST with non-existent project returns 400 invalid_request
+  const nonExistentPost = await raw(h, {
+    method: "POST",
+    path: "/oauth/authorize",
+    headers: { Cookie: userCookie, "x-csrf-token": csrf, ...jsonHeaders() },
+    body: JSON.stringify({
+      approve: true,
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      scope: "mcp.read",
+      project_id: "proj-missing",
+    }),
+  });
+  assert.equal(nonExistentPost.status, 400);
+  assert.equal(JSON.parse(nonExistentPost.text).reason, "invalid_request");
+  assert.equal(JSON.parse(nonExistentPost.text).message, "no such project");
+
+  // 3. GET with project user has no access to returns 302 access_denied
+  const forbiddenGet = await raw(h, {
+    method: "GET",
+    path: `/oauth/authorize?response_type=code&client_id=test-client&redirect_uri=${encodeURIComponent("https://client.example.com/callback")}&code_challenge=${challenge}&code_challenge_method=S256&scope=mcp.read&project_id=proj-exists-forbidden`,
+    headers: { Cookie: userCookie },
+  });
+  assert.equal(forbiddenGet.status, 302);
+  const forbiddenLoc = new URL(forbiddenGet.headers.location as string);
+  assert.equal(forbiddenLoc.searchParams.get("error"), "access_denied");
+  assert.equal(forbiddenLoc.searchParams.get("error_description"), "user does not have access to the requested project");
+
+  // 4. POST with project user has no access to returns 403 access_denied
+  const csrf2 = await csrfToken(h, userCookie);
+  const forbiddenPost = await raw(h, {
+    method: "POST",
+    path: "/oauth/authorize",
+    headers: { Cookie: userCookie, "x-csrf-token": csrf2, ...jsonHeaders() },
+    body: JSON.stringify({
+      approve: true,
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      scope: "mcp.read",
+      project_id: "proj-exists-forbidden",
+    }),
+  });
+  assert.equal(forbiddenPost.status, 403);
+  assert.equal(JSON.parse(forbiddenPost.text).reason, "access_denied");
+  assert.equal(JSON.parse(forbiddenPost.text).message, "user does not have access to the requested project");
+
+  // 5. GET probe with accessible project returns 200 with project_id
+  const allowedGet = await raw(h, {
+    method: "GET",
+    path: `/oauth/authorize?response_type=code&client_id=test-client&redirect_uri=${encodeURIComponent("https://client.example.com/callback")}&code_challenge=${challenge}&code_challenge_method=S256&scope=mcp.read&project_id=proj-exists-allowed`,
+    headers: { Cookie: userCookie, Accept: "application/json" },
+  });
+  assert.equal(allowedGet.status, 200);
+  const allowedProbe = JSON.parse(allowedGet.text);
+  assert.equal(allowedProbe.project_id, "proj-exists-allowed");
+
+  // 6. POST with accessible project succeeds and token is issued
+  const csrf3 = await csrfToken(h, userCookie);
+  const allowedPost = await raw(h, {
+    method: "POST",
+    path: "/oauth/authorize",
+    headers: { Cookie: userCookie, "x-csrf-token": csrf3, ...jsonHeaders() },
+    body: JSON.stringify({
+      approve: true,
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      scope: "mcp.read",
+      project_id: "proj-exists-allowed",
+    }),
+  });
+  assert.equal(allowedPost.status, 200);
+  const code = (JSON.parse(allowedPost.text) as { code: string }).code;
+
+  const tokenRes = await raw(h, {
+    method: "POST",
+    path: "/oauth/token",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      grant_type: "authorization_code",
+      code,
+      client_id: "test-client",
+      redirect_uri: "https://client.example.com/callback",
+      code_verifier: verifier,
+    }),
+  });
+  assert.equal(tokenRes.status, 200);
+  const tokenData = JSON.parse(tokenRes.text);
+  assert.ok(tokenData.access_token);
+});
