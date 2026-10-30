@@ -93,20 +93,18 @@ test("MemoryToolGroup provides memory_recall with secret redaction and optional 
 
   // 2. memory_recall passes parameters and redacts secrets
   const recallRes = await recallTool.handler(
-    { query: "find secret", limit: 5, session: "sess-1", topic: "auth" },
+    { query: "find secret", capChars: 5000 },
     { agentId: "agent-x", core: fakeCore as any, rbac: { userId: "user-bob" } as any },
   );
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0]!.method, "memory.recall");
   assert.deepEqual(calls[0]!.params, {
-    caller: "user-bob",
+    caller: { channel: "mcp", accountId: "user-bob", userId: "user-bob" },
     agentId: "agent-x",
     query: "find secret",
-    limit: 5,
+    capChars: 5000,
     joined: true,
-    session: "sess-1",
-    topic: "auth",
   });
 
   // Verify secret token redaction in output

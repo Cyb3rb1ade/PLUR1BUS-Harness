@@ -31,15 +31,15 @@ export class MemoryToolGroup implements McpToolGroup {
         required: ["query"],
         properties: {
           query: { type: "string", description: "Search query text." },
-          limit: { type: "integer", minimum: 1, maximum: 50, description: "Maximum blocks to return." },
-          session: { type: "string", description: "Optional session key for capture context." },
-          topic: { type: "string", description: "Optional topic filter." },
+          capChars: { type: "integer", description: "Optional character budget for recalled blocks." },
+          filter: { type: "object", description: "Optional memory filter." },
+          disclose: { type: "string", enum: ["always", "never", "user-only"], description: "Optional disclosure policy." },
+          project: { type: "string", description: "Optional project scope ID." },
         },
       },
       handler: async (args, toolCtx) => {
         const query = typeof args.query === "string" ? args.query.trim() : "";
         if (!query) throw new Error("query is required");
-        const limit = typeof args.limit === "number" && args.limit > 0 ? Math.min(args.limit, 50) : 10;
         const agentId = toolCtx?.agentId ?? ctx.agentId;
         const core = toolCtx?.core ?? ctx.core;
 
@@ -48,19 +48,25 @@ export class MemoryToolGroup implements McpToolGroup {
           return { blocks: [], query, degraded: { reason: "core-unavailable" } };
         }
 
-        const caller = toolCtx?.rbac?.userId ?? ctx.rbac?.userId ?? "mcp-caller";
+        const userId = toolCtx?.rbac?.userId ?? ctx.rbac?.userId ?? "mcp-caller";
+        const caller = { channel: "mcp", accountId: userId, userId };
         const params: Record<string, unknown> = {
           caller,
           agentId,
           query,
-          limit,
           joined: true,
         };
-        if (typeof args.session === "string" && args.session) {
-          params.session = args.session;
+        if (typeof args.capChars === "number") {
+          params.capChars = args.capChars;
         }
-        if (typeof args.topic === "string" && args.topic) {
-          params.topic = args.topic;
+        if (typeof args.filter === "object" && args.filter !== null) {
+          params.filter = args.filter;
+        }
+        if (typeof args.disclose === "string") {
+          params.disclose = args.disclose;
+        }
+        if (typeof args.project === "string") {
+          params.project = args.project;
         }
 
         const result = await (core as any).call("memory.recall", params);

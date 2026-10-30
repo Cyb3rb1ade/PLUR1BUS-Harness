@@ -2821,6 +2821,57 @@
                     "x-audit": true
                   }
                 }
+              },
+              "a2aServer": {
+                "description": "A2A server exposure for this agent.",
+                "type": "object",
+                "additionalProperties": false,
+                "default": {},
+                "x-restart": "live",
+                "x-tier": "advanced",
+                "x-write-roles": [
+                  "owner",
+                  "admin"
+                ],
+                "x-audit": true,
+                "properties": {
+                  "exposed": {
+                    "description": "Whether this agent is exposed on the harness A2A server.",
+                    "type": "boolean",
+                    "default": false,
+                    "x-restart": "live",
+                    "x-tier": "advanced",
+                    "x-write-roles": [
+                      "owner",
+                      "admin"
+                    ],
+                    "x-audit": true
+                  },
+                  "name": {
+                    "description": "Agent display name for the A2A agent card.",
+                    "type": "string",
+                    "maxLength": 128,
+                    "x-restart": "live",
+                    "x-tier": "advanced",
+                    "x-write-roles": [
+                      "owner",
+                      "admin"
+                    ],
+                    "x-audit": true
+                  },
+                  "description": {
+                    "description": "Agent description for the A2A agent card.",
+                    "type": "string",
+                    "maxLength": 1024,
+                    "x-restart": "live",
+                    "x-tier": "advanced",
+                    "x-write-roles": [
+                      "owner",
+                      "admin"
+                    ],
+                    "x-audit": true
+                  }
+                }
               }
             }
           }
@@ -4477,6 +4528,154 @@
                 "admin"
               ],
               "x-audit": true
+            }
+          }
+        },
+        "a2a": {
+          "description": "A2A configuration, including registered external peers.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-since": "1.9.0",
+          "x-write-roles": [
+            "owner",
+            "admin"
+          ],
+          "x-audit": true,
+          "properties": {
+            "peers": {
+              "description": "Configured external A2A peers.",
+              "type": "array",
+              "default": [],
+              "maxItems": 1024,
+              "x-restart": "live",
+              "x-tier": "advanced",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "keySha256",
+                  "grants"
+                ],
+                "properties": {
+                  "id": {
+                    "description": "Unique identifier for this peer.",
+                    "type": "string",
+                    "maxLength": 64,
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$"
+                  },
+                  "keySha256": {
+                    "description": "SHA-256 hash of the peer's bearer token.",
+                    "type": "string",
+                    "maxLength": 64,
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "grants": {
+                    "description": "Action grants for this peer per agent id.",
+                    "type": "object",
+                    "additionalProperties": {
+                      "description": "Allowed A2A actions on this agent.",
+                      "type": "array",
+                      "maxItems": 16,
+                      "items": {
+                        "type": "string",
+                        "maxLength": 32,
+                        "enum": [
+                          "card.read",
+                          "task.send",
+                          "task.read",
+                          "task.cancel",
+                          "task.push"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "a2aServer": {
+          "description": "Harness A2A server exposure configuration.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-since": "1.9.0",
+          "x-write-roles": [
+            "owner",
+            "admin"
+          ],
+          "x-audit": true,
+          "properties": {
+            "enabled": {
+              "description": "Allow foreign A2A peers to connect to the harness A2A server.",
+              "type": "boolean",
+              "default": false,
+              "x-restart": "live",
+              "x-tier": "advanced",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true
+            },
+            "legacy03": {
+              "description": "Opt-in to legacy A2A 0.3 dotted method names.",
+              "type": "boolean",
+              "default": false,
+              "x-restart": "live",
+              "x-tier": "advanced",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true
+            },
+            "defaultAgentId": {
+              "description": "Default agent id to expose when none is specified.",
+              "type": "string",
+              "maxLength": 128,
+              "x-restart": "live",
+              "x-tier": "advanced",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true
+            },
+            "signingKey": {
+              "description": "Private key for signing agent cards.",
+              "type": "object",
+              "additionalProperties": false,
+              "x-restart": "live",
+              "x-tier": "advanced",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true,
+              "properties": {
+                "privateKeyPem": {
+                  "description": "PEM-encoded private key for signing agent cards.",
+                  "type": "string",
+                  "maxLength": 8192
+                },
+                "kid": {
+                  "description": "Key identifier for the signing key.",
+                  "type": "string",
+                  "maxLength": 128
+                }
+              }
             }
           }
         },

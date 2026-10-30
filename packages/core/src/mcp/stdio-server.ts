@@ -71,6 +71,7 @@ export async function runMcpMain(
   });
 
   io.stderr.write(`[mcp-stdio] Server started for agent: ${agentId}\n`);
+  let negotiatedVersion: string | undefined;
 
   for await (const rawLine of rl) {
     const trimmed = rawLine.trim();
@@ -95,21 +96,46 @@ export async function runMcpMain(
 
     if (apiUrl) {
       try {
+        const clientVersion =
+          parsed.params?._meta?.["io.modelcontextprotocol/protocolVersion"] ??
+          (parsed.method === "initialize" ? parsed.params?.protocolVersion : undefined) ??
+          negotiatedVersion;
+
+        const isModern = clientVersion === "2026-07-28" || (!clientVersion && !negotiatedVersion);
+        if (parsed.method === "initialize" && typeof parsed.params?.protocolVersion === "string") {
+          negotiatedVersion = parsed.params.protocolVersion;
+        }
+
         const headers: Record<string, string> = {
           "Content-Type": "application/json",
+          Accept: "application/json, text/event-stream",
           Authorization: `Bearer ${token}`,
-          "Mcp-Protocol-Version": "2026-07-28",
         };
 
-        if (parsed.method === "tools/call" && parsed.params?.name) {
-          headers["Mcp-Name"] = encodeURIComponent(parsed.params.name);
-          headers["Mcp-Method"] = "tools/call";
+        let bodyToSend = trimmed;
+        if (isModern) {
+          headers["Mcp-Protocol-Version"] = "2026-07-28";
+          headers["Mcp-Method"] = parsed.method;
+          if (parsed.method === "tools/call" && parsed.params?.name) {
+            headers["Mcp-Name"] = encodeURIComponent(parsed.params.name);
+          }
+          const params =
+            typeof parsed.params === "object" && parsed.params !== null && !Array.isArray(parsed.params)
+              ? { ...parsed.params }
+              : {};
+          params._meta = {
+            ...(typeof params._meta === "object" && params._meta !== null ? params._meta : {}),
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          };
+          bodyToSend = JSON.stringify({ ...parsed, params });
+        } else if (clientVersion === "2024-11-05") {
+          headers["Mcp-Protocol-Version"] = "2024-11-05";
         }
 
         const res = await fetch(apiUrl, {
           method: "POST",
           headers,
-          body: trimmed,
+          body: bodyToSend,
         });
 
         if (res.status === 202) {
@@ -139,76 +165,15 @@ export async function runMcpMain(
         io.stdout.write(resp.trim() + "\n");
       }
     } else {
-      // Direct minimal handler when no live HTTP bridge exists
-      if (parsed.method === "initialize") {
+      io.stderr.write(`[mcp-stdio] No running API server found at ${join(home, "run", "api.json")}\n`);
+      if (!isNotification) {
         io.stdout.write(
           JSON.stringify({
             jsonrpc: "2.0",
             id,
-            result: {
-              protocolVersion: "2026-07-28",
-              capabilities: { tools: {} },
-              serverInfo: { name: "plur1bus-harness", version: "0.1.0" },
-            },
+            error: { code: -32603, message: "MCP server unavailable: no running API server found" },
           }) + "\n",
         );
-      } else if (parsed.method === "notifications/initialized") {
-        // Notification, no reply
-      } else if (parsed.method === "ping") {
-        io.stdout.write(JSON.stringify({ jsonrpc: "2.0", id, result: {} }) + "\n");
-      } else if (parsed.method === "tools/list") {
-        io.stdout.write(
-          JSON.stringify({
-            jsonrpc: "2.0",
-            id,
-            result: {
-              tools: [
-                {
-                  name: "memory_recall",
-                  description: "Recalls relevant memory blocks for the bound agent context.",
-                  inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] },
-                },
-                {
-                  name: "agent_status",
-                  description: "Returns the current state and capabilities of the bound harness agent.",
-                  inputSchema: { type: "object", properties: {} },
-                },
-              ],
-            },
-          }) + "\n",
-        );
-      } else if (parsed.method === "tools/call") {
-        const toolName = parsed.params?.name;
-        if (toolName === "agent_status") {
-          io.stdout.write(
-            JSON.stringify({
-              jsonrpc: "2.0",
-              id,
-              result: {
-                content: [{ type: "text", text: JSON.stringify({ agentId, state: "idle", ready: true }) }],
-                isError: false,
-              },
-            }) + "\n",
-          );
-        } else {
-          io.stdout.write(
-            JSON.stringify({
-              jsonrpc: "2.0",
-              id,
-              error: { code: -32601, message: `Tool or method not found: ${toolName}` },
-            }) + "\n",
-          );
-        }
-      } else {
-        if (!isNotification) {
-          io.stdout.write(
-            JSON.stringify({
-              jsonrpc: "2.0",
-              id,
-              error: { code: -32601, message: `Method not found: ${parsed.method}` },
-            }) + "\n",
-          );
-        }
       }
     }
   }

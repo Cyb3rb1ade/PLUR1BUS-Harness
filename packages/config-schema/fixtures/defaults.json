@@ -147,6 +147,13 @@
   "mcpServer": {
     "enabled": false
   },
+  "a2a": {
+    "peers": []
+  },
+  "a2aServer": {
+    "enabled": false,
+    "legacy03": false
+  },
   "providers": {},
   "auth": {
     "requireSecondFactor": "remote",

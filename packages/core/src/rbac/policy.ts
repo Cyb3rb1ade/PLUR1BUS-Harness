@@ -54,7 +54,6 @@ export const POLICY: readonly ActionSpec[] = Object.freeze([
   spec("agent.list", "system", { owner: A, admin: A, operator: A, member: A, viewer: A }), // callers filter with `canSee`
   spec("agent.read", "agent", { owner: A, admin: A, operator: A, member: U, viewer: U }, "use"),
   spec("agent.use", "agent", { owner: A, admin: A, operator: U, member: U }, "use"),
-  spec("a2a.task", "agent", { owner: A, admin: A, operator: U, member: U }, "use"),
   spec("agent.operate", "agent", { owner: A, admin: A, operator: A }),
   spec("agent.manage", "agent", { owner: A, admin: A, member: U }, "manage"),
   spec("agent.create", "system", OA),
@@ -72,7 +71,7 @@ export const POLICY: readonly ActionSpec[] = Object.freeze([
   // D4 logs.query / logs.tail: the protected log files (diagnostic and audit stream) are Owner/Admin only, narrower than `logs.read` (RULING).
   spec("logs.query", "system", OA),
 
-  ...["models", "providers", "channels", "plugins", "mcp", "a2a"].flatMap(catalogue),
+  ...["models", "providers", "channels", "plugins", "mcp"].flatMap(catalogue),
   // M v2 decision 2: extension inventory and changes are human Owner/Admin operations.
   humanOnly(spec("extensions.read", "system", OA)),
   humanOnly(spec("extensions.manage", "system", OA)),

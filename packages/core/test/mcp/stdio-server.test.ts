@@ -28,7 +28,7 @@ test("runMcpMain fails with exit code 2 if PLUR1BUS_MCP_TOKEN is missing", async
   }
 });
 
-test("runMcpMain serves stdio JSON-RPC in direct mode", async () => {
+test("runMcpMain reports error when no API server or handler is configured", async () => {
   process.env.PLUR1BUS_MCP_TOKEN = "test-token";
   try {
     const stdin = new PassThrough();
@@ -43,11 +43,56 @@ test("runMcpMain serves stdio JSON-RPC in direct mode", async () => {
       }
     });
 
-    const runPromise = runMcpMain(["--home", "/tmp", "--agent", "bernd"], {
+    const runPromise = runMcpMain(["--home", "/tmp/nonexistent-home", "--agent", "bernd"], {
       stdin,
       stdout,
       stderr,
     });
+
+    stdin.write(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }) + "\n");
+    await new Promise((r) => setTimeout(r, 20));
+
+    assert.equal(responses.length, 1);
+    assert.equal(responses[0].id, 1);
+    assert.equal(responses[0].error.code, -32603);
+
+    stdin.end();
+    const exitCode = await runPromise;
+    assert.equal(exitCode, 0);
+  } finally {
+    delete process.env.PLUR1BUS_MCP_TOKEN;
+  }
+});
+
+test("runMcpMain serves stdio JSON-RPC via inProcessHandler fixture", async () => {
+  process.env.PLUR1BUS_MCP_TOKEN = "test-token";
+  try {
+    const stdin = new PassThrough();
+    const stdout = new PassThrough();
+    const stderr = new PassThrough();
+
+    const responses: any[] = [];
+    stdout.on("data", (chunk) => {
+      const lines = chunk.toString().trim().split("\n");
+      for (const line of lines) {
+        if (line) responses.push(JSON.parse(line));
+      }
+    });
+
+    const fakeHandler = async (raw: string) => {
+      const parsed = JSON.parse(raw);
+      if (parsed.method === "initialize") return JSON.stringify({ jsonrpc: "2.0", id: parsed.id, result: { protocolVersion: "2026-07-28", serverInfo: { name: "plur1bus-harness", version: "0.1.0" } } });
+      if (parsed.method === "ping") return JSON.stringify({ jsonrpc: "2.0", id: parsed.id, result: {} });
+      if (parsed.method === "tools/list") return JSON.stringify({ jsonrpc: "2.0", id: parsed.id, result: { tools: [] } });
+      if (parsed.method === "tools/call") return JSON.stringify({ jsonrpc: "2.0", id: parsed.id, result: { isError: false } });
+      return null;
+    };
+
+    const runPromise = runMcpMain(
+      ["--home", "/tmp", "--agent", "bernd"],
+      { stdin, stdout, stderr },
+      { inProcessHandler: fakeHandler },
+    );
 
     // 1. initialize
     stdin.write(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }) + "\n");

@@ -21909,6 +21909,263 @@
           }
         }
       },
+      "external.turn.start": {
+        "x-stability": "experimental",
+        "x-since": "1.9.0",
+        "x-server": "core",
+        "description": "Start an external turn on an agent session via MCP or A2A.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId",
+            "message",
+            "audience"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "message": {
+              "type": "string"
+            },
+            "audience": {
+              "type": "string",
+              "enum": [
+                "mcp",
+                "a2a"
+              ]
+            },
+            "tokenId": {
+              "type": "string"
+            },
+            "sessionId": {
+              "type": "string"
+            },
+            "wait": {
+              "type": "boolean"
+            },
+            "attachments": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId",
+            "turnId",
+            "state"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "turnId": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "running",
+                "completed",
+                "failed"
+              ]
+            },
+            "reply": {
+              "type": "string"
+            },
+            "error": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "external.turn.events": {
+        "x-stability": "experimental",
+        "x-since": "1.9.0",
+        "x-server": "core",
+        "description": "Read events of an external turn session.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "audience": {
+              "type": "string",
+              "enum": [
+                "mcp",
+                "a2a"
+              ]
+            },
+            "tokenId": {
+              "type": "string"
+            },
+            "afterSeq": {
+              "type": "integer"
+            },
+            "limit": {
+              "type": "integer"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId",
+            "events",
+            "lastSeq",
+            "running"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "events": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SessionEvent"
+              }
+            },
+            "lastSeq": {
+              "type": "integer"
+            },
+            "running": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "external.turn.get": {
+        "x-stability": "experimental",
+        "x-since": "1.9.0",
+        "x-server": "core",
+        "description": "Get session details and optional messages for an external turn session.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "audience": {
+              "type": "string",
+              "enum": [
+                "mcp",
+                "a2a"
+              ]
+            },
+            "tokenId": {
+              "type": "string"
+            },
+            "messages": {
+              "type": "integer"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId",
+            "session",
+            "runningTurnId"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "session": {
+              "$ref": "#/$defs/SessionRecord"
+            },
+            "runningTurnId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "messages": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SessionMessage"
+              }
+            }
+          }
+        }
+      },
+      "external.turn.cancel": {
+        "x-stability": "experimental",
+        "x-since": "1.9.0",
+        "x-server": "core",
+        "description": "Cancel an active turn on an external turn session.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "audience": {
+              "type": "string",
+              "enum": [
+                "mcp",
+                "a2a"
+              ]
+            },
+            "tokenId": {
+              "type": "string"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId",
+            "turnId",
+            "cancelled"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "turnId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "cancelled": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
       "decision.status": {
         "x-stability": "experimental",
         "x-since": "1.6.0",

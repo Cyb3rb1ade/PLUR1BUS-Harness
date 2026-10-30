@@ -740,6 +740,22 @@
       "stability": "stable",
       "since": "1.0.0"
     },
+    "external.turn.start": {
+      "stability": "experimental",
+      "since": "1.9.0"
+    },
+    "external.turn.events": {
+      "stability": "experimental",
+      "since": "1.9.0"
+    },
+    "external.turn.get": {
+      "stability": "experimental",
+      "since": "1.9.0"
+    },
+    "external.turn.cancel": {
+      "stability": "experimental",
+      "since": "1.9.0"
+    },
     "decision.status": {
       "stability": "experimental",
       "since": "1.6.0"

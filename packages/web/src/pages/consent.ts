@@ -82,9 +82,8 @@ export function ConsentPage(): View {
       // 2. Fetch authorize endpoint to resolve client metadata
       if (clientId && redirectUri) {
         try {
-          const checkUrl = new URL("/oauth/authorize", globalThis.location?.origin ?? "http://localhost");
-          checkUrl.search = currentParams.toString();
-          const res = await fetch(checkUrl.toString(), {
+          const checkUrl = "/oauth/authorize?" + currentParams.toString();
+          const res = await fetch(checkUrl, {
             headers: { Accept: "application/json" },
             credentials: "same-origin",
           });

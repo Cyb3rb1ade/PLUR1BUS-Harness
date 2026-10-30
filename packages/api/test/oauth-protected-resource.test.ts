@@ -118,7 +118,7 @@ test("M6A-A3.3: audience enforcement rejects cross-resource tokens with 401 inva
   await addUser(h, { id: "user1", username: "user1", role: "member" });
   const a2aToken = await tokens.create("user1", {
     name: "a2a-test-token",
-    scopes: ["a2a.task", "agent.use"],
+    scopes: ["agent.use"],
     binding: { audience: "a2a", agentId: "main" },
   });
 

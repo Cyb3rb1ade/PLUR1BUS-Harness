@@ -269,6 +269,10 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `admin.reembed.abort`: experimental, since 1.5.0
 - `events.subscribe`: stable, since 1.0.0
 - `events.unsubscribe`: stable, since 1.0.0
+- `external.turn.start`: experimental, since 1.9.0
+- `external.turn.events`: experimental, since 1.9.0
+- `external.turn.get`: experimental, since 1.9.0
+- `external.turn.cancel`: experimental, since 1.9.0
 - `decision.status`: experimental, since 1.6.0
 - `decision.test`: experimental, since 1.6.0
 - `admin.engine.test`: experimental, since 1.6.0
@@ -17533,6 +17537,311 @@ Returns every installed extension and subscribes this connection to ext.changed.
       "items": {
         "$ref": "#/$defs/ExtItem"
       }
+    }
+  }
+}
+```
+
+### `external.turn.start`
+
+**Stability:** experimental · since 1.9.0
+
+**Served by:** core
+
+Start an external turn on an agent session via MCP or A2A.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "message",
+    "audience"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "message": {
+      "type": "string"
+    },
+    "audience": {
+      "type": "string",
+      "enum": [
+        "mcp",
+        "a2a"
+      ]
+    },
+    "tokenId": {
+      "type": "string"
+    },
+    "sessionId": {
+      "type": "string"
+    },
+    "wait": {
+      "type": "boolean"
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "turnId",
+    "state"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "turnId": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "running",
+        "completed",
+        "failed"
+      ]
+    },
+    "reply": {
+      "type": "string"
+    },
+    "error": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `external.turn.events`
+
+**Stability:** experimental · since 1.9.0
+
+**Served by:** core
+
+Read events of an external turn session.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "audience": {
+      "type": "string",
+      "enum": [
+        "mcp",
+        "a2a"
+      ]
+    },
+    "tokenId": {
+      "type": "string"
+    },
+    "afterSeq": {
+      "type": "integer"
+    },
+    "limit": {
+      "type": "integer"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "events",
+    "lastSeq",
+    "running"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionEvent"
+      }
+    },
+    "lastSeq": {
+      "type": "integer"
+    },
+    "running": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `external.turn.get`
+
+**Stability:** experimental · since 1.9.0
+
+**Served by:** core
+
+Get session details and optional messages for an external turn session.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "audience": {
+      "type": "string",
+      "enum": [
+        "mcp",
+        "a2a"
+      ]
+    },
+    "tokenId": {
+      "type": "string"
+    },
+    "messages": {
+      "type": "integer"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "session",
+    "runningTurnId"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    },
+    "runningTurnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionMessage"
+      }
+    }
+  }
+}
+```
+
+### `external.turn.cancel`
+
+**Stability:** experimental · since 1.9.0
+
+**Served by:** core
+
+Cancel an active turn on an external turn session.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "audience": {
+      "type": "string",
+      "enum": [
+        "mcp",
+        "a2a"
+      ]
+    },
+    "tokenId": {
+      "type": "string"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "turnId",
+    "cancelled"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "turnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "cancelled": {
+      "type": "boolean"
     }
   }
 }

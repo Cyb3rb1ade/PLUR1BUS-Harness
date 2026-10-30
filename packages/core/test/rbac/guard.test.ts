@@ -86,6 +86,10 @@ const params: Record<string, unknown> = {
   "approval.list": {}, "approval.get": { id: "apr_1" }, "approval.decide": { id: "apr_1", decision: "approve" }, "approval.cancel": { id: "apr_1" }, "approval.verify": {}, "approval.audit": {},
   "memory.recall": { caller, agentId: "bernd", query: "q" },
   "memory.capture": { caller, agentId: "bernd", messages: [{ role: "user", content: "hi" }] },
+  "external.turn.start": { agentId: "bernd", message: "hi", audience: "mcp" },
+  "external.turn.events": { agentId: "bernd", sessionId: "s1" },
+  "external.turn.get": { agentId: "bernd", sessionId: "s1" },
+  "external.turn.cancel": { agentId: "bernd", sessionId: "s1" },
 };
 
 /** Stub handlers for every guarded method; they record that they ran. */

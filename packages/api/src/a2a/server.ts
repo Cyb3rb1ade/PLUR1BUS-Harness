@@ -73,6 +73,7 @@ export class A2aAgentExecutor implements AgentExecutor {
   private tokenId: string;
   private readonly core: CoreLike;
   private readonly taskContexts = new Map<string, string>();
+  private readonly contextSessions = new Map<string, string>();
 
   constructor(opts: A2aAgentExecutorOptions) {
     this.agentId = opts.agentId;
@@ -129,6 +130,8 @@ export class A2aAgentExecutor implements AgentExecutor {
         })
         .join("") || "";
 
+    const existingSessionId = contextId ? this.contextSessions.get(contextId) : undefined;
+
     try {
       const result = await this.core.call<{
         sessionId: string;
@@ -139,12 +142,16 @@ export class A2aAgentExecutor implements AgentExecutor {
         error?: string;
       }>("external.turn.start", {
         agentId: this.agentId,
-        sessionId: contextId || taskId,
+        ...(existingSessionId ? { sessionId: existingSessionId } : {}),
         message: inputText,
         audience: "a2a",
         tokenId: this.tokenId,
         wait: true,
       });
+
+      if (contextId && result.sessionId) {
+        this.contextSessions.set(contextId, result.sessionId);
+      }
 
       if (result.state === "completed") {
         const chunks =
