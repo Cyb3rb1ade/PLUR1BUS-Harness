@@ -37,13 +37,18 @@ export class MemorySensitivityService {
       return cachedByHash.categories;
     }
 
-    // 3. Scan by rules
-    const detected = this.scanner.scan(card.text, card.summary);
+    const detected = await this.assessAggregate(card.text, card.summary);
+    this.store.set(card.id, detected, "rule", hash);
+    return detected;
+  }
 
-    // 4. If local model classifier is configured, combine with its predictions
+  /** Classify aggregate text without pretending its context-block name is an individual stored card id. */
+  async assessAggregate(text: string, summary?: string): Promise<SensitivityCategory[]> {
+    const detected = this.scanner.scan(text, summary);
+
     if (this.#localModelClassifier) {
       try {
-        const fromModel = await this.#localModelClassifier(card.text, card.summary);
+        const fromModel = await this.#localModelClassifier(text, summary);
         for (const cat of fromModel) {
           if (!detected.includes(cat)) {
             detected.push(cat);
@@ -55,7 +60,6 @@ export class MemorySensitivityService {
     }
 
     detected.sort();
-    this.store.set(card.id, detected, "rule", hash);
     return detected;
   }
 
@@ -73,6 +77,11 @@ export class MemorySensitivityService {
     category?: SensitivityCategory,
   ): { cleared: boolean; remaining: SensitivityCategory[] } {
     return this.store.clear(cardId, category);
+  }
+
+  /** Recall blocks lack reliable card membership, so manual exclusions must be checked across stored labels. */
+  hasManualCategories(categories: readonly string[]): boolean {
+    return this.store.hasManualCategories(categories);
   }
 
   getSensitivity(cardId: string): MemorySensitivityRecord | null {

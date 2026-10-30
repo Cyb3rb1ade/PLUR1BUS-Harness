@@ -6,6 +6,7 @@ import type { AuditSink } from "../rbac/audit.ts";
 import type { Principal } from "../rbac/types.ts";
 import type { TurnMemory } from "../session/memory-port.ts";
 import { resolveExposure } from "./resolve.ts";
+import { filterSensitiveBlocks, sensitivityRefusal, sensitivityService } from "./sensitivity.ts";
 import type { ExposureChannel } from "./types.ts";
 
 export interface ExternalMemoryDeps {
@@ -76,6 +77,13 @@ export function externalMemory(d: ExternalMemoryDeps): ExternalMemory {
         return "";
       }
 
+      const filter = [...(turn.principal.binding?.memory?.filter ?? []), ...(turn.filter ?? [])];
+      const sensitivity = filter.length ? sensitivityService(d.sensitivity) : undefined;
+      const refusal = sensitivityRefusal(filter, sensitivity);
+      if (refusal) {
+        d.logger.info(`${turn.channel}.recall.refused`, { agentId: turn.agentId, reason: refusal });
+        return "";
+      }
       try {
         const r = await d.memory.recall({
           agentId: turn.agentId,
@@ -94,23 +102,8 @@ export function externalMemory(d: ExternalMemoryDeps): ExternalMemory {
         }
         if (!r.text) return "";
 
-        let blocks = r.blocks ?? [];
-        const sensService = typeof d.sensitivity === "function" ? d.sensitivity() : d.sensitivity;
-        const filter = (turn.filter ?? turn.principal?.binding?.memory?.filter ?? []) as readonly string[];
-
-        if (sensService && filter.length > 0 && blocks.length > 0) {
-          const kept: typeof blocks = [];
-          for (const b of blocks) {
-            const sens = sensService.getSensitivity(b.name) ?? (await sensService.assessCard({ id: b.name, text: b.text }));
-            const categories = Array.isArray(sens) ? sens : sens?.categories ?? [];
-            const hasFiltered = categories.some((c: string) => filter.includes(c));
-            if (!hasFiltered) {
-              kept.push(b);
-            }
-          }
-          blocks = kept;
-          if (blocks.length === 0) return "";
-        }
+        const blocks = await filterSensitiveBlocks(r.blocks ?? [], filter, sensitivity);
+        if (filter.length && blocks.length === 0) return "";
 
         const cardIds = blocks.map((b) => b.name);
         if (turn.channel === "a2a" && d.audit) {

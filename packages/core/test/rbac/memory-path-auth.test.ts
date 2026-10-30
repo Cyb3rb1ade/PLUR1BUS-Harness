@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { bindApiPrincipal, bindClientContext, type ApiPrincipal } from "@plur1bus/module-api";
+import type { MemoryRecallResult } from "@plur1bus/rpc-schema";
 import { LOCAL_OWNER, RPC_RULES, guardMethods } from "../../src/rbac/guard.ts";
 import type { Principal } from "../../src/rbac/types.ts";
 import { buildMethods, type MethodDeps } from "../../src/rpc/methods.ts";
@@ -48,6 +49,7 @@ function makeHarness() {
       memory: {} as any,
     } as any,
     config: () => ({
+      agents: {},
       core: {
         recall: { hardBudgetMs: 1000, softBudgetMs: 500, capChars: 4000 },
         capture: { waitMs: 1000 },
@@ -128,15 +130,19 @@ describe("M6A-A1.5: secured memory.recall and memory.capture path", () => {
         tokenScopes: ["memory.workspace.read", "memory.user.read"],
         binding: { audience: "mcp", agentId: "alpha" },
       });
-      await guarded["memory.recall"]!({ caller: { channel: "cli", accountId: "mcp", userId: "spoofed" }, agentId: "alpha", query: "q" }, recallCtx);
+      const recalled = await guarded["memory.recall"]!({ caller: { channel: "cli", accountId: "mcp", userId: "spoofed" }, agentId: "alpha", query: "q" }, recallCtx);
+      assert.deepEqual((recalled as MemoryRecallResult).blocks, [],
+        "use-only callers cannot query the engine's private scope");
+      assert.equal(h.recalls.length, 0);
 
       await assert.rejects(
         () => guarded["memory.capture"]!({ caller: { channel: "cli", accountId: "mcp", userId: "alice" }, agentId: "alpha", messages: [{ role: "user", content: "hi" }] }, recallCtx),
         (err: unknown) => err instanceof RpcError && err.error === "E_DENIED" && err.reason === "token-scope",
       );
 
-      // Agent token with memory.workspace.write is allowed on memory.capture
+      // A personal bound token with explicit write authorization may capture for its authenticated owner.
       const writePrincipal: ApiPrincipal = {
+        tokenId: "tok-personal-write",
         userId: "alice",
         role: "member",
         kind: "agent",
@@ -157,11 +163,12 @@ describe("M6A-A1.5: secured memory.recall and memory.capture path", () => {
     const h = makeHarness();
     try {
       const delegated: ApiPrincipal = {
+        tokenId: "tok-personal-memory",
         userId: "alice",
         role: "member",
         kind: "agent",
-        agentRights: { alpha: "use", beta: "use" },
-        tokenScopes: ["memory.workspace.read", "memory.user.read", "memory.workspace.write"],
+        agentRights: { alpha: "manage", beta: "use" },
+        tokenScopes: ["memory.workspace.read", "memory.agent-private.read", "memory.user.read", "memory.workspace.write"],
         binding: { audience: "mcp", agentId: "alpha" },
       };
       const guarded = guardMethods(buildMethods(h.deps), {

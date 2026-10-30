@@ -28,6 +28,18 @@ export class MemorySensitivityStore {
     `);
   }
 
+  /** Any matching manual label makes unclassified aggregate recall unsafe; EXISTS avoids loading card metadata. */
+  hasManualCategories(categories: readonly string[]): boolean {
+    if (categories.length === 0) return false;
+    const row = this.#db.prepare(`
+      SELECT EXISTS (
+        SELECT 1 FROM card_sensitivity AS card, json_each(card.categories) AS category
+        WHERE card.source = 'manual' AND category.value IN (SELECT value FROM json_each(?))
+      ) AS present
+    `).get(JSON.stringify(categories)) as { present: number };
+    return row.present === 1;
+  }
+
   get(cardId: string): MemorySensitivityRecord | null {
     const row = this.#db
       .prepare("SELECT card_id, content_hash, categories, source, updated_at FROM card_sensitivity WHERE card_id = ?")

@@ -110,6 +110,24 @@ export function validateAudienceScopes(audience: TokenAudience, requestedScopes:
   return requestedScopes;
 }
 
+/** Protocol aliases narrow token actions; authorize still intersects them with current role and object rights. */
+function tokenScopesForGrant(audience: TokenAudience, scopes: readonly string[]): string[] {
+  validateAudienceScopes(audience, scopes);
+  return scopes.flatMap((scope) => {
+    switch (scope) {
+      case "a2a.task":
+        return ["agent.use", "agent.read"];
+      case "memory.read":
+        return ["memory.workspace.read", "memory.user.read", "memory.agent-private.read"];
+      case "memory.write":
+        return ["memory.workspace.write", "memory.user.write", "memory.agent-private.write"];
+      default:
+        // Audience validation above limits this to the advertised canonical RBAC actions.
+        return [scope];
+    }
+  });
+}
+
 export class OAuthService {
   readonly #tokens: TokenService;
   readonly #store: OAuthStore;
@@ -249,7 +267,7 @@ export class OAuthService {
 
     const tokenRes = await this.#tokens.create(codeRec.userId, {
       name: `oauth:${codeRec.clientId}`,
-      scopes: codeRec.scopes,
+      scopes: tokenScopesForGrant(codeRec.audience, codeRec.scopes),
       ttlMs: ACCESS_TOKEN_TTL_MS,
       binding: {
         audience: codeRec.audience,
@@ -419,7 +437,7 @@ export class OAuthService {
       // Mint new access token
       const tokenRes = await this.#tokens.create(grant.userId, {
         name: `oauth:${grant.clientId}`,
-        scopes,
+        scopes: tokenScopesForGrant(grant.audience, scopes),
         ttlMs: ACCESS_TOKEN_TTL_MS,
         binding: {
           audience: grant.audience,

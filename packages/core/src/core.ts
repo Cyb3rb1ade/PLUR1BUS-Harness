@@ -997,6 +997,7 @@ export function createCore(o: CoreOptions): Core {
         ...handoffMethods(() => handoff),
         ...deliveryMethods(() => delivery),
         ...buildMethods({ hostEvalHome: l.home,
+        memorySensitivity: () => memorySensitivity,
         engine: eng, config: cfg, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
         isStopping: () => state.state === "stopping" || state.state === "stopped",
         // Deferred so the core.shutdown reply is written before the server closes its connections.
