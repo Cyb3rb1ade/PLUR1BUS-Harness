@@ -1,12 +1,12 @@
 # Desktop: primary/client role switch — make an SSH host the owner's primary server — design
 
-**Status:** Draft for owner review (phase 1: specification and plan, no product code). Open owner questions in §15 ·
-**Date:** 2026-10-29 · **Owner:** Christian (Cyb3rb1ade) · **Track:** D (desktop), follow-up to D113 ·
-**Proposed register entry:** **D118** in the core spec's register
+**Status:** Owner decisions of 2026-10-31 (PR #825): Q1–Q14 decided as recommended (§15); phase 1, specification and
+plan, no product code · **Date:** 2026-10-29 (amended 2026-10-31) · **Owner:** Christian (Cyb3rb1ade) ·
+**Track:** D (desktop), follow-up to D113 · **Register entry:** **D118** (decided 2026-10-31, Q1) in the core spec's register
 ([`2026-09-24-m1b-2a-core-daemon-cli-design.md`](2026-09-24-m1b-2a-core-daemon-cli-design.md) §2; D117 is proposed by
 [`2026-10-21-media-image-verify-design.md`](2026-10-21-media-image-verify-design.md), D118 is the next free number on
 every branch at this commit) · **Companion:** shared compute in the owner's cluster,
-[`2026-10-29-shared-compute-design.md`](2026-10-29-shared-compute-design.md) (proposed **D119**) ·
+[`2026-10-29-shared-compute-design.md`](2026-10-29-shared-compute-design.md) (**D119**, decided 2026-10-31) ·
 **Plan:** [`2026-10-29-primary-client-role-switch.md`](../plans/2026-10-29-primary-client-role-switch.md)
 
 **Owner request (2026-10-29, paraphrased from German).** A pure CLI/headless installation with the harness web server
@@ -64,7 +64,7 @@ offer compute and device capabilities to the primary (companion spec), but never
 
 ## 2. Decisions at a glance
 
-| # | Topic | Decision (recommendation) | Main alternative, why not |
+| # | Topic | Decision (owner questions decided 2026-10-31) | Main alternative, why not |
 |---|---|---|---|
 | RS1 | Roles | Durable per-node role: `standalone` (today's default, no cluster), `primary`, `client`; transitional `handing-over`, `pending`, `fenced` (§4.1). Writers run only in `standalone` and `primary`. | A boolean "remote mode": cannot express an interrupted handover or a fenced former primary. |
 | RS2 | Authority | Authority moves only by a **two-phase handover committed by the current authority**, or by an explicit **forced takeover** (§6.4). No witness, no quorum in v1. | Lease-based leadership: the primary must keep running while every client is off, so there is nobody to renew a lease with. |
@@ -79,6 +79,7 @@ offer compute and device capabilities to the primary (companion spec), but never
 | RS11 | Locality | `privacy.localOnly` means **inside the owner's cluster** (primary plus enrolled nodes over the authenticated tunnel), never a third party; preflight warns that a VPS keeps data at a hoster (§8.1, Q7). | Keeping "loopback only": local models on the MacBook become unusable for a VPS primary. |
 | RS12 | Client capabilities | v1: SPA voice works (the browser captures); local models and compute through the D51 b node (companion); computer use and local files later through DS17 grants (§8.2, Q8). | Opening the host bridge to a remote primary at once: widens DS17 before its grants model exists for remote. |
 | RS13 | Surfaces | `plur1bus role status|promote|accept|activate|demote|takeover|rollback|members`; supervisor RPC `role.*`, writes Owner only, `humanOnly`, surface T3, never on WebMCP or the web in v1 (§9). | `migrate` as one verb: hides the commit point the person must understand. |
+| RS14 | Language (D120 path B, carried over 2026-10-31) | Every new role component is Rust: role record, fencing, bundle, node key, handover primitives and RPC in the supervisor and CLI, the desktop driver in the app. TypeScript changes only extend existing modules: the core's maintenance hold (§4.4), RBAC tables, the API allow-list and the channel registry's conflict signal. | A TypeScript role service in the core: a new component that the D120 Phase 4 would port again. |
 
 ## 3. What exists and what this builds on
 
@@ -400,8 +401,9 @@ onto a fresh install) but warns that channels must be reconfigured from the vaul
 
 **Target store.** The server's secret backend must be usable before any value moves (`role-secret-backend-missing`).
 On a headless Linux host without Secret Service that is ADR-005's encrypted file fallback with the B19 machine-bound key
-file (`secrets.fileFallback.enabled = true`, `state/secrets/store.key`), which is **off by default until the owner
-decides B19** (Q12). The promote plan shows this as an explicit step the Owner confirms.
+file (`secrets.fileFallback.enabled = true`, `state/secrets/store.key`). The fallback stays off by default on every
+other install; for promote targets B19 is **decided 2026-10-31 (Q12)**: when no keyring exists, the promote plan enables
+the machine-bound file fallback as an explicit step the Owner confirms (the passphrase mode stays unbuilt).
 
 **By-hand path.** The source writes the vault values into the portable-backup encrypted format (AES-256-GCM, scrypt)
 with a passphrase file the person provides (≥ 16 bytes, 0600); the target reads it with the same file. The passphrase
@@ -415,7 +417,7 @@ Today "local" means loopback or an origin listed in `privacy.localEndpoints` (`p
 is never local by itself. After a promote the agents run on the server, so its loopback models (an Ollama on the home
 server) are local and the MacBook's are not.
 
-**Recommendation (Q7):** "local" means **inside the owner's cluster**: the primary's loopback, origins in
+**Decided 2026-10-31 (Q7):** "local" means **inside the owner's cluster**: the primary's loopback, origins in
 `privacy.localEndpoints`, and models or compute on **enrolled nodes of this cluster** reached over the node bridge
 (D51 b provider `node:<device>/<model>`; companion spec §9.1). Never a third party, never a cloud API. The one
 place that decides (`local-only.ts`) gains the node rule; refusal codes stay `E_DENIED reason=local-only`.
@@ -617,28 +619,30 @@ because the data stays inside one instance. The companion spec decides what of i
 | P1 | D113 WP1–WP4 (SSH core, profiles, native commands, install/manage with upload) | desktop driver | Track D | open (spike only) |
 | P2 | D113 WP5 + M3 P1–P3 (desktop pairing, owner bootstrap, `/api/v1/meta`) | opening the server in the app, node bridge pairing | M3 | open (#581 proposed) |
 | P3 | Backup allow-list covers every unit of §5.3 (U1) | complete snapshot | M8 / this plan RS3 | partial |
-| P4 | B19 owner decision (file fallback on headless servers) | target secret store | ADR-005 | open |
+| P4 | B19 for promote targets (file fallback on headless servers) | target secret store | ADR-005 | decided 2026-10-31 (Q12); built in RS4 |
 | P5 | Compute-only engine mode or no in-core compute on clients (U7) | client core that never opens frozen stores | engine | unknown |
 | P6 | WIF WP13 | WIF on the server | auth | gated (PR #823) |
 
-## 15. Owner questions
+## 15. Owner decisions (decided 2026-10-31)
 
-| # | Question | Recommendation |
+The owner decided every question as recommended on 2026-10-31 (PR #825). The answers are binding for the plan.
+
+| # | Question | Decision |
 |---|---|---|
-| Q1 | Register this as **D118** (role switch) and the companion as **D119** (shared compute), or one record? | Two records: they ship in different phases and D119 has its own owner decisions (runtimes, privacy tiers). |
-| Q2 | Rollback window length; automatic failback when post-commit health fails? | **7 days** (D114 hand-over undo); **no automatic failback** — a degraded primary with one-click failback avoids flapping between machines. |
-| Q3 | Minimum unreachable time before `takeover --force`? | **10 minutes** plus typed confirmation. 120 s (the lease TTL) is too short for a laptop on bad Wi-Fi; longer only delays real recovery. |
-| Q4 | Divergent state after a forced takeover: automatic merge? | **No.** Quarantine as a divergence archive; selected memories can be imported later through `memory.import` with provenance. |
-| Q5 | After the window: remove the frozen live state automatically, or on confirmation? | Convert to a `backup` archive automatically; **remove the live directories only on confirmation** (tray / `role rollback --finish`), with a `1staid` reminder. |
-| Q6 | CLI driver over the **system OpenSSH client** (`role promote --ssh`), although D113 R3 chose russh for the GUI? | **Yes, CLI only.** On a terminal the person's own ssh, config and agent are the expected tools; fixed argv, `-T`, `--`, no options injected; the GUI stays on russh. The by-hand path needs no SSH at all. |
-| Q7 | Meaning of *Nur lokale Modelle* after a promote? | **Inside the owner's cluster** (primary loopback, `privacy.localEndpoints`, enrolled nodes over the node bridge); never a third party; a public-hoster notice at promote. |
-| Q8 | May the primary use MacBook-only capabilities (computer use, files, notifications) through an online client? | **Not in v1** beyond SPA voice, local models and compute. Later through DS17 capabilities over the node bridge with per-capability grants, T3 and D109 approvals. |
-| Q9 | Warm standby (the client pulls a periodic encrypted copy) to make forced takeovers less lossy? | **Not in v1.** Revisit after real use; it doubles the data at rest on a laptop. |
-| Q10 | Channel bot tokens and API keys: transfer or re-enter on the server; and does the MacBook keep its copy during the rollback window? | **Transfer** over stdin into the server's vault; the MacBook keeps its unused copy with the frozen state until the window ends (needed for *restore frozen* and a forced takeover), then deletes it. Rotating refresh tokens always move (Q11). |
-| Q11 | Host-bound OAuth (ChatGPT plan, D110 `host_id`): transfer or re-login? | **Re-login on the server** through the tunnel; other rotating refresh tokens **move** (deleted at the source before activation). |
-| Q12 | B19 for headless primaries: enable the machine-bound file fallback as a promote step? | **Yes, as an explicit, Owner-confirmed step** of the promote plan when no keyring exists; the passphrase mode stays unbuilt. This implies deciding B19 for servers. |
-| Q13 | Role writes in the web SPA? | **No in v1**: desktop native commands and the CLI only; `role.status` is readable in the web. |
-| Q14 | Target data: refuse a non-empty target unless `--replace` (with an automatic backup)? | **Yes.** A target with its own agents or memories is a federation case (D114), not a promote target. |
+| Q1 | Register this as **D118** (role switch) and the companion as **D119** (shared compute), or one record? | **Decided 2026-10-31:** Two records: they ship in different phases and D119 has its own owner decisions (runtimes, privacy tiers). |
+| Q2 | Rollback window length; automatic failback when post-commit health fails? | **Decided 2026-10-31:** **7 days** (D114 hand-over undo); **no automatic failback** — a degraded primary with one-click failback avoids flapping between machines. |
+| Q3 | Minimum unreachable time before `takeover --force`? | **Decided 2026-10-31:** **10 minutes** plus typed confirmation. 120 s (the lease TTL) is too short for a laptop on bad Wi-Fi; longer only delays real recovery. |
+| Q4 | Divergent state after a forced takeover: automatic merge? | **Decided 2026-10-31:** **No.** Quarantine as a divergence archive; selected memories can be imported later through `memory.import` with provenance. |
+| Q5 | After the window: remove the frozen live state automatically, or on confirmation? | **Decided 2026-10-31:** Convert to a `backup` archive automatically; **remove the live directories only on confirmation** (tray / `role rollback --finish`), with a `1staid` reminder. |
+| Q6 | CLI driver over the **system OpenSSH client** (`role promote --ssh`), although D113 R3 chose russh for the GUI? | **Decided 2026-10-31:** **Yes, CLI only.** On a terminal the person's own ssh, config and agent are the expected tools; fixed argv, `-T`, `--`, no options injected; the GUI stays on russh. The by-hand path needs no SSH at all. |
+| Q7 | Meaning of *Nur lokale Modelle* after a promote? | **Decided 2026-10-31:** **Inside the owner's cluster** (primary loopback, `privacy.localEndpoints`, enrolled nodes over the node bridge); never a third party; a public-hoster notice at promote. |
+| Q8 | May the primary use MacBook-only capabilities (computer use, files, notifications) through an online client? | **Decided 2026-10-31:** **Not in v1** beyond SPA voice, local models and compute. Later through DS17 capabilities over the node bridge with per-capability grants, T3 and D109 approvals. |
+| Q9 | Warm standby (the client pulls a periodic encrypted copy) to make forced takeovers less lossy? | **Decided 2026-10-31:** **Not in v1.** Revisit after real use; it doubles the data at rest on a laptop. |
+| Q10 | Channel bot tokens and API keys: transfer or re-enter on the server; and does the MacBook keep its copy during the rollback window? | **Decided 2026-10-31:** **Transfer** over stdin into the server's vault; the MacBook keeps its unused copy with the frozen state until the window ends (needed for *restore frozen* and a forced takeover), then deletes it. Rotating refresh tokens always move (Q11). |
+| Q11 | Host-bound OAuth (ChatGPT plan, D110 `host_id`): transfer or re-login? | **Decided 2026-10-31:** **Re-login on the server** through the tunnel; other rotating refresh tokens **move** (deleted at the source before activation). |
+| Q12 | B19 for headless primaries: enable the machine-bound file fallback as a promote step? | **Decided 2026-10-31:** **Yes, as an explicit, Owner-confirmed step** of the promote plan when no keyring exists; the passphrase mode stays unbuilt. This decides B19 for promote targets (§7). |
+| Q13 | Role writes in the web SPA? | **Decided 2026-10-31:** **No in v1**: desktop native commands and the CLI only; `role.status` is readable in the web. |
+| Q14 | Target data: refuse a non-empty target unless `--replace` (with an automatic backup)? | **Decided 2026-10-31:** **Yes.** A target with its own agents or memories is a federation case (D114), not a promote target. |
 
 ## 16. Unknowns (not verified in the repository)
 

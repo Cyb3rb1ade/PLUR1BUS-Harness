@@ -3,11 +3,20 @@
 **Goal.** An owner moves his one logical PLUR1BUS instance from the MacBook to an SSH host and back, from the desktop
 or the CLI alone, with exactly one writer at any time; the other nodes of the cluster share compute with the primary.
 Specs: [`2026-10-29-primary-client-role-switch-design.md`](../specs/2026-10-29-primary-client-role-switch-design.md)
-("RS spec §n", proposed D118) and [`2026-10-29-shared-compute-design.md`](../specs/2026-10-29-shared-compute-design.md)
-("SC spec §n", proposed D119).
-**Status.** Draft; owner questions open (RS spec §15, SC spec §16). No product code yet.
-**Executor.** Every Rust package (`crates/plur1bus`, `apps/desktop`) is built by a **Claude agent**, never Codex.
-TypeScript-only packages: the controller's choice of agent. **RS0 is briefed for a Sonnet agent.**
+("RS spec §n", D118) and [`2026-10-29-shared-compute-design.md`](../specs/2026-10-29-shared-compute-design.md)
+("SC spec §n", D119).
+**Status.** Owner decisions of 2026-10-31 (PR #825): RS spec Q1–Q14 and SC spec Q1–Q10 decided as recommended; no WP
+waits for an owner answer any more. Remaining gates are dependencies, spike results and unknowns (§ "Remaining gates").
+No product code yet.
+**Language (D120 path B, carried over 2026-10-31).** The D120 design (open PR #833, branch
+`docs/harness-hygiene-coding-aci`, proposed ADR-019) makes every **new** component Rust from its first version, run as a
+supervised process (first in the one module process `plur1bus-tools`) and called by the TypeScript core over the
+harness RPC; a later Phase 4 ports the core. Every WP below was checked against it: new components are Rust; a WP that
+touches TypeScript carries a one-line justification that it only extends existing TypeScript code (core wiring in an
+existing module, the API allow-list, RBAC tables, or the web SPA).
+**Executor.** Every Rust package (`crates/*`, `apps/desktop`) is built by a **Claude agent**, never Codex.
+TypeScript-only packages (wiring in existing modules): the controller's choice of agent. **RS0 is briefed for a Sonnet
+agent.**
 **Constraints.** `AGENTS.md` rules: one branch and one PR per package; commits as `Cyb3rb1ade <cyb3rblade@me.com>`
 with the agent's own trailers; no amend, force-push, rebase or stash; no CI polling; no token-like literals; tests
 never skipped or weakened; no network in tests; `@cyb3rb1ade/plur1bus-memory` stays a dependency; generated docs via
@@ -30,8 +39,9 @@ RS0 role model ─► RS1 supervisor gate + role status ─► RS4 handover prim
       │           RS3 bundle + node key ─────────────►        │                 ─► RS9 CI + worksheet
       │           RS6 RPC/RBAC/audit (after RS1)               └─► RS7 desktop driver (gated: D113 WP3/WP4, WP5 for Open)
       │
-      └─► SC0 queue + placement ─► SC6 privacy/enrolment ─► SC3 node channel (gated: RS7 bridge on remote, M3 pairing)
-SC-S spike ─► SC1 fingerprint + verification ─► SC7 certificates          SC2 engine integration (gated: engine)
+      └─► SC0 queue + placement ─► SC6 privacy/enrolment ─► SC3 node channel (gated: RS7 bridge on remote, M3 pairing,
+                                                                              D120 `plur1bus-tools` slot)
+SC-S spike ─► SC1 fingerprint + verification ─► SC7 certificates          SC2 engine integration (gated: Rust engine)
 SC4 `plur1bus node run` (after SC3) · SC5 node conditions + tray (after SC3) · SC8 surfaces · SC9 harness + worksheet
 ```
 
@@ -69,7 +79,8 @@ role change restarts the core held; CLI JSON golden; `1staid` rows for corrupt a
 
 ### RS2 — Core role hold (TypeScript) (≈ 2.5 agent days)
 
-Generalise `packages/core/src/import/maintenance-admission.ts` into a hold with a reason (`import` | `role`); the role
+*Path B justification: extends the existing core hold and its startup wiring (`maintenance-admission.ts`, `core.ts`);
+no new component.* Generalise `packages/core/src/import/maintenance-admission.ts` into a hold with a reason (`import` | `role`); the role
 hold reads `PLUR1BUS_ROLE_HOLD`, never releases itself, keeps `startImportBackground`'s whole set deferred (system jobs,
 discovery, dreams, user jobs, warmup recall path, switchboard, journal replay), allows reads plus
 `admin.backup.snapshot`, `secret.set` (while `pending`), `doctor.report`, and answers other methods
@@ -95,7 +106,8 @@ empty; sign/verify; tamper of header, archive or signature; stale epoch; foreign
 `commands/role.rs`: `promote --prepare|--commit|--abort`, `accept [--discard] [--replace]`, `activate`, `demote`,
 `takeover [--force]`, `rollback --failback|--restore-frozen|--finish`, `resolve --as-client`, `join`, `members`;
 supervisor RPC `role.*` (RS §9.2) behind the install lock; quiesce with budget; vault move through owner-only
-`secret set` on stdin (and the portable-backup format for the by-hand path); host-path mapping; pre-commit health
+`secret set` on stdin (and, for the by-hand path, the existing shipped `portable-backup.mjs` run with the bundled Node
+runtime — reuse of an existing component, no new crypto in Rust); host-path mapping; pre-commit health
 (core `channel.test` credential checks, schedulers, engine); commit-token and receipt files; activation liveness per
 channel. Kill-point seam `PLUR1BUS_TEST_ROLE_FAIL_AT=<step>` (only with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`).
 **Tests:** `crates/plur1bus/tests/role_two_instances.rs` — two homes on loopback, by-hand driver end to end; after each
@@ -103,7 +115,7 @@ kill point assert I1/I2 from both role records and the running units; source sle
 takeover + reconnect → fenced + divergence archive; failback round trip with byte-equal stores; secrets-never-leave
 sweep (marker secrets over files, logs, argv recorder, audit). **Acceptance:** Rust gates; system tests on Linux/macOS.
 
-### RS5 — CLI `--ssh` driver (Rust, **Claude agent**) (≈ 1.5 agent days, gated by owner Q6)
+### RS5 — CLI `--ssh` driver (Rust, **Claude agent**) (≈ 1.5 agent days; owner Q6 decided 2026-10-31: system OpenSSH client, CLI only)
 
 `role promote|demote --ssh <user@host> [--port N]`: fixed argv `ssh -T [-p N] -- user@host <fixed command>`, no other
 options, bundle on stdin, receipt on stdout (bounded), local commit, remote activate; refuses user/host outside the
@@ -112,7 +124,8 @@ job against the D113 OpenSSH container when it exists. **Acceptance:** Rust gate
 
 ### RS6 — RPC, RBAC, audit, web read (TypeScript + schema) (≈ 2 agent days)
 
-`packages/core/src/rbac/policy.ts` actions `role.read` / `role.manage` (Owner only, `humanOnly`, T3); `RPC_RULES`;
+*Path B justification: rows in existing tables (RBAC policy, `RPC_RULES`, the API allow-list, WebMCP prefixes, config
+schema); the `role.*` handlers themselves are Rust in the supervisor (RS1/RS4).* `packages/core/src/rbac/policy.ts` actions `role.read` / `role.manage` (Owner only, `humanOnly`, T3); `RPC_RULES`;
 `packages/api/src/rpc-route.ts` adds `role.status` to `WEB_SUPERVISOR_METHODS` only; WebMCP forbidden prefix `role.`;
 audit and D111 events of RS §9.5; config keys of RS §9.6 in `config.schema.json`; `docs/rbac.md` rows.
 **Tests:** RBAC matrix (agent, Admin, Operator, Owner at T1/T3); WebMCP schema walk; config schema fixtures.
@@ -122,12 +135,15 @@ audit and D111 events of RS §9.5; config keys of RS §9.6 in `config.schema.jso
 D113 `RemoteCommand`s `RoleStatus`, `RolePreflight`, `ReceiveRoleBundle` (WP4 upload channel), `RoleAccept`,
 `RoleActivate`, `RoleDemote`; local supervisor `role.*` calls; wizard (plan → confirm → progress → health → done),
 rollback page, connection role chip, tray `RoleLabel` beside `PathLabel` (`tray.rs`), badges per RS §9.3; DS17 bridge
-allowed on the SSH connection to the owner's own primary (prerequisite for SC3); DE/EN strings. **Tests:** fixture
+allowed on the SSH connection to the owner's own primary (prerequisite for SC3); DE/EN strings. *Path B: the Rust part
+is the new code; the TypeScript part is views in the existing desktop shell UI (`apps/desktop/ui`), a web UI like the
+SPA.* **Tests:** fixture
 russh server + `fake-plur1bus` role scenarios; command charset; Playwright wizard, rollback, tray texts, axe.
 **Acceptance:** Desktop Green, `check-i18n`.
 
 ### RS8 — Channel fence signal and docs (TypeScript + docs) (≈ 1.5 agent days)
 
+*Path B justification: a status signal in the existing channel registry and Telegram adapter; no new component.*
 Sustained Telegram `409` (> 5 min) and an overtaken webhook raise `role.channel-conflict` (registry status → `1staid`,
 tray, audit); `docs/role-switch.md` (operator page), `docs/cli.md` via `docs:gen`, pointer sections in the D113 spec
 (§6.3 commands) and WIF §12.5 when #823 has merged; user-guide DE/EN text as a template in the PR body (agy edits
@@ -142,39 +158,48 @@ supervisor code; an owner worksheet (MacBook → Ubuntu VM, Telegram test bot, n
 
 ## Group SC — shared compute (D119)
 
-### SC-S — Runtime spike (Claude agent; scripts) (≈ 2 agent days + owner time)
+### SC-S — Runtime spike (Claude agent; measurement scripts, not a product component) (≈ 2 agent days + owner time)
 
 ONNX CPU vs CoreML EP vs MLX on Apple Silicon against ONNX CPU on the VPS/Ubuntu VM, EmbeddingGemma 2 text (270M, q8)
 and full (740M): throughput, RAM, cosine to reference (min/mean/p01), recall@10 parity, arm64 vs x64 CPU drift; check
 for an EmbeddingGemma 2 MLX port and the CoreML EP in the pinned onnxruntime-node prebuild (SC U1, U2, U4, U7).
 Result: `docs/handoff/status/<date>-compute-spike.md` with proposed τ values and go/no-go per backend.
 
-### SC0 — Job queue and placement (TypeScript, pure) (≈ 2.5 agent days)
+### SC0 — Job queue and placement (Rust library crate, **Claude agent**) (≈ 3 agent days) — *changed 2026-10-31: was TypeScript*
 
-`packages/core/src/compute/{classes,queue,placement}.ts`: class table (SC §5.1) from config, queue state machine
-(SC §5.3) over an injected store interface and clock, placement (SC §5.2) as a pure function of jobs, node snapshots
-and policy; `state/compute.sqlite` adapter behind the interface. **Tests:** deferral by node absence (59 min vs 61
-min), age cap, re-embed `wait`, node return mid-backlog, lease expiry requeue, max attempts, cancellation, paused queue
-outside writer roles. Second-best Sonnet candidate (pure, not blocked).
+New crate `crates/plur1bus-compute` (workspace member; SC spec SC12): `classes.rs` (class table, SC §5.1, from the
+config view the core passes), `queue.rs` (state machine, SC §5.3, over a `Store` trait and an injected clock),
+`placement.rs` (SC §5.2 as a pure function of jobs, node snapshots and policy), a `rusqlite` store for
+`state/compute.sqlite` behind the trait (`rusqlite` is already in the workspace lockfile through the engine; a
+dependency-policy record if it becomes a new direct dependency of this crate). No process and no RPC yet: SC3 hosts
+the crate in `plur1bus-tools`. **Tests:** deferral by node absence (59 min vs 61 min), age cap, re-embed `wait`, node
+return mid-backlog, lease expiry requeue, max attempts, cancellation, paused queue outside writer roles; proptest over
+event sequences (a job is committed at most once). Still the second-best Sonnet candidate (pure, not blocked).
 
-### SC1 — Fingerprint fields and result verification (TypeScript + engine schema) (≈ 2.5 agent days, after SC-S for defaults)
+### SC1 — Fingerprint fields and result verification (Rust, **Claude agent**) (≈ 2.5 agent days, after SC-S for defaults) — *changed 2026-10-31: was TypeScript*
 
-`encoders`, `runtimeFamily`, `precision` as additive identity fields with the compatibility default (SC §7.1); the
-producer check and the primary's result verification (dimension, norm, NaN, stale, duplicate, spot check) as pure
-functions; engine contract schema additions proposed in the engine repo. **Tests:** comparison table; legacy identity
-equals its explicit form; every rejection reason.
+`encoders`, `runtimeFamily`, `precision` as additive fields of `VectorSpaceIdentity` in
+`crates/plur1bus-engine/schema/engine-contract.schema.json` with the compatibility default (SC §7.1); the producer
+check and the primary's result verification (dimension, norm, NaN, stale, duplicate, spot-check decision) as pure
+functions in `crates/plur1bus-compute/src/verify.rs`. **Tests:** comparison table; legacy identity equals its explicit
+form; every rejection reason; `node scripts/check-engine-contract.mjs`.
 
-### SC2 — Engine integration (engine repository / Rust engine; Claude agent for Rust) (≈ 4 agent days, gated by the engine)
+### SC2 — Engine integration (Rust engine, **Claude agent**) (≈ 4 agent days, gated by the Rust engine) — *changed 2026-10-31: Rust engine only*
 
-Per-item `embedding: pending` marker with FTS-only recall, external vector commit under a fingerprint, compute-only
-`embed()` without opening stores (SC U3, RS U7). Harness adapter in `packages/core/src/engine/`. **Tests:** engine
-contract tests; harness adapter tests with the fake engine.
+In `crates/plur1bus-engine` (the RE plan's engine; the Node engine package gets no new features): per-item
+`embedding: pending` marker with FTS-only recall, external vector commit under a fingerprint, compute-only `embed()`
+without opening stores (SC U3, RS U7). *Path B justification for the TypeScript part:* the core-side calls are wiring
+in the existing `packages/core/src/engine/client.ts` (`EngineClient`). **Tests:** engine contract tests; harness
+adapter tests with the fake engine.
 
-### SC3 — Node channel and lease protocol (TypeScript API/core + Rust desktop bridge, **Claude agent** for Rust) (≈ 5 agent days, gated by RS7 and M3 pairing)
+### SC3 — Node channel and lease protocol (Rust, **Claude agent**) (≈ 5.5 agent days, gated by RS7, M3 pairing and D120's `plur1bus-tools` slot) — *changed 2026-10-31: server side moved from TypeScript to Rust*
 
-Worker methods (SC §8.1) on the D51 b/DS17 socket, scope `compute.serve`, chunked binary frames (SC U5), blob route,
-leases, idempotent commit, cancellation, back-pressure; desktop carrier relays to the bundled core over its local
-socket. **Tests:** two-instance harness with a fake node: redelivery with one commit, cancellation mid-batch, partial
+`plur1bus-compute` hosted in the supervised `plur1bus-tools` process (D120 §12.3); worker methods (SC §8.1) and the
+core-facing enqueue/result methods as `x-server: "tools"` in `rpc.schema.json`; leases, idempotent commit,
+cancellation, back-pressure, blob route; desktop carrier (Rust `bridge.rs`) relays to the bundled core over its local
+socket; chunked binary frames on the bridge (SC U5). *Path B justification for the TypeScript part:* the API adds the
+routes to its existing allow-list and the core calls the new methods from its existing capture, import, media and
+migration paths (wiring only). **Tests:** two-instance harness with a fake node: redelivery with one commit, cancellation mid-batch, partial
 completion, fenced primary stops leasing, node follows the higher epoch.
 
 ### SC4 — `plur1bus node run` (Rust, **Claude agent**) (≈ 3 agent days, after SC3)
@@ -187,21 +212,25 @@ in-core identities; relays chat (D51) and compute. **Tests:** loopback primary f
 Power, thermal, idle, in-call probes per OS where available (SC U6), limits, *Pause sharing* menu and tray texts
 (SC §12.5), `plur1bus compute pause|resume` on the node. **Tests:** conditions table with injected probes; tray texts.
 
-### SC6 — Privacy, enrolment, licences, local-only node rule (TypeScript) (≈ 2.5 agent days)
+### SC6 — Privacy, enrolment, licences, local-only node rule (Rust + TypeScript wiring, **Claude agent**) (≈ 3 agent days) — *changed 2026-10-31: new logic moved to Rust*
 
-D116 filter (SC §10.2), `compute.node.enroll|remove|limits.set` (Owner, `humanOnly`, T3), device grant `compute.serve`,
-per-device NC licence check, `local-only.ts` cluster rule (RS Q7). **Tests:** household fixture (Owner, Eva) with all
+In `plur1bus-compute`: the D116 filter (SC §10.2), the enrolment store and `compute.node.enroll|remove|limits.set`
+(Owner, `humanOnly`, T3), the per-device NC licence check. *Path B justification for the TypeScript part:* the scope
+`compute.serve` in the existing device store and grants, the RBAC rows, and the cluster rule in the existing
+`local-only.ts` (RS Q7) extend existing modules. **Tests:** household fixture (Owner, Eva) with all
 levels; RBAC matrix; local-only refusals.
 
-### SC7 — Equivalence certificates (TypeScript + Rust CLI, **Claude agent** for Rust) (≈ 3 agent days, after SC-S, SC1, SC3)
+### SC7 — Equivalence certificates (Rust, **Claude agent**) (≈ 3 agent days, after SC-S, SC1, SC3) — *changed 2026-10-31: was TypeScript + Rust CLI*
 
-`plur1bus compute certify`, calibration set shipped with the release, thresholds from SC-S, recall@10 parity on the
+Certificate store and gate in `plur1bus-compute`, `plur1bus compute certify` in the CLI, calibration set shipped with the release, thresholds from SC-S, recall@10 parity on the
 store's benchmark, expiry on any identity change. **Tests:** pass, fail, expiry, a perturbed backend refused.
 
-### SC8 — Surfaces (Rust CLI + TypeScript, **Claude agent** for Rust) (≈ 3 agent days)
+### SC8 — Surfaces (Rust + web SPA, **Claude agent**) (≈ 3.5 agent days) — *changed 2026-10-31: RPC handlers in Rust*
 
-`plur1bus compute status|nodes|jobs|node …`, RPC and RBAC (SC §12.2), config keys (SC §12.3), `1staid` rows (SC §12.4),
-audit (SC §12.6), Settings → Compute page (read + Owner actions with step-up), `docs/compute.md`. **Tests:** CLI JSON
+`plur1bus compute status|nodes|jobs|node …` (CLI), the `compute.*` read and management handlers in `plur1bus-compute`
+(SC §12.2), config keys (SC §12.3), `1staid` rows (SC §12.4), audit (SC §12.6), `docs/compute.md`. *Path B
+justification for the TypeScript part:* the Settings → Compute page is the web SPA, and the API allow-list rows extend
+existing code. **Tests:** CLI JSON
 goldens, RBAC matrix, `docs:check`.
 
 ### SC9 — Compute harness and worksheet (≈ 2 agent days)
@@ -213,35 +242,56 @@ fallback; MacBook back → backlog moves; *Pause sharing*.
 
 ## Effort and gates
 
-| WP | Est. (agent days) | Executor | Gate |
-|---|---|---|---|
-| RS0 | 2 | **Claude (Sonnet brief)** | none |
-| RS1 | 3 | Claude | RS0 |
-| RS2 | 2.5 | controller's choice | none |
-| RS3 | 4 | Claude | RS0; dependency record for `ring` |
-| RS4 | 5 | Claude | RS1, RS2, RS3; Q12 for headless targets |
-| RS5 | 1.5 | Claude | RS4, Q6 |
-| RS6 | 2 | controller's choice | RS1 |
-| RS7 | 5 | Claude | D113 WP3/WP4 (WP5 for *Open*), RS4 |
-| RS8 | 1.5 | controller's choice | RS4 |
-| RS9 | 1.5 | Claude | RS4 |
-| SC-S | 2 (+ owner time) | Claude | none |
-| SC0 | 2.5 | controller's choice (Sonnet-suitable) | none |
-| SC1 | 2.5 | controller's choice | SC-S |
-| SC2 | 4 | Claude for Rust engine parts | engine repository |
-| SC3 | 5 | Claude | RS7, M3 pairing |
-| SC4 | 3 | Claude | SC3 |
-| SC5 | 3 | Claude | SC3 |
-| SC6 | 2.5 | controller's choice | SC0 |
-| SC7 | 3 | Claude | SC-S, SC1, SC3 |
-| SC8 | 3 | Claude | SC0, SC6 |
-| SC9 | 2 | Claude | SC3 |
+| WP | Est. (agent days) | Executor | Language | Gate (no owner answer is pending) |
+|---|---|---|---|---|
+| RS0 | 2 | **Claude (Sonnet brief)** | Rust | none |
+| RS1 | 3 | Claude | Rust | RS0 |
+| RS2 | 2.5 | controller's choice | TypeScript (extends the existing core hold) | none |
+| RS3 | 4 | Claude | Rust | RS0; dependency record for `ring` (U6); U1 inventory |
+| RS4 | 5 | Claude | Rust | RS1, RS2, RS3 |
+| RS5 | 1.5 | Claude | Rust | RS4 |
+| RS6 | 2 | controller's choice | TypeScript (rows in existing tables) | RS1 |
+| RS7 | 5 | Claude | Rust + desktop UI views | D113 WP3/WP4 (WP5 and M3 P1–P3 for *Open*), RS4 |
+| RS8 | 1.5 | controller's choice | TypeScript (existing registry) + docs | RS4 |
+| RS9 | 1.5 | Claude | CI + worksheet | RS4 |
+| SC-S | 2 (+ owner time) | Claude | measurement scripts | none |
+| SC0 | 3 (was 2.5) | **Claude** (was controller's choice; Sonnet-suitable) | **Rust** (was TypeScript) | none |
+| SC1 | 2.5 | **Claude** (was controller's choice) | **Rust** (was TypeScript) | SC-S results (defaults) |
+| SC2 | 4 | Claude | Rust engine (+ wiring in `EngineClient`) | Rust engine progress (RE-03, PR #809); U3 |
+| SC3 | 5.5 (was 5) | Claude | **Rust** server side (was TypeScript) + Rust bridge | RS7, M3 pairing, D120 `plur1bus-tools` slot (PR #833) |
+| SC4 | 3 | Claude | Rust | SC3 |
+| SC5 | 3 | Claude | Rust | SC3; U6 per-OS signals |
+| SC6 | 3 (was 2.5) | **Claude** (was controller's choice) | **Rust** + TypeScript wiring (was TypeScript) | SC0 |
+| SC7 | 3 | Claude | **Rust** (was TypeScript + Rust CLI) | SC-S results, SC1, SC3 |
+| SC8 | 3.5 (was 3) | Claude | **Rust** + web SPA page (was Rust CLI + TypeScript) | SC0, SC6 |
+| SC9 | 2 | Claude | CI + worksheet | SC3 |
 
-Total ≈ **28 agent days** for RS0–RS9 and ≈ **32.5** for SC-S–SC9, **≈ 60.5** together. The first usable promote (CLI,
-by hand or `--ssh`) needs RS0–RS6 (≈ 20 days) and none of D113's unbuilt packages.
+Total ≈ **28 agent days** for RS0–RS9 (unchanged) and ≈ **34.5** for SC-S–SC9 (was 32.5: the Rust moves of SC0, SC3,
+SC6 and SC8 cost 2 days more), **≈ 62.5** together. The first usable promote (CLI, by hand or `--ssh`) still needs
+RS0–RS6 (≈ 20 days) and none of D113's unbuilt packages.
+
+## Remaining gates (not owner answers)
+
+All owner questions were decided on 2026-10-31 (PR #825); the gates that waited on Q6 (RS5) and Q12 (RS4) are gone.
+What still gates work:
+
+- **Dependencies on other tracks:** D113 WP3/WP4 for RS7, and D113 WP5 with M3 P1–P3 for opening the server in the app;
+  M3 pairing for the node bridge (SC3); D120's `plur1bus-tools` module slot for hosting `plur1bus-compute` (SC3; PR
+  #833, not merged); the Rust engine's embedding work (RE-03, PR #809) for SC2; WIF WP13 (PR #823) for WIF on the
+  server.
+- **Spike results (SC-S):** the certificate thresholds τ_min, τ_mean and Δmax (SC1, SC7); go/no-go for the CoreML
+  execution provider and for MLX on index-bound jobs (U1, U2, U4); whether the CPU architecture joins the fingerprint
+  (U2); deferral and queue defaults from measured throughput and RAM of the 740M model (U7).
+- **Unknowns:** the backup inventory (U1) decides RS3's allow-list additions; a compute-only engine mode (RS U7 / SC U3)
+  decides whether clients compute in-core; where each channel runs (U8) decides RS1's supervisor gate; cross-platform
+  restore (U2) and chain continuity (U3) decide RS4's acceptance; per-OS power/thermal/idle/in-call signals (SC U6)
+  bound SC5; the bridge frame size (SC U5) shapes SC3.
+- **Process:** the dependency-policy record for `ring` as a direct dependency (RS3, U6) and for any new direct
+  dependency of `plur1bus-compute` (`rusqlite`, used today by `plur1bus-engine` and the desktop).
 
 ## Open points carried from the specs
 
-- Owner questions RS §15 Q1–Q14 and SC §16 Q1–Q10; B19 (Q12) decides headless targets.
-- Unknowns RS §16 U1–U13 and SC §17 U1–U9; U1, U7/SC U3 and SC U2 are the largest risks.
-- WIF §12.5 and WP13 live in open PR #823; RS8 adds the pointers after it merges.
+- Owner decisions RS §15 Q1–Q14 and SC §16 Q1–Q10 are binding (2026-10-31); Q12 decides B19 for promote targets.
+- Unknowns RS §16 U1–U13 and SC §17 U1–U9; U1, RS U7 / SC U3 and SC U2 are the largest risks.
+- WIF §12.5 and WP13 live in open PR #823; RS8 adds the pointers after it merges. The language rule cites the D120
+  design in open PR #833 (proposed ADR-019).

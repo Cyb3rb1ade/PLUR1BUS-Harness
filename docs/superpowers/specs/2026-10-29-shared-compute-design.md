@@ -1,8 +1,9 @@
 # Shared compute in the owner's cluster — design
 
-**Status:** Draft for owner review (phase 1: specification and plan, no product code). Open owner questions in §16 ·
-**Date:** 2026-10-29 · **Owner:** Christian (Cyb3rb1ade) · **Track:** D (desktop) with core and engine parts ·
-**Proposed register entry:** **D119** (generalises D51 b; extends DS17, DS26, ADR-006, D116) · **Companion:**
+**Status:** Owner decisions of 2026-10-31 (PR #825): Q1–Q10 decided as recommended (§16); phase 1, specification and
+plan, no product code · **Date:** 2026-10-29 (amended 2026-10-31: decisions; language path B of D120) ·
+**Owner:** Christian (Cyb3rb1ade) · **Track:** D (desktop) with core and engine parts ·
+**Register entry:** **D119** (decided 2026-10-31; generalises D51 b; extends DS17, DS26, ADR-006, D116) · **Companion:**
 [`2026-10-29-primary-client-role-switch-design.md`](2026-10-29-primary-client-role-switch-design.md) (D118, roles and
 fencing) · **Plan:** [`2026-10-29-primary-client-role-switch.md`](../plans/2026-10-29-primary-client-role-switch.md)
 (WP group SC)
@@ -36,6 +37,11 @@ D114 §7.3 leases; the logging spec's model id table
 ([`2026-10-01-logging-and-diagnostics-design.md`](2026-10-01-logging-and-diagnostics-design.md));
 [`docs/desktop.md`](../../desktop.md) (host bridge: bundled-only, frames ≤ 64 KiB). The media-embeddings plan that the
 owner cites (full 740M variant as default for the media index) is a project document outside this repository.
+**Amended 2026-10-31:** the D120 design (open PR #833, branch `docs/harness-hygiene-coding-aci`, §3 decision 3, §12,
+proposed ADR-019) sets **language path B**: every new component is Rust from its first version, runs as a supervised
+process (first in the one module process `plur1bus-tools`) and is called by the TypeScript core over the harness RPC;
+existing TypeScript code that is not a new component stays TypeScript until its Phase 4 step; the web SPA stays
+TypeScript. SC12 applies it here.
 
 ## 1. Goal and non-goals
 
@@ -55,7 +61,7 @@ in contact for too long. Index-bound results (vectors) stay consistent across no
 
 ## 2. Decisions at a glance
 
-| # | Topic | Decision (recommendation) | Main alternative, why not |
+| # | Topic | Decision (owner questions decided 2026-10-31) | Main alternative, why not |
 |---|---|---|---|
 | SC1 | Channel | **D51 b node bridge** over the M3 WebSocket as a paired device; new device scope `compute.serve`; carriers: the desktop app's Rust bridge (also through D113's SSH tunnel) and `plur1bus node` (CLI) (§4.3) | A separate worker daemon/protocol: duplicates pairing, revocation, transport and health. |
 | SC2 | Control vs compute | Only `primary`/`standalone` run the queue and commit results; nodes compute and return (§4.1) | Nodes writing vectors into a replicated store: two engine owners per store (D28). |
@@ -68,6 +74,7 @@ in contact for too long. Index-bound results (vectors) stay consistent across no
 | SC9 | Node conditions | AC power only by default; thermal back-off; idle and in-call detection where available; quiet hours; concurrency cap 1; *Pause sharing* in the tray (§9) | Always on: drains a laptop and heats it during calls. |
 | SC10 | Privacy | `privacy.localOnly` = **inside the owner's cluster** (same rule as D118 Q7); D116: other persons' `privat` and (by default) `vertraulich` items never leave the primary (§10, Q5) | Ship everything: the owner's laptop would see other household members' private memories. |
 | SC11 | Identity and licences | Node = paired device enrolled by the **Owner** (humanOnly, T3); NC model licences confirmed **per device** (§10.3) | Implicit enrolment of every paired device: a phone paired for the UI would receive jobs. |
+| SC12 | Language (D120 path B, carried over 2026-10-31) | The queue, placement, privacy filter, fingerprint verification, certificates and the worker methods are a **new component in Rust** (`crates/plur1bus-compute`), hosted in D120's supervised `plur1bus-tools` module process and called by the TypeScript core over the harness RPC (`x-server: "tools"`); the core keeps only wiring in existing modules (enqueue hooks, `local-only.ts`, the device grant, API routing); the web SPA stays TypeScript | A TypeScript `packages/core/src/compute/`: a new component in the core that Phase 4 would have to port again (ADR-019 proposal in D120). |
 
 ## 3. What exists
 
@@ -170,8 +177,10 @@ explicitly per class (`compute.classes.<class>.preferNodes`).
 
 ### 5.3 Queue
 
-On the primary in the core, durable in `state/compute.sqlite` (private, part of the state-database snapshot discovery
-so a promote moves it, D118 §5.3). One row per job: id, class, fingerprint, items (ids and content hashes, never
+On the primary in the Rust compute component (SC12), durable in `state/compute.sqlite` (private, single writer: the
+`plur1bus-tools` process; added to the backup allow-list by RS3 so a promote moves it, D118 §5.3). The TypeScript core
+enqueues through `x-server: "tools"` RPC methods from its existing capture, import, media and migration paths and
+receives verified results back for the engine. One row per job: id, class, fingerprint, items (ids and content hashes, never
 content), state, attempts, lease holder and expiry, created and last-contact times. States:
 `queued → leased → done`, `leased → queued` (lease expired, released, node fenced), `queued|leased → cancelled`,
 `queued → deferred → queued` (node returns or deferral ends), `leased → failed` after `compute.maxAttempts` (3) with
@@ -265,7 +274,7 @@ Any mismatch is rejected; nothing is "close enough" without a certificate.
 4. Fail → P may only serve a **separate index** with its own fingerprint (the Owner creates it deliberately), or no
    index-bound jobs.
 
-**Drift rule (owner question Q3):** identical runtime family and precision is the default; any accelerated backend
+**Drift rule (decided 2026-10-31, Q3):** identical runtime family and precision is the default; any accelerated backend
 needs a certificate. Two `onnx-cpu`/`q8` producers on different CPU architectures count as identical (the identity has
 no CPU field today); the spike measures arm64 vs x64 drift, and if it exceeds τ_min the CPU architecture joins the
 fingerprint (U2).
@@ -273,6 +282,9 @@ fingerprint (U2).
 ## 8. Job protocol
 
 ### 8.1 Methods (node → primary over the bridge, scope `compute.serve`)
+
+The Harness API authenticates the device and routes these methods to the Rust compute component in `plur1bus-tools`
+(`x-server: "tools"`, SC12); the TypeScript API only adds the routes to its existing allow-list.
 
 | Method | Purpose |
 |---|---|
@@ -339,7 +351,7 @@ respects them and never overrides a pause.
 
 ### 10.1 `privacy.localOnly`
 
-**Local means inside the owner's cluster** (recommendation, same as D118 Q7): the primary's loopback, origins in
+**Local means inside the owner's cluster** (decided 2026-10-31, D118 Q7): the primary's loopback, origins in
 `privacy.localEndpoints`, and enrolled nodes of this cluster reached over the node bridge through the authenticated
 tunnel (SSH `direct-tcpip` or `tailnet`/`network` TLS). Never a third party or a cloud API. `local-only.ts` gains the
 node rule; a job for a local-only agent or shared store goes only to such nodes, else waits or refuses (D51's rule:
@@ -491,20 +503,22 @@ failed|expired`, `compute.result.rejected` (reason, counts), `compute.fallback.p
 - **Real run (owner worksheet):** VPS primary with a backlog, MacBook offline > 1 h → primary fallback; MacBook back →
   backlog moves to the Mac.
 
-## 16. Owner questions
+## 16. Owner decisions (decided 2026-10-31)
 
-| # | Question | Recommendation |
+The owner decided every question as recommended on 2026-10-31 (PR #825). The answers are binding for the plan.
+
+| # | Question | Decision |
 |---|---|---|
-| Q1 | Register as D119, separate from D118? | Yes (see D118 Q1). |
-| Q2 | Besides the 1 h node-absence rule, a job age cap after which the primary computes even if the node keeps flapping? | **Yes, 24 h.** |
-| Q3 | Precision rule: identical precision required, or a measured tolerance gate? | **Identical runtime family and precision by default; accelerated backends only with an equivalence certificate** (calibration set, cosine thresholds, recall@10 parity) per model, variant and backend. |
-| Q4 | Index-bound interactive jobs (query embeddings) on a low-RTT node? | **Primary only in v1**; output-only interactive work may use a node. |
-| Q5 | D116: may other persons' memories be embedded on the owner's MacBook? | Own entries and foreign `teilbar`: yes. Foreign `vertraulich`: **primary only by default** (switchable). Foreign `privat`: **never**. |
-| Q6 | Compute on battery? | **AC only by default**; opt-in with a 50 % floor. |
-| Q7 | Compute across owners (D114)? | **Out of scope for v1**; later through D114's budget and approval rules. |
-| Q8 | Re-embedding migrations without a node: fall back to the primary after 1 h, or wait? | **Wait** by default: the old generation keeps serving recall during a migration (ADR-006 rule 2), so nothing degrades; a VPS CPU re-embed of a large store can take days. |
-| Q9 | CLI-only nodes and SSH-only primaries? | v1: the desktop carrier works through the SSH tunnel; `plur1bus node run` needs `tailnet` or `network`, or the person's own `ssh -L`. |
-| Q10 | Spot-check rate on the primary? | **1 in 50 batches**; raise for a suspended node's re-admission. |
+| Q1 | Register as D119, separate from D118? | **Decided 2026-10-31:** Yes (see D118 Q1). |
+| Q2 | Besides the 1 h node-absence rule, a job age cap after which the primary computes even if the node keeps flapping? | **Decided 2026-10-31:** **Yes, 24 h.** |
+| Q3 | Precision rule: identical precision required, or a measured tolerance gate? | **Decided 2026-10-31:** **Identical runtime family and precision by default; accelerated backends only with an equivalence certificate** (calibration set, cosine thresholds, recall@10 parity) per model, variant and backend. |
+| Q4 | Index-bound interactive jobs (query embeddings) on a low-RTT node? | **Decided 2026-10-31:** **Primary only in v1**; output-only interactive work may use a node. |
+| Q5 | D116: may other persons' memories be embedded on the owner's MacBook? | **Decided 2026-10-31:** Own entries and foreign `teilbar`: yes. Foreign `vertraulich`: **primary only by default** (switchable). Foreign `privat`: **never**. |
+| Q6 | Compute on battery? | **Decided 2026-10-31:** **AC only by default**; opt-in with a 50 % floor. |
+| Q7 | Compute across owners (D114)? | **Decided 2026-10-31:** **Out of scope for v1**; later through D114's budget and approval rules. |
+| Q8 | Re-embedding migrations without a node: fall back to the primary after 1 h, or wait? | **Decided 2026-10-31:** **Wait** by default: the old generation keeps serving recall during a migration (ADR-006 rule 2), so nothing degrades; a VPS CPU re-embed of a large store can take days. |
+| Q9 | CLI-only nodes and SSH-only primaries? | **Decided 2026-10-31:** v1: the desktop carrier works through the SSH tunnel; `plur1bus node run` needs `tailnet` or `network`, or the person's own `ssh -L`. |
+| Q10 | Spot-check rate on the primary? | **Decided 2026-10-31:** **1 in 50 batches**; raise for a suspended node's re-admission. |
 
 ## 17. Unknowns (not verified in the repository)
 
