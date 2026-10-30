@@ -250,7 +250,10 @@ test("OAuth malformed revocation cannot acknowledge a missing token or revoke th
     assert.equal(repeatedClient.status, 400, "repeated client identity must not rotate a refresh token");
     assert.equal(repeatedClient.json.error, "invalid_request");
     assert.equal((await tokens.authenticate(issued.access_token)).ok, true);
-    const forms = ["", "token=", `token=unknown&token=${encodeURIComponent(issued.access_token)}`];
+    const forms = [
+      "", "token=", `token=unknown&token=${encodeURIComponent(issued.access_token)}`,
+      `token=${encodeURIComponent(issued.access_token)}&__proto__=first&__proto__=second`,
+    ];
     for (const body of forms) {
       const res = await raw(h, { method: "POST", path: "/oauth/revoke", headers: { "content-type": "application/x-www-form-urlencoded" }, body });
       assert.equal(res.status, 400, body ? "empty or repeated token" : "missing token");

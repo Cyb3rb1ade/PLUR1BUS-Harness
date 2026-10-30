@@ -249,7 +249,7 @@ function parseFormOrJsonBody(raw: Buffer | undefined, contentType?: string): Rec
     }
   }
   const params = new URLSearchParams(text);
-  const res: Record<string, string> = {};
+  const res: Record<string, string> = Object.create(null);
   for (const [k, v] of params.entries()) {
     if (Object.hasOwn(res, k)) throw new OAuthApiError(400, "invalid_request", "repeated request parameter");
     res[k] = v;
