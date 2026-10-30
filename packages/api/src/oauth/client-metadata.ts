@@ -1,31 +1,12 @@
-import { errors } from "../errors.ts";
+import dns from "node:dns";
+import http from "node:http";
+import https from "node:https";
+import { errors, ApiError } from "../errors.ts";
+import { parseAddress, classifyAddress } from "./ip.ts";
 import type { OAuthClientMetadata } from "./types.ts";
 
 const MAX_METADATA_SIZE = 64 * 1024;
 const FETCH_TIMEOUT_MS = 5000;
-
-function isPrivateIp(hostname: string): boolean {
-  // IPv4 private & special ranges
-  // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8, 169.254.0.0/16, 0.0.0.0
-  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(hostname);
-  if (ipv4) {
-    const b0 = Number(ipv4[1]);
-    const b1 = Number(ipv4[2]);
-    if (b0 === 10) return true;
-    if (b0 === 172 && b1 >= 16 && b1 <= 31) return true;
-    if (b0 === 192 && b1 === 168) return true;
-    if (b0 === 127) return true;
-    if (b0 === 169 && b1 === 254) return true;
-    if (b0 === 0) return true;
-  }
-  // IPv6 loopback / private / link-local
-  const clean = hostname.replace(/^\[|\]$/g, "").toLowerCase();
-  if (clean === "::1" || clean === "::" || clean.startsWith("fc") || clean.startsWith("fd") || clean.startsWith("fe80")) {
-    return true;
-  }
-  if (clean === "localhost") return true;
-  return false;
-}
 
 export function matchRedirectUri(requestedUri: string, allowedUris: readonly string[]): boolean {
   if (allowedUris.includes(requestedUri)) {
@@ -57,6 +38,120 @@ export function matchRedirectUri(requestedUri: string, allowedUris: readonly str
     return false;
   }
   return false;
+}
+
+async function fetchEgressMetadataDocument(
+  url: URL,
+  allowLoopback: boolean,
+): Promise<unknown> {
+  const hostname = url.hostname;
+  if (hostname.toLowerCase() === "localhost") {
+    if (!allowLoopback) {
+      throw errors.badRequest("client_id", "SSRF blocked: metadata URL resolves to private or loopback IP");
+    }
+  }
+
+  const directIp = parseAddress(hostname);
+  let pinnedAddress: string;
+  let pinnedFamily: 4 | 6;
+
+  if (directIp) {
+    const verdict = classifyAddress(directIp);
+    if (!verdict.public && !allowLoopback) {
+      throw errors.badRequest("client_id", "SSRF blocked: metadata URL resolves to private or loopback IP");
+    }
+    pinnedAddress = hostname.replace(/^\[|\]$/g, "");
+    pinnedFamily = directIp.family;
+  } else {
+    let resolved: Array<{ address: string; family: number }>;
+    try {
+      resolved = await dns.promises.lookup(hostname, { all: true, verbatim: true });
+    } catch {
+      return undefined;
+    }
+    if (resolved.length === 0) {
+      return undefined;
+    }
+    for (const item of resolved) {
+      const parsed = parseAddress(item.address);
+      if (!parsed || (!classifyAddress(parsed).public && !allowLoopback)) {
+        throw errors.badRequest("client_id", "SSRF blocked: metadata URL resolves to private or loopback IP");
+      }
+    }
+    pinnedAddress = resolved[0]!.address;
+    pinnedFamily = resolved[0]!.family === 6 ? 6 : 4;
+  }
+
+  return new Promise((resolvePromise, rejectPromise) => {
+    const isHttps = url.protocol === "https:";
+    const transport = isHttps ? https : http;
+    const port = url.port ? Number(url.port) : (isHttps ? 443 : 80);
+
+    const req = transport.request(
+      {
+        protocol: url.protocol,
+        hostname: url.hostname,
+        port,
+        path: url.pathname + url.search,
+        method: "GET",
+        headers: {
+          Host: url.host,
+          Accept: "application/json",
+          "User-Agent": "Plur1bus-OAuth/1.0",
+        },
+        servername: isHttps ? url.hostname : undefined,
+        lookup: (_hostname, _options, cb) => {
+          cb(null, pinnedAddress, pinnedFamily);
+        },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      },
+      (res) => {
+        if (res.statusCode !== 200) {
+          res.resume();
+          resolvePromise(undefined);
+          return;
+        }
+        const ct = res.headers["content-type"] ?? "";
+        if (!ct.includes("application/json")) {
+          res.resume();
+          resolvePromise(undefined);
+          return;
+        }
+
+        let totalBytes = 0;
+        const chunks: Buffer[] = [];
+
+        res.on("data", (chunk: Buffer) => {
+          totalBytes += chunk.length;
+          if (totalBytes > MAX_METADATA_SIZE) {
+            res.destroy();
+            rejectPromise(errors.badRequest("client_id", "client metadata document exceeds maximum size"));
+            return;
+          }
+          chunks.push(chunk);
+        });
+
+        res.on("end", () => {
+          try {
+            const text = Buffer.concat(chunks).toString("utf8");
+            resolvePromise(JSON.parse(text));
+          } catch {
+            resolvePromise(undefined);
+          }
+        });
+
+        res.on("error", (err) => {
+          rejectPromise(err);
+        });
+      },
+    );
+
+    req.on("error", (err) => {
+      rejectPromise(err);
+    });
+
+    req.end();
+  });
 }
 
 export class ClientMetadataResolver {
@@ -108,10 +203,6 @@ export class ClientMetadataResolver {
       return undefined;
     }
 
-    if (isHttps && !this.#allowLoopbackMetadata && isPrivateIp(parsedUrl.hostname)) {
-      throw errors.badRequest("client_id", "SSRF blocked: metadata URL resolves to private or loopback IP");
-    }
-
     // Check cache (TTL 5 minutes)
     const cached = this.#cache.get(clientId);
     if (cached && Date.now() - cached.cachedAt < 5 * 60_000) {
@@ -123,24 +214,7 @@ export class ClientMetadataResolver {
       if (this.#fetchImpl) {
         data = await this.#fetchImpl(clientId);
       } else {
-        const res = await fetch(clientId, {
-          method: "GET",
-          headers: { Accept: "application/json" },
-          redirect: "error",
-          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-        });
-        if (!res.ok) {
-          return undefined;
-        }
-        const ct = res.headers.get("content-type") ?? "";
-        if (!ct.includes("application/json")) {
-          return undefined;
-        }
-        const text = await res.text();
-        if (text.length > MAX_METADATA_SIZE) {
-          throw errors.badRequest("client_id", "client metadata document exceeds maximum size");
-        }
-        data = JSON.parse(text);
+        data = await fetchEgressMetadataDocument(parsedUrl, this.#allowLoopbackMetadata);
       }
 
       if (!data || typeof data !== "object" || Array.isArray(data)) {
@@ -175,6 +249,9 @@ export class ClientMetadataResolver {
       this.#cache.set(clientId, { metadata: clientMeta, cachedAt: Date.now() });
       return clientMeta;
     } catch (e) {
+      if (e instanceof ApiError) {
+        throw e;
+      }
       if (e instanceof Error && e.name === "AbortError") {
         throw errors.badRequest("client_id", "timeout fetching client metadata document");
       }

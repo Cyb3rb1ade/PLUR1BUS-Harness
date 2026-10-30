@@ -121,4 +121,5 @@ export interface OAuthServiceOptions {
   requireSecondFactor?: boolean | "always" | "remote" | "never" | undefined;
   fetchMetadata?: ((url: string) => Promise<unknown>) | undefined;
   clients?: Record<string, OAuthClientMetadata> | undefined;
+  allowLoopbackMetadata?: boolean | undefined;
 }

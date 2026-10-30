@@ -487,14 +487,79 @@ test("M6A-A3.1: client_id metadata document resolves dynamically and blocks SSRF
   assert.equal(client.client_name, "Dynamic App");
   assert.deepEqual(client.redirect_uris, ["https://app.example.com/oauth/callback"]);
 
-  // SSRF protection blocks private IP ranges
-  const ssrfResolver = new ClientMetadataResolver({ allowLoopbackMetadata: false });
+  // SSRF protection blocks private and loopback IP ranges with default production settings
+  const ssrfResolver = new ClientMetadataResolver();
   await assert.rejects(
-    async () => resolver.resolveClient("https://169.254.169.254/latest/meta-data"),
+    async () => ssrfResolver.resolveClient("https://169.254.169.254/latest/meta-data"),
     (err: { reason?: string }) => err.reason === "client_id",
   );
   await assert.rejects(
-    async () => resolver.resolveClient("https://10.0.0.1/metadata.json"),
+    async () => ssrfResolver.resolveClient("https://10.0.0.1/metadata.json"),
     (err: { reason?: string }) => err.reason === "client_id",
   );
+  await assert.rejects(
+    async () => ssrfResolver.resolveClient("https://127.0.0.1:8443/metadata.json"),
+    (err: { reason?: string }) => err.reason === "client_id",
+  );
+  await assert.rejects(
+    async () => ssrfResolver.resolveClient("https://localhost:8443/metadata.json"),
+    (err: { reason?: string }) => err.reason === "client_id",
+  );
+  // Plain HTTP is rejected
+  assert.equal(await ssrfResolver.resolveClient("http://127.0.0.1:8080/metadata.json"), undefined);
+  assert.equal(await ssrfResolver.resolveClient("http://example.com/metadata.json"), undefined);
+
+  // Streaming size limit: metadata document exceeding 64 KB rejects
+  const oversizedResolver = new ClientMetadataResolver({
+    allowLoopbackMetadata: true,
+  });
+  // Use http server on loopback with allowLoopbackMetadata enabled to test streaming size limit
+  const { createServer } = await import("node:http");
+  let serverCalled = false;
+  const bigServer = createServer((req, res) => {
+    serverCalled = true;
+    res.writeHead(200, { "content-type": "application/json" });
+    // Write 70 KB of data
+    res.write("{\"client_id\":\"http://127.0.0.1:" + (bigServer.address() as any).port + "/metadata\",\"junk\":\"");
+    res.write("x".repeat(70 * 1024));
+    res.end("\"}");
+  });
+  await new Promise<void>((resolve) => bigServer.listen(0, "127.0.0.1", () => resolve()));
+  const port = (bigServer.address() as any).port;
+  try {
+    await assert.rejects(
+      async () => oversizedResolver.resolveClient(`http://127.0.0.1:${port}/metadata`),
+      (err: { reason?: string; message?: string }) =>
+        err.reason === "client_id" && err.message?.includes("exceeds maximum size"),
+    );
+  } finally {
+    bigServer.close();
+  }
+});
+
+test("M6A-B2: unauthenticated GET /oauth/authorize never fetches client metadata", async (t) => {
+  const h = await start({ oauthClients: { "test-client": STATIC_CLIENT }, rateClasses: wide });
+  t.after(() => h.close());
+
+  let probed = false;
+  const { createServer } = await import("node:http");
+  const canaryServer = createServer((req, res) => {
+    probed = true;
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end("{}");
+  });
+  await new Promise<void>((resolve) => canaryServer.listen(0, "127.0.0.1", () => resolve()));
+  const canaryPort = (canaryServer.address() as any).port;
+  try {
+    const res = await raw(h, {
+      method: "GET",
+      path: `/oauth/authorize?client_id=https://127.0.0.1:${canaryPort}/meta&redirect_uri=https://app/callback&response_type=code&code_challenge=xyz&code_challenge_method=S256`,
+      headers: { Accept: "application/json" },
+    });
+    // Unauthenticated request fails with 401 without ever contacting the canary server
+    assert.equal(res.status, 401);
+    assert.equal(probed, false);
+  } finally {
+    canaryServer.close();
+  }
 });

@@ -77,7 +77,7 @@ export class OAuthService {
     this.#resolver = new ClientMetadataResolver({
       clients: options.clients,
       fetchMetadata: options.fetchMetadata,
-      allowLoopbackMetadata: true,
+      allowLoopbackMetadata: options.allowLoopbackMetadata ?? false,
     });
   }
 

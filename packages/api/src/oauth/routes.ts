@@ -339,7 +339,21 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
       const resource = params.get("resource") ?? undefined;
       const approve = params.get("approve") === "true" || params.get("approve") === "1";
 
-      // 1. Validate client
+      // 1. Check user session first to prevent anonymous SSRF probing via client_id
+      const rawCookie = readCookie(typeof i.headers?.cookie === "string" ? i.headers.cookie : undefined, cookieName);
+      const session = rawCookie ? d.sessions.peek(rawCookie) : undefined;
+      if (!session) {
+        const accept = typeof i.headers?.accept === "string" ? i.headers.accept : "";
+        if (accept.includes("text/html")) {
+          return {
+            status: 302,
+            headers: { Location: `/login?redirect=${encodeURIComponent(`/oauth/authorize?${params.toString()}`)}` },
+          };
+        }
+        throw errors.unauthenticated("session-required");
+      }
+
+      // 2. Validate client
       if (!clientId) {
         throw new OAuthApiError(400, "invalid_request", "missing client_id");
       }
@@ -348,12 +362,12 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
         throw new OAuthApiError(400, "invalid_client", "unknown or unresolvable client_id");
       }
 
-      // 2. Validate redirect_uri (MUST NOT redirect if invalid)
+      // 3. Validate redirect_uri (MUST NOT redirect if invalid)
       if (!redirectUri || !matchRedirectUri(redirectUri, client.redirect_uris)) {
         throw new OAuthApiError(400, "invalid_request", "invalid or unregistered redirect_uri");
       }
 
-      // 3. Validate response_type
+      // 4. Validate response_type
       if (responseType !== "code") {
         const errUrl = new URL(redirectUri);
         errUrl.searchParams.set("error", "unsupported_response_type");
@@ -363,7 +377,7 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
         return { status: 302, headers: { Location: errUrl.toString() } };
       }
 
-      // 4. Validate PKCE
+      // 5. Validate PKCE
       if (!codeChallenge) {
         const errUrl = new URL(redirectUri);
         errUrl.searchParams.set("error", "invalid_request");
@@ -381,7 +395,7 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
         return { status: 302, headers: { Location: errUrl.toString() } };
       }
 
-      // 5. Validate resource
+      // 6. Validate resource
       let audience: TokenAudience = "mcp";
       if (resource) {
         try {
@@ -395,20 +409,6 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
           errUrl.searchParams.set("iss", issuer);
           return { status: 302, headers: { Location: errUrl.toString() } };
         }
-      }
-
-      // 6. Check user session
-      const rawCookie = readCookie(typeof i.headers?.cookie === "string" ? i.headers.cookie : undefined, cookieName);
-      const session = rawCookie ? d.sessions.peek(rawCookie) : undefined;
-      if (!session) {
-        const accept = typeof i.headers?.accept === "string" ? i.headers.accept : "";
-        if (accept.includes("text/html")) {
-          return {
-            status: 302,
-            headers: { Location: `/login?redirect=${encodeURIComponent(`/oauth/authorize?${params.toString()}`)}` },
-          };
-        }
-        throw errors.unauthenticated("session-required");
       }
 
       // 7. Check 2FA if remote listener
@@ -518,21 +518,21 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
       const agentId = body.agent_id ? String(body.agent_id) : "main";
       const projectId = body.project_id ? String(body.project_id) : undefined;
 
-      // 1. Validate client
-      if (!clientId) throw new OAuthApiError(400, "invalid_request", "missing client_id");
-      const client = await oauth.resolveClient(clientId);
-      if (!client) throw new OAuthApiError(400, "invalid_client", "unknown client_id");
-
-      // 2. Validate redirect_uri
-      if (!redirectUri || !matchRedirectUri(redirectUri, client.redirect_uris)) {
-        throw new OAuthApiError(400, "invalid_request", "invalid redirect_uri");
-      }
-
-      // 3. Check session
+      // 1. Check session first
       const rawCookie = readCookie(typeof i.headers?.cookie === "string" ? i.headers.cookie : undefined, cookieName);
       const session = rawCookie ? d.sessions.peek(rawCookie) : undefined;
       if (!session) {
         throw errors.unauthenticated("session-required");
+      }
+
+      // 2. Validate client
+      if (!clientId) throw new OAuthApiError(400, "invalid_request", "missing client_id");
+      const client = await oauth.resolveClient(clientId);
+      if (!client) throw new OAuthApiError(400, "invalid_client", "unknown client_id");
+
+      // 3. Validate redirect_uri
+      if (!redirectUri || !matchRedirectUri(redirectUri, client.redirect_uris)) {
+        throw new OAuthApiError(400, "invalid_request", "invalid redirect_uri");
       }
 
       // 4. Check 2FA if remote listener
