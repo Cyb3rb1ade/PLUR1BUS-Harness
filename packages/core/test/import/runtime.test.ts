@@ -1,8 +1,8 @@
 /** Restart completion derives business actions from the immutable plan and a live native maintenance job. */
 import { it } from "node:test";
 import assert from "node:assert/strict";
-import { join } from "node:path";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, join } from "node:path";
+import fs, { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import promises from "node:fs/promises";
 import { syncBuiltinESMExports } from "node:module";
 import { bindApiPrincipal, bindClientContext } from "@plur1bus/module-api";
@@ -152,6 +152,15 @@ for (const changedJob of [false, true]) {
     const f = await fixture(false, false, false, { prepareTarget: async () => { replace = true; } });
     const nativePath = join(f.home, "imports", f.plan.runId, "maintenance-run.json");
     const open = promises.open;
+    // The finalizer swallows its error and only reports "failed"; record every failed rename so a failure names it.
+    const renameErrors: string[] = [];
+    const rename = fs.renameSync;
+    t.mock.method(fs, "renameSync", (from: Parameters<typeof rename>[0], to: Parameters<typeof rename>[1]) => {
+      try { rename(from, to); } catch (error) {
+        renameErrors.push(`${basename(String(to))}: ${(error as NodeJS.ErrnoException).code}`);
+        throw error;
+      }
+    });
     t.mock.method(promises, "open", async (path: Parameters<typeof open>[0], flags: Parameters<typeof open>[1],
       mode?: Parameters<typeof open>[2]) => {
       if (path === nativePath && replace) {
@@ -178,7 +187,7 @@ for (const changedJob of [false, true]) {
         await assert.rejects(f.methods.methods["admin.import.runtime.release"]!(f.control, ctx));
         assert.equal(f.releases(), 0, "a changed immutable job never releases the held target");
       } else {
-        assert.equal((await complete(f)).state, "completed");
+        assert.equal((await complete(f)).state, "completed", `failed renames: ${renameErrors.join(", ") || "none"}`);
         await f.methods.methods["admin.import.runtime.release"]!(f.control, ctx);
         assert.equal(f.releases(), 1);
       }
