@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
-import { browserSkip, openRoute, setup, teardown, withApp } from "./harness.ts";
+import { ACTION_TIMEOUT_MS, browserSkip, openRoute, setup, teardown, until, withApp, type App } from "./harness.ts";
 import { expectAxeClean } from "./axe.ts";
 import { seedExtensions } from "./surfaces-fixtures.ts";
 import type { ExtInspection } from "../src/pages/common/surfaces-rpc.ts";
@@ -26,6 +26,12 @@ const inspection = (tier: ExtInspection["trust"]["tier"] = "unsigned"): ExtInspe
   scripts: [{ path: "scripts/run.sh", size: 20, firstLine: "#!/bin/sh", license: "MIT" }],
   requires: { runtime: "node" },
 });
+/** The first recorded call of `method`, once it arrived. Install first re-reads the inspection, so `ext.install` reaches the
+ *  mock server one round trip after the click; a fixed sleep was too short on a loaded runner. */
+async function firstCall(app: App, method: string): Promise<unknown> {
+  await until(() => app.server.rpc.calls.some((call) => call.method === method), `the ${method} call`, ACTION_TIMEOUT_MS);
+  return app.server.rpc.calls.find((call) => call.method === method)?.params;
+}
 function seed(server: MockHarnessServer, inspected = inspection()): void {
   seedExtensions(server.rpc);
   server.rpc.handle("agent.list", () => ({ agents: [{ agentId: "main" }, { agentId: "other" }] }), { write: false });
@@ -101,8 +107,7 @@ describe("extension installation through real browser HTTP", { skip: browserSkip
         .check();
       await expectAxeClean(app.page, "bundle member disclosures and exact optional selection");
       await app.page.getByRole("button", { name: "Install", exact: true }).click();
-      await app.page.waitForTimeout(100);
-      assert.deepEqual(app.server.rpc.calls.find((call) => call.method === "ext.install")?.params, {
+      assert.deepEqual(await firstCall(app, "ext.install"), {
         inspectionId: "inspection-owned",
         acknowledge: ["capabilities", "unsigned"],
         members: ["core-child", "extra-child"],
@@ -120,10 +125,10 @@ describe("extension installation through real browser HTTP", { skip: browserSkip
         buffer: Buffer.from("real browser file bytes"),
       });
       await app.page.getByRole("heading", { name: "Confirm extension installation" }).waitFor();
+      // The page heading renders while the inspection still loads; the disclosure shows once ext.inspection.get answered.
+      await app.page.locator(".inspection-disclosure").first().waitFor();
       assert.ok(app.server.requests.some((request) => request.url === "/api/v1/extensions/upload"));
       assert.ok(app.server.rpc.calls.some((call) => call.method === "ext.inspection.get"));
-      // The page heading renders while the inspection still loads; read the disclosure once it is there.
-      await app.page.locator(".inspection-disclosure").first().waitFor();
       const text = await app.page.locator("main").innerText();
       for (const disclosure of ["Claimed publisher", "unverified", "test-key-id", "MIT", "#!/bin/sh", "scripts/run.sh"])
         assert.ok(text.includes(disclosure), disclosure);
@@ -132,7 +137,11 @@ describe("extension installation through real browser HTTP", { skip: browserSkip
       await app.page.getByLabel("All agents", { exact: true }).uncheck();
       await app.page.getByLabel("main", { exact: true }).check();
       await app.page.getByRole("button", { name: "Install and activate", exact: true }).dblclick();
-      await app.page.waitForTimeout(250);
+      // Wait for the first install and for the page it navigates to; a second click that slipped past the in-flight guard
+      // would have sent its call by then, and the short settle lets it reach the mock server.
+      await firstCall(app, "ext.install");
+      await app.page.waitForURL(/#\/plugins\/uploaded$/);
+      await app.page.waitForTimeout(100);
       const installed = app.server.rpc.calls.filter((call) => call.method === "ext.install");
       assert.equal(installed.length, 1);
       assert.deepEqual(installed[0]!.params, {
@@ -153,8 +162,7 @@ describe("extension installation through real browser HTTP", { skip: browserSkip
       assert.equal(await app.page.getByRole("button", { name: "Install and activate", exact: true }).count(), 0);
       await app.page.getByLabel("I accept every requested capability shown above.").check();
       await app.page.getByRole("button", { name: "Install", exact: true }).click();
-      await app.page.waitForTimeout(100);
-      assert.deepEqual(app.server.rpc.calls.find((call) => call.method === "ext.install")?.params, {
+      assert.deepEqual(await firstCall(app, "ext.install"), {
         inspectionId: "inspection-owned",
         acknowledge: ["capabilities"],
       });

@@ -1,0 +1,24 @@
+{
+  "request": {
+    "model": "fixture-model",
+    "query": "query",
+    "documents": [
+      "first",
+      "second"
+    ],
+    "top_k": 2,
+    "return_documents": false
+  },
+  "response": {
+    "data": [
+      {
+        "index": 0,
+        "relevance_score": 0.4
+      },
+      {
+        "index": 1,
+        "relevance_score": 0.9
+      }
+    ]
+  }
+}

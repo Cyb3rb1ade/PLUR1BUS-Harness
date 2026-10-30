@@ -6,7 +6,7 @@ Regenerate on each native packaging target; optional native npm packages differ 
 
 ```
 pnpm-lock.yaml: 471d3d315117acd3828b639197273237b79a68569399b5d0801165b93f3ed9bc
-Cargo.lock: c4d06c9b97b7af8bee73787f531679eb8c47c8f73b4396e433c64a8009a0ffc3
+Cargo.lock: d9c83d8d2096feb25dbfc866bbe4155aa4fe7c0664638dc51fec95fefdb610ca
 apps/desktop/Cargo.lock: 4cdbccd46633f97f15769f2578970f071267646a0f3a5f8a76d2ec86061313c2
 ```
 
@@ -516,6 +516,7 @@ apps/desktop/Cargo.lock: 4cdbccd46633f97f15769f2578970f071267646a0f3a5f8a76d2ec8
 | cargo | libc | 0.2.189 | MIT OR Apache-2.0 |  |
 | cargo | libdbus-sys | 0.2.7 | Apache-2.0/MIT | David Henningsson <diwic@ubuntu.com> |
 | cargo | libloading | 0.7.4 | ISC | Simonas Kazlauskas <libloading@kazlauskas.me> |
+| cargo | libloading | 0.9.0 | ISC | Simonas Kazlauskas <libloading@kazlauskas.me> |
 | cargo | libm | 0.2.16 | MIT | Alex Crichton <alex@alexcrichton.com>, Amanieu d'Antras <amanieu@gmail.com>, Jorge Aparicio <japaricious@gmail.com>, Trevor Gross <tg@trevorgross.com> |
 | cargo | libredox | 0.1.25 | MIT | 4lDO2 <4lDO2@protonmail.com> |
 | cargo | libsqlite3-sys | 0.35.0 | MIT | The rusqlite developers |
@@ -568,6 +569,7 @@ apps/desktop/Cargo.lock: 4cdbccd46633f97f15769f2578970f071267646a0f3a5f8a76d2ec8
 | cargo | murmurhash32 | 0.3.1 | MIT | Paul Masurel <paul.masurel@gmail.com> |
 | cargo | native-tls | 0.2.18 | MIT OR Apache-2.0 | Steven Fackler <sfackler@gmail.com> |
 | cargo | ndarray | 0.16.1 | MIT OR Apache-2.0 | Ulrik Sverdrup "bluss", Jim Turner |
+| cargo | ndarray | 0.17.2 | MIT OR Apache-2.0 | Ulrik Sverdrup "bluss", Jim Turner |
 | cargo | ndk-context | 0.1.1 | MIT OR Apache-2.0 | The Rust Windowing contributors |
 | cargo | ndk-sys | 0.6.0+11769913 | MIT OR Apache-2.0 | The Rust Windowing contributors |
 | cargo | ndk | 0.9.0 | MIT OR Apache-2.0 | The Rust Mobile contributors |
@@ -625,6 +627,8 @@ apps/desktop/Cargo.lock: 4cdbccd46633f97f15769f2578970f071267646a0f3a5f8a76d2ec8
 | cargo | ordered-float | 5.5.0 | MIT | Jonathan Reem <jonathan.reem@gmail.com>, Matt Brubeck <mbrubeck@limpet.net> |
 | cargo | ordered-multimap | 0.7.3 | MIT | Scott Godwin <sgodwincs@gmail.com> |
 | cargo | ordered-stream | 0.2.0 | MIT OR Apache-2.0 | Daniel De Graaf <code@danieldg.net>, Zeeshan Ali Khan <zeeshanak@gnome.org> |
+| cargo | ort-sys | 2.0.0-rc.14 | MIT OR Apache-2.0 | pyke.io <contact@pyke.io> |
+| cargo | ort | 2.0.0-rc.14 | MIT OR Apache-2.0 | pyke.io <contact@pyke.io>, Nicolas Bigaouette <nbigaouette@gmail.com> |
 | cargo | osakit | 0.3.1 | MIT OR Apache-2.0 | Marat Dulin <mdevils@gmail.com> |
 | cargo | outref | 0.5.2 | MIT |  |
 | cargo | ownedbytes | 0.9.0 | MIT | Paul Masurel <paul@quickwit.io>, Pascal Seitz <pascal@quickwit.io> |

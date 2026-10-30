@@ -70,10 +70,12 @@ async function verifyWorker(worker: VerifiedWorker): Promise<string> {
 
 class Frames {
   private readonly iterator: AsyncIterator<Buffer>;
+  private readonly ended: () => RemoteFsError;
   private buffered = Buffer.alloc(0);
 
-  constructor(stream: Readable) {
+  constructor(stream: Readable, ended: () => RemoteFsError) {
     this.iterator = stream[Symbol.asyncIterator]();
+    this.ended = ended;
   }
 
   async read(maximum = FRAME_BYTES): Promise<Buffer> {
@@ -88,7 +90,7 @@ class Frames {
         }
       }
       const chunk = await this.iterator.next();
-      if (chunk.done) throw new RemoteFsError("unavailable");
+      if (chunk.done) throw this.ended();
       if (!Buffer.isBuffer(chunk.value) || this.buffered.length + chunk.value.length > 2 * FRAME_BYTES + 8) {
         throw new RemoteFsError("remote-protocol");
       }
@@ -118,21 +120,22 @@ export class WorkerConnection {
   private queue: Promise<unknown> = Promise.resolve();
   private nextId = 1;
   private closed = false;
+  private ended: RemoteFsError["reason"] = "unavailable";
 
   private constructor(child: ChildProcessWithoutNullStreams, options: WorkerOptions) {
     this.child = child;
-    this.frames = new Frames(child.stdout);
+    this.frames = new Frames(child.stdout, () => this.lost());
     this.budget = options.budget;
     child.stderr.resume();
     child.on("error", () => this.destroy());
     child.stdin.on("error", () => {});
     this.processClosed = new Promise(resolve => child.once("close", () => { this.destroy(); resolve(); }));
-    this.timer = setTimeout(() => this.destroy(), Math.max(1, options.budget.deadline - Date.now()));
+    this.timer = setTimeout(() => this.destroy("timeout"), Math.max(1, options.budget.deadline - Date.now()));
     this.timer.unref();
-    const abort = () => this.destroy();
+    const abort = () => this.destroy("aborted");
     options.signal?.addEventListener("abort", abort, { once: true });
     this.detach = () => options.signal?.removeEventListener("abort", abort);
-    if (options.signal?.aborted) this.destroy();
+    if (options.signal?.aborted) this.destroy("aborted");
   }
 
   static async open(options: WorkerOptions): Promise<WorkerConnection> {
@@ -151,14 +154,25 @@ export class WorkerConnection {
     return new WorkerConnection(child, options);
   }
 
+  /**
+   * Why the worker is gone. This connection's deadline timer can fire, and the native worker can end at the same
+   * absolute deadline, a moment before the operation's own deadline timer; the lost pipe then reports the deadline.
+   */
+  private lost(): RemoteFsError {
+    if (this.ended === "unavailable") {
+      try { this.budget.check(); } catch (error) { return error as RemoteFsError; }
+    }
+    return new RemoteFsError(this.ended);
+  }
+
   private async frame(body: Buffer, sensitive = false): Promise<void> {
-    if (this.closed) throw new RemoteFsError("unavailable");
+    if (this.closed) throw this.lost();
     const header = Buffer.alloc(4);
     header.writeUInt32BE(body.length);
     const bytes = Buffer.concat([header, body]);
     try {
       await new Promise<void>((resolve, reject) => this.child.stdin.write(bytes, error => {
-        if (error) reject(new RemoteFsError("unavailable"));
+        if (error) reject(this.lost());
         else resolve();
       }));
     } finally {
@@ -208,7 +222,7 @@ export class WorkerConnection {
 
   request(op: string, fields: Record<string, unknown> = {}, readMaximum?: number): Promise<Record<string, unknown>> {
     const action = () => this.budget.operation(async () => {
-      if (this.closed) throw new RemoteFsError("unavailable");
+      if (this.closed) throw this.lost();
       const id = this.nextId++;
       await this.frame(Buffer.from(JSON.stringify({ id, op, ...fields })));
       const reply = await this.frames.json();
@@ -232,9 +246,10 @@ export class WorkerConnection {
     });
   }
 
-  destroy(): void {
+  destroy(reason: "unavailable" | "timeout" | "aborted" = "unavailable"): void {
     if (this.closed) return;
     this.closed = true;
+    this.ended = reason;
     clearTimeout(this.timer);
     this.detach?.();
     this.stop.abort();
