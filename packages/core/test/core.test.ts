@@ -581,7 +581,7 @@ describe("core model warm-up (E4, S7)", () => {
   // into the agent workspace; the warm-up must do none of it. The control (a real recall afterwards) proves the
   // snapshot sees those writes.
   it("the warm-up leaves the home untouched: activity, pending reminders, mood files, no events (H3-R23)", async () => {
-    const home = newHome(); const l = layout(home); let first = true;
+    const home = newHome(); const l = layout(home);
     mkdirSync(l.workspaceDir("bernd"), { recursive: true, mode: 0o700 });
     const ws = realpathSync(l.workspaceDir("bernd"));
     // lib/reminder-pending.js: keyed by the workspace path the engine is given (the layout path, not its realpath).
@@ -597,18 +597,27 @@ describe("core model warm-up (E4, S7)", () => {
       runId: "8874bc2a-bdda-40f6-b4a0-07d9ca3329d2", job: "knowledge.update", trigger: "cron",
       startedAt: now, finishedAt: now, durationMs: 0, outcome: "completed",
     });
-    // The probe takes 300 ms, so the snapshot below is taken before the warm-up's memory.list runs.
-    const core = createCore({ home, testInternals: flatTestInternals({ queryDelayMs: () => { const d = first ? 300 : 0; first = false; return d; } }) });
-    await core.start();
+    // Hold the probe until unrelated startup initialization and the baseline are complete.
+    const warmupGate = Promise.withResolvers<void>();
+    const embeddings = flatEmbedder();
+    const core = createCore({ home, testInternals: flatTestInternals({ extra: { embeddings: {
+      ...embeddings,
+      embedQuery: async () => { await warmupGate.promise; return embeddings.embedQuery(); },
+    } } }) });
     // The whole home, except what a running core writes on its own (logs, run files) and the LanceDB data files.
     const SKIP = ["logs", "run", join("state", "lancedb")];
     const rel = (f: string) => relative(realpathSync(home), join(ws, f));
     const homeNow = () => snapshot(realpathSync(home), SKIP);
-    const before = homeNow();
-    const c = await connect({ address: core.address, token: core.token });
-    const got: string[] = []; c.onNotification((m) => got.push(m));
+    let c: CoreClient | undefined;
     try {
+      await core.start();
+      c = await connect({ address: core.address, token: core.token });
+      const got: string[] = []; c.onNotification((m) => got.push(m));
+      await c.call("dreams.status", {});
       await c.call("events.subscribe", {});
+      assert.equal(core.status().engine.ready, false, "the probe remains held before the baseline");
+      const before = homeNow();
+      warmupGate.resolve();
       let s: any; const until = Date.now() + 8000;
       do { s = await c.call<any>("core.status"); if (s.engine.ready) break; await new Promise((r) => setTimeout(r, 50)); } while (Date.now() < until);
       assert.equal(s.engine.ready, true, JSON.stringify(s.engine));
@@ -621,7 +630,7 @@ describe("core model warm-up (E4, S7)", () => {
       const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "anything due today", joined: true, budget: { softMs: 5000, hardMs: 10_000 } });
       assert.notDeepEqual(homeNow(), before, "a real recall writes the home (the snapshot would see a warm-up's writes)");
       assert.match(r.joined.text, /water the plants/);
-    } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
+    } finally { warmupGate.resolve(); await c?.close(); await core.stop({ budgetMs: 5000 }); }
   });
 
   it("engine is models-warming until warm completes, process stays ready", async () => {
