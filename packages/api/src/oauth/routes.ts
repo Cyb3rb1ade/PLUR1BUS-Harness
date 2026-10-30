@@ -59,6 +59,24 @@ export const OAUTH_ROUTES: readonly RouteSpec[] = [
     },
   },
   {
+    id: "oauth.protected_resource.path",
+    method: "GET",
+    path: "/.well-known/oauth-protected-resource/{resource}",
+    tag: "oauth",
+    summary: "RFC 9728 OAuth 2.0 Protected Resource Metadata by path",
+    auth: "none",
+    authz: "public",
+    csrf: false,
+    rate: "read",
+    stability: "stable",
+    since: "1.0.0",
+    successStatus: 200,
+    success: {
+      description: "OAuth 2.0 protected resource metadata document",
+      schema: { type: "object", additionalProperties: true },
+    },
+  },
+  {
     id: "oauth.authorize.get",
     method: "GET",
     path: "/oauth/authorize",
@@ -202,7 +220,10 @@ export const OAUTH_ROUTES: readonly RouteSpec[] = [
   },
 ];
 
-function getIssuer(headers?: Record<string, string | string[] | undefined>, tls?: boolean): string {
+function getIssuer(headers?: Record<string, string | string[] | undefined>, tls?: boolean, publicOrigin?: string): string {
+  if (publicOrigin && publicOrigin.trim().length > 0) {
+    return publicOrigin.trim().replace(/\/+$/, "");
+  }
   const host = typeof headers?.host === "string" ? headers.host : "localhost";
   const proto = tls ? "https" : "http";
   return `${proto}://${host}`;
@@ -247,7 +268,7 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
 
   return {
     "oauth.metadata": (i: HandlerInput): HandlerOutput => {
-      const issuer = getIssuer(i.headers, d.tls);
+      const issuer = getIssuer(i.headers, d.tls, d.publicOrigin);
       const metadata: OAuthAuthorizationServerMetadata = {
         issuer,
         authorization_endpoint: `${issuer}/oauth/authorize`,
@@ -259,7 +280,7 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
         authorization_response_iss_parameter_supported: true,
         client_id_metadata_document_supported: true,
         token_endpoint_auth_methods_supported: ["none"],
-        scopes_supported: ["mcp.read", "mcp.write"],
+        scopes_supported: ["mcp.read", "mcp.write", "a2a.task"],
       };
       return {
         status: 200,
@@ -272,14 +293,14 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
     },
 
     "oauth.protected_resource": (i: HandlerInput): HandlerOutput => {
-      const issuer = getIssuer(i.headers, d.tls);
-      const reqResource = i.query?.get("resource") ?? "";
+      const issuer = getIssuer(i.headers, d.tls, d.publicOrigin);
+      const reqResource = (i.query?.get("resource") ?? "") || (i.pathParams?.["resource"] ?? "");
 
-      if (reqResource.includes("/a2a")) {
+      if (reqResource === "a2a" || reqResource.includes("/a2a")) {
         const metadata: OAuthProtectedResourceMetadata = {
           resource: `${issuer}/a2a`,
           authorization_servers: [issuer],
-          scopes_supported: ["a2a.task", "agent.use"],
+          scopes_supported: ["a2a.task"],
           bearer_methods_supported: ["header"],
           resource_documentation: `${issuer}/docs/a2a.md`,
         };
@@ -293,18 +314,11 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
         };
       }
 
-      if (reqResource.includes("/mcp")) {
+      if (reqResource === "mcp" || reqResource.includes("/mcp")) {
         const metadata: OAuthProtectedResourceMetadata = {
           resource: `${issuer}/mcp`,
           authorization_servers: [issuer],
-          scopes_supported: [
-            "mcp.read",
-            "mcp.write",
-            "agent.use",
-            "agent.manage",
-            "memory.read",
-            "memory.write",
-          ],
+          scopes_supported: ["mcp.read", "mcp.write"],
           bearer_methods_supported: ["header"],
           resource_documentation: `${issuer}/docs/mcp-server.md`,
         };
@@ -321,16 +335,66 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
       const metadata: OAuthProtectedResourceMetadata = {
         resource: issuer,
         authorization_servers: [issuer],
-        scopes_supported: [
-          "mcp.read",
-          "mcp.write",
-          "agent.use",
-          "agent.manage",
-          "memory.read",
-          "memory.write",
-          "a2a.task",
-        ],
+        scopes_supported: ["mcp.read", "mcp.write", "a2a.task"],
         bearer_methods_supported: ["header"],
+        resource_documentation: `${issuer}/docs/protocols.md`,
+      };
+      return {
+        status: 200,
+        body: metadata as unknown as Record<string, unknown>,
+        headers: {
+          "Cache-Control": "no-store",
+          "Content-Type": "application/json; charset=utf-8",
+        },
+      };
+    },
+
+    "oauth.protected_resource.path": (i: HandlerInput): HandlerOutput => {
+      const issuer = getIssuer(i.headers, d.tls, d.publicOrigin);
+      const reqResource = (i.query?.get("resource") ?? "") || (i.pathParams?.["resource"] ?? "");
+
+      if (reqResource === "a2a" || reqResource.includes("/a2a")) {
+        const metadata: OAuthProtectedResourceMetadata = {
+          resource: `${issuer}/a2a`,
+          authorization_servers: [issuer],
+          scopes_supported: ["a2a.task"],
+          bearer_methods_supported: ["header"],
+          resource_documentation: `${issuer}/docs/a2a.md`,
+        };
+        return {
+          status: 200,
+          body: metadata as unknown as Record<string, unknown>,
+          headers: {
+            "Cache-Control": "no-store",
+            "Content-Type": "application/json; charset=utf-8",
+          },
+        };
+      }
+
+      if (reqResource === "mcp" || reqResource.includes("/mcp")) {
+        const metadata: OAuthProtectedResourceMetadata = {
+          resource: `${issuer}/mcp`,
+          authorization_servers: [issuer],
+          scopes_supported: ["mcp.read", "mcp.write"],
+          bearer_methods_supported: ["header"],
+          resource_documentation: `${issuer}/docs/mcp-server.md`,
+        };
+        return {
+          status: 200,
+          body: metadata as unknown as Record<string, unknown>,
+          headers: {
+            "Cache-Control": "no-store",
+            "Content-Type": "application/json; charset=utf-8",
+          },
+        };
+      }
+
+      const metadata: OAuthProtectedResourceMetadata = {
+        resource: issuer,
+        authorization_servers: [issuer],
+        scopes_supported: ["mcp.read", "mcp.write", "a2a.task"],
+        bearer_methods_supported: ["header"],
+        resource_documentation: `${issuer}/docs/protocols.md`,
       };
       return {
         status: 200,
@@ -344,7 +408,7 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
 
     "oauth.authorize.get": async (i: HandlerInput): Promise<HandlerOutput> => {
       const oauth = getOAuthService();
-      const issuer = getIssuer(i.headers, d.tls);
+      const issuer = getIssuer(i.headers, d.tls, d.publicOrigin);
       const params = i.query ?? new URLSearchParams();
 
       const clientId = params.get("client_id") ?? "";
@@ -551,7 +615,7 @@ export function buildOAuthHandlers(d: OAuthHandlerDeps): Record<string, Handler>
 
     "oauth.authorize.post": async (i: HandlerInput): Promise<HandlerOutput> => {
       const oauth = getOAuthService();
-      const issuer = getIssuer(i.headers, d.tls);
+      const issuer = getIssuer(i.headers, d.tls, d.publicOrigin);
       const session = i.session!;
 
       let body: Record<string, unknown> = {};

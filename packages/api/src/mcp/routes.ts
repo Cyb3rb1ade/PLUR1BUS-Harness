@@ -19,6 +19,7 @@ export const MCP_ROUTES: readonly RouteSpec[] = [
     transport: "protocol",
     protocol: {
       audience: "mcp",
+      resourceMetadataPath: "/.well-known/oauth-protected-resource/mcp",
       maxBodyBytes: MCP_MAX_BODY_BYTES,
       bodyTimeoutMs: 10_000,
       handlerTimeoutMs: 60_000,

@@ -118,6 +118,7 @@ export const A2A_ROUTES: readonly RouteSpec[] = [
     transport: "protocol",
     protocol: {
       audience: "a2a",
+      resourceMetadataPath: "/.well-known/oauth-protected-resource/a2a",
       maxBodyBytes: A2A_MAX_BODY_BYTES,
       bodyTimeoutMs: 10_000,
       handlerTimeoutMs: 60_000,
@@ -189,7 +190,9 @@ export function buildA2aHandlers(
     const reqHeaders = i.headers ?? {};
     const host = (reqHeaders["host"] as string | undefined) || "127.0.0.1";
     const scheme = d.tls ? "https" : "http";
-    const baseUrl = `${scheme}://${host}`;
+    const baseUrl = d.publicOrigin && d.publicOrigin.trim().length > 0
+      ? d.publicOrigin.trim().replace(/\/+$/, "")
+      : `${scheme}://${host}`;
 
     const agentCfg = a2aConfig?.agents?.[targetAgentId]?.a2aServer;
     let card = buildAgentCard(baseUrl, targetAgentId, {
@@ -333,7 +336,9 @@ export function buildA2aHandlers(
 
       const host = (reqHeaders["host"] as string | undefined) || "127.0.0.1";
       const scheme = d.tls ? "https" : "http";
-      const baseUrl = `${scheme}://${host}`;
+      const baseUrl = d.publicOrigin && d.publicOrigin.trim().length > 0
+        ? d.publicOrigin.trim().replace(/\/+$/, "")
+        : `${scheme}://${host}`;
       const legacy03 = isLegacy03Enabled(a2aConfig);
 
       const taskStore = d.taskStore?.(agentId) ?? getTaskStore(agentId);

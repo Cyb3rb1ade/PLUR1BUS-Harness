@@ -18,6 +18,7 @@ Every route is **deny by default**: a route that is not `public` answers 401 wit
 | `POST` | `/a2a/{agentId}` | `a2a.endpoint` | session or token | `delegated` | no | rpc | experimental · 1.0.0 |
 | `GET` | `/.well-known/oauth-authorization-server` | `oauth.metadata` | public | `public` | no | read | stable · 1.0.0 |
 | `GET` | `/.well-known/oauth-protected-resource` | `oauth.protected_resource` | public | `public` | no | read | stable · 1.0.0 |
+| `GET` | `/.well-known/oauth-protected-resource/{resource}` | `oauth.protected_resource.path` | public | `public` | no | read | stable · 1.0.0 |
 | `GET` | `/oauth/authorize` | `oauth.authorize.get` | public | `public` | no | auth | experimental · 1.0.0 |
 | `POST` | `/oauth/authorize` | `oauth.authorize.post` | session | `authenticated` | yes | auth | experimental · 1.0.0 |
 | `POST` | `/oauth/token` | `oauth.token` | public | `public` | no | auth | stable · 1.0.0 |

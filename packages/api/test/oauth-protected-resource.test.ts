@@ -41,8 +41,10 @@ test("M6A-A3.3: GET /.well-known/oauth-protected-resource returns general RFC 97
   assert.deepEqual(data.bearer_methods_supported, ["header"]);
   const scopes = data.scopes_supported as string[];
   assert.ok(scopes.includes("mcp.read"));
+  assert.ok(scopes.includes("mcp.write"));
   assert.ok(scopes.includes("a2a.task"));
-  assert.ok(scopes.includes("agent.use"));
+  assert.ok(!scopes.includes("agent.use"));
+  assert.ok(!scopes.includes("memory.read"));
 });
 
 test("M6A-A3.3: GET /.well-known/oauth-protected-resource?resource=... filters by target resource", async (t) => {
@@ -95,7 +97,7 @@ test("M6A-A3.3: 401 on unauthenticated protocol route advertises WWW-Authenticat
   const authHeader = res.headers["www-authenticate"];
   assert.ok(authHeader);
   assert.match(authHeader, /^Bearer /);
-  assert.ok(authHeader.includes(`resource_metadata="http://127.0.0.1:${h.port}/.well-known/oauth-protected-resource"`));
+  assert.ok(authHeader.includes(`resource_metadata="http://127.0.0.1:${h.port}/.well-known/oauth-protected-resource/mcp"`));
 });
 
 test("M6A-A3.3: audience enforcement rejects cross-resource tokens with 401 invalid-audience", async (t) => {
@@ -186,4 +188,80 @@ test("M6A-A3.3: scope leak prevention rejects cross-audience scope requests", as
   assert.equal(a2aScopeRes.status, 302);
   const a2aLocation = new URL(a2aScopeRes.headers["location"]!);
   assert.equal(a2aLocation.searchParams.get("error"), "invalid_scope");
+});
+
+test("M6A-S6: GET /.well-known/oauth-protected-resource/{resource} path-based metadata per RFC 9728", async (t) => {
+  const h = await start({ rateClasses: wide });
+  t.after(() => h.close());
+
+  // 1. Path-based MCP metadata
+  const mcpRes = await raw(h, {
+    method: "GET",
+    path: "/.well-known/oauth-protected-resource/mcp",
+    headers: { host: `127.0.0.1:${h.port}` },
+  });
+  assert.equal(mcpRes.status, 200);
+  const mcpData = mcpRes.json as Record<string, unknown>;
+  assert.equal(mcpData.resource, `http://127.0.0.1:${h.port}/mcp`);
+  assert.deepEqual(mcpData.scopes_supported, ["mcp.read", "mcp.write"]);
+
+  // 2. Path-based A2A metadata
+  const a2aRes = await raw(h, {
+    method: "GET",
+    path: "/.well-known/oauth-protected-resource/a2a",
+    headers: { host: `127.0.0.1:${h.port}` },
+  });
+  assert.equal(a2aRes.status, 200);
+  const a2aData = a2aRes.json as Record<string, unknown>;
+  assert.equal(a2aData.resource, `http://127.0.0.1:${h.port}/a2a`);
+  assert.deepEqual(a2aData.scopes_supported, ["a2a.task"]);
+});
+
+test("M6A-S6: publicOrigin overrides Host header for issuer, resource metadata and A2A card", async (t) => {
+  const publicOrigin = "https://hub.internal.example";
+  const h = await start({
+    rateClasses: wide,
+    publicOrigin,
+    a2aConfig: {
+      a2aServer: { enabled: true },
+      agents: { main: { a2aServer: { exposed: true, name: "Main Agent" } } },
+    },
+  });
+  t.after(() => h.close());
+
+  // 1. Authorization server metadata issuer uses publicOrigin despite local Host header
+  const authServerRes = await raw(h, {
+    method: "GET",
+    path: "/.well-known/oauth-authorization-server",
+    headers: { host: `127.0.0.1:${h.port}` },
+  });
+  assert.equal(authServerRes.status, 200);
+  const authData = authServerRes.json as Record<string, unknown>;
+  assert.equal(authData.issuer, publicOrigin);
+  assert.equal(authData.authorization_endpoint, `${publicOrigin}/oauth/authorize`);
+  assert.equal(authData.token_endpoint, `${publicOrigin}/oauth/token`);
+  assert.equal(authData.revocation_endpoint, `${publicOrigin}/oauth/revoke`);
+  assert.deepEqual(authData.scopes_supported, ["mcp.read", "mcp.write", "a2a.task"]);
+
+  // 2. Protected resource metadata uses publicOrigin despite local Host header
+  const mcpMetaRes = await raw(h, {
+    method: "GET",
+    path: "/.well-known/oauth-protected-resource/mcp",
+    headers: { host: `127.0.0.1:${h.port}` },
+  });
+  assert.equal(mcpMetaRes.status, 200);
+  const mcpData = mcpMetaRes.json as Record<string, unknown>;
+  assert.equal(mcpData.resource, `${publicOrigin}/mcp`);
+  assert.deepEqual(mcpData.authorization_servers, [publicOrigin]);
+
+  // 3. A2A Agent Card uses publicOrigin despite local Host header
+  const cardRes = await raw(h, {
+    method: "GET",
+    path: "/.well-known/agent.json",
+    headers: { host: `127.0.0.1:${h.port}` },
+  });
+  assert.equal(cardRes.status, 200);
+  const card = cardRes.json as { supportedInterfaces?: Array<{ url: string }>; provider?: { url: string } };
+  assert.ok(card.supportedInterfaces?.[0]?.url.startsWith(publicOrigin));
+  assert.equal(card.provider?.url, publicOrigin);
 });

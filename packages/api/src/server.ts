@@ -102,6 +102,7 @@ export interface ApiServerOptions {
   oauthService?: import("./oauth/service.ts").OAuthService | undefined;
   oauthClients?: Record<string, import("./oauth/types.ts").OAuthClientMetadata> | undefined;
   secretRedaction?: import("../../core/src/secrets/redaction.ts").SecretRedaction | undefined;
+  publicOrigin?: string | undefined;
   /** Test seam: routes served besides the table, to prove what the dispatcher does with a route that declares nothing. */
   extraRoutes?: ReadonlyArray<{ spec: RouteSpec; handler: Handler }>;
 }
@@ -210,7 +211,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
     requireSecondFactor: o.requireSecondFactor,
     clients: o.oauthClients,
   }) : undefined);
-  const handlerDeps = { core: perRequest.core, desktopStepUp, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, sharedAddress, audit, resolveBootstrap: o.resolveBootstrap, requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor), hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length, mcpConfig: o.mcpConfig, a2aConfig: o.a2aConfig, taskStore: o.taskStore, oauthService, secretRedaction: o.secretRedaction, isRemote: !!o.remote };
+  const handlerDeps = { core: perRequest.core, desktopStepUp, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, sharedAddress, audit, resolveBootstrap: o.resolveBootstrap, requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor), hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length, mcpConfig: o.mcpConfig, a2aConfig: o.a2aConfig, taskStore: o.taskStore, oauthService, secretRedaction: o.secretRedaction, isRemote: !!o.remote, publicOrigin: o.publicOrigin ?? o.remote?.publicOrigin };
   const handlers = { ...buildHandlers(handlerDeps), ...extensionHandlers(o.core), ...buildDesktopAttachHandlers({...handlerDeps,core:o.core}, origin=>allowedOrigins.has(origin)), ...buildAccountHandlers(handlerDeps, o.accounts, o.core, o.bootstrapConsumed, !o.remote, () => { const sink=o.breakGlassAudit??o.audit; if(!sink)throw new Error("bootstrap audit unavailable"); sink.append({at:clock.now(),actor:{user:"local-owner",host:"api"},action:"account.bootstrap.commit-attempt",target:"account",detail:{}}); }),...buildWebAuthnHandlers(handlerDeps, o.accounts, (requestOrigin?: string) => o.remote?.publicOrigin ?? o.webauthnOrigin ?? requestOrigin ?? [...allowedOrigins][0]!, o.sharedWebauthnChallenges),...buildRemoteHandlers({core:o.core,home:o.home,audit:o.breakGlassAudit??o.audit,now:()=>clock.now(),certificates:o.remoteCertificates}),...buildRemotePairingHandlers(o.remotePairing) };
   if (o.webRoot !== undefined && !statSync(o.webRoot, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`webRoot ${JSON.stringify(o.webRoot)} is not a directory`);
   const staticFiles = o.webRoot !== undefined ? createStaticServer(o.webRoot) : undefined;
@@ -386,7 +387,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       let via: "session" | "token" | undefined; let tokenInfo: import("./routes.ts").HandlerInput["token"]; let tokenRecord: import("./ports.ts").TokenRecord | undefined; let rateKey: string | undefined;
       const authHeader = req.headers.authorization;
       const bearer = (spec.auth === "any" || isProtocol && spec.auth !== "none") && typeof authHeader === "string" && /^bearer(\s|$)/i.test(authHeader) ? authHeader.slice(6).trim() : undefined;
-      const protocolOrigin = o.remote?.publicOrigin || [...allowedOrigins][0] || `${tls ? "https" : "http"}://${req.headers.host ?? "127.0.0.1"}`;
+      const protocolOrigin = o.publicOrigin || o.remote?.publicOrigin || [...allowedOrigins][0] || `${tls ? "https" : "http"}://${req.headers.host ?? "127.0.0.1"}`;
       if (isProtocol && spec.auth !== "none" && (!bearer || bearer.length === 0)) {
         throw protocolUnauthenticatedError("bearer-required", protocolOrigin, spec.protocol?.resourceMetadataPath);
       }
@@ -762,6 +763,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
           const scheme = tls ? "https" : "http";
           allowedOrigins = new Set([...allowedHosts].map((h) => `${scheme}://${h}`));
           if(transport.origin){allowedHosts=new Set([transport.hostHeader!]);allowedOrigins=new Set([transport.origin]);}
+          else if(o.publicOrigin){try{const u=new URL(o.publicOrigin);allowedHosts.add(u.host.toLowerCase());allowedOrigins.add(u.origin.toLowerCase());}catch{}}
           const hostPart = bindHost.includes(":") ? `[${bindHost}]` : bindHost;
           log.info("listening", { host: bindHost, port: a.port, tls });
           resolveListen({ host: bindHost, port: a.port, url: `${scheme}://${hostPart}:${a.port}` });

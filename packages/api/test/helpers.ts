@@ -51,6 +51,7 @@ export interface StartOptions {
   breakGlassAudit?: AuditSink; auditSink?: AuditSink; noAudit?: boolean;
   /** Tailnet mode (every client arrives from 127.0.0.1) and the global cap on model-backed work. */
   remote?: ApiServerOptions["remote"]; requireSecondFactor?: ApiServerOptions["requireSecondFactor"]; expensiveConcurrency?: number;
+  publicOrigin?: string;
 }
 
 export async function start(o: StartOptions = {}): Promise<Harness> {
@@ -58,6 +59,7 @@ export async function start(o: StartOptions = {}): Promise<Harness> {
   const audit = memoryAuditSink(); const users = o.users ?? new MemoryUserDirectory();
   const sink = (level: string) => (msg: string, fields?: Record<string, unknown>) => { logs.push(JSON.stringify({ level, msg, ...fields })); };
   const api = createApiServer({
+    ...(o.publicOrigin ? { publicOrigin: o.publicOrigin } : {}),
     ...(o.home ? { home: o.home } : {}),
     ...(o.remotePairing ? { remotePairing: o.remotePairing } : {}), ...(o.remoteCertificates ? { remoteCertificates: o.remoteCertificates } : {}),
     core, ownerToken: OWNER_TOKEN, clock, users, ...(o.accounts ? { accounts: o.accounts } : {}), ...(o.noAudit ? {} : { audit: o.auditSink ?? audit }), logger: { debug: sink("debug"), info: sink("info"), warn: sink("warn"), error: sink("error") },

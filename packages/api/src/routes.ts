@@ -311,6 +311,7 @@ export interface HandlerDeps {
   oauthService?: import("./oauth/service.ts").OAuthService | undefined;
   secretRedaction?: import("../../core/src/secrets/redaction.ts").SecretRedaction | undefined;
   isRemote?: boolean | undefined;
+  publicOrigin?: string | undefined;
 }
 
 const iso8601 = (ms: number) => new Date(ms).toISOString();
