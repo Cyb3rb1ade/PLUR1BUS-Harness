@@ -36,7 +36,7 @@ export interface McpToolDef {
 }
 
 export interface McpServerConfig {
-  tools: McpToolDef[];
+  tools: readonly McpToolDef[];
   ttlMs?: number | undefined;
   agentId?: string | undefined;
   tokenId?: string | undefined;

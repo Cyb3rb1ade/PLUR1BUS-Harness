@@ -378,7 +378,7 @@ test("M6A-A2.5: agent_ask respects expensiveConcurrency and audits concurrency-l
 
     const originalImpl = h.core.impl;
     h.core.impl = async (m, p) => {
-      if (m === "chat.ask" || m === "agent.ask") {
+      if (m === "external.turn.start" || m === "chat.ask" || m === "agent.ask") {
         await turnPromise;
         return { reply: "done" };
       }

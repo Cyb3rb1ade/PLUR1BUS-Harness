@@ -4,6 +4,7 @@ import type { AddressInfo } from "node:net";
 import { describe, it } from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { ApiError } from "../src/errors.ts";
 import {
   encodeMcpHeaderValue,
   McpServerCore,
@@ -276,6 +277,51 @@ describe("M6A-A2.1: MCP Server Core (transport-neutral)", () => {
         assert.equal(badData.error.code, -32020);
       } finally {
         await srv.close();
+      }
+    });
+
+    it("M6A-S10: returns JSON-RPC error -32000 with reason core-unavailable when core service is absent", async () => {
+      const failingTool: McpToolDef = {
+        name: "failing.core",
+        description: "Fails with core unavailable",
+        inputSchema: { type: "object", properties: {} },
+        handler: async () => {
+          throw new ApiError(503, "E_CORE_UNAVAILABLE", "Core service unavailable", { reason: "core-unavailable" });
+        },
+      };
+      const customCore = new McpServerCore({ tools: [failingTool], ttlMs: 30_000 });
+      const server = createServer(async (req, res) => {
+        await customCore.handleRequest({ req, res });
+      });
+      await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const addr = server.address() as AddressInfo;
+      try {
+        const res = await fetch(`http://127.0.0.1:${addr.port}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Mcp-Protocol-Version": "2026-07-28",
+            "Mcp-Method": "tools/call",
+            "Mcp-Name": encodeMcpHeaderValue("failing.core"),
+          },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: "call-core-unavailable",
+            method: "tools/call",
+            params: {
+              name: "failing.core",
+              arguments: {},
+              _meta: { "io.modelcontextprotocol/protocolVersion": "2026-07-28" },
+            },
+          }),
+        });
+        const data = await res.json();
+        assert.equal(data.error?.code, -32000);
+        assert.equal(data.error?.message, "Core service unavailable");
+        assert.equal(data.error?.data?.reason, "core-unavailable");
+        assert.equal(data.error?.data?.error, "E_CORE_UNAVAILABLE");
+      } finally {
+        await new Promise<void>((resolve) => server.close(() => resolve()));
       }
     });
 

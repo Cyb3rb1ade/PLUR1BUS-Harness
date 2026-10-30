@@ -121,7 +121,7 @@ export class SkillsToolGroup implements McpToolGroup {
         return {
           name: skill.name,
           description: skill.description,
-          instructions: skill.instructions ?? `Instructions for ${skill.name}`,
+          instructions: skill.instructions ?? "",
           digest: skill.digest ?? createHash("sha256").update(skill.name).digest("hex"),
           files: skill.files ?? ["SKILL.md"],
         };
@@ -178,16 +178,19 @@ export class SkillsToolGroup implements McpToolGroup {
           }
         }
 
-        // Return simulated / inline resource if no disk path
-        return {
-          contents: [
-            {
-              uri,
-              mimeType: "text/plain",
-              text: skill.instructions ?? `# Skill: ${skill.name}\n\n${skill.description}`,
-            },
-          ],
-        };
+        if (skill.instructions !== undefined) {
+          return {
+            contents: [
+              {
+                uri,
+                mimeType: "text/plain",
+                text: skill.instructions,
+              },
+            ],
+          };
+        }
+
+        throw new SkillSecurityError("skill-unavailable", `No resource content available for skill: ${skillName}`);
       },
     };
 

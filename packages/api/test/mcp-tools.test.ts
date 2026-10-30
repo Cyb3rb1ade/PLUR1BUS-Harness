@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { ApiError } from "../src/errors.ts";
 import {
   AgentToolGroup,
   createDefaultToolRegistry,
@@ -197,6 +198,34 @@ test("AgentToolGroup runs agent turns and queries status", async () => {
   // 3. agent_status queries state
   const statusRes = await statusTool.handler({}, { agentId: "agent-y", core: fakeCore as any });
   assert.deepEqual(statusRes, { agentId: "agent-y", state: "busy", model: "local-model" });
+
+  // 4. M6A-S10: agent_ask and agent_status throw typed ApiError when core service is unavailable
+  const noCoreTools = group.buildTools({ agentId: "agent-y" });
+  const noCoreAsk = noCoreTools.find((t) => t.name === "agent_ask")!;
+  const noCoreStatus = noCoreTools.find((t) => t.name === "agent_status")!;
+
+  await assert.rejects(
+    async () => {
+      await noCoreAsk.handler({ message: "Hello" });
+    },
+    (err: any) => err instanceof ApiError && err.status === 503 && err.error === "E_CORE_UNAVAILABLE" && err.reason === "core-unavailable",
+  );
+
+  await assert.rejects(
+    async () => {
+      await noCoreStatus.handler({});
+    },
+    (err: any) => err instanceof ApiError && err.status === 503 && err.error === "E_CORE_UNAVAILABLE" && err.reason === "core-unavailable",
+  );
+
+  // 5. M6A-S10: McpServerCore executeTool throws McpError -32000 with core-unavailable
+  const failingServer = new McpServerCore({ tools: [...noCoreTools], agentId: "agent-y" });
+  await assert.rejects(
+    async () => {
+      await failingServer.executeTool("agent_ask", { message: "Hello" });
+    },
+    (err: any) => err.code === -32000 && err.data?.reason === "core-unavailable",
+  );
 });
 
 test("SkillsToolGroup lists, retrieves metadata and reads resources safely", async () => {

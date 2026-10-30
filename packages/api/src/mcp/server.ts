@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError } from "@modelcontextprotocol/sdk/types.js";
+import { ApiError } from "../errors.ts";
 import { buildToolHeaderExtractor, encodeMcpHeaderValue } from "./headers.ts";
 import {
   MCP_DEFAULT_TOOL_TTL_MS,
@@ -151,6 +152,17 @@ export class McpServerCore {
         content: [{ type: "text", text }],
       };
     } catch (err) {
+      if (
+        (err instanceof ApiError && (err.error === "E_CORE_UNAVAILABLE" || err.reason === "core-unavailable")) ||
+        (err instanceof Error && /core.*unavailable/i.test(err.message)) ||
+        (err as any)?.reason === "core-unavailable" ||
+        (err as any)?.code === -32000
+      ) {
+        throw new McpError(-32000, err instanceof Error ? err.message : "Core service unavailable", {
+          error: "E_CORE_UNAVAILABLE",
+          reason: "core-unavailable",
+        });
+      }
       return {
         content: [{ type: "text", text: err instanceof Error ? err.message : "Tool execution failed" }],
         isError: true,
@@ -194,6 +206,17 @@ export class McpServerCore {
           isError: false,
         };
       } catch (err) {
+        if (
+          (err instanceof ApiError && (err.error === "E_CORE_UNAVAILABLE" || err.reason === "core-unavailable")) ||
+          (err instanceof Error && /core.*unavailable/i.test(err.message)) ||
+          (err as any)?.reason === "core-unavailable" ||
+          (err as any)?.code === -32000
+        ) {
+          throw new McpError(-32000, err instanceof Error ? err.message : "Core service unavailable", {
+            error: "E_CORE_UNAVAILABLE",
+            reason: "core-unavailable",
+          });
+        }
         return {
           content: [{ type: "text", text: err instanceof Error ? err.message : "Tool execution failed" }],
           isError: true,
@@ -433,6 +456,18 @@ export class McpServerCore {
           });
           return;
         } catch (err) {
+          if (
+            (err instanceof ApiError && (err.error === "E_CORE_UNAVAILABLE" || err.reason === "core-unavailable")) ||
+            (err instanceof Error && /core.*unavailable/i.test(err.message)) ||
+            (err as any)?.reason === "core-unavailable" ||
+            (err as any)?.code === -32000
+          ) {
+            sendJsonRpcError(res, requestId, -32000, err instanceof Error ? err.message : "Core service unavailable", {
+              error: "E_CORE_UNAVAILABLE",
+              reason: "core-unavailable",
+            });
+            return;
+          }
           const text = err instanceof Error ? err.message : "Tool call failed";
           sendJsonRpcResult(res, requestId, {
             resultType: "complete",

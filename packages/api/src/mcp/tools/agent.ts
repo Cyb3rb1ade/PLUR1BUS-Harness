@@ -1,4 +1,5 @@
 import { createSecretRedaction, redactProtocolValue } from "../../../../core/src/secrets/redaction.ts";
+import { ApiError } from "../../errors.ts";
 import type { McpToolContext, McpToolDef } from "../types.ts";
 import type { McpToolGroup } from "./group.ts";
 
@@ -34,7 +35,7 @@ export class AgentToolGroup implements McpToolGroup {
         const core = toolCtx?.core ?? ctx.core;
 
         if (!core || typeof (core as any).call !== "function") {
-          throw new Error("Core service unavailable");
+          throw new ApiError(503, "E_CORE_UNAVAILABLE", "Core service unavailable", { reason: "core-unavailable" });
         }
 
         const tokenId = toolCtx?.tokenId ?? ctx.tokenId;
@@ -62,7 +63,7 @@ export class AgentToolGroup implements McpToolGroup {
         const core = toolCtx?.core ?? ctx.core;
 
         if (!core || typeof (core as any).call !== "function") {
-          throw new Error("Core service unavailable");
+          throw new ApiError(503, "E_CORE_UNAVAILABLE", "Core service unavailable", { reason: "core-unavailable" });
         }
 
         const res = await (core as any).call("agent.read", { agentId });

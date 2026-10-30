@@ -1,4 +1,5 @@
 import { createSecretRedaction, redactProtocolValue } from "../../../../core/src/secrets/redaction.ts";
+import { ApiError } from "../../errors.ts";
 import type { McpToolContext, McpToolDef } from "../types.ts";
 import type { McpToolGroup } from "./group.ts";
 
@@ -99,7 +100,7 @@ export class MemoryToolGroup implements McpToolGroup {
           const core = toolCtx?.core ?? ctx.core;
 
           if (!core || typeof (core as any).call !== "function") {
-            throw new Error("Core memory storage unavailable");
+            throw new ApiError(503, "E_CORE_UNAVAILABLE", "Core memory storage unavailable", { reason: "core-unavailable" });
           }
 
           const userId = toolCtx?.rbac?.userId ?? ctx.rbac?.userId ?? "mcp-caller";
