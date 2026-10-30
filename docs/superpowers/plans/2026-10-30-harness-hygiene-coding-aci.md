@@ -3,15 +3,17 @@
 **Goal.** Measure the prompt first (cache-hit rate, fixed overhead, cache-miss causes, a recorded `turn-eval-live`
 baseline), then make large tool results an envelope instead of a failure, give our own agent a coding ACI (anchored edits,
 a tree-sitter pre-write gate, outlines and symbol queries, crushed sensor output shared with the D98 gate), let people
-steer running turns and rewind with a lesson, prove every tool execution passes the one gate, and prepare Phase 4, as
-specified in [`2026-10-30-harness-hygiene-coding-aci-design.md`](../specs/2026-10-30-harness-hygiene-coding-aci-design.md)
+steer running turns and rewind with a lesson, give our agent its own coding CLI (`plur1bus code`, line-based then a TUI)
+and an ACP coding mode, measure all coding work on an own licence-clean benchmark set, prove every tool execution passes
+the one gate, and prepare Phase 4, as specified in [`2026-10-30-harness-hygiene-coding-aci-design.md`](../specs/2026-10-30-harness-hygiene-coding-aci-design.md)
 (cited as "spec §n"; register entry D120 proposed).
 **Architecture.** New components are Rust in one supervised module process, `plur1bus-tools` (`crates/plur1bus-tools`,
 `x-server: "tools"`), called by the TypeScript core over the harness RPC (spec §5, §12.3); changes to existing TypeScript
 (telemetry, turn loop, router, web, session store) stay TypeScript until their Phase 4 step (owner decision 3, spec §13).
-**Status.** Plan only. Owner decisions of 2026-10-30 recorded (spec §2); Q1–Q19 open (spec §18), every package assumes the
-recommendation until the owner answers. **Gate:** H2-3 (the baseline) lands before any package that changes behaviour;
-every later package reports its delta against it in its PR (spec §6.4).
+**Status.** Plan only. Owner decisions of 2026-10-30 recorded (spec §2, decisions 1–6); Q18 and Q20 decided the same day,
+the other questions open (spec §18), and every package assumes the recommendation until the owner answers. **Gates:** H2-3
+(the general baseline) lands before any package that changes behaviour, and B1 (the coding benchmark baseline) before
+the first ACI package; every later package reports its delta against them in its PR (spec §6.4, §6.6).
 **Constraints.** JSON Schema stays the single source: every RPC addition carries `x-server`, `x-stability:
 "experimental"`, `x-since` (the next free minor at implementation time) and closed params; every config key `x-restart`
 and `x-tier`; no new RPC error codes (new reason strings only, in `docs/errors.md`); no network in tests (fake servers on
@@ -34,7 +36,11 @@ force-push, rebase, amend or stash; commits carry the owner's identity.
    approval never becomes a grant (spec §9.1, §9.4).
 6. Rewind never rewrites messages or events; the hidden branch and its digest stay in the store and the audit chain
    (spec §10).
-7. Every package's PR carries its delta against the H2 baseline (spec §6.4, §16).
+7. Every package's PR carries its delta against the H2 baseline and, for coding work, the B1 baseline (spec §6.4, §6.6,
+   §16).
+8. `plur1bus code` and the ACP coding mode never answer an approval on their own and bind only granted roots
+   (spec §8.8, §8.9).
+9. The benchmark job never puts a secret into a log or an uploaded report (spec §6.6).
 
 ## Dependencies and order
 
@@ -42,7 +48,8 @@ force-push, rebase, amend or stash; commits carry the owner's identity.
 WP0 owner answers, D120, ADR-019 text
  └─► H2-1 cache telemetry ─► H2-2 overhead + doctor rows ─► H2-3 live baseline (GATE) ─► H2-4 tool admission
                                                                    │
-      ┌────────────────────────────────────────────────────────────┘
+                                                                   └─► B1 coding benchmark + baseline (GATE for ACI)
+      ┌──────────────────────────────────────────────────────────────────────────────┘
       ▼
  H1-1 plur1bus-tools skeleton ─► H1-2 artifact store ─► H1-3 crushers ─► H1-4 dispatcher integration + artifact.read
       │
@@ -50,21 +57,26 @@ WP0 owner answers, D120, ADR-019 text
                                                                          │
  H3-1 steering core ─► H3-2 steering surfaces ◄───────────────────────────┘ (order only; no code dependency on C3)
       ▼
+ CLI-1 plur1bus code, line-based (needs C1–C3, H3-1) ─► CLI-ACP coding mode over ACP
+      ▼
  C4 sensors + D98 (needs H1-3, H1-4) ─► H4 rewind with lesson ─► T1-a architecture test ─► T1-b Rust typestate
       ▼
- P4-spike (after T1-b; Phase 4 itself starts after RE-11)
+ CLI-2 full-screen TUI (needs CLI-1) ─► P4-spike (Phase 4 itself starts after RE-11)
  M6-Pi verification: independent, after PR #820 merges
 ```
 
-The sequence follows the owner's order H2 → H1 → C1/C2 → C3 → H3 → C4 → H4 → T1 → P4-spike. Stack a PR on its
-predecessor (`--base`) only where it needs that code: H1-2/H1-3 on H1-1, H1-4 on H1-2 and H1-3, C1 on H1-1, C2 on C1, C3
-on C2, H3-2 on H3-1, C4 on H1-4, T1-b on C2.
+The sequence follows the owner's order H2 → B1 → H1 → C1/C2 → C3 → H3 → CLI-1 → C4 → H4 → T1 → CLI-2 → P4-spike: the
+benchmark right after H2 so every ACI package is measured against it, the line-based CLI after C1–C3 and H3, the TUI
+later. Stack a PR on its predecessor (`--base`) only where it needs that code: H1-2/H1-3 on H1-1, H1-4 on H1-2 and H1-3,
+C1 on H1-1, C2 on C1, C3 on C2, H3-2 on H3-1, CLI-1 on C3 and H3-1, CLI-ACP on CLI-1, C4 on H1-4, T1-b on C2, CLI-2 on
+CLI-1.
 
 ---
 
 ## WP0 — Owner answers, register entry, ADR text (0.5 agent days; Claude, docs)
 
-Record the owner's answers to Q1–Q19 in spec §18 and adjust the packages they change; enter D120 in the core spec's
+Record the owner's answers to the open questions of spec §18 (Q18 and Q20 are decided) and adjust the packages they
+change; enter D120 in the core spec's
 register (`docs/superpowers/specs/2026-09-24-m1b-2a-core-daemon-cli-design.md` §2); write `docs/adr/ADR-019-rust-new-components-and-core-strangler.md`
 from spec §13 (status Proposed until the owner accepts), add the amendment note to ADR-012's status line and after its
 §2, and mark the RE-D9 row in `docs/superpowers/plans/2026-10-23-rust-engine-rewrite.md` §6 and in
@@ -95,16 +107,15 @@ when it is up. Tests: overhead for a fixture agent with known zone texts; Rust t
 core; `crates/plur1bus/tests/cli_surface.rs` and the skill-freshness test updated. Docs: `docs/doctor.md`, the operations
 skill's diagnose playbook. Acceptance: `plur1bus --json 1staid check` lists the rows; `doctor.report` shows them.
 
-## H2-3 — The `turn-eval-live` baseline (2.5 agent days + an owner credentials run; Sonnet, TypeScript) — GATE
+## H2-3 — The `turn-eval-live` baseline (1.5 agent days + an owner credentials run; Sonnet, TypeScript) — GATE
 
 Extend `packages/core/src/toolcall/turn-eval-live.ts` and `scripts/eval/turn-eval.ts` reports with provider cache-read
 share per scenario and provider, fixed overhead per agent, inline tool-result bytes and tokens (p50/p95), counts of
-`tool-result-too-large` and opaque-pointer results, rounds, turns and wall time; add the coding scenario set of spec §6.4
-(three fixture repositories under `tests/fixtures/coding/{rust,ts,python}` with failing tests, a rename and an addition,
-each verified by its own test command) to the turn-eval corpus and to `host-eval`; run the fixture regression and one
-live run with the configured models; commit the report as `docs/evals/2026-10-baseline-harness-hygiene.md` (models, dates,
-denominators, no credentials). Tests: report schema tests, the fixture corpus green in regression mode, a scripted run
-that produces every new field. Acceptance: the baseline exists and every later PR can be compared with it.
+`tool-result-too-large` and opaque-pointer results, rounds, turns and wall time; run the fixture regression and one live
+run with the configured models; commit the report as `docs/evals/2026-10-baseline-harness-hygiene.md` (models, dates,
+denominators, no credentials). The coding tasks moved to B1 (spec §6.6). Tests: report schema tests, the fixture corpus
+green in regression mode, a scripted run that produces every new field. Acceptance: the baseline exists and every later
+PR can be compared with it.
 
 ## H2-4 — Tool admission without a full cache miss (2.5 agent days; Sonnet, TypeScript; after H2-3's numbers)
 
@@ -116,6 +127,22 @@ tools, and `tool.invoke` as a composition-level rewrite into an ordinary dispatc
 `tool.invoke` call produces exactly the policy decision, approval and audit records a direct call produces; turn-eval
 tool-prefix changes stay 0/24. Docs: `docs/tool-reliability.md`, `docs/composition.md`. Acceptance: `tools-changed`
 misses per session ≤ 1 on the live corpus with no lower needed-tool hit rate than the baseline.
+
+## B1 — Coding benchmark set and its baseline (4 agent days + an owner credentials run; Sonnet, TypeScript + task fixtures) — GATE for ACI
+
+Author the 24 tasks of spec §6.6 under `tests/bench/coding/<id>/` (`task.json`, starting tree, reference solution,
+hidden checker, seed generator; Rust, TypeScript, Python, Go, shell; 8 easy, 8 medium, 8 hard; MIT, no upstream content
+per Q21); a runner `packages/core/src/toolcall/coding-bench.ts` with a script `scripts/eval/coding-bench.ts` that
+provisions a fresh git worktree per task and seed, runs the checker in the verifier sandbox, and drives the agent through
+the turn path with the coding profile (`--fixture` self-test without a model; `--live` with the `turn-eval-live` model
+list); a `host-eval` hook for host-adapter subjects; a nightly job `coding-bench-live` in `.github/workflows/nightly.yml`
+that copies `turn-eval-live`'s secret pattern (setup step writes the eval store; the run step has no secret; the eval home
+is deleted at the end) and uploads only the redacted report; a canary secret in the eval store that the job searches for
+in its log and report; the paired comparison (sign test or McNemar, counts shown) in the report; the baseline on today's
+tools committed as `docs/evals/2026-10-baseline-coding-bench.md`. Tests: the fixture self-test in the per-PR suite (every
+checker fails on the start and passes on the reference for three seeds), report schema tests, the canary test. Docs:
+`docs/turn-eval.md` (a coding-bench section), `docs/ci.md` (the new nightly job). Acceptance: spec §16 B1 row; H1-1
+does not start before the baseline is committed.
 
 ## H1-1 — `plur1bus-tools` skeleton, RPC server, supervisor slot (3 agent days; Claude agent, Rust + TypeScript)
 
@@ -220,6 +247,33 @@ Tests: router prefix, sender rule and bound; web key bindings and chips; voice b
 `docs/switchboard.md`, `docs/web-ui.md`, `docs/voice-local.md`. Acceptance: a person can steer from the web, Telegram and
 voice in the system tests.
 
+## CLI-1 — `plur1bus code`, line-based (7 agent days; Claude agent, Rust + a small TypeScript core method)
+
+`crates/plur1bus/src/commands/code/` (`mod.rs` binding and session, `stream.rs` the two-connection event reader,
+`render.rs` line renderer with inline diffs and envelope summaries, `input.rs` the `reedline` editor with Enter = steer,
+Alt+Enter = queue, `/steer`, `/queue`, `/unqueue`, Ctrl+C/Ctrl+D, `approve.rs` inline approvals through `approval.decide`,
+`commands.rs` for `/check`, `/diff`, `/done`, `/rewind`, `/compact`, `/model`, `/help`), the `Code(CodeArgs)` entry in
+`crates/plur1bus/src/cli.rs` sharing `pick_agent` and the model switch with `commands/session.rs`; the core method
+`code.session.open` (RPC schema, handler beside `rpc/chat-surface.ts`, D115 card binding through `ProjectWorktreePort`,
+`session_worktrees` in session schema v10, the D109 grant request for a folder that is not a granted root) and the coding
+profile (pre-admitted ACI tools, the static coding section in zone 2); `reedline` 0.52.1 through the dependency gate
+(`deny.toml`, `docs/dependency-policy.md`, `THIRD_PARTY*`); the non-interactive mode with `code.event/1` documents. Spec
+§8.8, Q22–Q25. Tests: Rust unit tests for key handling (Enter and Alt+Enter while busy and idle), the renderer against
+recorded event streams (diff folding, envelopes, `NO_COLOR`), approval prompts answered from a scripted TTY, non-TTY runs
+answering "no"; `crates/plur1bus/tests/cli_surface.rs`; a core test for `code.session.open` (card binding, refusal of an
+ungranted folder without a person, grant path with one); an end-to-end run of two benchmark tasks through
+`plur1bus code --json` against a fake provider. Docs: `docs/cli.md` (generated from the clap tree), a coding-mode section
+in `docs/user/`, the operations skill. Acceptance: spec §16 CLI-1 row.
+
+## CLI-ACP — The coding mode over `plur1bus acp serve` (2 agent days; Sonnet, TypeScript)
+
+`packages/core/src/acp/`: `--profile coding`, ACP session modes (`chat`, `coding`, `session/set_mode`), `cwd` binding through
+`code.session.open` (refusal for a folder that is not a granted root), `diff` content on `file.edit`/`file.write` tool calls,
+D109 approvals as `session/request_permission` with the option mapping of spec §8.9, the extension methods
+`_app.plur1bus/steer` and `_app.plur1bus/follow_up` advertised in `agentCapabilities._meta`; the CLI flag in
+`crates/plur1bus/src/cli.rs`. Tests: the ACP test client (`packages/core/test/acp/`) for each mapping, unknown custom
+methods still `-32601`, the stderr rule (no prompt text) unchanged. Docs: `docs/acp.md`. Acceptance: spec §16 CLI-ACP row.
+
 ## C4 — Sensors and the D98 gate (2.5 agent days; Sonnet, TypeScript; crushers from H1-3)
 
 `collab/verifier.ts`: spool check output to an artifact (cap 16 MiB per check) instead of stopping at 64 KiB; evidence is
@@ -233,7 +287,7 @@ skips review or the manifest check. Docs: `docs/collaboration.md`, the D98 secti
 
 ## H4 — Rewind with lesson (3 agent days; Sonnet or Opus, TypeScript)
 
-Session schema v10 (`path_rewinds`, spec §10.1) in `session/migrations.ts`; the active-path filter wherever the prompt is
+Session schema v11 (`path_rewinds`, spec §10.1; v10 is CLI-1's `session_worktrees`) in `session/migrations.ts`; the active-path filter wherever the prompt is
 built and in compaction (`session/compaction.ts`, summaries overlapping a hidden range dropped from the view); `/rewind` as
 a transcript command in `session/turn-loop.ts`; `chat.rewind`/`session.rewind` and `--undo` in `rpc/chat-surface.ts` with
 the audit record and `hiddenDigest`; lesson distillation through the `summarize` role with the deterministic fallback;
@@ -258,6 +312,17 @@ expiry, single use by call id, recomputed action hash with canonical JSON), ever
 Tests: forged, expired, replayed and hash-mismatched tickets refused; doctests prove the types. Acceptance: spec §16 T1
 row.
 
+## CLI-2 — Full-screen TUI for `plur1bus code` (9 agent days; Claude agent, Rust)
+
+`crates/plur1bus/src/commands/code/tui/` on `ratatui` 0.30.x and `crossterm` 0.29 (through the dependency gate; licences
+and the `lru 0.18` unification checked in spec §8.8) behind a default-on cargo feature `tui`: transcript pane, tool and
+diff pane with scrolling and folding, status line (model, tokens, cache-hit, budget, worktree, branch), approval modal,
+queue list, the same keys as CLI-1, resize and mouse-free operation, a clean terminal restore on panic and signal;
+`plur1bus code --tui`, with the line mode as the fallback for dumb terminals and pipes; the same session, stream and
+approval layer as CLI-1 (no second RPC path). Tests: frame snapshots with ratatui's test backend for the main states,
+key handling, terminal restore after a panic, `--help` p95 under 100 ms with the feature on; manual checks on the five
+release targets (U18). Docs: `docs/cli.md`, the user guide. Acceptance: spec §16 CLI-2 row.
+
 ## P4-spike — Phase 4 dependency spike and estimate (2 agent days; Claude agent, Rust)
 
 On a throwaway branch: compile each candidate of spec §12.5 for the five release targets, run `cargo deny`, record binary
@@ -267,20 +332,23 @@ the owner can decide Q19 with numbers.
 
 ## M6-Pi — Pi over ACP verification (1.5 agent days + owner; Claude agent; after PR #820)
 
-Install Pi and `pi-acp` (pinned versions) in a provisioned worktree; run the spec §14 table against the three fixture
-repositories through PR #820's ACP client; record pass, partial or fail with evidence in `docs/acp.md` (a verification
-section) and in ADR-011's connector catalogue row; put Q18 to the owner with the measured gaps. No native-RPC code.
-Acceptance: the table is filled and Q18 is answered or explicitly parked.
+Install Pi and `pi-acp` (pinned versions) in a provisioned worktree; run the spec §14 table against repository tasks of
+the benchmark set (B1) through PR #820's ACP client; record pass, partial or fail with evidence in `docs/acp.md` (a
+verification section) and in ADR-011's connector catalogue row, labelling `pi-acp` an optional third-party attachment
+with the accepted limits (Q18, decided 2026-10-30). No native-RPC code. Acceptance: the table is filled.
 
 ## Estimate
+
+In execution order:
 
 | Package | Agent days | Executor |
 |---|---|---|
 | WP0 | 0.5 | Claude (docs) |
 | H2-1 | 2 | **Sonnet (first)** |
 | H2-2 | 1.5 | Claude agent (Rust part) |
-| H2-3 | 2.5 + owner run | Sonnet |
+| H2-3 | 1.5 + owner run | Sonnet |
 | H2-4 | 2.5 | Sonnet |
+| B1 | 4 (3–5) + owner run | Sonnet |
 | H1-1 | 3 | Claude agent (Rust) |
 | H1-2 | 2 | Claude agent (Rust) |
 | H1-3 | 3 | Claude agent (Rust) |
@@ -290,16 +358,24 @@ Acceptance: the table is filled and Q18 is answered or explicitly parked.
 | C3 | 3 | Claude agent (Rust) |
 | H3-1 | 3 | Opus or Sonnet |
 | H3-2 | 2.5 | Sonnet |
+| CLI-1 | 7 (6–9) | Claude agent (Rust) |
+| CLI-ACP | 2 (1.5–3) | Sonnet |
 | C4 | 2.5 | Sonnet |
 | H4 | 3 | Sonnet or Opus |
 | T1-a | 1 | Sonnet |
 | T1-b | 2 | Claude agent (Rust) |
+| CLI-2 | 9 (8–11) | Claude agent (Rust) |
 | P4-spike | 2 | Claude agent |
 | M6-Pi | 1.5 + owner | Claude agent |
-| **Total** | **45.5** (range 40–56 with review rounds) | |
+| **Total** | **66.5** (range 58–83 with review rounds) | |
 
-Phase 4 itself is not estimated here; the P4 spike produces that estimate. Reviews follow the repository's rules
-(`CLAUDE.md`); the controller watches CI and merges.
+The total was 45.5 (range 40–56) before the owner decisions 5 and 6. The new packages add 22 days (B1 4, CLI-1 7,
+CLI-ACP 2, CLI-2 9); H2-3 drops from 2.5 to 1.5 because its coding scenarios moved into B1. The owner's rough ranges were
+6–10 for the line-based CLI (refined to 7: binding and core method 1.5, streaming renderer 1.5, line editor and keys 1,
+inline approvals 1, diffs 0.5, commands 0.5, non-interactive mode and tests 1), 8–12 for the TUI (refined to 9) and 3–5
+for the benchmark (refined to 4: 24 tasks with checkers and seeds 2.5, runner and nightly job 1, baseline 0.5); CLI-ACP is
+new (2). Phase 4 itself is not estimated here; the P4 spike produces that estimate. The nice-to-have item below is not in
+the total. Reviews follow the repository's rules (`CLAUDE.md`); the controller watches CI and merges.
 
 ## The first Sonnet-sized package
 
@@ -307,3 +383,49 @@ Phase 4 itself is not estimated here; the P4 spike produces that estimate. Revie
 days, built on code that already exists (`prompt/telemetry.ts`, `usage_event`), with crisp tests (one attribution per
 cause, window maths against hand-computed rows), and it produces the number H2-4 and every later package depend on. T1-a
 is the fallback first package if a second agent is free (independent, one day).
+
+## Nice to have (not scheduled, not in the totals)
+
+The repository has no shared backlog or nice-to-have list: `docs/milestones.md` §7 lists what is out of scope for
+v0.1.0, and single plans keep their own "later" sections (for example the workload-identity plan's "Later packages" and
+the desktop SSH plan's "WP7 — Later options"). Following that convention, this plan keeps its nice-to-have items here.
+
+### NTH-1 — Our own Pi-ACP adapter (rough 6–8 agent days; owner decision 6, 2026-10-30)
+
+**Why it would exist.** Third-party `pi-acp` (the optional attachment that stays) lets Pi read, write and execute on its
+own: no ACP `fs/*` or `terminal/*` delegation, no per-tool permission requests, MCP servers not wired, steering only as
+cancel plus re-prompt (spec §14). Our own adapter would run harness tools inside Pi, so harness policy, approvals, the
+sandbox, redaction, D98, H1 offloading and `file.edit` apply to Pi's work.
+
+**Design, so it can be picked up later.**
+
+- **Pi SDK, not RPC mode.** The adapter is an ACP agent (stdio, schema v1) that embeds Pi through its SDK:
+  `createAgentSession({ customTools, … })` with Pi's built-in `read`, `write`, `edit` and `bash` disabled (`setActiveTools`
+  per the owner's note, or the documented `tools`/`noTools`/`excludeTools` options of `createAgentSession`) and replaced by
+  custom tools that delegate to the ACP client: `fs/read_text_file`, `fs/write_text_file` and `terminal/create`,
+  `terminal/output`, `terminal/wait_for_exit`, `terminal/kill`, `terminal/release`. With the harness as the ACP client
+  (PR #820), every read, write and command then passes the harness's worktree containment, D109 policy and approvals,
+  the sandbox, redaction, H1 offloading and D98; a harness-side `file.edit` can be exposed to Pi as a custom tool too.
+- **Permissions.** Pi's `tool_call` hook maps to ACP `session/request_permission` before a tool runs; the answer
+  (allow once, allow always, reject) decides whether the call proceeds. The harness side turns that request into a D109
+  approval for subject `acp-agent` (as #820 already does).
+- **Steering.** ACP v1 has no steer method. Following ACP's extensibility rules (custom methods start with an underscore
+  and carry a reverse-DNS prefix; support is advertised in `_meta` of the capability object), the adapter advertises
+  `agentCapabilities._meta["app.plur1bus/steer"]` and `["app.plur1bus/follow_up"]` and serves `_app.plur1bus/steer` and
+  `_app.plur1bus/follow_up { sessionId, prompt }`, mapped to Pi's `steer` and `follow_up` (or `prompt` with
+  `streamingBehavior: "steer" | "followUp"`). **Semantics differ:** Pi delivers a steer after the current assistant turn
+  has finished executing its tool calls, before the next model call (pi.dev, `docs/latest/rpc-commands`), so the step's
+  remaining calls run rather than being skipped as decision 2 specifies for our own agent. The harness's ACP client sends
+  these methods when the capability is advertised and falls back to `session/cancel` plus a new prompt otherwise.
+- **MCP.** MCP servers passed in `session/new` are connected by the adapter and registered as Pi custom tools, so Pi sees
+  the harness's MCP servers (closing pi-acp's "accepted but not wired" gap).
+- **Language exception.** The adapter runs inside Pi's Node runtime, so it is TypeScript: a documented exception to
+  option B (ADR-019 rule 1), limited to this adapter.
+- **Pinning and parity.** An exact Pi version pin (`@earendil-works/pi-coding-agent`, 1.4.0 at the time of writing) and
+  parity tests that run the spec §14 table against both `pi-acp` and our adapter on benchmark tasks; a Pi update moves
+  the pin only with green parity tests.
+- **To check before scheduling:** Pi's licence at the pinned version (GitHub detects MIT for `earendil-works/pi` and npm
+  lists MIT for 1.4.0; the LICENSE file decides, spec U19); whether a same-name `registerTool` overrides a built-in tool,
+  whether `setActiveTools` exists on the SDK or only on the extension API, and whether a `tool_call` handler can block a
+  call (spec U16); where the adapter lives (its own small package or repository, since the harness core must not depend
+  on Pi).

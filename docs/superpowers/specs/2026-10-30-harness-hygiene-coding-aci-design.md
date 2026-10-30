@@ -1,8 +1,10 @@
 # Harness hygiene, steering, rewind and the coding ACI — design
 
-**Status:** Specification and plan only, no product code. Owner decisions of 2026-10-30 incorporated (§2); open
-questions in §18 · **Date:** 2026-10-30 · **Owner:** Christian (Cyb3rb1ade) · **Tracks:** harness hygiene (H1–H4),
-coding ACI (C1–C4), typestate gate (T1), core Phase 4 (P4), M6 Pi verification · **Proposed register entry:** **D120**
+**Status:** Specification and plan only, no product code. Owner decisions of 2026-10-30 incorporated (§2: the four
+founding decisions, then decisions 5 and 6 on our own coding CLI and on Pi; Q18 and Q20 decided); open questions in §18 ·
+**Date:** 2026-10-30 · **Owner:** Christian (Cyb3rb1ade) · **Tracks:** harness hygiene (H1–H4), coding ACI (C1–C4),
+coding benchmark (B1), coding CLI (CLI-1, CLI-ACP, CLI-2), typestate gate (T1), core Phase 4 (P4), M6 Pi verification ·
+**Proposed register entry:** **D120**
 in the core spec's register ([`2026-09-24-m1b-2a-core-daemon-cli-design.md`](2026-09-24-m1b-2a-core-daemon-cli-design.md)
 §2), not entered yet. D117 is proposed by [`2026-10-21-media-image-verify-design.md`](2026-10-21-media-image-verify-design.md),
 D118 and D119 by open PR #825 (`docs/primary-client-role-switch`); no other open PR (#820, #829, #831) or local branch
@@ -49,10 +51,17 @@ and the npm registry on 2026-10-30 (§12.5).
    Rust typestate for the new Rust components (T1).
 7. The path to a Rust core is written down: Rust for every new component now, a strangler-style Phase 4 after RE-11,
    and the ADR text that records it (P4, §13).
+8. `plur1bus code` is the coding mode of our own agent in the terminal: it binds a repository or worktree, loads the
+   coding profile with the ACI tools, streams the turn with inline diffs and inline approvals, and takes steer and queue
+   input while a turn runs; line-based first, a full-screen TUI later, both Rust. The same mode and profile are offered
+   to editors over `plur1bus acp serve` (§8.8, §8.9).
+9. An own, licence-clean coding benchmark set runs nightly through `host-eval` and `turn-eval-live`, with a recorded
+   baseline that every ACI package is measured against (B1, §6.6).
 
 **Non-goals.** A JSONL session DAG, a hard 1,000-token system-prompt cap and a big-bang rewrite (§15). An LSP client
 (tree-sitter covers syntax and names, not types). Semantic references across files (C3 is name-based). Replacing the
-D98 gate or its review rule. Native (non-ACP) attachment of Pi or any other agent (owner decision 4; §14). Video or
+D98 gate or its review rule. Native (non-ACP) attachment of Pi or any other agent (owner decision 4; §14); our own
+Pi-ACP adapter is on the plan's nice-to-have list, designed but not scheduled (decision 6). Video or
 image artifacts (H1 handles text and JSON tool results; media keep their own store). Any USD figure (owner 2026-10-19:
 budgets count tokens, turns and time).
 
@@ -64,6 +73,8 @@ budgets count tokens, turns and time).
 | 2 | Steering must work in channels and in the web UI. A message arriving mid-turn can steer: it is delivered after the running tool finishes and the remaining tool calls of that step are cancelled. The follow-up queue stays. Align with the voice barge-in. | §9 |
 | 3 | Language path, option B: every new component of this spec is Rust from the start, called by the TypeScript core over RPC (the RE-D1 pattern: supervised process plus harness RPC). After RE-11 the TypeScript core moves to Rust step by step as "Phase 4", strangler-style. This amends RE-D9 and ADR-012 D7. | §5, §12, §13 |
 | 4 | Other agents attach only via ACP and MCP. Pi through `svkozak/pi-acp`. An M6 verification covers sessions, cancel/steer and permissions; if ACP is insufficient, that is an owner question before any native-RPC fallback. | §14, Q18 |
+| 5 | **Our own coding CLI: yes** (second set, 2026-10-30). `plur1bus code` is the coding mode of our own agent on the D120 ACI: it binds a repo or worktree (reusing the D115 `ProjectWorktreePort` and D98 where they fit), loads a coding profile with the ACI tools, follows Q9 for steer and queue keys in the terminal, shows diffs and approvals inline; line-based first, a full-screen TUI later, both Rust, reusing the existing CLI (`plur1bus chat`) and the core RPC. `plur1bus acp serve` stays the editor attachment and offers the coding mode too. Plus an own coding benchmark set in the nightly through `host-eval`/`turn-eval-live`, licence-clean, with a baseline and per-package deltas and no secrets in CI logs. | §6.6 (B1), §8.8, §8.9, Q20 |
+| 6 | **Pi** (second set, 2026-10-30): only the third-party `pi-acp` stays, as an optional attachment; the M6 verification runs as planned; Q18 is decided as recommended (accept the ACP limits). Our own Pi-ACP adapter goes onto a nice-to-have list with its design. | §14, Q18, plan "Nice to have" |
 
 Decision 3's history matters for the ADR text: the owner originally wanted everything in Rust. ADR-012 §2 put the core in
 TypeScript for two reasons, "the engine is Node, and MCP/ACP/A2A SDKs are TypeScript". The first reason disappears with
@@ -214,14 +225,13 @@ Before any behaviour change lands, H2 records a baseline on the current tools (`
 the existing live gates (needed-tool hits, missing tools, unnecessary use, skill-load hits, policy violations), plus
 **provider cache-read share per scenario and provider**, fixed overhead per agent, tool-result bytes and tokens inline
 (p50/p95), the count of `tool-result-too-large` and opaque-pointer results, rounds and turns per task, and wall time. The
-corpus gains a **coding scenario set**: three small fixture repositories (Rust, TypeScript, Python) with tasks "make the
-failing test pass", "rename a symbol across files", "add a function with a test", each verified by the repository's
-own tests, run through the real turn path. `host-eval` runs the same set where a host adapter is the subject. The
-baseline report is committed under `docs/evals/` with model ids, dates and denominators.
+coding tasks are the benchmark set of §6.6 (B1), which records its own baseline right after H2 and before the first ACI
+package. The baseline reports are committed under `docs/evals/` with model ids, dates and denominators.
 
-**Delta rule.** Every later work package of this spec reports its delta against that baseline (same corpus, same
-models, same day where possible) in its pull request. A package that makes a gated rate worse does not merge without an
-owner decision. Fixture regressions stay the per-PR gate; live runs need credentials and remain nightly or manual.
+**Delta rule.** Every later work package of this spec reports its delta against the H2 baseline and, for coding work,
+against the B1 baseline (same corpus, same models, same day where possible) in its pull request. A package that makes
+a gated rate worse does not merge without an owner decision. Fixture regressions stay the per-PR gate; live runs need
+credentials and remain nightly or manual.
 
 ### 6.5 Admitting newly relevant tools without a full cache miss
 
@@ -237,6 +247,42 @@ Today every newly relevant tool changes zone 1. Four ways out:
 **Recommendation (Q8):** (c) as the default plus (b) as the overflow path, decided only after the H2 baseline shows the
 measured miss rate per admission; (a) not as a default; (d) evaluated per provider later. `artifact.read` joins
 `CORE_TOOL_NAMES` (one cache bust at the upgrade, then stable; Q6).
+
+### 6.6 B1 — The coding benchmark set (decision 5)
+
+A small, licence-clean benchmark in the style of Terminal-Bench (an instruction, an environment, a hidden checker that
+verifies the end state) and SWE-bench (a repository at a commit, an issue text, fail-to-pass and pass-to-pass tests),
+run nightly through `host-eval` and `turn-eval-live`. It lands right after H2 and records its baseline on today's tools
+(`file.read`, `file.write`, `exec.run`) before H1-1, so every ACI package (H1, C1–C4, CLI-1) is measured against it.
+
+- **Tasks:** 24 self-authored tasks under `tests/bench/coding/<id>/` (MIT, the repository's licence): about half
+  repository tasks (fix a failing test, implement a function against its tests, rename a symbol across files, fix a
+  build error, refactor without changing behaviour) and half terminal tasks (repair a broken configuration, write a small
+  CLI to a spec, migrate a data file between formats, find and fix a bug from a failing log). Languages: Rust, TypeScript,
+  Python, Go, shell. Tiers easy, medium, hard (8 each). Each task has `task.json` (instruction, tier, language, budgets),
+  a starting tree, a reference solution and a hidden checker that the agent never sees.
+- **Seeded variants:** identifiers, constants and file names are generated from a seed at run time, so a run never sees
+  the exact committed instance; this limits memorisation of a public repository. A quarter of the tasks is rotated per
+  quarter.
+- **Upstream sets, checked 2026-10-30:** the Terminal-Bench repositories (`laude-institute/terminal-bench`,
+  `harbor-framework/terminal-bench-2-1`) carry Apache-2.0 at repository level, but single tasks can embed third-party
+  files with their own terms; the SWE-bench harness is MIT, while its task instances are code from third-party Python
+  repositories under their own licences and the dataset has its own terms, and both are widely present in training data;
+  the Aider polyglot benchmark repository shows no licence. **Recommendation (Q21): self-authored only.** Porting a few
+  Terminal-Bench tasks with Apache-2.0 attribution is possible later, after a per-task file review.
+- **Two modes:** per pull request, a fixture self-test (no model): every checker fails on the starting tree and passes on
+  the reference solution, every seed generates a valid instance. Nightly, real models through the `turn-eval-live`
+  model list: each task runs in a fresh git worktree inside the verifier sandbox (no network unless the task declares it),
+  with the coding profile, a token, turn and wall-time budget per task, three seeds per task.
+- **Metrics:** resolved rate per tier and language, tokens in and out, provider cache-read share, rounds, wall time, tool
+  errors, syntax-gate refusals, offloaded results, steer and rewind counts once those exist. Comparisons between two runs
+  are paired per task and seed (sign test or McNemar) with the counts shown, never a bare percentage: with 24 tasks a
+  difference like the 21-vs-19-of-30 example in §3 is noise.
+- **Secrets stay out of CI logs:** the job copies `turn-eval-live`'s pattern (credentials only in the setup step that writes
+  the eval secret store; the run step has no secret in its environment and leases from the store); the task sandbox gets
+  the verifier's scrubbed environment (`PATH`, `HOME`, `TMPDIR`, `CI`); logs carry task ids, counts and verdicts only;
+  the uploaded report passes the core redactor and contains no transcripts (transcripts stay in the eval home, which the
+  last step deletes).
 
 ## 7. H1 — Tool-output offloading and crushing (Rust)
 
@@ -447,8 +493,90 @@ this version. Names follow the tool-name rule of `session_tool_offers` (lower ca
 
 ### 8.7 Which agents see these tools
 
-The coding tools are offered to agents with a coding profile (project agents on D115 cards, and agents whose
-configuration enables coding), pre-admitted per §6.5 (c). Other agents find them through `capabilities.search`.
+The coding tools are offered to agents with a coding profile (project agents on D115 cards, agents whose configuration
+enables coding, and every session opened by `plur1bus code` or by the ACP coding mode), pre-admitted per §6.5 (c). Other
+agents find them through `capabilities.search`.
+
+### 8.8 Our own coding CLI: `plur1bus code` (decision 5)
+
+**What it is.** The coding mode of our own agent in the terminal, on the D120 ACI. Rust, in the existing CLI binary
+(`crates/plur1bus/src/commands/code/`, a `Code(CodeArgs)` entry in `cli.rs` beside `Chat`), reusing what `plur1bus chat`
+already does (`commands/session.rs`: agent pick, `session.create`/`session.get`, model and reasoning switch, the
+`chat.turn/1` document shape) and the core RPC. No new process: the CLI is a thin client like every other command.
+
+```text
+plur1bus code [PATH] [--agent <id>] [--project <id> --card <id>] [--model <profile>] [--reasoning <level>]
+              [--session <id>] [--no-memory] [--yes] [MESSAGE]
+```
+
+- **Binding.** `PATH` (default: the current directory) must be a git worktree root, resolved natively like
+  `worktreeSnapshot` does. A new core method `code.session.open { caller, agentId, root, projectId?, cardId? }`
+  (x-server core) binds it: with `--project`/`--card`, the root must equal `ProjectWorktreePort.root(agent, project,
+  card)` and the session is the card's (kind `card`), so D98 applies in full (`/done` runs `coding_complete`); without a
+  card it is a direct session with a worktree binding (`session_worktrees(session_id, root)`, one more session schema
+  migration; CLI-1 lands before H4, so it takes v10 and `path_rewinds` follows as v11), and "done" is the advisory
+  `/check` with the same runners (Q24). A folder that is not a granted root
+  is offered as a D109 grant request to the person at the terminal (scoped to that folder, never wider than D109's caps;
+  Q25); nothing is bound silently.
+- **Profile.** The session gets the coding profile: the ACI tools pre-admitted and frozen (§6.5 c), a static coding
+  operating section appended to zone 2 (cached, no per-session text), persona, SOUL and the frozen snapshot unchanged.
+- **Streaming.** The CLI opens two connections: one for calls, one subscribed with `events.subscribe` to `session.event`
+  and `approval.requested`/`approval.resolved`. A reader thread, an input thread and the main loop talk over channels
+  (`std::sync::mpsc`; no async runtime). Deltas stream as text; each tool call is one line (`▸ file.edit src/lib.rs
+  +3 −1`); H1 envelopes show their summary and essence; colours through `anstyle`/`nu-ansi-term` (already in
+  `Cargo.lock`), off with `NO_COLOR` or a non-TTY.
+- **Inline diffs.** `file.edit` and `file.write` results carry a unified diff (§8.2); the CLI prints it coloured under the
+  tool line, folded beyond 40 lines (`/diff <call>` shows the rest). `/diff` alone shows the worktree's diff against
+  `HEAD` (through the core, which runs the hardened `git` invocation of `collab/verifier.ts`).
+- **Inline approvals.** For an `approval.requested` of this session the CLI prints tool, target, risk and, for writes, the
+  diff preview, and asks `[y] once  [a] always (grant)  [n] no  [?] details`; the answer goes to `approval.decide` as the
+  person at a local CLI surface (D109 surface trust unchanged; "always" respects the grant caps). Never auto-approved;
+  in a non-TTY run every approval is answered "no" and the turn reports `approval-required`.
+- **Steer and queue keys (Q9 in the terminal, Q22).** While a turn runs: **Enter = steer**, **Alt+Enter = queue**
+  (`delivery: "steer"` / `"queue"`, H3). Alt arrives as an Esc prefix, so Alt+Enter also works as Esc then Enter in any
+  terminal; on macOS, Terminal.app needs "Use Option as Meta key" for Option+Enter, iTerm2 and most others send it by
+  default. Fallbacks that always work: `/steer <text>` and `/queue <text>`. When no turn runs, Enter submits. **Ctrl+C**
+  once cancels the running turn (`session.cancel`), twice within two seconds exits; **Ctrl+D** exits when idle. The queue
+  shows above the prompt; `/queue` alone lists it, `/unqueue <n>` removes an entry.
+- **Commands.** `/check [format|lint|typecheck|test]` (`code.check`), `/diff`, `/done` (cards only), `/rewind` (H4),
+  `/compact`, `/model`, `/steer`, `/queue`, `/help`. They are CLI commands; `/rewind` and `/compact` map to the session's
+  D33 transcript commands.
+- **Line editor (Q23).** `reedline` 0.52.1 (MIT, crossterm-based, custom key bindings including Alt+Enter, history,
+  Windows support; it needs Rust 1.95, which `rust-toolchain.toml` pins). Its terminal backend, `crossterm` 0.29.0, is
+  the same one the TUI uses. Alternative: `rustyline` 19.0.0 (MIT).
+- **Non-interactive.** With `MESSAGE`, or stdin not a TTY, or `--json`: one turn per line as `plur1bus chat` does today,
+  events as `code.event/1` JSON lines, approvals answered "no". This is also what the benchmark's CLI smoke test drives.
+
+**Full-screen TUI (later, CLI-2).** Same session layer, a different renderer: `ratatui` 0.30.2 (MIT) on `crossterm` 0.29.0
+(MIT). Checked 2026-10-30 against `deny.toml`: every direct and transitive licence is in the allow list (MIT, Apache-2.0,
+dual MIT/Apache, rustix's `Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT` satisfied by MIT); `ratatui-core` needs
+`lru ^0.18`, which unifies with the `lru 0.18.5` already in `Cargo.lock` (not the advisory-carrying 0.12 that RE-D14
+patches away); MSRV 1.88 is below the pinned 1.95. Panes: transcript, tool and diff pane, status line (model, tokens,
+cache-hit, budget, worktree, branch), approval modal, queue list. It stays behind a default-on cargo feature `tui`, so
+`--help` start-up (ADR-012 acceptance 11) is unaffected; `plur1bus code --tui` opens it, the line mode stays the
+fallback for dumb terminals and pipes.
+
+### 8.9 The coding mode over ACP
+
+`plur1bus acp serve` (`packages/core/src/acp/`) stays the editor attachment; the coding mode is offered there too. These
+are changes to existing TypeScript, so TypeScript (decision 3, rule 3):
+
+- **Profile and binding.** `plur1bus acp serve --agent <id> --profile coding` starts every ACP session in the coding
+  profile. Independently, the server advertises ACP session modes (`modes` in the `session/new` result, `chat` and
+  `coding`, `session/set_mode` to switch; one announced cache miss at a switch because the tool offer changes). The
+  `cwd` of `session/new` binds the worktree through `code.session.open` with the same rules as the CLI; a `cwd` that is
+  not a granted root is refused with an explanation rather than granted from an editor without a person present.
+- **Inline diffs and approvals in the editor.** `file.edit`/`file.write` tool calls stream as `tool_call` updates with
+  ACP `diff` content, so the editor shows the change inline. D109 approvals become `session/request_permission` (the
+  agent side does not implement it today, `docs/acp.md`), with ACP's allow-once, allow-always and reject options mapped
+  to approve once, grant and deny under the same caps.
+- **Steering.** ACP v1 has no steer method. Following ACP's extensibility rules (custom methods start with an underscore
+  and use a reverse-DNS prefix; support is advertised in `_meta` of the capability object), the server advertises
+  `agentCapabilities._meta["app.plur1bus/steer"]` and `["app.plur1bus/follow_up"]` and serves `_app.plur1bus/steer` and
+  `_app.plur1bus/follow_up { sessionId, prompt }` mapped to `delivery: "steer"` / `"queue"`. A client that does not know
+  them keeps `session/cancel`; unknown custom requests already answer `-32601`.
+- **Files.** The harness owns the worktree: edits go through the ACI in `plur1bus-tools`, not through the editor's
+  `fs/write_text_file`. Reading the editor's unsaved buffers through `fs/read_text_file` is a later refinement.
 
 ## 9. H3 — Steering
 
@@ -473,6 +601,7 @@ stays TypeScript (decision 3).
 | Web UI | While a turn runs, **Enter = steer**, **Alt/Option+Enter = queue** (Pi's convention; Q9). The composer shows which one Enter does and the queue as removable chips. A setting swaps the two keys. | the other key, or the split button |
 | Telegram, Discord, Slack, Matrix, Signal, E-mail, Buzz | **Queue** (today's behaviour). | A message starting with `!` or `/steer ` steers; the prefix is stripped. |
 | CLI `plur1bus chat` | Queue | `/steer <text>` |
+| CLI `plur1bus code` | Like the web: Enter = steer, Alt+Enter = queue while a turn runs (§8.8) | `/queue <text>`, `/steer <text>` |
 | Voice (Talk) | see §9.5 | — |
 | API and RPC | Today's behaviour (`E_CONFLICT turn-in-progress`) when `delivery` is absent, for compatibility | `delivery: "steer"` or `"queue"` |
 
@@ -553,7 +682,7 @@ Also a change to existing TypeScript (session store, compaction view, chat surfa
 
 Rewind hides a contiguous range of the active path and puts a short lesson after the last kept message. It is an
 overlay, like trimming and pruning: messages and events stay append-only (the v3 ruling "never rewrite transcript
-messages/events"). Session schema v10 adds one table:
+messages/events"). One session schema migration (v11, after CLI-1's `session_worktrees` in v10) adds one table:
 
 ```sql
 CREATE TABLE path_rewinds (
@@ -707,6 +836,8 @@ each server returns in its `*.auth` result (`buildCapabilities` filters by serve
 | Tree-sitter (C2, C3) | none | `tree-sitter` 0.27.1 (MIT, 2026-10-08), `tree-sitter-tags` 0.27.1; grammars `tree-sitter-rust` 0.24.2, `-typescript` 0.23.2 (last release 2024-11), `-javascript` 0.25.0, `-python` 0.25.0, `-go` 0.25.0, `-json` 0.24.8, `-yaml` 0.7.2, `-toml-ng` 0.7.0, `-md` 0.5.4, all MIT; alternative bundle `tree-sitter-language-pack` 1.22.1 (MIT) | New dependencies through the gate of `docs/dependency-policy.md` and `deny.toml` (MIT is allowed); grammar ABI compatibility with 0.27 to verify (U3) |
 | Diffs (C1) | none | `similar` 3.2.1 (Apache-2.0) | or a hand-written line diff |
 | Regex, hashing, SQLite | — | `regex` 1.13.1, `sha2`, `blake3`, `rusqlite` 0.40.2 (all already in `Cargo.lock`; `rusqlite` 0.41.1 is current) | no new dependency |
+| Terminal: line editor (CLI-1) | `plur1bus chat` reads plain stdin lines | `reedline` 0.52.1 (MIT, 2026-10-04, MSRV 1.95); alternative `rustyline` 19.0.0 (MIT) | `reedline` brings `crossterm`, `chrono`, `fd-lock`, `strip-ansi-escapes` (all MIT or dual MIT/Apache) |
+| Terminal: full-screen TUI (CLI-2) | none | `ratatui` 0.30.2 (MIT, 2026-06-19, MSRV 1.88) with `ratatui-core`/`-widgets`/`-crossterm`, on `crossterm` 0.29.0 (MIT) | transitive licences inside the `deny.toml` allow list; `lru ^0.18` unifies with the existing `lru 0.18.5`; alternatives `cursive` 0.21.1, `termwiz` 0.23.3 (both MIT) |
 | MCP client and server | `@modelcontextprotocol/sdk` 1.32.1 | `rmcp` 3.8.0 (Apache-2.0, the official `modelcontextprotocol/rust-sdk`, released 2026-10-26) | younger than two weeks at the check; pin an older patch per policy |
 | ACP | hand-written, no SDK (owner 2026-10-29) | keep hand-written; or `agent-client-protocol` 3.6.0 (Apache-2.0, 2026-10-28) with `agent-client-protocol-schema` 1.14.0 (2026-10-30) | the no-SDK ruling most likely carries over; compare the schema crate's version line with our protocol version 1 (U8) |
 | A2A | `@a2a-js/sdk` 1.3.0 | no official Rust SDK found; community crates `a2a-rs` 0.10.5 (MIT), `ra2a` 0.9.1, `a2a-rust` 0.1.0 | hand-write against the A2A JSON schema like ACP (U4) |
@@ -767,8 +898,8 @@ README states the limits that matter here: no ACP `fs/*` and no `terminal/*` del
 locally), MCP servers accepted but not wired through, the queue implemented client-side, and steering and follow-up modes
 exposed as slash commands (`/steering`, `/follow-up`, `/queue`).
 
-The verification runs on PR #820's ACP client in a provisioned worktree against the three fixture repositories of
-§6.4 and records, per item, pass, partial or fail with evidence:
+The verification runs on PR #820's ACP client in a provisioned worktree against repository tasks of the benchmark set
+(§6.6) and records, per item, pass, partial or fail with evidence:
 
 | Item | What is checked |
 |---|---|
@@ -781,10 +912,13 @@ The verification runs on PR #820's ACP client in a provisioned worktree against 
 
 **Expected outcome:** sessions, prompts and cancel pass; steer is partial (ACP v1 has no steer method; the closest is
 cancel plus a new prompt, which loses "after the running tool"); per-tool permissions fail by design, leaving process
-containment as the boundary. That result goes to the owner as **Q18** before anything else happens: either accept the
-ACP limits for Pi (steer = cancel + re-prompt, containment instead of per-tool approval), or authorise a native
-`pi --mode rpc` adapter as an exception to decision 4. Recommendation: accept the ACP limits for M6; revisit if ACP gains
-a steering or queued-prompt primitive.
+containment as the boundary.
+
+**Decided 2026-10-30 (Q18, decision 6):** the ACP limits are accepted. `pi-acp` stays an optional third-party attachment
+(steer = cancel plus re-prompt, process containment instead of per-tool approval); no native `pi --mode rpc` adapter.
+The verification still runs and records the table above, because it documents what a person gets when attaching Pi. Our
+own Pi-ACP adapter, which would close the steer and permission gaps by running harness tools inside Pi, is designed on
+the plan's nice-to-have list and is not scheduled.
 
 ## 15. Explicitly rejected
 
@@ -811,6 +945,10 @@ Every package reports its delta against the H2 baseline (§6.4). Targets, to be 
 | C4 | `coding_complete` refusals carry failing test names in 100 % of the corpus cases; no check stopped by `output-limit` under 16 MiB |
 | H4 | rewind plus lesson recovers at least as many failed coding tasks as continuing on the polluted path, measured on the corpus |
 | T1 | the architecture test fails on a seeded bypass; `compile_fail` doctests pass |
+| B1 | every checker fails on its starting tree and passes on its reference solution for every seed; the nightly job produces a paired report per model; no secret value appears in the job log or the uploaded report (a canary secret in the store is searched for) |
+| CLI-1 | a person can bind a worktree, run a benchmark task to green with inline diffs and approvals, steer and queue mid-turn, and `/done` a D115 card; resolved rate through `plur1bus code --json` equals the turn-path rate on the benchmark within the paired test's noise |
+| CLI-ACP | in Zed (or the ACP test client) the coding mode shows inline diffs, asks through `session/request_permission`, and `_app.plur1bus/steer` lands after the running tool |
+| CLI-2 | the TUI renders the same session as the line mode (snapshot tests of frames), works on the five release targets, and `--help` p95 stays under 100 ms |
 
 ## 17. Security and privacy review
 
@@ -826,12 +964,16 @@ Every package reports its delta against the H2 baseline (§6.4). Targets, to be 
   Inputs are size-capped (1 MiB per file for C2/C3).
 - **Steering:** sender rule (§9.2), withdrawal recorded in the approval chain, no grant from a withdrawal.
 - **Rewind:** the hidden branch stays and its digest is in the audit chain; file restore is behind an approval.
+- **Coding CLI and ACP coding mode:** approvals are never answered automatically (non-TTY runs answer "no"); a folder is
+  bound only as a granted root, with a grant asked from the person at the terminal and refused over ACP.
+- **Benchmark:** credentials only in the setup step, a scrubbed task environment, logs with ids and counts only, a
+  redacted report without transcripts, and a canary secret that the job searches for in its own log and report.
 
 ## 18. Owner questions
 
 | # | Question | Options | Recommendation |
 |---|---|---|---|
-| Q1 | Register entry | one record D120 for H/C/T/P4; or separate records per track | **One record D120** with sub-ids H1–H4, C1–C4, T1, P4; D117–D119 are taken by proposals |
+| Q1 | Register entry | one record D120 for H/C/T/P4; or separate records per track | **One record D120** with sub-ids H1–H4, C1–C4, B1, CLI, T1, P4; D117–D119 are taken by proposals |
 | Q2 | How to record decision 3 | amendment section in ADR-012; new ADR | **New ADR-019** (ADR-018 is reserved for the Rust engine) with an amendment note in ADR-012 and the RE-D9 row marked superseded; text in §13 |
 | Q3 | Where the new Rust components run | inside `plur1bus-engine`; one `plur1bus-tools` module; one process per component | **One supervised `plur1bus-tools` module** (§12.3) |
 | Q4 | RPC server value | reuse `x-server: "module"`; new `"tools"` | **New `"tools"`**, with a dispatch-level guard that admits only the core, like `host.*` for the engine |
@@ -848,8 +990,14 @@ Every package reports its delta against the H2 baseline (§6.4). Targets, to be 
 | Q15 | Linter on write | on; off; per project | **Off by default, per-project opt-in** in `.plur1bus-verifiers.json` |
 | Q16 | Gate reuse of `code.check` results | always re-run; reuse on an identical tree hash | **Reuse** when all four kinds ran green through the gate's own runner on the identical tree hash within 30 minutes; review and manifest checks never skipped |
 | Q17 | Syntax gate rule | refuse on any parse error; refuse only on new errors in changed ranges | **Only new errors intersecting the changed ranges** |
-| Q18 | If ACP is insufficient for Pi (expected for steer and per-tool permissions) | accept the ACP limits; authorise a native `pi --mode rpc` adapter | **Accept the ACP limits for M6** (steer = cancel + re-prompt, process containment instead of per-tool approval); ask again only if Pi's real steering is needed |
+| Q18 | If ACP is insufficient for Pi (expected for steer and per-tool permissions) | accept the ACP limits; authorise a native `pi --mode rpc` adapter | **Decided 2026-10-30: accept the ACP limits** (decision 6). Third-party `pi-acp` stays an optional attachment; our own Pi-ACP adapter goes to the plan's nice-to-have list |
 | Q19 | When Phase 4 starts | right after RE-11; after RE-11 and the P4 spike; later | **After RE-11 and the P4 spike**, in the §12.2 order, one plan per step |
+| Q20 | An own coding CLI | none (editors over ACP only); `plur1bus code` | **Decided 2026-10-30: yes** (decision 5): `plur1bus code` on the ACI, line-based first, TUI later, both Rust; ACP coding mode; own benchmark set in the nightly (§6.6, §8.8, §8.9) |
+| Q21 | Sources of the benchmark tasks | self-authored only; port Apache-2.0 Terminal-Bench tasks with attribution; use SWE-bench instances | **Self-authored only** for the first set (24 tasks, seeded variants); a later port of single Terminal-Bench tasks only after a per-task file review; no SWE-bench instances |
+| Q22 | Queue key in the terminal | Alt+Enter; Ctrl+Enter; Shift+Enter; typed prefix only | **Alt+Enter** (arrives as Esc then Enter in every terminal; Ctrl+Enter and Shift+Enter are indistinguishable from Enter in many terminals), with `/queue` and `/steer` as fallbacks |
+| Q23 | Terminal crates | `reedline` + `ratatui`/`crossterm`; `rustyline` + `ratatui`; hand-written | **`reedline` 0.52.1 for CLI-1, `ratatui` 0.30.x on `crossterm` 0.29 for CLI-2** (one terminal backend; licences inside `deny.toml`) |
+| Q24 | "Done" in a coding session without a D115 card | advisory `/check` only; create a card in a personal scratch project so D98 applies | **Advisory `/check`** with the gate's runners; the D98 gate stays bound to cards (`--project`/`--card`) |
+| Q25 | `plur1bus code` in a folder that is not a granted root | refuse; ask the person at the terminal for a D109 grant on that folder | **Ask once at the terminal** for a grant scoped to that folder, within D109's caps; ACP sessions refuse instead (no person is guaranteed at an editor) |
 
 ## 19. Unknowns
 
@@ -864,12 +1012,16 @@ Every package reports its delta against the H2 baseline (§6.4). Targets, to be 
 | U7 | `rmcp` 3.8.0 was published four days before this check; API churn across 3.x | P4 spike pins an older patch |
 | U8 | `agent-client-protocol` 3.6.0 / schema 1.14.0 against our hand-written protocol version 1 | P4 spike; M6 |
 | U9 | `pi-acp` behaviour for a second `session/prompt` during a running one, and what `/steering` does over ACP | M6 (§14) |
-| U10 | Pi's native RPC `steer`/`follow_up` commands are described by the analysis and Pi's docs; not checked here | Only relevant if Q18 authorises the native adapter |
+| U10 | Pi's RPC `steer`, `follow_up` and `prompt.streamingBehavior` were read on pi.dev (2026-10-30): a steer is delivered after the current assistant turn has executed its tool calls, before the next model call, so Pi does not skip the step's remaining calls as decision 2 does | Matters only for the nice-to-have adapter; pinned and tested there |
 | U11 | Provider-native deferred tool loading and its cache effect on our wire formats | After H2; per provider |
 | U12 | The voice D45 phase-2 plan (a project document outside the repository) was not read; the barge-in mapping (§9.5) is based on `voice/talk.ts` and `voice/v2.ts` | Checked before H3-2 starts |
 | U13 | RE-D1 is still listed as open in the RE plan (assumed by the briefs); this design uses the same pattern | Owner confirms RE-D1 together with Q3 |
 | U14 | The inline budget is approximate (chars/4) until the Rust engine serves `engine.tokens.*` by default | Resolves with RE-08/RE-11 |
 | U15 | Whether ACP will gain a steering or queued-prompt primitive | Watched; Q18 revisited if it does |
+| U16 | Pi SDK details for the nice-to-have adapter: `createAgentSession` documents `tools`, `noTools`, `excludeTools` and `customTools`; `setActiveTools`, whether a same-name `registerTool` overrides a built-in, and whether a `tool_call` handler can block a call are not confirmed by the SDK page | Only if the adapter is scheduled; checked against the pinned Pi version |
+| U17 | Single Terminal-Bench tasks may embed third-party files under other terms; the SWE-bench dataset's own terms | Not needed while Q21 stays "self-authored only" |
+| U18 | Alt+Enter on Windows Terminal, conhost and macOS Terminal.app with default settings | CLI-1 test matrix; the `/queue` fallback always works |
+| U19 | Pi's licence at the pinned version: GitHub detects MIT for `earendil-works/pi` and npm lists MIT for 1.4.0 | Confirmed from the LICENSE file only if the adapter is scheduled |
 
 ## 20. Sources
 
@@ -881,4 +1033,12 @@ Every package reports its delta against the H2 baseline (§6.4). Targets, to be 
 - Composio comparison (vendor): <https://composio.dev/content/pi-vs-opencode>.
 - `pi-acp` README and versions: npm registry entry `pi-acp` (0.0.34) and `@earendil-works/pi-coding-agent` (1.4.0),
   read 2026-10-30; repository <https://github.com/svkozak/pi-acp>.
-- Crate versions and licences: crates.io API, read 2026-10-30, for every crate named in §12.5.
+- Crate versions and licences: crates.io API, read 2026-10-30, for every crate named in §12.5 and §8.8.
+- Pi RPC commands (steer, follow-up, `streamingBehavior`, queue modes): <https://pi.dev/docs/latest/rpc-commands>; Pi SDK
+  overview: <https://pi.dev/docs/latest/sdk.md>, both read 2026-10-30.
+- ACP extensibility (`_meta`, underscore-prefixed custom methods, capability advertisement):
+  <https://agentclientprotocol.com/protocol/v1/extensibility.md>; ACP session modes:
+  <https://agentclientprotocol.com/protocol/v1/session-modes>, read 2026-10-30.
+- Repository licences as detected by GitHub on 2026-10-30: `laude-institute/terminal-bench` and
+  `harbor-framework/terminal-bench-2-1` Apache-2.0, `SWE-bench/SWE-bench` MIT, `Aider-AI/polyglot-benchmark` none,
+  `earendil-works/pi` MIT, `svkozak/pi-acp` MIT, `agentclientprotocol/agent-client-protocol` Apache-2.0.
