@@ -136,6 +136,17 @@ Env vars that matter when driving the core directly instead of through the CLI:
   `stall` exercise the fatal-handler and signal paths); refused without it. Also gates the supervisor-only test
   seams below. `PLUR1BUS_TEST_INTERNALS=<variant>` is its environment counterpart: `plur1bus core run` and the
   supervisor pass it on as `--test-internals <variant>`.
+- `PLUR1BUS_TEST_WATCHDOG_TRACE=1` — opt-in bounded macOS native-helper measurement trace, requiring
+  `PLUR1BUS_ALLOW_TEST_INTERNALS=1` (otherwise refused before target start). The original `--watch-tree`
+  fixture and assertions stay unchanged. The helper keeps at most the last 128 numeric observations in memory
+  and emits them only after sampling/enforcement ends; there is no trace I/O during the 40 ms timed scan.
+  Records contain static operation/category labels, PID/PPID/PGID/status/start identity, libproc return sizes,
+  immediately captured errno, count/RSS and timings, never names, commands, argv, paths or environment values.
+  Errno after successful calls can be stale and must not be interpreted as a failed call. Trace collection has
+  measurement overhead; a diagnostic pass that cannot establish the cause is not permission to guess a fix.
+  Permanent bounded error detail does not require this seam: production `--watch-tree-report` sends it on
+  dedicated fd 3, which is closed in the target before exec. Core validates that separate channel; child stderr
+  is never parsed as trusted diagnostic data. No trace or source artifacts should remain on a diagnostic host.
 - `PLUR1BUS_TEST_DISCOVERY_PROFILES=<json>` — JSON string specifying provider profiles for discovery system tests; requires `PLUR1BUS_ALLOW_TEST_INTERNALS=1` (D112).
 - `PLUR1BUS_TEST_CHAT_PROVIDER=fake` — the deterministic chat provider (`packages/core/src/session/provider.ts`), registered as the local `fixture` provider for `session.submit`/`plur1bus chat`; requires `PLUR1BUS_ALLOW_TEST_INTERNALS=1`, refused otherwise (M1b-2c). Without it a core uses the providers configured under `modelProfiles` (`packages/providers`) and answers `E_NOT_AVAILABLE reason=no-provider` when there is none. `tests/system/turn-pipeline.test.ts` and `model-switch.test.ts` instead start `tests/system/fixtures/turn-core.mjs` with `PLUR1BUS_TEST_TURN_WIRE=chat_completions|anthropic_messages|codex_responses|gemini`, a real core composition against a synthetic provider wire (needs `PLUR1BUS_ALLOW_TEST_INTERNALS=1` too).
 - `PLUR1BUS_SUPERVISOR_TIME_SCALE=<float>` — multiplies every supervisor duration (backoff, health

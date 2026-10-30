@@ -1,5 +1,6 @@
 // External DelegationTarget. One ACP run is stateless (ADR-003 Q4): session/new every time, no stored ACP session.
 // A side effect runs only after a D109 approval for subject acp-agent and only through B3 containment.
+import { WatchdogFailure } from "./watchdog-detail.ts";
 import { lstat } from "node:fs/promises";
 import type { Identity } from "../policy/paths.ts";
 import { AcpActions, type AcpAction } from "./actions.ts";
@@ -186,7 +187,7 @@ export class ExternalDelegationTarget implements DelegationTarget {
           if (method === "terminal/output") return { output: rec.output, truncated: rec.truncated,
             ...(rec.result?.ok ? { exitStatus: { ...(rec.result.exitCode !== null ? { exitCode: rec.result.exitCode } : {}), ...(rec.result.signal ? { signal: rec.result.signal } : {}) } } : {}) };
           const result = await rec.done;
-          if (!result.ok) throw new Error(result.reason);
+          if (!result.ok) throw result.detail ? new WatchdogFailure(result.detail) : new Error(result.reason);
           return { ...(result.exitCode !== null ? { exitCode: result.exitCode } : {}), ...(result.signal ? { signal: result.signal } : {}) };
         },
         onUpdate: (params) => {

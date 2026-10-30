@@ -1,5 +1,6 @@
 // Worktree containment for an external ACP agent. Paths go through the harness canonicaliser.
 // The terminal sandbox keeps the worktree writable and the shared gitdir read-only. Windows has no backend.
+import type { WatchdogDetail } from "./watchdog-detail.ts";
 import { homedir } from "node:os";
 import { launchExternalAgent, TRUSTED_PATH } from "./launcher.ts";
 import type { AcpWorktreeMount } from "../tools/sandbox/acp-worktree.ts";
@@ -182,7 +183,7 @@ export function findHardlink(worktree: string): HardlinkHit | null {
 
 /** Bounded terminal result, shared by streaming snapshots and wait_for_exit. */
 export interface TerminalResult { ok: true; exitCode: number | null; stdout: string; stderr: string; signal?: string; truncated?: boolean }
-export interface TerminalRefusal { ok: false; reason: string }
+export interface TerminalRefusal { ok: false; reason: string; detail?: WatchdogDetail }
 
 /** The same shared sandbox and native helper supervise agents, terminals and probes. */
 export async function containedTerminal(o: {
@@ -228,7 +229,7 @@ export async function containedTerminal(o: {
     if (handle.exitStatus.reason) return { ok: false, reason: handle.exitStatus.reason };
     if (exitCode === 121) return { ok: false, reason: "task-limit-exceeded" };
     if (exitCode === 122) return { ok: false, reason: "rss-limit-exceeded" };
-    if (exitCode === 125) return { ok: false, reason: "sandbox-unavailable" };
+    if (exitCode === 125) return { ok: false, reason: "sandbox-unavailable", ...(handle.exitStatus.detail ? { detail: handle.exitStatus.detail } : {}) };
     return { ok: true, exitCode, stdout: Buffer.concat(chunks).toString("utf8"), stderr: "", truncated, ...(handle.exitStatus.signal ? { signal: handle.exitStatus.signal } : {}) };
   } catch (error) {
     if (o.killSignal?.aborted && !o.signal?.aborted) return { ok: true, exitCode: null, signal: "SIGTERM", stdout: "", stderr: "" };

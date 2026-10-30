@@ -1,4 +1,5 @@
 // Hand-written ACP schema v1 client (owner 2026-10-29: no SDK). JSON-RPC over the shared line framing.
+import { WatchdogFailure } from "./watchdog-detail.ts";
 import type { Readable, Writable } from "node:stream";
 import { LineReader, MAX_LINE_BYTES, encodeLine } from "../acp/framing.ts";
 import { ACP_ERROR, ACP_MAX_OPEN_REQUESTS, ACP_MAX_UPDATE_BYTES, ACP_PROTOCOL_VERSION, ACP_REQUEST_TIMEOUT_MS, type JsonRpcId } from "../acp/protocol.ts";
@@ -178,7 +179,7 @@ export class AcpClient {
       if (!this.#closed) this.#send({ jsonrpc: "2.0", id, result });
     } catch (e) {
       const reason = e instanceof Error ? e.message : "failed";
-      if (!this.#closed) this.#send({ jsonrpc: "2.0", id, error: { code: ACP_ERROR.invalidParams, message: "refused", data: { reason: reason.slice(0, 80) } } });
+      if (!this.#closed) this.#send({ jsonrpc: "2.0", id, error: { code: ACP_ERROR.invalidParams, message: "refused", data: { reason: reason.slice(0, 80), ...(e instanceof WatchdogFailure ? { detail: e.detail } : {}) } } });
     } finally { this.#agentRequests -= 1; }
   }
 

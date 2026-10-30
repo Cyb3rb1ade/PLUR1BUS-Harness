@@ -1,4 +1,5 @@
 /** #820: ACP processes use the shared sandbox, empty HOME and native resource supervision. */
+import { WatchdogDetailBuffer, type WatchdogDetail } from "./watchdog-detail.ts";
 import { spawn } from "node:child_process";
 import { access, mkdtemp, realpath, rm } from "node:fs/promises";
 import { constants, lstatSync, realpathSync } from "node:fs";
@@ -35,7 +36,7 @@ export interface LaunchHandle {
   pid: number | undefined;
   stop(): void;
   exited: Promise<number | null>;
-  exitStatus: { exitCode?: number; signal?: string; reason?: "spawn-failed" | "timeout" };
+  exitStatus: { exitCode?: number; signal?: string; reason?: "spawn-failed" | "timeout"; detail?: WatchdogDetail };
 }
 
 export interface LaunchOptions {
@@ -122,7 +123,7 @@ export async function launchExternalAgent(o: LaunchOptions): Promise<LaunchHandl
     o.signal?.throwIfAborted();
     const resource = [String(p.limits.cpuSeconds), String(p.limits.memoryBytes), ...command];
     const args = process.platform === "darwin"
-      ? ["--watch-tree", String(p.limits.maxTasks), String(p.limits.memoryBytes), "--", p.limitsHelper, ...resource]
+      ? ["--watch-tree-report", String(p.limits.maxTasks), String(p.limits.memoryBytes), "--", p.limitsHelper, ...resource]
       : resource;
     // Last check is synchronous: neither canonical target may change across the final async preparation step.
     for (const [path, expected, identity] of [[program, o.approvedCommand, o.approvedCommandIdentity], [p.cwd, o.approvedCwd, o.approvedCwdIdentity]] as const) {
@@ -134,7 +135,7 @@ export async function launchExternalAgent(o: LaunchOptions): Promise<LaunchHandl
     o.signal?.throwIfAborted();
     const child = spawn(p.limitsHelper, args, {
       cwd: p.cwd, env: { PATH: TRUSTED_PATH, HOME: scratch, TMPDIR: scratch, LANG: "C.UTF-8" },
-      detached: true, shell: false, stdio: ["pipe", "pipe", "pipe"], windowsHide: true,
+      detached: true, shell: false, stdio: ["pipe", "pipe", "pipe", ...(process.platform === "darwin" ? ["pipe" as const] : [])], windowsHide: true,
     });
     let stopped = false;
     const stop = () => {
@@ -146,6 +147,9 @@ export async function launchExternalAgent(o: LaunchOptions): Promise<LaunchHandl
       }, 100).unref();
     };
     const exitStatus: LaunchHandle["exitStatus"] = {};
+    // The watchdog closes fd 3 in its forked target before exec. Stderr remains untrusted output.
+    const diagnostic = new WatchdogDetailBuffer();
+    if (process.platform === "darwin") child.stdio[3]?.on("data", (chunk: Buffer) => diagnostic.accept(chunk));
     const timer = setTimeout(() => { exitStatus.reason = "timeout"; stop(); }, timeoutMs);
     const abort = () => stop();
     o.signal?.addEventListener("abort", abort, { once: true });
@@ -154,6 +158,10 @@ export async function launchExternalAgent(o: LaunchOptions): Promise<LaunchHandl
       child.once("error", () => { exitStatus.reason = "spawn-failed"; resolve(null); });
       child.once("close", (code, signal) => {
         if (code !== null) exitStatus.exitCode = code;
+        if (code === 125 && process.platform === "darwin") {
+          const detail = diagnostic.finish();
+          if (detail) exitStatus.detail = detail;
+        }
         if (signal) exitStatus.signal = signal;
         resolve(code);
       });

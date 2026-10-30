@@ -171,14 +171,232 @@ mod watchdog {
         Child(libc::pid_t),
         Known(Identity),
     }
-    fn check_time(deadline: Instant) -> Result<(), String> {
+    // Fixed numeric observations only: never collect process names, commands, paths or environment.
+    const TRACE_LIMIT: usize = 128;
+    #[derive(Clone, Copy, Default)]
+    enum Operation {
+        #[default]
+        Sample,
+        BsdInfo,
+        Alive,
+        GroupSize,
+        GroupList,
+        GroupMember,
+        ChildSize,
+        ChildList,
+        ChildMember,
+        TaskInfo,
+        Membership,
+    }
+    impl Operation {
+        fn label(self) -> &'static str {
+            match self {
+                Self::Sample => "sample",
+                Self::BsdInfo => "bsd-info",
+                Self::Alive => "alive",
+                Self::GroupSize => "group-size",
+                Self::GroupList => "group-list",
+                Self::GroupMember => "group-member",
+                Self::ChildSize => "child-size",
+                Self::ChildList => "child-list",
+                Self::ChildMember => "child-member",
+                Self::TaskInfo => "task-info",
+                Self::Membership => "membership",
+            }
+        }
+    }
+    #[derive(Clone, Copy)]
+    enum Cause {
+        Deadline,
+        IdentityUnavailable,
+        ListSafetyCap,
+        ListUnavailable,
+        DescendantSafetyCap,
+        TaskInfoUnavailable,
+        AttachLimit,
+    }
+    impl Cause {
+        fn label(self) -> &'static str {
+            match self {
+                Self::Deadline => "sample-deadline",
+                Self::IdentityUnavailable => "identity-unavailable",
+                Self::ListSafetyCap => "list-safety-cap",
+                Self::ListUnavailable => "list-unavailable",
+                Self::DescendantSafetyCap => "descendant-safety-cap",
+                Self::TaskInfoUnavailable => "task-info-unavailable",
+                Self::AttachLimit => "attach-limit",
+            }
+        }
+    }
+    #[derive(Clone, Copy, Default)]
+    struct Observation {
+        operation: Operation,
+        pid: libc::pid_t,
+        returned: i32,
+        expected: i32,
+        errno: i32,
+        probe_returned: i32,
+        probe_errno: i32,
+        ppid: u32,
+        pgid: u32,
+        status: u32,
+        start_seconds: u64,
+        start_micros: u64,
+        rss_bytes: u64,
+    }
+    #[derive(Clone, Copy)]
+    struct Record {
+        observation: Observation,
+        sample: u64,
+        attach: bool,
+        elapsed_micros: u64,
+        count: usize,
+        rss_bytes: u64,
+    }
+    impl Record {
+        fn json(self, cause: &str) -> String {
+            let o = self.observation;
+            // `cause` and operation are exclusively static enum labels, all other fields are numbers.
+            format!(
+                concat!(
+                    "{{\"version\":1,\"cause\":\"{}\",\"operation\":\"{}\",\"phase\":\"{}\",",
+                    "\"sample\":{},\"elapsedMicros\":{},\"pid\":{},\"returned\":{},\"expected\":{},\"errno\":{},",
+                    "\"probeReturned\":{},\"probeErrno\":{},\"ppid\":{},\"pgid\":{},\"status\":{},",
+                    "\"startSeconds\":{},\"startMicros\":{},\"processRssBytes\":{},\"count\":{},\"rssBytes\":{}}}"
+                ),
+                cause,
+                o.operation.label(),
+                if self.attach { "attach" } else { "runtime" },
+                self.sample,
+                self.elapsed_micros,
+                o.pid,
+                o.returned,
+                o.expected,
+                o.errno,
+                o.probe_returned,
+                o.probe_errno,
+                o.ppid,
+                o.pgid,
+                o.status,
+                o.start_seconds,
+                o.start_micros,
+                o.rss_bytes,
+                self.count,
+                self.rss_bytes
+            )
+        }
+    }
+    struct SampleError {
+        cause: Cause,
+        record: Record,
+    }
+    struct Diagnostics {
+        started: Instant,
+        sample: u64,
+        attach: bool,
+        last: Observation,
+        count: usize,
+        rss: u64,
+        trace: bool,
+        records: Vec<Record>,
+        written: usize,
+    }
+    impl Diagnostics {
+        fn new(trace: bool) -> Self {
+            Self {
+                started: Instant::now(),
+                sample: 0,
+                attach: true,
+                last: Observation::default(),
+                count: 0,
+                rss: 0,
+                trace,
+                records: Vec::with_capacity(if trace { TRACE_LIMIT } else { 0 }),
+                written: 0,
+            }
+        }
+        fn begin(&mut self, started: Instant) {
+            self.started = started;
+            self.sample = self.sample.saturating_add(1);
+            self.attach = self.sample == 1;
+            self.count = 0;
+            self.rss = 0;
+            self.observe(Observation::default());
+        }
+        fn record(&self) -> Record {
+            Record {
+                observation: self.last,
+                sample: self.sample,
+                attach: self.attach,
+                elapsed_micros: self.started.elapsed().as_micros().min(u64::MAX as u128) as u64,
+                count: self.count,
+                rss_bytes: self.rss,
+            }
+        }
+        fn observe(&mut self, observation: Observation) {
+            self.last = observation;
+            if !self.trace {
+                return;
+            }
+            let record = self.record();
+            if self.records.len() < TRACE_LIMIT {
+                self.records.push(record);
+            } else {
+                self.records[self.written % TRACE_LIMIT] = record;
+            }
+            self.written = self.written.saturating_add(1);
+        }
+        fn error(&self, cause: Cause) -> SampleError {
+            SampleError {
+                cause,
+                record: self.record(),
+            }
+        }
+        // No diagnostic I/O inside a timed sample. The target group has already been stopped here.
+        fn emit(&self, failure: Option<&SampleError>, report_fd: bool) {
+            if let Some(failure) = failure {
+                let json = failure.record.json(failure.cause.label());
+                eprintln!("sandbox watchdog detail: {json}");
+                if report_fd {
+                    use std::io::Write;
+                    use std::os::fd::FromRawFd;
+                    // Only --watch-tree-report owns fd 3; the forked target closes it before exec.
+                    let mut file = unsafe { std::fs::File::from_raw_fd(3) };
+                    let _ = writeln!(file, "{json}");
+                }
+            }
+            if self.trace {
+                eprintln!(
+                    "sandbox watchdog trace: retained={} dropped={}",
+                    self.records.len(),
+                    self.written.saturating_sub(TRACE_LIMIT)
+                );
+                let start = if self.written > TRACE_LIMIT {
+                    self.written % TRACE_LIMIT
+                } else {
+                    0
+                };
+                for i in 0..self.records.len() {
+                    eprintln!(
+                        "sandbox watchdog observation: {}",
+                        self.records[(start + i) % self.records.len()].json("observation")
+                    );
+                }
+            }
+        }
+    }
+
+    fn check_time(deadline: Instant, diagnostics: &Diagnostics) -> Result<(), SampleError> {
         if Instant::now() >= deadline {
-            Err("watchdog sample deadline exceeded".into())
+            Err(diagnostics.error(Cause::Deadline))
         } else {
             Ok(())
         }
     }
-    fn bsd_info(pid: libc::pid_t) -> Result<Option<libc::proc_bsdinfo>, String> {
+    fn bsd_info(
+        pid: libc::pid_t,
+        diagnostics: &mut Diagnostics,
+    ) -> Result<Option<libc::proc_bsdinfo>, SampleError> {
         let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
         let size = std::mem::size_of_val(&info) as libc::c_int;
         let got = unsafe {
@@ -190,15 +408,36 @@ mod watchdog {
                 size,
             )
         };
+        let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
+        let observation = Observation {
+            operation: Operation::BsdInfo,
+            pid,
+            returned: got,
+            expected: size,
+            errno,
+            ppid: info.pbi_ppid,
+            pgid: info.pbi_pgid,
+            status: info.pbi_status,
+            start_seconds: info.pbi_start_tvsec,
+            start_micros: info.pbi_start_tvusec,
+            ..Observation::default()
+        };
+        diagnostics.observe(observation);
         if got == size {
             return Ok(Some(info));
         }
-        if unsafe { libc::kill(pid, 0) } != 0
-            && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH)
-        {
+        let alive = unsafe { libc::kill(pid, 0) };
+        let probe_errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
+        diagnostics.observe(Observation {
+            operation: Operation::Alive,
+            probe_returned: alive,
+            probe_errno,
+            ..observation
+        });
+        if alive != 0 && probe_errno == libc::ESRCH {
             return Ok(None);
         }
-        Err("watchdog process identity unavailable".into())
+        Err(diagnostics.error(Cause::IdentityUnavailable))
     }
     fn identity(info: &libc::proc_bsdinfo) -> Identity {
         (info.pbi_start_tvsec, info.pbi_start_tvusec)
@@ -207,7 +446,8 @@ mod watchdog {
         pid: libc::pid_t,
         group: bool,
         deadline: Instant,
-    ) -> Result<Vec<libc::pid_t>, String> {
+        diagnostics: &mut Diagnostics,
+    ) -> Result<Vec<libc::pid_t>, SampleError> {
         type List =
             unsafe extern "C" fn(libc::pid_t, *mut libc::c_void, libc::c_int) -> libc::c_int;
         let list: List = if group {
@@ -215,11 +455,23 @@ mod watchdog {
         } else {
             libc::proc_listchildpids
         };
-        check_time(deadline)?;
+        check_time(deadline, diagnostics)?;
         let count = unsafe { list(pid, std::ptr::null_mut(), 0) };
-        check_time(deadline)?;
+        let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
+        diagnostics.observe(Observation {
+            operation: if group {
+                Operation::GroupSize
+            } else {
+                Operation::ChildSize
+            },
+            pid,
+            returned: count,
+            errno,
+            ..Observation::default()
+        });
+        check_time(deadline, diagnostics)?;
         if !(0..65536).contains(&count) {
-            return Err("watchdog PID list exceeds safety cap".into());
+            return Err(diagnostics.error(Cause::ListSafetyCap));
         }
         // libproc returns PID count (buffer size remains bytes). Leave bounded room for new forks.
         let mut pids = vec![0; (count as usize + 64).min(65537)];
@@ -230,11 +482,39 @@ mod watchdog {
                 (pids.len() * std::mem::size_of::<libc::pid_t>()) as libc::c_int,
             )
         };
-        check_time(deadline)?;
+        let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
+        diagnostics.observe(Observation {
+            operation: if group {
+                Operation::GroupList
+            } else {
+                Operation::ChildList
+            },
+            pid,
+            returned: count,
+            expected: pids.len() as i32,
+            errno,
+            ..Observation::default()
+        });
+        check_time(deadline, diagnostics)?;
         if count < 0 || count as usize >= pids.len() {
-            return Err("watchdog PID list unavailable or truncated".into());
+            return Err(diagnostics.error(Cause::ListUnavailable));
         }
         pids.truncate(count as usize);
+        if diagnostics.trace {
+            for &member in pids.iter().take(TRACE_LIMIT) {
+                diagnostics.observe(Observation {
+                    operation: if group {
+                        Operation::GroupMember
+                    } else {
+                        Operation::ChildMember
+                    },
+                    pid: member,
+                    ppid: if group { 0 } else { pid as u32 },
+                    pgid: if group { pid as u32 } else { 0 },
+                    ..Observation::default()
+                });
+            }
+        }
         Ok(pids)
     }
     fn sample(
@@ -242,14 +522,17 @@ mod watchdog {
         tasks: usize,
         memory: u64,
         known: &mut HashMap<libc::pid_t, Identity>,
-    ) -> Result<(usize, u64), String> {
-        let deadline = Instant::now() + Duration::from_millis(40);
+        diagnostics: &mut Diagnostics,
+    ) -> Result<(usize, u64), SampleError> {
+        let started = Instant::now();
+        let deadline = started + Duration::from_millis(40);
+        diagnostics.begin(started);
         let mut queue: Vec<_> = known
             .iter()
             .map(|(&pid, &id)| (pid, Source::Known(id)))
             .collect();
         queue.extend(
-            list_pids(root, true, deadline)?
+            list_pids(root, true, deadline, diagnostics)?
                 .into_iter()
                 .map(|pid| (pid, Source::Group)),
         );
@@ -258,14 +541,14 @@ mod watchdog {
         let mut next = HashMap::new();
         let mut rss = 0u64;
         while let Some((pid, source)) = queue.pop() {
-            check_time(deadline)?;
+            check_time(deadline, diagnostics)?;
             if pid <= 0 {
                 continue;
             }
-            let Some(info) = bsd_info(pid)? else {
+            let Some(info) = bsd_info(pid, diagnostics)? else {
                 continue;
             };
-            check_time(deadline)?;
+            check_time(deadline, diagnostics)?;
             let id = identity(&info);
             // Enumeration races must never turn a reused PID into an unrelated retained descendant.
             let belongs = match source {
@@ -273,11 +556,17 @@ mod watchdog {
                 Source::Child(parent) => info.pbi_ppid == parent as u32,
                 Source::Known(expected) => id == expected,
             };
+            diagnostics.observe(Observation {
+                operation: Operation::Membership,
+                returned: i32::from(belongs),
+                ..diagnostics.last
+            });
             if !belongs || !seen.insert((pid, id)) {
                 continue;
             }
+            diagnostics.count = seen.len();
             if seen.len() > 65536 {
-                return Err("watchdog descendant scan exceeds safety cap".into());
+                return Err(diagnostics.error(Cause::DescendantSafetyCap));
             }
             if seen.len() > tasks {
                 return Ok((seen.len(), rss));
@@ -293,24 +582,37 @@ mod watchdog {
                     size,
                 )
             };
-            check_time(deadline)?;
-            let Some(after) = bsd_info(pid)? else {
+            let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
+            let task_observation = Observation {
+                operation: Operation::TaskInfo,
+                returned: got,
+                expected: size,
+                errno,
+                rss_bytes: task.pti_resident_size,
+                ..diagnostics.last
+            };
+            diagnostics.observe(task_observation);
+            check_time(deadline, diagnostics)?;
+            let Some(after) = bsd_info(pid, diagnostics)? else {
                 continue;
             };
-            check_time(deadline)?;
+            check_time(deadline, diagnostics)?;
             if identity(&after) != id {
                 continue;
             }
             if got != size {
-                return Err("watchdog proc_pidinfo failed".into());
+                // Keep the original task-query return/errno even after the identity recheck.
+                diagnostics.observe(task_observation);
+                return Err(diagnostics.error(Cause::TaskInfoUnavailable));
             }
             next.insert(pid, id);
             rss = rss.saturating_add(task.pti_resident_size);
+            diagnostics.rss = rss;
             if rss > memory {
                 return Ok((seen.len(), rss));
             }
             queue.extend(
-                list_pids(pid, false, deadline)?
+                list_pids(pid, false, deadline, diagnostics)?
                     .into_iter()
                     .map(|child| (child, Source::Child(pid))),
             );
@@ -328,6 +630,12 @@ mod watchdog {
         if tasks == 0 || memory == 0 {
             return Err("watchdog limits must be positive".into());
         }
+        let trace = std::env::var("PLUR1BUS_TEST_WATCHDOG_TRACE").as_deref() == Ok("1");
+        if trace && std::env::var("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() != Ok("1") {
+            return Err("watchdog trace requires PLUR1BUS_ALLOW_TEST_INTERNALS=1".into());
+        }
+        let report_fd = args[0] == "--watch-tree-report";
+        let mut diagnostics = Diagnostics::new(trace);
         let mut command = std::process::Command::new(&args[4]);
         command.args(&args[5..]);
         // A pipe, rather than pre_exec(SIGSTOP), avoids Command::spawn waiting for exec forever.
@@ -346,6 +654,9 @@ mod watchdog {
         if pid == 0 {
             unsafe {
                 libc::close(gate[1]);
+                if report_fd {
+                    libc::close(3);
+                }
                 if libc::setpgid(0, 0) != 0 {
                     libc::_exit(125);
                 }
@@ -371,13 +682,17 @@ mod watchdog {
         }
         // Attach and validate observation BEFORE releasing the target's exec gate.
         let mut known = HashMap::new();
-        let attached = sample(pid, tasks, memory, &mut known);
+        let attached = sample(pid, tasks, memory, &mut known, &mut diagnostics);
         if !matches!(attached, Ok((count, rss)) if count <= tasks && rss <= memory) {
             terminate(0);
             unsafe {
                 libc::close(gate[1]);
                 libc::waitpid(pid, std::ptr::null_mut(), 0);
             }
+            let failure = attached
+                .err()
+                .unwrap_or_else(|| diagnostics.error(Cause::AttachLimit));
+            diagnostics.emit(Some(&failure), report_fd);
             return Err("sandbox-unavailable: watchdog attach failed".into());
         }
         unsafe {
@@ -390,16 +705,21 @@ mod watchdog {
             let done = unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) };
             if done == pid {
                 terminate(0);
+                diagnostics.emit(None, report_fd);
                 std::process::exit(if libc::WIFEXITED(status) {
                     libc::WEXITSTATUS(status)
                 } else {
                     128 + libc::WTERMSIG(status)
                 });
             }
-            let exceeded = match sample(pid, tasks, memory, &mut known) {
+            let mut failure = None;
+            let exceeded = match sample(pid, tasks, memory, &mut known, &mut diagnostics) {
                 Ok((count, _)) if count > tasks => Some((121, "task-limit-exceeded")),
                 Ok((_, rss)) if rss > memory => Some((122, "rss-limit-exceeded")),
-                Err(_) => Some((125, "sandbox-unavailable")),
+                Err(error) => {
+                    failure = Some(error);
+                    Some((125, "sandbox-unavailable"))
+                }
                 _ => None,
             };
             if let Some((code, reason)) = exceeded {
@@ -407,6 +727,7 @@ mod watchdog {
                 unsafe {
                     libc::waitpid(pid, std::ptr::null_mut(), 0);
                 }
+                diagnostics.emit(failure.as_ref(), report_fd);
                 eprintln!("sandbox launcher: {reason}");
                 std::process::exit(code);
             }
@@ -421,7 +742,7 @@ fn main() {
     let run = || -> Result<(), String> {
         match args.first().map(String::as_str) {
             #[cfg(target_os = "macos")]
-            Some("--watch-tree") => return watchdog::run(&args),
+            Some("--watch-tree" | "--watch-tree-report") => return watchdog::run(&args),
             Some("--tasks" | "--tasks-required") => return task_cap(&args),
             Some("--probe-tasks") => return probe_tasks(&args),
             _ => {}
