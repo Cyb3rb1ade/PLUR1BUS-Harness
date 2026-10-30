@@ -102,6 +102,7 @@ export interface ApiServerOptions {
   oauthService?: import("./oauth/service.ts").OAuthService | undefined;
   oauthClients?: Record<string, import("./oauth/types.ts").OAuthClientMetadata> | undefined;
   secretRedaction?: import("../../core/src/secrets/redaction.ts").SecretRedaction | undefined;
+  secretStore?: import("../../core/src/secrets/store.ts").SecretStore | undefined;
   publicOrigin?: string | undefined;
   /** Test seam: routes served besides the table, to prove what the dispatcher does with a route that declares nothing. */
   extraRoutes?: ReadonlyArray<{ spec: RouteSpec; handler: Handler }>;
@@ -211,7 +212,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
     requireSecondFactor: o.requireSecondFactor,
     clients: o.oauthClients,
   }) : undefined);
-  const handlerDeps = { core: perRequest.core, desktopStepUp, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, sharedAddress, audit, resolveBootstrap: o.resolveBootstrap, requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor), hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length, mcpConfig: o.mcpConfig, a2aConfig: o.a2aConfig, taskStore: o.taskStore, oauthService, secretRedaction: o.secretRedaction, isRemote: !!o.remote, publicOrigin: o.publicOrigin ?? o.remote?.publicOrigin };
+  const handlerDeps = { core: perRequest.core, desktopStepUp, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, sharedAddress, audit, resolveBootstrap: o.resolveBootstrap, requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor), hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length, mcpConfig: o.mcpConfig, a2aConfig: o.a2aConfig, taskStore: o.taskStore, oauthService, secretRedaction: o.secretRedaction, secretStore: o.secretStore, isRemote: !!o.remote, publicOrigin: o.publicOrigin ?? o.remote?.publicOrigin };
   const handlers = { ...buildHandlers(handlerDeps), ...extensionHandlers(o.core), ...buildDesktopAttachHandlers({...handlerDeps,core:o.core}, origin=>allowedOrigins.has(origin)), ...buildAccountHandlers(handlerDeps, o.accounts, o.core, o.bootstrapConsumed, !o.remote, () => { const sink=o.breakGlassAudit??o.audit; if(!sink)throw new Error("bootstrap audit unavailable"); sink.append({at:clock.now(),actor:{user:"local-owner",host:"api"},action:"account.bootstrap.commit-attempt",target:"account",detail:{}}); }),...buildWebAuthnHandlers(handlerDeps, o.accounts, (requestOrigin?: string) => o.remote?.publicOrigin ?? o.webauthnOrigin ?? requestOrigin ?? [...allowedOrigins][0]!, o.sharedWebauthnChallenges),...buildRemoteHandlers({core:o.core,home:o.home,audit:o.breakGlassAudit??o.audit,now:()=>clock.now(),certificates:o.remoteCertificates}),...buildRemotePairingHandlers(o.remotePairing) };
   if (o.webRoot !== undefined && !statSync(o.webRoot, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`webRoot ${JSON.stringify(o.webRoot)} is not a directory`);
   const staticFiles = o.webRoot !== undefined ? createStaticServer(o.webRoot) : undefined;

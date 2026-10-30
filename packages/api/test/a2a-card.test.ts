@@ -192,3 +192,56 @@ test("M6A-A4.2: includes legacy 0.3 interface when legacy03 is enabled", async (
     await h.close();
   }
 });
+
+test("M6A-S8: loads agent card signing key from SecretStore via privateKeySecret", async () => {
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  const privateKeyPem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+
+  const h = await start({
+    a2aConfig: {
+      a2aServer: {
+        enabled: true,
+        defaultAgentId: "secretAgent",
+        signingKey: {
+          privateKeySecret: "agent-card-signing-key",
+          kid: "secret-store-key-1",
+        },
+      },
+      agents: {
+        secretAgent: {
+          a2aServer: {
+            exposed: true,
+            name: "Secret Signed Agent",
+          },
+        },
+      },
+    },
+  });
+
+  // Mock core.impl for secret.get
+  const originalImpl = h.core.impl;
+  h.core.impl = async (method, params: any) => {
+    if (method === "secret.get" && params?.name === "agent-card-signing-key" && params?.reveal === true) {
+      return { secret: { name: "agent-card-signing-key" }, value: privateKeyPem };
+    }
+    return originalImpl(method, params);
+  };
+
+  try {
+    const res = await raw(h, { method: "GET", path: "/.well-known/agent-card.json" });
+    assert.equal(res.status, 200);
+    assert.ok(Array.isArray(res.json.signatures));
+    assert.equal(res.json.signatures.length, 1);
+    assert.ok(res.json.signatures[0].signature);
+
+    const parsedCard = AgentCard.fromJSON(res.json);
+    let resolvedKid: string | undefined;
+    await verifyAgentCard(parsedCard, async (kid) => {
+      resolvedKid = kid;
+      return publicKey;
+    });
+    assert.equal(resolvedKid, "secret-store-key-1");
+  } finally {
+    await h.close();
+  }
+});

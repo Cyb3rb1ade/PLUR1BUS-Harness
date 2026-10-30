@@ -99,7 +99,7 @@ async function main(): Promise<void> {
   };
   const secretStore = createCoreSecretStore({ layout: layout(home), securePath: secure, fileFallback: () => false });
   const common = { core, home, bootstrapConsumed: cleanBootstrap, remotePairing, accounts, users: accounts, tokens: accounts.tokens, totp: accounts.totp, resolveBootstrap: () => resolve("local-owner"), ownerToken: randomBytes(32).toString("base64url"), logger, audit, breakGlassAudit: chain, sharedSessions, sharedLoginChallenges, sharedWebauthnChallenges, requireSecondFactor: startup.requireSecondFactor,
-    mcpConfig: () => loadConfig(), a2aConfig: () => loadConfig(), taskStore, oauthStore, oauthClients: loadConfig()?.oauth?.clients, secretRedaction: secretStore.redaction,
+    mcpConfig: () => loadConfig(), a2aConfig: () => loadConfig(), taskStore, oauthStore, oauthClients: loadConfig()?.oauth?.clients, secretRedaction: secretStore.redaction, secretStore,
     ...(wideRates ? { rateClasses: wideRates } : {}),
     remoteCertificates: { importCompany: async (certPem: string, keyPem: string) => { const current = certificates.hasCurrent(), staged = await certificates.stageCompany({ certChainPem: certPem, keyPem }); if (!current) certificates.activateStaged(); return { certPin: staged.certPin, staged: current }; } },
     ...(arg("--web-root") ? { webRoot: arg("--web-root")! } : existsSync(join(home,"runtime","web","index.html")) ? {webRoot:join(home,"runtime","web")} : {}) };

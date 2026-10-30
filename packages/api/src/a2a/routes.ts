@@ -201,9 +201,39 @@ export function buildA2aHandlers(
       legacy03: isLegacy03Enabled(a2aConfig),
     });
 
-    if (a2aConfig?.a2aServer?.signingKey?.privateKeyPem) {
-      card = await signAgentCard(card, a2aConfig.a2aServer.signingKey.privateKeyPem, {
-        kid: a2aConfig.a2aServer.signingKey.kid ?? "default",
+    const signingKey = a2aConfig?.a2aServer?.signingKey;
+    let privateKeyPem = signingKey?.privateKeyPem;
+    if (!privateKeyPem && signingKey?.privateKeySecret) {
+      try {
+        if (d.secretStore) {
+          const res = await d.secretStore.reveal({ kind: "owner", id: "local-owner" }, signingKey.privateKeySecret);
+          privateKeyPem = res.value;
+        } else if (d.core.callAs) {
+          const res = await d.core.callAs<{ secret?: unknown; value: string }>(
+            "secret.get",
+            { name: signingKey.privateKeySecret, reveal: true },
+            { userId: "local-owner", kind: "person", role: "owner" },
+            "core",
+          );
+          privateKeyPem = res.value;
+        } else {
+          const res = await d.core.call<{ secret?: unknown; value: string }>("secret.get", {
+            name: signingKey.privateKeySecret,
+            reveal: true,
+          });
+          privateKeyPem = res.value;
+        }
+      } catch (err) {
+        d.log?.warn("failed to load agent card signing key from secret store", {
+          secret: signingKey.privateKeySecret,
+          error: String(err),
+        });
+      }
+    }
+
+    if (privateKeyPem) {
+      card = await signAgentCard(card, privateKeyPem, {
+        kid: signingKey?.kid ?? "default",
       });
     }
 

@@ -310,6 +310,7 @@ export interface HandlerDeps {
   taskStore?: ((agentId: string) => import("./a2a/task-store.ts").TaskStore) | undefined;
   oauthService?: import("./oauth/service.ts").OAuthService | undefined;
   secretRedaction?: import("../../core/src/secrets/redaction.ts").SecretRedaction | undefined;
+  secretStore?: import("../../core/src/secrets/store.ts").SecretStore | undefined;
   isRemote?: boolean | undefined;
   publicOrigin?: string | undefined;
 }
