@@ -82,3 +82,61 @@ test("passkeys persist across reopen and changes bump the account version; consu
   store.initializeBootstrap(bootstrapHash(randomBytes(32).toString("base64url"))); assert.equal(store.bootstrapState()?.consumed, true); assert.equal(store.bootstrapState()?.hash, null);
   await assert.rejects(store.bootstrapOwner("someone", "unused"), { status: 404 });
 });
+
+test("M6A-B3: OAuth state persists in AccountStore SQLite and survives restart", async t => {
+  const dir = mkdtempSync(join(tmpdir(), "accounts-oauth-")), path = join(dir, "accounts.db");
+  const resolve = async (userId: string): Promise<CorePerson> => ({ userId, kind: "person", role: "member", disabled: false, version: 1 });
+  let store = new AccountStore({ path, resolve });
+  t.after(() => { try { store.close(); } catch { /* already closed */ } rmSync(dir, { recursive: true, force: true }); });
+
+  const grant = {
+    id: "g-1",
+    familyId: "fam-1",
+    userId: "u-1",
+    clientId: "client-a",
+    agentId: "main",
+    audience: "mcp" as const,
+    scopes: ["mcp.read"],
+    createdAt: 1000,
+    lastUsedAt: 1000,
+  };
+  const token = {
+    tokenHash: "hash-1",
+    grantId: "g-1",
+    familyId: "fam-1",
+    userId: "u-1",
+    clientId: "client-a",
+    agentId: "main",
+    audience: "mcp" as const,
+    scopes: ["mcp.read"],
+    createdAt: 1000,
+    expiresAt: 5000,
+    used: false,
+  };
+
+  await store.oauth.saveGrant(grant);
+  await store.oauth.saveRefreshToken(token);
+
+  assert.deepEqual(await store.oauth.getGrant("g-1"), grant);
+  assert.deepEqual(await store.oauth.getRefreshToken("hash-1"), token);
+
+  // Close and reopen
+  store.close();
+  store = new AccountStore({ path, resolve });
+
+  assert.deepEqual(await store.oauth.getGrant("g-1"), grant);
+  assert.deepEqual(await store.oauth.getRefreshToken("hash-1"), token);
+  assert.deepEqual(await store.oauth.getGrantByFamily("fam-1"), grant);
+  assert.equal((await store.oauth.listGrantsByUser("u-1")).length, 1);
+
+  // markRefreshTokenUsed
+  await store.oauth.markRefreshTokenUsed("hash-1");
+  const usedToken = await store.oauth.getRefreshToken("hash-1");
+  assert.equal(usedToken?.used, true);
+
+  // revokeFamily
+  await store.oauth.revokeFamily("fam-1");
+  assert.equal(await store.oauth.getRefreshToken("hash-1"), undefined);
+  const revokedGrant = await store.oauth.getGrant("g-1");
+  assert.ok(revokedGrant?.revokedAt);
+});

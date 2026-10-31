@@ -15,8 +15,11 @@ import { privateAtomicJson } from "./remote-certificates.ts";
 import { createAuditChain } from "./rbac-bridge.ts";
 import { createApiServer } from "./server.ts";
 import { API_VERSION } from "./routes.ts";
+import { SqliteTaskStore } from "./a2a/task-store.ts";
+import { createCoreSecretStore } from "../../core/src/secrets/runtime.ts";
+import { layout } from "../../core/src/paths.ts";
 
-import { mkdirSync, rmSync, existsSync } from "node:fs";
+import { mkdirSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { hostname } from "node:os";
 import { isIP } from "node:net";
 import { SessionStore } from "./session.ts";
@@ -64,7 +67,40 @@ async function main(): Promise<void> {
     stage: async () => { if (startup.config.publish !== "network") throw new Error("Tailscale owns its certificate; local TLS rollover is network-only"); const staged = certificates.staged(); if (!staged && startup.config.tls === "company-ca") throw new Error("Upload the next company certificate before staging rollover"); const next = staged ?? await certificates.stageSelfSigned(); return { certPin: next.certPin, ...(next.caPin ? { caPin: next.caPin } : {}) }; },
     activate: async () => { if (!remote) throw new Error("remote runtime unavailable"); await remote.activateStaged(); }, cancelStage: async () => { certificates.cancelStaged(); },
   });
+  const loadConfig = () => {
+    try {
+      const file = join(home, "config.json");
+      if (existsSync(file)) return JSON.parse(readFileSync(file, "utf8"));
+    } catch {
+      // ignore
+    }
+    return {};
+  };
+  const wideRates = process.env.PLUR1BUS_ALLOW_TEST_INTERNALS === "1" ? {
+    auth: { capacity: 1000, refillPerSec: 100 },
+    totp: { capacity: 1000, refillPerSec: 100 },
+    read: { capacity: 1000, refillPerSec: 100 },
+    write: { capacity: 1000, refillPerSec: 100 },
+    rpc: { capacity: 1000, refillPerSec: 100 },
+    stream: { capacity: 1000, refillPerSec: 100 },
+    expensive: { capacity: 1000, refillPerSec: 100 },
+    upload: { capacity: 1000, refillPerSec: 100 },
+  } : undefined;
+  const oauthStore = accounts.oauth;
+  const a2aTaskStores = new Map<string, SqliteTaskStore>();
+  const a2aDbPath = join(home, "state", "a2a-tasks.db");
+  const taskStore = (agentId: string) => {
+    let s = a2aTaskStores.get(agentId);
+    if (!s) {
+      s = new SqliteTaskStore({ path: a2aDbPath, agentId });
+      a2aTaskStores.set(agentId, s);
+    }
+    return s;
+  };
+  const secretStore = createCoreSecretStore({ layout: layout(home), securePath: secure, fileFallback: () => false });
   const common = { core, home, bootstrapConsumed: cleanBootstrap, remotePairing, accounts, users: accounts, tokens: accounts.tokens, totp: accounts.totp, resolveBootstrap: () => resolve("local-owner"), ownerToken: randomBytes(32).toString("base64url"), logger, audit, breakGlassAudit: chain, sharedSessions, sharedLoginChallenges, sharedWebauthnChallenges, requireSecondFactor: startup.requireSecondFactor,
+    mcpConfig: () => loadConfig(), a2aConfig: () => loadConfig(), taskStore, oauthStore, oauthClients: loadConfig()?.oauth?.clients, secretRedaction: secretStore.redaction, secretStore,
+    ...(wideRates ? { rateClasses: wideRates } : {}),
     remoteCertificates: { importCompany: async (certPem: string, keyPem: string) => { const current = certificates.hasCurrent(), staged = await certificates.stageCompany({ certChainPem: certPem, keyPem }); if (!current) certificates.activateStaged(); return { certPin: staged.certPin, staged: current }; } },
     ...(arg("--web-root") ? { webRoot: arg("--web-root")! } : existsSync(join(home,"runtime","web","index.html")) ? {webRoot:join(home,"runtime","web")} : {}) };
   const api = createApiServer({ ...common, port, ...(arg("--host") ? { host: arg("--host")! } : {}) }), apis = new Set([api]);
@@ -76,7 +112,7 @@ async function main(): Promise<void> {
   remote = await startRemoteRuntime({ home, ...startup, certificates, localPort, createApi: bind => { const endpoint = createApiServer({ ...common, ...bind }); apis.add(endpoint); return endpoint; }, report: status => { for (const check of status.doctor) logger.warn(check.message, { check: check.id }); } });
   console.log(JSON.stringify({ ready: true, url, pid: process.pid, remote: { publish: remote.state.publish, phase: remote.state.phase, ...(remote.state.doctor[0] ? { reason: remote.state.doctor[0].id } : {}) } }));
   let stopping = false;
-  const stop = async () => { if (stopping) return; stopping = true; await remote?.close().catch(() => logger.error("remote cleanup failed; private backend closed")); await api.close(); await audit.flush(); await core.close(); accounts.close(); await logger.close(); if(supervised) rmSync(join(home,"run","api-listen.json"),{force:true}); lock.release(); process.exit(0); };
+  const stop = async () => { if (stopping) return; stopping = true; for (const s of a2aTaskStores.values()) { try { s.close(); } catch {} } await remote?.close().catch(() => logger.error("remote cleanup failed; private backend closed")); await api.close(); await audit.flush(); await core.close(); accounts.close(); await logger.close(); if(supervised) rmSync(join(home,"run","api-listen.json"),{force:true}); lock.release(); process.exit(0); };
   if(supervised) { process.stdin.on("end",()=>void stop()); process.stdin.on("error",()=>void stop()); process.stdin.resume(); }
   process.on("SIGTERM", () => void stop()); process.on("SIGINT", () => void stop());
 }

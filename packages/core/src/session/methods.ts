@@ -50,7 +50,7 @@ export const toWireSession = (s: SessionRecord): WireSession => ({
   createdAt: s.createdAt, updatedAt: s.updatedAt, lastTurnAt: s.lastTurnAt, archivedAt: s.archivedAt, turnCount: s.turnCount,
 });
 export const toWireEvent = (e: EventRecord): SessionEvent => ({ sessionId: e.sessionId, seq: e.seq, turnId: e.turnId, type: e.type, data: e.data, at: e.at });
-const toWireMessage = (m: MessageRecord): SessionMessage => ({ id: m.id, seq: m.seq, turnId: m.turnId, role: m.role, text: m.text, createdAt: m.createdAt });
+export const toWireMessage = (m: MessageRecord): SessionMessage => ({ id: m.id, seq: m.seq, turnId: m.turnId, role: m.role, text: m.text, createdAt: m.createdAt });
 
 const stopping = (): RpcError => new RpcError("E_CORE_UNAVAILABLE", "core is stopping", { reason: "core-stopping" });
 

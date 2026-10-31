@@ -29,7 +29,7 @@ const params: Record<string, unknown> = {
   "events.subscribe": {},
   "voice.session.create": { agentId: "bernd" },
   "jobs.create": { agentId: "bernd" }, "jobs.update": { id: "user:fixture" }, "jobs.delete": { id: "user:fixture", confirm: true },
-  "doctor.report": {}, "agent.activity.list": {},
+  "doctor.report": {}, "agent.activity.list": {}, "telemetry.cache.summary": {},
   "media.preferences.get": {}, "media.preferences.set": {},
   "media.generate": {},
   "media.edit": {},
@@ -71,6 +71,9 @@ const params: Record<string, unknown> = {
   "agent.rights.get": { agentId: "bernd" },
   "agent.rights.set": { agentId: "bernd" },
   "memory.forget": { caller, agentId: "bernd", id: "m1" },
+  "memory.sensitivity.get": { id: "m1", agentId: "bernd" },
+  "memory.sensitivity.set": { id: "m1", agentId: "bernd", categories: ["financial"] },
+  "memory.sensitivity.clear": { id: "m1", agentId: "bernd" },
   "agent.status": { agentId: "bernd" },
   "jobs.run": { job: "light", agentId: "bernd" },
   "egress.status": {},
@@ -81,13 +84,19 @@ const params: Record<string, unknown> = {
   "admin.reembed.plan": {}, "admin.reembed.run": {}, "admin.reembed.status": {}, "admin.reembed.abort": {}, "admin.backup.snapshot": {}, "audit.verify": {}, "logs.query": {}, "logs.tail": {}, "logs.levels": {}, "identity.list": {}, "identity.human.create": {}, "identity.link": {}, "identity.unlink": {}, "identity.pair.start": {}, "identity.pair.claim": {}, "identity.pair.confirm": {}, "dreams.run": {}, "dreams.schedule.set": {}, "dreams.enable": {}, "dreams.disable": {}, "dreams.diary": { agentId: "bernd" },
   "grant.list": {}, "grant.get": { id: "grt_1" }, "grant.create": { capability: "fs.write", agent: "bernd", scope: "always" }, "grant.revoke": { id: "grt_1" },
   "approval.list": {}, "approval.get": { id: "apr_1" }, "approval.decide": { id: "apr_1", decision: "approve" }, "approval.cancel": { id: "apr_1" }, "approval.verify": {}, "approval.audit": {},
+  "memory.recall": { caller, agentId: "bernd", query: "q" },
+  "memory.capture": { caller, agentId: "bernd", messages: [{ role: "user", content: "hi" }] },
+  "external.turn.start": { agentId: "bernd", message: "hi", audience: "mcp" },
+  "external.turn.events": { agentId: "bernd", sessionId: "s1" },
+  "external.turn.get": { agentId: "bernd", sessionId: "s1" },
+  "external.turn.cancel": { agentId: "bernd", sessionId: "s1" },
 };
 
 /** Stub handlers for every guarded method; they record that they ran. */
 function stubs(): { handlers: Record<string, Handler>; ran: string[] } {
   const ran: string[] = [];
   const handlers: Record<string, Handler> = {};
-  for (const m of [...Object.keys(RPC_RULES), "memory.recall", "core.status"]) handlers[m] = async () => { ran.push(m); return { ok: m }; };
+  for (const m of [...Object.keys(RPC_RULES), "memory.checkpoint", "core.status"]) handlers[m] = async () => { ran.push(m); return { ok: m }; };
   return { handlers, ran };
 }
 
@@ -174,6 +183,12 @@ describe("rpc guard: decisions", () => {
     for (const role of ["owner", "admin"] as const) assert.deepEqual(await code(wrap(asRole(role)).guarded, "egress.status"), {}, role);
     for (const role of ["operator", "member", "viewer"] as const) assert.equal((await code(wrap(asRole(role)).guarded, "egress.status")).error, "E_DENIED", role);
   });
+  it("telemetry.cache.summary is human-only and requires doctor.read", async () => {
+    for (const role of ["owner", "admin", "operator"] as const) assert.deepEqual(await code(wrap(asRole(role)).guarded, "telemetry.cache.summary"), {}, role);
+    for (const role of ["member", "viewer"] as const) assert.deepEqual(await code(wrap(asRole(role)).guarded, "telemetry.cache.summary"), { error: "E_DENIED", reason: "role-denied" }, role);
+    assert.deepEqual(await code(wrap(asRole("owner", { kind: "agent" })).guarded, "telemetry.cache.summary"), { error: "E_DENIED", reason: "agent-principal" });
+  });
+
   it("jobs.run: Operator may, Member and Viewer may not; models writes: Operator may not", async () => {
     assert.deepEqual(await code(wrap(asRole("operator")).guarded, "jobs.run"), {});
     for (const role of ["member", "viewer"] as const) assert.equal((await code(wrap(asRole(role)).guarded, "jobs.run")).error, "E_DENIED", role);
@@ -205,7 +220,7 @@ describe("rpc guard: decisions", () => {
 
   it("methods without a rule are passed through untouched", async () => {
     const { guarded, handlers } = wrap(() => null);
-    assert.equal(guarded["memory.recall"], handlers["memory.recall"]);
+    assert.equal(guarded["memory.checkpoint"], handlers["memory.checkpoint"]);
     assert.equal(guarded["core.status"], handlers["core.status"]);
   });
 

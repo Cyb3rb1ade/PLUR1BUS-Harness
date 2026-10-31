@@ -176,6 +176,8 @@ needed, `bg` = a live break-glass grant, `–` = denied). The matrix test compar
 | `memory.workspace.read` | memory-agent:workspace | ✔ | ✔ | use | use | use |
 | `memory.workspace.write` | memory-agent:workspace | ✔ | ✔ | use | use | – |
 | `memory.forget` | agent | ✔ | ✔ | use | use | – |
+| `memory.sensitivity.read` | agent | ✔ | ✔ | use | use | use |
+| `memory.sensitivity.write` | agent | ✔ | ✔ | manage | manage | – |
 | `agent.list` | system | ✔ | ✔ | ✔ | ✔ | ✔ |
 | `agent.read` | agent | ✔ | ✔ | ✔ | use | use |
 | `agent.use` | agent | ✔ | ✔ | use | use | – |
@@ -603,6 +605,8 @@ Person-bound SSE is independent of WebMCP. An event requires a matching person/c
 
 `doctor.report` is human-only. Its admission gate permits all five human roles to read the cached report. The all-human read admission uses `agent.list`; the handler additionally authorizes `doctor.run` (including token scopes) and requires Owner, Admin or Operator for `refresh: true`; it rate-limits a fresh check to once per 30 seconds. Agents cannot request or read this report.
 
+`telemetry.cache.summary` (D120 H2-1) is human-only and requires `doctor.read` (owner, admin, operator); it returns counts and ids only, and is never a WebMCP tool.
+
 ### User recurring task methods
 
 New human-only rules: `jobs.create` → `agent.manage` on params.agentId; `jobs.update` and `jobs.delete` → `agent.list` for the initial authenticated read, followed by handler-level `agent.manage` checks on the stored and proposed targets. These require the corresponding token scopes as well as roles/rights. `jobs.list/history` user paths resolve a person and apply `agent.list` plus visibility filtering; legacy engine/system paths retain their existing classification.
@@ -641,6 +645,15 @@ bridge explicitly permits this method under those same Core rules; no standalone
 only narrow access. It is forbidden as a WebMCP tool. The handler takes only a model identifier; prompt, output cap, tool
 set, memory and timeout are server-owned. It selects one configured candidate without fallback and admits the request
 through the same budget/router and adapter egress as ordinary model calls. It creates no session or transcript.
+
+### Protokoll-Endpunkte und Agent-gebundene Tokens (M6-A, 2026-10-29)
+
+Für externe Protokolle (MCP und A2A) werden persönliche API-Tokens mit einer festen Bindung ausgestellt (`binding: { audience: "mcp" | "a2a", agentId: string }`):
+
+* **Audience-Isolation:** Ein für `audience: "mcp"` ausgestelltes Token wird auf anderen Protokoll-Routen (`/a2a`) mit `401 invalid-audience` abgewiesen und umgekehrt. Tokens ohne Bindung erhalten `403 token-binding-required`.
+* **Prinzipal und Scopes:** Die API instanziiert das Token als Prinzipal der Art `agent` (`kind: "agent"`) mit gesetztem `tokenId` und `binding`. Die Scopes des Tokens engen die Rolle des Erstellers ein.
+* **Objektrechte:** Das Erstellen eines an einen Agenten gebundenen Tokens und jeder Zugriff über `/mcp` setzt die Berechtigung `agent.use` auf dem Ziel-Agenten (`agent:<id>`) voraus.
+* **Keine Menschen-Rechte:** Wie alle Tokens der Art `agent` können gebundene Tokens keine `humanOnly`-Aktionen ausführen.
 
 ### A4: human memory curation
 

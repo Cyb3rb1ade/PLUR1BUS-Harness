@@ -6,7 +6,15 @@ import type { CallContext } from "./server.ts";
 export function apiIdentities(resolve: (p: ApiPrincipal) => Principal | null) {
   const connections = new Map<string, ApiPrincipal | null>();
   return {
-    forwarded(principal: ApiPrincipal): ApiPrincipal | null { const p = resolve(principal); return p ? { ...p, kind: principal.kind } : null; },
+    forwarded(principal: ApiPrincipal): ApiPrincipal | null {
+      const p = resolve(principal);
+      return p ? {
+        ...p,
+        kind: principal.kind,
+        ...(principal.tokenId !== undefined ? { tokenId: principal.tokenId } : {}),
+        ...(principal.binding !== undefined ? { binding: principal.binding } : {}),
+      } : null;
+    },
     authenticated(id: string, principal: ApiPrincipal | null) { connections.set(id, principal); },
     services(): string[] { return [...connections].filter(([, p]) => p === null).map(([id]) => id); },
     closed(id: string) { connections.delete(id); },

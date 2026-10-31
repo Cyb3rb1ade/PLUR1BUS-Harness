@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://plur1bus.dev/schema/rpc/1.8.0/rpc.schema.json",
-  "title": "PLUR1BUS harness RPC 1.8.0",
+  "$id": "https://plur1bus.dev/schema/rpc/1.10.0/rpc.schema.json",
+  "title": "PLUR1BUS harness RPC 1.10.0",
   "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch.",
-  "x-rpc-version": "1.8.0",
+  "x-rpc-version": "1.10.0",
   "$defs": {
     "EngineContractEngineCapabilitiesData": {
       "title": "EngineContractEngineCapabilitiesData",
@@ -4798,6 +4798,205 @@
     "AgentId": {
       "type": "string",
       "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "CacheMissCauses": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "first-request",
+        "model-changed",
+        "tools-changed",
+        "system-changed",
+        "snapshot-changed",
+        "ttl-expired",
+        "provider"
+      ],
+      "properties": {
+        "first-request": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "model-changed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tools-changed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "system-changed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "snapshot-changed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ttl-expired": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "provider": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "CacheLedgerRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "agentId",
+        "model",
+        "calls",
+        "uncachedCalls",
+        "inputTokens",
+        "outputTokens",
+        "cacheReadTokens",
+        "cacheWriteTokens",
+        "cachingInputTokens",
+        "hitRatio",
+        "hitRatioCaching"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "agentId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "model": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "uncachedCalls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inputTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outputTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cacheReadTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cacheWriteTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cachingInputTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hitRatio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "hitRatioCaching": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "CacheModelSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model",
+        "turns",
+        "inputTokens",
+        "cacheReadTokens",
+        "cacheCreationTokens",
+        "totalInputTokens",
+        "hitRatio",
+        "hits",
+        "misses",
+        "notCacheable",
+        "missCauses"
+      ],
+      "properties": {
+        "model": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "turns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inputTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cacheReadTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cacheCreationTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "totalInputTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hitRatio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "hits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "misses": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "notCacheable": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missCauses": {
+          "$ref": "#/$defs/CacheMissCauses"
+        }
+      }
+    },
+    "CacheSessionSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sessionId",
+        "agentId",
+        "models"
+      ],
+      "properties": {
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "agentId": {
+          "$ref": "#/$defs/AgentId"
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CacheModelSummary"
+          }
+        }
+      }
     },
     "SessionKey": {
       "type": "string",
@@ -17211,6 +17410,198 @@
           }
         }
       },
+      "memory.sensitivity.clear": {
+        "description": "Clear a specific sensitivity category or all sensitivity categories from a memory card.",
+        "x-stability": "experimental",
+        "x-since": "1.9.0",
+        "x-server": "core",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/MemoryId"
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "category": {
+              "type": "string",
+              "enum": [
+                "health",
+                "financial",
+                "credential",
+                "identity",
+                "personal"
+              ]
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "cleared",
+            "remaining"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "cleared": {
+              "type": "boolean"
+            },
+            "remaining": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "health",
+                  "financial",
+                  "credential",
+                  "identity",
+                  "personal"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "memory.sensitivity.get": {
+        "description": "Get the sensitivity categories and source for a memory card.",
+        "x-stability": "experimental",
+        "x-since": "1.9.0",
+        "x-server": "core",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/MemoryId"
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "categories"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "categories": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "health",
+                  "financial",
+                  "credential",
+                  "identity",
+                  "personal"
+                ]
+              }
+            },
+            "source": {
+              "type": "string",
+              "enum": [
+                "rule",
+                "manual",
+                "model"
+              ]
+            },
+            "updatedAt": {
+              "type": "number"
+            }
+          }
+        }
+      },
+      "memory.sensitivity.set": {
+        "description": "Mark sensitivity categories (health, financial, credential, identity, personal) on a memory card.",
+        "x-stability": "experimental",
+        "x-since": "1.9.0",
+        "x-server": "core",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "categories"
+          ],
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/MemoryId"
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "categories": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "health",
+                  "financial",
+                  "credential",
+                  "identity",
+                  "personal"
+                ]
+              }
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "categories",
+            "updated"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "categories": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "health",
+                  "financial",
+                  "credential",
+                  "identity",
+                  "personal"
+                ]
+              }
+            },
+            "source": {
+              "type": "string",
+              "enum": [
+                "rule",
+                "manual",
+                "model"
+              ]
+            },
+            "updated": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
       "memory.share": {
         "x-stability": "experimental",
         "x-since": "1.0.0",
@@ -18021,6 +18412,74 @@
             "agentId",
             "discardedRights"
           ]
+        }
+      },
+      "telemetry.cache.summary": {
+        "x-stability": "experimental",
+        "x-since": "1.10.0",
+        "x-server": "core",
+        "description": "Prompt-cache telemetry (D120 H2-1): hit ratio per provider, agent and model from the budget ledger over a window ending now, and, for one session, the process-local per-model counters with cache-miss causes. Counts and ids only; never prompt content. Human-only; requires doctor.read.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "window": {
+              "enum": [
+                "24h",
+                "7d"
+              ],
+              "description": "Ledger window ending now; default 24h"
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "sessionId": {
+              "$ref": "#/$defs/SessionId"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "window",
+            "since",
+            "until",
+            "providers",
+            "session"
+          ],
+          "properties": {
+            "window": {
+              "enum": [
+                "24h",
+                "7d"
+              ]
+            },
+            "since": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "until": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "providers": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/CacheLedgerRow"
+              }
+            },
+            "session": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/CacheSessionSummary"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
         }
       },
       "doctor.report": {
@@ -21713,6 +22172,263 @@
               "items": {
                 "$ref": "#/$defs/ExtItem"
               }
+            }
+          }
+        }
+      },
+      "external.turn.start": {
+        "x-stability": "experimental",
+        "x-since": "1.9.0",
+        "x-server": "core",
+        "description": "Start an external turn on an agent session via MCP or A2A.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId",
+            "message",
+            "audience"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "message": {
+              "type": "string"
+            },
+            "audience": {
+              "type": "string",
+              "enum": [
+                "mcp",
+                "a2a"
+              ]
+            },
+            "tokenId": {
+              "type": "string"
+            },
+            "sessionId": {
+              "type": "string"
+            },
+            "wait": {
+              "type": "boolean"
+            },
+            "attachments": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId",
+            "turnId",
+            "state"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "turnId": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "running",
+                "completed",
+                "failed"
+              ]
+            },
+            "reply": {
+              "type": "string"
+            },
+            "error": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "external.turn.events": {
+        "x-stability": "experimental",
+        "x-since": "1.9.0",
+        "x-server": "core",
+        "description": "Read events of an external turn session.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "audience": {
+              "type": "string",
+              "enum": [
+                "mcp",
+                "a2a"
+              ]
+            },
+            "tokenId": {
+              "type": "string"
+            },
+            "afterSeq": {
+              "type": "integer"
+            },
+            "limit": {
+              "type": "integer"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId",
+            "events",
+            "lastSeq",
+            "running"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "events": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SessionEvent"
+              }
+            },
+            "lastSeq": {
+              "type": "integer"
+            },
+            "running": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "external.turn.get": {
+        "x-stability": "experimental",
+        "x-since": "1.9.0",
+        "x-server": "core",
+        "description": "Get session details and optional messages for an external turn session.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "audience": {
+              "type": "string",
+              "enum": [
+                "mcp",
+                "a2a"
+              ]
+            },
+            "tokenId": {
+              "type": "string"
+            },
+            "messages": {
+              "type": "integer"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId",
+            "session",
+            "runningTurnId"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "session": {
+              "$ref": "#/$defs/SessionRecord"
+            },
+            "runningTurnId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "messages": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SessionMessage"
+              }
+            }
+          }
+        }
+      },
+      "external.turn.cancel": {
+        "x-stability": "experimental",
+        "x-since": "1.9.0",
+        "x-server": "core",
+        "description": "Cancel an active turn on an external turn session.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "audience": {
+              "type": "string",
+              "enum": [
+                "mcp",
+                "a2a"
+              ]
+            },
+            "tokenId": {
+              "type": "string"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId",
+            "turnId",
+            "cancelled"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "turnId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "cancelled": {
+              "type": "boolean"
             }
           }
         }

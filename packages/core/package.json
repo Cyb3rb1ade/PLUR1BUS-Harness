@@ -13,10 +13,11 @@
     ".": "./dist/index.js"
   },
   "scripts": {
-    "build": "esbuild src/index.ts src/bin.ts src/import-bin.ts src/acp-bin.ts src/api-bin.ts src/extension-source-bin.ts --bundle --platform=node --target=node24 --format=esm --packages=external --outdir=dist --entry-names=[name] && node -e \"const f=require('fs');f.renameSync('dist/bin.js','dist/core.js');f.renameSync('dist/import-bin.js','dist/import.js');f.renameSync('dist/acp-bin.js','dist/acp.js');f.renameSync('dist/api-bin.js','dist/api.js');f.renameSync('dist/extension-source-bin.js','dist/extension-source.js')\" && node ../../scripts/copy-dir.mjs src/agent-templates dist/agent-templates",
+    "build": "esbuild src/index.ts src/bin.ts src/import-bin.ts src/acp-bin.ts src/mcp-bin.ts src/api-bin.ts src/extension-source-bin.ts --bundle --platform=node --target=node24 --format=esm --packages=external --outdir=dist --entry-names=[name] && node -e \"const f=require('fs');f.renameSync('dist/bin.js','dist/core.js');f.renameSync('dist/import-bin.js','dist/import.js');f.renameSync('dist/acp-bin.js','dist/acp.js');f.renameSync('dist/mcp-bin.js','dist/mcp.js');f.renameSync('dist/api-bin.js','dist/api.js');f.renameSync('dist/extension-source-bin.js','dist/extension-source.js')\" && node ../../scripts/copy-dir.mjs src/agent-templates dist/agent-templates",
     "test": "node ../../scripts/test-package.mjs"
   },
   "dependencies": {
+    "@a2a-js/sdk": "1.3.0",
     "@cyb3rb1ade/plur1bus-memory": "git+https://github.com/Cyb3rb1ade/openclaw-plur1bus-memory.git#9f34008c143c5da87b2194b5a28442b407ff8ba7",
     "@matrix-org/matrix-sdk-crypto-wasm": "18.9.0",
     "@modelcontextprotocol/sdk": "1.32.1",

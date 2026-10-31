@@ -6,13 +6,23 @@ import { CONFIG_SCHEMA, defaults, tierOf, validate } from "../src/index.ts";
 // delegate_task); the switches live per agent and default to on.
 const node = (CONFIG_SCHEMA.properties.agents as any).additionalProperties.properties.memoryExposure;
 
-test("agents.<id>.memoryExposure.collab has the four switches, all boolean and on by default", () => {
+test("agents.<id>.memoryExposure has collab, mcp and a2a switches with their defaults", () => {
   const collab = node.properties.collab.properties;
   assert.deepEqual(Object.keys(collab).sort(), ["capture", "recall"]);
   assert.deepEqual(Object.keys(collab.recall.properties).sort(), ["agentPrivate", "user", "workspace"]);
   for (const leaf of [collab.capture, collab.recall.properties.workspace, collab.recall.properties.user, collab.recall.properties.agentPrivate]) {
     assert.equal(leaf.type, "boolean");
     assert.equal(leaf.default, true);
+  }
+
+  for (const ch of ["mcp", "a2a"] as const) {
+    const p = node.properties[ch].properties;
+    assert.deepEqual(Object.keys(p).sort(), ["capture", "recall"]);
+    assert.deepEqual(Object.keys(p.recall.properties).sort(), ["agentPrivate", "user", "workspace"]);
+    assert.equal(p.recall.properties.workspace.default, true);
+    assert.equal(p.recall.properties.user.default, true);
+    assert.equal(p.recall.properties.agentPrivate.default, true);
+    assert.equal(p.capture.default, true);
   }
 });
 
@@ -38,7 +48,7 @@ test("the switches validate, unknown keys and non-booleans do not, and the insta
   assert.deepEqual(cfg.agents, {});
   cfg.agents.bernd = { memoryExposure: { collab: { recall: { workspace: true, user: false, agentPrivate: false }, capture: false } } };
   assert.equal(validate(cfg).ok, true);
-  for (const bad of [{ collab: { capture: "no" } }, { collab: { recall: { user: 0 } } }, { collab: { recall: { everything: true } } }, { collab: { filter: true } }, { mcp: { capture: true } }]) {
+  for (const bad of [{ collab: { capture: "no" } }, { collab: { recall: { user: 0 } } }, { collab: { recall: { everything: true } } }, { collab: { filter: true } }, { unknownChannel: { capture: true } }]) {
     cfg.agents.bernd = { memoryExposure: bad };
     assert.equal(validate(cfg).ok, false, JSON.stringify(bad));
   }

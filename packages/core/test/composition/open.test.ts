@@ -22,6 +22,7 @@ const EXTENSION_METHODS = ["admin.extensions.setup.get", "admin.extensions.setup
   "admin.extensions.auth.submit", "admin.extensions.auth.cancel"];
 const SSH_METHODS = ["key.status", "key.generate", "key.rotate", "key.delete", "connections.list", "connections.set",
   "connections.delete", "hostKey.probe", "hostKey.trust"].map(method => `admin.import.ssh.${method}`);
+const EXTERNAL_TURN_METHODS = ["external.turn.start", "external.turn.events", "external.turn.get", "external.turn.cancel"];
 
 function recordingLogger() {
   const lines: [string, string, Record<string, unknown> | undefined][] = [];
@@ -64,15 +65,28 @@ describe("composition openTurnComposition", () => {
     }
   });
 
+  it("the turn provider's secret source holds every value of the secret store's redaction registry, not only leased credentials", async () => {
+    const secrets = createSecretStore({ keyring: createMemoryBackend(), file: createMemoryBackend(), fileFallback: () => false, audit: createMemoryAuditSink() });
+    const sources: (() => Iterable<string>)[] = [];
+    const providers = { profiles: { default: [{ provider: "fixture", model: "gpt-4.1", adapter: { async *stream() { /* unused */ } } }] } };
+    const { composition: c, identity } = await open({ secrets, options: { providers, createTurnProvider: (o) => { if (o.secrets) sources.push(o.secrets); return { id: "fixture", telemetry: {} as never, async *stream() { /* unused */ } } as never; } } });
+    try {
+      assert.ok(sources.length > 0, "the foreground provider was created with a secret source");
+      const value = `fixture-store-${"v".repeat(12)}`;
+      await secrets.set({ kind: "owner", id: "t" }, "web.key", value);
+      for (const source of sources) assert.ok([...source()].includes(value), "a value set in the store is redacted from tool results");
+    } finally { await c.close(); identity.close(); }
+  });
+
   it("assembles sessions, collaboration, voice, openai and the media RPC surface", async () => {
     const { composition: c, identity } = await open();
     try {
-      assert.deepEqual(Object.keys(c).sort(), ["budget", "capabilities", "chatModels", "close", "collab", "discoveryCredentials", "engineComplete", "importSsh", "mining", "openai", "refusedProviders", "sessions", "skillReview", "surfaceMethods", "voice"]);
+      assert.deepEqual(Object.keys(c).sort(), ["budget", "cacheTelemetry", "capabilities", "chatModels", "close", "collab", "discoveryCredentials", "engineComplete", "importSsh", "mining", "openai", "refusedProviders", "sessions", "skillReview", "surfaceMethods", "voice"]);
       assert.equal(c.skillReview.status().state, "engine-unavailable");
       assert.equal(c.mining.status().state, "engine-unavailable");
       assert.ok(c.collab, "collaboration needs the call budget, which opened");
       assert.equal(typeof c.sessions.close, "function");
-      assert.deepEqual(Object.keys(c.surfaceMethods).sort(), [...MEDIA_METHODS, ...SEARCH_METHODS, ...EXTENSION_METHODS, ...SSH_METHODS, "decision.status", "decision.test", "models.test"].sort());
+      assert.deepEqual(Object.keys(c.surfaceMethods).sort(), [...MEDIA_METHODS, ...SEARCH_METHODS, ...EXTENSION_METHODS, ...SSH_METHODS, ...EXTERNAL_TURN_METHODS, "decision.status", "decision.test", "models.test"].sort());
       for (const m of Object.values(c.surfaceMethods)) assert.equal(typeof m, "function");
     } finally { await c.close(); identity.close(); }
   });

@@ -52,7 +52,7 @@ export const PAGE_SUPPLIED_PARAMS: readonly string[] = ["caller"];
 const FORBIDDEN_EXACT = new Set([
   "memory.curation.list", "memory.curation.resolve",
   "session.model.get", "session.model.set", "chat.model.set", "task.complete",
-  "jobs.create", "jobs.update", "jobs.delete", "doctor.report", "agent.activity.list",
+  "jobs.create", "jobs.update", "jobs.delete", "doctor.report", "telemetry.cache.summary", "agent.activity.list",
   "core.auth", "core.shutdown", "core.adopt", "memory.checkpoint", "agent.open", "agent.close",
   "ext.install", "ext.uninstall", "ext.restore", "ext.enable", "ext.disable", "ext.update",
   "models.test", "models.scan", "models.setOverride", "models.removeManual", "models.acknowledge",

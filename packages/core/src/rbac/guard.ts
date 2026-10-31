@@ -1,12 +1,12 @@
 // The integration point for core RPC methods: wraps the handlers named in `RPC_RULES` with principal resolution and
 // `authorize`. Methods without a rule pass through untouched. Only a representative set is secured so far
 // (docs/rbac.md lists the rest): grant.* and approval.* (human-only), memory.forget, agent.status, jobs.run, the models.* writes and the admin.* family.
-import { apiPrincipal } from "@plur1bus/module-api";
+import { apiPrincipal, isClientContext } from "@plur1bus/module-api";
 import { RpcError } from "../rpc/errors.ts";
 import type { CallContext, Handler } from "../rpc/server.ts";
 import type { AuditSink } from "./audit.ts";
 import { authorize } from "./authorize.ts";
-import type { Principal, Resource } from "./types.ts";
+import type { AuthorizeContext, Decision, Principal, Resource } from "./types.ts";
 
 /** RULING R8: until the Harness API supplies sessions and tokens, a connection that passed the core's own token
  *  handshake (a 0600 file in the home, ADR-012) is the installation owner. */
@@ -93,6 +93,7 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "jobs.update": { ...rule("agent.list", system), humanOnly: true },
   "jobs.delete": { ...rule("agent.list", system), humanOnly: true },
   "doctor.report": { ...rule("agent.list", system), humanOnly: true },
+  "telemetry.cache.summary": { ...rule("doctor.read", system), humanOnly: true },
   "agent.activity.list": { ...rule("agent.list", system), humanOnly: true },
   "inbox.list": rule("inbox.read", system),
   "inbox.count": rule("inbox.read", system),
@@ -271,7 +272,71 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "approval.audit": rule("approval.read", system),
   "approval.decide": rule("approval.decide", system),
   "approval.cancel": rule("approval.decide", system),
+  // M6-A (Arbeitspaket P): memory.recall (memory.workspace.read fallback to memory.*.read) and memory.capture (memory.*.write).
+  "memory.recall": rule("memory.workspace.read", (params) => ({ kind: "memory", scope: "workspace", agentId: field(params, "agentId") })),
+  "memory.capture": rule("memory.workspace.write", (params) => ({ kind: "memory", scope: "workspace", agentId: field(params, "agentId") })),
+  // M6-A (Arbeitspaket P): memory.sensitivity.* (Festlegung 5)
+  "memory.sensitivity.get": rule("memory.sensitivity.read", agent),
+  "memory.sensitivity.set": rule("memory.sensitivity.write", agent),
+  "memory.sensitivity.clear": rule("memory.sensitivity.write", agent),
+  // M6-A (Arbeitspaket P): external.turn.* (M6A-A1.3)
+  "external.turn.start": rule("agent.use", agent),
+  "external.turn.events": rule("agent.read", agent),
+  "external.turn.get": rule("agent.read", agent),
+  "external.turn.cancel": rule("agent.use", agent),
 });
+
+function authorizeMemoryFallback(method: string, principal: Principal, params: unknown, ctx: CallContext, authCtx: AuthorizeContext): Decision | null {
+  const agentId = field(params, "agentId") || (principal.binding?.agentId ?? "");
+  if (method === "external.turn.start" || method === "external.turn.cancel") {
+    if (principal.tokenScopes && (principal.tokenScopes.includes("a2a.task") || principal.tokenScopes.includes("mcp.write") || principal.tokenScopes.includes("mcp:call"))) {
+      const { tokenScopes: _omit, ...noScope } = principal;
+      const dec = authorize(noScope, "agent.use", { kind: "agent", agentId }, authCtx);
+      if (dec.effect === "allow") return dec;
+    }
+  }
+  if (method === "external.turn.events" || method === "external.turn.get") {
+    if (principal.tokenScopes && (principal.tokenScopes.includes("a2a.task") || principal.tokenScopes.includes("mcp.read") || principal.tokenScopes.includes("mcp:call"))) {
+      const { tokenScopes: _omit, ...noScope } = principal;
+      const dec = authorize(noScope, "agent.read", { kind: "agent", agentId }, authCtx);
+      if (dec.effect === "allow") return dec;
+    }
+  }
+  if (method === "memory.recall") {
+    if (isClientContext(ctx)) {
+      const dec = authorize(principal, "agent.use", { kind: "agent", agentId }, authCtx);
+      if (dec.effect === "allow") return dec;
+    }
+    const { tokenScopes: _omitRecall, ...noScopePrincipal } = principal;
+    if (authorize(noScopePrincipal, "agent.use", { kind: "agent", agentId }, authCtx).effect !== "allow") return null;
+    for (const [action, resource] of [
+      ["memory.workspace.read", { kind: "memory", scope: "workspace", agentId }],
+      ["memory.user.read", { kind: "memory", scope: "user", ownerUserId: principal.userId }],
+      ["memory.agent-private.read", { kind: "memory", scope: "agent-private", agentId }],
+    ] as const) {
+      const dec = authorize(principal, action, resource, authCtx);
+      if (dec.effect === "allow") return dec;
+    }
+    return null;
+  }
+  if (method === "memory.capture") {
+    if (isClientContext(ctx)) {
+      const dec = authorize(principal, "agent.use", { kind: "agent", agentId }, authCtx);
+      if (dec.effect === "allow") return dec;
+    }
+    const { tokenScopes: _omitCapture, ...noScopeCapturePrincipal } = principal;
+    if (authorize(noScopeCapturePrincipal, "agent.use", { kind: "agent", agentId }, authCtx).effect !== "allow") return null;
+    for (const [action, resource] of [
+      ["memory.user.write", { kind: "memory", scope: "user", ownerUserId: principal.userId }],
+      ["memory.agent-private.write", { kind: "memory", scope: "agent-private", agentId }],
+    ] as const) {
+      const dec = authorize(principal, action, resource, authCtx);
+      if (dec.effect === "allow") return dec;
+    }
+    return null;
+  }
+  return null;
+}
 
 export interface GuardOptions {
   resolve: PrincipalResolver;
@@ -308,9 +373,13 @@ export function guardMethods(handlers: Record<string, Handler>, o: GuardOptions)
         record("rbac.unauthenticated", "anonymous", method, { action: r.action, reason: "no-principal" });
         throw new RpcError("E_UNAUTHORIZED", "authentication required", { reason: "no-principal" });
       }
-      const d = r.humanOnly && principal.kind !== "person"
+      const authCtx: AuthorizeContext = { now: o.now() };
+      let d = r.humanOnly && principal.kind !== "person"
         ? { effect: "deny" as const, reason: "agent-principal" as const }
-        : authorize(principal, r.action, r.resource(params), { now: o.now() });
+        : authorize(principal, r.action, r.resource(params), authCtx);
+      if (d.effect === "deny" && d.reason === "token-scope") {
+        d = authorizeMemoryFallback(method, principal, params, ctx, authCtx) ?? d;
+      }
       if (d.effect === "deny") {
         record("rbac.denied", typeof principal.userId === "string" && principal.userId !== "" ? principal.userId : "anonymous", method,
           { action: r.action, reason: d.reason, role: String(principal.role) });

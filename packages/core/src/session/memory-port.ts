@@ -29,7 +29,7 @@ export interface TurnMemory {
    *  everything its principal reaches. The engine can withhold the user scope alone (no `user` on the principal); it cannot
    *  exclude the workspace or the agent-private scope, so a request that needs either off is refused with
    *  `degraded.reason = "scope-not-enforceable"` and the engine is not asked. */
-  recall(a: { agentId: string; caller: CallerIdentity; authenticatedPerson?: string; query: string; signal: AbortSignal; turnProfile?: import("../voice/turn-profile.ts").TurnProfile; scopes?: RecallScopes }): Promise<{ text: string; degraded: Degraded | null }>;
+  recall(a: { agentId: string; caller: CallerIdentity; authenticatedPerson?: string; query: string; signal: AbortSignal; turnProfile?: import("../voice/turn-profile.ts").TurnProfile; scopes?: RecallScopes }): Promise<{ text: string; cardIds?: string[]; blocks?: { name: string; text: string; droppable?: boolean; chars?: number }[]; degraded: Degraded | null }>;
   /** One call per turn, after it completed, and never for an incognito session. `incognito` is derived by the core from
    *  the session (F10): it is never a client parameter. */
   capture(a: { agentId: string; caller: CallerIdentity; authenticatedPerson?: string; sessionId: string; turnId: string; messages: { role: "user" | "assistant"; content: string }[]; incognito: boolean; turnProfile?: import("../voice/turn-profile.ts").TurnProfile; provenance?: CaptureProvenance }): Promise<CaptureOutcome | void>;
@@ -89,7 +89,8 @@ export function engineTurnMemory(d: EnginePortDeps): TurnMemory {
       const engineCap = Number.isFinite(res.capChars) ? res.capChars : null;
       const text = joinBlocks(blocks, engineCap === null ? r.capChars : Math.min(engineCap, r.capChars)).text;
       const g = res.degraded ? { reason: String(res.degraded.reason), capability: String(res.degraded.capability ?? "recall") } : null;
-      return { text, degraded: g ?? degraded };
+      const cardIds = res.blocks.map((b) => b.name);
+      return { text, cardIds, blocks, degraded: g ?? degraded };
     },
     async capture({ agentId, caller, authenticatedPerson, sessionId, turnId, messages, incognito, provenance }) {
       const policy = channelBehaviour.getStore();

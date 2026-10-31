@@ -1027,6 +1027,158 @@
                     "x-audit": true
                   }
                 }
+              },
+              "mcp": {
+                "description": "Turns this agent runs for an external MCP host via agent_ask.",
+                "type": "object",
+                "additionalProperties": false,
+                "x-restart": "live",
+                "x-tier": "advanced",
+                "x-write-roles": [
+                  "owner",
+                  "admin"
+                ],
+                "x-audit": true,
+                "properties": {
+                  "recall": {
+                    "description": "Memory scopes read for the external MCP caller.",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "x-restart": "live",
+                    "x-tier": "advanced",
+                    "x-write-roles": [
+                      "owner",
+                      "admin"
+                    ],
+                    "x-audit": true,
+                    "properties": {
+                      "workspace": {
+                        "description": "Read the agent's workspace scope.",
+                        "type": "boolean",
+                        "default": true,
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true
+                      },
+                      "user": {
+                        "description": "Read the requesting person's user scope.",
+                        "type": "boolean",
+                        "default": true,
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true
+                      },
+                      "agentPrivate": {
+                        "description": "Read the agent's agent-private scope.",
+                        "type": "boolean",
+                        "default": true,
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true
+                      }
+                    }
+                  },
+                  "capture": {
+                    "description": "Capture the exchange after the turn into memory. Defaults to true.",
+                    "type": "boolean",
+                    "default": true,
+                    "x-restart": "live",
+                    "x-tier": "advanced",
+                    "x-write-roles": [
+                      "owner",
+                      "admin"
+                    ],
+                    "x-audit": true
+                  }
+                }
+              },
+              "a2a": {
+                "description": "Turns this agent runs for an external A2A peer.",
+                "type": "object",
+                "additionalProperties": false,
+                "x-restart": "live",
+                "x-tier": "advanced",
+                "x-write-roles": [
+                  "owner",
+                  "admin"
+                ],
+                "x-audit": true,
+                "properties": {
+                  "recall": {
+                    "description": "Memory scopes read for the external A2A peer.",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "x-restart": "live",
+                    "x-tier": "advanced",
+                    "x-write-roles": [
+                      "owner",
+                      "admin"
+                    ],
+                    "x-audit": true,
+                    "properties": {
+                      "workspace": {
+                        "description": "Read the agent's workspace scope.",
+                        "type": "boolean",
+                        "default": true,
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true
+                      },
+                      "user": {
+                        "description": "Read the requesting person's user scope.",
+                        "type": "boolean",
+                        "default": true,
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true
+                      },
+                      "agentPrivate": {
+                        "description": "Read the agent's agent-private scope.",
+                        "type": "boolean",
+                        "default": true,
+                        "x-restart": "live",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true
+                      }
+                    }
+                  },
+                  "capture": {
+                    "description": "Capture the exchange after the turn into memory. Defaults to true.",
+                    "type": "boolean",
+                    "default": true,
+                    "x-restart": "live",
+                    "x-tier": "advanced",
+                    "x-write-roles": [
+                      "owner",
+                      "admin"
+                    ],
+                    "x-audit": true
+                  }
+                }
               }
             }
           },
@@ -1152,7 +1304,79 @@
               }},
               "backfill": {"description": "Whether existing media are indexed automatically in the background (auto) or only on request (manual).", "type": "string", "enum": ["auto", "manual"], "x-restart": "core", "x-tier": "advanced"}
             }}
-          }}
+          }},
+          "mcpServer": {
+            "description": "MCP server exposure and tool group selection for this agent.",
+            "type": "object",
+            "additionalProperties": false,
+            "default": {},
+            "x-restart": "live",
+            "x-tier": "advanced",
+            "x-write-roles": ["owner", "admin"],
+            "x-audit": true,
+            "properties": {
+              "exposed": {
+                "description": "Whether this agent is exposed on the harness MCP server.",
+                "type": "boolean",
+                "default": false,
+                "x-restart": "live",
+                "x-tier": "advanced",
+                "x-write-roles": ["owner", "admin"],
+                "x-audit": true
+              },
+              "groups": {
+                "description": "Tool groups exposed for this agent on the harness MCP server.",
+                "type": "array",
+                "maxItems": 32,
+                "uniqueItems": true,
+                "items": { "type": "string", "maxLength": 64, "pattern": "^[a-z][a-z0-9_-]{0,63}$" },
+                "default": ["memory", "agent", "skills"],
+                "x-restart": "live",
+                "x-tier": "advanced",
+                "x-write-roles": ["owner", "admin"],
+                "x-audit": true
+              }
+            }
+          },
+          "a2aServer": {
+            "description": "A2A server exposure for this agent.",
+            "type": "object",
+            "additionalProperties": false,
+            "default": {},
+            "x-restart": "live",
+            "x-tier": "advanced",
+            "x-write-roles": ["owner", "admin"],
+            "x-audit": true,
+            "properties": {
+              "exposed": {
+                "description": "Whether this agent is exposed on the harness A2A server.",
+                "type": "boolean",
+                "default": false,
+                "x-restart": "live",
+                "x-tier": "advanced",
+                "x-write-roles": ["owner", "admin"],
+                "x-audit": true
+              },
+              "name": {
+                "description": "Agent display name for the A2A agent card.",
+                "type": "string",
+                "maxLength": 128,
+                "x-restart": "live",
+                "x-tier": "advanced",
+                "x-write-roles": ["owner", "admin"],
+                "x-audit": true
+              },
+              "description": {
+                "description": "Agent description for the A2A agent card.",
+                "type": "string",
+                "maxLength": 1024,
+                "x-restart": "live",
+                "x-tier": "advanced",
+                "x-write-roles": ["owner", "admin"],
+                "x-audit": true
+              }
+            }
+          }
         }
       }
     },
@@ -1256,6 +1480,147 @@
                   { "type": "array", "maxItems": 256, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$" } }
                 ]
               }
+            }
+          }
+        }
+      }
+    },
+    "mcpServer": {
+      "description": "Harness MCP server for foreign hosts (M6-A): exposes harness functions, memory and skills behind agent-bound tokens.",
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "x-restart": "live",
+      "x-tier": "advanced",
+      "x-since": "1.8.0",
+      "x-write-roles": ["owner", "admin"],
+      "x-audit": true,
+      "properties": {
+        "enabled": {
+          "description": "Allow foreign MCP hosts to connect to the harness MCP server.",
+          "type": "boolean",
+          "default": false,
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": ["owner", "admin"],
+          "x-audit": true
+        }
+      }
+    },
+    "a2a": {
+      "description": "A2A configuration, including registered external peers.",
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "x-restart": "live",
+      "x-tier": "advanced",
+      "x-since": "1.9.0",
+      "x-write-roles": ["owner", "admin"],
+      "x-audit": true,
+      "properties": {
+        "peers": {
+          "description": "Configured external A2A peers.",
+          "type": "array",
+          "default": [],
+          "maxItems": 1024,
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": ["owner", "admin"],
+          "x-audit": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "keySha256", "grants"],
+            "properties": {
+              "id": {
+                "description": "Unique identifier for this peer.",
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$"
+              },
+              "keySha256": {
+                "description": "SHA-256 hash of the peer's bearer token.",
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "grants": {
+                "description": "Action grants for this peer per agent id.",
+                "type": "object",
+                "additionalProperties": {
+                  "description": "Allowed A2A actions on this agent.",
+                  "type": "array",
+                  "maxItems": 16,
+                  "items": {
+                    "type": "string",
+                    "maxLength": 32,
+                    "enum": ["card.read", "task.send", "task.read", "task.cancel", "task.push"]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "a2aServer": {
+      "description": "Harness A2A server exposure configuration.",
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "x-restart": "live",
+      "x-tier": "advanced",
+      "x-since": "1.9.0",
+      "x-write-roles": ["owner", "admin"],
+      "x-audit": true,
+      "properties": {
+        "enabled": {
+          "description": "Allow foreign A2A peers to connect to the harness A2A server.",
+          "type": "boolean",
+          "default": false,
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": ["owner", "admin"],
+          "x-audit": true
+        },
+        "legacy03": {
+          "description": "Opt-in to legacy A2A 0.3 dotted method names.",
+          "type": "boolean",
+          "default": false,
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": ["owner", "admin"],
+          "x-audit": true
+        },
+        "defaultAgentId": {
+          "description": "Default agent id to expose when none is specified.",
+          "type": "string",
+          "maxLength": 128,
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": ["owner", "admin"],
+          "x-audit": true
+        },
+        "signingKey": {
+          "description": "Private key for signing agent cards.",
+          "type": "object",
+          "additionalProperties": false,
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": ["owner", "admin"],
+          "x-audit": true,
+          "properties": {
+            "privateKeySecret": {
+              "description": "Name of the secret holding the agent card signing private key; never the key itself.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+            },
+            "kid": {
+              "description": "Key identifier for the signing key.",
+              "type": "string",
+              "maxLength": 128
             }
           }
         }

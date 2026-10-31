@@ -73,3 +73,14 @@ test("a token scope that excludes memory narrows the principal too", () => {
   const scoped: Principal = { ...owner, tokenScopes: ["memory.workspace.read"] };
   assert.deepEqual(resolve(scoped).recall, { workspace: true, user: false, agentPrivate: false });
 });
+
+
+test("verified personal protocol tokens retain person memory attribution without changing their kind", () => {
+  const personal: Principal = { ...owner, kind: "agent", tokenId: "tok-personal",
+    binding: { audience: "mcp", agentId: "callee" }, tokenScopes: ["memory.*"] };
+  assert.deepEqual(resolve(personal).recall, ALL);
+  assert.equal(resolve(personal).capture, true);
+  assert.equal(personal.kind, "agent");
+  const restricted = { ...personal, binding: { ...personal.binding!, memory: { capture: false } } };
+  assert.equal(resolve(restricted).capture, false);
+});

@@ -7,3 +7,10 @@ export { DEFAULT_LEASE_TTL_MS, MAX_LEASE_TTL_MS, type Lease, type LeaseInfo } fr
 export { SecretError, isSecretName, type BackendKind, type SecretBackend, type SecretErrorCode, type SecretMeta, type SecretPrincipal } from "./types.ts";
 export { buildSecretMethods, toRpcError, type SecretMethod, type SecretMethodDeps } from "./rpc.ts";
 export { createCoreSecretStore, keyringLoaderFor } from "./runtime.ts";
+export {
+  createSecretRedaction,
+  redactProtocolOutput,
+  redactProtocolValue,
+  type SecretRedaction,
+  type SecretSink,
+} from "./redaction.ts";

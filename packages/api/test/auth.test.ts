@@ -5,12 +5,14 @@ import { ROUTES } from "../src/routes.ts";
 import { jsonHeaders, login, OWNER_TOKEN, raw, start } from "./helpers.ts";
 
 test("every route that is not public answers 401 without a session (deny by default)", async () => {
-  const h = await start();
+  const wideRates = Object.fromEntries(Object.keys(DEFAULT_RATE_CLASSES).map((k) => [k, { capacity: 1000, refillPerSec: 1000 }])) as typeof DEFAULT_RATE_CLASSES;
+  const h = await start({ rateClasses: wideRates });
   try {
     for (const r of ROUTES.filter((x) => x.auth !== "none")) {
       const res = await raw(h, { method: r.method, path: r.path, headers: jsonHeaders() });
       assert.equal(res.status, 401, `${r.method} ${r.path}`);
-      assert.deepEqual(res.json, { schema: "error/1", error: "E_UNAUTHORIZED", message: "authentication required", reason: "no-session" });
+      const expectedReason = r.transport === "protocol" ? "bearer-required" : "no-session";
+      assert.deepEqual(res.json, { schema: "error/1", error: "E_UNAUTHORIZED", message: "authentication required", reason: expectedReason });
     }
     assert.equal(h.core.calls.length, 0, "no unauthenticated request reaches the core");
   } finally { await h.close(); }

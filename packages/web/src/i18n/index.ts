@@ -42,6 +42,7 @@ import type * as inbox from "./inbox.ts";
 import type * as breakglass from "./breakglass.ts";
 import type * as libmedia from "./libmedia.ts";
 import type * as modules from "./modules.ts";
+import type * as oauth from "./oauth.ts";
 
 export type Area = { readonly name: string; readonly en: Readonly<Record<string, string>>; readonly de: Readonly<Record<string, string>> };
 
@@ -85,11 +86,12 @@ type LazyAreaName =
   | "inbox"
   | "breakglass"
   | "modules"
-  | "libmedia";
+  | "libmedia"
+  | "oauth";
 
 const LAZY_ORDER: readonly string[] = [
   "surfaces", "core", "chat", "projects", "memory", "mediasearch", "models", "budget", "doctor", "palette", "shared", "setup", "agents", "settings", "users",
-  "providers", "secrets", "switchboard", "devices", "logs", "activity", "audit", "sessions", "approvals", "voice", "extensions", "imports", "recurring", "homeHelpLibrary", "inbox", "breakglass", "modules", "libmedia",
+  "providers", "secrets", "switchboard", "devices", "logs", "activity", "audit", "sessions", "approvals", "voice", "extensions", "imports", "recurring", "homeHelpLibrary", "inbox", "breakglass", "modules", "libmedia", "oauth",
 ];
 
 type AreaEn =
@@ -119,7 +121,8 @@ type AreaEn =
   | typeof inbox.en
   | typeof breakglass.en
   | typeof modules.en
-  | typeof libmedia.en;
+  | typeof libmedia.en
+  | typeof oauth.en;
 type Intersect<U> = (U extends unknown ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
 
 export type Key = keyof Intersect<AreaEn> & string;

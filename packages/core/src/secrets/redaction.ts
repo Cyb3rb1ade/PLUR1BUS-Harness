@@ -27,6 +27,9 @@ export interface SecretRedaction {
   subscribe(sink: SecretSink): () => void;
   /** A redactor that always masks the values registered at the time of each call. */
   redactor(options?: { pii?: boolean }): Redactor;
+  /** Every value that is masked now, as registered: the current ones of a store name, then the retired ones. For a caller that
+   *  applies the exact-value rule itself (a tool result, `createRedactor({ secretsOnly })`). */
+  values(): readonly string[];
   /** True when `text` contains a value registered so far (plain, as the user typed it). */
   contains(text: string): boolean;
   /** `text` with every registered value replaced by a fixed mask. Nothing else in the text is touched. */
@@ -85,7 +88,32 @@ export function createSecretRedaction(): SecretRedaction {
       const rebuild = (): Redactor => { if (!inner || seen !== version) { inner = createRedactor({ ...options, secrets: new Set(known()) }); seen = version; } return inner; };
       return { text: s => rebuild().text(s), value: v => rebuild().value(v) };
     },
+    values: () => known(),
     contains: (text) => typeof text === "string" && known().some((v) => text.includes(v)),
     mask: (text) => { let out = text; for (const v of known().sort((a, b) => b.length - a.length)) if (out.includes(v)) out = out.split(v).join("[redacted]"); return out; },
   };
+}
+
+/**
+ * Redacts outgoing protocol text according to Festlegung 5/6:
+ * - A2A gets full secret redaction plus PII redaction (`pii: true`, including IBAN and card numbers).
+ * - MCP gets secret redaction (`pii: false`, keys, tokens, registered secrets).
+ */
+export function redactProtocolOutput(
+  text: string,
+  target: "a2a" | "mcp",
+  redaction: SecretRedaction,
+): string {
+  return redaction.redactor({ pii: target === "a2a" }).text(text);
+}
+
+/**
+ * Redacts an outgoing protocol value (e.g. tool output, message object) according to Festlegung 5/6.
+ */
+export function redactProtocolValue<T>(
+  value: T,
+  target: "a2a" | "mcp",
+  redaction: SecretRedaction,
+): T {
+  return redaction.redactor({ pii: target === "a2a" }).value(value);
 }

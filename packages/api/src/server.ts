@@ -38,7 +38,11 @@ import { ConcurrencyLimit, DEFAULT_EXPENSIVE_CONCURRENCY, DEFAULT_RATE_CLASSES, 
 import { authorize, type AuditSink, type Decision, type RbacPrincipal, type Resource } from "./rbac-bridge.ts";
 import { redactFields } from "./redact.ts";
 import { createStaticServer } from "./static.ts";
+import { protocolUnauthenticatedError } from "./protocol-routes.ts";
 import { buildHandlers, COOKIE_NAME, COOKIE_NAME_TLS, CSRF_HEADER, ROUTES, sessionCookie, type Handler, type RouteSpec } from "./routes.ts";
+import { FileOAuthStore, MemoryOAuthStore } from "./oauth/store.ts";
+import { OAuthService } from "./oauth/service.ts";
+import { join } from "node:path";
 import { TokenService } from "./tokens.ts";
 import { TotpService } from "./totp.ts";
 import { DEFAULT_SESSION_LIMITS, OWNER, ownerTokenVerifier, readCookie, SessionStore, type Principal, type Session, type SessionLimits } from "./session.ts";
@@ -91,6 +95,15 @@ export interface ApiServerOptions {
   tls?: { key: string | Buffer; cert: string | Buffer };
   logger?: ApiLogger; clock?: Clock;
   limits?: Partial<ApiLimits>; rateClasses?: RateClasses; /** Most model-backed operations (chat turn, job or dream run, realtime voice) running at once, installation-wide. Default 8. */ expensiveConcurrency?: number; sessionLimits?: SessionLimits; lockout?: Partial<LockoutPolicy>;
+  mcpConfig?: import("./mcp/activation.ts").McpServerConfigLike | (() => Promise<import("./mcp/activation.ts").McpServerConfigLike | undefined> | import("./mcp/activation.ts").McpServerConfigLike | undefined) | undefined;
+  a2aConfig?: import("./a2a/activation.ts").A2aServerConfigLike | (() => Promise<import("./a2a/activation.ts").A2aServerConfigLike | undefined> | import("./a2a/activation.ts").A2aServerConfigLike | undefined) | undefined;
+  taskStore?: ((agentId: string) => import("./a2a/task-store.ts").TaskStore) | undefined;
+  oauthStore?: import("./oauth/types.ts").OAuthStore | undefined;
+  oauthService?: import("./oauth/service.ts").OAuthService | undefined;
+  oauthClients?: Record<string, import("./oauth/types.ts").OAuthClientMetadata> | undefined;
+  secretRedaction?: import("../../core/src/secrets/redaction.ts").SecretRedaction | undefined;
+  secretStore?: import("../../core/src/secrets/store.ts").SecretStore | undefined;
+  publicOrigin?: string | undefined;
   /** Test seam: routes served besides the table, to prove what the dispatcher does with a route that declares nothing. */
   extraRoutes?: ReadonlyArray<{ spec: RouteSpec; handler: Handler }>;
 }
@@ -190,7 +203,16 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   const maintenanceEvents = maintenance && maintenancePort ? createMaintenanceEvents(maintenance, maintenancePort) : undefined;
   const uploads = o.home ? new ExtensionUploads({ home: o.home, now: () => clock.now() }) : undefined;
   const snapshots = o.home ? new ImportSnapshotUploads({ home: o.home, now: () => clock.now() }) : undefined;
-  const handlerDeps = { core: perRequest.core, desktopStepUp, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, sharedAddress, audit, resolveBootstrap: o.resolveBootstrap, requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor), hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length };
+  const oauthStore = o.oauthStore ?? o.accounts?.oauth ?? (o.home ? new FileOAuthStore(join(o.home, "state", "api", "oauth-grants.json")) : new MemoryOAuthStore());
+  const oauthService = o.oauthService ?? (tokens ? new OAuthService({
+    tokens,
+    store: oauthStore,
+    clock,
+    remote: !!o.remote,
+    requireSecondFactor: o.requireSecondFactor,
+    clients: o.oauthClients,
+  }) : undefined);
+  const handlerDeps = { core: perRequest.core, desktopStepUp, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, sharedAddress, audit, resolveBootstrap: o.resolveBootstrap, requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor), hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length, mcpConfig: o.mcpConfig, a2aConfig: o.a2aConfig, taskStore: o.taskStore, oauthService, secretRedaction: o.secretRedaction, secretStore: o.secretStore, isRemote: !!o.remote, publicOrigin: o.publicOrigin ?? o.remote?.publicOrigin };
   const handlers = { ...buildHandlers(handlerDeps), ...extensionHandlers(o.core), ...buildDesktopAttachHandlers({...handlerDeps,core:o.core}, origin=>allowedOrigins.has(origin)), ...buildAccountHandlers(handlerDeps, o.accounts, o.core, o.bootstrapConsumed, !o.remote, () => { const sink=o.breakGlassAudit??o.audit; if(!sink)throw new Error("bootstrap audit unavailable"); sink.append({at:clock.now(),actor:{user:"local-owner",host:"api"},action:"account.bootstrap.commit-attempt",target:"account",detail:{}}); }),...buildWebAuthnHandlers(handlerDeps, o.accounts, (requestOrigin?: string) => o.remote?.publicOrigin ?? o.webauthnOrigin ?? requestOrigin ?? [...allowedOrigins][0]!, o.sharedWebauthnChallenges),...buildRemoteHandlers({core:o.core,home:o.home,audit:o.breakGlassAudit??o.audit,now:()=>clock.now(),certificates:o.remoteCertificates}),...buildRemotePairingHandlers(o.remotePairing) };
   if (o.webRoot !== undefined && !statSync(o.webRoot, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`webRoot ${JSON.stringify(o.webRoot)} is not a directory`);
   const staticFiles = o.webRoot !== undefined ? createStaticServer(o.webRoot) : undefined;
@@ -291,6 +313,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       audit.emit("auth.rate-limited", principalId ?? "anonymous", scope, { class: cls, route: routeId, ip });
       throw errors.rateLimited(retryAfterSec);
     };
+    let cancelTurnIfRunning = () => {};
     try {
       const host = req.headers.host?.toLowerCase();
       if (!host || !allowedHosts.has(host)) throw errors.misdirected();
@@ -344,8 +367,10 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       }
       if (!route) throw errors.methodNotAllowed([...methods.keys()]);
       const { spec, handler } = route; routeId = spec.id;
-      if (spec.requestContentType === "multipart/form-data") bodyDeadline(UPLOAD_BODY_TIMEOUT_MS);
-      const bodyLimit = spec.requestContentType === "multipart/form-data" ? 1073741824 + 16384 : spec.id === "web.rpc" ? o.limits?.maxBodyBytes ?? 1024 * 1024 : limits.maxBodyBytes;
+      const isProtocol = spec.transport === "protocol";
+      if (isProtocol && spec.protocol?.bodyTimeoutMs !== undefined) bodyDeadline(spec.protocol.bodyTimeoutMs);
+      else if (spec.requestContentType === "multipart/form-data") bodyDeadline(UPLOAD_BODY_TIMEOUT_MS);
+      const bodyLimit = isProtocol && spec.protocol?.maxBodyBytes !== undefined ? spec.protocol.maxBodyBytes : spec.requestContentType === "multipart/form-data" ? 1073741824 + 16384 : spec.id === "web.rpc" ? o.limits?.maxBodyBytes ?? 1024 * 1024 : limits.maxBodyBytes;
       linger = lingerLimits(bodyLimit, lingerMs);
 
       const declared = req.headers["content-length"];
@@ -361,9 +386,13 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         throw errors.forbidden("web-session-only");
       }
       let sessionId: string | undefined; let session: Session | undefined; let resolved: Resolved | undefined; let rotated: string | undefined;
-      let via: "session" | "token" | undefined; let tokenInfo: { id: string; prefix: string; scopes: readonly string[]; expiresAt: number } | undefined; let rateKey: string | undefined;
+      let via: "session" | "token" | undefined; let tokenInfo: import("./routes.ts").HandlerInput["token"]; let tokenRecord: import("./ports.ts").TokenRecord | undefined; let rateKey: string | undefined;
       const authHeader = req.headers.authorization;
-      const bearer = spec.auth === "any" && typeof authHeader === "string" && /^bearer(\s|$)/i.test(authHeader) ? authHeader.slice(6).trim() : undefined;
+      const bearer = (spec.auth === "any" || isProtocol && spec.auth !== "none") && typeof authHeader === "string" && /^bearer(\s|$)/i.test(authHeader) ? authHeader.slice(6).trim() : undefined;
+      const protocolOrigin = o.publicOrigin || o.remote?.publicOrigin || [...allowedOrigins][0] || `${tls ? "https" : "http"}://${req.headers.host ?? "127.0.0.1"}`;
+      if (isProtocol && spec.auth !== "none" && (!bearer || bearer.length === 0)) {
+        throw protocolUnauthenticatedError("bearer-required", protocolOrigin, spec.protocol?.resourceMetadataPath);
+      }
       if (bearer !== undefined && NATIVE_FILE_ROUTES.has(spec.id) && !bearer.startsWith("plb_")) {
         // Narrow native file routes accept a live, explicitly enrolled device credential. PATs retain agent authority.
         if (!/^[A-Za-z0-9_-]{43}$/.test(bearer)) throw errors.unauthenticated("invalid-device-token");
@@ -394,22 +423,47 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         const r = await tokens.authenticate(bearer);
         if (!r.ok) {
           audit.emit("auth.token.used-denied", "anonymous", r.id ? `token:${r.id}` : "token:-", { reason: r.reason, ip });
-          throw errors.unauthenticated("invalid-token");
+          throw isProtocol ? protocolUnauthenticatedError("invalid-token", protocolOrigin, spec.protocol?.resourceMetadataPath) : errors.unauthenticated("invalid-token");
         }
         resolved = await resolveSubject(r.record.userId === OWNER.id ? "owner" : "user", r.record.userId);
-        if (!resolved) { try { await tokens.revoke(r.record.userId, r.record.id); } catch { /* invalid credentials remain refused */ } audit.emit("auth.token.used-denied", "anonymous", `token:${r.record.id}`, { reason: "account", ip }); throw errors.unauthenticated("invalid-token"); }
-        resolved = { ...resolved, rbac: { ...resolved.rbac, kind: "agent", tokenScopes: r.record.scopes } };
-        via = "token"; tokenInfo = { id: r.record.id, prefix: `plb_${r.record.id}`, scopes: r.record.scopes, expiresAt: r.record.expiresAt };
-        if(secondFactorRequired(resolved.principal.role,!!o.remote,o.requireSecondFactor))throw errors.forbidden("second-factor-required");
+        if (!resolved) {
+          try { await tokens.revoke(r.record.userId, r.record.id); } catch { /* invalid credentials remain refused */ }
+          audit.emit("auth.token.used-denied", "anonymous", `token:${r.record.id}`, { reason: "account", ip });
+          throw isProtocol ? protocolUnauthenticatedError("invalid-token", protocolOrigin, spec.protocol?.resourceMetadataPath) : errors.unauthenticated("invalid-token");
+        }
+        resolved = {
+          ...resolved,
+          rbac: {
+            ...resolved.rbac,
+            kind: "agent",
+            tokenScopes: r.record.scopes,
+            tokenId: r.record.id,
+            ...(r.record.binding !== undefined ? { binding: r.record.binding } : {}),
+          },
+        };
+        via = "token"; tokenRecord = r.record; tokenInfo = { id: r.record.id, prefix: `plb_${r.record.id}`, scopes: r.record.scopes, expiresAt: r.record.expiresAt, ...(r.record.binding !== undefined ? { binding: r.record.binding } : {}) };
         principalId = resolved.principal.id; rateKey = `token:${r.record.id}`;
         const tv = limiter.take(cls, rateKey);
         if (!tv.ok) rateLimited(rateKey, cls, tv.retryAfterSec);
+        if (!isProtocol && r.record.binding !== undefined) {
+          if (req.method !== "GET") audit.emit("auth.denied", principalId, `route:${spec.id}`, { reason: "token-bound-protocol-only", method: req.method, via: "token", token: tokenInfo.id, ip, ...(typeof spec.authz === "object" ? { action: spec.authz.action } : {}) });
+          throw errors.forbidden("token-bound-protocol-only", "agent-bound tokens may only be used on protocol routes");
+        }
         const d = decide(spec, resolved.rbac);
         if (d.effect === "deny") {
           if (req.method !== "GET") audit.emit("auth.denied", principalId, `route:${spec.id}`, { reason: d.reason, method: req.method, via: "token", token: tokenInfo.id, ip, ...(typeof spec.authz === "object" ? { action: spec.authz.action } : {}) });
           throw errors.forbidden(d.reason);
         }
-      } else if (spec.auth === "session" || spec.auth === "any") {
+        if (isProtocol && spec.protocol?.audience !== undefined) {
+          if (!r.record.binding) throw errors.forbidden("token-binding-required", "token requires an agent protocol binding");
+          if (r.record.binding.audience !== spec.protocol.audience) {
+            throw protocolUnauthenticatedError("invalid-audience", protocolOrigin, spec.protocol?.resourceMetadataPath);
+          }
+          const { tokenScopes: _omit, ...userRbac } = resolved.rbac;
+          const useDec = authorize(userRbac, "agent.use", { kind: "agent", agentId: r.record.binding.agentId });
+          if (useDec.effect === "deny") throw errors.forbidden(useDec.reason);
+        }
+      } else if (!isProtocol && (spec.auth === "session" || spec.auth === "any")) {
         via = "session";
         sessionId = presented;
         session = sessions.get(sessionId);
@@ -486,10 +540,17 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         return;
       }
       let body: unknown = preReadBody;
-      if (spec.requestBody) {
+      let rawBody: Buffer | undefined;
+      if (isProtocol && !spec.requestBody) {
+        if (req.method !== "GET" && req.method !== "HEAD" || declared !== undefined && declared !== "0" || req.headers["transfer-encoding"] !== undefined) {
+          rawBody = await readBody(req, bodyLimit);
+          didReadBody = true;
+        }
+      } else if (spec.requestBody) {
         const ct = (req.headers["content-type"] ?? "").split(";", 1)[0]!.trim().toLowerCase();
         if (ct !== "application/json") throw errors.unsupportedMedia();
         const raw = didReadBody ? undefined : await readBody(req, bodyLimit);
+        rawBody = raw;
         try { if (!didReadBody) body = parseJson(raw!); }
         catch (e) { if (spec.id !== "web.rpc") throw e; status = 200; send(res, 200, rpcFailure(null, { error: "E_INVALID_PARAMS", code: -32700, reason: "parse-error" })); return; }
       } else if (declared !== undefined && declared !== "0" || req.headers["transfer-encoding"] !== undefined) {
@@ -504,27 +565,162 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         if (!v.ok) rateLimited(scope, "expensive", v.retryAfterSec);
         takeSlot();
       }
+      if (spec.id === "mcp.server") {
+        let isMcpAsk = false;
+        const mcpMethod = req.headers["mcp-method"];
+        const mcpName = req.headers["mcp-name"];
+        if (mcpMethod === "tools/call" && (mcpName === "agent_ask" || mcpName === "%61%67%65%6e%74%5f%61%73%6b")) {
+          isMcpAsk = true;
+        } else if (rawBody && rawBody.length > 0) {
+          try {
+            const p = JSON.parse(rawBody.toString("utf8"));
+            if (p.method === "tools/call" && p.params?.name === "agent_ask") {
+              isMcpAsk = true;
+            }
+          } catch {
+            // invalid json handled by route handler
+          }
+        }
+        if (isMcpAsk) {
+          const scope = rateKey ?? (tokenRecord ? `token:${tokenRecord.id}` : principalId ? `principal:${principalId}` : `ip:${ip}`);
+          const v = limiter.take("expensive", scope);
+          if (!v.ok) {
+            const agentId = tokenRecord?.binding?.agentId ?? "unknown";
+            audit.emit("mcp.server.denied", principalId ?? tokenRecord?.id ?? "anonymous", `agent:${agentId}`, {
+              tokenId: tokenRecord?.id ?? "-",
+              tool: "agent_ask",
+              agentId,
+              reason: "rate-limited",
+            });
+            rateLimited(scope, "expensive", v.retryAfterSec);
+          }
+          const takeMcpSlot = (): void => {
+            releaseSlot = expensiveSlots.tryAcquire();
+            if (!releaseSlot) {
+              const agentId = tokenRecord?.binding?.agentId ?? "unknown";
+              audit.emit("mcp.server.denied", principalId ?? tokenRecord?.id ?? "anonymous", `agent:${agentId}`, {
+                tokenId: tokenRecord?.id ?? "-",
+                tool: "agent_ask",
+                agentId,
+                reason: "concurrency-limit",
+              });
+              rateLimited("expensive:concurrency", "expensive", 2);
+            }
+          };
+          takeMcpSlot();
+        }
+      }
+      if (spec.id === "a2a.endpoint") {
+        let isTaskSend = false;
+        let rpcMethod = "-";
+        if (rawBody && rawBody.length > 0) {
+          try {
+            const p = JSON.parse(rawBody.toString("utf8"));
+            if (typeof p.method === "string") {
+              rpcMethod = p.method.slice(0, 64);
+            }
+            if (
+              p.method === "SendMessage" ||
+              p.method === "SendStreamingMessage" ||
+              p.method === "message/send" ||
+              p.method === "message/stream" ||
+              p.method === "tasks/send"
+            ) {
+              isTaskSend = true;
+            }
+          } catch {
+            // invalid json handled by route handler
+          }
+        }
+        if (isTaskSend) {
+          const scope = rateKey ?? (tokenRecord ? `token:${tokenRecord.id}` : principalId ? `principal:${principalId}` : `ip:${ip}`);
+          const v = limiter.take("expensive", scope);
+          if (!v.ok) {
+            const agentId = tokenRecord?.binding?.agentId ?? pathParams?.agentId ?? "unknown";
+            audit.emit("a2a.server.denied", principalId ?? tokenRecord?.id ?? "anonymous", `agent:${agentId}`, {
+              tokenId: tokenRecord?.id ?? "-",
+              method: rpcMethod,
+              agentId,
+              reason: "rate-limited",
+            });
+            rateLimited(scope, "expensive", v.retryAfterSec);
+          }
+          const takeA2aSlot = (): void => {
+            releaseSlot = expensiveSlots.tryAcquire();
+            if (!releaseSlot) {
+              const agentId = tokenRecord?.binding?.agentId ?? pathParams?.agentId ?? "unknown";
+              audit.emit("a2a.server.denied", principalId ?? tokenRecord?.id ?? "anonymous", `agent:${agentId}`, {
+                tokenId: tokenRecord?.id ?? "-",
+                method: rpcMethod,
+                agentId,
+                reason: "concurrency-limit",
+              });
+              rateLimited("expensive:concurrency", "expensive", 2);
+            }
+          };
+          takeA2aSlot();
+        }
+      }
 
       let timer: NodeJS.Timeout | undefined;
+      let activeTurn: { turnId: string; sessionId?: string | undefined } | undefined;
+      const onTurnStart = (turnId: string, sessionId?: string) => {
+        activeTurn = { turnId, sessionId };
+      };
+      cancelTurnIfRunning = () => {
+        if (activeTurn) {
+          const toCancel = activeTurn;
+          activeTurn = undefined;
+          void o.core.call("external.turn.cancel", {
+            turnId: toCancel.turnId,
+            ...(toCancel.sessionId ? { sessionId: toCancel.sessionId } : {}),
+          }).catch(() => {});
+        }
+      };
+
+      const onClose = () => {
+        if (!res.writableEnded) {
+          cancelTurnIfRunning();
+        }
+      };
+      req.once("close", onClose);
+
       const ownCert=req.socket instanceof TLSSocket?req.socket.getCertificate():undefined;
       const candidate=ownCert&&"raw" in ownCert?ownCert.raw:undefined;
       const leaf=Buffer.isBuffer(candidate)?candidate:undefined;
       const remoteTransport={tls:!!leaf,origin:o.remote?.publicOrigin??"",...(leaf?{servedFingerprint:certPin(leaf)}:{}),...(o.remote?.publish==="tailnet"?{trustedGateway:true}:{})};
+      const handlerInputBase = {
+        remoteTransport, pathParams, query: new URL(target, "http://localhost").searchParams, headers: req.headers,
+        session, sessionId, body, ip, origin: typeof req.headers.origin === "string" ? req.headers.origin : undefined,
+        via, token: tokenInfo,
+        ...(isProtocol ? { rawBody, req, res, secHeaders, tokenRecord } : {}),
+      };
+      const handlerTimeoutMs = isProtocol && spec.protocol?.handlerTimeoutMs !== undefined
+        ? spec.protocol.handlerTimeoutMs
+        : spec.id === "web.rpc"
+          ? o.limits?.handlerTimeoutMs ?? 300_000
+          : limits.handlerTimeoutMs;
       const out = await Promise.race([
-        Promise.resolve(resolved ? perRequest.run(webPrincipal(resolved.rbac, resolved.principal.kind === "owner"), () => handler({ remoteTransport,pathParams, query:new URL(target,"http://localhost").searchParams,headers:req.headers, principal: resolved?.principal, session, sessionId, body, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined, ip, origin: typeof req.headers.origin === "string" ? req.headers.origin : undefined, via, token: tokenInfo }), session ? webConnection(session) : tokenInfo ? `token:${tokenInfo.id}` : undefined, !o.remote && /^(127\.|::1$|::ffff:127\.)/.test(req.socket.remoteAddress ?? "") ? "loopback" : "remote") : handler({ remoteTransport,pathParams,query:new URL(target,"http://localhost").searchParams,headers:req.headers, principal: undefined, session, sessionId, body, rbac: undefined, presentedSessionId: presented, ip, origin: typeof req.headers.origin === "string" ? req.headers.origin : undefined, via, token: tokenInfo })),
+        Promise.resolve(perRequest.run(resolved ? webPrincipal(resolved.rbac, resolved.principal.kind === "owner") : undefined, () => handler({ ...handlerInputBase, principal: resolved?.principal, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined }), session ? webConnection(session) : tokenInfo ? `token:${tokenInfo.id}` : undefined, !o.remote && /^(127\.|::1$|::ffff:127\.)/.test(req.socket.remoteAddress ?? "") ? "loopback" : "remote", onTurnStart)),
         new Promise<import("./routes.ts").HandlerOutput>((resolveTimeout, rej) => {
-          timer = setTimeout(() => spec.id === "web.rpc"
-            ? resolveTimeout({ body: rpcFailure((body as { id?: unknown })?.id ?? null, { error: "E_NOT_AVAILABLE", reason: "handler-timeout" }) })
-            : rej(errors.timeout()), spec.id === "web.rpc" ? o.limits?.handlerTimeoutMs ?? 300_000 : limits.handlerTimeoutMs);
+          timer = setTimeout(() => {
+            cancelTurnIfRunning();
+            spec.id === "web.rpc"
+              ? resolveTimeout({ body: rpcFailure((body as { id?: unknown })?.id ?? null, { error: "E_NOT_AVAILABLE", reason: "handler-timeout" }) })
+              : rej(errors.timeout());
+          }, handlerTimeoutMs);
         }),
-      ]).finally(() => clearTimeout(timer));
+      ]).finally(() => {
+        clearTimeout(timer);
+        req.off("close", onClose);
+      });
       if (session && sessionId && spec.id === "web.rpc") {
         const request = body as { method?: string }, response = out.body as { result?: { runId?: unknown }; error?: unknown };
         if (!response.error && ["admin.import.apply", "admin.import.rollback"].includes(request.method ?? "") && typeof response.result?.runId === "string") {
           maintenance?.remember({ session, sessionId, principal: webPrincipal(resolved!.rbac, resolved!.principal.kind === "owner"), connectionKey: webConnection(session), runId: response.result.runId });
         }
       }
-      if (o.accounts && spec.id === "web.rpc" && !out.body.error) {
+      if (o.accounts && spec.id === "web.rpc" && !out.body?.error) {
         const request = body as { method?: string; params?: { userId?: string } };
         if (["user.disable", "user.enable", "user.role.set", "agent.rights.set"].includes(request.method ?? "") && request.params?.userId) await o.accounts.findById(request.params.userId);
       }
@@ -536,8 +732,17 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         }});return;
       }
       status = out.status ?? spec.successStatus;
+      if (out.streamed) return;
+      if (out.body === undefined) {
+        if (!res.headersSent) {
+          res.writeHead(status, { ...secHeaders, "Content-Length": "0", ...(rotated ? { "Set-Cookie": rotated } : {}), ...out.headers });
+        }
+        res.end();
+        return;
+      }
       send(res, status, out.body, { ...(rotated ? { "Set-Cookie": rotated } : {}), ...out.headers });
     } catch (e) {
+      cancelTurnIfRunning();
       if (bodyTimedOut) return;
       let err: ApiError;
       if (e instanceof ApiError) err = e;
@@ -593,6 +798,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
           const scheme = tls ? "https" : "http";
           allowedOrigins = new Set([...allowedHosts].map((h) => `${scheme}://${h}`));
           if(transport.origin){allowedHosts=new Set([transport.hostHeader!]);allowedOrigins=new Set([transport.origin]);}
+          else if(o.publicOrigin){try{const u=new URL(o.publicOrigin);allowedHosts.add(u.host.toLowerCase());allowedOrigins.add(u.origin.toLowerCase());}catch{}}
           const hostPart = bindHost.includes(":") ? `[${bindHost}]` : bindHost;
           log.info("listening", { host: bindHost, port: a.port, tls });
           resolveListen({ host: bindHost, port: a.port, url: `${scheme}://${hostPart}:${a.port}` });
