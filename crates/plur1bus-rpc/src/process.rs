@@ -201,6 +201,12 @@ fn start_milliseconds(pid: u32) -> io::Result<i64> {
 }
 
 #[cfg(target_os = "macos")]
+// libc 0.2.189 binds mach_absolute_time but not mach_continuous_time.
+unsafe extern "C" {
+    fn mach_continuous_time() -> u64;
+}
+
+#[cfg(target_os = "macos")]
 // libc deprecates its mach_timebase_info binding in favour of the mach2 crate; the Darwin API itself is current,
 // and a new dependency for this one conversion is not worth it.
 #[allow(deprecated)]
@@ -224,12 +230,18 @@ fn start_milliseconds(pid: u32) -> io::Result<i64> {
     if unsafe { libc::mach_timebase_info(&mut timebase) } != 0 || timebase.denom == 0 {
         return Err(invalid_process_data());
     }
-    Ok(
-        (usage.ri_proc_start_abstime as f64 * f64::from(timebase.numer)
-            / f64::from(timebase.denom)
-            / 1_000_000.0)
-            .round() as i64,
-    )
+    // SAFETY: both calls only read the process-wide Mach clocks.
+    let absolute_now = unsafe { libc::mach_absolute_time() };
+    let continuous_now = unsafe { mach_continuous_time() };
+    let to_ms = |ticks: u64| {
+        ticks as f64 * f64::from(timebase.numer) / f64::from(timebase.denom) / 1_000_000.0
+    };
+    // ri_proc_start_abstime is mach_absolute_time and stops while the machine sleeps.
+    // Node's process.hrtime follows mach_continuous_time. Adding the current gap matches
+    // Node when the target has not slept since it started, the same approximation the
+    // Linux path makes between CLOCK_BOOTTIME and CLOCK_MONOTONIC.
+    let start_ms = to_ms(usage.ri_proc_start_abstime) + to_ms(continuous_now) - to_ms(absolute_now);
+    Ok(start_ms.round() as i64)
 }
 
 #[cfg(windows)]
