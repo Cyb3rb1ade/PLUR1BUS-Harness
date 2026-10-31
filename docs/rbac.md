@@ -324,6 +324,8 @@ Assigned roles and explicit agent rights are read from `state/admin.sqlite` on e
 | `chat.model.set` | `chat:write` | Human Owner, Admin, Operator, Member; own idle direct chat and `agent.use`; a profile locked by "Nur lokale Modelle" is `E_DENIED` `local-only`; never WebMCP |
 | `session.create`, `session.submit`, `session.cancel`, `session.archive` | `admin.sessions.write` | Owner, Admin, Operator, Member; own session and `agent.use` required |
 | `memory.list`, `memory.show` | `admin.memory.read` | All five; optional `targetUserId` requires `agent.read` and live library `memory.user.read` authorization |
+| `memory.importText.preview`, `memory.importText.apply`, `memory.importText.rollback` | `imports.manage` | Owner, Admin, human only; parses, applies, and rolls back foreign memory imports; never WebMCP |
+| `memory.exportText` | `admin.memory.read` | All five, human only; exports memories in canonical text format; requires `agent.read` for agent-scope export |
 | `pairing.qr` | `admin.pairing.read` | Owner, Admin; existing payload only, no code issuance |
 
 Token scopes intersect **every** gate. For example, a scoped invitation caller also needs the existing Identity `users.manage`

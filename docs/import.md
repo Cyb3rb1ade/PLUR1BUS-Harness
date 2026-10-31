@@ -977,6 +977,73 @@ memories deterministically and performs no LLM completion or new semantic summar
 a second knowledge writer or bypassing the D109 tool dispatcher with an agent tool.
 
 
+## 14. Prompt import from other assistants
+
+### 14.1 Format and export prompt
+
+Many conversational chat assistants (ChatGPT, Claude, Gemini, Grok, Copilot, Le Chat) store user memory without providing a standardized database export. PLUR1BUS provides a canonical export prompt in `packages/core/src/import/prompt/export-prompt.md`.
+
+The export format is defined as:
+
+```markdown
+PLUR1BUS-MEMORY-EXPORT v1
+## Instructions
+[YYYY-MM-DD] [memory] - Rule or instruction.
+## Identity
+[YYYY-MM-DD] [memory] - Personal facts.
+## Career
+[YYYY-MM-DD] [chat] - Roles and skills.
+## Projects
+[YYYY-MM-DD] [memory] - Meaningful project details.
+## Preferences
+[YYYY-MM-DD] [memory] - Broad preferences.
+## Other
+[unknown] [memory] - Uncategorized stored memory.
+STATUS: COMPLETE
+```
+
+### 14.2 Parser rules
+
+`parseMemoryExport` in `packages/core/src/import/prompt/parse.ts` implements a tolerant, linear parser:
+* Accepts `PLUR1BUS-MEMORY-EXPORT v1` header or plain outputs (e.g. Claude's native export prompt).
+* Strips code fences and leading numbering/bullets.
+* Matches English and German category headers (e.g. `Anweisungen`, `Identität`, `Beruf`, `Vorlieben`, `Projekte`).
+* Parses dates (`YYYY-MM-DD`, `YYYY-MM`, `YYYY`, `[unknown]`).
+* Tolerates continuation lines indented by spaces or tabs.
+* Runs secret redaction on every entry using `createRedactor()`. If credentials or keys are detected, the text is redacted with canonical markers (e.g. `[REDACTED:pattern]`, `[REDACTED:key]`) and flagged with `secret-redacted`.
+* Enforces boundaries: max 512 KiB total input (truncates safely with warning) and max 4,000 characters per entry.
+
+### 14.3 Target scopes and recommendations
+
+* **Instructions are skipped**: Untrusted imported text can contain prompt injection attacks styled as instructions or behavioural rules. Entries categorized as Instructions or containing directive instruction patterns are never imported and are safely skipped.
+* **User scope (`scope: user`)**: Requires an authenticated person with `trust: "proved"`. The CLI is opt-in: only `Preferences`, only with `--all-preferences-to-user` (§14.6).
+* **Agent-private scope (`scope: agent-private`)**: Stores cards for specific chosen agents. A warning is surfaced for Identity and Career entries because an agent uses agent-private memories across all its conversations.
+* **Workspace scope (`scope: workspace`)**: Available exclusively for `Projects` entries, with a notice that the project details are visible to all workspace members.
+
+### 14.4 Execution, duplicate linking, and rollback
+
+* **Execution (`executePromptImport`)**: Batches cards into groups of at most 500. Source reference format is `prompt-import;run=<runId>;category=<category>`. Server-side idempotency keys computed from `(scope, owner, category, text)` prevent duplicate cards upon re-import.
+* **Duplicate linking**: Preflight dry-run queries existing cards; matched existing items are linked using `memory.link` rather than re-inserted.
+* **Audit trail**: Stores a run-scoped `report.json` and `ledger.jsonl` under `<home>/imports/<runId>/`.
+* **Rollback (`rollbackPromptImport`)**: Calls `memory.unimport` with `importRunId`, rolling back inserted cards and links. Rollback requires run containment, validates the `^prompt-` run ID format, ensures `source === "prompt"`, and marks the run rolled-back atomically.
+
+### 14.5 Text export in identical format
+
+`memory.exportText` generates a portable text block adhering to the exact same format (`PLUR1BUS-MEMORY-EXPORT v1`):
+* Always exports the calling person's user-scope cards.
+* Optionally includes agent-private cards for agents the person has write access to.
+* Never includes deleted, forgotten, or pending proposal cards.
+* Redacts secrets prior to emitting text.
+* Output is idempotent: importing a PLUR1BUS export back into PLUR1BUS produces zero new cards (all match as duplicates).
+
+### 14.6 CLI: `memory import-text` and `memory export-text`
+
+* `plur1bus memory import-text --show-prompt` prints the export prompt (with `--json`: one `memory.importText.prompt/1` document). It combines with no other flag.
+* `plur1bus memory import-text [--file <path>|-] [--agent <id>] [--workspace <id>] [--all-preferences-to-user] [--dry-run|--yes]` calls `memory.importText.preview`, takes the core's `recommendations` as the targets and applies them with `memory.importText.apply`. `--agent` and `--workspace` only steer where `Projects` memories go. User scope is opt-in: `Preferences` with `--all-preferences-to-user`, never `Identity` or `Career`. Instructions are skipped by the core.
+* Applying asks on a terminal (without `--json`); otherwise it fails with `E_INVALID_PARAMS` "re-run with --yes". A declined question is `E_CANCELLED` (exit 2). Input from stdin (`--file -`) is consumed, so it needs `--yes` or `--dry-run`. Input is capped at 512 KiB; the error does not echo it. `--dry-run` excerpts are cut by character and stripped of control characters.
+* `--rollback <runId>` calls `memory.importText.rollback` and is confirmed the same way. `--dry-run` conflicts with `--yes`, and `--show-prompt`/`--rollback` conflict with the import flags (clap usage error, exit 2).
+* `plur1bus memory export-text [--agent <id>] [--output <path>|-] [--yes]` writes to stdout or, for a file, atomically through a private temporary file in the same directory (mode 0600). Publication preserves a destination created during export unless overwriting was explicitly authorized with `--yes` or a terminal confirmation; authorized replacement uses rename. Without overwrite authorization, filesystems without hard-link support fail safely. Symbolic links and directories are refused at the initial destination check. With `--json`, the original RPC result, including `text`, is printed even when writing to a file.
+
 ## SSH setup source references
 
 [1] OpenSSH's [`sshd(8)` authorized-key options](https://github.com/openssh/openssh-portable/blob/master/sshd.8)

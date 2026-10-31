@@ -1,5 +1,6 @@
 /** Human import flow: sealed-source preview, explicit preflight consent and native maintenance progress. */
 import { h } from "preact";
+import { useState } from "preact/hooks";
 import "../../styles/imports.css";
 import type { View } from "../../view.ts";
 import { Page } from "../../components/page.ts";
@@ -14,6 +15,7 @@ import { terminalRun } from "./model.ts";
 import { useImportFlow, importCall as call } from "./use-flow.ts";
 import { SourcePicker } from "./source-picker.ts";
 import { ImportOptions } from "./options.ts";
+import { PromptImportWizard } from "./prompt-wizard.ts";
 import type {
   AdminImportPlanParams,
   AdminImportPlanResult,
@@ -37,6 +39,7 @@ const issues = (values: ImportIssue[]): View =>
 
 /** Runs the same source-to-maintenance flow in its own page or setup F37. */
 export function ImportWizard(): View {
+  const [wizardMode, setWizardMode] = useState<"installation" | "prompt">("installation");
   const flow = useImportFlow();
   const {
     catalog,
@@ -100,15 +103,76 @@ export function ImportWizard(): View {
       " ",
       label,
     );
+  const tiles = h(
+    "div",
+    { class: "import-source-tiles", role: "tablist", "aria-label": t("imports.source") },
+    h(
+      "button",
+      {
+        type: "button",
+        role: "tab",
+        "aria-selected": wizardMode === "installation",
+        class: `import-source-tile ${wizardMode === "installation" ? "active" : ""}`,
+        onClick: () => setWizardMode("installation"),
+      },
+      t("imports.tileInstallation"),
+    ),
+    h(
+      "button",
+      {
+        type: "button",
+        role: "tab",
+        "aria-selected": wizardMode === "prompt",
+        class: `import-source-tile ${wizardMode === "prompt" ? "active" : ""}`,
+        onClick: () => setWizardMode("prompt"),
+      },
+      t("imports.tilePrompt"),
+    ),
+  );
+
+  if (wizardMode === "prompt") {
+    return h(
+      "div",
+      { class: "import-wizard" },
+      h("p", { class: "reading" }, t("imports.lead")),
+      tiles,
+      h(PromptImportWizard, {}),
+    );
+  }
+
   const catalogData = catalog.state.status === "ok" ? catalog.state.data : null;
-  if (!runId && catalog.state.status === "loading") return h(PageLoading, { label: t("state.loading") });
-  if (!runId && catalog.state.status === "fail")
-    return h(FailureState, { failure: catalog.state.failure, onRetry: catalog.reload });
-  if (!runId && catalogData?.sources.length === 0) return h(PageState, { state: "empty", title: t("imports.empty") });
+  if (!runId && catalog.state.status === "loading") {
+    return h(
+      "div",
+      { class: "import-wizard" },
+      h("p", { class: "reading" }, t("imports.lead")),
+      tiles,
+      h(PageLoading, { label: t("state.loading") }),
+    );
+  }
+  if (!runId && catalog.state.status === "fail") {
+    return h(
+      "div",
+      { class: "import-wizard" },
+      h("p", { class: "reading" }, t("imports.lead")),
+      tiles,
+      h(FailureState, { failure: catalog.state.failure, onRetry: catalog.reload }),
+    );
+  }
+  if (!runId && catalogData?.sources.length === 0) {
+    return h(
+      "div",
+      { class: "import-wizard" },
+      h("p", { class: "reading" }, t("imports.lead")),
+      tiles,
+      h(PageState, { state: "empty", title: t("imports.empty") }),
+    );
+  }
   return h(
     "div",
     { class: "import-wizard" },
     h("p", { class: "reading" }, t("imports.lead")),
+    tiles,
     error
       ? h(FailureState, {
           failure: error,

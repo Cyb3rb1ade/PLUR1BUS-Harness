@@ -1167,6 +1167,22 @@
     "approval.audit": {
       "stability": "experimental",
       "since": "1.5.0"
+    },
+    "memory.importText.preview": {
+      "stability": "experimental",
+      "since": "1.13.0"
+    },
+    "memory.importText.apply": {
+      "stability": "experimental",
+      "since": "1.13.0"
+    },
+    "memory.importText.rollback": {
+      "stability": "experimental",
+      "since": "1.13.0"
+    },
+    "memory.exportText": {
+      "stability": "experimental",
+      "since": "1.13.0"
     }
   },
   "notifications": {

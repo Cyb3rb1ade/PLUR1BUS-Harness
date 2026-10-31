@@ -20,14 +20,21 @@ import { joinBlocks } from "../join.ts";
 import type { HarnessLogger } from "../logger.ts";
 import { apiPrincipal, isClientContext } from "@plur1bus/module-api";
 import { buildMemoryCurationMethods } from "../memory-curation.ts";
-import { buildMemoryOpMethods, requireAgent } from "../memory-ops.ts";
+import { buildMemoryOpMethods, mapMemoryOpError, requireAgent } from "../memory-ops.ts";
+import { parseMemoryExport } from "../import/prompt/parse.ts";
+import { executePromptImport, rollbackPromptImport } from "../import/prompt/execute.ts";
+import { exportMemoriesAsText, EXPORT_PROMPT_TEXT } from "../import/prompt/export.ts";
+import { recommendTargets } from "../import/prompt/recommend.ts";
+import type { ParsedEntry } from "../import/prompt/types.ts";
+import { createRedactor } from "../logs/redact.ts";
 import { AGENT_CONTEXT_CLI, callerToPrincipal, validIdentity } from "../principal.ts";
 import { deriveUserPrincipal } from "../identity/principals.ts";
 import { resolveExposure } from "../memory-exposure/resolve.ts";
 import { filterSensitiveBlocks, sensitivityRefusal, sensitivityService } from "../memory-exposure/sensitivity.ts";
 import type { Exposure } from "../memory-exposure/types.ts";
 import type { MemorySensitivityService } from "../memory-sensitivity/service.ts";
-import { authenticatedPrincipal } from "../rbac/guard.ts";
+import { authenticatedPrincipal, LOCAL_OWNER } from "../rbac/guard.ts";
+import { authorize } from "../rbac/authorize.ts";
 import { buildIdentityMethods } from "../identity/rpc.ts";
 import type { BudgetService } from "../budget/index.ts";
 import type { Egress } from "../egress/index.ts";
@@ -296,6 +303,146 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
 
     ...buildMemoryCurationMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping }),
     ...buildMemoryOpMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping }),
+
+    "memory.importText.preview": async (p: { text: string }, ctx?: CallContext) => {
+      if (d.isStopping()) throw coreStopping();
+      const guarded = ctx ? guardedPrincipal(ctx) : LOCAL_OWNER;
+      const isPerson = guarded?.kind === "person";
+      const parsed = parseMemoryExport(p.text);
+      const availableAgents = d.agents.list();
+      const recommendations = recommendTargets(parsed.entries, {
+        availableAgents,
+        currentAgentId: availableAgents[0] ?? "default",
+        hasUserBinding: isPerson,
+      });
+      return {
+        prompt: EXPORT_PROMPT_TEXT,
+        recommendations,
+        ...parsed,
+      };
+    },
+
+    "memory.importText.apply": async (p: { entries: any[]; targets: any[]; dryRun?: boolean }, ctx?: CallContext) => {
+      if (d.isStopping()) throw coreStopping();
+      const guarded = ctx ? authenticatedPrincipal(ctx) : LOCAL_OWNER;
+      if (guarded.kind !== "person") {
+        throw new RpcError("E_DENIED", "only human persons may perform memory import", { reason: "human-only" });
+      }
+      if (!Array.isArray(p.entries) || !Array.isArray(p.targets)) {
+        throw new RpcError("E_INVALID_PARAMS", "entries and targets arrays required");
+      }
+      if (p.entries.length > 5000 || p.targets.length > 5000) {
+        throw new RpcError("E_INVALID_PARAMS", "too many entries in import batch");
+      }
+      for (const t of p.targets) {
+        if (t?.agentIds && Array.isArray(t.agentIds)) {
+          for (const ag of t.agentIds) {
+            requireAgent(d.agents, ag);
+          }
+        }
+      }
+      const redactor = createRedactor();
+      const cleanEntries: ParsedEntry[] = p.entries.map((e: any, i: number) => {
+        let text = typeof e?.text === "string" ? e.text : "";
+        if (text.length > 4000) text = text.slice(0, 4000);
+        text = redactor.text(text);
+        return {
+          category: e.category,
+          sourceType: e.sourceType ?? "memory",
+          text,
+          warnings: Array.isArray(e.warnings) ? e.warnings : [],
+          idempotencyKey: typeof e.idempotencyKey === "string" ? e.idempotencyKey : `entry-${i}`,
+          ...(typeof e.recordedAt === "string" ? { recordedAt: e.recordedAt } : {}),
+        };
+      });
+
+      const defaultAgentId = d.agents.list()[0] ?? "default";
+      const workspaceDir = d.agents.workspaceOf(defaultAgentId) ?? (d.hostEvalHome ?? process.cwd());
+      const accountId = guarded.binding?.audience ?? "api";
+      const userId = guarded.userId;
+      const { principal } = callerToPrincipal({ channel: "cli", accountId, userId }, defaultAgentId, workspaceDir);
+      principal.user = deriveUserPrincipal(userId);
+      principal.trust = "proved";
+      const home = d.hostEvalHome ?? process.cwd();
+      try {
+        return await executePromptImport({
+          entries: cleanEntries,
+          targets: p.targets,
+          dryRun: p.dryRun,
+          principal,
+          home,
+          engine: d.engine,
+          agents: d.agents,
+          defaultAgentId,
+        });
+      } catch (err) {
+        const mapped = mapMemoryOpError(err, { stopping: d.isStopping() });
+        throw mapped ?? err;
+      }
+    },
+
+    "memory.importText.rollback": async (p: { runId: string }, ctx?: CallContext) => {
+      if (d.isStopping()) throw coreStopping();
+      const guarded = ctx ? authenticatedPrincipal(ctx) : LOCAL_OWNER;
+      if (guarded.kind !== "person") {
+        throw new RpcError("E_DENIED", "only human persons may perform rollback", { reason: "human-only" });
+      }
+      const defaultAgentId = d.agents.list()[0] ?? "default";
+      const workspaceDir = d.agents.workspaceOf(defaultAgentId) ?? (d.hostEvalHome ?? process.cwd());
+      const accountId = guarded.binding?.audience ?? "api";
+      const userId = guarded.userId;
+      const { principal } = callerToPrincipal({ channel: "cli", accountId, userId }, defaultAgentId, workspaceDir);
+      principal.user = deriveUserPrincipal(userId);
+      principal.trust = "proved";
+      const home = d.hostEvalHome ?? process.cwd();
+      try {
+        return await rollbackPromptImport({
+          runId: p.runId,
+          home,
+          engine: d.engine,
+          principal,
+        });
+      } catch (err) {
+        const mapped = mapMemoryOpError(err, { stopping: d.isStopping() });
+        throw mapped ?? err;
+      }
+    },
+
+    "memory.exportText": async (p: { agentId?: string }, ctx?: CallContext) => {
+      if (d.isStopping()) throw coreStopping();
+      const guarded = ctx ? authenticatedPrincipal(ctx) : LOCAL_OWNER;
+      if (guarded.kind !== "person") {
+        throw new RpcError("E_DENIED", "only human persons may export memories", { reason: "human-only" });
+      }
+      if (p.agentId) {
+        requireAgent(d.agents, p.agentId);
+        const auth = authorize(guarded, "agent.read", { kind: "agent", agentId: p.agentId });
+        if (auth.effect !== "allow") {
+          throw new RpcError("E_DENIED", `agent.read required to export memories of agent '${p.agentId}'`, { reason: "unauthorized" });
+        }
+      }
+      const targetAgentId = p.agentId ?? (d.agents.list()[0] ?? "default");
+      const workspaceDir = d.agents.workspaceOf(targetAgentId) ?? (d.hostEvalHome ?? process.cwd());
+      const accountId = guarded.binding?.audience ?? "api";
+      const userId = guarded.userId;
+      const { principal } = callerToPrincipal({ channel: "cli", accountId, userId }, targetAgentId, workspaceDir);
+      principal.user = deriveUserPrincipal(userId);
+      principal.trust = "proved";
+      const sensitivity = d.memorySensitivity ? sensitivityService(d.memorySensitivity) : null;
+      try {
+        const text = await exportMemoriesAsText({
+          principal,
+          engine: d.engine,
+          agentId: p.agentId,
+          sensitivityService: sensitivity,
+        });
+        const count = (text.match(/^\[/gm) ?? []).length;
+        return { text, entryCount: count };
+      } catch (err) {
+        const mapped = mapMemoryOpError(err, { stopping: d.isStopping() });
+        throw mapped ?? err;
+      }
+    },
     ...buildDreamsMethods({ dreams: () => d.dreams?.() ?? null, agents: d.agents, ...(d.dreamsError ? { unavailableBecause: d.dreamsError } : {}) }),
     ...(d.secrets ? buildSecretMethods(d.secrets) : {}),
     ...(d.permissions ? buildApprovalMethods(d.permissions) : {}),

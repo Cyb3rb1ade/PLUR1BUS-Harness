@@ -777,6 +777,55 @@ pub enum MemoryCmd {
         #[arg(long)]
         agent: Option<String>,
     },
+    /// [experimental] Import memories from any chat assistant export by prompt
+    ImportText {
+        /// path to text file or '-' for stdin (at most 512 KiB); stdin needs --yes or --dry-run
+        #[arg(long, default_value = "-")]
+        file: String,
+        /// target agent for project memories (default: the core's default agent)
+        #[arg(long)]
+        agent: Option<String>,
+        /// target workspace for project memories
+        #[arg(long)]
+        workspace: Option<String>,
+        /// store preference memories at user scope (needs a person principal; otherwise they are skipped)
+        #[arg(long)]
+        all_preferences_to_user: bool,
+        /// preview only without applying changes
+        #[arg(long, conflicts_with = "yes")]
+        dry_run: bool,
+        /// apply or roll back without asking (required without a terminal, with --json and for stdin input)
+        #[arg(long)]
+        yes: bool,
+        /// print the export prompt text for the other assistant and exit
+        #[arg(
+            long,
+            conflicts_with_all = [
+                "file", "agent", "workspace", "all_preferences_to_user", "dry_run", "yes", "rollback"
+            ]
+        )]
+        show_prompt: bool,
+        /// roll back a previous prompt import run (needs --yes or a terminal confirmation)
+        #[arg(
+            long,
+            conflicts_with_all = [
+                "file", "agent", "workspace", "all_preferences_to_user", "dry_run", "show_prompt"
+            ]
+        )]
+        rollback: Option<String>,
+    },
+    /// [experimental] Export memories formatted for portable text import
+    ExportText {
+        /// include agent-private memories of this agent
+        #[arg(long)]
+        agent: Option<String>,
+        /// output path or '-' for stdout (default: '-'); a file is written atomically with mode 0600
+        #[arg(long, default_value = "-")]
+        output: String,
+        /// overwrite an existing --output file without asking (required without a terminal)
+        #[arg(long)]
+        yes: bool,
+    },
     /// [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
     Reembed(ReembedArgs),
 }

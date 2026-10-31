@@ -16,6 +16,7 @@ import { CurationTab } from "./curation-tab.ts";
 import { DreamsTab } from "./dreams-tab.ts";
 import { MediaTab } from "./media-tab.ts";
 import { MemoriesTab } from "./memories-tab.ts";
+import { ExportDialog } from "./export-dialog.ts";
 import "./rpc-types.ts";
 import "../../styles/memory.css";
 
@@ -64,11 +65,16 @@ export function MemoriesPage({ sub }: PageProps): View {
   const [tick, setTick] = useState(0);
   const [jobTick, setJobTick] = useState(0);
   const [proposalTick, setProposalTick] = useState(0);
+  const [exportOpen, setExportOpen] = useState(false);
   const live = useLiveEvents(() => { setJobTick((n) => n + 1); }, () => { setProposalTick((n) => n + 1); });
   const on = live === "open";
 
-  const refresh = h("button", { type: "button", class: "btn", onClick: () => { setTick((n) => n + 1); } }, t("memory.refresh"));
+  const refresh = h("div", { class: "m-header-actions" },
+    h("button", { type: "button", class: "btn btn-quiet", onClick: () => setExportOpen(true) }, t("memory.export.action")),
+    h("button", { type: "button", class: "btn", onClick: () => { setTick((n) => n + 1); } }, t("memory.refresh")),
+  );
   return h(Page, { title: t("nav.memories"), width: "full", actions: refresh },
+    exportOpen ? h(ExportDialog, { onClose: () => setExportOpen(false) }) : null,
     h("p", { class: "m-muted m-live" }, on ? t("memory.live.on") : live === "connecting" || live === "off" ? t("memory.live.connecting") : t("memory.live.off")),
     h(EngineRoleTests, {}),
     h(Tabs, {

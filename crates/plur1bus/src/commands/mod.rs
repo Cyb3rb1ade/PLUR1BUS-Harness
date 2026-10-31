@@ -34,6 +34,7 @@ pub mod media_search;
 pub mod memory;
 pub mod memory_ops;
 pub mod memory_reembed;
+pub(crate) mod memory_text;
 pub mod model;
 pub mod module;
 pub mod plugin;

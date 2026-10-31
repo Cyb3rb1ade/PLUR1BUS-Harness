@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://plur1bus.dev/schema/rpc/1.10.0/rpc.schema.json",
-  "title": "PLUR1BUS harness RPC 1.10.0",
+  "$id": "https://plur1bus.dev/schema/rpc/1.13.0/rpc.schema.json",
+  "title": "PLUR1BUS harness RPC 1.13.0",
   "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch.",
-  "x-rpc-version": "1.10.0",
+  "x-rpc-version": "1.13.0",
   "$defs": {
     "EngineContractEngineCapabilitiesData": {
       "title": "EngineContractEngineCapabilitiesData",
@@ -15216,11 +15216,11 @@
             },
             "extensions": {
               "type": "boolean",
-            "description": "Since 1.8.0: an explicit Owner/Admin request to enrol extensions.read and extensions.manage in this person-bound desktop grant; omission or false preserves the initial fixed scopes. Never inferred from role."
+              "description": "Since 1.8.0: an explicit Owner/Admin request to enrol extensions.read and extensions.manage in this person-bound desktop grant; omission or false preserves the initial fixed scopes. Never inferred from role."
             },
             "imports": {
               "type": "boolean",
-            "description": "Since 1.8.0: an explicit Owner/Admin request to enrol imports.read and imports.manage in this person-bound desktop grant. The server uses false when omitted. Never inferred from role or a native upload request."
+              "description": "Since 1.8.0: an explicit Owner/Admin request to enrol imports.read and imports.manage in this person-bound desktop grant. The server uses false when omitted. Never inferred from role or a native upload request."
             }
           },
           "required": [
@@ -27637,6 +27637,210 @@
             }
           }
         }
+      },
+      "memory.importText.preview": {
+        "description": "Parse and preview a memory export text from another AI assistant.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.13.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "text"
+          ],
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 1000000
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "entries",
+            "recommendations",
+            "status",
+            "warnings"
+          ],
+          "properties": {
+            "prompt": {
+              "type": "string"
+            },
+            "entries": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ParsedMemoryEntry"
+              }
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "complete",
+                "more",
+                "unrecognized"
+              ]
+            },
+            "warnings": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "recommendations": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/MemoryEntryTarget"
+              }
+            }
+          }
+        }
+      },
+      "memory.importText.apply": {
+        "description": "Apply a parsed memory export with target assignments.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.13.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "entries",
+            "targets"
+          ],
+          "properties": {
+            "entries": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ParsedMemoryEntry"
+              },
+              "maxItems": 5000
+            },
+            "targets": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/MemoryEntryTarget"
+              },
+              "maxItems": 5000
+            },
+            "dryRun": {
+              "type": "boolean"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "runId",
+            "imported",
+            "linked",
+            "proposedRules",
+            "skipped",
+            "reportPath"
+          ],
+          "properties": {
+            "runId": {
+              "type": "string",
+              "pattern": "^prompt-[0-9]+-[0-9a-f]+$"
+            },
+            "imported": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "linked": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "proposedRules": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "skipped": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "reportPath": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "memory.importText.rollback": {
+        "description": "Roll back a prompt memory import run.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.13.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "runId"
+          ],
+          "properties": {
+            "runId": {
+              "type": "string",
+              "pattern": "^prompt-[0-9]+-[0-9a-f]+$"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rolledBack",
+            "discardedProposals",
+            "unhandledProposals"
+          ],
+          "properties": {
+            "rolledBack": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "discardedProposals": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unhandledProposals": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      },
+      "memory.exportText": {
+        "description": "Export stored memories formatted for portable text import.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.13.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "text",
+            "entryCount"
+          ],
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "entryCount": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
       }
     },
     "BudgetLimit": {
@@ -31660,6 +31864,99 @@
           "grant": {
             "$ref": "#/$defs/GrantRecord"
           }
+        }
+      }
+    },
+    "ParsedMemoryEntry": {
+      "description": "1.13.0: A parsed memory entry from a portable export.",
+      "x-stability": "experimental",
+      "x-since": "1.13.0",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "category",
+        "sourceType",
+        "text",
+        "warnings",
+        "idempotencyKey"
+      ],
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": [
+            "Instructions",
+            "Identity",
+            "Career",
+            "Projects",
+            "Preferences",
+            "Other"
+          ]
+        },
+        "sourceType": {
+          "type": "string",
+          "enum": [
+            "memory",
+            "chat",
+            "unknown"
+          ]
+        },
+        "recordedAt": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "warnings": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    },
+    "MemoryEntryTarget": {
+      "description": "1.13.0: Target scope assignment for a memory entry.",
+      "x-stability": "experimental",
+      "x-since": "1.13.0",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target"
+      ],
+      "properties": {
+        "target": {
+          "type": "string",
+          "enum": [
+            "skip",
+            "user",
+            "agent",
+            "workspace",
+            "propose-rule"
+          ]
+        },
+        "agentIds": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "string",
+            "maxLength": 128
+          }
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 500
         }
       }
     }
