@@ -1,3 +1,4 @@
+export { summarizeCacheUsage, type CacheUsageRow } from "./cache-report.ts";
 export { periodBounds, validateTimeZone, type Period, type PeriodBounds } from "./period.ts";
 export { BUDGET_SCHEMA_VERSION, BudgetStoreError } from "./store.ts";
 export {
