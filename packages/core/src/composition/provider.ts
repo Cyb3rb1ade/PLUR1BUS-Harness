@@ -131,7 +131,8 @@ export interface TurnProviderOptions {
   billing?: Readonly<Record<string, BillingClass>>;
   /** Profiles whose config explicitly allows a fallback across billing classes. Default: refuse. */
   allowCrossBilling?: (profile: string) => boolean;
-  /** Secret values this process registered (leased credentials); a failed tool's `detail` is redacted against them. */
+  /** Secret values this process registered; a failed tool's `detail` and every successful tool result (before the model, the transcript,
+   *  an offloaded result file, capture or any audit line sees it) are redacted against them. */
   secrets?: () => Iterable<string>;
   log: PipelineLog; resultStore: FullResultPort;
   maxTokens?: number; maxRounds?: number; topK?: number; system?: readonly string[];
@@ -591,7 +592,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const surface: SurfaceTrustLevel = approver?.surface ?? req.originSurface ?? 0;
     let approvalNeedsPerson = false;
     const approvals: ApprovalPort = approver && approver.person === null ? { ...o.approval, async request() { approvalNeedsPerson = true; return { approved: false, reason: 'approval requires an authenticated person' }; } } : o.approval;
-    const dispatcher = new ToolDispatcher({ registry, approvals, grants: o.grants, ...(o.grantUse ? { grantUse: o.grantUse } : {}), ...(o.audit ? { audit: o.audit } : {}), clock: { now: Date.now }, policyContext: ctx => ({ ...(req.headlessJobId ? { headless: { jobId: req.headlessJobId } } : {}), ...o.policyContext?.(ctx, req) }), repair: async input => {
+    const dispatcher = new ToolDispatcher({ registry, approvals, grants: o.grants, ...(o.grantUse ? { grantUse: o.grantUse } : {}), ...(o.audit ? { audit: o.audit } : {}), clock: { now: Date.now }, ...(o.secrets ? { secrets: o.secrets } : {}), policyContext: ctx => ({ ...(req.headlessJobId ? { headless: { jobId: req.headlessJobId } } : {}), ...o.policyContext?.(ctx, req) }), repair: async input => {
       const repairRequest: WireRequest = { model: candidate.model, ...((req.maxOutputTokens ?? o.maxTokens) === undefined ? {} : { maxTokens: req.maxOutputTokens ?? o.maxTokens }), messages: [{ role: 'user', content: `${input.message}\nInvalid arguments (data): ${JSON.stringify(input.args)}` }], tools: selected.map(t => fromRegisteredTool(t)) };
       let repaired: ChatResult | undefined;
       await stage('tool-repair', signal, o.log, async () => { for await (const e of invoke(repairRequest, 'tool_call_invalid')) if (e.type === 'done') { repaired = e.result; if (repaired.usage?.inputTokens !== undefined && repaired.usage.outputTokens !== undefined) { totalInputTokens += repaired.usage.inputTokens; totalOutputTokens += repaired.usage.outputTokens; } } });
