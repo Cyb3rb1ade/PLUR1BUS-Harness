@@ -600,6 +600,10 @@
       "stability": "experimental",
       "since": "1.6.0"
     },
+    "telemetry.cache.summary": {
+      "stability": "experimental",
+      "since": "1.10.0"
+    },
     "doctor.report": {
       "stability": "experimental",
       "since": "1.6.0"
