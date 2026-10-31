@@ -473,6 +473,7 @@ fn candidate_of(value: &Value) -> RecallCandidate {
         source: field(value, "source"),
         graph_source: field(value, "graphSource"),
         rerank_score: None,
+        ownership: None,
     }
 }
 

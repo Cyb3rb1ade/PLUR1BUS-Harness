@@ -94,8 +94,16 @@ pub struct StageInput<'a> {
 }
 
 /// Ordered stage-7 memories plus the canonical list and rejection trace.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct StageSnapshot {
+    /// Hydrated rows retained for T3/T4 composition, in the same order as ids/scores.
+    pub rows: Vec<MemoryRow>,
+    /// Row source labels retained through namespace merge.
+    pub sources: Vec<String>,
+    /// Query vector shared with namespace merge.
+    pub query_vector: Vec<f32>,
+    /// Initial live, authorized vector ids for child-trace replay.
+    pub candidate_ids: Vec<String>,
     /// Memory ids after hydration, the deferred slice and the final ACL.
     pub ordered_ids: Vec<String>,
     /// Scores in the same order, before rounding.
@@ -104,6 +112,20 @@ pub struct StageSnapshot {
     pub canonical: Vec<CanonicalHit>,
     /// Trace decisions whose action is `rejection`, in emission order.
     pub rejections: Vec<Rejection>,
+}
+
+impl PartialEq for StageSnapshot {
+    fn eq(&self, other: &Self) -> bool {
+        self.ordered_ids == other.ordered_ids
+            && self.scores == other.scores
+            && self.canonical == other.canonical
+            && self.rejections == other.rejections
+            && self.sources == other.sources
+            && self.query_vector == other.query_vector
+            && self.candidate_ids == other.candidate_ids
+            && matches!((serde_json::to_value(&self.rows), serde_json::to_value(&other.rows)),
+                (Ok(left), Ok(right)) if left == right)
+    }
 }
 
 /// One rejection decision.
@@ -162,6 +184,7 @@ pub fn run_through_stage_7(
     let mut rejections = Vec::new();
     let query_vector = embed_query(input)?;
     let mut hits = search_hits(input, &query_vector, sink, &mut rejections)?;
+    let candidate_ids = hits.iter().map(|hit| hit.id.clone()).collect();
     // The synonym expander is not part of stages 1–7. A raised flag must not pretend the
     // query was rewritten. The pinned engine emits no skip trace while the flag is false.
     if input.flags.query_refiner && should_refine_query(&hits, input.limits.recall_min_score) {
@@ -176,6 +199,10 @@ pub fn run_through_stage_7(
     hits.truncate(slice_limit(input));
     hits.retain(|hit| acl_allows(input, hit, "acl", sink, &mut rejections));
     Ok(StageSnapshot {
+        rows: hits.iter().filter_map(|hit| hit.row.clone()).collect(),
+        sources: hits.iter().map(|hit| hit.source.to_owned()).collect(),
+        query_vector,
+        candidate_ids,
         ordered_ids: hits.iter().map(|hit| hit.id.clone()).collect(),
         scores: hits.iter().map(|hit| hit.score).collect(),
         canonical,

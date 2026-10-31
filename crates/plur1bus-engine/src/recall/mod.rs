@@ -2,7 +2,7 @@
 //!
 //! T1 wires request ACL. T2 runs stages through graph hydration. T3 adds the
 //! post-hydration budget, optional prefilter, rerank, dedupe and final ACL.
-//! Rendering and namespaces arrive in later RE-04 tasks.
+//! T4 adds the namespace routes, per-table composition and global merge.
 
 /// Row visibility and denial reporting for recall.
 pub mod acl;
@@ -24,6 +24,14 @@ pub mod hash_embed;
 pub mod knowledge;
 /// Live-row and valid-time checks.
 pub mod lifecycle;
+/// Global namespace dedupe, caps and rerank-preserving order.
+pub mod merge;
+/// Existing stages composed for a physical namespace table.
+pub mod namespace_pipeline;
+/// Bounded child trace replay into a master trace.
+pub mod namespace_trace;
+/// Configured physical routes, settle-all fan-out and the global retrieval ledger.
+pub mod namespaces;
 /// Distance and epistemic score terms.
 pub mod score;
 /// Stages 1–7.

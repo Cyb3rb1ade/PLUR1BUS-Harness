@@ -233,8 +233,8 @@ RE-D17). A naive port changes results without raising any error, for three reaso
   `rule_4_a_duplicate_index_counts_once`, `rule_5_empty_result_is_valid_only_when_declared`,
   `rule_6_the_reranker_never_sees_a_row_the_caller_may_not_see`, `prefilter_removes_only_irrelevant_at_or_above_0_95`,
   `prefilter_timeout_keeps_every_candidate`, `prefilter_judges_at_most_100_candidates`, `dedupe_collapses_near_duplicates_after_rerank`,
-  `finalisation_reasserts_the_acl` (inject a stage that leaks a foreign row; finalisation refuses with
-  `EngineError::Invalid` and the trace names it).
+  `finalisation_reasserts_the_acl` (inject a stage that leaks a foreign row; the final ACL filters that row,
+  retains permitted rows and records the denial, as Node does; recorded by `G-ACL-FINAL`, fixed in `3f5509c3`).
 - [ ] **Step 3: implement** in this order inside the pipeline: `Acl` (T1) → `Budget::allocate` (CP-5.1, tiers from
   `recall-budget.js`) → `Prefilter` (only when `deps.filter` is `Some`; no config key yet — the engine builder passes
   `None` in Phase 1; `DecisionRoleFilter` is built and tested but not wired) → `Rerank` (CP-5.3, 5.4, 5.5; the

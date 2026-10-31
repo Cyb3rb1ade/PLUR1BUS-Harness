@@ -33,6 +33,8 @@ pub struct KnowledgeSection {
 pub struct CanonicalHit {
     /// Section heading.
     pub heading: String,
+    /// Exact section text retained for namespace dedupe and later rendering.
+    pub text: String,
     /// Cosine against the query vector.
     pub score: f64,
 }
@@ -82,6 +84,7 @@ pub fn search_canonical(
         .into_iter()
         .map(|chunk| CanonicalHit {
             heading: chunk.heading,
+            text: chunk.text,
             score: cosine_similarity(query_vector, &chunk.vector),
         })
         .collect::<Vec<_>>();
@@ -101,6 +104,7 @@ pub fn cached_chunk_count(workspace: &Path) -> Option<usize> {
 
 struct Chunk {
     heading: String,
+    text: String,
     vector: Vec<f32>,
 }
 
@@ -131,6 +135,7 @@ fn knowledge_chunks(
             if let Some(vector) = vectors.into_iter().next() {
                 chunks.push(Chunk {
                     heading: section.heading.clone(),
+                    text: section.text.clone(),
                     vector,
                 });
             }
@@ -160,12 +165,17 @@ fn read_cache(workspace: &Path, mtime: i64) -> Option<Vec<Chunk>> {
             .iter()
             .filter_map(|chunk| {
                 let heading = chunk["heading"].as_str()?.to_owned();
+                let text = chunk["text"].as_str()?.to_owned();
                 let vector = chunk["vector"]
                     .as_array()?
                     .iter()
                     .map(|value| value.as_f64().unwrap_or(0.0) as f32)
                     .collect();
-                Some(Chunk { heading, vector })
+                Some(Chunk {
+                    heading,
+                    text,
+                    vector,
+                })
             })
             .collect(),
     )
@@ -180,6 +190,7 @@ fn write_cache(workspace: &Path, mtime: i64, chunks: &[Chunk]) {
         "mtime": mtime,
         "chunks": chunks.iter().map(|chunk| json!({
             "heading": chunk.heading,
+            "text": chunk.text,
             "vector": chunk.vector,
         })).collect::<Vec<_>>(),
         "identityId": LEGACY_IDENTITY,

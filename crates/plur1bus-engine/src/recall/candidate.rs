@@ -40,6 +40,8 @@ pub struct RecallCandidate {
     pub graph_source: String,
     /// Ceiling score written by the reranker. Absent when rerank did not apply.
     pub rerank_score: Option<f64>,
+    /// Full ownership binding retained when adapting a hydrated store row.
+    pub ownership: Option<AclMemory>,
 }
 
 impl Default for RecallCandidate {
@@ -60,6 +62,7 @@ impl Default for RecallCandidate {
             source: String::new(),
             graph_source: String::new(),
             rerank_score: None,
+            ownership: None,
         }
     }
 }
@@ -78,6 +81,9 @@ impl RecallCandidate {
     /// Ownership columns for [`super::acl::check_access`].
     #[must_use]
     pub fn acl_memory(&self) -> AclMemory {
+        if let Some(ownership) = &self.ownership {
+            return ownership.clone();
+        }
         AclMemory {
             id: self.id.clone(),
             scope: self.scope.clone(),

@@ -119,7 +119,7 @@ impl StorePool {
         Ok(store)
     }
 
-    fn agent_path(&self, agent_id: &str) -> Result<PathBuf, StoreError> {
+    pub(crate) fn agent_path(&self, agent_id: &str) -> Result<PathBuf, StoreError> {
         // Agent IDs and named namespaces have intentionally different Node grammars:
         // unlike a namespace, an agent may start with '-' or '_'.
         if agent_id.is_empty()

@@ -26,6 +26,17 @@ unit vectors return 2 and opposite unit vectors return 4. Phase 1 retains the No
 The store does not build a lexical index; RE-10 owns the derived `_lexical` table and its index. A round trip checks
 that an additional derived table does not alter the Node reader's `memories` or identity view.
 
+RE-04/T4 namespace recalls append a single retrieval record after the global merge, through
+`store::ledger::JsonlLedger<RetrievalLedgerLine>`. The persisted shape matches Node's
+`lib/memory-dynamics.js::createRetrievalLedgerEntry`: `id` (UUID), `agentId` and `workspaceKey`
+(nullable strings), `queryHash` (SHA-256 of the UTF-8 query, or null for an empty query),
+`resultsCount`, ordered `selectedIds`, and `timestamp` (epoch milliseconds). Neither the query
+text nor memory text enters this line. Canonical sections do not count toward `resultsCount`.
+Child pipelines do not write ledger entries; a required table failure writes none. An absent
+read-only legacy table is skipped without creating its directory. As in Node, a failed ledger
+delivery does not replace successful recall results; `NamespaceOutput.ledger_error` retains
+the bounded delivery diagnostic for the runtime caller.
+
 All store paths reject symlinks, including Windows junctions. `TrustedDirectory` holds the namespace directory
 handle for the lifetime of the Lance connection. Unix namespace children use descriptor-relative `openat` with
 `O_NOFOLLOW`; Lance receives a verified `/proc/self/fd` or `/dev/fd` alias where available. On hosts without a working

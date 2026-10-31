@@ -1,0 +1,127 @@
+{
+  "recordedFrom": {
+    "engine": "node",
+    "runtimeCommit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "mergeCommit": "6419a60e79975d0b5244798c1fdbbd7997a712ce",
+    "mergeTag": "v7.18.31",
+    "node": "v24.21.0",
+    "unicode": "17.0",
+    "icu": "78.3",
+    "runtimeSourceSha256": "637899ffb1d94bfff7a23ab306f2ade4c025dce16d2690f7bb74d6955acb9a71",
+    "ledgerSourceSha256": "95c310c6446a168a48333a40d3ad6fcbdd6ce9a54b769a1f1eda04bc3d8495d5",
+    "mergeSourceSha256": "32b1374f39e708888c1a46ffcd403eb27ae396e2ae4b620971a63adfc8226b4e"
+  },
+  "merges": [
+    {
+      "name": "reranked-before-unreranked",
+      "input": [
+        {
+          "namespace": "first",
+          "memories": [
+            {
+              "entry": {
+                "id": "r1",
+                "text": "r1",
+                "summary": "r1",
+                "agentId": "namespace-fixture",
+                "storedBy": "namespace-fixture",
+                "scope": "agent-private",
+                "category": "fact",
+                "status": "active",
+                "epistemicStatus": "",
+                "memoryStrength": 1,
+                "createdAt": 1798761600000,
+                "expiresAt": 0
+              },
+              "score": 0.2,
+              "source": "vector",
+              "rerankScore": 1
+            },
+            {
+              "entry": {
+                "id": "r2",
+                "text": "r2",
+                "summary": "r2",
+                "agentId": "namespace-fixture",
+                "storedBy": "namespace-fixture",
+                "scope": "agent-private",
+                "category": "fact",
+                "status": "active",
+                "epistemicStatus": "",
+                "memoryStrength": 1,
+                "createdAt": 1798761600000,
+                "expiresAt": 0
+              },
+              "score": 0.9,
+              "source": "vector",
+              "rerankScore": 0.5
+            }
+          ]
+        },
+        {
+          "namespace": "second",
+          "memories": [
+            {
+              "entry": {
+                "id": "u1",
+                "text": "u1",
+                "summary": "u1",
+                "agentId": "namespace-fixture",
+                "storedBy": "namespace-fixture",
+                "scope": "agent-private",
+                "category": "fact",
+                "status": "active",
+                "epistemicStatus": "",
+                "memoryStrength": 1,
+                "createdAt": 1798761600000,
+                "expiresAt": 0
+              },
+              "score": 1,
+              "source": "vector"
+            }
+          ]
+        }
+      ],
+      "options": {
+        "maxOut": 3,
+        "dedupEnabled": false
+      },
+      "result": {
+        "queryVector": null,
+        "canonical": [],
+        "memories": [
+          {
+            "id": "r1",
+            "text": "r1",
+            "score": 0.2,
+            "rerankScore": 1,
+            "namespace": "first",
+            "source": "vector"
+          },
+          {
+            "id": "r2",
+            "text": "r2",
+            "score": 0.9,
+            "rerankScore": 0.5,
+            "namespace": "first",
+            "source": "vector"
+          },
+          {
+            "id": "u1",
+            "text": "u1",
+            "score": 1,
+            "rerankScore": null,
+            "namespace": "second",
+            "source": "vector"
+          }
+        ],
+        "trace": {
+          "candidates": [],
+          "decisions": [],
+          "guards": [],
+          "storeDecisions": []
+        }
+      }
+    }
+  ]
+}
