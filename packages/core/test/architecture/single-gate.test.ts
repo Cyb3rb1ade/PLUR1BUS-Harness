@@ -50,10 +50,12 @@ export const p14 = () => hc.invoke("hostctl.sys.info", {}, x); // expect: G2
 export const p15 = () => runHostTool("sys.info", {}, x); // expect: G2
 export const p16 = { execute: async () => fsSpec.execute(x, x) }; // expect: G2
 export const p17: ToolDef = { ...base, classify: async () => { await host.run(x, x); return x; } }; // expect: G2
+export const p18 = () => ({ runHostTool }); // expect: G2
 export const ok1: ToolDef = { ...base, execute: async () => fsSpec.execute(x, x) };
 export const ok2: ToolDef = { ...base, async execute() { return host.run(x, x); } };
 export const ok3: ToolDef = { ...base, execute: (args) => runHostTool("sys.info", args, x) };
 export const ok4: McpToolPort = { ...port, callTool: (s, t, a, c, sig) => port.callTool(s, t, a, c, sig) };
+export const ok5 = null as unknown as (ReturnType<typeof runHostTool> | typeof runHostTool);
 `;
 
 const EXPECTED_IDS = [
@@ -75,7 +77,9 @@ const MCP_REGISTRY_FILE = "packages/core/src/mcp/registry.ts";
 const CATALOG_FILE = "packages/core/src/host-tools/catalog.ts";
 const HOSTCTL_FILE = "packages/hostctl/src/index.ts";
 
-const ROUTE_MESSAGE = "route the call through a ToolDef registered with the ToolRegistry, or, if it is a new adapter, change §5.4 in this file and docs/tool-reliability.md in the same PR.";
+const ROUTE_MESSAGE = "route the call through a ToolDef registered with the ToolRegistry, or, if it is a new adapter, "
+  + "change the allow-list in allowed() in this file and the \"Single execution path\" section of "
+  + "docs/tool-reliability.md in the same PR.";
 
 type Rule = "G1" | "G2";
 interface TargetInfo {
@@ -320,13 +324,21 @@ function allowed(node: ts.Node, target: TargetInfo, sf: ts.SourceFile): boolean 
     && outer.name?.text === "createHostctl";
 }
 
+function identifierSymbol(node: ts.Identifier): ts.Symbol | undefined {
+  // `{ runHostTool }` is a shorthand. getSymbolAtLocation sees the property; the value symbol is the executor.
+  if (ts.isShorthandPropertyAssignment(node.parent) && node.parent.name === node) {
+    return checker.getShorthandAssignmentValueSymbol(node.parent);
+  }
+  return checker.getSymbolAtLocation(node);
+}
+
 function isRunHostToolIdentifier(node: ts.Identifier): boolean {
   const parent = node.parent;
   if (ts.isImportSpecifier(parent) || ts.isExportSpecifier(parent) || ts.isImportClause(parent)) return false;
   if (ts.isFunctionDeclaration(parent) && parent.name === node) return false;
   if (ts.isPropertyAccessExpression(parent) && parent.name === node) return false;
-  if (ts.isPartOfTypeNode(node)) return false;
-  return targetOf(checker.getSymbolAtLocation(node))?.id === "runHostTool";
+  if (ts.isPartOfTypeNode(node) || ts.findAncestor(node, ts.isTypeQueryNode)) return false;
+  return targetOf(identifierSymbol(node))?.id === "runHostTool";
 }
 
 function referenceTarget(node: ts.Node): TargetInfo | undefined {
@@ -348,7 +360,7 @@ function referenceTarget(node: ts.Node): TargetInfo | undefined {
       return targetOf(property);
     }
   }
-  if (ts.isIdentifier(node) && isRunHostToolIdentifier(node)) return targetOf(checker.getSymbolAtLocation(node));
+  if (ts.isIdentifier(node) && isRunHostToolIdentifier(node)) return targetOf(identifierSymbol(node));
   return undefined;
 }
 
