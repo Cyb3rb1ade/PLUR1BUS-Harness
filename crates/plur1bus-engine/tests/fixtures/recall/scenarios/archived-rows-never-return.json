@@ -1,0 +1,71 @@
+{
+  "now": 1768305600000,
+  "validAt": null,
+  "recallMinScore": 0.15,
+  "topN": 12,
+  "candidateTopK": 40,
+  "candidateHardLimit": 100,
+  "canonicalMinScore": 0.3,
+  "canonicalMaxItems": 5,
+  "deferFinalCap": true,
+  "associativeEnabled": false,
+  "edges": [],
+  "knowledge": null,
+  "queryVector": {
+    "op": "hash",
+    "text": "durable archive policy number forty two for the fixture recall"
+  },
+  "vectorCheck": null,
+  "name": "archived-rows-never-return",
+  "query": "durable archive policy number forty two for the fixture recall",
+  "context": {
+    "agentId": "a1",
+    "workspaceId": "",
+    "workspaceIdentity": "",
+    "userPrincipal": ""
+  },
+  "rows": [
+    {
+      "id": "00000000-0000-4000-8000-000000000010",
+      "text": "durable archive policy number forty two for the fixture recall",
+      "vector": {
+        "op": "hash",
+        "text": "durable archive policy number forty two for the fixture recall"
+      },
+      "agentId": "a1",
+      "storedBy": "a1",
+      "scope": "agent-private",
+      "ownerUserId": "",
+      "workspaceId": "",
+      "workspaceKey": "",
+      "status": "active",
+      "epistemicStatus": "observed",
+      "memoryStrength": 1.1,
+      "importance": 0.5,
+      "validFrom": 0,
+      "validUntil": 0,
+      "createdAt": 1768219200000
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000011",
+      "text": "archived fixture fact that must not return",
+      "vector": {
+        "op": "hash",
+        "text": "durable archive policy number forty two for the fixture recall"
+      },
+      "agentId": "a1",
+      "storedBy": "a1",
+      "scope": "agent-private",
+      "ownerUserId": "",
+      "workspaceId": "",
+      "workspaceKey": "",
+      "status": "archived",
+      "epistemicStatus": "observed",
+      "memoryStrength": 1.4,
+      "importance": 0.5,
+      "validFrom": 0,
+      "validUntil": 0,
+      "createdAt": 1768219200000
+    }
+  ]
+}
