@@ -277,7 +277,7 @@ pub enum NamespaceError {
     Stage(StageError),
     /// Reranker/finalisation failure.
     Finalise(EngineError),
-    /// A child worker failed to return normally.
+    /// A child worker could not start or failed to return normally.
     WorkerFailed,
 }
 impl std::fmt::Display for NamespaceError {
@@ -306,7 +306,7 @@ pub fn recall(request: &NamespaceRequest<'_>) -> Result<NamespaceOutput, Namespa
             .into_iter()
             .enumerate()
             .map(|(index, route)| {
-                scope.spawn(move || {
+                std::thread::Builder::new().spawn_scoped(scope, move || {
                     let Some(store) = route
                         .lease(request.agent_id)
                         .map_err(NamespaceError::Store)?
@@ -331,7 +331,10 @@ pub fn recall(request: &NamespaceRequest<'_>) -> Result<NamespaceOutput, Namespa
             .collect::<Vec<_>>();
         handles
             .into_iter()
-            .map(|handle| handle.join().unwrap_or(Err(NamespaceError::WorkerFailed)))
+            .map(|handle| match handle {
+                Ok(handle) => handle.join().unwrap_or(Err(NamespaceError::WorkerFailed)),
+                Err(_) => Err(NamespaceError::WorkerFailed),
+            })
             .collect::<Vec<_>>()
     });
     let mut children = Vec::new();
