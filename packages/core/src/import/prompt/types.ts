@@ -52,6 +52,9 @@ export interface PromptImportResult {
 
 export interface PromptRollbackResult {
   rolledBack: number;
+  failed: number;
+  remaining: number;
+  keptModified: number;
   discardedProposals: number;
   unhandledProposals: number;
 }

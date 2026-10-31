@@ -59,9 +59,10 @@ STATUS: COMPLETE`;
   });
 
   test("secrets are redacted and recommended to skip", () => {
+    const fakeKey = "sk-ant-api03-" + "abcdef1234567890".repeat(4);
     const textWithSecret = `PLUR1BUS-MEMORY-EXPORT v1
 ## Instructions
-[2024-01-01] [memory] - Use key sk-ant-api03-abcdef123456789012345678901234567890123456789012345678901234567890
+[2024-01-01] [memory] - Use key ${fakeKey}
 STATUS: COMPLETE`;
     const parsed = parseMemoryExport(textWithSecret);
     assert.equal(parsed.entries.length, 1);

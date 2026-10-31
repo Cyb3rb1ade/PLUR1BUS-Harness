@@ -128,6 +128,11 @@ export function parseMemoryExport(
 
   function commitActiveEntry() {
     if (!activeEntry) return;
+    if (entries.length >= MAX_ENTRIES) {
+      warnings.push("max-entries-reached");
+      activeEntry = null;
+      return;
+    }
     let cleanText = activeEntry.text.trim();
     // Strip control characters except newline and tab
     cleanText = cleanText.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");

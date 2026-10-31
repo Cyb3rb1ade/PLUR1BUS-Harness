@@ -306,8 +306,12 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
 
     "memory.importText.preview": async (p: { text: string }, ctx?: CallContext) => {
       if (d.isStopping()) throw coreStopping();
-      const guarded = ctx ? guardedPrincipal(ctx) : LOCAL_OWNER;
-      const isPerson = guarded?.kind === "person";
+      if (!ctx) throw new RpcError("E_UNAUTHORIZED", "authentication required");
+      const guarded = authenticatedPrincipal(ctx);
+      if (guarded.kind !== "person") {
+        throw new RpcError("E_DENIED", "only human persons may preview memory imports", { reason: "human-only" });
+      }
+      const isPerson = guarded.kind === "person";
       const parsed = parseMemoryExport(p.text);
       const availableAgents = d.agents.list();
       const recommendations = recommendTargets(parsed.entries, {
@@ -324,7 +328,8 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
 
     "memory.importText.apply": async (p: { entries: any[]; targets: any[]; dryRun?: boolean }, ctx?: CallContext) => {
       if (d.isStopping()) throw coreStopping();
-      const guarded = ctx ? authenticatedPrincipal(ctx) : LOCAL_OWNER;
+      if (!ctx) throw new RpcError("E_UNAUTHORIZED", "authentication required");
+      const guarded = authenticatedPrincipal(ctx);
       if (guarded.kind !== "person") {
         throw new RpcError("E_DENIED", "only human persons may perform memory import", { reason: "human-only" });
       }
@@ -340,19 +345,29 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
             requireAgent(d.agents, ag);
           }
         }
+        if (t?.workspaceId && typeof t.workspaceId === "string") {
+          requireAgent(d.agents, t.workspaceId);
+        }
       }
       const redactor = createRedactor();
       const cleanEntries: ParsedEntry[] = p.entries.map((e: any, i: number) => {
         let text = typeof e?.text === "string" ? e.text : "";
-        if (text.length > 4000) text = text.slice(0, 4000);
         text = redactor.text(text);
+        if (text.length > 4000) text = text.slice(0, 4000);
+        let recordedAt: string | undefined = undefined;
+        if (typeof e?.recordedAt === "string") {
+          const t = new Date(e.recordedAt).getTime();
+          if (Number.isFinite(t) && t >= 0 && t <= 4_102_444_800_000) {
+            recordedAt = e.recordedAt;
+          }
+        }
         return {
           category: e.category,
           sourceType: e.sourceType ?? "memory",
           text,
           warnings: Array.isArray(e.warnings) ? e.warnings : [],
           idempotencyKey: typeof e.idempotencyKey === "string" ? e.idempotencyKey : `entry-${i}`,
-          ...(typeof e.recordedAt === "string" ? { recordedAt: e.recordedAt } : {}),
+          ...(recordedAt ? { recordedAt } : {}),
         };
       });
 
@@ -363,6 +378,13 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
       const { principal } = callerToPrincipal({ channel: "cli", accountId, userId }, defaultAgentId, workspaceDir);
       principal.user = deriveUserPrincipal(userId);
       principal.trust = "proved";
+      const principalFor = (agentId: string): Principal => {
+        const ws = d.agents.workspaceOf(agentId) ?? (d.hostEvalHome ?? process.cwd());
+        const { principal: ap } = callerToPrincipal({ channel: "cli", accountId, userId }, agentId, ws);
+        ap.user = deriveUserPrincipal(userId);
+        ap.trust = "proved";
+        return ap;
+      };
       const home = d.hostEvalHome ?? process.cwd();
       try {
         return await executePromptImport({
@@ -370,6 +392,8 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
           targets: p.targets,
           dryRun: p.dryRun,
           principal,
+          principalFor,
+          importedBy: userId,
           home,
           engine: d.engine,
           agents: d.agents,
@@ -383,7 +407,8 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
 
     "memory.importText.rollback": async (p: { runId: string }, ctx?: CallContext) => {
       if (d.isStopping()) throw coreStopping();
-      const guarded = ctx ? authenticatedPrincipal(ctx) : LOCAL_OWNER;
+      if (!ctx) throw new RpcError("E_UNAUTHORIZED", "authentication required");
+      const guarded = authenticatedPrincipal(ctx);
       if (guarded.kind !== "person") {
         throw new RpcError("E_DENIED", "only human persons may perform rollback", { reason: "human-only" });
       }
@@ -394,6 +419,13 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
       const { principal } = callerToPrincipal({ channel: "cli", accountId, userId }, defaultAgentId, workspaceDir);
       principal.user = deriveUserPrincipal(userId);
       principal.trust = "proved";
+      const principalFor = (agentId: string): Principal => {
+        const ws = d.agents.workspaceOf(agentId) ?? (d.hostEvalHome ?? process.cwd());
+        const { principal: ap } = callerToPrincipal({ channel: "cli", accountId, userId }, agentId, ws);
+        ap.user = deriveUserPrincipal(userId);
+        ap.trust = "proved";
+        return ap;
+      };
       const home = d.hostEvalHome ?? process.cwd();
       try {
         return await rollbackPromptImport({
@@ -401,6 +433,9 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
           home,
           engine: d.engine,
           principal,
+          principalFor,
+          callerUserId: userId,
+          isOwner: guarded.role === "owner",
         });
       } catch (err) {
         const mapped = mapMemoryOpError(err, { stopping: d.isStopping() });
@@ -410,7 +445,8 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
 
     "memory.exportText": async (p: { agentId?: string }, ctx?: CallContext) => {
       if (d.isStopping()) throw coreStopping();
-      const guarded = ctx ? authenticatedPrincipal(ctx) : LOCAL_OWNER;
+      if (!ctx) throw new RpcError("E_UNAUTHORIZED", "authentication required");
+      const guarded = authenticatedPrincipal(ctx);
       if (guarded.kind !== "person") {
         throw new RpcError("E_DENIED", "only human persons may export memories", { reason: "human-only" });
       }

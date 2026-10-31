@@ -4,6 +4,9 @@
   },
   "result": {
     "rolledBack": 1,
+    "failed": 0,
+    "remaining": 0,
+    "keptModified": 0,
     "discardedProposals": 1,
     "unhandledProposals": 0
   }

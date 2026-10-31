@@ -40,7 +40,7 @@ The import parser automatically checks all text for credentials, passwords, and 
 
 Each import run generates a unique run ID and audit report. If you want to undo an import, click **Undo import (Rollback)** on the import summary page.
 
-Rollback safely removes all imported cards and restores the previous state.
+Rollback removes unmodified cards created during the run and detaches links created during the import. Cards modified after the import are preserved to prevent data loss.
 
 ## Exporting memories
 

@@ -241,6 +241,7 @@ export const en = {
   "imports.prompt.colMemory": "Memory",
   "imports.prompt.colTarget": "Target",
   "imports.prompt.ariaTarget": "Target for entry {index}",
+  "imports.prompt.ariaAgent": "Agent for entry {index}",
   "imports.prompt.category.Instructions": "Instructions",
   "imports.prompt.category.Identity": "Identity",
   "imports.prompt.category.Career": "Career",
@@ -259,6 +260,7 @@ export const en = {
   "imports.prompt.resultCounts": "{imported} imported, {linked} linked, {skipped} skipped (run: {runId})",
   "imports.prompt.rollback": "Undo import (Rollback)",
   "imports.prompt.rollbackSuccess": "Rollback completed: {rolledBack} cards removed",
+  "imports.prompt.rollbackPartial": "Rollback partially completed: {rolledBack} removed, {failed} failed, {remaining} remaining, {keptModified} preserved",
   "imports.prompt.empty": "No entries found in pasted text.",
 } as const;
 export const de: Record<keyof typeof en, string> = {
@@ -510,6 +512,7 @@ export const de: Record<keyof typeof en, string> = {
   "imports.prompt.colMemory": "Erinnerung",
   "imports.prompt.colTarget": "Ziel",
   "imports.prompt.ariaTarget": "Ziel für Eintrag {index}",
+  "imports.prompt.ariaAgent": "Agent für Eintrag {index}",
   "imports.prompt.category.Instructions": "Regeln",
   "imports.prompt.category.Identity": "Identität",
   "imports.prompt.category.Career": "Beruf",
@@ -528,5 +531,6 @@ export const de: Record<keyof typeof en, string> = {
   "imports.prompt.resultCounts": "{imported} importiert, {linked} verknüpft, {skipped} übersprungen (Lauf: {runId})",
   "imports.prompt.rollback": "Import rückgängig machen (Rollback)",
   "imports.prompt.rollbackSuccess": "Rückgängig gemacht: {rolledBack} Karten entfernt",
+  "imports.prompt.rollbackPartial": "Rollback teilweise abgeschlossen: {rolledBack} entfernt, {failed} fehlgeschlagen, {remaining} verbleibend, {keptModified} erhalten",
   "imports.prompt.empty": "Keine Einträge im eingefügten Text gefunden.",
 };

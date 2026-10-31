@@ -40,7 +40,7 @@ Der Parser prüft alle Texte auf Passwörter, API-Schlüssel und Tokens. Gefunde
 
 Jeder Importlauf erhält eine eigene Kennung (`runId`) und ein Protokoll. Um einen Lauf zurückzunehmen, klicke in der Zusammenfassung auf **Import rückgängig machen**.
 
-Der Rollback entfernt alle importierten Karten und stellt den vorherigen Zustand wieder her.
+Der Rollback entfernt unveränderte, während des Laufs erstellte Karten und löst importierte Verknüpfungen. Nach dem Import bearbeitete Karten bleiben erhalten, um Datenverlust zu vermeiden.
 
 ## Gedächtnis exportieren
 

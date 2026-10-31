@@ -24549,11 +24549,26 @@ Roll back a prompt memory import run.
   "additionalProperties": false,
   "required": [
     "rolledBack",
+    "failed",
+    "remaining",
+    "keptModified",
     "discardedProposals",
     "unhandledProposals"
   ],
   "properties": {
     "rolledBack": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "remaining": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "keptModified": {
       "type": "integer",
       "minimum": 0
     },

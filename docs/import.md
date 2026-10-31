@@ -1023,15 +1023,15 @@ STATUS: COMPLETE
 ### 14.4 Execution, duplicate linking, and rollback
 
 * **Execution (`executePromptImport`)**: Batches cards into groups of at most 500. Source reference format is `prompt-import;run=<runId>;category=<category>`. Server-side idempotency keys computed from `(scope, owner, category, text)` prevent duplicate cards upon re-import.
-* **Duplicate linking**: Preflight dry-run queries existing cards; matched existing items are linked using `memory.link` rather than re-inserted.
+* **Duplicate linking**: Existing items matching server idempotency keys are linked using `memory.link` rather than re-inserted.
 * **Audit trail**: Stores a run-scoped `report.json` and `ledger.jsonl` under `<home>/imports/<runId>/`.
-* **Rollback (`rollbackPromptImport`)**: Calls `memory.unimport` with `importRunId`, rolling back inserted cards and links. Rollback requires run containment, validates the `^prompt-` run ID format, ensures `source === "prompt"`, and marks the run rolled-back atomically.
+* **Rollback (`rollbackPromptImport`)**: Calls `memory.unimport` with `importRunId`, rolling back inserted cards and links. Unmodified cards are removed, while cards modified after import are preserved. Rollback requires run containment, validates the `^prompt-` run ID format, ensures `source === "prompt"`, requires caller identity matching `importedBy` or owner rights, and marks the run `rolled-back` (or `partial` if unimport encounters errors, permitting retries).
 
 ### 14.5 Text export in identical format
 
 `memory.exportText` generates a portable text block adhering to the exact same format (`PLUR1BUS-MEMORY-EXPORT v1`):
 * Always exports the calling person's user-scope cards.
-* Optionally includes agent-private cards for agents the person has write access to.
+* Optionally includes agent-private cards for agents the person has `agent.read` access to.
 * Never includes deleted, forgotten, or pending proposal cards.
 * Redacts secrets prior to emitting text.
 * Output is idempotent: importing a PLUR1BUS export back into PLUR1BUS produces zero new cards (all match as duplicates).

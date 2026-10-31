@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type * as E from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { RpcError } from "../../rpc/errors.ts";
 import { isInsideDir, writeAtomicSync } from "../fs-atomic.ts";
+import { looksLikeInstruction } from "./recommend.ts";
 import type {
   EntryTarget,
   ParsedEntry,
@@ -17,6 +18,8 @@ export interface ExecutePromptImportOptions {
   entries: ParsedEntry[];
   targets: EntryTarget[];
   principal: E.Principal;
+  principalFor?: ((agentId: string) => E.Principal) | undefined;
+  importedBy?: string | undefined;
   home: string;
   engine: E.Engine;
   agents?: { workspaceOf(id: string): string | undefined; defaultAgentId?(): string; has?(id: string): boolean } | undefined;
@@ -37,11 +40,12 @@ export interface PromptReportProposal {
 export interface PromptImportReport {
   runId: string;
   source: "prompt";
-  status: "started" | "completed" | "failed" | "rolled-back";
+  status: "started" | "completed" | "failed" | "rolled-back" | "partial";
   startedAt: string;
   finishedAt?: string;
   rolledBackAt?: string;
   rolledBackBy?: string;
+  importedBy?: string | undefined;
   dryRun: boolean;
   targets: EntryTarget[];
   counts: {
@@ -119,6 +123,7 @@ export async function executePromptImport(
     status: "started",
     startedAt: new Date(now()).toISOString(),
     dryRun,
+    importedBy: opts.importedBy ?? principal.user ?? principal.accountId,
     targets,
     counts: {
       total: entries.length,
@@ -170,11 +175,17 @@ export async function executePromptImport(
     const target = targets[i]!;
 
     // Instructions and explicit skip targets are never imported directly (B7 prompt injection mitigation)
-    if (target.target === "skip" || entry.category === "Instructions" || target.target === "propose-rule") {
+    if (
+      target.target === "skip" ||
+      entry.category === "Instructions" ||
+      target.target === "propose-rule" ||
+      looksLikeInstruction(entry.text)
+    ) {
       report.counts.skipped++;
-      const reason = entry.category === "Instructions" || target.target === "propose-rule"
-        ? "instructions-not-imported"
-        : (target.reason ?? "user-skipped");
+      const reason =
+        entry.category === "Instructions" || target.target === "propose-rule" || looksLikeInstruction(entry.text)
+          ? "instructions-not-imported"
+          : (target.reason ?? "user-skipped");
       appendLedger(entry.idempotencyKey || `entry-${i}`, "skipped", { reason });
       continue;
     }
@@ -182,12 +193,20 @@ export async function executePromptImport(
     const normalizedText = entry.text.trim().toLowerCase();
     const kind = mapCategoryToKind(entry.category);
 
+    let createdAt: number | undefined = undefined;
+    if (entry.recordedAt) {
+      const parsed = new Date(entry.recordedAt).getTime();
+      if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 4_102_444_800_000) {
+        createdAt = parsed;
+      }
+    }
+
     const baseCard: Omit<E.MemoryImportCardInput, "idempotencyKey"> = {
       text: entry.text,
       ...(kind ? { kind } : {}),
       provenance: "imported",
       sourceRef: `prompt-import;run=${runId};category=${entry.category}`,
-      ...(entry.recordedAt ? { createdAt: new Date(entry.recordedAt).getTime() } : {}),
+      ...(createdAt !== undefined ? { createdAt } : {}),
     };
 
     if (target.target === "user") {
@@ -208,12 +227,17 @@ export async function executePromptImport(
       agentBatches.set(fallbackAgent, list);
     } else if (target.target === "workspace") {
       // H1 & H3: Server-side idempotency key scoped to workspace
-      const targetWsAgent = (target.workspaceId && opts.agents?.has?.(target.workspaceId))
-        ? target.workspaceId
-        : fallbackAgent;
-      const ownerKey = target.workspaceId ?? targetWsAgent;
+      let targetWsAgent = fallbackAgent;
+      if (target.workspaceId) {
+        if (opts.agents?.has && !opts.agents.has(target.workspaceId)) {
+          throw new RpcError("E_NOT_FOUND", `agent '${target.workspaceId}' not found for workspace target`, {
+            reason: "agent-not-found",
+          });
+        }
+        targetWsAgent = target.workspaceId;
+      }
       const idempotencyKey = createHash("sha256")
-        .update(`workspace:${ownerKey}:${entry.category}:${normalizedText}`)
+        .update(`workspace:${targetWsAgent}:${entry.category}:${normalizedText}`)
         .digest("hex");
 
       const cardInput: E.MemoryImportCardInput = {
@@ -253,13 +277,14 @@ export async function executePromptImport(
 
   try {
     for (const [agentId, tasks] of agentBatches.entries()) {
+      const agentPrincipal = opts.principalFor ? opts.principalFor(agentId) : { ...principal, agentId };
       for (let i = 0; i < tasks.length; i += 500) {
         const chunk = tasks.slice(i, i + 500);
         const cardsInput = chunk.map((t) => t.card);
 
         const importReq: E.MemoryImportRequest = {
           agentId,
-          principal,
+          principal: agentPrincipal,
           cards: cardsInput,
           dryRun,
           importRunId: runId,
@@ -267,7 +292,7 @@ export async function executePromptImport(
 
         const result: E.MemoryImportResult = await engine.memory.import(
           importReq,
-          principal,
+          agentPrincipal,
           SYSTEM_CONTEXT,
         );
         appliedRunsPerAgent.add(agentId);
@@ -303,7 +328,7 @@ export async function executePromptImport(
                       idempotencyKey: task.card.idempotencyKey,
                       dryRun: false,
                     },
-                    principal,
+                    agentPrincipal,
                     SYSTEM_CONTEXT,
                   );
                   report.counts.linked++;
@@ -352,10 +377,11 @@ export async function executePromptImport(
     // Rollback already written batches for this runId
     if (!dryRun) {
       for (const agentId of appliedRunsPerAgent) {
+        const agentPrincipal = opts.principalFor ? opts.principalFor(agentId) : { ...principal, agentId };
         try {
           await engine.memory.unimport(
             { agentId, importRunId: runId, dryRun: false },
-            principal,
+            agentPrincipal,
             SYSTEM_CONTEXT,
           );
         } catch {
@@ -373,6 +399,9 @@ export interface RollbackPromptImportOptions {
   home: string;
   engine: E.Engine;
   principal: E.Principal;
+  principalFor?: ((agentId: string) => E.Principal) | undefined;
+  callerUserId?: string | undefined;
+  isOwner?: boolean | undefined;
   now?: (() => number) | undefined;
 }
 
@@ -421,7 +450,14 @@ export async function rollbackPromptImport(
     });
   }
 
-  // B6: Refuse second rollback
+  // N4: Check import ownership
+  if (report.importedBy && opts.callerUserId && report.importedBy !== opts.callerUserId && !opts.isOwner) {
+    throw new RpcError("E_DENIED", "cannot rollback an import run belonging to another user", {
+      reason: "foreign-import-run",
+    });
+  }
+
+  // B6: Refuse second rollback if fully completed
   if (report.status === "rolled-back") {
     throw new RpcError("E_CONFLICT", "run already rolled back", {
       reason: "already-rolled-back",
@@ -429,17 +465,25 @@ export async function rollbackPromptImport(
   }
 
   let rolledBackCount = 0;
+  let failedCount = 0;
+  let remainingCount = 0;
+  let keptModifiedCount = 0;
 
   for (const agentId of report.affectedAgents ?? []) {
+    const agentPrincipal = opts.principalFor ? opts.principalFor(agentId) : { ...principal, agentId };
     try {
       const res = await engine.memory.unimport(
         { agentId, importRunId: runId, dryRun: false },
-        principal,
+        agentPrincipal,
         SYSTEM_CONTEXT,
       );
       rolledBackCount += res.unimported ?? 0;
+      keptModifiedCount += res.keptModified ?? 0;
+      failedCount += res.failed ?? 0;
+      remainingCount += res.remaining ?? 0;
     } catch {
-      // Continue for remaining agents
+      failedCount += 1;
+      remainingCount += 1;
     }
   }
 
@@ -456,13 +500,20 @@ export async function rollbackPromptImport(
     }
   }
 
-  report.status = "rolled-back";
+  if (failedCount === 0 && remainingCount === 0) {
+    report.status = "rolled-back";
+  } else {
+    report.status = "partial";
+  }
   report.rolledBackAt = new Date(now()).toISOString();
-  report.rolledBackBy = principal.user ?? principal.accountId;
+  report.rolledBackBy = opts.callerUserId ?? principal.user ?? principal.accountId;
   writeAtomicSync(reportPath, JSON.stringify(report, null, 2) + "\n", 0o600);
 
   return {
     rolledBack: rolledBackCount,
+    failed: failedCount,
+    remaining: remainingCount,
+    keptModified: keptModifiedCount,
     discardedProposals,
     unhandledProposals,
   };

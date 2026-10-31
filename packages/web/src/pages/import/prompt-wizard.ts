@@ -31,6 +31,25 @@ const PROVIDERS: readonly Provider[] = [
   "other",
 ];
 
+function looksLikeInstruction(text: string): boolean {
+  const lower = text.toLowerCase().trim();
+  return (
+    lower.startsWith("always ") ||
+    lower.startsWith("never ") ||
+    lower.startsWith("do not ") ||
+    lower.startsWith("don't ") ||
+    lower.startsWith("immer ") ||
+    lower.startsWith("nie ") ||
+    lower.startsWith("antworte immer ") ||
+    lower.startsWith("du musst ") ||
+    lower.startsWith("you must ") ||
+    lower.startsWith("instruction:") ||
+    lower.startsWith("rule:") ||
+    lower.includes("response style:") ||
+    lower.includes("output format:")
+  );
+}
+
 export function PromptImportWizard(): View {
   const [provider, setProvider] = useState<Provider>("chatgpt");
   const [promptText, setPromptText] = useState<string>("");
@@ -56,6 +75,9 @@ export function PromptImportWizard(): View {
   } | null>(null);
   const [rollbackResult, setRollbackResult] = useState<{
     rolledBack: number;
+    failed?: number;
+    remaining?: number;
+    keptModified?: number;
     discardedProposals: number;
   } | null>(null);
 
@@ -145,7 +167,20 @@ export function PromptImportWizard(): View {
 
   const setCategoryTarget = (cat: EntryRow["category"], target: EntryRow["target"]) => {
     setEntries((current) =>
-      current.map((row) => (row.category === cat ? { ...row, target } : row)),
+      current.map((row) => {
+        if (row.category !== cat) return row;
+        // Skip secret-flagged rows and instruction-like rows from bulk assignment (N5)
+        if (
+          target !== "skip" &&
+          (row.warnings?.includes("secret-redacted") ||
+            row.warnings?.includes("secret") ||
+            row.warnings?.includes("rule") ||
+            looksLikeInstruction(row.text))
+        ) {
+          return row;
+        }
+        return { ...row, target };
+      }),
     );
   };
 
@@ -466,7 +501,7 @@ export function PromptImportWizard(): View {
                           h(
                             "select",
                             {
-                              "aria-label": `Agent for entry ${idx + 1}`,
+                              "aria-label": t("imports.prompt.ariaAgent", { index: idx + 1 }),
                               value: entry.agentIds?.[0] ?? availableAgents[0],
                               onChange: (e: Event) => {
                                 const agentId = (e.target as HTMLSelectElement).value;
@@ -516,16 +551,32 @@ export function PromptImportWizard(): View {
               runId: appliedRun.runId,
             }),
           ),
-          !rollbackResult
+          !rollbackResult || ((rollbackResult.failed ?? 0) > 0) || ((rollbackResult.remaining ?? 0) > 0)
             ? h(
-                "button",
-                {
-                  type: "button",
-                  class: "btn btn-err",
-                  disabled: loading,
-                  onClick: handleRollback,
-                },
-                t("imports.prompt.rollback"),
+                "div",
+                null,
+                rollbackResult
+                  ? h(
+                      Notice,
+                      { tone: "warn" },
+                      t("imports.prompt.rollbackPartial", {
+                        rolledBack: rollbackResult.rolledBack,
+                        failed: rollbackResult.failed ?? 0,
+                        remaining: rollbackResult.remaining ?? 0,
+                        keptModified: rollbackResult.keptModified ?? 0,
+                      }),
+                    )
+                  : null,
+                h(
+                  "button",
+                  {
+                    type: "button",
+                    class: "btn btn-err",
+                    disabled: loading,
+                    onClick: handleRollback,
+                  },
+                  t("imports.prompt.rollback"),
+                ),
               )
             : h(
                 Notice,

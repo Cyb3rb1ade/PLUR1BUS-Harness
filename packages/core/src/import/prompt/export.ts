@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import type * as E from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
+import { RpcError } from "../../rpc/errors.ts";
 import { createRedactor } from "../../logs/redact.ts";
 import type { MemorySensitivityService } from "../../memory-sensitivity/service.ts";
 import { MEMORY_EXPORT_CATEGORIES, type MemoryExportCategory } from "./types.ts";
@@ -89,32 +90,52 @@ async function fetchAllCardsForScope(
   scope: "user" | "agent-private",
 ): Promise<Array<any>> {
   const cards: any[] = [];
-  let currentSince = 0;
+  const seenIds = new Set<string>();
+  let currentUntil: number | undefined = undefined;
+  const HARD_CAP = 10_000;
+
   for (;;) {
+    const query: { since: number; limit: number; until?: number } = { since: 0, limit: 100 };
+    if (typeof currentUntil === "number") {
+      query.until = currentUntil;
+    }
     const res = await engine.memory.list(
-      { since: currentSince, limit: 100 },
+      query,
       principal,
       USER_CONTEXT,
     );
-    for (const item of res.items ?? []) {
-      if (item.scope === scope) {
-        cards.push(item);
+    const items = res.items ?? [];
+    let newItemsInPage = 0;
+    let minCreated = Infinity;
+    let maxCreated = -Infinity;
+
+    for (const item of items) {
+      if (!seenIds.has(item.id)) {
+        seenIds.add(item.id);
+        newItemsInPage++;
+        if (item.scope === scope) {
+          cards.push(item);
+        }
+      }
+      if (typeof item.createdAt === "number") {
+        if (item.createdAt < minCreated) minCreated = item.createdAt;
+        if (item.createdAt > maxCreated) maxCreated = item.createdAt;
       }
     }
-    if (!res.truncated || !res.items || res.items.length === 0) {
+
+    if (seenIds.size > HARD_CAP) {
+      throw new RpcError("E_NOT_AVAILABLE", "engine memory listing is truncated", { reason: "memory-export-truncated" });
+    }
+
+    if (!res.truncated || items.length === 0) {
       break;
     }
-    let maxCreated = currentSince;
-    for (const it of res.items) {
-      if (typeof it.createdAt === "number" && it.createdAt > maxCreated) {
-        maxCreated = it.createdAt;
-      }
+
+    if (newItemsInPage === 0 || !Number.isFinite(minCreated) || minCreated === maxCreated) {
+      throw new RpcError("E_NOT_AVAILABLE", "engine memory listing is truncated", { reason: "memory-export-truncated" });
     }
-    if (maxCreated <= currentSince) {
-      currentSince = currentSince + 1;
-    } else {
-      currentSince = maxCreated + 1;
-    }
+
+    currentUntil = minCreated;
   }
   return cards;
 }
