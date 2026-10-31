@@ -29,7 +29,7 @@ const params: Record<string, unknown> = {
   "events.subscribe": {},
   "voice.session.create": { agentId: "bernd" },
   "jobs.create": { agentId: "bernd" }, "jobs.update": { id: "user:fixture" }, "jobs.delete": { id: "user:fixture", confirm: true },
-  "doctor.report": {}, "agent.activity.list": {},
+  "doctor.report": {}, "agent.activity.list": {}, "telemetry.cache.summary": {},
   "media.preferences.get": {}, "media.preferences.set": {},
   "media.generate": {},
   "media.edit": {},
@@ -183,6 +183,12 @@ describe("rpc guard: decisions", () => {
     for (const role of ["owner", "admin"] as const) assert.deepEqual(await code(wrap(asRole(role)).guarded, "egress.status"), {}, role);
     for (const role of ["operator", "member", "viewer"] as const) assert.equal((await code(wrap(asRole(role)).guarded, "egress.status")).error, "E_DENIED", role);
   });
+  it("telemetry.cache.summary is human-only and requires doctor.read", async () => {
+    for (const role of ["owner", "admin", "operator"] as const) assert.deepEqual(await code(wrap(asRole(role)).guarded, "telemetry.cache.summary"), {}, role);
+    for (const role of ["member", "viewer"] as const) assert.deepEqual(await code(wrap(asRole(role)).guarded, "telemetry.cache.summary"), { error: "E_DENIED", reason: "role-denied" }, role);
+    assert.deepEqual(await code(wrap(asRole("owner", { kind: "agent" })).guarded, "telemetry.cache.summary"), { error: "E_DENIED", reason: "agent-principal" });
+  });
+
   it("jobs.run: Operator may, Member and Viewer may not; models writes: Operator may not", async () => {
     assert.deepEqual(await code(wrap(asRole("operator")).guarded, "jobs.run"), {});
     for (const role of ["member", "viewer"] as const) assert.equal((await code(wrap(asRole(role)).guarded, "jobs.run")).error, "E_DENIED", role);
