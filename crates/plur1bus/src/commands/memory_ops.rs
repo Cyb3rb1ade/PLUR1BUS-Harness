@@ -616,7 +616,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
         MemoryCmd::ImportText {
             file,
             agent,
-            workspace,
             all_preferences_to_user,
             dry_run,
             yes,
@@ -629,7 +628,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
             memory_text::ImportTextArgs {
                 file,
                 agent,
-                workspace,
                 all_preferences_to_user,
                 dry_run,
                 yes,

@@ -1222,7 +1222,6 @@ Recall relevant memory blocks through the core (stable, ADR-016 §4)
 
   Default value: `-`
 * `--agent <AGENT>` — target agent for project memories (default: the core's default agent)
-* `--workspace <WORKSPACE>` — target workspace for project memories, named by the id of the agent whose workspace it is
 * `--all-preferences-to-user` — store preference memories at user scope (default: skipped; the core refuses it for a non-person caller)
 * `--dry-run` — preview only without applying changes
 * `--yes` — apply or roll back without asking (required without a terminal, with --json and for stdin input)

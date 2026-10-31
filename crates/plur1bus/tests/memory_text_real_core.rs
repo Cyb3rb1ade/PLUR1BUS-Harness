@@ -41,6 +41,36 @@ fn the_cli_reaches_a_real_core_as_a_person_import_export_and_rollback() {
     )
     .unwrap();
     let core_js = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/core/dist/core.js");
+    // No skipping and no stale builds: a missing dist is a clear failure (CI runs `pnpm build` before cargo test).
+    assert!(
+        core_js.is_file(),
+        "{} is missing: run `pnpm --filter @plur1bus/core build` before this test",
+        core_js.display()
+    );
+    let built = std::fs::metadata(&core_js).unwrap().modified().unwrap();
+    let newest_src = [
+        "src/import/prompt/execute.ts",
+        "src/import/prompt/recommend.ts",
+        "src/rpc/methods.ts",
+    ]
+    .iter()
+    .filter_map(|f| {
+        std::fs::metadata(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../packages/core")
+                .join(f),
+        )
+        .and_then(|m| m.modified())
+        .ok()
+    })
+    .max();
+    if let Some(src) = newest_src {
+        assert!(
+            built >= src,
+            "{} is older than the prompt-import sources: run `pnpm --filter @plur1bus/core build`",
+            core_js.display()
+        );
+    }
     let _supervisor = common::start_with_core(
         &home,
         &directory.join("events.jsonl"),
@@ -79,6 +109,9 @@ fn the_cli_reaches_a_real_core_as_a_person_import_export_and_rollback() {
     assert_eq!(code, 0, "{plan} {err}");
     assert_eq!(plan["entries"].as_array().unwrap().len(), 2, "{plan}");
     assert_eq!(plan["targets"][1]["target"], "agent", "{plan}");
+    // Projects without any workspace option: only an agent target (or a skip) is ever planned
+    assert!(!plan.to_string().contains("workspace"), "{plan}");
+    assert_eq!(plan["targets"][1]["agentIds"], json!(["main"]), "{plan}");
 
     // apply: refused by the core unless the caller is a person ("only human persons may perform memory import")
     let (code, applied, err) = cli(

@@ -785,9 +785,6 @@ pub enum MemoryCmd {
         /// target agent for project memories (default: the core's default agent)
         #[arg(long)]
         agent: Option<String>,
-        /// target workspace for project memories, named by the id of the agent whose workspace it is
-        #[arg(long)]
-        workspace: Option<String>,
         /// store preference memories at user scope (default: skipped; the core refuses it for a non-person caller)
         #[arg(long)]
         all_preferences_to_user: bool,
@@ -801,7 +798,7 @@ pub enum MemoryCmd {
         #[arg(
             long,
             conflicts_with_all = [
-                "file", "agent", "workspace", "all_preferences_to_user", "dry_run", "yes", "rollback"
+                "file", "agent", "all_preferences_to_user", "dry_run", "yes", "rollback"
             ]
         )]
         show_prompt: bool,
@@ -809,7 +806,7 @@ pub enum MemoryCmd {
         #[arg(
             long,
             conflicts_with_all = [
-                "file", "agent", "workspace", "all_preferences_to_user", "dry_run", "show_prompt"
+                "file", "agent", "all_preferences_to_user", "dry_run", "show_prompt"
             ]
         )]
         rollback: Option<String>,

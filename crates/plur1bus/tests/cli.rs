@@ -1033,6 +1033,7 @@ mod fake_core {
             .map(|(m, a)| (m.to_string(), a))
             .collect();
         let calls = home.join("calls.log");
+        let requests = home.join("requests.log");
         std::thread::spawn(move || {
             for stream in listener.incoming() {
                 let Ok(stream) = stream else { return };
@@ -1042,6 +1043,7 @@ mod fake_core {
                 let scripted = scripted.clone();
                 let token = token.clone();
                 let calls = calls.clone();
+                let requests = requests.clone();
                 let before_reply = before_reply.clone();
                 std::thread::spawn(move || {
                     let mut authed = false;
@@ -1056,6 +1058,13 @@ mod fake_core {
                             .open(&calls)
                         {
                             let _ = writeln!(f, "{method}");
+                        }
+                        if let Ok(mut f) = std::fs::OpenOptions::new()
+                            .create(true)
+                            .append(true)
+                            .open(&requests)
+                        {
+                            let _ = writeln!(f, "{}", msg["params"]);
                         }
                         let found = scripted.iter().find(|(m, _)| *m == method);
                         let reply = if method == "core.auth" {
@@ -2836,7 +2845,6 @@ mod import_text {
             vec!["--show-prompt", "--agent", "bernd"],
             vec!["--rollback", RUN_ID, "--dry-run"],
             vec!["--rollback", RUN_ID, "--file", "x.txt"],
-            vec!["--rollback", RUN_ID, "--workspace", "w"],
             vec!["--dry-run", "--yes"],
         ] {
             let mut args = vec!["--home", h.as_str(), "memory", "import-text"];
@@ -3331,27 +3339,10 @@ mod import_text {
     }
 
     #[test]
-    fn workspace_is_an_agent_id_checked_before_the_core_is_contacted() {
+    fn workspace_is_gone_and_no_request_names_a_workspace_target() {
         let (dir, h) = home_with_agent();
         spawn_core(dir.path(), one_project("Projekt"));
         let f = write_input(dir.path(), "x");
-        let v = err_doc(
-            &[
-                "--json",
-                "--home",
-                &h,
-                "memory",
-                "import-text",
-                "--file",
-                &f,
-                "--yes",
-                "--workspace",
-                "projekt-x",
-            ],
-            1,
-        );
-        assert_eq!(v["error"], "E_AGENT_UNKNOWN");
-        assert!(calls(dir.path()).is_empty());
         bin()
             .args([
                 "--home",
@@ -3365,7 +3356,54 @@ mod import_text {
                 "bernd",
             ])
             .assert()
+            .code(2)
+            .stderr(predicate::str::contains("--workspace"));
+        assert!(calls(dir.path()).is_empty());
+        // a normal import sends only skip/user/agent targets
+        bin()
+            .args(["--home", &h, "memory", "import-text", "--file", &f, "--yes"])
+            .assert()
             .success();
+        let seen = std::fs::read_to_string(dir.path().join("requests.log")).unwrap();
+        assert!(seen.contains("\"target\":\"agent\""), "{seen}");
+        assert!(!seen.contains("workspace"), "{seen}");
+    }
+
+    #[test]
+    fn a_suspected_instruction_shows_its_reason_with_filtered_text() {
+        let (dir, h) = home_with_agent();
+        spawn_core(
+            dir.path(),
+            vec![(
+                "memory.importText.preview",
+                preview(
+                    vec![entry("Preferences", "Immer\u{1b}[31m antworten")],
+                    vec![json!({ "target": "skip", "reason": "suspected-instruction" })],
+                ),
+            )],
+        );
+        let f = write_input(dir.path(), "x");
+        let out = bin()
+            .args([
+                "--home",
+                &h,
+                "memory",
+                "import-text",
+                "--file",
+                &f,
+                "--dry-run",
+            ])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        let s = String::from_utf8(out).unwrap();
+        assert!(
+            s.contains("-> skip (suspected-instruction): Immer [31m antworten"),
+            "{s}"
+        );
+        assert!(!s.contains('\u{1b}'));
     }
 
     #[test]

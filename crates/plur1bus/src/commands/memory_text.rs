@@ -44,7 +44,6 @@ const EXPORT_PROMPT: &str =
 pub(crate) struct ImportTextArgs {
     pub file: String,
     pub agent: Option<String>,
-    pub workspace: Option<String>,
     pub all_preferences_to_user: bool,
     pub dry_run: bool,
     pub yes: bool,
@@ -186,7 +185,6 @@ pub(crate) fn adjust_targets(
     entries: &[Value],
     recs: &[Value],
     agent: Option<&str>,
-    workspace: Option<&str>,
     preferences_to_user: bool,
 ) -> Vec<Value> {
     entries
@@ -198,9 +196,6 @@ pub(crate) fn adjust_targets(
             match target {
                 "user" if !(preferences_to_user && cat == "Preferences") => {
                     json!({ "target": "skip", "reason": "user-scope-opt-in" })
-                }
-                "agent" if cat == "Projects" && workspace.is_some() => {
-                    json!({ "target": "workspace", "workspaceId": workspace })
                 }
                 "agent" if agent.is_some() => {
                     let mut t = rec.clone();
@@ -229,10 +224,6 @@ pub(crate) fn import_text(out: &Out, layout: &Layout, config: &Value, a: ImportT
     }
     if let Some(ag) = a.agent.as_deref() {
         require_agent(out, config, ag);
-    }
-    // The core resolves a workspace target by the id of the agent whose workspace it is (`execute.ts`).
-    if let Some(ws) = a.workspace.as_deref() {
-        require_agent(out, config, ws);
     }
     let interactive = std::io::stdin().is_terminal() && !out.json;
     // Decide before any text is read or sent: without a terminal nothing can be confirmed later.
@@ -286,7 +277,6 @@ pub(crate) fn import_text(out: &Out, layout: &Layout, config: &Value, a: ImportT
         &entries,
         &recs,
         a.agent.as_deref(),
-        a.workspace.as_deref(),
         a.all_preferences_to_user,
     );
     let to_import = targets
@@ -365,11 +355,10 @@ fn check_apply_limits(out: &Out, entries: &[Value], targets: &[Value]) {
         |v: &Value, k: &str, max: usize| v[k].as_str().is_some_and(|s| s.chars().count() > max);
     let bad_entry = entries.iter().any(|e| too_long(e, "text", MAX_ENTRY_CHARS));
     let bad_target = targets.iter().any(|t| {
-        too_long(t, "workspaceId", MAX_ID_CHARS)
-            || t["agentIds"].as_array().is_some_and(|a| {
-                a.iter()
-                    .any(|i| i.as_str().is_some_and(|s| s.chars().count() > MAX_ID_CHARS))
-            })
+        t["agentIds"].as_array().is_some_and(|a| {
+            a.iter()
+                .any(|i| i.as_str().is_some_and(|s| s.chars().count() > MAX_ID_CHARS))
+        })
     });
     if entries.len() > MAX_APPLY_ENTRIES || targets.len() > MAX_APPLY_ENTRIES {
         out.fail(
@@ -390,10 +379,15 @@ fn check_apply_limits(out: &Out, entries: &[Value], targets: &[Value]) {
 fn describe_preview(entries: &[Value], targets: &[Value], preview: &Value, status: &str) -> String {
     let mut s = format!("parsed {} entries (status: {status}):\n", entries.len());
     for (entry, target) in entries.iter().zip(targets) {
+        let kind = target["target"].as_str().unwrap_or("skip");
+        // A skip says why (the core's reason, e.g. `suspected-instruction`), flattened like the text.
+        let why = match (kind, target["reason"].as_str()) {
+            ("skip", Some(r)) => format!(" ({})", excerpt(r)),
+            _ => String::new(),
+        };
         s.push_str(&format!(
-            "  [{}] -> {}: {}\n",
+            "  [{}] -> {kind}{why}: {}\n",
             entry["category"].as_str().unwrap_or("?"),
-            target["target"].as_str().unwrap_or("skip"),
             excerpt(entry["text"].as_str().unwrap_or(""))
         ));
     }
@@ -768,19 +762,19 @@ mod tests {
             json!({ "target": "agent", "agentIds": ["main"], "reason": "projects-default-agent" }),
             json!({ "target": "skip", "reason": "instructions-not-imported" }),
         ];
-        let t = adjust_targets(&entries, &recs, None, None, false);
+        let t = adjust_targets(&entries, &recs, None, false);
         assert_eq!(t[0]["target"], "skip");
         assert_eq!(t[1]["target"], "skip");
         assert_eq!(t[2]["agentIds"], json!(["main"]));
         assert_eq!(t[3]["reason"], "instructions-not-imported");
-        let t = adjust_targets(&entries, &recs, Some("bernd"), Some("ws"), true);
+        let t = adjust_targets(&entries, &recs, Some("bernd"), true);
         assert_eq!(
             t[0]["target"], "skip",
             "identity never goes to user scope from the CLI"
         );
         assert_eq!(t[1]["target"], "user");
-        assert_eq!(t[2], json!({ "target": "workspace", "workspaceId": "ws" }));
-        let t = adjust_targets(&entries, &recs, Some("bernd"), None, false);
+        assert_eq!(t[2]["agentIds"], json!(["bernd"]));
+        let t = adjust_targets(&entries, &recs, Some("bernd"), false);
         assert_eq!(t[2]["agentIds"], json!(["bernd"]));
         assert_eq!(t[3]["target"], "skip");
     }
@@ -798,7 +792,7 @@ mod tests {
             json!({ "target": "skip", "reason": "unclassified" }),
         ];
         for flag in [false, true] {
-            let t = adjust_targets(&entries, &recs, Some("bernd"), Some("ws"), flag);
+            let t = adjust_targets(&entries, &recs, Some("bernd"), flag);
             assert_eq!(t, recs.to_vec());
         }
     }
