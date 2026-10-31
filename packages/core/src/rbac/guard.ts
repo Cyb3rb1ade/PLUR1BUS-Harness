@@ -93,6 +93,7 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "jobs.update": { ...rule("agent.list", system), humanOnly: true },
   "jobs.delete": { ...rule("agent.list", system), humanOnly: true },
   "doctor.report": { ...rule("agent.list", system), humanOnly: true },
+  "telemetry.cache.summary": { ...rule("doctor.read", system), humanOnly: true },
   "agent.activity.list": { ...rule("agent.list", system), humanOnly: true },
   "inbox.list": rule("inbox.read", system),
   "inbox.count": rule("inbox.read", system),
