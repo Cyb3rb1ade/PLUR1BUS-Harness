@@ -15,6 +15,18 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+if (process.argv.includes("--rerank")) {
+  const { recordRerank } = await import("./record-rerank.mjs");
+  const rootFlag = process.argv.indexOf("--rerank");
+  const pluginRoot = process.argv[rootFlag + 1];
+  if (!pluginRoot || pluginRoot.startsWith("--")) {
+    console.error("record.mjs --rerank <plugin-checkout>  expects v7.18.31");
+    process.exit(1);
+  }
+  await recordRerank(pluginRoot);
+  process.exit(0);
+}
+
 const engineRoot = process.env.PLUR1BUS_ENGINE_SRC;
 if (!engineRoot) {
   console.error("PLUR1BUS_ENGINE_SRC must point at the pinned engine checkout");

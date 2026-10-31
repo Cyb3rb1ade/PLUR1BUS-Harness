@@ -1,0 +1,287 @@
+{
+  "id": "G-RERANK-1",
+  "recordedFrom": {
+    "tag": "v7.18.31",
+    "commit": "6419a60e79975d0b5244798c1fdbbd7997a712ce",
+    "node": "v24.21.0",
+    "unicode": "17.0",
+    "icu": "78.3"
+  },
+  "runs": [
+    {
+      "name": "rerank-preserves-order",
+      "kind": "pipeline",
+      "request": {
+        "name": "rerank-preserves-order",
+        "query": "recall",
+        "topN": 5,
+        "budget": 5,
+        "rerankCandidates": 20,
+        "deferFinalCap": false,
+        "dedupEnabled": true,
+        "dedupJaccard": 0.78,
+        "candidateHardLimit": 100,
+        "summaryMaxWords": 150,
+        "rerankerTimeoutMs": 0,
+        "rerankerFallbackOnError": true,
+        "canonicalCount": 0,
+        "agentId": "a1",
+        "rerank": {
+          "emptyResultIsValid": false,
+          "hits": [
+            {
+              "index": 0,
+              "score": 1
+            },
+            {
+              "index": 1,
+              "score": 0.9
+            },
+            {
+              "index": 2,
+              "score": 0.8
+            },
+            {
+              "index": 3,
+              "score": 0.7
+            },
+            {
+              "index": 4,
+              "score": 0.6
+            }
+          ]
+        }
+      },
+      "rows": [
+        {
+          "id": "episodic-a",
+          "text": "episodic-a",
+          "summary": "episodic-a",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.9,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "project-b",
+          "text": "project-b",
+          "summary": "project-b",
+          "category": "project",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.5,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "core-c",
+          "text": "core-c",
+          "summary": "core-c",
+          "category": "note",
+          "coreMemoryScore": 0.7,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.4,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "graph-d",
+          "text": "graph-d",
+          "summary": "graph-d",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.3,
+          "source": "graph",
+          "graphSource": ""
+        },
+        {
+          "id": "graph-e",
+          "text": "graph-e",
+          "summary": "graph-e",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.2,
+          "source": "graph",
+          "graphSource": ""
+        }
+      ],
+      "result": {
+        "threw": false,
+        "errorName": null,
+        "ids": [
+          "episodic-a",
+          "project-b",
+          "core-c",
+          "graph-d"
+        ],
+        "rerankScores": [
+          1,
+          0.9,
+          0.8,
+          0.7
+        ],
+        "sources": [
+          "vector",
+          "vector",
+          "vector",
+          "graph"
+        ],
+        "saw": {
+          "docs": [
+            "episodic-a",
+            "project-b",
+            "core-c",
+            "graph-d",
+            "graph-e"
+          ],
+          "topN": 10
+        },
+        "decisions": [
+          {
+            "memoryId": "graph-e",
+            "action": "rejection",
+            "stage": "recall-budget",
+            "reason": "budget cap"
+          }
+        ],
+        "guards": []
+      }
+    },
+    {
+      "name": "direct-preserve-order",
+      "kind": "budget",
+      "preserveOrder": true,
+      "budget": 3,
+      "canonical": [
+        {
+          "id": "canonical-k"
+        }
+      ],
+      "rows": [
+        {
+          "id": "episodic-a",
+          "text": "episodic-a",
+          "summary": "episodic-a",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.9,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "project-b",
+          "text": "project-b",
+          "summary": "project-b",
+          "category": "project",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.5,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "core-c",
+          "text": "core-c",
+          "summary": "core-c",
+          "category": "note",
+          "coreMemoryScore": 0.7,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.4,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "graph-d",
+          "text": "graph-d",
+          "summary": "graph-d",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.3,
+          "source": "graph",
+          "graphSource": ""
+        },
+        {
+          "id": "graph-e",
+          "text": "graph-e",
+          "summary": "graph-e",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.2,
+          "source": "graph",
+          "graphSource": ""
+        }
+      ],
+      "result": {
+        "ids": [
+          "canonical-k",
+          "project-b",
+          "core-c"
+        ],
+        "tierCounts": {
+          "core": 1,
+          "canonical": 1,
+          "project": 1,
+          "episodic": 0,
+          "associative": 0
+        }
+      }
+    }
+  ]
+}

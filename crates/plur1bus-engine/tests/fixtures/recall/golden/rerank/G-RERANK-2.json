@@ -1,0 +1,26 @@
+{
+  "id": "G-RERANK-2",
+  "recordedFrom": {
+    "tag": "v7.18.31",
+    "commit": "6419a60e79975d0b5244798c1fdbbd7997a712ce",
+    "node": "v24.21.0",
+    "unicode": "17.0",
+    "icu": "78.3"
+  },
+  "runs": [
+    {
+      "name": "merge-keeps-rerank-order",
+      "kind": "merge",
+      "ids": [
+        "r1",
+        "r2",
+        "u1"
+      ],
+      "rerankScores": [
+        0.9,
+        0.8,
+        null
+      ]
+    }
+  ]
+}

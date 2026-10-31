@@ -1,0 +1,560 @@
+{
+  "id": "dedupe",
+  "recordedFrom": {
+    "tag": "v7.18.31",
+    "commit": "6419a60e79975d0b5244798c1fdbbd7997a712ce",
+    "node": "v24.21.0",
+    "unicode": "17.0",
+    "icu": "78.3"
+  },
+  "runs": [
+    {
+      "name": "near-duplicate",
+      "kind": "pipeline",
+      "request": {
+        "name": "near-duplicate",
+        "query": "recall",
+        "topN": 5,
+        "budget": 10,
+        "rerankCandidates": 20,
+        "deferFinalCap": false,
+        "dedupEnabled": true,
+        "dedupJaccard": 0.78,
+        "candidateHardLimit": 100,
+        "summaryMaxWords": 150,
+        "rerankerTimeoutMs": 0,
+        "rerankerFallbackOnError": true,
+        "canonicalCount": 0,
+        "agentId": "a1",
+        "rerank": {
+          "emptyResultIsValid": false,
+          "hits": [
+            {
+              "index": 0,
+              "score": 1
+            },
+            {
+              "index": 1,
+              "score": 0.9
+            },
+            {
+              "index": 2,
+              "score": 0.8
+            }
+          ]
+        }
+      },
+      "rows": [
+        {
+          "id": "dup-a",
+          "text": "alpha beta gamma delta epsilon zeta eta theta iota kappa",
+          "summary": "alpha beta gamma delta epsilon zeta eta theta iota kappa",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.9,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "dup-b",
+          "text": "alpha beta gamma delta epsilon zeta eta theta iota kappa",
+          "summary": "alpha beta gamma delta epsilon zeta eta theta iota kappa",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.8,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "fresh",
+          "text": "quartz jug pack my box with five dozen liquor bottles",
+          "summary": "quartz jug pack my box with five dozen liquor bottles",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.7,
+          "source": "vector",
+          "graphSource": ""
+        }
+      ],
+      "result": {
+        "threw": false,
+        "errorName": null,
+        "ids": [
+          "dup-a",
+          "fresh"
+        ],
+        "rerankScores": [
+          1,
+          0.8
+        ],
+        "sources": [
+          "vector",
+          "vector"
+        ],
+        "saw": {
+          "docs": [
+            "alpha beta gamma delta epsilon zeta eta theta iota kappa",
+            "alpha beta gamma delta epsilon zeta eta theta iota kappa",
+            "quartz jug pack my box with five dozen liquor bottles"
+          ],
+          "topN": 10
+        },
+        "decisions": [
+          {
+            "memoryId": "dup-b",
+            "action": "deduped",
+            "stage": "jaccard-dedup",
+            "reason": "duplicate or beyond slot limit"
+          }
+        ],
+        "guards": []
+      }
+    },
+    {
+      "name": "disjoint-windows-stay",
+      "kind": "pipeline",
+      "request": {
+        "name": "disjoint-windows-stay",
+        "query": "recall",
+        "topN": 5,
+        "budget": 10,
+        "rerankCandidates": 20,
+        "deferFinalCap": false,
+        "dedupEnabled": true,
+        "dedupJaccard": 0.78,
+        "candidateHardLimit": 100,
+        "summaryMaxWords": 150,
+        "rerankerTimeoutMs": 0,
+        "rerankerFallbackOnError": true,
+        "canonicalCount": 0,
+        "agentId": "a1",
+        "rerank": {
+          "emptyResultIsValid": false,
+          "hits": [
+            {
+              "index": 0,
+              "score": 1
+            },
+            {
+              "index": 1,
+              "score": 0.9
+            }
+          ]
+        }
+      },
+      "rows": [
+        {
+          "id": "win-a",
+          "text": "alpha beta gamma delta epsilon zeta eta theta iota kappa",
+          "summary": "alpha beta gamma delta epsilon zeta eta theta iota kappa",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 1000,
+          "validUntil": 2000,
+          "score": 0.9,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "win-b",
+          "text": "alpha beta gamma delta epsilon zeta eta theta iota kappa",
+          "summary": "alpha beta gamma delta epsilon zeta eta theta iota kappa",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 2000,
+          "validUntil": 3000,
+          "score": 0.8,
+          "source": "vector",
+          "graphSource": ""
+        }
+      ],
+      "result": {
+        "threw": false,
+        "errorName": null,
+        "ids": [
+          "win-a",
+          "win-b"
+        ],
+        "rerankScores": [
+          1,
+          0.9
+        ],
+        "sources": [
+          "vector",
+          "vector"
+        ],
+        "saw": {
+          "docs": [
+            "alpha beta gamma delta epsilon zeta eta theta iota kappa",
+            "alpha beta gamma delta epsilon zeta eta theta iota kappa"
+          ],
+          "topN": 10
+        },
+        "decisions": [],
+        "guards": []
+      }
+    },
+    {
+      "name": "group-cap",
+      "kind": "pipeline",
+      "request": {
+        "name": "group-cap",
+        "query": "recall",
+        "topN": 5,
+        "budget": 10,
+        "rerankCandidates": 20,
+        "deferFinalCap": false,
+        "dedupEnabled": true,
+        "dedupJaccard": 0.78,
+        "candidateHardLimit": 100,
+        "summaryMaxWords": 150,
+        "rerankerTimeoutMs": 0,
+        "rerankerFallbackOnError": true,
+        "canonicalCount": 0,
+        "agentId": "a1",
+        "rerank": {
+          "emptyResultIsValid": false,
+          "hits": [
+            {
+              "index": 0,
+              "score": 1
+            },
+            {
+              "index": 1,
+              "score": 0.9
+            },
+            {
+              "index": 2,
+              "score": 0.8
+            }
+          ]
+        }
+      },
+      "rows": [
+        {
+          "id": "g1",
+          "text": "one two three",
+          "summary": "one two three",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "group",
+          "sourceTurnId": "turn-1",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.9,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "g2",
+          "text": "four five six",
+          "summary": "four five six",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "group",
+          "sourceTurnId": "turn-1",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.8,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "g3",
+          "text": "seven eight nine",
+          "summary": "seven eight nine",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "group",
+          "sourceTurnId": "turn-1",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.7,
+          "source": "vector",
+          "graphSource": ""
+        }
+      ],
+      "result": {
+        "threw": false,
+        "errorName": null,
+        "ids": [
+          "g1",
+          "g2"
+        ],
+        "rerankScores": [
+          1,
+          0.9
+        ],
+        "sources": [
+          "vector",
+          "vector"
+        ],
+        "saw": {
+          "docs": [
+            "one two three",
+            "four five six",
+            "seven eight nine"
+          ],
+          "topN": 10
+        },
+        "decisions": [
+          {
+            "memoryId": "g3",
+            "action": "deduped",
+            "stage": "jaccard-dedup",
+            "reason": "duplicate or beyond slot limit"
+          }
+        ],
+        "guards": []
+      }
+    },
+    {
+      "name": "whole-replaces-parts",
+      "kind": "pipeline",
+      "request": {
+        "name": "whole-replaces-parts",
+        "query": "recall",
+        "topN": 5,
+        "budget": 10,
+        "rerankCandidates": 20,
+        "deferFinalCap": false,
+        "dedupEnabled": true,
+        "dedupJaccard": 0.78,
+        "candidateHardLimit": 100,
+        "summaryMaxWords": 150,
+        "rerankerTimeoutMs": 0,
+        "rerankerFallbackOnError": true,
+        "canonicalCount": 0,
+        "agentId": "a1",
+        "rerank": {
+          "emptyResultIsValid": false,
+          "hits": [
+            {
+              "index": 0,
+              "score": 1
+            },
+            {
+              "index": 1,
+              "score": 0.9
+            }
+          ]
+        }
+      },
+      "rows": [
+        {
+          "id": "part",
+          "text": "250 g flour and water",
+          "summary": "250 g flour and water",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "group",
+          "sourceTurnId": "turn-9",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.9,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "whole",
+          "text": "full recipe with flour water salt",
+          "summary": "full recipe with flour water salt",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "turn-9",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.8,
+          "source": "vector",
+          "graphSource": ""
+        }
+      ],
+      "result": {
+        "threw": false,
+        "errorName": null,
+        "ids": [
+          "whole"
+        ],
+        "rerankScores": [
+          0.9
+        ],
+        "sources": [
+          "vector"
+        ],
+        "saw": {
+          "docs": [
+            "250 g flour and water",
+            "full recipe with flour water salt"
+          ],
+          "topN": 10
+        },
+        "decisions": [
+          {
+            "memoryId": "part",
+            "action": "deduped",
+            "stage": "jaccard-dedup",
+            "reason": "duplicate or beyond slot limit"
+          }
+        ],
+        "guards": []
+      }
+    },
+    {
+      "name": "defer-slices-without-jaccard",
+      "kind": "pipeline",
+      "request": {
+        "name": "defer-slices-without-jaccard",
+        "query": "recall",
+        "topN": 5,
+        "budget": 1,
+        "rerankCandidates": 20,
+        "deferFinalCap": true,
+        "dedupEnabled": true,
+        "dedupJaccard": 0.78,
+        "candidateHardLimit": 2,
+        "summaryMaxWords": 150,
+        "rerankerTimeoutMs": 0,
+        "rerankerFallbackOnError": true,
+        "canonicalCount": 0,
+        "agentId": "a1",
+        "rerank": {
+          "emptyResultIsValid": false,
+          "hits": [
+            {
+              "index": 0,
+              "score": 1
+            },
+            {
+              "index": 1,
+              "score": 0.9
+            },
+            {
+              "index": 2,
+              "score": 0.8
+            }
+          ]
+        }
+      },
+      "rows": [
+        {
+          "id": "s0",
+          "text": "alpha beta gamma delta epsilon zeta eta theta iota kappa",
+          "summary": "alpha beta gamma delta epsilon zeta eta theta iota kappa",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.9,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "s1",
+          "text": "alpha beta gamma delta epsilon zeta eta theta iota kappa",
+          "summary": "alpha beta gamma delta epsilon zeta eta theta iota kappa",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.8,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "s2",
+          "text": "quartz jug pack my box with five dozen liquor bottles",
+          "summary": "quartz jug pack my box with five dozen liquor bottles",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.7,
+          "source": "vector",
+          "graphSource": ""
+        }
+      ],
+      "result": {
+        "threw": false,
+        "errorName": null,
+        "ids": [
+          "s0",
+          "s1"
+        ],
+        "rerankScores": [
+          1,
+          0.9
+        ],
+        "sources": [
+          "vector",
+          "vector"
+        ],
+        "saw": {
+          "docs": [
+            "alpha beta gamma delta epsilon zeta eta theta iota kappa",
+            "alpha beta gamma delta epsilon zeta eta theta iota kappa",
+            "quartz jug pack my box with five dozen liquor bottles"
+          ],
+          "topN": 2
+        },
+        "decisions": [
+          {
+            "memoryId": "s2",
+            "action": "deduped",
+            "stage": "jaccard-dedup",
+            "reason": "duplicate or beyond slot limit"
+          }
+        ],
+        "guards": []
+      }
+    }
+  ]
+}
