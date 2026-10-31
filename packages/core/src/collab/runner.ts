@@ -5,6 +5,8 @@ import type { AgentScopePort } from "./ports.ts";
 import { requireAgentScope, type AgentScopeValue } from "./scope.ts";
 
 export interface AgentRunInput {
+  /** Original authenticated turn context for outbound transports; never taken from peer/model arguments. */
+  outbound?: import('../tools/a2a-transport.ts').A2aExecution;
   sessionId?: string;
   agentId: string;
   question: string;
@@ -21,6 +23,7 @@ export interface AgentRunInput {
 }
 
 export interface AgentRunResult {
+  origin?: "a2a";
   targetKind?: "local" | "external" | "a2a";
   partial?: boolean;
   text: string;

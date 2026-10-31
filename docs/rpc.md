@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.11.0)
+# RPC reference (rpc 1.12.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -192,6 +192,10 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `project.member.add`: experimental, since 1.5.0
 - `project.member.remove`: experimental, since 1.5.0
 - `project.member.role`: experimental, since 1.5.0
+- `a2a.peer.add`: experimental, since 1.12.0
+- `a2a.peer.list`: experimental, since 1.12.0
+- `a2a.peer.remove`: experimental, since 1.12.0
+- `a2a.peer.trust`: experimental, since 1.12.0
 - `project.agent.add`: experimental, since 1.5.0
 - `project.agent.remove`: experimental, since 1.5.0
 - `task.complete`: experimental, since 1.5.0
@@ -10570,6 +10574,189 @@ Authenticated project member.role using ADR-007 object rights.
 }
 ```
 
+### `a2a.peer.add`
+
+**Stability:** experimental · since 1.12.0
+
+**Served by:** core
+
+Register a pending Ed25519 peer pin. Owner person only; no network or automatic trust.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/A2APeerId"
+    },
+    "cardUrl": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "kid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "publicKey": {
+      "$ref": "#/$defs/A2APublicKey"
+    },
+    "credentialSecret": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "id",
+    "cardUrl",
+    "kid",
+    "publicKey"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/A2APeer"
+}
+```
+
+### `a2a.peer.list`
+
+**Stability:** experimental · since 1.12.0
+
+**Served by:** core
+
+List outbound peer identities and trust states. Owner person only; no credentials or card text.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "peers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/A2APeer"
+      },
+      "maxItems": 1024
+    }
+  },
+  "required": [
+    "peers"
+  ]
+}
+```
+
+### `a2a.peer.remove`
+
+**Stability:** experimental · since 1.12.0
+
+**Served by:** core
+
+Revoke and remove an outbound peer, aborting its in-flight requests. Owner person only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/A2APeerId"
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/A2APeerId"
+    },
+    "removed": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "removed"
+  ]
+}
+```
+
+### `a2a.peer.trust`
+
+**Stability:** experimental · since 1.12.0
+
+**Served by:** core
+
+Explicitly approve the pending key fingerprint and revision after signature verification through the network.a2a policy gate. Owner person only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/A2APeerId"
+    },
+    "fingerprint": {
+      "$ref": "#/$defs/A2AFingerprint"
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "id",
+    "fingerprint",
+    "revision"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/A2APeer"
+}
+```
+
 ### `project.agent.add`
 
 **Stability:** experimental · since 1.5.0
@@ -10591,7 +10778,7 @@ Authenticated project agent.add using ADR-007 object rights.
       "maxLength": 128
     },
     "agentId": {
-      "$ref": "#/$defs/AgentId"
+      "$ref": "#/$defs/DelegationTargetId"
     }
   },
   "required": [
@@ -10631,7 +10818,7 @@ Authenticated project agent.remove using ADR-007 object rights.
       "maxLength": 128
     },
     "agentId": {
-      "$ref": "#/$defs/AgentId"
+      "$ref": "#/$defs/DelegationTargetId"
     }
   },
   "required": [
@@ -31315,6 +31502,141 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       }
     }
   }
+}
+```
+
+### `A2APeerId`
+
+```json
+{
+  "type": "string",
+  "pattern": "^[a-z][a-z0-9._-]{0,63}$",
+  "maxLength": 64
+}
+```
+
+### `A2AFingerprint`
+
+```json
+{
+  "type": "string",
+  "pattern": "^sha256:[A-Za-z0-9_-]{43}$",
+  "maxLength": 50
+}
+```
+
+### `A2APublicKey`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kty": {
+      "const": "OKP"
+    },
+    "crv": {
+      "const": "Ed25519"
+    },
+    "x": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43}$",
+      "maxLength": 43
+    }
+  },
+  "required": [
+    "kty",
+    "crv",
+    "x"
+  ]
+}
+```
+
+### `DelegationTargetId`
+
+```json
+{
+  "description": "Local agent id or an explicitly pinned outbound A2A target. Foreign ids never open local agent stores.",
+  "type": "string",
+  "pattern": "^(?:[a-z0-9][a-z0-9_-]{0,63}|a2a:[a-z][a-z0-9._-]{0,63})$",
+  "maxLength": 68
+}
+```
+
+### `A2APeer`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/A2APeerId"
+    },
+    "agentId": {
+      "$ref": "#/$defs/DelegationTargetId"
+    },
+    "cardUrl": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "kid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "fingerprint": {
+      "$ref": "#/$defs/A2AFingerprint"
+    },
+    "state": {
+      "enum": [
+        "pending",
+        "trusted"
+      ]
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "targetKind": {
+      "const": "external"
+    },
+    "origin": {
+      "const": "a2a"
+    },
+    "authenticated": {
+      "type": "boolean"
+    },
+    "createdAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "updatedAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "endpoint": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    }
+  },
+  "required": [
+    "id",
+    "agentId",
+    "cardUrl",
+    "kid",
+    "fingerprint",
+    "state",
+    "revision",
+    "targetKind",
+    "origin",
+    "authenticated",
+    "createdAt",
+    "updatedAt"
+  ]
 }
 ```
 

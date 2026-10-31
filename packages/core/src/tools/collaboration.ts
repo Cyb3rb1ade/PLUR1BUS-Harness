@@ -38,7 +38,7 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
     if (!membership && who.role !== 'owner' && who.role !== 'admin') throw new CollabError('unauthorized', 'project membership required');
     return { ...who, projectRights: membership ? { [projectId]: membership.role } : {} };
   };
-  const definition = (name: string, description: string, inputSchema: Record<string, unknown>, execute: ToolDef['execute'], read = false): ToolDef => ({ name, description, inputSchema, capability: 'agent.delegate', effect: read ? 'read' : 'local-write', risk: 'low', trust: 'first-party', limits: { timeoutMs: 300000 }, classify: () => ({ flags: { outsideRoots: false, denyListHit: false } }), execute });
+  const definition = (name: string, description: string, inputSchema: Record<string, unknown>, execute: ToolDef['execute'], read = false): ToolDef => ({ name, description, inputSchema, capability: 'agent.delegate', effect: read ? 'read' : 'local-write', risk: 'low', trust: 'untrusted', limits: { timeoutMs: 300000 }, classify: () => ({ flags: { outsideRoots: false, denyListHit: false } }), execute });
   const run = (kind: 'consult' | 'delegate' | 'handoff', review = false): ToolDef['execute'] => async (value, ctx) => {
     const a = value as Args, who = admitted(ctx, a.projectId);
     // Nested delegates never become a fresh root chain. Depth defaults to one.
@@ -80,7 +80,7 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
     starts++; pairStarts.set(pair, (pairStarts.get(pair) ?? 0) + 1);
     const started = o.authority.now();
     let traceId = traces.get(a.projectId);
-    const input = { principal: who, projectId: a.projectId, fromAgent: ctx.agentId, toAgent: a.toAgent, signal: ctx.signal, ...(traceId ? { traceId } : {}), handoff: { contract: h, context: authority } };
+    const input = { principal: who, projectId: a.projectId, fromAgent: ctx.agentId, toAgent: a.toAgent, signal: ctx.signal, outbound: { person: who.userId, agent: ctx.agentId, session: req.sessionId, turn: ctx.execution?.turnId ?? req.turnId ?? req.sessionId, project: a.projectId, surface: ctx.surface ?? 0, ...(ctx.execution?.taskId ? { task: ctx.execution.taskId } : {}), policy: ctx.execution?.policy ?? (req.headlessJobId ? { headless: { jobId: req.headlessJobId } } : {}) }, ...(traceId ? { traceId } : {}), handoff: { contract: h, context: authority } };
     let text: string, partial: boolean, provenance: object, tokens = 0;
     const resultArtifacts: ReturnEnvelope['artifacts'] = [];
     if (kind === 'consult') {
@@ -94,7 +94,7 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
       if (result.artifactPointer) resultArtifacts.push({ ref: result.artifactPointer, kind: 'delegation-result' });
       text = result.result ?? result.error ?? ''; partial = result.status === 'cancelled';
       if (result.status === 'failed') throw new CollabError('invalid', 'delegation failed', { reason: 'run-failed' });
-      provenance = { agentId: a.toAgent, projectId: a.projectId, traceId, spanId: result.spanId, targetKind: result.targetKind ?? 'local' };
+      provenance = { agentId: a.toAgent, projectId: a.projectId, traceId, spanId: result.spanId, targetKind: result.targetKind ?? 'local', ...(result.origin ? { origin: result.origin } : {}) };
       tokens = (result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0);
 
     }
