@@ -19,6 +19,7 @@ test("the watchdog catalogue example permits only its static labels and bounded 
   }
   assert.equal(valid({ ...attrs, returned: -1, probeReturned: -1 }), true);
   assert.equal(valid({ ...attrs, phase: "attach", cause: "sample-deadline", operation: "group-list" }), true);
+  assert.equal(valid({ ...attrs, cause: "aggregate-rss-incomplete" }), true);
   for (const field of entry.requiredAttrs) {
     const incomplete = { ...attrs }; delete incomplete[field];
     assert.equal(valid(incomplete), false, `required ${field}`);

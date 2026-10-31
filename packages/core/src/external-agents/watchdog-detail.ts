@@ -1,5 +1,5 @@
 /** Trusted native-helper fd 3 only. Child stderr must never feed this parser. */
-const CAUSES = ["sample-deadline", "identity-unavailable", "list-safety-cap", "list-unavailable", "descendant-safety-cap", "task-info-unavailable", "attach-limit"] as const;
+const CAUSES = ["sample-deadline", "identity-unavailable", "list-safety-cap", "list-unavailable", "descendant-safety-cap", "task-info-unavailable", "aggregate-rss-incomplete", "attach-limit"] as const;
 const OPERATIONS = ["sample", "bsd-info", "alive", "group-size", "group-list", "group-member", "child-size", "child-list", "child-member", "task-info", "membership"] as const;
 const NUMBERS = ["sample", "elapsedMicros", "pid", "returned", "expected", "errno", "probeReturned", "probeErrno", "ppid", "pgid", "status", "startSeconds", "startMicros", "processRssBytes", "count", "rssBytes"] as const;
 const KEYS = new Set<string>(["version", "cause", "operation", "phase", ...NUMBERS]);

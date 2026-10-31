@@ -1019,6 +1019,12 @@
       "expect": "ok"
     },
     {
+      "name": "watchdog:aggregate-rss-incomplete",
+      "validator": "diagnostic",
+      "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"sandbox.watchdog.failure\",\"msg\":\"sandbox.watchdog.failure\",\"attrs\":{\"process\":\"connector\",\"version\":1,\"cause\":\"aggregate-rss-incomplete\",\"operation\":\"task-info\",\"phase\":\"runtime\",\"sample\":2,\"elapsedMicros\":1234,\"pid\":321,\"returned\":0,\"expected\":96,\"errno\":3,\"probeReturned\":0,\"probeErrno\":0,\"ppid\":123,\"pgid\":123,\"status\":5,\"startSeconds\":1700000000,\"startMicros\":500,\"processRssBytes\":0,\"count\":2,\"rssBytes\":1048576}}",
+      "expect": "ok"
+    },
+    {
       "name": "level:unknown-word",
       "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"verbose\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
@@ -14869,6 +14875,7 @@
               "list-unavailable",
               "descendant-safety-cap",
               "task-info-unavailable",
+              "aggregate-rss-incomplete",
               "attach-limit"
             ]
           },

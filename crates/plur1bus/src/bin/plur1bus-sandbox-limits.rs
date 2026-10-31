@@ -219,7 +219,6 @@ mod watchdog {
         DescendantSafetyCap,
         TaskInfoUnavailable,
         RssIncomplete,
-        AttachLimit,
     }
     impl Cause {
         fn label(self) -> &'static str {
@@ -231,7 +230,6 @@ mod watchdog {
                 Self::DescendantSafetyCap => "descendant-safety-cap",
                 Self::TaskInfoUnavailable => "task-info-unavailable",
                 Self::RssIncomplete => "aggregate-rss-incomplete",
-                Self::AttachLimit => "attach-limit",
             }
         }
     }
@@ -863,25 +861,25 @@ mod watchdog {
         // Attach and validate observation BEFORE releasing the target's exec gate.
         let mut known = HashMap::new();
         let attached = sample(pid, tasks, memory, &mut known, &mut diagnostics);
-        if !matches!(attached, Ok((count, rss)) if count <= tasks && rss <= memory) {
-            // Preserve the original failure before the diagnostic-only pre-kill barrier.
-            let failure = attached.err().or_else(|| {
-                diagnostics
-                    .observer
-                    .as_ref()
-                    .map(|_| diagnostics.error(Cause::AttachLimit))
-            });
-            diagnostics.decision(125, failure.as_ref());
+        let (exceeded, failure) = match attached {
+            Ok((count, rss)) => (limit_reason(count, rss, tasks, memory), None),
+            Err(error) => (Some((125, "sandbox-unavailable")), Some(error)),
+        };
+        if let Some((code, reason)) = exceeded {
+            diagnostics.decision(code, failure.as_ref());
             diagnostics.checkpoint(2, pid);
             terminate(0);
             unsafe {
                 libc::close(gate[1]);
                 libc::waitpid(pid, std::ptr::null_mut(), 0);
             }
-            let failure = failure.unwrap_or_else(|| diagnostics.error(Cause::AttachLimit));
             diagnostics.finish_observer();
-            diagnostics.emit(Some(&failure), report_fd);
-            return Err("sandbox-unavailable: watchdog attach failed".into());
+            diagnostics.emit(failure.as_ref(), report_fd);
+            if failure.is_some() {
+                return Err("sandbox-unavailable: watchdog attach failed".into());
+            }
+            eprintln!("sandbox launcher: {reason}");
+            std::process::exit(code);
         }
         unsafe {
             libc::write(gate[1], b"x".as_ptr().cast(), 1);

@@ -1074,7 +1074,7 @@ Trusted, bounded native watchdog measurement failure after fail-closed exit125. 
 |---|---|---|
 | `process` | `"connector"` | Supervised ACP connector, never a process name or command. |
 | `version` | `1` |  |
-| `cause` | `sample-deadline` \| `identity-unavailable` \| `list-safety-cap` \| `list-unavailable` \| `descendant-safety-cap` \| `task-info-unavailable` \| `attach-limit` |  |
+| `cause` | `sample-deadline` \| `identity-unavailable` \| `list-safety-cap` \| `list-unavailable` \| `descendant-safety-cap` \| `task-info-unavailable` \| `aggregate-rss-incomplete` \| `attach-limit` |  |
 | `operation` | `sample` \| `bsd-info` \| `alive` \| `group-size` \| `group-list` \| `group-member` \| `child-size` \| `child-list` \| `child-member` \| `task-info` \| `membership` |  |
 | `phase` | `attach` \| `runtime` |  |
 | `sample` | `integer` |  |

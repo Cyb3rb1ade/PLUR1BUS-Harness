@@ -18,6 +18,11 @@ export function buildVectors() {
   const areorder = (r, first) => ({ [first]: r[first], ...Object.fromEntries(Object.entries(r).filter(([k]) => k !== first)) });
   const reorder = (r, first) => ({ [first]: r[first], ...Object.fromEntries(Object.entries(r).filter(([k]) => k !== first)) });
   const invalid = [
+    mut("watchdog:aggregate-rss-incomplete", "ok", () => {
+      const record = structuredClone(CATALOGUE.events.find((e) => e.event === "sandbox.watchdog.failure").examples[0]);
+      record.attrs.cause = "aggregate-rss-incomplete";
+      return record;
+    }),
     mut("level:unknown-word", "invalid_level", (r) => { r.level = "verbose"; }),
     mut("level:uppercase", "invalid_level", (r) => { r.level = "INFO"; }),
     mut("level:number", "invalid_level", (r) => { r.level = 9; }),

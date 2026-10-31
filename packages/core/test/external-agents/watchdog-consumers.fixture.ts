@@ -13,7 +13,7 @@ import { connectorArgv, CONNECTORS } from "../../src/external-agents/engine.ts";
 import { SessionStore } from "../../src/session/store.ts";
 import { runWithAgentScope, scopeFor } from "../../src/collab/scope.ts";
 
-const detail: WatchdogDetail = { version: 1, cause: "task-info-unavailable", operation: "task-info", phase: "runtime",
+const detail: WatchdogDetail = { version: 1, cause: (process.argv[3] === "aggregate" ? "aggregate-rss-incomplete" : "task-info-unavailable") as WatchdogDetail["cause"], operation: "task-info", phase: "runtime",
   sample: 2, elapsedMicros: 1234, pid: 321, returned: 0, expected: 96, errno: 3, probeReturned: 0, probeErrno: 0,
   ppid: 123, pgid: 123, status: 5, startSeconds: 1700000000, startMicros: 500, processRssBytes: 0, count: 2, rssBytes: 1048576 };
 

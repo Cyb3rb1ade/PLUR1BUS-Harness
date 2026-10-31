@@ -20,6 +20,11 @@ test("native diagnostic preserves the exact typed numeric cause across fragmente
     { ...detail, cause: "identity-unavailable", operation: "alive", returned: -1, probeReturned: -1, probeErrno: 1 });
 });
 
+test("aggregate RSS failure survives the trusted detail parser", () => {
+  const expected = { ...detail, cause: "aggregate-rss-incomplete" };
+  assert.deepEqual(parseWatchdogDetail(JSON.stringify(expected)), expected);
+});
+
 test("diagnostic parser rejects untrusted strings, unknown fields, malformed numbers and oversized records", () => {
   const invalid = [null, [], "SECRET", { ...detail, version: 2 }, { ...detail, cause: "SECRET" },
     { ...detail, operation: "command=SECRET" }, { ...detail, phase: "SECRET" }, { ...detail, argv: ["SECRET"] },
