@@ -82,6 +82,7 @@ const TABLE: readonly CapabilityDef[] = [
   def({ id: "clipboard.read", covers: "clipboard.read", intrinsicEffect: "read", base: same(P), ceiling: "session", minSurface: 1, baseRisk: "low" }),
   def({ id: "net.fetch", covers: "web.fetch, browser.navigate/read", intrinsicEffect: "read", base: same(A), ceiling: null, minSurface: null, baseRisk: "low" }),
   def({ id: "net.submit", covers: "form submission, downloads, external MCP tools, non-read-only webmcp", intrinsicEffect: "external", base: same(P), ceiling: "session", minSurface: 2, baseRisk: "medium", taintSensitive: true }),
+  def({ id: "network.a2a", covers: "outbound A2A card discovery and messages", intrinsicEffect: "network.a2a", base: same(P), ceiling: "session", minSurface: 2, baseRisk: "medium", taintSensitive: true }),
   // M-A6: installed declarations classify MCP tools without borrowing unrelated filesystem or shell grants.
   def({ id: "mcp.tool.read", covers: "MCP tools declared read by an installed extension", intrinsicEffect: "read", base: same(A), ceiling: null, minSurface: null, baseRisk: "low" }),
   def({ id: "mcp.tool.write", covers: "MCP tools declared local write by an installed extension", intrinsicEffect: "local-write", base: same(P), ceiling: "session", minSurface: 2, baseRisk: "medium" }),

@@ -432,6 +432,22 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "a2a.peer.add": {
+      "stability": "experimental",
+      "since": "1.12.0"
+    },
+    "a2a.peer.list": {
+      "stability": "experimental",
+      "since": "1.12.0"
+    },
+    "a2a.peer.remove": {
+      "stability": "experimental",
+      "since": "1.12.0"
+    },
+    "a2a.peer.trust": {
+      "stability": "experimental",
+      "since": "1.12.0"
+    },
     "project.agent.add": {
       "stability": "experimental",
       "since": "1.5.0"

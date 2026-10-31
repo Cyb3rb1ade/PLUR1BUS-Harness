@@ -6,7 +6,7 @@ import { WebFailure } from "../tools/web/failure.ts";
 import { makeAddressPolicy, resolveGuarded, systemResolver, type Resolver } from "../tools/web/guard.ts";
 import { guardedRequest, type HttpOptions, type HttpResponse } from "../tools/web/http.ts";
 import { createGate, bareHost, isLoopbackHost, effectivePort, type DenyReason, type Decision } from "./gate.ts";
-import { compileEgressPolicy, type EgressConfig, type EgressPolicy } from "./policy.ts";
+import { compileEgressPolicy, hostAllowed, type EgressConfig, type EgressPolicy } from "./policy.ts";
 
 export interface EgressStatus {
   policy: { allowHosts: string[]; allowPorts: number[]; allowLoopback: boolean; valid: boolean; errors: string[] };
@@ -26,7 +26,7 @@ export interface Egress {
    */
   request(url: string, options: Omit<HttpOptions, "resolver" | "policy" | "gate">): Promise<HttpResponse>;
   /** Judge one URL without connecting. */
-  decide(url: string): Promise<DryRun>;
+  decide(url: string, options?: { purpose: 'a2a' }): Promise<DryRun>;
   status(): EgressStatus;
 }
 
@@ -47,9 +47,12 @@ export function createEgress(o: EgressOptions): Egress {
   };
   // RULING: the SSRF range check never relaxes through egress config; loopback is admitted below only via allowLoopback.
   const loopback = makeAddressPolicy(["127.0.0.0/8", "::1/128"]).allow;
+  const tailnet = makeAddressPolicy(["100.64.0.0/10", "fd7a:115c:a1e0::/48"]).allow;
+  const metadata = makeAddressPolicy(["100.100.100.200/32"]).allow;
   // Only a host that is itself a loopback spelling may resolve to loopback: a public name answering 127.0.0.1 (alone or
   // beside a public record) is a private-address refusal, so allowLoopback cannot be used for rebinding.
-  const addressPolicy = (p: EgressPolicy) => ({ allow: [], forHost: (h: string) => (p.allowLoopback && isLoopbackHost(h) ? loopback : []) });
+  const addressPolicy = (p: EgressPolicy, a2a = false) => ({ allow: [], deny: metadata, forHost: (h: string) =>
+    p.allowLoopback && isLoopbackHost(h) ? loopback : a2a && hostAllowed(p, h, { explicitOnly: true }) ? tailnet : [] });
 
   return {
     async request(url, options) {
@@ -62,7 +65,7 @@ export function createEgress(o: EgressOptions): Egress {
         throw err;
       }
     },
-    async decide(raw) {
+    async decide(raw, options) {
       const policy = compileEgressPolicy(o.config());
       const gate = createGate(policy, { onDecision: record });
       let url: URL;
@@ -74,7 +77,7 @@ export function createEgress(o: EgressOptions): Egress {
       }
       try {
         gate.beforeResolve(url);
-        const pin = await resolveGuarded(url.hostname, resolver, addressPolicy(policy));
+        const pin = await resolveGuarded(url.hostname, resolver, addressPolicy(policy, options?.purpose === 'a2a'));
         gate.afterResolve(url, pin);
         return { allowed: true, host: bareHost(url), port: effectivePort(url), address: pin.address, family: pin.family };
       } catch (err) {

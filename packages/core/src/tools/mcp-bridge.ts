@@ -85,6 +85,7 @@ function capabilityFor(effect: Effect): string {
     case "local-write": return "mcp.tool.write";
     case "local-destructive": return "mcp.tool.destructive";
     case "external":
+    case "network.a2a":
     case "money": return "net.submit";
   }
 }
