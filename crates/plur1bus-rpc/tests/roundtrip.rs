@@ -1376,6 +1376,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "telemetry.cache.summary" => check_pair::<
+                types::TelemetryCacheSummaryParams,
+                types::TelemetryCacheSummaryResult,
+            >(name, fixture, &root_schema),
             "agent.activity.list" => check_pair::<
                 types::AgentActivityListParams,
                 types::AgentActivityListResult,

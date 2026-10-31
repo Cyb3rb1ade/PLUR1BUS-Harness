@@ -4,6 +4,7 @@
 // price tables and cost limits were removed). The call port (`calls.ts`) enforces all three; `check`/`enforce` here are tokens only.
 import type { DatabaseSync } from "node:sqlite";
 import { CACHE_READS_SQL, countedTokens, storedCacheReadWeight, writeCacheReadWeight } from "./cache-read-weight.ts";
+import { summarizeCacheUsage, type CacheUsageRow } from "./cache-report.ts";
 import { periodBounds, validateTimeZone, type Period } from "./period.ts";
 import { openBudgetDb, transaction } from "./store.ts";
 
@@ -136,6 +137,8 @@ export interface BudgetService {
   cacheReadWeight(): number;
   /** Stores a weight from 0 to 1, rounded to millionths, and returns it as stored; anything else is a RangeError. */
   setCacheReadWeight(w: number): number;
+  /** Prompt-cache usage per provider, agent and model over [since, until) in ms (D120 H2-1). Read-only. */
+  cacheUsage(o: { since: number; until: number; agentId?: string }): CacheUsageRow[];
   prune(beforeTs: number): number;
   close(): void;
 }
@@ -258,6 +261,14 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
       const d = checked(agent, model, estimate);
       if (!d.allowed) throw new BudgetExceededError(d, agent, model);
       return d;
+    },
+
+    cacheUsage(q) {
+      if (typeof q !== "object" || q === null) throw new BudgetInputError("cache usage query must be an object");
+      count("since", q.since); count("until", q.until);
+      if (q.since > q.until) throw new BudgetInputError("since must not be after until");
+      if (q.agentId !== undefined) ident("agentId", q.agentId);
+      return summarizeCacheUsage(db, q);
     },
 
     status(opts = {}) {

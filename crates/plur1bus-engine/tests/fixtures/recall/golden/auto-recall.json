@@ -1,0 +1,239 @@
+{
+  "schema": "recall-auto-recall/1",
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "node": "v24.21.0",
+    "unicode": "17.0",
+    "icu": "78.3"
+  },
+  "cases": [
+    {
+      "name": "ordinary-prompt",
+      "event": {
+        "prompt": "what did we decide about the budget"
+      },
+      "ctx": {},
+      "skip": false
+    },
+    {
+      "name": "explicit-recall-in-cron",
+      "event": {
+        "prompt": "/recall the note",
+        "origin": "cron"
+      },
+      "ctx": {},
+      "skip": false
+    },
+    {
+      "name": "explicit-memory-while-dreaming",
+      "event": {
+        "prompt": "please /memory status",
+        "origin": "nightly-dreaming"
+      },
+      "ctx": {},
+      "skip": false
+    },
+    {
+      "name": "active-memory-session",
+      "event": {
+        "prompt": "/recall the note"
+      },
+      "ctx": {
+        "sessionKey": "agent:main:active-memory:1"
+      },
+      "skip": true
+    },
+    {
+      "name": "active-memory-mixed-case",
+      "event": {
+        "prompt": "hello"
+      },
+      "ctx": {
+        "sessionKey": "agent:main:Active-Memory:1"
+      },
+      "skip": true
+    },
+    {
+      "name": "origin-cron",
+      "event": {
+        "origin": "cron",
+        "prompt": "tick"
+      },
+      "ctx": {},
+      "skip": true
+    },
+    {
+      "name": "origin-internal",
+      "event": {
+        "origin": "internal",
+        "prompt": "tick"
+      },
+      "ctx": {},
+      "skip": true
+    },
+    {
+      "name": "kind-heartbeat",
+      "event": {
+        "kind": "heartbeat",
+        "prompt": "tick"
+      },
+      "ctx": {},
+      "skip": true
+    },
+    {
+      "name": "trigger-manual",
+      "event": {
+        "trigger": "manual",
+        "prompt": "tick"
+      },
+      "ctx": {},
+      "skip": true
+    },
+    {
+      "name": "session-heartbeat",
+      "event": {
+        "prompt": "tick"
+      },
+      "ctx": {
+        "sessionKey": "agent:main:heartbeat"
+      },
+      "skip": true
+    },
+    {
+      "name": "session-cron",
+      "event": {
+        "prompt": "tick"
+      },
+      "ctx": {
+        "sessionKey": "agent:main:cron:nightly"
+      },
+      "skip": true
+    },
+    {
+      "name": "origin-includes-dreaming",
+      "event": {
+        "origin": "nightly-dreaming",
+        "prompt": "tick"
+      },
+      "ctx": {},
+      "skip": true
+    },
+    {
+      "name": "kind-includes-promotion",
+      "event": {
+        "kind": "short-term-promotion",
+        "prompt": "tick"
+      },
+      "ctx": {},
+      "skip": true
+    },
+    {
+      "name": "session-includes-background",
+      "event": {
+        "prompt": "tick"
+      },
+      "ctx": {
+        "sessionKey": "agent:background:1"
+      },
+      "skip": true
+    },
+    {
+      "name": "magic-marker",
+      "event": {
+        "prompt": {
+          "parts": [
+            "__",
+            "_memory_core_short_term_promotion_dream__"
+          ],
+          "joiner": [
+            "open",
+            "claw"
+          ]
+        }
+      },
+      "ctx": {},
+      "skip": true
+    },
+    {
+      "name": "magic-marker-light",
+      "event": {
+        "prompt": {
+          "parts": [
+            "prefix __",
+            "_memory_core_light_sleep__ suffix"
+          ],
+          "joiner": [
+            "open",
+            "claw"
+          ]
+        }
+      },
+      "ctx": {},
+      "skip": true
+    },
+    {
+      "name": "cron-hint",
+      "event": {
+        "prompt": "run [cron: nightly]"
+      },
+      "ctx": {},
+      "skip": true
+    },
+    {
+      "name": "heartbeat-hint",
+      "event": {
+        "prompt": "heartbeat_ok"
+      },
+      "ctx": {},
+      "skip": true
+    },
+    {
+      "name": "uppercase-command",
+      "event": {
+        "prompt": "please /RECALL that",
+        "origin": "cron"
+      },
+      "ctx": {},
+      "skip": false
+    },
+    {
+      "name": "source-fallback",
+      "event": {
+        "source": "cron"
+      },
+      "ctx": {
+        "origin": ""
+      },
+      "skip": true
+    },
+    {
+      "name": "ctx-trigger",
+      "event": {
+        "prompt": "tick"
+      },
+      "ctx": {
+        "trigger": "background"
+      },
+      "skip": true
+    },
+    {
+      "name": "event-type",
+      "event": {
+        "type": "heartbeat",
+        "prompt": "tick"
+      },
+      "ctx": {},
+      "skip": true
+    },
+    {
+      "name": "session-id-fallback",
+      "event": {
+        "prompt": "tick",
+        "sessionId": "job:cron:1"
+      },
+      "ctx": {},
+      "skip": true
+    }
+  ]
+}

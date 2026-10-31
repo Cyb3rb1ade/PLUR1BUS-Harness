@@ -1,0 +1,82 @@
+{
+  "schema": "recall-principal/1",
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "node": "v24.21.0",
+    "unicode": "17.0",
+    "icu": "78.3"
+  },
+  "triples": [
+    {
+      "channel": "cli",
+      "accountId": "mac.local",
+      "userId": "ada",
+      "hash": "68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+      "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b"
+    },
+    {
+      "channel": "telegram",
+      "accountId": "default",
+      "userId": "123456",
+      "hash": "1f99ddfbd44fb286ec0b0abcdeaa84b075dd2c7be249bf42b1c8e90c15c0a904",
+      "userPrincipal": "user:v1:1f99ddfbd44fb286ec0b0abcdeaa84b075dd2c7be249bf42b1c8e90c15c0a904"
+    },
+    {
+      "channel": "discord",
+      "accountId": "main",
+      "userId": "user_one",
+      "hash": "ff8a86650832d1aeea81449f4160800fadb7c2fb6de7d52c07724661b3755a11",
+      "userPrincipal": "user:v1:ff8a86650832d1aeea81449f4160800fadb7c2fb6de7d52c07724661b3755a11"
+    },
+    {
+      "channel": "slack",
+      "accountId": "acct",
+      "userId": "user-two",
+      "hash": "2d92d7442c575f19291305df0c6d25ddc535cdcb12ac29392a833aa712eb03c1",
+      "userPrincipal": "user:v1:2d92d7442c575f19291305df0c6d25ddc535cdcb12ac29392a833aa712eb03c1"
+    },
+    {
+      "channel": "mattermost",
+      "accountId": "team",
+      "userId": "user.three",
+      "hash": "e7f690260b5faa9b8922320c827f058324f930f571afc9e955066b8bab633831",
+      "userPrincipal": "user:v1:e7f690260b5faa9b8922320c827f058324f930f571afc9e955066b8bab633831"
+    },
+    {
+      "channel": "telegram",
+      "accountId": "default",
+      "userId": "Müller",
+      "hash": "fc4799a46f55e3428ad3920dd2c2196121d97639b736f8afaeb6ccf6a468475b",
+      "userPrincipal": "user:v1:fc4799a46f55e3428ad3920dd2c2196121d97639b736f8afaeb6ccf6a468475b"
+    },
+    {
+      "channel": "discord",
+      "accountId": "a\"b",
+      "userId": "c\\d",
+      "hash": "a07e081a2f033263a9d723204aad9ba5f3f267b2cd61132daae4ccd59b43c765",
+      "userPrincipal": "user:v1:a07e081a2f033263a9d723204aad9ba5f3f267b2cd61132daae4ccd59b43c765"
+    },
+    {
+      "channel": "slack",
+      "accountId": "acct",
+      "userId": "user-🚀",
+      "hash": "1e0aa80fbbbf874e2c90b2a71b477fcf78be79d60bb04aa1e91533109fc7dfc6",
+      "userPrincipal": "user:v1:1e0aa80fbbbf874e2c90b2a71b477fcf78be79d60bb04aa1e91533109fc7dfc6"
+    },
+    {
+      "channel": "telegram",
+      "accountId": "work",
+      "userId": "ada lovelace",
+      "hash": "8f5917e0746c6ad0414ce6d78856177203538ae809da63e5780b65992932b4b8",
+      "userPrincipal": "user:v1:8f5917e0746c6ad0414ce6d78856177203538ae809da63e5780b65992932b4b8"
+    },
+    {
+      "channel": "CLI",
+      "accountId": "Host",
+      "userId": "Ada",
+      "hash": "1b7b33731509d8540905e8db35a63cdcd16db05396ee2fa3c647e4b78a2aab80",
+      "userPrincipal": "user:v1:1b7b33731509d8540905e8db35a63cdcd16db05396ee2fa3c647e4b78a2aab80"
+    }
+  ]
+}

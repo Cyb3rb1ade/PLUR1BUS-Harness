@@ -26,6 +26,7 @@ import { createMediaSurface, mediaActionHash } from '../rpc/media-surface.ts';
 import { decide } from '../policy/index.ts';
 import { connectionSurface } from '../rbac/connection-surface.ts';
 import { RpcError } from '../rpc/errors.ts';
+import type { CacheTelemetry } from '../prompt/index.ts';
 import type { Handler } from '../rpc/server.ts';
 import { join } from 'node:path';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -132,7 +133,7 @@ export interface CompositionDeps {
   /** Per-chat model choice (D112 catalog): reasoning per model before the wire fit, catalog facts and provider endpoints. */
   chatModels?: Pick<ChatModelSources, 'catalog' | 'endpoint'> & { reasoning(provider: string, model: string): ReasoningDescriptor };
 }
-export interface TurnComposition { importSsh: SshImportService; engineComplete: (agentId: string, params: import("@cyb3rb1ade/plur1bus-memory/types/engine.js").LlmParams) => Promise<import("@cyb3rb1ade/plur1bus-memory/types/engine.js").LlmResult>;  /** The turn call budget (L8), shared with the re-embedding run; null when its store could not be opened. */ budget: CallBudget | null; skillReview: SkillReview; mining: SkillMining; capabilities: LiveCapabilityIndex; /** Provider definitions refused at composition (`E_CONFIG_INVALID`); they serve no turn. Empty when all were composed. */ refusedProviders: readonly RefusedProvider[]; discoveryCredentials: (definition: ProviderDefinition) => import("../auth/credentials.ts").CredentialsProvider | undefined; voice: VoiceRuntime; openai: OpenAIRuntime; sessions: SessionService; collab: Collab | null; surfaceMethods: Record<string, Handler>; chatModels: ChatModelSources; close(): Promise<void> }
+export interface TurnComposition { importSsh: SshImportService; /** The turn provider's prompt-cache telemetry (process-local; null when no turn provider is composed). */ cacheTelemetry: CacheTelemetry | null; engineComplete: (agentId: string, params: import("@cyb3rb1ade/plur1bus-memory/types/engine.js").LlmParams) => Promise<import("@cyb3rb1ade/plur1bus-memory/types/engine.js").LlmResult>;  /** The turn call budget (L8), shared with the re-embedding run; null when its store could not be opened. */ budget: CallBudget | null; skillReview: SkillReview; mining: SkillMining; capabilities: LiveCapabilityIndex; /** Provider definitions refused at composition (`E_CONFIG_INVALID`); they serve no turn. Empty when all were composed. */ refusedProviders: readonly RefusedProvider[]; discoveryCredentials: (definition: ProviderDefinition) => import("../auth/credentials.ts").CredentialsProvider | undefined; voice: VoiceRuntime; openai: OpenAIRuntime; sessions: SessionService; collab: Collab | null; surfaceMethods: Record<string, Handler>; chatModels: ChatModelSources; close(): Promise<void> }
 /** secret_names backend: the agent's configured secret references, with presence from the store's metadata (never a value). */
 export function secretNamesPort(d: Pick<CompositionDeps, 'config' | 'secrets'>): SecretNamesPort {
   return {
@@ -497,7 +498,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     disposers.push(() => extTurns.idle());
     let closed = false;
     const opened = sessions;
-    return { importSsh, budget, engineComplete, skillReview, mining, capabilities, refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, chatModels, surfaceMethods: { ...extensions.methods, ...sshMethods, ...extTurns.methods, 'decision.status': async () => decisions.status(), 'decision.test': async (p: { agentId: string }, ctx) => {
+    return { importSsh, cacheTelemetry: provider?.telemetry ?? null, budget, engineComplete, skillReview, mining, capabilities, refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, chatModels, surfaceMethods: { ...extensions.methods, ...sshMethods, ...extTurns.methods, 'decision.status': async () => decisions.status(), 'decision.test': async (p: { agentId: string }, ctx) => {
       if (!d.agents.has(p.agentId)) throw new RpcError('E_AGENT_UNKNOWN', 'Unknown agent');
       const principal = deriveUserPrincipal(authenticatedPrincipal(ctx).userId);
       const result = await decisions.choice({ useCase: 'routing', state: '2', question: 'Is this integer even or odd?', options: [{ id: 'even', description: 'Divisible by two' }, { id: 'odd', description: 'Not divisible by two' }] }, { agentId: p.agentId, principal, cloudEligible: true, signal: AbortSignal.any([ctx.signal, d.signal]) });
