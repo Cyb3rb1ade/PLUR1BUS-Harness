@@ -1,7 +1,8 @@
 //! Recall stages 1–7: embed, search, temporal, knowledge, score, graph.
 //!
-//! Budget, Jaccard dedupe and rerank belong to T3. With `defer_final_cap` the pinned
-//! pipeline skips the budget and replaces dedupe with a hard-limit slice. Query
+//! Budget, Jaccard dedupe and rerank run afterwards in [`super::finalise`]. With
+//! `defer_final_cap` the pinned pipeline skips the budget and replaces dedupe with a
+//! hard-limit slice. Query
 //! refinement is present and stays off: the pinned engine emits no skip trace when
 //! `queryRefinerEnabled` is false.
 //!

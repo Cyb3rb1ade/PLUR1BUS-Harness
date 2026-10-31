@@ -1,0 +1,110 @@
+{
+  "id": "budget-resolve",
+  "recordedFrom": {
+    "tag": "v7.18.31",
+    "commit": "6419a60e79975d0b5244798c1fdbbd7997a712ce",
+    "node": "v24.21.0",
+    "unicode": "17.0",
+    "icu": "78.3"
+  },
+  "runs": [
+    {
+      "name": "small",
+      "kind": "resolve",
+      "input": {
+        "promptLength": 10,
+        "hasProjectSignals": false,
+        "maxPromptMemories": 12,
+        "tokenBudgetPct": 0.3
+      },
+      "result": {
+        "budget": 6,
+        "reason": "small_prompt"
+      }
+    },
+    {
+      "name": "normal",
+      "kind": "resolve",
+      "input": {
+        "promptLength": 50,
+        "hasProjectSignals": false,
+        "maxPromptMemories": 12,
+        "tokenBudgetPct": 0.3
+      },
+      "result": {
+        "budget": 10,
+        "reason": "normal_prompt"
+      }
+    },
+    {
+      "name": "complex-capped",
+      "kind": "resolve",
+      "input": {
+        "promptLength": 201,
+        "hasProjectSignals": false,
+        "maxPromptMemories": 12,
+        "tokenBudgetPct": 0.3
+      },
+      "result": {
+        "budget": 12,
+        "reason": "complex_prompt"
+      }
+    },
+    {
+      "name": "project-signal-capped",
+      "kind": "resolve",
+      "input": {
+        "promptLength": 10,
+        "hasProjectSignals": true,
+        "maxPromptMemories": 12,
+        "tokenBudgetPct": 0.3
+      },
+      "result": {
+        "budget": 12,
+        "reason": "project_signals"
+      }
+    },
+    {
+      "name": "expanded-cap",
+      "kind": "resolve",
+      "input": {
+        "promptLength": 201,
+        "hasProjectSignals": false,
+        "maxPromptMemories": 12,
+        "tokenBudgetPct": 0.31
+      },
+      "result": {
+        "budget": 18,
+        "reason": "complex_prompt"
+      }
+    },
+    {
+      "name": "boundary-49",
+      "kind": "resolve",
+      "input": {
+        "promptLength": 49,
+        "hasProjectSignals": false,
+        "maxPromptMemories": 12,
+        "tokenBudgetPct": 0.3
+      },
+      "result": {
+        "budget": 6,
+        "reason": "small_prompt"
+      }
+    },
+    {
+      "name": "boundary-200",
+      "kind": "resolve",
+      "input": {
+        "promptLength": 200,
+        "hasProjectSignals": false,
+        "maxPromptMemories": 12,
+        "tokenBudgetPct": 0.3
+      },
+      "result": {
+        "budget": 10,
+        "reason": "normal_prompt"
+      }
+    }
+  ]
+}
