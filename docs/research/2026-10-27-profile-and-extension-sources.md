@@ -50,7 +50,7 @@ The eleven ecosystems divide into two distinct operational groups:
 | **Skills / Tools** | CLI | Custom / Node | Package import (X2) | Bundle import under `~/.claude/plugins/` (unverified) | Extensions spec X2 · **P** |
 | **MCP Servers** | Desktop | JSON (`mcpServers`) | Direct file read | **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`<br>**Linux:** `~/.config/Claude/claude_desktop_config.json`<br>**Windows:** `%APPDATA%\Claude\claude_desktop_config.json` | Claude Desktop documentation · **P** |
 | **MCP Servers** | CLI (`claude`) | JSON (`mcpServers`) | Direct file read | **Linux/macOS:** `~/.claude.json`, `<workspace>/.mcp.json`<br>**Windows:** `%USERPROFILE%\.claude.json`<br>*(Key-allowlisted: only `mcpServers`; auth and account keys strictly dropped)* | Claude Code settings reference · **P** |
-| **Credentials** | CLI / Desktop | JSON | Strictly prohibited | `~/.claude/.credentials.json`, `~/.claude.json` (`oauth_tokens`) — **Never read, copied, or parsed (ADR-011)** | Security policy · **V** |
+| **Credentials** | CLI / Desktop | JSON | Strictly prohibited | `~/.claude/.credentials.json`; `~/.claude.json` (non-allowlisted keys never retained or emitted; ADR-011) | Security policy · **V** |
 | **Plugins** | CLI | Bundle (`.bundle`) | Bundle importer (X2) | Bundled MCP servers and skills (commands/hooks skipped per X2) | Extensions spec §7.3 · **V** |
 | **Commands / Prompts** | CLI | Markdown | Direct file read | `~/.claude/commands/`, `<workspace>/.claude/commands/` | Claude Code slash commands · **P** |
 | **Subagents** | CLI | Node subprocess | Not accessible | Internal `Task` subagent tool execution | Claude Code internal runtime · **P** |
@@ -109,7 +109,7 @@ The eleven ecosystems divide into two distinct operational groups:
 | Category | Variant | Format | Access Method | OS Paths (Linux / macOS / Windows) | Source & Evidence |
 |---|---|---|---|---|---|
 | **Chat History / Transcripts** | Telegram / X Bot | Chat history | Telegram export | Telegram desktop JSON export (contains multi-user chats; sensitive; **dropped from profile import**) | Telegram Desktop Export · **V** |
-| **Instructions / Memories** | Telegram / X Bot | None | Dropped | Not accessible / multi-party content excluded | Architectural review · **V** |
+| **Instructions / Memories** | Telegram / X Bot | None | Dropped | Not accessible / multi-party content excluded | Architectural decision note · **P** |
 
 ---
 
@@ -117,9 +117,9 @@ The eleven ecosystems divide into two distinct operational groups:
 
 | Category | Variant | Format | Access Method | OS Paths (Linux / macOS / Windows) | Source & Evidence |
 |---|---|---|---|---|---|
-| **Global Instructions** | Desktop IDE | JSON | Direct file read | **macOS:** `~/Library/Application Support/Cursor/User/settings.json`<br>**Linux:** `~/.config/Cursor/User/settings.json`<br>**Windows:** `%APPDATA%\Cursor\User\settings.json`<br>*(Key-allowlist: only `cursor.general.rulesForAi`)* | Cursor settings specification · **P** |
+| **Global Instructions** | Desktop IDE | JSON | Direct file read | **macOS:** `~/Library/Application Support/Cursor/User/settings.json`<br>**Linux:** `~/.config/Cursor/User/settings.json`<br>**Windows:** `%APPDATA%\Cursor\User\settings.json`<br>*(Key-allowlist: only `cursor.general.rulesForAi` [**U**])* | Cursor settings specification · **P** |
 | **Project Rules** | Desktop IDE | Markdown / MDC | Direct file read (`O_NOFOLLOW`) | `<workspace>/.cursorrules`<br>`<workspace>/.cursor/rules/*.mdc` (frontmatter: `description`, `globs`, `alwaysApply`) | Cursor Rules documentation · **P** |
-| **Persona / Personalization** | Desktop IDE | JSON / Paste | Direct file read / Paste | `settings.json` (`cursor.chat.customInstructions` [**P**]); user instructions imported via paste | Cursor user configuration · **P** |
+| **Persona / Personalization** | Desktop IDE | JSON / Paste | Direct file read / Paste | `settings.json` (`cursor.chat.customInstructions` [**U**]); user instructions imported via paste | Cursor user configuration · **P** |
 | **Storage / State DB** | Desktop IDE | SQLite | Strictly prohibited | **macOS:** `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb`<br>**Linux:** `~/.config/Cursor/User/globalStorage/state.vscdb`<br>**Windows:** `%APPDATA%\Cursor\User\globalStorage\state.vscdb`<br>*(Contains auth tokens, workspace state, chat history. **Never read, copied, or parsed** per ADR-005 and ADR-011; user rules imported via paste or file drop)* | Security boundary · **V** |
 | **Skills / Tools** | Desktop IDE | VS Code Ext | File / Extensions dir | **Linux/macOS:** `~/.cursor/extensions/`<br>**Windows:** `%USERPROFILE%\.cursor\extensions\` | Cursor extension catalog · **P** |
 | **MCP Servers** | Desktop IDE | JSON (`mcpServers`) | Direct file read | **Global:** `~/.cursor/mcp.json` or `~/Library/Application Support/Cursor/User/globalStorage/mcp.json`<br>**Project:** `<workspace>/.cursor/mcp.json` | Cursor MCP documentation · **P** |
@@ -173,7 +173,7 @@ Reference inventory matching [`docs/import.md`](../import.md) §2.2:
 | Category | Variant | Format | Access Method | OS Paths (Linux / macOS / Windows) | Source & Evidence |
 |---|---|---|---|---|---|
 | **Memory Store** | OpenClaw Plugin | LanceDB directory | Direct file read | `baseDbPath` default `~/.openclaw/memory` | `docs/import.md` §2.3 · **V** |
-| **Configuration** | OpenClaw Plugin | JSON5 | Direct file read | `~/.openclaw/openclaw.json` (`plugins["@cyb3rb1ade/plur1bus-memory"]`) | HM1 specification · **V** |
+| **Configuration** | OpenClaw Plugin | JSON5 | Direct file read | `~/.openclaw/openclaw.json` (`plugins.entries["memory-lancedb-namespaced"]`) | `docs/import.md:515` · **V** |
 | **Curated Files** | OpenClaw Plugin | Markdown | Direct file read | Mirrors OpenClaw agent files (`SOUL.md`, `USER.md`, `KNOWLEDGE.md`) | `docs/import.md` §2.3 · **V** |
 | **Post-Import Action** | Harness CLI | Human recommendation | Operator manual step | Report follow-up recommendation for operator; **strictly zero write to source host** (`docs/import.md:21`) | `docs/import.md:21` · **V** |
 
@@ -214,7 +214,7 @@ flowchart TD
         Rules["AGENTS.md / propose-rule Queue (Zone 2)"]
         Skills["Agent Skills (skills/<id>/SKILL.md)"]
         MCP["mcp-servers (import.mcp-candidate/1, disabled)"]
-        Bridge["Foreign Plugin Bridge (Option B, Tools Only, Post-v0.1.0)"]
+        Bridge["Foreign Plugin Manifest Discovery & Native Ports (D121-J1)"]
     end
 
     CLI --> Readonly --> Normalization
@@ -235,7 +235,7 @@ flowchart TD
   - Enforce a 10 MiB maximum decompressed file size per single entry; 100 MiB total uncompressed bytes per archive.
   - Disallow symlinks, hardlinks, absolute paths, directory traversal (`..`), and nested archives.
   - Selective extraction supporting `.zip` (including ZIP64) and `.tar.gz`.
-  - Implemented in Rust under `plur1bus-tools` / `crates/plur1bus-ext` by a Claude agent per D120 / ADR-019 (1), called over harness RPC.
+  - Implemented in Rust under `plur1bus-tools` by a Claude agent per D120 / ADR-019 (1), called over harness RPC.
 
 ### 3.3 Interactive User Paste Sources (ChatGPT, Grok, Claude Web)
 - **Feasibility**: Fully aligned with Paket O ([#838](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/838)).
@@ -246,10 +246,10 @@ flowchart TD
 
 | Source | Target Category | Exactly What is READ | Exactly What is NEVER READ (Strictly Banned) |
 |---|---|---|---|
-| **Claude Code** | Global/Project rules, MCP config | `~/.claude/CLAUDE.md`, `<workspace>/CLAUDE.md`, `<workspace>/.claude/CLAUDE.md`. Mixed file `~/.claude.json` / `<workspace>/.mcp.json`: streaming key-allowlist extractor extracts `mcpServers` ONLY. | `~/.claude/.credentials.json` (banned), all non-allowlisted keys in `~/.claude.json` (`oauth_tokens`, `account`, `session` dropped immediately), `~/.claude/history/`. |
+| **Claude Code** | Global/Project rules, MCP config | `~/.claude/CLAUDE.md`, `<workspace>/CLAUDE.md`, `<workspace>/.claude/CLAUDE.md`. Mixed file `~/.claude.json` / `<workspace>/.mcp.json`: streaming key-allowlist extractor extracts `mcpServers` ONLY. Non-allowlisted keys are never retained or emitted. | `~/.claude/.credentials.json` (banned), all non-allowlisted keys in `~/.claude.json` (`oauth_tokens`, `account`, `session` dropped immediately), `~/.claude/history/`. |
 | **OpenAI Codex** | Instructions, skills, MCP config | `~/.codex/config.toml` (only `[developer_instructions]` and `[mcp_servers]`), `<workspace>/AGENTS.md`, `~/.codex/skills/`. | `~/.codex/auth.json` (banned), `~/.codex/sessions/*.json` (sensitive transcripts; dropped), shell hooks in `~/.codex/hooks.json` (skipped). |
-| **Cursor** | Project rules, global rules, MCP | `.cursorrules`, `.cursor/rules/*.mdc`, `.cursor/mcp.json`, `settings.json` (`cursor.general.rulesForAi`). User instructions via paste. | `state.vscdb` (SQLite storage with auth tokens/chat history; **NEVER opened, copied, or parsed**), `~/.cursor/extensions/` native binaries. |
+| **Cursor** | Project rules, global rules, MCP | `.cursorrules`, `.cursor/rules/*.mdc`, `.cursor/mcp.json`, `settings.json` (`cursor.general.rulesForAi` [**U**]). User instructions via paste. | `state.vscdb` (SQLite storage with auth tokens/chat history; **NEVER opened, copied, or parsed**), `~/.cursor/extensions/` native binaries. |
 | **Kimi** | Rules, skills, MCP config | `~/.kimi-code/AGENTS.md`, `<workspace>/AGENTS.md`, `~/.kimi-code/skills/`, `~/.kimi-code/mcp.json`. | Shell hooks in `config.toml` `[[hooks]]` (skipped), web session credentials, private API keys. |
 | **Gemini / AGY** | Rules, skills, MCP config | `~/.gemini/antigravity-cli/rules/*.md`, `<workspace>/AGENTS.md`, `~/.gemini/config/skills/`, `mcp/<server>/` schemas. | Cloud account credentials, OAuth tokens, browser session stores. |
 | **Grok** | Instructions, memories | User paste or prompt export (`PLUR1BUS-MEMORY-EXPORT v1`). | No filesystem access (cloud-only). Zero scraping. |
-| **Grokbot** | Transcripts, chats | **None (Dropped entirely)**. | Telegram export JSON / desktop database (contains multi-party chats; sensitive). |
+| **Grokbot** | Transcripts, chats | **None (Dropped entirely)**. Architectural decision note: multi-party chats excluded. | Telegram export JSON / desktop database (contains multi-party chats; sensitive). |
