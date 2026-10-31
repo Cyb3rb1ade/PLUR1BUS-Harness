@@ -93,6 +93,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Freigaben und Berechtigungen"
   },
   {
+    "slug": "gedaechtnis-portabilitaet",
+    "title": "Gedächtnis-Portabilität: Prompt-Import und Export"
+  },
+  {
     "slug": "hilfe",
     "title": "Hilfe und Benutzerhandbuch"
   },
@@ -207,6 +211,7 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "erinnerungen": return import("./de/erinnerungen.ts").then(m => m.doc);
     case "extensions": return import("./de/extensions.ts").then(m => m.doc);
     case "freigaben": return import("./de/freigaben.ts").then(m => m.doc);
+    case "gedaechtnis-portabilitaet": return import("./de/gedaechtnis-portabilitaet.ts").then(m => m.doc);
     case "hilfe": return import("./de/hilfe.ts").then(m => m.doc);
     case "host-tools": return import("./de/host-tools.ts").then(m => m.doc);
     case "import-rollback": return import("./de/import-rollback.ts").then(m => m.doc);

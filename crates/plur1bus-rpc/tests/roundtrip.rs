@@ -1312,6 +1312,22 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::MemoryProposalsRejectParams,
                 types::MemoryProposalsRejectResult,
             >(name, fixture, &root_schema),
+            "memory.importText.preview" => check_pair::<
+                types::MemoryImportTextPreviewParams,
+                types::MemoryImportTextPreviewResult,
+            >(name, fixture, &root_schema),
+            "memory.importText.apply" => check_pair::<
+                types::MemoryImportTextApplyParams,
+                types::MemoryImportTextApplyResult,
+            >(name, fixture, &root_schema),
+            "memory.importText.rollback" => check_pair::<
+                types::MemoryImportTextRollbackParams,
+                types::MemoryImportTextRollbackResult,
+            >(name, fixture, &root_schema),
+            "memory.exportText" => check_pair::<
+                types::MemoryExportTextParams,
+                types::MemoryExportTextResult,
+            >(name, fixture, &root_schema),
             "external.turn.cancel" => check_pair::<
                 types::ExternalTurnCancelParams,
                 types::ExternalTurnCancelResult,

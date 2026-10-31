@@ -117,6 +117,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Memories"
   },
   {
+    "slug": "memory-portability",
+    "title": "Memory portability: prompt import and export"
+  },
+  {
     "slug": "network-settings",
     "title": "Network settings"
   },
@@ -213,6 +217,7 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "media-search": return import("./en/media-search.ts").then(m => m.doc);
     case "media": return import("./en/media.ts").then(m => m.doc);
     case "memories": return import("./en/memories.ts").then(m => m.doc);
+    case "memory-portability": return import("./en/memory-portability.ts").then(m => m.doc);
     case "network-settings": return import("./en/network-settings.ts").then(m => m.doc);
     case "operations": return import("./en/operations.ts").then(m => m.doc);
     case "os-confirmation": return import("./en/os-confirmation.ts").then(m => m.doc);

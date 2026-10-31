@@ -1,0 +1,10 @@
+{
+  "params": {
+    "runId": "prompt-1790000000000-abcd1234"
+  },
+  "result": {
+    "rolledBack": 1,
+    "discardedProposals": 1,
+    "unhandledProposals": 0
+  }
+}

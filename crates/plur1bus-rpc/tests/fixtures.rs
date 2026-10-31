@@ -551,6 +551,16 @@ fn method_fixture(name: &str, f: &Value) {
         "memory.proposals.reject" => {
             pair::<MemoryProposalsRejectParams, MemoryProposalsRejectResult>(name, f)
         }
+        "memory.importText.preview" => {
+            pair::<MemoryImportTextPreviewParams, MemoryImportTextPreviewResult>(name, f)
+        }
+        "memory.importText.apply" => {
+            pair::<MemoryImportTextApplyParams, MemoryImportTextApplyResult>(name, f)
+        }
+        "memory.importText.rollback" => {
+            pair::<MemoryImportTextRollbackParams, MemoryImportTextRollbackResult>(name, f)
+        }
+        "memory.exportText" => pair::<MemoryExportTextParams, MemoryExportTextResult>(name, f),
         "external.turn.cancel" => {
             pair::<ExternalTurnCancelParams, ExternalTurnCancelResult>(name, f)
         }
@@ -1006,7 +1016,7 @@ fn rpc_version_const_matches_the_schema() {
         plur1bus_rpc::RPC_VERSION,
         schema["x-rpc-version"].as_str().unwrap()
     );
-    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.9.0");
+    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.11.0");
     assert!(schema["$id"]
         .as_str()
         .unwrap()

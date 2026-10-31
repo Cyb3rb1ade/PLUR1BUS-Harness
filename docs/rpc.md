@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.9.0)
+# RPC reference (rpc 1.11.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -375,6 +375,10 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `approval.cancel`: experimental, since 1.5.0
 - `approval.verify`: experimental, since 1.5.0
 - `approval.audit`: experimental, since 1.5.0
+- `memory.importText.preview`: experimental, since 1.11.0
+- `memory.importText.apply`: experimental, since 1.11.0
+- `memory.importText.rollback`: experimental, since 1.11.0
+- `memory.exportText`: experimental, since 1.11.0
 
 ### supervisor server
 
@@ -24276,6 +24280,246 @@ D109 §9.10: approval-related HMAC-chain entries of the calling person, newest f
 }
 ```
 
+### `memory.importText.preview`
+
+**Stability:** experimental · since 1.11.0
+
+**Served by:** core
+
+Parse and preview a memory export text from another AI assistant.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "text"
+  ],
+  "properties": {
+    "text": {
+      "type": "string"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "entries",
+    "status",
+    "warnings"
+  ],
+  "properties": {
+    "prompt": {
+      "type": "string"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ParsedMemoryEntry"
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "more",
+        "unrecognized"
+      ]
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+```
+
+### `memory.importText.apply`
+
+**Stability:** experimental · since 1.11.0
+
+**Served by:** core
+
+Apply a parsed memory export with target assignments.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "entries",
+    "targets"
+  ],
+  "properties": {
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ParsedMemoryEntry"
+      }
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MemoryEntryTarget"
+      }
+    },
+    "dryRun": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "imported",
+    "linked",
+    "proposedRules",
+    "skipped",
+    "reportPath"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string"
+    },
+    "imported": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "linked": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "proposedRules": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "skipped": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reportPath": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `memory.importText.rollback`
+
+**Stability:** experimental · since 1.11.0
+
+**Served by:** core
+
+Roll back a prompt memory import run.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rolledBack",
+    "discardedProposals",
+    "unhandledProposals"
+  ],
+  "properties": {
+    "rolledBack": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "discardedProposals": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unhandledProposals": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `memory.exportText`
+
+**Stability:** experimental · since 1.11.0
+
+**Served by:** core
+
+Export stored memories formatted for portable text import.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "text",
+    "entryCount"
+  ],
+  "properties": {
+    "text": {
+      "type": "string"
+    },
+    "entryCount": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
 ## Notifications
 
 Core notifications are delivered on the same connection to clients that called `events.subscribe`. Engine transport notifications are delivered on authenticated engine connections.
@@ -38440,6 +38684,98 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "null"
       ],
       "minimum": 0
+    }
+  }
+}
+```
+
+### `ParsedMemoryEntry`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "category",
+    "sourceType",
+    "text",
+    "raw",
+    "warnings",
+    "idempotencyKey"
+  ],
+  "properties": {
+    "category": {
+      "type": "string",
+      "enum": [
+        "Instructions",
+        "Identity",
+        "Career",
+        "Projects",
+        "Preferences",
+        "Other"
+      ]
+    },
+    "sourceType": {
+      "type": "string",
+      "enum": [
+        "memory",
+        "chat",
+        "unknown"
+      ]
+    },
+    "recordedAt": {
+      "type": "string"
+    },
+    "text": {
+      "type": "string"
+    },
+    "raw": {
+      "type": "string"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "idempotencyKey": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `MemoryEntryTarget`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "target"
+  ],
+  "properties": {
+    "target": {
+      "type": "string",
+      "enum": [
+        "skip",
+        "user",
+        "agent",
+        "workspace",
+        "propose-rule"
+      ]
+    },
+    "agentIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "workspaceId": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
     }
   }
 }

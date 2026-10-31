@@ -67,6 +67,8 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus memory curation drop`↴](#plur1bus-memory-curation-drop)
 * [`plur1bus memory mark`↴](#plur1bus-memory-mark)
 * [`plur1bus memory unmark`↴](#plur1bus-memory-unmark)
+* [`plur1bus memory import-text`↴](#plur1bus-memory-import-text)
+* [`plur1bus memory export-text`↴](#plur1bus-memory-export-text)
 * [`plur1bus memory reembed`↴](#plur1bus-memory-reembed)
 * [`plur1bus session`↴](#plur1bus-session)
 * [`plur1bus session list`↴](#plur1bus-session-list)
@@ -893,6 +895,8 @@ Memory: add and recall through the core
 * `curation` — [experimental] Human curation of memory candidates (separate from correction proposals)
 * `mark` — [experimental] Mark sensitivity categories on a memory entry
 * `unmark` — [experimental] Clear sensitivity categories from a memory entry
+* `import-text` — [experimental] Import memories from any chat assistant export by prompt
+* `export-text` — [experimental] Export memories formatted for portable text import
 * `reembed` — [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
 
 
@@ -1203,6 +1207,42 @@ Recall relevant memory blocks through the core (stable, ADR-016 §4)
 
 * `--category <CATEGORY>` — specific sensitivity category to clear; clears all manual markings if omitted
 * `--agent <AGENT>`
+
+
+
+## `plur1bus memory import-text`
+
+[experimental] Import memories from any chat assistant export by prompt
+
+**Usage:** `plur1bus memory import-text [OPTIONS]`
+
+###### **Options:**
+
+* `--file <FILE>` — path to text file or '-' for stdin
+
+  Default value: `-`
+* `--agent <AGENT>` — target agent for projects and rule proposals (default: default agent)
+* `--workspace <WORKSPACE>` — target workspace for projects
+* `--all-preferences-to-user` — set recommendation for preferences to user scope
+* `--dry-run` — preview only without applying changes
+* `--yes` — apply directly without interactive confirmation
+* `--show-prompt` — show the export prompt text
+* `--rollback <ROLLBACK>` — roll back a previous prompt import run
+
+
+
+## `plur1bus memory export-text`
+
+[experimental] Export memories formatted for portable text import
+
+**Usage:** `plur1bus memory export-text [OPTIONS]`
+
+###### **Options:**
+
+* `--agent <AGENT>` — include agent-private memories of this agent
+* `--output <OUTPUT>` — output path or '-' for stdout (default: '-')
+
+  Default value: `-`
 
 
 

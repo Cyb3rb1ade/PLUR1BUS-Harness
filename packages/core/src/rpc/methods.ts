@@ -21,6 +21,9 @@ import type { HarnessLogger } from "../logger.ts";
 import { apiPrincipal, isClientContext } from "@plur1bus/module-api";
 import { buildMemoryCurationMethods } from "../memory-curation.ts";
 import { buildMemoryOpMethods, requireAgent } from "../memory-ops.ts";
+import { parseMemoryExport } from "../import/prompt/parse.ts";
+import { executePromptImport, rollbackPromptImport } from "../import/prompt/execute.ts";
+import { exportMemoriesAsText, EXPORT_PROMPT_TEXT } from "../import/prompt/export.ts";
 import { AGENT_CONTEXT_CLI, callerToPrincipal, validIdentity } from "../principal.ts";
 import { deriveUserPrincipal } from "../identity/principals.ts";
 import { resolveExposure } from "../memory-exposure/resolve.ts";
@@ -296,6 +299,85 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
 
     ...buildMemoryCurationMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping }),
     ...buildMemoryOpMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping }),
+
+    "memory.importText.preview": async (p: { text: string }) => {
+      if (d.isStopping()) throw coreStopping();
+      const parsed = parseMemoryExport(p.text);
+      return {
+        prompt: EXPORT_PROMPT_TEXT,
+        ...parsed,
+      };
+    },
+
+    "memory.importText.apply": async (p: { entries: any[]; targets: any[]; dryRun?: boolean }, ctx?: CallContext) => {
+      if (d.isStopping()) throw coreStopping();
+      const guarded = ctx ? guardedPrincipal(ctx) : undefined;
+      const defaultAgentId = d.agents.list()[0] ?? "default";
+      const workspaceDir = d.agents.workspaceOf(defaultAgentId) ?? (d.hostEvalHome ?? process.cwd());
+      const accountId = guarded?.binding?.audience ?? "api";
+      const userId = guarded?.userId ?? "local";
+      const { principal } = callerToPrincipal({ channel: "cli", accountId, userId }, defaultAgentId, workspaceDir);
+      if (guarded?.kind === "person" || !guarded) {
+        principal.user = deriveUserPrincipal(userId);
+        principal.trust = "proved";
+      }
+      const home = d.hostEvalHome ?? process.cwd();
+      return executePromptImport({
+        entries: p.entries,
+        targets: p.targets,
+        dryRun: p.dryRun,
+        principal,
+        home,
+        engine: d.engine,
+        agents: d.agents,
+        defaultAgentId,
+      });
+    },
+
+    "memory.importText.rollback": async (p: { runId: string }, ctx?: CallContext) => {
+      if (d.isStopping()) throw coreStopping();
+      const guarded = ctx ? guardedPrincipal(ctx) : undefined;
+      const defaultAgentId = d.agents.list()[0] ?? "default";
+      const workspaceDir = d.agents.workspaceOf(defaultAgentId) ?? (d.hostEvalHome ?? process.cwd());
+      const accountId = guarded?.binding?.audience ?? "api";
+      const userId = guarded?.userId ?? "local";
+      const { principal } = callerToPrincipal({ channel: "cli", accountId, userId }, defaultAgentId, workspaceDir);
+      if (guarded?.kind === "person" || !guarded) {
+        principal.user = deriveUserPrincipal(userId);
+        principal.trust = "proved";
+      }
+      const home = d.hostEvalHome ?? process.cwd();
+      return rollbackPromptImport({
+        runId: p.runId,
+        home,
+        engine: d.engine,
+        principal,
+      });
+    },
+
+    "memory.exportText": async (p: { agentId?: string }, ctx?: CallContext) => {
+      if (d.isStopping()) throw coreStopping();
+      if (p.agentId) {
+        requireAgent(d.agents, p.agentId);
+      }
+      const guarded = ctx ? guardedPrincipal(ctx) : undefined;
+      const targetAgentId = p.agentId ?? (d.agents.list()[0] ?? "default");
+      const workspaceDir = d.agents.workspaceOf(targetAgentId) ?? (d.hostEvalHome ?? process.cwd());
+      const accountId = guarded?.binding?.audience ?? "api";
+      const userId = guarded?.userId ?? "local";
+      const { principal } = callerToPrincipal({ channel: "cli", accountId, userId }, targetAgentId, workspaceDir);
+      if (guarded?.kind === "person" || !guarded) {
+        principal.user = deriveUserPrincipal(userId);
+        principal.trust = "proved";
+      }
+      const text = await exportMemoriesAsText({
+        principal,
+        engine: d.engine,
+        agentId: p.agentId,
+      });
+      const count = (text.match(/^\[/gm) ?? []).length;
+      return { text, entryCount: count };
+    },
     ...buildDreamsMethods({ dreams: () => d.dreams?.() ?? null, agents: d.agents, ...(d.dreamsError ? { unavailableBecause: d.dreamsError } : {}) }),
     ...(d.secrets ? buildSecretMethods(d.secrets) : {}),
     ...(d.permissions ? buildApprovalMethods(d.permissions) : {}),
