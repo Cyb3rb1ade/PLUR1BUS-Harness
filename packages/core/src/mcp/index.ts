@@ -20,13 +20,13 @@ export function createMcpRegistry(options: RegistryOptions): Registry { return n
 /** Identity adapter: approval's person is separate from MCP's canonical visibility principal. */
 export function scopedMcpPort(port: import("../tools/mcp-bridge.ts").McpToolPort, principal: string,
   mayExecute?: (server: string, caller: McpCaller) => boolean): import("../tools/mcp-bridge.ts").McpToolPort {
-  const invoke = port.callTool.bind(port);
   return {
     listTools: (server, caller, options) => port.listTools(server, { ...caller, principal }, options),
     callTool: async (server, tool, args, caller, signal) => {
       if (mayExecute && !mayExecute(server, caller)) {
         throw new ClientError('not-allowed', 'MCP server is no longer enabled for this agent', { server });
       }
+      const invoke = port.callTool.bind(port);
       return invoke(server, tool, args, { ...caller, principal }, signal);
     },
   };

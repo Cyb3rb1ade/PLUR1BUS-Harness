@@ -100,14 +100,13 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
   const deny = [...denyEntriesFor(homedir(), process.env, platform), { path: join(o.home, 'run') }, { path: join(o.home, 'state') }, { path: join(o.home, 'config.json') }, { path: join(o.home, 'bin') }, { path: join(o.home, 'runtime') }, { path: join(o.home, 'secrets') }, ...(o.deny ?? [])];
   const fs = o.roots.length ? createFsTools({ roots: o.roots, deny }) : { tools: [] };
   for (const tool of fs.tools) {
-    const run = tool.execute;
     register({ ...tool, capability: tool.effect === 'read' ? 'fs.read' : 'fs.write', risk: 'low', trust: 'first-party', limits: { maxResultBytes: 1024 * 1024 }, classify: async args => {
     const raw = (args as { path: string }).path;
     const access = tool.effect === 'read' ? 'read' : 'write';
     const resolved = await canonicalisePath(raw, { roots: o.roots, deny, access, requireRoot: false, ...(o.roots[0] ? { cwd: o.roots[0].path } : {}) });
     if (!resolved.ok) return { flags: { outsideRoots: true, denyListHit: true }, targets: [raw], access };
     return { flags: { outsideRoots: resolved.rootId === null, denyListHit: false, ...(resolved.systemTree ? { systemTree: true } : {}) }, targets: [resolved.canonical], access };
-  }, execute: async (args, ctx) => unwrap(await run(args, ctx)) });
+  }, execute: async (args, ctx) => { const run = tool.execute; return unwrap(await run(args, ctx)); } });
   }
   const sandboxOptions = { home: o.home, roots: o.roots, deny, audit: o.audit, principal: req.principal!, ...(o.sandbox ? { sandbox: o.sandbox } : {}) };
   const host = { ...(o.host ?? createNodeHostContext()), exec: createSandboxHostExec(sandboxOptions) };
