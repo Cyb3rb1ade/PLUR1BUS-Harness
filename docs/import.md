@@ -1016,7 +1016,7 @@ STATUS: COMPLETE
 ### 14.3 Target scopes and recommendations
 
 * **Instructions are skipped**: Untrusted imported text can contain prompt injection attacks styled as instructions or behavioural rules. Entries categorized as Instructions or containing directive instruction patterns are never imported and are safely skipped.
-* **User scope (`scope: user`)**: Requires an authenticated person with `trust: "proved"`. The CLI does not have human session binding and cannot select this scope directly.
+* **User scope (`scope: user`)**: Requires an authenticated person with `trust: "proved"`. The CLI is opt-in: only `Preferences`, only with `--all-preferences-to-user` (§14.6).
 * **Agent-private scope (`scope: agent-private`)**: Stores cards for specific chosen agents. A warning is surfaced for Identity and Career entries because an agent uses agent-private memories across all its conversations.
 * **Workspace scope (`scope: workspace`)**: Available exclusively for `Projects` entries, with a notice that the project details are visible to all workspace members.
 
@@ -1036,6 +1036,13 @@ STATUS: COMPLETE
 * Redacts secrets prior to emitting text.
 * Output is idempotent: importing a PLUR1BUS export back into PLUR1BUS produces zero new cards (all match as duplicates).
 
+### 14.6 CLI: `memory import-text` and `memory export-text`
+
+* `plur1bus memory import-text --show-prompt` prints the export prompt (with `--json`: one `memory.importText.prompt/1` document). It combines with no other flag.
+* `plur1bus memory import-text [--file <path>|-] [--agent <id>] [--workspace <id>] [--all-preferences-to-user] [--dry-run|--yes]` calls `memory.importText.preview`, takes the core's `recommendations` as the targets and applies them with `memory.importText.apply`. `--agent` and `--workspace` only steer where `Projects` memories go. User scope is opt-in: `Preferences` with `--all-preferences-to-user`, never `Identity` or `Career`. Instructions are skipped by the core.
+* Applying asks on a terminal (without `--json`); otherwise it fails with `E_INVALID_PARAMS` "re-run with --yes". A declined question is `E_CANCELLED` (exit 2). Input from stdin (`--file -`) is consumed, so it needs `--yes` or `--dry-run`. Input is capped at 512 KiB; the error does not echo it. `--dry-run` excerpts are cut by character and stripped of control characters.
+* `--rollback <runId>` calls `memory.importText.rollback` and is confirmed the same way. `--dry-run` conflicts with `--yes`, and `--show-prompt`/`--rollback` conflict with the import flags (clap usage error, exit 2).
+* `plur1bus memory export-text [--agent <id>] [--output <path>|-] [--yes]` writes to stdout or, for a file, atomically (temporary file in the same directory, mode 0600, then rename). It refuses a symbolic link or a directory as destination and overwrites an existing file only after a terminal confirmation or with `--yes`; this is decided before any memory is exported.
 
 ## SSH setup source references
 

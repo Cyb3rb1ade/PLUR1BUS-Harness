@@ -1,11 +1,13 @@
 //! `plur1bus memory list|show|forget|correct|share|state|propose|proposals …`: the CLI's path to
 //! the core's experimental MemoryOps RPC surface (`memory.list`, `memory.show`, `memory.forget`,
 //! `memory.correct`, `memory.share`, `memory.state`, `memory.propose`,
-//! `memory.proposals.list|accept|reject`). Unlike `memory add`/`memory recall` (`memory.rs`),
-//! these never journal: a core that cannot be reached fails fast with `E_CORE_UNAVAILABLE`.
+//! `memory.proposals.list|accept|reject`). `memory import-text|export-text` (prompt memory
+//! import/export, RPC 1.13.0) are dispatched from here to `memory_text.rs`. Unlike
+//! `memory add`/`memory recall` (`memory.rs`), these never journal: a core that cannot be reached fails fast with `E_CORE_UNAVAILABLE`.
 use crate::cli::{CurationCmd, MemoryCmd, ProposalStatus, ProposalsCmd, ShareTarget};
 use crate::commands::daemon::supervisor_detail;
 use crate::commands::memory::{connect, degraded_line, require_agent};
+use crate::commands::memory_text;
 use crate::identity;
 use crate::output::Out;
 use crate::paths::Layout;
@@ -55,7 +57,7 @@ fn parse_time_or_fail(out: &Out, flag: &str, s: &str) -> u64 {
 /// Connects with the 30 s call timeout the memory-ops surface uses; a core that cannot be
 /// reached fails fast here (never journaled — that fallback is `memory add`/`memory recall`
 /// only).
-fn connect_or_unavailable(out: &Out, layout: &Layout) -> Client {
+pub(crate) fn connect_or_unavailable(out: &Out, layout: &Layout) -> Client {
     connect_core(out, layout, "memory-ops", Duration::from_secs(30))
 }
 
@@ -104,7 +106,7 @@ pub(crate) fn require_supports(out: &Out, c: &Client, method: &str) {
 /// shared memory — a platform without a shared-memory mode, or, since engine E4.2, a verified-path check that failed
 /// on macOS/Windows; `ids.reason` says which) gets a human-only hint before `from_rpc_error` exits, so a person
 /// hitting it at the terminal (not a script parsing `--json`) sees why, not just the bare error code.
-fn print_unsupported_hint(out: &Out, e: &RpcError) {
+pub(crate) fn print_unsupported_hint(out: &Out, e: &RpcError) {
     if out.json {
         return;
     }
@@ -608,6 +610,33 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                 },
             );
         }
+        MemoryCmd::ExportText { agent, output, yes } => {
+            memory_text::export_text(out, layout, &config, agent.as_deref(), &output, yes);
+        }
+        MemoryCmd::ImportText {
+            file,
+            agent,
+            workspace,
+            all_preferences_to_user,
+            dry_run,
+            yes,
+            show_prompt,
+            rollback,
+        } => memory_text::import_text(
+            out,
+            layout,
+            &config,
+            memory_text::ImportTextArgs {
+                file,
+                agent,
+                workspace,
+                all_preferences_to_user,
+                dry_run,
+                yes,
+                show_prompt,
+                rollback,
+            },
+        ),
     }
 }
 

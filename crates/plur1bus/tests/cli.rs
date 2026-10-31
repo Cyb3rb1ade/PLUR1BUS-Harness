@@ -1007,12 +1007,22 @@ mod fake_core {
     use std::path::Path;
 
     pub fn spawn(home: &Path, hello: Value, scripted: Option<(&str, Value)>) {
+        spawn_many(home, hello, scripted.into_iter().collect());
+    }
+
+    /// Like [`spawn`] with several scripted methods; every method the core receives is appended to `calls.log` in
+    /// `home` (one name per line), so a test can prove a call was never made.
+    pub fn spawn_many(home: &Path, hello: Value, scripted: Vec<(&str, Value)>) {
         let run = home.join("run");
         std::fs::create_dir_all(&run).unwrap();
         let token = "d".repeat(64);
         std::fs::write(run.join("core.token"), &token).unwrap();
         let listener = UnixListener::bind(run.join("core.sock")).unwrap();
-        let scripted = scripted.map(|(m, a)| (m.to_string(), a));
+        let scripted: Vec<(String, Value)> = scripted
+            .into_iter()
+            .map(|(m, a)| (m.to_string(), a))
+            .collect();
+        let calls = home.join("calls.log");
         std::thread::spawn(move || {
             for stream in listener.incoming() {
                 let Ok(stream) = stream else { return };
@@ -1021,6 +1031,7 @@ mod fake_core {
                 let hello = hello.clone();
                 let scripted = scripted.clone();
                 let token = token.clone();
+                let calls = calls.clone();
                 std::thread::spawn(move || {
                     let mut authed = false;
                     for line in r.lines() {
@@ -1028,6 +1039,14 @@ mod fake_core {
                         let msg: Value = serde_json::from_str(&line).unwrap();
                         let id = msg["id"].clone();
                         let method = msg["method"].as_str().unwrap_or("").to_string();
+                        if let Ok(mut f) = std::fs::OpenOptions::new()
+                            .create(true)
+                            .append(true)
+                            .open(&calls)
+                        {
+                            let _ = writeln!(f, "{method}");
+                        }
+                        let found = scripted.iter().find(|(m, _)| *m == method);
                         let reply = if method == "core.auth" {
                             authed = msg["params"]["token"] == token;
                             if authed {
@@ -1037,9 +1056,8 @@ mod fake_core {
                             }
                         } else if !authed {
                             json!({"jsonrpc":"2.0","id":id,"error":{"code":-32000,"message":"auth","data":{"error":"E_UNAUTHORIZED","reason":"auth-required"}}})
-                        } else if scripted.as_ref().is_some_and(|(m, _)| *m == method) {
+                        } else if let Some((_, body)) = found {
                             let mut r = json!({"jsonrpc":"2.0","id":id});
-                            let (_, body) = scripted.as_ref().unwrap();
                             if let (Some(t), Some(b)) = (r.as_object_mut(), body.as_object()) {
                                 for (k, v) in b {
                                     t.insert(k.clone(), v.clone());
@@ -1075,6 +1093,10 @@ mod fake_core {
             "memory.sensitivity.get",
             "memory.sensitivity.set",
             "memory.sensitivity.clear",
+            "memory.importText.preview",
+            "memory.importText.apply",
+            "memory.importText.rollback",
+            "memory.exportText",
         ] {
             if !missing_methods.contains(&m) {
                 methods.insert(
@@ -2327,4 +2349,699 @@ fn mcp_serve_requires_token_and_valid_config() {
         .assert()
         .code(1)
         .stderr(predicate::str::contains("mcpServer.enabled"));
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// memory import-text / export-text (prompt memory import, RPC 1.13.0)
+// ---------------------------------------------------------------------------------------------------------------
+
+#[cfg(unix)]
+mod import_text {
+    use super::*;
+    use serde_json::{json, Value};
+    use std::io::{Read, Write};
+    use std::path::Path;
+
+    const RUN_ID: &str = "prompt-1761900000000-0a1b2c3d";
+
+    fn home_with_agent() -> (tempfile::TempDir, String) {
+        let dir = tempfile::tempdir().unwrap();
+        let h = dir.path().to_str().unwrap().to_string();
+        bin()
+            .args(["--home", &h, "agent", "create", "bernd"])
+            .assert()
+            .success();
+        (dir, h)
+    }
+
+    fn entry(cat: &str, text: &str) -> Value {
+        json!({ "category": cat, "sourceType": "memory", "text": text, "warnings": [], "idempotencyKey": "k" })
+    }
+
+    fn preview(entries: Vec<Value>, recs: Vec<Value>) -> Value {
+        json!({ "result": { "entries": entries, "recommendations": recs, "status": "complete", "warnings": [] } })
+    }
+
+    fn apply_result() -> Value {
+        json!({ "result": { "runId": RUN_ID, "imported": 1, "linked": 0, "proposedRules": 0, "skipped": 0, "reportPath": "/x" } })
+    }
+
+    fn spawn_core(dir: &Path, scripted: Vec<(&str, Value)>) {
+        fake_core::spawn_many(dir, fake_core::hello_with_capabilities(&[]), scripted);
+    }
+
+    fn calls(dir: &Path) -> Vec<String> {
+        std::fs::read_to_string(dir.join("calls.log"))
+            .unwrap_or_default()
+            .lines()
+            .map(str::to_string)
+            .collect()
+    }
+
+    fn one_project(text: &str) -> Vec<(&'static str, Value)> {
+        vec![
+            (
+                "memory.importText.preview",
+                preview(
+                    vec![entry("Projects", text)],
+                    vec![json!({ "target": "agent", "agentIds": ["bernd"] })],
+                ),
+            ),
+            ("memory.importText.apply", apply_result()),
+        ]
+    }
+
+    fn write_input(dir: &Path, text: &str) -> String {
+        let p = dir.join("in.txt");
+        std::fs::write(&p, text).unwrap();
+        p.to_str().unwrap().to_string()
+    }
+
+    fn err_doc(args: &[&str], code: i32) -> Value {
+        let out = bin()
+            .args(args)
+            .assert()
+            .code(code)
+            .get_output()
+            .stdout
+            .clone();
+        serde_json::from_slice(&out).unwrap()
+    }
+
+    #[test]
+    fn dry_run_with_umlauts_cuts_by_character_and_never_panics() {
+        let (dir, h) = home_with_agent();
+        let long = "Äpfel über Öl und Maß ".repeat(10);
+        spawn_core(
+            dir.path(),
+            vec![(
+                "memory.importText.preview",
+                preview(
+                    vec![entry("Projects", &long), entry("Projects", "Größe ändern")],
+                    vec![json!({ "target": "agent" }), json!({ "target": "agent" })],
+                ),
+            )],
+        );
+        let f = write_input(dir.path(), "x");
+        let out = bin()
+            .args([
+                "--home",
+                &h,
+                "memory",
+                "import-text",
+                "--file",
+                &f,
+                "--dry-run",
+            ])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        let s = String::from_utf8(out).unwrap();
+        let cut: String = long.chars().take(60).collect();
+        assert!(s.contains(&format!("{cut}…")), "{s}");
+        assert!(
+            s.contains("Größe ändern\n"),
+            "short text must not get an ellipsis: {s}"
+        );
+        assert!(!s.contains("Größe ändern…"), "{s}");
+        assert_eq!(
+            calls(dir.path()),
+            ["core.auth", "memory.importText.preview"]
+        );
+    }
+
+    #[test]
+    fn dry_run_json_is_one_document_with_the_final_targets() {
+        let (dir, h) = home_with_agent();
+        spawn_core(dir.path(), one_project("Projekt Ä"));
+        let f = write_input(dir.path(), "x");
+        let v = err_doc(
+            &[
+                "--json",
+                "--home",
+                &h,
+                "memory",
+                "import-text",
+                "--file",
+                &f,
+                "--dry-run",
+                "--agent",
+                "bernd",
+            ],
+            0,
+        );
+        assert_eq!(v["schema"], "memory.importText.preview/1");
+        assert_eq!(v["targets"][0]["agentIds"], json!(["bernd"]));
+    }
+
+    #[test]
+    fn yes_applies_the_core_recommendations() {
+        let (dir, h) = home_with_agent();
+        spawn_core(dir.path(), one_project("Projekt"));
+        let f = write_input(dir.path(), "x");
+        let out = bin()
+            .args(["--home", &h, "memory", "import-text", "--file", &f, "--yes"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        let s = String::from_utf8(out).unwrap();
+        assert!(s.contains("imported: 1 cards") && s.contains(RUN_ID), "{s}");
+        assert_eq!(calls(dir.path()).last().unwrap(), "memory.importText.apply");
+    }
+
+    #[test]
+    fn without_yes_in_a_pipe_nothing_is_applied_and_no_text_is_echoed() {
+        let (dir, h) = home_with_agent();
+        spawn_core(dir.path(), one_project("GEHEIMER-PROJEKTTEXT"));
+        let f = write_input(dir.path(), "x");
+        for json_flag in [false, true] {
+            let mut args = vec!["--home", h.as_str()];
+            if json_flag {
+                args.insert(0, "--json");
+            }
+            args.extend(["memory", "import-text", "--file", f.as_str()]);
+            let o = bin().args(&args).assert().code(2).get_output().clone();
+            let all = format!(
+                "{}{}",
+                String::from_utf8_lossy(&o.stdout),
+                String::from_utf8_lossy(&o.stderr)
+            );
+            assert!(all.contains("--yes"), "{all}");
+            assert!(!json_flag || all.contains("E_INVALID_PARAMS"), "{all}");
+            assert!(!all.contains("GEHEIMER"), "{all}");
+        }
+        assert!(!calls(dir.path())
+            .iter()
+            .any(|c| c == "memory.importText.apply"));
+    }
+
+    #[test]
+    fn stdin_input_needs_yes_unless_it_is_a_dry_run() {
+        let (dir, h) = home_with_agent();
+        spawn_core(dir.path(), one_project("Projekt"));
+        let v = {
+            let out = bin()
+                .args(["--json", "--home", &h, "memory", "import-text"])
+                .write_stdin("input")
+                .assert()
+                .code(2)
+                .get_output()
+                .stdout
+                .clone();
+            serde_json::from_slice::<Value>(&out).unwrap()
+        };
+        assert_eq!(v["error"], "E_INVALID_PARAMS");
+        assert!(v["message"].as_str().unwrap().contains("--yes"));
+        assert!(
+            calls(dir.path()).is_empty(),
+            "stdin without --yes must fail before the core is contacted"
+        );
+        bin()
+            .args(["--home", &h, "memory", "import-text", "--dry-run"])
+            .write_stdin("input")
+            .assert()
+            .success();
+        bin()
+            .args(["--home", &h, "memory", "import-text", "--yes"])
+            .write_stdin("input")
+            .assert()
+            .success();
+    }
+
+    #[test]
+    fn input_over_512_kib_is_refused_without_echoing_it() {
+        let (dir, h) = home_with_agent();
+        spawn_core(dir.path(), one_project("Projekt"));
+        let marker = "LEAKMARKER";
+        let too_big = marker.repeat(52_429 + 1); // > 524288 bytes
+        assert!(too_big.len() > 512 * 1024);
+        let f = write_input(dir.path(), &too_big);
+        let o = bin()
+            .args(["--home", &h, "memory", "import-text", "--file", &f, "--yes"])
+            .assert()
+            .code(2)
+            .get_output()
+            .clone();
+        let all = format!(
+            "{}{}",
+            String::from_utf8_lossy(&o.stdout),
+            String::from_utf8_lossy(&o.stderr)
+        );
+        assert!(all.contains("512 KiB"), "{all}");
+        assert!(!all.contains(marker), "{all}");
+        let o = bin()
+            .args(["--home", &h, "memory", "import-text", "--yes"])
+            .write_stdin(too_big)
+            .assert()
+            .code(2)
+            .get_output()
+            .clone();
+        assert!(!String::from_utf8_lossy(&o.stderr).contains(marker));
+        assert!(
+            calls(dir.path()).is_empty(),
+            "an oversized input must not reach the core"
+        );
+        // exactly 512 KiB is accepted
+        let exact = write_input(dir.path(), &"a".repeat(512 * 1024));
+        bin()
+            .args([
+                "--home",
+                &h,
+                "memory",
+                "import-text",
+                "--file",
+                &exact,
+                "--dry-run",
+            ])
+            .assert()
+            .success();
+    }
+
+    #[test]
+    fn invalid_utf8_input_is_a_clean_error() {
+        let (dir, h) = home_with_agent();
+        spawn_core(dir.path(), one_project("Projekt"));
+        let p = dir.path().join("bin.txt");
+        std::fs::write(&p, [0xff, 0xfe, 0x41]).unwrap();
+        bin()
+            .args([
+                "--home",
+                &h,
+                "memory",
+                "import-text",
+                "--file",
+                p.to_str().unwrap(),
+                "--dry-run",
+            ])
+            .assert()
+            .code(2)
+            .stderr(predicate::str::contains("UTF-8"));
+    }
+
+    /// Runs the binary with a pseudo-terminal as stdin, answers the question with `answer`, returns (exit code,
+    /// stdout, stderr).
+    fn run_on_tty(args: &[&str], answer: &str) -> (i32, String, String) {
+        let (mut master, slave) = unsafe {
+            let (mut m, mut s) = (0, 0);
+            assert_eq!(
+                libc::openpty(
+                    &mut m,
+                    &mut s,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut()
+                ),
+                0
+            );
+            use std::os::fd::FromRawFd;
+            (std::fs::File::from_raw_fd(m), std::fs::File::from_raw_fd(s))
+        };
+        let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_plur1bus"))
+            .args(args)
+            .stdin(std::process::Stdio::from(slave))
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        // the terminal echoes and buffers, so the answer can be queued before the question is asked
+        master.write_all(format!("{answer}\n").as_bytes()).unwrap();
+        let mut so = child.stdout.take().unwrap();
+        let mut se = child.stderr.take().unwrap();
+        let t1 = std::thread::spawn(move || {
+            let mut s = String::new();
+            so.read_to_string(&mut s).ok();
+            s
+        });
+        let t2 = std::thread::spawn(move || {
+            let mut s = String::new();
+            se.read_to_string(&mut s).ok();
+            s
+        });
+        let code = child.wait().unwrap().code().unwrap_or(-1);
+        drop(master);
+        (code, t1.join().unwrap(), t2.join().unwrap())
+    }
+
+    #[test]
+    fn on_a_terminal_y_applies_and_anything_else_is_cancelled() {
+        let (dir, h) = home_with_agent();
+        spawn_core(dir.path(), one_project("Projekt"));
+        let f = write_input(dir.path(), "x");
+        let args = [
+            "--home",
+            h.as_str(),
+            "memory",
+            "import-text",
+            "--file",
+            f.as_str(),
+        ];
+        let (code, so, se) = run_on_tty(&args, "n");
+        assert_eq!(code, 2, "{so}{se}");
+        assert!(se.contains("not applied"), "{se}");
+        assert!(se.contains("[y/N]"), "{se}");
+        assert!(!calls(dir.path())
+            .iter()
+            .any(|c| c == "memory.importText.apply"));
+        let (code, so, se) = run_on_tty(&args, "y");
+        assert_eq!(code, 0, "{so}{se}");
+        assert!(so.contains("imported: 1 cards"), "{so}");
+        assert_eq!(
+            calls(dir.path())
+                .iter()
+                .filter(|c| *c == "memory.importText.apply")
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn json_never_asks_even_on_a_terminal() {
+        let (dir, h) = home_with_agent();
+        spawn_core(dir.path(), one_project("Projekt"));
+        let f = write_input(dir.path(), "x");
+        let (code, so, _se) = run_on_tty(
+            &[
+                "--json",
+                "--home",
+                h.as_str(),
+                "memory",
+                "import-text",
+                "--file",
+                f.as_str(),
+            ],
+            "y",
+        );
+        assert_eq!(code, 2);
+        assert!(so.contains("E_INVALID_PARAMS"), "{so}");
+        assert!(!calls(dir.path())
+            .iter()
+            .any(|c| c == "memory.importText.apply"));
+    }
+
+    #[test]
+    fn rollback_needs_yes_or_a_terminal_confirmation() {
+        let (dir, h) = home_with_agent();
+        spawn_core(
+            dir.path(),
+            vec![(
+                "memory.importText.rollback",
+                json!({ "result": { "rolledBack": 2, "discardedProposals": 0, "unhandledProposals": 0 } }),
+            )],
+        );
+        let v = err_doc(
+            &[
+                "--json",
+                "--home",
+                &h,
+                "memory",
+                "import-text",
+                "--rollback",
+                RUN_ID,
+            ],
+            2,
+        );
+        assert_eq!(v["error"], "E_INVALID_PARAMS");
+        assert!(calls(dir.path()).is_empty());
+        bin()
+            .args([
+                "--home",
+                &h,
+                "memory",
+                "import-text",
+                "--rollback",
+                "../etc",
+                "--yes",
+            ])
+            .assert()
+            .code(2)
+            .stderr(predicate::str::contains("invalid run id"));
+        let (code, _so, se) = run_on_tty(
+            &[
+                "--home",
+                h.as_str(),
+                "memory",
+                "import-text",
+                "--rollback",
+                RUN_ID,
+            ],
+            "no",
+        );
+        assert_eq!(code, 2);
+        assert!(se.contains("not applied"), "{se}");
+        assert!(calls(dir.path()).is_empty());
+        let out = bin()
+            .args([
+                "--home",
+                &h,
+                "memory",
+                "import-text",
+                "--rollback",
+                RUN_ID,
+                "--yes",
+            ])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        assert!(String::from_utf8(out)
+            .unwrap()
+            .contains("2 memories undone"));
+    }
+
+    #[test]
+    fn contradicting_flags_are_usage_errors() {
+        let (_dir, h) = home_with_agent();
+        for extra in [
+            vec!["--show-prompt", "--rollback", RUN_ID],
+            vec!["--show-prompt", "--dry-run"],
+            vec!["--show-prompt", "--yes"],
+            vec!["--show-prompt", "--file", "x.txt"],
+            vec!["--show-prompt", "--agent", "bernd"],
+            vec!["--rollback", RUN_ID, "--dry-run"],
+            vec!["--rollback", RUN_ID, "--file", "x.txt"],
+            vec!["--rollback", RUN_ID, "--workspace", "w"],
+            vec!["--dry-run", "--yes"],
+        ] {
+            let mut args = vec!["--home", h.as_str(), "memory", "import-text"];
+            args.extend(extra.iter().copied());
+            bin()
+                .args(&args)
+                .assert()
+                .code(2)
+                .stderr(predicate::str::contains("cannot be used with"));
+        }
+    }
+
+    #[test]
+    fn show_prompt_json_is_one_document_and_human_is_the_text() {
+        let dir = tempfile::tempdir().unwrap();
+        let h = dir.path().to_str().unwrap();
+        let out = bin()
+            .args([
+                "--json",
+                "--home",
+                h,
+                "memory",
+                "import-text",
+                "--show-prompt",
+            ])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        let v: Value = serde_json::from_slice(&out).expect("exactly one JSON document");
+        assert_eq!(v["schema"], "memory.importText.prompt/1");
+        assert!(v["prompt"].as_str().unwrap().contains("PLUR1BUS"));
+        bin()
+            .args(["--home", h, "memory", "import-text", "--show-prompt"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("Categories"));
+    }
+
+    #[test]
+    fn show_prompt_survives_a_closed_pipe() {
+        let dir = tempfile::tempdir().unwrap();
+        let h = dir.path().to_str().unwrap();
+        for json_flag in [false, true] {
+            let mut cmd = std::process::Command::new(env!("CARGO_BIN_EXE_plur1bus"));
+            cmd.args(["--home", h]);
+            if json_flag {
+                cmd.arg("--json");
+            }
+            cmd.args(["memory", "import-text", "--show-prompt"]);
+            let (code, stderr) = common::run_closed_stdout(&mut cmd);
+            assert_eq!(code, Some(0), "{stderr}");
+            assert!(!stderr.contains("panicked"), "{stderr}");
+        }
+    }
+
+    fn export_core(dir: &Path) {
+        spawn_core(
+            dir,
+            vec![(
+                "memory.exportText",
+                json!({ "result": { "text": "Preferences:\n[2026-01-01] - Größe\n", "entryCount": 1 } }),
+            )],
+        );
+    }
+
+    #[test]
+    fn export_to_a_file_is_atomic_private_and_leaves_no_temp_file() {
+        use std::os::unix::fs::PermissionsExt;
+        let (dir, h) = home_with_agent();
+        export_core(dir.path());
+        let outdir = tempfile::tempdir().unwrap();
+        let dest = outdir.path().join("export.txt");
+        bin()
+            .args([
+                "--home",
+                &h,
+                "memory",
+                "export-text",
+                "--output",
+                dest.to_str().unwrap(),
+            ])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("exported 1 memories"));
+        assert_eq!(
+            std::fs::read_to_string(&dest).unwrap(),
+            "Preferences:\n[2026-01-01] - Größe\n"
+        );
+        assert_eq!(
+            std::fs::metadata(&dest).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        assert_eq!(std::fs::read_dir(outdir.path()).unwrap().count(), 1);
+        // --json reports the file, not the memory text
+        let _ = std::fs::remove_file(&dest);
+        let v = err_doc(
+            &[
+                "--json",
+                "--home",
+                &h,
+                "memory",
+                "export-text",
+                "--output",
+                dest.to_str().unwrap(),
+            ],
+            0,
+        );
+        assert_eq!(v["entryCount"], 1);
+        assert!(v.get("text").is_none());
+    }
+
+    #[test]
+    fn export_never_overwrites_without_consent_and_never_follows_a_symlink() {
+        let (dir, h) = home_with_agent();
+        export_core(dir.path());
+        let outdir = tempfile::tempdir().unwrap();
+        let dest = outdir.path().join("export.txt");
+        std::fs::write(&dest, "keep me").unwrap();
+        let d = dest.to_str().unwrap();
+        bin()
+            .args(["--home", &h, "memory", "export-text", "--output", d])
+            .assert()
+            .code(2)
+            .stderr(predicate::str::contains("--yes"));
+        assert_eq!(std::fs::read_to_string(&dest).unwrap(), "keep me");
+        assert!(
+            !calls(dir.path()).iter().any(|c| c == "memory.exportText"),
+            "decided before exporting"
+        );
+        // declined on a terminal
+        let (code, _so, se) = run_on_tty(
+            &["--home", h.as_str(), "memory", "export-text", "--output", d],
+            "n",
+        );
+        assert_eq!(code, 2);
+        assert!(se.contains("not applied"), "{se}");
+        assert_eq!(std::fs::read_to_string(&dest).unwrap(), "keep me");
+        // confirmed on a terminal and with --yes
+        let (code, so, se) = run_on_tty(
+            &["--home", h.as_str(), "memory", "export-text", "--output", d],
+            "y",
+        );
+        assert_eq!(code, 0, "{so}{se}");
+        assert!(std::fs::read_to_string(&dest).unwrap().contains("Größe"));
+        std::fs::write(&dest, "keep me").unwrap();
+        bin()
+            .args([
+                "--home",
+                &h,
+                "memory",
+                "export-text",
+                "--output",
+                d,
+                "--yes",
+            ])
+            .assert()
+            .success();
+        assert!(std::fs::read_to_string(&dest).unwrap().contains("Größe"));
+        // a symlink is refused even with --yes, and its target stays untouched
+        let target = outdir.path().join("target.txt");
+        std::fs::write(&target, "target").unwrap();
+        let link = outdir.path().join("link.txt");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+        bin()
+            .args([
+                "--home",
+                &h,
+                "memory",
+                "export-text",
+                "--output",
+                link.to_str().unwrap(),
+                "--yes",
+            ])
+            .assert()
+            .code(2)
+            .stderr(predicate::str::contains("symbolic link"));
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), "target");
+        assert!(std::fs::symlink_metadata(&link)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        // a directory is refused
+        bin()
+            .args([
+                "--home",
+                &h,
+                "memory",
+                "export-text",
+                "--output",
+                outdir.path().to_str().unwrap(),
+                "--yes",
+            ])
+            .assert()
+            .code(2);
+    }
+
+    #[test]
+    fn export_to_stdout_prints_the_text_exactly_and_survives_a_closed_pipe() {
+        let (dir, h) = home_with_agent();
+        export_core(dir.path());
+        let out = bin()
+            .args(["--home", &h, "memory", "export-text"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        assert_eq!(
+            String::from_utf8(out).unwrap(),
+            "Preferences:\n[2026-01-01] - Größe\n"
+        );
+        let mut cmd = std::process::Command::new(env!("CARGO_BIN_EXE_plur1bus"));
+        cmd.args(["--home", &h, "memory", "export-text"]);
+        let (code, stderr) = common::run_closed_stdout(&mut cmd);
+        assert_eq!(code, Some(0), "{stderr}");
+        assert!(!stderr.contains("panicked"), "{stderr}");
+    }
 }
