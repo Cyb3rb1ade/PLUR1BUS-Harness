@@ -39095,7 +39095,6 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "skip",
         "user",
         "agent",
-        "workspace",
         "propose-rule"
       ]
     },
@@ -39106,10 +39105,6 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "type": "string",
         "maxLength": 128
       }
-    },
-    "workspaceId": {
-      "type": "string",
-      "maxLength": 128
     },
     "reason": {
       "type": "string",

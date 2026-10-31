@@ -14,7 +14,6 @@ import { guardMethods } from "../../../src/rbac/guard.ts";
 import { RpcError } from "../../../src/rpc/errors.ts";
 import type { CallContext } from "../../../src/rpc/server.ts";
 import type { Principal } from "../../../src/rbac/types.ts";
-import { writeAtomicSync } from "../../../src/import/fs-atomic.ts";
 
 const timeout = 120_000;
 
@@ -222,79 +221,209 @@ describe("Prompt Import & Export against Real Engine (Production Path)", { timeo
     });
   });
 
-  it("refuses export with memory-export-truncated when 101+ cards share identical timestamp (N1 refusal)", async () => {
-    const home = tempDir("p-real-engine-n1-trunc-");
+  it("imports 130 undated cards with distinct timestamps and exports completely without truncation (R1)", async () => {
+    const home = tempDir("p-real-engine-r1-undated-");
     await withEngine(home, async (engine, _l, agents) => {
-      const activePrincipal: Principal = { userId: "user-trunc", role: "owner", kind: "person" };
+      const activePrincipal: Principal = { userId: "user-undated", role: "owner", kind: "person" };
       const methods = setupTestMethods(home, engine, agents, () => activePrincipal);
-      const ctx: CallContext = { requestId: "r-trunc", connectionId: "c-trunc", signal: new AbortController().signal };
+      const ctx: CallContext = { requestId: "r-r1", connectionId: "c-r1", signal: new AbortController().signal };
 
-      // 105 entries with identical timestamp
-      const fixedTime = new Date(1_700_000_000_000).toISOString();
+      // 130 undated entries (e.g. typical ChatGPT memory export)
       const entries: any[] = [];
       const targets: any[] = [];
-      for (let i = 0; i < 105; i++) {
+      for (let i = 0; i < 130; i++) {
         entries.push({
           category: "Preferences",
           sourceType: "memory",
-          text: `Identical timestamp entry ${i}`,
-          recordedAt: fixedTime,
+          text: `Undated memory card number ${i}.`,
           warnings: [],
-          idempotencyKey: `same-time-${i}`,
+          idempotencyKey: `undated-${i}`,
         });
         targets.push({ target: "user" });
       }
 
-      await methods.apply({ entries, targets }, ctx);
+      const applyRes = await methods.apply({ entries, targets }, ctx);
+      assert.equal(applyRes.imported, 130);
 
-      // N1 check: export must refuse honestly with memory-export-truncated
-      await assert.rejects(
-        async () => {
-          await methods.export({}, ctx);
-        },
-        (err: any) => err instanceof RpcError && err.error === "E_NOT_AVAILABLE" && err.reason === "memory-export-truncated",
-        "export must honestly fail with memory-export-truncated rather than emit truncated STATUS: COMPLETE",
-      );
+      // Export must page backwards across the 130 cards and return STATUS: COMPLETE without truncation error
+      const exportRes = await methods.export({}, ctx) as {
+        text: string;
+        entryCount: number;
+      };
+
+      assert.ok(exportRes.text.endsWith("STATUS: COMPLETE\n"), "export must finish with STATUS: COMPLETE");
+      assert.equal(exportRes.entryCount, 130, "all 130 undated cards must be present");
+      assert.ok(exportRes.text.includes("[unknown] [memory] - Undated memory card number 0"));
+      assert.ok(exportRes.text.includes("[unknown] [memory] - Undated memory card number 129"));
     });
   });
 
-  it("handles partial rollback recovery (N3) and permits retry", async () => {
+  it("clamps future-dated cards to now on import and exports without dropping any cards (R2)", async () => {
+    const home = tempDir("p-real-engine-r2-future-");
+    await withEngine(home, async (engine, _l, agents) => {
+      const activePrincipal: Principal = { userId: "user-future", role: "owner", kind: "person" };
+      const methods = setupTestMethods(home, engine, agents, () => activePrincipal);
+      const ctx: CallContext = { requestId: "r-r2", connectionId: "c-r2", signal: new AbortController().signal };
+
+      const entries = [
+        {
+          category: "Preferences",
+          sourceType: "memory",
+          text: "Memory from 2024 past.",
+          recordedAt: "2024-06-01T00:00:00.000Z",
+          warnings: [],
+          idempotencyKey: "date-past",
+        },
+        {
+          category: "Preferences",
+          sourceType: "memory",
+          text: "Memory from 2099 future.",
+          recordedAt: "2099-01-01T00:00:00.000Z",
+          warnings: [],
+          idempotencyKey: "date-future",
+        },
+      ];
+      const targets = [{ target: "user" }, { target: "user" }];
+
+      const applyRes = await methods.apply({ entries, targets }, ctx);
+      assert.equal(applyRes.imported, 2);
+
+      const exportRes = await methods.export({}, ctx) as {
+        text: string;
+        entryCount: number;
+      };
+
+      assert.ok(exportRes.text.endsWith("STATUS: COMPLETE\n"), "export must finish with STATUS: COMPLETE");
+      assert.equal(exportRes.entryCount, 2, "neither card should be dropped");
+      assert.ok(exportRes.text.includes("Memory from 2024 past"));
+      assert.ok(exportRes.text.includes("Memory from 2099 future"));
+    });
+  });
+
+  it("owner rollback override on foreign run unimports agent cards but preserves foreign user cards (R3)", async () => {
+    const home = tempDir("p-real-engine-r3-owner-");
+    await withEngine(home, async (engine, _l, agents) => {
+      let activePrincipal: Principal = { userId: "admin-a", role: "admin", kind: "person" };
+      const methods = setupTestMethods(home, engine, agents, () => activePrincipal);
+      const ctx: CallContext = { requestId: "r-r3", connectionId: "c-r3", signal: new AbortController().signal };
+
+      // Admin A imports 1 user-scope card and 1 agent-private card
+      const applyRes = await methods.apply({
+        entries: [
+          {
+            category: "Preferences",
+            sourceType: "memory",
+            text: "Admin A personal preference to keep.",
+            warnings: [],
+            idempotencyKey: "user-admin-a",
+          },
+          {
+            category: "Projects",
+            sourceType: "memory",
+            text: "Shared project task on default agent.",
+            warnings: [],
+            idempotencyKey: "proj-agent",
+          },
+        ],
+        targets: [
+          { target: "user" },
+          { target: "agent", agentIds: ["default"] },
+        ],
+      }, ctx);
+      assert.equal(applyRes.imported, 2);
+
+      // Owner B rolls back Admin A's foreign run: agent card unimported, Admin A's user card preserved
+      activePrincipal = { userId: "owner-b", role: "owner", kind: "person" };
+      const rbRes = await methods.rollback({ runId: applyRes.runId }, ctx);
+      assert.equal(rbRes.rolledBack, 1, "agent card should be rolled back");
+      assert.equal(rbRes.keptModified, 1, "foreign user-scope card must be preserved");
+      assert.equal(rbRes.failed, 0);
+      assert.equal(rbRes.remaining, 0);
+
+      // Admin A still possesses their user-scope card
+      activePrincipal = { userId: "admin-a", role: "admin", kind: "person" };
+      const exportRes = await methods.export({}, ctx) as { text: string; entryCount: number };
+      assert.ok(exportRes.text.includes("Admin A personal preference to keep"), "Admin A user card must remain");
+    });
+  });
+
+  it("handles real unimport failure to produce partial status and permits retry without editing report.json (N3)", async () => {
     const home = tempDir("p-real-engine-n3-retry-");
     await withEngine(home, async (engine, _l, agents) => {
       const activePrincipal: Principal = { userId: "user-rb", role: "owner", kind: "person" };
-      const methods = setupTestMethods(home, engine, agents, () => activePrincipal);
+      let failOnce = true;
+      const wrappedMemory = new Proxy({} as any, {
+        get(_target, prop) {
+          if (prop === "unimport") {
+            return async (req: any, p: any, a: any) => {
+              if (failOnce && req.agentId === "second") {
+                failOnce = false;
+                throw new Error("simulated unimport lock-busy failure on second agent");
+              }
+              return await engine.memory.unimport(req, p, a);
+            };
+          }
+          const val = (engine.memory as any)[prop];
+          return typeof val === "function" ? val.bind(engine.memory) : val;
+        },
+      });
+      const wrappedEngine = new Proxy({} as any, {
+        get(_target, prop) {
+          if (prop === "memory") return wrappedMemory;
+          const val = (engine as any)[prop];
+          return typeof val === "function" ? val.bind(engine) : val;
+        },
+      });
+
+      const methods = setupTestMethods(home, wrappedEngine, agents, () => activePrincipal);
       const ctx: CallContext = { requestId: "r-rb", connectionId: "c-rb", signal: new AbortController().signal };
 
+      // Apply batch touching both default and second agent
       const applyRes = await methods.apply(
         {
           entries: [
             {
-              category: "Preferences",
+              category: "Projects",
               sourceType: "memory",
-              text: "Retry rollback preference card.",
+              text: "Default agent project task.",
               warnings: [],
-              idempotencyKey: "pref-retry",
+              idempotencyKey: "proj-retry-default",
+            },
+            {
+              category: "Projects",
+              sourceType: "memory",
+              text: "Second agent project task.",
+              warnings: [],
+              idempotencyKey: "proj-retry-second",
             },
           ],
-          targets: [{ target: "user" }],
+          targets: [
+            { target: "agent", agentIds: ["default"] },
+            { target: "agent", agentIds: ["second"] },
+          ],
         },
         ctx,
       );
+      assert.equal(applyRes.imported, 2);
+
+      // First rollback attempt: second agent fails, produces genuine partial status
+      const rb1 = await methods.rollback({ runId: applyRes.runId }, ctx);
+      assert.equal(rb1.rolledBack, 1);
+      assert.equal(rb1.failed, 1);
+      assert.equal(rb1.remaining, 1);
 
       const reportPath = join(home, "imports", applyRes.runId, "report.json");
-      // Simulate that a previous rollback run failed and was marked 'partial'
-      const report = JSON.parse(readFileSync(reportPath, "utf8"));
-      report.status = "partial";
-      writeAtomicSync(reportPath, JSON.stringify(report, null, 2) + "\n", 0o600);
+      const report1 = JSON.parse(readFileSync(reportPath, "utf8"));
+      assert.equal(report1.status, "partial");
 
-      // Retrying rollback when status is 'partial' must NOT throw already-rolled-back
-      const rbRes = await methods.rollback({ runId: applyRes.runId }, ctx);
-      assert.equal(rbRes.rolledBack, 1);
-      assert.equal(rbRes.failed, 0);
-      assert.equal(rbRes.remaining, 0);
+      // Second rollback attempt: retry succeeds completely
+      const rb2 = await methods.rollback({ runId: applyRes.runId }, ctx);
+      assert.equal(rb2.rolledBack, 1);
+      assert.equal(rb2.failed, 0);
+      assert.equal(rb2.remaining, 0);
 
-      const finalReport = JSON.parse(readFileSync(reportPath, "utf8"));
-      assert.equal(finalReport.status, "rolled-back");
+      const report2 = JSON.parse(readFileSync(reportPath, "utf8"));
+      assert.equal(report2.status, "rolled-back");
     });
   });
 });

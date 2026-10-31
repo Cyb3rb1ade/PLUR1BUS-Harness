@@ -26,12 +26,11 @@ export interface ParsedMemoryExport {
   warnings: string[];
 }
 
-export type TargetKind = "skip" | "user" | "agent" | "workspace" | "propose-rule";
+export type TargetKind = "skip" | "user" | "agent" | "propose-rule";
 
 export interface EntryTarget {
   target: TargetKind;
   agentIds?: string[] | undefined;
-  workspaceId?: string | undefined;
   reason?: string | undefined;
 }
 

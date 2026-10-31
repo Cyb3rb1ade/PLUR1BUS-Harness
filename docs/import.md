@@ -1015,17 +1015,17 @@ STATUS: COMPLETE
 
 ### 14.3 Target scopes and recommendations
 
-* **Instructions are skipped**: Untrusted imported text can contain prompt injection attacks styled as instructions or behavioural rules. Entries categorized as Instructions or containing directive instruction patterns are never imported and are safely skipped.
+* **Instructions and directive heuristics**: Untrusted imported text can contain prompt injection attacks styled as instructions or behavioural rules. Entries categorized as Instructions are never imported directly and are safely skipped. Directive patterns matching assistant instruction heuristics default to skip in recommendations, but can be curated by the operator.
 * **User scope (`scope: user`)**: Requires an authenticated person with `trust: "proved"`. The CLI is opt-in: only `Preferences`, only with `--all-preferences-to-user` (§14.6).
 * **Agent-private scope (`scope: agent-private`)**: Stores cards for specific chosen agents. A warning is surfaced for Identity and Career entries because an agent uses agent-private memories across all its conversations.
-* **Workspace scope (`scope: workspace`)**: Available exclusively for `Projects` entries, with a notice that the project details are visible to all workspace members.
+* **Target scopes in v1**: Supported targets are user (`scope: user`), agent (`scope: agent-private`), and `skip`. Workspace target is omitted in v1 as workspaces are bound 1:1 to agents in PLUR1BUS Core without independent workspace entities.
 
 ### 14.4 Execution, duplicate linking, and rollback
 
-* **Execution (`executePromptImport`)**: Batches cards into groups of at most 500. Source reference format is `prompt-import;run=<runId>;category=<category>`. Server-side idempotency keys computed from `(scope, owner, category, text)` prevent duplicate cards upon re-import.
+* **Execution (`executePromptImport`)**: Batches cards into groups of at most 500. Source reference format is `prompt-import;run=<runId>;category=<category>`. Every card is assigned a strictly increasing timestamp and undated cards are marked with `dateUnknown=1`. Server-side idempotency keys computed from `(scope, owner, category, text)` prevent duplicate cards upon re-import.
 * **Duplicate linking**: Existing items matching server idempotency keys are linked using `memory.link` rather than re-inserted.
 * **Audit trail**: Stores a run-scoped `report.json` and `ledger.jsonl` under `<home>/imports/<runId>/`.
-* **Rollback (`rollbackPromptImport`)**: Calls `memory.unimport` with `importRunId`, rolling back inserted cards and links. Unmodified cards are removed, while cards modified after import are preserved. Rollback requires run containment, validates the `^prompt-` run ID format, ensures `source === "prompt"`, requires caller identity matching `importedBy` or owner rights, and marks the run `rolled-back` (or `partial` if unimport encounters errors, permitting retries).
+* **Rollback (`rollbackPromptImport`)**: Calls `memory.unimport` with `importRunId`, rolling back inserted cards and links. Unmodified cards are removed, while cards modified after import are preserved. Rollback requires run containment, validates the `^prompt-` run ID format, ensures `source === "prompt"`, requires caller identity matching `importedBy` or owner rights (where owner override unimports agent-scoped cards while preserving other users' user-scope cards as kept), and marks the run `rolled-back` (or `partial` if unimport encounters errors, permitting retries).
 
 ### 14.5 Text export in identical format
 

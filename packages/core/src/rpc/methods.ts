@@ -33,7 +33,7 @@ import { resolveExposure } from "../memory-exposure/resolve.ts";
 import { filterSensitiveBlocks, sensitivityRefusal, sensitivityService } from "../memory-exposure/sensitivity.ts";
 import type { Exposure } from "../memory-exposure/types.ts";
 import type { MemorySensitivityService } from "../memory-sensitivity/service.ts";
-import { authenticatedPrincipal, LOCAL_OWNER } from "../rbac/guard.ts";
+import { authenticatedPrincipal } from "../rbac/guard.ts";
 import { authorize } from "../rbac/authorize.ts";
 import { buildIdentityMethods } from "../identity/rpc.ts";
 import type { BudgetService } from "../budget/index.ts";
@@ -340,13 +340,15 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
         throw new RpcError("E_INVALID_PARAMS", "too many entries in import batch");
       }
       for (const t of p.targets) {
+        if (t?.target === "workspace") {
+          throw new RpcError("E_INVALID_PARAMS", "target 'workspace' is not supported in v1", {
+            reason: "unsupported-target",
+          });
+        }
         if (t?.agentIds && Array.isArray(t.agentIds)) {
           for (const ag of t.agentIds) {
             requireAgent(d.agents, ag);
           }
-        }
-        if (t?.workspaceId && typeof t.workspaceId === "string") {
-          requireAgent(d.agents, t.workspaceId);
         }
       }
       const redactor = createRedactor();
@@ -357,8 +359,14 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
         let recordedAt: string | undefined = undefined;
         if (typeof e?.recordedAt === "string") {
           const t = new Date(e.recordedAt).getTime();
-          if (Number.isFinite(t) && t >= 0 && t <= 4_102_444_800_000) {
-            recordedAt = e.recordedAt;
+          if (Number.isFinite(t) && t >= 0) {
+            // R2: clamp future dates to now
+            const nowMs = Date.now();
+            if (t > nowMs) {
+              recordedAt = new Date(nowMs).toISOString();
+            } else {
+              recordedAt = e.recordedAt;
+            }
           }
         }
         return {

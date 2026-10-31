@@ -16,9 +16,8 @@ export interface EntryRow {
   text: string;
   warnings: string[];
   idempotencyKey: string;
-  target: "skip" | "user" | "agent" | "workspace";
+  target: "skip" | "user" | "agent";
   agentIds?: string[];
-  workspaceId?: string;
 }
 
 const PROVIDERS: readonly Provider[] = [
@@ -30,25 +29,6 @@ const PROVIDERS: readonly Provider[] = [
   "lechat",
   "other",
 ];
-
-function looksLikeInstruction(text: string): boolean {
-  const lower = text.toLowerCase().trim();
-  return (
-    lower.startsWith("always ") ||
-    lower.startsWith("never ") ||
-    lower.startsWith("do not ") ||
-    lower.startsWith("don't ") ||
-    lower.startsWith("immer ") ||
-    lower.startsWith("nie ") ||
-    lower.startsWith("antworte immer ") ||
-    lower.startsWith("du musst ") ||
-    lower.startsWith("you must ") ||
-    lower.startsWith("instruction:") ||
-    lower.startsWith("rule:") ||
-    lower.includes("response style:") ||
-    lower.includes("output format:")
-  );
-}
 
 export function PromptImportWizard(): View {
   const [provider, setProvider] = useState<Provider>("chatgpt");
@@ -159,7 +139,6 @@ export function PromptImportWizard(): View {
           ...row,
           target: rec.target,
           agentIds: rec.agentIds,
-          workspaceId: rec.workspaceId,
         };
       }),
     );
@@ -167,15 +146,15 @@ export function PromptImportWizard(): View {
 
   const setCategoryTarget = (cat: EntryRow["category"], target: EntryRow["target"]) => {
     setEntries((current) =>
-      current.map((row) => {
+      current.map((row, idx) => {
         if (row.category !== cat) return row;
-        // Skip secret-flagged rows and instruction-like rows from bulk assignment (N5)
+        const rec = recommendations[idx];
+        // Skip secret-flagged rows and server-recommended skip rows (e.g. suspected instructions) from bulk assignment (N5, R4)
         if (
           target !== "skip" &&
           (row.warnings?.includes("secret-redacted") ||
-            row.warnings?.includes("secret") ||
-            row.warnings?.includes("rule") ||
-            looksLikeInstruction(row.text))
+            rec?.reason === "suspected-instruction" ||
+            rec?.reason === "instructions-not-imported")
         ) {
           return row;
         }
@@ -213,10 +192,12 @@ export function PromptImportWizard(): View {
         idempotencyKey: e.idempotencyKey,
         ...(e.recordedAt ? { recordedAt: e.recordedAt } : {}),
       }));
-      const targets = entries.map((e) => ({
+      const targets = entries.map((e, idx) => ({
         target: e.target,
         ...(e.agentIds ? { agentIds: e.agentIds } : {}),
-        ...(e.workspaceId ? { workspaceId: e.workspaceId } : {}),
+        ...(e.target === "skip" && recommendations[idx]?.reason
+          ? { reason: recommendations[idx].reason }
+          : {}),
       }));
       const res: any = await getApi().rpc("memory.importText.apply", {
         entries: cleanEntries,
@@ -391,7 +372,7 @@ export function PromptImportWizard(): View {
               {
                 type: "button",
                 class: "btn btn-quiet",
-                onClick: () => setCategoryTarget("Projects", "workspace"),
+                onClick: () => setCategoryTarget("Projects", "agent"),
               },
               t("imports.prompt.bulkProjects"),
             ),
@@ -429,6 +410,8 @@ export function PromptImportWizard(): View {
                 const hasSecret = entry.warnings.includes("secret-redacted");
                 const isRule = entry.category === "Instructions";
                 const isChat = entry.sourceType === "chat";
+                const rec = recommendations[idx];
+                const isSuspectedInstruction = rec?.reason === "suspected-instruction";
 
                 return h(
                   "tr",
@@ -446,6 +429,7 @@ export function PromptImportWizard(): View {
                     null,
                     isDup ? h(Badge, { tone: "info" }, t("imports.prompt.badge.duplicate")) : null,
                     hasSecret ? h(Badge, { tone: "warn" }, t("imports.prompt.badge.secret")) : null,
+                    isSuspectedInstruction ? h(Badge, { tone: "warn" }, t("imports.prompt.badge.suspectedInstruction")) : null,
                     isRule ? h(Badge, { tone: "neutral" }, t("imports.prompt.badge.rule")) : null,
                     isChat ? h(Badge, { tone: "neutral" }, t("imports.prompt.badge.chat")) : null,
                   ),
@@ -455,9 +439,6 @@ export function PromptImportWizard(): View {
                     h("span", { class: "reading" }, entry.text),
                     entry.target === "agent" && (entry.category === "Identity" || entry.category === "Career")
                       ? h(Notice, {}, t("imports.prompt.warningAgentPrivate"))
-                      : null,
-                    entry.target === "workspace"
-                      ? h("p", { class: "field-hint" }, t("imports.prompt.warningWorkspace"))
                       : null,
                   ),
                   h(
@@ -483,15 +464,6 @@ export function PromptImportWizard(): View {
                         : [
                             h("option", { key: "user", value: "user" }, t("imports.prompt.target.user")),
                             h("option", { key: "agent", value: "agent" }, t("imports.prompt.target.agent")),
-                            ...(entry.category === "Projects"
-                              ? [
-                                  h(
-                                    "option",
-                                    { key: "workspace", value: "workspace" },
-                                    t("imports.prompt.target.workspace"),
-                                  ),
-                                ]
-                              : []),
                           ],
                     ),
                     entry.target === "agent" && availableAgents.length > 0

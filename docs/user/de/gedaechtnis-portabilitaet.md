@@ -17,7 +17,7 @@ Viele Chat-Assistenten speichern Kontext und Fakten über dich, bieten aber kein
 
 Jeder gefundene Eintrag gehört zu einer von sechs Kategorien:
 
-* **Regeln (Instructions)**: Verhaltensregeln und Stilwünsche („antworte kurz“, „nie X“). Zum Schutz vor Prompt-Injections wirken fremde Regeln nie sofort; sie landen als Vorschläge in der Prüfwarteschlange und werden einzeln bestätigt.
+* **Regeln (Instructions)**: Verhaltensregeln und Stilwünsche („antworte kurz“, „nie X“). Zum Schutz vor Prompt-Injections werden Einträge der Kategorie Regeln nicht direkt importiert und standardmäßig übersprungen. Einträge mit anweisungsähnlichen Formulierungen werden als Verdachtsfall markiert und standardmäßig auf Überspringen gesetzt; diese Empfehlung kannst du in der Vorschau prüfen und anpassen.
 * **Identität (Identity)**: Name, Wohnort, Sprachen, persönliche Interessen.
 * **Beruf (Career)**: Rollen, Unternehmen, Fachkenntnisse.
 * **Vorlieben (Preferences)**: Persönlicher Geschmack und Arbeitsstile.
@@ -28,7 +28,6 @@ Für jeden Eintrag wählst du ein Ziel:
 * **Nicht importieren**: Der Eintrag wird übersprungen.
 * **Mein Gedächtnis**: Gespeichert im persönlichen Nutzerbereich (`scope: user`). Steht deinen Agenten im Gespräch mit dir zur Verfügung.
 * **Ausgewählte Agenten**: Wird als agent-private Erinnerung hinterlegt. Ein Agent greift in allen Unterhaltungen auf diesen Speicher zu, auch mit anderen Personen und in Gruppen.
-* **Workspace**: Nur bei Projekten wählbar. Macht den Eintrag für alle Mitglieder des Workspaces sichtbar.
 
 Der Knopf **Empfehlung übernehmen** setzt empfohlene Standardziele für alle Einträge.
 

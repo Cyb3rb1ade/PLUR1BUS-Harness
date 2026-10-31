@@ -17,7 +17,7 @@ Many chat assistants store conversational context or explicit memory items, but 
 
 Every extracted entry belongs to one of six categories:
 
-* **Instructions**: behavioral rules and preferences ("always do X", "never do Y"). To prevent prompt-injection attacks from foreign text, instructions never take effect immediately; they are created as proposals that you review and approve individually.
+* **Instructions**: behavioral rules and preferences ("always do X", "never do Y"). To prevent prompt-injection attacks from foreign text, entries categorized as instructions are not imported directly and default to skip. Entries with directive phrasing are flagged with a suspected instruction recommendation and default to skip, which you can review and override.
 * **Identity**: personal name, location, languages, interests.
 * **Career**: roles, companies, professional skills.
 * **Preferences**: personal tastes, tool and working-style preferences.
@@ -28,7 +28,6 @@ You can assign each entry to:
 * **Do not import** (`skip`): entry is ignored.
 * **My Memory** (`user`): stored in your personal user scope, available to your agents in conversation with you.
 * **Selected agents** (`agent`): stored privately in an agent's own memory. Note that an agent uses agent-private memories across all its conversations, including with other people and in groups.
-* **Workspace** (`workspace`): available for `Projects` entries, visible to all members of the selected workspace.
 
 Click **Apply recommendations** to set recommended defaults across all entries.
 

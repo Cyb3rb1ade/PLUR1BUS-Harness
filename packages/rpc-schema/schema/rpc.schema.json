@@ -31953,7 +31953,6 @@
             "skip",
             "user",
             "agent",
-            "workspace",
             "propose-rule"
           ]
         },
@@ -31964,10 +31963,6 @@
             "type": "string",
             "maxLength": 128
           }
-        },
-        "workspaceId": {
-          "type": "string",
-          "maxLength": 128
         },
         "reason": {
           "type": "string",

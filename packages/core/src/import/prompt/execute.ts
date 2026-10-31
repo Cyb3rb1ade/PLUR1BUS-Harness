@@ -4,7 +4,6 @@ import { join } from "node:path";
 import type * as E from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { RpcError } from "../../rpc/errors.ts";
 import { isInsideDir, writeAtomicSync } from "../fs-atomic.ts";
-import { looksLikeInstruction } from "./recommend.ts";
 import type {
   EntryTarget,
   ParsedEntry,
@@ -170,20 +169,23 @@ export async function executePromptImport(
   };
   const agentBatches = new Map<string, CardTask[]>();
 
+  const totalEntries = entries.length;
+  const runNow = now();
+  const undatedBase = runNow - (totalEntries + 1000) * 1000;
+
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i]!;
     const target = targets[i]!;
 
-    // Instructions and explicit skip targets are never imported directly (B7 prompt injection mitigation)
+    // Instructions category, explicit skip targets, or rule proposals are skipped
     if (
       target.target === "skip" ||
       entry.category === "Instructions" ||
-      target.target === "propose-rule" ||
-      looksLikeInstruction(entry.text)
+      target.target === "propose-rule"
     ) {
       report.counts.skipped++;
       const reason =
-        entry.category === "Instructions" || target.target === "propose-rule" || looksLikeInstruction(entry.text)
+        entry.category === "Instructions" || target.target === "propose-rule"
           ? "instructions-not-imported"
           : (target.reason ?? "user-skipped");
       appendLedger(entry.idempotencyKey || `entry-${i}`, "skipped", { reason });
@@ -193,20 +195,34 @@ export async function executePromptImport(
     const normalizedText = entry.text.trim().toLowerCase();
     const kind = mapCategoryToKind(entry.category);
 
-    let createdAt: number | undefined = undefined;
+    let createdAt: number;
+    let isDateUnknown = false;
+
     if (entry.recordedAt) {
       const parsed = new Date(entry.recordedAt).getTime();
-      if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 4_102_444_800_000) {
-        createdAt = parsed;
+      if (Number.isFinite(parsed) && parsed >= 0) {
+        if (parsed > runNow) {
+          // R2: clamp future date to now; allocate distinct strictly increasing timestamp <= runNow
+          createdAt = runNow - (totalEntries - i) * 10;
+        } else {
+          // R1: add index offset so identical dates receive distinct timestamps
+          createdAt = Math.min(parsed + i, runNow - 1);
+        }
+      } else {
+        isDateUnknown = true;
+        createdAt = undatedBase + i * 1000;
       }
+    } else {
+      isDateUnknown = true;
+      createdAt = undatedBase + i * 1000;
     }
 
     const baseCard: Omit<E.MemoryImportCardInput, "idempotencyKey"> = {
       text: entry.text,
       ...(kind ? { kind } : {}),
       provenance: "imported",
-      sourceRef: `prompt-import;run=${runId};category=${entry.category}`,
-      ...(createdAt !== undefined ? { createdAt } : {}),
+      sourceRef: `prompt-import;run=${runId};category=${entry.category}${isDateUnknown ? ";dateUnknown=1" : ""}`,
+      createdAt,
     };
 
     if (target.target === "user") {
@@ -225,30 +241,6 @@ export async function executePromptImport(
       const list = agentBatches.get(fallbackAgent) ?? [];
       list.push({ card: cardInput, entry });
       agentBatches.set(fallbackAgent, list);
-    } else if (target.target === "workspace") {
-      // H1 & H3: Server-side idempotency key scoped to workspace
-      let targetWsAgent = fallbackAgent;
-      if (target.workspaceId) {
-        if (opts.agents?.has && !opts.agents.has(target.workspaceId)) {
-          throw new RpcError("E_NOT_FOUND", `agent '${target.workspaceId}' not found for workspace target`, {
-            reason: "agent-not-found",
-          });
-        }
-        targetWsAgent = target.workspaceId;
-      }
-      const idempotencyKey = createHash("sha256")
-        .update(`workspace:${targetWsAgent}:${entry.category}:${normalizedText}`)
-        .digest("hex");
-
-      const cardInput: E.MemoryImportCardInput = {
-        ...baseCard,
-        scope: "workspace",
-        idempotencyKey,
-      };
-      affectedAgents.add(targetWsAgent);
-      const list = agentBatches.get(targetWsAgent) ?? [];
-      list.push({ card: cardInput, entry });
-      agentBatches.set(targetWsAgent, list);
     } else if (target.target === "agent") {
       // H1: Server-side idempotency key scoped per target agent
       const destAgents = target.agentIds && target.agentIds.length > 0 ? target.agentIds : [fallbackAgent];
@@ -314,6 +306,7 @@ export async function executePromptImport(
                 targetRef: cardRes.id,
                 sourceRef: task.card.sourceRef,
                 agentId,
+                scope: task.card.scope,
               });
             } else if (cardRes.outcome === "matched-existing") {
               // Duplicate found: link to existing card via engine.memory.link (M8)
@@ -337,6 +330,7 @@ export async function executePromptImport(
                     targetRef: cardRes.id,
                     sourceRef: task.card.sourceRef,
                     agentId,
+                    scope: task.card.scope,
                   });
                 } catch {
                   // If link failed (e.g. duplicate link or limit), count as skipped
@@ -450,8 +444,12 @@ export async function rollbackPromptImport(
     });
   }
 
-  // N4: Check import ownership
-  if (report.importedBy && opts.callerUserId && report.importedBy !== opts.callerUserId && !opts.isOwner) {
+  // N4 & L1: Check import ownership (missing importedBy requires owner role)
+  const isForeignRun = report.importedBy
+    ? Boolean(opts.callerUserId && report.importedBy !== opts.callerUserId)
+    : !opts.isOwner;
+
+  if (isForeignRun && !opts.isOwner) {
     throw new RpcError("E_DENIED", "cannot rollback an import run belonging to another user", {
       reason: "foreign-import-run",
     });
@@ -464,16 +462,59 @@ export async function rollbackPromptImport(
     });
   }
 
+  let foreignUserCardsCount = 0;
+  const agentKeyFilters = new Map<string, string[]>();
+
+  if (isForeignRun) {
+    const ledgerPath = join(runDir, "ledger.jsonl");
+    if (existsSync(ledgerPath)) {
+      try {
+        const lines = readFileSync(ledgerPath, "utf8").split("\n").filter(Boolean);
+        for (const line of lines) {
+          try {
+            const entry = JSON.parse(line);
+            if (entry.action === "created") {
+              const scope = entry.details?.scope;
+              const agentId = entry.details?.agentId;
+              if (scope === "user") {
+                foreignUserCardsCount++;
+              } else if (agentId) {
+                const list = agentKeyFilters.get(agentId) ?? [];
+                list.push(entry.idempotencyKey);
+                agentKeyFilters.set(agentId, list);
+              }
+            }
+          } catch {
+            // ignore malformed line
+          }
+        }
+      } catch {
+        // ignore read error
+      }
+    }
+  }
+
   let rolledBackCount = 0;
   let failedCount = 0;
   let remainingCount = 0;
   let keptModifiedCount = 0;
 
   for (const agentId of report.affectedAgents ?? []) {
-    const agentPrincipal = opts.principalFor ? opts.principalFor(agentId) : { ...principal, agentId };
+    // In foreign run, skip agents that have no agent-scoped cards to unimport
+    if (isForeignRun && !agentKeyFilters.has(agentId)) {
+      continue;
+    }
     try {
+      const agentPrincipal = opts.principalFor ? opts.principalFor(agentId) : { ...principal, agentId };
+      const keys = isForeignRun ? agentKeyFilters.get(agentId) : undefined;
+      const req: E.MemoryUnimportRequest = {
+        agentId,
+        importRunId: runId,
+        dryRun: false,
+        ...(keys ? { idempotencyKeys: keys } : {}),
+      };
       const res = await engine.memory.unimport(
-        { agentId, importRunId: runId, dryRun: false },
+        req,
         agentPrincipal,
         SYSTEM_CONTEXT,
       );
@@ -484,6 +525,28 @@ export async function rollbackPromptImport(
     } catch {
       failedCount += 1;
       remainingCount += 1;
+    }
+  }
+
+  // R3: Foreign user-scope cards are preserved and counted in keptModified
+  keptModifiedCount += foreignUserCardsCount;
+  if (isForeignRun && foreignUserCardsCount > 0) {
+    const ledgerLine = JSON.stringify({
+      ts: new Date(now()).toISOString(),
+      runId,
+      entity: "memory",
+      idempotencyKey: "foreign-user-scope-preserved",
+      action: "skipped",
+      details: {
+        reason: "foreign-user-scope-preserved",
+        count: foreignUserCardsCount,
+        callerUserId: opts.callerUserId,
+      },
+    }) + "\n";
+    try {
+      appendFileSync(join(runDir, "ledger.jsonl"), ledgerLine, { mode: 0o600 });
+    } catch {
+      // ignore append failure
     }
   }
 

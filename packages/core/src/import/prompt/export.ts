@@ -36,7 +36,10 @@ const USER_CONTEXT: E.AgentContext = Object.freeze({
   background: false,
 });
 
-function formatCardDate(createdAt?: number): string {
+function formatCardDate(createdAt?: number, sourceRef?: string): string {
+  if (sourceRef && typeof sourceRef === "string" && sourceRef.includes("dateUnknown")) {
+    return "[unknown]";
+  }
   if (!createdAt || createdAt <= 0) return "[unknown]";
   const d = new Date(createdAt);
   if (isNaN(d.getTime())) return "[unknown]";
@@ -91,7 +94,7 @@ async function fetchAllCardsForScope(
 ): Promise<Array<any>> {
   const cards: any[] = [];
   const seenIds = new Set<string>();
-  let currentUntil: number | undefined = undefined;
+  let currentUntil: number | undefined = Number.MAX_SAFE_INTEGER;
   const HARD_CAP = 10_000;
 
   for (;;) {
@@ -150,6 +153,7 @@ export async function exportMemoriesAsText(
     category: MemoryExportCategory;
     createdAt: number;
     text: string;
+    sourceRef?: string;
   }> = [];
 
   // 1. Fetch user-scope memories (B2: page with since: 0, limit: 100)
@@ -165,6 +169,7 @@ export async function exportMemoriesAsText(
       category: extractCategory(item),
       createdAt: item.createdAt ?? 0,
       text: item.text,
+      ...(item.sourceRef !== undefined ? { sourceRef: item.sourceRef } : {}),
     });
   }
 
@@ -186,19 +191,24 @@ export async function exportMemoriesAsText(
         category: extractCategory(item),
         createdAt: item.createdAt ?? 0,
         text: item.text,
+        ...(item.sourceRef !== undefined ? { sourceRef: item.sourceRef } : {}),
       });
     }
   }
 
   // Group by category
-  const grouped = new Map<MemoryExportCategory, Array<{ createdAt: number; text: string }>>();
+  const grouped = new Map<MemoryExportCategory, Array<{ createdAt: number; text: string; sourceRef?: string }>>();
   for (const cat of MEMORY_EXPORT_CATEGORIES) {
     grouped.set(cat, []);
   }
 
   for (const card of cardsToExport) {
     const list = grouped.get(card.category) ?? [];
-    list.push({ createdAt: card.createdAt, text: card.text });
+    list.push({
+      createdAt: card.createdAt,
+      text: card.text,
+      ...(card.sourceRef !== undefined ? { sourceRef: card.sourceRef } : {}),
+    });
     grouped.set(card.category, list);
   }
 
@@ -212,7 +222,7 @@ export async function exportMemoriesAsText(
     items.sort((a, b) => a.createdAt - b.createdAt);
 
     for (const item of items) {
-      const dateToken = formatCardDate(item.createdAt);
+      const dateToken = formatCardDate(item.createdAt, item.sourceRef);
       const cleanText = redactor.text(item.text.trim().replace(/\r?\n/g, " "));
       lines.push(`${dateToken} [memory] - ${cleanText}`);
     }
