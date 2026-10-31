@@ -171,7 +171,7 @@ No entry in `docs/dependency-exceptions.json` or `audit-allowlist.json`.
 
 `lance-index` 2.0.0 (pinned through `lancedb` 0.26.2, RE-D3) depends on `tantivy` 0.24.2, which pins `lru` 0.12; `lru`
 0.12.5 carries two unsoundness advisories (RUSTSEC-2026-0002, RUSTSEC-2026-0253) with no 0.12.x fix. Furthermore,
-`arrow-ipc` 57.3.1, `lance-encoding` 2.0.0, and `tantivy-sstable` 0.5.0 all pinned `zstd` 0.13.3 / `zstd-safe` 7.3.0,
+`arrow-ipc` 57.3.1, `lance-encoding` 2.0.0, and `tantivy-sstable` 0.5.0 all required `zstd ^0.13` (resolving to 0.13.3) / `zstd-safe` 7.3.0,
 carrying 13 RUSTSEC advisories (RUSTSEC-2026-0391, RUSTSEC-2026-0395..-0406) fixed only in `zstd` 0.14.3 / `zstd-safe` 8.2.0.
 A temporary audit exception was granted until forks could be established (3c5875e7).
 
@@ -180,16 +180,21 @@ The root `Cargo.toml` replaces the three upstream closures with forks via `[patc
 - `Cyb3rb1ade/tantivy`, branch `plur1bus/0.24.2-lru-0.18.2-zstd-0.14` (rev `0c34640dde00696629a37eb1a41bf6fe11e199e4`):
   upstream tag 0.24.2 with `lru = "0.18.2"` and `zstd = "0.14.3"`.
 - `Cyb3rb1ade/arrow-rs`, branch `plur1bus/57.3.1-zstd-0.14` (rev `cfe57eff8e9b84dd68e89e12e7fa7fcf6583c42b`):
-  upstream tag 57.3.1 with `zstd = "0.14.3"` in `arrow-ipc`. All 14 crates in the arrow workspace present in `Cargo.lock`
+  upstream tag 57.3.1 with `zstd = "0.14.3"` in `arrow-ipc` (and dev-dependencies in `parquet` and `arrow-avro`). All 14 crates in the arrow workspace present in `Cargo.lock`
   are redirected to prevent dual-registry type splits.
 - `Cyb3rb1ade/lance`, branch `plur1bus/2.0.0-zstd-0.14` (rev `7dfd9ede65693027db8852159587d24e157ee0c6`):
-  upstream tag v2.0.0 with `zstd = "0.14.3"` in `lance-encoding`. All 16 crates in the lance workspace present in
-  `Cargo.lock` are redirected to prevent dual-registry type splits.
+  upstream tag v2.0.0 with `zstd = "0.14.3"` in `lance-encoding`. All 16 crates published to crates.io in the lance workspace present in
+  `Cargo.lock` (with `fsst` vendored via path dependency in the workspace) are redirected to prevent dual-registry type splits.
 
 With these forks, all 13 `zstd` advisories are eliminated without audit exceptions.
 
-**Exit condition:** remove the patches when upstream releases (`arrow-rs >= 58`, `lance >= 2.1`, `tantivy >= 0.25`)
-adopt `zstd >= 0.14.3` and `lru >= 0.18.2`.
+**Exit condition (RE-D30):** Each fork goes when the Lance pin (RE-D3) moves to a closure whose arrow-ipc / lance-encoding / tantivy-sstable resolve zstd ≥ 0.14.3 from crates.io. Today that means arrow-ipc ≥ 60.0.0 (or a 57.x patch release that moves to zstd 0.14), lance-encoding ≥ 14.0.1 and tantivy ≥ 0.27.0. The tantivy fork also drops the RE-D14 lru patch.
+
+**Test evidence:**
+- `tantivy-sstable`: 38/38 tests pass
+- `arrow-ipc --features zstd,lz4 --lib`: 97/97 tests pass
+- `lance-encoding --lib`: 50/50 tests pass
+- `store_roundtrip` Node↔Rust: 24/24 tests pass
 
 ### protoc
 
