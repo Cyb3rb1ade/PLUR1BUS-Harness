@@ -1,0 +1,26 @@
+{
+  "schema": "recall-stages/1",
+  "scenario": "graph-spread-adds-neighbours",
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "pipelineSha256": "ade8fb665973fb71fedf076a0d4394da4f12f4e73ea5d76bd146f80e01360b6f",
+    "node": "v24.21.0",
+    "now": 1768305600000
+  },
+  "runs": [
+    {
+      "orderedIds": [
+        "00000000-0000-4000-8000-000000000006",
+        "00000000-0000-4000-8000-000000000007"
+      ],
+      "scores": [
+        1,
+        0.6
+      ],
+      "canonical": [],
+      "rejections": [],
+      "cacheChunks": null
+    }
+  ]
+}
