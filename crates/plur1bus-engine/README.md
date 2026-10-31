@@ -167,15 +167,29 @@ the owner can still veto any line in review.
 
 No entry in `docs/dependency-exceptions.json` or `audit-allowlist.json`.
 
-### tantivy patch
+### tantivy, arrow-rs and lance patches (RE-D14, RE-D30)
 
 `lance-index` 2.0.0 (pinned through `lancedb` 0.26.2, RE-D3) depends on `tantivy` 0.24.2, which pins `lru` 0.12; `lru`
-0.12.5 carries two unsoundness advisories (RUSTSEC-2026-0002, RUSTSEC-2026-0253) with no 0.12.x fix, and the release
-dependency audit blocks on them. The owner chose a fork over an advisory exception: `Cyb3rb1ade/tantivy`, branch
-`plur1bus/0.24.2-lru-0.18.2`, commit `038215a5`, is upstream tag 0.24.2 with one changed line (`lru = "0.18.2"`);
-tantivy's own version stays 0.24.2, and its store tests pass against lru 0.18. The root `Cargo.toml` replaces tantivy
-with it through `[patch.crates-io]` (pinned by `rev`), and `deny.toml` allows the fork as a git source. **Exit
-condition:** remove the patch when the Lance pin moves to a tantivy with lru >= 0.18.2 or to no tantivy at all.
+0.12.5 carries two unsoundness advisories (RUSTSEC-2026-0002, RUSTSEC-2026-0253) with no 0.12.x fix. Furthermore,
+`arrow-ipc` 57.3.1, `lance-encoding` 2.0.0, and `tantivy-sstable` 0.5.0 all pinned `zstd` 0.13.3 / `zstd-safe` 7.3.0,
+carrying 13 RUSTSEC advisories (RUSTSEC-2026-0391, RUSTSEC-2026-0395..-0406) fixed only in `zstd` 0.14.3 / `zstd-safe` 8.2.0.
+A temporary audit exception was granted until forks could be established (3c5875e7).
+
+The root `Cargo.toml` replaces the three upstream closures with forks via `[patch.crates-io]` (pinned by `rev`), and
+`deny.toml` allows the git sources:
+- `Cyb3rb1ade/tantivy`, branch `plur1bus/0.24.2-lru-0.18.2-zstd-0.14` (rev `0c34640dde00696629a37eb1a41bf6fe11e199e4`):
+  upstream tag 0.24.2 with `lru = "0.18.2"` and `zstd = "0.14.3"`.
+- `Cyb3rb1ade/arrow-rs`, branch `plur1bus/57.3.1-zstd-0.14` (rev `cfe57eff8e9b84dd68e89e12e7fa7fcf6583c42b`):
+  upstream tag 57.3.1 with `zstd = "0.14.3"` in `arrow-ipc`. All 14 crates in the arrow workspace present in `Cargo.lock`
+  are redirected to prevent dual-registry type splits.
+- `Cyb3rb1ade/lance`, branch `plur1bus/2.0.0-zstd-0.14` (rev `7dfd9ede65693027db8852159587d24e157ee0c6`):
+  upstream tag v2.0.0 with `zstd = "0.14.3"` in `lance-encoding`. All 16 crates in the lance workspace present in
+  `Cargo.lock` are redirected to prevent dual-registry type splits.
+
+With these forks, all 13 `zstd` advisories are eliminated without audit exceptions.
+
+**Exit condition:** remove the patches when upstream releases (`arrow-rs >= 58`, `lance >= 2.1`, `tantivy >= 0.25`)
+adopt `zstd >= 0.14.3` and `lru >= 0.18.2`.
 
 ### protoc
 

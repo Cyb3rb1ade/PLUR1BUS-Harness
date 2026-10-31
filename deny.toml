@@ -38,4 +38,9 @@ allow = ["MPL-2.0"]
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-allow-git = ["https://github.com/Cyb3rb1ade/PLUR1BUS-Harness", "https://github.com/Cyb3rb1ade/tantivy"]
+allow-git = [
+  "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness",
+  "https://github.com/Cyb3rb1ade/tantivy",
+  "https://github.com/Cyb3rb1ade/arrow-rs",
+  "https://github.com/Cyb3rb1ade/lance",
+]
