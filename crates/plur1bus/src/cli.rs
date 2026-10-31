@@ -785,10 +785,10 @@ pub enum MemoryCmd {
         /// target agent for project memories (default: the core's default agent)
         #[arg(long)]
         agent: Option<String>,
-        /// target workspace for project memories
+        /// target workspace for project memories, named by the id of the agent whose workspace it is
         #[arg(long)]
         workspace: Option<String>,
-        /// store preference memories at user scope (needs a person principal; otherwise they are skipped)
+        /// store preference memories at user scope (default: skipped; the core refuses it for a non-person caller)
         #[arg(long)]
         all_preferences_to_user: bool,
         /// preview only without applying changes

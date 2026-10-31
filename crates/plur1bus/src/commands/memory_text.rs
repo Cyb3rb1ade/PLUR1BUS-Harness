@@ -13,18 +13,29 @@
 //!   Input on stdin is consumed, so it can never be combined with a question: it needs `--yes` (or `--dry-run`).
 //! - Input is capped at [`MAX_INPUT_BYTES`] and the limit error does not echo it.
 //! - All output goes through `Out` / `say*`, which survive a closed pipe (no `print!`).
+//! - A rollback that leaves `remaining` or `failed` cards exits 1 and shows every counter; apply and rollback run
+//!   under a 600 s call timeout; `--json --output <file>` prints only `{output, entryCount}`; export text printed to a
+//!   terminal has its control characters replaced.
 use crate::commands::memory::require_agent;
 use crate::commands::memory_ops::{
-    connect_or_unavailable, print_unsupported_hint, require_supports,
+    connect_core, connect_or_unavailable, print_unsupported_hint, require_supports,
 };
-use crate::output::{say_raw, Out};
+use crate::output::{say_err, say_raw, Failure, Out};
 use crate::paths::Layout;
+use plur1bus_rpc::RpcError;
 use serde_json::{json, Value};
 use std::io::{IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
 
-/// Largest import input the CLI accepts (the core parses at most 1 MB of text; 512 KiB keeps a wide margin).
+/// Largest import input the CLI accepts: the same 512 KiB the core's parser truncates at (`parse.ts`), and below the
+/// schema's 1,000,000-character limit for `memory.importText.preview`.
 pub(crate) const MAX_INPUT_BYTES: usize = 512 * 1024;
+/// Schema limits of `memory.importText.apply` (`rpc.schema.json`), checked before the call.
+const MAX_APPLY_ENTRIES: usize = 5000;
+const MAX_ENTRY_CHARS: usize = 4000;
+const MAX_ID_CHARS: usize = 128;
+/// Apply and rollback import up to 5000 cards with embedding and cannot be cancelled: a long call timeout.
+const LONG_CALL: std::time::Duration = std::time::Duration::from_secs(600);
 /// Characters of an entry shown in the human dry-run listing.
 const EXCERPT_CHARS: usize = 60;
 const EXPORT_PROMPT: &str =
@@ -167,9 +178,10 @@ fn valid_run_id(id: &str) -> bool {
     }
 }
 
-/// Turns the core's recommendations into the targets to apply. The core is authoritative (it already skips
-/// instructions, redacted entries and what needs a person); the flags only steer where the recommended memories go,
-/// and user scope is opt-in in the CLI: only `Preferences`, only with `--all-preferences-to-user`.
+/// Turns the core's recommendations into the targets to apply. The core is authoritative: a `skip` stays a `skip`
+/// (instructions, redacted entries, unclassified). The flags only steer where recommended memories go, and the one
+/// CLI rule is that user scope is opt-in, because `--yes` applies without a per-entry review: only `Preferences`, only
+/// with `--all-preferences-to-user`.
 pub(crate) fn adjust_targets(
     entries: &[Value],
     recs: &[Value],
@@ -184,13 +196,6 @@ pub(crate) fn adjust_targets(
             let cat = entry["category"].as_str().unwrap_or("");
             let target = rec["target"].as_str().unwrap_or("skip");
             match target {
-                "skip"
-                    if preferences_to_user
-                        && cat == "Preferences"
-                        && rec["reason"].as_str() == Some("requires-user-binding") =>
-                {
-                    json!({ "target": "user" })
-                }
                 "user" if !(preferences_to_user && cat == "Preferences") => {
                     json!({ "target": "skip", "reason": "user-scope-opt-in" })
                 }
@@ -224,6 +229,19 @@ pub(crate) fn import_text(out: &Out, layout: &Layout, config: &Value, a: ImportT
     }
     if let Some(ag) = a.agent.as_deref() {
         require_agent(out, config, ag);
+    }
+    // The core resolves a workspace target by the id of the agent whose workspace it is (`execute.ts`).
+    if let Some(ws) = a.workspace.as_deref() {
+        require_agent(out, config, ws);
+    }
+    let interactive = std::io::stdin().is_terminal() && !out.json;
+    // Decide before any text is read or sent: without a terminal nothing can be confirmed later.
+    if !a.dry_run && !a.yes && !interactive && a.file != "-" {
+        out.fail(
+            "E_INVALID_PARAMS",
+            "applying needs confirmation; re-run with --yes (or --dry-run to preview)",
+            json!({ "applied": false }),
+        );
     }
     // stdin is consumed by the input, so no question could be asked afterwards.
     if a.file == "-" && !a.dry_run && !a.yes {
@@ -276,22 +294,34 @@ pub(crate) fn import_text(out: &Out, layout: &Layout, config: &Value, a: ImportT
         .filter(|t| t["target"].as_str().is_some_and(|s| s != "skip"))
         .count();
 
+    let partial = status == "more";
     if a.dry_run {
-        let mut doc = preview.clone();
-        doc["targets"] = json!(targets);
-        out.ok("memory.importText.preview/1", &doc, || {
+        // A CLI document (entries as parsed, the targets this command would apply), not the raw RPC result.
+        let doc = json!({
+            "status": status,
+            "warnings": preview["warnings"],
+            "entries": entries,
+            "targets": targets,
+        });
+        out.ok("memory.importText.plan/1", &doc, || {
             describe_preview(&entries, &targets, &preview, status)
         });
         return;
     }
+    check_apply_limits(out, &entries, &targets);
 
     confirm(
         out,
         a.yes,
         &format!(
-            "import {to_import} of {} entries ({} skipped)?",
+            "import {to_import} of {} entries ({} skipped{})?",
             entries.len(),
-            entries.len() - to_import
+            entries.len() - to_import,
+            if partial {
+                "; the export is partial (STATUS: MORE)"
+            } else {
+                ""
+            }
         ),
         &format!(
             "{to_import} of {} entries are ready to import",
@@ -300,23 +330,60 @@ pub(crate) fn import_text(out: &Out, layout: &Layout, config: &Value, a: ImportT
     );
 
     require_supports(out, &c, "memory.importText.apply");
+    drop(c);
+    let mut c = connect_core(out, layout, "memory-ops", LONG_CALL);
     match c.call(
         "memory.importText.apply",
         json!({ "entries": entries, "targets": targets, "dryRun": false }),
     ) {
         Ok(v) => out.ok("memory.importText.apply/1", &v, || {
             format!(
-                "imported: {} cards, {} linked, {} skipped (run: {})",
+                "imported: {} cards, {} linked, {} skipped (run: {}){}",
                 v["imported"].as_u64().unwrap_or(0),
                 v["linked"].as_u64().unwrap_or(0),
                 v["skipped"].as_u64().unwrap_or(0),
-                v["runId"].as_str().unwrap_or("?")
+                v["runId"].as_str().unwrap_or("?"),
+                if partial {
+                    "\nthe export was partial (STATUS: MORE): ask the assistant to continue and import the rest"
+                } else {
+                    ""
+                }
             )
         }),
         Err(e) => {
+            timeout_note(&e, "import");
             print_unsupported_hint(out, &e);
             out.from_rpc_error(&e);
         }
+    }
+}
+
+/// The schema limits of `memory.importText.apply`, so a violation is a clear local error instead of a bare
+/// `E_INVALID_PARAMS` from the core.
+fn check_apply_limits(out: &Out, entries: &[Value], targets: &[Value]) {
+    let too_long =
+        |v: &Value, k: &str, max: usize| v[k].as_str().is_some_and(|s| s.chars().count() > max);
+    let bad_entry = entries.iter().any(|e| too_long(e, "text", MAX_ENTRY_CHARS));
+    let bad_target = targets.iter().any(|t| {
+        too_long(t, "workspaceId", MAX_ID_CHARS)
+            || t["agentIds"].as_array().is_some_and(|a| {
+                a.iter()
+                    .any(|i| i.as_str().is_some_and(|s| s.chars().count() > MAX_ID_CHARS))
+            })
+    });
+    if entries.len() > MAX_APPLY_ENTRIES || targets.len() > MAX_APPLY_ENTRIES {
+        out.fail(
+            "E_INVALID_PARAMS",
+            &format!("too many entries to import at once (at most {MAX_APPLY_ENTRIES})"),
+            json!({ "applied": false }),
+        );
+    }
+    if bad_entry || bad_target {
+        out.fail(
+            "E_INVALID_PARAMS",
+            "an entry or target exceeds the import limits",
+            json!({ "applied": false }),
+        );
     }
 }
 
@@ -354,20 +421,57 @@ fn rollback(out: &Out, layout: &Layout, run_id: &str, yes: bool) {
         &format!("roll back import run {run_id}?"),
         &format!("rolling back run {run_id} removes the memories it imported"),
     );
-    let mut c = connect_or_unavailable(out, layout);
+    let mut c = connect_core(out, layout, "memory-ops", LONG_CALL);
     require_supports(out, &c, "memory.importText.rollback");
-    match c.call("memory.importText.rollback", json!({ "runId": run_id })) {
-        Ok(v) => out.ok("memory.importText.rollback/1", &v, || {
-            format!(
-                "rolled back run: {} memories undone, {} proposals discarded",
-                v["rolledBack"].as_u64().unwrap_or(0),
-                v["discardedProposals"].as_u64().unwrap_or(0)
-            )
-        }),
+    let v = match c.call("memory.importText.rollback", json!({ "runId": run_id })) {
+        Ok(v) => v,
         Err(e) => {
+            timeout_note(&e, "rollback");
             print_unsupported_hint(out, &e);
             out.from_rpc_error(&e);
         }
+    };
+    let n = |k: &str| v[k].as_u64();
+    let (Some(done), Some(failed), Some(remaining), Some(kept)) = (
+        n("rolledBack"),
+        n("failed"),
+        n("remaining"),
+        n("keptModified"),
+    ) else {
+        out.fail(
+            "E_INTERNAL",
+            "core returned a malformed rollback result",
+            json!({}),
+        );
+    };
+    let line = rollback_line(run_id, done, remaining, failed, kept);
+    if remaining + failed > 0 {
+        out.ok_but_failed(
+            "memory.importText.rollback/1",
+            &v,
+            || {
+                format!(
+                    "{line}\nnot everything was rolled back; run the same command again to retry"
+                )
+            },
+            Failure::new("E_INTERNAL", "rollback-incomplete", line.clone()),
+        );
+    }
+    out.ok("memory.importText.rollback/1", &v, || line);
+}
+
+fn rollback_line(run_id: &str, done: u64, remaining: u64, failed: u64, kept: u64) -> String {
+    format!(
+        "rollback {run_id}: {done} removed, {remaining} remaining, {failed} failed, {kept} kept (modified since import)"
+    )
+}
+
+/// A call that timed out may still have finished in the core.
+fn timeout_note(e: &RpcError, what: &str) {
+    if matches!(e, RpcError::Unavailable { reason, .. } if reason == "call-timeout") {
+        say_err(&format!(
+            "plur1bus: the {what} call timed out; the core may still be working on it or have finished it"
+        ));
     }
 }
 
@@ -378,12 +482,15 @@ pub(crate) enum Destination {
     ExistingFile,
     Symlink,
     Directory,
+    /// A FIFO, device or socket: never replaced by an export.
+    Special,
 }
 
 pub(crate) fn destination_state(dest: &Path) -> std::io::Result<Destination> {
     match std::fs::symlink_metadata(dest) {
         Ok(m) if m.file_type().is_symlink() => Ok(Destination::Symlink),
         Ok(m) if m.is_dir() => Ok(Destination::Directory),
+        Ok(m) if !m.is_file() => Ok(Destination::Special),
         Ok(_) => Ok(Destination::ExistingFile),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Destination::Free),
         Err(e) => Err(e),
@@ -419,6 +526,7 @@ pub(crate) fn write_private_atomic(
         name.to_string_lossy(),
         std::process::id()
     ));
+    let mut created = false;
     let result = (|| {
         let mut opts = std::fs::OpenOptions::new();
         opts.write(true).create_new(true);
@@ -428,6 +536,7 @@ pub(crate) fn write_private_atomic(
             opts.mode(0o600);
         }
         let mut f = opts.open(&tmp)?;
+        created = true;
         f.write_all(data)?;
         f.sync_all()?;
         drop(f);
@@ -436,10 +545,43 @@ pub(crate) fn write_private_atomic(
             Publication::Replace => std::fs::rename(&tmp, dest),
         }
     })();
-    if matches!(publication, Publication::CreateNew) || result.is_err() {
+    // Only a staging file this call created is removed: an `AlreadyExists` from `open` is somebody else's file.
+    if created && (matches!(publication, Publication::CreateNew) || result.is_err()) {
         let _ = std::fs::remove_file(&tmp);
     }
     result
+}
+
+/// Hard links unsupported by the destination file system (FAT/exFAT, some network and FUSE mounts).
+fn no_hard_links(e: &std::io::Error) -> bool {
+    #[cfg(unix)]
+    {
+        matches!(
+            e.raw_os_error(),
+            Some(libc::EPERM | libc::ENOTSUP | libc::ENOSYS | libc::EMLINK)
+        )
+    }
+    #[cfg(not(unix))]
+    {
+        e.kind() == std::io::ErrorKind::Unsupported
+    }
+}
+
+/// `text` for a terminal: C0 controls (except newline and tab), DEL, C1 controls and bidi controls become U+FFFD, so a
+/// stored memory cannot drive the terminal (OSC 52 clipboard writes, titles, cursor movement) or reorder what is shown.
+pub(crate) fn terminal_safe(text: &str) -> String {
+    text.chars()
+        .map(|c| match c {
+            '\n' | '\t' => c,
+            c if c.is_control() => '\u{FFFD}',
+            '\u{202A}'..='\u{202E}'
+            | '\u{2066}'..='\u{2069}'
+            | '\u{200E}'
+            | '\u{200F}'
+            | '\u{061C}' => '\u{FFFD}',
+            c => c,
+        })
+        .collect()
 }
 
 pub(crate) fn export_text(
@@ -484,6 +626,11 @@ pub(crate) fn export_text(
                 &format!("{output} is a directory"),
                 json!({}),
             ),
+            Ok(Destination::Special) => out.fail(
+                "E_INVALID_PARAMS",
+                &format!("{output} is not a regular file"),
+                json!({}),
+            ),
             Err(e) => out.fail(
                 "E_STORAGE",
                 &format!("cannot inspect {output}: {e}"),
@@ -500,24 +647,43 @@ pub(crate) fn export_text(
             out.from_rpc_error(&e);
         }
     };
-    let text = v["text"].as_str().unwrap_or("");
-    let count = v["entryCount"].as_u64().unwrap_or(0);
+    let (Some(text), Some(count)) = (v["text"].as_str(), v["entryCount"].as_u64()) else {
+        out.fail(
+            "E_INTERNAL",
+            "core returned a malformed export result",
+            json!({}),
+        );
+    };
     if !to_file {
         if out.json {
             out.ok("memory.exportText/1", &v, String::new);
+        } else if std::io::stdout().is_terminal() {
+            say_raw(&terminal_safe(text));
         } else {
             say_raw(text);
         }
         return;
     }
+    let publication_kind = if matches!(publication, Publication::Replace) {
+        Publication::Replace
+    } else {
+        Publication::CreateNew
+    };
     if let Err(e) = write_private_atomic(Path::new(output), text.as_bytes(), publication) {
+        let hint = if matches!(publication_kind, Publication::CreateNew) && no_hard_links(&e) {
+            " (this file system cannot create the file exclusively; use --yes to replace)"
+        } else {
+            ""
+        };
         out.fail(
             "E_STORAGE",
-            &format!("failed to write {output}: {e}"),
+            &format!("failed to write {output}: {e}{hint}"),
             json!({}),
         );
     }
-    out.ok("memory.exportText/1", &v, || {
+    // The memory text went into the 0600 file; stdout carries only where and how many.
+    let doc = json!({ "output": output, "entryCount": count });
+    out.ok("memory.exportText/1", &doc, || {
         format!("exported {count} memories to {output}")
     });
 }
@@ -620,21 +786,40 @@ mod tests {
     }
 
     #[test]
-    fn a_preference_the_core_could_not_bind_to_a_person_goes_to_user_only_with_the_flag() {
-        let entries = [entry("Preferences"), entry("Preferences")];
+    fn a_skip_from_the_core_stays_a_skip_whatever_the_flags_say() {
+        let entries = [
+            entry("Preferences"),
+            entry("Preferences"),
+            entry("Projects"),
+        ];
         let recs = [
             json!({ "target": "skip", "reason": "requires-user-binding" }),
             json!({ "target": "skip", "reason": "secret-redacted" }),
+            json!({ "target": "skip", "reason": "unclassified" }),
         ];
-        let t = adjust_targets(&entries, &recs, None, None, true);
-        assert_eq!(t[0]["target"], "user");
+        for flag in [false, true] {
+            let t = adjust_targets(&entries, &recs, Some("bernd"), Some("ws"), flag);
+            assert_eq!(t, recs.to_vec());
+        }
+    }
+
+    #[test]
+    fn terminal_output_loses_escape_and_bidi_controls_but_keeps_text() {
+        let s = "Größe\tx\n\u{1b}]52;c;AAAA\u{7}\r\u{9b}31m\u{202E}evil\u{7f}";
+        let t = terminal_safe(s);
+        assert!(t.starts_with("Größe\tx\n"));
+        for bad in ['\u{1b}', '\u{7}', '\r', '\u{9b}', '\u{202E}', '\u{7f}'] {
+            assert!(!t.contains(bad), "{bad:?}");
+        }
+        assert!(t.contains("evil"));
+        assert_eq!(terminal_safe("plain ü"), "plain ü");
+    }
+
+    #[test]
+    fn apply_limits_are_the_schema_limits() {
         assert_eq!(
-            t[1]["reason"], "secret-redacted",
-            "a redacted entry stays skipped"
-        );
-        assert_eq!(
-            adjust_targets(&entries, &recs, None, None, false)[0]["target"],
-            "skip"
+            (MAX_APPLY_ENTRIES, MAX_ENTRY_CHARS, MAX_ID_CHARS),
+            (5000, 4000, 128)
         );
     }
 

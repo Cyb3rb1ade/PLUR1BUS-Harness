@@ -2504,7 +2504,7 @@ mod import_text {
             ],
             0,
         );
-        assert_eq!(v["schema"], "memory.importText.preview/1");
+        assert_eq!(v["schema"], "memory.importText.plan/1");
         assert_eq!(v["targets"][0]["agentIds"], json!(["bernd"]));
     }
 
@@ -2761,7 +2761,7 @@ mod import_text {
             dir.path(),
             vec![(
                 "memory.importText.rollback",
-                json!({ "result": { "rolledBack": 2, "discardedProposals": 0, "unhandledProposals": 0 } }),
+                json!({ "result": { "rolledBack": 2, "failed": 0, "remaining": 0, "keptModified": 1, "discardedProposals": 0, "unhandledProposals": 0 } }),
             )],
         );
         let v = err_doc(
@@ -2822,7 +2822,7 @@ mod import_text {
             .clone();
         assert!(String::from_utf8(out)
             .unwrap()
-            .contains("2 memories undone"));
+            .contains("2 removed, 0 remaining, 0 failed, 1 kept"));
     }
 
     #[test]
@@ -2932,7 +2932,7 @@ mod import_text {
             0o600
         );
         assert_eq!(std::fs::read_dir(outdir.path()).unwrap().count(), 1);
-        // File output retains the raw RPC result in --json, including future fields.
+        // File output with --json reports only where and how many, never the memory text.
         let _ = std::fs::remove_file(&dest);
         let v = err_doc(
             &[
@@ -2950,9 +2950,8 @@ mod import_text {
             v,
             json!({
                 "schema": "memory.exportText/1",
-                "text": "Preferences:\n[2026-01-01] - Größe\n",
-                "entryCount": 1,
-                "futureField": { "retained": true }
+                "output": dest.to_str().unwrap(),
+                "entryCount": 1
             })
         );
         assert_eq!(
@@ -3118,5 +3117,435 @@ mod import_text {
         let (code, stderr) = common::run_closed_stdout(&mut cmd);
         assert_eq!(code, Some(0), "{stderr}");
         assert!(!stderr.contains("panicked"), "{stderr}");
+    }
+
+    fn rollback_core(dir: &Path, done: u64, failed: u64, remaining: u64, kept: u64) {
+        spawn_core(
+            dir,
+            vec![(
+                "memory.importText.rollback",
+                json!({ "result": {
+                    "rolledBack": done, "failed": failed, "remaining": remaining,
+                    "keptModified": kept, "discardedProposals": 0, "unhandledProposals": 0
+                } }),
+            )],
+        );
+    }
+
+    #[test]
+    fn an_incomplete_rollback_shows_every_counter_and_exits_1() {
+        let (dir, h) = home_with_agent();
+        rollback_core(dir.path(), 3, 1, 2, 4);
+        let o = bin()
+            .args([
+                "--home",
+                &h,
+                "memory",
+                "import-text",
+                "--rollback",
+                RUN_ID,
+                "--yes",
+            ])
+            .assert()
+            .code(1)
+            .get_output()
+            .clone();
+        let all = format!(
+            "{}{}",
+            String::from_utf8_lossy(&o.stdout),
+            String::from_utf8_lossy(&o.stderr)
+        );
+        assert!(
+            all.contains("3 removed, 2 remaining, 1 failed, 4 kept"),
+            "{all}"
+        );
+        assert!(all.contains("run the same command again"), "{all}");
+        let v = err_doc(
+            &[
+                "--json",
+                "--home",
+                &h,
+                "memory",
+                "import-text",
+                "--rollback",
+                RUN_ID,
+                "--yes",
+            ],
+            1,
+        );
+        assert_eq!(v["schema"], "memory.importText.rollback/1");
+        assert_eq!(v["remaining"], 2);
+        assert_eq!(v["failed"], 1);
+        assert_eq!(v["keptModified"], 4);
+        assert_eq!(v["error"]["error"], "E_INTERNAL");
+        // failed alone and remaining alone each fail the command
+        for (failed, remaining) in [(1, 0), (0, 1)] {
+            let (dir, h) = home_with_agent();
+            rollback_core(dir.path(), 1, failed, remaining, 0);
+            bin()
+                .args([
+                    "--home",
+                    &h,
+                    "memory",
+                    "import-text",
+                    "--rollback",
+                    RUN_ID,
+                    "--yes",
+                ])
+                .assert()
+                .code(1);
+        }
+    }
+
+    #[test]
+    fn a_rollback_result_without_the_counters_is_a_malformed_core_answer() {
+        let (dir, h) = home_with_agent();
+        spawn_core(
+            dir.path(),
+            vec![(
+                "memory.importText.rollback",
+                json!({ "result": { "rolledBack": 2 } }),
+            )],
+        );
+        bin()
+            .args([
+                "--home",
+                &h,
+                "memory",
+                "import-text",
+                "--rollback",
+                RUN_ID,
+                "--yes",
+            ])
+            .assert()
+            .code(1)
+            .stderr(predicate::str::contains("malformed rollback result"));
+    }
+
+    #[test]
+    fn json_to_stdout_keeps_the_raw_export_result() {
+        let (dir, h) = home_with_agent();
+        export_core(dir.path());
+        let v = err_doc(&["--json", "--home", &h, "memory", "export-text"], 0);
+        assert_eq!(v["text"], "Preferences:\n[2026-01-01] - Größe\n");
+        assert_eq!(v["futureField"], json!({ "retained": true }));
+    }
+
+    #[test]
+    fn a_malformed_export_result_writes_nothing() {
+        let (dir, h) = home_with_agent();
+        spawn_core(
+            dir.path(),
+            vec![(
+                "memory.exportText",
+                json!({ "result": { "entryCount": 1 } }),
+            )],
+        );
+        let outdir = tempfile::tempdir().unwrap();
+        let dest = outdir.path().join("e.txt");
+        bin()
+            .args([
+                "--home",
+                &h,
+                "memory",
+                "export-text",
+                "--output",
+                dest.to_str().unwrap(),
+            ])
+            .assert()
+            .code(1)
+            .stderr(predicate::str::contains("malformed export result"));
+        assert!(!dest.exists());
+    }
+
+    /// Runs the binary with a pseudo-terminal as stdout, returns (exit code, everything written to it).
+    fn run_with_tty_stdout(args: &[&str]) -> (i32, Vec<u8>) {
+        let (mut master, slave) = unsafe {
+            let (mut m, mut s) = (0, 0);
+            assert_eq!(
+                libc::openpty(
+                    &mut m,
+                    &mut s,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut()
+                ),
+                0
+            );
+            use std::os::fd::FromRawFd;
+            (std::fs::File::from_raw_fd(m), std::fs::File::from_raw_fd(s))
+        };
+        let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_plur1bus"))
+            .args(args)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::from(slave))
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        // read while the child runs: a pty can drop unread output once the slave side is closed
+        let reader = std::thread::spawn(move || {
+            let mut buf = Vec::new();
+            let mut chunk = [0u8; 4096];
+            loop {
+                match master.read(&mut chunk) {
+                    Ok(0) | Err(_) => break,
+                    Ok(n) => buf.extend_from_slice(&chunk[..n]),
+                }
+            }
+            buf
+        });
+        let code = child.wait().unwrap().code().unwrap_or(-1);
+        let buf = reader.join().unwrap();
+        (code, buf)
+    }
+
+    #[test]
+    fn export_to_a_terminal_carries_no_raw_control_characters() {
+        let (dir, h) = home_with_agent();
+        spawn_core(
+            dir.path(),
+            vec![(
+                "memory.exportText",
+                json!({ "result": {
+                    "text": "Größe\n\u{1b}]52;c;QUFB\u{7}[2J\u{9b}31m\u{202e}rtl\n",
+                    "entryCount": 1
+                } }),
+            )],
+        );
+        let (code, buf) = run_with_tty_stdout(&["--home", &h, "memory", "export-text"]);
+        assert_eq!(code, 0);
+        let s = String::from_utf8(buf).unwrap();
+        assert!(s.contains("Größe"), "{s:?}");
+        for bad in ['\u{1b}', '\u{7}', '\u{9b}', '\u{202e}'] {
+            assert!(!s.contains(bad), "{bad:?} in {s:?}");
+        }
+        // redirected output stays byte-exact
+        let out = bin()
+            .args(["--home", &h, "memory", "export-text"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        assert!(String::from_utf8(out).unwrap().contains('\u{1b}'));
+    }
+
+    #[test]
+    fn workspace_is_an_agent_id_checked_before_the_core_is_contacted() {
+        let (dir, h) = home_with_agent();
+        spawn_core(dir.path(), one_project("Projekt"));
+        let f = write_input(dir.path(), "x");
+        let v = err_doc(
+            &[
+                "--json",
+                "--home",
+                &h,
+                "memory",
+                "import-text",
+                "--file",
+                &f,
+                "--yes",
+                "--workspace",
+                "projekt-x",
+            ],
+            1,
+        );
+        assert_eq!(v["error"], "E_AGENT_UNKNOWN");
+        assert!(calls(dir.path()).is_empty());
+        bin()
+            .args([
+                "--home",
+                &h,
+                "memory",
+                "import-text",
+                "--file",
+                &f,
+                "--yes",
+                "--workspace",
+                "bernd",
+            ])
+            .assert()
+            .success();
+    }
+
+    #[test]
+    fn a_denied_apply_shows_the_server_message_and_none_of_the_text() {
+        let (dir, h) = home_with_agent();
+        spawn_core(
+            dir.path(),
+            vec![
+                one_project("GEHEIMER-PROJEKTTEXT").remove(0),
+                (
+                    "memory.importText.apply",
+                    json!({ "error": { "code": -32000, "message": "only human persons may perform memory import",
+                        "data": { "error": "E_DENIED", "reason": "human-only" } } }),
+                ),
+            ],
+        );
+        let f = write_input(dir.path(), "x");
+        let o = bin()
+            .args(["--home", &h, "memory", "import-text", "--file", &f, "--yes"])
+            .assert()
+            .code(1)
+            .get_output()
+            .clone();
+        let all = format!(
+            "{}{}",
+            String::from_utf8_lossy(&o.stdout),
+            String::from_utf8_lossy(&o.stderr)
+        );
+        assert!(all.contains("only human persons"), "{all}");
+        assert!(!all.contains("GEHEIMER"), "{all}");
+    }
+
+    #[test]
+    fn a_core_without_the_import_methods_is_not_available() {
+        let (dir, h) = home_with_agent();
+        fake_core::spawn_many(
+            dir.path(),
+            fake_core::hello_with_capabilities(&["memory.exportText", "memory.importText.preview"]),
+            vec![],
+        );
+        let f = write_input(dir.path(), "x");
+        let v = err_doc(&["--json", "--home", &h, "memory", "export-text"], 2);
+        assert_eq!(v["reason"], "core-lacks-method");
+        let v = err_doc(
+            &[
+                "--json",
+                "--home",
+                &h,
+                "memory",
+                "import-text",
+                "--file",
+                &f,
+                "--dry-run",
+            ],
+            2,
+        );
+        assert_eq!(v["method"], "memory.importText.preview");
+    }
+
+    #[test]
+    fn a_symlink_planted_during_the_rpc_is_never_followed() {
+        for yes in [false, true] {
+            let (dir, h) = home_with_agent();
+            let outdir = tempfile::tempdir().unwrap();
+            let dest = outdir.path().join("export.txt");
+            let target = outdir.path().join("target.txt");
+            std::fs::write(&target, "target").unwrap();
+            let (d2, t2) = (dest.clone(), target.clone());
+            fake_core::spawn_many_with_hook(
+                dir.path(),
+                fake_core::hello_with_capabilities(&[]),
+                vec![(
+                    "memory.exportText",
+                    json!({ "result": { "text": "exported", "entryCount": 1 } }),
+                )],
+                move |method| {
+                    if method == "memory.exportText" {
+                        std::os::unix::fs::symlink(&t2, &d2).unwrap();
+                    }
+                },
+            );
+            let mut cmd = bin();
+            cmd.args([
+                "--json",
+                "--home",
+                &h,
+                "memory",
+                "export-text",
+                "--output",
+                dest.to_str().unwrap(),
+            ]);
+            if yes {
+                cmd.arg("--yes");
+            }
+            let r = cmd.output().unwrap();
+            assert_eq!(
+                std::fs::read_to_string(&target).unwrap(),
+                "target",
+                "yes={yes}"
+            );
+            if yes {
+                // rename replaces the link itself
+                assert!(r.status.success());
+                assert!(!std::fs::symlink_metadata(&dest)
+                    .unwrap()
+                    .file_type()
+                    .is_symlink());
+            } else {
+                assert!(!r.status.success());
+                assert!(std::fs::symlink_metadata(&dest)
+                    .unwrap()
+                    .file_type()
+                    .is_symlink());
+            }
+        }
+    }
+
+    #[test]
+    fn a_fifo_destination_is_refused_even_with_yes() {
+        let (dir, h) = home_with_agent();
+        export_core(dir.path());
+        let outdir = tempfile::tempdir().unwrap();
+        let fifo = outdir.path().join("pipe");
+        let c = std::ffi::CString::new(fifo.to_str().unwrap()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(c.as_ptr(), 0o600) }, 0);
+        bin()
+            .args([
+                "--home",
+                &h,
+                "memory",
+                "export-text",
+                "--output",
+                fifo.to_str().unwrap(),
+                "--yes",
+            ])
+            .assert()
+            .code(2)
+            .stderr(predicate::str::contains("not a regular file"));
+        assert!(!std::fs::symlink_metadata(&fifo).unwrap().is_file());
+    }
+
+    #[test]
+    fn apply_limits_are_checked_locally_and_a_partial_export_is_flagged() {
+        let (dir, h) = home_with_agent();
+        spawn_core(dir.path(), one_project(&"ä".repeat(4001)));
+        let f = write_input(dir.path(), "x");
+        bin()
+            .args(["--home", &h, "memory", "import-text", "--file", &f, "--yes"])
+            .assert()
+            .code(2)
+            .stderr(predicate::str::contains("exceeds the import limits"));
+        assert!(!calls(dir.path())
+            .iter()
+            .any(|c| c == "memory.importText.apply"));
+
+        let (dir, h) = home_with_agent();
+        let mut scripted = one_project("Projekt");
+        scripted[0].1["result"]["status"] = json!("more");
+        spawn_core(dir.path(), scripted);
+        let f = write_input(dir.path(), "x");
+        let out = bin()
+            .args(["--home", &h, "memory", "import-text", "--file", &f, "--yes"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        assert!(String::from_utf8(out).unwrap().contains("STATUS: MORE"));
+    }
+
+    #[test]
+    fn a_file_import_in_a_pipe_without_yes_never_contacts_the_core() {
+        let (dir, h) = home_with_agent();
+        spawn_core(dir.path(), one_project("Projekt"));
+        let f = write_input(dir.path(), "x");
+        bin()
+            .args(["--home", &h, "memory", "import-text", "--file", &f])
+            .assert()
+            .code(2)
+            .stderr(predicate::str::contains("--yes"));
+        assert!(calls(dir.path()).is_empty());
     }
 }
