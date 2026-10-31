@@ -218,6 +218,7 @@ mod watchdog {
         ListUnavailable,
         DescendantSafetyCap,
         TaskInfoUnavailable,
+        RssIncomplete,
         AttachLimit,
     }
     impl Cause {
@@ -229,6 +230,7 @@ mod watchdog {
                 Self::ListUnavailable => "list-unavailable",
                 Self::DescendantSafetyCap => "descendant-safety-cap",
                 Self::TaskInfoUnavailable => "task-info-unavailable",
+                Self::RssIncomplete => "aggregate-rss-incomplete",
                 Self::AttachLimit => "attach-limit",
             }
         }
@@ -296,6 +298,7 @@ mod watchdog {
         begin_ns: u64,
         end_ns: u64,
     }
+    #[derive(Clone, Copy)]
     struct SampleError {
         cause: Cause,
         record: Record,
@@ -453,10 +456,29 @@ mod watchdog {
             Ok(())
         }
     }
+    #[repr(C)]
+    #[derive(Default)]
+    struct KernelIdentity {
+        start_seconds: u64,
+        start_micros: u64,
+        ppid: u32,
+        pgid: u32,
+        status: u32,
+    }
+    unsafe extern "C" {
+        fn watchdog_kernel_identity(pid: libc::c_int, out: *mut KernelIdentity) -> libc::c_int;
+    }
+    #[derive(Clone, Copy)]
+    struct ProcessInfo {
+        ppid: u32,
+        pgid: u32,
+        status: u32,
+        id: Identity,
+    }
     fn bsd_info(
         pid: libc::pid_t,
         diagnostics: &mut Diagnostics,
-    ) -> Result<Option<libc::proc_bsdinfo>, SampleError> {
+    ) -> Result<Option<ProcessInfo>, SampleError> {
         let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
         let size = std::mem::size_of_val(&info) as libc::c_int;
         let begin_ns = diagnostics.clock();
@@ -485,7 +507,12 @@ mod watchdog {
         };
         diagnostics.observe_timed(observation, begin_ns, diagnostics.clock());
         if got == size {
-            return Ok(Some(info));
+            return Ok(Some(ProcessInfo {
+                ppid: info.pbi_ppid,
+                pgid: info.pbi_pgid,
+                status: info.pbi_status,
+                id: (info.pbi_start_tvsec, info.pbi_start_tvusec),
+            }));
         }
         let begin_ns = diagnostics.clock();
         let alive = unsafe { libc::kill(pid, 0) };
@@ -504,10 +531,18 @@ mod watchdog {
         if alive != 0 && probe_errno == libc::ESRCH {
             return Ok(None);
         }
+        if errno == libc::ESRCH && alive == 0 {
+            let mut kernel = KernelIdentity::default();
+            if unsafe { watchdog_kernel_identity(pid, &mut kernel) } == 0 {
+                return Ok(Some(ProcessInfo {
+                    ppid: kernel.ppid,
+                    pgid: kernel.pgid,
+                    status: kernel.status,
+                    id: (kernel.start_seconds, kernel.start_micros),
+                }));
+            }
+        }
         Err(diagnostics.error(Cause::IdentityUnavailable))
-    }
-    fn identity(info: &libc::proc_bsdinfo) -> Identity {
-        (info.pbi_start_tvsec, info.pbi_start_tvusec)
     }
     fn list_pids(
         pid: libc::pid_t,
@@ -623,29 +658,46 @@ mod watchdog {
         queue.push((root, Source::Group));
         let mut seen = HashSet::new();
         let mut next = HashMap::new();
+        let mut members = Vec::new();
+        let mut incomplete = None;
         let mut rss = 0u64;
+        // Count the complete reachable census before querying RSS: an unreadable RSS
+        // must not hide an already exceeded task limit.
         while let Some((pid, source)) = queue.pop() {
             check_time(deadline, diagnostics)?;
-            if pid <= 0 {
+            if pid <= 0 || seen.contains(&pid) {
                 continue;
             }
-            let Some(info) = bsd_info(pid, diagnostics)? else {
-                continue;
+            let info = match bsd_info(pid, diagnostics) {
+                Ok(Some(info)) => info,
+                Ok(None) => continue,
+                Err(error) => {
+                    // #820: kill(0)-visible processes can be zombies; like RLIMIT_NPROC,
+                    // they occupy a task slot until reaped. Count conservatively even if
+                    // their identity cannot be recovered, without retaining or signalling them.
+                    seen.insert(pid);
+                    diagnostics.count = seen.len();
+                    incomplete.get_or_insert(error);
+                    if seen.len() > 65536 {
+                        return Err(diagnostics.error(Cause::DescendantSafetyCap));
+                    }
+                    if seen.len() > tasks {
+                        return Ok((seen.len(), rss));
+                    }
+                    continue;
+                }
             };
-            check_time(deadline, diagnostics)?;
-            let id = identity(&info);
-            // Enumeration races must never turn a reused PID into an unrelated retained descendant.
             let belongs = match source {
-                Source::Group => info.pbi_pgid == root as u32,
-                Source::Child(parent) => info.pbi_ppid == parent as u32,
-                Source::Known(expected) => id == expected,
+                Source::Group => info.pgid == root as u32,
+                Source::Child(parent) => info.ppid == parent as u32,
+                Source::Known(expected) => info.id == expected,
             };
             diagnostics.observe(Observation {
                 operation: Operation::Membership,
                 returned: i32::from(belongs),
                 ..diagnostics.last
             });
-            if !belongs || !seen.insert((pid, id)) {
+            if !belongs || !seen.insert(pid) {
                 continue;
             }
             diagnostics.count = seen.len();
@@ -654,6 +706,23 @@ mod watchdog {
             }
             if seen.len() > tasks {
                 return Ok((seen.len(), rss));
+            }
+            next.insert(pid, info.id);
+            members.push((pid, info));
+            if info.status != libc::SZOMB {
+                queue.extend(
+                    list_pids(pid, false, deadline, diagnostics)?
+                        .into_iter()
+                        .map(|child| (child, Source::Child(pid))),
+                );
+            }
+        }
+        for (pid, info) in members {
+            check_time(deadline, diagnostics)?;
+            // Confirmed SZOMB has no live address space; do not guess zero for
+            // an unreadable process whose kernel state is unknown or live.
+            if info.status == libc::SZOMB {
+                continue;
             }
             let mut task: libc::proc_taskinfo = unsafe { std::mem::zeroed() };
             let size = std::mem::size_of_val(&task) as libc::c_int;
@@ -668,42 +737,59 @@ mod watchdog {
                 )
             };
             let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
-            let task_observation = Observation {
+            let observation = Observation {
                 operation: Operation::TaskInfo,
+                pid,
                 returned: got,
                 expected: size,
                 errno,
                 rss_bytes: task.pti_resident_size,
                 ..diagnostics.last
             };
-            diagnostics.observe_timed(task_observation, begin_ns, diagnostics.clock());
+            diagnostics.observe_timed(observation, begin_ns, diagnostics.clock());
             check_time(deadline, diagnostics)?;
-            let Some(after) = bsd_info(pid, diagnostics)? else {
-                continue;
-            };
-            check_time(deadline, diagnostics)?;
-            if identity(&after) != id {
-                continue;
+            match bsd_info(pid, diagnostics) {
+                Ok(None) => continue,
+                Ok(Some(after)) if after.id != info.id => continue,
+                Ok(Some(after)) if after.status == libc::SZOMB => continue,
+                Ok(Some(_)) if got == size => {
+                    rss = rss.saturating_add(task.pti_resident_size);
+                    diagnostics.rss = rss;
+                }
+                Ok(Some(_)) => {
+                    diagnostics.observe(observation);
+                    incomplete.get_or_insert_with(|| diagnostics.error(Cause::TaskInfoUnavailable));
+                }
+                Err(error) => {
+                    incomplete.get_or_insert(error);
+                }
             }
-            if got != size {
-                // Keep the original task-query return/errno even after the identity recheck.
-                diagnostics.observe(task_observation);
-                return Err(diagnostics.error(Cause::TaskInfoUnavailable));
-            }
-            next.insert(pid, id);
-            rss = rss.saturating_add(task.pti_resident_size);
-            diagnostics.rss = rss;
             if rss > memory {
                 return Ok((seen.len(), rss));
             }
-            queue.extend(
-                list_pids(pid, false, deadline, diagnostics)?
-                    .into_iter()
-                    .map(|child| (child, Source::Child(pid))),
-            );
+        }
+        if let Some(error) = incomplete {
+            return Err(SampleError {
+                cause: Cause::RssIncomplete,
+                ..error
+            });
         }
         *known = next;
         Ok((seen.len(), rss))
+    }
+    fn limit_reason(
+        count: usize,
+        rss: u64,
+        tasks: usize,
+        memory: u64,
+    ) -> Option<(i32, &'static str)> {
+        if count > tasks {
+            Some((121, "task-limit-exceeded"))
+        } else if rss > memory {
+            Some((122, "rss-limit-exceeded"))
+        } else {
+            None
+        }
     }
     pub(super) fn run(args: &[String]) -> Result<(), String> {
         use std::os::unix::process::CommandExt;
@@ -817,13 +903,11 @@ mod watchdog {
             }
             let mut failure = None;
             let exceeded = match sample(pid, tasks, memory, &mut known, &mut diagnostics) {
-                Ok((count, _)) if count > tasks => Some((121, "task-limit-exceeded")),
-                Ok((_, rss)) if rss > memory => Some((122, "rss-limit-exceeded")),
+                Ok((count, rss)) => limit_reason(count, rss, tasks, memory),
                 Err(error) => {
                     failure = Some(error);
                     Some((125, "sandbox-unavailable"))
                 }
-                _ => None,
             };
             if let Some((code, reason)) = exceeded {
                 diagnostics.decision(code, failure.as_ref());
@@ -838,6 +922,84 @@ mod watchdog {
                 std::process::exit(code);
             }
             std::thread::sleep(Duration::from_millis(50).saturating_sub(started.elapsed()));
+        }
+    }
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use std::io::{BufRead, BufReader, Write};
+        use std::os::unix::process::CommandExt;
+        use std::process::{Command, Stdio};
+
+        #[test]
+        fn unreaped_zombie_occupies_a_task_slot() {
+            let temp = tempfile::tempdir().unwrap();
+            let executable = temp.path().join("zombie");
+            let source = concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/tests/fixtures/sandbox/zombie.c"
+            );
+            assert!(Command::new("cc")
+                .args([source, "-o"])
+                .arg(&executable)
+                .status()
+                .unwrap()
+                .success());
+            let mut child = Command::new(executable)
+                .process_group(0)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .spawn()
+                .unwrap();
+            let mut stdout = BufReader::new(child.stdout.take().unwrap());
+            let mut ready = String::new();
+            let read = stdout.read_line(&mut ready);
+            let mut diagnostics = Diagnostics::new(false, None);
+            let mut known = HashMap::new();
+            let zombie_pid = ready.trim().parse::<libc::pid_t>().ok();
+            let mut kernel = KernelIdentity::default();
+            let kernel_result =
+                zombie_pid.map(|pid| unsafe { watchdog_kernel_identity(pid, &mut kernel) });
+            let result = if read.is_ok() && zombie_pid.is_some() {
+                Some(sample(
+                    child.id() as libc::pid_t,
+                    1,
+                    u64::MAX,
+                    &mut known,
+                    &mut diagnostics,
+                ))
+            } else {
+                None
+            };
+            let complete_rss = if zombie_pid.is_some() {
+                Some(sample(
+                    child.id() as libc::pid_t,
+                    16,
+                    u64::MAX,
+                    &mut known,
+                    &mut diagnostics,
+                ))
+            } else {
+                None
+            };
+            // Always release and reap the direct fixture child before making assertions.
+            let _ = child.stdin.take().unwrap().write_all(b"x");
+            let status = child.wait().unwrap();
+            assert!(status.success());
+            assert_eq!(kernel_result, Some(0));
+            assert_eq!(kernel.status, libc::SZOMB);
+            assert_eq!(kernel.ppid, child.id());
+            assert!(
+                complete_rss.expect("fixture did not become ready").is_ok(),
+                "confirmed zombie should not make aggregate RSS unavailable"
+            );
+            let (count, _) = result
+                .expect("fixture did not become ready")
+                .unwrap_or_else(|e| panic!("sample failed: {}", e.cause.label()));
+            assert_eq!(
+                limit_reason(count, 0, 1, u64::MAX),
+                Some((121, "task-limit-exceeded"))
+            );
         }
     }
 }
