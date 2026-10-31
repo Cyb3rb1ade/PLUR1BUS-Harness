@@ -35,17 +35,19 @@ describe("exportMemoriesAsText", () => {
 
     const engine: any = {
       memory: {
-        list: async (_q: any, _p: any, ctx: any) => {
-          if (ctx.agentId === "bernd") {
-            return { items: agentCards };
+        list: async (q: any, p: any) => {
+          assert.equal(typeof q.since, "number");
+          assert.ok(q.limit <= 100);
+          if (p.agentId === "bernd" && p.scope !== "user") {
+            return { items: agentCards, truncated: false };
           }
-          return { items: userCards };
+          return { items: userCards, truncated: false };
         },
       },
     };
 
     const principal: E.Principal = {
-      agentId: "bernd",
+      agentId: "default",
       workspace: "workspace:v1:main",
       user: "user:v1:u1" as any,
       channel: "cli",
@@ -79,19 +81,20 @@ describe("exportMemoriesAsText", () => {
   });
 
   it("redacts secrets during export", async () => {
+    const token = ["sk", "ant", "api03", "abcdef1234567890abcdef1234567890abcdef"].join("-");
     const cards = [
       {
         id: "c1",
         scope: "user",
         kind: "Identity",
         createdAt: new Date("2024-01-10T00:00:00Z").getTime(),
-        text: "Secret token: sk-ant-api03-abcdef1234567890abcdef1234567890abcdef",
+        text: `Secret token: ${token}`,
       },
     ];
 
     const engine: any = {
       memory: {
-        list: async () => ({ items: cards }),
+        list: async () => ({ items: cards, truncated: false }),
       },
     };
 
@@ -107,5 +110,6 @@ describe("exportMemoriesAsText", () => {
 
     const text = await exportMemoriesAsText({ principal, engine });
     assert.ok(!text.includes("sk-ant-api03-"));
+    assert.ok(text.includes("[REDACTED:key]") || text.includes("[REDACTED:pattern]"));
   });
 });

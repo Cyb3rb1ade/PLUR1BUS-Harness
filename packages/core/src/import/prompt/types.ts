@@ -16,7 +16,6 @@ export interface ParsedEntry {
   sourceType: SourceType;
   recordedAt?: string | undefined;
   text: string;
-  raw: string;
   warnings: string[];
   idempotencyKey: string;
 }

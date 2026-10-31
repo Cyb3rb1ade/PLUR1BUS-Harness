@@ -777,42 +777,6 @@ pub enum MemoryCmd {
         #[arg(long)]
         agent: Option<String>,
     },
-    /// [experimental] Import memories from any chat assistant export by prompt
-    ImportText {
-        /// path to text file or '-' for stdin
-        #[arg(long, default_value = "-")]
-        file: String,
-        /// target agent for projects and rule proposals (default: default agent)
-        #[arg(long)]
-        agent: Option<String>,
-        /// target workspace for projects
-        #[arg(long)]
-        workspace: Option<String>,
-        /// set recommendation for preferences to user scope
-        #[arg(long)]
-        all_preferences_to_user: bool,
-        /// preview only without applying changes
-        #[arg(long)]
-        dry_run: bool,
-        /// apply directly without interactive confirmation
-        #[arg(long)]
-        yes: bool,
-        /// show the export prompt text
-        #[arg(long)]
-        show_prompt: bool,
-        /// roll back a previous prompt import run
-        #[arg(long)]
-        rollback: Option<String>,
-    },
-    /// [experimental] Export memories formatted for portable text import
-    ExportText {
-        /// include agent-private memories of this agent
-        #[arg(long)]
-        agent: Option<String>,
-        /// output path or '-' for stdout (default: '-')
-        #[arg(long, default_value = "-")]
-        output: String,
-    },
     /// [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
     Reembed(ReembedArgs),
 }

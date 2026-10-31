@@ -34,17 +34,13 @@ Der Knopf **Empfehlung übernehmen** setzt empfohlene Standardziele für alle Ei
 
 ## Erkennung von Geheimnissen
 
-Der Parser prüft alle Texte auf Passwörter, API-Schlüssel und Tokens. Gefundene Geheimnisse werden durch `[omitted]` ersetzt und mit dem Hinweis **Mögliches Geheimnis** markiert. Ein solcher Eintrag bleibt auf **Nicht importieren**, bis du die redigierte Fassung ausdrücklich bestätigst.
+Der Parser prüft alle Texte auf Passwörter, API-Schlüssel und Tokens. Gefundene Geheimnisse werden durch `[REDACTED:<Muster>]` ersetzt und mit dem Hinweis **Mögliches Geheimnis** markiert. Ein solcher Eintrag bleibt auf **Nicht importieren**, bis du die redigierte Fassung ausdrücklich bestätigst.
 
 ## Import rückgängig machen (Rollback)
 
-Jeder Importlauf erhält eine eigene Kennung (`runId`) und ein Protokoll. Um einen Lauf zurückzunehmen, klicke in der Zusammenfassung auf **Import rückgängig machen** oder nutze auf der Konsole:
+Jeder Importlauf erhält eine eigene Kennung (`runId`) und ein Protokoll. Um einen Lauf zurückzunehmen, klicke in der Zusammenfassung auf **Import rückgängig machen**.
 
-```sh
-plur1bus memory import-text --rollback <runId>
-```
-
-Der Rollback entfernt alle importierten Karten und verwirft noch offene Vorschläge.
+Der Rollback entfernt alle importierten Karten und stellt den vorherigen Zustand wieder her.
 
 ## Gedächtnis exportieren
 

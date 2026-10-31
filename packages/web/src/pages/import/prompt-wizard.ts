@@ -14,10 +14,9 @@ export interface EntryRow {
   sourceType: "memory" | "chat" | "unknown";
   recordedAt?: string;
   text: string;
-  raw: string;
   warnings: string[];
   idempotencyKey: string;
-  target: "skip" | "user" | "agent" | "workspace" | "propose-rule";
+  target: "skip" | "user" | "agent" | "workspace";
   agentIds?: string[];
   workspaceId?: string;
 }
@@ -43,6 +42,8 @@ export function PromptImportWizard(): View {
   const [status, setStatus] = useState<"complete" | "more" | "unrecognized">("complete");
   const [warnings, setWarnings] = useState<string[]>([]);
   const [duplicates, setDuplicates] = useState<string[]>([]);
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [availableAgents, setAvailableAgents] = useState<string[]>([]);
   const [entries, setEntries] = useState<EntryRow[]>([]);
   const [hasPreviewed, setHasPreviewed] = useState<boolean>(false);
   const [appliedRun, setAppliedRun] = useState<{
@@ -58,7 +59,7 @@ export function PromptImportWizard(): View {
     discardedProposals: number;
   } | null>(null);
 
-  // Fetch initial prompt from core on mount
+  // Fetch initial prompt and available agents on mount
   useEffect(() => {
     let active = true;
     void getApi()
@@ -66,6 +67,17 @@ export function PromptImportWizard(): View {
       .then((res: any) => {
         if (active && res && typeof res.prompt === "string" && res.prompt.length > 0) {
           setPromptText(res.prompt);
+        }
+      })
+      .catch(() => {});
+    void getApi()
+      .get<{ agents?: Array<{ agentId?: string }> }>("/api/v1/agents")
+      .then((res: any) => {
+        if (active && Array.isArray(res?.agents)) {
+          const ids = res.agents
+            .map((a: any) => a.agentId)
+            .filter((id: unknown): id is string => typeof id === "string");
+          if (ids.length > 0) setAvailableAgents(ids);
         }
       })
       .catch(() => {});
@@ -94,27 +106,17 @@ export function PromptImportWizard(): View {
       setWarnings(res.warnings ?? []);
       const dupSet = new Set<string>(res.duplicates ?? []);
       setDuplicates(Array.from(dupSet));
+      setRecommendations(res.recommendations ?? []);
 
-      const rows: EntryRow[] = (res.entries ?? []).map((e: any) => {
-        const hasSecret = e.warnings?.includes("secret-redacted");
-        const isInstruction = e.category === "Instructions";
-        let defaultTarget: EntryRow["target"] = "skip";
-        if (!hasSecret && !isInstruction) {
-          defaultTarget = "user";
-        } else if (isInstruction && !hasSecret) {
-          defaultTarget = "propose-rule";
-        }
-        return {
-          category: e.category,
-          sourceType: e.sourceType,
-          recordedAt: e.recordedAt,
-          text: e.text,
-          raw: e.raw,
-          warnings: e.warnings ?? [],
-          idempotencyKey: e.idempotencyKey,
-          target: defaultTarget,
-        };
-      });
+      const rows: EntryRow[] = (res.entries ?? []).map((e: any) => ({
+        category: e.category,
+        sourceType: e.sourceType,
+        recordedAt: e.recordedAt,
+        text: e.text,
+        warnings: e.warnings ?? [],
+        idempotencyKey: e.idempotencyKey,
+        target: "skip",
+      }));
       setEntries(rows);
       setHasPreviewed(true);
     } catch (err: any) {
@@ -126,15 +128,17 @@ export function PromptImportWizard(): View {
 
   const applyRecommendations = () => {
     setEntries((current) =>
-      current.map((row) => {
-        const hasSecret = row.warnings.includes("secret-redacted");
-        if (hasSecret) {
+      current.map((row, idx) => {
+        const rec = recommendations[idx];
+        if (!rec || rec.target === "skip") {
           return { ...row, target: "skip" };
         }
-        if (row.category === "Instructions") {
-          return { ...row, target: "propose-rule" };
-        }
-        return { ...row, target: "user" };
+        return {
+          ...row,
+          target: rec.target,
+          agentIds: rec.agentIds,
+          workspaceId: rec.workspaceId,
+        };
       }),
     );
   };
@@ -146,8 +150,19 @@ export function PromptImportWizard(): View {
   };
 
   const updateRowTarget = (index: number, target: EntryRow["target"]) => {
+    const firstAgent = availableAgents[0];
     setEntries((current) =>
-      current.map((r, i) => (i === index ? { ...r, target } : r)),
+      current.map((r, i) =>
+        i === index
+          ? {
+              ...r,
+              target,
+              ...(target === "agent" && !r.agentIds && firstAgent
+                ? { agentIds: [firstAgent] }
+                : {}),
+            }
+          : r,
+      ),
     );
   };
 
@@ -155,13 +170,21 @@ export function PromptImportWizard(): View {
     setLoading(true);
     setError(null);
     try {
+      const cleanEntries = entries.map((e) => ({
+        category: e.category,
+        sourceType: e.sourceType,
+        text: e.text,
+        warnings: e.warnings,
+        idempotencyKey: e.idempotencyKey,
+        ...(e.recordedAt ? { recordedAt: e.recordedAt } : {}),
+      }));
       const targets = entries.map((e) => ({
         target: e.target,
         ...(e.agentIds ? { agentIds: e.agentIds } : {}),
         ...(e.workspaceId ? { workspaceId: e.workspaceId } : {}),
       }));
       const res: any = await getApi().rpc("memory.importText.apply", {
-        entries,
+        entries: cleanEntries,
         targets,
         dryRun: false,
       });
@@ -333,7 +356,7 @@ export function PromptImportWizard(): View {
               {
                 type: "button",
                 class: "btn btn-quiet",
-                onClick: () => setCategoryTarget("Projects", "user"),
+                onClick: () => setCategoryTarget("Projects", "workspace"),
               },
               t("imports.prompt.bulkProjects"),
             ),
@@ -342,7 +365,7 @@ export function PromptImportWizard(): View {
               {
                 type: "button",
                 class: "btn btn-quiet",
-                onClick: () => setCategoryTarget("Instructions", "propose-rule"),
+                onClick: () => setCategoryTarget("Instructions", "skip"),
               },
               t("imports.prompt.bulkInstructions"),
             ),
@@ -356,11 +379,11 @@ export function PromptImportWizard(): View {
               h(
                 "tr",
                 null,
-                h("th", null, "Kategorie"),
-                h("th", null, "Datum"),
-                h("th", null, "Quelle / Hinweise"),
-                h("th", null, "Erinnerung"),
-                h("th", null, "Ziel"),
+                h("th", null, t("imports.prompt.colCategory")),
+                h("th", null, t("imports.prompt.colDate")),
+                h("th", null, t("imports.prompt.colSource")),
+                h("th", null, t("imports.prompt.colMemory")),
+                h("th", null, t("imports.prompt.colTarget")),
               ),
             ),
             h(
@@ -371,12 +394,11 @@ export function PromptImportWizard(): View {
                 const hasSecret = entry.warnings.includes("secret-redacted");
                 const isRule = entry.category === "Instructions";
                 const isChat = entry.sourceType === "chat";
-                const dateUnknown = !entry.recordedAt;
 
                 return h(
                   "tr",
                   { key: entry.idempotencyKey || idx },
-                  h("td", null, h("strong", null, entry.category)),
+                  h("td", null, h("strong", null, t(`imports.prompt.category.${entry.category}` as Key))),
                   h(
                     "td",
                     null,
@@ -409,7 +431,7 @@ export function PromptImportWizard(): View {
                     h(
                       "select",
                       {
-                        "aria-label": `Ziel für Eintrag ${idx + 1}`,
+                        "aria-label": t("imports.prompt.ariaTarget", { index: idx + 1 }),
                         value: entry.target,
                         onChange: (e: Event) =>
                           updateRowTarget(idx, (e.target as HTMLSelectElement).value as EntryRow["target"]),
@@ -419,7 +441,7 @@ export function PromptImportWizard(): View {
                         ? [
                             h(
                               "option",
-                              { key: "prop-user", value: "propose-rule" },
+                              { key: "prop-user", value: "skip" },
                               t("imports.prompt.target.userProposal"),
                             ),
                           ]
@@ -437,6 +459,26 @@ export function PromptImportWizard(): View {
                               : []),
                           ],
                     ),
+                    entry.target === "agent" && availableAgents.length > 0
+                      ? h(
+                          "div",
+                          { class: "agent-select-wrapper" },
+                          h(
+                            "select",
+                            {
+                              "aria-label": `Agent for entry ${idx + 1}`,
+                              value: entry.agentIds?.[0] ?? availableAgents[0],
+                              onChange: (e: Event) => {
+                                const agentId = (e.target as HTMLSelectElement).value;
+                                setEntries((cur) =>
+                                  cur.map((r, i) => (i === idx ? { ...r, agentIds: [agentId] } : r)),
+                                );
+                              },
+                            },
+                            availableAgents.map((ag) => h("option", { key: ag, value: ag }, ag)),
+                          ),
+                        )
+                      : null,
                   ),
                 );
               }),
@@ -470,7 +512,6 @@ export function PromptImportWizard(): View {
             t("imports.prompt.resultCounts", {
               imported: appliedRun.imported,
               linked: appliedRun.linked,
-              proposedRules: appliedRun.proposedRules,
               skipped: appliedRun.skipped,
               runId: appliedRun.runId,
             }),
@@ -491,7 +532,6 @@ export function PromptImportWizard(): View {
                 {},
                 t("imports.prompt.rollbackSuccess", {
                   rolledBack: rollbackResult.rolledBack,
-                  discardedProposals: rollbackResult.discardedProposals,
                 }),
               ),
         )

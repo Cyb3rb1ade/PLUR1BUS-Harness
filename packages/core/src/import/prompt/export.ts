@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import type * as E from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { createRedactor } from "../../logs/redact.ts";
+import type { MemorySensitivityService } from "../../memory-sensitivity/service.ts";
 import { MEMORY_EXPORT_CATEGORIES, type MemoryExportCategory } from "./types.ts";
 
 function findExportPromptText(): string {
@@ -25,6 +26,7 @@ export interface ExportMemoriesOptions {
   principal: E.Principal;
   engine: E.Engine;
   agentId?: string | undefined;
+  sensitivityService?: MemorySensitivityService | null | undefined;
   options?: { now?: number } | undefined;
 }
 
@@ -43,7 +45,7 @@ function formatCardDate(createdAt?: number): string {
   return `[${yyyy}-${mm}-${dd}]`;
 }
 
-function normalizeCategory(kind?: string): MemoryExportCategory {
+export function normalizeCategory(kind?: string): MemoryExportCategory {
   if (!kind) return "Other";
   const lower = kind.trim().toLowerCase();
   for (const cat of MEMORY_EXPORT_CATEGORIES) {
@@ -52,10 +54,75 @@ function normalizeCategory(kind?: string): MemoryExportCategory {
   return "Other";
 }
 
+function extractCategory(card: any): MemoryExportCategory {
+  if (card.sourceRef && typeof card.sourceRef === "string") {
+    const m = /category=([A-Za-z]+)/.exec(card.sourceRef);
+    if (m && m[1]) {
+      const norm = normalizeCategory(m[1]);
+      if (norm !== "Other") return norm;
+    }
+  }
+  if (card.kind) {
+    const norm = normalizeCategory(card.kind);
+    if (norm !== "Other") return norm;
+  }
+  if (card.category) {
+    const norm = normalizeCategory(card.category);
+    if (norm !== "Other") return norm;
+  }
+  const textLower = (card.text || "").toLowerCase();
+  if (textLower.includes("prefer") || textLower.includes("likes") || textLower.includes("vorliebe") || textLower.includes("mag ")) {
+    return "Preferences";
+  }
+  if (textLower.includes("project") || textLower.includes("projekt") || textLower.includes("repo")) {
+    return "Projects";
+  }
+  if (card.scope === "user") {
+    return "Identity";
+  }
+  return "Other";
+}
+
+async function fetchAllCardsForScope(
+  engine: E.Engine,
+  principal: E.Principal,
+  scope: "user" | "agent-private",
+): Promise<Array<any>> {
+  const cards: any[] = [];
+  let currentSince = 0;
+  for (;;) {
+    const res = await engine.memory.list(
+      { since: currentSince, limit: 100 },
+      principal,
+      USER_CONTEXT,
+    );
+    for (const item of res.items ?? []) {
+      if (item.scope === scope) {
+        cards.push(item);
+      }
+    }
+    if (!res.truncated || !res.items || res.items.length === 0) {
+      break;
+    }
+    let maxCreated = currentSince;
+    for (const it of res.items) {
+      if (typeof it.createdAt === "number" && it.createdAt > maxCreated) {
+        maxCreated = it.createdAt;
+      }
+    }
+    if (maxCreated <= currentSince) {
+      currentSince = currentSince + 1;
+    } else {
+      currentSince = maxCreated + 1;
+    }
+  }
+  return cards;
+}
+
 export async function exportMemoriesAsText(
   opts: ExportMemoriesOptions,
 ): Promise<string> {
-  const { principal, engine, agentId } = opts;
+  const { principal, engine, agentId, sensitivityService } = opts;
   const redactor = createRedactor();
 
   const cardsToExport: Array<{
@@ -64,46 +131,41 @@ export async function exportMemoriesAsText(
     text: string;
   }> = [];
 
-  // 1. Fetch user-scope memories
-  try {
-    const listRes = await engine.memory.list(
-      { limit: 5000 },
-      principal,
-      USER_CONTEXT,
-    );
-    for (const item of listRes.items ?? []) {
-      // Filter out tombstones/deleted if any marked
-      if (item.scope === "user") {
-        cardsToExport.push({
-          category: normalizeCategory((item as any).kind ?? (item as any).category),
-          createdAt: item.createdAt ?? 0,
-          text: item.text,
-        });
+  // 1. Fetch user-scope memories (B2: page with since: 0, limit: 100)
+  const userItems = await fetchAllCardsForScope(engine, principal, "user");
+  for (const item of userItems) {
+    if (sensitivityService) {
+      const cats = await sensitivityService.assessCard({ id: item.id, text: item.text, summary: item.summary });
+      if (cats && cats.length > 0) {
+        continue; // M9: exclude sensitivity-marked cards from portable export
       }
     }
-  } catch {
-    // If listing fails or empty, continue
+    cardsToExport.push({
+      category: extractCategory(item),
+      createdAt: item.createdAt ?? 0,
+      text: item.text,
+    });
   }
 
   // 2. Fetch agent-private memories if agentId specified
   if (agentId) {
-    try {
-      const agentRes = await engine.memory.list(
-        { limit: 5000 },
-        { ...principal, agentId },
-        USER_CONTEXT,
-      );
-      for (const item of agentRes.items ?? []) {
-        if (item.scope === "agent-private") {
-          cardsToExport.push({
-            category: normalizeCategory((item as any).kind ?? (item as any).category),
-            createdAt: item.createdAt ?? 0,
-            text: item.text,
-          });
+    const agentPrincipal: E.Principal = {
+      ...principal,
+      agentId,
+    };
+    const agentItems = await fetchAllCardsForScope(engine, agentPrincipal, "agent-private");
+    for (const item of agentItems) {
+      if (sensitivityService) {
+        const cats = await sensitivityService.assessCard({ id: item.id, text: item.text, summary: item.summary });
+        if (cats && cats.length > 0) {
+          continue; // M9: exclude sensitivity-marked cards from portable export
         }
       }
-    } catch {
-      // Continue
+      cardsToExport.push({
+        category: extractCategory(item),
+        createdAt: item.createdAt ?? 0,
+        text: item.text,
+      });
     }
   }
 

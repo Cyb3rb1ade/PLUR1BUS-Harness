@@ -49,8 +49,9 @@ STATUS: COMPLETE`;
     });
     assert.equal(recs.length, 6);
 
-    // Instructions -> propose-rule
-    assert.equal(recs[0]?.target, "propose-rule");
+    // Instructions -> skip (instructions not imported for safety)
+    assert.equal(recs[0]?.target, "skip");
+    assert.equal(recs[0]?.reason, "instructions-not-imported");
     // Identity, Career, Preferences -> user
     assert.equal(recs[1]?.target, "user");
     assert.equal(recs[2]?.target, "user");

@@ -34,17 +34,13 @@ Click **Apply recommendations** to set recommended defaults across all entries.
 
 ## Redaction of secrets
 
-The import parser automatically checks all text for credentials, passwords, and private keys. If a secret is detected, it is replaced with `[omitted]` and marked with a **Possible secret** warning. Such entries remain set to **Do not import** until you explicitly approve the redacted version.
+The import parser automatically checks all text for credentials, passwords, and private keys. If a secret is detected, it is replaced with `[REDACTED:<pattern>]` and marked with a **Possible secret** warning. Such entries remain set to **Do not import** until you explicitly approve the redacted version.
 
 ## Reversing an import (Rollback)
 
-Each import run generates a unique run ID and audit report. If you want to undo an import, click **Undo import (Rollback)** on the import summary page or run:
+Each import run generates a unique run ID and audit report. If you want to undo an import, click **Undo import (Rollback)** on the import summary page.
 
-```sh
-plur1bus memory import-text --rollback <runId>
-```
-
-Rollback safely removes all imported cards and discards unhandled proposals.
+Rollback safely removes all imported cards and restores the previous state.
 
 ## Exporting memories
 

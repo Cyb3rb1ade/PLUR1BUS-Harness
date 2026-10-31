@@ -138,14 +138,27 @@ STATUS: MORE
   });
 
   it("redacts secrets and tags entry with secret-redacted", () => {
+    const token = ["sk", "ant", "api03", "1234567890abcdef1234567890abcdef1234567890abcdef"].join("-");
     const text = `
 ## Identity
-[2024-01-01] [memory] - My key is sk-ant-api03-1234567890abcdef1234567890abcdef1234567890abcdef and password is topsecret.
+[2024-01-01] [memory] - My key is ${token} and password is topsecret.
 `;
     const res = parseMemoryExport(text);
     assert.equal(res.entries.length, 1);
     assert.ok(res.entries[0]!.warnings.includes("secret-redacted"));
     assert.ok(!res.entries[0]!.text.includes("sk-ant-api03-"));
+  });
+
+  it("redacts secrets before truncation so boundary secrets are never partially exposed", () => {
+    const token = ["sk", "ant", "api03", "1234567890abcdef1234567890abcdef1234567890abcdef"].join("-");
+    const padding = "A".repeat(3950);
+    const text = `## Identity\n[2024-01-01] [memory] - ${padding} key is ${token} and more text follows here ${"Z".repeat(100)}`;
+    const res = parseMemoryExport(text);
+    assert.equal(res.entries.length, 1);
+    assert.ok(res.entries[0]!.warnings.includes("secret-redacted"));
+    assert.ok(res.entries[0]!.warnings.includes("overlong-entry"));
+    assert.ok(!res.entries[0]!.text.includes("sk-ant"));
+    assert.ok(res.entries[0]!.text.includes("[REDACTED:pattern]"));
   });
 
   it("returns status unrecognized for empty or garbage text", () => {
@@ -156,6 +169,16 @@ STATUS: MORE
     const res2 = parseMemoryExport("Random non-memory chat without any categories or structure\nJust plain dialogue");
     assert.equal(res2.status, "unrecognized");
     assert.equal(res2.entries.length, 0);
+  });
+
+  it("processes hostile long lines with repeated asterisks without quadratic regex slowdown (< 100 ms)", () => {
+    const hostileLine = "x" + "*".repeat(500_000) + "x";
+    const text = `## Other\n[2024-01-01] [memory] - normal item\n${hostileLine}\n`;
+    const start = Date.now();
+    const res = parseMemoryExport(text);
+    const elapsed = Date.now() - start;
+    assert.ok(elapsed < 100, `Elapsed ${elapsed}ms exceeded 100ms`);
+    assert.ok(res.entries.length >= 1);
   });
 
   it("processes 512 KiB hostile text within time bound (< 500 ms)", () => {

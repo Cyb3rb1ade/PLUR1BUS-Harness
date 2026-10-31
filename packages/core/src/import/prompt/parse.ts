@@ -36,14 +36,20 @@ const CATEGORY_MAP: Record<string, MemoryExportCategory> = {
 /** Normalise section heading line into one of the 6 categories, or null if not a category heading */
 function matchCategoryHeader(line: string): MemoryExportCategory | null {
   const trimmed = line.trim();
+  // Bound header line length to prevent linear slowdowns on long input
+  if (trimmed.length > 64) return null;
   // Strip markdown hashes: ##, #, ###
   let text = trimmed.replace(/^#+\s*/, "");
   // Strip leading list numbers: "1. ", "1. **Instructions**"
   text = text.replace(/^\d+[\.\)]\s*/, "");
-  // Strip leading/trailing bold/italic stars or underscores: **Instructions**, __Instructions__
-  text = text.replace(/^[*_]+|[*_]+$/g, "").trim();
+  // Linear strip of leading/trailing bold/italic stars or underscores
+  let start = 0;
+  while (start < text.length && (text[start] === "*" || text[start] === "_")) start++;
+  let end = text.length;
+  while (end > start && (text[end - 1] === "*" || text[end - 1] === "_")) end--;
+  text = text.slice(start, end).trim();
   // Strip trailing colon
-  text = text.replace(/:$/, "").trim();
+  if (text.endsWith(":")) text = text.slice(0, -1).trim();
 
   const key = text.toLowerCase();
   return CATEGORY_MAP[key] ?? null;
@@ -117,7 +123,6 @@ export function parseMemoryExport(
     sourceType: SourceType;
     recordedAt?: string | undefined;
     text: string;
-    rawLines: string[];
     entryWarnings: Set<string>;
   } | null = null;
 
@@ -129,15 +134,16 @@ export function parseMemoryExport(
 
     const entryWarnings = Array.from(activeEntry.entryWarnings);
 
-    if (cleanText.length > MAX_ENTRY_CHARS) {
-      cleanText = cleanText.slice(0, MAX_ENTRY_CHARS);
-      entryWarnings.push("overlong-entry");
-    }
-
+    // Redaction must run BEFORE truncation so secrets at the 4000-char boundary are never partially leaked
     const redacted = redactor.text(cleanText);
     if (redacted !== cleanText) {
       cleanText = redacted;
       entryWarnings.push("secret-redacted");
+    }
+
+    if (cleanText.length > MAX_ENTRY_CHARS) {
+      cleanText = cleanText.slice(0, MAX_ENTRY_CHARS);
+      entryWarnings.push("overlong-entry");
     }
 
     const idempotencyKey = createHash("sha256")
@@ -149,7 +155,6 @@ export function parseMemoryExport(
       sourceType: activeEntry.sourceType,
       ...(activeEntry.recordedAt ? { recordedAt: activeEntry.recordedAt } : {}),
       text: cleanText,
-      raw: activeEntry.rawLines.join("\n"),
       warnings: entryWarnings,
       idempotencyKey,
     });
@@ -204,7 +209,6 @@ export function parseMemoryExport(
 
     if (isIndented && !startsItem && activeEntry) {
       activeEntry.text += "\n" + trimmed;
-      activeEntry.rawLines.push(line);
       continue;
     }
 
@@ -255,7 +259,6 @@ export function parseMemoryExport(
       sourceType,
       recordedAt,
       text: content,
-      rawLines: [line],
       entryWarnings,
     };
   }

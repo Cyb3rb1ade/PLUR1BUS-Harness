@@ -1010,22 +1010,22 @@ STATUS: COMPLETE
 * Matches English and German category headers (e.g. `Anweisungen`, `Identität`, `Beruf`, `Vorlieben`, `Projekte`).
 * Parses dates (`YYYY-MM-DD`, `YYYY-MM`, `YYYY`, `[unknown]`).
 * Tolerates continuation lines indented by spaces or tabs.
-* Runs secret redaction on every entry using `createRedactor()`. If credentials or keys are detected, the text is redacted with `[omitted]` and flagged with `secret-redacted`.
+* Runs secret redaction on every entry using `createRedactor()`. If credentials or keys are detected, the text is redacted with canonical markers (e.g. `[REDACTED:pattern]`, `[REDACTED:key]`) and flagged with `secret-redacted`.
 * Enforces boundaries: max 512 KiB total input (truncates safely with warning) and max 4,000 characters per entry.
 
 ### 14.3 Target scopes and recommendations
 
-* **Instructions are proposals**: Rules extracted from untrusted imported text never take immediate effect. They land in the review queue as open proposals (`propose-rule`) and must be individually confirmed by a human.
+* **Instructions are skipped**: Untrusted imported text can contain prompt injection attacks styled as instructions or behavioural rules. Entries categorized as Instructions or containing directive instruction patterns are never imported and are safely skipped.
 * **User scope (`scope: user`)**: Requires an authenticated person with `trust: "proved"`. The CLI does not have human session binding and cannot select this scope directly.
 * **Agent-private scope (`scope: agent-private`)**: Stores cards for specific chosen agents. A warning is surfaced for Identity and Career entries because an agent uses agent-private memories across all its conversations.
 * **Workspace scope (`scope: workspace`)**: Available exclusively for `Projects` entries, with a notice that the project details are visible to all workspace members.
 
 ### 14.4 Execution, duplicate linking, and rollback
 
-* **Execution (`executePromptImport`)**: Batches cards into groups of at most 500. Source reference format is `prompt:<provider>:<category>#<index>;date=<date>;src=<src>;run=<runId>`. Idempotency keys prevent duplicate cards upon re-import.
+* **Execution (`executePromptImport`)**: Batches cards into groups of at most 500. Source reference format is `prompt-import;run=<runId>;category=<category>`. Server-side idempotency keys computed from `(scope, owner, category, text)` prevent duplicate cards upon re-import.
 * **Duplicate linking**: Preflight dry-run queries existing cards; matched existing items are linked using `memory.link` rather than re-inserted.
 * **Audit trail**: Stores a run-scoped `report.json` and `ledger.jsonl` under `<home>/imports/<runId>/`.
-* **Rollback (`rollbackPromptImport`)**: Calls `memory.unimport` with `importRunId`, rolling back inserted cards and links. Open proposals created by the run are discarded.
+* **Rollback (`rollbackPromptImport`)**: Calls `memory.unimport` with `importRunId`, rolling back inserted cards and links. Rollback requires run containment, validates the `^prompt-` run ID format, ensures `source === "prompt"`, and marks the run rolled-back atomically.
 
 ### 14.5 Text export in identical format
 

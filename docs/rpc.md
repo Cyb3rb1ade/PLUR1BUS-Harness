@@ -24299,7 +24299,8 @@ Parse and preview a memory export text from another AI assistant.
   ],
   "properties": {
     "text": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 1000000
     }
   }
 }
@@ -24313,6 +24314,7 @@ Parse and preview a memory export text from another AI assistant.
   "additionalProperties": false,
   "required": [
     "entries",
+    "recommendations",
     "status",
     "warnings"
   ],
@@ -24338,6 +24340,12 @@ Parse and preview a memory export text from another AI assistant.
       "type": "array",
       "items": {
         "type": "string"
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MemoryEntryTarget"
       }
     }
   }
@@ -24367,13 +24375,15 @@ Apply a parsed memory export with target assignments.
       "type": "array",
       "items": {
         "$ref": "#/$defs/ParsedMemoryEntry"
-      }
+      },
+      "maxItems": 5000
     },
     "targets": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/MemoryEntryTarget"
-      }
+      },
+      "maxItems": 5000
     },
     "dryRun": {
       "type": "boolean"
@@ -24398,7 +24408,8 @@ Apply a parsed memory export with target assignments.
   ],
   "properties": {
     "runId": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^prompt-[0-9]+-[0-9a-f]+$"
     },
     "imported": {
       "type": "integer",
@@ -24442,7 +24453,8 @@ Roll back a prompt memory import run.
   ],
   "properties": {
     "runId": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^prompt-[0-9]+-[0-9a-f]+$"
     }
   }
 }
@@ -38693,13 +38705,15 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
+  "description": "1.11.0: A parsed memory entry from a portable export.",
+  "x-stability": "experimental",
+  "x-since": "1.11.0",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "category",
     "sourceType",
     "text",
-    "raw",
     "warnings",
     "idempotencyKey"
   ],
@@ -38724,22 +38738,24 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       ]
     },
     "recordedAt": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 50
     },
     "text": {
-      "type": "string"
-    },
-    "raw": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 4000
     },
     "warnings": {
       "type": "array",
+      "maxItems": 50,
       "items": {
-        "type": "string"
+        "type": "string",
+        "maxLength": 100
       }
     },
     "idempotencyKey": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 64
     }
   }
 }
@@ -38749,6 +38765,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
+  "description": "1.11.0: Target scope assignment for a memory entry.",
+  "x-stability": "experimental",
+  "x-since": "1.11.0",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -38767,15 +38786,19 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "agentIds": {
       "type": "array",
+      "maxItems": 50,
       "items": {
-        "type": "string"
+        "type": "string",
+        "maxLength": 128
       }
     },
     "workspaceId": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 128
     },
     "reason": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 500
     }
   }
 }

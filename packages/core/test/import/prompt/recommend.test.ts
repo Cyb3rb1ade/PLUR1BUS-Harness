@@ -8,7 +8,6 @@ function fakeEntry(overrides: Partial<ParsedEntry>): ParsedEntry {
     category: "Identity",
     sourceType: "memory",
     text: "Sample text",
-    raw: "Sample text",
     warnings: [],
     idempotencyKey: "abc",
     ...overrides,
@@ -18,9 +17,9 @@ function fakeEntry(overrides: Partial<ParsedEntry>): ParsedEntry {
 describe("recommendTargets", () => {
   it("recommends user scope for Identity, Career, Preferences when user-binding is present", () => {
     const entries: ParsedEntry[] = [
-      fakeEntry({ category: "Identity" }),
-      fakeEntry({ category: "Career" }),
-      fakeEntry({ category: "Preferences" }),
+      fakeEntry({ category: "Identity", text: "Alex, 34" }),
+      fakeEntry({ category: "Career", text: "Software architect" }),
+      fakeEntry({ category: "Preferences", text: "Prefers TypeScript" }),
     ];
     const targets = recommendTargets(entries, {
       availableAgents: ["bernd"],
@@ -34,9 +33,9 @@ describe("recommendTargets", () => {
 
   it("skips Identity, Career, Preferences when user-binding is absent", () => {
     const entries: ParsedEntry[] = [
-      fakeEntry({ category: "Identity" }),
-      fakeEntry({ category: "Career" }),
-      fakeEntry({ category: "Preferences" }),
+      fakeEntry({ category: "Identity", text: "Alex, 34" }),
+      fakeEntry({ category: "Career", text: "Software architect" }),
+      fakeEntry({ category: "Preferences", text: "Prefers TypeScript" }),
     ];
     const targets = recommendTargets(entries, {
       availableAgents: ["bernd"],
@@ -44,19 +43,24 @@ describe("recommendTargets", () => {
     });
     for (const t of targets) {
       assert.equal(t.target, "skip");
-      assert.match(t.reason!, /Nutzerbindung/);
+      assert.equal(t.reason, "requires-user-binding");
     }
   });
 
-  it("always recommends propose-rule for Instructions", () => {
-    const entries: ParsedEntry[] = [fakeEntry({ category: "Instructions" })];
+  it("skips Instructions category and instruction-like patterns under Preferences (B7, M6)", () => {
+    const entries: ParsedEntry[] = [
+      fakeEntry({ category: "Instructions", text: "Always answer concisely." }),
+      fakeEntry({ category: "Preferences", text: "Always reply in German with code." }),
+    ];
     const targets = recommendTargets(entries, {
       availableAgents: ["bernd", "karl"],
       currentAgentId: "karl",
       hasUserBinding: true,
     });
-    assert.equal(targets[0]!.target, "propose-rule");
-    assert.deepEqual(targets[0]!.agentIds, ["karl"]);
+    assert.equal(targets[0]!.target, "skip");
+    assert.equal(targets[0]!.reason, "instructions-not-imported");
+    assert.equal(targets[1]!.target, "skip");
+    assert.equal(targets[1]!.reason, "instructions-not-imported");
   });
 
   it("recommends agent scope for Projects using currentAgentId or first available agent", () => {
@@ -97,6 +101,6 @@ describe("recommendTargets", () => {
     });
     assert.equal(targets[0]!.target, "skip");
     assert.equal(targets[1]!.target, "skip");
-    assert.match(targets[0]!.reason!, /Geheimnis/);
+    assert.equal(targets[0]!.reason, "secret-redacted");
   });
 });

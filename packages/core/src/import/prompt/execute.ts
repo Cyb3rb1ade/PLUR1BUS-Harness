@@ -1,8 +1,9 @@
 import { createHash, randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type * as E from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { RpcError } from "../../rpc/errors.ts";
+import { isInsideDir, writeAtomicSync } from "../fs-atomic.ts";
 import type {
   EntryTarget,
   ParsedEntry,
@@ -10,13 +11,15 @@ import type {
   PromptRollbackResult,
 } from "./types.ts";
 
+export const PROMPT_RUN_ID_RE = /^prompt-[0-9]+-[0-9a-f]+$/;
+
 export interface ExecutePromptImportOptions {
   entries: ParsedEntry[];
   targets: EntryTarget[];
   principal: E.Principal;
   home: string;
   engine: E.Engine;
-  agents?: { workspaceOf(id: string): string | undefined; defaultAgentId?(): string } | undefined;
+  agents?: { workspaceOf(id: string): string | undefined; defaultAgentId?(): string; has?(id: string): boolean } | undefined;
   defaultAgentId?: string | undefined;
   dryRun?: boolean | undefined;
   now?: (() => number) | undefined;
@@ -37,6 +40,8 @@ export interface PromptImportReport {
   status: "started" | "completed" | "failed" | "rolled-back";
   startedAt: string;
   finishedAt?: string;
+  rolledBackAt?: string;
+  rolledBackBy?: string;
   dryRun: boolean;
   targets: EntryTarget[];
   counts: {
@@ -56,6 +61,23 @@ const SYSTEM_CONTEXT: E.AgentContext = Object.freeze({
   background: false,
 });
 
+/** Map export categories onto engine lowercase MEMORY_CATEGORIES */
+function mapCategoryToKind(category: string): string | undefined {
+  switch (category) {
+    case "Preferences":
+      return "preference";
+    case "Identity":
+    case "Career":
+      return "fact";
+    case "Projects":
+      return "fact";
+    case "Other":
+      return "other";
+    default:
+      return undefined;
+  }
+}
+
 export async function executePromptImport(
   opts: ExecutePromptImportOptions,
 ): Promise<PromptImportResult> {
@@ -71,7 +93,7 @@ export async function executePromptImport(
   // Preflight check: user scope requires proved principal
   for (const t of targets) {
     if (t.target === "user") {
-      if (principal.trust !== "proved") {
+      if (principal.trust !== "proved" || !principal.user) {
         throw new RpcError("E_DENIED", "user-scope cards require a proved person principal", {
           reason: "principal-unresolved",
         });
@@ -80,7 +102,8 @@ export async function executePromptImport(
   }
 
   const runId = `prompt-${now()}-${randomBytes(4).toString("hex")}`;
-  const runDir = join(home, "imports", runId);
+  const importsDir = join(home, "imports");
+  const runDir = join(importsDir, runId);
   if (!dryRun) {
     mkdirSync(runDir, { recursive: true, mode: 0o700 });
   }
@@ -110,9 +133,7 @@ export async function executePromptImport(
 
   const writeReport = () => {
     if (dryRun) return;
-    writeFileSync(reportPath, JSON.stringify(report, null, 2) + "\n", {
-      mode: 0o600,
-    });
+    writeAtomicSync(reportPath, JSON.stringify(report, null, 2) + "\n", 0o600);
   };
 
   const appendLedger = (
@@ -129,16 +150,15 @@ export async function executePromptImport(
       action,
       details,
     }) + "\n";
-    writeFileSync(ledgerPath, line, { flag: "a", mode: 0o600 });
+    try {
+      appendFileSync(ledgerPath, line, { mode: 0o600 });
+    } catch {
+      // ignore append failure in edge cases
+    }
   };
 
   writeReport();
 
-  // Group cards by agentId
-  // Cards can be:
-  // - target "user": routed through fallbackAgent with scope "user"
-  // - target "workspace": routed through fallbackAgent with scope "workspace"
-  // - target "agent": routed through each agent in agentIds with scope "agent-private"
   type CardTask = {
     card: E.MemoryImportCardInput;
     entry: ParsedEntry;
@@ -149,63 +169,78 @@ export async function executePromptImport(
     const entry = entries[i]!;
     const target = targets[i]!;
 
-    if (target.target === "skip") {
+    // Instructions and explicit skip targets are never imported directly (B7 prompt injection mitigation)
+    if (target.target === "skip" || entry.category === "Instructions" || target.target === "propose-rule") {
       report.counts.skipped++;
-      appendLedger(entry.idempotencyKey, "skipped", { reason: target.reason });
+      const reason = entry.category === "Instructions" || target.target === "propose-rule"
+        ? "instructions-not-imported"
+        : (target.reason ?? "user-skipped");
+      appendLedger(entry.idempotencyKey || `entry-${i}`, "skipped", { reason });
       continue;
     }
 
-    if (target.target === "propose-rule") {
-      const targetAgent = target.agentIds?.[0] ?? fallbackAgent;
-      affectedAgents.add(targetAgent);
-      const propId = `prop-${now()}-${randomBytes(4).toString("hex")}`;
-      report.proposals.push({
-        id: propId,
-        category: entry.category,
-        text: entry.text,
-        agentId: targetAgent,
-        status: "open",
-        createdAt: new Date(now()).toISOString(),
-      });
-      report.counts.proposedRules++;
-      appendLedger(entry.idempotencyKey, "deferred", { proposalId: propId, targetAgent });
-      continue;
-    }
+    const normalizedText = entry.text.trim().toLowerCase();
+    const kind = mapCategoryToKind(entry.category);
 
-    const cardInput: E.MemoryImportCardInput = {
-      idempotencyKey: entry.idempotencyKey,
+    const baseCard: Omit<E.MemoryImportCardInput, "idempotencyKey"> = {
       text: entry.text,
-      kind: entry.category,
+      ...(kind ? { kind } : {}),
       provenance: "imported",
       sourceRef: `prompt-import;run=${runId};category=${entry.category}`,
       ...(entry.recordedAt ? { createdAt: new Date(entry.recordedAt).getTime() } : {}),
     };
 
     if (target.target === "user") {
-      cardInput.scope = "user";
+      // H1: Server-side idempotency key scoped to user principal
+      const ownerKey = principal.user ?? principal.accountId;
+      const idempotencyKey = createHash("sha256")
+        .update(`user:${ownerKey}:${entry.category}:${normalizedText}`)
+        .digest("hex");
+
+      const cardInput: E.MemoryImportCardInput = {
+        ...baseCard,
+        scope: "user",
+        idempotencyKey,
+      };
       affectedAgents.add(fallbackAgent);
       const list = agentBatches.get(fallbackAgent) ?? [];
       list.push({ card: cardInput, entry });
       agentBatches.set(fallbackAgent, list);
     } else if (target.target === "workspace") {
-      cardInput.scope = "workspace";
-      affectedAgents.add(fallbackAgent);
-      const list = agentBatches.get(fallbackAgent) ?? [];
+      // H1 & H3: Server-side idempotency key scoped to workspace
+      const targetWsAgent = (target.workspaceId && opts.agents?.has?.(target.workspaceId))
+        ? target.workspaceId
+        : fallbackAgent;
+      const ownerKey = target.workspaceId ?? targetWsAgent;
+      const idempotencyKey = createHash("sha256")
+        .update(`workspace:${ownerKey}:${entry.category}:${normalizedText}`)
+        .digest("hex");
+
+      const cardInput: E.MemoryImportCardInput = {
+        ...baseCard,
+        scope: "workspace",
+        idempotencyKey,
+      };
+      affectedAgents.add(targetWsAgent);
+      const list = agentBatches.get(targetWsAgent) ?? [];
       list.push({ card: cardInput, entry });
-      agentBatches.set(fallbackAgent, list);
+      agentBatches.set(targetWsAgent, list);
     } else if (target.target === "agent") {
+      // H1: Server-side idempotency key scoped per target agent
       const destAgents = target.agentIds && target.agentIds.length > 0 ? target.agentIds : [fallbackAgent];
       for (const ag of destAgents) {
         affectedAgents.add(ag);
-        const copyInput: E.MemoryImportCardInput = {
-          ...cardInput,
+        const idempotencyKey = createHash("sha256")
+          .update(`agent:${ag}:${entry.category}:${normalizedText}`)
+          .digest("hex");
+
+        const cardInput: E.MemoryImportCardInput = {
+          ...baseCard,
           scope: "agent-private",
-          idempotencyKey: createHash("sha256")
-            .update(ag + ":" + entry.idempotencyKey)
-            .digest("hex"),
+          idempotencyKey,
         };
         const list = agentBatches.get(ag) ?? [];
-        list.push({ card: copyInput, entry });
+        list.push({ card: cardInput, entry });
         agentBatches.set(ag, list);
       }
     }
@@ -251,10 +286,12 @@ export async function executePromptImport(
               report.counts.imported++;
               appendLedger(task.card.idempotencyKey, "created", {
                 cardId: cardRes.id,
+                targetRef: cardRes.id,
+                sourceRef: task.card.sourceRef,
                 agentId,
               });
             } else if (cardRes.outcome === "matched-existing") {
-              // Duplicate found: link to existing card via engine.memory.link
+              // Duplicate found: link to existing card via engine.memory.link (M8)
               if (cardRes.id && typeof engine.memory.link === "function") {
                 try {
                   await engine.memory.link(
@@ -272,10 +309,12 @@ export async function executePromptImport(
                   report.counts.linked++;
                   appendLedger(task.card.idempotencyKey, "linked", {
                     existingCardId: cardRes.id,
+                    targetRef: cardRes.id,
+                    sourceRef: task.card.sourceRef,
                     agentId,
                   });
                 } catch {
-                  // If link failed (e.g. conflict/limit), count as skipped
+                  // If link failed (e.g. duplicate link or limit), count as skipped
                   report.counts.skipped++;
                 }
               } else {
@@ -300,7 +339,7 @@ export async function executePromptImport(
       runId,
       imported: report.counts.imported,
       linked: report.counts.linked,
-      proposedRules: report.counts.proposedRules,
+      proposedRules: 0,
       skipped: report.counts.skipped,
       reportPath,
     };
@@ -334,21 +373,61 @@ export interface RollbackPromptImportOptions {
   home: string;
   engine: E.Engine;
   principal: E.Principal;
+  now?: (() => number) | undefined;
 }
 
 export async function rollbackPromptImport(
   opts: RollbackPromptImportOptions,
 ): Promise<PromptRollbackResult> {
   const { runId, home, engine, principal } = opts;
-  const reportPath = join(home, "imports", runId, "report.json");
+  const now = opts.now ?? (() => Date.now());
 
+  // B6: Validate runId format
+  if (!PROMPT_RUN_ID_RE.test(runId)) {
+    throw new RpcError("E_INVALID_PARAMS", `invalid prompt import runId format: ${runId}`, {
+      reason: "invalid-run-id",
+    });
+  }
+
+  // B6: Path traversal containment check
+  const importsRoot = join(home, "imports");
+  const runDir = join(importsRoot, runId);
+  if (!isInsideDir(importsRoot, runDir)) {
+    throw new RpcError("E_INVALID_PARAMS", "path traversal detected", {
+      reason: "path-traversal",
+    });
+  }
+
+  const reportPath = join(runDir, "report.json");
   if (!existsSync(reportPath)) {
     throw new RpcError("E_NOT_FOUND", `import run not found: ${runId}`, {
       reason: "run-not-found",
     });
   }
 
-  const report: PromptImportReport = JSON.parse(readFileSync(reportPath, "utf8"));
+  let report: PromptImportReport;
+  try {
+    report = JSON.parse(readFileSync(reportPath, "utf8"));
+  } catch {
+    throw new RpcError("E_STORAGE", "unreadable run report", {
+      reason: "corrupt-report",
+    });
+  }
+
+  // B6: Require source === "prompt"
+  if (report.source !== "prompt") {
+    throw new RpcError("E_DENIED", "cannot rollback non-prompt import run with this method", {
+      reason: "wrong-import-source",
+    });
+  }
+
+  // B6: Refuse second rollback
+  if (report.status === "rolled-back") {
+    throw new RpcError("E_CONFLICT", "run already rolled back", {
+      reason: "already-rolled-back",
+    });
+  }
+
   let rolledBackCount = 0;
 
   for (const agentId of report.affectedAgents ?? []) {
@@ -359,12 +438,12 @@ export async function rollbackPromptImport(
         SYSTEM_CONTEXT,
       );
       rolledBackCount += res.unimported ?? 0;
-    } catch (e) {
-      // ignore not found or lock error
+    } catch {
+      // Continue for remaining agents
     }
   }
 
-  // Discard open proposals
+  // Discard open proposals if any
   let discardedProposals = 0;
   let unhandledProposals = 0;
 
@@ -378,7 +457,9 @@ export async function rollbackPromptImport(
   }
 
   report.status = "rolled-back";
-  writeFileSync(reportPath, JSON.stringify(report, null, 2) + "\n", { mode: 0o600 });
+  report.rolledBackAt = new Date(now()).toISOString();
+  report.rolledBackBy = principal.user ?? principal.accountId;
+  writeAtomicSync(reportPath, JSON.stringify(report, null, 2) + "\n", 0o600);
 
   return {
     rolledBack: rolledBackCount,
