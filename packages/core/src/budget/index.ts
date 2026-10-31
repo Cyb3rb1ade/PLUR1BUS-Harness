@@ -3,7 +3,7 @@ export { periodBounds, validateTimeZone, type Period, type PeriodBounds } from "
 export { BUDGET_SCHEMA_VERSION, BudgetStoreError } from "./store.ts";
 export {
   BudgetExceededError, BudgetInputError, createBudgetService, describeBreach,
-  type Breach, type BudgetEvent, type BudgetService, type BudgetServiceOptions, type BudgetStatus, type CheckDecision, type Limit, type LimitKey,
+  type Breach, type BudgetEvent, type BudgetService, type BudgetServiceOptions, type BudgetSettings, type BudgetSettingsResult, type BudgetStatus, type CheckDecision, type Limit, type LimitKey,
   type LimitScope, type Metric, METRICS, type RecordResult, type UsageEstimate, type UsageEvent, type Warning,
 } from "./service.ts";
 export { createCallBudget, CallBudgetExceededError, CallUsagePendingError, DEFAULT_RESERVATION_TTL_MS,

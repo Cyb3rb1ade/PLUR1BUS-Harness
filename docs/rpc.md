@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.10.0)
+# RPC reference (rpc 1.11.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -18496,7 +18496,7 @@ Acknowledges newly discovered models, clearing the new-models indicator (D112).
 
 **Served by:** core
 
-Usage per period (the current local day and month in the configured time zone) and per agent and model, plus every budget limit with its use and state (M2 L8, ADR-010 §4). Counts and ids only; never prompt content.
+Usage per period (the current local day and month in the configured time zone) and per agent and model, plus every budget limit with its use and state (M2 L8, ADR-010 §4). Counts and ids only; never prompt content. Since 1.11.0, returns the active cacheReadWeight and additive freshInputTokens/countedTokens per period, agent and model. Raw inputTokens still includes cache reads and writes; countedTokens applies the active weight and rounds once per aggregate.
 
 **params**
 
@@ -18605,6 +18605,18 @@ Usage per period (the current local day and month in the configured time zone) a
                 "type": "integer",
                 "minimum": 0,
                 "description": "Seconds of generated video, whole seconds rounded up (media units; absent from an older core)"
+              },
+              "freshInputTokens": {
+                "type": "integer",
+                "minimum": 0,
+                "x-since": "1.11.0",
+                "description": "Fresh input: sum of max(0, inputTokens - cacheReadTokens - cacheWriteTokens) per event. Absent from an older core."
+              },
+              "countedTokens": {
+                "type": "integer",
+                "minimum": 0,
+                "x-since": "1.11.0",
+                "description": "Input plus output with cache reads weighted at cacheReadWeight and capped to each event's input. Rounded up once per aggregate. Absent from an older core."
               }
             }
           },
@@ -18662,6 +18674,18 @@ Usage per period (the current local day and month in the configured time zone) a
                       "type": "integer",
                       "minimum": 0,
                       "description": "Seconds of generated video, whole seconds rounded up (media units; absent from an older core)"
+                    },
+                    "freshInputTokens": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "x-since": "1.11.0",
+                      "description": "Fresh input: sum of max(0, inputTokens - cacheReadTokens - cacheWriteTokens) per event. Absent from an older core."
+                    },
+                    "countedTokens": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "x-since": "1.11.0",
+                      "description": "Input plus output with cache reads weighted at cacheReadWeight and capped to each event's input. Rounded up once per aggregate. Absent from an older core."
                     }
                   }
                 },
@@ -18709,6 +18733,18 @@ Usage per period (the current local day and month in the configured time zone) a
                       "videoSeconds": {
                         "type": "integer",
                         "minimum": 0
+                      },
+                      "freshInputTokens": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "x-since": "1.11.0",
+                        "description": "Fresh input: sum of max(0, inputTokens - cacheReadTokens - cacheWriteTokens) per event. Absent from an older core."
+                      },
+                      "countedTokens": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "x-since": "1.11.0",
+                        "description": "Input plus output with cache reads weighted at cacheReadWeight and capped to each event's input. Rounded up once per aggregate. Absent from an older core."
                       }
                     }
                   }
@@ -18724,6 +18760,13 @@ Usage per period (the current local day and month in the configured time zone) a
       "items": {
         "$ref": "#/$defs/BudgetLimitState"
       }
+    },
+    "cacheReadWeight": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "x-since": "1.11.0",
+      "description": "Active cache-read token weight; absent from a core predating RPC 1.11.0."
     }
   }
 }
@@ -18838,7 +18881,7 @@ The outgoing-network policy in force (B4): normalised host allowlist, ports, loo
 
 **Served by:** core
 
-Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are whole numbers in the limit's metric: `tokens` (input + output, output includes reported reasoning tokens), `images` (generated images) or `videoSeconds` (seconds of generated video, rounded up). A media-unit limit gates only media calls that use that unit; there is no money dimension.
+Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are whole numbers in the limit's metric: `tokens` (input + output, output includes reported reasoning tokens), `images` (generated images) or `videoSeconds` (seconds of generated video, rounded up). A media-unit limit gates only media calls that use that unit; there is no money dimension. Since 1.11.0, also accepts cacheReadWeight (0 to 1, rounded to millionths); omitted settings and limits are preserved. Combined updates are atomic.
 
 **params**
 
@@ -18903,6 +18946,13 @@ Sets, changes or clears a budget limit and/or the time zone budget periods follo
       "minLength": 1,
       "maxLength": 64,
       "description": "An IANA zone name"
+    },
+    "cacheReadWeight": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "x-since": "1.11.0",
+      "description": "Cache-read token weight; default 1 counts reads in full. Stored rounded to millionths. Omission preserves the active setting."
     }
   }
 }
@@ -18931,13 +18981,20 @@ Sets, changes or clears a budget limit and/or the time zone budget periods follo
           "type": "null"
         }
       ],
-      "description": "The limit as stored after the change; null when it was removed. Absent when only the time zone changed."
+      "description": "The limit as stored after the change; null when it was removed. Absent when no limit was supplied."
     },
     "limits": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/BudgetLimit"
       }
+    },
+    "cacheReadWeight": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "x-since": "1.11.0",
+      "description": "Active cache-read token weight; absent from a core predating RPC 1.11.0."
     }
   }
 }
