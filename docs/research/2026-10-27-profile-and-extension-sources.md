@@ -1,31 +1,23 @@
 # Profile and Extension Sources: Research and Inventory
 
-**Status:** Research note, 2026-10-27, owner request · **Context:** Preparation for Milestone M7b/M7c (profile import) and foreign plugin compatibility · **Companion:** [Profile import and plugin compatibility spec](../superpowers/specs/2026-10-27-profile-import-and-plugin-compat-design.md), [Importers documentation](../import.md), [Agent Bridge connectors](2026-10-07-agent-bridge-connectors.md), [Extensions ecosystem design](../superpowers/specs/2026-09-27-extensions-ecosystem-design.md).
+**Status:** Research note, 2026-10-27 (revised 2026-10-31), owner request · **Context:** Preparation for Milestone M7b/M7c (profile import) and foreign plugin compatibility · **Companion:** [Profile import and plugin compatibility spec](../superpowers/specs/2026-10-27-profile-import-and-plugin-compat-design.md), [Profile import implementation plan](../superpowers/plans/2026-10-31-profile-import-and-plugin-compat.md), [Importers documentation](../import.md), [Agent Bridge connectors](2026-10-07-agent-bridge-connectors.md), [Extensions ecosystem design](../superpowers/specs/2026-09-27-extensions-ecosystem-design.md).
 
 ## 1. Overview and Methodology
 
 This document surveys eleven external AI coding and chat ecosystems to establish exact data locations, file formats, access methods, and extraction boundaries for user profiles, instructions, stored memories, skills, MCP servers, plugins, commands, and subagents.
 
-### 1.1 Sources Covered
+### 1.1 Source Scope Partitioning (Decision D121-J5)
 
-1. **Kimi** (Moonshot AI — CLI, Web/App, IDE)
-2. **Claude** (Anthropic — Claude Code CLI, Claude Desktop, Claude Web/Pro)
-3. **Codex** (OpenAI — Codex CLI, IDE extension)
-4. **Gemini / AGY** (Google DeepMind — Antigravity CLI `agy`, Gemini Web/Advanced, Gemini Code Assist IDE)
-5. **Grok** (xAI — Grok Web/App)
-6. **Grokbot** (xAI / Telegram / X — Bot interfaces)
-7. **Cursor** (Anysphere — Desktop IDE)
-8. **Hermes** (Nous Research — Hermes Agent CLI/daemon)
-9. **OpenClaw** (OpenClaw CLI/daemon)
-10. **PLUR1BUS/OpenClaw** (HM1 — `@cyb3rb1ade/plur1bus-memory` plugin on OpenClaw)
-11. **PLUR1BUS/Hermes** (HM2 — `plur1bus_hermes` memory provider on Hermes)
+The eleven ecosystems divide into two distinct operational groups:
+1. **New Profile Import Sources (Milestone M7b/M7c)**: Sources 1–7 (Kimi, Claude, Codex, Gemini/AGY, Grok, Grokbot, Cursor). These lack dedicated importers in the harness and are ingested through `plur1bus import profile` and the extended `ImportWizard` (F37).
+2. **Existing Legacy Host Sources (Milestone M7 v2)**: Sources 8–11 (Hermes, OpenClaw, HM1, HM2). These are already comprehensively handled by the dedicated offline and supervised importers ([`docs/import.md`](../import.md) §10–§13: `plur1bus import openclaw` and `plur1bus import hermes`). They are inventoried below solely to provide cross-platform architectural reference and avoid duplication.
 
 ### 1.2 Evidence Criteria
 
-- **Verified (`V`)**: Inspected directly from source code, official release tarball, or verified local installation on 2026-10-27.
+- **Verified (`V`)**: Inspected directly from source code, official release tarball, or verified local installation.
 - **Partly Verified (`P`)**: Documented in official vendor documentation or specifications; specific platform paths or edge behaviors marked `(unverified)`.
 - **Unverified (`U`)**: Inferred from ecosystem conventions; explicitly marked as unverified pending physical test fixture.
-- **Access Boundary Principle**: Only official local file reads, documented data export archives (e.g., Google Takeout, Anthropic account export), or explicit user copy-paste are admitted. **Strictly zero unauthorized web scraping, private session hijacking, or credential extraction** (in accordance with ADR-005 and vendor terms of service).
+- **Access Boundary Principle**: Only official local file reads, documented data export archives (e.g., Google Takeout, Anthropic account export), or explicit user copy-paste are admitted. **Strictly zero unauthorized web scraping, private session hijacking, or credential extraction** (in accordance with ADR-005, ADR-011, and vendor terms of service). All source filesystem access is strictly read-only (`O_NOFOLLOW` / `ReadonlyFs`).
 
 ---
 
@@ -41,7 +33,7 @@ This document surveys eleven external AI coding and chat ecosystems to establish
 | **Stored Memories** | Web / App | Cloud / Text | Prompt export (Paket O) | N/A (server-side chat context and memory bank) | Paket O spec · **V** |
 | **Skills** | CLI | Agent Skills (`SKILL.md`) | Direct file read | **Linux/macOS:** `~/.kimi-code/skills/<id>/SKILL.md`, `<workspace>/.kimi-code/skills/<id>/SKILL.md`<br>**Windows:** `%USERPROFILE%\.kimi-code\skills\<id>\SKILL.md` | Moonshot AI skill specification · **V** |
 | **MCP Servers** | CLI | JSON (`mcpServers`) | Direct file read | **Linux/macOS:** `~/.kimi-code/mcp.json`, `<workspace>/.kimi-code/mcp.json`<br>**Windows:** `%USERPROFILE%\.kimi-code\mcp.json` | `kimi-code` customization docs · **V** |
-| **Plugins / Hooks** | CLI | TOML (`[[hooks]]`) | Direct file read | `~/.kimi-code/config.toml` (`[[hooks]]`: `UserPromptSubmit`, etc.) | `config.toml` schema · **V** |
+| **Plugins / Hooks** | CLI | TOML (`[[hooks]]`) | Skipped & Reported | `~/.kimi-code/config.toml` (`[[hooks]]`: contains arbitrary shell commands; skipped per Ext spec §3/§7.3) | `config.toml` schema · **V** |
 | **Commands / Prompts** | CLI | Markdown / TOML | Direct file read | `~/.kimi-code/prompts/` (unverified), `config.toml` | `kimi-code` CLI reference · **P** |
 | **Subagents** | CLI | ACP JSON-RPC | Out-of-band | N/A (ACP runtime negotiation) | ACP v1 specification · **V** |
 
@@ -54,10 +46,11 @@ This document surveys eleven external AI coding and chat ecosystems to establish
 | **Global Instructions** | CLI (`claude`) | Markdown | Direct file read | **Linux/macOS:** `~/.claude/CLAUDE.md`<br>**Windows:** `%USERPROFILE%\.claude\CLAUDE.md` | `@anthropic-ai/claude-code` 2.1.292 · **V** |
 | **Project Rules** | CLI (`claude`) | Markdown | Direct file read | `<workspace>/CLAUDE.md`, `<workspace>/.claude/CLAUDE.md` | Claude Code docs · **V** |
 | **Persona / Personalization** | Web / Pro | JSON / Text | Account Data Export / Paste | Account Settings > Export Data (`users.json`, `custom_instructions.json`) | Claude Web settings export · **V** |
-| **Stored Memories** | Web / Pro | JSON / Text | Account Data Export / Prompt (Paket O) | Account export archive `memories.json` or prompt export | Anthropic Account Export · **V** |
+| **Stored Memories** | Web / Pro | JSON / Text | Account Export / Prompt (Paket O) | Account export archive `memories.json` (unverified schema pending fixture) or prompt export | Anthropic Account Export · **U** |
 | **Skills / Tools** | CLI | Custom / Node | Package import (X2) | Bundle import under `~/.claude/plugins/` (unverified) | Extensions spec X2 · **P** |
 | **MCP Servers** | Desktop | JSON (`mcpServers`) | Direct file read | **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`<br>**Linux:** `~/.config/Claude/claude_desktop_config.json`<br>**Windows:** `%APPDATA%\Claude\claude_desktop_config.json` | Claude Desktop documentation · **V** |
-| **MCP Servers** | CLI (`claude`) | JSON (`mcpServers`) | Direct file read | **Linux/macOS:** `~/.claude.json`, `<workspace>/.claude.json`<br>**Windows:** `%USERPROFILE%\.claude.json` | Claude Code settings reference · **V** |
+| **MCP Servers** | CLI (`claude`) | JSON (`mcpServers`) | Direct file read | **Linux/macOS:** `~/.claude.json`, `<workspace>/.claude.json`<br>**Windows:** `%USERPROFILE%\.claude.json`<br>*(Key-allowlisted: only `mcpServers`; auth and account keys strictly dropped)* | Claude Code settings reference · **V** |
+| **Credentials** | CLI / Desktop | JSON | Strictly prohibited | `~/.claude/.credentials.json`, `~/.claude.json` (`oauth_tokens`) — **Never read, copied, or parsed (ADR-011)** | Security policy · **V** |
 | **Plugins** | CLI | Bundle (`.bundle`) | Bundle importer (X2) | Bundled MCP servers and skills (commands/hooks skipped per X2) | Extensions spec §7.3 · **V** |
 | **Commands / Prompts** | CLI | Markdown | Direct file read | `~/.claude/commands/`, `<workspace>/.claude/commands/` | Claude Code slash commands · **V** |
 | **Subagents** | CLI | Node subprocess | Not accessible | Internal `Task` subagent tool execution | Claude Code internal runtime · **V** |
@@ -71,10 +64,11 @@ This document surveys eleven external AI coding and chat ecosystems to establish
 | **Global Instructions** | CLI (`codex`) | Markdown / TOML | Direct file read | **Linux/macOS:** `~/.codex/config.toml`, `~/.codex/instructions.md`, `~/.agents/AGENTS.md`<br>**Windows:** `%USERPROFILE%\.codex\config.toml`, `%USERPROFILE%\.agents\AGENTS.md` | `@openai/codex` 0.160.1 · **V** |
 | **Project Rules** | CLI / IDE | Markdown | Direct file read | `<workspace>/AGENTS.md`, `<workspace>/.codex/config.toml` | Codex CLI specification · **V** |
 | **Persona / Personalization** | CLI / IDE | TOML | Direct file read | `~/.codex/config.toml` (`[developer_instructions]`) | Codex configuration reference · **V** |
-| **Stored Memories** | CLI | SQLite / JSON | Direct file read | `~/.codex/sessions/*.json` | Codex session store · **V** |
+| **Session Transcripts** | CLI | SQLite / JSON | Sensitive / Not imported | `~/.codex/sessions/*.json` (full conversation transcripts; sensitive; not imported by default per `docs/import.md`) | Codex session store · **V** |
+| **Credentials** | CLI | JSON | Strictly prohibited | `~/.codex/auth.json` — **Never read, copied, or parsed (ADR-011)** | Security policy · **V** |
 | **Skills** | CLI | Agent Skills (`SKILL.md`) | Direct file read | `~/.codex/skills/<id>/SKILL.md`, `~/.agents/skills/<id>/SKILL.md` | Agent Skills standard · **V** |
 | **MCP Servers** | CLI | TOML (`[mcp_servers]`) | Direct file read | `~/.codex/config.toml` (`[mcp_servers.<id>]`) | Codex MCP config reference · **V** |
-| **Plugins / Hooks** | CLI | JSON (`hooks.json`) | Direct file read | `~/.codex/hooks.json`, `<workspace>/.codex/hooks.json` | Codex hooks specification · **V** |
+| **Plugins / Hooks** | CLI | JSON (`hooks.json`) | Skipped & Reported | `~/.codex/hooks.json` (contains arbitrary shell commands; skipped per Ext spec §3/§7.3) | Codex hooks specification · **V** |
 | **Commands / Prompts** | CLI | Markdown / TOML | Direct file read | `~/.codex/prompts/*.md` (unverified) | Community configuration · **U** |
 | **Subagents** | CLI | ACP JSON-RPC | Out-of-band | Subagent workers via `@agentclientprotocol/codex-acp` | ACP adapter reference · **V** |
 
@@ -86,8 +80,8 @@ This document surveys eleven external AI coding and chat ecosystems to establish
 |---|---|---|---|---|---|
 | **Global Instructions** | CLI (`agy`) | Markdown | Direct file read | **Linux/macOS:** `~/.gemini/antigravity-cli/rules/*.md`, `~/.agents/rules/*.md`<br>**Windows:** `%USERPROFILE%\.gemini\antigravity-cli\rules\*.md` | Antigravity CLI builtin configuration · **V** |
 | **Project Rules** | CLI / IDE | Markdown | Direct file read | `<workspace>/AGENTS.md`, `<workspace>/.gemini/` | AGY workspace guidelines · **V** |
-| **Persona / Personalization** | Web / Advanced | JSON / HTML | Google Takeout / Paste | Google Takeout archive (`Takeout/Gemini/Gems/`) or user paste | Google Takeout specification · **V** |
-| **Stored Memories** | Web / Advanced | JSON / Text | Google Takeout / Prompt | Google Takeout `Takeout/Gemini/Saved Info/` or prompt export | Gemini Saved Info settings · **V** |
+| **Persona / Gems** | Web / Advanced | JSON / HTML | Google Takeout / Paste | Google Takeout archive (`Takeout/Gemini/Gems/`) or user paste | Google Takeout export · **U** |
+| **Stored Memories** | Web / Advanced | JSON / Text | Google Takeout / Prompt | Google Takeout `Takeout/Gemini/Saved Info/` or prompt export | Gemini Saved Info · **U** |
 | **Skills** | CLI (`agy`) | Agent Skills (`SKILL.md`) | Direct file read | `~/.gemini/config/skills/<id>/SKILL.md`, `~/.agents/skills/<id>/SKILL.md` | Antigravity Skills catalog · **V** |
 | **MCP Servers** | CLI (`agy`) | JSON / Config | Direct file read | `~/.gemini/antigravity-cli/mcp/<server>/` (tool schemas), `config.json` | AGY MCP configuration · **V** |
 | **Plugins / Extensions** | CLI / IDE | Manifest / JSON | Direct file read | `~/.gemini/antigravity-cli/plugins/` (unverified), IDE settings | Cloud Code / Gemini extension · **P** |
@@ -104,9 +98,7 @@ This document surveys eleven external AI coding and chat ecosystems to establish
 | **Project Rules** | Web / App | Cloud Text | User paste | N/A (Projects / chat context) | Grok web interface · **V** |
 | **Persona / Personalization** | Web / App | Cloud Settings | User paste | N/A (Mode toggle: Fun / Normal / Custom Instructions) | Web settings inspection · **V** |
 | **Stored Memories** | Web / App | Cloud / Text | Prompt export (Paket O) | N/A (Server-side stored memory context; exportable via prompt) | Paket O prompt export · **V** |
-| **Skills** | Web / App | Built-in | Not accessible | N/A (server-side tool capabilities: Web search, Python interpreter) | xAI platform architecture · **V** |
-| **MCP Servers** | Web / App | None | Not accessible | N/A (no public client MCP configuration) | xAI developer documentation · **V** |
-| **Plugins / Extensions** | Web / App | None | Not accessible | N/A | xAI platform architecture · **V** |
+| **Skills / MCP / Plugins** | Web / App | Built-in | Not accessible | N/A (server-side tool capabilities: Web search, Python interpreter) | xAI platform architecture · **V** |
 | **Commands / Prompts** | Web / App | Text | User paste | N/A | Web chat history · **V** |
 | **Subagents** | Web / App | Cloud pipeline | Not accessible | Server-side execution pipeline | xAI platform architecture · **V** |
 
@@ -116,13 +108,8 @@ This document surveys eleven external AI coding and chat ecosystems to establish
 
 | Category | Variant | Format | Access Method | OS Paths (Linux / macOS / Windows) | Source & Evidence |
 |---|---|---|---|---|---|
-| **Global Instructions** | Telegram / X Bot | Cloud | Not accessible | N/A (hosted bot backend) | Telegram Bot API · **V** |
-| **Project Rules** | Telegram / X Bot | None | Not accessible | N/A | [Agent Bridge](2026-10-07-agent-bridge-connectors.md) · **V** |
-| **Persona / Personalization** | Telegram / X Bot | Static | Not accessible | Hardcoded bot system persona | Bot observation · **V** |
-| **Stored Memories** | Telegram / X Bot | Chat history | Telegram export | Telegram desktop JSON export (per-chat history) | Telegram Desktop Export · **V** |
-| **Skills / MCP / Plugins** | Telegram / X Bot | None | Not accessible | N/A | Bot architecture · **V** |
-| **Commands / Prompts** | Telegram / X Bot | Bot Commands | Chat interaction | `/start`, `/help`, `/reset` | Telegram command menu · **V** |
-| **Subagents** | Telegram / X Bot | None | Not accessible | N/A | Bot architecture · **V** |
+| **Chat History / Transcripts** | Telegram / X Bot | Chat history | Telegram export | Telegram desktop JSON export (contains multi-user chats; sensitive; **dropped from profile import**) | Telegram Desktop Export · **V** |
+| **Instructions / Memories** | Telegram / X Bot | None | Dropped | Not accessible / multi-party content excluded | Architectural review · **V** |
 
 ---
 
@@ -130,10 +117,10 @@ This document surveys eleven external AI coding and chat ecosystems to establish
 
 | Category | Variant | Format | Access Method | OS Paths (Linux / macOS / Windows) | Source & Evidence |
 |---|---|---|---|---|---|
-| **Global Instructions** | Desktop IDE | JSON | Direct file read | **macOS:** `~/Library/Application Support/Cursor/User/settings.json`<br>**Linux:** `~/.config/Cursor/User/settings.json`<br>**Windows:** `%APPDATA%\Cursor\User\settings.json`<br>*(Key: `cursor.general.rulesForAi`)* | Cursor 0.42+ settings specification · **V** |
-| **Project Rules** | Desktop IDE | Markdown / MDC | Direct file read | `<workspace>/.cursorrules`<br>`<workspace>/.cursor/rules/*.mdc` (frontmatter: `description`, `globs`, `alwaysApply`) | Cursor Rules documentation · **V** |
+| **Global Instructions** | Desktop IDE | JSON | Direct file read | **macOS:** `~/Library/Application Support/Cursor/User/settings.json`<br>**Linux:** `~/.config/Cursor/User/settings.json`<br>**Windows:** `%APPDATA%\Cursor\User\settings.json`<br>*(Key-allowlist: only `cursor.general.rulesForAi`)* | Cursor 0.42+ settings specification · **V** |
+| **Project Rules** | Desktop IDE | Markdown / MDC | Direct file read (`O_NOFOLLOW`) | `<workspace>/.cursorrules`<br>`<workspace>/.cursor/rules/*.mdc` (frontmatter: `description`, `globs`, `alwaysApply`) | Cursor Rules documentation · **V** |
 | **Persona / Personalization** | Desktop IDE | JSON | Direct file read | `settings.json` (`cursor.chat.customInstructions`) | Cursor user configuration · **V** |
-| **Stored Memories** | Desktop IDE | SQLite | Direct file read | **macOS:** `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb`<br>**Linux:** `~/.config/Cursor/User/globalStorage/state.vscdb`<br>**Windows:** `%APPDATA%\Cursor\User\globalStorage\state.vscdb` | VS Code / Cursor storage layout · **V** |
+| **Storage / State DB** | Desktop IDE | SQLite | Strict key-allowlist | **macOS:** `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb`<br>**Linux:** `~/.config/Cursor/User/globalStorage/state.vscdb`<br>**Windows:** `%APPDATA%\Cursor\User\globalStorage\state.vscdb`<br>*(Contains auth tokens, workspace state, chat history. Only non-sensitive custom prompt keys extracted; auth/session keys strictly excluded per ADR-005)* | VS Code / Cursor storage layout · **V** |
 | **Skills / Tools** | Desktop IDE | VS Code Ext | File / Extensions dir | **Linux/macOS:** `~/.cursor/extensions/`<br>**Windows:** `%USERPROFILE%\.cursor\extensions\` | Cursor extension catalog · **V** |
 | **MCP Servers** | Desktop IDE | JSON (`mcpServers`) | Direct file read | **Global:** `~/.cursor/mcp.json` or `~/Library/Application Support/Cursor/User/globalStorage/mcp.json`<br>**Project:** `<workspace>/.cursor/mcp.json` | Cursor MCP documentation · **V** |
 | **Plugins / Extensions** | Desktop IDE | VS Code Ext | Package inspect | Standard VS Code `.vsix` packages | VS Code extension standard · **V** |
@@ -142,62 +129,64 @@ This document surveys eleven external AI coding and chat ecosystems to establish
 
 ---
 
-### 2.8 Hermes (Nous Research)
+### 2.8 Hermes (Nous Research) — Handled by `plur1bus import hermes`
+
+Reference inventory matching [`docs/import.md`](../import.md) §3.0 and §3.2:
 
 | Category | Variant | Format | Access Method | OS Paths (Linux / macOS / Windows) | Source & Evidence |
 |---|---|---|---|---|---|
-| **Global Instructions** | CLI / Daemon | YAML / Markdown | Direct file read | **Linux/macOS:** `~/.hermes/config.yaml`, `~/.hermes/agent/SOUL.md`<br>**Windows:** `%USERPROFILE%\.hermes\config.yaml` | Hermes agent repo `743ee72`; [Importers](../import.md) · **V** |
+| **Global Instructions** | CLI / Daemon | YAML / Markdown | Direct file read | **Linux/macOS:** `~/.hermes/config.yaml`, `~/.hermes/SOUL.md`<br>**Windows:** `%LOCALAPPDATA%\hermes\config.yaml` (the HM3 fix) | Hermes agent repo `743ee72`; `docs/import.md` §3.0 · **V** |
 | **Project Rules** | CLI / Profiles | YAML | Direct file read | `~/.hermes/profiles/<name>/config.yaml`, `<workspace>/.hermes/config.yaml` | Hermes profile architecture · **V** |
-| **Persona / Personalization** | CLI / Daemon | Markdown (`SOUL.md`) | Direct file read | `~/.hermes/agent/SOUL.md`, `~/.hermes/profiles/<name>/SOUL.md` | ADR-003, [Importers](../import.md) §1 · **V** |
-| **User Facts** | CLI / Daemon | Markdown (`USER.md`) | Direct file read | `~/.hermes/agent/USER.md`, `~/.hermes/profiles/<name>/USER.md` | ADR-003, [Importers](../import.md) §1 · **V** |
-| **Stored Memories** | CLI / Daemon | Markdown / SQLite | Direct file read | `~/.hermes/agent/MEMORY.md`, `~/.hermes/state/memory.db` | Hermes memory provider specification · **V** |
+| **Persona / Personalization** | CLI / Daemon | Markdown (`SOUL.md`) | Direct file read | `~/.hermes/SOUL.md` at profile root, `~/.hermes/profiles/<name>/SOUL.md` | ADR-003, `docs/import.md` §3.0 · **V** |
+| **User Facts** | CLI / Daemon | Markdown (`USER.md`) | Direct file read | `~/.hermes/memories/USER.md` (§-delimited) | ADR-003, `docs/import.md` §3.2 · **V** |
+| **Stored Memories** | CLI / Daemon | Markdown / SQLite | Direct file read | `~/.hermes/memories/MEMORY.md` (§-delimited), `~/.hermes/state.db` | `docs/import.md` §3.2 · **V** |
 | **Skills** | CLI / Daemon | Agent Skills (`SKILL.md`) | Direct file read | `~/.hermes/skills/<id>/SKILL.md` | Extensions spec §4.3 · **V** |
 | **MCP Servers** | CLI / Daemon | YAML (`mcp_servers`) | Direct file read | `~/.hermes/config.yaml` (`mcp_servers: { <name>: { command, args, env } }`) | Hermes MCP client specification · **V** |
 | **Plugins** | CLI / Daemon | Python packages | Direct file read | `~/.hermes/plugins/<name>/` (`plugin.yaml`, Python module exposing hooks, tools, providers) | Hermes plugin specification · **V** |
-| **Commands / Prompts** | CLI / Daemon | Python / YAML | Direct file read | Registered via plugins (`cli.py`) | Hermes CLI architecture · **V** |
-| **Cron Jobs** | CLI / Daemon | YAML | Direct file read | `~/.hermes/config.yaml` (`cron:` schedules) or `~/.hermes/cron/*.yaml` | [Importers](../import.md) §1.1 · **V** |
-| **Channels** | CLI / Daemon | YAML | Direct file read | `~/.hermes/config.yaml` (`channels:` telegram, discord, slack credentials/allowlists) | [Importers](../import.md) §1.1 · **V** |
+| **Cron Jobs** | CLI / Daemon | JSON | Direct file read | `~/.hermes/cron/jobs.json` | `docs/import.md` §3.0 · **V** |
+| **Channels** | CLI / Daemon | JSON | Direct file read | `~/.hermes/platforms/pairing/*-approved.json` | `docs/import.md` §3.0 · **V** |
 
 ---
 
-### 2.9 OpenClaw
+### 2.9 OpenClaw — Handled by `plur1bus import openclaw`
+
+Reference inventory matching [`docs/import.md`](../import.md) §2.2:
 
 | Category | Variant | Format | Access Method | OS Paths (Linux / macOS / Windows) | Source & Evidence |
 |---|---|---|---|---|---|
-| **Global Instructions** | CLI / Daemon | JSON | Direct file read | **Linux/macOS:** `~/.openclaw/openclaw.json`<br>**Windows:** `%USERPROFILE%\.openclaw\openclaw.json` | OpenClaw repo `b9421f4` (v2026.9.5); [Importers](../import.md) · **V** |
-| **Project Rules** | CLI / Daemon | JSON / Markdown | Direct file read | `<workspace>/openclaw.json`, `<workspace>/AGENTS.md` | OpenClaw workspace specification · **V** |
-| **Persona / Personalization** | CLI / Daemon | Markdown (`SOUL.md`) | Direct file read | `~/.openclaw/agents/<id>/SOUL.md` (exactly one per agent, D14) | ADR-003, [Importers](../import.md) §1 · **V** |
-| **Agent Identity** | CLI / Daemon | Markdown (`IDENTITY.md`) | Direct file read | `~/.openclaw/agents/<id>/IDENTITY.md` | ADR-003, [Importers](../import.md) §1.1 · **V** |
-| **User Facts** | CLI / Daemon | Markdown (`USER.md`) | Direct file read | `~/.openclaw/agents/<id>/USER.md` | ADR-003, [Importers](../import.md) §1.1 · **V** |
-| **Stored Memories** | CLI / Daemon | Markdown / LanceDB | Direct file read | `~/.openclaw/agents/<id>/MEMORY.md`<br>`~/.openclaw/agents/<id>/memory/YYYY-MM-DD.md`<br>`~/.openclaw/state/lancedb/` | [Importers](../import.md) §1.1 · **V** |
-| **Skills** | CLI / Daemon | Agent Skills (`SKILL.md`) | Direct file read | `~/.openclaw/skills/<id>/SKILL.md`, `skills/index.json` | [Importers](../import.md) §7.3, §9 · **V** |
-| **MCP Servers** | CLI / Daemon | JSON (`mcpServers`) | Direct file read | `~/.openclaw/openclaw.json` (`mcpServers` object) | [Importers](../import.md) §1.1 · **V** |
+| **Global Configuration** | CLI / Daemon | JSON5 | Direct file read | **Linux/macOS:** `~/.openclaw/openclaw.json`<br>**Windows:** `%USERPROFILE%\.openclaw\openclaw.json` | OpenClaw repo `b9421f4`; `docs/import.md` §2.2 · **V** |
+| **Project Rules** | CLI / Daemon | Markdown | Direct file read | `workspace/AGENTS.md` or `workspace-<agentId>/AGENTS.md` | `docs/import.md` §2.2 · **V** |
+| **Persona / Personalization** | CLI / Daemon | Markdown (`SOUL.md`) | Direct file read | `workspace/SOUL.md` or `workspace-<agentId>/SOUL.md` | ADR-003, `docs/import.md` §2.2 · **V** |
+| **Agent Identity** | CLI / Daemon | Markdown (`IDENTITY.md`) | Direct file read | `workspace/IDENTITY.md` or `workspace-<agentId>/IDENTITY.md` | ADR-003, `docs/import.md` §2.2 · **V** |
+| **User Facts** | CLI / Daemon | Markdown (`USER.md`) | Direct file read | `workspace/USER.md` or `workspace-<agentId>/USER.md` | ADR-003, `docs/import.md` §2.2 · **V** |
+| **Stored Memories** | CLI / Daemon | Markdown / SQLite / LanceDB | Direct file read | `workspace/MEMORY.md`, `workspace/memory/YYYY-MM-DD.md`, `state/openclaw.sqlite` (tables: `memories`, `cron_jobs`), LanceDB take-over | `docs/import.md` §2.2 · **V** |
+| **Skills** | CLI / Daemon | Agent Skills (`SKILL.md`) | Direct file read | `~/.openclaw/skills/<id>/SKILL.md`, `skills/index.json` | `docs/import.md` §7.3, §9 · **V** |
+| **MCP Servers** | CLI / Daemon | JSON5 (`mcpServers`) | Direct file read | `~/.openclaw/openclaw.json` (`mcpServers` object) | `docs/import.md` §2.2 · **V** |
 | **Plugins / Extensions** | CLI / Daemon | Node / TS packages | Direct file read | `~/.openclaw/extensions/<name>/` (`openclaw.plugin.json`, `package.json`) | OpenClaw extension architecture · **V** |
-| **Commands / Prompts** | CLI / Daemon | Node / JSON | Direct file read | Exported from extensions (`registerCommand`) | OpenClaw host contract · **V** |
-| **Cron Jobs** | CLI / Daemon | JSON | Direct file read | `~/.openclaw/openclaw.json` (`cron.jobs[]`) | [Importers](../import.md) §1.1 · **V** |
-| **Channels** | CLI / Daemon | JSON | Direct file read | `~/.openclaw/openclaw.json` (`channels.<kind>` allowlists, token refs) | [Importers](../import.md) §1.1 · **V** |
+| **Cron Jobs** | CLI / Daemon | SQLite | Direct file read | Table `cron_jobs` in `~/.openclaw/state/openclaw.sqlite` | `docs/import.md` §2.2 · **V** |
+| **Channels** | CLI / Daemon | JSON5 | Direct file read | `~/.openclaw/openclaw.json` (`channels.<kind>` allowlists, token refs) | `docs/import.md` §2.2 · **V** |
 
 ---
 
-### 2.10 PLUR1BUS/OpenClaw (HM1)
+### 2.10 PLUR1BUS/OpenClaw (HM1) — Handled by `plur1bus import openclaw`
 
 | Category | Variant | Format | Access Method | OS Paths (Linux / macOS / Windows) | Source & Evidence |
 |---|---|---|---|---|---|
-| **Memory Store** | OpenClaw Plugin | LanceDB directory | Direct file read | `~/.openclaw/stores/<agentId>/`<br>`~/.openclaw/state/lancedb/` | Package `@cyb3rb1ade/plur1bus-memory` 7.15.4; [Importers](../import.md) §2 · **V** |
-| **Configuration** | OpenClaw Plugin | JSON | Direct file read | `~/.openclaw/openclaw.json` (`plugins["@cyb3rb1ade/plur1bus-memory"]`) | HM1 specification · **V** |
-| **Curated Files** | OpenClaw Plugin | Markdown | Direct file read | Mirrors OpenClaw agent files (`SOUL.md`, `USER.md`, `KNOWLEDGE.md`) | [Importers](../import.md) §2.3 · **V** |
-| **Post-Import Action** | Harness CLI | JSON update | Importer automated | Plugin disabled on source host after verified import (D28) | [Importers](../import.md) §1 · **V** |
+| **Memory Store** | OpenClaw Plugin | LanceDB directory | Direct file read | `~/.openclaw/stores/<agentId>/`<br>`~/.openclaw/state/lancedb/` | Package `@cyb3rb1ade/plur1bus-memory` 7.15.4; `docs/import.md` §2 · **V** |
+| **Configuration** | OpenClaw Plugin | JSON5 | Direct file read | `~/.openclaw/openclaw.json` (`plugins["@cyb3rb1ade/plur1bus-memory"]`) | HM1 specification · **V** |
+| **Curated Files** | OpenClaw Plugin | Markdown | Direct file read | Mirrors OpenClaw agent files (`SOUL.md`, `USER.md`, `KNOWLEDGE.md`) | `docs/import.md` §2.3 · **V** |
+| **Post-Import Action** | Harness CLI | Human recommendation | Operator manual step | Report follow-up recommendation for operator; **strictly zero write to source host** (`docs/import.md:21`) | `docs/import.md:21` · **V** |
 
 ---
 
-### 2.11 PLUR1BUS/Hermes (HM2)
+### 2.11 PLUR1BUS/Hermes (HM2) — Handled by `plur1bus import hermes`
 
 | Category | Variant | Format | Access Method | OS Paths (Linux / macOS / Windows) | Source & Evidence |
 |---|---|---|---|---|---|
-| **Memory Store** | Hermes Provider | LanceDB directory | Direct file read | `~/.hermes/stores/<agentId>/`<br>`~/.hermes/state/lancedb/` | HM2 design spec; `docs/hermes-host-mode.md` · **V** |
-| **Configuration** | Hermes Provider | YAML | Direct file read | `~/.hermes/config.yaml` (`memory.provider: plur1bus`) | HM2 specification · **V** |
-| **Curated Files** | Hermes Provider | Markdown | Direct file read | Mirrors Hermes agent files (`SOUL.md`, `USER.md`, `MEMORY.md`) | [Importers](../import.md) §2.3 · **V** |
-| **Post-Import Action** | Harness CLI | YAML update | Importer automated | Provider switched back to default on source host after verified import (D28) | [Importers](../import.md) §1 · **V** |
+| **Memory Store** | Hermes Provider | LanceDB directory | Direct file read | LanceDB store under PLUR1BUS home (`docs/hermes-host-mode.md:18`) | HM2 design spec; `docs/hermes-host-mode.md:18` · **V** |
+| **Configuration** | Hermes Provider | YAML | Direct file read | `~/.hermes/config.yaml` (`memory.provider: plur1bus`) | HM2 specification; `hosts/hermes/plur1bus/` · **V** |
+| **Curated Files** | Hermes Provider | Markdown | Direct file read | Mirrors Hermes agent files (`SOUL.md`, `USER.md`, `MEMORY.md`) | `docs/import.md` §2.3 · **V** |
+| **Post-Import Action** | Harness CLI | Human recommendation | Operator manual step | Report follow-up recommendation for operator; **strictly zero write to source host** (`docs/import.md:21`) | `docs/import.md:21` · **V** |
 
 ---
 
@@ -206,49 +195,48 @@ This document surveys eleven external AI coding and chat ecosystems to establish
 ```mermaid
 flowchart TD
     subgraph Sources["Source Ecosystems"]
-        CLI["CLI Agents\n(Claude Code, Codex, Kimi, agy, Hermes, OpenClaw)"]
-        IDE["IDE Configs\n(Cursor, VS Code extensions)"]
-        Desk["Desktop Apps\n(Claude Desktop, Cursor)"]
-        Cloud["Cloud Web / Apps\n(ChatGPT, Claude.ai, Gemini, Grok)"]
+        CLI["CLI AI Tools\n(Claude Code, Codex, Kimi, agy, Cursor)"]
+        Archives["Official Data Export Archives\n(Google Takeout, Anthropic ZIP)"]
+        Paste["Interactive Prompt Export / Paste\n(Paket O Protocol: Claude, ChatGPT, Grok)"]
+        Legacy["Legacy Host Environments\n(OpenClaw, Hermes, HM1, HM2)"]
     end
 
-    subgraph Extraction["Extraction Channel"]
-        FileRead["Local File Inspection\n(JSON, YAML, Markdown, SQLite)"]
-        ExportArchive["Official Data Export Archive\n(Google Takeout, Anthropic ZIP)"]
-        UserPaste["Interactive Prompt / Paste\n(Paket O Export Protocol)"]
+    subgraph Intake["Intake & Security Boundary"]
+        Readonly["ReadonlyFs / SourceReader (O_NOFOLLOW)\n(Strict Key-Allowlists, No Auth Files)"]
+        RustAudit["Rust Archive Auditor (crates/plur1bus-ext)\n(10:1 Decompression Ratio, 10 MiB Entry Cap, No Symlinks)"]
+        TextSanitize["Memory Prompt Parser & Redactor\n(strip Markdown noise, scrub sk-ant-, JWT)"]
+        LegacyImporter["Existing M v2 Importers (docs/import.md §13)\n(OpenClaw/Hermes Stores, Cron, LanceDB Take-over)"]
     end
 
-    subgraph Normalization["PLUR1BUS Ingestion Seam"]
-        Soul["SOUL.md (Zone 2)"]
-        User["USER.md (Zone 3 & Engine Cards)"]
-        Inst["Workspace Rules (Zone 2)"]
-        Skill["Agent Skills (SKILL.md)"]
-        MCP["mcp-servers JSON"]
-        Bridge["Foreign Plugin Bridge (Option B)"]
+    subgraph Normalization["PLUR1BUS Target Model (Zones 1-3)"]
+        Soul["SOUL.md / IDENTITY.md (Zone 2, above BP2)"]
+        User["USER.md + Memory Cards (Zone 3, BP3, proved user, vertraulich)"]
+        Rules["AGENTS.md / propose-rule Queue (Zone 2)"]
+        Skills["Agent Skills (skills/<id>/SKILL.md)"]
+        MCP["mcp-servers (import.mcp-candidate/1, disabled)"]
+        Bridge["Foreign Plugin Bridge (Option B, Tools Only, Post-v0.1.0)"]
     end
 
-    CLI --> FileRead
-    IDE --> FileRead
-    Desk --> FileRead
-    Cloud --> ExportArchive
-    Cloud --> UserPaste
-
-    FileRead --> Normalization
-    ExportArchive --> Normalization
-    UserPaste --> Normalization
+    CLI --> Readonly --> Normalization
+    Archives --> RustAudit --> Normalization
+    Paste --> TextSanitize --> Normalization
+    Legacy --> LegacyImporter
 ```
 
-### 3.1 Direct File Read Sources
-- **Ecosystems**: Claude Code, Claude Desktop, Codex CLI, Kimi CLI, AGY, Cursor, Hermes, OpenClaw, PLUR1BUS/OpenClaw, PLUR1BUS/Hermes.
-- **Feasibility**: 100% automated via `plur1bus import profile <source>` or the Web UI wizard when run locally on the host.
-- **Safety**: Unchecked configuration files must never be executed; files are parsed using strict, typed schemas. Secrets are stripped via the central redactor.
+### 3.1 Direct File Read Sources (New Tools: Claude, Codex, Cursor, Kimi, AGY)
+- **Feasibility**: High. Automated via `plur1bus import profile` or the extended `ImportWizard` (F37).
+- **Safety**: Unchecked configuration files must never be executed. Parsers enforce strict field-allowlists. Credential files (`auth.json`, `.credentials.json`) are blocked by path filters and verified by automated spike-11 tests. Files are read via `SourceReader` with `O_NOFOLLOW`.
 
-### 3.2 Export Archive Sources
-- **Ecosystems**: Google Takeout (Gemini), Anthropic Account Export (Claude Web), Telegram chat export (Grokbot).
-- **Feasibility**: High. The Web wizard provides a dedicated archive dropzone (`.zip`, `.tar.gz`) that unpacks in a sandbox directory and applies standard extractors.
-- **Safety**: Archives are subject to zip-slip validation, size limits (max 50 MB), and file count limits (max 1 000 files).
+### 3.2 Export Archive Sources (Takeout, Anthropic Account Export)
+- **Feasibility**: Supported via the Web wizard archive dropzone and CLI `--archive`.
+- **Hardened Archive Intake**:
+  - Stream-select named entries required by detected parsers; ignore unrelated files.
+  - Enforce a strict 10:1 maximum decompression ratio ceiling to neutralize zip-bomb attacks.
+  - Enforce a 10 MiB maximum decompressed file size per single entry; 100 MiB total per archive.
+  - Disallow symlinks, hardlinks, absolute paths, and path traversal (`..`).
+  - Implemented in Rust under `crates/plur1bus-ext` by a Claude agent per D120 / ADR-019.
 
-### 3.3 Interactive User Paste Sources
-- **Ecosystems**: Grok Web, Grokbot, proprietary cloud assistants lacking machine-readable exports.
-- **Feasibility**: High. Leverages the canonical prompt export protocol defined in Paket O (`C/import/prompt/export-prompt.md`) and the tolerant parser (`parseMemoryExport`).
-- **Safety**: Input is treated as untrusted text. Rule entries land in the review queue as proposals; user confirmation is strictly mandatory.
+### 3.3 Interactive User Paste Sources (ChatGPT, Grok, Claude Web)
+- **Feasibility**: Fully aligned with Paket O ([#838](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/838)).
+- **Integration**: Reuses canonical prompt export text (`packages/core/src/import/prompt/export-prompt.md`) and the tolerant parser (`parseMemoryExport`).
+- **Safety**: Input is treated as untrusted external text. Rule entries route to `propose-rule` review queue; user confirmation is strictly mandatory. Memory cards default to `vertraulich` confidentiality.
