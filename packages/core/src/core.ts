@@ -988,7 +988,7 @@ export function createCore(o: CoreOptions): Core {
           return current?.kind === 'person' && current.userId === id ? people.resolve(current) : null;
         }, clock, audit: rbacAudit, agentId: () => channelAgentId(executionRegistry), baseUrl: () => cfg().core.webHandoffBaseUrl });
       const rawMethods = {
-        ...buildTelemetryMethods({ clock, budget: () => budget, cacheTelemetry: () => turnComposition?.cacheTelemetry ?? null,
+        ...buildTelemetryMethods({ clock, budget: () => budget, cacheTelemetry: () => turnComposition?.cacheTelemetry ?? null, sessionsAvailable: () => sessions !== null,
           sessionAgent: (id) => { try { return sessions?.forSession(id).store.getSession(id)?.agentId ?? null; } catch { return null; } } }),
         ...(memorySensitivity ? buildMemorySensitivityMethods({
           service: memorySensitivity,

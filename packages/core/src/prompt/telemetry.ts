@@ -134,11 +134,15 @@ export function createCacheTelemetry(): CacheTelemetry {
       keys.forEach((k, i) => totals.set(k, updated[i]!));
       states.delete(prompt.session_id);
       states.set(prompt.session_id, { model: normalizeModelId(prompt.model), tools: prompt.zoneHashes.tools, system: prompt.zoneHashes.system, memory: prompt.zoneHashes.memory, toolNames: names });
-      if (states.size > CACHE_SESSION_STATE_LIMIT) states.delete(states.keys().next().value as string);
-      const sessionKey = `${prompt.agentId}\0${prompt.session_id}`;
-      const ids = sessionModelIds.get(sessionKey) ?? new Set<string>();
+      const ids = sessionModelIds.get(prompt.session_id) ?? new Set<string>();
       ids.add(normalizeModelId(prompt.model));
-      sessionModelIds.set(sessionKey, ids);
+      sessionModelIds.delete(prompt.session_id);
+      sessionModelIds.set(prompt.session_id, ids);
+      if (states.size > CACHE_SESSION_STATE_LIMIT) {
+        const oldest = states.keys().next().value as string;
+        states.delete(oldest);
+        sessionModelIds.delete(oldest);
+      }
       const turnCauses = zeroCauses();
       if (verdict.cause) turnCauses[verdict.cause] = 1;
       return { agentId: prompt.agentId, model: prompt.model, session_id: prompt.session_id, turn: updated[1]!.turns,
@@ -157,7 +161,7 @@ export function createCacheTelemetry(): CacheTelemetry {
     },
     sessionModels(agentId, sessionId) {
       const sticky = stickySessionId(agentId, sessionId);
-      const ids = sessionModelIds.get(`${agentId}\0${sticky}`);
+      const ids = sessionModelIds.get(sticky);
       if (!ids) return [];
       const out: Array<{ model: string; summary: CacheUsageSummary }> = [];
       for (const model of [...ids].sort()) {

@@ -267,6 +267,7 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
       if (typeof q !== "object" || q === null) throw new BudgetInputError("cache usage query must be an object");
       count("since", q.since); count("until", q.until);
       if (q.since > q.until) throw new BudgetInputError("since must not be after until");
+      if (q.agentId !== undefined) ident("agentId", q.agentId);
       return summarizeCacheUsage(db, q);
     },
 

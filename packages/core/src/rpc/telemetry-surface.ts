@@ -11,6 +11,8 @@ export interface TelemetrySurfaceDeps {
   cacheTelemetry: () => Pick<CacheTelemetry, "sessionModels"> | null;
   /** The harness session's agent id, or null when the session does not exist. Must not throw. */
   sessionAgent: (sessionId: string) => string | null;
+  /** False while the session service is not composed; the method then answers E_NOT_AVAILABLE. */
+  sessionsAvailable?: () => boolean;
 }
 
 interface Params { window?: "24h" | "7d"; agentId?: string; sessionId?: string }
@@ -33,6 +35,7 @@ export function buildTelemetryMethods(d: TelemetrySurfaceDeps): Record<string, H
       }
       let session = null;
       if (p.sessionId !== undefined) {
+        if (d.sessionsAvailable && !d.sessionsAvailable()) throw new RpcError("E_NOT_AVAILABLE", "sessions unavailable", { reason: "sessions-unavailable" });
         const agent = d.sessionAgent(p.sessionId);
         if (agent === null) throw new RpcError("E_NOT_FOUND", "session not found", { reason: "session-not-found" });
         if (p.agentId !== undefined && p.agentId !== agent) throw new RpcError("E_INVALID_PARAMS", "agentId does not match the session's agent", { reason: "agent-session-mismatch" });

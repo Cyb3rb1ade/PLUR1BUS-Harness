@@ -51,6 +51,10 @@ describe("cache usage read model (D120 H2-1)", () => {
     assert.equal(rows.find((r) => r.agentId === "c")!.hitRatio, 1);
     assert.equal(rows.find((r) => r.agentId === "c")!.hitRatioCaching, 1);
   });
+  it("rejects an invalid agentId", () => {
+    const svc = mk();
+    assert.throws(() => svc.cacheUsage({ since: SINCE, until: NOW, agentId: "bad id!" }), BudgetInputError);
+  });
   it("rejects invalid bounds", () => {
     const svc = mk();
     for (const q of [{ since: NOW, until: SINCE }, { since: -1, until: NOW }, { since: 1.5, until: NOW }, { since: SINCE, until: Number.NaN }]) {

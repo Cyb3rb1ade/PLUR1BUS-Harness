@@ -183,4 +183,29 @@ describe("H2-1 miss attribution", () => {
     assert.equal(t.summary("bernd", "claude-sonnet-5-5"), undefined);
     assert.equal(t.record(r, zero).cause, "first-request");
   });
+  it("counts tool changes beyond one and definition-only changes", () => {
+    const t = createCacheTelemetry(); const b = createPromptBuilder();
+    const more = [{ ...corpusTools[0]!, name: "extra_a" }, { ...corpusTools[0]!, name: "extra_b" }];
+    t.record(b.render(corpusInput(1, { sessionId: "s-1" })), zero);
+    const two = t.record(b.render(corpusInput(1, { sessionId: "s-1", tools: [...corpusTools, ...more] })), zero);
+    assert.deepEqual([two.cause, two.toolsAdded, two.toolsRemoved], ["tools-changed", 2, 0]);
+    const swap = t.record(b.render(corpusInput(1, { sessionId: "s-1", tools: [corpusTools[0]!, corpusTools[1]!, { ...corpusTools[2]!, name: "renamed" }] })), zero);
+    assert.deepEqual([swap.cause, swap.toolsAdded, swap.toolsRemoved], ["tools-changed", 1, 3]);
+    const redefined = t.record(b.render(corpusInput(1, { sessionId: "s-1", tools: [corpusTools[0]!, corpusTools[1]!, { ...corpusTools[2]!, name: "renamed", description: "Changed." }] })), zero);
+    assert.deepEqual([redefined.cause, redefined.toolsAdded, redefined.toolsRemoved], ["tools-changed", 0, 0]);
+  });
+  it("evicts the per-session model index together with the session state", () => {
+    const t = createCacheTelemetry(); const b = createPromptBuilder();
+    for (let i = 0; i <= CACHE_SESSION_STATE_LIMIT; i++) t.record(b.render(corpusInput(1, { sessionId: `x-${i}` })), zero);
+    assert.deepEqual(t.sessionModels("bernd", "x-0"), []);
+    assert.equal(t.sessionModels("bernd", `x-${CACHE_SESSION_STATE_LIMIT}`).length, 1);
+    assert.equal(t.sessionModels("bernd", "x-1").length, 1);
+  });
+  it("keeps session state intact when an aggregate overflow is rejected", () => {
+    const t = createCacheTelemetry(); const b = createPromptBuilder();
+    t.record(b.render(corpusInput(1, { sessionId: "s-1" })), zero);
+    const changed = b.render(corpusInput(1, { sessionId: "s-1", system: ["changed system"] }));
+    assert.throws(() => t.record(changed, { cache_read: Number.MAX_SAFE_INTEGER, cache_creation: 0, input: 0 }), /aggregate/);
+    assert.equal(t.record(changed, zero).cause, "system-changed");
+  });
 });
