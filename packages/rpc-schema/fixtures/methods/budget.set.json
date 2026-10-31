@@ -8,7 +8,8 @@
       "soft": 200000,
       "hard": 500000
     },
-    "timeZone": "Europe/Berlin"
+    "timeZone": "Europe/Berlin",
+    "cacheReadWeight": 0.1
   },
   "result": {
     "timeZone": "Europe/Berlin",
@@ -29,6 +30,7 @@
         "soft": 200000,
         "hard": 500000
       }
-    ]
+    ],
+    "cacheReadWeight": 0.1
   }
 }
