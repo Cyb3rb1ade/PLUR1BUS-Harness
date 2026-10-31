@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://plur1bus.dev/schema/rpc/1.11.0/rpc.schema.json",
-  "title": "PLUR1BUS harness RPC 1.11.0",
+  "$id": "https://plur1bus.dev/schema/rpc/1.14.0/rpc.schema.json",
+  "title": "PLUR1BUS harness RPC 1.14.0",
   "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch.",
-  "x-rpc-version": "1.11.0",
+  "x-rpc-version": "1.14.0",
   "$defs": {
     "EngineContractEngineCapabilitiesData": {
       "title": "EngineContractEngineCapabilitiesData",
@@ -4798,6 +4798,205 @@
     "AgentId": {
       "type": "string",
       "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "CacheMissCauses": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "first-request",
+        "model-changed",
+        "tools-changed",
+        "system-changed",
+        "snapshot-changed",
+        "ttl-expired",
+        "provider"
+      ],
+      "properties": {
+        "first-request": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "model-changed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tools-changed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "system-changed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "snapshot-changed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ttl-expired": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "provider": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "CacheLedgerRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "agentId",
+        "model",
+        "calls",
+        "uncachedCalls",
+        "inputTokens",
+        "outputTokens",
+        "cacheReadTokens",
+        "cacheWriteTokens",
+        "cachingInputTokens",
+        "hitRatio",
+        "hitRatioCaching"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "agentId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "model": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "uncachedCalls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inputTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outputTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cacheReadTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cacheWriteTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cachingInputTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hitRatio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "hitRatioCaching": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "CacheModelSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model",
+        "turns",
+        "inputTokens",
+        "cacheReadTokens",
+        "cacheCreationTokens",
+        "totalInputTokens",
+        "hitRatio",
+        "hits",
+        "misses",
+        "notCacheable",
+        "missCauses"
+      ],
+      "properties": {
+        "model": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "turns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inputTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cacheReadTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cacheCreationTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "totalInputTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hitRatio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "hits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "misses": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "notCacheable": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missCauses": {
+          "$ref": "#/$defs/CacheMissCauses"
+        }
+      }
+    },
+    "CacheSessionSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sessionId",
+        "agentId",
+        "models"
+      ],
+      "properties": {
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "agentId": {
+          "$ref": "#/$defs/AgentId"
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CacheModelSummary"
+          }
+        }
+      }
     },
     "SessionKey": {
       "type": "string",
@@ -16248,7 +16447,7 @@
         "description": "Bind a root project to a git repository. A person who is a project lead. Refuses bare repositories and paths under the harness home.",
         "x-server": "core",
         "x-stability": "experimental",
-        "x-since": "1.11.0",
+        "x-since": "1.14.0",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -16265,7 +16464,7 @@
         "description": "Remove a root project's repository binding. A person who is a project lead.",
         "x-server": "core",
         "x-stability": "experimental",
-        "x-since": "1.11.0",
+        "x-since": "1.14.0",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -18245,6 +18444,74 @@
             "agentId",
             "discardedRights"
           ]
+        }
+      },
+      "telemetry.cache.summary": {
+        "x-stability": "experimental",
+        "x-since": "1.10.0",
+        "x-server": "core",
+        "description": "Prompt-cache telemetry (D120 H2-1): hit ratio per provider, agent and model from the budget ledger over a window ending now, and, for one session, the process-local per-model counters with cache-miss causes. Counts and ids only; never prompt content. Human-only; requires doctor.read.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "window": {
+              "enum": [
+                "24h",
+                "7d"
+              ],
+              "description": "Ledger window ending now; default 24h"
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "sessionId": {
+              "$ref": "#/$defs/SessionId"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "window",
+            "since",
+            "until",
+            "providers",
+            "session"
+          ],
+          "properties": {
+            "window": {
+              "enum": [
+                "24h",
+                "7d"
+              ]
+            },
+            "since": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "until": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "providers": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/CacheLedgerRow"
+              }
+            },
+            "session": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/CacheSessionSummary"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
         }
       },
       "doctor.report": {

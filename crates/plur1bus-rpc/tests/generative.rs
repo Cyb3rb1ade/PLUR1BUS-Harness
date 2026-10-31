@@ -2309,6 +2309,8 @@ table! {
     Result "agent.close" AgentCloseResult,
     Params "doctor.report" DoctorReportParams,
     Result "doctor.report" DoctorReportResult,
+    Params "telemetry.cache.summary" TelemetryCacheSummaryParams,
+    Result "telemetry.cache.summary" TelemetryCacheSummaryResult,
     Params "agent.activity.list" AgentActivityListParams,
     Result "agent.activity.list" AgentActivityListResult,
     Params "agent.status" AgentStatusParams,

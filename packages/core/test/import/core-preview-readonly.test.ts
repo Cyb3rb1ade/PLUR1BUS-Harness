@@ -96,6 +96,8 @@ for (const { family, malformed } of CASES) {
         await client.call("core.status", {});
         await new Promise(resolve => setTimeout(resolve, 20));
       }
+      // Complete lazy schedule initialization before startup 1staid reads dreams.status.
+      await client.call("dreams.status", {});
       let baseline = targetBytes(home), stable = 0;
       while (stable < 4) {
         assert.ok(Date.now() < deadline, "disabled background tasks settle before the target baseline");

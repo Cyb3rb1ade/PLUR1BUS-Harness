@@ -22,7 +22,7 @@ describe("RE-08 engine RPC", () => {
     assert.deepEqual(schema.$defs.notifications["engine.event"]["x-engine-notification"], surface.engineEvent);
   });
   it("adds engine methods with closed params and 1.7.0 experimental annotations", () => {
-    assert.equal(schema["x-rpc-version"], "1.11.0");
+    assert.equal(schema["x-rpc-version"], "1.14.0");
     for (const name of [
       "engine.auth",
       "engine.recall",

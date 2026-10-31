@@ -442,11 +442,11 @@
     },
     "project.repo.bind": {
       "stability": "experimental",
-      "since": "1.11.0"
+      "since": "1.14.0"
     },
     "project.repo.unbind": {
       "stability": "experimental",
-      "since": "1.11.0"
+      "since": "1.14.0"
     },
     "task.complete": {
       "stability": "experimental",
@@ -607,6 +607,10 @@
     "agent.import": {
       "stability": "experimental",
       "since": "1.6.0"
+    },
+    "telemetry.cache.summary": {
+      "stability": "experimental",
+      "since": "1.10.0"
     },
     "doctor.report": {
       "stability": "experimental",

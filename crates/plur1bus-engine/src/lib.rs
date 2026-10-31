@@ -11,8 +11,10 @@
 
 pub mod cache_profiles;
 pub mod config;
+pub mod context;
 pub mod contract;
 pub mod embedding;
+pub mod recall;
 pub mod store;
 pub mod text;
 pub mod tokens;

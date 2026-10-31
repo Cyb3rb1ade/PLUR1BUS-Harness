@@ -570,7 +570,22 @@ export function createCollab(o: CollabOptions): Collab {
       if (!span?.sessionId || !sessions) throw new CollabError('not-found', 'delegation transcript not found');
       const session = sessions.getSession(span.sessionId);
       if (!session || session.scope !== trace.projectId || session.owner !== `collab-project:${trace.projectId}`) throw new CollabError('not-found', 'delegation transcript not found');
-      return { sessionId: session.id, traceId, spanId, messages: redact.value(sessions.listMessages(session.id)), events: redact.value(sessions.listEvents(session.id)) };
+      const stored = sessions.listEvents(session.id);
+      const events = redact.value(stored);
+      for (const [index, event] of stored.entries()) {
+        const projected = events[index]!;
+        const original = event.data.provenance;
+        const safe = projected.data.provenance;
+        // These IDs are already exposed by this authorized replay; arbitrary provenance stays redacted.
+        if (original && typeof original === "object" && !Array.isArray(original)
+          && safe && typeof safe === "object" && !Array.isArray(safe)) {
+          if (Object.hasOwn(original, "traceId") && Object.hasOwn(safe, "traceId")
+            && "traceId" in original && original.traceId === trace.traceId) Object.assign(safe, { traceId: trace.traceId });
+          if (Object.hasOwn(original, "spanId") && Object.hasOwn(safe, "spanId")
+            && "spanId" in original && original.spanId === span.spanId) Object.assign(safe, { spanId: span.spanId });
+        }
+      }
+      return { sessionId: session.id, traceId, spanId, messages: redact.value(sessions.listMessages(session.id)), events };
     },
 
     getTask(principal, id) {
