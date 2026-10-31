@@ -126,7 +126,7 @@ export function createIdentityService(o: IdentityOptions) {
     return h;
   };
   const activeLink = (i: { channel: string; accountId: string; userId: string }): Row | undefined => {
-    if (i.channel === undefined || i.accountId === undefined || i.userId === undefined) {
+    if (i == null || i.channel === undefined || i.accountId === undefined || i.userId === undefined) {
       throw new TypeError("incomplete identity triple");
     }
     return one("SELECT * FROM identities WHERE channel = ? AND account_id = ? AND channel_user_id = ? AND revoked_at IS NULL", i.channel, i.accountId, i.userId);
