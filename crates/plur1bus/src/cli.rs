@@ -782,7 +782,7 @@ pub enum MemoryCmd {
         /// path to text file or '-' for stdin (at most 512 KiB); stdin needs --yes or --dry-run
         #[arg(long, default_value = "-")]
         file: String,
-        /// target agent for project memories (default: the core's default agent)
+        /// agent that receives project memories and stores user-scope ones (default: the core's first agent)
         #[arg(long)]
         agent: Option<String>,
         /// store preference memories at user scope (default: skipped; the core refuses it for a non-person caller)

@@ -26,7 +26,7 @@ Every extracted entry belongs to one of six categories:
 
 You can assign each entry to:
 * **Do not import** (`skip`): entry is ignored.
-* **My Memory** (`user`): stored in your personal user scope, available to your agents in conversation with you.
+* **My Memory** (`user`): stored in your personal user scope. The engine keeps these entries in the memory of the agent they are written through, so you choose that agent in the wizard (default: your first agent). The export reads your My Memory entries through every agent.
 * **Selected agents** (`agent`): stored privately in an agent's own memory. Note that an agent uses agent-private memories across all its conversations, including with other people and in groups.
 
 Click **Apply recommendations** to set recommended defaults across all entries.
@@ -39,7 +39,7 @@ The import parser automatically checks all text for credentials, passwords, and 
 
 Each import run generates a unique run ID and audit report. If you want to undo an import, click **Undo import (Rollback)** on the import summary page.
 
-Rollback removes unmodified cards created during the run and detaches links created during the import. Cards modified after the import are preserved to prevent data loss.
+Rollback removes unmodified cards created during the run and detaches links created during the import. Cards modified after the import are preserved to prevent data loss. If an owner rolls back a run that another person imported, that person's My Memory entries stay in place and are reported separately; the run remains open, and the person who imported it can roll it back themselves.
 
 ## Exporting memories
 

@@ -63,13 +63,20 @@ pub(crate) fn truncate_chars(s: &str, max: usize) -> String {
     }
 }
 
-/// An excerpt that is safe to print to a terminal: control characters (escape sequences, newlines) become spaces.
+/// An excerpt that is safe to print to a terminal: line breaks and tabs become spaces, every other control character
+/// and every bidi control is replaced like in [`terminal_safe`].
 fn excerpt(s: &str) -> String {
     let flat: String = s
         .chars()
-        .map(|c| if c.is_control() { ' ' } else { c })
+        .map(|c| {
+            if matches!(c, '\n' | '\r' | '\t') {
+                ' '
+            } else {
+                c
+            }
+        })
         .collect();
-    truncate_chars(&flat, EXCERPT_CHARS)
+    truncate_chars(&terminal_safe(&flat), EXCERPT_CHARS)
 }
 
 /// Reads at most `limit` bytes; `None` when the input is longer.
@@ -196,6 +203,12 @@ pub(crate) fn adjust_targets(
             match target {
                 "user" if !(preferences_to_user && cat == "Preferences") => {
                     json!({ "target": "skip", "reason": "user-scope-opt-in" })
+                }
+                // The engine stores a user-scope card in the table of the agent it is written through.
+                "user" if agent.is_some() => {
+                    let mut t = rec.clone();
+                    t["agentIds"] = json!([agent]);
+                    t
                 }
                 "agent" if agent.is_some() => {
                     let mut t = rec.clone();
@@ -341,7 +354,7 @@ pub(crate) fn import_text(out: &Out, layout: &Layout, config: &Value, a: ImportT
             )
         }),
         Err(e) => {
-            timeout_note(&e, "import");
+            timeout_note(&e, "import", layout);
             print_unsupported_hint(out, &e);
             out.from_rpc_error(&e);
         }
@@ -420,17 +433,18 @@ fn rollback(out: &Out, layout: &Layout, run_id: &str, yes: bool) {
     let v = match c.call("memory.importText.rollback", json!({ "runId": run_id })) {
         Ok(v) => v,
         Err(e) => {
-            timeout_note(&e, "rollback");
+            timeout_note(&e, "rollback", layout);
             print_unsupported_hint(out, &e);
             out.from_rpc_error(&e);
         }
     };
     let n = |k: &str| v[k].as_u64();
-    let (Some(done), Some(failed), Some(remaining), Some(kept)) = (
+    let (Some(done), Some(failed), Some(remaining), Some(kept), Some(preserved)) = (
         n("rolledBack"),
         n("failed"),
         n("remaining"),
         n("keptModified"),
+        n("preservedUserScope"),
     ) else {
         out.fail(
             "E_INTERNAL",
@@ -438,7 +452,7 @@ fn rollback(out: &Out, layout: &Layout, run_id: &str, yes: bool) {
             json!({}),
         );
     };
-    let line = rollback_line(run_id, done, remaining, failed, kept);
+    let line = rollback_line(run_id, done, remaining, failed, kept, preserved);
     if remaining + failed > 0 {
         out.ok_but_failed(
             "memory.importText.rollback/1",
@@ -454,17 +468,32 @@ fn rollback(out: &Out, layout: &Layout, run_id: &str, yes: bool) {
     out.ok("memory.importText.rollback/1", &v, || line);
 }
 
-fn rollback_line(run_id: &str, done: u64, remaining: u64, failed: u64, kept: u64) -> String {
-    format!(
+fn rollback_line(
+    run_id: &str,
+    done: u64,
+    remaining: u64,
+    failed: u64,
+    kept: u64,
+    preserved: u64,
+) -> String {
+    let mut s = format!(
         "rollback {run_id}: {done} removed, {remaining} remaining, {failed} failed, {kept} kept (modified since import)"
-    )
+    );
+    if preserved > 0 {
+        s.push_str(&format!(
+            "\n{preserved} user-scope memories of another person were preserved; the person who imported them can roll the run back themselves"
+        ));
+    }
+    s
 }
 
 /// A call that timed out may still have finished in the core.
-fn timeout_note(e: &RpcError, what: &str) {
+fn timeout_note(e: &RpcError, what: &str, layout: &Layout) {
     if matches!(e, RpcError::Unavailable { reason, .. } if reason == "call-timeout") {
         say_err(&format!(
-            "plur1bus: the {what} call timed out; the core may still be working on it or have finished it"
+            "plur1bus: the {what} call timed out; the core may still be working on it or have finished it. \
+             Look for the run in {}/imports/prompt-*/report.json",
+            layout.home.display()
         ));
     }
 }
@@ -703,7 +732,12 @@ mod tests {
 
     #[test]
     fn excerpt_flattens_control_characters() {
-        assert_eq!(excerpt("a\x1b[31mb\nc"), "a [31mb c");
+        assert_eq!(excerpt("a\x1b[31mb\nc\td"), "a\u{FFFD}[31mb c d");
+        let rtl = excerpt("x\u{202E}evil\u{2066}y\u{200F}");
+        for bad in ['\u{202E}', '\u{2066}', '\u{200F}'] {
+            assert!(!rtl.contains(bad), "{bad:?}");
+        }
+        assert!(rtl.contains("evil"));
     }
 
     #[test]

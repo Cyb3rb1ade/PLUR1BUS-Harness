@@ -27794,6 +27794,7 @@
             "failed",
             "remaining",
             "keptModified",
+            "preservedUserScope",
             "discardedProposals",
             "unhandledProposals"
           ],
@@ -27811,6 +27812,10 @@
               "minimum": 0
             },
             "keptModified": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "preservedUserScope": {
               "type": "integer",
               "minimum": 0
             },

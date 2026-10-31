@@ -54,6 +54,8 @@ export interface PromptRollbackResult {
   failed: number;
   remaining: number;
   keptModified: number;
+  /** User-scope cards of another person that an owner's rollback of a foreign run left in place. */
+  preservedUserScope: number;
   discardedProposals: number;
   unhandledProposals: number;
 }

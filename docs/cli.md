@@ -1221,7 +1221,7 @@ Recall relevant memory blocks through the core (stable, ADR-016 §4)
 * `--file <FILE>` — path to text file or '-' for stdin (at most 512 KiB); stdin needs --yes or --dry-run
 
   Default value: `-`
-* `--agent <AGENT>` — target agent for project memories (default: the core's default agent)
+* `--agent <AGENT>` — agent that receives project memories and stores user-scope ones (default: the core's first agent)
 * `--all-preferences-to-user` — store preference memories at user scope (default: skipped; the core refuses it for a non-person caller)
 * `--dry-run` — preview only without applying changes
 * `--yes` — apply or roll back without asking (required without a terminal, with --json and for stdin input)

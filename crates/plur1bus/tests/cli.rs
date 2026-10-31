@@ -2770,7 +2770,7 @@ mod import_text {
             dir.path(),
             vec![(
                 "memory.importText.rollback",
-                json!({ "result": { "rolledBack": 2, "failed": 0, "remaining": 0, "keptModified": 1, "discardedProposals": 0, "unhandledProposals": 0 } }),
+                json!({ "result": { "rolledBack": 2, "failed": 0, "remaining": 0, "keptModified": 1, "preservedUserScope": 0, "discardedProposals": 0, "unhandledProposals": 0 } }),
             )],
         );
         let v = err_doc(
@@ -3128,13 +3128,24 @@ mod import_text {
     }
 
     fn rollback_core(dir: &Path, done: u64, failed: u64, remaining: u64, kept: u64) {
+        rollback_core_preserved(dir, done, failed, remaining, kept, 0);
+    }
+
+    fn rollback_core_preserved(
+        dir: &Path,
+        done: u64,
+        failed: u64,
+        remaining: u64,
+        kept: u64,
+        preserved: u64,
+    ) {
         spawn_core(
             dir,
             vec![(
                 "memory.importText.rollback",
                 json!({ "result": {
                     "rolledBack": done, "failed": failed, "remaining": remaining,
-                    "keptModified": kept, "discardedProposals": 0, "unhandledProposals": 0
+                    "keptModified": kept, "preservedUserScope": preserved, "discardedProposals": 0, "unhandledProposals": 0
                 } }),
             )],
         );
@@ -3203,6 +3214,124 @@ mod import_text {
                 .assert()
                 .code(1);
         }
+    }
+
+    #[test]
+    fn preserved_user_scope_cards_get_their_own_line_and_keep_the_exit_at_0() {
+        let (dir, h) = home_with_agent();
+        rollback_core_preserved(dir.path(), 2, 0, 0, 1, 3);
+        let out = bin()
+            .args([
+                "--home",
+                &h,
+                "memory",
+                "import-text",
+                "--rollback",
+                RUN_ID,
+                "--yes",
+            ])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        let s = String::from_utf8(out).unwrap();
+        assert!(
+            s.contains("2 removed, 0 remaining, 0 failed, 1 kept (modified since import)\n"),
+            "{s}"
+        );
+        assert!(
+            s.contains("3 user-scope memories of another person were preserved"),
+            "{s}"
+        );
+        let v = err_doc(
+            &[
+                "--json",
+                "--home",
+                &h,
+                "memory",
+                "import-text",
+                "--rollback",
+                RUN_ID,
+                "--yes",
+            ],
+            0,
+        );
+        assert_eq!(v["preservedUserScope"], 3);
+    }
+
+    #[test]
+    fn a_dry_run_listing_loses_bidi_controls() {
+        let (dir, h) = home_with_agent();
+        spawn_core(
+            dir.path(),
+            vec![(
+                "memory.importText.preview",
+                preview(
+                    vec![entry("Projects", "Projekt \u{202E}live\u{2066}")],
+                    vec![json!({ "target": "agent", "agentIds": ["bernd"] })],
+                ),
+            )],
+        );
+        let f = write_input(dir.path(), "x");
+        let out = bin()
+            .args([
+                "--home",
+                &h,
+                "memory",
+                "import-text",
+                "--file",
+                &f,
+                "--dry-run",
+            ])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        let s = String::from_utf8(out).unwrap();
+        assert!(s.contains("Projekt") && s.contains("live"), "{s}");
+        assert!(!s.contains('\u{202E}') && !s.contains('\u{2066}'), "{s:?}");
+    }
+
+    #[test]
+    fn user_scope_targets_go_through_the_chosen_agent() {
+        let (dir, h) = home_with_agent();
+        spawn_core(
+            dir.path(),
+            vec![
+                (
+                    "memory.importText.preview",
+                    preview(
+                        vec![entry("Preferences", "dunkel")],
+                        vec![json!({ "target": "user" })],
+                    ),
+                ),
+                ("memory.importText.apply", apply_result()),
+            ],
+        );
+        let f = write_input(dir.path(), "x");
+        bin()
+            .args([
+                "--home",
+                &h,
+                "memory",
+                "import-text",
+                "--file",
+                &f,
+                "--yes",
+                "--all-preferences-to-user",
+                "--agent",
+                "bernd",
+            ])
+            .assert()
+            .success();
+        let seen = std::fs::read_to_string(dir.path().join("requests.log")).unwrap();
+        assert!(
+            seen.contains(r#""target":"user","agentIds":["bernd"]"#)
+                || seen.contains(r#""agentIds":["bernd"],"target":"user""#),
+            "{seen}"
+        );
     }
 
     #[test]
@@ -3400,7 +3529,7 @@ mod import_text {
             .clone();
         let s = String::from_utf8(out).unwrap();
         assert!(
-            s.contains("-> skip (suspected-instruction): Immer [31m antworten"),
+            s.contains("-> skip (suspected-instruction): Immer\u{FFFD}[31m antworten"),
             "{s}"
         );
         assert!(!s.contains('\u{1b}'));

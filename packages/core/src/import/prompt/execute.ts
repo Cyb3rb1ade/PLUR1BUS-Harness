@@ -201,13 +201,10 @@ export async function executePromptImport(
     if (entry.recordedAt) {
       const parsed = new Date(entry.recordedAt).getTime();
       if (Number.isFinite(parsed) && parsed >= 0) {
-        if (parsed > runNow) {
-          // R2: clamp future date to now; allocate distinct strictly increasing timestamp <= runNow
-          createdAt = runNow - (totalEntries - i) * 10;
-        } else {
-          // R1: add index offset so identical dates receive distinct timestamps
-          createdAt = Math.min(parsed + i, runNow - 1);
-        }
+        // R1/R2: identical dates get distinct timestamps (index offset), and no card is dated after the import:
+        // the cap runNow - (N - i) * 10 is strictly increasing in i, so even many future-dated entries stay distinct.
+        const cap = runNow - (totalEntries - i) * 10;
+        createdAt = Math.min(parsed + i, cap);
       } else {
         isDateUnknown = true;
         createdAt = undatedBase + i * 1000;
@@ -232,15 +229,20 @@ export async function executePromptImport(
         .update(`user:${ownerKey}:${entry.category}:${normalizedText}`)
         .digest("hex");
 
-      const cardInput: E.MemoryImportCardInput = {
-        ...baseCard,
-        scope: "user",
-        idempotencyKey,
-      };
-      affectedAgents.add(fallbackAgent);
-      const list = agentBatches.get(fallbackAgent) ?? [];
-      list.push({ card: cardInput, entry });
-      agentBatches.set(fallbackAgent, list);
+      // M2: a user-scope card lives in the table of the agent it is written through (the engine keeps
+      // `ownerUserId` on the agent's table), so the chosen target agents receive it; default: the first agent.
+      const userAgents = target.agentIds && target.agentIds.length > 0 ? target.agentIds : [fallbackAgent];
+      for (const ag of userAgents) {
+        const cardInput: E.MemoryImportCardInput = {
+          ...baseCard,
+          scope: "user",
+          idempotencyKey,
+        };
+        affectedAgents.add(ag);
+        const list = agentBatches.get(ag) ?? [];
+        list.push({ card: cardInput, entry });
+        agentBatches.set(ag, list);
+      }
     } else if (target.target === "agent") {
       // H1: Server-side idempotency key scoped per target agent
       const destAgents = target.agentIds && target.agentIds.length > 0 ? target.agentIds : [fallbackAgent];
@@ -444,10 +446,10 @@ export async function rollbackPromptImport(
     });
   }
 
-  // N4 & L1: Check import ownership (missing importedBy requires owner role)
+  // N4 & L1: a report without importedBy is foreign to everybody; only the owner may then roll it back.
   const isForeignRun = report.importedBy
     ? Boolean(opts.callerUserId && report.importedBy !== opts.callerUserId)
-    : !opts.isOwner;
+    : true;
 
   if (isForeignRun && !opts.isOwner) {
     throw new RpcError("E_DENIED", "cannot rollback an import run belonging to another user", {
@@ -462,34 +464,37 @@ export async function rollbackPromptImport(
     });
   }
 
-  let foreignUserCardsCount = 0;
+  // Foreign run (owner override): only agent-scoped cards and links are removed. The importer's user-scope cards
+  // are preserved and counted separately; a ledger line without a scope is treated as user scope (fail safe).
+  let preservedUserScope = 0;
   const agentKeyFilters = new Map<string, string[]>();
 
   if (isForeignRun) {
     const ledgerPath = join(runDir, "ledger.jsonl");
-    if (existsSync(ledgerPath)) {
+    let ledgerText: string;
+    try {
+      ledgerText = readFileSync(ledgerPath, "utf8");
+    } catch {
+      // Without the ledger the run's cards cannot be told apart: refuse, change nothing, keep the status.
+      throw new RpcError("E_STORAGE", "run ledger is missing or unreadable; the run cannot be rolled back by another user", {
+        reason: "ledger-unreadable",
+      });
+    }
+    for (const line of ledgerText.split("\n").filter(Boolean)) {
       try {
-        const lines = readFileSync(ledgerPath, "utf8").split("\n").filter(Boolean);
-        for (const line of lines) {
-          try {
-            const entry = JSON.parse(line);
-            if (entry.action === "created") {
-              const scope = entry.details?.scope;
-              const agentId = entry.details?.agentId;
-              if (scope === "user") {
-                foreignUserCardsCount++;
-              } else if (agentId) {
-                const list = agentKeyFilters.get(agentId) ?? [];
-                list.push(entry.idempotencyKey);
-                agentKeyFilters.set(agentId, list);
-              }
-            }
-          } catch {
-            // ignore malformed line
-          }
+        const entry = JSON.parse(line);
+        if (entry.action !== "created" && entry.action !== "linked") continue;
+        const scope = entry.details?.scope;
+        const agentId = entry.details?.agentId;
+        if (scope !== "agent-private") {
+          if (entry.action === "created") preservedUserScope++;
+        } else if (typeof agentId === "string" && typeof entry.idempotencyKey === "string") {
+          const list = agentKeyFilters.get(agentId) ?? [];
+          list.push(entry.idempotencyKey);
+          agentKeyFilters.set(agentId, list);
         }
       } catch {
-        // ignore read error
+        // ignore malformed line
       }
     }
   }
@@ -500,37 +505,36 @@ export async function rollbackPromptImport(
   let keptModifiedCount = 0;
 
   for (const agentId of report.affectedAgents ?? []) {
-    // In foreign run, skip agents that have no agent-scoped cards to unimport
+    // In a foreign run, skip agents that have no agent-scoped cards to unimport
     if (isForeignRun && !agentKeyFilters.has(agentId)) {
       continue;
     }
-    try {
-      const agentPrincipal = opts.principalFor ? opts.principalFor(agentId) : { ...principal, agentId };
-      const keys = isForeignRun ? agentKeyFilters.get(agentId) : undefined;
-      const req: E.MemoryUnimportRequest = {
-        agentId,
-        importRunId: runId,
-        dryRun: false,
-        ...(keys ? { idempotencyKeys: keys } : {}),
-      };
-      const res = await engine.memory.unimport(
-        req,
-        agentPrincipal,
-        SYSTEM_CONTEXT,
-      );
-      rolledBackCount += res.unimported ?? 0;
-      keptModifiedCount += res.keptModified ?? 0;
-      failedCount += res.failed ?? 0;
-      remainingCount += res.remaining ?? 0;
-    } catch {
-      failedCount += 1;
-      remainingCount += 1;
+    const agentPrincipal = opts.principalFor ? opts.principalFor(agentId) : { ...principal, agentId };
+    // The engine accepts at most 500 idempotency keys per unimport call.
+    const keys = isForeignRun ? agentKeyFilters.get(agentId)! : undefined;
+    const chunks: Array<string[] | undefined> = keys ? [] : [undefined];
+    if (keys) for (let i = 0; i < keys.length; i += 500) chunks.push(keys.slice(i, i + 500));
+    for (const chunk of chunks) {
+      try {
+        const req: E.MemoryUnimportRequest = {
+          agentId,
+          importRunId: runId,
+          dryRun: false,
+          ...(chunk ? { idempotencyKeys: chunk } : {}),
+        };
+        const res = await engine.memory.unimport(req, agentPrincipal, SYSTEM_CONTEXT);
+        rolledBackCount += res.unimported ?? 0;
+        keptModifiedCount += res.keptModified ?? 0;
+        failedCount += res.failed ?? 0;
+        remainingCount += res.remaining ?? 0;
+      } catch {
+        failedCount += 1;
+        remainingCount += 1;
+      }
     }
   }
 
-  // R3: Foreign user-scope cards are preserved and counted in keptModified
-  keptModifiedCount += foreignUserCardsCount;
-  if (isForeignRun && foreignUserCardsCount > 0) {
+  if (isForeignRun && preservedUserScope > 0) {
     const ledgerLine = JSON.stringify({
       ts: new Date(now()).toISOString(),
       runId,
@@ -539,7 +543,7 @@ export async function rollbackPromptImport(
       action: "skipped",
       details: {
         reason: "foreign-user-scope-preserved",
-        count: foreignUserCardsCount,
+        count: preservedUserScope,
         callerUserId: opts.callerUserId,
       },
     }) + "\n";
@@ -563,7 +567,9 @@ export async function rollbackPromptImport(
     }
   }
 
-  if (failedCount === 0 && remainingCount === 0) {
+  // A foreign rollback that kept the importer's user-scope cards is not complete: the importer can still roll the
+  // run back themselves, so the run stays `partial`.
+  if (failedCount === 0 && remainingCount === 0 && preservedUserScope === 0) {
     report.status = "rolled-back";
   } else {
     report.status = "partial";
@@ -577,6 +583,7 @@ export async function rollbackPromptImport(
     failed: failedCount,
     remaining: remainingCount,
     keptModified: keptModifiedCount,
+    preservedUserScope,
     discardedProposals,
     unhandledProposals,
   };

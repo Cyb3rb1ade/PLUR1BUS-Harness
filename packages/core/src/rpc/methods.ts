@@ -359,15 +359,8 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
         let recordedAt: string | undefined = undefined;
         if (typeof e?.recordedAt === "string") {
           const t = new Date(e.recordedAt).getTime();
-          if (Number.isFinite(t) && t >= 0) {
-            // R2: clamp future dates to now
-            const nowMs = Date.now();
-            if (t > nowMs) {
-              recordedAt = new Date(nowMs).toISOString();
-            } else {
-              recordedAt = e.recordedAt;
-            }
-          }
+          // Future dates are kept: executePromptImport dates every card at or before the import, strictly increasing.
+          if (Number.isFinite(t) && t >= 0) recordedAt = e.recordedAt;
         }
         return {
           category: e.category,
@@ -472,12 +465,21 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
       const { principal } = callerToPrincipal({ channel: "cli", accountId, userId }, targetAgentId, workspaceDir);
       principal.user = deriveUserPrincipal(userId);
       principal.trust = "proved";
+      const principalFor = (agentId: string): Principal => {
+        const ws = d.agents.workspaceOf(agentId) ?? (d.hostEvalHome ?? process.cwd());
+        const { principal: ap } = callerToPrincipal({ channel: "cli", accountId, userId }, agentId, ws);
+        ap.user = deriveUserPrincipal(userId);
+        ap.trust = "proved";
+        return ap;
+      };
       const sensitivity = d.memorySensitivity ? sensitivityService(d.memorySensitivity) : null;
       try {
         const text = await exportMemoriesAsText({
           principal,
           engine: d.engine,
           agentId: p.agentId,
+          userScopeAgents: d.agents.list(),
+          principalFor,
           sensitivityService: sensitivity,
         });
         const count = (text.match(/^\[/gm) ?? []).length;

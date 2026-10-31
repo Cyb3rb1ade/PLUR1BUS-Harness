@@ -27,6 +27,13 @@ export interface ExportMemoriesOptions {
   principal: E.Principal;
   engine: E.Engine;
   agentId?: string | undefined;
+  /**
+   * Agents whose tables are read for the person's user-scope cards. The engine keeps a user-scope card in the table
+   * of the agent it was written through, so a complete export reads every agent; default: the principal's agent.
+   */
+  userScopeAgents?: string[] | undefined;
+  /** The principal to read one agent's table with (its own workspace); default: the principal with that agent id. */
+  principalFor?: ((agentId: string) => E.Principal) | undefined;
   sensitivityService?: MemorySensitivityService | null | undefined;
   options?: { now?: number } | undefined;
 }
@@ -147,6 +154,8 @@ export async function exportMemoriesAsText(
   opts: ExportMemoriesOptions,
 ): Promise<string> {
   const { principal, engine, agentId, sensitivityService } = opts;
+  const asAgent = (ag: string): E.Principal => (opts.principalFor ? opts.principalFor(ag) : { ...principal, agentId: ag });
+  const userScopeAgents = opts.userScopeAgents && opts.userScopeAgents.length > 0 ? opts.userScopeAgents : [principal.agentId];
   const redactor = createRedactor();
 
   const cardsToExport: Array<{
@@ -157,7 +166,19 @@ export async function exportMemoriesAsText(
   }> = [];
 
   // 1. Fetch user-scope memories (B2: page with since: 0, limit: 100)
-  const userItems = await fetchAllCardsForScope(engine, principal, "user");
+  // M2: read the user scope through every agent (a read that fails throws: no COMPLETE for an unread table);
+  // the same text imported through several agents is exported once.
+  const userItems: any[] = [];
+  const seenUserText = new Set<string>();
+  for (const ag of userScopeAgents) {
+    const items = await fetchAllCardsForScope(engine, asAgent(ag), "user");
+    for (const item of items) {
+      const key = `${extractCategory(item)}\u0000${String(item.text ?? "").trim().toLowerCase()}`;
+      if (seenUserText.has(key)) continue;
+      seenUserText.add(key);
+      userItems.push(item);
+    }
+  }
   for (const item of userItems) {
     if (sensitivityService) {
       const cats = await sensitivityService.assessCard({ id: item.id, text: item.text, summary: item.summary });
@@ -175,10 +196,7 @@ export async function exportMemoriesAsText(
 
   // 2. Fetch agent-private memories if agentId specified
   if (agentId) {
-    const agentPrincipal: E.Principal = {
-      ...principal,
-      agentId,
-    };
+    const agentPrincipal: E.Principal = asAgent(agentId);
     const agentItems = await fetchAllCardsForScope(engine, agentPrincipal, "agent-private");
     for (const item of agentItems) {
       if (sensitivityService) {

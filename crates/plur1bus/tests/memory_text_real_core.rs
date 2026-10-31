@@ -145,6 +145,7 @@ fn the_cli_reaches_a_real_core_as_a_person_import_export_and_rollback() {
     assert_eq!(rolled["rolledBack"], 2, "{rolled}");
     assert_eq!(rolled["remaining"], 0, "{rolled}");
     assert_eq!(rolled["failed"], 0, "{rolled}");
+    assert_eq!(rolled["preservedUserScope"], 0, "{rolled}");
     let (_, after, _) = cli(&home, &["memory", "export-text", "--agent", "main"]);
     assert!(
         !after["text"]

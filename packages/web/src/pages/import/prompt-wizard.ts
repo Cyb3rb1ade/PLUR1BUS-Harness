@@ -58,6 +58,7 @@ export function PromptImportWizard(): View {
     failed?: number;
     remaining?: number;
     keptModified?: number;
+    preservedUserScope?: number;
     discardedProposals: number;
   } | null>(null);
 
@@ -171,7 +172,7 @@ export function PromptImportWizard(): View {
           ? {
               ...r,
               target,
-              ...(target === "agent" && !r.agentIds && firstAgent
+              ...((target === "agent" || target === "user") && !r.agentIds && firstAgent
                 ? { agentIds: [firstAgent] }
                 : {}),
             }
@@ -194,7 +195,13 @@ export function PromptImportWizard(): View {
       }));
       const targets = entries.map((e, idx) => ({
         target: e.target,
-        ...(e.agentIds ? { agentIds: e.agentIds } : {}),
+        // The selects show the first agent as the default, so send it: the engine stores a user-scope card in the
+        // table of the agent it is written through.
+        ...(e.agentIds
+          ? { agentIds: e.agentIds }
+          : (e.target === "agent" || e.target === "user") && availableAgents[0]
+            ? { agentIds: [availableAgents[0]] }
+            : {}),
         ...(e.target === "skip" && recommendations[idx]?.reason
           ? { reason: recommendations[idx].reason }
           : {}),
@@ -466,7 +473,7 @@ export function PromptImportWizard(): View {
                             h("option", { key: "agent", value: "agent" }, t("imports.prompt.target.agent")),
                           ],
                     ),
-                    entry.target === "agent" && availableAgents.length > 0
+                    (entry.target === "agent" || entry.target === "user") && availableAgents.length > 0
                       ? h(
                           "div",
                           { class: "agent-select-wrapper" },
@@ -484,6 +491,9 @@ export function PromptImportWizard(): View {
                             },
                             availableAgents.map((ag) => h("option", { key: ag, value: ag }, ag)),
                           ),
+                          entry.target === "user"
+                            ? h("small", null, t("imports.prompt.userScopeAgentHint"))
+                            : null,
                         )
                       : null,
                   ),
@@ -523,6 +533,13 @@ export function PromptImportWizard(): View {
               runId: appliedRun.runId,
             }),
           ),
+          rollbackResult && (rollbackResult.preservedUserScope ?? 0) > 0
+            ? h(
+                Notice,
+                { tone: "warn" },
+                t("imports.prompt.rollbackPreserved", { count: rollbackResult.preservedUserScope ?? 0 }),
+              )
+            : null,
           !rollbackResult || ((rollbackResult.failed ?? 0) > 0) || ((rollbackResult.remaining ?? 0) > 0)
             ? h(
                 "div",

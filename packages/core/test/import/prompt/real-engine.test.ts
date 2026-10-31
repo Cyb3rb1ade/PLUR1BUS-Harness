@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { defaults } from "@plur1bus/config-schema";
 import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.js";
@@ -336,14 +336,27 @@ describe("Prompt Import & Export against Real Engine (Production Path)", { timeo
       activePrincipal = { userId: "owner-b", role: "owner", kind: "person" };
       const rbRes = await methods.rollback({ runId: applyRes.runId }, ctx);
       assert.equal(rbRes.rolledBack, 1, "agent card should be rolled back");
-      assert.equal(rbRes.keptModified, 1, "foreign user-scope card must be preserved");
+      assert.equal(rbRes.preservedUserScope, 1, "foreign user-scope card must be preserved and counted separately");
+      assert.equal(rbRes.keptModified, 0, "keptModified is only for cards modified after the import");
       assert.equal(rbRes.failed, 0);
       assert.equal(rbRes.remaining, 0);
+      const report = JSON.parse(readFileSync(join(home, "imports", applyRes.runId, "report.json"), "utf8"));
+      assert.equal(report.status, "partial", "the importer must still be able to roll the run back");
 
       // Admin A still possesses their user-scope card
       activePrincipal = { userId: "admin-a", role: "admin", kind: "person" };
       const exportRes = await methods.export({}, ctx) as { text: string; entryCount: number };
       assert.ok(exportRes.text.includes("Admin A personal preference to keep"), "Admin A user card must remain");
+
+      // ... and can now roll back their own run, which removes it
+      const own = await methods.rollback({ runId: applyRes.runId }, ctx);
+      assert.equal(own.failed, 0);
+      assert.equal(own.remaining, 0);
+      assert.equal(own.preservedUserScope, 0);
+      const after = JSON.parse(readFileSync(join(home, "imports", applyRes.runId, "report.json"), "utf8"));
+      assert.equal(after.status, "rolled-back");
+      const exportAfter = await methods.export({}, ctx) as { text: string };
+      assert.ok(!exportAfter.text.includes("Admin A personal preference to keep"));
     });
   });
 
@@ -424,6 +437,107 @@ describe("Prompt Import & Export against Real Engine (Production Path)", { timeo
 
       const report2 = JSON.parse(readFileSync(reportPath, "utf8"));
       assert.equal(report2.status, "rolled-back");
+    });
+  });
+
+  it("refuses an owner rollback of a foreign run whose ledger is missing and leaves the status alone (M1)", async () => {
+    const home = tempDir("p-real-engine-m1-ledger-");
+    await withEngine(home, async (engine, _l, agents) => {
+      let activePrincipal: Principal = { userId: "admin-a", role: "admin", kind: "person" };
+      const methods = setupTestMethods(home, engine, agents, () => activePrincipal);
+      const ctx: CallContext = { requestId: "r-m1", connectionId: "c-m1", signal: new AbortController().signal };
+      const applyRes = await methods.apply({
+        entries: [{ category: "Projects", sourceType: "memory", text: "Agent card whose ledger vanishes.", warnings: [], idempotencyKey: "k" }],
+        targets: [{ target: "agent", agentIds: ["default"] }],
+      }, ctx);
+      rmSync(join(home, "imports", applyRes.runId, "ledger.jsonl"));
+      const before = readFileSync(join(home, "imports", applyRes.runId, "report.json"), "utf8");
+      activePrincipal = { userId: "owner-b", role: "owner", kind: "person" };
+      await assert.rejects(
+        () => methods.rollback({ runId: applyRes.runId }, ctx),
+        (err: any) => err instanceof RpcError && err.error === "E_STORAGE" && err.reason === "ledger-unreadable",
+      );
+      assert.equal(readFileSync(join(home, "imports", applyRes.runId, "report.json"), "utf8"), before);
+      // the importer can still roll back
+      activePrincipal = { userId: "admin-a", role: "admin", kind: "person" };
+      const own = await methods.rollback({ runId: applyRes.runId }, ctx);
+      assert.equal(own.rolledBack, 1);
+    });
+  });
+
+  it("treats a ledger line without a scope as user scope and a report without importedBy as foreign (L2)", async () => {
+    const home = tempDir("p-real-engine-l2-legacy-");
+    await withEngine(home, async (engine, _l, agents) => {
+      let activePrincipal: Principal = { userId: "admin-a", role: "admin", kind: "person" };
+      const methods = setupTestMethods(home, engine, agents, () => activePrincipal);
+      const ctx: CallContext = { requestId: "r-l2", connectionId: "c-l2", signal: new AbortController().signal };
+      const applyRes = await methods.apply({
+        entries: [{ category: "Preferences", sourceType: "memory", text: "Legacy user card must survive an owner rollback.", warnings: [], idempotencyKey: "k" }],
+        targets: [{ target: "user" }],
+      }, ctx);
+      const dir = join(home, "imports", applyRes.runId);
+      const ledger = readFileSync(join(dir, "ledger.jsonl"), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+      for (const l of ledger) delete l.details.scope;
+      writeFileSync(join(dir, "ledger.jsonl"), ledger.map((l) => JSON.stringify(l)).join("\n") + "\n");
+      const report = JSON.parse(readFileSync(join(dir, "report.json"), "utf8"));
+      delete report.importedBy;
+      writeFileSync(join(dir, "report.json"), JSON.stringify(report));
+      // a foreign admin is refused for a report without importedBy
+      activePrincipal = { userId: "admin-c", role: "admin", kind: "person" };
+      await assert.rejects(() => methods.rollback({ runId: applyRes.runId }, ctx), (e: any) => e instanceof RpcError && e.reason === "foreign-import-run");
+      activePrincipal = { userId: "owner-b", role: "owner", kind: "person" };
+      const rb = await methods.rollback({ runId: applyRes.runId }, ctx);
+      assert.equal(rb.rolledBack, 0);
+      assert.equal(rb.preservedUserScope, 1);
+      activePrincipal = { userId: "admin-a", role: "admin", kind: "person" };
+      const exp = await methods.export({}, ctx) as { text: string };
+      assert.ok(exp.text.includes("Legacy user card must survive"));
+    });
+  });
+
+  it("gives 150 future-dated entries distinct timestamps so the export stays complete (L1)", async () => {
+    const home = tempDir("p-real-engine-l1-future-");
+    await withEngine(home, async (engine, _l, agents) => {
+      const activePrincipal: Principal = { userId: "user-future-many", role: "owner", kind: "person" };
+      const methods = setupTestMethods(home, engine, agents, () => activePrincipal);
+      const ctx: CallContext = { requestId: "r-l1", connectionId: "c-l1", signal: new AbortController().signal };
+      const entries: any[] = [];
+      const targets: any[] = [];
+      for (let i = 0; i < 150; i++) {
+        entries.push({ category: "Preferences", sourceType: "memory", text: `Future dated card ${i}.`, recordedAt: "2099-01-01T00:00:00.000Z", warnings: [], idempotencyKey: `f-${i}` });
+        targets.push({ target: "user" });
+      }
+      const applyRes = await methods.apply({ entries, targets }, ctx);
+      assert.equal(applyRes.imported, 150);
+      const exp = await methods.export({}, ctx) as { text: string; entryCount: number };
+      assert.ok(exp.text.endsWith("STATUS: COMPLETE\n"));
+      assert.equal(exp.entryCount, 150);
+    });
+  });
+
+  it("writes user-scope cards through the chosen agent and exports them whichever agent is asked for (M2)", async () => {
+    const home = tempDir("p-real-engine-m2-useragent-");
+    await withEngine(home, async (engine, _l, agents) => {
+      const activePrincipal: Principal = { userId: "user-m2", role: "owner", kind: "person" };
+      const methods = setupTestMethods(home, engine, agents, () => activePrincipal);
+      const ctx: CallContext = { requestId: "r-m2", connectionId: "c-m2", signal: new AbortController().signal };
+      const applyRes = await methods.apply({
+        entries: [
+          { category: "Preferences", sourceType: "memory", text: "Through second agent.", warnings: [], idempotencyKey: "a" },
+          { category: "Preferences", sourceType: "memory", text: "Through default agent.", warnings: [], idempotencyKey: "b" },
+        ],
+        targets: [{ target: "user", agentIds: ["second"] }, { target: "user" }],
+      }, ctx);
+      assert.equal(applyRes.imported, 2);
+      const report = JSON.parse(readFileSync(join(home, "imports", applyRes.runId, "report.json"), "utf8"));
+      assert.deepEqual([...report.affectedAgents].sort(), ["default", "second"]);
+      for (const agentId of [undefined, "default", "second"]) {
+        const exp = await methods.export(agentId ? { agentId } : {}, ctx) as { text: string; entryCount: number };
+        assert.equal(exp.entryCount, 2, `export via ${agentId ?? "no agent"}`);
+        assert.ok(exp.text.includes("Through second agent"));
+        assert.ok(exp.text.includes("Through default agent"));
+        assert.ok(exp.text.endsWith("STATUS: COMPLETE\n"));
+      }
     });
   });
 });

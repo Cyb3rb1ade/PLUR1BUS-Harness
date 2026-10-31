@@ -26,7 +26,7 @@ Jeder gefundene Eintrag gehört zu einer von sechs Kategorien:
 
 Für jeden Eintrag wählst du ein Ziel:
 * **Nicht importieren**: Der Eintrag wird übersprungen.
-* **Mein Gedächtnis**: Gespeichert im persönlichen Nutzerbereich (`scope: user`). Steht deinen Agenten im Gespräch mit dir zur Verfügung.
+* **Mein Gedächtnis**: Gespeichert im persönlichen Nutzerbereich (`scope: user`). Die Engine legt diese Einträge im Speicher des Agenten ab, über den sie geschrieben werden; diesen Agenten wählst du im Assistenten (Standard: dein erster Agent). Der Export liest deine Einträge in „Mein Gedächtnis“ über alle Agenten.
 * **Ausgewählte Agenten**: Wird als agent-private Erinnerung hinterlegt. Ein Agent greift in allen Unterhaltungen auf diesen Speicher zu, auch mit anderen Personen und in Gruppen.
 
 Der Knopf **Empfehlung übernehmen** setzt empfohlene Standardziele für alle Einträge.
@@ -39,7 +39,7 @@ Der Parser prüft alle Texte auf Passwörter, API-Schlüssel und Tokens. Gefunde
 
 Jeder Importlauf erhält eine eigene Kennung (`runId`) und ein Protokoll. Um einen Lauf zurückzunehmen, klicke in der Zusammenfassung auf **Import rückgängig machen**.
 
-Der Rollback entfernt unveränderte, während des Laufs erstellte Karten und löst importierte Verknüpfungen. Nach dem Import bearbeitete Karten bleiben erhalten, um Datenverlust zu vermeiden.
+Der Rollback entfernt unveränderte, während des Laufs erstellte Karten und löst importierte Verknüpfungen. Nach dem Import bearbeitete Karten bleiben erhalten, um Datenverlust zu vermeiden. Nimmt ein Owner einen Lauf zurück, den eine andere Person importiert hat, bleiben deren Einträge in „Mein Gedächtnis“ bestehen und werden getrennt gemeldet; der Lauf bleibt offen, und die importierende Person kann ihn selbst zurücknehmen.
 
 ## Gedächtnis exportieren
 
