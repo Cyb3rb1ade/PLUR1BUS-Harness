@@ -454,6 +454,8 @@ fn method_fixture(name: &str, f: &Value) {
         "project.agent.remove" => {
             pair::<ProjectAgentRemoveParams, ProjectAgentRemoveResult>(name, f)
         }
+        "project.repo.bind" => pair::<ProjectRepoBindParams, ProjectRepoBindResult>(name, f),
+        "project.repo.unbind" => pair::<ProjectRepoUnbindParams, ProjectRepoUnbindResult>(name, f),
         "task.complete" => pair::<TaskCompleteParams, TaskCompleteResult>(name, f),
         "chat.promote.preview" => {
             pair::<ChatPromotePreviewParams, ChatPromotePreviewResult>(name, f)
@@ -1009,7 +1011,7 @@ fn rpc_version_const_matches_the_schema() {
         plur1bus_rpc::RPC_VERSION,
         schema["x-rpc-version"].as_str().unwrap()
     );
-    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.10.0");
+    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.14.0");
     assert!(schema["$id"]
         .as_str()
         .unwrap()

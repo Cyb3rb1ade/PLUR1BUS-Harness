@@ -6,13 +6,28 @@ import { CollabError } from "./errors.ts";
 import { newId } from "./ids.ts";
 import { migrate, SCHEMA_VERSION } from "./migrations.ts";
 import type {
-  CollabSettings, CollabSpan, CollabTrace, DelegateTask, Project, ProjectMember, ProjectRole, SpanStatus, TaskStatus,
+  CollabSettings, CollabSpan, CollabTrace, DelegateTask, Project, ProjectMember, ProjectRole, RepoBinding, SpanStatus, TaskStatus,
 } from "./types.ts";
 import { traceparent } from "./ids.ts";
 
 export { SCHEMA_VERSION };
 
 type Row = Record<string, unknown>;
+
+export interface WorktreeRow {
+  id: string; projectId: string; rootId: string; cardId: string | null;
+  gitDir: string | null; commonGitDir: string | null; dev: string | null; ino: string | null;
+  branch: string; path: string; baseSha: string; createdAt: number; removedAt: number | null;
+}
+function toWorktree(r: Row): WorktreeRow {
+  return {
+    id: r.id as string, projectId: r.project_id as string, rootId: r.root_id as string,
+    cardId: (r.card_id as string | null) ?? null, branch: r.branch as string, path: r.path as string,
+    dev: (r.device as string | null) ?? null, ino: (r.inode as string | null) ?? null,
+    gitDir: (r.git_dir as string | null) ?? null, commonGitDir: (r.common_git_dir as string | null) ?? null,
+    baseSha: r.base_sha as string, createdAt: r.created_at as number, removedAt: (r.removed_at as number | null) ?? null,
+  };
+}
 
 /** Ends task-scoped grants when a collab task reaches a terminal status (D109 §9.9). */
 export interface TaskGrantEnd { endTask(taskId: string, by?: string): number | void | Promise<number | void> }
@@ -189,12 +204,72 @@ export class CollabStore {
       .map((m): ProjectMember => ({ userId: m.user_id as string, role: m.role as ProjectRole }));
     const agents = this.#all("SELECT agent_id FROM project_agents WHERE project_id = ? ORDER BY agent_id", id)
       .map((a) => a.agent_id as string);
+    const repoPath = r.repo_path as string | null;
+    const baseBranch = r.base_branch as string | null;
     return {
       id: r.id as string, name: r.name as string, owner: r.owner as string, members, agents,
       settings: mergeSettings(JSON.parse(r.settings as string)),
       createdAt: r.created_at as number, updatedAt: r.updated_at as number,
       archivedAt: (r.archived_at as number | null) ?? null,
+      ...(repoPath && baseBranch ? { repo: { repoPath, baseBranch } satisfies RepoBinding } : {}),
     };
+  }
+
+  /** Persists a binding already checked by `assertRepoBinding`. */
+  setRepo(id: string, repo: RepoBinding): Project {
+    return this.#tx(() => {
+      this.#live(id);
+      if (this.#get("SELECT 1 FROM project_worktrees WHERE project_id = ? AND removed_at IS NULL", id))
+        throw new CollabError("conflict", "remove live worktrees before rebinding", { reason: "worktree-live" });
+      this.#run("UPDATE projects SET repo_path = ?, base_branch = ?, updated_at = ? WHERE id = ?", repo.repoPath, repo.baseBranch, this.#clock(), id);
+      return this.#project(id)!;
+    });
+  }
+
+  clearRepo(id: string): Project {
+    return this.#tx(() => {
+      this.#live(id);
+      if (this.liveWorktree(id, null) || this.#get("SELECT 1 AS n FROM project_worktrees WHERE project_id = ? AND removed_at IS NULL", id)) {
+        throw new CollabError("conflict", "remove the worktree before unbinding the repository", { reason: "worktree-live" });
+      }
+      this.#run("UPDATE projects SET repo_path = NULL, base_branch = NULL, updated_at = ? WHERE id = ?", this.#clock(), id);
+      return this.#project(id)!;
+    });
+  }
+
+  insertWorktree(i: { projectId: string; rootId: string; cardId: string | null; branch: string; path: string; baseSha: string; gitDir?: string; commonGitDir?: string; dev?: string; ino?: string }): WorktreeRow {
+    const id = this.#newId("wt");
+    const now = this.#clock();
+    this.#run(
+      "INSERT INTO project_worktrees (id, project_id, root_id, card_id, branch, path, base_sha, created_at, git_dir, common_git_dir, device, inode) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+      id, i.projectId, i.rootId, i.cardId, i.branch, i.path, i.baseSha, now, i.gitDir ?? null, i.commonGitDir ?? null, i.dev ?? null, i.ino ?? null,
+    );
+    return this.liveWorktree(i.projectId, i.cardId)!;
+  }
+
+  liveWorktree(projectId: string, cardId: string | null): WorktreeRow | null {
+    const r = cardId
+      ? this.#get("SELECT * FROM project_worktrees WHERE project_id = ? AND card_id = ? AND removed_at IS NULL", projectId, cardId)
+      : this.#get("SELECT * FROM project_worktrees WHERE project_id = ? AND card_id IS NULL AND removed_at IS NULL", projectId);
+    return r ? toWorktree(r) : null;
+  }
+
+  /** Latest provisioner-owned record, including removed checkouts whose Git branch is retained. */
+  previousWorktree(projectId: string, cardId: string | null): WorktreeRow | null {
+    const row = this.#get("SELECT * FROM project_worktrees WHERE project_id = ? AND card_id IS ? ORDER BY rowid DESC LIMIT 1", projectId, cardId);
+    return row ? toWorktree(row) : null;
+  }
+
+  /** Trusted metadata lookup for coding verification; never reads the checkout's .git pointer. */
+  worktreeAt(path: string): WorktreeRow | null {
+    const row = this.#get("SELECT * FROM project_worktrees WHERE path = ? AND removed_at IS NULL", path);
+    return row ? toWorktree(row) : null;
+  }
+
+  markWorktreeRemoved(projectId: string, cardId: string | null): void {
+    const now = this.#clock();
+    if (cardId) this.#run("UPDATE project_worktrees SET removed_at = ? WHERE project_id = ? AND card_id = ? AND removed_at IS NULL", now, projectId, cardId);
+    else this.#run("UPDATE project_worktrees SET removed_at = ? WHERE project_id = ? AND card_id IS NULL AND removed_at IS NULL", now, projectId);
   }
 
   // ---- artifacts -------------------------------------------------------------------------------

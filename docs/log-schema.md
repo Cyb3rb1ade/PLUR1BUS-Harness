@@ -203,6 +203,7 @@ emitters land in later parts of D111; the names are already reserved.
 | `model.unavailable` | provider | warn / **info** | model_discovery | `provider`, `count`, `models`, `roles` | activity | warn when roles is non-empty, otherwise info; Model discovery event (D112 Task 12). |
 | `model.scan.failed` | provider | error / **warn** | model_discovery | `provider`, `result`, `next_scan_at`, `consecutive_failures`, `err` |  | error for failed:auth and failed:invalid, otherwise warn; Model discovery event (D112 Task 12). |
 | `model.scan.completed` | provider | debug | model_discovery | `provider`, `result`, `duration_ms`, `counts` |  | Model discovery event (D112 Task 12). |
+| `sandbox.watchdog.failure` | harness | info | sandbox_watchdog_failure | `process`, `version`, `cause`, `operation`, `phase`, `sample`, `elapsedMicros`, `pid`, `returned`, `expected`, `errno`, `probeReturned`, `probeErrno`, `ppid`, `pgid`, `status`, `startSeconds`, `startMicros`, `processRssBytes`, `count`, `rssBytes` | experimental | The supervised ACP connector exited125 with a validated native sampling cause. Detail comes from the target-closed helper fd, never child stderr; transport results and enforcement decisions are unchanged. Example values illustrate the format and are not a diagnosis of a native failure. |
 
 ### Audit stream
 
@@ -1064,6 +1065,34 @@ Detail for `oauth.denied` audit event: OAuth request denied or rejected.
 |---|---|---|
 | `clientId` | `string` | OAuth client identifier. |
 | `reason` | `string` | Denial reason. |
+
+#### `sandbox_watchdog_failure`
+
+Trusted, bounded native watchdog measurement failure after fail-closed exit125. Static labels and safe integers match the dedicated-fd parser; no process names, commands, argv, paths, usernames, contents or credentials.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `process` | `"connector"` | Supervised ACP connector, never a process name or command. |
+| `version` | `1` |  |
+| `cause` | `sample-deadline` \| `identity-unavailable` \| `list-safety-cap` \| `list-unavailable` \| `descendant-safety-cap` \| `task-info-unavailable` \| `aggregate-rss-incomplete` \| `attach-limit` |  |
+| `operation` | `sample` \| `bsd-info` \| `alive` \| `group-size` \| `group-list` \| `group-member` \| `child-size` \| `child-list` \| `child-member` \| `task-info` \| `membership` |  |
+| `phase` | `attach` \| `runtime` |  |
+| `sample` | `integer` |  |
+| `elapsedMicros` | `integer` | Elapsed sample time in microseconds; diagnostic collection can add measurement overhead. |
+| `pid` | `integer` |  |
+| `returned` | `integer` |  |
+| `expected` | `integer` |  |
+| `errno` | `integer` | Captured immediately after libproc. Meaningful with the return value; successful calls may leave stale errno. |
+| `probeReturned` | `integer` |  |
+| `probeErrno` | `integer` | Captured immediately after the PID liveness probe, separately from libproc errno. |
+| `ppid` | `integer` |  |
+| `pgid` | `integer` |  |
+| `status` | `integer` |  |
+| `startSeconds` | `integer` |  |
+| `startMicros` | `integer` |  |
+| `processRssBytes` | `integer` |  |
+| `count` | `integer` |  |
+| `rssBytes` | `integer` |  |
 
 ## Redaction data
 

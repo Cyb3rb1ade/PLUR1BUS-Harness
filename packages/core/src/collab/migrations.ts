@@ -122,6 +122,26 @@ export const MIGRATIONS: readonly string[] = [
   `,
   `ALTER TABLE spans ADD COLUMN session_id TEXT;`,
   `ALTER TABLE spans ADD COLUMN target_kind TEXT; ALTER TABLE tasks ADD COLUMN target_kind TEXT;`,
+  // v5: optional root-project repo binding. Subprojects inherit it later; they do not get a second column set.
+  `ALTER TABLE projects ADD COLUMN repo_path TEXT; ALTER TABLE projects ADD COLUMN base_branch TEXT;`,
+  // v6: provisioned worktrees. M5+ adds merge rows on this same table's implementation, not a second git client.
+  `CREATE TABLE project_worktrees (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    root_id TEXT NOT NULL,
+    card_id TEXT,
+    branch TEXT NOT NULL,
+    path TEXT NOT NULL,
+    base_sha TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    removed_at INTEGER
+  );
+  CREATE UNIQUE INDEX idx_project_worktrees_live ON project_worktrees(project_id, ifnull(card_id, '')) WHERE removed_at IS NULL;`,
+  // v7: host Git uses immutable provisioner metadata, never the writable .git pointer.
+  `ALTER TABLE project_worktrees ADD COLUMN git_dir TEXT;
+   ALTER TABLE project_worktrees ADD COLUMN common_git_dir TEXT;
+   ALTER TABLE project_worktrees ADD COLUMN device TEXT;
+   ALTER TABLE project_worktrees ADD COLUMN inode TEXT;`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

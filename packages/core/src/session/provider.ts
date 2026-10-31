@@ -27,6 +27,8 @@ export interface ChatRequest {
   skillQuery?: string;
   /** Trusted scoped reviewer checkout. No transport accepts this field. */
   readOnlyWorktree?: string;
+  /** Trusted coding composition only; never taken from model messages. */
+  codingWorktree?: string;
   collaborationTier?: 'cheap' | 'standard' | 'premium';
   /** Internal peer envelopes: persisted/rendered as tool results, never system or assistant text. */
   peerResults?: readonly { id: string; name: string; text: string }[];

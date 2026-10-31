@@ -1,3 +1,4 @@
+import { validateAcpMount } from "./acp-worktree.ts";
 import { execFile } from 'node:child_process';
 import { access, lstat, readdir } from 'node:fs/promises';
 import { constants, readlinkSync } from 'node:fs';
@@ -14,9 +15,9 @@ export function outerUserNamespace(): string {
   return outerNamespace;
 }
 /** Bind the trusted launcher before sealing the root; allow one extra task for bubblewrap's init. */
-export function tasksStep(limitsHelper: string, maxTasks: number): { bind: string[]; prefix: string[] } {
+export function tasksStep(limitsHelper: string, maxTasks: number, required = false): { bind: string[]; prefix: string[] } {
   return { bind: ['--ro-bind', limitsHelper, INNER_LAUNCHER],
-    prefix: [INNER_LAUNCHER, '--tasks', String(maxTasks + 1), outerUserNamespace(), '--'] };
+    prefix: [INNER_LAUNCHER, required ? '--tasks-required' : '--tasks', String(maxTasks + 1), outerUserNamespace(), '--'] };
 }
 const BWRAP_PROBE = ['--unshare-all', '--die-with-parent', '--ro-bind', '/usr', '/usr', '--ro-bind', '/bin', '/bin',
   '--ro-bind', '/lib', '/lib', '--ro-bind-try', '/lib64', '/lib64'];
@@ -53,7 +54,11 @@ export function seatbeltProfile(p: PreparedPolicy): string {
   for (const r of [...p.runtimeRoots, ...p.readRoots.map(r => r.path), ...p.writeRoots.map(r => r.path)]) lines.push(`(allow file-read* (subpath ${quote(r)}))`);
   for (const r of p.writeRoots) lines.push(`(allow file-write* (subpath ${quote(r.path)}))`);
   lines.push('(allow file-write-data (literal "/dev/null"))');
-  if (p.network === 'full') lines.push('(allow network*)');
+  if (p.acpScratch) {
+    lines.push('(allow process-fork)', '(deny file-link)', '(deny appleevent-send)');
+    if (p.acpScratch) lines.push(`(allow file-read* file-write* (subpath ${quote(p.acpScratch)}))`);
+  }
+  if (p.network === 'full') lines.push('(allow network*)', '(allow mach-lookup (global-name "com.apple.mDNSResponder"))');
   // Explicit deny wins over a root allow. Name rules also cover files created after launch.
   for (const d of p.denied) lines.push('path' in d
     ? `(deny file-read* file-write* (subpath ${quote(d.path)}))`
@@ -111,12 +116,18 @@ export async function backendArgv(p: PreparedPolicy, d: SandboxDetection, argv: 
   if (d.backend === 'seatbelt') return ['/usr/bin/sandbox-exec', '-p', seatbeltProfile(p), ...argv];
   if (d.backend !== 'bubblewrap') throw new SandboxFailure(d.reason);
   // Writable mounts could create/rename credential files after the mask scan. Refuse until a dynamic Landlock/seccomp layer exists.
-  if (p.writeRoots.length) throw new SandboxFailure('bubblewrap writable roots require dynamic credential-name enforcement; backend refused');
+  if (p.writeRoots.length && !p.acpWorktree) throw new SandboxFailure('bubblewrap writable roots require dynamic credential-name enforcement; backend refused');
+  const mount = p.acpWorktree ? await validateAcpMount(p.acpWorktree, p.writeRoots.map(r => r.path)) : undefined;
   const args = ['/usr/bin/bwrap', '--unshare-all', '--die-with-parent', '--new-session', '--cap-drop', 'ALL', '--proc', '/proc', '--dev', '/dev'];
   if (p.network === 'full') args.push('--share-net');
   for (const r of [...p.runtimePaths, ...p.readRoots.map(r => r.path)]) args.push('--ro-bind', r, r);
+  if (mount) {
+    args.push('--bind', mount.path, mount.path);
+    args.push('--ro-bind', mount.gitDir, mount.gitDir, '--ro-bind', mount.commonGitDir, mount.commonGitDir);
+  }
+  if (p.acpScratch) args.push('--tmpfs', p.acpScratch);
   for (const m of await masks(p)) args.push(...(m.directory ? ['--tmpfs', m.path] : ['--ro-bind', '/dev/null', m.path]));
-  const step = d.tasks.mechanism === 'namespace-limit' && p.limits.maxTasks > 0 ? tasksStep(p.limitsHelper, p.limits.maxTasks) : undefined;
+  const step = d.tasks.mechanism === 'namespace-limit' && p.limits.maxTasks > 0 ? tasksStep(p.limitsHelper, p.limits.maxTasks, p.acpScratch !== undefined) : undefined;
   args.push(...(step?.bind ?? []), '--remount-ro', '/', '--chdir', p.cwd, '--', ...(step?.prefix ?? []), ...argv);
   return args;
 }

@@ -1,3 +1,4 @@
+import { GitWorktreeProvisioner } from "../external-agents/provisioner.ts";
 import type { ChatProvider } from "../session/provider.ts";
 import { FakeChatProvider } from "../session/provider.ts";
 import { estimateTokens, truncateWithPointer } from "../session/compaction.ts";
@@ -13,11 +14,14 @@ import {
 } from "./ports.ts";
 import { providerRunner, type AgentRunner } from "./runner.ts";
 import { alsAgentScopePort, scopeFor } from "./scope.ts";
+import { dirname, join, sep } from "node:path";
 import { CollabStore, type TaskGrantEnd } from "./store.ts";
 import type {
   CollabEvent, CollabSettings, CollabTrace, ConsultAnswer, ConsultInput, DelegateHandle, DelegateInput,
-  DelegateTask, Project, ProjectRole, SpanStatus,
+  DelegateTask, Project, ProjectRole, RepoBinding, SpanStatus,
 } from "./types.ts";
+import { assertRepoBinding } from "../external-agents/binding.ts";
+import type { GitExec } from "../external-agents/git.ts";
 
 export interface CollabOptions {
   sessions?: () => import("../session/store.ts").SessionStore;
@@ -36,6 +40,10 @@ export interface CollabOptions {
   /** Ends task-scoped grants when a delegate task reaches a terminal status (D109 §9.9). */
   grants?: TaskGrantEnd;
   logWarn?: (msg: string, fields?: { err?: unknown }) => void;
+  /** Harness home. `project.repo.bind` refuses a repository inside it. */
+  home?: string;
+  git?: GitExec;
+  provisionWorktrees?: boolean;
 }
 
 interface Chain {
@@ -54,6 +62,7 @@ interface Chain {
 }
 
 export interface Collab {
+  readonly worktreeStore: CollabStore;
   readonly boardStore: import("./board.ts").ProjectBoardStore;
   boardProject(id: string): Project | null;
   close(): void;
@@ -68,6 +77,9 @@ export interface Collab {
   removeMember(principal: Principal, projectId: string, userId: string): Project;
   addAgent(principal: Principal, projectId: string, agentId: string): Project;
   removeAgent(principal: Principal, projectId: string, agentId: string): Project;
+  /** Lead person only. Checks toplevel, bare repos and the harness home before writing. */
+  bindRepo(principal: Principal, projectId: string, repoPath: string, baseBranch: string): Project;
+  unbindRepo(principal: Principal, projectId: string): Project;
   consult(input: ConsultInput): Promise<ConsultAnswer>;
   delegate(input: DelegateInput): DelegateHandle;
   getTask(principal: Principal, id: string): DelegateTask;
@@ -80,6 +92,8 @@ export interface Collab {
 
 export function createCollab(o: CollabOptions): Collab {
   const store = new CollabStore({ path: o.path, ...(o.clock ? { clock: o.clock } : {}), ...(o.newId ? { newId: o.newId } : {}), ...(o.grants ? { grants: o.grants } : {}), ...(o.logWarn ? { logWarn: o.logWarn } : {}) });
+  const marker = `${sep}state${sep}collab.sqlite`;
+  const harnessHome = o.home ?? (o.path.endsWith(marker) ? dirname(dirname(o.path)) : undefined);
   const authorize = o.authorize ?? rbacAuthorizePort;
   const budget = o.budget ?? unlimitedBudget();
   const redact = o.redact ?? logsRedactionPort();
@@ -102,6 +116,13 @@ export function createCollab(o: CollabOptions): Collab {
   const authz = (principal: Principal, action: string, resource: Parameters<AuthorizePort>[2]): void => {
     const d = authorize(principal, action, resource);
     if (d.effect !== "allow") throw new CollabError("unauthorized", `refused ${action}`, { reason: d.reason });
+  };
+  const requireLead = (principal: Principal, projectId: string): Project => {
+    if (principal.kind !== "person") throw new CollabError("unauthorized", "only a person may bind a repository", { reason: "agent-principal" });
+    const project = liveProject(projectId);
+    const membership = project.members.find((m) => m.userId === principal.userId);
+    if (!membership || membership.role !== "lead") throw new CollabError("unauthorized", "repository binding requires a project lead", { reason: "lead-required" });
+    return project;
   };
   /** Cap a delegate return. `truncateWithPointer` can clip its own marker when the budget is tiny; the pointer must always survive. */
   const capReturn = (text: string, maxTokens: number, pointer: string): { text: string; truncated: boolean } => {
@@ -305,6 +326,7 @@ export function createCollab(o: CollabOptions): Collab {
   };
 
   const api: Collab = {
+    worktreeStore: store,
     async shutdown(budgetMs = 5_000) {
       for (const chain of chains.values()) chain.abort.abort(new Error("core stopping"));
       const busy = () => [...chains.values()].filter(chain => chain.inflight.size > 0);
@@ -373,6 +395,20 @@ export function createCollab(o: CollabOptions): Collab {
       const p = store.removeMember(projectId, userId);
       fire({ type: "project.member.removed", projectId, data: { userId } });
       return p;
+    },
+
+    bindRepo(principal, projectId, repoPath, baseBranch) {
+      requireLead(principal, projectId);
+      if (!harnessHome) throw new CollabError("invalid", "harness home is required to bind a repository", { reason: "home-required" });
+      const binding: RepoBinding = assertRepoBinding(repoPath, baseBranch, harnessHome, o.git);
+      const project = store.setRepo(projectId, binding);
+      if (o.provisionWorktrees) new GitWorktreeProvisioner(store, join(harnessHome, "state"), o.git).fork({ projectId });
+      return project;
+    },
+
+    unbindRepo(principal, projectId) {
+      requireLead(principal, projectId);
+      return store.clearRepo(projectId);
     },
 
     addAgent(principal, projectId, agentId) {

@@ -13,6 +13,17 @@ import type { ReturnEnvelope } from './handoff.ts';
 
 /** Shared existing-worktree port. M6 adapters supply their bound checkout here; no second worktree creator exists. */
 export interface ProjectWorktreePort { root(agentId: string, projectId: string, cardId: string): string | null }
+
+/**
+ * One git implementation, shared with M5+ (subprojects spec §6.5).
+ * `mergePreview`, `merge` and `revert` are added on this interface by M5+ WP4. This package implements fork, remove and status.
+ * Card worktrees are the documented variant `p1b/<rootKey>/c-<6 hex>` under `<state>/worktrees/<rootId>/cards/`.
+ */
+export interface ProjectWorktreeProvisioner {
+  fork(input: { projectId: string; cardId?: string }): { baseSha: string; branch: string; path: string };
+  remove(input: { projectId: string; cardId?: string }): void;
+  status(input: { projectId: string; cardId?: string }): { branch: string; path: string; baseSha: string; removed: boolean } | null;
+}
 export interface CodingCompletion { collab: Collab; gate: CodingGate; worktrees: ProjectWorktreePort }
 const taskKey = (projectId: string, cardId: string) => `${projectId}/${cardId}`;
 function admitted(o: CodingCompletion, person: Principal, projectId: string, cardId: string) {

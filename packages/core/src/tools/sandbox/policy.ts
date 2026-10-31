@@ -1,3 +1,4 @@
+import { validateAcpMount } from "./acp-worktree.ts";
 import { lstat, readdir, realpath, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { canonicalisePath, checkSyntax, matchDeny, type DenyEntry, type PathRoot } from '../../policy/paths.ts';
@@ -63,9 +64,10 @@ export async function preparePolicy(p: SandboxPolicy): Promise<PreparedPolicy> {
     throw new SandboxFailure('sandbox task cap must be 0 to 65536');
   for (const [key, n] of Object.entries(p.limits)) if (key !== 'maxTasks' && (!Number.isSafeInteger(n) || n <= 0))
     throw new SandboxFailure('sandbox limits must be positive safe integers');
-  if (p.limits.maxOutputBytes > 4 * 1024 * 1024 || p.limits.timeoutMs > 600000) throw new SandboxFailure('sandbox limits exceed hard caps');
+  if (p.limits.maxOutputBytes > 4 * 1024 * 1024 || p.limits.timeoutMs > (p.acpScratch ? 3600000 : 600000)) throw new SandboxFailure('sandbox limits exceed hard caps');
+  const mount = p.acpWorktree ? await validateAcpMount(p.acpWorktree, p.writeRoots.map(r => r.path)) : undefined;
   const home = await absolute(p.home), userHome = await absolute(p.userHome);
-  const denied: DenyEntry[] = [...denyEntriesFor(userHome, process.env, process.platform), { path: join(home, 'run') }, { path: join(home, 'state') }, { path: join(home, 'secrets') }, { path: join(home, 'config.json') }, { path: join(home, 'bin') }, { path: join(home, 'runtime') }, ...(p.deny ?? [])];
+  const denied: DenyEntry[] = [...denyEntriesFor(userHome, process.env, process.platform), { path: join(home, 'run') }, ...(mount ? [] : [{ path: join(home, 'state') }]), { path: join(home, 'secrets') }, { path: join(home, 'config.json') }, { path: join(home, 'bin') }, { path: join(home, 'runtime') }, ...(p.deny ?? [])];
   if (denied.some(d => 'name' in d && !/^[a-z0-9_.-]+$/i.test(d.name))) throw new SandboxFailure('credential deny names require ASCII path segments');
   // Resolve protected aliases too (notably /var -> /private/var on macOS).
   for (const d of [...denied]) if ('path' in d) { const r = await realpath(d.path).then(nativeForm, () => null); if (r) denied.push({ path: r }); }
@@ -99,5 +101,10 @@ export async function preparePolicy(p: SandboxPolicy): Promise<PreparedPolicy> {
   if (![...readRoots, ...writeRoots].some(r => within(cwd, r.path, false)) || matchDeny(cwd, denied)) throw new SandboxFailure('sandbox cwd is outside roots');
   const runtime = (await Promise.all(RUNTIME_ROOTS.map(async source => { const canonical = await realpath(source).catch(() => null); return canonical ? { source, canonical } : null; }))).filter((s): s is {source:string;canonical:string} => s !== null);
   const runtimeRoots = runtime.map(r=>r.canonical), runtimePaths = runtime.map(r=>r.source);
+  if (mount) {
+    // Only trusted Git metadata is readable; sibling worktrees and the rest of state are never mounted.
+    runtimeRoots.push(mount.gitDir, mount.commonGitDir);
+    runtimePaths.push(mount.gitDir, mount.commonGitDir);
+  }
   return { ...p, limitsHelper, home, userHome, cwd, readRoots, writeRoots, denied, runtimeRoots: [...new Set(runtimeRoots)], runtimePaths };
 }

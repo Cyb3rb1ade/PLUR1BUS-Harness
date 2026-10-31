@@ -40,6 +40,25 @@ pub enum ProjectCmd {
         #[command(subcommand)]
         sub: AgentCmd,
     },
+    /// Bind or unbind the project's git repository (project lead)
+    Repo {
+        #[command(subcommand)]
+        sub: RepoCmd,
+    },
+}
+#[derive(Debug, Subcommand)]
+pub enum RepoCmd {
+    #[command(about = "[experimental] Bind a root project to a git repository")]
+    Bind {
+        project: String,
+        /// Absolute path of the repository
+        path: String,
+        /// Branch the harness forks from
+        #[arg(long)]
+        base: String,
+    },
+    #[command(about = "[experimental] Remove a project's repository binding")]
+    Unbind { project: String },
 }
 #[derive(Debug, Subcommand)]
 pub enum MemberCmd {
@@ -115,6 +134,17 @@ pub fn request(cmd: &ProjectCmd) -> (&'static str, Value) {
                 json!({"projectId":project,"agentId":agent}),
             ),
         },
+        ProjectCmd::Repo { sub } => match sub {
+            RepoCmd::Bind {
+                project,
+                path,
+                base,
+            } => (
+                "project.repo.bind",
+                json!({"projectId":project,"repoPath":path,"baseBranch":base}),
+            ),
+            RepoCmd::Unbind { project } => ("project.repo.unbind", json!({"projectId":project})),
+        },
     }
 }
 pub fn run(out: &Out, layout: &Layout, cmd: ProjectCmd) {
@@ -153,5 +183,24 @@ mod tests {
             panic!()
         };
         assert_eq!(request(&sub).0, "project.member.role");
+    }
+    #[test]
+    fn repo_bind_json_is_the_raw_rpc_value() {
+        let cli = Cli::try_parse_from([
+            "plur1bus", "--json", "project", "repo", "bind", "prj_1", "/srv/app", "--base", "main",
+        ])
+        .unwrap();
+        let Cmd::Project { sub } = cli.cmd else {
+            panic!()
+        };
+        let (method, params) = request(&sub);
+        assert_eq!(method, "project.repo.bind");
+        assert_eq!(params["projectId"], "prj_1");
+        assert_eq!(params["repoPath"], "/srv/app");
+        assert_eq!(params["baseBranch"], "main");
+        assert!(
+            Cli::try_parse_from(["plur1bus", "project", "repo", "bind", "prj_1", "/srv/app"])
+                .is_err()
+        );
     }
 }

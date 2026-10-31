@@ -1,4 +1,10 @@
 fn main() {
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
+        println!("cargo:rerun-if-changed=src/bin/watchdog/kernel_identity.c");
+        cc::Build::new()
+            .file("src/bin/watchdog/kernel_identity.c")
+            .compile("watchdog_kernel_identity");
+    }
     for key in [
         "PLUR1BUS_ATTEST_SHA256",
         "PLUR1BUS_ATTEST_TEAM_ID",

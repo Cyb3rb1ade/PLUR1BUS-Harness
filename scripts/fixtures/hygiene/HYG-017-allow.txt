@@ -1,0 +1,3 @@
+import { accessSync, lstatSync } from "node:fs";
+lstatSync(path);
+accessSync(path);

@@ -978,6 +978,14 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::ProjectMemberRoleParams,
                 types::ProjectMemberRoleResult,
             >(name, fixture, &root_schema),
+            "project.repo.bind" => check_pair::<
+                types::ProjectRepoBindParams,
+                types::ProjectRepoBindResult,
+            >(name, fixture, &root_schema),
+            "project.repo.unbind" => check_pair::<
+                types::ProjectRepoUnbindParams,
+                types::ProjectRepoUnbindResult,
+            >(name, fixture, &root_schema),
             "project.agent.add" => check_pair::<
                 types::ProjectAgentAddParams,
                 types::ProjectAgentAddResult,

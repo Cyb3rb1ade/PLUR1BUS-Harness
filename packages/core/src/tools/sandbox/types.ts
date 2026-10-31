@@ -1,3 +1,4 @@
+import type { AcpWorktreeMount } from "./acp-worktree.ts";
 import type { DenyEntry, PathRoot } from '../../policy/paths.ts';
 export type SandboxNetwork = 'none' | 'egress' | 'full';
 /** Default tasks per sandboxed run, excluding bubblewrap's init. */
@@ -5,6 +6,10 @@ export const DEFAULT_MAX_TASKS = 512;
 /** The measured process-cap mechanism, including why it cannot be used. */
 export interface SandboxTasks { mechanism: 'namespace-limit' | 'fork-denied' | 'none'; reason: string; hint?: string }
 export interface SandboxPolicy {
+  /** #820: opaque provisioner grant; never supplied by tool arguments. */
+  acpWorktree?: AcpWorktreeMount;
+  /** Fresh private scratch, created by the ACP launcher and removed after exit. */
+  acpScratch?: string;
   home: string;
   userHome: string;
   cwd: string;

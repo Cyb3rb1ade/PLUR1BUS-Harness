@@ -1,0 +1,12 @@
+{
+  "params": {
+    "projectId": "prj_example",
+    "repoPath": "/srv/repos/example",
+    "baseBranch": "main"
+  },
+  "result": {
+    "id": "prj_example",
+    "name": "Example",
+    "repo": { "repoPath": "/srv/repos/example", "baseBranch": "main" }
+  }
+}

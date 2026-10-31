@@ -1284,3 +1284,11 @@ fn security_limits_reject_invalid_values_when_loading() {
         }
     }
 }
+
+#[test]
+fn external_agent_engine_is_audited_and_owner_admin_writable() {
+    let schema = schema();
+    let engine = &schema["properties"]["agents"]["additionalProperties"]["properties"]["engine"];
+    assert_eq!(engine["x-write-roles"], json!(["owner", "admin"]));
+    assert_eq!(engine["x-audit"], true);
+}

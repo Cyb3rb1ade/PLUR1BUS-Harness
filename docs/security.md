@@ -114,6 +114,10 @@ Today only stable methods and the memory reads are tools by default, so the expe
 
 The API credential narrows ordinary local-client capabilities, but cannot isolate hostile processes of the same OS user. A cookie authenticates an account; it is not proof of physical human intent. Browser delegation preserves current surface trust and never performs automatic OS confirmation. Stronger broker/OS separation, durable account provisioning and the production active-person source remain Owner decisions; details in the [transport handoff](handoff/2026-10-14-web-transport.md).
 
+### External agent worktree
+
+An external coding agent writes only inside its provisioned worktree. Two checks cover hard links. The sandbox denies creating one (`file-link` on macOS; on Linux an unmounted target is `ENOENT` and a read-only system bind is `EXDEV`). Before the session and before `terminal/create`, a regular file with `nlink > 1` refuses the run (`hardlink-in-worktree`). A process outside the sandbox could still create a link between that scan and the launch. That process is outside the threat model, because the agent itself runs in the sandbox. Symlinks are resolved before a read or write and do not escape the worktree.
+
 ### Known boundary: same OS user
 
 `run/api-delegation.token` is private (0600) and rotated when the Core restarts, including configuration restarts. A process running as the same OS user can read it and impersonate the API. This is the same trust boundary as the existing local IPC credentials. Today, service installations can use a separate OS user to isolate them from interactive applications; strict API/Core separation through different users, a broker or attestation is planned, and is not implemented.

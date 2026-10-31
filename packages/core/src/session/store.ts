@@ -244,6 +244,7 @@ export class SessionStore {
     if (!i.owner) throw new SessionError("invalid", "owner is required", "owner");
     if (i.kind === "channel" && !i.chatKey) throw new SessionError("invalid", "a channel session needs a chatKey", "chat-key");
     if (i.kind !== "channel" && i.chatKey !== undefined) throw new SessionError("invalid", "only a channel session has a chatKey", "chat-key");
+    if (i.origin != null && !(SESSION_ORIGINS as readonly string[]).includes(i.origin)) throw new SessionError("invalid", "unknown session origin", "origin");
     const title = (i.title ?? "").slice(0, MAX_TITLE);
     const now = this.#clock(); const id = this.#newId("ses");
     let archivedId: string | undefined;

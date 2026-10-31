@@ -230,6 +230,9 @@ Board reads/posts remain usable independently of fan-out.
 local adapter and external adapters use the same contract/ticket and library
 guardrails. M6 P2 had no PR at phase-2 start, so there was no PR on which to post
 the port comment. No second worktree implementation is introduced here.
+M6 adds `GitWorktreeProvisioner` (`fork`, `remove`, `status`) beside that port and an
+external `DelegationTarget`. `mergePreview`, `merge` and `revert` stay on the same
+interface for M5+. An external run uses the forked checkout, including `coding_complete`.
 
 One tool composition is created per turn and retains the library trace, so
 three total calls and two per pair are enforced across successive model calls.

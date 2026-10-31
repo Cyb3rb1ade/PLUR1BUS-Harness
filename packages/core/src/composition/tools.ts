@@ -88,16 +88,20 @@ function unwrap(value: unknown): unknown {
 }
 /** Registration is per turn for scoped MCP visibility. No executable tool escapes the dispatcher. */
 export async function composeTools(o: ToolCompositionOptions, req: ChatRequest): Promise<ToolRegistry> {
+  if (req.codingWorktree) o = { ...o, roots: [{ id: req.agentId, path: req.codingWorktree }] };
   if (req.readOnlyWorktree) o = { ...o, roots: [{ id: req.agentId, path: req.readOnlyWorktree }] };
   const registry = new ToolRegistry();
   const register = (tool: ToolDef) => {
     const discovery = tool.discovery ?? (tool.trust === 'first-party' ? firstPartyDiscovery(tool.name) : undefined);
-    registry.register({ ...tool, ...(discovery ? { discovery } : {}) });
+    registry.register({ ...tool, ...(discovery ? { discovery } : {}), ...(req.codingWorktree && tool.classify ? { classify: async (...args: Parameters<NonNullable<ToolDef["classify"]>>) => {
+      const result = await tool.classify!(...args);
+      return { ...result, flags: { ...result.flags, ...(result.flags?.outsideRoots ? { denyListHit: true } : {}) } };
+    } } : {}) });
   };
   if (o.coding && o.collaboration) register(codingCompletionTool(o.coding, req, () => o.collaboration!.principal(req)));
   if (o.collaboration) for (const tool of collaborationTools(o.collaboration, req)) register(tool);
   const platform = isHostPlatform(process.platform) ? process.platform : 'linux';
-  const deny = [...denyEntriesFor(homedir(), process.env, platform), { path: join(o.home, 'run') }, { path: join(o.home, 'state') }, { path: join(o.home, 'config.json') }, { path: join(o.home, 'bin') }, { path: join(o.home, 'runtime') }, { path: join(o.home, 'secrets') }, ...(o.deny ?? [])];
+  const deny = [...denyEntriesFor(homedir(), process.env, platform), { path: join(o.home, 'run') }, ...(req.codingWorktree ? [] : [{ path: join(o.home, 'state') }]), { path: join(o.home, 'config.json') }, { path: join(o.home, 'bin') }, { path: join(o.home, 'runtime') }, { path: join(o.home, 'secrets') }, ...(o.deny ?? [])];
   const fs = o.roots.length ? createFsTools({ roots: o.roots, deny }) : { tools: [] };
   for (const tool of fs.tools) {
     const run = tool.execute;

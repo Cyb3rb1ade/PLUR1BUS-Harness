@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.10.0)
+# RPC reference (rpc 1.14.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -194,6 +194,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `project.member.role`: experimental, since 1.5.0
 - `project.agent.add`: experimental, since 1.5.0
 - `project.agent.remove`: experimental, since 1.5.0
+- `project.repo.bind`: experimental, since 1.14.0
+- `project.repo.unbind`: experimental, since 1.14.0
 - `task.complete`: experimental, since 1.5.0
 - `collab.session.replay`: experimental, since 1.5.0
 - `collab.trace.get`: experimental, since 1.5.0
@@ -10638,6 +10640,90 @@ Authenticated project agent.remove using ADR-007 object rights.
   "required": [
     "projectId",
     "agentId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `project.repo.bind`
+
+**Stability:** experimental · since 1.14.0
+
+**Served by:** core
+
+Bind a root project to a git repository. A person who is a project lead. Refuses bare repositories and paths under the harness home.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "baseBranch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "projectId",
+    "repoPath",
+    "baseBranch"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `project.repo.unbind`
+
+**Stability:** experimental · since 1.14.0
+
+**Served by:** core
+
+Remove a root project's repository binding. A person who is a project lead.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "projectId"
   ]
 }
 ```
