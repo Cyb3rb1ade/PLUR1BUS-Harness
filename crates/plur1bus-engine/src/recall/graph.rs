@@ -257,7 +257,8 @@ pub fn reembedded_relevance(query: &[f32], embedded: &[f32]) -> f64 {
 }
 
 fn adjacency_of(edges: &[GraphEdge]) -> std::collections::HashMap<String, Vec<Link>> {
-    let mut by_key: std::collections::HashMap<String, GraphEdge> = std::collections::HashMap::new();
+    let mut by_key: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut unique: Vec<&GraphEdge> = Vec::new();
     for edge in edges {
         if edge.source.is_empty() || edge.target.is_empty() {
             continue;
@@ -266,16 +267,20 @@ fn adjacency_of(edges: &[GraphEdge]) -> std::collections::HashMap<String, Vec<Li
             "{}:unbound",
             canonical_key(&edge.source, &edge.target, &edge.kind, edge.directed)
         );
-        let replace = by_key
-            .get(&key)
-            .is_none_or(|existing| edge.strength > existing.strength);
-        if replace {
-            by_key.insert(key, edge.clone());
+        if let Some(index) = by_key.get(&key).copied() {
+            if edge.strength > unique[index].strength {
+                unique[index] = edge;
+            }
+        } else {
+            by_key.insert(key, unique.len());
+            unique.push(edge);
         }
     }
     let mut adjacency: std::collections::HashMap<String, Vec<Link>> =
         std::collections::HashMap::new();
-    for edge in by_key.values() {
+    // Node's Map retains the first insertion position when a stronger edge replaces
+    // a duplicate. Keep that order so strength ties select the same eight neighbours.
+    for edge in unique {
         adjacency
             .entry(edge.source.clone())
             .or_default()
