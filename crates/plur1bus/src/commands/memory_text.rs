@@ -390,10 +390,20 @@ pub(crate) fn destination_state(dest: &Path) -> std::io::Result<Destination> {
     }
 }
 
-/// Writes `data` to `dest` through a fresh temporary file in the same directory (created exclusively, mode 0600 on
-/// unix, so it never follows a link and is never readable by others) and renames it into place. A failure removes
-/// the temporary file.
-pub(crate) fn write_private_atomic(dest: &Path, data: &[u8]) -> std::io::Result<()> {
+/// Whether publication may replace an existing destination.
+pub(crate) enum Publication {
+    CreateNew,
+    Replace,
+}
+
+/// Stages `data` privately in the same directory, then publishes it atomically. `CreateNew` uses the media export's
+/// hard-link pattern, preserving any destination created since the initial check; `Replace` requires explicit
+/// overwrite consent. Unsupported hard links fail closed. The staging file is removed after publication or failure.
+pub(crate) fn write_private_atomic(
+    dest: &Path,
+    data: &[u8],
+    publication: Publication,
+) -> std::io::Result<()> {
     let name = dest
         .file_name()
         .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "no file name"))?;
@@ -421,9 +431,12 @@ pub(crate) fn write_private_atomic(dest: &Path, data: &[u8]) -> std::io::Result<
         f.write_all(data)?;
         f.sync_all()?;
         drop(f);
-        std::fs::rename(&tmp, dest)
+        match publication {
+            Publication::CreateNew => std::fs::hard_link(&tmp, dest),
+            Publication::Replace => std::fs::rename(&tmp, dest),
+        }
     })();
-    if result.is_err() {
+    if matches!(publication, Publication::CreateNew) || result.is_err() {
         let _ = std::fs::remove_file(&tmp);
     }
     result
@@ -443,16 +456,24 @@ pub(crate) fn export_text(
         params["agentId"] = json!(a);
     }
     let to_file = output != "-";
+    let mut publication = if yes {
+        Publication::Replace
+    } else {
+        Publication::CreateNew
+    };
     if to_file {
         // Decide about the destination before any memory is exported.
         match destination_state(Path::new(output)) {
             Ok(Destination::Free) => {}
-            Ok(Destination::ExistingFile) => confirm(
-                out,
-                yes,
-                &format!("overwrite {output}?"),
-                &format!("{output} already exists"),
-            ),
+            Ok(Destination::ExistingFile) => {
+                confirm(
+                    out,
+                    yes,
+                    &format!("overwrite {output}?"),
+                    &format!("{output} already exists"),
+                );
+                publication = Publication::Replace;
+            }
             Ok(Destination::Symlink) => out.fail(
                 "E_INVALID_PARAMS",
                 &format!("refusing to write through a symbolic link: {output}"),
@@ -489,15 +510,14 @@ pub(crate) fn export_text(
         }
         return;
     }
-    if let Err(e) = write_private_atomic(Path::new(output), text.as_bytes()) {
+    if let Err(e) = write_private_atomic(Path::new(output), text.as_bytes(), publication) {
         out.fail(
             "E_STORAGE",
             &format!("failed to write {output}: {e}"),
             json!({}),
         );
     }
-    let doc = json!({ "output": output, "entryCount": count });
-    out.ok("memory.exportText/1", &doc, || {
+    out.ok("memory.exportText/1", &v, || {
         format!("exported {count} memories to {output}")
     });
 }
@@ -622,8 +642,8 @@ mod tests {
     fn atomic_write_is_private_and_leaves_no_temp_file() {
         let dir = tempfile::tempdir().unwrap();
         let dest = dir.path().join("export.txt");
-        write_private_atomic(&dest, b"one").unwrap();
-        write_private_atomic(&dest, b"two").unwrap();
+        write_private_atomic(&dest, b"one", Publication::CreateNew).unwrap();
+        write_private_atomic(&dest, b"two", Publication::Replace).unwrap();
         assert_eq!(std::fs::read(&dest).unwrap(), b"two");
         #[cfg(unix)]
         {
@@ -639,7 +659,12 @@ mod tests {
             .collect();
         assert_eq!(names.len(), 1, "{names:?}");
         // a missing directory fails without leaving anything behind
-        assert!(write_private_atomic(&dir.path().join("no/such/dir/f"), b"x").is_err());
+        assert!(write_private_atomic(
+            &dir.path().join("no/such/dir/f"),
+            b"x",
+            Publication::CreateNew
+        )
+        .is_err());
     }
 
     #[cfg(unix)]

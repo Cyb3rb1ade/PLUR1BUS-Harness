@@ -1013,6 +1013,16 @@ mod fake_core {
     /// Like [`spawn`] with several scripted methods; every method the core receives is appended to `calls.log` in
     /// `home` (one name per line), so a test can prove a call was never made.
     pub fn spawn_many(home: &Path, hello: Value, scripted: Vec<(&str, Value)>) {
+        spawn_many_with_hook(home, hello, scripted, |_| {});
+    }
+
+    pub fn spawn_many_with_hook(
+        home: &Path,
+        hello: Value,
+        scripted: Vec<(&str, Value)>,
+        before_reply: impl Fn(&str) + Send + Sync + 'static,
+    ) {
+        let before_reply = std::sync::Arc::new(before_reply);
         let run = home.join("run");
         std::fs::create_dir_all(&run).unwrap();
         let token = "d".repeat(64);
@@ -1032,6 +1042,7 @@ mod fake_core {
                 let scripted = scripted.clone();
                 let token = token.clone();
                 let calls = calls.clone();
+                let before_reply = before_reply.clone();
                 std::thread::spawn(move || {
                     let mut authed = false;
                     for line in r.lines() {
@@ -1067,6 +1078,7 @@ mod fake_core {
                         } else {
                             json!({"jsonrpc":"2.0","id":id,"error":{"code":-32601,"message":"nope","data":{"error":"E_INTERNAL","reason":"method-not-found"}}})
                         };
+                        before_reply(&method);
                         w.write_all(format!("{}\n", reply).as_bytes()).unwrap();
                         w.flush().unwrap();
                     }
@@ -2887,7 +2899,7 @@ mod import_text {
             dir,
             vec![(
                 "memory.exportText",
-                json!({ "result": { "text": "Preferences:\n[2026-01-01] - Größe\n", "entryCount": 1 } }),
+                json!({ "result": { "text": "Preferences:\n[2026-01-01] - Größe\n", "entryCount": 1, "futureField": { "retained": true } } }),
             )],
         );
     }
@@ -2920,7 +2932,7 @@ mod import_text {
             0o600
         );
         assert_eq!(std::fs::read_dir(outdir.path()).unwrap().count(), 1);
-        // --json reports the file, not the memory text
+        // File output retains the raw RPC result in --json, including future fields.
         let _ = std::fs::remove_file(&dest);
         let v = err_doc(
             &[
@@ -2934,8 +2946,71 @@ mod import_text {
             ],
             0,
         );
-        assert_eq!(v["entryCount"], 1);
-        assert!(v.get("text").is_none());
+        assert_eq!(
+            v,
+            json!({
+                "schema": "memory.exportText/1",
+                "text": "Preferences:\n[2026-01-01] - Größe\n",
+                "entryCount": 1,
+                "futureField": { "retained": true }
+            })
+        );
+        assert_eq!(
+            std::fs::read_to_string(&dest).unwrap(),
+            "Preferences:\n[2026-01-01] - Größe\n"
+        );
+        assert_eq!(std::fs::read_dir(outdir.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn export_preserves_a_destination_created_during_rpc_unless_yes_was_given() {
+        for yes in [false, true] {
+            let (dir, h) = home_with_agent();
+            let outdir = tempfile::tempdir().unwrap();
+            let dest = outdir.path().join("export.txt");
+            let concurrent_dest = dest.clone();
+            fake_core::spawn_many_with_hook(
+                dir.path(),
+                fake_core::hello_with_capabilities(&[]),
+                vec![(
+                    "memory.exportText",
+                    json!({ "result": { "text": "exported memories", "entryCount": 1 } }),
+                )],
+                move |method| {
+                    if method == "memory.exportText" {
+                        std::fs::write(&concurrent_dest, "concurrent contents").unwrap();
+                    }
+                },
+            );
+            let mut cmd = bin();
+            cmd.args([
+                "--json",
+                "--home",
+                &h,
+                "memory",
+                "export-text",
+                "--output",
+                dest.to_str().unwrap(),
+            ]);
+            if yes {
+                cmd.arg("--yes");
+            }
+            let result = cmd.output().unwrap();
+            assert_eq!(
+                std::fs::read_to_string(&dest).unwrap(),
+                if yes {
+                    "exported memories"
+                } else {
+                    "concurrent contents"
+                }
+            );
+            assert_eq!(result.status.success(), yes);
+            if !yes {
+                let doc: Value = serde_json::from_slice(&result.stdout).unwrap();
+                assert_eq!(doc["error"], "E_STORAGE");
+            }
+            assert_eq!(std::fs::read_dir(outdir.path()).unwrap().count(), 1);
+        }
     }
 
     #[test]
