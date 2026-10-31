@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.11.0)
+# RPC reference (rpc 1.13.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -234,6 +234,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `agent.create`: experimental, since 1.6.0
 - `agent.validate`: experimental, since 1.6.0
 - `agent.import`: experimental, since 1.6.0
+- `telemetry.cache.summary`: experimental, since 1.10.0
 - `doctor.report`: experimental, since 1.6.0
 - `agent.activity.list`: experimental, since 1.6.0
 - `agent.list`: experimental, since 1.0.0
@@ -375,10 +376,10 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `approval.cancel`: experimental, since 1.5.0
 - `approval.verify`: experimental, since 1.5.0
 - `approval.audit`: experimental, since 1.5.0
-- `memory.importText.preview`: experimental, since 1.11.0
-- `memory.importText.apply`: experimental, since 1.11.0
-- `memory.importText.rollback`: experimental, since 1.11.0
-- `memory.exportText`: experimental, since 1.11.0
+- `memory.importText.preview`: experimental, since 1.13.0
+- `memory.importText.apply`: experimental, since 1.13.0
+- `memory.importText.rollback`: experimental, since 1.13.0
+- `memory.exportText`: experimental, since 1.13.0
 
 ### supervisor server
 
@@ -13091,6 +13092,86 @@ Verify and import an agent.export bundle, stripping secrets and bounding rights.
 }
 ```
 
+### `telemetry.cache.summary`
+
+**Stability:** experimental · since 1.10.0
+
+**Served by:** core
+
+Prompt-cache telemetry (D120 H2-1): hit ratio per provider, agent and model from the budget ledger over a window ending now, and, for one session, the process-local per-model counters with cache-miss causes. Counts and ids only; never prompt content. Human-only; requires doctor.read.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "window": {
+      "enum": [
+        "24h",
+        "7d"
+      ],
+      "description": "Ledger window ending now; default 24h"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "window",
+    "since",
+    "until",
+    "providers",
+    "session"
+  ],
+  "properties": {
+    "window": {
+      "enum": [
+        "24h",
+        "7d"
+      ]
+    },
+    "since": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "until": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "providers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CacheLedgerRow"
+      }
+    },
+    "session": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CacheSessionSummary"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
+```
+
 ### `doctor.report`
 
 **Stability:** experimental · since 1.6.0
@@ -24282,7 +24363,7 @@ D109 §9.10: approval-related HMAC-chain entries of the calling person, newest f
 
 ### `memory.importText.preview`
 
-**Stability:** experimental · since 1.11.0
+**Stability:** experimental · since 1.13.0
 
 **Served by:** core
 
@@ -24354,7 +24435,7 @@ Parse and preview a memory export text from another AI assistant.
 
 ### `memory.importText.apply`
 
-**Stability:** experimental · since 1.11.0
+**Stability:** experimental · since 1.13.0
 
 **Served by:** core
 
@@ -24436,7 +24517,7 @@ Apply a parsed memory export with target assignments.
 
 ### `memory.importText.rollback`
 
-**Stability:** experimental · since 1.11.0
+**Stability:** experimental · since 1.13.0
 
 **Served by:** core
 
@@ -24490,7 +24571,7 @@ Roll back a prompt memory import run.
 
 ### `memory.exportText`
 
-**Stability:** experimental · since 1.11.0
+**Stability:** experimental · since 1.13.0
 
 **Served by:** core
 
@@ -31523,6 +31604,225 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 {
   "type": "string",
   "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+}
+```
+
+### `CacheMissCauses`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "first-request",
+    "model-changed",
+    "tools-changed",
+    "system-changed",
+    "snapshot-changed",
+    "ttl-expired",
+    "provider"
+  ],
+  "properties": {
+    "first-request": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "model-changed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tools-changed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "system-changed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "snapshot-changed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ttl-expired": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "provider": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `CacheLedgerRow`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "provider",
+    "agentId",
+    "model",
+    "calls",
+    "uncachedCalls",
+    "inputTokens",
+    "outputTokens",
+    "cacheReadTokens",
+    "cacheWriteTokens",
+    "cachingInputTokens",
+    "hitRatio",
+    "hitRatioCaching"
+  ],
+  "properties": {
+    "provider": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "agentId": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "model": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "calls": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "uncachedCalls": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "inputTokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "outputTokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "cacheReadTokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "cacheWriteTokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "cachingInputTokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "hitRatio": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "hitRatioCaching": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  }
+}
+```
+
+### `CacheModelSummary`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model",
+    "turns",
+    "inputTokens",
+    "cacheReadTokens",
+    "cacheCreationTokens",
+    "totalInputTokens",
+    "hitRatio",
+    "hits",
+    "misses",
+    "notCacheable",
+    "missCauses"
+  ],
+  "properties": {
+    "model": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "turns": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "inputTokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "cacheReadTokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "cacheCreationTokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "totalInputTokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "hitRatio": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "hits": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "misses": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "notCacheable": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "missCauses": {
+      "$ref": "#/$defs/CacheMissCauses"
+    }
+  }
+}
+```
+
+### `CacheSessionSummary`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "agentId",
+    "models"
+  ],
+  "properties": {
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "models": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CacheModelSummary"
+      }
+    }
+  }
 }
 ```
 
@@ -38705,9 +39005,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "1.11.0: A parsed memory entry from a portable export.",
+  "description": "1.13.0: A parsed memory entry from a portable export.",
   "x-stability": "experimental",
-  "x-since": "1.11.0",
+  "x-since": "1.13.0",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -38765,9 +39065,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "1.11.0: Target scope assignment for a memory entry.",
+  "description": "1.13.0: Target scope assignment for a memory entry.",
   "x-stability": "experimental",
-  "x-since": "1.11.0",
+  "x-since": "1.13.0",
   "type": "object",
   "additionalProperties": false,
   "required": [

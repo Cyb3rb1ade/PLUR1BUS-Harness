@@ -53,7 +53,7 @@ const FORBIDDEN_EXACT = new Set([
   "memory.curation.list", "memory.curation.resolve",
   "memory.importText.preview", "memory.importText.apply", "memory.importText.rollback", "memory.exportText",
   "session.model.get", "session.model.set", "chat.model.set", "task.complete",
-  "jobs.create", "jobs.update", "jobs.delete", "doctor.report", "agent.activity.list",
+  "jobs.create", "jobs.update", "jobs.delete", "doctor.report", "telemetry.cache.summary", "agent.activity.list",
   "core.auth", "core.shutdown", "core.adopt", "memory.checkpoint", "agent.open", "agent.close",
   "ext.install", "ext.uninstall", "ext.restore", "ext.enable", "ext.disable", "ext.update",
   "models.test", "models.scan", "models.setOverride", "models.removeManual", "models.acknowledge",
