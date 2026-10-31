@@ -605,7 +605,7 @@ Person-bound SSE is independent of WebMCP. An event requires a matching person/c
 
 `doctor.report` is human-only. Its admission gate permits all five human roles to read the cached report. The all-human read admission uses `agent.list`; the handler additionally authorizes `doctor.run` (including token scopes) and requires Owner, Admin or Operator for `refresh: true`; it rate-limits a fresh check to once per 30 seconds. Agents cannot request or read this report.
 
-`telemetry.cache.summary` (D120 H2-1) is human-only and requires `doctor.read` (owner, admin, operator); it returns counts and ids only.
+`telemetry.cache.summary` (D120 H2-1) is human-only and requires `doctor.read` (owner, admin, operator); it returns counts and ids only, and is never a WebMCP tool.
 
 ### User recurring task methods
 
