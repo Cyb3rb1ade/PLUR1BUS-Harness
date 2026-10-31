@@ -2,7 +2,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { createRedactor } from "../../src/logs/redact.ts";
+import { createRedactor, maskSecretsInJson, secretFormsIn } from "../../src/logs/redact.ts";
 import { createSecretRedaction } from "../../src/secrets/redaction.ts";
 
 const fakeSecret = (label: string): string => `fixture-${label}-${createHash("sha256").update(label).digest("hex").slice(0, 16)}`;
@@ -41,5 +41,73 @@ describe("SecretRedaction.values()", () => {
     registry.register(second, "name"); // rotates `first` out of the name; it stays masked as a retired value
     assert.deepEqual([...registry.values()].sort(), [first, second, anonymous].sort());
     for (const v of registry.values()) assert.ok(registry.contains(v));
+  });
+});
+
+describe("secretFormsIn and the secretForms option", () => {
+  it("derives each form once however many values share it and however often one is listed, longest first, skipping short values", () => {
+    const a = fakeSecret("form-a"), b = fakeSecret("form-b");
+    const once = secretFormsIn([a, b]);
+    assert.deepEqual(secretFormsIn([a, b, a, a, "short", b]), once);
+    assert.deepEqual(secretFormsIn(new Set([a, b])), once);
+    assert.equal(new Set(once).size, once.length);
+    assert.ok(once.includes(a) && once.includes(Buffer.from(b).toString("hex")));
+    for (let i = 1; i < once.length; i++) assert.ok(once[i - 1]!.length >= once[i]!.length);
+    assert.deepEqual(secretFormsIn(["short"]), []);
+  });
+
+  it("secretForms masks exactly the forms it is given, next to those derived from secrets", () => {
+    const a = fakeSecret("given-a"), b = fakeSecret("given-b");
+    const text = `${a} ${b}`;
+    assert.equal(createRedactor({ secretForms: [a], secretsOnly: true }).text(text), `[REDACTED:secret] ${b}`);
+    assert.equal(createRedactor({ secrets: [b], secretForms: [a], secretsOnly: true }).text(text), "[REDACTED:secret] [REDACTED:secret]");
+  });
+});
+
+describe("maskSecretsInJson", () => {
+  const awkward = `${fakeSecret("awk")}"\\\n\t é 😀`; // quote, backslash, control characters, non-ASCII, a surrogate pair
+
+  it("returns undefined when no form occurs in the serialised text: nothing is walked, copied or cut", () => {
+    let deep: unknown = { leaf: "plain" };
+    for (let i = 0; i < 100; i++) deep = { next: deep };
+    const json = JSON.stringify(deep);
+    assert.equal(maskSecretsInJson(json, JSON.parse(json), [fakeSecret("absent"), awkward]), undefined);
+    assert.equal(maskSecretsInJson(json, JSON.parse(json), []), undefined);
+  });
+
+  it("masks exactly what a full walk with every form masks, whatever JSON escapes (the scan is sound)", () => {
+    const plain = fakeSecret("plain");
+    const values: unknown[] = [
+      { a: `x ${plain} y`, [plain]: 1 },
+      { a: `before ${awkward} after`, b: [awkward, { [awkward]: awkward }] },
+      [`${Buffer.from(plain).toString("base64")}`, Buffer.from(awkward).toString("hex"), encodeURIComponent(awkward)],
+      { nested: { deeper: { deepest: [`${plain}${plain}`, `${awkward}${plain}`] } }, n: 7, t: true, z: null },
+      { text: `😀${plain}😀`, lone: `${plain}\ud83d` },
+    ];
+    for (const value of values) {
+      const json = JSON.stringify(value);
+      const got = maskSecretsInJson(json, JSON.parse(json), [plain, awkward]);
+      assert.ok(got, json);
+      const want = createRedactor({ secrets: [plain, awkward], secretsOnly: true }).value(JSON.parse(json));
+      assert.deepEqual(got.value, want, json);
+      assert.equal(got.json, JSON.stringify(want));
+    }
+  });
+
+  it("throws when a form that occurred is still there after masking (a number holds it), so the caller can withhold the result", () => {
+    const pin = "4815162342";
+    const json = JSON.stringify({ id: Number(pin), text: `pin ${pin}` });
+    assert.throws(() => maskSecretsInJson(json, JSON.parse(json), [pin]), /outside any string/);
+    const asText = JSON.stringify({ id: pin });
+    assert.deepEqual(maskSecretsInJson(asText, JSON.parse(asText), [pin])?.value, { id: "[REDACTED:secret]" });
+  });
+
+  it("numbers keys that mask to the same text, in order, so none is lost", () => {
+    const a = fakeSecret("nk-a"), b = fakeSecret("nk-b");
+    const value = { [a]: 1, [b]: 2, other: 3, [Buffer.from(a).toString("hex")]: 4 };
+    const json = JSON.stringify(value);
+    assert.deepEqual(maskSecretsInJson(json, JSON.parse(json), [a, b])?.value, {
+      "[REDACTED:secret]": 1, "[REDACTED:secret]#2": 2, other: 3, "[REDACTED:secret]#3": 4,
+    });
   });
 });

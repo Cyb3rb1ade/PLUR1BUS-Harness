@@ -164,6 +164,9 @@ export interface RedactOptions {
    *  path and pii rules do not, so text that merely looks like a credential survives. For output that is not a log line (a tool
    *  result), where only a value this process holds may change. Default false. */
   secretsOnly?: boolean;
+  /** Forms to mask as they are, in addition to `secrets` (see `secretFormsIn`): for a caller that scanned the text first and keeps
+   *  only the forms that occur in it. */
+  secretForms?: Iterable<string>;
 }
 
 export interface Redactor {
@@ -182,13 +185,21 @@ function secretFormsOf(s: string): string[] {
   return [...new Set([s, std, std.replace(/=+$/, ""), url, url + "=".repeat((4 - (url.length % 4)) % 4), hex, hex.toUpperCase(), encodeURIComponent(s)])];
 }
 
-export function createRedactor(o: RedactOptions = {}): Redactor {
-  const secretForms: string[] = [];
-  for (const s of o.secrets ?? []) {
+/** Rule `secret` forms of every eligible registered value (the minimum length is checked on the value), each form once however
+ *  many values share it and however often a value is listed, longest first so that a longer form is masked before a shorter one
+ *  it contains. */
+export function secretFormsIn(secrets: Iterable<string>): string[] {
+  const forms = new Set<string>();
+  for (const s of new Set(secrets)) {
     if (typeof s !== "string" || s.length < (rule("secret").minLength as number)) continue;
-    secretForms.push(...secretFormsOf(s));
+    for (const f of secretFormsOf(s)) forms.add(f);
   }
-  secretForms.sort((a, b) => b.length - a.length);
+  return [...forms].sort((a, b) => b.length - a.length);
+}
+
+export function createRedactor(o: RedactOptions = {}): Redactor {
+  const derived = secretFormsIn(o.secrets ?? []);
+  const secretForms = o.secretForms === undefined ? derived : [...new Set([...derived, ...o.secretForms])].sort((a, b) => b.length - a.length);
 
   const text = (input: string): string => {
     let s = input;
@@ -222,10 +233,18 @@ export function createRedactor(o: RedactOptions = {}): Redactor {
       try {
         if (Array.isArray(v)) return v.map((x) => walk(x, ancestors));
         const out: Record<string, unknown> = {};
+        const repeats = new Map<string, number>();
         for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
+          // secretsOnly: a registered value used as a key is masked too, and no key name replaces its value. Two keys that mask to
+          // the same text keep both: the repeats are numbered in order (`[REDACTED:secret]`, `[REDACTED:secret]#2`, ...).
+          let name = o.secretsOnly === true ? text(k) : k;
+          if (o.secretsOnly === true && Object.hasOwn(out, name)) {
+            const base = name; let n = repeats.get(base) ?? 1;
+            do { n++; name = `${base}#${n}`; } while (Object.hasOwn(out, name));
+            repeats.set(base, n);
+          }
           // defineProperty: a plain assignment to `__proto__` would set the prototype and lose the key.
-          // secretsOnly: a registered value used as a key is masked too, and no key name replaces its value.
-          Object.defineProperty(out, o.secretsOnly === true ? text(k) : k, { value: o.secretsOnly !== true && isSecretKey(k) && x !== null && x !== undefined ? tag("key") : walk(x, ancestors), enumerable: true, writable: true, configurable: true });
+          Object.defineProperty(out, name, { value: o.secretsOnly !== true && isSecretKey(k) && x !== null && x !== undefined ? tag("key") : walk(x, ancestors), enumerable: true, writable: true, configurable: true });
         }
         return out;
       } finally { ancestors.pop(); }
@@ -234,4 +253,26 @@ export function createRedactor(o: RedactOptions = {}): Redactor {
   };
   const value = <T>(v: T): T => walk(v, []) as T;
   return { text, value };
+}
+
+/** The JSON text a string holding `form` holds: `JSON.stringify` escapes per character (quote, backslash, control characters), so
+ *  a form inside a string value is inside the serialised value with the same escapes. A form with an unpaired surrogate has no such
+ *  text (it can sit in half of a pair), so it is always taken to occur. */
+const occursInJson = (json: string, form: string): boolean => !form.isWellFormed() || json.includes(JSON.stringify(form).slice(1, -1));
+
+/**
+ * Masks the registered secret values in a JSON-serialised value (`json` is `JSON.stringify` of `value`'s source, `value` its parse).
+ * The serialised text is scanned first, once per form: with no form in it nothing is masked and `undefined` comes back (no walk, so
+ * nothing is copied or cut). With hits, only the forms that occur are walked, in strings and in keys (`secretsOnly`).
+ *
+ * Throws when a form that occurred is still there after masking: it was not in a string (a numeric secret serialised as a JSON number
+ * is the case), the redactor cannot mask it, and the caller must not pass the result on.
+ */
+export function maskSecretsInJson(json: string, value: unknown, secrets: Iterable<string>): { value: unknown; json: string } | undefined {
+  const hits = secretFormsIn(secrets).filter((f) => occursInJson(json, f));
+  if (hits.length === 0) return undefined;
+  const masked = createRedactor({ secretForms: hits, secretsOnly: true }).value(value);
+  const out = JSON.stringify(masked);
+  if (hits.some((f) => f.isWellFormed() && out.includes(JSON.stringify(f).slice(1, -1)))) throw new Error("a registered secret value is in the result outside any string");
+  return { value: masked, json: out };
 }

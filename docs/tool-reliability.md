@@ -86,7 +86,8 @@ Failed operations are retained too, since an error may occur after a side effect
 
 ## What the model sees when a tool fails
 
-The dispatcher keeps its diagnostic envelope. Immediately before a failed result is serialized into the model
+The dispatcher keeps its diagnostic envelope (a registered secret value is masked out of its messages, before they are cut to
+length). Immediately before a failed result is serialized into the model
 conversation, `toolcall/model-tool-error.ts` makes a separate sanitized copy. Successful results and the existing
 log/audit output paths do not pass through it (a successful result is redacted against registered secret values in the
 dispatcher instead; see [composition.md](composition.md)). There are three cases:

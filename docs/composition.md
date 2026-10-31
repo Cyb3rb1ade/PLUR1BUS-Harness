@@ -86,7 +86,12 @@ Behaviour at the edges (tests in `provider.test.ts`):
   existing secret redactor and the home-path sanitizer. Logs and audit output keep their existing contracts. A successful
   result is redacted inside the dispatcher, once, against the registered secret values only (rule `secret`: the value and
   its base64, hex and URL-encoded forms, `[REDACTED:secret]`, nothing under 8 characters) before it reaches the model, the
-  transcript, an offloaded result file or any audit line; a result that holds none of them is unchanged. Details and regression tests: [tool-reliability.md](tool-reliability.md#what-the-model-sees-when-a-tool-fails).
+  transcript, an offloaded result file or any audit line; a result that holds none of them is returned exactly as the tool
+  returned it. A failure message is masked the same way before it is cut to length. "Registered" means read, written or
+  leased in this core process: after a restart a stored secret that nothing has used yet is not masked. A stored value of 8 or
+  more characters masks every matching piece of text in a result, so a low-entropy one (a short word, a path) masks ordinary
+  text too. A registered value that comes back as a JSON number cannot be masked, so that result is withheld
+  (`tool-result-invalid`); a result over its size limit is refused on its raw size before it is checked. Details and regression tests: [tool-reliability.md](tool-reliability.md#what-the-model-sees-when-a-tool-fails).
 
 The cached system zone contains stable working instructions and the agent's sorted `Available skills` catalogue.
 Descriptions retain the author's text, capped at 1024 characters per skill and about 4000 tokens overall; overflow
