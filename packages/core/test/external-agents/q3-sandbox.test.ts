@@ -109,12 +109,15 @@ fs.writeFileSync('build-output','ok');`);
   await assert.rejects(containedWrite(f.options, join(f.worktree, "..", "sibling"), "x"));
 });
 
-test("macOS open and osascript cannot escape the shared Seatbelt profile", async () => {
-  if (process.platform !== "darwin") return;
-  const f = fixture();
-  for (const argv of [["/usr/bin/open", "-a", "Terminal"], ["/usr/bin/osascript", "-e", 'tell application "Finder" to get name']]) {
+for (const [name, argv] of [
+  ["open", ["/usr/bin/open", "-a", "Terminal"]],
+  ["osascript", ["/usr/bin/osascript", "-e", 'tell application "Finder" to get name']],
+] as const) {
+  test(`macOS ${name} cannot escape the shared Seatbelt profile`, async () => {
+    if (process.platform !== "darwin") return;
+    const f = fixture();
     const result = await containedTerminal({ ...f.options, argv });
     assert.equal(result.ok, true, JSON.stringify(result));
-    if (result.ok) assert.notEqual(result.exitCode, 0);
-  }
-});
+    if (result.ok) assert.notEqual(result.exitCode, 0, JSON.stringify({ argv, result }));
+  });
+}
