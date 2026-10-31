@@ -46,12 +46,12 @@ pub(super) struct Observer {
 impl Observer {
     /// Starts only with the existing two trace gates and the explicit harness companion path.
     pub(super) fn start(trace: bool, report_fd: bool) -> Result<Option<Self>, String> {
+        if !trace || std::env::var("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() != Ok("1") {
+            return Ok(None);
+        }
         let Some(path) = std::env::var_os("PLUR1BUS_TEST_WATCHDOG_OBSERVER") else {
             return Ok(None);
         };
-        if !trace {
-            return Err("watchdog observer requires authorized watchdog trace".into());
-        }
         let mut command = Command::new(path);
         command.stdin(Stdio::piped()).stdout(Stdio::piped());
         // These operations run before exec; no allocation or diagnostic formatting here.
