@@ -1,0 +1,680 @@
+{
+  "schema": "recall-acl/1",
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "node": "v24.21.0",
+    "unicode": "17.0",
+    "icu": "78.3"
+  },
+  "provedUser": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+  "otherUser": "user:v1:1f99ddfbd44fb286ec0b0abcdeaa84b075dd2c7be249bf42b1c8e90c15c0a904",
+  "cases": [
+    {
+      "name": "agent-private-same-agent",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "agent-private",
+        "agentId": "alpha",
+        "storedBy": "",
+        "workspaceId": "",
+        "workspaceKey": "",
+        "ownerUserId": "",
+        "type": "note"
+      },
+      "allowed": true,
+      "reason": null
+    },
+    {
+      "name": "agent-private-other-agent",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "agent-private",
+        "agentId": "beta",
+        "storedBy": "",
+        "workspaceId": "",
+        "workspaceKey": "",
+        "ownerUserId": "",
+        "type": "note"
+      },
+      "allowed": false,
+      "reason": "acl.agent_private.mismatch"
+    },
+    {
+      "name": "agent-private-stored-by-only",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "agent-private",
+        "agentId": "",
+        "storedBy": "alpha",
+        "workspaceId": "",
+        "workspaceKey": "",
+        "ownerUserId": "",
+        "type": "note"
+      },
+      "allowed": true,
+      "reason": null
+    },
+    {
+      "name": "agent-private-missing-owner",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "agent-private",
+        "agentId": "",
+        "storedBy": "",
+        "workspaceId": "",
+        "workspaceKey": "",
+        "ownerUserId": "",
+        "type": "note"
+      },
+      "allowed": false,
+      "reason": "acl.agent_private.missing_owner"
+    },
+    {
+      "name": "workspace-same",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "workspace",
+        "agentId": "alpha",
+        "storedBy": "",
+        "workspaceId": "workspace:v1:main",
+        "workspaceKey": "",
+        "ownerUserId": "",
+        "type": "note"
+      },
+      "allowed": true,
+      "reason": null
+    },
+    {
+      "name": "workspace-other",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "workspace",
+        "agentId": "alpha",
+        "storedBy": "",
+        "workspaceId": "workspace:v1:other",
+        "workspaceKey": "",
+        "ownerUserId": "",
+        "type": "note"
+      },
+      "allowed": false,
+      "reason": "acl.workspace.mismatch"
+    },
+    {
+      "name": "workspace-missing",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "workspace",
+        "agentId": "alpha",
+        "storedBy": "",
+        "workspaceId": "",
+        "workspaceKey": "",
+        "ownerUserId": "",
+        "type": "note"
+      },
+      "allowed": false,
+      "reason": "acl.workspace.missing_workspace"
+    },
+    {
+      "name": "workspace-bare-id",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "workspace",
+        "agentId": "alpha",
+        "storedBy": "",
+        "workspaceId": "main",
+        "workspaceKey": "",
+        "ownerUserId": "",
+        "type": "note"
+      },
+      "allowed": true,
+      "reason": null
+    },
+    {
+      "name": "user-same-owner",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "user",
+        "agentId": "alpha",
+        "storedBy": "",
+        "workspaceId": "",
+        "workspaceKey": "",
+        "ownerUserId": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "type": "note"
+      },
+      "allowed": true,
+      "reason": null
+    },
+    {
+      "name": "user-other-owner",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "user",
+        "agentId": "alpha",
+        "storedBy": "",
+        "workspaceId": "",
+        "workspaceKey": "",
+        "ownerUserId": "user:v1:1f99ddfbd44fb286ec0b0abcdeaa84b075dd2c7be249bf42b1c8e90c15c0a904",
+        "type": "note"
+      },
+      "allowed": false,
+      "reason": "acl.user.mismatch"
+    },
+    {
+      "name": "user-missing-principal",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "user",
+        "agentId": "alpha",
+        "storedBy": "",
+        "workspaceId": "",
+        "workspaceKey": "",
+        "ownerUserId": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "type": "note"
+      },
+      "allowed": false,
+      "reason": "acl.user.missing_principal"
+    },
+    {
+      "name": "user-missing-owner",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "user",
+        "agentId": "alpha",
+        "storedBy": "",
+        "workspaceId": "",
+        "workspaceKey": "",
+        "ownerUserId": "",
+        "type": "note"
+      },
+      "allowed": false,
+      "reason": "acl.user.missing_owner"
+    },
+    {
+      "name": "user-trimmed-principal",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "  user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b  ",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "user",
+        "agentId": "alpha",
+        "storedBy": "",
+        "workspaceId": "",
+        "workspaceKey": "",
+        "ownerUserId": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "type": "note"
+      },
+      "allowed": true,
+      "reason": null
+    },
+    {
+      "name": "unknown-scope",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "nope",
+        "agentId": "alpha",
+        "storedBy": "",
+        "workspaceId": "",
+        "workspaceKey": "",
+        "ownerUserId": "",
+        "type": "note"
+      },
+      "allowed": false,
+      "reason": "acl.unknown_scope"
+    },
+    {
+      "name": "blank-scope-is-not-private",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": " ",
+        "agentId": "alpha",
+        "storedBy": "",
+        "workspaceId": "",
+        "workspaceKey": "",
+        "ownerUserId": "",
+        "type": "note"
+      },
+      "allowed": false,
+      "reason": "acl.unknown_scope"
+    },
+    {
+      "name": "missing-scope-defaults-private",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "",
+        "agentId": "alpha",
+        "storedBy": "",
+        "workspaceId": "",
+        "workspaceKey": "",
+        "ownerUserId": "",
+        "type": "note"
+      },
+      "allowed": true,
+      "reason": null
+    },
+    {
+      "name": "missing-scope-other-agent",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "",
+        "agentId": "beta",
+        "storedBy": "",
+        "workspaceId": "",
+        "workspaceKey": "",
+        "ownerUserId": "",
+        "type": "note"
+      },
+      "allowed": false,
+      "reason": "acl.agent_private.mismatch"
+    },
+    {
+      "name": "conflicting-workspace-binding",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "workspace",
+        "agentId": "alpha",
+        "storedBy": "",
+        "workspaceId": "workspace:v1:main",
+        "workspaceKey": "workspace:v1:other",
+        "ownerUserId": "",
+        "type": "note"
+      },
+      "allowed": false,
+      "reason": "acl.workspace.conflicting_binding"
+    },
+    {
+      "name": "invalid-workspace-binding",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "workspace",
+        "agentId": "alpha",
+        "storedBy": "",
+        "workspaceId": "workspace:v9:nope",
+        "workspaceKey": "",
+        "ownerUserId": "",
+        "type": "note"
+      },
+      "allowed": false,
+      "reason": "acl.workspace.invalid_binding"
+    },
+    {
+      "name": "conflicting-agent-binding",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "agent-private",
+        "agentId": "alpha",
+        "storedBy": "beta",
+        "workspaceId": "",
+        "workspaceKey": "",
+        "ownerUserId": "",
+        "type": "note"
+      },
+      "allowed": false,
+      "reason": "acl.invalid_binding"
+    },
+    {
+      "name": "invalid-user-owner",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "agent-private",
+        "agentId": "alpha",
+        "storedBy": "",
+        "workspaceId": "",
+        "workspaceKey": "",
+        "ownerUserId": "not-a-principal",
+        "type": "note"
+      },
+      "allowed": false,
+      "reason": "acl.invalid_binding"
+    },
+    {
+      "name": "no-context",
+      "ctx": null,
+      "memory": {
+        "id": "row-1",
+        "scope": "agent-private",
+        "agentId": "alpha",
+        "storedBy": "",
+        "workspaceId": "",
+        "workspaceKey": "",
+        "ownerUserId": "",
+        "type": "note"
+      },
+      "allowed": false,
+      "reason": "acl.no_context"
+    },
+    {
+      "name": "no-memory",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": null,
+      "allowed": false,
+      "reason": "acl.no_memory"
+    },
+    {
+      "name": "incognito-flag-ignored",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        },
+        "incognito": true
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "agent-private",
+        "agentId": "alpha",
+        "storedBy": "",
+        "workspaceId": "",
+        "workspaceKey": "",
+        "ownerUserId": "",
+        "type": "note",
+        "incognito": true
+      },
+      "allowed": true,
+      "reason": null
+    },
+    {
+      "name": "dotted-requester-missing-agent",
+      "ctx": {
+        "agentId": "alpha.beta",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": {
+          "paths": [],
+          "aliases": []
+        }
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "agent-private",
+        "agentId": "alpha.beta",
+        "storedBy": "",
+        "workspaceId": "",
+        "workspaceKey": "",
+        "ownerUserId": "",
+        "type": "note"
+      },
+      "allowed": false,
+      "reason": "acl.request.missing_agent"
+    },
+    {
+      "name": "null-alias-snapshot",
+      "ctx": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "workspaceAliases": null
+      },
+      "memory": {
+        "id": "row-1",
+        "scope": "workspace",
+        "agentId": "alpha",
+        "storedBy": "",
+        "workspaceId": "workspace:v1:main",
+        "workspaceKey": "",
+        "ownerUserId": "",
+        "type": "note"
+      },
+      "allowed": false,
+      "reason": "acl.workspace.invalid_binding"
+    }
+  ],
+  "scopeDefaults": [
+    {
+      "type": "person",
+      "scope": "agent-private"
+    },
+    {
+      "type": "beziehung",
+      "scope": "agent-private"
+    },
+    {
+      "type": "geburtstag",
+      "scope": "agent-private"
+    },
+    {
+      "type": "geld_konto",
+      "scope": "agent-private"
+    },
+    {
+      "type": "gesundheit",
+      "scope": "agent-private"
+    },
+    {
+      "type": "zugang_passwort",
+      "scope": "agent-private"
+    },
+    {
+      "type": "person",
+      "scopeBefore": "user",
+      "scope": "user"
+    },
+    {
+      "type": "note",
+      "scope": null
+    }
+  ]
+}
