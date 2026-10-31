@@ -177,12 +177,12 @@ A temporary audit exception was granted until forks could be established (3c5875
 
 The root `Cargo.toml` replaces the three upstream closures with forks via `[patch.crates-io]` (pinned by `rev`), and
 `deny.toml` allows the git sources:
-- `Cyb3rb1ade/tantivy`, branch `plur1bus/0.24.2-lru-0.18.2-zstd-0.14` (rev `0c34640dde00696629a37eb1a41bf6fe11e199e4`):
+- `Cyb3rb1ade/tantivy`, branch `plur1bus/0.24.2-lru-0.18.2-zstd-0.14` (rev `0c34640dde00696629a37eb1a41bf6fe11e199e4`, tag `plur1bus-pin/0.24.2-lru-0.18.2-zstd-0.14`):
   upstream tag 0.24.2 with `lru = "0.18.2"` and `zstd = "0.14.3"`.
-- `Cyb3rb1ade/arrow-rs`, branch `plur1bus/57.3.1-zstd-0.14` (rev `cfe57eff8e9b84dd68e89e12e7fa7fcf6583c42b`):
+- `Cyb3rb1ade/arrow-rs`, branch `plur1bus/57.3.1-zstd-0.14` (rev `cfe57eff8e9b84dd68e89e12e7fa7fcf6583c42b`, tag `plur1bus-pin/57.3.1-zstd-0.14`):
   upstream tag 57.3.1 with `zstd = "0.14.3"` in `arrow-ipc` (and dev-dependencies in `parquet` and `arrow-avro`). All 14 crates in the arrow workspace present in `Cargo.lock`
   are redirected to prevent dual-registry type splits.
-- `Cyb3rb1ade/lance`, branch `plur1bus/2.0.0-zstd-0.14` (rev `7dfd9ede65693027db8852159587d24e157ee0c6`):
+- `Cyb3rb1ade/lance`, branch `plur1bus/2.0.0-zstd-0.14` (rev `7dfd9ede65693027db8852159587d24e157ee0c6`, tag `plur1bus-pin/2.0.0-zstd-0.14`):
   upstream tag v2.0.0 with `zstd = "0.14.3"` in `lance-encoding`. All 16 crates published to crates.io in the lance workspace present in
   `Cargo.lock` (with `fsst` vendored via path dependency in the workspace) are redirected to prevent dual-registry type splits.
 

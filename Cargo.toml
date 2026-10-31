@@ -24,11 +24,11 @@ regress = "0.10"
 [patch.crates-io]
 # lance-index 2.0.0 (pinned through lancedb 0.26.2, RE-D3) depends on tantivy 0.24.2, which pins lru 0.12
 # (RUSTSEC-2026-0002, RUSTSEC-2026-0253) and zstd 0.13.3 (13 RUSTSEC advisories: RUSTSEC-2026-0391, -0395..-0406).
-# The fork is upstream tag 0.24.2 plus lru 0.18.2 and zstd 0.14.3 (branch plur1bus/0.24.2-lru-0.18.2-zstd-0.14).
+# The fork is upstream tag 0.24.2 plus lru 0.18.2 and zstd 0.14.3 (branch plur1bus/0.24.2-lru-0.18.2-zstd-0.14, tag plur1bus-pin/0.24.2-lru-0.18.2-zstd-0.14).
 # Exit condition (RE-D30): Each fork goes when the Lance pin (RE-D3) moves to a closure whose arrow-ipc / lance-encoding / tantivy-sstable resolve zstd >= 0.14.3 from crates.io. Today that means arrow-ipc >= 60.0.0 (or a 57.x patch release that moves to zstd 0.14), lance-encoding >= 14.0.1 and tantivy >= 0.27.0. The tantivy fork also drops the RE-D14 lru patch.
 tantivy = { git = "https://github.com/Cyb3rb1ade/tantivy", rev = "0c34640dde00696629a37eb1a41bf6fe11e199e4" }
 
-# arrow 57.3.1 closure: bump zstd to 0.14.3 in arrow-ipc (and parquet, arrow-avro) to resolve RUSTSEC-2026-0391 and -0395..-0406 (RE-D30).
+# arrow 57.3.1 closure: bump zstd to 0.14.3 in arrow-ipc (and parquet, arrow-avro) to resolve RUSTSEC-2026-0391 and -0395..-0406 (RE-D30; branch plur1bus/57.3.1-zstd-0.14, tag plur1bus-pin/57.3.1-zstd-0.14).
 # All 14 crates in the arrow workspace present in Cargo.lock are redirected to avoid dual-registry type splits.
 # Exit condition (RE-D30): Each fork goes when the Lance pin (RE-D3) moves to a closure whose arrow-ipc / lance-encoding / tantivy-sstable resolve zstd >= 0.14.3 from crates.io. Today that means arrow-ipc >= 60.0.0 (or a 57.x patch release that moves to zstd 0.14), lance-encoding >= 14.0.1 and tantivy >= 0.27.0.
 arrow = { git = "https://github.com/Cyb3rb1ade/arrow-rs", rev = "cfe57eff8e9b84dd68e89e12e7fa7fcf6583c42b" }
@@ -46,7 +46,7 @@ arrow-schema = { git = "https://github.com/Cyb3rb1ade/arrow-rs", rev = "cfe57eff
 arrow-select = { git = "https://github.com/Cyb3rb1ade/arrow-rs", rev = "cfe57eff8e9b84dd68e89e12e7fa7fcf6583c42b" }
 arrow-string = { git = "https://github.com/Cyb3rb1ade/arrow-rs", rev = "cfe57eff8e9b84dd68e89e12e7fa7fcf6583c42b" }
 
-# lance 2.0.0 closure: bump zstd to 0.14.3 in lance-encoding to resolve RUSTSEC-2026-0391 and -0395..-0406 (RE-D30).
+# lance 2.0.0 closure: bump zstd to 0.14.3 in lance-encoding to resolve RUSTSEC-2026-0391 and -0395..-0406 (RE-D30; branch plur1bus/2.0.0-zstd-0.14, tag plur1bus-pin/2.0.0-zstd-0.14).
 # All 16 crates published to crates.io in the lance workspace present in Cargo.lock are redirected to avoid dual-registry type splits (fsst is a path dependency in the workspace).
 # Exit condition (RE-D30): Each fork goes when the Lance pin (RE-D3) moves to a closure whose arrow-ipc / lance-encoding / tantivy-sstable resolve zstd >= 0.14.3 from crates.io. Today that means arrow-ipc >= 60.0.0 (or a 57.x patch release that moves to zstd 0.14), lance-encoding >= 14.0.1 and tantivy >= 0.27.0.
 lance = { git = "https://github.com/Cyb3rb1ade/lance", rev = "7dfd9ede65693027db8852159587d24e157ee0c6" }
