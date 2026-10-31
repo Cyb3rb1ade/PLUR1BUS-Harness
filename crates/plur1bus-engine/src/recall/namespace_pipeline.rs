@@ -6,6 +6,7 @@ use super::candidate::RecallCandidate;
 use super::finalise::{self, FinaliseLimits, FinaliseRequest};
 use super::graph::GraphEdge;
 use super::merge::NamespaceResult;
+use super::namespace_query::RequestQueries;
 use super::namespace_trace::NamespaceTrace;
 use super::namespaces::{CanonicalSource, NamespaceError, TableRecall};
 use super::stages::{self, StageClocks, StageFlags, StageInput, StageLimits};
@@ -50,7 +51,9 @@ impl TableRecall for Pipeline<'_> {
         namespace: Option<&str>,
         store: &Store,
         canonical: CanonicalSource,
+        queries: &RequestQueries,
     ) -> Result<NamespaceResult, NamespaceError> {
+        let embedder = queries.wrap(self.embedder);
         let mut flags = self.flags.clone();
         flags.canonical &= canonical == CanonicalSource::Read;
         flags.defer_final_cap = true;
@@ -63,7 +66,7 @@ impl TableRecall for Pipeline<'_> {
             &StageInput {
                 query: self.query,
                 store,
-                embedder: self.embedder,
+                embedder: &embedder,
                 context: self.context,
                 workspace_dir: self.workspace_dir,
                 edges: self.edges,

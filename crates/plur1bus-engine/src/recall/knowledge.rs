@@ -160,25 +160,25 @@ fn read_cache(workspace: &Path, mtime: i64) -> Option<Vec<Chunk>> {
     if stored.is_empty() {
         return None;
     }
-    Some(
-        stored
-            .iter()
-            .filter_map(|chunk| {
-                let heading = chunk["heading"].as_str()?.to_owned();
-                let text = chunk["text"].as_str()?.to_owned();
-                let vector = chunk["vector"]
-                    .as_array()?
-                    .iter()
-                    .map(|value| value.as_f64().unwrap_or(0.0) as f32)
-                    .collect();
-                Some(Chunk {
-                    heading,
-                    text,
-                    vector,
-                })
+    // Pre-T4 caches omit text. Rebuild an incomplete cache as a whole so an
+    // upgrade never silently loses canonical sections with an unchanged mtime.
+    stored
+        .iter()
+        .map(|chunk| {
+            let heading = chunk["heading"].as_str()?.to_owned();
+            let text = chunk["text"].as_str()?.to_owned();
+            let vector = chunk["vector"]
+                .as_array()?
+                .iter()
+                .map(|value| value.as_f64().unwrap_or(0.0) as f32)
+                .collect();
+            Some(Chunk {
+                heading,
+                text,
+                vector,
             })
-            .collect(),
-    )
+        })
+        .collect()
 }
 
 fn write_cache(workspace: &Path, mtime: i64, chunks: &[Chunk]) {

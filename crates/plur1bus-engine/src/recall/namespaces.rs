@@ -10,6 +10,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use super::merge::{merge, MergeOptions, NamespaceResult};
+use super::namespace_query::RequestQueries;
 use super::stages::StageError;
 use crate::contract::{EngineConfig, EngineError, StoreError, VectorSpaceIdentity};
 use crate::store::directory::TrustedDirectory;
@@ -219,12 +220,14 @@ fn names(value: Option<&Value>) -> Result<Option<Vec<String>>, StoreError> {
 
 /// One synchronous table pipeline. Implementations share providers but retain no borrowed store past return.
 pub trait TableRecall: Sync {
-    /// Run one leased table; a failure cannot become a partial global answer.
+    /// Run one leased table with the shared request query scope; a failure cannot
+    /// become a partial global answer.
     fn recall(
         &self,
         namespace: Option<&str>,
         store: &Store,
         canonical: CanonicalSource,
+        queries: &RequestQueries,
     ) -> Result<NamespaceResult, NamespaceError>;
 }
 
@@ -296,6 +299,8 @@ pub fn recall(request: &NamespaceRequest<'_>) -> Result<NamespaceOutput, Namespa
         .routes
         .read_routes()
         .map_err(NamespaceError::Store)?;
+    let query_scope = RequestQueries::new(request.query);
+    let queries = &query_scope;
     let settled = std::thread::scope(|scope| {
         let handles = routes
             .into_iter()
@@ -318,6 +323,7 @@ pub fn recall(request: &NamespaceRequest<'_>) -> Result<NamespaceOutput, Namespa
                             } else {
                                 CanonicalSource::Skip
                             },
+                            queries,
                         )
                         .map(Some)
                 })

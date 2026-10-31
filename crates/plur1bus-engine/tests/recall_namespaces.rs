@@ -20,6 +20,7 @@ use plur1bus_engine::recall::finalise::FinaliseLimits;
 use plur1bus_engine::recall::hash_embed::{HashEmbedder, HASH_DIMENSION};
 use plur1bus_engine::recall::merge::{merge, MergeOptions, NamespaceResult};
 use plur1bus_engine::recall::namespace_pipeline::Pipeline;
+use plur1bus_engine::recall::namespace_query::RequestQueries;
 use plur1bus_engine::recall::namespace_trace::{NamespaceTrace, TraceLimits};
 use plur1bus_engine::recall::namespaces::{
     recall, CanonicalSource, NamespaceError, NamespaceRequest, NamespaceStores, TableRecall,
@@ -409,6 +410,7 @@ impl TableRecall for FailureSeam<'_> {
         namespace: Option<&str>,
         store: &Store,
         canonical: CanonicalSource,
+        queries: &RequestQueries,
     ) -> Result<NamespaceResult, NamespaceError> {
         if self.fail {
             self.barrier.wait();
@@ -416,7 +418,7 @@ impl TableRecall for FailureSeam<'_> {
         if self.fail && namespace == Some("legacy") {
             return Err(NamespaceError::Store(StoreError::Unavailable));
         }
-        let result = self.pipeline.recall(namespace, store, canonical);
+        let result = self.pipeline.recall(namespace, store, canonical, queries);
         self.completed.store(true, Ordering::SeqCst);
         result
     }

@@ -1,4 +1,4 @@
-//! Namespace composition keeps full ownership bindings and the caller's denial sink.
+//! Namespace composition keeps ownership, denial delivery and request-scoped provider work.
 #![allow(
     clippy::unwrap_used,
     reason = "integration fixtures fail on parity drift"
@@ -14,17 +14,145 @@ use plur1bus_engine::embedding::{
 use plur1bus_engine::recall::acl::DenialSink;
 use plur1bus_engine::recall::finalise::FinaliseLimits;
 use plur1bus_engine::recall::hash_embed::{HashEmbedder, HASH_DIMENSION};
+use plur1bus_engine::recall::knowledge::search_canonical;
 use plur1bus_engine::recall::merge::MergeOptions;
 use plur1bus_engine::recall::namespace_pipeline::Pipeline;
+use plur1bus_engine::recall::namespace_query::RequestQueries;
 use plur1bus_engine::recall::namespaces::{
-    recall, CanonicalSource, NamespaceRequest, NamespaceStores, TableRecall,
+    recall, CanonicalSource, NamespaceError, NamespaceRequest, NamespaceStores, TableRecall,
 };
-use plur1bus_engine::recall::stages::{StageClocks, StageFlags, StageLimits};
+use plur1bus_engine::recall::stages::{StageClocks, StageError, StageFlags, StageLimits};
 use plur1bus_engine::store::Store;
 use serde_json::json;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 use support::{memory_row, TestHost};
+
+#[test]
+fn canonical_recall_rebuilds_heading_only_caches_from_before_t4() {
+    for complete_first in [false, true] {
+        let root = tempfile::tempdir().unwrap();
+        let memory = root.path().join("memory");
+        let cache = root.path().join(".adaptive-learning");
+        std::fs::create_dir_all(&memory).unwrap();
+        std::fs::create_dir_all(&cache).unwrap();
+        let first =
+            "## First\nSynthetic first canonical section retained across an engine upgrade.\n";
+        let second =
+            "## Second\nSynthetic second canonical section retained across an engine upgrade.\n";
+        let knowledge = memory.join("KNOWLEDGE.md");
+        std::fs::write(&knowledge, format!("{first}{second}")).unwrap();
+        let mtime = std::fs::metadata(&knowledge)
+            .unwrap()
+            .modified()
+            .unwrap()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        // T2/T3 persisted heading/vector only; also cover a partially upgraded cache.
+        let mut chunks = json!([
+            {"heading":"First","vector":vector()},
+            {"heading":"Second","vector":vector()}
+        ]);
+        if complete_first {
+            chunks[0]["text"] = json!(first);
+        }
+        std::fs::write(
+            cache.join("knowledge-cache.json"),
+            json!({"mtime":mtime as i64,"identityId":"legacy","chunks":chunks}).to_string(),
+        )
+        .unwrap();
+        let embedder = Flat::new();
+        let hits = search_canonical(root.path(), &vector(), &embedder, 0.0, 10, true);
+        assert_eq!(hits.len(), 2, "an older cache hid canonical sections");
+        assert_eq!(hits[0].text, first);
+        assert_eq!(hits[1].text, format!("{second}\n"));
+        assert_eq!(embedder.1.load(Ordering::SeqCst), 2);
+        assert_eq!(
+            search_canonical(root.path(), &vector(), &embedder, 0.0, 10, true),
+            hits
+        );
+        assert_eq!(
+            embedder.1.load(Ordering::SeqCst),
+            2,
+            "rebuilt cache was not reused"
+        );
+    }
+}
+
+#[test]
+fn recall_namespaces_share_query_inference_only_within_one_request() {
+    assert_request_query_calls(false);
+}
+
+#[test]
+fn recall_namespaces_share_query_failures_and_settle_without_retrying() {
+    assert_request_query_calls(true);
+}
+
+fn assert_request_query_calls(fail: bool) {
+    let root = tempfile::tempdir().unwrap();
+    let base = root.path().join("stores");
+    let embedder = CountQueries {
+        flat: Flat::new(),
+        calls: AtomicUsize::new(0),
+        fail,
+    };
+    for (namespace, id) in [
+        ("first", "11111111-1111-4111-8111-111111111111"),
+        ("second", "22222222-2222-4222-8222-222222222222"),
+    ] {
+        Store::create(
+            &base.join(namespace).join("owner"),
+            embedder.identity(),
+            HASH_DIMENSION,
+        )
+        .unwrap()
+        .upsert(&[row(id, "owner", "agent-private")])
+        .unwrap();
+    }
+    let config = serde_json::from_value(json!({"namespaces":{"activeWriteNamespace":"first",
+        "activeRecallNamespaces":["first","second"]}}))
+    .unwrap();
+    let stores = NamespaceStores::open(&base, &config, embedder.identity(), 4).unwrap();
+    let host = TestHost::new(root.path().to_owned());
+    let context = context(&host);
+    let denials = Denials::default();
+    let cancel = Cancel::never();
+    let pipeline = pipeline(&context, &embedder, &denials, None, &cancel);
+    let request = NamespaceRequest {
+        routes: &stores,
+        pipeline: &pipeline,
+        agent_id: "owner",
+        workspace_key: "",
+        query: pipeline.query,
+        timestamp_ms: 1,
+        ledger: None,
+        merge: MergeOptions {
+            max_out: 4,
+            dedup_enabled: false,
+            ..MergeOptions::default()
+        },
+    };
+    for expected_calls in 1..=2 {
+        let result = recall(&request);
+        if fail {
+            assert!(matches!(
+                result,
+                Err(NamespaceError::Stage(StageError::Embed(
+                    EmbedError::Unavailable
+                )))
+            ));
+        } else {
+            assert_eq!(result.unwrap().result.memories.len(), 2);
+        }
+        assert_eq!(
+            embedder.calls.load(Ordering::SeqCst),
+            expected_calls,
+            "the original query must be embedded once per request, including errors"
+        );
+    }
+}
 
 #[test]
 fn recall_namespace_denials_reach_the_caller_before_any_reranker() {
@@ -59,7 +187,12 @@ fn recall_namespace_denials_reach_the_caller_before_any_reranker() {
     let cancel = Cancel::never();
     let pipeline = pipeline(&context, &embedder, &denials, Some(&ranker), &cancel);
     let result = pipeline
-        .recall(Some("active"), &store, CanonicalSource::Read)
+        .recall(
+            Some("active"),
+            &store,
+            CanonicalSource::Read,
+            &RequestQueries::new("fixture"),
+        )
         .unwrap();
     assert_eq!(result.memories.len(), 2);
     assert!(denials
@@ -95,7 +228,12 @@ fn recall_namespace_finalisation_keeps_workspace_and_user_ownership_bindings() {
         let denials = Denials::default();
         let cancel = Cancel::never();
         let result = pipeline(&context, &embedder, &denials, None, &cancel)
-            .recall(Some("active"), &store, CanonicalSource::Read)
+            .recall(
+                Some("active"),
+                &store,
+                CanonicalSource::Read,
+                &RequestQueries::new("fixture"),
+            )
             .unwrap();
         assert_eq!(
             result.memories.len(),
@@ -199,7 +337,12 @@ fn recall_namespace_child_caps_are_deferred_to_the_global_merge() {
     pipeline.finalise_limits.defer_final_cap = false;
     pipeline.finalise_limits.candidate_hard_limit = 1.0;
     let result = pipeline
-        .recall(Some("active"), &store, CanonicalSource::Read)
+        .recall(
+            Some("active"),
+            &store,
+            CanonicalSource::Read,
+            &RequestQueries::new("fixture"),
+        )
         .unwrap();
     assert_eq!(
         result.memories.len(),
@@ -311,6 +454,31 @@ impl Reranker for Ranking {
             .collect())
     }
 }
+struct CountQueries {
+    flat: Flat,
+    calls: AtomicUsize,
+    fail: bool,
+}
+impl EmbeddingProvider for CountQueries {
+    fn identity(&self) -> &plur1bus_engine::contract::VectorSpaceIdentity {
+        self.flat.identity()
+    }
+    fn embed(
+        &self,
+        texts: &[String],
+        kind: EmbedKind,
+        cancel: &Cancel,
+    ) -> Result<Vec<Vec<f32>>, EmbedError> {
+        if kind == EmbedKind::Query {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            if self.fail {
+                return Err(EmbedError::Unavailable);
+            }
+        }
+        self.flat.embed(texts, kind, cancel)
+    }
+}
+
 struct Flat(HashEmbedder, AtomicUsize);
 impl Flat {
     fn new() -> Self {

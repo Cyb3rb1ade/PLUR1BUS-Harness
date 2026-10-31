@@ -28,6 +28,8 @@ pub mod lifecycle;
 pub mod merge;
 /// Existing stages composed for a physical namespace table.
 pub mod namespace_pipeline;
+/// Request-local coalescing of the original namespace query embedding.
+pub mod namespace_query;
 /// Bounded child trace replay into a master trace.
 pub mod namespace_trace;
 /// Configured physical routes, settle-all fan-out and the global retrieval ledger.
