@@ -151,7 +151,12 @@ fn probe_tasks(_: &[String]) -> Result<(), String> {
     Err("the task cap mode is Linux-only".into())
 }
 #[cfg(target_os = "macos")]
+#[path = "watchdog/observer.rs"]
+mod watchdog_observer;
+
+#[cfg(target_os = "macos")]
 mod watchdog {
+    use super::watchdog_observer::Observer;
     use std::collections::{HashMap, HashSet};
     use std::sync::atomic::{AtomicI32, Ordering};
     use std::time::{Duration, Instant};
@@ -286,6 +291,11 @@ mod watchdog {
             )
         }
     }
+    struct TimedRecord {
+        record: Record,
+        begin_ns: u64,
+        end_ns: u64,
+    }
     struct SampleError {
         cause: Cause,
         record: Record,
@@ -298,11 +308,12 @@ mod watchdog {
         count: usize,
         rss: u64,
         trace: bool,
-        records: Vec<Record>,
+        records: Vec<TimedRecord>,
         written: usize,
+        observer: Option<Observer>,
     }
     impl Diagnostics {
-        fn new(trace: bool) -> Self {
+        fn new(trace: bool, observer: Option<Observer>) -> Self {
             Self {
                 started: Instant::now(),
                 sample: 0,
@@ -313,6 +324,7 @@ mod watchdog {
                 trace,
                 records: Vec::with_capacity(if trace { TRACE_LIMIT } else { 0 }),
                 written: 0,
+                observer,
             }
         }
         fn begin(&mut self, started: Instant) {
@@ -333,12 +345,34 @@ mod watchdog {
                 rss_bytes: self.rss,
             }
         }
+        fn clock(&self) -> u64 {
+            if self.trace {
+                super::watchdog_observer::monotonic()
+            } else {
+                0
+            }
+        }
         fn observe(&mut self, observation: Observation) {
+            self.observe_timed(observation, 0, 0);
+        }
+        fn observe_timed(&mut self, observation: Observation, begin_ns: u64, end_ns: u64) {
+            if let Some(observer) = &mut self.observer {
+                let role = match observation.operation {
+                    Operation::GroupMember => 5,
+                    Operation::ChildMember => 6,
+                    _ => 7,
+                };
+                observer.observe(observation.pid, self.sample, role);
+            }
             self.last = observation;
             if !self.trace {
                 return;
             }
-            let record = self.record();
+            let record = TimedRecord {
+                record: self.record(),
+                begin_ns,
+                end_ns,
+            };
             if self.records.len() < TRACE_LIMIT {
                 self.records.push(record);
             } else {
@@ -352,7 +386,30 @@ mod watchdog {
                 record: self.record(),
             }
         }
-        // No diagnostic I/O inside a timed sample. The target group has already been stopped here.
+        fn decision(&mut self, code: i32, failure: Option<&SampleError>) {
+            let record = failure.map_or_else(|| self.record(), |failure| failure.record);
+            if let Some(observer) = &mut self.observer {
+                observer.decision(
+                    record.sample,
+                    record.observation.pid,
+                    code,
+                    record.observation.returned,
+                    record.observation.errno,
+                    record.elapsed_micros,
+                );
+            }
+        }
+        fn checkpoint(&mut self, phase: u64, group: libc::pid_t) {
+            if let Some(observer) = &mut self.observer {
+                observer.checkpoint(phase, group, self.sample);
+            }
+        }
+        fn finish_observer(&mut self) {
+            if let Some(observer) = &mut self.observer {
+                observer.finish();
+            }
+        }
+        // The bounded trace is printed after enforcement; observer transport is a separate test seam.
         fn emit(&self, failure: Option<&SampleError>, report_fd: bool) {
             if let Some(failure) = failure {
                 let json = failure.record.json(failure.cause.label());
@@ -377,9 +434,12 @@ mod watchdog {
                     0
                 };
                 for i in 0..self.records.len() {
+                    let record = &self.records[(start + i) % self.records.len()];
+                    let mut json = record.record.json("observation");
+                    json.pop();
                     eprintln!(
-                        "sandbox watchdog observation: {}",
-                        self.records[(start + i) % self.records.len()].json("observation")
+                        "sandbox watchdog observation: {json},\"beginNs\":{},\"endNs\":{}}}",
+                        record.begin_ns, record.end_ns
                     );
                 }
             }
@@ -399,6 +459,7 @@ mod watchdog {
     ) -> Result<Option<libc::proc_bsdinfo>, SampleError> {
         let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
         let size = std::mem::size_of_val(&info) as libc::c_int;
+        let begin_ns = diagnostics.clock();
         let got = unsafe {
             libc::proc_pidinfo(
                 pid,
@@ -422,18 +483,24 @@ mod watchdog {
             start_micros: info.pbi_start_tvusec,
             ..Observation::default()
         };
-        diagnostics.observe(observation);
+        diagnostics.observe_timed(observation, begin_ns, diagnostics.clock());
         if got == size {
             return Ok(Some(info));
         }
+        let begin_ns = diagnostics.clock();
         let alive = unsafe { libc::kill(pid, 0) };
         let probe_errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
-        diagnostics.observe(Observation {
-            operation: Operation::Alive,
-            probe_returned: alive,
-            probe_errno,
-            ..observation
-        });
+        let end_ns = diagnostics.clock();
+        diagnostics.observe_timed(
+            Observation {
+                operation: Operation::Alive,
+                probe_returned: alive,
+                probe_errno,
+                ..observation
+            },
+            begin_ns,
+            end_ns,
+        );
         if alive != 0 && probe_errno == libc::ESRCH {
             return Ok(None);
         }
@@ -456,25 +523,32 @@ mod watchdog {
             libc::proc_listchildpids
         };
         check_time(deadline, diagnostics)?;
+        let begin_ns = diagnostics.clock();
         let count = unsafe { list(pid, std::ptr::null_mut(), 0) };
         let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
-        diagnostics.observe(Observation {
-            operation: if group {
-                Operation::GroupSize
-            } else {
-                Operation::ChildSize
+        let end_ns = diagnostics.clock();
+        diagnostics.observe_timed(
+            Observation {
+                operation: if group {
+                    Operation::GroupSize
+                } else {
+                    Operation::ChildSize
+                },
+                pid,
+                returned: count,
+                errno,
+                ..Observation::default()
             },
-            pid,
-            returned: count,
-            errno,
-            ..Observation::default()
-        });
+            begin_ns,
+            end_ns,
+        );
         check_time(deadline, diagnostics)?;
         if !(0..65536).contains(&count) {
             return Err(diagnostics.error(Cause::ListSafetyCap));
         }
         // libproc returns PID count (buffer size remains bytes). Leave bounded room for new forks.
         let mut pids = vec![0; (count as usize + 64).min(65537)];
+        let begin_ns = diagnostics.clock();
         let count = unsafe {
             list(
                 pid,
@@ -483,23 +557,33 @@ mod watchdog {
             )
         };
         let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
-        diagnostics.observe(Observation {
-            operation: if group {
-                Operation::GroupList
-            } else {
-                Operation::ChildList
+        let end_ns = diagnostics.clock();
+        diagnostics.observe_timed(
+            Observation {
+                operation: if group {
+                    Operation::GroupList
+                } else {
+                    Operation::ChildList
+                },
+                pid,
+                returned: count,
+                expected: pids.len() as i32,
+                errno,
+                ..Observation::default()
             },
-            pid,
-            returned: count,
-            expected: pids.len() as i32,
-            errno,
-            ..Observation::default()
-        });
+            begin_ns,
+            end_ns,
+        );
         check_time(deadline, diagnostics)?;
         if count < 0 || count as usize >= pids.len() {
             return Err(diagnostics.error(Cause::ListUnavailable));
         }
         pids.truncate(count as usize);
+        if let Some(observer) = &mut diagnostics.observer {
+            for &member in &pids {
+                observer.observe(member, diagnostics.sample, if group { 5 } else { 6 });
+            }
+        }
         if diagnostics.trace {
             for &member in pids.iter().take(TRACE_LIMIT) {
                 diagnostics.observe(Observation {
@@ -573,6 +657,7 @@ mod watchdog {
             }
             let mut task: libc::proc_taskinfo = unsafe { std::mem::zeroed() };
             let size = std::mem::size_of_val(&task) as libc::c_int;
+            let begin_ns = diagnostics.clock();
             let got = unsafe {
                 libc::proc_pidinfo(
                     pid,
@@ -591,7 +676,7 @@ mod watchdog {
                 rss_bytes: task.pti_resident_size,
                 ..diagnostics.last
             };
-            diagnostics.observe(task_observation);
+            diagnostics.observe_timed(task_observation, begin_ns, diagnostics.clock());
             check_time(deadline, diagnostics)?;
             let Some(after) = bsd_info(pid, diagnostics)? else {
                 continue;
@@ -635,7 +720,8 @@ mod watchdog {
             return Err("watchdog trace requires PLUR1BUS_ALLOW_TEST_INTERNALS=1".into());
         }
         let report_fd = args[0] == "--watch-tree-report";
-        let mut diagnostics = Diagnostics::new(trace);
+        let observer = Observer::start(trace, report_fd)?;
+        let mut diagnostics = Diagnostics::new(trace, observer);
         let mut command = std::process::Command::new(&args[4]);
         command.args(&args[5..]);
         // A pipe, rather than pre_exec(SIGSTOP), avoids Command::spawn waiting for exec forever.
@@ -653,6 +739,9 @@ mod watchdog {
         }
         if pid == 0 {
             unsafe {
+                if let Some(observer) = &diagnostics.observer {
+                    observer.close_in_target();
+                }
                 libc::close(gate[1]);
                 if report_fd {
                     libc::close(3);
@@ -680,18 +769,31 @@ mod watchdog {
             libc::signal(libc::SIGTERM, terminate as *const () as libc::sighandler_t);
             libc::signal(libc::SIGINT, terminate as *const () as libc::sighandler_t);
         }
+        if let Some(observer) = &mut diagnostics.observer {
+            observer.observe(pid, 0, 4);
+        }
+        // Birth is measured while the original exec gate is held, outside the timed attach sample.
+        diagnostics.checkpoint(1, pid);
         // Attach and validate observation BEFORE releasing the target's exec gate.
         let mut known = HashMap::new();
         let attached = sample(pid, tasks, memory, &mut known, &mut diagnostics);
         if !matches!(attached, Ok((count, rss)) if count <= tasks && rss <= memory) {
+            // Preserve the original failure before the diagnostic-only pre-kill barrier.
+            let failure = attached.err().or_else(|| {
+                diagnostics
+                    .observer
+                    .as_ref()
+                    .map(|_| diagnostics.error(Cause::AttachLimit))
+            });
+            diagnostics.decision(125, failure.as_ref());
+            diagnostics.checkpoint(2, pid);
             terminate(0);
             unsafe {
                 libc::close(gate[1]);
                 libc::waitpid(pid, std::ptr::null_mut(), 0);
             }
-            let failure = attached
-                .err()
-                .unwrap_or_else(|| diagnostics.error(Cause::AttachLimit));
+            let failure = failure.unwrap_or_else(|| diagnostics.error(Cause::AttachLimit));
+            diagnostics.finish_observer();
             diagnostics.emit(Some(&failure), report_fd);
             return Err("sandbox-unavailable: watchdog attach failed".into());
         }
@@ -705,6 +807,7 @@ mod watchdog {
             let done = unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) };
             if done == pid {
                 terminate(0);
+                diagnostics.finish_observer();
                 diagnostics.emit(None, report_fd);
                 std::process::exit(if libc::WIFEXITED(status) {
                     libc::WEXITSTATUS(status)
@@ -723,10 +826,13 @@ mod watchdog {
                 _ => None,
             };
             if let Some((code, reason)) = exceeded {
+                diagnostics.decision(code, failure.as_ref());
+                diagnostics.checkpoint(2, pid);
                 terminate(0);
                 unsafe {
                     libc::waitpid(pid, std::ptr::null_mut(), 0);
                 }
+                diagnostics.finish_observer();
                 diagnostics.emit(failure.as_ref(), report_fd);
                 eprintln!("sandbox launcher: {reason}");
                 std::process::exit(code);
