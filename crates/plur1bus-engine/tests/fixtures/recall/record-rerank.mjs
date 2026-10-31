@@ -117,6 +117,7 @@ async function capture(root) {
   files["G-ACL-BEFORE-RERANK.json"] = file(recordedFrom, "G-ACL-BEFORE-RERANK", acl);
   files["G-RERANK-7.json"] = file(recordedFrom, "G-RERANK-7", [await rule7(pipeline)]);
   files["G-RERANK-8.json"] = file(recordedFrom, "G-RERANK-8", [await rule8(pipeline, traceMod)]);
+  files["G-ACL-FINAL.json"] = file(recordedFrom, "G-ACL-FINAL", await finalAcl(driver, traceMod));
   files["dedupe.json"] = file(recordedFrom, "dedupe", await dedupeRuns(driver, traceMod));
   files["prefilter.json"] = file(recordedFrom, "prefilter", await prefilterRuns(filterMod));
   files["budget-resolve.json"] = file(recordedFrom, "budget-resolve", resolveRuns(budget));
@@ -136,6 +137,17 @@ async function installDriver(root) {
   const end = source.indexOf(endMarker, start);
   if (start < 0 || end < 0) throw new Error("rerank block markers missing");
   const slice = source.slice(start, end + endMarker.length);
+  const needle = '  ordered = filterRecallCandidatesByAcl(ordered, aclCtx, trace, logger, "acl");';
+  if (slice.split(needle).length !== 2) {
+    throw new Error("final ACL call was not found once in the rerank block");
+  }
+  const patched = slice.replace(
+    needle,
+    `  if (Array.isArray(args.leak)) ordered = ordered.concat(args.leak);
+  const aclPresented = ordered.length;
+  ordered = filterRecallCandidatesByAcl(ordered, aclCtx, trace, logger, "acl");
+  args.aclRemoved = aclPresented - ordered.length;`,
+  );
   const libUrl = pathToFileURL(path.join(root, "lib")).href;
   const rewritten = source.replaceAll('from "./', `from "${libUrl}/`);
   const driver = `${rewritten}
@@ -162,7 +174,7 @@ export async function drivePostHydration(args) {
   const workspaceKey = null;
   const aclCtx = args.aclCtx;
   const maybeSoftBudgetFallback = () => null;
-${slice}
+${patched}
   return ordered;
 }
 `;
@@ -208,46 +220,50 @@ async function drive(driver, traceMod, request, rows) {
   let threw = false;
   let errorName = null;
   let ordered = [];
+  const call = {
+    boosted: rows,
+    query: request.query,
+    reranker: rerankerFor(request.rerank, spy),
+    topN: request.topN,
+    rerankCandidates: request.rerankCandidates,
+    deferFinalCap: request.deferFinalCap,
+    hardCandidateLimit: request.candidateHardLimit,
+    dedupEnabled: request.dedupEnabled,
+    dedupJaccard: request.dedupJaccard,
+    budget: request.budget,
+    canonicalHits,
+    rerankerTimeoutMs: request.rerankerTimeoutMs,
+    rerankerFallbackOnError: request.rerankerFallbackOnError,
+    summaryMaxWords: request.summaryMaxWords,
+    trace,
+    agentId: request.agentId,
+    aclCtx: aclContext(request.agentId),
+    leak: Array.isArray(request.leak) ? request.leak.map((row) => memory(row)) : null,
+  };
   try {
-    ordered = await driver.drivePostHydration({
-      boosted: rows,
-      query: request.query,
-      reranker: rerankerFor(request.rerank, spy),
-      topN: request.topN,
-      rerankCandidates: request.rerankCandidates,
-      deferFinalCap: request.deferFinalCap,
-      hardCandidateLimit: request.candidateHardLimit,
-      dedupEnabled: request.dedupEnabled,
-      dedupJaccard: request.dedupJaccard,
-      budget: request.budget,
-      canonicalHits,
-      rerankerTimeoutMs: request.rerankerTimeoutMs,
-      rerankerFallbackOnError: request.rerankerFallbackOnError,
-      summaryMaxWords: request.summaryMaxWords,
-      trace,
-      agentId: request.agentId,
-      aclCtx: aclContext(request.agentId),
-    });
+    ordered = await driver.drivePostHydration(call);
   } catch (error) {
     threw = true;
     errorName = error?.name || "Error";
     ordered = [];
   }
+  const result = {
+    threw,
+    errorName,
+    ids: ordered.map((row) => row.entry.id),
+    rerankScores: ordered.map((row) => (row.rerankScore === undefined ? null : row.rerankScore)),
+    sources: ordered.map((row) => row.source),
+    saw: spy.saw,
+    decisions: projectDecisions(trace),
+    guards: projectGuards(trace),
+  };
+  if (Array.isArray(request.leak)) result.aclRemoved = call.aclRemoved;
   return {
     name: request.name,
     kind: "pipeline",
     request: { ...request, rerank: request.rerank },
     rows: rows.map(publicRow),
-    result: {
-      threw,
-      errorName,
-      ids: ordered.map((row) => row.entry.id),
-      rerankScores: ordered.map((row) => (row.rerankScore === undefined ? null : row.rerankScore)),
-      sources: ordered.map((row) => row.source),
-      saw: spy.saw,
-      decisions: projectDecisions(trace),
-      guards: projectGuards(trace),
-    },
+    result,
   };
 }
 
@@ -449,6 +465,34 @@ async function rule6(driver, traceMod) {
         { index: 1, score: 0.3 },
       ],
     },
+  });
+  return [await drive(driver, traceMod, request, rows.map(cloneMemory))];
+}
+
+async function finalAcl(driver, traceMod) {
+  const rows = [
+    memory({ id: "own-1", summary: "alpha bravo", text: "alpha bravo", agentId: "a1", score: 0.9 }),
+    memory({ id: "own-2", summary: "delta echo", text: "delta echo", agentId: "a1", score: 0.7 }),
+  ];
+  const leak = memory({
+    id: "foreign-leak",
+    summary: "foreign charlie",
+    text: "foreign charlie",
+    agentId: "a2",
+    score: 0.5,
+  });
+  const request = baseRequest("final-acl-drops-foreign-row", {
+    topN: 5,
+    budget: 5,
+    rerankCandidates: 10,
+    rerank: {
+      emptyResultIsValid: false,
+      hits: [
+        { index: 0, score: 0.4 },
+        { index: 1, score: 0.3 },
+      ],
+    },
+    leak: [publicRow(leak)],
   });
   return [await drive(driver, traceMod, request, rows.map(cloneMemory))];
 }

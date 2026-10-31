@@ -3,7 +3,7 @@
 //! The shipped Node pipeline, after graph hydration, is provider ACL, rerank, budget,
 //! Jaccard dedupe, then the final ACL filter. Phase 1 follows that order. The optional
 //! filter wraps the rerank call. It is off when [`FinaliseRequest::filter`] is `None`.
-//! The final ACL refuses a row the caller may not see instead of dropping it and continuing.
+//! The final ACL drops a row the caller may not see, counts the removal, and records it.
 
 use std::collections::HashSet;
 
@@ -62,7 +62,7 @@ pub struct FinaliseRequest<'a> {
     pub cancel: &'a Cancel,
     /// Numeric limits.
     pub limits: FinaliseLimits,
-    /// Rows appended after dedupe and before the final ACL. The final ACL refuses a foreign row.
+    /// Rows appended after dedupe and before the final ACL. A foreign row is dropped there.
     pub leaked: &'a [RecallCandidate],
 }
 
@@ -116,12 +116,14 @@ pub struct FinaliseOutput {
     pub decisions: Vec<Decision>,
     /// Guards in emission order.
     pub guards: Vec<Guard>,
+    /// Rows removed by the final ACL. Matches the decisions whose stage is `acl`.
+    pub acl_removed: usize,
 }
 
-/// A rerank refusal or a final ACL refusal, with the trace collected before the return.
+/// A rerank refusal, with the trace collected before the return.
 #[derive(Debug)]
 pub struct FinaliseFailure {
-    /// `NotAvailable { reason: "rerank" }` or `Invalid { field: "recall", .. }`.
+    /// `NotAvailable { reason: "rerank" }`.
     pub error: EngineError,
     /// Partial trace. Ids are empty: the pipeline did not return a result list.
     pub output: FinaliseOutput,
@@ -156,8 +158,8 @@ enum Invoke {
 ///
 /// # Errors
 ///
-/// Returns [`FinaliseFailure`] when the reranker fails and fallback is off, or when a
-/// row that reaches the final ACL is not visible to `request.context`.
+/// Returns [`FinaliseFailure`] when the reranker fails and fallback is off.
+/// A row the final ACL rejects is dropped, counted, and named in the trace.
 pub fn apply(
     request: &FinaliseRequest<'_>,
     sink: &dyn DenialSink,
@@ -182,17 +184,8 @@ pub fn apply(
     let budgeted = budget_stage(&ranked.ordered, request, ranked.applied, &mut trace);
     let mut finished = dedupe_stage(&budgeted, request, &mut trace);
     finished.extend(request.leaked.iter().cloned());
-    match final_acl(&finished, request.context, sink, &mut trace) {
-        Ok(rows) => Ok(output_of(&rows, ranked.saw, trace)),
-        Err(()) => Err(Box::new(failure(
-            EngineError::Invalid {
-                field: "recall".to_owned(),
-                message: refusal_message(&trace),
-            },
-            ranked.saw,
-            trace,
-        ))),
-    }
+    let (rows, acl_removed) = final_acl(&finished, request.context, sink, &mut trace);
+    Ok(output_of(&rows, ranked.saw, trace, acl_removed))
 }
 
 fn provider_filter(
@@ -504,23 +497,19 @@ fn final_acl(
     ctx: &RequestContext,
     sink: &dyn DenialSink,
     trace: &mut Trace,
-) -> Result<Vec<RecallCandidate>, ()> {
+) -> (Vec<RecallCandidate>, usize) {
     let mut kept = Vec::new();
-    let mut denied = false;
+    let mut removed = 0;
     for row in rows {
         match access(row, ctx) {
             Ok(()) => kept.push(row.clone()),
             Err(rule) => {
                 note_acl(trace, sink, ctx, row, "acl", rule);
-                denied = true;
+                removed += 1;
             }
         }
     }
-    if denied {
-        Err(())
-    } else {
-        Ok(kept)
-    }
+    (kept, removed)
 }
 
 fn access(row: &RecallCandidate, ctx: &RequestContext) -> Result<(), Rule> {
@@ -581,7 +570,12 @@ fn rerank_guard() -> Guard {
     }
 }
 
-fn output_of(rows: &[RecallCandidate], saw: Option<Saw>, trace: Trace) -> FinaliseOutput {
+fn output_of(
+    rows: &[RecallCandidate],
+    saw: Option<Saw>,
+    trace: Trace,
+    acl_removed: usize,
+) -> FinaliseOutput {
     FinaliseOutput {
         ids: rows.iter().map(|row| row.id.clone()).collect(),
         rerank_scores: rows.iter().map(|row| row.rerank_score).collect(),
@@ -589,35 +583,14 @@ fn output_of(rows: &[RecallCandidate], saw: Option<Saw>, trace: Trace) -> Finali
         saw,
         decisions: trace.decisions,
         guards: trace.guards,
+        acl_removed,
     }
 }
 
 fn failure(error: EngineError, saw: Option<Saw>, trace: Trace) -> FinaliseFailure {
     FinaliseFailure {
         error,
-        output: FinaliseOutput {
-            ids: Vec::new(),
-            rerank_scores: Vec::new(),
-            sources: Vec::new(),
-            saw,
-            decisions: trace.decisions,
-            guards: trace.guards,
-        },
-    }
-}
-
-fn refusal_message(trace: &Trace) -> String {
-    match trace
-        .decisions
-        .iter()
-        .rev()
-        .find(|decision| decision.stage == "acl")
-    {
-        Some(decision) => format!(
-            "final ACL refused {}: {}",
-            decision.memory_id, decision.reason
-        ),
-        None => "final ACL refused a row".to_owned(),
+        output: output_of(&[], saw, trace, 0),
     }
 }
 

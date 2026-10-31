@@ -2,7 +2,7 @@
 //!
 //! Pipeline goldens were recorded from plugin line v7.18.31. The Rust order matches
 //! that pipeline: provider ACL, rerank, budget, dedupe, final ACL. `rule_1b` asserts
-//! the recorded tier concatenation. The final ACL refuses a leaked foreign row.
+//! the recorded tier concatenation. The final ACL drops a leaked foreign row and counts it.
 
 #![allow(
     clippy::unwrap_used,
@@ -148,65 +148,7 @@ fn filtered_rerank_sees_only_kept_documents() {
 
 #[test]
 fn finalisation_reasserts_the_acl() {
-    let rows = vec![
-        sample("own-1", "a1", "alpha bravo"),
-        sample("own-2", "a1", "delta echo"),
-    ];
-    let leak = sample("foreign-leak", "a2", "foreign charlie");
-    let ctx = context_for("a1");
-    let cancel = Cancel::never();
-    let scripted = scripted_hits(
-        &[
-            json!({"index": 0, "score": 0.4}),
-            json!({"index": 1, "score": 0.3}),
-        ],
-        false,
-        None,
-    );
-    let sink = RecordingSink {
-        denied: Mutex::new(Vec::new()),
-    };
-    let failure = apply(
-        &FinaliseRequest {
-            query: "recall",
-            rows: &rows,
-            context: &ctx,
-            reranker: Some(&scripted),
-            filter: None,
-            cancel: &cancel,
-            limits: open_limits(),
-            leaked: &[leak],
-        },
-        &sink,
-    )
-    .unwrap_err();
-    let failure = *failure;
-    let calls = scripted.calls.lock().unwrap();
-    assert_eq!(
-        calls[0].0,
-        vec!["alpha bravo".to_owned(), "delta echo".to_owned()]
-    );
-    match failure.error {
-        EngineError::Invalid { field, message } => {
-            assert_eq!(field, "recall");
-            assert!(message.contains("foreign-leak"), "{message}");
-            assert!(message.contains("acl.agent_private.mismatch"), "{message}");
-        }
-        other => panic!("expected invalid, got {other}"),
-    }
-    assert!(failure.output.decisions.iter().any(|decision| {
-        decision.memory_id == "foreign-leak"
-            && decision.stage == "acl"
-            && decision.action == "rejection"
-            && decision.reason == "acl.agent_private.mismatch"
-    }));
-    assert!(failure.output.guards.iter().any(|guard| {
-        guard.name == "acl" && guard.memory_id.as_deref() == Some("foreign-leak") && !guard.passed
-    }));
-    let denied = sink.denied.lock().unwrap();
-    assert!(denied
-        .iter()
-        .any(|(id, rule)| id == "foreign-leak" && rule == "acl.agent_private.mismatch"));
+    replay_all(&load("G-ACL-FINAL.json"));
 }
 
 fn replay_all(golden: &Value) {
@@ -222,6 +164,11 @@ fn replay_all(golden: &Value) {
 fn replay_pipeline(run: &Value) {
     let request = &run["request"];
     let rows = rows_of(&run["rows"]);
+    let leaked = request
+        .get("leak")
+        .filter(|value| value.is_array())
+        .map(rows_of)
+        .unwrap_or_default();
     let ctx = context_for(request["agentId"].as_str().unwrap());
     let scripted = scripted_from(&request["rerank"]);
     let reranker = scripted.as_ref().map(|value| value as &dyn Reranker);
@@ -235,7 +182,7 @@ fn replay_pipeline(run: &Value) {
             filter: None,
             cancel: &cancel,
             limits: limits_of(request),
-            leaked: &[],
+            leaked: &leaked,
         },
         &NullSink,
     );
@@ -244,11 +191,13 @@ fn replay_pipeline(run: &Value) {
         let failure = *outcome.unwrap_err();
         assert_rerank_refusal(&failure);
         assert_result(&failure.output, result);
+        assert_acl_count(&failure.output, result);
         assert_saw_call(scripted.as_ref(), &failure.output.saw);
         return;
     }
     let output = outcome.unwrap_or_else(|failure| panic!("{}", failure.error));
     assert_result(&output, result);
+    assert_acl_count(&output, result);
     assert_saw_call(scripted.as_ref(), &output.saw);
 }
 
@@ -319,6 +268,18 @@ fn assert_rerank_refusal(failure: &FinaliseFailure) {
     match &failure.error {
         EngineError::NotAvailable { reason } => assert_eq!(reason, "rerank"),
         other => panic!("expected rerank refusal, got {other}"),
+    }
+}
+
+fn assert_acl_count(output: &FinaliseOutput, result: &Value) {
+    let traced = output
+        .decisions
+        .iter()
+        .filter(|decision| decision.stage == "acl")
+        .count();
+    assert_eq!(output.acl_removed, traced);
+    if let Some(removed) = result.get("aclRemoved").and_then(|value| value.as_u64()) {
+        assert_eq!(output.acl_removed as u64, removed);
     }
 }
 
@@ -671,17 +632,4 @@ struct NullSink;
 
 impl DenialSink for NullSink {
     fn denied(&self, _row_id: &str, _rule: &'static str, _ctx: &RequestContext) {}
-}
-
-struct RecordingSink {
-    denied: Mutex<Vec<(String, String)>>,
-}
-
-impl DenialSink for RecordingSink {
-    fn denied(&self, row_id: &str, rule: &'static str, _ctx: &RequestContext) {
-        self.denied
-            .lock()
-            .unwrap()
-            .push((row_id.to_owned(), rule.to_owned()));
-    }
 }
