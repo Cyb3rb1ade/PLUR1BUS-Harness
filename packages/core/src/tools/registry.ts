@@ -22,6 +22,8 @@ export interface ToolRunContext {
   sessionId?: string;
   /** Trust of the surface the call originates from (D109 §5), as the dispatcher received it. */
   surface?: 0 | 1 | 2 | 3;
+  /** Trusted calling turn and policy snapshot for nested protocol transports; never model arguments. */
+  execution?: { turnId: string; taskId?: string; policy: import('../policy/index.ts').Context };
   /** Classification used to gate this call; tools re-check live args against it before spawn (D109 follow-up). */
   classified?: ToolClassification;
 }

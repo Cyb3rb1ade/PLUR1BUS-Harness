@@ -1,11 +1,11 @@
 // D109 §2: the one effect vocabulary. D103 `sideEffects`, extension `tools[].effect` and MCP annotations all map onto it.
 // Pure data and functions; nothing here touches the filesystem, the clock or a store.
 
-export const EFFECTS = ["read", "local-write", "local-destructive", "external", "money"] as const;
+export const EFFECTS = ["read", "local-write", "local-destructive", "external", "network.a2a", "money"] as const;
 export type Effect = (typeof EFFECTS)[number];
 
 export function effectRank(e: Effect): number {
-  return EFFECTS.indexOf(e);
+  return { read: 0, "local-write": 1, "local-destructive": 2, external: 3, "network.a2a": 3, money: 4 }[e];
 }
 
 export function maxEffect(a: Effect, b: Effect): Effect {

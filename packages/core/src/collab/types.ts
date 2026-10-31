@@ -42,6 +42,7 @@ export interface Provenance {
   spanId: string;
   at: number;
   cost: { inputTokens: number; outputTokens: number };
+  origin?: "a2a";
   targetKind: "local" | "external" | "a2a";
 }
 
@@ -55,6 +56,7 @@ export interface ConsultAnswer {
 }
 
 export interface DelegateTask {
+  origin?: "a2a";
   targetKind?: "local" | "external" | "a2a";
   id: string;
   projectId: string;
@@ -85,6 +87,7 @@ export interface DelegateHandle {
 }
 
 export interface CollabSpan {
+  origin?: "a2a";
   targetKind?: "local" | "external" | "a2a";
   sessionId?: string;
   spanId: string;
@@ -134,6 +137,7 @@ export interface CollabEvent {
 }
 
 export interface ConsultInput {
+  outbound?: import("./runner.ts").AgentRunInput["outbound"];
   handoff?: import("./runner.ts").AgentRunInput["handoff"];
   principal: import("../rbac/types.ts").Principal;
   projectId: string;
@@ -149,6 +153,7 @@ export interface ConsultInput {
 }
 
 export interface DelegateInput {
+  outbound?: import("./runner.ts").AgentRunInput["outbound"];
   handoff?: import("./runner.ts").AgentRunInput["handoff"];
   principal: import("../rbac/types.ts").Principal;
   projectId: string;

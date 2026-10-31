@@ -24,7 +24,7 @@ export class CapabilityIndex {
   readonly #lexical: ((query: string, entries: readonly CapabilityEntry[]) => ReadonlyMap<string, number>) | undefined;
   constructor(embedding?: EmbeddingPort, lexical?: (query: string, entries: readonly CapabilityEntry[]) => ReadonlyMap<string, number>, prior?: (entry: CapabilityEntry) => number) { this.#embedding = embedding; this.#lexical = lexical; this.#prior = prior; }
   upsert(entry: CapabilityEntry): void {
-    if (!entry.id || !entry.name || !entry.description || !entry.version || !entry.source || !['tool', 'skill', 'mcp-tool', 'extension', 'plugin-command', 'channel-action'].includes(entry.kind) || !['read', 'local-write', 'local-destructive', 'external', 'money'].includes(entry.effect) || !['low', 'medium', 'high', 'critical'].includes(entry.risk) || !/^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$/.test(entry.category) || (entry.secondaryCategories?.length ?? 0) > 2) throw Error('invalid capability entry');
+    if (!entry.id || !entry.name || !entry.description || !entry.version || !entry.source || !['tool', 'skill', 'mcp-tool', 'extension', 'plugin-command', 'channel-action'].includes(entry.kind) || !['read', 'local-write', 'local-destructive', 'external', 'network.a2a', 'money'].includes(entry.effect) || !['low', 'medium', 'high', 'critical'].includes(entry.risk) || !/^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$/.test(entry.category) || (entry.secondaryCategories?.length ?? 0) > 2) throw Error('invalid capability entry');
     const copy = structuredClone(entry); Object.freeze(copy.secondaryCategories); Object.freeze(copy);
     this.#entries.set(entry.id, copy); this.#revision++;
   }

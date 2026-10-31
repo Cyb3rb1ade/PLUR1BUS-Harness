@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.9.0)
+# RPC reference (rpc 1.12.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -192,6 +192,10 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `project.member.add`: experimental, since 1.5.0
 - `project.member.remove`: experimental, since 1.5.0
 - `project.member.role`: experimental, since 1.5.0
+- `a2a.peer.add`: experimental, since 1.12.0
+- `a2a.peer.list`: experimental, since 1.12.0
+- `a2a.peer.remove`: experimental, since 1.12.0
+- `a2a.peer.trust`: experimental, since 1.12.0
 - `project.agent.add`: experimental, since 1.5.0
 - `project.agent.remove`: experimental, since 1.5.0
 - `task.complete`: experimental, since 1.5.0
@@ -10570,6 +10574,189 @@ Authenticated project member.role using ADR-007 object rights.
 }
 ```
 
+### `a2a.peer.add`
+
+**Stability:** experimental · since 1.12.0
+
+**Served by:** core
+
+Register a pending Ed25519 peer pin. Owner person only; no network or automatic trust.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/A2APeerId"
+    },
+    "cardUrl": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "kid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "publicKey": {
+      "$ref": "#/$defs/A2APublicKey"
+    },
+    "credentialSecret": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "id",
+    "cardUrl",
+    "kid",
+    "publicKey"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/A2APeer"
+}
+```
+
+### `a2a.peer.list`
+
+**Stability:** experimental · since 1.12.0
+
+**Served by:** core
+
+List outbound peer identities and trust states. Owner person only; no credentials or card text.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "peers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/A2APeer"
+      },
+      "maxItems": 1024
+    }
+  },
+  "required": [
+    "peers"
+  ]
+}
+```
+
+### `a2a.peer.remove`
+
+**Stability:** experimental · since 1.12.0
+
+**Served by:** core
+
+Revoke and remove an outbound peer, aborting its in-flight requests. Owner person only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/A2APeerId"
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/A2APeerId"
+    },
+    "removed": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "removed"
+  ]
+}
+```
+
+### `a2a.peer.trust`
+
+**Stability:** experimental · since 1.12.0
+
+**Served by:** core
+
+Explicitly approve the pending key fingerprint and revision after signature verification through the network.a2a policy gate. Owner person only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/A2APeerId"
+    },
+    "fingerprint": {
+      "$ref": "#/$defs/A2AFingerprint"
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "id",
+    "fingerprint",
+    "revision"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/A2APeer"
+}
+```
+
 ### `project.agent.add`
 
 **Stability:** experimental · since 1.5.0
@@ -10591,7 +10778,7 @@ Authenticated project agent.add using ADR-007 object rights.
       "maxLength": 128
     },
     "agentId": {
-      "$ref": "#/$defs/AgentId"
+      "$ref": "#/$defs/DelegationTargetId"
     }
   },
   "required": [
@@ -10631,7 +10818,7 @@ Authenticated project agent.remove using ADR-007 object rights.
       "maxLength": 128
     },
     "agentId": {
-      "$ref": "#/$defs/AgentId"
+      "$ref": "#/$defs/DelegationTargetId"
     }
   },
   "required": [
@@ -18415,7 +18602,7 @@ Acknowledges newly discovered models, clearing the new-models indicator (D112).
 
 **Served by:** core
 
-Usage per period (the current local day and month in the configured time zone) and per agent and model, plus every budget limit with its use and state (M2 L8, ADR-010 §4). Counts and ids only; never prompt content.
+Usage per period (the current local day and month in the configured time zone) and per agent and model, plus every budget limit with its use and state (M2 L8, ADR-010 §4). Counts and ids only; never prompt content. Since 1.11.0, returns the active cacheReadWeight and additive freshInputTokens/countedTokens per period, agent and model. Raw inputTokens still includes cache reads and writes; countedTokens applies the active weight and rounds once per aggregate.
 
 **params**
 
@@ -18524,6 +18711,18 @@ Usage per period (the current local day and month in the configured time zone) a
                 "type": "integer",
                 "minimum": 0,
                 "description": "Seconds of generated video, whole seconds rounded up (media units; absent from an older core)"
+              },
+              "freshInputTokens": {
+                "type": "integer",
+                "minimum": 0,
+                "x-since": "1.11.0",
+                "description": "Fresh input: sum of max(0, inputTokens - cacheReadTokens - cacheWriteTokens) per event. Absent from an older core."
+              },
+              "countedTokens": {
+                "type": "integer",
+                "minimum": 0,
+                "x-since": "1.11.0",
+                "description": "Input plus output with cache reads weighted at cacheReadWeight and capped to each event's input. Rounded up once per aggregate. Absent from an older core."
               }
             }
           },
@@ -18581,6 +18780,18 @@ Usage per period (the current local day and month in the configured time zone) a
                       "type": "integer",
                       "minimum": 0,
                       "description": "Seconds of generated video, whole seconds rounded up (media units; absent from an older core)"
+                    },
+                    "freshInputTokens": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "x-since": "1.11.0",
+                      "description": "Fresh input: sum of max(0, inputTokens - cacheReadTokens - cacheWriteTokens) per event. Absent from an older core."
+                    },
+                    "countedTokens": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "x-since": "1.11.0",
+                      "description": "Input plus output with cache reads weighted at cacheReadWeight and capped to each event's input. Rounded up once per aggregate. Absent from an older core."
                     }
                   }
                 },
@@ -18628,6 +18839,18 @@ Usage per period (the current local day and month in the configured time zone) a
                       "videoSeconds": {
                         "type": "integer",
                         "minimum": 0
+                      },
+                      "freshInputTokens": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "x-since": "1.11.0",
+                        "description": "Fresh input: sum of max(0, inputTokens - cacheReadTokens - cacheWriteTokens) per event. Absent from an older core."
+                      },
+                      "countedTokens": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "x-since": "1.11.0",
+                        "description": "Input plus output with cache reads weighted at cacheReadWeight and capped to each event's input. Rounded up once per aggregate. Absent from an older core."
                       }
                     }
                   }
@@ -18643,6 +18866,13 @@ Usage per period (the current local day and month in the configured time zone) a
       "items": {
         "$ref": "#/$defs/BudgetLimitState"
       }
+    },
+    "cacheReadWeight": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "x-since": "1.11.0",
+      "description": "Active cache-read token weight; absent from a core predating RPC 1.11.0."
     }
   }
 }
@@ -18757,7 +18987,7 @@ The outgoing-network policy in force (B4): normalised host allowlist, ports, loo
 
 **Served by:** core
 
-Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are whole numbers in the limit's metric: `tokens` (input + output, output includes reported reasoning tokens), `images` (generated images) or `videoSeconds` (seconds of generated video, rounded up). A media-unit limit gates only media calls that use that unit; there is no money dimension.
+Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are whole numbers in the limit's metric: `tokens` (input + output, output includes reported reasoning tokens), `images` (generated images) or `videoSeconds` (seconds of generated video, rounded up). A media-unit limit gates only media calls that use that unit; there is no money dimension. Since 1.11.0, also accepts cacheReadWeight (0 to 1, rounded to millionths); omitted settings and limits are preserved. Combined updates are atomic.
 
 **params**
 
@@ -18822,6 +19052,13 @@ Sets, changes or clears a budget limit and/or the time zone budget periods follo
       "minLength": 1,
       "maxLength": 64,
       "description": "An IANA zone name"
+    },
+    "cacheReadWeight": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "x-since": "1.11.0",
+      "description": "Cache-read token weight; default 1 counts reads in full. Stored rounded to millionths. Omission preserves the active setting."
     }
   }
 }
@@ -18850,13 +19087,20 @@ Sets, changes or clears a budget limit and/or the time zone budget periods follo
           "type": "null"
         }
       ],
-      "description": "The limit as stored after the change; null when it was removed. Absent when only the time zone changed."
+      "description": "The limit as stored after the change; null when it was removed. Absent when no limit was supplied."
     },
     "limits": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/BudgetLimit"
       }
+    },
+    "cacheReadWeight": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "x-since": "1.11.0",
+      "description": "Active cache-read token weight; absent from a core predating RPC 1.11.0."
     }
   }
 }
@@ -31258,6 +31502,141 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       }
     }
   }
+}
+```
+
+### `A2APeerId`
+
+```json
+{
+  "type": "string",
+  "pattern": "^[a-z][a-z0-9._-]{0,63}$",
+  "maxLength": 64
+}
+```
+
+### `A2AFingerprint`
+
+```json
+{
+  "type": "string",
+  "pattern": "^sha256:[A-Za-z0-9_-]{43}$",
+  "maxLength": 50
+}
+```
+
+### `A2APublicKey`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kty": {
+      "const": "OKP"
+    },
+    "crv": {
+      "const": "Ed25519"
+    },
+    "x": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43}$",
+      "maxLength": 43
+    }
+  },
+  "required": [
+    "kty",
+    "crv",
+    "x"
+  ]
+}
+```
+
+### `DelegationTargetId`
+
+```json
+{
+  "description": "Local agent id or an explicitly pinned outbound A2A target. Foreign ids never open local agent stores.",
+  "type": "string",
+  "pattern": "^(?:[a-z0-9][a-z0-9_-]{0,63}|a2a:[a-z][a-z0-9._-]{0,63})$",
+  "maxLength": 68
+}
+```
+
+### `A2APeer`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/A2APeerId"
+    },
+    "agentId": {
+      "$ref": "#/$defs/DelegationTargetId"
+    },
+    "cardUrl": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "kid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "fingerprint": {
+      "$ref": "#/$defs/A2AFingerprint"
+    },
+    "state": {
+      "enum": [
+        "pending",
+        "trusted"
+      ]
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "targetKind": {
+      "const": "external"
+    },
+    "origin": {
+      "const": "a2a"
+    },
+    "authenticated": {
+      "type": "boolean"
+    },
+    "createdAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "updatedAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "endpoint": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    }
+  },
+  "required": [
+    "id",
+    "agentId",
+    "cardUrl",
+    "kid",
+    "fingerprint",
+    "state",
+    "revision",
+    "targetKind",
+    "origin",
+    "authenticated",
+    "createdAt",
+    "updatedAt"
+  ]
 }
 ```
 

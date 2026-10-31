@@ -68,13 +68,23 @@ export function describeBreach(b: Breach): string {
   return `${who} ${when} hard limit ${fmt(b.limit)} would be exceeded (used ${fmt(b.used)}, this call ~${fmt(b.estimate)}; resets ${new Date(b.resetsAt).toISOString()})`;
 }
 
-export interface UsageTotals { events: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number; images: number; videoSeconds: number }
+export interface UsageTotals {
+  events: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number;
+  /** Input outside the cache, clamped to zero per event if a provider reports inconsistent cache counts. */
+  freshInputTokens: number;
+  /** Input plus output after weighing cache reads; rounded once for this aggregate. */
+  countedTokens: number;
+  images: number; videoSeconds: number;
+}
 export interface StatusLimit extends Limit { used: number; state: "ok" | "soft" | "hard" }
 export interface StatusPeriod {
   period: Period; key: string; start: number; end: number; total: UsageTotals;
   agents: { agentId: string; total: UsageTotals; models: ({ model: string } & UsageTotals)[] }[];
 }
-export interface BudgetStatus { timeZone: string; now: number; periods: StatusPeriod[]; limits: StatusLimit[] }
+export interface BudgetStatus { timeZone: string; cacheReadWeight: number; now: number; periods: StatusPeriod[]; limits: StatusLimit[] }
+export type BudgetLimitUpdate = LimitKey & { soft?: number | null; hard?: number | null };
+export interface BudgetSettings { timeZone?: string; cacheReadWeight?: number; limit?: BudgetLimitUpdate }
+export interface BudgetSettingsResult { timeZone: string; cacheReadWeight: number; limit?: Limit | null; limits: Limit[] }
 
 export interface BudgetServiceOptions {
   path: string;
@@ -105,10 +115,13 @@ function closed(what: string, o: object, allowed: Set<string>): void {
 }
 
 /** `ri`: the cache reads a token limit may weigh, each event's at most its own input (`CACHE_READS_SQL`). */
-interface Row { n: number; i: number; o: number; cr: number; cw: number; im: number; vs: number; ri: number }
-const ZERO: UsageTotals = { events: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, images: 0, videoSeconds: 0 };
-const totals = (r: Row): UsageTotals => ({ events: r.n, inputTokens: r.i, outputTokens: r.o, cacheReadTokens: r.cr, cacheWriteTokens: r.cw, images: r.im, videoSeconds: r.vs });
-const SUMS = `COUNT(*) AS n, COALESCE(SUM(input_tokens),0) AS i, COALESCE(SUM(output_tokens),0) AS o, COALESCE(SUM(cache_read_tokens),0) AS cr, COALESCE(SUM(cache_write_tokens),0) AS cw, COALESCE(SUM(images),0) AS im, COALESCE(SUM(video_seconds),0) AS vs, COALESCE(SUM(${CACHE_READS_SQL}),0) AS ri`;
+interface Row { n: number; i: number; o: number; cr: number; cw: number; im: number; vs: number; ri: number; fresh: number }
+const ZERO_ROW: Row = { n: 0, i: 0, o: 0, cr: 0, cw: 0, im: 0, vs: 0, ri: 0, fresh: 0 };
+const totals = (r: Row, weight: number): UsageTotals => ({
+  events: r.n, inputTokens: r.i, outputTokens: r.o, cacheReadTokens: r.cr, cacheWriteTokens: r.cw,
+  freshInputTokens: r.fresh, countedTokens: countedTokens(r.i + r.o, r.ri, weight), images: r.im, videoSeconds: r.vs,
+});
+const SUMS = `COUNT(*) AS n, COALESCE(SUM(input_tokens),0) AS i, COALESCE(SUM(output_tokens),0) AS o, COALESCE(SUM(cache_read_tokens),0) AS cr, COALESCE(SUM(cache_write_tokens),0) AS cw, COALESCE(SUM(images),0) AS im, COALESCE(SUM(video_seconds),0) AS vs, COALESCE(SUM(${CACHE_READS_SQL}),0) AS ri, COALESCE(SUM(MAX(0, input_tokens - cache_read_tokens - cache_write_tokens)),0) AS fresh`;
 /** The use a limit counts. Token limits weigh cache reads with the stored weight (RE-D29), applied at query time. */
 const USED: Record<Metric, (r: Row, cacheReadWeight: number) => number> = { tokens: (r, w) => countedTokens(r.i + r.o, r.ri, w), images: (r) => r.im, videoSeconds: (r) => r.vs };
 /**
@@ -129,7 +142,9 @@ export interface BudgetService {
   status(o?: { agentId?: string }): BudgetStatus;
   limits(): Limit[];
   /** `undefined` leaves a bound as it is, `null` clears it; a limit with neither bound left is removed. */
-  setLimit(l: LimitKey & { soft?: number | null; hard?: number | null }): Limit | null;
+  setLimit(l: BudgetLimitUpdate): Limit | null;
+  /** Applies all supplied settings atomically; a rejected setting rolls back the entire update. */
+  updateSettings(settings: BudgetSettings): BudgetSettingsResult;
   timeZone(): string;
   setTimeZone(tz: string): string;
   /** Weight (0 to 1) of cache reads in token limits (RE-D29); 1, the default, counts them in full. */
@@ -215,6 +230,35 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
     return d;
   }
 
+  function storeLimit(l: BudgetLimitUpdate): Limit | null {
+    if (l.scope !== "global" && l.scope !== "agent") throw new BudgetInputError("scope must be global or agent");
+    if (!PERIODS.includes(l.period)) throw new BudgetInputError("period must be day or month");
+    if (!METRICS.includes(l.metric)) throw new BudgetInputError("metric must be tokens, images or videoSeconds");
+    const agent = l.scope === "agent" ? ident("agentId", l.agentId) : "";
+    if (l.scope === "global" && l.agentId !== undefined) throw new BudgetInputError("a global limit takes no agentId");
+    const bound = (n: string, v: number | null | undefined) => (v === undefined || v === null ? v : count(n, v));
+    const soft = bound("soft", l.soft), hard = bound("hard", l.hard);
+    const cur = db.prepare("SELECT soft, hard FROM budget_limit WHERE scope = ? AND agent = ? AND period = ? AND metric = ?").get(l.scope, agent, l.period, l.metric) as { soft: number | null; hard: number | null } | undefined;
+    const nextSoft = soft === undefined ? (cur?.soft ?? null) : soft;
+    const nextHard = hard === undefined ? (cur?.hard ?? null) : hard;
+    if (nextSoft === null && nextHard === null) {
+      db.prepare("DELETE FROM budget_limit WHERE scope = ? AND agent = ? AND period = ? AND metric = ?").run(l.scope, agent, l.period, l.metric);
+      return null;
+    }
+    if (nextSoft !== null && nextHard !== null && nextSoft > nextHard) throw new BudgetInputError("soft limit must not exceed the hard limit");
+    db.prepare(
+      `INSERT INTO budget_limit (scope, agent, period, metric, soft, hard) VALUES (?,?,?,?,?,?)
+       ON CONFLICT (scope, agent, period, metric) DO UPDATE SET soft = excluded.soft, hard = excluded.hard`,
+    ).run(l.scope, agent, l.period, l.metric, nextSoft, nextHard);
+    return toLimit({ scope: l.scope, agent, period: l.period, metric: l.metric, soft: nextSoft, hard: nextHard });
+  }
+
+  function storeTimeZone(tz: string): string {
+    const v = validateTimeZone(tz);
+    db.prepare("INSERT INTO settings (key, value) VALUES ('timezone', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value").run(v);
+    return v;
+  }
+
   return {
     recordUsage(e) {
       if (typeof e !== "object" || e === null) throw new BudgetInputError("usage event must be an object");
@@ -265,60 +309,43 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
       if (opts.agentId !== undefined) ident("agentId", opts.agentId);
       const periods: StatusPeriod[] = PERIODS.map((period) => {
         const b = periodBounds(now, tz, period);
-        const total = totals(sums(b.start, b.end, opts.agentId));
+        const total = totals(sums(b.start, b.end, opts.agentId), weight);
         const where = opts.agentId === undefined ? "" : " AND agent = @agent";
         const params = { start: b.start, end: b.end, ...(opts.agentId === undefined ? {} : { agent: opts.agentId }) };
         const rows = db.prepare(`SELECT agent, model, ${SUMS} FROM usage_event WHERE ts >= @start AND ts < @end${where} GROUP BY agent, model ORDER BY agent, model`).all(params) as unknown as (Row & { agent: string; model: string })[];
-        const agents = new Map<string, StatusPeriod["agents"][number]>();
+        const agents = new Map<string, { row: Row; models: StatusPeriod["agents"][number]["models"] }>();
         for (const r of rows) {
           let a = agents.get(r.agent);
-          if (!a) { a = { agentId: r.agent, total: { ...ZERO }, models: [] }; agents.set(r.agent, a); }
-          const t = totals(r);
-          a.models.push({ model: r.model, ...t });
-          for (const k of Object.keys(ZERO) as (keyof UsageTotals)[]) a.total[k] += t[k];
+          if (!a) { a = { row: { ...ZERO_ROW }, models: [] }; agents.set(r.agent, a); }
+          a.models.push({ model: r.model, ...totals(r, weight) });
+          // Keep unrounded counts until the agent total is complete; summing rounded model totals overcounts.
+          for (const k of Object.keys(ZERO_ROW) as (keyof Row)[]) a.row[k] += r[k];
         }
-        return { period, key: b.key, start: b.start, end: b.end, total, agents: [...agents.values()] };
+        return { period, key: b.key, start: b.start, end: b.end, total,
+          agents: [...agents].map(([agentId, a]) => ({ agentId, total: totals(a.row, weight), models: a.models })),
+        };
       });
       const limits: StatusLimit[] = limitRows(opts.agentId, KNOWN_LIMITS).map((r) => {
         const { used } = usedFor(r, now, tz, weight);
         return { ...toLimit(r), used, state: r.hard !== null && used >= r.hard ? "hard" : r.soft !== null && used >= r.soft ? "soft" : "ok" };
       });
-      return { timeZone: tz, now, periods, limits };
+      return { timeZone: tz, cacheReadWeight: weight, now, periods, limits };
     },
 
     limits: () => limitRows(undefined, KNOWN_LIMITS).map(toLimit),
 
-    setLimit(l) {
-      if (l.scope !== "global" && l.scope !== "agent") throw new BudgetInputError("scope must be global or agent");
-      if (!PERIODS.includes(l.period)) throw new BudgetInputError("period must be day or month");
-      if (!METRICS.includes(l.metric)) throw new BudgetInputError("metric must be tokens, images or videoSeconds");
-      const agent = l.scope === "agent" ? ident("agentId", l.agentId) : "";
-      if (l.scope === "global" && l.agentId !== undefined) throw new BudgetInputError("a global limit takes no agentId");
-      const bound = (n: string, v: number | null | undefined) => (v === undefined || v === null ? v : count(n, v));
-      const soft = bound("soft", l.soft), hard = bound("hard", l.hard);
+    setLimit(l) { return transaction(db, () => storeLimit(l)); },
+    updateSettings(settings) {
       return transaction(db, () => {
-        const cur = db.prepare("SELECT soft, hard FROM budget_limit WHERE scope = ? AND agent = ? AND period = ? AND metric = ?").get(l.scope, agent, l.period, l.metric) as { soft: number | null; hard: number | null } | undefined;
-        const nextSoft = soft === undefined ? (cur?.soft ?? null) : soft;
-        const nextHard = hard === undefined ? (cur?.hard ?? null) : hard;
-        if (nextSoft === null && nextHard === null) {
-          db.prepare("DELETE FROM budget_limit WHERE scope = ? AND agent = ? AND period = ? AND metric = ?").run(l.scope, agent, l.period, l.metric);
-          return null;
-        }
-        if (nextSoft !== null && nextHard !== null && nextSoft > nextHard) throw new BudgetInputError("soft limit must not exceed the hard limit");
-        db.prepare(
-          `INSERT INTO budget_limit (scope, agent, period, metric, soft, hard) VALUES (?,?,?,?,?,?)
-           ON CONFLICT (scope, agent, period, metric) DO UPDATE SET soft = excluded.soft, hard = excluded.hard`,
-        ).run(l.scope, agent, l.period, l.metric, nextSoft, nextHard);
-        return toLimit({ scope: l.scope, agent, period: l.period, metric: l.metric, soft: nextSoft, hard: nextHard });
+        const set = settings.limit === undefined ? {} : { limit: storeLimit(settings.limit) };
+        if (settings.timeZone !== undefined) storeTimeZone(settings.timeZone);
+        if (settings.cacheReadWeight !== undefined) writeCacheReadWeight(db, settings.cacheReadWeight);
+        return { timeZone: getTz(), cacheReadWeight: storedCacheReadWeight(db), ...set, limits: limitRows(undefined, KNOWN_LIMITS).map(toLimit) };
       });
     },
 
     timeZone: getTz,
-    setTimeZone(tz) {
-      const v = validateTimeZone(tz);
-      db.prepare("INSERT INTO settings (key, value) VALUES ('timezone', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value").run(v);
-      return v;
-    },
+    setTimeZone: storeTimeZone,
     cacheReadWeight: () => storedCacheReadWeight(db),
     setCacheReadWeight: (w) => writeCacheReadWeight(db, w),
     prune: (beforeTs) => Number(db.prepare("DELETE FROM usage_event WHERE ts < ?").run(count("beforeTs", beforeTs)).changes),

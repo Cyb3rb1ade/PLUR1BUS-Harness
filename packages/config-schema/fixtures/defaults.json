@@ -150,6 +150,18 @@
   "a2a": {
     "peers": []
   },
+  "a2aClient": {
+    "enabled": false,
+    "timeoutMs": 30000,
+    "maxCardBytes": 131072,
+    "maxRequestBytes": 16384,
+    "maxReplyBytes": 16384,
+    "maxPeers": 64,
+    "peerCalls": 8,
+    "turnCalls": 16,
+    "peerTokens": 65536,
+    "turnTokens": 131072
+  },
   "a2aServer": {
     "enabled": false,
     "legacy03": false

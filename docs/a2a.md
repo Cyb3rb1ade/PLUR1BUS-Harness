@@ -2,7 +2,11 @@
 
 Status: inbound A2A Protocol **0.3.0** (https://a2a-protocol.org/v0.3.0/specification/). Authority: ADR-008 §A2A and its 2026-09-27 amendment, ADR-007. Code: `packages/core/src/a2a/`.
 
-Inbound only: this slice makes no outbound A2A call (no card fetch, no client of a foreign agent). The server is **off by default**: nothing in the core starts it. A host builds `createA2aServer({ peers, agents, provider })` (loopback, `node:http`) or mounts `createA2aHandler(...).handle` on its own listener. No RPC method and no config key is added.
+The server is **off by default**. A host builds `createA2aServer({ peers, agents, provider })` (loopback, `node:http`) or mounts `createA2aHandler(...).handle` on its own listener. The inbound `a2a`/`a2aServer` settings remain separate from outbound peer trust.
+
+The Core also provides an opt-in outbound client under `a2aClient.*`. An Owner person registers an Ed25519 public key with `a2a.peer.add`, explicitly approves its fingerprint/revision with `a2a.peer.trust`, and assigns `a2a:<id>` to a collaboration project. The existing `consult_agent` and `delegate_task` tools then reach that peer as an external target with `origin: a2a`. Every HTTP hop passes the `network.a2a` ToolDispatcher gate, egress/DNS pinning, local-only privacy and persistent peer/turn budgets. No local agent memory authority is given to the target.
+
+See the [V1 contract and Rust CLI handoff](handoff/2026-10-31-v1-a2a-peer-cli.md) for signatures, TOFU, credential handling, conservative token accounting and transport limits. The proposed `a2a peer` CLI commands are owned by a separate Claude PR.
 
 The JSON-RPC method and field names follow the 0.3.0 specification (dotted names, kebab-case task states, `kind` discriminators). This is not the later 1.x JSON camelCase rename.
 

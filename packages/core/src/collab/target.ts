@@ -4,6 +4,7 @@ import { CollabError } from './errors.ts';
 
 /** Single M5 target port. M6 ACP/A2A adapters implement this, never register another delegate_task. No target owns a PLUR1BUS memory store. */
 export interface DelegationTarget {
+  readonly origin?: 'a2a';
   readonly kind: 'local' | 'external' | 'a2a';
   accepts(agentId: string): boolean;
   ack(input: AgentRunInput): Promise<HandoffAck>;
@@ -15,7 +16,7 @@ export function targetRunner(targets: readonly DelegationTarget[]): AgentRunner 
     if (matches.length !== 1) throw new CollabError('invalid', 'delegation target missing or ambiguous');
     const target = matches[0]!;
     const scoped = { ...input, onProgress: (progress: AgentRunResult) => input.onProgress?.({ ...progress, targetKind: target.kind }) };
-    const run = async () => { const out = await target.run(scoped); return { ...out, ...(input.handoff || input.sessionId ? { targetKind: target.kind } : {}) }; };
+    const run = async () => { const out = await target.run(scoped); return { ...out, ...(input.handoff || input.sessionId ? { targetKind: target.kind } : {}), ...(target.origin ? { origin: target.origin } : {}) }; };
     if (!input.handoff) return run();
     const to = input.handoff.contract.to;
     if ('agent' in to && to.agent !== input.agentId) throw new CollabError('unauthorized', 'handoff target mismatch');

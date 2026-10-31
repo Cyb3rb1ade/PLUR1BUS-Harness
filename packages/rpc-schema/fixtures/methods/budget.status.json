@@ -16,7 +16,9 @@
           "inputTokens": 1200,
           "outputTokens": 400,
           "cacheReadTokens": 0,
-          "cacheWriteTokens": 0
+          "cacheWriteTokens": 0,
+          "freshInputTokens": 1200,
+          "countedTokens": 1600
         },
         "agents": [
           {
@@ -26,7 +28,9 @@
               "inputTokens": 1200,
               "outputTokens": 400,
               "cacheReadTokens": 0,
-              "cacheWriteTokens": 0
+              "cacheWriteTokens": 0,
+              "freshInputTokens": 1200,
+              "countedTokens": 1600
             },
             "models": [
               {
@@ -35,7 +39,9 @@
                 "inputTokens": 1200,
                 "outputTokens": 400,
                 "cacheReadTokens": 0,
-                "cacheWriteTokens": 0
+                "cacheWriteTokens": 0,
+                "freshInputTokens": 1200,
+                "countedTokens": 1600
               }
             ]
           }
@@ -51,7 +57,9 @@
           "inputTokens": 1200,
           "outputTokens": 400,
           "cacheReadTokens": 0,
-          "cacheWriteTokens": 0
+          "cacheWriteTokens": 0,
+          "freshInputTokens": 1200,
+          "countedTokens": 1600
         },
         "agents": [
           {
@@ -61,7 +69,9 @@
               "inputTokens": 1200,
               "outputTokens": 400,
               "cacheReadTokens": 0,
-              "cacheWriteTokens": 0
+              "cacheWriteTokens": 0,
+              "freshInputTokens": 1200,
+              "countedTokens": 1600
             },
             "models": [
               {
@@ -70,7 +80,9 @@
                 "inputTokens": 1200,
                 "outputTokens": 400,
                 "cacheReadTokens": 0,
-                "cacheWriteTokens": 0
+                "cacheWriteTokens": 0,
+                "freshInputTokens": 1200,
+                "countedTokens": 1600
               }
             ]
           }
@@ -97,6 +109,7 @@
         "used": 1600,
         "state": "ok"
       }
-    ]
+    ],
+    "cacheReadWeight": 0.1
   }
 }

@@ -420,7 +420,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
       try {
         const st = d.budget.status(p?.agentId !== undefined ? { agentId: p.agentId } : {});
         return {
-          timeZone: st.timeZone, now: iso(st.now),
+          timeZone: st.timeZone, cacheReadWeight: st.cacheReadWeight, now: iso(st.now),
           periods: st.periods.map((x) => ({ ...x, start: iso(x.start), end: iso(x.end) })),
           limits: st.limits,
         };
@@ -433,9 +433,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
     "budget.set": async (p: BudgetSetParams) => {
       if (!d.budget) throw new RpcError("E_INTERNAL", "budget service unavailable");
       try {
-        if (p.timeZone !== undefined) d.budget.setTimeZone(p.timeZone);
-        const set = p.limit ? { limit: d.budget.setLimit(p.limit as Parameters<BudgetService["setLimit"]>[0]) } : {};
-        return { timeZone: d.budget.timeZone(), ...set, limits: d.budget.limits() };
+        return d.budget.updateSettings(p as Parameters<BudgetService["updateSettings"]>[0]);
       } catch (err) { mapBudgetError(err); }
     },
     "models.acknowledge": async (_p: ModelsAcknowledgeParams) => {

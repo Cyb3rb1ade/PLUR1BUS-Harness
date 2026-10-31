@@ -90,8 +90,12 @@ describe("policy", () => {
     assert.deepEqual(authorizePeer([{ ...ps[0]!, grants: { bernd: [] } }], a, "task.send", "bernd", AGENTS.bernd), { effect: "deny", reason: "action-not-granted" });
     assert.deepEqual(authorizePeer(ps, a, "task.send", "x", undefined), { effect: "deny", reason: "unknown-agent" });
   });
-  it("the a2a-peer is not a human role: nothing in the RBAC table mentions it", async () => {
+  it("an a2a-peer never becomes a human role or gains peer-management authority", async () => {
     const { POLICY } = await import("../../src/rbac/policy.ts");
-    assert.ok(!JSON.stringify(POLICY).includes("a2a"));
+    const { authorize } = await import("../../src/rbac/authorize.ts");
+    for (const action of POLICY) assert.equal(Object.hasOwn(action.grants, "a2a-peer"), false);
+    const management = POLICY.find(action => action.action === "a2a.peers.manage")!;
+    assert.equal(management.humanOnly, true); assert.deepEqual(Object.keys(management.grants), ["owner"]);
+    assert.equal(authorize({ kind: "agent", role: "owner", userId: "peer" }, management.action, { kind: "system" }).effect, "deny");
   });
 });

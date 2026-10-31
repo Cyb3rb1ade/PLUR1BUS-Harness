@@ -171,7 +171,7 @@ export interface Redactor {
 /** Rule `secret` forms of one registered value (same set as the Rust first-aid redactor): raw, base64 and base64url each with and
  *  without padding, hex in lower and upper case, and URL-encoded. The length check happens before this derivation. Duplicates
  *  (no padding needed, an ASCII value with nothing to encode) are dropped. */
-function secretFormsOf(s: string): string[] {
+export function secretFormsOf(s: string): string[] {
   const buf = Buffer.from(s);
   const std = buf.toString("base64"); const url = buf.toString("base64url");
   const hex = buf.toString("hex");

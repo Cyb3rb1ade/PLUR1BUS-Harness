@@ -233,7 +233,7 @@ export class ToolDispatcher {
       }
 
       // 3. execute under the tool's own hard limits and the caller's abort.
-      const ran = await this.#run(tool, args, ctx, classified);
+      const ran = await this.#run(tool, args, ctx, context, classified);
       if (ran.kind === "timeout") return out(fail("tool-timeout", `${tool.name} exceeded its ${tool.limits.timeoutMs} ms limit`, via, {}, true));
       if (ran.kind === "aborted") return out(fail("aborted", `${tool.name} was aborted`, via, {}, true));
       if (ran.kind === "failed") {
@@ -375,7 +375,7 @@ export class ToolDispatcher {
     return r;
   }
 
-  #run(tool: RegisteredTool, args: unknown, ctx: DispatchContext, classified?: ToolClassification): Promise<
+  #run(tool: RegisteredTool, args: unknown, ctx: DispatchContext, policy: Context, classified?: ToolClassification): Promise<
     { kind: "ok"; value: unknown } | { kind: "timeout" } | { kind: "aborted" }
     | { kind: "failed"; message: string; sourceCode?: string; typedFailure?: TypedToolFailure }
   > {
@@ -387,7 +387,7 @@ export class ToolDispatcher {
       const onAbort = (): void => { finish({ kind: "aborted" }); ac.abort(ctx.signal.reason); };
       const cancel = timers.set(() => { finish({ kind: "timeout" }); ac.abort(new Error("timeout")); }, tool.limits.timeoutMs);
       ctx.signal.addEventListener("abort", onAbort, { once: true });
-      Promise.resolve().then(() => tool.execute(args, { signal: ac.signal, agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), ...(classified ? { classified } : {}) }))
+      Promise.resolve().then(() => tool.execute(args, { signal: ac.signal, agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface, execution: { turnId: ctx.turnId ?? ctx.sessionId ?? '', ...(ctx.taskId ? { taskId: ctx.taskId } : {}), policy }, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), ...(classified ? { classified } : {}) }))
         .then((value) => finish({ kind: "ok", value }), (e: unknown) => {
           const sourceCode = e && typeof e === "object" && "code" in e && typeof e.code === "string"
             && /^[a-z0-9_.-]{1,64}$/.test(e.code) ? e.code : undefined;

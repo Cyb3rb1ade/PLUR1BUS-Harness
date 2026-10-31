@@ -19,6 +19,8 @@ export const systemResolver: Resolver = async (host) => {
 
 export interface AddressPolicy {
   readonly allow: readonly Cidr[];
+  /** Mandatory exclusions win even over an explicit allowance. */
+  readonly deny?: readonly Cidr[];
   /** Optional per-host extra allowance (the egress policy lets only loopback-spelled hosts reach loopback). */
   readonly forHost?: ((host: string) => readonly Cidr[]) | undefined;
 }
@@ -43,6 +45,7 @@ export function formatAddress(a: ParsedAddress): string {
 
 function admit(a: ParsedAddress, policy: AddressPolicy, host: string): ResolvedAddress {
   const c = canonical(a);
+  if (policy.deny?.some(cidr => inCidr(c, cidr))) throw new WebFailure("private-address", "address is excluded");
   const verdict = classifyAddress(c);
   if (!verdict.public && !policy.allow.some((cidr) => inCidr(c, cidr)) && !(policy.forHost?.(host) ?? []).some((cidr) => inCidr(c, cidr))) {
     throw new WebFailure("private-address", `${host} resolves to a non-public address (${verdict.reason})`);

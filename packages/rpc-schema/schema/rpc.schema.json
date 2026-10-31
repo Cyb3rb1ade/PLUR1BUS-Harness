@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://plur1bus.dev/schema/rpc/1.9.0/rpc.schema.json",
-  "title": "PLUR1BUS harness RPC 1.9.0",
+  "$id": "https://plur1bus.dev/schema/rpc/1.12.0/rpc.schema.json",
+  "title": "PLUR1BUS harness RPC 1.12.0",
   "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch.",
-  "x-rpc-version": "1.9.0",
+  "x-rpc-version": "1.12.0",
   "$defs": {
     "EngineContractEngineCapabilitiesData": {
       "title": "EngineContractEngineCapabilitiesData",
@@ -4794,6 +4794,116 @@
           }
         }
       }
+    },
+    "A2APeerId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{0,63}$",
+      "maxLength": 64
+    },
+    "A2AFingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[A-Za-z0-9_-]{43}$",
+      "maxLength": 50
+    },
+    "A2APublicKey": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kty": {
+          "const": "OKP"
+        },
+        "crv": {
+          "const": "Ed25519"
+        },
+        "x": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "maxLength": 43
+        }
+      },
+      "required": [
+        "kty",
+        "crv",
+        "x"
+      ]
+    },
+    "DelegationTargetId": {
+      "description": "Local agent id or an explicitly pinned outbound A2A target. Foreign ids never open local agent stores.",
+      "type": "string",
+      "pattern": "^(?:[a-z0-9][a-z0-9_-]{0,63}|a2a:[a-z][a-z0-9._-]{0,63})$",
+      "maxLength": 68
+    },
+    "A2APeer": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/A2APeerId"
+        },
+        "agentId": {
+          "$ref": "#/$defs/DelegationTargetId"
+        },
+        "cardUrl": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "kid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "fingerprint": {
+          "$ref": "#/$defs/A2AFingerprint"
+        },
+        "state": {
+          "enum": [
+            "pending",
+            "trusted"
+          ]
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "targetKind": {
+          "const": "external"
+        },
+        "origin": {
+          "const": "a2a"
+        },
+        "authenticated": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "updatedAt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endpoint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "id",
+        "agentId",
+        "cardUrl",
+        "kid",
+        "fingerprint",
+        "state",
+        "revision",
+        "targetKind",
+        "origin",
+        "authenticated",
+        "createdAt",
+        "updatedAt"
+      ]
     },
     "AgentId": {
       "type": "string",
@@ -15017,11 +15127,11 @@
             },
             "extensions": {
               "type": "boolean",
-            "description": "Since 1.8.0: an explicit Owner/Admin request to enrol extensions.read and extensions.manage in this person-bound desktop grant; omission or false preserves the initial fixed scopes. Never inferred from role."
+              "description": "Since 1.8.0: an explicit Owner/Admin request to enrol extensions.read and extensions.manage in this person-bound desktop grant; omission or false preserves the initial fixed scopes. Never inferred from role."
             },
             "imports": {
               "type": "boolean",
-            "description": "Since 1.8.0: an explicit Owner/Admin request to enrol imports.read and imports.manage in this person-bound desktop grant. The server uses false when omitted. Never inferred from role or a native upload request."
+              "description": "Since 1.8.0: an explicit Owner/Admin request to enrol imports.read and imports.manage in this person-bound desktop grant. The server uses false when omitted. Never inferred from role or a native upload request."
             }
           },
           "required": [
@@ -16188,6 +16298,141 @@
           "additionalProperties": true
         }
       },
+      "a2a.peer.add": {
+        "description": "Register a pending Ed25519 peer pin. Owner person only; no network or automatic trust.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.12.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/A2APeerId"
+            },
+            "cardUrl": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "kid": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "publicKey": {
+              "$ref": "#/$defs/A2APublicKey"
+            },
+            "credentialSecret": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "id",
+            "cardUrl",
+            "kid",
+            "publicKey"
+          ]
+        },
+        "result": {
+          "$ref": "#/$defs/A2APeer"
+        }
+      },
+      "a2a.peer.list": {
+        "description": "List outbound peer identities and trust states. Owner person only; no credentials or card text.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.12.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {},
+          "required": []
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "peers": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/A2APeer"
+              },
+              "maxItems": 1024
+            }
+          },
+          "required": [
+            "peers"
+          ]
+        }
+      },
+      "a2a.peer.remove": {
+        "description": "Revoke and remove an outbound peer, aborting its in-flight requests. Owner person only.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.12.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/A2APeerId"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/A2APeerId"
+            },
+            "removed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "id",
+            "removed"
+          ]
+        }
+      },
+      "a2a.peer.trust": {
+        "description": "Explicitly approve the pending key fingerprint and revision after signature verification through the network.a2a policy gate. Owner person only.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.12.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/A2APeerId"
+            },
+            "fingerprint": {
+              "$ref": "#/$defs/A2AFingerprint"
+            },
+            "revision": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "id",
+            "fingerprint",
+            "revision"
+          ]
+        },
+        "result": {
+          "$ref": "#/$defs/A2APeer"
+        }
+      },
       "project.agent.add": {
         "description": "Authenticated project agent.add using ADR-007 object rights.",
         "x-server": "core",
@@ -16203,7 +16448,7 @@
               "maxLength": 128
             },
             "agentId": {
-              "$ref": "#/$defs/AgentId"
+              "$ref": "#/$defs/DelegationTargetId"
             }
           },
           "required": [
@@ -16231,7 +16476,7 @@
               "maxLength": 128
             },
             "agentId": {
-              "$ref": "#/$defs/AgentId"
+              "$ref": "#/$defs/DelegationTargetId"
             }
           },
           "required": [
@@ -22624,7 +22869,7 @@
         "x-stability": "experimental",
         "x-since": "1.5.0",
         "x-server": "core",
-        "description": "Usage per period (the current local day and month in the configured time zone) and per agent and model, plus every budget limit with its use and state (M2 L8, ADR-010 §4). Counts and ids only; never prompt content.",
+        "description": "Usage per period (the current local day and month in the configured time zone) and per agent and model, plus every budget limit with its use and state (M2 L8, ADR-010 §4). Counts and ids only; never prompt content. Since 1.11.0, returns the active cacheReadWeight and additive freshInputTokens/countedTokens per period, agent and model. Raw inputTokens still includes cache reads and writes; countedTokens applies the active weight and rounds once per aggregate.",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -22724,6 +22969,18 @@
                         "type": "integer",
                         "minimum": 0,
                         "description": "Seconds of generated video, whole seconds rounded up (media units; absent from an older core)"
+                      },
+                      "freshInputTokens": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "x-since": "1.11.0",
+                        "description": "Fresh input: sum of max(0, inputTokens - cacheReadTokens - cacheWriteTokens) per event. Absent from an older core."
+                      },
+                      "countedTokens": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "x-since": "1.11.0",
+                        "description": "Input plus output with cache reads weighted at cacheReadWeight and capped to each event's input. Rounded up once per aggregate. Absent from an older core."
                       }
                     }
                   },
@@ -22781,6 +23038,18 @@
                               "type": "integer",
                               "minimum": 0,
                               "description": "Seconds of generated video, whole seconds rounded up (media units; absent from an older core)"
+                            },
+                            "freshInputTokens": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "x-since": "1.11.0",
+                              "description": "Fresh input: sum of max(0, inputTokens - cacheReadTokens - cacheWriteTokens) per event. Absent from an older core."
+                            },
+                            "countedTokens": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "x-since": "1.11.0",
+                              "description": "Input plus output with cache reads weighted at cacheReadWeight and capped to each event's input. Rounded up once per aggregate. Absent from an older core."
                             }
                           }
                         },
@@ -22828,6 +23097,18 @@
                               "videoSeconds": {
                                 "type": "integer",
                                 "minimum": 0
+                              },
+                              "freshInputTokens": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "x-since": "1.11.0",
+                                "description": "Fresh input: sum of max(0, inputTokens - cacheReadTokens - cacheWriteTokens) per event. Absent from an older core."
+                              },
+                              "countedTokens": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "x-since": "1.11.0",
+                                "description": "Input plus output with cache reads weighted at cacheReadWeight and capped to each event's input. Rounded up once per aggregate. Absent from an older core."
                               }
                             }
                           }
@@ -22843,6 +23124,13 @@
               "items": {
                 "$ref": "#/$defs/BudgetLimitState"
               }
+            },
+            "cacheReadWeight": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "x-since": "1.11.0",
+              "description": "Active cache-read token weight; absent from a core predating RPC 1.11.0."
             }
           }
         }
@@ -22942,7 +23230,7 @@
         "x-stability": "experimental",
         "x-since": "1.5.0",
         "x-server": "core",
-        "description": "Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are whole numbers in the limit's metric: `tokens` (input + output, output includes reported reasoning tokens), `images` (generated images) or `videoSeconds` (seconds of generated video, rounded up). A media-unit limit gates only media calls that use that unit; there is no money dimension.",
+        "description": "Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Bounds are whole numbers in the limit's metric: `tokens` (input + output, output includes reported reasoning tokens), `images` (generated images) or `videoSeconds` (seconds of generated video, rounded up). A media-unit limit gates only media calls that use that unit; there is no money dimension. Since 1.11.0, also accepts cacheReadWeight (0 to 1, rounded to millionths); omitted settings and limits are preserved. Combined updates are atomic.",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -23003,6 +23291,13 @@
               "minLength": 1,
               "maxLength": 64,
               "description": "An IANA zone name"
+            },
+            "cacheReadWeight": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "x-since": "1.11.0",
+              "description": "Cache-read token weight; default 1 counts reads in full. Stored rounded to millionths. Omission preserves the active setting."
             }
           }
         },
@@ -23026,13 +23321,20 @@
                   "type": "null"
                 }
               ],
-              "description": "The limit as stored after the change; null when it was removed. Absent when only the time zone changed."
+              "description": "The limit as stored after the change; null when it was removed. Absent when no limit was supplied."
             },
             "limits": {
               "type": "array",
               "items": {
                 "$ref": "#/$defs/BudgetLimit"
               }
+            },
+            "cacheReadWeight": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "x-since": "1.11.0",
+              "description": "Active cache-read token weight; absent from a core predating RPC 1.11.0."
             }
           }
         }
