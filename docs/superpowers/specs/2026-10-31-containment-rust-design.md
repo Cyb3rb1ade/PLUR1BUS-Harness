@@ -1,7 +1,9 @@
 # External-agent containment in Rust (`plur1bus-sandbox`) — design
 
-**Status:** Specification only, no product code. Owner questions open (§13). The plan starts after PR #820 is merged ·
-**Date:** 2026-10-31 · **Owner:** Christian (Cyb3rb1ade) · **Register entry:** **D123** (proposed, Q1) in the core
+**Status:** Decided 2026-11-01 (owner, "Specs nach Deinen Vorschlägen": Q1–Q11 decided as recommended, Q9 on the
+corrected premise, §13). Specification only, no product code. The plan starts after PR #820 is merged ·
+**Date:** 2026-10-31 (decisions recorded 2026-11-01) · **Owner:** Christian (Cyb3rb1ade) · **Register entry:** **D123**
+(decided 2026-11-01, Q1) in the core
 spec's register ([`2026-09-24-m1b-2a-core-daemon-cli-design.md`](2026-09-24-m1b-2a-core-daemon-cli-design.md) §2). D120
 is on main; D121 is used by open PR #840 (`agy/j-profile-import-spec`) and D122 by open PR #845
 (`docs/apple-foundation-models`); main, every remote branch and every local branch were checked on 2026-10-31 and none
@@ -49,7 +51,7 @@ On both: `waitpid` and signals on process groups. On Windows: Job Objects. Today
 | Terminal | `containedTerminal`: absolute, NUL-free argv, no shell. A hardlink scan runs first. **macOS:** `/usr/bin/sandbox-exec -p` with `(allow default)(deny file-link)`, optional `(deny network*)`, writes denied outside the worktree except `/dev/null`, writes denied to home and `gitDenyPaths`. **Linux:** `/usr/bin/bwrap --die-with-parent --unshare-all [--share-net]`, read-only binds of `/usr /bin /lib /lib64 /etc` and the Node directory, the worktree bound writable, denies bound read-only. **Windows:** refused |
 | Kill and limits | `spawn` with `detached`, then `process.kill(-pid)`: SIGTERM, SIGKILL after 100 ms. Timeout 30 s. Each stream is capped at 64 KiB; reaching the cap kills the group, and the result stays `ok: true` with the output truncated |
 | Environment | `childEnv`: `PATH`, `LANG`, `LC_ALL`, `TERM`, `TMPDIR`, `HOME` |
-| Agent process | `launchExternalAgent`: absolute argv, shell basenames refused, scrubbed env, own process group, 600 s timeout, abort. **No OS sandbox at this commit** (U7) |
+| Agent process | `launchExternalAgent`: absolute argv, shell basenames refused, scrubbed env, own process group, 600 s timeout, abort. **No OS sandbox at this commit**; resolved from #820 head `42ced5f7` on (U7) |
 | Refusals | `sandbox-unavailable \| argv \| timeout \| aborted \| spawn-failed \| hardlink-in-worktree` |
 | Watchdog | Not in pushed code. Per the brief: a watchdog per terminal and process group enforces task and RSS limits, including on the streaming path, and the macOS watchdog reports `task-limit-exceeded` with exit 121 (U1) |
 
@@ -63,6 +65,15 @@ moves only M6-B.
 because XNU's `proc_find` skips zombies. On Linux under bwrap, a zombie holds its `RLIMIT_NPROC` slot, and the next fork
 gets EAGAIN, which the program may handle and then exit 0. The owner decided on 2026-10-31: the Linux tests prove the
 kernel property, macOS keeps checking `task-limit-exceeded`, and a typed Linux report through cgroup v2 is a follow-up.
+
+**Re-check at #820 `dbdb6202c9` (2026-11-01).** The table above is the `fd26fd2383` snapshot. #820's branch has since
+gained the ACP containment line (`1e0f9dc4`, merged by `e9df719f`): `containedTerminal` and `launchExternalAgent` both run
+through the shared sandbox (`containment.ts:213` → `launcher.ts:118` → `backendArgv` and `seatbeltProfile` in
+`packages/core/src/tools/sandbox/backends.ts`), and `seatbelt()` and `bwrapArgv()` of `containment.ts` no longer exist
+(`backendArgv` already passes `--new-session --cap-drop ALL`, `backends.ts:121`). Re-verified against that head: U7
+(§14) and Q9 (§13). **Not re-verified, to be re-checked by SB-1 against merged #820:** the Terminal, Kill and limits,
+Watchdog and Refusals rows above, §4.1, the Linux paragraph of §5, the `(allow default)` remarks in §3.3 and §11, §12
+and U1.
 
 ## 3. Placement and process topology
 
@@ -171,12 +182,14 @@ There are no new RPC error codes (D120 constraint).
 
 ## 5. Backends
 
-**macOS: Seatbelt.** The Rust profile is built from the same inputs as #820's `seatbelt()`: the worktree's realpath; a
-deny list of home (unless home contains the worktree) plus `gitDenyPaths`; and the network flag. Paths are quoted with
-`serde_json`, matching `JSON.stringify`. A golden test requires byte-identical output to the TypeScript profile for a
-fixture tree, until SB-6 deletes the TypeScript copy. Q9 adds read denies for D106's credential list. The program is
-always the absolute `/usr/bin/sandbox-exec -p`. The keeper starts it with `posix_spawn` using `POSIX_SPAWN_SETPGROUP` and
-`POSIX_SPAWN_CLOEXEC_DEFAULT`, so only fds 0–2 are inherited.
+**macOS: Seatbelt.** The Rust profile reproduces #820's `seatbeltProfile(p)`
+(`packages/core/src/tools/sandbox/backends.ts`, lines 52–67 at `dbdb6202c9`) from the same prepared policy: `(deny default)`; `file-read*` only under the runtime roots,
+the read roots, the write roots and the ACP scratch, plus `file-read-metadata` everywhere; `file-write*` only under the
+write roots (and `/dev/null`); the network flag; and the credential deny entries, which win over every allow. Paths are
+quoted with `serde_json`, matching `JSON.stringify`. A golden test requires byte-identical output to the TypeScript
+profile for a fixture tree, until SB-6 deletes the TypeScript copy; it carries #820's read restriction over unchanged
+(Q9). The program is always the absolute `/usr/bin/sandbox-exec -p`. The keeper starts it with `posix_spawn` using
+`POSIX_SPAWN_SETPGROUP` and `POSIX_SPAWN_CLOEXEC_DEFAULT`, so only fds 0–2 are inherited.
 
 **Linux: bubblewrap, with optional cgroup v2.**
 - **argv.** The bwrap argv is generated as #820's `bwrapArgv` builds it today and golden-tested against it. It also gets
@@ -288,7 +301,7 @@ gone" is asserted through `waitpid`, pidfd or kqueue events, not through polling
 | Escaping the kill (`setsid`, double fork) | Linux PID namespace; macOS group ∪ tree ∪ seen set with start times | macOS: an orphan that runs `setsid` and detaches between two samples (U4) |
 | Orphans after a crash | Lifeline EOF, `NOTE_EXIT`, `PDEATHSIG`; journal sweep; `KILL_ON_JOB_CLOSE` | macOS: if keeper and tools die together, until the tools restart sweeps |
 | Leak through env, fds, argv or logs | Allowlist plus loader denylist; fds closed; no secrets in tools; logs hold ids and counts | The agent's own argv is untrusted by definition |
-| Credential reads from a terminal (macOS) | Q9: read denies for D106's credential list | If Q9 is declined, as readable as in #820 (Linux binds no home) |
+| Credential reads from a terminal (macOS) | #820's `(deny default)` Seatbelt profile: contents readable only under the runtime, read and write roots and the ACP scratch, plus its credential deny entries; carried over unchanged (Q9, golden test) | `file-read-metadata` is allowed everywhere (names, sizes); Linux binds no home |
 | Network exfiltration | `(deny network*)` or no `--share-net`, unless the agent's network is on | With network on, access is unrestricted; there is no egress proxy |
 | A caller other than the core | Core-only guard (`E_DENIED`); HMAC ticket bound to the action hash | Same-OS-user boundary |
 | Untrusted output | Bounded buffers, base64 bytes, the taint rule, redaction in the core before persistence | — |
@@ -341,21 +354,25 @@ outside `ci-gate`; making it gating is a separate decision.
 - The launcher moves into the new crate under its existing name; the run journal and its start-time-checked sweep.
 - The method names, profile names and audit names in §4 and §8.
 
-## 13. Owner questions
+## 13. Owner decisions (decided 2026-11-01)
 
-| # | Question | Options | Recommendation |
+The owner decided every question as recommended on 2026-11-01 ("Specs nach Deinen Vorschlägen"). The answers are
+binding for the plan. Q9 is recorded on a corrected premise: the recommendation to deny credential reads is met by
+#820's existing read restriction, so the decision is to keep that restriction rather than add one.
+
+| # | Question | Options considered | Decision |
 |---|---|---|---|
-| Q1 | Register entry | **D123**; fold into D120 (P4) | **D123.** It is free, and this is a decision of its own that comes before P4 step 2 |
-| Q2 | Crate shape | (a) a new `plur1bus-sandbox` crate (library plus the keeper binary) with all `unsafe` in it; (b) inside `plur1bus-tools` with an `unsafe` exception | **(a).** `plur1bus-tools` stays `forbid(unsafe_code)`, and the launcher already lives in its own binary |
-| Q3 | `plur1bus-tools`' own OS profile on macOS, given that nested Seatbelt fails (§3.3) | (a) no Seatbelt profile for `plur1bus-tools` on macOS (the core runs without one today too); least privilege through the core-only guard, the T1 ticket and the typestate; Linux keeps a profile only if nested bwrap works (U5); (b) a separate supervised sandbox-host process without a profile, while `plur1bus-tools` keeps its profile | **(a)** for v1. It amends D120 §17 for macOS. Choose (b) if §17 must hold as written |
-| Q4 | Topology | a keeper process per run; or tools as the direct parent plus the journal sweep | **Keeper.** It is the only design where macOS survives a tools crash without leaving orphans |
-| Q5 | v1 scope | M6-B only; also the verifier and C4; also `exec.run` | **M6-B only.** Verifier and C4 in SB-8, `exec.run` in P4 step 2, D119 not at all |
-| Q6 | Windows | in v1; later | **Later** (SB-W, 5 agent days), failing closed until then |
-| Q7 | Side-by-side period | none; a test-only env switch during SB-5; a user config key | **Test-only switch**, removed in SB-6. #820 has no released installs (assumed, U11) |
-| Q8 | Tools service down after SB-6 | fail closed (`sandbox-unavailable`); fall back to TypeScript | **Fail closed.** Running untrusted code on a weaker path is worse than refusing it |
-| Q9 | macOS terminal reads | keep #820's behaviour (reads allowed everywhere); deny reads of D106's credential list | **Deny.** The `fs/*` calls already refuse the same list, and the gate is unaffected |
-| Q10 | Linux with cgroup v2 (SB-7) when `pids.events` reports `max` | abort with `task-limit-exceeded`; report a flag only | **Abort.** One typed outcome on both platforms |
-| Q11 | H1-1 sits behind the B1 gate in the D120 plan | wait; pull H1-1 (skeleton only) ahead of B1; an interim path where TypeScript calls the keeper directly | **Pull H1-1 forward.** It changes no measured behaviour and avoids a second migration |
+| Q1 | Register entry | **D123**; fold into D120 (P4) | **Decided 2026-11-01:** **D123.** It is free, and this is a decision of its own that comes before P4 step 2 |
+| Q2 | Crate shape | (a) a new `plur1bus-sandbox` crate (library plus the keeper binary) with all `unsafe` in it; (b) inside `plur1bus-tools` with an `unsafe` exception | **Decided 2026-11-01:** **(a).** `plur1bus-tools` stays `forbid(unsafe_code)`, and the launcher already lives in its own binary |
+| Q3 | `plur1bus-tools`' own OS profile on macOS, given that nested Seatbelt fails (§3.3) | (a) no Seatbelt profile for `plur1bus-tools` on macOS (the core runs without one today too); least privilege through the core-only guard, the T1 ticket and the typestate; Linux keeps a profile only if nested bwrap works (U5); (b) a separate supervised sandbox-host process without a profile, while `plur1bus-tools` keeps its profile | **Decided 2026-11-01:** **(a)** for v1. It amends D120 §17 for macOS. |
+| Q4 | Topology | a keeper process per run; or tools as the direct parent plus the journal sweep | **Decided 2026-11-01:** **Keeper.** It is the only design where macOS survives a tools crash without leaving orphans |
+| Q5 | v1 scope | M6-B only; also the verifier and C4; also `exec.run` | **Decided 2026-11-01:** **M6-B only.** Verifier and C4 in SB-8, `exec.run` in P4 step 2, D119 not at all |
+| Q6 | Windows | in v1; later | **Decided 2026-11-01:** **Later** (SB-W, 5 agent days), failing closed until then |
+| Q7 | Side-by-side period | none; a test-only env switch during SB-5; a user config key | **Decided 2026-11-01:** **Test-only switch**, removed in SB-6. #820 has no released installs (assumed, U11) |
+| Q8 | Tools service down after SB-6 | fail closed (`sandbox-unavailable`); fall back to TypeScript | **Decided 2026-11-01:** **Fail closed.** Running untrusted code on a weaker path is worse than refusing it |
+| Q9 | macOS terminal reads | keep #820's behaviour (reads allowed everywhere); deny reads of D106's credential list (the premise of the first option was wrong, see the decision) | **Decided 2026-11-01:** **Keep #820's read restriction.** The Rust port carries `seatbeltProfile` over unchanged, checked by the golden test (§5); no read denies are added. Correction: the first draft assumed that #820's Seatbelt profile allows reads everywhere, but at `dbdb6202c9` it is `(deny default)` with `file-read*` only for the runtime roots, read roots, write roots and ACP scratch, `file-read-metadata` globally and a credential deny list (`backends.ts:52–67`, reached by `containedTerminal` through `launchExternalAgent`), so the restriction already exists. |
+| Q10 | Linux with cgroup v2 (SB-7) when `pids.events` reports `max` | abort with `task-limit-exceeded`; report a flag only | **Decided 2026-11-01:** **Abort.** One typed outcome on both platforms |
+| Q11 | H1-1 sits behind the B1 gate in the D120 plan | wait; pull H1-1 (skeleton only) ahead of B1; an interim path where TypeScript calls the keeper directly | **Decided 2026-11-01:** **Pull H1-1 forward.** It changes no measured behaviour and avoids a second migration. D124 (parallel agent teams, decided 2026-11-01) also depends on H1-1. |
 
 ## 14. Unknowns
 
@@ -367,7 +384,7 @@ outside `ci-gate`; making it gating is a separate decision.
 | U4 | Whether a `setsid` escape on macOS can be detected or denied; no known Seatbelt operation for it | SB-1's `setsid-escape` fixture records the result |
 | U5 | Nested bwrap inside a bwrap-confined `plur1bus-tools` | Matters only if Q3 keeps a Linux profile; measured in SB-4 |
 | U6 | Push notifications on the tools connection (H1-1 is not built) | v1 pulls |
-| U7 | Whether #820's final launcher runs the agent process itself in the sandbox. At `fd26fd2383` it does not, yet ADR-011 and the spike say "the agent runs inside" | Decides the `agent-process` profile (network, the agent CLI's config directory); SB-3 |
+| U7 | **Resolved (2026-11-01, verified at #820 `dbdb6202c9`).** Whether #820's final launcher runs the agent process itself in the sandbox: it does. `launchExternalAgent` (`packages/core/src/external-agents/launcher.ts`) wraps the agent program itself with `backendArgv` into Seatbelt or bwrap (`:118`), with the worktree as the only write root (`:101`, only when a mount is given), the git directories read-only (`policy.ts:106–107`; bwrap `--ro-bind`, `backends.ts:126`) and `network: "none"` (`:103`). Probes (`--version`, `discovery.ts:106`) run sandboxed with `writeRoots: []`, and a non-probe launch without a mount fails with `sandbox-unavailable` (`:84`). The unsandboxed state, a plain `spawn(o.argv[0]…)` (`launcher.ts:44`), existed at `fd26fd2383` only. The resolved behaviour is tested by `containment.test.ts:101` ("the agent process itself confines direct filesystem and TCP access"). Consistent with ADR-011 and the spike ("the agent runs inside") | Resolved. SB-3 ports the `agent-process` profile as built at `dbdb6202c9`, and SB-1 re-checks it against merged #820 |
 | U8 | Windows: whether git and toolchains run under AppContainer; job memory is committed memory, not RSS | SB-W spike |
 | U9 | Whether cgroup v2 delegation exists for `daemon start` (no `Delegate=`); the no-internal-process rule | SB-7 probe |
 | U10 | Whether GitHub's `macos-15` runners behave like the measurements on macOS 27.2 (nesting, zombies) | SB-1 on CI |

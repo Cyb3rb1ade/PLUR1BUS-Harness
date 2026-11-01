@@ -4,14 +4,15 @@
 the `plur1bus-tools` module and called by the core over `tools.sandbox.*`. The TypeScript interface and the reason codes
 stay as they are, and #820's suites are the acceptance gate. Specified in
 [`2026-10-31-containment-rust-design.md`](../specs/2026-10-31-containment-rust-design.md), cited as "spec §n"; register
-entry D123, proposed (Q1).
+entry D123, decided 2026-11-01 (Q1).
 
 **Architecture.** A keeper process per run (`plur1bus-sandbox-limits keep`), started by `plur1bus-tools`, is the parent
 and reaper of the Seatbelt or bwrap process and runs the watchdog (spec §3, §6). `plur1bus-tools` stays
 `forbid(unsafe_code)`; all `unsafe` lives in `plur1bus-sandbox` (spec §3.1).
 
-**Status.** Plan only. **It starts after PR #820 is merged.** It needs D120 H1-1 (the `plur1bus-tools` skeleton) from
-SB-4 on (Q11). Owner questions Q1–Q11 are in spec §13.
+**Status.** Decided 2026-11-01 (owner, "Specs nach Deinen Vorschlägen"); plan only. **It starts after PR #820 is
+merged.** It needs D120 H1-1 (the `plur1bus-tools` skeleton) from SB-4 on; Q11 pulls H1-1 ahead of the B1 benchmark gate
+(decided 2026-11-01). Owner decisions Q1–Q11 are in spec §13; Q9 keeps #820's read restriction.
 
 **Constraints.**
 - **RPC.** JSON Schema is the single source: closed params, `x-server: "tools"`, `x-stability: "experimental"`, `x-since`
@@ -30,7 +31,7 @@ SB-4 on (Q11). Owner questions Q1–Q11 are in spec §13.
 |---|---|---|---|---|---|---|
 | **SB-1** | New crate; the launcher moves in under its name; `keep` mode: lifeline fd, `NOTE_EXIT`, `posix_spawn` with its own pgid, status records on fd 3; macOS watchdog (conservative count, RSS sum, `NOTE_FORK` plus 100 ms sweep, escalation, wait until the group is empty); the `sbx-fixture` binary; U2, U4 and U10 measured | `crates/plur1bus-sandbox/{Cargo.toml,src/{lib,keeper,watchdog,status}.rs,src/sys/macos.rs,src/bin/plur1bus-sandbox-limits.rs,tests/}`; `crates/plur1bus/Cargo.toml` (bin removed); the `sandbox` job in `ci.yml` (build line); release payload path if it names the crate | Rust | Claude agent | 2.5 | #820 merged |
 | **SB-2** | Linux keeper: `PR_SET_PDEATHSIG` plus the `getppid` check, pidfd wait and signal with a fallback, PID-namespace enumeration, `statm` RSS, D106's inner `--tasks` step; kernel-property tests (U3) | `src/sys/linux.rs`, `tests/linux_*.rs` | Rust | Claude agent | 1.5 | SB-1 |
-| **SB-3** | Policy model; Seatbelt profile and bwrap argv generation, golden-tested against #820's output; `childEnv` port plus the loader denylist; argv validation; realpaths, `gitDenyPaths`, hardlink scan; Q9 read denies; the `agent-process` profile (U7) | `src/{policy,profile,argv,env,scan}.rs`, `tests/golden/` | Rust | Claude agent | 1.5 | SB-1 (in parallel with SB-2) |
+| **SB-3** | Policy model; Seatbelt profile and bwrap argv generation, golden-tested against #820's output; `childEnv` port plus the loader denylist; argv validation; realpaths, `gitDenyPaths`, hardlink scan; #820's macOS read restriction ported unchanged (Q9, golden test); the `agent-process` profile as `launchExternalAgent` builds it (U7 resolved) | `src/{policy,profile,argv,env,scan}.rs`, `tests/golden/` | Rust | Claude agent | 1.5 | SB-1 (in parallel with SB-2) |
 | **SB-4** | `tools.sandbox.{run,spawn,write,read,cancel,status,probe}` in the schema, with fixtures; handlers in `plur1bus-tools`: run table, bounded head and tail buffers, T1 ticket check, run journal and its sweep, probe; U5 if Q3 keeps a Linux profile | `packages/rpc-schema/schema/rpc.schema.json`, `packages/rpc-schema/fixtures/methods/tools.sandbox.*.json`, `crates/plur1bus-tools/src/sandbox/`, `docs/errors.md`, generated `docs/rpc.md` | Rust and schema | Claude agent | 1.5 | H1-1, SB-2, SB-3 |
 | **SB-5** | `containedTerminal` and `launchExternalAgent` become thin RPC clients behind the same signatures; the test-only `PLUR1BUS_CONTAINMENT` switch; the gate on both backends; Doctor row `tools.sandbox.containment`; audit events (spec §8) | `packages/core/src/external-agents/{containment,launcher,delegation}.ts`, `packages/core/src/composition/external-agents.ts`, `packages/core/src/doctor-report.ts`, `packages/log-schema/schema/catalogue.json`, test runner env | TypeScript | Claude agent | 1.5 | SB-4 |
 | **SB-6** | Parity cut: delete the TypeScript spawn, kill and watchdog code and the switch; enter D123; update `docs/agent-isolation.md`, `docs/security.md`, `docs/host-tools.md` and ADR-011 | the files above, plus the register in `2026-09-24-m1b-2a-core-daemon-cli-design.md` §2 | TypeScript and docs | Claude agent | 0.5 | SB-5 green on macOS and Linux |
@@ -96,11 +97,15 @@ a backend argv, so its tests run against `sandbox-exec -p '(version 1)(allow def
 
 ## SB-3 — Policy, profiles, pre-launch checks (1.5 agent days)
 
-Port `seatbelt()`, `bwrapArgv()`, `childEnv()`, `gitDenyPaths()`, `blocksWorktree()` and `findHardlink()` from #820.
+Port `seatbelt()`, `bwrapArgv()`, `childEnv()`, `gitDenyPaths()`, `blocksWorktree()` and `findHardlink()` from #820. (At
+`dbdb6202c9` the profile and argv builders are `seatbeltProfile()` and `backendArgv()` in
+`packages/core/src/tools/sandbox/backends.ts`; `seatbelt()` and `bwrapArgv()` no longer exist. Port from merged #820.)
 - **Golden fixtures.** A script runs the TypeScript functions on a fixture worktree and commits their output; the Rust
   tests compare byte for byte.
-- **Additions:** D106's loader denylist, `--new-session --cap-drop ALL` for bwrap, the Q9 read denies (behind the owner's
-  answer), and the `agent-process` profile once U7 is known from merged #820.
+- **Additions:** D106's loader denylist, and the `agent-process` profile as `launchExternalAgent` builds it at `dbdb6202c9`
+  (U7 resolved: #820 sandboxes the agent process itself). `--new-session --cap-drop ALL` is already in #820's
+  `backendArgv`. No new macOS read denies (Q9): #820's `(deny default)` read restriction and credential deny entries are
+  ported unchanged, and the golden test covers them.
 - **Acceptance:** golden tests are green, and every #820 refusal case has a Rust unit test.
 
 ## SB-4 — RPC surface in `plur1bus-tools` (1.5 agent days)
