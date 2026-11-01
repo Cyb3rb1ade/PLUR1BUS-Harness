@@ -15,6 +15,8 @@ import { createSwitchboard, type ChannelBinding, type ConfigPort, type SecretsPo
 import type { ChannelLogger } from "./types.ts";
 
 export interface CoreHostDeps {
+  /** Trusted upload service shared with media composition; authorizes the selected session agent before storage. */
+  ingestAttachments?: import("./switchboard.ts").SwitchboardOptions["ingestAttachments"];
   command?: import("./router.ts").RouterDeps["command"];
   observed?: import("./router.ts").RouterDeps["observed"];
   layout: Layout;
@@ -62,6 +64,7 @@ export function openChannelSwitchboard(d: CoreHostDeps): Switchboard {
   let outputs: OutputStore | null = null;
   return createSwitchboard({
     config: d.config,
+    ...(d.ingestAttachments ? { ingestAttachments: d.ingestAttachments } : {}),
     ...(d.observed ? { observed: d.observed } : {}),
     ...(d.command ? { command: d.command } : {}),
     secrets: channelSecrets(d.secrets),

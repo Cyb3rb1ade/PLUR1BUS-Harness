@@ -4,6 +4,11 @@ import type { Clock } from "./clock.ts";
 import type { ChannelLogger, IdentityPort, InboundMessage, OutboundMessage, SenderRef, SessionPort } from "./types.ts";
 
 export const MAX_TEXT = 65_536;
+/** Framework bounds apply in addition to each adapter's existing, possibly tighter limits. */
+export const MAX_ATTACHMENTS = 10;
+export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+const ATTACHMENT_KINDS = new Set(["photo", "document", "voice", "audio", "video", "image", "file"]);
+const ATTACHMENT_MIME = /^(image\/(jpeg|png|webp|gif)|audio\/(ogg|mpeg|mp4|wav|x-wav|flac|webm)|video\/(mp4|webm)|application\/(pdf|json|zip|octet-stream)|text\/plain)$/;
 /** Messages of one chat waiting behind a running turn; the next ones are dropped (a flood must not queue without bound). */
 export const MAX_PENDING_PER_CHAT = 20;
 const MAX_ID = 256;
@@ -22,9 +27,15 @@ export const NOT_PAIRED_TEXT = "This account is not paired yet. Ask the owner fo
 export const PAIRED_TEXT = (pairingId: string) =>
   `Pairing claimed. Pairing ID: ${pairingId}. Confirm this link in My identities. Run: plur1bus identity approve ${pairingId}`;
 export const NEW_SESSION_TEXT = "Started a new session.";
+export const UPLOADED_TEXT = "Attachments received.";
 export const FAILED_TEXT = "Sorry, that did not work. Please try again.";
 
+/** Authenticated ingress, after the session has been selected; must resolve after private publication only. */
+export interface AttachmentIngressInput { message: InboundMessage; sessionId: string; humanId: string }
+
 export interface RouterDeps {
+  /** Absent means attachments are unavailable. Do not await captioning or embedding here. */
+  ingestAttachments?: (input: AttachmentIngressInput) => Promise<void>;
   identity: IdentityPort; sessions: SessionPort; clock: Clock; log: ChannelLogger;
   /** Applied to every error text before it is logged (the host masks secret values here). */
   redact?: (text: string) => string;
@@ -126,6 +137,11 @@ export class ChannelRouter {
       // A group is one shared conversation (anyone in the room continues it), so there the owner is not compared.
       const forOwner = msg.chatKind === "direct" ? { userId } : undefined;
       const sessionId = (await this.#d.sessions.findActive(chat, forOwner)) ?? (await this.#d.sessions.create(chat, { userId }));
+      if (msg.attachments?.length) {
+        if (!this.#d.ingestAttachments) throw new Error("channel attachment ingestion unavailable");
+        await this.#d.ingestAttachments({ message: msg, sessionId, humanId: userId });
+        if (!msg.text.trim()) { await this.#reply(send, msg, clipReply(UPLOADED_TEXT, profile.rateLimits.maxReplyChars)); return; }
+      }
       this.#d.observed?.(msg, userId, sessionId);
       const out = await channelOrigin.run({ ...chat, ...(msg.accountId ? { accountId: msg.accountId } : {}), senderId: msg.senderId, humanId: userId, chatKind: msg.chatKind }, () => channelBehaviour.run(profile, () => this.#d.sessions.submit(sessionId, { userId, text: msg.text })));
       await this.#reply(send, msg, clipReply(out.text, profile.rateLimits.maxReplyChars));
@@ -172,7 +188,27 @@ function valid(m: InboundMessage): boolean {
   const id = (s: unknown) => typeof s === "string" && s.length > 0 && s.length <= MAX_ID;
   return !!m && id(m.channel) && id(m.chatId) && id(m.senderId)
     && (m.chatKind === "direct" || m.chatKind === "group" || m.chatKind === "broadcast")
-    && typeof m.text === "string" && m.text.trim().length > 0 && m.text.length <= MAX_TEXT;
+    && typeof m.text === "string" && m.text.length <= MAX_TEXT && validAttachments(m.attachments)
+    && (m.text.trim().length > 0 || (m.attachments?.length ?? 0) > 0);
+}
+
+/** Validate the common transport envelope; the upload service independently verifies MIME against magic bytes. */
+function validAttachments(attachments: InboundMessage["attachments"]): boolean {
+  if (attachments === undefined) return true;
+  if (!Array.isArray(attachments) || attachments.length > MAX_ATTACHMENTS) return false;
+  let bytes = 0;
+  for (const a of attachments) {
+    if (!a || !ATTACHMENT_KINDS.has(a.kind) || !(a.data instanceof Uint8Array) || a.data.byteLength === 0
+      || typeof a.mimeType !== "string" || !ATTACHMENT_MIME.test(a.mimeType)
+      || (a.filename !== undefined && (typeof a.filename !== "string" || a.filename.length > 1024))
+      || (a.sizeBytes !== undefined && (!Number.isSafeInteger(a.sizeBytes) || a.sizeBytes !== a.data.byteLength))) return false;
+    if (((a.kind === "photo" || a.kind === "image") && !a.mimeType.startsWith("image/"))
+      || ((a.kind === "voice" || a.kind === "audio") && !a.mimeType.startsWith("audio/"))
+      || (a.kind === "video" && !a.mimeType.startsWith("video/"))) return false;
+    bytes += a.data.byteLength;
+    if (bytes > MAX_ATTACHMENT_BYTES) return false;
+  }
+  return true;
 }
 
 function errText(e: unknown): string { return e instanceof Error ? e.message : String(e); }
