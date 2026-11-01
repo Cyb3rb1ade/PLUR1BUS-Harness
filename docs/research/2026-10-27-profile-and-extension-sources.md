@@ -230,11 +230,11 @@ flowchart TD
 ### 3.2 Export Archive Sources (Takeout, Anthropic Account Export)
 - **Feasibility**: Supported via the Web wizard archive dropzone and CLI `--archive`.
 - **Hardened Archive Intake**:
-  - Full-archive audit upfront: `zipaudit::audit` audits and hashes the whole archive before extraction, enforcing caps.
-  - Enforce a strict 100:1 maximum decompression ratio ceiling (matching `zipaudit`) to neutralize zip-bomb attacks while admitting valid sparse JSON exports.
-  - Enforce a 10 MiB maximum decompressed file size per single entry and a 100 MiB total limit for the entire archive (matching `zipaudit` limits). Archives exceeding limits are refused with typed error `download-too-large` (`E_INVALID_PARAMS`); operators must pre-filter or unpack extensive multi-gigabyte dumps prior to intake.
+  - Full-archive audit upfront: for `.zip` archives, `zipaudit::audit_zip` audits and hashes the archive before extraction, enforcing custom `Limits`.
+  - Enforce a strict 100:1 maximum decompression ratio ceiling (`max_ratio: 100`, matching `zipaudit` default) to neutralize zip-bomb attacks while admitting valid sparse JSON exports.
+  - Enforce a 10 MiB maximum decompressed file size per single entry (`entry_bytes: 10 * 1024 * 1024`) and a 100 MiB total limit for the entire uncompressed archive (`package_bytes: 100 * 1024 * 1024`), with max entries 20,000 (`max_entries: 20_000`, matching `zipaudit` default). Note that `Limits::default()` on main specifies 256 MiB / 128 MiB; the 100 MiB total and 10 MiB entry caps are custom `Limits` specified for profile intake. Archives exceeding limits are refused with typed error `download-too-large` (`E_INVALID_PARAMS`); operators must pre-filter or unpack extensive multi-gigabyte dumps prior to intake.
   - Disallow symlinks, hardlinks, absolute paths, and directory traversal (`..`) with typed error `archive-unsafe-entry`, and disallow ZIP64 with `archive-unsupported`.
-  - Selective extraction of allowlisted named entries occurs only after the full audit passes, supporting standard 32-bit `.zip` (reusing `zipaudit` from `crates/plur1bus-ext`) and `.tar.gz`. Dependencies on existing workspace crates (`tar`, `flate2`, `zip`) conform to workspace dependency policy.
+  - Upfront audit is strictly supported for standard 32-bit `.zip` (reusing `zipaudit` from `crates/plur1bus-ext`); `.tar.gz` archive intake is planned as a bounded streaming auditor in P-J2a enforcing the same caps. Selective extraction of allowlisted named entries occurs only after the audit passes. Dependencies on existing workspace crates (`tar`, `flate2`, `zip`) conform to workspace dependency policy.
   - Implemented in Rust under `plur1bus-tools` by a Claude agent per D120 / ADR-019 (1), called over harness RPC.
 
 ### 3.3 Interactive User Paste Sources (ChatGPT, Grok, Claude Web)
@@ -242,7 +242,7 @@ flowchart TD
 - **Integration**: Reuses canonical prompt export text (`packages/core/src/import/prompt/export-prompt.md`) and the tolerant parser (`parseMemoryExport`).
 - **Safety**: Input is treated as untrusted external text. In v1, instructions are presented in preview and report as `instructions-not-imported` per Paket O to prevent unconfirmed prompt injection; user confirmation is strictly mandatory. Memory cards default to `vertraulich` confidentiality (D116 (6)).
 
-### 3.4 Single Canonical Read vs. Never-Read Boundary Table (N2)
+### 3.4 Single Canonical Read vs. Never-Read Boundary Table
 
 | Source | Target Category | Exactly What is READ | Exactly What is NEVER READ (Strictly Banned) |
 |---|---|---|---|

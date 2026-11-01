@@ -675,6 +675,23 @@ Rollback takes the same lock, verifies the snapshot hashes and the ledger, then 
 
 Per run: `<home>/imports/<runId>/report.json` (apply only), `ledger.jsonl` (one line per mutation with its idempotency key) and the human rendering printed to the terminal. None of them contains secret values, token strings, memory or message content, or plain channel ids (counts and 8-hex fingerprints instead). §11 names the tests that enforce this.
 
+Under P-J4a, apply `report.json` receives an additive, versioned `plugins` field for discovered foreign plugins:
+```json
+"plugins": {
+  "version": 1,
+  "detected": [
+    {
+      "source": "openclaw",
+      "id": "example-plugin",
+      "classification": "native-equivalent",
+      "reason": "native-equivalent-available",
+      "equivalent": "fs.read"
+    }
+  ]
+}
+```
+Local demand counting across apply reports (`plur1bus import export-demand`) aggregates these entries idempotently across `<home>/imports/*/report.json`. Runs containing `<home>/imports/<runId>/rolled-back/status.json` or marked with status `rolled-back` in the ledger are strictly excluded from demand counting.
+
 ### 10.6 Identity backfill (CLI)
 
 ```bash

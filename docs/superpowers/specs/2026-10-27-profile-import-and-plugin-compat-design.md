@@ -59,7 +59,7 @@ PLUR1BUS structures agent cognition and runtime configuration through explicit a
 When importing resources into an agent that already contains configured guidelines or skills, conflicting entries can arise.
 
 > [!IMPORTANT]
-> **Strict Rule: No Silent Concatenation & Zone 2 Safety (N1).**
+> **Strict Rule: No Silent Concatenation & Zone 2 Safety.**
 > Concatenating opposing instructions pollutes Zone 2 of the system prompt, confuses model reasoning, and degrades prompt cache performance. In v1 under D121-J3 Option A:
 > - `--conflict` (`skip | rename | replace`, default `skip`) and the conflict resolution screen apply **only to skills, MCP server entries, and memory cards**.
 > - Foreign persona definitions, identity statements, and operating instructions are **never automatically written, renamed, replaced, or concatenated into Zone 2 (`SOUL.md`, `IDENTITY.md`, or `AGENTS.md`)** without operator preview (in v1, `SOUL.md` and `AGENTS.md` are never written automatically, even with preview, but presented read-only with copy-out per Paket O; `IDENTITY.md` is only updated with verified facts explicitly confirmed by the operator in preview).
@@ -85,8 +85,8 @@ flowchart TD
 2. **Deterministic Overlap Detection**: Components with overlapping identifiers, slot names, or near-duplicate intent are detected locally via normalized token overlap and Jaccard similarity, optionally supplemented by the local Rust engine embedding if available offline. **Zero cloud LLM inference is permitted** for conflict detection to respect `privacy.localOnly` and prevent data leaks. Semantic opposition that shares no tokens is surfaced via side-by-side operator review.
 3. **Interactive Resolution (`--on-conflict` / `--conflict`)**:
    - *Skip* (default, `--conflict skip`): Preserves current PLUR1BUS resource; drops incoming entry.
-   - *Rename* (`--conflict rename`): Preserves existing entry and installs incoming resource with a disambiguated identifier (e.g. `skills/<id>-imported-<source>/`, suffixed MCP slot name, or distinct memory card ID). In v1, `rename` never writes `SOUL.imported-...` or `AGENTS.imported-...` to Zone 2.
-   - *Replace* (`--conflict replace`): Overwrites existing skill, MCP entry, or memory card with explicit operator confirmation. In v1, `replace` never performs an unreviewed overwrite of Zone 2 files (`SOUL.md`, `IDENTITY.md`, `AGENTS.md`). In plan and preview, overlapping components are detected with typed reason `entry-conflict`; if skipped (default), the report records `conflict-skip`; unresolved clashes yield `conflict`, and confirmed replacements yield `applied`.
+   - *Rename* (`--conflict rename`): Preserves existing entry and installs incoming resource with a disambiguated identifier (e.g. `skills/<id>-<sourceType>/`, suffixed MCP slot name, or distinct memory card ID; repeated conflicts append `-<n>` per `skills-import.ts:22`). In v1, `rename` never writes `SOUL.imported-...` or `AGENTS.imported-...` to Zone 2.
+   - *Replace* (`--conflict replace`): Overwrites existing skill, MCP entry, or memory card with explicit operator confirmation. In v1, `replace` never performs an unreviewed overwrite of Zone 2 files (`SOUL.md`, `IDENTITY.md`, `AGENTS.md`). In plan and preview, overlapping components are detected with typed reason `entry-conflict`; in the report ledger (matching `LedgerAction` in `packages/core/src/import/ledger.ts:20-35`), skipped items record `conflict-skip`, renamed items record `rename`, confirmed replacements record `replace`, newly created items record `created`, and exact matches record `matched-existing`.
    - *Synthesize / Edit*: For memory cards, opens an inline editor allowing the operator to combine both intents.
 4. **Plan Hash and Byte Invariance**: The preview displayed in the CLI or Web UI must exactly equal the applied bytes (plan hash). Preprocessing and normalization must not strip content (such as HTML comments or bidirectional Unicode characters) in preview while leaving them in apply.
 5. **Per-Entry Bounds**: Following Paket O standards (`packages/core/src/import/prompt/parse.ts:11,13`, originating from PR #838), individual imported prompt memory payloads are capped at 512 KiB total input (`MAX_INPUT_BYTES`) and 4 000 characters per statement text (`MAX_ENTRY_CHARS`).
@@ -102,7 +102,7 @@ flowchart TD
 
 Profile import integrates into the existing `plur1bus import` command structure under `crates/plur1bus` (`src/cli.rs`, `src/commands/import.rs`), where `<SOURCE_TYPE>` is a required positional argument (`plur1bus import [OPTIONS] <SOURCE_TYPE>`). Existing source types on main are `openclaw`, `hermes`, `backfill`, and `ssh`; conversational memory prompt text is ingested via `plur1bus memory import-text` (originating from PR #838).
 
-The new profile sources (`claude`, `cursor`, `codex`, `kimi`, `agy`, `gemini`) and additional flags (`--workspace`, `--archive`) are **planned extensions** of `ImportSource` and CLI options. Without `--apply`, dry-run is the standard default and writes nothing; `--apply` executes the import.
+The new profile sources (`claude`, `cursor`, `codex`, `kimi`, `agy`, `gemini`), planned command `plur1bus import export-demand [OUTPUT_PATH]`, and additional flags (`--workspace`, `--archive`, and `--agent` for non-backfill profile sources) are **planned extensions** of `ImportSource` and CLI options. Without `--apply`, dry-run is the standard default and writes nothing; `--apply` executes the import.
 
 ```bash
 # Detect available resources for a specific source
@@ -124,20 +124,22 @@ plur1bus import agy --agent main
 # Import from a manual export archive (.zip or .tar.gz; planned --archive flag)
 plur1bus import gemini --archive ~/Downloads/takeout-gemini.zip --apply
 
-# Export local foreign plugin demand summary derived idempotently from apply reports
+# Export local foreign plugin demand summary derived idempotently from apply reports (planned command)
 plur1bus import export-demand ~/reports/plugin-demand.txt
 
-# Rollback a completed import run using report path or run ID
-plur1bus import --rollback ~/imports/run-123/report.json
-plur1bus import --rollback-run run-123
+# Rollback a completed profile import run using the apply report
+plur1bus import claude --rollback <home>/imports/<runId>/report.json
 ```
 
-#### CLI Exit Codes (Aligned with `docs/errors.md` and `output.rs`)
-The `plur1bus import` command passes through the importer's exit codes (1..255 per `docs/errors.md`):
+> [!NOTE]
+> On main, `--rollback-run <RUN_ID>` is exclusive to the `ssh` source (`crates/plur1bus/src/commands/import_ssh.rs`). Extending `--rollback-run` to local profile sources is planned for a future CLI iteration; local profile rollback targets the apply report path (`<home>/imports/<runId>/report.json`).
+
+#### CLI Exit Codes (Aligned with `types.ts`, `source-reader.ts`, and `docs/errors.md`)
+The `plur1bus import` command passes through the importer's exit codes directly (`ImportError.exit` in `packages/core/src/import/types.ts:19-22`):
 - `0`: Success (dry-run plan generated or apply completed cleanly).
-- `1`: Application or validation error (`source-unreadable`, schema mismatch, internal failure).
-- `2`: Parameter refusal or usage error (`E_INVALID_PARAMS` mapped via `output.rs:131`, e.g. `download-too-large`, `archive-unsafe-entry`, `archive-unsupported`, missing arguments, invalid flag combinations).
-- `3`: `E_LOCKED` (concurrent lock held).
+- `1`: Unhandled application error or fatal CLI failure.
+- `2`: `source-unreadable` (`source-reader.ts:148-151`), `E_INVALID_PARAMS`, missing source argument, or invalid CLI flag combinations.
+- `3`: `file-too-large` (`source-reader.ts`). Note: Exit code 3 is shared with daemon RPC error `E_LOCKED` mapped by `crates/plur1bus/src/output.rs:131`.
 
 #### Source Delegation
 Legacy OpenClaw, Hermes, HM1, and HM2 sources are handled by the existing dedicated importers (`plur1bus import openclaw` and `plur1bus import hermes`, `docs/import.md` §13). Invoking `plur1bus import openclaw` directly invokes the existing importer with its established workflow.
@@ -146,7 +148,7 @@ Legacy OpenClaw, Hermes, HM1, and HM2 sources are handled by the existing dedica
 
 ### 3.2 RPC Interface
 
-Profile import extends the existing administrative import namespace (`admin.import.*`, `docs/import.md` §13.1) rather than creating a parallel API surface. All methods are Owner/Admin only, require authenticated sessions, and are assigned the **next free RPC minor version at implementation time** (extending `SourceType`, `source-catalog.json`, and the source registry under `packages/core/src/import/sources/`). Schema updates target `packages/rpc-schema/schema/rpc.schema.json:8050-8056`:
+Profile import extends the existing administrative import namespace (`admin.import.*`, `docs/import.md` §13.1) rather than creating a parallel API surface. All methods are Owner/Admin only, require authenticated sessions, and are assigned the **next free RPC minor version at implementation time** (extending `SourceType`, `source-catalog.json`, and the source registry under `packages/core/src/import/sources/`). Schema updates target symbol `ImportDetection.classification` in `packages/rpc-schema/schema/rpc.schema.json`:
 
 - `admin.import.detect`: Extended to return detected profile sources alongside existing OpenClaw/Hermes installations.
 - `admin.import.plan`: Generates an immutable preview manifest for a profile source or archive, checking for component conflicts against target agents. Conversational memory prompt text delegates to Paket O's `memory.importText.*` RPC (`#838`) rather than creating a duplicate prompt intake path. Foreign plugin manifests are detected and classified during OpenClaw/Hermes detect steps.
@@ -209,7 +211,7 @@ When PLUR1BUS runs inside a container (e.g., Docker desktop bundle per D77):
 - **Supported Workflows in Containers**:
   1. *Archive Upload & Text Paste*: The Web UI enables direct drag-and-drop of export archives and copy-pasted exports.
   2. *Authenticated Desktop Helper (D90 / D2)*: When paired with the native desktop shell helper, the helper gathers sanitized source snapshots on the host and transmits them over the authenticated host bridge (`host.importSnapshot`, already implemented on main per `apps/desktop/snapshot/import-snapshot.ts` and `docs/import.md` §12.3; extended with host-side allowlisting under P-J2e).
-  3. *Producer-Side Key-Allowlist for `host.importSnapshot` (R3-M3)*: The desktop helper executes the same selective key-allowlist extractors directly on the host and transmits only the extracted fields. It never ships raw, uninspected files (such as full `~/.claude.json` containing tokens, or bare `config.toml` containing Kimi hooks or Codex env values) into the harness volume. All files matching credential patterns (`*auth*`, `*credential*`, `*token*`, `*.vscdb`, `*key*`, `*secret*`, `*.pem`, `*.env*`) are excluded on the host prior to transmission.
+  3. *Producer-Side Key-Allowlist for `host.importSnapshot`*: The desktop helper executes the same selective key-allowlist extractors directly on the host and transmits only the extracted fields. It never ships raw, uninspected files (such as full `~/.claude.json` containing tokens, or bare `config.toml` containing Kimi hooks or Codex env values) into the harness volume. All files matching credential patterns (`*auth*`, `*credential*`, `*token*`, `*.vscdb`, `*key*`, `*secret*`, `*.pem`, `*.env*`) are excluded on the host prior to transmission.
 
 ---
 
@@ -237,13 +239,13 @@ When PLUR1BUS runs inside a container (e.g., Docker desktop bundle per D77):
   - Imported MCP server configs reuse `import.mcp-candidate/1` (`mcp-config.ts`): command arguments and environment variables are scrubbed, slot names are preserved, servers are set to disabled by default, and unsupported configurations route to manual setup.
 - **Enhanced Centralized Redaction**: The central redactor (`crates/plur1bus/src/firstaid_bundle/redact.rs` and `packages/core/src/logs/redact.ts`) is extended to match Anthropic keys (`sk-ant-`), JSON Web Tokens (JWT), OAuth refresh tokens, and private key blocks.
 - **Safe Filesystem Traversal**: File reading uses `SourceReader` / `readSourceFileSafe` with `O_NOFOLLOW` and the `@plur1bus/remote-fs` read-only port to guarantee that symlinked files (e.g., a `.cursorrules` pointing to `~/.ssh/id_rsa`) are rejected.
-- **Hardened Archive Extraction & Limits (M5)**: Archive intake in `plur1bus-tools` (called over harness RPC per D120) enforces:
-  - Full-archive audit upfront: `zipaudit::audit` reads and hashes the whole archive before extraction, enforcing caps.
-  - A maximum decompression ratio ceiling of 100:1 (matching existing `zipaudit` in `crates/plur1bus-ext/src/zipaudit.rs`).
-  - A 10 MiB limit per single decompressed file and a 100 MiB total uncompressed bytes limit for the entire archive payload. Archives exceeding limits are refused with the typed error reason `download-too-large` (`E_INVALID_PARAMS`); operators must pre-filter or unpack extensive dumps (e.g. multi-gigabyte Takeout) prior to selective intake.
+- **Hardened Archive Extraction & Limits**: Archive intake in `plur1bus-tools` (called over harness RPC per D120) enforces:
+  - Full-archive audit upfront: for `.zip` archives, `zipaudit::audit_zip` (using `crates/plur1bus-ext/src/zipaudit.rs`) parses the central directory and hashes the whole archive before extraction, enforcing custom `Limits`.
+  - Enforce a strict 100:1 maximum decompression ratio ceiling (`max_ratio: 100`, matching `zipaudit` default).
+  - Enforce a 10 MiB limit per single decompressed file (`entry_bytes: 10 * 1024 * 1024`), a 100 MiB total uncompressed bytes limit for the entire archive payload (`package_bytes: 100 * 1024 * 1024`), and max 20,000 entries (`max_entries: 20_000`, matching `zipaudit` default). Note that `Limits::default()` on main specifies 256 MiB / 128 MiB; the 100 MiB total and 10 MiB per-entry limits are explicit specification requirements passed as custom `Limits` to `audit_zip`. Archives exceeding limits are refused with the typed error reason `download-too-large` (`E_INVALID_PARAMS`); operators must pre-filter or unpack extensive dumps (e.g. multi-gigabyte Takeout) prior to selective intake.
   - Rejection of symlinks, hardlinks, absolute paths, and directory traversal (`..`) with typed error `archive-unsafe-entry`, and rejection of ZIP64 with `archive-unsupported`.
-  - Selective extraction of allowlisted named entries occurs only after the full audit passes, supporting standard 32-bit `.zip` (per `zipaudit`) and `.tar.gz`. Existing workspace crates (`tar`, `flate2`, `zip`) and `zipaudit` are reused, with additions audited under `deny.toml`.
-  - **Sequential `.tar.gz` stream handling**: Because `.tar.gz` is a single sequential gzip stream, skipping non-allowlisted entries requires decompressing through the gzip stream in memory; all decompressed bytes count towards the 100:1 ratio ceiling and the 100 MiB total cap.
+  - Upfront audit is strictly supported for standard 32-bit `.zip` (via `audit_zip`). For `.tar.gz` archives, central-directory inspection is impossible without streaming; `.tar.gz` archive intake is planned as a bounded streaming auditor in P-J2a that enforces the same ratio, entry size, and total caps on the sequential stream, rejecting symlinks and hardlinks with `archive-unsafe-entry`.
+  - Selective extraction of allowlisted named entries occurs only after the archive passes audit. Dependencies on existing workspace crates (`tar`, `flate2`, `zip`) conform to workspace dependency policy.
 
 ---
 
@@ -257,24 +259,82 @@ In accordance with Owner Decision D121-J1 (decided 2026-10-31), foreign plugin c
 
 Foreign plugin discovery occurs during the detection step of existing OpenClaw and Hermes imports (`plur1bus import openclaw` and `plur1bus import hermes`, per D121-J5) rather than creating a parallel scanner or running during profile import. It extends the existing classifier in `packages/core/src/import/plugin-classification.ts` and the RPC schema `ImportDetection.classification` in `packages/rpc-schema/schema/rpc.schema.json`, reading manifests strictly in read-only mode (`O_NOFOLLOW`). Manifest parsing reuses safe bounded `JSON.parse` for `openclaw.plugin.json` and `package.json`, and reuses the existing `packages/core/src/import/yaml-lite.ts` (`readYaml`) on main for Hermes `plugin.yaml`, avoiding any new npm dependency.
 
-#### Discovery Rules & Precedence Order (M-2)
+#### Discovery Rules & Precedence Order
 - **Manifest-Only Inspection**: Only declarative metadata manifests are read (`openclaw.plugin.json`, `package.json`, `plugin.yaml`).
 - **Zero Foreign Code Execution**: No Node.js or Python runtime is spawned; no package dependencies are installed; no code is evaluated (`eval`/`Function`).
-- **Deterministic 5-Way Classification Precedence Table**: Extending `plugin-classification.ts`, every discovered plugin is evaluated in strict precedence order against five discrete categories (planned under Spec J / P-J4a, expanding the three states on main: `bridge-possible`, `nonportable`, `unknown`). Per A13, matching is strictly based on declared tool identifiers; plugin names/configurations never imply compatibility or determine the classification:
+- **Deterministic 5-Way Classification Precedence Table**: Extending `plugin-classification.ts`, every discovered plugin is evaluated in strict precedence order against five discrete categories (planned under Spec J / P-J4a, expanding the three states on main: `bridge-possible`, `nonportable`, `unknown`). Per A13, matching is strictly based on declared evidence; plugin names/configurations never imply compatibility or determine the classification:
 
 | Precedence | Classification | Matching Criteria | Reason Emitted |
 |---|---|---|---|
-| **1** | `unknown` | Manifests with incomplete declarations, unparseable entries, or missing metadata | `incomplete-declaration` |
-| **2** | `nonportable` | Declared non-portable parts (`memory`, `channel`, `provider`, `context-engine`) or prompt-cache hooks | `declared-nonportable-parts` |
+| **1** | `unknown` | Manifests with incomplete declarations, unparseable entries, missing metadata, or absent tool declarations | `incomplete-declaration` |
+| **2** | `nonportable` | Declared non-portable parts (`memory`, `channel`, `provider`, `context-engine`) | `declared-nonportable-parts` |
 | **3** | `native-equivalent` | Declared tool matches built-in tool in `packages/core/src/import/native-equivalents.json` (`file.read` / `file.write` under capability `fs.read`/`fs.write`, `exec.run`, `web.search`) | `native-equivalent-available` |
 | **4** | `mcp-equivalent` | Declared tool matches verified server in `packages/core/src/import/mcp-catalog.json` (versioned in repo; matching by declared tool ID per A13; entries require verified upstream repository and licence) | `mcp-equivalent-available` |
 | **5** | `port-candidate` | Standalone tool plugin with portable parts eligible for native port pipeline. Retires legacy `declared-bridge-parts` string in favor of `declared-port-parts` (`bridge-possible` is mapped here) | `declared-port-parts` |
 
+> [!NOTE]
+> On main, `classifyForeignPlugin` (`plugin-classification.ts`) currently evaluates `nonportable` before `unknown`. Evaluating `unknown` before `nonportable` is a deliberate behavior change in Spec J / P-J4a: incomplete or unparseable declarations immediately yield `unknown` (reason `incomplete-declaration`) even if partial references to nonportable kinds exist. The unit test `packages/core/test/import/plugin-classification.test.ts` will be updated under P-J4a accordingly.
+
+#### Tool Identifier Extraction & Manifest Evidence Mapping
+On main, A13 classifies solely by declared part kinds (`memory`, `channel`, `provider`, `context-engine`), and `ForeignPluginEvidence` provides only `manifest` and `registeredParts` without a tool identifier field. Classes 3 (`native-equivalent`), 4 (`mcp-equivalent`), and 5 (`port-candidate`) require extracting declared tool identifiers. P-J4a delivers the manifest reader and the following mapping table:
+
+| Manifest File | Format | Key for Evidence Extraction | Declared Evidence Extracted | Fallback if Missing |
+|---|---|---|---|---|
+| `openclaw.plugin.json` | JSON | `tools` (array of objects with `id`/`name`) or `parts` | Declared tool identifier or part kind | Falls back to `unknown` (`incomplete-declaration`) |
+| `package.json` | JSON | `openclaw.tools` or `openclaw.parts` | Declared tool identifier or part kind | Falls back to `unknown` if no `openclaw` block is present |
+| `plugin.yaml` (Hermes) | YAML | `tools` (list of tool definitions) | Declared tool identifier or part kind | Hermes manifest on main (`hosts/hermes/plur1bus/plugin.yaml`) declares only `hooks`; without declared `tools`, Hermes plugins evaluate to `unknown` |
+
+Until P-J4a implements this manifest reader and tool ID extractor, any plugin without extractable tool IDs or part kinds classifies as `unknown`.
+
+#### Catalog Schemas
+Catalog files reside in `packages/core/src/import/` (modeled after `source-catalog.json` on main):
+- `native-equivalents.json`: Maps foreign tool IDs to PLUR1BUS native capabilities and tool bindings:
+  ```json
+  {
+    "version": 1,
+    "equivalents": {
+      "file.read": { "capability": "fs.read", "tool": "file.read" },
+      "file.write": { "capability": "fs.write", "tool": "file.write" },
+      "exec.run": { "capability": "exec.run", "tool": "exec.run" },
+      "web.search": { "capability": "web.search", "tool": "web.search" }
+    }
+  }
+  ```
+- `mcp-catalog.json`: Maps foreign tool IDs to verified, community-maintained MCP servers:
+  ```json
+  {
+    "version": 1,
+    "servers": {
+      "fetch": {
+        "repository": "https://github.com/modelcontextprotocol/servers",
+        "license": "MIT",
+        "package": "@modelcontextprotocol/server-fetch",
+        "tools": ["fetch"]
+      }
+    }
+  }
+  ```
+
 - **RPC Migration**: The `ImportDetection.classification` enum in `packages/rpc-schema/schema/rpc.schema.json` is updated to include these five discrete values at the next free minor RPC version at implementation time.
 
 #### Presentation & Local Demand Tracking
-- **Wizard Preview & Report**: The discovered plugins and their classifications are displayed in Step 3 of the existing OpenClaw/Hermes import wizard and documented in the final `report.json`.
-- **Local Demand Counting (Zero Telemetry, M-1)**: Rather than mutating an independent state file during detect or dry-run, foreign plugin demand counts are derived idempotently from apply reports (`<home>/imports/*/report.json`, deduplicated by `runId` and plugin ID). Detect and dry-run remain strictly read-only, write zero reports or state files, and do not increment demand counters (`docs/import.md` §9.4, §10.5). P-J4a extends the apply `report.json` with an additive, versioned `plugins` field for classified foreign plugins. This demand metric is used exclusively by the local operator and local `plur1bus code` to prioritize porting efforts. **Zero telemetry or external network calls are performed.**
+- **Wizard Preview & Report**: Discovered plugins and their classifications are displayed in the discovery section of the existing import page (`packages/web/src/pages/import/page.ts`) and documented in the final `report.json`.
+- **Local Demand Counting (Zero Telemetry)**: Rather than mutating an independent state file during detect or dry-run, foreign plugin demand counts are derived idempotently from apply reports (`<home>/imports/*/report.json`, deduplicated by `runId` and plugin ID). Detect and dry-run remain strictly read-only, write zero reports or state files, and do not increment demand counters (`docs/import.md` §9.4, §10.5). P-J4a extends the apply `report.json` with an additive, versioned `plugins` field:
+  ```json
+  "plugins": {
+    "version": 1,
+    "detected": [
+      {
+        "source": "openclaw",
+        "id": "example-plugin",
+        "classification": "native-equivalent",
+        "reason": "native-equivalent-available",
+        "equivalent": "fs.read"
+      }
+    ]
+  }
+  ```
+  Runs containing `<home>/imports/<runId>/rolled-back/status.json` or marked with status `rolled-back` in the ledger are strictly excluded from demand counting. This demand metric is used exclusively by the local operator and local `plur1bus code` to prioritize porting efforts. **Zero telemetry or external network calls are performed.**
 - **Demand Data Source for First Ports (D121-J7 Decided 2026-11-01)**: Official first ports authored by project agents in the PR workflow are prioritized based on the Owner's verified production environments (supplied directly as an active plugin list) and public registry statistics (such as npm and GitHub star counts). A dedicated Rust CLI command (`plur1bus import export-demand [OUTPUT_PATH]`, placed under `import` to avoid colliding with the `plugin` command group) allows users to deliberately export their local demand summary to a text file for manual sharing (e.g., pasting into a GitHub issue); no demand data is ever uploaded automatically.
 
 ---
@@ -318,7 +378,7 @@ flowchart TD
    - *Module in `plur1bus-tools`* (Rust, D120): Selected for high-performance data processing, cryptographic utilities, or low-level OS operations. **Permissive only**; compiled into the harness binary and shipped exclusively via harness releases (never through the catalogue).
 3. **Derive Behavior-Based Tests**:
    - Blackbox test fixtures are authored based strictly on observable behavioral specifications (input arguments, schema, expected return formats, error cases).
-   - Foreign source code is never blindly imported; native implementations satisfy the behavior-derived test suite.
+   - Foreign source code is never blindly imported; native implementations satisfy the behavior-derived test suite. Derived code is permitted for permissive licenses under the mandatory attribution rule; copied or adapted code without license verification and human review is strictly prohibited.
 4. **Declare D109 Capabilities**:
    - Required capabilities (network egress, filesystem roots, process execution) are explicitly declared.
    - Default effect levels are set (`external`/ask for network/write operations).
@@ -393,10 +453,10 @@ The following architectural decisions have been confirmed by the owner under reg
 
 | ID | Decision Question | Context & Constraints | Options | Recommendation | Decided | Notes |
 |---|---|---|---|---|---|---|
-| **D121-J1** | Foreign Plugin Compatibility Strategy | Owner directive 2026-10-27 explored foreign plugin support. D9 (`docs/superpowers/specs/2026-09-24-m1b-2a-core-daemon-cli-design.md:23`) explicitly mandates: *"Modules that would only work as an emulation are rewritten"* and quotes owner: *"nicht so wirken, als hätten wir … eine OpenClaw-Emulationsschicht gebaut … Wenn wir dann ein Modul neu schreiben müssen, dann müssen wir ein Modul neu schreiben."* | **Option A (Decided)**: Native ports and read-only manifest discovery during import. Zero shims, zero execution bridges. 6-stage port pipeline (license check with mandatory attribution for permissive and copyleft standalone add-on restriction, target form, behavior tests, D109 declaration, human review, signed catalog vs. sandboxed local ports). Fallback reserve ("Host as MCP server") kept as theoretical reserve.<br>**Option B**: Compatibility bridge or in-process emulation (rejected: violates security and Decision D9). | Adopt Option A: Native Ports & Discovery Pipeline. | **Decided: Option A (2026-10-31)** | Strictly upholds D9 and HYG-001. No foreign runtime shims. |
+| **D121-J1** | Foreign Plugin Compatibility Strategy | Owner directive 2026-10-27 explored foreign plugin support. D9 (`docs/superpowers/specs/2026-09-24-m1b-2a-core-daemon-cli-design.md:23`) explicitly mandates: *"Modules that would only work as an emulation are rewritten"* and quotes owner: *"nicht so wirken, als hätten wir … eine OpenClaw-Emulationsschicht gebaut … Wenn wir dann ein Modul neu schreiben müssen, dann müssen wir ein Modul neu schreiben."* | **Option A (Decided)**: Native ports and read-only manifest discovery during import. Zero shims, zero execution bridges.<br>**Option B**: Compatibility bridge or in-process emulation (rejected: violates security and Decision D9). | Adopt Option A: Native Ports & Discovery Pipeline. | **Decided: Option A (2026-10-31)** | Entschieden am 2026-10-31. Revisionsnotiz 2026-11-01 (Review-Runde 6/7/8, kein neuer Owner-Entscheid): 6-Stufen-Pipeline in §4 detailliert; Shims und Bridges nach D9 und HYG-001 ausgeschlossen. |
 | **D121-J2** | Lint Hygiene Allowlist & Shim Package Location | `scripts/lint-hygiene.mjs` enforces `HYG-001` (banning OpenClaw idioms). D9 requires keeping harness core clean of foreign idioms. | **Obsolete**: Since no compatibility shim is built under D121-J1, no `hosts/openclaw-shim/` package is created and no hygiene allowlist exceptions are needed. `packages/core` remains 100% clean of OpenClaw idioms. | Obsolete: no shim is built, so no hygiene exception. | **Obsolete (2026-10-31)** | Superseded by D121-J1 Option A. |
-| **D121-J3** | Default Instruction Conflict Resolution & Zone 2 Safety | When importing instructions or identity statements into an agent with existing guidelines, how should conflicts resolve, and how is Zone 2 protected against prompt injection? | **Option A (Decided for v1)**: In v1, instructions and persona definitions are presented in preview and report as `instructions-not-imported` (matching Paket O) with read-only copy-out. `IDENTITY.md` is never overwritten without operator preview. No automated or unconfirmed writes to Zone 2 (`SOUL.md`, `IDENTITY.md`, `AGENTS.md`). `--conflict` (`skip \| rename \| replace`, default `skip`) applies only to skills, MCP entries, and memory cards.<br>**Option B**: Rule proposal queue (deferred post-D120 in `plur1bus-tools`).<br>**Option C**: Direct unconfirmed overwrite (`replace`) or concatenation (rejected: violates Zone 2 integrity and prompt cache). | Adopt Option A for v1: Default `skip`. Instructions and personas reported as `instructions-not-imported` per Paket O with copy-out. Replace never bypasses preview. | **Decided: Option A (2026-10-31)** | Aligned with Paket O, ADR-010, and Zone 2 safety. |
+| **D121-J3** | Default Instruction Conflict Resolution & Zone 2 Safety | When importing instructions into an agent with existing guidelines, how should conflicts resolve, and how is Zone 2 protected against prompt injection? | **Option A (Decided for v1)**: In v1, instructions and persona definitions are presented in preview and report as `instructions-not-imported` (matching Paket O) with read-only copy-out. No automated writes to Zone 2 files (`SOUL.md`, `IDENTITY.md`, `AGENTS.md`). `--conflict` (`skip \| rename \| replace`, default `skip`) applies only to skills, MCP entries, and memory cards.<br>**Option B**: Rule proposal queue (deferred post-D120 in `plur1bus-tools`).<br>**Option C**: Direct unconfirmed overwrite (`replace`) or concatenation (rejected: violates Zone 2 integrity and prompt cache). | Adopt Option A for v1: Default `skip`. Instructions and personas reported as `instructions-not-imported` per Paket O with copy-out. | **Decided: Option A (2026-10-31)** | Entschieden am 2026-10-31. Revisionsnotiz 2026-11-01: Spezifikationsregel für IDENTITY.md (Aktualisierung nur mit expliziter Operator-Bestätigung in der Vorschau) in §2/§3 präzisiert; Zone 2 bleibt vor automatischem Überschreiben geschützt. |
 | **D121-J4** | Confidentiality and Memory Scope Defaults | Ingesting facts and memories into engine stores under D116 and ADR-007 Q4. | **Option A (Decided)**: Default D116 confidentiality level is `vertraulich` (never `teilbar`). `scope: user` requires proved human principal; unauthenticated CLI calls fail with `unresolved-user-scope` (no fallback per ADR-007 Q4).<br>**Option B**: Import as `teilbar` or fallback to agent-private (rejected: potential data leak / scope breach). | Adopt Option A: Default `vertraulich`. Strict adherence to ADR-007 Q4 and Paket O. | **Decided: Option A (2026-10-31)** | Follows D116 (6). |
-| **D121-J5** | Source Scope Partitioning | Multiple overlapping import paths exist in the harness (M v2, Paket O, profile import). | **Option A (Decided)**: Scope `plur1bus import <source>` strictly to the new sources (5 direct file-based: Claude, Codex, Cursor, Kimi, AGY; Grok via user paste / prompt export; Grokbot dropped). Existing OpenClaw, Hermes, HM1, HM2 remain with existing M v2 importers.<br>**Option B**: Re-implement OpenClaw/Hermes in profile importer (rejected: code duplication). | Adopt Option A: Strict scope boundary. Sources 8–11 delegate to existing M v2 importers. | **Decided: Option A (2026-10-31)** | Prevents parallel API surfaces. |
+| **D121-J5** | Source Scope Partitioning | Multiple overlapping import paths exist in the harness (M v2, Paket O, profile import). | **Option A (Decided)**: Scope import strictly to the new sources (5 direct file-based: Claude, Codex, Cursor, Kimi, AGY; Grok via user paste / prompt export; Grokbot dropped). Existing OpenClaw, Hermes, HM1, HM2 remain with existing M v2 importers.<br>**Option B**: Re-implement OpenClaw/Hermes in profile importer (rejected: code duplication). | Adopt Option A: Strict scope boundary. Sources 8–11 delegate to existing M v2 importers. | **Decided: Option A (2026-10-31)** | Entschieden am 2026-10-31. Revisionsnotiz 2026-11-01: Befehlsbezeichnung auf plur1bus import <source> angepasst. |
 | **D121-J6** | Milestone Boundaries & ADR-019 / D120 Compliance | Sequencing and technology choice for implementation. | **Option A (Decided)**: M7b, M7c, and X3b sit outside v0.1.0 total. RPC minor assigned as next free at implementation time. All new components in Rust by Claude agents per D120 / ADR-019.<br>**Option B**: Implement components in TypeScript without ADR-019 justification (rejected: violates D120 / ADR-019). | Adopt Option A: Rust components assigned to Claude agents. Milestones scheduled outside v0.1.0. | **Decided: Option A (2026-10-31)** | Complies with ADR-019. |
-| **D121-J7** | Foreign Plugin Demand Source & Selection | Local demand counting is strictly local with zero telemetry (per Owner privacy principles), but official first ports require prioritization. | **Option A (Decided)**: Official first ports are selected based on the Owner's verified production environments (supplied directly as an active plugin list) and public registry statistics (npm, GitHub star counts). Local demand counting is derived idempotently across apply reports (`<home>/imports/*/report.json`) without telemetry. A dedicated Rust CLI command (`plur1bus import export-demand [OUTPUT_PATH]`) allows users to deliberately export their local demand summary to a text file for manual sharing.<br>**Option B**: In-product telemetry (rejected: violates privacy rules). | Adopt Option A: Owner setups + public registries; local export command. | **Decided: Option A (2026-11-01)** | Owner bestätigt im Controller-Chat am 2026-11-01. Zero telemetry; actionable prioritization. |
+| **D121-J7** | Foreign Plugin Demand Source & Selection | Local demand counting is strictly local with zero telemetry (per Owner privacy principles), but official first ports require prioritization. | **Option A (Decided)**: Official first ports are selected based on the Owner's verified production environments (supplied directly as an active plugin list) and public registry statistics (npm, GitHub star counts). Foreign plugin usage is counted strictly locally with zero telemetry. A dedicated Rust CLI command (`plur1bus import export-demand [OUTPUT_PATH]`) exports the local count as a text file upon manual request.<br>**Option B**: In-product telemetry (rejected: violates privacy rules). | Adopt Option A: Owner setups + public registries; local export command. | **Decided: Option A (2026-11-01)** | Owner bestätigt im Controller-Chat am 2026-11-01. Revisionsnotiz 2026-11-01: Umsetzungsdetails (Ableitung ausschließlich aus Apply-Berichten report.json, Ausschluss zurückgerollter Läufe) als Spezifikationsvorgabe in §4.1 verortet. |
