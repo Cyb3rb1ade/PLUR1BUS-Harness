@@ -278,7 +278,7 @@ impl Log {
     }
 
     fn warn_references(&self, layout: &Layout, config: &Value) {
-        // Metadata failures already withhold payloads through the registry; warning discovery cannot reopen that sink.
+        // Metadata failures already use a private registry fallback; warning discovery never reads secret targets.
         if let Ok(policy) = crate::config_redaction::ConfigDisclosurePolicy::load(layout, config) {
             for warning in policy.reference_warnings(config) {
                 self.warn(warning.message, json!({"key":warning.key}));

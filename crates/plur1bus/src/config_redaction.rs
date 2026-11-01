@@ -27,128 +27,34 @@ impl fmt::Display for ConfigRedactionError {
 
 impl std::error::Error for ConfigRedactionError {}
 
-#[derive(Clone, Copy)]
-enum Edge {
-    Direct,
-    Conditional,
-    Definition,
-}
-
-fn schema_children(node: &Value) -> Vec<(&Value, Edge)> {
-    let mut children = Vec::new();
-    for (name, edge) in [
-        ("properties", Edge::Direct),
-        ("patternProperties", Edge::Conditional),
-        ("dependentSchemas", Edge::Conditional),
-        ("dependencies", Edge::Conditional),
-        ("$defs", Edge::Definition),
-        ("definitions", Edge::Definition),
-    ] {
-        if let Some(map) = node.get(name).and_then(Value::as_object) {
-            children.extend(map.values().map(|child| (child, edge)));
-        }
-    }
-    for name in ["items", "additionalProperties", "x-value-schema"] {
-        if let Some(child) = node.get(name) {
-            match child.as_array() {
-                Some(items) => children.extend(items.iter().map(|item| (item, Edge::Conditional))),
-                None => children.push((child, Edge::Direct)),
+/// Content-based registry stamp detects repair, replacement and removal even on coarse filesystem clocks.
+pub(crate) fn registry_stamp(layout: &Layout) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    let mut digest = Sha256::new();
+    match fs::read_dir(layout.home.join("modules")) {
+        Ok(entries) => {
+            let mut paths: Vec<_> = entries
+                .filter_map(Result::ok)
+                .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir()))
+                .filter(|entry| {
+                    !entry.file_name().to_string_lossy().starts_with('.')
+                        && !entry.file_name().to_string_lossy().contains(".tmp-")
+                })
+                .map(|entry| entry.path().join("module.json"))
+                .collect();
+            paths.sort();
+            for path in paths {
+                digest.update(path.as_os_str().as_encoded_bytes());
+                match fs::read(path) {
+                    Ok(bytes) => digest.update(bytes),
+                    Err(error) => digest.update(format!("{:?}", error.kind()).as_bytes()),
+                }
+                digest.update([0]);
             }
         }
+        Err(error) => digest.update(format!("{:?}", error.kind()).as_bytes()),
     }
-    for name in [
-        "if",
-        "then",
-        "else",
-        "not",
-        "contains",
-        "propertyNames",
-        "unevaluatedProperties",
-        "unevaluatedItems",
-        "additionalItems",
-    ] {
-        if let Some(child) = node.get(name) {
-            children.push((child, Edge::Conditional));
-        }
-    }
-    for name in ["allOf", "anyOf", "oneOf", "prefixItems"] {
-        if let Some(items) = node.get(name).and_then(Value::as_array) {
-            children.extend(items.iter().map(|item| (item, Edge::Conditional)));
-        }
-    }
-    children
-}
-
-fn declaration<'a>(node: &'a Value, name: &str) -> Option<&'a Value> {
-    node.get("x-value-schema")
-        .and_then(|metadata| metadata.get(name))
-        .or_else(|| node.get(name))
-}
-
-fn has_nested_resource(node: &Value) -> bool {
-    schema_children(node)
-        .into_iter()
-        .any(|(child, _)| child.get("$id").is_some() || has_nested_resource(child))
-}
-
-/// Refuse descriptors the direct-member projection cannot interpret, rather than ignoring their privacy markers.
-fn direct_policy(
-    node: &Value,
-    root: &Value,
-    direct: bool,
-    references: &mut BTreeSet<String>,
-) -> bool {
-    for name in ["x-sensitive", "x-url-credentials"] {
-        if declaration(node, name).is_some_and(|value| !value.is_boolean()) {
-            return false;
-        }
-    }
-    let sensitive = declaration(node, "x-sensitive").and_then(Value::as_bool) == Some(true);
-    let endpoint = declaration(node, "x-url-credentials").and_then(Value::as_bool) == Some(true);
-    let reference_slot = declaration(node, "x-secret-reference")
-        .is_some_and(|metadata| metadata.as_bool() != Some(false));
-    if sensitive && endpoint {
-        return false;
-    }
-    if !direct && (sensitive || endpoint || reference_slot) {
-        return false;
-    }
-    if node.get("$dynamicRef").is_some() || node.get("$recursiveRef").is_some() {
-        return false;
-    }
-    if let Some(reference) = node.get("$ref").and_then(Value::as_str) {
-        // Root JSON pointers do not resolve nested resources. Refuse those scopes rather than guessing.
-        if has_nested_resource(root) {
-            return false;
-        }
-        let target = if reference == "#" {
-            Some(root)
-        } else {
-            reference
-                .strip_prefix('#')
-                .and_then(|pointer| root.pointer(pointer))
-        };
-        let Some(target) = target else { return false };
-        if references.insert(reference.to_string()) {
-            let supported = direct_policy(target, root, false, references);
-            references.remove(reference);
-            if !supported {
-                return false;
-            }
-        }
-    }
-    schema_children(node)
-        .into_iter()
-        .all(|(child, edge)| match edge {
-            Edge::Direct => direct_policy(child, root, direct, references),
-            Edge::Conditional => direct_policy(child, root, false, references),
-            Edge::Definition => true, // Definitions only apply when referenced.
-        })
-}
-
-fn interpretable(schema: &Value) -> bool {
-    // Always inspect references: a target may be stored under an otherwise opaque keyword such as `default`.
-    direct_policy(schema, schema, true, &mut BTreeSet::new())
+    digest.finalize().into()
 }
 
 /// One immutable policy snapshot used by public output and, later, by the log/bundle registry.
@@ -200,7 +106,7 @@ impl ConfigDisclosurePolicy {
                 return Err(unavailable());
             }
             if let Some(schema) = manifest.config_schema {
-                if !interpretable(&schema) {
+                if !plur1bus_config::supports_config_disclosure_policy(&schema) {
                     return Err(unavailable());
                 }
                 jsonschema::options()
@@ -219,24 +125,65 @@ impl ConfigDisclosurePolicy {
             .map(|(name, schema)| (name.as_str(), schema))
     }
 
+    /// Remove recognized module values before the Harness unknown-member fallback sees them.
+    pub(crate) fn harness_config(&self, config: &Value) -> Value {
+        let mut base = config.clone();
+        if let Some(modules) = base.get_mut("modules").and_then(Value::as_object_mut) {
+            for (name, _) in &self.modules {
+                modules.remove(name);
+            }
+        }
+        base
+    }
+
     pub fn project(&self, config: &Value) -> Value {
-        let mut public = plur1bus_config::redact_config(config);
+        let base = self.harness_config(config);
+        let mut public = plur1bus_config::redact_config(&base);
         for (name, schema) in &self.modules {
-            if let Some(value) = public
-                .get_mut("modules")
-                .and_then(|modules| modules.get_mut(name))
-            {
-                *value = plur1bus_config::redact_with_schema(value, schema);
+            if let Some(value) = config.get("modules").and_then(|modules| modules.get(name)) {
+                let mut projected = plur1bus_config::redact_with_schema(value, schema);
+                if let (Some(enabled), Some(object)) = (
+                    value.get("enabled").filter(|value| value.is_boolean()),
+                    projected.as_object_mut(),
+                ) {
+                    object.insert("enabled".into(), enabled.clone());
+                }
+                let value = projected;
+                if let Some(modules) = public.get_mut("modules").and_then(Value::as_object_mut) {
+                    modules.insert(name.clone(), value);
+                }
             }
         }
         public
     }
 
+    /// Complete validated references bypass the bundle's independent name and pattern backstops.
+    pub fn reference_paths(&self, config: &Value) -> BTreeSet<String> {
+        let schema: Value =
+            serde_json::from_str(plur1bus_config::SCHEMA_JSON).expect("embedded schema");
+        let mut paths: BTreeSet<_> =
+            plur1bus_config::reference_paths_with_schema(&self.harness_config(config), &schema)
+                .into_iter()
+                .collect();
+        for (name, schema) in &self.modules {
+            if let Some(value) = config.get("modules").and_then(|modules| modules.get(name)) {
+                let prefix = format!("/modules/{}", name.replace('~', "~0").replace('/', "~1"));
+                paths.extend(
+                    plur1bus_config::reference_paths_with_schema(value, schema)
+                        .into_iter()
+                        .map(|path| format!("{prefix}{path}")),
+                );
+            }
+        }
+        paths
+    }
+
     /// Literals for unstructured output; declared reference metadata and endpoint host/path material stay public.
     pub fn secret_values(&self, config: &Value) -> Vec<String> {
-        let mut values: BTreeSet<String> = plur1bus_config::config_text_secret_values(config)
-            .into_iter()
-            .collect();
+        let mut values: BTreeSet<String> =
+            plur1bus_config::config_text_secret_values(&self.harness_config(config))
+                .into_iter()
+                .collect();
         for (name, schema) in &self.modules {
             if let Some(value) = config.get("modules").and_then(|modules| modules.get(name)) {
                 values.extend(plur1bus_config::secret_text_values_with_schema(
@@ -252,7 +199,7 @@ impl ConfigDisclosurePolicy {
         &self,
         config: &Value,
     ) -> Vec<plur1bus_config::ConfigReferenceWarning> {
-        let mut warnings = plur1bus_config::config_reference_warnings(config);
+        let mut warnings = plur1bus_config::config_reference_warnings(&self.harness_config(config));
         for (name, schema) in &self.modules {
             if let Some(value) = config.get("modules").and_then(|modules| modules.get(name)) {
                 warnings.extend(
@@ -281,6 +228,57 @@ mod tests {
     use super::*;
 
     #[test]
+    fn known_modules_use_original_values_and_each_owns_its_reference_definitions() {
+        use serde_json::json;
+        let schema = |prefix: &str| {
+            json!({"type":"object","$defs":{"name":{"type":"string","pattern":format!("^{prefix}[.]constant$")}},"properties":{
+                "label":{"type":"string"},
+                "reference":{"type":"string","x-sensitive":true,"x-secret-reference":{"$ref":"#/$defs/name"}},
+                "literal":{"type":"string","x-sensitive":true}
+            }})
+        };
+        let secret = uuid::Uuid::new_v4().to_string();
+        let config = json!({"modules":{
+            "first":{"enabled":false,"label":"first public label","reference":"first.constant","literal":secret},
+            "second":{"enabled":true,"label":"second public label","reference":"second.constant","literal":secret},
+            "absent":{"literal":secret}
+        }});
+        let policy = ConfigDisclosurePolicy {
+            modules: vec![
+                ("first".into(), schema("first")),
+                ("second".into(), schema("second")),
+            ],
+        };
+        let projected = policy.project(&config);
+        for name in ["first", "second"] {
+            assert_eq!(
+                projected["modules"][name]["label"],
+                config["modules"][name]["label"]
+            );
+            assert_eq!(
+                projected["modules"][name]["reference"],
+                config["modules"][name]["reference"]
+            );
+            assert_eq!(
+                projected["modules"][name]["enabled"],
+                config["modules"][name]["enabled"]
+            );
+            assert_eq!(projected["modules"][name]["literal"], "••••");
+        }
+        assert_eq!(projected["modules"]["absent"]["literal"], "••••");
+        assert_eq!(policy.secret_values(&config), [secret]);
+        assert_eq!(
+            policy.reference_paths(&config),
+            [
+                "/modules/first/reference".to_owned(),
+                "/modules/second/reference".to_owned()
+            ]
+            .into_iter()
+            .collect()
+        );
+    }
+
+    #[test]
     fn direct_member_capabilities_match_the_typescript_vectors() {
         let vectors: Value = serde_json::from_str(include_str!(
             "../../../packages/config-schema/test/fixtures/disclosure-policies.json"
@@ -288,7 +286,7 @@ mod tests {
         .unwrap();
         for vector in vectors.as_array().unwrap() {
             assert_eq!(
-                interpretable(&vector["schema"]),
+                plur1bus_config::supports_config_disclosure_policy(&vector["schema"]),
                 vector["supported"].as_bool().unwrap(),
                 "{}",
                 vector["name"]

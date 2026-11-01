@@ -10,13 +10,31 @@ static EMPTY_SCHEMA: Value = Value::Null;
 struct Flags {
     sensitive: bool,
     url_credentials: bool,
+    unknown_public: bool,
+    unclassified: bool,
+    text_parts: bool,
 }
 
 pub(super) fn field<'a>(schema: &'a Value, name: &str) -> Option<&'a Value> {
-    schema
+    let outer = schema.get(name);
+    let inner = schema
         .get("x-value-schema")
-        .and_then(|metadata| metadata.get(name))
-        .or_else(|| schema.get(name))
+        .and_then(|metadata| metadata.get(name));
+    if matches!(name, "x-sensitive" | "x-url-credentials") {
+        if outer.and_then(Value::as_bool) == Some(true) {
+            return outer;
+        }
+        if inner.and_then(Value::as_bool) == Some(true) {
+            return inner;
+        }
+    }
+    if name == "x-secret-reference"
+        && inner.and_then(Value::as_bool) == Some(false)
+        && outer.is_some_and(|value| value.as_bool() != Some(false))
+    {
+        return outer;
+    }
+    inner.or(outer)
 }
 
 fn object_schema(value: Option<&Value>) -> &Value {
@@ -70,57 +88,198 @@ fn item_schema(schema: &Value) -> &Value {
 
 fn annotated(schema: &Value, inherited: Flags) -> Flags {
     let marked = |name: &str| field(schema, name).and_then(Value::as_bool) == Some(true);
+    let modeled = [
+        "type",
+        "enum",
+        "const",
+        "x-sensitive",
+        "x-url-credentials",
+        "x-secret-reference",
+    ]
+    .iter()
+    .any(|name| field(schema, name).is_some());
+    let unknown_public = match field(schema, "x-unknown-members").and_then(Value::as_str) {
+        Some("public") => true,
+        Some("sensitive") => false,
+        _ => inherited.unknown_public,
+    };
     Flags {
         sensitive: inherited.sensitive || marked("x-sensitive"),
         url_credentials: inherited.url_credentials || marked("x-url-credentials"),
+        unclassified: !modeled && !unknown_public,
+        unknown_public,
+        text_parts: inherited.text_parts
+            || field(schema, "x-text-credentials").and_then(Value::as_str) == Some("parts"),
     }
 }
 
 fn value_flags(schema: &Value, inherited: Flags) -> Flags {
     let flags = annotated(schema, inherited);
     if field(schema, "type").and_then(Value::as_str) == Some("array") || homogeneous_map(schema) {
-        annotated(item_schema(schema), flags)
+        let item = annotated(item_schema(schema), flags);
+        Flags {
+            sensitive: flags.sensitive || item.sensitive,
+            url_credentials: flags.url_credentials || item.url_credentials,
+            unclassified: flags.unclassified || item.unclassified,
+            ..flags
+        }
     } else {
         flags
     }
 }
 
-fn project<'a>(
-    value: &Value,
-    schema: &'a Value,
-    inherited: Flags,
-    references: &mut Matcher<'a>,
-) -> Value {
-    let mut flags = value_flags(schema, inherited);
-    if !flags.url_credentials {
-        if references.matches(value, schema) {
-            return value.clone();
+#[derive(Clone, Copy)]
+enum Output<'a> {
+    Display,
+    Archive(&'a str),
+}
+
+struct Projection<'a, 's> {
+    output: Output<'s>,
+    references: Matcher<'a>,
+    keys: BTreeSet<String>,
+}
+
+impl<'a> Projection<'a, '_> {
+    fn project(&mut self, value: &Value, schema: &'a Value, inherited: Flags, key: &str) -> Value {
+        let mut flags = value_flags(schema, inherited);
+        if !flags.url_credentials {
+            if self.references.matches(value, schema) {
+                return value.clone();
+            }
+            flags.sensitive |= Matcher::declared(schema);
         }
-        flags.sensitive |= Matcher::declared(schema);
+        let wrong_string_shape = match field(schema, "type") {
+            Some(Value::String(kind)) => kind != "string",
+            Some(Value::Array(kinds)) => !kinds.iter().any(|kind| kind == "string"),
+            _ => false,
+        };
+        let secret_string = flags.sensitive || flags.unclassified || wrong_string_shape;
+        if let Output::Archive(placeholder) = self.output {
+            let collection = flags.text_parts
+                || matches!(
+                    field(schema, "type").and_then(Value::as_str),
+                    Some("array" | "object")
+                );
+            if flags.sensitive
+                && !(collection && (value.is_object() || value.is_array()))
+                && !value.is_null()
+                && value.as_str() != Some("")
+            {
+                self.keys.insert(key.to_owned());
+                return Value::String(placeholder.into());
+            }
+        }
+        match value {
+            Value::String(text) if secret_string && !text.is_empty() => {
+                self.keys.insert(key.to_owned());
+                Value::String(
+                    match self.output {
+                        Output::Display => MASK,
+                        Output::Archive(mask) => mask,
+                    }
+                    .into(),
+                )
+            }
+            Value::Number(_) if flags.sensitive => Value::from(0),
+            Value::Bool(_) if flags.sensitive => Value::Bool(false),
+            Value::String(text) if flags.url_credentials => {
+                let mask = match self.output {
+                    Output::Display => MASK,
+                    Output::Archive(_) => "REDACTED",
+                };
+                let masked = mask_url_credentials_with(text, mask);
+                if masked != *text
+                    || (matches!(self.output, Output::Archive(_)) && url_credentials_present(text))
+                {
+                    self.keys.insert(key.to_owned());
+                }
+                Value::String(masked)
+            }
+            Value::Array(items) => Value::Array(
+                items
+                    .iter()
+                    .enumerate()
+                    .map(|(index, child)| {
+                        self.project(
+                            child,
+                            item_schema(schema),
+                            flags,
+                            &child_key(key, &index.to_string()),
+                        )
+                    })
+                    .collect(),
+            ),
+            Value::Object(map) => Value::Object(
+                map.iter()
+                    .map(|(name, child)| {
+                        (
+                            name.clone(),
+                            self.project(
+                                child,
+                                property(schema, name),
+                                flags,
+                                &child_key(key, name),
+                            ),
+                        )
+                    })
+                    .collect(),
+            ),
+            _ => value.clone(),
+        }
     }
-    match value {
-        Value::String(text) if flags.sensitive && !text.is_empty() => Value::String(MASK.into()),
-        Value::Number(_) if flags.sensitive => Value::from(0),
-        Value::Bool(_) if flags.sensitive => Value::Bool(false),
-        Value::String(text) if flags.url_credentials => Value::String(mask_url_credentials(text)),
-        Value::Array(items) => Value::Array(
-            items
-                .iter()
-                .map(|item| project(item, item_schema(schema), flags, references))
-                .collect(),
-        ),
-        Value::Object(map) => Value::Object(
-            map.iter()
-                .map(|(name, child)| {
-                    (
-                        name.clone(),
-                        project(child, property(schema, name), flags, references),
-                    )
-                })
-                .collect(),
-        ),
-        _ => value.clone(),
+}
+
+fn child_key(parent: &str, name: &str) -> String {
+    if parent.is_empty() {
+        name.to_owned()
+    } else {
+        format!("{parent}.{name}")
     }
+}
+
+/// Invalid reference metadata cannot grant an archive disclosure exemption.
+#[derive(Debug, Clone, Copy)]
+pub struct DisclosurePolicyError;
+
+impl std::fmt::Display for DisclosurePolicyError {
+    fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        out.write_str(
+            "configuration secret-reference metadata is invalid; repair the installed schema",
+        )
+    }
+}
+impl std::error::Error for DisclosurePolicyError {}
+
+/// Archive projection using exactly the display resolver, flags and reference matcher.
+/// URL credentials use URI-safe ASCII placeholders; replaced paths identify settings to re-enter.
+pub fn placeholder_with_schema(
+    value: &Value,
+    schema: &Value,
+    placeholder: &str,
+) -> Result<(Value, Vec<String>), DisclosurePolicyError> {
+    fn validate<'a>(node: &'a Value, matcher: &mut Matcher<'a>) -> bool {
+        if Matcher::declared(node) && !matcher.valid_metadata(node) {
+            return false;
+        }
+        match node {
+            Value::Object(fields) => fields.values().all(|child| validate(child, matcher)),
+            Value::Array(items) => items.iter().all(|child| validate(child, matcher)),
+            _ => true,
+        }
+    }
+    let resolved = super::resolution::policy_schema(schema);
+    let schema = resolved.as_ref();
+    let mut projection = Projection {
+        output: Output::Archive(placeholder),
+        references: Matcher::new(schema),
+        keys: BTreeSet::new(),
+    };
+    if !validate(schema, &mut projection.references) {
+        return Err(DisclosurePolicyError);
+    }
+    let value = projection.project(value, schema, Flags::default(), "");
+    Ok((value, projection.keys.into_iter().collect()))
 }
 
 /// A public configuration copy retaining JSON types, unknown members and public endpoint host/path material.
@@ -130,7 +289,14 @@ pub fn redact_config(value: &Value) -> Value {
 
 /// Apply an explicit configuration schema, for example an installed module's own declarations.
 pub fn redact_with_schema(value: &Value, schema: &Value) -> Value {
-    project(value, schema, Flags::default(), &mut Matcher::new(schema))
+    let resolved = super::resolution::policy_schema(schema);
+    let schema = resolved.as_ref();
+    Projection {
+        output: Output::Display,
+        references: Matcher::new(schema),
+        keys: BTreeSet::new(),
+    }
+    .project(value, schema, Flags::default(), "")
 }
 
 /// JSON pointers to complete safe references, for downstream schema-aware output; targets are never read.
@@ -170,6 +336,8 @@ pub fn reference_paths_with_schema(value: &Value, schema: &Value) -> Vec<String>
             _ => {}
         }
     }
+    let resolved = super::resolution::policy_schema(schema);
+    let schema = resolved.as_ref();
     let mut paths = Vec::new();
     visit(
         value,
@@ -190,16 +358,35 @@ fn normalized_url(value: &str) -> String {
         .collect()
 }
 
-/// Userinfo bounds in normalized input, without mistaking special-scheme backslash paths for credentials.
-fn userinfo_range(value: &str) -> Option<(usize, usize)> {
+fn scheme_separator(value: &str) -> Option<usize> {
     let bytes = value.as_bytes();
-    let colon = value.find(':').filter(|&at| {
+    value.find(':').filter(|&at| {
         at > 0
             && bytes[0].is_ascii_alphabetic()
             && bytes[1..at]
                 .iter()
-                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'-' | b'.'))
-    });
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'-' | b'.'))
+    })
+}
+
+fn endpoint_prefix(value: &str) -> bool {
+    let value = value.trim_matches(|character: char| character <= '\u{20}');
+    if value.starts_with("//") || value.starts_with("\\\\") {
+        return true;
+    }
+    scheme_separator(value).is_some_and(|colon| {
+        value[colon + 1..].starts_with("//")
+            || matches!(
+                value[..colon].to_ascii_lowercase().as_str(),
+                "http" | "https" | "ftp" | "ws" | "wss"
+            )
+    })
+}
+
+/// Userinfo bounds in normalized input, without mistaking special-scheme backslash paths for credentials.
+fn userinfo_range(value: &str) -> Option<(usize, usize)> {
+    let bytes = value.as_bytes();
+    let colon = scheme_separator(value);
     let scheme = colon.map(|at| value[..at].to_ascii_lowercase());
     let special = scheme
         .as_deref()
@@ -226,30 +413,61 @@ fn userinfo_range(value: &str) -> Option<(usize, usize)> {
     Some((start, start + separator))
 }
 
-/// Hide userinfo and all query values; parameter names, host, path and fragment remain visible.
-pub fn mask_url_credentials(value: &str) -> String {
+fn url_credentials_present(value: &str) -> bool {
     let normalized = normalized_url(value);
-    let output = match userinfo_range(&normalized) {
-        Some((start, end)) => format!("{}{MASK}@{}", &normalized[..start], &normalized[end + 1..]),
-        None => value.to_string(),
-    };
-    let Some(query) = output.find('?') else {
-        return output;
-    };
-    let fragment = output.find('#');
-    if fragment.is_some_and(|at| at < query) {
-        return output;
+    if userinfo_range(&normalized).is_some() {
+        return true;
     }
-    let end = fragment.unwrap_or(output.len());
-    let parameters = output[query + 1..end]
+    let (body, fragment) = normalized
+        .split_once('#')
+        .map_or((normalized.as_str(), None), |(body, fragment)| {
+            (body, Some(fragment))
+        });
+    fragment.is_some_and(|fragment| !fragment.is_empty())
+        || body
+            .split_once('?')
+            .is_some_and(|(_, parameters)| parameters.contains('='))
+}
+
+/// Hide userinfo and all query/fragment values, preserving public host and path material.
+pub fn mask_url_credentials(value: &str) -> String {
+    mask_url_credentials_with(value, MASK)
+}
+
+fn mask_parameters(value: &str, mask: &str, bare_private: bool) -> String {
+    value
         .split('&')
         .map(|parameter| match parameter.split_once('=') {
-            Some((name, _)) => format!("{name}={MASK}"),
-            None => parameter.to_string(),
+            Some((name, _)) => format!("{name}={mask}"),
+            None if bare_private && !parameter.is_empty() => mask.to_owned(),
+            None => parameter.to_owned(),
         })
         .collect::<Vec<_>>()
-        .join("&");
-    format!("{}{}{}", &output[..query + 1], parameters, &output[end..])
+        .join("&")
+}
+
+fn mask_url_credentials_with(value: &str, mask: &str) -> String {
+    let normalized = normalized_url(value);
+    let output = match userinfo_range(&normalized) {
+        Some((start, end)) => format!("{}{mask}@{}", &normalized[..start], &normalized[end + 1..]),
+        None => value.to_owned(),
+    };
+    let (body, fragment) = output
+        .split_once('#')
+        .map_or((output.as_str(), None), |(body, fragment)| {
+            (body, Some(fragment))
+        });
+    let mut out = match body.split_once('?') {
+        Some((prefix, parameters)) => {
+            format!("{prefix}?{}", mask_parameters(parameters, mask, false))
+        }
+        None => body.to_owned(),
+    };
+    if let Some(fragment) = fragment {
+        out.push('#');
+        out.push_str(&mask_parameters(fragment, mask, true));
+    }
+    out
 }
 
 fn hex(byte: u8) -> Option<u8> {
@@ -291,13 +509,16 @@ fn add_part(values: &mut BTreeSet<String>, value: &str, query: bool) {
 }
 
 fn add_userinfo(values: &mut BTreeSet<String>, value: &str) {
-    add_part(values, value, false);
-    match value.split_once(':') {
-        Some((user, password)) => {
-            add_part(values, user, false);
-            add_part(values, password, false);
-        }
-        None => add_part(values, value, false),
+    let username = value
+        .split_once(':')
+        .map_or(value, |(username, _)| username);
+    if super::references::looks_like_text_credential(username)
+        || super::references::looks_like_text_credential(&decode_component(username, false))
+    {
+        add_part(values, username, false);
+    }
+    if let Some((_, password)) = value.split_once(':') {
+        add_part(values, password, false);
     }
 }
 
@@ -333,23 +554,174 @@ fn url_parts(value: &str, values: &mut BTreeSet<String>) {
         add_userinfo(values, &normalized[start..end]);
     }
     for text in [value, normalized.as_str()] {
-        let Some(query) = text.find('?') else {
-            continue;
-        };
-        let fragment = text.find('#');
-        if fragment.is_some_and(|at| at < query) {
-            continue;
-        }
-        for parameter in text[query + 1..fragment.unwrap_or(text.len())].split('&') {
-            if let Some((_, value)) = parameter.split_once('=') {
-                add_part(values, value, true);
+        let (body, fragment) = text
+            .split_once('#')
+            .map_or((text, None), |(body, fragment)| (body, Some(fragment)));
+        for parameters in body
+            .split_once('?')
+            .map(|(_, query)| query)
+            .into_iter()
+            .chain(fragment)
+        {
+            for parameter in parameters
+                .strip_prefix('?')
+                .unwrap_or(parameters)
+                .split('&')
+            {
+                if let Some((name, value)) = parameter.split_once('=') {
+                    if credential_name(&decode_component(name, true))
+                        || token_text(&decode_component(value, true))
+                    {
+                        add_part(values, value, true);
+                    }
+                } else if token_text(&decode_component(parameter, true)) {
+                    add_part(values, parameter, true);
+                }
             }
         }
     }
 }
 
+fn normalized_name(value: &str) -> String {
+    let mut normalized = String::with_capacity(value.len());
+    let mut previous_lower = false;
+    for character in value.chars() {
+        if previous_lower && character.is_ascii_uppercase() {
+            normalized.push('_');
+        }
+        normalized.push(character.to_ascii_lowercase());
+        previous_lower = character.is_ascii_lowercase();
+    }
+    normalized
+}
+
+fn source_path_name(value: &str) -> bool {
+    let value = normalized_name(value);
+    ["file", "path", "dir", "directory", "cwd", "root"]
+        .iter()
+        .any(|suffix| value.ends_with(suffix))
+}
+
+fn credential_name(value: &str) -> bool {
+    normalized_name(value).split(['_', '.', '-']).any(|part| {
+        matches!(
+            part,
+            "token"
+                | "key"
+                | "secret"
+                | "password"
+                | "passwd"
+                | "pwd"
+                | "sig"
+                | "signature"
+                | "auth"
+                | "authorization"
+                | "credential"
+                | "credentials"
+                | "apikey"
+                | "accesskey"
+                | "clientsecret"
+                | "code"
+                | "verifier"
+                | "csrf"
+                | "ticket"
+                | "sessionkey"
+                | "accountkey"
+        )
+    })
+}
+
+fn source_path_text(value: &str) -> bool {
+    super::references::clear_source_path(value)
+        || (value.contains(['/', '\\'])
+            && value
+                .split(['/', '\\'])
+                .any(|part| part.contains(['.', '_', '-']))
+            && !super::references::starts_with_credential_prefix(value))
+}
+
+fn token_text(value: &str) -> bool {
+    if endpoint_prefix(value) || source_path_text(value) {
+        return false;
+    }
+    super::references::looks_like_text_credential(value)
+}
+
+fn assignment_name(value: &str) -> bool {
+    let mut bytes = value.bytes();
+    bytes
+        .next()
+        .is_some_and(|byte| byte.is_ascii_alphabetic() || byte == b'_')
+        && bytes.all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'.' | b'-'))
+}
+
+fn text_parts(value: &Value, out: &mut BTreeSet<String>, credential: bool, path: bool) {
+    match value {
+        Value::String(text) => {
+            // URL parts and source paths are handled before a named literal is registered in full.
+            if endpoint_prefix(text) {
+                url_parts(text, out);
+                return;
+            }
+            if !credential {
+                if let Some((name, part)) = text.split_once('=') {
+                    if name.starts_with('-')
+                        || credential_name(name)
+                        || (assignment_name(name) && endpoint_prefix(part))
+                    {
+                        text_parts(
+                            &Value::String(part.to_owned()),
+                            out,
+                            credential_name(name),
+                            path || source_path_name(name),
+                        );
+                        return;
+                    }
+                }
+            }
+            let source = source_path_text(text);
+            let token = super::references::looks_like_text_credential(text);
+            if (path && (source || !token)) || (!credential && (source || text.starts_with('-'))) {
+                return;
+            }
+            if credential || token {
+                add_part(out, text, false);
+            }
+        }
+        Value::Array(items) => {
+            let mut next_credential = false;
+            let mut next_path = false;
+            for item in items {
+                let option = item
+                    .as_str()
+                    .is_some_and(|text| text.starts_with('-') && !text.contains('='));
+                text_parts(
+                    item,
+                    out,
+                    credential || (next_credential && !option),
+                    path || (next_path && !option),
+                );
+                next_credential = option && item.as_str().is_some_and(credential_name);
+                next_path = option && item.as_str().is_some_and(source_path_name);
+            }
+        }
+        Value::Object(fields) => {
+            for (name, child) in fields {
+                text_parts(
+                    child,
+                    out,
+                    credential || credential_name(name),
+                    path || source_path_name(name),
+                );
+            }
+        }
+        _ => {}
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ReferenceValues {
+    #[cfg(test)]
     Include,
     Omit,
 }
@@ -365,6 +737,7 @@ fn collect<'a>(
     inherited: Flags,
     out: &mut BTreeSet<String>,
     references: &mut References<'a>,
+    name: &str,
 ) {
     let mut flags = value_flags(schema, inherited);
     if references.values == ReferenceValues::Omit && !flags.url_credentials {
@@ -373,10 +746,30 @@ fn collect<'a>(
         }
         flags.sensitive |= Matcher::declared(schema);
     }
+    if flags.text_parts && references.values == ReferenceValues::Omit {
+        text_parts(value, out, false, false);
+        return;
+    }
+    let wrong_string_shape = field(schema, "type")
+        .and_then(Value::as_str)
+        .is_some_and(|kind| kind != "string");
+    if references.values == ReferenceValues::Omit
+        && !flags.sensitive
+        && (flags.unclassified || wrong_string_shape)
+        && value.is_string()
+    {
+        text_parts(value, out, credential_name(name), source_path_name(name));
+        return;
+    }
     match value {
-        Value::String(text) if flags.sensitive && !text.is_empty() => {
+        Value::String(text)
+            if (flags.sensitive || flags.unclassified || wrong_string_shape)
+                && !text.is_empty() =>
+        {
             out.insert(text.clone());
-            if references.values == ReferenceValues::Omit && flags.url_credentials {
+            if references.values == ReferenceValues::Omit
+                && (flags.url_credentials || endpoint_prefix(text))
+            {
                 url_parts(text, out);
             }
         }
@@ -386,12 +779,12 @@ fn collect<'a>(
         Value::String(text) if flags.url_credentials => url_parts(text, out),
         Value::Array(items) => {
             for item in items {
-                collect(item, item_schema(schema), flags, out, references);
+                collect(item, item_schema(schema), flags, out, references, name);
             }
         }
         Value::Object(map) => {
             for (name, child) in map {
-                collect(child, property(schema, name), flags, out, references);
+                collect(child, property(schema, name), flags, out, references, name);
             }
         }
         _ => {}
@@ -399,12 +792,14 @@ fn collect<'a>(
 }
 
 /// All declared sensitive strings, including reference metadata; endpoints contribute only credential components.
-pub fn config_secret_values(value: &Value) -> Vec<String> {
+#[cfg(test)]
+pub(crate) fn config_secret_values(value: &Value) -> Vec<String> {
     secret_values_with_schema(value, super::schema())
 }
 
 /// Declared strings from an explicit schema, including supported module configuration declarations.
-pub fn secret_values_with_schema(value: &Value, schema: &Value) -> Vec<String> {
+#[cfg(test)]
+pub(crate) fn secret_values_with_schema(value: &Value, schema: &Value) -> Vec<String> {
     extract(value, schema, ReferenceValues::Include)
 }
 
@@ -419,6 +814,8 @@ pub fn secret_text_values_with_schema(value: &Value, schema: &Value) -> Vec<Stri
 }
 
 fn extract(value: &Value, schema: &Value, reference_values: ReferenceValues) -> Vec<String> {
+    let resolved = super::resolution::policy_schema(schema);
+    let schema = resolved.as_ref();
     let mut values = BTreeSet::new();
     let mut references = References {
         values: reference_values,
@@ -430,6 +827,7 @@ fn extract(value: &Value, schema: &Value, reference_values: ReferenceValues) -> 
         Flags::default(),
         &mut values,
         &mut references,
+        "",
     );
     values.into_iter().collect()
 }
@@ -501,6 +899,8 @@ pub fn reference_warnings_with_schema(
             _ => {}
         }
     }
+    let resolved = super::resolution::policy_schema(schema);
+    let schema = resolved.as_ref();
     let mut warnings = Vec::new();
     visit(value, schema, "", &mut Matcher::new(schema), &mut warnings);
     warnings

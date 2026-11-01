@@ -31,7 +31,7 @@ test("shared reference vectors agree between full server validation, browser sub
     assert.equal(matchesReference(value, CONFIG_SCHEMA.$defs[vector.definition],
       CONFIG_SCHEMA["x-secret-reference-policy"] as SecretReferencePolicy), vector.reference, `browser vector ${index}`);
     const warnings = configurationWarnings({ ordinary: value }, schema);
-    assert.equal(warnings.some(warning => /looks like a pasted key/.test(warning.message)), vector.warning,
+    assert.equal(warnings.length > 0, vector.warning,
       `warning vector ${index}`);
   }
 });

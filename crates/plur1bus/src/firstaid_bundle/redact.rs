@@ -45,6 +45,12 @@ const KEY_NAMES: [&str; 22] = [
     "accountkey",
 ];
 
+/// Bundle-only defense for credential-shaped property names after schema projection.
+pub(super) fn credential_key(name: &str) -> bool {
+    let name = name.to_ascii_lowercase();
+    KEY_NAMES.iter().any(|part| name.contains(part))
+}
+
 /// Header-like keys: the value is the rest of the line (`Authorization: Bearer abc`, `Cookie: a=1; b=2`).
 const LINE_VALUE_KEYS: [&str; 2] = ["authorization", "cookie"];
 
@@ -89,7 +95,7 @@ impl Redactor {
 
     /// A schema-projected configuration value: preserve public key names while retaining value-pattern backstops.
     pub fn redact_config_value(&self, text: &str) -> String {
-        self.apply(text, Context::ConfigValue).0
+        self.apply(text, Context::Text).0
     }
 
     /// Rescan a schema-projected configuration without treating public property names as credentials.
@@ -108,9 +114,7 @@ impl Redactor {
             s = substitute(&s, RULE_KEY, &mut hits, find_keyed_values);
         }
         s = substitute(&s, RULE_PATTERN, &mut hits, find_patterns);
-        if matches!(context, Context::Text) {
-            s = substitute(&s, RULE_URL, &mut hits, find_url_parts);
-        }
+        s = substitute(&s, RULE_URL, &mut hits, find_url_parts);
         hits.dedup();
         (s, hits)
     }

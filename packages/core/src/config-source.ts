@@ -1,11 +1,12 @@
 import { statSync, watch as watchDirectory } from "node:fs";
 import { basename, dirname } from "node:path";
 import { assertSharedEnginePrivacy } from "./privacy/shared-engine.ts";
-import { restartPlan, type HarnessConfig } from "@plur1bus/config-schema";
+import { configurationWarnings, restartPlan, type HarnessConfig } from "@plur1bus/config-schema";
 import { watchSupervisorConfig, type ConfigWatch, type ImportRunControl } from "@plur1bus/module-api";
 import { loadConfig, readConfigFile, validateConfig } from "./config-load.ts";
 import type { HarnessLogger } from "./logger.ts";
 import type { Layout } from "./paths.ts";
+import { logConfigWarnings } from "./config-warnings.ts";
 
 type Plan = ReturnType<typeof restartPlan>;
 type Log = Pick<HarnessLogger, "debug" | "info" | "warn" | "error">;
@@ -98,6 +99,7 @@ export async function openConfigSource(o: ConfigSourceOptions): Promise<ConfigSo
     pending = restartPlan(builtWith, next).restart.core;
     const plan = restartPlan(prev, next);
     if (plan.changed.length === 0) return;
+    logConfigWarnings(log, configurationWarnings(next));
     for (const fn of [...listeners]) {
       try { fn(prev, next, plan); } catch (err) { log?.error("config change listener failed", { err }); }
     }
@@ -208,6 +210,7 @@ export async function openConfigSource(o: ConfigSourceOptions): Promise<ConfigSo
   // or migrating the file; a standalone core keeps loadConfig (defaults written, migration persisted).
   current = snapshot ?? (o.supervised ? readConfigFile(o.layout.configPath) : loadConfig(o.layout.configPath).config); // ConfigInvalid propagates: the core exits 2 (B18)
   builtWith = current;
+  logConfigWarnings(log, configurationWarnings(current));
   if (first) follow(first);
   else if (o.supervised) scheduleRetry(); // M1: a supervised core that missed the start window keeps trying
 

@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://plur1bus.dev/schema/config/1/config.schema.json",
+  "x-unknown-members": "sensitive",
   "x-secret-reference-policy": {
     "storeNamePattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
     "envNamePattern": "^[A-Za-z_][A-Za-z0-9_]*$",
@@ -1542,7 +1543,10 @@
                   "string",
                   "object"
                 ],
-                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupEngineSecretReference"},
+                "x-sensitive": true,
+                "x-secret-reference": {
+                  "$ref": "#/$defs/backupEngineSecretReference"
+                },
                 "additionalProperties": false,
                 "properties": {
                   "source": {
@@ -1571,7 +1575,10 @@
                       "string",
                       "object"
                     ],
-                    "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupEngineSecretReference"},
+                    "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupEngineSecretReference"
+                    },
                     "additionalProperties": false,
                     "properties": {
                       "source": {
@@ -1596,17 +1603,27 @@
                     "type": "string",
                     "x-url-credentials": true,
                     "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                  },
+                  "model": {
+                    "type": "string",
+                    "description": "Public Engine model, workspace or numeric control; not credential material."
                   }
                 }
               },
               "apiKeyRef": {
                 "type": "string",
-                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
+                "x-sensitive": true,
+                "x-secret-reference": {
+                  "$ref": "#/$defs/backupSecretName"
+                },
                 "description": "Secret-store reference for an Engine credential."
               },
               "apiKeyEnv": {
                 "type": "string",
-                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/secretEnvironmentName"},
+                "x-sensitive": true,
+                "x-secret-reference": {
+                  "$ref": "#/$defs/secretEnvironmentName"
+                },
                 "description": "Environment reference for an Engine credential."
               },
               "baseUrl": {
@@ -1627,7 +1644,10 @@
                             "string",
                             "object"
                           ],
-                          "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupEngineSecretReference"},
+                          "x-sensitive": true,
+                          "x-secret-reference": {
+                            "$ref": "#/$defs/backupEngineSecretReference"
+                          },
                           "additionalProperties": false,
                           "properties": {
                             "source": {
@@ -1650,12 +1670,18 @@
                         },
                         "apiKeyRef": {
                           "type": "string",
-                          "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
+                          "x-sensitive": true,
+                          "x-secret-reference": {
+                            "$ref": "#/$defs/backupSecretName"
+                          },
                           "description": "Secret-store reference for an Engine credential."
                         },
                         "apiKeyEnv": {
                           "type": "string",
-                          "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/secretEnvironmentName"},
+                          "x-sensitive": true,
+                          "x-secret-reference": {
+                            "$ref": "#/$defs/secretEnvironmentName"
+                          },
                           "description": "Environment reference for an Engine credential."
                         },
                         "baseUrl": {
@@ -1671,7 +1697,10 @@
                                 "string",
                                 "object"
                               ],
-                              "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupEngineSecretReference"},
+                              "x-sensitive": true,
+                              "x-secret-reference": {
+                                "$ref": "#/$defs/backupEngineSecretReference"
+                              },
                               "additionalProperties": false,
                               "properties": {
                                 "source": {
@@ -1700,9 +1729,39 @@
                           }
                         }
                       }
+                    },
+                    "identity": {
+                      "type": "object",
+                      "properties": {
+                        "model": {
+                          "type": "string",
+                          "description": "Public Engine model, workspace or numeric control; not credential material."
+                        },
+                        "tokenCap": {
+                          "type": "integer",
+                          "description": "Public Engine model, workspace or numeric control; not credential material."
+                        }
+                      }
                     }
                   }
                 }
+              },
+              "local": {
+                "type": "object",
+                "properties": {
+                  "maxTokens": {
+                    "type": "integer",
+                    "description": "Public Engine model, workspace or numeric control; not credential material."
+                  },
+                  "model": {
+                    "type": "string",
+                    "description": "Public local embedding model identifier."
+                  }
+                }
+              },
+              "model": {
+                "type": "string",
+                "description": "Public Engine model, workspace or numeric control; not credential material."
               }
             }
           },
@@ -1714,7 +1773,10 @@
                   "string",
                   "object"
                 ],
-                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupEngineSecretReference"},
+                "x-sensitive": true,
+                "x-secret-reference": {
+                  "$ref": "#/$defs/backupEngineSecretReference"
+                },
                 "additionalProperties": false,
                 "properties": {
                   "source": {
@@ -1737,12 +1799,18 @@
               },
               "apiKeyRef": {
                 "type": "string",
-                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
+                "x-sensitive": true,
+                "x-secret-reference": {
+                  "$ref": "#/$defs/backupSecretName"
+                },
                 "description": "Secret-store reference for an Engine credential."
               },
               "apiKeyEnv": {
                 "type": "string",
-                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/secretEnvironmentName"},
+                "x-sensitive": true,
+                "x-secret-reference": {
+                  "$ref": "#/$defs/secretEnvironmentName"
+                },
                 "description": "Environment reference for an Engine credential."
               },
               "baseUrl": {
@@ -1760,7 +1828,10 @@
                   "string",
                   "object"
                 ],
-                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupEngineSecretReference"},
+                "x-sensitive": true,
+                "x-secret-reference": {
+                  "$ref": "#/$defs/backupEngineSecretReference"
+                },
                 "additionalProperties": false,
                 "properties": {
                   "source": {
@@ -1783,7 +1854,10 @@
               },
               "apiKeyRef": {
                 "type": "string",
-                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
+                "x-sensitive": true,
+                "x-secret-reference": {
+                  "$ref": "#/$defs/backupSecretName"
+                },
                 "description": "Secret-store reference for an Engine credential."
               },
               "headers": {
@@ -1798,6 +1872,10 @@
                 "type": "string",
                 "x-url-credentials": true,
                 "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+              },
+              "model": {
+                "type": "string",
+                "description": "Public Engine model, workspace or numeric control; not credential material."
               }
             }
           },
@@ -1809,7 +1887,10 @@
                   "string",
                   "object"
                 ],
-                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupEngineSecretReference"},
+                "x-sensitive": true,
+                "x-secret-reference": {
+                  "$ref": "#/$defs/backupEngineSecretReference"
+                },
                 "additionalProperties": false,
                 "properties": {
                   "source": {
@@ -1832,7 +1913,10 @@
               },
               "apiKeyRef": {
                 "type": "string",
-                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
+                "x-sensitive": true,
+                "x-secret-reference": {
+                  "$ref": "#/$defs/backupSecretName"
+                },
                 "description": "Secret-store reference for an Engine credential."
               },
               "headers": {
@@ -1858,7 +1942,10 @@
                   "string",
                   "object"
                 ],
-                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupEngineSecretReference"},
+                "x-sensitive": true,
+                "x-secret-reference": {
+                  "$ref": "#/$defs/backupEngineSecretReference"
+                },
                 "additionalProperties": false,
                 "properties": {
                   "source": {
@@ -1881,7 +1968,10 @@
               },
               "apiKeyRef": {
                 "type": "string",
-                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
+                "x-sensitive": true,
+                "x-secret-reference": {
+                  "$ref": "#/$defs/backupSecretName"
+                },
                 "description": "Secret-store reference for an Engine credential."
               },
               "headers": {
@@ -1910,7 +2000,10 @@
                       "string",
                       "object"
                     ],
-                    "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupEngineSecretReference"},
+                    "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupEngineSecretReference"
+                    },
                     "additionalProperties": false,
                     "properties": {
                       "source": {
@@ -1933,13 +2026,20 @@
                   },
                   "apiKeyRef": {
                     "type": "string",
-                    "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
+                    "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupSecretName"
+                    },
                     "description": "Secret-store reference for an Engine credential."
                   },
                   "baseUrl": {
                     "type": "string",
                     "x-url-credentials": true,
                     "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                  },
+                  "encodingMaxTokens": {
+                    "type": "integer",
+                    "description": "Public Engine model, workspace or numeric control; not credential material."
                   }
                 }
               }
@@ -1950,7 +2050,10 @@
             "properties": {
               "apiKeyEnv": {
                 "type": "string",
-                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/secretEnvironmentName"},
+                "x-sensitive": true,
+                "x-secret-reference": {
+                  "$ref": "#/$defs/secretEnvironmentName"
+                },
                 "description": "Environment reference for an Engine credential."
               }
             }
@@ -1962,6 +2065,59 @@
                 "type": "string",
                 "x-sensitive": true,
                 "description": "Engine reminder webhook; the complete URL is sensitive because its path may carry the credential."
+              }
+            }
+          },
+          "neo": {
+            "type": "object",
+            "properties": {
+              "corpusDefaultWorkspaceKey": {
+                "type": "string",
+                "description": "Public Engine model, workspace or numeric control; not credential material.",
+                "x-sensitive": false
+              },
+              "workspaces": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceKey": {
+                      "type": "string",
+                      "description": "Public Engine model, workspace or numeric control; not credential material.",
+                      "x-sensitive": false
+                    },
+                    "legacyKeys": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Public Engine model, workspace or numeric control; not credential material."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "recall": {
+            "type": "object",
+            "properties": {
+              "adaptiveBudget": {
+                "type": "object",
+                "properties": {
+                  "tokenBudgetPct": {
+                    "type": "number",
+                    "description": "Public Engine model, workspace or numeric control; not credential material."
+                  }
+                }
+              },
+              "semanticCompression": {
+                "type": "object",
+                "properties": {
+                  "tokenBudget": {
+                    "type": "integer",
+                    "description": "Public Engine model, workspace or numeric control; not credential material."
+                  }
+                }
               }
             }
           }
@@ -1999,12 +2155,12 @@
                     "type": "string"
                   }
                 },
-                "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                "x-secret-reference": {"$ref": "#/$defs/backupEngineSecretReference"}, "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
               },
               "apiKeyRef": {
                 "type": "string",
                 "x-sensitive": true,
-                "description": "Secret-store reference for an Engine credential."
+                "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}, "description": "Secret-store reference for an Engine credential."
               },
               "headers": {
                 "type": "object",
@@ -2117,7 +2273,7 @@
                 "maxLength": 64,
                 "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$"
               },
-              "keySha256": {
+              "keySha256": { "x-sensitive": false,
                 "description": "SHA-256 hash of the peer's bearer token.",
                 "type": "string",
                 "maxLength": 64,
@@ -2214,45 +2370,289 @@
         "additionalProperties": {
           "type": "object",
           "properties": {
-            "apiKeyRef": {"description": "Legacy provider reference used by agent provisioning and secret_names; auth profiles use profile.secret_ref.", "type": "string", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}},
+            "apiKeyRef": {
+              "description": "Legacy provider reference used by agent provisioning and secret_names; auth profiles use profile.secret_ref.",
+              "type": "string",
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/backupSecretName"
+              }
+            },
             "profile": {
               "type": "object",
               "properties": {
-                "secret_ref": {"description": "Auth profile secret-store reference.", "type": "string", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}},
-                "extra_headers": {"description": "Configured request header values, irrespective of header names.", "type": "object", "additionalProperties": {"type": "string"}, "x-sensitive": true},
-                "base_url": {"description": "Provider base URL.", "type": "string", "x-url-credentials": true},
-                "authorizeUrl": {"description": "Authorization endpoint URL.", "type": "string", "x-url-credentials": true},
-                "tokenUrl": {"description": "Token endpoint URL.", "type": "string", "x-url-credentials": true},
-                "deviceUrl": {"description": "Device authorization endpoint URL.", "type": "string", "x-url-credentials": true},
-                "authorization_endpoint": {"description": "Authorization endpoint URL (legacy spelling).", "type": "string", "x-url-credentials": true},
-                "token_endpoint": {"description": "Token endpoint URL (legacy spelling).", "type": "string", "x-url-credentials": true},
-                "device_authorization_endpoint": {"description": "Device authorization endpoint URL (legacy spelling).", "type": "string", "x-url-credentials": true},
-                "revocation_endpoint": {"description": "Credential revocation endpoint URL.", "type": "string", "x-url-credentials": true}
+                "secret_ref": {
+                  "description": "Auth profile secret-store reference.",
+                  "type": "string",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
+                },
+                "extra_headers": {
+                  "description": "Configured request header values, irrespective of header names.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "x-sensitive": true
+                },
+                "base_url": {
+                  "description": "Provider base URL.",
+                  "type": "string",
+                  "x-url-credentials": true
+                },
+                "authorizeUrl": {
+                  "description": "Authorization endpoint URL.",
+                  "type": "string",
+                  "x-url-credentials": true
+                },
+                "tokenUrl": {
+                  "description": "Token endpoint URL.",
+                  "type": "string",
+                  "x-url-credentials": true
+                },
+                "deviceUrl": {
+                  "description": "Device authorization endpoint URL.",
+                  "type": "string",
+                  "x-url-credentials": true
+                },
+                "authorization_endpoint": {
+                  "description": "Authorization endpoint URL (legacy spelling).",
+                  "type": "string",
+                  "x-url-credentials": true
+                },
+                "token_endpoint": {
+                  "description": "Token endpoint URL (legacy spelling).",
+                  "type": "string",
+                  "x-url-credentials": true
+                },
+                "device_authorization_endpoint": {
+                  "description": "Device authorization endpoint URL (legacy spelling).",
+                  "type": "string",
+                  "x-url-credentials": true
+                },
+                "revocation_endpoint": {
+                  "description": "Credential revocation endpoint URL.",
+                  "type": "string",
+                  "x-url-credentials": true
+                },
+                "id": {
+                  "type": "string",
+                  "description": "Public provider profile identifier, capability or authentication policy metadata."
+                },
+                "display_name": {
+                  "type": "string",
+                  "description": "Public provider profile identifier, capability or authentication policy metadata."
+                },
+                "kind": {
+                  "type": "string",
+                  "description": "Public provider profile identifier, capability or authentication policy metadata."
+                },
+                "audience": {
+                  "type": "string",
+                  "description": "Public provider profile identifier, capability or authentication policy metadata."
+                },
+                "client_registration": {
+                  "type": "string",
+                  "description": "Public provider profile identifier, capability or authentication policy metadata."
+                },
+                "client_id": {
+                  "type": "string",
+                  "description": "Public provider profile identifier, capability or authentication policy metadata."
+                },
+                "pkce": {
+                  "type": "string",
+                  "description": "Public provider profile identifier, capability or authentication policy metadata."
+                },
+                "policy_status": {
+                  "type": "string",
+                  "description": "Public provider profile identifier, capability or authentication policy metadata."
+                },
+                "policy_source": {
+                  "type": "string",
+                  "description": "Public provider profile identifier, capability or authentication policy metadata."
+                },
+                "policy_checked": {
+                  "type": "string",
+                  "description": "Public provider profile identifier, capability or authentication policy metadata."
+                },
+                "auth_header_scheme": {
+                  "type": "string",
+                  "x-sensitive": false,
+                  "description": "Header template containing {token}; the supplied credential is stored separately."
+                },
+                "capabilities": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Public capability or requested scope names."
+                },
+                "scopes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Public capability or requested scope names."
+                },
+                "person_bound": {
+                  "type": "boolean"
+                },
+                "redirect": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "port": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                "refresh": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "type": "string"
+                    },
+                    "refresh_skew_seconds": {
+                      "type": "integer"
+                    }
+                  }
+                }
               }
             },
-            "entries": {"type": "array", "items": {"type": "object", "properties": {
-              "secretRef": {"description": "Credential pool secret-store reference.", "type": "string", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}}
-            }}}
+            "entries": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "secretRef": {
+                    "description": "Credential pool secret-store reference.",
+                    "type": "string",
+                    "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupSecretName"
+                    }
+                  },
+                  "id": {
+                    "type": "string",
+                    "description": "Public credential pool entry identity."
+                  }
+                }
+              }
+            },
+            "wireFormat": {
+              "type": "string",
+              "description": "Public provider protocol selector."
+            }
           }
         },
         "properties": {
-          "media": {"type": "object", "properties": {
-            "adapters": {"type": "array", "items": {"type": "object", "properties": {
-              "secretRef": {"description": "Media adapter secret-store reference.", "type": "string", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}},
-              "baseUrl": {"description": "Media generation base URL.", "type": "string", "x-url-credentials": true}
-            }}}
-          }},
-          "mcp": {"type": "object", "properties": {
-            "servers": {"type": "array", "items": {"type": "object", "properties": {
-              "authSecret": {"description": "MCP server secret-store reference.", "type": "string", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}},
-              "transport": {"type": "object", "properties": {
-                "url": {"description": "MCP HTTP endpoint URL.", "type": "string", "x-url-credentials": true},
-                "headers": {"description": "Configured MCP request header values.", "type": "object", "additionalProperties": {"type": "string"}, "x-sensitive": true},
-                "env": {"description": "Explicit child environment values may contain credentials.", "type": "object", "additionalProperties": {"type": "string"}, "x-sensitive": true},
-                "args": {"description": "Explicit child arguments may contain credentials.", "type": "array", "items": {"type": "string", "x-sensitive": true}}
-              }}
-            }}}
-          }}
+          "media": {
+            "type": "object",
+            "properties": {
+              "adapters": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "secretRef": {
+                      "description": "Media adapter secret-store reference.",
+                      "type": "string",
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
+                    },
+                    "baseUrl": {
+                      "description": "Media generation base URL.",
+                      "type": "string",
+                      "x-url-credentials": true
+                    },
+                    "model": {
+                      "type": "string",
+                      "description": "Public media model identifier."
+                    },
+                    "id": {
+                      "type": "string",
+                      "description": "Public media adapter identity."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "mcp": {
+            "type": "object",
+            "properties": {
+              "servers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "authSecret": {
+                      "description": "MCP server secret-store reference.",
+                      "type": "string",
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
+                    },
+                    "transport": {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "description": "MCP HTTP endpoint URL.",
+                          "type": "string",
+                          "x-url-credentials": true
+                        },
+                        "headers": {
+                          "description": "Configured MCP request header values.",
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "x-sensitive": true
+                        },
+                        "env": {
+                          "description": "Explicit child environment values may contain credentials.",
+                          "x-text-credentials": "parts",
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "x-sensitive": true
+                        },
+                        "args": {
+                          "description": "Explicit child arguments may contain credentials.",
+                          "x-text-credentials": "parts",
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "x-sensitive": true
+                          }
+                        },
+                        "type": {
+                          "type": "string",
+                          "description": "Public MCP transport selector."
+                        },
+                        "command": {
+                          "type": "string",
+                          "description": "Executable path; credential arguments are separate."
+                        }
+                      }
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Public MCP server name."
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -2366,7 +2766,7 @@
                   "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/secretFileReference"}
                 },
                 "args": {
-                  "description": "Arguments passed to command, one array element per argument (no shell interpolation).",
+                  "description": "Arguments passed to command, one array element per argument (no shell interpolation).", "x-text-credentials": "parts",
                   "type": "array",
                   "maxItems": 128,
                   "items": {
@@ -2377,7 +2777,7 @@
                   "default": []
                 },
                 "environment": {
-                  "description": "Extra environment variables for command; only these and the built-in allowlist are passed.",
+                  "description": "Extra environment variables for command; only these and the built-in allowlist are passed.", "x-text-credentials": "parts",
                   "type": "object",
                   "propertyNames": {
                     "pattern": "^[A-Z_][A-Z0-9_]*$"
@@ -4716,7 +5116,7 @@
                       "description": "The selected protocol supports an audio generation switch."
                     },
                     "inputSchema": {
-                      "description": "Published model input properties for fal; Replicate discovers them from the model/version.",
+                      "description": "Published model input properties for fal; Replicate discovers them from the model/version.", "x-unknown-members": "public",
                       "type": "object",
                       "additionalProperties": true,
                       "x-tier": "advanced",
@@ -4816,7 +5216,7 @@
                       "description": "The selected protocol supports an audio generation switch."
                     },
                     "inputSchema": {
-                      "description": "Published model input properties for fal; Replicate discovers them from the model/version.",
+                      "description": "Published model input properties for fal; Replicate discovers them from the model/version.", "x-unknown-members": "public",
                       "type": "object",
                       "additionalProperties": true,
                       "x-tier": "advanced",
@@ -4916,7 +5316,7 @@
                       "description": "The selected protocol supports an audio generation switch."
                     },
                     "inputSchema": {
-                      "description": "Published model input properties for fal; Replicate discovers them from the model/version.",
+                      "description": "Published model input properties for fal; Replicate discovers them from the model/version.", "x-unknown-members": "public",
                       "type": "object",
                       "additionalProperties": true,
                       "x-tier": "advanced",
@@ -5016,7 +5416,7 @@
                       "description": "The selected protocol supports an audio generation switch."
                     },
                     "inputSchema": {
-                      "description": "Published model input properties for fal; Replicate discovers them from the model/version.",
+                      "description": "Published model input properties for fal; Replicate discovers them from the model/version.", "x-unknown-members": "public",
                       "type": "object",
                       "additionalProperties": true,
                       "x-tier": "advanced",
@@ -5116,7 +5516,7 @@
                       "description": "The selected protocol supports an audio generation switch."
                     },
                     "inputSchema": {
-                      "description": "Published model input properties for fal; Replicate discovers them from the model/version.",
+                      "description": "Published model input properties for fal; Replicate discovers them from the model/version.", "x-unknown-members": "public",
                       "type": "object",
                       "additionalProperties": true,
                       "x-tier": "advanced",
@@ -5216,7 +5616,7 @@
                       "description": "The selected protocol supports an audio generation switch."
                     },
                     "inputSchema": {
-                      "description": "Published model input properties for fal; Replicate discovers them from the model/version.",
+                      "description": "Published model input properties for fal; Replicate discovers them from the model/version.", "x-unknown-members": "public",
                       "type": "object",
                       "additionalProperties": true,
                       "x-tier": "advanced",

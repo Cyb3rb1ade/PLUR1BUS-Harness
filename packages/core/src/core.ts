@@ -29,9 +29,10 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
 import type { Engine, EngineStatus, HostServices, ModelsStatus } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
-import { configTextSecretEntries, type HarnessConfig } from "@plur1bus/config-schema";
+import { type HarnessConfig } from "@plur1bus/config-schema";
 import { createSecretRedaction } from "./secrets/redaction.ts";
-import { loadConfigDisclosurePolicy } from "./config-disclosure.ts";
+import { loadConfigDisclosurePolicy, watchConfigDisclosurePolicy } from "./config-disclosure.ts";
+import { logConfigWarnings } from "./config-warnings.ts";
 import { apiPrincipal, checkAdoptionNonce, createOrphanWatch, readRunToken, engineRunFiles, type OrphanWatch, type SecurePathOptions } from "@plur1bus/module-api";
 import { RPC_VERSION, SCHEMA, buildCapabilities, precompileMethods, type CoreStatusResult, type JobsStatus, type ProcessState } from "@plur1bus/rpc-schema";
 import { ActivityTracker } from "./activity.ts";
@@ -292,6 +293,7 @@ export function createCore(o: CoreOptions): Core {
   let scanScheduler: ScanScheduler | null = null;
   let discoveryWriter: ReturnType<typeof createWriter> | null = null;
   let unsubscribeConfigRedaction: (() => void) | null = null;
+  let stopConfigDisclosure: (() => void) | null = null;
   const closeLogRedaction = () => {
     unsubscribeConfigRedaction?.(); unsubscribeConfigRedaction = null;
   };
@@ -408,33 +410,54 @@ export function createCore(o: CoreOptions): Core {
     const cfg = () => cs.current();
     const redaction = createSecretRedaction();
     const configGroup = Symbol("configuration");
-    // Composition retains its initial snapshot (including provider profiles) until Core exits.
-    redaction.replaceGroup(Symbol("core-build"), configTextSecretEntries(config)
-      .map(({ value }) => value));
-    const registerConfig = (next: HarnessConfig): void => {
-      redaction.replaceGroup(configGroup, configTextSecretEntries(next).map(({ value }) => value));
-    };
-    registerConfig(config);
-    // First listener, before any await or downstream listener can log an accepted new value.
-    unsubscribeConfigRedaction = cs.onChange((_previous, next) => registerConfig(next));
     let configDisclosure = await loadConfigDisclosurePolicy(l.home);
+    // Composition retains its initial snapshot (including provider profiles) until Core exits.
+    // Module configuration belongs to supervised children and its declarations must remain refreshable.
+    redaction.replaceGroup(Symbol("core-build"), configDisclosure.values({ ...config, modules: {} }));
     const registerDeclaredConfig = (next: HarnessConfig): void => {
       redaction.replaceGroup(configGroup, configDisclosure.values(next));
     };
-    unsubscribeConfigRedaction();
+    registerDeclaredConfig(config);
     registerDeclaredConfig(cs.current());
-    unsubscribeConfigRedaction = cs.onChange((_previous, next) => registerDeclaredConfig(next));
-    prepareConfigChange = (previous, next) => {
-      if (JSON.stringify(previous.modules) === JSON.stringify(next.modules)) {
-        registerDeclaredConfig(next);
-        return;
-      }
-      return loadConfigDisclosurePolicy(l.home).then((policy) => {
-        const values = policy.values(next); // Verify before replacing either the current policy or its pinned values.
+    const warningLog = { warn: at("warn") };
+    logConfigWarnings(warningLog, configDisclosure.warnings(cs.current()));
+    // First listener, before downstream listeners can log an accepted new value.
+    unsubscribeConfigRedaction = cs.onChange((_previous, next) => {
+      registerDeclaredConfig(next);
+      logConfigWarnings(warningLog, configDisclosure.warnings(next));
+    });
+    let disclosureClosed = false;
+    let policyChanges = Promise.resolve();
+    const reloadDeclaredConfig = (next?: HarnessConfig): Promise<void> => {
+      // File events and configuration candidates share one queue, so an older manifest read cannot replace a newer policy.
+      const change = policyChanges.then(async () => {
+        const policy = await loadConfigDisclosurePolicy(l.home);
+        if (disclosureClosed) return;
+        const accepted = next ?? cs.current();
+        const values = policy.values(accepted);
         configDisclosure = policy;
         redaction.replaceGroup(configGroup, values);
+        if (!next) logConfigWarnings(warningLog, policy.warnings(accepted));
       });
+      policyChanges = change.catch(() => { /* A rejected candidate is reported by its config-source preparation. */ });
+      return change;
     };
+    prepareConfigChange = (_previous, next) => reloadDeclaredConfig(next);
+    let refreshRequested = false, refreshRunning = false;
+    const stopWatching = watchConfigDisclosurePolicy(l.home, () => {
+      refreshRequested = true;
+      if (refreshRunning || disclosureClosed) return;
+      refreshRunning = true;
+      void (async () => {
+        try {
+          while (refreshRequested && !disclosureClosed) { refreshRequested = false; await reloadDeclaredConfig(); }
+        } catch {
+          // The accepted snapshot and its pinned values remain protected when a candidate cannot be interpreted.
+          at("warn")("module sensitivity reload failed; values remain private; repair module manifests");
+        } finally { refreshRunning = false; }
+      })();
+    });
+    stopConfigDisclosure = () => { disclosureClosed = true; stopWatching(); };
     const platform = createPlatformCapabilities({ logger: startupLog, runDir: l.run, ...o.securePathOptions });
     const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath,
       fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: startupLog, redaction });
@@ -1314,7 +1337,7 @@ export function createCore(o: CoreOptions): Core {
       await step(log, "import source secrets close", async () => { await importComposition?.close(); importComposition = null; });
       statusClosed = true; warmup?.abort(); if (warmingTimer) { clearTimeout(warmingTimer); warmingTimer = null; }
       orphans?.dispose();
-      await step(log, "config watch", async () => { await source?.close(); });
+      await step(log, "config watch", async () => { stopConfigDisclosure?.(); await source?.close(); });
       await step(log, "channels stop", async () => { await switchboard?.stop(); }); switchboard = null;
       if (userJobsTimer) { clearInterval(userJobsTimer); userJobsTimer = null; }
       await step(log, "sessions close", async () => { await turnComposition?.close(); turnComposition = null; }); sessions = null;
@@ -1391,7 +1414,7 @@ export function createCore(o: CoreOptions): Core {
       });
       orphans?.dispose(); // closing connections from here on is the stop itself, not a lost lifeline
       const errors: unknown[] = [];
-      await step(logger, "config watch", async () => { await source?.close(); }, errors);
+      await step(logger, "config watch", async () => { stopConfigDisclosure?.(); await source?.close(); }, errors);
       // H3B-R2: the abort acts between lines; the capture in flight gets a bounded wait before the engine closes. A
       // replay still running then leaves its `.replaying-<pid>` file for the next start, and logs nothing more.
       await step(logger, "journal replay", async () => {

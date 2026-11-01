@@ -17,7 +17,7 @@ import { FailureState } from "../common/states.ts";
 import { currentRole, getApi, roleIn, useLoad } from "../common/load.ts";
 import type { PageProps } from "../registry.ts";
 import { navigate } from "../../router.ts";
-import { configContainsCredentials, configHasPastedKey, configPolicyOf, isConfigReference, redactConfigView } from "../../config-policy.ts";
+import { configNeedsReplacement, configReferenceWarning, configPolicyOf, isConfigReference, redactConfigView } from "../../config-policy.ts";
 
 import "../../styles/switchboard.css";
 
@@ -103,17 +103,18 @@ function EditDialog({
 }): View {
   const [key, setKey] = useState(initialKey);
   const [val, setVal] = useState(
-    configContainsCredentials(`channels.${channelId}.${initialKey}`) ? ""
+    configNeedsReplacement(initialValue, ["channels", channelId, initialKey]) ? ""
       : typeof initialValue === "string" ? initialValue : JSON.stringify(initialValue ?? "")
   );
   const [edited, setEdited] = useState(false);
-  const path = `channels.${channelId}.${key}`;
+  const path = ["channels", channelId, key];
   const policy = configPolicyOf(path);
-  const replacement = configContainsCredentials(path);
+  const replacement = configNeedsReplacement(initialValue, path);
   let candidate: unknown = val;
   try { candidate = JSON.parse(val); } catch { /* A string replacement does not need JSON syntax. */ }
-  const pastedKey = configHasPastedKey(candidate, path) || configHasPastedKey(initialValue, `channels.${channelId}.${initialKey}`);
-  const current = redactConfigView(initialValue, `channels.${channelId}.${initialKey}`);
+  const referenceWarning = configReferenceWarning(candidate, path) ??
+    configReferenceWarning(initialValue, ["channels", channelId, initialKey]);
+  const current = redactConfigView(initialValue, ["channels", channelId, initialKey]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [isSecretErr, setIsSecretErr] = useState(false);
@@ -215,10 +216,10 @@ function EditDialog({
         h("label", { for: "channel-set-val" }, t("switchboard.edit.value")),
         h("input", {
           id: "channel-set-val",
-          type: (policy.sensitive || (policy.referenceSchema !== undefined && !policy.urlCredentials)) && !isConfigReference(val, path) ? "password" : "text",
+          type: replacement && (policy.sensitive || (policy.referenceSchema !== undefined && !policy.urlCredentials)) && !isConfigReference(val, path) ? "password" : "text",
           value: val,
           ...(replacement ? { placeholder: t("switchboard.edit.replacePlaceholder") } : {}),
-          "aria-describedby": [replacement ? "channel-set-replace" : "", pastedKey ? "channel-set-reference-warning" : ""].filter(Boolean).join(" ") || undefined,
+          "aria-describedby": [replacement ? "channel-set-replace" : "", referenceWarning ? "channel-set-reference-warning" : ""].filter(Boolean).join(" ") || undefined,
           onInput: (e: Event) => { setVal((e.target as HTMLInputElement).value); setEdited(true); },
         }),
         replacement ? h("div", { id: "channel-set-replace", class: "field-hint" },
@@ -226,7 +227,7 @@ function EditDialog({
             ? t("settings.cfg.reference", { name: current })
             : t("settings.cfg.replace.current", { value: (typeof current === "string" ? current : JSON.stringify(current)) || t("settings.cfg.unset") })),
           h("p", {}, t("switchboard.edit.replaceHint"))) : null,
-        pastedKey ? h("p", { id: "channel-set-reference-warning", class: "field-hint", "data-tone": "warn", role: "status" }, t("settings.cfg.pastedKey")) : null,
+        referenceWarning ? h("p", { id: "channel-set-reference-warning", class: "field-hint", "data-tone": "warn", role: "status" }, t(`settings.cfg.${referenceWarning}`)) : null,
       ),
     ),
   );
@@ -450,7 +451,7 @@ function DetailView({
           "tbody",
           null,
           configEntries.map(([k, v]) => {
-            const path = `channels.${channelId}.${k}`;
+            const path = ["channels", channelId, k];
             const secretRef = d.secrets?.find((s) => s.key === k);
             const value = redactConfigView(secretRef ? secretRef.name : v, path);
             const valDisplay = secretRef
@@ -458,13 +459,13 @@ function DetailView({
               : typeof value === "object"
               ? JSON.stringify(value)
               : String(value ?? "");
-            const pastedKey = configHasPastedKey(secretRef ? secretRef.name : v, path);
+            const referenceWarning = configReferenceWarning(secretRef ? secretRef.name : v, path);
             return h(
               "tr",
               { key: k },
               h("th", { scope: "row" }, k),
               h("td", null, valDisplay,
-                pastedKey ? h("p", { class: "field-hint", "data-tone": "warn", role: "status" }, t("settings.cfg.pastedKey")) : null),
+                referenceWarning ? h("p", { class: "field-hint", "data-tone": "warn", role: "status" }, t(`settings.cfg.${referenceWarning}`)) : null),
               h(
                 "td",
                 null,

@@ -1,10 +1,10 @@
+import { configSecretEntries } from "../src/sensitive.ts";
 // The public pinned Engine schema is a completeness oracle for nonvalidating Harness metadata.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { test } from "node:test";
 import {
-  configSecretEntries,
   configurationWarnings,
   defaults,
   sensitiveOf,
@@ -118,7 +118,7 @@ test("engine sensitivity metadata preserves the existing opaque pass-through val
   const result = validate(cfg);
   assert.ok(result.ok);
   assert.deepEqual(result.config.engine, cfg.engine);
-  assert.deepEqual(configurationWarnings(cfg), []);
+  assert.deepEqual(configurationWarnings(cfg).map(warning => warning.key), ["engine.embedding.apiKeyRef"]);
   assert.deepEqual(
     configSecretEntries(cfg).filter((entry) => entry.key.startsWith("engine.")),
     [

@@ -7,17 +7,14 @@ types remain intact. See the generated [key reference](reference/config-keys.md)
 
 `x-sensitive` remains boolean. It masks literal strings, including string leaves in annotated objects, maps and arrays.
 A value matching a marked reference subschema remains readable as reference metadata; it is not a secret value. A nonempty sensitive string becomes `••••`; empty strings stay empty. Malformed numeric or boolean
-values in opaque sensitive slots become `0` or `false`, preserving their JSON types. Unknown, unmarked members remain
-public; their names do not add a classification.
+values in opaque sensitive slots become `0` or `false`, preserving their JSON types. Unknown string values are private, including open provider/OAuth namespaces, unknown Engine keys, missing or schema-less modules, unclassified map/array values and local voice catalog overrides. Unknown numbers and booleans retain their values. Typed public properties and map values remain public. The only public opaque subtrees carry an explicit `x-unknown-members: public` exception: published media model input schemas, which contain schema data rather than runtime credentials. The default is `x-unknown-members: sensitive`.
 
-`x-url-credentials` identifies endpoint URLs. Views hide userinfo and every query parameter value, including repeated
-parameters; parameter names, host, path and fragment remain visible. Whole webhook URLs with secret paths instead
-carry `x-sensitive`. Literal, normalized and decoded credential parts feed log registration; an endpoint's full URL,
-host or public path is never registered merely because the value is a URL.
+`x-url-credentials` identifies endpoint URLs. Views hide userinfo and every query/fragment parameter value, including repeated parameters; parameter names, host and path remain visible. A standalone opaque fragment is hidden as a whole. Whole webhook URLs with secret paths instead
+carry `x-sensitive`. Unclassified values use credential-name/token-shape extraction for text sinks, so masking an unknown value in a config view does not globally register a public project path or region. Text registration selects the password from userinfo, token-like usernames, values of credential-named query/fragment parameters and token-like parameter values, in literal and decoded forms. A token used as a username with no password is protected too; ordinary usernames, benign regions/API versions, full endpoints, hosts and public paths are not registered. Views still mask every query/fragment value. Process arguments and environment maps use `x-text-credentials: parts`: credential assignments and token-like values enter the text registry; ordinary flags, package names and project paths do not.
 
 `x-value-schema` supplies nonvalidating metadata for supported opaque Engine members and the existing `providers`
 consumers: auth-profile headers, pool and legacy provisioning references, endpoint URLs, media references/URLs and MCP transport
-headers, environment values, arguments, references and URLs. The provider namespace remains open. This metadata
+headers, environment values, arguments, references and URLs. The provider namespace remains open. The known profile identifiers, header templates, protocol selectors and executable paths remain public; unclassified future strings stay private. This metadata
 also protects retired OTLP headers and endpoints in diagnostic copies; those settings remain invalid configuration.
 `x-secret-reference` marks reference subschemas; existing field links identify the local reference definition. Names
 remain readable in configuration, provisioning metadata, audit and logs. They are never added to the global text
@@ -46,8 +43,7 @@ placeholders are references. See [reference safety](secrets.md#reference-names-a
 
 The JSON-type guarantee above applies to public configuration views. Regular archives deliberately replace literal
 secret scalars with the documented string placeholder, including malformed numeric/boolean values in opaque slots;
-the names-only inventory makes required re-entry explicit. Archive traversal therefore differs from display projection
-while sharing reference safety and URL primitives.
+the names-only inventory makes required re-entry explicit. Third-party module schemas can require re-entry before their own scalar constraints validate; placeholders identify missing credentials rather than guaranteeing an immediately usable connection. One Rust policy projector provides both output modes, with shared structural resolution and reference safety. URL components use the URI-safe ASCII placeholder `REDACTED`; the restored config still passes URI validation and reports the endpoint for credential re-entry. TS and Web consume the browser-safe `@plur1bus/config-schema/policy` implementation; one hand-authored projection fixture also runs in Rust for both output modes.
 
 Agent export manifests still name required secrets for target provisioning. If metadata independently matches a
 registered secret value, export refuses before signing rather than publishing that value or an invalid replacement
@@ -78,16 +74,9 @@ until Core exits, because the Engine and provider composition can still hold it 
 Supervisor captured-output generations retain the corresponding start snapshot until the stream ends.
 
 Installed modules contribute their own `configSchema` declarations at `modules.<name>`. Direct properties, maps,
-items and supported metadata are interpreted consistently in Rust and TypeScript. Conditional/reference privacy the
-projection cannot interpret, missing manifests for installed configured modules and unavailable metadata refuse
-public disclosure. Unconfigured invalid manifests do not block unrelated values. Unregistered opaque namespaces do
-not gain an invented name-based policy.
+items and supported metadata are interpreted consistently in Rust and TypeScript. Installation and update reject schemas whose privacy declarations cannot be interpreted. A missing module or absent schema uses the private unknown-string policy; damaged installed metadata refuses public config disclosure and archive creation. Logging continues with private fallback values and value-free guidance. Key-name and URL backstops in Web and support bundles add defense beyond the schema. Each known module is projected from its original value with its own schema root and local definitions before joining the Harness result.
 
-Core loads module metadata in bulk before startup disclosure and before publishing a module-configuration change.
-While preparation is pending, the previous accepted snapshot remains visible and only the latest waiting candidate
-is retained. An unavailable policy keeps that snapshot and reports the failure without candidate values. Repair a
-changed module manifest and restart to replace the policy snapshot; ordinary configuration updates require no
-manual registry refresh.
+Core loads coherent module metadata before startup disclosure and accepted config changes. Directory events and a one-second stat fallback also refresh policies after installation, update, removal and manifest repair without a config edit, including disabled modules with no child process. Reloads are serialized; a repeatedly changing or unavailable registry uses private fallback. Repairing the manifest restores supported classification automatically. Current and retired values keep the existing bounded registry lifetime; already retired strings can remain concealed until that budget expires. Both Core and CLI/Supervisor consume bounded, value-free URL-userinfo and invalid-reference warnings.
 
 ## Existing unstructured-text limits
 

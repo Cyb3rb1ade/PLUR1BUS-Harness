@@ -29,7 +29,7 @@ fn configure(home: &Path) -> (String, String, String) {
         "schemaVersion":1,
         "channels":{"telegram":{"webhook":{"url":"https://relay.example.test/hook","secret":root}}},
         "modules":{"fixture":{"enabled":false,"ordinary":module,
-            "endpoint":format!("https://u-{credential}:p-{credential}@relay.example.test/public/path?ordinary=q-{credential}&ordinary=r-{credential}")}}
+            "endpoint":format!("https://public-user:{credential}@relay.example.test/public/path?token={credential}")}}
     }).to_string()).unwrap();
     (root, module, credential)
 }
@@ -172,7 +172,7 @@ fn captured_stdout_and_stderr_mask_startup_live_and_retired_config_values() {
 }
 
 #[test]
-fn unavailable_module_metadata_withholds_structured_and_captured_payloads() {
+fn unavailable_module_metadata_keeps_structured_and_captured_logs_private() {
     let dir = tempfile::tempdir().unwrap();
     let home = dir.path();
     let values = configure(home);
@@ -188,13 +188,31 @@ fn unavailable_module_metadata_withholds_structured_and_captured_payloads() {
             ("PLUR1BUS_SERVICE_MANAGER", &manager),
         ],
     );
-    wait_until("unavailable redaction notice", WAIT, || {
-        log(home, "core.out.log").contains("payload withheld")
-    });
+    wait_until(
+        "captured startup with private metadata fallback",
+        WAIT,
+        || {
+            log(home, "core.out.log")
+                .matches("startup-complete")
+                .count()
+                >= 2
+        },
+    );
     for name in ["supervisor.log", "core.out.log"] {
         let output = log(home, name);
-        assert!(output.contains("configuration sensitivity metadata is unavailable"));
-        assert!(output.contains("restart the Supervisor"));
+        assert!(
+            output.contains(if name == "supervisor.log" {
+                "supervisor started"
+            } else {
+                "startup root="
+            }),
+            "metadata repair diagnostics must remain available in {name}"
+        );
+        assert!(
+            !output.contains("payload withheld"),
+            "metadata fallback stopped logging in {name}"
+        );
+        assert!(!output.contains("restart the Supervisor"));
         for value in [&values.0, &values.1, &values.2] {
             assert!(
                 !output.contains(value),

@@ -13,7 +13,9 @@ test("Settings masks a declared ordinary header even though its name is not a cr
   assert.equal(value.engine.merging.headers.ordinary, secret);
 });
 
-test("Settings keeps unmarked token limits and credential-looking public labels visible", () => {
+test("Settings preserves public token limits and conceals unknown credential-looking labels", () => {
   const value = { modelProfiles: { primary: { params: { maxTokens: 4096 } } }, unknown: { password: "public-label" } };
-  assert.deepEqual(redact(value), value);
+  assert.deepEqual(redact(value), {
+    modelProfiles: { primary: { params: { maxTokens: 4096 } } }, unknown: { password: "••••" },
+  });
 });

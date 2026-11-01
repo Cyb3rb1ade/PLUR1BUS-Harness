@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { configSecretEntries, defaults } from "@plur1bus/config-schema";
+import { configTextSecretEntries, defaults } from "@plur1bus/config-schema";
 import { exportAgent } from "../../src/agents/export.ts";
 import { exportSecretCanaries } from "../../src/agents/signing.ts";
 import { agentRequiredSecrets } from "../../src/agents/secrets.ts";
@@ -22,7 +22,7 @@ test("agent exports conceal global config values from the shared registry withou
   config.engine = { embedding: { apiKey: secret } };
   const store = createSecretStore({ keyring: createMemoryBackend(), file: createMemoryBackend({ available: false }),
     fileFallback: () => false, audit: createMemoryAuditSink() });
-  store.redaction.replaceGroup(Symbol("configuration"), configSecretEntries(config).map(({ value }) => value));
+  store.redaction.replaceGroup(Symbol("configuration"), configTextSecretEntries(config).map(({ value }) => value));
   assert.equal((await store.list({ kind: "owner", id: "core" })).length, 0);
   writeFileSync(join(root, "SOUL.md"), `Public persona\n${secret}\n`);
   const bundle = await exportAgent({ root, agentId: "fixture", config: {}, memories: [{ text: secret }],

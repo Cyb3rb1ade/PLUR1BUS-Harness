@@ -36,6 +36,8 @@ pub struct ConfigState {
     /// M7: at start, the `modules.<name>` sections that do not satisfy their module's `configSchema` (edited while no
     /// supervisor ran, or a stricter schema installed since). Logged, and shown in `module.list` errors; not refused.
     pub module_errors: Vec<String>,
+    /// Manifest bytes used by the last disclosure-policy refresh, independent of config edits.
+    pub disclosure_stamp: Option<[u8; 32]>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -114,6 +116,7 @@ pub fn initial(layout: &Layout) -> ConfigState {
     };
     match parse(&bytes) {
         Ok(v) => ConfigState {
+            disclosure_stamp: Some(crate::config_redaction::registry_stamp(layout)),
             module_errors: crate::modules::current_config_errors(&crate::modules::scan(layout), &v),
             revision: Some(cfg::revision(&v)),
             running: Some(v),
@@ -700,6 +703,13 @@ pub fn poll_file(shared: &Arc<Shared>, layout: &Layout) {
         return;
     };
     let mut st = relock(&shared.config);
+    let stamp = crate::config_redaction::registry_stamp(layout);
+    if st.disclosure_stamp != Some(stamp) {
+        if let Some(running) = &st.running {
+            shared.log.register_config(layout, running);
+        }
+        st.disclosure_stamp = Some(stamp);
+    }
     poll_locked(shared, layout, &mut st, Some(&idle));
 }
 
