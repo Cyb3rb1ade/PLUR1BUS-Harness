@@ -40,6 +40,19 @@ fn pair<P: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize>(name: 
 fn method_fixture(name: &str, f: &Value) {
     use types::*;
     match name {
+        "tools.hello" => {
+            let mut fixture = f.clone();
+            let runtime = std::collections::hash_map::RandomState::new();
+            use std::hash::BuildHasher;
+            for name in ["token", "ticketKey"] {
+                let value = (0..4)
+                    .map(|i| format!("{:016x}", runtime.hash_one((name, i))))
+                    .collect::<String>();
+                fixture["params"][name] = value.into();
+            }
+            pair::<ToolsHelloParams, ToolsHelloResult>(name, &fixture);
+        }
+        "tools.health" => pair::<ToolsHealthParams, ToolsHealthResult>(name, f),
         "admin.extensions.auth.cancel" => {
             pair::<AdminExtensionsAuthCancelParams, AdminExtensionsAuthCancelResult>(name, f)
         }
@@ -1009,7 +1022,7 @@ fn rpc_version_const_matches_the_schema() {
         plur1bus_rpc::RPC_VERSION,
         schema["x-rpc-version"].as_str().unwrap()
     );
-    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.10.0");
+    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.15.0");
     assert!(schema["$id"]
         .as_str()
         .unwrap()

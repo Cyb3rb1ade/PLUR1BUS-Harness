@@ -144,6 +144,26 @@ pub(crate) fn native_worker_env() -> Vec<(std::ffi::OsString, std::ffi::OsString
     ]
 }
 
+/// Native tools binary installed beside the CLI; explicit overrides also support local development.
+pub(crate) fn locate_tools_bin(layout: &Layout) -> PathBuf {
+    if let Some(path) = std::env::var_os("PLUR1BUS_TOOLS_BIN") {
+        return PathBuf::from(path);
+    }
+    let name = if cfg!(windows) {
+        "plur1bus-tools.exe"
+    } else {
+        "plur1bus-tools"
+    };
+    if let Some(path) = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|dir| dir.join(name)))
+        .filter(|p| p.is_file())
+    {
+        return path;
+    }
+    layout.home.join("runtime/bin").join(name)
+}
+
 /// Locates the Node runtime ([`locate_node`]) and dist/core.js ([`locate_core_js`]) and runs the core in the
 /// foreground.
 pub fn run(out: &Out, layout: &Layout) -> ! {
@@ -163,6 +183,7 @@ pub fn run(out: &Out, layout: &Layout) -> ! {
     cmd.arg(&core_js).arg("--home").arg(&layout.home);
     cmd.envs(attest_env());
     cmd.envs(native_worker_env());
+    cmd.env("PLUR1BUS_TOOLS_BIN", locate_tools_bin(layout));
     if let Some(ti) = std::env::var_os("PLUR1BUS_TEST_INTERNALS") {
         cmd.arg("--test-internals").arg(ti);
     }

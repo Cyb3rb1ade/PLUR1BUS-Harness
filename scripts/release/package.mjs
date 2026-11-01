@@ -85,6 +85,9 @@ export async function packageArchive(v, target, binary, core, out, assets) {
       mkdirSync(join(dir, 'share/polkit-1/actions'), { recursive: true });
       copyFileSync(new URL('../../crates/plur1bus-attest/policy/org.plur1bus.approve.policy', import.meta.url), join(dir, 'share/polkit-1/actions/org.plur1bus.approve.policy'));
     }
+    const toolsName = target === 'win-x64' ? 'plur1bus-tools.exe' : 'plur1bus-tools';
+    copyFileSync(join(dirname(binary), toolsName), join(dir, 'bin', toolsName));
+    chmodSync(join(dir, 'bin', toolsName), 0o755);
     const exe = join(dir, 'bin', target === 'win-x64' ? 'plur1bus.exe' : 'plur1bus');
     copyFileSync(binary, exe); chmodSync(exe, 0o755);
     copyFileSync(core, join(dir, 'runtime/core.tar.gz'));
@@ -96,7 +99,7 @@ export async function packageArchive(v, target, binary, core, out, assets) {
     } else {
       generateAssets(hostBinary(target, binary), dir);
     }
-    writeFileSync(join(dir, 'README.txt'), `PLUR1BUS ${v} (${target})\nRequires Node 24.21.0. Extract runtime/core.tar.gz into runtime/core. ${target === "darwin-universal" ? "Then extract the matching darwin-arm64.tar.gz or darwin-x64.tar.gz into runtime/core." : ""} ${target === "linux-x64-musl" ? "The CLI uses musl; the included Core native dependencies require a glibc environment." : ""}\nSet PLUR1BUS_CORE_JS to runtime/core/core.js and PLUR1BUS_NODE to your Node executable (absolute paths).\nKeep both executables together; the helper hash is baked into the CLI. On POSIX, the helper and its bin directory must be owned by you or root and not group/world-writable. ${target.startsWith("linux-") ? "Install share/polkit-1/actions/org.plur1bus.approve.policy in /usr/share/polkit-1/actions as root (0644); a graphical polkit agent is required." : ""}\nOptional online setup/update uses the separately managed signed native feed; see docs/manual-release.md.\n`);
+    writeFileSync(join(dir, 'README.txt'), `PLUR1BUS ${v} (${target})\nRequires Node 24.21.0. Extract runtime/core.tar.gz into runtime/core. ${target === "darwin-universal" ? "Then extract the matching darwin-arm64.tar.gz or darwin-x64.tar.gz into runtime/core." : ""} ${target === "linux-x64-musl" ? "The CLI uses musl; the included Core native dependencies require a glibc environment." : ""}\nSet PLUR1BUS_CORE_JS to runtime/core/core.js and PLUR1BUS_NODE to your Node executable (absolute paths).\nKeep the CLI, native tools service and attestation helper together; the helper hash is baked into the CLI. On POSIX, the helper and its bin directory must be owned by you or root and not group/world-writable. ${target.startsWith("linux-") ? "Install share/polkit-1/actions/org.plur1bus.approve.policy in /usr/share/polkit-1/actions as root (0644); a graphical polkit agent is required." : ""}\nOptional online setup/update uses the separately managed signed native feed; see docs/manual-release.md.\n`);
     mkdirSync(dirname(out), { recursive: true });
     if (out.endsWith('.zip')) zip(dir, out); else await writeTarGz(dir, out);
   } finally { rmSync(dir, { recursive: true, force: true }); }

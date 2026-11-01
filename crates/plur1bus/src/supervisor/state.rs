@@ -164,7 +164,7 @@ pub fn classify_exit_for(
     requested: bool,
 ) -> ExitClass {
     match (kind, requested, code) {
-        (RoleKind::Core | RoleKind::Api, ..) | (_, true, _) => {
+        (RoleKind::Core | RoleKind::Api | RoleKind::Tools, ..) | (_, true, _) => {
             classify_exit(code, signal, requested)
         }
         (RoleKind::Module, false, Some(2)) => ExitClass::Fatal {
@@ -382,6 +382,7 @@ impl ChildState {
             "kind": match self.kind {
                 RoleKind::Core => "core",
                 RoleKind::Api => "api",
+                RoleKind::Tools => "tools",
                 RoleKind::Module => "module",
             },
         })
@@ -419,6 +420,7 @@ impl ChildState {
 pub enum RoleKind {
     Core,
     Api,
+    Tools,
     Module,
 }
 
@@ -435,6 +437,14 @@ impl Role {
         Role {
             name: "core".into(),
             kind: RoleKind::Core,
+        }
+    }
+
+    /// The isolated native tools service; lifecycle calls use the module control contract.
+    pub fn tools() -> Role {
+        Role {
+            name: "tools".into(),
+            kind: RoleKind::Tools,
         }
     }
 
@@ -457,7 +467,7 @@ impl Role {
         match self.kind {
             RoleKind::Core => format!("core.{verb}"),
             RoleKind::Api => format!("api.{verb}"),
-            RoleKind::Module => format!("module.{verb}"),
+            RoleKind::Tools | RoleKind::Module => format!("module.{verb}"),
         }
     }
 }

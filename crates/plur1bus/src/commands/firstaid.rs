@@ -33,7 +33,7 @@ pub(crate) const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 30] = [
+const CHECK_IDS: [&str; 31] = [
     "config.valid",
     "config.store-path",
     "host_mode_coexistence",
@@ -64,6 +64,7 @@ const CHECK_IDS: [&str; 30] = [
     "models.decision",
     "privacy.local-only",
     "api.supervised",
+    "tools.service",
 ];
 
 /// The summary of a row [`gather`] never got to before its deadline (`1staid repair` plans nothing for it).
@@ -398,6 +399,7 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
     checks.push(super::model::check_models_decision(layout));
     checks.push(check_local_only(layout));
     checks.push(check_api_supervised(daemon_status));
+    checks.push(check_tools_service(core_status.as_ref()));
     checks
 }
 
@@ -2527,9 +2529,47 @@ mod tests {
     }
 }
 
+/// D120: Core's background tools.health probe keeps this diagnostic read-only and within its budget.
+fn check_tools_service(core_status: Option<&Value>) -> Check {
+    let (status, summary) = match core_status {
+        None => (
+            Status::Skip,
+            "Core is unavailable; native tools were not probed",
+        ),
+        Some(value) if value["tools"]["ready"] == true => {
+            (Status::Ok, "Native tools service is ready")
+        }
+        Some(_) => (
+            Status::Fail,
+            "Native tools service is unavailable; Core turns continue in degraded mode",
+        ),
+    };
+    Check {
+        id: "tools.service",
+        status,
+        summary: summary.into(),
+        hint: None,
+        detail: None,
+    }
+}
+
 #[cfg(test)]
 mod api_supervision_tests {
     use super::*;
+    #[test]
+    fn tools_check_uses_core_health_without_connecting_as_a_person() {
+        assert_eq!(check_tools_service(None).status, Status::Skip);
+        assert_eq!(
+            check_tools_service(Some(&json!({"tools":{"ready":true}}))).status,
+            Status::Ok
+        );
+        assert_eq!(
+            check_tools_service(Some(&json!({"tools":{"ready":false}}))).status,
+            Status::Fail
+        );
+        assert_eq!(check_tools_service(Some(&json!({}))).status, Status::Fail);
+    }
+
     #[test]
     fn supervision_check_distinguishes_absent_ready_and_failed_api() {
         assert_eq!(check_api_supervised(None).status, Status::Info);

@@ -224,6 +224,162 @@ fn state(child: &Value) -> &str {
     child["process"]["state"].as_str().unwrap_or("")
 }
 
+fn kill_tools(pid: u64) {
+    #[cfg(unix)]
+    assert!(Command::new("kill")
+        .args(["-KILL", &pid.to_string()])
+        .status()
+        .unwrap()
+        .success());
+    #[cfg(windows)]
+    assert!(Command::new("taskkill")
+        .args(["/F", "/PID", &pid.to_string()])
+        .status()
+        .unwrap()
+        .success());
+}
+
+#[test]
+fn tools_crash_restarts_its_own_slot_while_core_keeps_serving() {
+    let h = Home::new();
+    // A directory left by an older installation must never shadow the fixed native role.
+    let legacy = h.home.join("modules/tools");
+    std::fs::create_dir_all(&legacy).unwrap();
+    std::fs::write(
+        legacy.join("module.json"),
+        json!({
+            "name":"tools", "version":"0.1.0", "apiVersion":"1", "entry":"index.js",
+            "scope":"installation", "priority":500
+        })
+        .to_string(),
+    )
+    .unwrap();
+    let tools = assert_cmd::cargo::cargo_bin("plur1bus-tools");
+    let mut supervisor = start_env(
+        &h,
+        "ready",
+        "0.1",
+        &fixture(),
+        &[("PLUR1BUS_TOOLS_BIN", tools.to_str().unwrap())],
+    );
+    let mut connection = client(&h.home);
+    wait_until("tools slot", WAIT, || {
+        let status = connection.call("daemon.status", json!({})).unwrap();
+        status["children"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["role"] == "tools")
+    });
+    let core = wait_child(&mut connection, "core ready", WAIT, |c| state(c) == "ready");
+    let mut tools_pid = 0;
+    wait_until("tools ready", WAIT, || {
+        let status = connection.call("daemon.status", json!({})).unwrap();
+        let child = status["children"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["role"] == "tools")
+            .unwrap();
+        tools_pid = child["pid"].as_u64().unwrap_or(0);
+        child["process"]["state"] == "ready"
+    });
+    let status = connection.call("daemon.status", json!({})).unwrap();
+    assert_eq!(
+        status["children"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|c| c["role"] == "tools")
+            .count(),
+        1
+    );
+    for method in [
+        "module.start",
+        "module.stop",
+        "module.restart",
+        "module.uninstall",
+    ] {
+        assert!(
+            connection.call(method, json!({"name":"tools"})).is_err(),
+            "{method} must refuse a fixed role"
+        );
+    }
+    let status = connection.call("daemon.status", json!({})).unwrap();
+    let tools_status = status["children"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["role"] == "tools")
+        .unwrap();
+    assert_eq!(tools_status["pid"], tools_pid);
+    assert_eq!(tools_status["process"]["state"], "ready");
+    kill_tools(tools_pid);
+    wait_until("tools restarted", WAIT, || {
+        let status = connection.call("daemon.status", json!({})).unwrap();
+        let child = status["children"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["role"] == "tools")
+            .unwrap();
+        assert_eq!(status["children"][0]["pid"], core["pid"]);
+        assert_eq!(status["children"][0]["process"]["state"], "ready");
+        child["process"]["state"] == "ready"
+            && child["pid"] != tools_pid
+            && child["restarts"].as_u64().unwrap_or(0) >= 1
+    });
+    // Exhaust the independent crash budget, then recover it through the existing daemon control.
+    for crash in 0..4 {
+        let status = connection.call("daemon.status", json!({})).unwrap();
+        let previous = status["children"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["role"] == "tools")
+            .unwrap()["pid"]
+            .as_u64()
+            .unwrap();
+        kill_tools(previous);
+        wait_until("tools backoff or give-up", WAIT, || {
+            let status = connection.call("daemon.status", json!({})).unwrap();
+            assert_eq!(status["children"][0]["pid"], core["pid"]);
+            assert_eq!(status["children"][0]["process"]["state"], "ready");
+            let child = status["children"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|c| c["role"] == "tools")
+                .unwrap();
+            if crash == 3 {
+                child["process"]["state"] == "crashed" && child["nextRestartAt"].is_null()
+            } else {
+                child["process"]["state"] == "ready" && child["pid"] != previous
+            }
+        });
+    }
+    connection.call("daemon.start", json!({})).unwrap();
+    wait_until("tools recovered by daemon.start", WAIT, || {
+        let status = connection.call("daemon.status", json!({})).unwrap();
+        assert_eq!(status["children"][0]["pid"], core["pid"]);
+        let child = status["children"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["role"] == "tools")
+            .unwrap();
+        child["process"]["state"] == "ready"
+    });
+    assert!(h
+        .log_records()
+        .iter()
+        .any(|row| row.to_string().contains("tools")));
+    connection
+        .call("daemon.stop", json!({"budgetMs":2000}))
+        .unwrap();
+    assert!(supervisor.wait_exit(WAIT).success());
+}
+
 fn pid_file(home: &Path) -> Option<u64> {
     std::fs::read_to_string(home.join("run/core.pid"))
         .ok()?

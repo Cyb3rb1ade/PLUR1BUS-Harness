@@ -251,3 +251,7 @@ The first collection (#423) found the inconsistencies below. All of them are fix
 ### D106 sandbox adapter diagnostics (2026-10-15 Draft)
 
 Sandbox failure uses the existing tool error envelope (`tool-failed`); the host adapter may supply `sourceCode: sandbox-unavailable`, and exec retains its existing `spawn-failed` diagnostic inside the adapter failure. These are tool-local diagnostics, not new RPC error codes. Missing isolation never changes into a successful unsandboxed result. The trusted Rust limits launcher exits 125 on setup failure; the CLI exit-code checker already documents that code.
+
+### Native tools service (D120 H1-1)
+
+The internal tools connection uses existing error codes: `E_DENIED` with `tools-core-only` for a caller without the Core principal, `tools-identity-change` for reauthentication on an established connection, `E_UNAUTHORIZED` with `tools-credential` for an invalid service credential, `E_INVALID_PARAMS` with `tools-params` for a closed-parameter refusal, and `E_NOT_AVAILABLE` with `tools-unavailable` at the Core client boundary. Supervisor adoption retains `adopt-nonce`. No registered provider secrets enter this process.

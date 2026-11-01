@@ -17,3 +17,8 @@ pub mod win;
 pub use capabilities::{capabilities, SCHEMA_JSON};
 pub use client::{Client, ConnectOptions, Endpoint};
 pub use error::{is_unavailable, RpcError};
+
+/// Owner-only native server transport shared by supervised Rust processes.
+pub mod listener;
+#[cfg(windows)]
+mod listener_windows;

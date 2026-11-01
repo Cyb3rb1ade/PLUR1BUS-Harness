@@ -855,6 +855,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             } else {
                 vec![
                     Slot::new(Role::core(), time_scale),
+                    Slot::new(Role::tools(), time_scale),
                     Slot::new(Role::api(), time_scale),
                 ]
             },
@@ -921,6 +922,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         if !imports::busy(&shared) {
             start_child(&shared, layout, &token, &Role::core(), &mut monitors);
         }
+        start_child(&shared, layout, &token, &Role::tools(), &mut monitors);
         start_child(&shared, layout, &token, &Role::api(), &mut monitors);
         start_modules(&shared, layout);
     }
@@ -1070,7 +1072,7 @@ fn child_stop_timing(
     let budget_end = stop.requested_at + stop.budget;
     let left = budget_end.saturating_duration_since(now);
     match kind {
-        RoleKind::Api | RoleKind::Module => (left, budget_end),
+        RoleKind::Api | RoleKind::Tools | RoleKind::Module => (left, budget_end),
         RoleKind::Core => {
             // ADR-012 §10.12: without an earlier child, Core keeps its full nominal RPC budget. Scheduling or
             // import cleanup never renews the acceptance-anchored hard deadline enforced by stop_until.
@@ -1319,7 +1321,7 @@ fn probe_and_adopt(
 ) -> bool {
     let found = match role.kind {
         RoleKind::Api => adopt::Probe::Absent,
-        RoleKind::Core => adopt::probe_child(layout, role, adopt::PROBE_TIMEOUT),
+        RoleKind::Core | RoleKind::Tools => adopt::probe_child(layout, role, adopt::PROBE_TIMEOUT),
         RoleKind::Module => {
             // The manifest as it is now (minor 3), else what the slot last saw.
             let api = child::module_plan(layout, role, "probe")

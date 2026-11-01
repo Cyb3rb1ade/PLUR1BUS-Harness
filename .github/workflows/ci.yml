@@ -282,6 +282,9 @@ jobs:
           NODE_OPTIONS: ${{ runner.os == 'macOS' && '--max-old-space-size=4096' || '' }}
       - name: reasoning metadata schema and coverage hints
         run: node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/check-reasoning-metadata.mjs
+      - name: native binaries for Core tools-service integration (macOS)
+        if: runner.os == 'macOS'
+        run: cargo build --locked -p plur1bus-tools -p plur1bus
       - name: unit tests with file timings
         if: needs.changes.outputs.ts-core == 'true'
         shell: bash
@@ -426,6 +429,8 @@ jobs:
           sudo apt-get install -y -q bubblewrap
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           bwrap --ro-bind / / --unshare-all true
+      - name: native binaries for tools-service integration
+        run: cargo build --locked -p plur1bus-tools -p plur1bus
       - name: measured Core shard
         timeout-minutes: 15
         shell: bash
@@ -512,6 +517,8 @@ jobs:
           pnpm install --frozen-lockfile
       - run: pnpm gen && pnpm build
       # About 222 files, so about 16 minutes at that rate; the budget leaves room for a slow runner.
+      - name: native binaries for tools-service integration
+        run: cargo build --locked -p plur1bus-tools -p plur1bus
       - name: measured Core shard
         timeout-minutes: 30
         shell: bash
@@ -592,7 +599,7 @@ jobs:
           fi
           git config --global --add "url.${base}.insteadOf" "git@github.com:"
           git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
-      - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
+      - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus -p plur1bus-tools
       # X1 Task 14: the extension fixtures (signed and tampered packages, the module fixture) are generated per run with a
       # throwaway in-memory key; only its public half reaches the tests, through pubkeys.env. Nothing is committed.
       - name: extension fixtures
@@ -651,7 +658,7 @@ jobs:
         with: { toolchain: "1.95" }
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
       - name: build Core and CLI for served-stack browser acceptance
-        run: pnpm gen && pnpm build && pnpm typecheck && cargo build -p plur1bus
+        run: pnpm gen && pnpm build && pnpm typecheck && cargo build -p plur1bus -p plur1bus-tools
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: web-browser-cli
@@ -829,7 +836,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
         with: { toolchain: "1.95" }
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
-      - run: cargo build --release -p plur1bus
+      - run: cargo build --release -p plur1bus -p plur1bus-tools
       - run: cargo test --release -p plur1bus --test service
         timeout-minutes: 5
       - name: user service manager
@@ -920,7 +927,7 @@ jobs:
           done
           export GIT_CONFIG_COUNT=$n
           unset GH_ENGINE_READ_TOKEN base
-          pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
+          pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus -p plur1bus-tools
       # PLUR1BUS_LIVE_REQUIRED: a live suite that cannot run fails here instead of skipping.
       - name: live RPC conformance and provider against a real core
         shell: bash
@@ -1189,7 +1196,7 @@ jobs:
           export GIT_CONFIG_KEY_2="url.${base}.insteadOf" GIT_CONFIG_VALUE_2='https://github.com/'
           pnpm install --frozen-lockfile
       - run: pnpm prep
-      - run: cargo build --release -p plur1bus
+      - run: cargo build --release -p plur1bus -p plur1bus-tools
       - name: help isolation and measurement tests
         run: node --experimental-strip-types --conditions=source --test --test-concurrency=1 tests/system/help-isolation.test.ts scripts/bench/metrics.test.mjs scripts/bench/startup.test.mjs
       - name: measure B1 B8 B11 (30 starts, advisory timings)
@@ -1263,7 +1270,7 @@ jobs:
           export GIT_CONFIG_KEY_2="url.${base}.insteadOf" GIT_CONFIG_VALUE_2='https://github.com/'
           pnpm install --frozen-lockfile
       - run: pnpm prep
-      - run: cargo build --release -p plur1bus
+      - run: cargo build --release -p plur1bus -p plur1bus-tools
       - name: O6 dry hardware baseline (known incomplete coverage is explicit)
         shell: bash
         run: |

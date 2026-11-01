@@ -42,7 +42,7 @@ export interface Hello { contract?: string; rpc: string; instanceId: string; pid
 export interface CoreClient {
   readonly hello: Hello;
   /** Calls a schema-validated RPC method and resolves to its result. */
-  call<T = unknown>(method: string, params?: object): Promise<T>;
+  call<T = unknown>(method: string, params?: object, timeoutMs?: number): Promise<T>;
   /** Registers a notification listener and returns a function that removes it. */
   onNotification(handler: (method: string, params: unknown, delivery?: { audience: readonly AudienceTarget[] | null; connectionId: string }) => void): () => void;
   /** Called once when the connection ends (the peer closed it, an error, or close()). */
@@ -61,7 +61,9 @@ export interface ConnectOptions {
   clientId?: string;
   /** Cancels endpoint connection, handshake and pending calls, and closes the transport. */
   signal?: AbortSignal;
-  address: string; token: string; endpoint?: "core" | "supervisor" | "module" | "engine"; connectTimeoutMs?: number; callTimeoutMs?: number;
+  address: string; token: string; endpoint?: "core" | "supervisor" | "module" | "engine" | "tools";
+  /** Per-Core-start dispatcher MAC key, sent only to tools.hello. */
+  ticketKey?: string; connectTimeoutMs?: number; callTimeoutMs?: number;
   /** Separate bounded handshake for clients with long-running method calls. Defaults to callTimeoutMs. */
   handshakeTimeoutMs?: number;
   /** The pid that must serve `address`: the one in `run/core.pid` (core) or `run/supervisor.pid` (supervisor). On Windows,
@@ -161,7 +163,7 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
 
   let hello: Hello;
   try {
-    hello = await call<Hello>(`${opts.endpoint ?? "core"}.auth`, { token: opts.token, ...(opts.endpoint === "engine" ? { clientId: opts.clientId ?? "harness-core" } : {}), ...(opts.engine ? { engine: opts.engine } : {}) }, opts.handshakeTimeoutMs ?? callTimeoutMs);
+    hello = await call<Hello>(opts.endpoint === "tools" ? "tools.hello" : `${opts.endpoint ?? "core"}.auth`, { token: opts.token, ...(opts.endpoint === "tools" ? { ticketKey: opts.ticketKey } : {}), ...(opts.endpoint === "engine" ? { clientId: opts.clientId ?? "harness-core" } : {}), ...(opts.engine ? { engine: opts.engine } : {}) }, opts.handshakeTimeoutMs ?? callTimeoutMs);
     const major = Number(hello.rpc.split(".")[0]);
     if (major !== SUPPORTED_RPC_MAJOR) { sock.destroy(); throw new RpcCallError(-32000, "E_RPC_VERSION", `server rpc ${hello.rpc}, client supports ${SUPPORTED_RPC_MAJOR}.x`, "major-mismatch"); }
     // Without a native pid lookup the best a Node client can do on Windows: the server must at least claim the recorded pid.

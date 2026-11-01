@@ -1,3 +1,4 @@
+import { ToolsClient } from "./tools-service/client.ts";
 import { ChannelHandoff } from "./channel-handoff/service.ts";
 import { handoffMethods } from "./channel-handoff/rpc.ts";
 import { DeliveryTargets } from "./delivery/service.ts";
@@ -311,6 +312,7 @@ export function createCore(o: CoreOptions): Core {
   let delivery: DeliveryTargets | null = null;
   let handoff: ChannelHandoff | null = null;
   let userJobsTimer: ReturnType<typeof setInterval> | null = null;
+  let toolsService: ToolsClient | null = null;
   let sessions: SessionService | null = null;
   let turnComposition: TurnComposition | null = null;
   let extensionSpawnSecrets: Awaited<ReturnType<typeof startExtensionSpawnSecrets>> | null = null;
@@ -378,6 +380,7 @@ export function createCore(o: CoreOptions): Core {
         ...(sharedMemory ? { sharedMemory } : {}),
         ...(storeSchema ? { storeSchema } : {}),
       },
+      ...(toolsService ? { tools: toolsService.snapshot() } : {}),
       agents: (agents?.list() ?? []).map((agentId) => ({ agentId, activity: activity.get(agentId) })),
       // E4: the engine reads the journal through the host capability; the replay's count when it reports none.
       journalBacklog: es?.journal ? es.journal.entries : journalBacklog,
@@ -424,6 +427,8 @@ export function createCore(o: CoreOptions): Core {
       log.error(msg, { run: l.run, supervised });
       throw new Error(msg);
     }
+    toolsService = new ToolsClient({ home: l.home, supervised: o.lifeline !== undefined || o.supervisorConfig !== undefined, orphanGraceMs: config.supervisor.graceMs });
+    toolsService.start();
     platform.securePath(l.catalog, { mode: 0o700 });
     platform.securePath(l.systemJobs, { mode: 0o700 });
     // M2: the secret store. Nothing is probed or opened here (the keychain is first touched by a `secret.*` call).
@@ -1089,7 +1094,7 @@ export function createCore(o: CoreOptions): Core {
       // The other caller-taking memory ops (forget, correct, share, state, propose, proposals.*) act as the principal derived from `caller`: bind it to the authenticated person like memory.list/show and session.*.
       Object.assign(rawMethods, memoryCallerAccess({ methods: rawMethods, ownership, resolve: resolvePrincipal }));
       let initialDoctorCheck: (() => Promise<unknown>) | undefined;
-      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, sandboxRequired: () => cfg().tools.sandbox.required, sandboxMaxTasks: () => cfg().tools.sandbox.maxTasks, toolEvalDefaults: () => configuredDefaults(cfg()), redactor: secretStore.redaction.redactor({ pii: true }), capabilityStatus: () => turnComposition?.capabilities.status(), turnTelemetry: () => metrics.turnTelemetrySummary(), miningStatus: () => turnComposition?.mining.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; }, coreChecks: () => [localOnlyCheck(cfg()), ...emailAuthChecks(cfg())] }));
+      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, sandboxRequired: () => cfg().tools.sandbox.required, sandboxMaxTasks: () => cfg().tools.sandbox.maxTasks, toolEvalDefaults: () => configuredDefaults(cfg()), redactor: secretStore.redaction.redactor({ pii: true }), capabilityStatus: () => turnComposition?.capabilities.status(), turnTelemetry: () => metrics.turnTelemetrySummary(), miningStatus: () => turnComposition?.mining.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; }, coreChecks: () => [localOnlyCheck(cfg()), ...emailAuthChecks(cfg()), { id: "tools.service", status: toolsService?.snapshot().ready ? "ok" as const : "fail" as const, summary: toolsService?.snapshot().ready ? "Native tools service is ready." : "Native tools service is unavailable; Core turns continue." }] }));
       Object.assign(rawMethods, attachUserJobMethods({ ...rawMethods }, userJobs, resolvePrincipal));
       // events.subscribe is handled in the shared transport; this guard still supplies its admission/audit.
       rawMethods["events.subscribe"] = async () => ({});
@@ -1287,6 +1292,7 @@ export function createCore(o: CoreOptions): Core {
       await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null; handoff?.close(); handoff = null;
       await step(log, "permissions close", async () => { permissionNotifier?.close(); await permissions?.close(); }); permissions = null; permissionNotifier = null;
       await step(log, "budget close", () => { budget?.close(); budget = null; });
+      await step(log, "tools close", async () => { await toolsService?.close(); });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
       await step(log, "metrics close", async () => { await metricsHttp?.close(); }); metricsHttp = null;
       await step(log, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; hostClients?.close(); hostClients = null; agentLifecycle?.close(); agentLifecycle = null; memorySensitivity?.close(); memorySensitivity = null; });
@@ -1374,6 +1380,7 @@ export function createCore(o: CoreOptions): Core {
       await step(logger, "sessions close", async () => { await turnComposition?.close(); turnComposition = null; sessions = null; }, errors);
       // A re-embedding run in flight ends at its next batch boundary (aborted, resumable) before the engine closes under it.
       await step(logger, "re-embedding run", async () => { await reembed?.stop(Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }, errors);
+      await step(logger, "tools close", async () => { await toolsService?.close(); }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
       await step(logger, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; hostClients?.close(); hostClients = null; agentLifecycle?.close(); agentLifecycle = null; memorySensitivity?.close(); memorySensitivity = null; }, errors);
       await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null; handoff?.close(); handoff = null;

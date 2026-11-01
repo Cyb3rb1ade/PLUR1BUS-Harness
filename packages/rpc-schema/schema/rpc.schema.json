@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://plur1bus.dev/schema/rpc/1.10.0/rpc.schema.json",
-  "title": "PLUR1BUS harness RPC 1.10.0",
-  "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch.",
-  "x-rpc-version": "1.10.0",
+  "$id": "https://plur1bus.dev/schema/rpc/1.15.0/rpc.schema.json",
+  "title": "PLUR1BUS harness RPC 1.15.0",
+  "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch. D120: tools methods are served by plur1bus-tools and require the Core principal.",
+  "x-rpc-version": "1.15.0",
   "$defs": {
     "EngineContractEngineCapabilitiesData": {
       "title": "EngineContractEngineCapabilitiesData",
@@ -5569,6 +5569,9 @@
             "type": "string"
           },
           "description": "Deprecated methods/notifications used at least once since start, as `method:<name>`/`notification:<name>`, sorted (ADR-016 §5, S13)."
+        },
+        "tools": {
+          "$ref": "#/$defs/ToolsServiceStatus"
         }
       }
     },
@@ -5955,7 +5958,8 @@
           "enum": [
             "core",
             "module",
-            "api"
+            "api",
+            "tools"
           ],
           "description": "Experimental (1.3.0). Whether the child is the core, HTTP API or a module; absent from supervisors before 1.3.0."
         }
@@ -15216,11 +15220,11 @@
             },
             "extensions": {
               "type": "boolean",
-            "description": "Since 1.8.0: an explicit Owner/Admin request to enrol extensions.read and extensions.manage in this person-bound desktop grant; omission or false preserves the initial fixed scopes. Never inferred from role."
+              "description": "Since 1.8.0: an explicit Owner/Admin request to enrol extensions.read and extensions.manage in this person-bound desktop grant; omission or false preserves the initial fixed scopes. Never inferred from role."
             },
             "imports": {
               "type": "boolean",
-            "description": "Since 1.8.0: an explicit Owner/Admin request to enrol imports.read and imports.manage in this person-bound desktop grant. The server uses false when omitted. Never inferred from role or a native upload request."
+              "description": "Since 1.8.0: an explicit Owner/Admin request to enrol imports.read and imports.manage in this person-bound desktop grant. The server uses false when omitted. Never inferred from role or a native upload request."
             }
           },
           "required": [
@@ -27637,6 +27641,69 @@
             }
           }
         }
+      },
+      "tools.hello": {
+        "x-stability": "experimental",
+        "x-since": "1.15.0",
+        "x-server": "tools",
+        "description": "First call on a Core tools connection. The dedicated Core credential establishes the principal; ticketKey is a fresh 32-byte hex HMAC key per Core start (D120 §11.2). Neither credential is returned or logged. Supervisor lifecycle uses the existing module control contract with a separate token.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "token",
+            "ticketKey"
+          ],
+          "properties": {
+            "token": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "ticketKey": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "rpc",
+            "instanceId",
+            "pid",
+            "capabilities"
+          ],
+          "properties": {
+            "rpc": {
+              "type": "string"
+            },
+            "instanceId": {
+              "type": "string"
+            },
+            "pid": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "capabilities": {
+              "$ref": "#/$defs/Capabilities"
+            }
+          }
+        }
+      },
+      "tools.health": {
+        "x-stability": "experimental",
+        "x-since": "1.15.0",
+        "x-server": "tools",
+        "description": "Core-only tools readiness. A tools failure does not stop Core turns.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {}
+        },
+        "result": {
+          "$ref": "#/$defs/ToolsHealth"
+        }
       }
     },
     "BudgetLimit": {
@@ -31660,6 +31727,62 @@
           "grant": {
             "$ref": "#/$defs/GrantRecord"
           }
+        }
+      }
+    },
+    "ToolsHealth": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "process",
+        "rpc",
+        "instanceId",
+        "pid",
+        "uptimeMs"
+      ],
+      "properties": {
+        "process": {
+          "$ref": "#/$defs/ProcessState"
+        },
+        "rpc": {
+          "type": "string"
+        },
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "uptimeMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "ToolsServiceStatus": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "ready",
+        "pid",
+        "checkedAt"
+      ],
+      "properties": {
+        "ready": {
+          "type": "boolean"
+        },
+        "pid": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "checkedAt": {
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       }
     }

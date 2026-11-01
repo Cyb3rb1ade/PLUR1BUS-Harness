@@ -213,6 +213,7 @@ fn describe_unit(role: &Role, pid: u32) -> String {
     match role.kind {
         RoleKind::Core => format!("core (pid {pid})"),
         RoleKind::Api => format!("api (pid {pid})"),
+        RoleKind::Tools => format!("tools (pid {pid})"),
         RoleKind::Module => format!("module {} (pid {pid})", role.name),
     }
 }
@@ -221,6 +222,7 @@ fn unit_json(role: &Role) -> (&'static str, &'static str) {
     match role.kind {
         RoleKind::Core => ("core", "core.lock"),
         RoleKind::Api => ("api", "api.supervised"),
+        RoleKind::Tools => ("tools", "tools.service"),
         RoleKind::Module => ("module", "modules.state"),
     }
 }
