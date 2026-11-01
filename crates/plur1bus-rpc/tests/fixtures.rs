@@ -643,6 +643,7 @@ fn method_fixture(name: &str, f: &Value) {
         "session.submit" => pair::<SessionSubmitParams, SessionSubmitResult>(name, f),
         "session.events" => pair::<SessionEventsParams, SessionEventsResult>(name, f),
         "code.session.open" => pair::<CodeSessionOpenParams, CodeSessionOpenResult>(name, f),
+        "code.session.mode" => pair::<CodeSessionModeParams, CodeSessionModeResult>(name, f),
         "code.session.diff" => pair::<CodeSessionDiffParams, CodeSessionDiffResult>(name, f),
         "code.session.check" => pair::<CodeSessionCheckParams, CodeSessionCheckResult>(name, f),
         "session.model.get" => pair::<SessionModelGetParams, SessionModelGetResult>(name, f),
@@ -1012,7 +1013,7 @@ fn rpc_version_const_matches_the_schema() {
         plur1bus_rpc::RPC_VERSION,
         schema["x-rpc-version"].as_str().unwrap()
     );
-    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.19.0");
+    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.21.0");
     assert!(schema["$id"]
         .as_str()
         .unwrap()

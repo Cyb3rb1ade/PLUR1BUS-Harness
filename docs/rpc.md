@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.19.0)
+# RPC reference (rpc 1.21.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -379,6 +379,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `code.session.open`: experimental, since 1.19.0
 - `code.session.diff`: experimental, since 1.19.0
 - `code.session.check`: experimental, since 1.19.0
+- `code.session.mode`: experimental, since 1.21.0
 
 ### supervisor server
 
@@ -23187,7 +23188,8 @@ Opens a session for the caller (the owner is derived from the caller identity). 
     "kind": {
       "enum": [
         "direct",
-        "channel"
+        "channel",
+        "acp"
       ]
     },
     "title": {
@@ -24468,7 +24470,7 @@ Bind a human coding session to a canonical native Git worktree, optionally on a 
     },
     "interactive": {
       "type": "boolean",
-      "description": "Local CLI presence. False means scripted input; only an authenticated local T3 connection may offer a folder grant."
+      "description": "Local CLI presence. False means scripted input. A local T1 person may request a session-only folder grant, but approval.decide requires attest:true and OS T2 confirmation. ACP always refuses folder grants."
     }
   },
   "dependentRequired": {
@@ -24811,6 +24813,68 @@ Human advisory /check command through the same D98 verifier plan and VerifierPor
           }
         }
       }
+    }
+  }
+}
+```
+
+### `code.session.mode`
+
+**Stability:** experimental · since 1.21.0
+
+**Served by:** core
+
+Select chat or coding for one authenticated human ACP connection and its bound session. Only future turns use the selected tool profile; running turns retain theirs. The transition is audited and never creates or widens a D109 grant. ACP refuses ungranted folders.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId",
+    "mode"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "mode": {
+      "enum": [
+        "chat",
+        "coding"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "mode",
+    "changed"
+  ],
+  "properties": {
+    "mode": {
+      "enum": [
+        "chat",
+        "coding"
+      ]
+    },
+    "changed": {
+      "type": "boolean"
     }
   }
 }

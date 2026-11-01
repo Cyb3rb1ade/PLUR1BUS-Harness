@@ -1,5 +1,5 @@
 /** CLI-1 human coding RPC. Principal, surface and task scope come from this connection, never message text. */
-import type { CodeSessionCheckParams, CodeSessionDiffParams, CodeSessionOpenParams } from "@plur1bus/rpc-schema";
+import type { CodeSessionCheckParams, CodeSessionDiffParams, CodeSessionModeParams, CodeSessionOpenParams } from "@plur1bus/rpc-schema";
 import type { CodingActions } from "../coding/actions.ts";
 import type { CodingSessions } from "../coding/sessions.ts";
 import { authenticatedPrincipal } from "../rbac/guard.ts";
@@ -32,6 +32,13 @@ export function buildCodeSurface(d: {
       }
     };
   return {
+    "code.session.mode": wrap(async (p: CodeSessionModeParams, ctx) =>
+      d.coding.setMode(p, authenticatedPrincipal(ctx), {
+        connectionId: ctx.connectionId,
+        surface: await d.surfaceOf(ctx),
+        signal: ctx.signal,
+      }),
+    ),
     "code.session.open": wrap(async (p: CodeSessionOpenParams, ctx) =>
       d.coding.open(p, authenticatedPrincipal(ctx), {
         connectionId: ctx.connectionId,

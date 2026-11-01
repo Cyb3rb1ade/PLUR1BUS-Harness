@@ -288,6 +288,25 @@ D109 approvals as `session/request_permission` with the option mapping of spec �
 `crates/plur1bus/src/cli.rs`. Tests: the ACP test client (`packages/core/test/acp/`) for each mapping, unknown custom
 methods still `-32601`, the stderr rule (no prompt text) unchanged. Docs: `docs/acp.md`. Acceptance: spec §16 CLI-ACP row.
 
+Controller allocation 2026-11-01: RPC **1.21.0**, `code.session.mode` is human-only, forbidden to external agent tools,
+audited and scoped to one connection/session. No new session migration. A mode change freezes the current turn's
+profile and changes future turns only; it never widens a D109 grant. Q25 continues to refuse folder grants over ACP.
+Delivery extensions are advertised only when the connected Core provides the H3-1 queue/delivery contract.
+Live post-tool steering and queued-turn stream acceptance stays pending until H3-1 is available; the current CX4
+base does not advertise those extensions. B1 deltas remain unmeasured until the shared baseline exists.
+
+Controller diff ruling 2026-11-01: a standard ACP `diff` requires exact complete `oldText`/`newText`. A successful
+full UTF-8 `file.write` with Core proof that the file was newly created supplies `oldText: null`; a unified diff alone
+does not supply unknown old contents. Full contents are capped at **128 KiB combined**. Otherwise display an explicitly
+labelled text patch, including truncation and size-limit labels. Reverse application is permitted only with an
+untruncated patch, proof that the post-tool file is unchanged, and a Core-only read bound to the worktree; without
+that proof, keep the text fallback. Tests cover genuine diff, fallback and truncated patches. K files stay unchanged.
+
+**OPEN — later additive K ticket (owner: K/Controller):** define a bounded before/after artifact or integrity contract
+for file edits and replacements, including exactness/truncation and the bound path/post-operation content identity.
+This enables more complete ACP diffs later; it is not a CX5 blocker. Until that contract or equivalent exact proof
+exists, do not infer whole-file contents from patch hunks or read editor files directly.
+
 ## C4 — Sensors and the D98 gate (2.5 agent days; Sonnet, TypeScript; crushers from H1-3)
 
 `collab/verifier.ts`: spool check output to an artifact (cap 16 MiB per check) instead of stopping at 64 KiB; evidence is

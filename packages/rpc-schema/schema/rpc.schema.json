@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://plur1bus.dev/schema/rpc/1.19.0/rpc.schema.json",
-  "title": "PLUR1BUS harness RPC 1.19.0",
+  "$id": "https://plur1bus.dev/schema/rpc/1.21.0/rpc.schema.json",
+  "title": "PLUR1BUS harness RPC 1.21.0",
   "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch.",
-  "x-rpc-version": "1.19.0",
+  "x-rpc-version": "1.21.0",
   "$defs": {
     "EngineContractEngineCapabilitiesData": {
       "title": "EngineContractEngineCapabilitiesData",
@@ -26675,7 +26675,8 @@
             "kind": {
               "enum": [
                 "direct",
-                "channel"
+                "channel",
+                "acp"
               ]
             },
             "title": {
@@ -27740,7 +27741,7 @@
             },
             "interactive": {
               "type": "boolean",
-              "description": "Local CLI presence. False means scripted input; only an authenticated local T3 connection may offer a folder grant."
+              "description": "Local CLI presence. False means scripted input. A local T1 person may request a session-only folder grant, but approval.decide requires attest:true and OS T2 confirmation. ACP always refuses folder grants."
             }
           },
           "dependentRequired": {
@@ -28054,6 +28055,56 @@
                   }
                 }
               }
+            }
+          }
+        }
+      },
+      "code.session.mode": {
+        "x-stability": "experimental",
+        "x-since": "1.21.0",
+        "x-server": "core",
+        "description": "Select chat or coding for one authenticated human ACP connection and its bound session. Only future turns use the selected tool profile; running turns retain theirs. The transition is audited and never creates or widens a D109 grant. ACP refuses ungranted folders.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "caller",
+            "sessionId",
+            "mode"
+          ],
+          "properties": {
+            "caller": {
+              "$ref": "#/$defs/CallerIdentity"
+            },
+            "sessionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "mode": {
+              "enum": [
+                "chat",
+                "coding"
+              ]
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "mode",
+            "changed"
+          ],
+          "properties": {
+            "mode": {
+              "enum": [
+                "chat",
+                "coding"
+              ]
+            },
+            "changed": {
+              "type": "boolean"
             }
           }
         }

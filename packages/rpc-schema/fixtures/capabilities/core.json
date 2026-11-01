@@ -1179,6 +1179,10 @@
     "code.session.check": {
       "stability": "experimental",
       "since": "1.19.0"
+    },
+    "code.session.mode": {
+      "stability": "experimental",
+      "since": "1.21.0"
     }
   },
   "notifications": {
