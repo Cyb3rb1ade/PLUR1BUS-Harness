@@ -8,7 +8,7 @@
   "origin": "self-authored",
   "entry": "src/solution.ts",
   "signature": "export async function BENCH_FN<T, U>(items: readonly T[], limit: number, worker: (item: T, index: number, signal: AbortSignal) => Promise<U>, signal: AbortSignal): Promise<U[]>",
-  "instruction": "Repair {{symbol}} in {{entry}}. Run at most limit workers concurrently and preserve result order. Keep all available worker slots occupied while queued items remain. Refuse a nonpositive/noninteger limit before calling worker. On the first worker failure or abort, launch no further work, wait for every already-started worker to settle, and reject with the original first failure/abort reason. A pre-aborted signal starts no work. Observe every rejection. Empty input succeeds with [] unless already aborted. Do not mutate items.",
+  "instruction": "Repair {{symbol}} in {{entry}}. Run at most limit workers concurrently and preserve result order. Keep all available worker slots occupied while queued items remain. Refuse a nonpositive/noninteger limit before calling worker. On the first worker failure or abort, launch no further work, wait for every already-started worker to settle, and reject with the original first failure/abort reason. A pre-aborted signal starts no work. Observe every rejection. Empty input succeeds with [] unless already aborted. Do not mutate items. Start queued items in input order whenever a slot becomes available.",
   "network": false,
   "budgets": {
     "tokens": 240000,

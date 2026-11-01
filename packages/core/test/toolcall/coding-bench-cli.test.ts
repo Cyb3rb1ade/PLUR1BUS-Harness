@@ -44,3 +44,9 @@ test("live refuses vendor credential variables without printing their raw or enc
     assert.equal(result.output.includes(form), false, "public failure output must not contain a credential form");
   }
 });
+
+test("live requires its output option before any setup, preflight or model configuration", async () => {
+  const result = await invoke(["--live"]);
+  assert.equal(result.code, 1);
+  assert.match(result.output, /"phase":"arguments"/u);
+});

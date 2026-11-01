@@ -63,3 +63,69 @@ test("missing live isolation never falls back to trusted fixture execution", asy
   assert.equal(result.unavailable, true);
   assert.equal(calls, process.platform === "linux" ? 1 : 0);
 });
+
+test("unexpected verifier failures remain infrastructure errors and still close its provisioned root", async () => {
+  const corpus = await loadCodingCorpus(root);
+  const task = corpus.tasks.find((t) => t.meta.id === "easy-ts-tags")!;
+  const instance = await renderCodingTask(task, 11, "reference");
+  const failure = new Error("trusted verifier failed");
+  let closed = false;
+  const result = verifyCodingTask(task, instance.variant, image(instance.files), {
+    mode: "live",
+    runtimes: runtime,
+    signal: new AbortController().signal,
+    verifier: {
+      async run() {
+        throw failure;
+      },
+    },
+    async provision() {
+      const path = await realTempDir("p1b-coding-infrastructure-");
+      return {
+        root: path,
+        async close() {
+          closed = true;
+          await rm(path, { recursive: true, force: true });
+        },
+      };
+    },
+  });
+  if (process.platform === "linux") {
+    await assert.rejects(result, (error) => error === failure);
+    assert.equal(closed, true);
+  } else {
+    assert.equal((await result).reason, "unavailable");
+    assert.equal(closed, false);
+  }
+});
+
+test("the worker checker rejects fixed batching that leaves a slot idle behind a blocked first item", async () => {
+  const corpus = await loadCodingCorpus(root);
+  const task = corpus.tasks.find((t) => t.meta.id === "hard-ts-workers")!;
+  const instance = await renderCodingTask(task, 11, "reference");
+  const candidate = image(instance.files);
+  candidate.set(instance.variant.entry, {
+    mode: 0o600,
+    data: Buffer.from(`
+export async function ${instance.variant.symbol}(items, limit, worker, signal) {
+  if (!Number.isSafeInteger(limit) || limit < 1) throw new RangeError("invalid concurrency");
+  if (signal.aborted) throw signal.reason;
+  const values = [];
+  for (let first = 0; first < items.length; first += limit) {
+    const batch = await Promise.allSettled(items.slice(first, first + limit)
+      .map((item, offset) => worker(item, first + offset, signal)));
+    const failure = batch.find(result => result.status === "rejected");
+    if (failure) throw failure.reason;
+    if (signal.aborted) throw signal.reason;
+    values.push(...batch.map(result => result.value));
+  }
+  return values;
+}`),
+  });
+  const result = await verifyCodingTask(task, instance.variant, candidate, {
+    mode: "fixture",
+    runtimes: runtime,
+    signal: new AbortController().signal,
+  });
+  assert.equal(result.reason, process.platform === "win32" ? "unavailable" : "unresolved");
+});

@@ -191,16 +191,20 @@ coding_eval --scan --report artifacts/coding-bench/capture.json --log artifacts/
 cat artifacts/coding-bench/capture.log
 ```
 
-Choose new output paths for another capture: files are created exclusively and never overwrite an existing report. An
+Choose new output paths for another capture: the report path is reserved exclusively before any model work. A missing,
+already reserved or existing output refuses before paid cases; failed captures remove their own uncommitted reservation. An
 optional `PLUR1BUS_CODING_BENCH_MODEL_INDEX` selects exactly one zero-based entry for setup and capture. A partial model
 selection is explicit; the nightly's baseline scope is the same selected configuration and refuses a missing one.
 
 The runner creates fresh project/card worktrees through `GitWorktreeProvisioner`, under each private home's `state/worktrees`.
-Only the card worktree is granted. Its DB-pinned opaque mount goes through the normal native turn after K2a; no raw path or
+Only the card worktree is granted. Its trusted `codingWorktree` request binding selects that root and its DB-pinned opaque
+mount goes through the normal native turn after K2a; no raw path or
 extra writable runtime directory substitutes for it. Runtime copies/caches live in the card's ignored `.build` directory.
 Every worktree has its own whole seed/home and database; cleanup removes that owned tree without running host Git against
 post-agent metadata. Hidden checkers/reference solutions never enter the agent's seed or readable files. Verification uses
-a separate provisioned private worktree and the existing network-disabled verifier; expected values remain in the parent.
+a separate provisioned private worktree and the existing network-disabled verifier with its namespace process-count cap;
+a missing cap mechanism fails preflight. Provisioning, verifier and cleanup failures invalidate capture rather than becoming
+measured model losses. Expected values remain in the parent.
 
 ### Reports, baseline and comparisons
 

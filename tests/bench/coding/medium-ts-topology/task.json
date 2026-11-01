@@ -7,8 +7,8 @@
   "license": "MIT",
   "origin": "self-authored",
   "entry": "src/solution.ts",
-  "signature": "export function BENCH_FN(nodes: readonly { id: string; needs: readonly string[] }[]): string[]",
-  "instruction": "Repair {{symbol}} in {{entry}}. Return a stable topological order. At each step choose the earliest input node among those whose dependencies are already emitted. Duplicate dependency entries count once. Throw for duplicate node ids, missing dependencies, self-dependencies or cycles. Do not mutate nodes or dependency arrays. Treat all strings, including __proto__, as ordinary ids.",
+  "signature": "export function BENCH_FN(nodes: readonly string[], edges: readonly [string, string][]): string[]",
+  "instruction": "Repair {{symbol}} in {{entry}}. The two arguments are node ids in input order and directed [before, after] edge pairs. Return a stable topological order: at each step choose the earliest input node whose incoming dependencies are already emitted. Duplicate edges count once. Throw for duplicate node ids, edges mentioning missing nodes, self-edges or cycles. Do not mutate either input array or edge pairs. Treat all strings, including __proto__, as ordinary ids.",
   "network": false,
   "budgets": {
     "tokens": 120000,

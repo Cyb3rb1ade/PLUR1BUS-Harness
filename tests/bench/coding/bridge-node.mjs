@@ -25,6 +25,44 @@ if (setup.id === "easy-ts-tags") {
   } catch {
     output = { error: true, unchanged: JSON.stringify([input.nodes, input.edges]) === before };
   }
+} else if (setup.id === "hard-ts-workers" && input.mode === "occupancy") {
+  const controller = new AbortController();
+  const started = [],
+    finished = [];
+  const gates = new Map();
+  let value,
+    rejected = false,
+    settled = false;
+  const worker = async (item, index) => {
+    started.push(index);
+    await new Promise((resolve) => gates.set(index, resolve));
+    finished.push(index);
+    return item + index;
+  };
+  const pending = Promise.resolve()
+    .then(() => fn(input.items, input.limit, worker, controller.signal))
+    .then(
+      (result) => {
+        value = result;
+        settled = true;
+      },
+      () => {
+        rejected = true;
+        settled = true;
+      },
+    );
+  const checkpoint = () => new Promise((resolve) => setImmediate(resolve));
+  await checkpoint();
+  gates.get(input.releaseIndex)?.();
+  await checkpoint();
+  const afterRelease = { started: [...started], finished: [...finished] };
+  // Drain even an incorrect serial/batched subject; no wall-time threshold determines the assertion.
+  for (let step = 0; step < input.items.length + 2 && !settled; step++) {
+    for (const release of gates.values()) release();
+    await checkpoint();
+  }
+  await pending;
+  output = { state: rejected ? "rejected" : "resolved", value, afterRelease };
 } else if (setup.id === "hard-ts-workers") {
   const before = JSON.stringify(input.items),
     controller = new AbortController();

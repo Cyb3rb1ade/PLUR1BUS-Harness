@@ -235,7 +235,7 @@ async function runSingle(options: SingleCodingOptions, input: CodingSubjectInput
       messages: [{ role: "user", text: input.instruction }],
       signal,
       maxOutputTokens: 4096,
-      ...(options.binding ? { projectId: options.binding.projectId } : {}),
+      ...(options.binding ? { projectId: options.binding.projectId, codingWorktree: input.worktree } : {}),
     };
     permissions = await taskGrants(options, input, request, privateRoot);
     const grants = permissions.grants;

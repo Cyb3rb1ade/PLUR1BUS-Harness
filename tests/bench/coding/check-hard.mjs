@@ -77,6 +77,10 @@ async function checkHardTsWorkers(t) {
   assert.equal(success.peak, 2);
   assert.equal(success.finished, 4);
   assert.equal(success.unhandled, 0);
+  const occupancy = await t.repo({ items: [n, n + 1, n + 2, n + 3], limit: 2, mode: "occupancy", releaseIndex: 1 });
+  assert.equal(occupancy.state, "resolved");
+  assert.deepEqual(occupancy.value, [n, n + 2, n + 4, n + 6]);
+  assert.deepEqual(occupancy.afterRelease, { started: [0, 1, 2], finished: [1] });
   for (const mode of ["failure", "abort"]) {
     const result = await t.repo({ items: [n, n + 1, n + 2, n + 3], limit: 2, delays: [2, 25, 1, 1], mode });
     assert.deepEqual(result, {

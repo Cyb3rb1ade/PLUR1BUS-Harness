@@ -1,10 +1,11 @@
 /** D120 B1 owner entry point. No credentials, transcripts, checker diagnostics or raw exceptions enter public output. */
-import { lstat, mkdir, open, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { lstat, open } from "node:fs/promises";
+import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRedactor, secretFormsIn } from "../../packages/core/src/logs/redact.ts";
 import { runCodingBench, runCodingFixture } from "../../packages/core/src/toolcall/coding-bench.ts";
 import { codingConfiguration } from "../../packages/core/src/toolcall/coding-bench-live.ts";
+import { reserveCodingPublication } from "../../packages/core/src/toolcall/coding-bench-publication.ts";
 import { loadCodingCorpus } from "../../packages/core/src/toolcall/coding-bench-corpus.ts";
 import {
   compareCodingReports,
@@ -92,10 +93,12 @@ async function documentAt(path: string): Promise<unknown> {
   }
 }
 async function publish(path: string, text: string): Promise<void> {
-  const output = resolve(path);
-  await mkdir(dirname(output), { recursive: true, mode: 0o700 });
-  // An existing report/baseline is never silently overwritten, and output symlinks cannot redirect a write.
-  await writeFile(output, text, { mode: 0o600, flag: "wx" });
+  const publication = await reserveCodingPublication(path);
+  try {
+    await publication.commit(text);
+  } finally {
+    await publication.close();
+  }
 }
 function scopedBaseline(report: CodingLiveReport, configurations: readonly string[]): CodingLiveReport {
   const models = report.models.filter((model) => configurations.includes(model.configuration));
@@ -110,6 +113,7 @@ function scopedBaseline(report: CodingLiveReport, configurations: readonly strin
 
 async function live(args: Map<string, string>, signal: AbortSignal): Promise<void> {
   allowed(args, ["--out", "--baseline"]);
+  const output = required(args, "--out");
   phase = "configuration";
   if (Object.values(TURN_EVAL_KEY_ENV).some((name) => process.env[name])) {
     throw new Error("coding live refuses credential environment");
@@ -130,35 +134,40 @@ async function live(args: Map<string, string>, signal: AbortSignal): Promise<voi
   const toolsBinary = process.env.PLUR1BUS_TOOLS_BIN ?? "";
   const limitsHelper = process.env.PLUR1BUS_SANDBOX_LIMITS_BIN ?? "";
   if (!isAbsolute(toolsBinary) || !isAbsolute(limitsHelper)) throw new Error("coding native binaries required");
-  phase = "live-preflight-and-run";
-  const report = await runCodingBench(CORPUS, {
-    home,
-    models,
-    revision,
-    toolsBinary,
-    limitsHelper,
-    signal,
-    onCase(progress) {
-      console.log(JSON.stringify(progress));
-    },
-  });
-  if (baseline) report.comparison = compareCodingReports(baseline, report);
-  phase = "publication";
-  const text = publicCodingReport(report, secrets);
-  await publish(required(args, "--out"), text);
-  const summary = summarizeCodingRows(report);
-  console.log(
-    JSON.stringify({
-      status: "completed",
-      evidence: "live",
-      checked: summary.denominator,
-      resolved: summary.resolved,
-      measured: summary.measured,
-      comparison: report.comparison?.gate ?? null,
-    }),
-  );
-  if (summary.measured !== summary.denominator || (report.comparison && report.comparison.gate !== "not-regressed")) {
-    process.exitCode = 1;
+  const publication = await reserveCodingPublication(output);
+  try {
+    phase = "live-preflight-and-run";
+    const report = await runCodingBench(CORPUS, {
+      home,
+      models,
+      revision,
+      toolsBinary,
+      limitsHelper,
+      signal,
+      onCase(progress) {
+        console.log(JSON.stringify(progress));
+      },
+    });
+    if (baseline) report.comparison = compareCodingReports(baseline, report);
+    phase = "publication";
+    const text = publicCodingReport(report, secrets);
+    await publication.commit(text);
+    const summary = summarizeCodingRows(report);
+    console.log(
+      JSON.stringify({
+        status: "completed",
+        evidence: "live",
+        checked: summary.denominator,
+        resolved: summary.resolved,
+        measured: summary.measured,
+        comparison: report.comparison?.gate ?? null,
+      }),
+    );
+    if (summary.measured !== summary.denominator || (report.comparison && report.comparison.gate !== "not-regressed")) {
+      process.exitCode = 1;
+    }
+  } finally {
+    await publication.close();
   }
 }
 

@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { sandboxVerifier } from "../collab/verifier.ts";
 import { ToolsClient } from "../tools-service/client.ts";
 import { detectSandbox } from "../tools/sandbox/backends.ts";
+import { DEFAULT_MAX_TASKS } from "../tools/sandbox/types.ts";
 import { createSandboxProcessPort } from "../tools/sandbox/ports.ts";
 import { loadCodingCorpus, renderCodingTask, type CodingLanguage } from "./coding-bench-corpus.ts";
 import { verifyCodingTask } from "./coding-bench-checker.ts";
@@ -13,7 +14,7 @@ import { codingEvalHome, codingSecretValues } from "./coding-bench-secrets.ts";
 import { parseCodingLiveReport, type CodingLiveCase, type CodingLiveReport } from "./coding-bench-report.ts";
 import { copyCodingRuntime, resolveCodingRuntimes, type CodingRuntimes } from "./coding-bench-runtime.ts";
 import { singleCodingArm, type CodingArm, type SingleCodingOptions } from "./coding-bench-subject.ts";
-import { snapshotCodingSources } from "./coding-bench-workspace.ts";
+import { verifyCodingCandidate } from "./coding-bench-verify.ts";
 import {
   codingProvisionerApi,
   provisionCodingCard,
@@ -178,17 +179,31 @@ export async function runCodingLive(root: string, options: CodingLiveOptions): P
     throw new Error("coding matrix refused");
   const corpus = await loadCodingCorpus(root);
   const isolation = await detectSandbox(options.limitsHelper);
-  if (!isolation.available) throw new Error("coding live isolation unavailable");
+  if (!isolation.available || isolation.tasks.mechanism !== "namespace-limit") {
+    throw new Error("coding live process-count isolation unavailable");
+  }
+  const verifier = sandboxVerifier(90_000, { limitsHelper: options.limitsHelper, maxTasks: () => DEFAULT_MAX_TASKS });
   const runtimes = await resolveCodingRuntimes(true, options.signal);
   const native = new ToolsClient({ home: join(home, "native"), supervised: false, binary: options.toolsBinary });
   let providers: TurnEvalProviders | undefined;
   try {
-    const probe = await sandboxVerifier().run(
-      runtimes.cache,
-      { kind: "test", argv: [process.execPath, "-e", "process.exit(0)"] },
-      { signal: options.signal, networkAllowed: false },
+    const probeWorkspace = await provisionCodingCard(
+      home,
+      new Map([["README.md", { text: "Private B1 preflight.\n", mode: 0o600 }]]),
+      options.signal,
     );
-    if (!probe.ok) throw new Error("coding live verifier unavailable");
+    try {
+      const programs = await livePrograms(runtimes, probeWorkspace.worktree, "typescript", "unused");
+      await assertCodingTurn(probeWorkspace, programs[0]!, options.limitsHelper, options.signal);
+      const probe = await verifier.run(
+        probeWorkspace.worktree,
+        { kind: "test", argv: [programs[0]!, "-e", "process.exit(0)"] },
+        { signal: options.signal, networkAllowed: false },
+      );
+      if (!probe.ok) throw new Error("coding live verifier unavailable");
+    } finally {
+      await probeWorkspace.close();
+    }
     const health = await native.health();
     if (health.process.state !== "ready") throw new Error("coding native foundation unavailable");
     const secrets = await codingSecretValues(home, models);
@@ -231,13 +246,11 @@ export async function runCodingLive(root: string, options: CodingLiveOptions): P
                 signal: options.signal,
               });
               const wallMs = Math.round(performance.now() - began);
-              let checker: CodingLiveCase["checker"] = "invalid-image";
-              let verificationMs = 0;
-              try {
-                const image = await snapshotCodingSources(workspace.worktree);
-                const result = await verifyCodingTask(task, instance.variant, image, {
+              const { checker, verificationMs } = await verifyCodingCandidate(workspace.worktree, (image) =>
+                verifyCodingTask(task, instance.variant, image, {
                   mode: "live",
                   runtimes,
+                  verifier,
                   signal: AbortSignal.any([options.signal, AbortSignal.timeout(90_000)]),
                   async provision() {
                     const checker = await provisionCodingCard(
@@ -247,12 +260,8 @@ export async function runCodingLive(root: string, options: CodingLiveOptions): P
                     );
                     return { root: checker.worktree, close: () => checker.close() };
                   },
-                });
-                checker = result.reason;
-                verificationMs = Math.round(result.wallMs);
-              } catch {
-                /* An unsafe/oversize candidate tree is an unresolved task, never accepted by a host-side command. */
-              }
+                }),
+              );
               cases.push({
                 arm: arm.id,
                 configuration: configurations[index]!,

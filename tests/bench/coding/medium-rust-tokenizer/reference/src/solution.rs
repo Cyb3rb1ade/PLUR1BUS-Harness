@@ -11,7 +11,7 @@ pub fn BENCH_FN(text: &str) -> Result<Vec<String>, String> {
             started = true;
             continue;
         }
-        if ch == '\\' {
+        if ch == '\\' && quote != Some('\'') {
             escaped = true;
             started = true;
             continue;

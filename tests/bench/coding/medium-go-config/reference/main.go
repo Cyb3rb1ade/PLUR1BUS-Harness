@@ -41,8 +41,16 @@ func normalize(data []byte) (map[string]any, bool) {
 				return nil, false
 			}
 		case "flags":
-			if json.Unmarshal(raw, &flags) != nil || flags == nil {
+			var values []*string
+			if json.Unmarshal(raw, &values) != nil || values == nil {
 				return nil, false
+			}
+			flags = []string{}
+			for _, value := range values {
+				if value == nil {
+					return nil, false
+				}
+				flags = append(flags, *value)
 			}
 		default:
 			return nil, false

@@ -1,7 +1,7 @@
 /** B1 command isolation. Trusted original fixtures use owned groups; every live candidate uses the existing verifier. */
 import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { sandboxVerifier, type VerifierPort } from "../collab/verifier.ts";
+import type { VerifierPort } from "../collab/verifier.ts";
 import { runCodingCommand } from "./coding-bench-process.ts";
 
 /** Missing isolation/tooling must invalidate evidence, rather than look like an ordinary unsolved task. */
@@ -52,7 +52,10 @@ export async function freshCodingFile(
 
 /** Construct the verifier adapter once; all expected-output comparisons happen after it returns. */
 export function createCodingBox(options: CodingBoxOptions): CodingBox {
-  const verifier = options.verifier ?? sandboxVerifier(90_000);
+  if (options.mode === "live" && !options.verifier) {
+    throw new CodingIsolationUnavailable("configured live verifier required");
+  }
+  const verifier = options.verifier;
   return async (request) => {
     if (options.signal.aborted) throw new CodingCaseFailure("aborted");
     const script = await freshCodingFile(request.root, "coding-command.mjs", options.captureSource);
@@ -82,7 +85,7 @@ export function createCodingBox(options: CodingBoxOptions): CodingBox {
       if (result.reason || result.code !== 0) throw new CodingCaseFailure("fixture command failed");
       output = result.stdout;
     } else {
-      const result = await verifier.run(
+      const result = await verifier!.run(
         request.root,
         { kind: "test", argv: [options.node, script, input] },
         { signal: options.signal, networkAllowed: false },

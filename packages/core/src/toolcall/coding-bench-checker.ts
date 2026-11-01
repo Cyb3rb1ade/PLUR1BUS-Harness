@@ -1,5 +1,6 @@
 /** B1 private end-state coordinator. Hidden expected answers stay outside candidate verifier roots. */
 import { randomUUID } from "node:crypto";
+import { AssertionError } from "node:assert";
 import { mkdir, mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -43,7 +44,7 @@ function record(value: unknown): Record<string, unknown> {
 }
 function decoded(result: CodingBoxResult): unknown {
   if (result.code !== 0) throw new CodingCaseFailure("candidate execution failed");
-  return JSON.parse(result.stdout);
+  return record(JSON.parse(result.stdout));
 }
 
 /** Verify a frozen candidate after the subject has ended, restoring code/bridges for every independent call. */
@@ -63,9 +64,10 @@ export async function verifyCodingTask(
   if (process.platform === "win32" || (options.mode === "live" && process.platform !== "linux")) {
     return verdict("unavailable");
   }
-  if (options.mode === "live" && !options.provision) return verdict("unavailable");
+  if (options.mode === "live" && (!options.provision || !options.verifier)) return verdict("unavailable");
   const workspace = options.mode === "live" ? await options.provision!() : undefined;
   const root = workspace?.root ?? (await realpath(await mkdtemp(join(tmpdir(), "p1b-coding-check-"))));
+  const data = join(root, "data");
   try {
     if (!image.has(variant.entry)) throw new CodingCaseFailure("candidate entry missing");
     const corpus = dirname(task.directory);
@@ -86,7 +88,6 @@ export async function verifyCodingTask(
       executionRoot: root,
     });
     const candidate = join(root, "candidate");
-    const data = join(root, "data");
     await mkdir(data, { mode: 0o700 });
     const files = new CodingCheckFiles(data);
     const reset = async (): Promise<void> => {
@@ -222,11 +223,29 @@ export async function verifyCodingTask(
     return verdict("passed");
   } catch (error) {
     if (options.mode === "fixture") options.onFixtureFailure?.(error);
-    return verdict(
-      options.signal.aborted ? "aborted" : error instanceof CodingIsolationUnavailable ? "unavailable" : "unresolved",
-    );
+    if (options.signal.aborted) return verdict("aborted");
+    if (error instanceof CodingIsolationUnavailable) return verdict("unavailable");
+    if (
+      error instanceof CodingCaseFailure ||
+      error instanceof AssertionError ||
+      error instanceof SyntaxError ||
+      candidateFileFailure(error, data)
+    )
+      return verdict("unresolved");
+    // Unexpected verifier, trusted runtime-copy and coordinator errors are infrastructure failures.
+    throw error;
   } finally {
     if (workspace) await workspace.close();
     else await rm(root, { recursive: true, force: true, maxRetries: 3 });
   }
+}
+
+function candidateFileFailure(error: unknown, data: string): boolean {
+  if (!error || typeof error !== "object") return false;
+  const row = error as NodeJS.ErrnoException;
+  return (
+    typeof row.path === "string" &&
+    (row.path === data || row.path.startsWith(data + "/")) &&
+    ["ENOENT", "EACCES", "EPERM", "ENOTDIR", "EISDIR", "ELOOP", "EEXIST"].includes(row.code ?? "")
+  );
 }

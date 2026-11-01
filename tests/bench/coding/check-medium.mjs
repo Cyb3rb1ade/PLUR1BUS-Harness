@@ -16,12 +16,13 @@ async function checkMediumRustTokenizer(t) {
     [`  ${tag} "two words" 'three four' a\\ b  `, [tag, "two words", "three four", "a b"]],
     [`"" '' a"b c"d`, ["", "", "ab cd"]],
     ["é\u2003ß\tlast", ["é", "ß", "last"]],
-    [`"a\\\"b" 'x\\'y' \\"`, ['a"b', "x'y", '"']],
+    [String.raw`"a\"b" 'x\y' \"`, ['a"b', String.raw`x\y`, '"']],
+    [String.raw`'trailing\'`, ["trailing\\"]],
     ["", []],
     ["\u2003\n", []],
   ])
     assert.deepEqual(await t.repo({ text }), { value: expected });
-  for (const text of [`${tag} 'unfinished`, '"unfinished', "unfinished\\", "'x\\"]) {
+  for (const text of [`${tag} 'unfinished`, '"unfinished', "unfinished\\", "'x\\", String.raw`'x\'y'`]) {
     assert.deepEqual(await t.repo({ text }), { error: true });
   }
 }
@@ -203,6 +204,8 @@ async function checkMediumGoConfig(t) {
     '{"port":null}',
     '{"flags":null}',
     '{"flags":[1]}',
+    '{"flags":[null]}',
+    '{"flags":["ok",null]}',
     '{"flags":"x"}',
     '{"port":2,"port":3}',
     '{"unknown":0}',
