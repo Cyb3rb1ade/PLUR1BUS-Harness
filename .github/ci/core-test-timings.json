@@ -5,7 +5,20 @@
     "artifactId": 12310137290,
     "headSha": "1dae60f2ae6d4f7b361cefa61e4717dfae00fa0b",
     "runner": "ubuntu-24.04",
-    "metric": "sum of top-level test/suite duration_ms per file; excludes process startup"
+    "metric": "sum of top-level test/suite duration_ms per file; excludes process startup",
+    "localAdditions": {
+      "date": "2026-11-01",
+      "platform": "macOS arm64",
+      "node": "24.21.0",
+      "rust": "1.95.0",
+      "go": "1.27.1",
+      "python": "3.13.13",
+      "files": [
+        "test/collab/team-eval.test.ts",
+        "test/collab/team-fixtures.test.ts"
+      ],
+      "note": "Targeted fixture self-test; same top-level duration metric, not an Actions measurement."
+    }
   },
   "durationsMs": {
     "test/a2a/a2a-card.coverage.test.ts": 11.265,
@@ -153,6 +166,8 @@
     "test/collab/replay.test.ts": 19.227,
     "test/collab/scope.test.ts": 5.927,
     "test/collab/shutdown.test.ts": 68.539,
+    "test/collab/team-eval.test.ts": 9.169,
+    "test/collab/team-fixtures.test.ts": 75208.531,
     "test/collab/tools.test.ts": 255.483,
     "test/collab/trace.test.ts": 5.668,
     "test/collab/web-transport.test.ts": 902.066,

@@ -1,0 +1,77 @@
+{
+  "schema": "plur1bus.team-task/1",
+  "id": "py-order-allocation",
+  "title": "Order normalization and receipt",
+  "kind": "decomposable",
+  "tier": "team",
+  "language": "python",
+  "license": "MIT",
+  "seeds": [
+    17,
+    104729,
+    8675309
+  ],
+  "budgets": {
+    "tokens": 131072,
+    "maxRounds": 100,
+    "wallMs": 2700000
+  },
+  "instruction": "prompt.md",
+  "start": "start",
+  "seedGenerator": "seed.mjs",
+  "packages": [
+    {
+      "id": "normalize",
+      "entry": "src/normalize.__SEED__.py",
+      "symbol": "solve",
+      "owns": [
+        "src/normalize.__SEED__.py"
+      ],
+      "dependsOn": [],
+      "reference": "reference/normalize",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "normalize"
+      }
+    },
+    {
+      "id": "price",
+      "entry": "src/price.__SEED__.py",
+      "symbol": "solve",
+      "owns": [
+        "src/price.__SEED__.py"
+      ],
+      "dependsOn": [],
+      "reference": "reference/price",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "price"
+      }
+    },
+    {
+      "id": "receipt",
+      "entry": "src/receipt.__SEED__.py",
+      "symbol": "solve",
+      "owns": [
+        "src/receipt.__SEED__.py"
+      ],
+      "dependsOn": [],
+      "reference": "reference/receipt",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "receipt"
+      }
+    }
+  ],
+  "endToEnd": {
+    "checker": {
+      "path": "check.mjs",
+      "scope": "e2e"
+    },
+    "order": [
+      "normalize",
+      "price",
+      "receipt"
+    ]
+  }
+}

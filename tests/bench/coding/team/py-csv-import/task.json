@@ -1,0 +1,77 @@
+{
+  "schema": "plur1bus.team-task/1",
+  "id": "py-csv-import",
+  "title": "Quoted CSV import and deduplication",
+  "kind": "decomposable",
+  "tier": "team",
+  "language": "python",
+  "license": "MIT",
+  "seeds": [
+    17,
+    104729,
+    8675309
+  ],
+  "budgets": {
+    "tokens": 131072,
+    "maxRounds": 100,
+    "wallMs": 2700000
+  },
+  "instruction": "prompt.md",
+  "start": "start",
+  "seedGenerator": "seed.mjs",
+  "packages": [
+    {
+      "id": "parse",
+      "entry": "src/parse.__SEED__.py",
+      "symbol": "solve",
+      "owns": [
+        "src/parse.__SEED__.py"
+      ],
+      "dependsOn": [],
+      "reference": "reference/parse",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "parse"
+      }
+    },
+    {
+      "id": "deduplicate",
+      "entry": "src/deduplicate.__SEED__.py",
+      "symbol": "solve",
+      "owns": [
+        "src/deduplicate.__SEED__.py"
+      ],
+      "dependsOn": [],
+      "reference": "reference/deduplicate",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "deduplicate"
+      }
+    },
+    {
+      "id": "summary",
+      "entry": "src/summary.__SEED__.py",
+      "symbol": "solve",
+      "owns": [
+        "src/summary.__SEED__.py"
+      ],
+      "dependsOn": [],
+      "reference": "reference/summary",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "summary"
+      }
+    }
+  ],
+  "endToEnd": {
+    "checker": {
+      "path": "check.mjs",
+      "scope": "e2e"
+    },
+    "order": [
+      "parse",
+      "deduplicate",
+      "summary"
+    ]
+  }
+}

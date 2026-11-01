@@ -1,0 +1,77 @@
+{
+  "schema": "plur1bus.team-task/1",
+  "id": "ts-event-ledger",
+  "title": "Event ledger and deterministic report",
+  "kind": "decomposable",
+  "tier": "team",
+  "language": "typescript",
+  "license": "MIT",
+  "seeds": [
+    17,
+    104729,
+    8675309
+  ],
+  "budgets": {
+    "tokens": 131072,
+    "maxRounds": 100,
+    "wallMs": 2700000
+  },
+  "instruction": "prompt.md",
+  "start": "start",
+  "seedGenerator": "seed.mjs",
+  "packages": [
+    {
+      "id": "group",
+      "entry": "src/group.__SEED__.ts",
+      "symbol": "solve",
+      "owns": [
+        "src/group.__SEED__.ts"
+      ],
+      "dependsOn": [],
+      "reference": "reference/group",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "group"
+      }
+    },
+    {
+      "id": "aggregate",
+      "entry": "src/aggregate.__SEED__.ts",
+      "symbol": "solve",
+      "owns": [
+        "src/aggregate.__SEED__.ts"
+      ],
+      "dependsOn": [],
+      "reference": "reference/aggregate",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "aggregate"
+      }
+    },
+    {
+      "id": "render",
+      "entry": "src/render.__SEED__.ts",
+      "symbol": "solve",
+      "owns": [
+        "src/render.__SEED__.ts"
+      ],
+      "dependsOn": [],
+      "reference": "reference/render",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "render"
+      }
+    }
+  ],
+  "endToEnd": {
+    "checker": {
+      "path": "check.mjs",
+      "scope": "e2e"
+    },
+    "order": [
+      "group",
+      "aggregate",
+      "render"
+    ]
+  }
+}

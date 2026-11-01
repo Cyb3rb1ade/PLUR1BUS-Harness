@@ -504,3 +504,17 @@ Actions contexts: different commits/PRs/refs/workflows, all relevant event types
 existing policy without dispatching or polling Actions. The release-script suite already runs this file in CI.
 
 No repository rules, release policy, controller merging or watcher behavior change in P3.
+
+### D124 team fixture self-tests
+
+`collab/team-eval.test.ts` validates the arm metadata and team manifest contract. `collab/team-fixtures.test.ts` checks
+all 18 original team-tier tasks: every package and end-to-end checker fails on the start and passes on the reference
+for three seeds; coupled reference diffs overlap and decomposable diffs are disjoint. No model or network is used.
+
+Core's Linux/Windows shards install Rust 1.95, Go 1.27.1 and Python 3.13 for these checkers. The macOS Core leg uses its
+existing Rust toolchain and the same Go/Python versions. Go builds disable module proxies and use only the fixture's
+standard-library code. Missing tools fail; the fixture suite introduces no platform skips.
+
+The B1 runtime adapter and nightly team evaluation wait for K2. The existing fan-out replay test and timing weight
+remain until the runtime replacement lands. Local preparation timings for new files are labeled separately from the
+existing Ubuntu Actions source in `.github/ci/core-test-timings.json`.

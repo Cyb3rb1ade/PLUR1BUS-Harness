@@ -27,6 +27,7 @@ for (const [name, files, expected] of [
   ['other package', ['packages/channels-telegram/src/index.ts'], ['ts-core', 'web']],
   ['package README stays documentation', ['packages/core/README.md'], ['docs-only']],
   ['system tests do not need the browser', ['tests/system/backup.test.ts'], ['ts-core']],
+  ['team fixtures include executable prompt data', ['tests/bench/coding/team/README.md', 'tests/bench/coding/team/ts-calendar/prompt.md', 'tests/bench/coding/team/ts-calendar/seed.mjs'], ['ts-core']],
   ['generated RPC reference', ['docs/rpc.md'], ['rust', 'ts-core']],
   ['generated CLI reference', ['docs/cli.md', 'docs/a.md'], ['rust', 'ts-core']],
   ['error table', ['docs/errors.md'], ['rust', 'ts-core']],

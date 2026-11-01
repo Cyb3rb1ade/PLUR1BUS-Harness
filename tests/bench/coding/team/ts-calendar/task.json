@@ -1,0 +1,77 @@
+{
+  "schema": "plur1bus.team-task/1",
+  "id": "ts-calendar",
+  "title": "Half-open calendar availability",
+  "kind": "decomposable",
+  "tier": "team",
+  "language": "typescript",
+  "license": "MIT",
+  "seeds": [
+    17,
+    104729,
+    8675309
+  ],
+  "budgets": {
+    "tokens": 131072,
+    "maxRounds": 100,
+    "wallMs": 2700000
+  },
+  "instruction": "prompt.md",
+  "start": "start",
+  "seedGenerator": "seed.mjs",
+  "packages": [
+    {
+      "id": "merge",
+      "entry": "src/merge.__SEED__.ts",
+      "symbol": "solve",
+      "owns": [
+        "src/merge.__SEED__.ts"
+      ],
+      "dependsOn": [],
+      "reference": "reference/merge",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "merge"
+      }
+    },
+    {
+      "id": "gaps",
+      "entry": "src/gaps.__SEED__.ts",
+      "symbol": "solve",
+      "owns": [
+        "src/gaps.__SEED__.ts"
+      ],
+      "dependsOn": [],
+      "reference": "reference/gaps",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "gaps"
+      }
+    },
+    {
+      "id": "choose",
+      "entry": "src/choose.__SEED__.ts",
+      "symbol": "solve",
+      "owns": [
+        "src/choose.__SEED__.ts"
+      ],
+      "dependsOn": [],
+      "reference": "reference/choose",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "choose"
+      }
+    }
+  ],
+  "endToEnd": {
+    "checker": {
+      "path": "check.mjs",
+      "scope": "e2e"
+    },
+    "order": [
+      "merge",
+      "gaps",
+      "choose"
+    ]
+  }
+}

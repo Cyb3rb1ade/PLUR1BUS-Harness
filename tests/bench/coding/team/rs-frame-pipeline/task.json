@@ -1,0 +1,81 @@
+{
+  "schema": "plur1bus.team-task/1",
+  "id": "rs-frame-pipeline",
+  "title": "Sequential Unicode frame rewrite",
+  "kind": "coupled",
+  "tier": "team",
+  "language": "rust",
+  "license": "MIT",
+  "seeds": [
+    17,
+    104729,
+    8675309
+  ],
+  "budgets": {
+    "tokens": 131072,
+    "maxRounds": 100,
+    "wallMs": 2700000
+  },
+  "instruction": "prompt.md",
+  "start": "start",
+  "seedGenerator": "seed.mjs",
+  "packages": [
+    {
+      "id": "decode",
+      "entry": "src/pipeline.__SEED__.rs",
+      "symbol": "decode",
+      "owns": [
+        "src/pipeline.__SEED__.rs"
+      ],
+      "dependsOn": [],
+      "reference": "reference/decode",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "decode"
+      }
+    },
+    {
+      "id": "normalize",
+      "entry": "src/pipeline.__SEED__.rs",
+      "symbol": "normalize",
+      "owns": [
+        "src/pipeline.__SEED__.rs"
+      ],
+      "dependsOn": [
+        "decode"
+      ],
+      "reference": "reference/normalize",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "normalize"
+      }
+    },
+    {
+      "id": "encode",
+      "entry": "src/pipeline.__SEED__.rs",
+      "symbol": "encode",
+      "owns": [
+        "src/pipeline.__SEED__.rs"
+      ],
+      "dependsOn": [
+        "normalize"
+      ],
+      "reference": "reference/encode",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "encode"
+      }
+    }
+  ],
+  "endToEnd": {
+    "checker": {
+      "path": "check.mjs",
+      "scope": "e2e"
+    },
+    "order": [
+      "decode",
+      "normalize",
+      "encode"
+    ]
+  }
+}

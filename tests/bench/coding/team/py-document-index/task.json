@@ -1,0 +1,77 @@
+{
+  "schema": "plur1bus.team-task/1",
+  "id": "py-document-index",
+  "title": "Unicode document index",
+  "kind": "decomposable",
+  "tier": "team",
+  "language": "python",
+  "license": "MIT",
+  "seeds": [
+    17,
+    104729,
+    8675309
+  ],
+  "budgets": {
+    "tokens": 131072,
+    "maxRounds": 100,
+    "wallMs": 2700000
+  },
+  "instruction": "prompt.md",
+  "start": "start",
+  "seedGenerator": "seed.mjs",
+  "packages": [
+    {
+      "id": "tokens",
+      "entry": "src/tokens.__SEED__.py",
+      "symbol": "solve",
+      "owns": [
+        "src/tokens.__SEED__.py"
+      ],
+      "dependsOn": [],
+      "reference": "reference/tokens",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "tokens"
+      }
+    },
+    {
+      "id": "index",
+      "entry": "src/index.__SEED__.py",
+      "symbol": "solve",
+      "owns": [
+        "src/index.__SEED__.py"
+      ],
+      "dependsOn": [],
+      "reference": "reference/index",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "index"
+      }
+    },
+    {
+      "id": "rank",
+      "entry": "src/rank.__SEED__.py",
+      "symbol": "solve",
+      "owns": [
+        "src/rank.__SEED__.py"
+      ],
+      "dependsOn": [],
+      "reference": "reference/rank",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "rank"
+      }
+    }
+  ],
+  "endToEnd": {
+    "checker": {
+      "path": "check.mjs",
+      "scope": "e2e"
+    },
+    "order": [
+      "tokens",
+      "index",
+      "rank"
+    ]
+  }
+}

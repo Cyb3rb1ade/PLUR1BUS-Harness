@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: MIT
+def split_url(raw: str) -> str:
+    import json
+    import re
+    from urllib.parse import urlsplit
+    try:
+        value = urlsplit(raw)
+        if value.scheme.lower() not in ('http', 'https') or value.username is not None or value.password is not None or not value.hostname or not re.fullmatch(r'[a-zA-Z0-9.-]+', value.hostname):
+            return 'error'
+        return json.dumps(dict(scheme=value.scheme.lower(), host=value.hostname.lower(), port=value.port, path=value.path or '/', query=value.query), separators=(',', ':'))
+    except ValueError:
+        return 'error'
+
+def normalize_url(raw: str) -> str:
+    import json
+    from urllib.parse import parse_qsl, quote, unquote, urlencode
+    try:
+        value = json.loads(raw)
+        if not isinstance(value, dict) or set(value) != {'scheme', 'host', 'port', 'path', 'query'} or value['scheme'] not in ('http', 'https') or not isinstance(value['path'], str) or not value['path'].startswith('/'):
+            return 'error'
+        parts = []
+        for part in unquote(value['path']).split('/'):
+            if part in ('', '.'):
+                continue
+            if part == '..':
+                if parts:
+                    parts.pop()
+            else:
+                parts.append(part)
+        port = value['port']
+        if (value['scheme'], port) in (('http', 80), ('https', 443)):
+            port = None
+        result = dict(scheme=value['scheme'], host=value['host'], port=port, path=quote('/' + '/'.join(parts), safe='/-._~'), query=urlencode(sorted(parse_qsl(value['query'], keep_blank_values=True))))
+        return json.dumps(result, separators=(',', ':'))
+    except (ValueError, TypeError, KeyError):
+        return 'error'
+
+def assemble_url(raw: str) -> str:
+    import json
+    import re
+    try:
+        value = json.loads(raw)
+        if not isinstance(value, dict) or value['scheme'] not in ('http', 'https') or not re.fullmatch(r'[a-zA-Z0-9.-]+', value['host']) or not isinstance(value['path'], str) or not value['path'].startswith('/') or not isinstance(value['query'], str):
+            return 'error'
+        port = value['port']
+        if port is not None and (type(port) is not int or not 1 <= port <= 65535):
+            return 'error'
+        return value['scheme'] + '://' + value['host'] + (':' + str(port) if port is not None else '') + value['path'] + ('?' + value['query'] if value['query'] else '')
+    except (ValueError, TypeError, KeyError):
+        return 'error'

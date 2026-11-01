@@ -1,0 +1,77 @@
+{
+  "schema": "plur1bus.team-task/1",
+  "id": "rs-range-set",
+  "title": "Inclusive integer range union",
+  "kind": "decomposable",
+  "tier": "team",
+  "language": "rust",
+  "license": "MIT",
+  "seeds": [
+    17,
+    104729,
+    8675309
+  ],
+  "budgets": {
+    "tokens": 131072,
+    "maxRounds": 100,
+    "wallMs": 2700000
+  },
+  "instruction": "prompt.md",
+  "start": "start",
+  "seedGenerator": "seed.mjs",
+  "packages": [
+    {
+      "id": "union",
+      "entry": "src/union.__SEED__.rs",
+      "symbol": "solve",
+      "owns": [
+        "src/union.__SEED__.rs"
+      ],
+      "dependsOn": [],
+      "reference": "reference/union",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "union"
+      }
+    },
+    {
+      "id": "cardinality",
+      "entry": "src/cardinality.__SEED__.rs",
+      "symbol": "solve",
+      "owns": [
+        "src/cardinality.__SEED__.rs"
+      ],
+      "dependsOn": [],
+      "reference": "reference/cardinality",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "cardinality"
+      }
+    },
+    {
+      "id": "describe",
+      "entry": "src/describe.__SEED__.rs",
+      "symbol": "solve",
+      "owns": [
+        "src/describe.__SEED__.rs"
+      ],
+      "dependsOn": [],
+      "reference": "reference/describe",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "describe"
+      }
+    }
+  ],
+  "endToEnd": {
+    "checker": {
+      "path": "check.mjs",
+      "scope": "e2e"
+    },
+    "order": [
+      "union",
+      "cardinality",
+      "describe"
+    ]
+  }
+}
