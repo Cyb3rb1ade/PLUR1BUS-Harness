@@ -9,6 +9,7 @@ import { embedImage } from './adapters/_shared/metadata.ts';
 import { assertDimensions, sniffFormat } from './adapters/_shared/images.ts';
 import { MediaError, failure, metadataEnabled, validateRequest } from './types.ts';
 import type { ImageRequest, ImageResult } from './types.ts';
+import { uploadDiskEntries, type UploadDiskEntry } from './upload-state.ts';
 export interface Manifest {
   schema: 'media.output/1'; id: string; createdAt: number; prompt: string; kind?: 'image' | 'video'; parameters: Omit<ImageRequest, 'referenceImages' | 'mask' | 'referenceVideo'>;
   referenceHashes: string[]; maskHash?: string; metadata: Omit<ImageResult['metadata'], 'seed'> & { seed: number | null; origin: string }; partial: boolean;
@@ -27,10 +28,16 @@ export interface UploadRequest {
 }
 /** Additive observer hooks: upload publication is explicitly owned by the host, after it publishes the owner binding. */
 export interface OutputStoreListener {
-  onPut?(manifest: Manifest): void; onDelete?(id: string): void; onDeleteUploaded?(id: string): void;
+  onPut?(manifest: Manifest): void; onDelete?(id: string): void;
+  /** Awaited before unlink; cleanup must be idempotent and may be retried after any failure. */
+  onDeleteUploaded?(id: string): void | Promise<void>;
+  /** Stable corruption event; an unsafe/unrecognized entry name is never exposed as an id. */
+  onCorruptUploadRemoved?(id: string | undefined): void;
 }
 /** Default bound for waiting on a lock held by another put/delete/prune. */
 const LOCK_WAIT_MS = 5_000;
+/** A recent partial/corrupt upload is retained for one hour before maintenance removes it. */
+export const CORRUPT_UPLOAD_GRACE_MS = 60 * 60 * 1000;
 // MM-3a keeps channel uploads bounded independently of generation/video processing settings.
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 const MAX_UPLOAD_MANIFEST_BYTES = 4096;
@@ -41,6 +48,10 @@ export class OutputStore {
   /** Observe puts and deletes (e.g. media indexing); returns the unsubscribe function. */
   addListener(listener: OutputStoreListener): () => void { this.#listeners.add(listener); return () => { this.#listeners.delete(listener); }; }
   #notify(call: (l: OutputStoreListener) => void): void { for (const l of this.#listeners) { try { call(l); } catch { /* observers must not fail the store */ } } }
+  private async notifyUploadDeletion(id: string): Promise<void> {
+    const results = await Promise.allSettled([...this.#listeners].map(listener => Promise.resolve().then(() => listener.onDeleteUploaded?.(id))));
+    if (results.some(result => result.status === 'rejected')) throw new MediaError('backend_unavailable');
+  }
   constructor(root: string, options: OutputStore['options'] = {}) {
     this.root = root; this.options = options;
     if ([options.quotaBytes, options.retentionMs, options.maxVideoBytes, options.lockWaitMs].some(v => v !== undefined && (!Number.isFinite(v) || v < 0))) throw new MediaError('unsupported_parameter');
@@ -74,14 +85,25 @@ export class OutputStore {
       return root;
     } catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null; throw e; }
   }
-  private async uploadedManifests(): Promise<UploadedManifest[]> {
+  private async uploadedEntries(): Promise<UploadDiskEntry[]> {
     const root = await this.uploadRoot();
-    if (!root) return [];
-    const out: UploadedManifest[] = [];
-    for (const entry of await readdir(root, { withFileTypes: true })) {
-      if (entry.isDirectory() && !entry.name.startsWith('.')) out.push(await this.readUploadedManifest(entry.name, root));
+    return root ? uploadDiskEntries(root) : [];
+  }
+  private async pruneUploads(now: number, expired: boolean): Promise<number> {
+    let removed = 0;
+    for (const entry of await this.uploadedEntries()) {
+      let manifest: UploadedManifest | null = null;
+      try { manifest = (await this.getUploaded(entry.id))?.manifest ?? null; } catch { /* keep unreadable entries private; maintenance repairs only after grace */ }
+      if (manifest ? !expired || now - manifest.createdAt < (this.options.retentionMs ?? Infinity)
+        : now - entry.modifiedAt < CORRUPT_UPLOAD_GRACE_MS) continue;
+      let id: string | undefined;
+      try { id = safeId(entry.id); } catch { /* invalid names have no host owner binding */ }
+      if (id) await this.notifyUploadDeletion(id);
+      await rm(entry.path, { recursive: true, force: true });
+      removed++;
+      if (!manifest) this.#notify(listener => listener.onCorruptUploadRemoved?.(id));
     }
-    return out;
+    return removed;
   }
   private async readUploadedManifest(id: string, root: string): Promise<UploadedManifest> {
     const directory = join(root, safeId(id)), path = join(directory, 'manifest.json');
@@ -96,11 +118,8 @@ export class OutputStore {
     let used = 0;
     for (const m of current) used += m.files.reduce((n, f) => n + f.bytes + (f.poster?.bytes ?? 0), 0)
       + (await lstat(join(this.root, m.id, 'manifest.json'))).size;
-    for (const m of await this.uploadedManifests()) {
-      const file = await lstat(join(this.root, '.uploads', m.id, m.file.path));
-      if (!file.isFile() || file.size !== m.file.bytes) throw new MediaError('backend_unavailable');
-      used += file.size + (await lstat(join(this.root, '.uploads', m.id, 'manifest.json'))).size;
-    }
+    // Account actual owned bytes, including unlisted/corrupt data; never trust declared lengths or hashes here.
+    for (const entry of await this.uploadedEntries()) used += entry.bytes;
     return used;
   }
   /** Publishes at most 25 MiB of matching supported media, atomically and privately, without transforming any bytes. */
@@ -148,9 +167,9 @@ export class OutputStore {
     safeId(id);
     await this.locked(async () => {
       const root = await this.uploadRoot();
+      await this.notifyUploadDeletion(id);
       if (root) await rm(join(root, id), { recursive: true, force: true });
     });
-    this.#notify(l => l.onDeleteUploaded?.(id));
   }
   async delete(id: string): Promise<void> {
     safeId(id);
@@ -161,16 +180,17 @@ export class OutputStore {
     try { return JSON.parse(await readFile(join(this.root, safeId(id), 'manifest.json'), 'utf8')) as Manifest; }
     catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null; throw e; }
   }
-  /** Requires exclusive host ownership after the previous process exited. Discards unpublished staging only. */
+  /** Requires exclusive host ownership after the previous process exited. Repairs staging and stale corrupt uploads. */
   async recoverStaging(): Promise<void> {
     await mkdir(this.root, { recursive: true, mode: 0o700 });
     for (const name of await readdir(this.root)) if (name === '.lock' || /^\.stage-[a-f0-9-]+$/.test(name)) await rm(join(this.root, name), { recursive: true, force: true });
+    try { await this.pruneUploads(Date.now(), false); } catch (error) { throw failure(error); }
   }
   async prune(now = Date.now()): Promise<number> {
     return this.locked(async () => {
       let removed = 0;
       for (const m of await this.manifests()) if (now - m.createdAt >= (this.options.retentionMs ?? Infinity)) { await rm(join(this.root, safeId(m.id)), { recursive: true }); removed++; this.#notify(l => l.onDelete?.(m.id)); }
-      for (const m of await this.uploadedManifests()) if (now - m.createdAt >= (this.options.retentionMs ?? Infinity)) { await rm(join(this.root, '.uploads', safeId(m.id)), { recursive: true }); removed++; this.#notify(l => l.onDeleteUploaded?.(m.id)); }
+      removed += await this.pruneUploads(now, true);
       return removed;
     });
   }

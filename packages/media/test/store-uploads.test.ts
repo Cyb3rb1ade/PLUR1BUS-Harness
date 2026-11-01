@@ -130,7 +130,7 @@ test("upload deletion and retention notify only upload listeners and preserve ge
     const store = new OutputStore(root, { retentionMs: 1000 });
     const deleted: string[] = [];
     const generatedDeleted: string[] = [];
-    store.addListener({ onDelete: id => generatedDeleted.push(id), onDeleteUploaded: id => deleted.push(id) });
+    store.addListener({ onDelete: id => generatedDeleted.push(id), onDeleteUploaded: id => { deleted.push(id); } });
     const uploaded = await store.putUploaded({ kind: "audio", mimeType: "audio/wav", data: WAV });
     assert.equal(await store.prune(uploaded.manifest.createdAt + 999), 0);
     assert.equal(await store.prune(uploaded.manifest.createdAt + 1000), 1);
@@ -200,8 +200,7 @@ test("a published manifest with missing bytes is corruption rather than an absen
     const upload = await store.putUploaded({ kind: "image", mimeType: "image/png", data: PNG });
     await fs.rm(upload.file);
     await assert.rejects(store.getUploaded(upload.manifest.id), code("backend_unavailable"));
-    await assert.rejects(store.putUploaded({ kind: "image", mimeType: "image/png", data: PNG }),
-      code("backend_unavailable"));
+    assert.ok(await store.putUploaded({ kind: "image", mimeType: "image/png", data: PNG }));
   });
 });
 
