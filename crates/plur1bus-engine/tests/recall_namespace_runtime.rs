@@ -22,7 +22,9 @@ use plur1bus_engine::recall::graph::GraphEdge;
 use plur1bus_engine::recall::merge::MergeOptions;
 use plur1bus_engine::recall::namespace_budget::MergedBudget;
 use plur1bus_engine::recall::namespace_pipeline::Pipeline;
-use plur1bus_engine::recall::namespaces::{recall, NamespaceRequest, NamespaceStores};
+use plur1bus_engine::recall::namespaces::{
+    recall, NamespaceError, NamespaceRequest, NamespaceStores,
+};
 use plur1bus_engine::recall::stages::{StageClocks, StageFlags, StageLimits};
 use plur1bus_engine::store::ledger::JsonlLedger;
 use plur1bus_engine::store::ledger_types::RetrievalLedgerLine;
@@ -85,11 +87,48 @@ runtime_case!(
 );
 
 fn assert_runtime(name: &str) {
+    let data = recorded(name);
+    let fixture = &data["runtime"];
+    let capture = capture(fixture, None).unwrap();
+    assert_value(&capture.result, &fixture["result"], name);
+    assert_eq!(
+        normalize_uuid(&capture.ledger),
+        fixture["ledgerLines"][0].as_str().unwrap(),
+        "{name}: raw ledger"
+    );
+    assert_eq!(
+        json!(capture.embedding_calls),
+        fixture["embeddingCalls"],
+        "{name}: provider routing"
+    );
+    assert_eq!(
+        json!(capture.rerank_calls),
+        fixture["rerankCalls"],
+        "{name}: reranker input"
+    );
+}
+
+fn recorded(name: &str) -> Value {
     let golden = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures/recall/golden/namespaces")
         .join(format!("{name}.json"));
-    let data: Value = serde_json::from_slice(&fs::read(golden).unwrap()).unwrap();
-    let fixture = &data["runtime"];
+    serde_json::from_slice(&fs::read(golden).unwrap()).unwrap()
+}
+
+#[derive(Debug)]
+struct Capture {
+    result: Value,
+    ledger: String,
+    embedding_calls: Vec<Value>,
+    rerank_calls: Vec<Value>,
+}
+
+struct Ranking<'a> {
+    provider: &'a dyn Reranker,
+    fallback: bool,
+}
+
+fn capture(fixture: &Value, ranking: Option<Ranking<'_>>) -> Result<Capture, NamespaceError> {
     let root = tempfile::tempdir().unwrap();
     let base = root.path().join("stores");
     let workspace = root.path().join("workspace");
@@ -130,6 +169,10 @@ fn assert_runtime(name: &str) {
         fixture, &context, &provider, &ranker, &workspace, &edges, &cancel,
     );
     pipeline.identity_providers = &other_providers;
+    if let Some(ranking) = ranking {
+        pipeline.reranker = Some(ranking.provider);
+        pipeline.finalise_limits.reranker_fallback_on_error = ranking.fallback;
+    }
     let emotion = Emotion(fixture["emotion"].as_f64().unwrap_or(1.0));
     pipeline.emotion = fixture["emotion"].is_number().then_some(&emotion);
     let ledger_path = root.path().join("retrieval.jsonl");
@@ -149,8 +192,7 @@ fn assert_runtime(name: &str) {
         timestamp_ms: fixture["now"].as_i64().unwrap(),
         ledger: Some(&ledger),
         merge: merge_options(params),
-    })
-    .unwrap();
+    })?;
     assert_eq!(output.ledger_error, None);
     let result = &output.result;
     let trace = result.trace.clone().unwrap_or_default();
@@ -159,27 +201,16 @@ fn assert_runtime(name: &str) {
         "canonical":result.canonical, "memories":result.memories,
         "trace":trace, "degraded":result.degraded,
     });
-    assert_value(&actual, &fixture["result"], name);
-    let raw = fs::read_to_string(ledger_path).unwrap();
-    assert_eq!(
-        normalize_uuid(&raw),
-        fixture["ledgerLines"][0].as_str().unwrap(),
-        "{name}: raw ledger"
-    );
     let mut embedding_calls = calls.lock().unwrap().clone();
     embedding_calls.sort_by_key(Value::to_string);
-    assert_eq!(
-        json!(embedding_calls),
-        fixture["embeddingCalls"],
-        "{name}: provider routing"
-    );
-    let mut rank_calls = ranker.calls.lock().unwrap().clone();
-    rank_calls.sort_by_key(|call| call["docs"].to_string());
-    assert_eq!(
-        json!(rank_calls),
-        fixture["rerankCalls"],
-        "{name}: reranker input"
-    );
+    let mut rerank_calls = ranker.calls.lock().unwrap().clone();
+    rerank_calls.sort_by_key(|call| call["docs"].to_string());
+    Ok(Capture {
+        result: actual,
+        ledger: fs::read_to_string(ledger_path).unwrap(),
+        embedding_calls,
+        rerank_calls,
+    })
 }
 
 fn seed(fixture: &Value, base: &Path) {
@@ -449,5 +480,90 @@ struct Emotion(f64);
 impl plur1bus_engine::recall::score::EmotionalRecallState for Emotion {
     fn recall_boost(&self, _: &plur1bus_engine::contract::MemoryRow) -> f64 {
         self.0
+    }
+}
+
+#[test]
+fn fused_reranker_valid_empty_optin_matches_cp5_with_both_fallback_policies() {
+    let data = recorded("namespaces-foreign-identities-available");
+    let cp5: Value = serde_json::from_slice(
+        &fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures/recall/golden/rerank/G-RERANK-5.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    for fallback in [true, false] {
+        let ranker = EmptyRanker {
+            valid: true,
+            calls: std::sync::atomic::AtomicUsize::new(0),
+        };
+        let output = capture(
+            &data["runtime"],
+            Some(Ranking {
+                provider: &ranker,
+                fallback,
+            }),
+        )
+        .unwrap();
+        let ids = output.result["memories"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|item| item["entry"]["id"].clone())
+            .collect::<Vec<_>>();
+        assert_eq!(json!(ids), cp5["runs"][0]["result"]["ids"]);
+        assert!(output.result["degraded"].is_null());
+        let ledger: Value = serde_json::from_str(&output.ledger).unwrap();
+        assert_eq!(ledger["resultsCount"], 0);
+        assert_eq!(ledger["selectedIds"], json!([]));
+        assert_eq!(ranker.calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+}
+
+#[test]
+fn fused_reranker_empty_without_optin_retains_fallback_or_error() {
+    let data = recorded("namespaces-foreign-identities-available");
+    let ranker = EmptyRanker {
+        valid: false,
+        calls: std::sync::atomic::AtomicUsize::new(0),
+    };
+    let output = capture(
+        &data["runtime"],
+        Some(Ranking {
+            provider: &ranker,
+            fallback: true,
+        }),
+    )
+    .unwrap();
+    assert_eq!(output.result["memories"].as_array().unwrap().len(), 4);
+    assert_eq!(output.result["degraded"]["reason"], "reranker-unavailable");
+    assert!(
+        matches!(capture(&data["runtime"], Some(Ranking { provider: &ranker, fallback: false })),
+        Err(NamespaceError::Finalise(plur1bus_engine::contract::EngineError::NotAvailable { reason }))
+            if reason == "rerank")
+    );
+}
+
+struct EmptyRanker {
+    valid: bool,
+    calls: std::sync::atomic::AtomicUsize,
+}
+impl Reranker for EmptyRanker {
+    fn empty_result_is_valid(&self) -> bool {
+        self.valid
+    }
+    fn rerank(
+        &self,
+        _: &str,
+        docs: &[String],
+        top_n: usize,
+        _: &Cancel,
+    ) -> Result<Vec<RerankHit>, RerankError> {
+        assert_eq!(docs.len(), 4);
+        assert_eq!(top_n, 4);
+        self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok(Vec::new())
     }
 }

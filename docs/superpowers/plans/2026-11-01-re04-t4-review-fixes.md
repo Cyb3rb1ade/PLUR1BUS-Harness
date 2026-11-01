@@ -12,7 +12,7 @@
 
 ## Global constraints
 
-- Update draft #850 on `grok/re-04-t3-rerank`; merge main and retarget only when #846 and #848 have merged.
+- Start on `grok/re-04-t3-rerank`; merge main and retarget #850 when #846 and #848 have merged. Both merged during implementation; main `752a1843` has now been merged without rebasing.
 - No rebase, force-push, amend or stash. Author: Cyb3rb1ade <cyb3rblade@me.com>.
 - Node pin: `9f34008c143c5da87b2194b5a28442b407ff8ba7`; CP-5: plugin `v7.18.31`, `6419a60e79975d0b5244798c1fdbbd7997a712ce`. Reference trees are read-only.
 - No changes to `context.rs`, `text/`, contracts, RPC, dependency pins or RE-03. Stop and report if RE-03 changes prove necessary.
@@ -58,6 +58,6 @@
 
 ### 5. Verify and publish one correction set
 
-- [ ] Run focused RED→GREEN checks, independently repeat recordings, then the full prescribed gates.
-- [ ] Obtain one independent read-only review of the correction set; resolve material issues with regression evidence.
+- [x] Run focused RED→GREEN checks, independently repeat recordings, then the full prescribed gates.
+- [x] Obtain one independent read-only review; fix the valid-empty global reranker finding against G-RERANK-5 (both fallback policies, empty ledger), RED→GREEN.
 - [ ] Commit/push normally to #850 and update its German description with findings, source pins, goldens, results and remaining accepted T6 scope.

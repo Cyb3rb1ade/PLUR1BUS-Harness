@@ -25,6 +25,17 @@ metadata through shared references. `tests/cache_profiles_parity.rs` checks the 
 `packages/providers/fixtures/cache-profile-vectors.json`, including route overrides and URL routing. No engine
 runtime behavior consumes this module in Phase 1 (RE-R1).
 
+### Namespace recall (RE-04/T4)
+
+`recall::namespaces::NamespaceStores` builds ordered private routes over the existing RE-02 store pools.
+`namespaces::recall` settles bounded child workers, routes each store through its matching embedding provider,
+merges/fuses the results, optionally reranks and applies the global tier budget before recording one retrieval line.
+A foreign identity without a provider reports `embedding-unavailable`; it never uses the active vector by dimension.
+`namespace_pipeline::Pipeline` composes the existing ACL-aware stages with scalar entry projection and stage-local
+observations. Prompt assembly, complete trace serialization and phase deadlines remain T5/T6; runtime wiring is RE-08.
+See [Engine stores](../../docs/engine-stores.md) and the
+[recording protocol](tests/fixtures/recall/README.md) for ownership, source pins and byte-parity checks.
+
 ### Token counting (RE-14/T2)
 
 `tokens::TokenCounter::heuristic()` exposes the table's tokenizer families without reading files.

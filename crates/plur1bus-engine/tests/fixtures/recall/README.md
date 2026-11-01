@@ -65,3 +65,19 @@ every permutation and asserts that the distractor stays after all reranked rows.
 T4's physical routes are private. Shared-store provenance columns, optional source policy and
 strict single-source timeout semantics remain with T6/RE-07. The frozen RE-02 private row has
 no shared-source columns; projected defaults match the private tables recorded here.
+
+The post-review fused-reranker regression additionally applies the existing actual Node
+`G-RERANK-5` valid-empty oracle to the two-identity fixture. It checks both fallback policies,
+zero ledger count/ids and no degradation. An undeclared empty response still falls back or
+fails. This carries the required CP-5.5 opt-in into the older identity wrapper; it changes no
+recorded golden and does not invent a Node run of that feature combination.
+
+Two inherited pin edges remain explicit. Global identity reranking does not add `rerankScore`,
+so mixed tiers can reorder that result under the plugin's finite-score preserve-order predicate.
+When global reranking raises the intermediate cap to 100, only memories are sliced afterwards;
+with budgeting disabled and canonicalMaxItems greater than topN, canonical alone can exceed topN.
+Ordinary merge retains its combined cap. Altering these concrete Node behaviors needs a separate
+compatibility decision. A mismatched writable identity remains an error; configured per-agent/
+active-route expected identities are part of RE-08 composition, beyond the read-only foreign
+identity cases recorded here. Existing T2 fractional-mtime/cache-identity/atomic-write limitations
+are unchanged; the frozen mtime fixtures do not establish complete cache interoperability.

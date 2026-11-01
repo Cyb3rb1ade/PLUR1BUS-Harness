@@ -1,4 +1,5 @@
-//! The pin's single rerank after multi-identity rank fusion.
+//! The pin's single rerank after multi-identity rank fusion, with CP-5.5's opt-in.
+//! A declared valid empty response is a successful selection, including after fusion.
 
 use std::collections::HashSet;
 
@@ -27,18 +28,12 @@ pub(crate) fn apply(
         .collect::<Vec<_>>();
     let ranking = reranker
         .rerank(query, &docs, docs.len(), cancel)
-        .and_then(|ranking| reordered_indices(&ranking, docs.len()));
+        .and_then(|ranking| {
+            reordered_indices(&ranking, docs.len(), reranker.empty_result_is_valid())
+        });
     match ranking {
         Ok(order) => {
-            let mut original = std::mem::take(&mut result.memories)
-                .into_iter()
-                .map(Some)
-                .collect::<Vec<_>>();
-            result.memories = order
-                .into_iter()
-                .filter_map(|index| original[index].take())
-                .collect();
-            result.memories.extend(original.into_iter().flatten());
+            reorder(result, order);
             Ok(())
         }
         Err(_) if fallback && cancel.check().is_ok() => {
@@ -59,6 +54,7 @@ pub(crate) fn apply(
 fn reordered_indices(
     ranking: &[crate::contract::RerankHit],
     len: usize,
+    empty_valid: bool,
 ) -> Result<Vec<usize>, RerankError> {
     let mut used = HashSet::new();
     let indices = ranking
@@ -69,9 +65,25 @@ fn reordered_indices(
             (index < len && used.insert(index)).then_some(index)
         })
         .collect::<Vec<_>>();
-    if indices.is_empty() {
+    if indices.is_empty() && !empty_valid {
         Err(RerankError::InvalidResponse)
     } else {
         Ok(indices)
     }
+}
+
+fn reorder(result: &mut NamespaceResult, order: Vec<usize>) {
+    if order.is_empty() {
+        result.memories.clear();
+        return;
+    }
+    let mut original = std::mem::take(&mut result.memories)
+        .into_iter()
+        .map(Some)
+        .collect::<Vec<_>>();
+    result.memories = order
+        .into_iter()
+        .filter_map(|index| original[index].take())
+        .collect();
+    result.memories.extend(original.into_iter().flatten());
 }

@@ -43,6 +43,16 @@ reciprocal-rank fusion before an optional global rerank. A missing provider or i
 query vector reports `embedding-unavailable` and removes that identity's results; a foreign table
 is never searched with the active provider's vector, even when their dimensions match. These
 operations use the existing RE-03 provider and RE-02 identity APIs without changing either contract.
+Writable pools still refuse an unexpected identity, as the existing Node writer guard does.
+`NamespaceStores::open` receives one expected writer identity; resolving configured per-agent or
+per-active-route `embedding.routes` expectations belongs to RE-08's `create-engine` composition.
+Foreign read-only recordings do not claim that complete configuration surface.
+
+After multi-identity fusion, the existing CP-5.5 provider opt-in also applies: a successful
+response with no valid indices and `empty_result_is_valid() == true` selects no memories and
+writes an empty selection without degradation, whether fallback is enabled or disabled. The
+older identity wrapper lacks that check; this deliberately carries the required CP-5 contract
+into the fused path. Provider errors and undeclared empty responses retain fallback/error behavior.
 
 RE-04/T4 namespace recalls apply the global tier budget after merge/rerank and append a single
 retrieval record from the final selection, through
