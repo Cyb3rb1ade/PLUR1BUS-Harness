@@ -64,3 +64,18 @@ pub fn from_env() -> Result<Option<Seam>, SeamError> {
     }
     parse(variant.to_str().ok_or(SeamError::UnknownVariant)?, allow).map(Some)
 }
+
+/// Private fault selection for process-level accept cleanup tests.
+/// The server consumes it once after binding and publishing its owned run files.
+pub(super) fn permission_denied_accept_from_env() -> Result<bool, SeamError> {
+    let Some(variant) = env::var_os("PLUR1BUS_TEST_ACCEPT_ERROR") else {
+        return Ok(false);
+    };
+    if env::var_os("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() != Some(std::ffi::OsStr::new("1")) {
+        return Err(SeamError::NotAllowed);
+    }
+    match variant.to_str() {
+        Some("permission-denied") => Ok(true),
+        _ => Err(SeamError::UnknownVariant),
+    }
+}

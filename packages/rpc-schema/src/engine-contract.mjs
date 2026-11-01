@@ -124,6 +124,10 @@ export function engineRpcSurface() {
     old.params.required = old.params.required.filter((n) => n !== "o").concat(opts.required ?? []);
     Object.assign(old.params.properties, opts.properties);
   }
+  methods["engine.embedding.embed"].params.properties.texts.description =
+    "At most 128 texts per request. Larger batches return E_INVALID_PARAMS with reason embedding-batch-too-large.";
+  methods["engine.embedding.rerank"].params.properties.docs.description =
+    "At most 128 documents per request. Larger batches return E_INVALID_PARAMS with reason embedding-batch-too-large.";
   const probe = methods["engine.embedding.probe"];
   probe.params = object(probe.params.properties.opts.properties);
   add(

@@ -14862,7 +14862,10 @@
               "signal",
               "transport-fatal",
               "deadline",
-              "startup-failed"
+              "startup-failed",
+              "stamp-owner-live",
+              "stamp-age-rule",
+              "process-lock-held"
             ]
           },
           "pid": {

@@ -64,7 +64,7 @@ impl EngineProcess {
         Self::spawn_configured(home, None, true, Some((variant, allow)), None)
     }
 
-    fn spawn_configured(
+    pub fn spawn_configured(
         home: &Path,
         instance: Option<&str>,
         stdin_lifeline: bool,
@@ -81,6 +81,7 @@ impl EngineProcess {
             .arg("--home")
             .arg(home)
             .env_remove("PLUR1BUS_TEST_INTERNALS")
+            .env_remove("PLUR1BUS_TEST_ACCEPT_ERROR")
             .env_remove("PLUR1BUS_ALLOW_TEST_INTERNALS")
             // Files avoid blocking pipe-reader threads when startup or shutdown fails.
             .stdout(Stdio::from(

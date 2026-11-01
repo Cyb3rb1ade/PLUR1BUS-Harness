@@ -58,6 +58,13 @@ describe("RE-08 engine RPC", () => {
     assert.equal(validateResult("engine.adopt", { status, extra: true }).ok, false);
     assert.deepEqual(schema.$defs.methods["engine.adopt"].result.properties.status, schema.$defs.methods["engine.status"].result);
   });
+  it("leaves embedding batch rejection to the dispatcher so its specific reason is preserved", () => {
+    const fixtures = loadFixtures().methods;
+    for (const [method, field] of [["engine.embedding.embed", "texts"], ["engine.embedding.rerank", "docs"]] as const) {
+      const params = fixtures[method]!.params as Record<string, unknown>;
+      assert.deepEqual(validateParams(method, { ...params, [field]: Array(129).fill("sample") }), { ok: true }, method);
+    }
+  });
   it("adds optional process health and counters while preserving legacy engine status", () => {
     const status = loadFixtures().methods["engine.status"]!.result as Record<string, unknown>;
     const counters = { requests: 4, authFailures: 0, activeConnections: 1, capturesPending: 0, capturesCompleted: 2 };

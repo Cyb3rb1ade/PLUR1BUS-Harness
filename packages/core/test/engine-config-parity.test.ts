@@ -27,6 +27,10 @@ test("startup vector drift check refuses a changed committed result", async () =
   try {
     const path = join(root, "candidate.json");
     writeFileSync(path, readFileSync(fixture, "utf8") + " ");
-    assert.throws(() => checkEngineConfigVectors(pathToFileURL(path)), /startup config vectors stale/);
+    assert.throws(() => checkEngineConfigVectors(pathToFileURL(path)), {
+      name: "EngineConfigVectorMismatch",
+      message: /startup config vectors stale/,
+    });
+    assert.throws(() => checkEngineConfigVectors(pathToFileURL(join(root, "missing.json"))), { code: "ENOENT" });
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

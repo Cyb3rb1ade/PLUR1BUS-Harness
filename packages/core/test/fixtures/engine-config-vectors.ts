@@ -183,10 +183,23 @@ export function renderEngineConfigVectors(): string {
   assert.equal(new Set(cases.map(c => c.name)).size, cases.length);
   return JSON.stringify({ version: 1, source: "packages/core/src/engine-config.ts", cases }, null, 2) + "\n";
 }
+class EngineConfigVectorMismatch extends Error {
+  constructor() {
+    super("startup config vectors stale: run pnpm --filter @plur1bus/core gen");
+    this.name = "EngineConfigVectorMismatch";
+  }
+}
 export function checkEngineConfigVectors(path = ENGINE_CONFIG_VECTOR_FILE): void {
-  assert.equal(readFileSync(path, "utf8"), renderEngineConfigVectors(), "startup config vectors stale: run pnpm --filter @plur1bus/core gen");
+  if (readFileSync(path, "utf8") !== renderEngineConfigVectors()) throw new EngineConfigVectorMismatch();
 }
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
-  if (process.argv.includes("--check")) checkEngineConfigVectors();
+  if (process.argv.includes("--check")) {
+    try { checkEngineConfigVectors(); }
+    catch (error) {
+      if (!(error instanceof EngineConfigVectorMismatch)) throw error;
+      console.error(error.message);
+      process.exitCode = 2;
+    }
+  }
   else { mkdirSync(dirname(fileURLToPath(ENGINE_CONFIG_VECTOR_FILE)), { recursive: true }); writeFileSync(ENGINE_CONFIG_VECTOR_FILE, renderEngineConfigVectors()); }
 }

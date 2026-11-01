@@ -60,6 +60,12 @@ pub enum Reason {
     Deadline,
     /// Startup could not finish.
     StartupFailed,
+    /// The nonce identifies a live process with the same start identity.
+    StampOwnerLive,
+    /// The job-lock age rule still protects an unproven nonce stamp.
+    StampAgeRule,
+    /// Another process holds the primary OS lock for this home.
+    ProcessLockHeld,
 }
 
 impl Reason {
@@ -75,6 +81,9 @@ impl Reason {
             Self::TransportFatal => "transport-fatal",
             Self::Deadline => "deadline",
             Self::StartupFailed => "startup-failed",
+            Self::StampOwnerLive => "stamp-owner-live",
+            Self::StampAgeRule => "stamp-age-rule",
+            Self::ProcessLockHeld => "process-lock-held",
         }
     }
 }
@@ -363,6 +372,9 @@ mod tests {
             (Lifecycle::Adopted, Reason::Adopted),
             (Lifecycle::Stopping, Reason::Signal),
             (Lifecycle::Stopped, Reason::Shutdown),
+            (Lifecycle::Stopped, Reason::StampOwnerLive),
+            (Lifecycle::Stopped, Reason::StampAgeRule),
+            (Lifecycle::Stopped, Reason::ProcessLockHeld),
         ] {
             let line = lifecycle_line(state, reason).expect("registered lifecycle record");
             assert!(plur1bus_log_schema::validate_line(&line).is_ok());

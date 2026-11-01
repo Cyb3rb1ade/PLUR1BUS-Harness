@@ -228,6 +228,22 @@ fn a_second_engine_on_the_same_home_exits_3_without_removing_the_firsts_files() 
         "{}",
         second.diagnostics()
     );
+    let refusals: Vec<Value> = second
+        .stderr()
+        .lines()
+        .map(|line| {
+            plur1bus_log_schema::validate_line(line).unwrap();
+            serde_json::from_str(line).unwrap()
+        })
+        .collect();
+    assert!(
+        refusals
+            .iter()
+            .any(|record| record["event"] == "engine.process.lifecycle"
+                && record["attrs"]["reason"] == "process-lock-held"),
+        "{}",
+        second.diagnostics()
+    );
     assert_eq!(
         fs::read(home.path().join("run/engine.token")).unwrap(),
         token
@@ -297,6 +313,155 @@ fn a_live_engine_lock_is_not_stolen_after_the_nonce_hard_ceiling() {
     client.call("engine.shutdown", json!({})).unwrap();
     assert!(first.wait_for_exit().success());
     first.assert_run_files_removed();
+}
+
+#[cfg(unix)]
+#[test]
+fn startup_refusals_distinguish_a_live_owner_from_the_stamp_age_rule() {
+    let _serial = process_test();
+    let mut live = nonce_for_pid(std::process::id());
+    live["privateMarker"] = json!("PRIVATE-STAMP-CONTENT");
+    for (stamp, aged, reason) in [
+        (serde_json::to_vec(&live).unwrap(), true, "stamp-owner-live"),
+        (b"{PRIVATE-STAMP-CONTENT".to_vec(), false, "stamp-age-rule"),
+    ] {
+        let home = home();
+        let run = home.path().join("run");
+        plur1bus_engine::store::paths::secure_dir(&run).unwrap();
+        let path = run.join("engine.lock");
+        fs::write(&path, &stamp).unwrap();
+        plur1bus_engine::store::paths::secure_file(&path).unwrap();
+        if aged {
+            fs::OpenOptions::new()
+                .write(true)
+                .open(&path)
+                .unwrap()
+                .set_times(fs::FileTimes::new().set_modified(UNIX_EPOCH))
+                .unwrap();
+        }
+        let mut engine = EngineProcess::spawn(home.path(), None);
+        assert_eq!(
+            engine.wait_for_exit().code(),
+            Some(3),
+            "{}",
+            engine.diagnostics()
+        );
+        assert_eq!(fs::read(&path).unwrap(), stamp);
+        assert!(!engine.stderr().contains("PRIVATE-STAMP-CONTENT"));
+        let records: Vec<Value> = engine
+            .stderr()
+            .lines()
+            .map(|line| {
+                plur1bus_log_schema::validate_line(line).unwrap();
+                serde_json::from_str(line).unwrap()
+            })
+            .collect();
+        assert!(
+            records
+                .iter()
+                .any(|record| record["event"] == "engine.process.lifecycle"
+                    && record["attrs"]["state"] == "stopped"
+                    && record["attrs"]["reason"] == reason),
+            "{}",
+            engine.diagnostics()
+        );
+    }
+}
+
+#[cfg(unix)]
+fn nonce_for_pid(pid: u32) -> Value {
+    json!({
+        "nonce":uuid::Uuid::new_v4().to_string(),
+        "pid":pid,
+        "host":plur1bus_rpc::process::hostname().unwrap(),
+        "procStart":plur1bus_rpc::process::incarnation().unwrap(),
+        "acquiredAt":"2020-01-01T00:00:00Z"
+    })
+}
+
+#[cfg(unix)]
+fn assert_aged_stamp_recovers_and_stops_on_sigterm(stamp: &[u8]) {
+    let _serial = process_test();
+    let home = home();
+    let run = home.path().join("run");
+    plur1bus_engine::store::paths::secure_dir(&run).unwrap();
+    let path = run.join("engine.lock");
+    fs::write(&path, stamp).unwrap();
+    plur1bus_engine::store::paths::secure_file(&path).unwrap();
+    fs::OpenOptions::new()
+        .write(true)
+        .open(&path)
+        .unwrap()
+        .set_times(fs::FileTimes::new().set_modified(UNIX_EPOCH + Duration::from_secs(1)))
+        .unwrap();
+    let mut engine = EngineProcess::start(home.path(), Some(INSTANCE));
+    assert_ne!(fs::read(&path).unwrap(), stamp);
+    let mut client = engine.connect();
+    assert_eq!(client.hello()["instanceId"], INSTANCE);
+    assert_process_status(&client.call("engine.status", json!({})).unwrap());
+    // SAFETY: this positive PID names only the child held and reaped by EngineProcess.
+    assert_eq!(
+        unsafe { libc::kill(engine.pid().try_into().unwrap(), libc::SIGTERM) },
+        0
+    );
+    assert!(engine.wait_for_exit().success(), "{}", engine.diagnostics());
+    engine.assert_run_files_removed();
+    assert!(!engine.diagnostics().contains("PRIVATE-STAMP-CONTENT"));
+}
+
+#[cfg(unix)]
+#[test]
+fn aged_foreign_host_stamp_recovers_and_stops_cleanly() {
+    let mut stamp = nonce_for_pid(std::process::id());
+    stamp["host"] = json!(format!(
+        "{}-previous-container",
+        stamp["host"].as_str().unwrap()
+    ));
+    assert_aged_stamp_recovers_and_stops_on_sigterm(&serde_json::to_vec(&stamp).unwrap());
+}
+
+#[cfg(unix)]
+#[test]
+fn aged_empty_stamp_recovers_and_stops_cleanly() {
+    assert_aged_stamp_recovers_and_stops_on_sigterm(b"");
+}
+
+#[cfg(unix)]
+#[test]
+fn aged_broken_json_stamp_recovers_and_stops_cleanly() {
+    assert_aged_stamp_recovers_and_stops_on_sigterm(br#"{"PRIVATE-STAMP-CONTENT":"#);
+}
+
+#[cfg(unix)]
+#[test]
+fn aged_invalid_utf8_stamp_recovers_and_stops_cleanly() {
+    assert_aged_stamp_recovers_and_stops_on_sigterm(&[b'{', b'"', 0xff, b'"', b':']);
+}
+
+#[cfg(unix)]
+#[test]
+fn aged_stamp_for_another_users_pid_recovers_and_stops_cleanly() {
+    use plur1bus_rpc::process::{alive, Liveness};
+
+    // Root can probe every UID, so the ruling scopes this process case to non-root runners.
+    // SAFETY: geteuid has no preconditions and cannot fail.
+    if unsafe { libc::geteuid() } == 0 {
+        return;
+    }
+    let pid = (alive(1) == Liveness::OtherUser).then_some(1);
+    #[cfg(target_os = "linux")]
+    let pid = pid.or_else(|| {
+        fs::read_dir("/proc")
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter_map(|entry| entry.file_name().to_str()?.parse::<u32>().ok())
+            .find(|candidate| alive(*candidate) == Liveness::OtherUser)
+    });
+    let pid = pid.expect("a non-root process test needs a live foreign UID (normally PID1)");
+    assert_eq!(alive(pid), Liveness::OtherUser);
+    // Current boot prevents the earlier boot-mismatch branch from masking this EPERM case.
+    let stamp = nonce_for_pid(pid);
+    assert_aged_stamp_recovers_and_stops_on_sigterm(&serde_json::to_vec(&stamp).unwrap());
 }
 
 #[test]

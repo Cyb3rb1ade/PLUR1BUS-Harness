@@ -1065,7 +1065,8 @@ The embedding.embed operation on the memory-engine RPC endpoint.
       "type": "array",
       "items": {
         "type": "string"
-      }
+      },
+      "description": "At most 128 texts per request. Larger batches return E_INVALID_PARAMS with reason embedding-batch-too-large."
     },
     "kind": {
       "type": "string",
@@ -1122,7 +1123,8 @@ The embedding.rerank operation on the memory-engine RPC endpoint.
       "type": "array",
       "items": {
         "type": "string"
-      }
+      },
+      "description": "At most 128 documents per request. Larger batches return E_INVALID_PARAMS with reason embedding-batch-too-large."
     },
     "topN": {
       "type": "number"

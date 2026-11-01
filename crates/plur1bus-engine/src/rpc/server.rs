@@ -66,6 +66,7 @@ fn epoch_ms() -> u64 {
 // Test injection stays above the unchanged shared transport interface.
 #[derive(Default)]
 pub(super) struct ServerOptions {
+    pub(super) permission_denied_accept: bool,
     #[cfg(test)]
     pub(super) accept_errors: usize,
     #[cfg(test)]
@@ -110,6 +111,7 @@ impl WorkerStarter {
 
 struct ServerListener {
     inner: Listener,
+    permission_denied: AtomicBool,
     #[cfg(test)]
     errors: AtomicUsize,
     #[cfg(test)]
@@ -140,6 +142,12 @@ impl Write for BlockedNotificationWriter {
 }
 impl ServerListener {
     fn accept_timeout(&self, timeout: Duration) -> io::Result<Option<Accepted>> {
+        if self.permission_denied.swap(false, Ordering::AcqRel) {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "injected accept failure",
+            ));
+        }
         #[cfg(test)]
         if self
             .errors
@@ -905,7 +913,13 @@ pub fn serve(
     layout: &EngineLayout,
     lifeline: Lifeline,
 ) -> Result<(), ServeError> {
-    serve_with_options(engine, layout, lifeline, &ServerOptions::default())
+    let mut options = ServerOptions::default();
+    if super::seams::permission_denied_accept_from_env()
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "engine test seam refused"))?
+    {
+        options.permission_denied_accept = true;
+    }
+    serve_with_options(engine, layout, lifeline, &options)
 }
 
 pub(super) fn serve_with_options(
@@ -925,6 +939,7 @@ pub(super) fn serve_with_options(
     let listener = ServerListener {
         inner: Listener::bind(&layout.address)
             .inspect_err(|error| diagnostics::failure(Stage::Listen, error))?,
+        permission_denied: AtomicBool::new(options.permission_denied_accept),
         #[cfg(test)]
         errors: AtomicUsize::new(options.accept_errors),
         #[cfg(test)]

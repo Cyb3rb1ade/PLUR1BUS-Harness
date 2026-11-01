@@ -1093,10 +1093,16 @@ mod parity {
             .arg(root.join("packages/core/test/fixtures/engine-config-vectors.ts"))
             .arg("--check")
             .output()
-            .unwrap();
+            .expect("Core startup vector generator could not start; run pnpm test:prep with the required Node toolchain");
+        assert_ne!(
+            output.status.code(),
+            Some(2),
+            "Core startup vectors differ from the current Core results; run pnpm --filter @plur1bus/core gen:\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
         assert!(
             output.status.success(),
-            "Core startup vectors stale or generator unavailable:\n{}",
+            "Core startup vector generator failed; run pnpm test:prep to prepare the private Engine package and Core dependencies:\n{}",
             String::from_utf8_lossy(&output.stderr)
         );
     }

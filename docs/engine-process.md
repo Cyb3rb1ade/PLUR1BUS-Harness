@@ -21,8 +21,11 @@ A permanent OS-held `run/engine.process.lock` pins process exclusivity before ac
 Both locks are acquired before probing or replacing stale endpoint files. Each start writes a
 fresh 32-byte OS-random bearer token to `run/engine.token` and `<pid> <instanceId>` to `run/engine.pid`. A second
 owner exits 3 without changing the first process's files. After a crash, a private local nonce whose PID is dead
-or whose start identity is demonstrably different is recovered immediately; a live or unprovable owner stays
-protected regardless of nonce age. New nonce files are created with mode `0600`; legacy owner-only nonce metadata
+or whose start identity is demonstrably different is recovered immediately. A different boot ID is checked before
+probing the recorded PID, and a PID unavailable to this user is orphaned in a private home. Only a positively live
+local owner with the same incarnation stays protected regardless of nonce age. Foreign-host, malformed and incomplete
+stamps use the existing bounded `JobLock` age rule. Startup diagnostics distinguish a live owner from that age rule.
+New nonce files are created with mode `0600`; legacy owner-only nonce metadata
 with read bits (for example `0644`) is accepted only inside the owned `0700` run directory, with no links or foreign
 write bits. Bearer-token readers stay strict. Successful shutdown removes only that start's run files.
 Usage/configuration failures exit 2; a clean shutdown exits 0.
@@ -66,13 +69,17 @@ late decision from restoring invalidated policy. Missing Core is recoverable on 
 LLM completion requires explicit outer agent attribution, matching the Core's dispatch guard. The unattributed
 frozen callback fails closed. Events use a bounded, nonblocking queue and can be dropped under backpressure; a hung
 Core cannot block the caller's `emit`. The background client bounds pending calls and aborts I/O during shutdown.
+A cancelled or expired host call currently closes the shared connection: concurrent host calls fail unavailable,
+the policy cache is invalidated, and the next call reconnects and authenticates. Keeping the connection while
+discarding late replies by request ID is a U2/U3 follow-up.
 
 The configuration projection is checked against shared [Core-derived startup vectors](../tests/engine-parity/config/README.md).
 Both TS and Rust replay the same synthetic configuration and receipt metadata, and check regeneration against the
 actual Core startup functions. No model execution is used to generate these vectors.
 
-Transient accept failures increment `counters.acceptErrors` and back off for 50 ms; permanent listener failures stop
-cleanly. There are at most 64 connections, eight concurrent requests per connection, 128 pending captures and
+Transient accept failures increment `counters.acceptErrors` and back off for 50 ms; recognized fatal listener errors
+stop with exit 2 and remove owned run files. A cap on consecutive other accept errors remains a supervisor-U2
+follow-up alongside health monitoring. There are at most 64 connections, eight concurrent requests per connection, 128 pending captures and
 256 retained receipts. Saturation returns `E_NOT_AVAILABLE` with reason `engine-busy`. A single completion worker
 polls the bounded receipt set; worker creation is fallible. Before authentication, frames are limited to 64 KiB
 and the first unauthenticated method closes the connection. Authenticated frames remain limited to 4 MiB.
@@ -117,4 +124,5 @@ parity runner and advisory CI to U4/U5; system runs and hop-budget measurement t
 No default engine switch or Phase 2 behavior change is included here.
 
 Composition must remain lazy before the single-instance check: `production_model_composition_is_lazy_and_does_not_create_files`
-is an invariant for future store integration. A future eager composition must move lock acquisition before opening stores.
+is an invariant for future store integration. RE-04 store integration is gated on moving lock acquisition before
+any composition that eagerly opens stores.
