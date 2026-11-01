@@ -131,17 +131,33 @@ fn firstaid_check_includes_models_roles_at_end() {
     );
 
     let checks = doc["checks"].as_array().unwrap();
-    // `remote.exposure`, `models.decision`, `privacy.local-only` and `api.supervised` are appended after it (check ids are append-only).
-    let last = &checks[checks.len() - 5];
-    assert_eq!(last["id"], "dreams.last-runs");
-    assert_eq!(last["status"], "skip");
-    assert_eq!(checks[checks.len() - 4]["id"], "remote.exposure");
+    // Check IDs are append-only: later checks must not shift this established sequence.
+    let dreams = checks
+        .iter()
+        .position(|check| check["id"] == "dreams.last-runs")
+        .unwrap();
+    let ids: Vec<_> = checks[dreams..]
+        .iter()
+        .take(6)
+        .map(|check| check["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        ids,
+        [
+            "dreams.last-runs",
+            "remote.exposure",
+            "models.decision",
+            "privacy.local-only",
+            "api.supervised",
+            "media.ffmpeg"
+        ]
+    );
+    assert_eq!(checks[dreams]["status"], "skip");
     // No decision role on a fresh home: an info row, not a warning, naming the way to set it.
     let decision = checks
         .iter()
         .find(|c| c["id"] == "models.decision")
         .unwrap();
-    assert_eq!(checks.last().unwrap()["id"], "api.supervised");
     assert_eq!(decision["id"], "models.decision");
     assert_eq!(decision["status"], "info", "{decision}");
     assert_eq!(
