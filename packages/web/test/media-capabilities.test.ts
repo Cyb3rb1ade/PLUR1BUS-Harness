@@ -10,6 +10,7 @@ import { seedConfig } from "./settings-config-fixtures.ts";
 import { seedMedia, status } from "./media-search-fixtures.ts";
 import { FRESH_MEMORY, seed, toMemoryStep, next, stepHeading } from "./setup-fixtures.ts";
 import { MEDIA_EMBEDDING_DEFAULTS } from "../src/pages/media-search/contract.ts";
+import { rpcError } from "./mock-rpc.ts";
 import { initial, load, save } from "../src/pages/setup/model.ts";
 import { changesOf, draftOf, mediaSetupDefaults, mediaSetupChanges } from "../src/pages/media-search/model.ts";
 
@@ -210,33 +211,90 @@ test("Next preserves backend backfill even before the step's config read returns
 });
 
 
-test("clearing an audio override saves valid configuration and inherits the global segment", { skip: browserSkip }, async () => {
+test("clearing an audio override locks saving through refresh and recovers from failures", { skip: browserSkip }, async () => {
   await withApp({}, async (app) => {
     const config = defaults();
     config.memory.mediaEmbedding.audio.segmentSec = 18;
     config.agents.main = { memory: { mediaEmbedding: { audio: { segmentSec: 12, maxSeconds: 90 } } } };
     installAgents(app.server);
     const fixture = seedConfig(app.server.rpc, config as unknown as Record<string, unknown>);
+    const refreshStarted = Promise.withResolvers<void>(), refresh = Promise.withResolvers<void>();
+    const nextEditSaved = Promise.withResolvers<void>();
+    let holdRefresh = true, rejectWrite = false, writes = 0;
+    app.server.rpc.handle("config.get", async (params) => {
+      const key = (params as { key?: string } | undefined)?.key;
+      if (key === undefined && fixture.revision > 1 && holdRefresh) {
+        refreshStarted.resolve();
+        await refresh.promise;
+        throw rpcError("E_STORAGE", "reload unavailable");
+      }
+      const value = key === undefined ? fixture.config : key.split(".").reduce<unknown>((o, part) =>
+        o && typeof o === "object" ? (o as Record<string, unknown>)[part] : undefined, fixture.config);
+      return { value, revision: `r${fixture.revision}` };
+    }, { write: false });
     app.server.rpc.handle("config.set", async (params) => {
       const p = params as { changes: { key: string; value: unknown }[]; ifRevision: string };
+      writes++;
+      if (rejectWrite) { rejectWrite = false; throw rpcError("E_STORAGE", "write unavailable"); }
       await validateMediaChanges(fixture.config as unknown as HarnessConfig, p.changes);
-      assert.equal(p.ifRevision, "r1");
-      assert.deepEqual(p.changes, [{ key: "agents.main.memory.mediaEmbedding.audio", value: { maxSeconds: 90 } }]);
-      config.agents.main!.memory!.mediaEmbedding!.audio = p.changes[0]!.value as { maxSeconds: number };
-      fixture.revision++;
-      return { applied: true, dryRun: false, changed: p.changes.map((c) => c.key), restart: {}, revision: "r2" };
+      assert.equal(p.ifRevision, `r${fixture.revision}`);
+      if (writes === 1) {
+        assert.deepEqual(p.changes, [{ key: "agents.main.memory.mediaEmbedding.audio", value: { maxSeconds: 90 } }]);
+        config.agents.main!.memory!.mediaEmbedding!.audio = p.changes[0]!.value as { maxSeconds: number };
+        fixture.revision++;
+      } else {
+        assert.deepEqual(p.changes, [{ key: "agents.main.memory.mediaEmbedding.audio.segmentSec", value: writes === 3 ? 14 : 15 }]);
+        config.agents.main!.memory!.mediaEmbedding!.audio!.segmentSec = p.changes[0]!.value as number;
+        // A successful refresh may retain its revision: the form must still accept a later edit.
+        if (writes === 4) nextEditSaved.resolve();
+      }
+      return { applied: true, dryRun: false, changed: p.changes.map((c) => c.key), restart: {}, revision: `r${fixture.revision}` };
     });
     await openRoute(app.page, "#/agents/main");
     const audio = app.page.locator("#override-audio-segmentSec");
     await audio.waitFor();
     assert.equal(await audio.inputValue(), "12");
     await audio.fill("");
-    await app.page.getByRole("button", { name: "Save for this agent" }).click();
-    await app.page.getByText("Saved for this agent.").waitFor();
-    assert.equal(await audio.inputValue(), "");
-    assert.equal(await audio.getAttribute("placeholder"), "18");
-    assert.deepEqual(config.agents.main!.memory!.mediaEmbedding!.audio, { maxSeconds: 90 });
-    assert.equal({ ...config.memory.mediaEmbedding.audio, ...config.agents.main!.memory!.mediaEmbedding!.audio }.segmentSec, 18);
-    assert.equal(await app.page.getByRole("button", { name: "Save for this agent" }).isDisabled(), true);
+    const saveButton = app.page.getByRole("button", { name: "Save for this agent" });
+    try {
+      await saveButton.click();
+      await refreshStarted.promise;
+      await app.page.getByText("Saved for this agent.").waitFor();
+      assert.equal(await audio.inputValue(), "");
+      assert.equal(await audio.getAttribute("placeholder"), "18");
+      assert.deepEqual(config.agents.main!.memory!.mediaEmbedding!.audio, { maxSeconds: 90 });
+      assert.equal({ ...config.memory.mediaEmbedding.audio, ...config.agents.main!.memory!.mediaEmbedding!.audio }.segmentSec, 18);
+      assert.equal(await saveButton.isDisabled(), true, "saving stays locked while the committed config reload is pending");
+      assert.equal(await saveButton.evaluate((element) => {
+        let clicks = 0;
+        element.addEventListener("click", () => { clicks++; });
+        (element as HTMLButtonElement).click();
+        (element as HTMLButtonElement).click();
+        return clicks;
+      }), 0, "even immediate repeated DOM clicks cannot dispatch another write");
+      assert.equal(writes, 1);
+
+      holdRefresh = false;
+      refresh.resolve();
+      await app.page.getByRole("alert").getByRole("button", { name: "Try again", exact: true }).click();
+      await audio.waitFor();
+      assert.equal(await saveButton.isDisabled(), true);
+      rejectWrite = true;
+      await audio.fill("14");
+      await saveButton.click();
+      await app.page.getByText("The override could not be saved.", { exact: true }).waitFor();
+      assert.equal(await saveButton.isEnabled(), true, "a rejected write is retryable");
+      assert.equal(writes, 2);
+      await saveButton.click();
+      await app.page.getByText("Saved for this agent.", { exact: true }).waitFor();
+      await app.page.locator('.media-override[aria-busy="false"]').waitFor();
+      await audio.fill("15");
+      await saveButton.click();
+      await nextEditSaved.promise;
+      assert.equal(writes, 4, "refreshing an unchanged revision unlocks a later edit");
+    } finally {
+      holdRefresh = false;
+      refresh.resolve();
+    }
   });
 });

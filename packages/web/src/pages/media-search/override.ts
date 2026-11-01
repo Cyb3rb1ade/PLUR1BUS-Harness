@@ -2,7 +2,7 @@
 // either "inherits" (the global value, shown) or set for this agent. Saves only the changed fields as
 // `agents.<id>.memory.mediaEmbedding.<field>` with ifRevision. Clearing audio replaces its parent without segmentSec.
 import { h } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { PageLoading } from "../../components/page-state.ts";
 import { t, type Key } from "../../i18n.ts";
@@ -78,6 +78,8 @@ type Msg = { tone: "ok" | "err"; text: string } | null;
 function Form({ agentId, canManage, data, reload, msg, setMsg }: { agentId: string; canManage: boolean; data: { revision: string; inherited: MediaDraft; own: OverrideFields }; reload: () => void; msg: Msg; setMsg: (m: Msg) => void }): View {
   const [draft, setDraft] = useState<OverrideFields>(data.own);
   const [busy, setBusy] = useState(false);
+  // Keep a successful save locked until the accepted reload arrives, even if its revision is unchanged.
+  useLayoutEffect(() => { setDraft(data.own); setBusy(false); }, [data]);
   const inh = data.inherited;
   const changes = overrideChanges(agentId, data.own, draft);
   const set = (p: Partial<OverrideFields>): void => { setDraft((d) => ({ ...d, ...p })); setMsg(null); };
@@ -89,9 +91,10 @@ function Form({ agentId, canManage, data, reload, msg, setMsg }: { agentId: stri
       setMsg({ tone: "ok", text: t("mediasearch.override.saved") });
       reload();
     } catch (e) {
+      setBusy(false);
       const code = mediaErrorOf(e);
       setMsg({ tone: "err", text: code ? problemText(code) : t("mediasearch.override.failed") });
-    } finally { setBusy(false); }
+    }
   };
   const select = (id: string, label: Key, value: string | null, options: [string, string][], inherit: string, onChange: (v: string | null) => void): View =>
     h("label", { class: "field", for: id },
@@ -99,7 +102,7 @@ function Form({ agentId, canManage, data, reload, msg, setMsg }: { agentId: stri
       h("select", { id, value: value ?? "", disabled: !canManage, onChange: (e: Event) => { const v = (e.target as HTMLSelectElement).value; onChange(v === "" ? null : v); } },
         h("option", { value: "" }, `${t("mediasearch.override.inherit")} (${inherit})`),
         options.map(([v, l]) => h("option", { key: v, value: v }, l))));
-  return h("section", { class: "card media-override", "aria-labelledby": "media-override-title", "data-section": "media-override" },
+  return h("section", { class: "card media-override", "aria-labelledby": "media-override-title", "aria-busy": busy, "data-section": "media-override" },
     h("h2", { id: "media-override-title" }, t("mediasearch.override.title")),
     h("p", { class: "field-hint" }, t("mediasearch.override.lead")),
     !canManage ? h(Notice, {}, t("mediasearch.settings.readOnly")) : null,
