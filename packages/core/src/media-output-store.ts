@@ -20,6 +20,7 @@ export function createMediaOutputStore(home: string, log?: { warn(message: strin
       await rm(join(home, "media", "owners", `${ownerId}.json`), { force: true });
     },
     onCorruptUploadRemoved() { log?.warn("media upload recovered", { code: "corrupt-upload-removed" }); },
+    onUploadStorageUnavailable() { log?.warn("media retention skipped", { code: "storage-unavailable" }); },
   });
   return store;
 }
