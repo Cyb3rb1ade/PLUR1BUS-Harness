@@ -1,20 +1,391 @@
 [
-  {"name":"direct properties and maps","supported":true,"schema":{"properties":{"ordinary":{"type":"string","x-sensitive":true},"endpoint":{"x-url-credentials":true},"headers":{"additionalProperties":{"x-sensitive":true}}}}},
-  {"name":"opaque metadata","supported":true,"schema":{"x-value-schema":{"properties":{"ordinary":{"x-sensitive":true}}}}},
-  {"name":"public local reference","supported":true,"schema":{"$defs":{"public":{"type":"string"}},"properties":{"label":{"$ref":"#/$defs/public"}}}},
-  {"name":"boolean annotation required","supported":false,"schema":{"properties":{"ordinary":{"x-sensitive":"true"}}}},
-  {"name":"secret local reference","supported":false,"schema":{"$defs":{"private":{"x-sensitive":true}},"properties":{"ordinary":{"$ref":"#/$defs/private"}}}},
-  {"name":"reference target in an opaque keyword","supported":false,"schema":{"default":{"x-sensitive":true},"properties":{"ordinary":{"$ref":"#/default"}}}},
-  {"name":"nested reference scope","supported":false,"schema":{"$defs":{"private":{"type":"string"}},"properties":{"ordinary":{"$id":"https://schema.example.test/private-scope","$defs":{"private":{"x-sensitive":true}},"allOf":[{"$ref":"#/$defs/private"}]}}}},
-  {"name":"dynamic reference","supported":false,"schema":{"$defs":{"private":{"x-sensitive":true}},"properties":{"ordinary":{"$dynamicRef":"#/$defs/private"}}}},
-  {"name":"exclusive URL classes","supported":false,"schema":{"properties":{"ordinary":{"x-sensitive":true,"x-url-credentials":true}}}},
-  {"name":"conditional dependency","supported":false,"schema":{"dependencies":{"ordinary":{"properties":{"ordinary":{"x-sensitive":true}}}}}},
-  {"name":"tuple additional items","supported":false,"schema":{"items":[{}],"additionalItems":{"x-sensitive":true}}},
-  {"name":"external reference","supported":false,"schema":{"$ref":"https://schema.example.test/external"}},
-  {"name":"direct reference-only declaration","supported":true,"schema":{"properties":{"ordinary":{"type":"string","x-secret-reference":true}}}},
-  {"name":"reference-only local reference","supported":false,"schema":{"$defs":{"name":{"type":"string","x-secret-reference":true}},"properties":{"ordinary":{"$ref":"#/$defs/name"}}}},
-  {"name":"reference-only conditional","supported":false,"schema":{"allOf":[{"properties":{"ordinary":{"type":"string","x-secret-reference":true}}}]}},
-  {"name":"linked reference-only conditional","supported":false,"schema":{"$defs":{"name":{"type":"string","x-secret-reference":true}},"allOf":[{"properties":{"ordinary":{"type":"string","x-secret-reference":{"$ref":"#/$defs/name"}}}}]}},
-  {"name":"false reference marker stays public through a reference","supported":true,"schema":{"$defs":{"name":{"type":"string","x-secret-reference":false}},"properties":{"ordinary":{"$ref":"#/$defs/name"}}}},
-  {"name":"unused reference definition stays irrelevant","supported":true,"schema":{"$defs":{"name":{"type":"string","x-secret-reference":true}},"properties":{"ordinary":{"type":"string"}}}}
+  {
+    "name": "direct properties and maps",
+    "supported": true,
+    "schema": {
+      "properties": {
+        "ordinary": {
+          "type": "string",
+          "x-sensitive": true
+        },
+        "endpoint": {
+          "x-url-credentials": true
+        },
+        "headers": {
+          "additionalProperties": {
+            "x-sensitive": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "opaque metadata",
+    "supported": true,
+    "schema": {
+      "x-value-schema": {
+        "properties": {
+          "ordinary": {
+            "x-sensitive": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "public local reference",
+    "supported": true,
+    "schema": {
+      "$defs": {
+        "public": {
+          "type": "string"
+        }
+      },
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/public"
+        }
+      }
+    }
+  },
+  {
+    "name": "boolean annotation required",
+    "supported": false,
+    "schema": {
+      "properties": {
+        "ordinary": {
+          "x-sensitive": "true"
+        }
+      }
+    }
+  },
+  {
+    "name": "secret local reference",
+    "supported": false,
+    "schema": {
+      "$defs": {
+        "private": {
+          "x-sensitive": true
+        }
+      },
+      "properties": {
+        "ordinary": {
+          "$ref": "#/$defs/private"
+        }
+      }
+    }
+  },
+  {
+    "name": "reference target in an opaque keyword",
+    "supported": false,
+    "schema": {
+      "default": {
+        "x-sensitive": true
+      },
+      "properties": {
+        "ordinary": {
+          "$ref": "#/default"
+        }
+      }
+    }
+  },
+  {
+    "name": "nested reference scope",
+    "supported": false,
+    "schema": {
+      "$defs": {
+        "private": {
+          "type": "string"
+        }
+      },
+      "properties": {
+        "ordinary": {
+          "$id": "https://schema.example.test/private-scope",
+          "$defs": {
+            "private": {
+              "x-sensitive": true
+            }
+          },
+          "allOf": [
+            {
+              "$ref": "#/$defs/private"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "dynamic reference",
+    "supported": false,
+    "schema": {
+      "$defs": {
+        "private": {
+          "x-sensitive": true
+        }
+      },
+      "properties": {
+        "ordinary": {
+          "$dynamicRef": "#/$defs/private"
+        }
+      }
+    }
+  },
+  {
+    "name": "exclusive URL classes",
+    "supported": false,
+    "schema": {
+      "properties": {
+        "ordinary": {
+          "x-sensitive": true,
+          "x-url-credentials": true
+        }
+      }
+    }
+  },
+  {
+    "name": "conditional dependency",
+    "supported": false,
+    "schema": {
+      "dependencies": {
+        "ordinary": {
+          "properties": {
+            "ordinary": {
+              "x-sensitive": true
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "tuple additional items",
+    "supported": false,
+    "schema": {
+      "items": [
+        {}
+      ],
+      "additionalItems": {
+        "x-sensitive": true
+      }
+    }
+  },
+  {
+    "name": "external reference",
+    "supported": false,
+    "schema": {
+      "$ref": "https://schema.example.test/external"
+    }
+  },
+  {
+    "name": "direct reference-only declaration",
+    "supported": true,
+    "schema": {
+      "properties": {
+        "ordinary": {
+          "type": "string",
+          "x-secret-reference": true
+        }
+      }
+    }
+  },
+  {
+    "name": "reference-only local reference",
+    "supported": false,
+    "schema": {
+      "$defs": {
+        "name": {
+          "type": "string",
+          "x-secret-reference": true
+        }
+      },
+      "properties": {
+        "ordinary": {
+          "$ref": "#/$defs/name"
+        }
+      }
+    }
+  },
+  {
+    "name": "reference-only conditional",
+    "supported": false,
+    "schema": {
+      "allOf": [
+        {
+          "properties": {
+            "ordinary": {
+              "type": "string",
+              "x-secret-reference": true
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "linked reference-only conditional",
+    "supported": false,
+    "schema": {
+      "$defs": {
+        "name": {
+          "type": "string",
+          "x-secret-reference": true
+        }
+      },
+      "allOf": [
+        {
+          "properties": {
+            "ordinary": {
+              "type": "string",
+              "x-secret-reference": {
+                "$ref": "#/$defs/name"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "false reference marker stays public through a reference",
+    "supported": true,
+    "schema": {
+      "$defs": {
+        "name": {
+          "type": "string",
+          "x-secret-reference": false
+        }
+      },
+      "properties": {
+        "ordinary": {
+          "$ref": "#/$defs/name"
+        }
+      }
+    }
+  },
+  {
+    "name": "unused reference definition stays irrelevant",
+    "supported": true,
+    "schema": {
+      "$defs": {
+        "name": {
+          "type": "string",
+          "x-secret-reference": true
+        }
+      },
+      "properties": {
+        "ordinary": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  {
+    "name": "explicit public metadata subtree",
+    "supported": true,
+    "schema": {
+      "type": "object",
+      "x-unknown-members": "public"
+    }
+  },
+  {
+    "name": "credential part selector",
+    "supported": true,
+    "schema": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "x-sensitive": true
+      },
+      "x-text-credentials": "parts"
+    }
+  },
+  {
+    "name": "invalid unknown member classification",
+    "supported": false,
+    "schema": {
+      "x-unknown-members": "maybe"
+    }
+  },
+  {
+    "name": "invalid credential part selector",
+    "supported": false,
+    "schema": {
+      "x-text-credentials": true
+    }
+  },
+  {
+    "name": "conditional public exemption",
+    "supported": false,
+    "schema": {
+      "if": {
+        "x-unknown-members": "public"
+      }
+    }
+  },
+  {
+    "name": "malformed reference marker",
+    "supported": false,
+    "schema": {
+      "properties": {
+        "secret": {
+          "x-secret-reference": "yes"
+        }
+      }
+    }
+  },
+  {
+    "name": "missing reference metadata target",
+    "supported": false,
+    "schema": {
+      "properties": {
+        "secret": {
+          "x-secret-reference": {
+            "$ref": "#/$defs/missing"
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "conditional privacy cannot be cancelled by metadata overlay",
+    "supported": false,
+    "schema": {
+      "allOf": [
+        {
+          "x-sensitive": true,
+          "x-value-schema": {
+            "x-sensitive": false
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "invalid declaration cannot hide under a valid overlay",
+    "supported": false,
+    "schema": {
+      "x-sensitive": "true",
+      "x-value-schema": {
+        "x-sensitive": false
+      }
+    }
+  },
+  {
+    "name": "invalid reference declaration cannot hide under an overlay",
+    "supported": false,
+    "schema": {
+      "x-secret-reference": "yes",
+      "x-value-schema": {
+        "x-secret-reference": false
+      }
+    }
+  },
+  {
+    "name": "metadata wrapper must be an object",
+    "supported": false,
+    "schema": {
+      "x-value-schema": true
+    }
+  }
 ]

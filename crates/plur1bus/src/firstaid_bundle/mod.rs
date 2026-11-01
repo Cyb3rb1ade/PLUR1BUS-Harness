@@ -112,15 +112,46 @@ fn tail(path: &Path, n: usize) -> io::Result<String> {
     Ok(lines[from..].join("\n"))
 }
 
-/// Pattern backstops apply to strings after the schema projection; public names and JSON types remain intact.
-fn clean_config_values(v: &mut Value, r: &Redactor) {
+/// Keep complete references intact while applying key-name and URL defenses to projected strings.
+fn clean_config_values(
+    v: &mut Value,
+    r: &Redactor,
+    references: &std::collections::BTreeSet<String>,
+    path: &str,
+    private_key: bool,
+) {
+    if references.contains(path) {
+        return;
+    }
     match v {
         Value::Object(map) => {
-            for child in map.values_mut() {
-                clean_config_values(child, r);
+            for (name, child) in map {
+                let path = format!("{path}/{}", name.replace('~', "~0").replace('/', "~1"));
+                clean_config_values(
+                    child,
+                    r,
+                    references,
+                    &path,
+                    private_key || redact::credential_key(name),
+                );
             }
         }
-        Value::Array(items) => items.iter_mut().for_each(|i| clean_config_values(i, r)),
+        Value::Array(items) => {
+            for (index, child) in items.iter_mut().enumerate() {
+                clean_config_values(
+                    child,
+                    r,
+                    references,
+                    &format!("{path}/{index}"),
+                    private_key,
+                );
+            }
+        }
+        Value::String(s)
+            if private_key && !s.is_empty() && s != "••••" && !s.starts_with("[REDACTED:") =>
+        {
+            *s = "[REDACTED:key]".into()
+        }
         Value::String(s) => *s = r.redact_config_value(s),
         _ => {}
     }
@@ -170,7 +201,7 @@ pub fn build(
                 let policy = crate::config_redaction::ConfigDisclosurePolicy::load(layout, &value)
                     .map_err(BundleError::ConfigPolicy)?;
                 secrets.extend(policy.secret_values(&value));
-                Some(policy.project(&value))
+                Some((policy.project(&value), policy.reference_paths(&value)))
             }
             Err(_) => {
                 omitted.push(json!({"path":"config.json","reason":"not valid JSON"}));
@@ -228,8 +259,8 @@ pub fn build(
         serde_json::to_string_pretty(&service::status(runner, layout)).unwrap_or_default(),
     ));
 
-    if let Some(mut value) = config {
-        clean_config_values(&mut value, &r);
+    if let Some((mut value, references)) = config {
+        clean_config_values(&mut value, &r, &references, "", false);
         texts.push((
             "config.json".into(),
             serde_json::to_string_pretty(&value).unwrap_or_default(),

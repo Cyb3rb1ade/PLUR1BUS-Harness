@@ -500,7 +500,7 @@ fn declared_header_maps_and_unstructured_credential_spellings_are_removed_but_pu
             &h.home.join("config.json"),
             &json!({ "schemaVersion": 1, "engine": {"merging":{"headers":headers}},
                 "modelProfiles":{"primary":{"params":{"maxTokens":4096}}},
-                "unknown":{"password":"public-label"} })
+                "unknown":{"password":config_marker} })
             .to_string(),
         );
         write(
@@ -517,7 +517,7 @@ fn declared_header_maps_and_unstructured_credential_spellings_are_removed_but_pu
         let cfg: Value = serde_json::from_slice(&zip["config.json"]).unwrap();
         assert_eq!(cfg["engine"]["merging"]["headers"]["ordinary"], "••••");
         assert_eq!(cfg["modelProfiles"]["primary"]["params"]["maxTokens"], 4096);
-        assert_eq!(cfg["unknown"]["password"], "public-label");
+        assert_eq!(cfg["unknown"]["password"], "••••");
         let log = String::from_utf8(zip["logs/core.out.log"].clone()).unwrap();
         let rows: Vec<Value> = log
             .lines()
@@ -558,4 +558,34 @@ fn a_bundle_is_never_written_over_an_existing_file_and_the_zip_is_private() {
             0o600
         );
     }
+}
+
+#[test]
+fn unknown_namespace_values_and_their_log_occurrences_never_enter_a_real_bundle() {
+    let h = Home::new();
+    let marker = format!("runtime-canary-{}", uuid::Uuid::new_v4());
+    let value = json!({"schemaVersion":1,
+        "providers":{"unlisted":{"apiKey":marker}},
+        "oauth":{"opaque":{"clientSecret":marker}},
+        "engine":{"someUnknownKey":marker,"schicht15":{"undeclared":marker}},
+        "modules":{"absent":{"token":marker,"nested":{"password":marker}}},
+        "voice":{"local":{"catalogOverride":{"entry":{"opaque":marker}}}},
+        "unknown":{"password":marker,"count":7,"enabled":true}
+    });
+    write(&h.home.join("config.json"), &value.to_string());
+    write(
+        &h.home.join("logs/core.out.log"),
+        &format!("opaque diagnostic {marker}\n"),
+    );
+    let dest = h.root.join("namespaces.zip");
+    assert_eq!(h.bundle(&dest).status.code(), Some(0));
+    let entries = unzip(&dest);
+    assert!(
+        found_in(&entries, &marker).is_empty(),
+        "a runtime unknown namespace credential escaped"
+    );
+    let public: Value = serde_json::from_slice(&entries["config.json"]).unwrap();
+    assert_eq!(public["unknown"]["count"], 7);
+    assert_eq!(public["unknown"]["enabled"], true);
+    assert_eq!(public["engine"]["someUnknownKey"], "••••");
 }

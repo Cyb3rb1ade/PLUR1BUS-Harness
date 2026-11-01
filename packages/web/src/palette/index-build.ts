@@ -31,21 +31,31 @@ const scalar = (v: unknown, urlCredentials = false): string | null =>
 /** List boundaries survive until final index rendering so masking one URL cannot consume a following public endpoint. */
 export type SettingValue = string | readonly string[];
 
+function hiddenSetting(value: unknown, setting: SettingSpec): boolean {
+  if (isConfigReference(value, setting.key)) return false;
+  const policy = configPolicyOf(setting.key);
+  if (setting.sensitive || policy.declaredSensitive || policy.referenceSchema !== undefined) return true;
+  return policy.sensitive && typeof value !== "number" && typeof value !== "boolean";
+}
+
 /** Catalogued values from public `config.get`. Objects/null and secret literals are skipped; safe reference names stay readable. */
 export function settingValues(config: unknown, settings: readonly SettingSpec[] = SETTINGS): Record<string, SettingValue> {
   const out: Record<string, SettingValue> = {};
   if (typeof config !== "object" || config === null) return out;
-  for (const { key, sensitive, urlCredentials } of settings) {
+  for (const setting of settings) {
+    const { key, urlCredentials } = setting;
     let at: unknown = config;
     for (const seg of key.split(".")) at = typeof at === "object" && at !== null ? (at as Record<string, unknown>)[seg] : undefined;
     const policy = configPolicyOf(key);
-    if ((sensitive || policy.sensitive || policy.referenceSchema !== undefined) && !isConfigReference(at, key)) continue;
+    if (hiddenSetting(at, setting)) continue;
+    const reference = isConfigReference(at, key);
     const endpoint = urlCredentials || policy.urlCredentials;
     if (Array.isArray(at)) {
       const parts = at.map(value => scalar(value, endpoint));
       if (parts.length > 0 && parts.every((value): value is string => value !== null)) out[key] = parts;
     } else {
-      const text = scalar(at, endpoint);
+      const text = (reference || policy.unknownMembers === "public") && typeof at === "string"
+        ? at : scalar(at, endpoint);
       if (text !== null) out[key] = text;
     }
   }
@@ -133,10 +143,11 @@ export function buildIndex({ lang, values, settings = SETTINGS, role }: BuildOpt
   const set: Entry[] = settings.map((s) => {
     const candidate = values?.[s.key];
     const policy = configPolicyOf(s.key);
-    const raw = (s.sensitive || policy.sensitive || policy.referenceSchema !== undefined) && !isConfigReference(candidate, s.key) ? undefined : candidate;
+    const raw = hiddenSetting(candidate, s) ? undefined : candidate;
     const endpoint = s.urlCredentials || policy.urlCredentials;
     const value = raw === undefined ? undefined
-      : typeof raw === "string" ? maskUrlSecrets(raw, endpoint)
+      : typeof raw === "string"
+        ? (policy.unknownMembers === "public" || isConfigReference(raw, s.key) ? raw : maskUrlSecrets(raw, endpoint))
       : raw.map((value) => maskUrlSecrets(value, endpoint)).join(", ");
     const label = humanize(s.key);
     return {

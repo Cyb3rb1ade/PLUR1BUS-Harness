@@ -4,7 +4,12 @@ type Edge = "direct" | "conditional" | "definition";
 const object = (value: unknown): Node =>
   value !== null && typeof value === "object" && !Array.isArray(value) ? value as Node : {};
 const own = (node: Node, key: string): unknown => Object.hasOwn(node, key) ? node[key] : undefined;
-const field = (node: Node, key: string): unknown => own(object(own(node, "x-value-schema")), key) ?? own(node, key);
+const field = (node: Node, key: string): unknown => {
+  const outer = own(node, key), inner = own(object(own(node, "x-value-schema")), key);
+  if ((key === "x-sensitive" || key === "x-url-credentials") && (outer === true || inner === true)) return true;
+  if (key === "x-secret-reference" && outer !== undefined && outer !== false && inner === false) return outer;
+  return inner ?? outer;
+};
 
 function children(node: Node): { node: Node; edge: Edge }[] {
   const out: { node: Node; edge: Edge }[] = [];
@@ -63,10 +68,21 @@ export function supportsConfigDisclosurePolicy(schema: unknown): boolean {
     const sensitive = field(node, "x-sensitive");
     const endpoint = field(node, "x-url-credentials");
     const referenceSlot = field(node, "x-secret-reference");
-    if ((sensitive !== undefined && typeof sensitive !== "boolean") ||
-        (endpoint !== undefined && typeof endpoint !== "boolean")) return false;
+    const unknown = field(node, "x-unknown-members");
+    const text = field(node, "x-text-credentials");
+    const directReference = own(node, "x-secret-reference");
+    const metadata = own(node, "x-value-schema");
+    if (["x-sensitive", "x-url-credentials"].some(key => own(node, key) !== undefined && typeof own(node, key) !== "boolean") ||
+        (own(node, "x-unknown-members") !== undefined && own(node, "x-unknown-members") !== "sensitive" && own(node, "x-unknown-members") !== "public") ||
+        (own(node, "x-text-credentials") !== undefined && own(node, "x-text-credentials") !== "parts")) return false;
+    if (metadata !== undefined && (metadata === null || typeof metadata !== "object" || Array.isArray(metadata))) return false;
+    if (directReference !== undefined && typeof directReference !== "boolean") {
+      const slot = object(directReference);
+      if (Object.keys(slot).length !== 1 || typeof slot.$ref !== "string" ||
+          !slot.$ref.startsWith("#/$defs/") || !localTarget(root, slot.$ref) || nestedResource(root)) return false;
+    }
     if (sensitive === true && endpoint === true) return false;
-    if (edge !== "direct" && (sensitive === true || endpoint === true ||
+    if (edge !== "direct" && (sensitive === true || endpoint === true || unknown !== undefined || text !== undefined ||
       (referenceSlot !== undefined && referenceSlot !== false))) return false;
     if (own(node, "$dynamicRef") !== undefined || own(node, "$recursiveRef") !== undefined) return false;
     const reference = own(node, "$ref");

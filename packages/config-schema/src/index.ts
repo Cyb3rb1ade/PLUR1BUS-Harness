@@ -8,7 +8,7 @@ import Ajv2020, { type ValidateFunction } from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import schemaJson from "../schema/config.schema.json" with { type: "json" };
 import { configurationWarnings, type ConfigWarning } from "./sensitive.ts";
-export { sensitiveOf, urlCredentialsOf, configSecretEntries, configurationWarnings, redactConfig } from "./sensitive.ts";
+export { sensitiveOf, urlCredentialsOf, configurationWarnings, redactConfig } from "./sensitive.ts";
 export { configTextSecretEntries } from "./sensitive.ts";
 export { maskUrlCredentials } from "./url-credentials.ts";
 export { secretReferenceOf } from "./sensitive.ts";
@@ -194,7 +194,11 @@ export type RestartClass = "live" | "core" | `module:${string}`;
 const ajv = new ((Ajv2020 as any).default ?? Ajv2020)({ strict: true, allErrors: true, useDefaults: true, strictSchema: false });
 ((addFormats as any).default ?? addFormats)(ajv);
 ajv.addKeyword("x-restart"); ajv.addKeyword("x-reserved"); ajv.addKeyword("x-tier");
-ajv.addKeyword("x-sensitive"); ajv.addKeyword("x-url-credentials"); ajv.addKeyword("x-value-schema");
+ajv.addKeyword({ keyword: "x-sensitive", schemaType: "boolean" });
+ajv.addKeyword({ keyword: "x-url-credentials", schemaType: "boolean" });
+ajv.addKeyword({ keyword: "x-value-schema", schemaType: "object" });
+ajv.addKeyword({ keyword: "x-unknown-members", schemaType: "string", metaSchema: { enum: ["sensitive", "public"] } });
+ajv.addKeyword({ keyword: "x-text-credentials", schemaType: "string", metaSchema: { const: "parts" } });
 const validateFn: ValidateFunction = ajv.compile(CONFIG_SCHEMA);
 
 /** Defaults are produced by validating an empty object with useDefaults — one source of truth. */

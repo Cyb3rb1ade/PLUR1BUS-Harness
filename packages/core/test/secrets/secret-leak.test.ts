@@ -17,6 +17,85 @@ import { dispatcherProbe } from "./fixtures/dispatcher.ts";
 const MARK = "[REDACTED:secret]";
 const unicode = (char: string): string => "\\u" + char.charCodeAt(0).toString(16).padStart(4, "0");
 
+test("self-overlapping registered values conceal their complete source union", () => {
+  const unit = randomUUID().slice(0, 2);
+  const secret = unit.repeat(4);
+  const text = `before ${unit.repeat(5)} after`;
+  assert.equal(createRedactor({ secrets: [secret], secretsOnly: true }).text(text), `before ${MARK} after`);
+});
+
+test("process output prepares its text once and retains writer PII protection", () => {
+  const dir = tempDir("p1b-output-once-");
+  const canary = randomUUID(); let preparations = 0;
+  const policy = createRedactor({ pii: true });
+  const redactor = {
+    text(text: string) { if (text.includes(canary)) preparations++; return policy.text(text); },
+    value<T>(value: T): T {
+      if (value && typeof value === "object" && "text" in value && String(value.text).includes(canary)) preparations++;
+      return policy.value(value);
+    },
+  };
+  const writer = createWriter({ dir, role: "core.out", timers: false, redactor,
+    source: { kind: "harness", id: "exec", version: "0.1.0" } });
+  const output = new OutputLines(writer, "stdout");
+  output.push(Buffer.from(`${canary} contact user@example.com\n`)); output.close(); writer.close();
+  const rows = readdirSync(dir).filter(name => name.endsWith(".log")).flatMap(name => readFileSync(join(dir, name), "utf8").trim().split("\n").map(line => JSON.parse(line)));
+  assert.equal(preparations, 1);
+  assert.equal(rows.filter(row => row.event === "process.output.line").length, 1);
+  assert.ok(JSON.stringify(rows).includes("[REDACTED:pii]"));
+  assert.ok(!JSON.stringify(rows).includes("user@example.com"));
+});
+
+test("idle process framing retains a possible registered-secret suffix", () => {
+  const secret = `${randomUUID()}:${randomUUID()}`;
+  let now = 0; const seen: string[] = [];
+  const writer = { write: (_event: string, attrs: { text: string }) => { if (attrs.text) seen.push(attrs.text); } } as unknown as LogWriter;
+  const output = new OutputLines(writer, "stdout", { secrets: [secret], now: () => now });
+  const split = 22;
+  output.push(Buffer.from(`public ${secret.slice(0, split)}`)); now = 1001; output.tick();
+  assert.ok(!seen.join("\n").includes(secret.slice(0, split)), "idle flush exposed a registered prefix");
+  output.push(Buffer.from(`${secret.slice(split)}\n`)); output.close();
+  assert.ok(seen.join("\n").includes(MARK));
+  assert.ok(!seen.join("\n").includes(secret.slice(split)));
+});
+
+test("idle framing preserves UTF-8 decoder carry inside a registered value", () => {
+  const secret = `${randomUUID()}€${randomUUID()}`, bytes = Buffer.from(secret);
+  const split = Buffer.byteLength(secret.slice(0, secret.indexOf("€"))) + 2;
+  let now = 0; const seen: string[] = [];
+  const writer = { write: (_event: string, attrs: { text: string }) => { if (attrs.text) seen.push(attrs.text); } } as unknown as LogWriter;
+  const output = new OutputLines(writer, "stdout", { secrets: [secret], now: () => now });
+  output.push(bytes.subarray(0, split)); now = 2000; output.tick();
+  output.push(Buffer.concat([bytes.subarray(split), Buffer.from("\n")])); output.close();
+  assert.deepEqual(seen, [MARK]);
+});
+
+test("output sanitisation cannot join a registered value after the only preparation", () => {
+  const secret = randomUUID(), dir = tempDir("p1b-output-sanitise-");
+  const registry = createSecretRedaction(); registry.register(secret, "sanitised");
+  const writer = createWriter({ dir, role: "core.out", timers: false, redactor: registry.redactor(),
+    source: { kind: "harness", id: "exec", version: "0.1.0" } });
+  const output = new OutputLines(writer, "stdout");
+  output.push(Buffer.from(secret.slice(0, 20) + "\x1b[31m" + secret.slice(20) + "\n")); output.close(); writer.close();
+  const text = readdirSync(dir).filter(name => name.endsWith(".log")).map(name => readFileSync(join(dir, name), "utf8")).join("\n");
+  assert.ok(text.includes(MARK)); assert.ok(!text.includes(secret));
+});
+
+for (const oversized of [false, true]) test(`registered newline-containing output stays private${oversized ? " across a discarded oversized frame" : ""}`, () => {
+  const dir = tempDir("p1b-output-newline-");
+  const first = randomUUID(), last = randomUUID();
+  const secret = `${first}\n${oversized ? "middle ".repeat(11000) + "\n" : ""}${last}`;
+  const registry = createSecretRedaction(); registry.register(secret, "multiline");
+  const writer = createWriter({ dir, role: "core.out", timers: false, redactor: registry.redactor(),
+    source: { kind: "harness", id: "exec", version: "0.1.0" } });
+  const output = new OutputLines(writer, "stdout");
+  output.push(Buffer.from(secret + "\n")); output.close(); writer.close();
+  const text = readdirSync(dir).filter(name => name.endsWith(".log")).map(name => readFileSync(join(dir, name), "utf8")).join("\n");
+  assert.ok(!text.includes(first), "newline framing exposed the first secret component");
+  assert.ok(!text.includes(last), "newline framing exposed the last secret component");
+  assert.ok(text.includes(oversized ? "[TRUNCATED:oversized-line]" : MARK));
+});
+
 for (const shape of ["canonical", "slash", "go", "mixed-unicode"] as const)
   test(`registered values remain private in nested JSON text: ${shape}`, async () => {
     const secret = `${randomUUID()}:"\\/<>&é`;
@@ -112,7 +191,10 @@ test("an unmatched surrogate in a registered value cannot poison shared forms or
   }
   const paired = await dispatcherProbe(async () => ({ ordinary: secret + "\udc00" }), () => registry.values(), {}, () => registry.forms()).run();
   assert.equal(paired.isError, false);
-  assert.deepEqual(paired.isError ? undefined : paired.value, { ordinary: MARK + "\ufffd" });
+  assert.deepEqual(paired.isError ? undefined : paired.value, { ordinary: MARK });
+  assert.deepEqual(registry.snapshot().matcher.projectText(secret + "\udc00"), {
+    text: MARK, spans: [{ start: 0, end: secret.length + 1 }],
+  });
   let value: unknown = { ordinary: "public detail" };
   for (let i = 0; i < 100; i++) value = { next: value };
   const result = await dispatcherProbe(async () => value, () => registry.values(), {}, () => registry.forms()).run();
@@ -125,7 +207,10 @@ for (const [shape, suffix] of [["quote", '"\ud800'], ["internal-lone", '\ud800X\
   const registry = createSecretRedaction(); registry.register(secret, "fixture");
   const result = await dispatcherProbe(async () => ({ ordinary: secret + "\udc00" }), () => registry.values(), {}, () => registry.forms()).run();
   assert.equal(result.isError, false);
-  assert.deepEqual(result.isError ? undefined : result.value, { ordinary: MARK + "\ufffd" });
+  assert.deepEqual(result.isError ? undefined : result.value, { ordinary: MARK });
+  assert.deepEqual(registry.snapshot().matcher.projectText(secret + "\udc00"), {
+    text: MARK, spans: [{ start: 0, end: secret.length + 1 }],
+  });
 });
 
 test("well-forming output cannot create an unmasked UTF-8 spelling of a known value", async () => {

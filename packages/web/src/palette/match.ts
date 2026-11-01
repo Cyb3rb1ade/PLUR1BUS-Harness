@@ -1,6 +1,5 @@
 // Pure matching, ranking and highlighting for the palette. No DOM, no i18n, no signals: unit-tested in test/palette-match.test.ts.
-import { maskUrlCredentials } from "../../../config-schema/src/url-credentials.ts";
-import { configPolicyOf } from "../config-policy.ts";
+import { configPolicyOf, maskConfigUrl } from "../config-policy.ts";
 import type { RolePreset } from "../pages/common/load.ts";
 
 export type Group = "nav" | "action" | "log" | "agent" | "session" | "setting";
@@ -45,14 +44,14 @@ export function fold(s: string): { text: string; map: number[] } {
 
 const words = (q: string): string[] => fold(q).text.split(/\s+/).filter((w) => w !== "");
 
-/** Only schema-marked configuration values are sensitive, including dynamic members of marked containers. */
+/** Schema policy and the credential-leaf backstop protect unknown and classified configuration values. */
 export function isSensitiveKey(key: string): boolean {
   return configPolicyOf(key).sensitive;
 }
 
-/** Schema-classified endpoints hide userinfo and every query value while retaining host and path. */
+/** Classified endpoints and the URL backstop hide userinfo, query values and fragments, retaining host and path. */
 export function maskUrlSecrets(value: string, urlCredentials = false): string {
-  return urlCredentials ? maskUrlCredentials(value) : value;
+  return maskConfigUrl(value, urlCredentials);
 }
 
 // Field classes, best first: label starts with the word, label contains it, key, help, value.
