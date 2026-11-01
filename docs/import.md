@@ -823,7 +823,8 @@ under Spec J / P-J4a, with declared parts and reasons. Nothing loads or executes
 compatibility is provided through the native porting pipeline (Spec J / D121-J1) rather
 than an execution bridge. MCP candidates use the verified extension path, remain disabled after import and never
 carry source header/env credentials. The original CLI `--json` report shapes and
-business mappings remain unchanged; the GUI/RPC discovery projection is additive.
+business mappings remain unchanged, except for an additive, versioned `plugins` field in apply
+`report.json` planned under P-J4a for discovered plugin classifications; the GUI/RPC discovery projection is additive.
 
 Only human Owner/Admin can read or start imports. Source-secret migration is
 Owner-only. Free paths are allowed for Owner/Admin over verified loopback/Desktop;

@@ -9,7 +9,7 @@ This document surveys eleven external AI coding and chat ecosystems to establish
 ### 1.1 Source Scope Partitioning (Decision D121-J5)
 
 The eleven ecosystems divide into two distinct operational groups:
-1. **New Profile Import Sources (Milestone M7b/M7c)**: Sources 1–7 (Kimi, Claude, Codex, Gemini/AGY, Grok, Grokbot, Cursor). These lack dedicated importers in the harness and are ingested through `plur1bus import profile` and the extended `ImportWizard` (F37).
+1. **New Profile Import Sources (Milestone M7b/M7c)**: Sources 1–7 (Kimi, Claude, Codex, Gemini/AGY, Grok, Grokbot, Cursor). These lack dedicated importers in the harness and are ingested through `plur1bus import <source>` and the extended `ImportWizard` (F37).
 2. **Existing Legacy Host Sources (Milestone M7 v2)**: Sources 8–11 (Hermes, OpenClaw, HM1, HM2). These are already comprehensively handled by the dedicated offline and supervised importers ([`docs/import.md`](../import.md) §10–§13: `plur1bus import openclaw` and `plur1bus import hermes`). They are inventoried below solely to provide cross-platform architectural reference and avoid duplication.
 
 ### 1.2 Evidence Criteria
@@ -224,17 +224,17 @@ flowchart TD
 ```
 
 ### 3.1 Direct File Read Sources (New Tools: Claude, Codex, Cursor, Kimi, AGY)
-- **Feasibility**: High. Automated via `plur1bus import profile` or the extended `ImportWizard` ([`docs/web-ui.md`](../web-ui.md) F37).
+- **Feasibility**: High. Automated via `plur1bus import <source>` or the extended `ImportWizard` ([`docs/web-ui.md`](../web-ui.md) F37).
 - **Safety**: Unchecked configuration files must never be executed. Parsers enforce strict field-allowlists. Credential files (`auth.json`, `.credentials.json`, Cursor `state.vscdb`) are blocked by path filters and verified by automated spike-11 tests. Files are read via `SourceReader` with `O_NOFOLLOW`. Mixed file `~/.claude.json` is read strictly through a streaming key-allowlist extractor for `mcpServers` only.
 
 ### 3.2 Export Archive Sources (Takeout, Anthropic Account Export)
 - **Feasibility**: Supported via the Web wizard archive dropzone and CLI `--archive`.
 - **Hardened Archive Intake**:
-  - Stream-select named entries required by detected parsers; ignore unrelated files.
+  - Full-archive audit upfront: `zipaudit::audit` audits and hashes the whole archive before extraction, enforcing caps.
   - Enforce a strict 100:1 maximum decompression ratio ceiling (matching `zipaudit`) to neutralize zip-bomb attacks while admitting valid sparse JSON exports.
-  - Enforce a 10 MiB maximum decompressed file size per single entry; 100 MiB total uncompressed bytes for all extracted allowlisted entries. Archives exceeding limits are refused with typed error `download-too-large` (`E_INVALID_PARAMS`); central directory parsing enables selective intake from multi-gigabyte archives without decompressing non-allowlisted entries.
-  - Disallow symlinks, hardlinks, absolute paths, directory traversal (`..`), and nested archives.
-  - Selective extraction supporting standard 32-bit `.zip` (reusing `zipaudit` from `crates/plur1bus-ext`; ZIP64 is refused) and `.tar.gz`. Dependencies on existing workspace crates (`tar`, `flate2`, `zip`) conform to workspace dependency policy.
+  - Enforce a 10 MiB maximum decompressed file size per single entry and a 100 MiB total limit for the entire archive (matching `zipaudit` limits). Archives exceeding limits are refused with typed error `download-too-large` (`E_INVALID_PARAMS`); operators must pre-filter or unpack extensive multi-gigabyte dumps prior to intake.
+  - Disallow symlinks, hardlinks, absolute paths, and directory traversal (`..`) with typed error `archive-unsafe-entry`, and disallow ZIP64 with `archive-unsupported`.
+  - Selective extraction of allowlisted named entries occurs only after the full audit passes, supporting standard 32-bit `.zip` (reusing `zipaudit` from `crates/plur1bus-ext`) and `.tar.gz`. Dependencies on existing workspace crates (`tar`, `flate2`, `zip`) conform to workspace dependency policy.
   - Implemented in Rust under `plur1bus-tools` by a Claude agent per D120 / ADR-019 (1), called over harness RPC.
 
 ### 3.3 Interactive User Paste Sources (ChatGPT, Grok, Claude Web)
