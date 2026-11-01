@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 /** Host-only oracle comparison. Candidates run through an input-only K2-compatible isolation port. */
-import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { checkerVerdict, IsolationUnavailable, requirePlatform } from "./contract.mjs";
 import { createIsolation } from "./isolation.mjs";

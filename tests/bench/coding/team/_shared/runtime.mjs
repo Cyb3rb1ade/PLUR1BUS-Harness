@@ -4,7 +4,6 @@ import { access, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { homedir } from "node:os";
 import { delimiter, dirname, isAbsolute, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { executionEnvironment, IsolationUnavailable } from "./contract.mjs";
 import { runOwnedCommand } from "./process.mjs";
 

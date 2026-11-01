@@ -243,7 +243,10 @@ function armJson(value: unknown, seen = new Set<object>(), depth = 0, visited = 
   seen.add(value);
   try {
     return array
-      ? `[${Array.from({ length: value.length }, (_, index) => armJson(properties[index]!.value, seen, depth + 1, visited)).join(",")}]`
+      ? `[${Array.from(
+          { length: value.length },
+          (_, index) => armJson(properties[index]!.value, seen, depth + 1, visited),
+        ).join(",")}]`
       : `{${(keys as string[])
           .sort()
           .map((key) => `${JSON.stringify(key)}:${armJson(properties[key]!.value, seen, depth + 1, visited)}`)

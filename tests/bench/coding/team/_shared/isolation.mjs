@@ -110,7 +110,7 @@ export async function createIsolation({ mode, root, taskRoot, signal, verifier, 
         }
         return {
           code: frame.code,
-          stdout: Buffer.from(frame.stdout, "base64").toString("utf8"),
+          stdout,
           stderr: Buffer.from(frame.stderr, "base64").toString("utf8"),
         };
       } catch {

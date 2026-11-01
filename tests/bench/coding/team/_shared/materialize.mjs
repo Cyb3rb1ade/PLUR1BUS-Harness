@@ -58,7 +58,7 @@ function runContract(task, tag) {
     .join("\n");
   const runtime = {
     typescript: "Node 24.21 with --experimental-transform-types; .ts imports and enum are supported.",
-    python: "Python 3.13 with -I -B -X utf8; the entry directory and src/ are on the module path.",
+    python: "Python 3.13 with -I -S -B -X utf8; the entry directory and src/ are on the module path.",
     rust: "rustc --edition=2024 from the repository's rust-toolchain.toml. The bridge exposes crate::contract.",
     go: "Go in the private fixture.local/task module. Proxies and cgo are disabled; use the standard library.",
   }[task.language];

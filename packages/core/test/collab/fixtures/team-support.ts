@@ -121,7 +121,9 @@ export function languageFixtureTests(language: TeamLanguage, taskIds?: readonly 
   for (const task of TEAM_TASKS.filter(
     (task) => task.language === language && (!taskIds || taskIds.includes(task.id)),
   )) {
-    test(`${task.id}: all seeds, authored start/reference, partial grades, ownership or K2 platform refusal`, async () => {
+    test(
+      `${task.id}: all seeds, authored start/reference, partial grades, ownership or K2 platform refusal`,
+      async () => {
       const directory = await mkdtemp(join(tmpdir(), "p1b-team-fixture-"));
       const taskRoot = fileURLToPath(new URL(`${task.id}/`, TEAM_ROOT));
       const options = { runtimes: { go: { env: { GOCACHE: await cache } } } };
