@@ -6,7 +6,7 @@ Regenerate on each native packaging target; optional native npm packages differ 
 
 ```
 pnpm-lock.yaml: 471d3d315117acd3828b639197273237b79a68569399b5d0801165b93f3ed9bc
-Cargo.lock: f264353a7c9336320ad09e90e9a831aae66c358c69d582973a26d82b39a03a11
+Cargo.lock: d6f5ee4dcb93b88be7603fae021d57c2cfcf153de84e3b71da896bf97b7acd05
 apps/desktop/Cargo.lock: 4cdbccd46633f97f15769f2578970f071267646a0f3a5f8a76d2ec86061313c2
 ```
 
@@ -442,6 +442,7 @@ apps/desktop/Cargo.lock: 4cdbccd46633f97f15769f2578970f071267646a0f3a5f8a76d2ec8
 | cargo | ident_case | 1.0.1 | MIT/Apache-2.0 | Ted Driggs <ted.driggs@outlook.com> |
 | cargo | idna | 1.1.0 | MIT OR Apache-2.0 | The rust-url developers |
 | cargo | idna_adapter | 1.2.2 | Apache-2.0 OR MIT | The rust-url developers |
+| cargo | image-webp | 0.2.4 | MIT OR Apache-2.0 |  |
 | cargo | image | 0.25.10 | MIT OR Apache-2.0 | The image-rs Developers |
 | cargo | indexmap | 1.9.3 | Apache-2.0 OR MIT |  |
 | cargo | indexmap | 2.14.2 | Apache-2.0 OR MIT |  |
@@ -707,6 +708,7 @@ apps/desktop/Cargo.lock: 4cdbccd46633f97f15769f2578970f071267646a0f3a5f8a76d2ec8
 | cargo | publicsuffix | 2.3.0 | MIT/Apache-2.0 | rushmorem <rushmore@webenchanter.com> |
 | cargo | pxfm | 0.1.30 | BSD-3-Clause OR Apache-2.0 | Radzivon Bartoshyk |
 | cargo | quick-error | 1.2.3 | MIT/Apache-2.0 | Paul Colomiets <paul@colomiets.name>, Colin Kiegel <kiegel@gmx.de> |
+| cargo | quick-error | 2.0.1 | MIT/Apache-2.0 | Paul Colomiets <paul@colomiets.name>, Colin Kiegel <kiegel@gmx.de> |
 | cargo | quick-xml | 0.42.0 | MIT |  |
 | cargo | quinn-proto | 0.11.18 | MIT OR Apache-2.0 |  |
 | cargo | quinn-proto | 0.11.19 | MIT OR Apache-2.0 |  |
@@ -1136,6 +1138,8 @@ apps/desktop/Cargo.lock: 4cdbccd46633f97f15769f2578970f071267646a0f3a5f8a76d2ec8
 | cargo | zstd-safe | 8.2.0 | BSD-3-Clause | Alexandre Bury <alexandre.bury@gmail.com> |
 | cargo | zstd-sys | 2.1.2+zstd.1.5.7 | BSD-3-Clause | Alexandre Bury <alexandre.bury@gmail.com> |
 | cargo | zstd | 0.14.3 | BSD-3-Clause | Alexandre Bury <alexandre.bury@gmail.com> |
+| cargo | zune-core | 0.5.3 | MIT OR Apache-2.0 OR Zlib |  |
+| cargo | zune-jpeg | 0.5.15 | MIT OR Apache-2.0 OR Zlib | caleb <etemesicaleb@gmail.com> |
 | cargo | zvariant | 5.15.0 | MIT | Zeeshan Ali Khan <zeeshanak@gnome.org> |
 | cargo | zvariant_derive | 5.15.0 | MIT | Zeeshan Ali Khan <zeeshanak@gnome.org> |
 | cargo | zvariant_utils | 4.2.0 | MIT | Zeeshan Ali Khan <zeeshanak@gnome.org>, turbocooler <turbocooler@cocaine.ninja> |
