@@ -47,11 +47,11 @@ rl.on("line", (line) => {
     assert.equal(found.find((c) => c.id === "goose")?.login[0]?.exists, true);
     const hit = found.find((c) => c.id === "agy");
     assert.equal(hit?.bin, bin);
-    if (process.platform === "darwin") {
+    if (process.platform !== "linux") {
       assert.equal(hit?.version, null);
       assert.equal(hit?.protocol, "unprobed");
       assert.equal(hit?.reason, "sandbox-unavailable");
-      assert.equal(hit?.cause, "macos-acceptance-pending");
+      assert.equal(hit?.cause, process.platform === "darwin" ? "macos-acceptance-pending" : undefined);
     } else {
       assert.equal(hit?.version, "stub 1");
       assert.equal(hit?.protocol, "ok");

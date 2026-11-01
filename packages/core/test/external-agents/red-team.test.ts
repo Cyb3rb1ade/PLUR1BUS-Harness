@@ -54,7 +54,8 @@ test("an existing hard link refuses terminal/create and outside.txt stays safe",
   const { worktree, home, outside } = gitWorktree(root);
   linkSync(outside, join(worktree, "hard"));
   const result = await containedTerminal({ argv: ["/usr/bin/true"], worktree, home, ...mountOptions(worktree) });
-  assert.deepEqual(result, { ok: false, reason: "hardlink-in-worktree" });
+  assert.deepEqual(result, process.platform === "linux" ? { ok: false, reason: "hardlink-in-worktree" }
+    : { ok: false, reason: "sandbox-unavailable", ...(process.platform === "darwin" ? { cause: "macos-acceptance-pending" } : {}) });
   assert.equal(readFileSync(outside, "utf8"), "safe");
 });
 

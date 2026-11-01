@@ -18,7 +18,6 @@ import { tempDir } from "../helpers/temp-dir.ts";
 import { limitsHelper } from "./fixture.ts";
 
 test("live tools.sandbox.maxTasks=2 reaches wired ACP terminal containment", async () => {
-  if (process.platform === "win32") return;
   const temp = tempDir("q3-config-");
   const home = join(temp, "home");
   const state = join(home, "state"), repo = join(temp, "repo");
@@ -51,8 +50,8 @@ test("live tools.sandbox.maxTasks=2 reaches wired ACP terminal containment", asy
     finally { clearInterval(timer); }
   };
   const scenario = async () => {
-    if (process.platform === "darwin") {
-      const terminalId = await create("/usr/bin/perl", ["-e", "for(1..4){if(fork()==0){sleep 2;exit 0}}sleep 2"]);
+    if (process.platform !== "linux") {
+      const terminalId = await create(process.execPath, ["-e", "process.exit(0)"]);
       await assert.rejects(request("terminal/wait_for_exit", { terminalId }), /sandbox-unavailable/);
     } else {
       const terminalId = await create("/usr/bin/cat", ["/proc/self/limits"]);
@@ -61,7 +60,7 @@ test("live tools.sandbox.maxTasks=2 reaches wired ACP terminal containment", asy
       assert.match(String(result.output), /Max processes\s+3\s+3/); // two target tasks plus bwrap's init
     }
     config.tools.sandbox.maxTasks = 0;
-    const terminalId = await create("/usr/bin/true", []);
+    const terminalId = await create(process.platform === "linux" ? "/usr/bin/true" : process.execPath, []);
     await assert.rejects(request("terminal/wait_for_exit", { terminalId }), /sandbox-unavailable/);
   };
   const reply = (id: unknown, result: unknown) => input.write(JSON.stringify({ jsonrpc: "2.0", id, result }) + "\n");
@@ -95,16 +94,15 @@ test("live tools.sandbox.maxTasks=2 reaches wired ACP terminal containment", asy
 
 
 test("configured ACP deadlines above ten minutes are preserved and bounded at one hour", async t => {
-  if (process.platform === "win32") return;
   const { readEngine } = await import("../../src/external-agents/engine.ts");
   const { launchExternalAgent } = await import("../../src/external-agents/launcher.ts");
   assert.equal(readEngine({ engine: { kind: "external", connector: "agy", timeoutMs: 1800000 } })?.connector, "agy");
   assert.deepEqual(readEngine({ engine: { kind: "external", connector: "agy", timeoutMs: 3600001 } }), { kind: "external", connector: null });
   const cwd = tempDir("q3-timeout-");
   await assert.rejects(launchExternalAgent({ argv: ["/usr/bin/sleep", "3600"], cwd, probe: true, timeoutMs: 3600001 }), /sandbox-unavailable/);
-  if (process.platform === "darwin") {
+  if (process.platform !== "linux") {
     await assert.rejects(launchExternalAgent({ argv: ["/usr/bin/sleep", "3600"], cwd, probe: true, limitsHelper, timeoutMs: 1800000 }),
-      { reason: "sandbox-unavailable", cause: "macos-acceptance-pending" });
+      { reason: "sandbox-unavailable", ...(process.platform === "darwin" ? { cause: "macos-acceptance-pending" } : {}) });
   } else {
     t.mock.timers.enable({ apis: ["setTimeout"] });
     const handle = await launchExternalAgent({ argv: ["/usr/bin/sleep", "3600"], cwd, probe: true, limitsHelper, timeoutMs: 1800000 });

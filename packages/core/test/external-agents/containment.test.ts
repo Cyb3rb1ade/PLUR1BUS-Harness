@@ -44,6 +44,11 @@ test("filesystem writes stay in the worktree", async () => {
   writeFileSync(target, "a");
   try { linkSync(target, join(worktree, "hard")); } catch { return; }
   await assert.rejects(containedWrite(box, join(worktree, "hard"), "b"), (e) => reason(e) === "hard-link");
+  const config = join(home, "config.json");
+  writeFileSync(config, "protected");
+  linkSync(config, join(worktree, "config-alias"));
+  await assert.rejects(containedWrite(box, join(worktree, "config-alias"), "changed"), (e) => reason(e) === "deny-listed");
+  assert.equal(readFileSync(config, "utf8"), "protected", "a hard-link alias cannot overwrite protected Harness configuration");
 });
 
 test("a worktree under the harness home stays writable and the rest of home does not", async () => {

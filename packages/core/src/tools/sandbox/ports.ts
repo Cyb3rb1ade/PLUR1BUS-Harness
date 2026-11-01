@@ -11,10 +11,13 @@ import type { HostExec } from '../../host-tools/types.ts';
 import { createNodeExec } from '../../host-tools/exec.ts';
 import { systemClock } from '../../host-tools/context.ts';
 import { sandboxSpawn, SandboxFailure, DEFAULT_MAX_TASKS, type SandboxPolicy } from './index.ts';
+import type { AcpWorktreeMount } from './acp-worktree.ts';
 export interface SandboxOptions { required?: boolean; limitsHelper?: string; maxTasks?: number }
 export interface SandboxPortsOptions {
   home: string; roots: readonly PathRoot[]; deny: readonly DenyEntry[];
   sandbox?: SandboxOptions; audit: AuditSink; principal: string;
+  /** Opaque trusted grant, never a config value or process/tool argument. */
+  acpWorktree?: AcpWorktreeMount;
 }
 async function executable(program: string): Promise<string> {
   // Resolve on trusted system PATH only, never the model-controlled cwd or requested PATH.
@@ -24,7 +27,7 @@ async function executable(program: string): Promise<string> {
 }
 /** Derive process limits from trusted per-turn options; zero explicitly disables only the task cap. */
 export function sandboxPolicy(o: SandboxPortsOptions, spec: SpawnSpec): SandboxPolicy {
-  return { home: o.home, userHome: homedir(), cwd: spec.cwd, readRoots: o.roots, writeRoots: o.roots, deny: o.deny, network: 'none', envAllow: DEFAULT_ENV_ALLOW, env: spec.env, limitsHelper: o.sandbox?.limitsHelper ?? join(o.home, 'bin', 'plur1bus-sandbox-limits'), limits: { timeoutMs: 300000, cpuSeconds: 30, memoryBytes: 512 * 1024 ** 2, maxOutputBytes: 1024 * 1024, maxTasks: o.sandbox?.maxTasks ?? DEFAULT_MAX_TASKS } };
+  return { home: o.home, userHome: homedir(), cwd: spec.cwd, ...(process.platform === 'linux' && o.acpWorktree ? { acpWorktree: o.acpWorktree } : {}), readRoots: o.roots, writeRoots: o.roots, deny: o.deny, network: 'none', envAllow: DEFAULT_ENV_ALLOW, env: spec.env, limitsHelper: o.sandbox?.limitsHelper ?? join(o.home, 'bin', 'plur1bus-sandbox-limits'), limits: { timeoutMs: 300000, cpuSeconds: 30, memoryBytes: 512 * 1024 ** 2, maxOutputBytes: 1024 * 1024, maxTasks: o.sandbox?.maxTasks ?? DEFAULT_MAX_TASKS } };
 }
 function bypass(o: SandboxPortsOptions): void {
   // A failed audit write throws before spawn. The bypass is trusted configuration, never a tool argument.

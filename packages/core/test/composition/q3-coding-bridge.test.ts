@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { defaults } from "@plur1bus/config-schema";
@@ -39,6 +39,7 @@ test("production bind → local coding delegation → coding_complete uses its l
   let projectId = "", cardId = "", seen = "";
   let completion: { verification: { checks: { ok: boolean; evidence: string }[] } } | undefined;
   const options: NonNullable<CompositionDeps["options"]> = {
+    tools: { exec: { mode: "allowlist", allowlist: [{ program: "/usr/bin/touch" }] } },
     providers: { profiles: { default: [{ provider: "fixture", model: "gpt-4.1", adapter: { async *stream() {} } }] } },
     createTurnProvider: o => ({ id: "fixture", telemetry: {} as never, async *stream(req) {
       if (req.messages[0]?.text.startsWith("Acceptance check only")) {
@@ -47,10 +48,34 @@ test("production bind → local coding delegation → coding_complete uses its l
       }
       assert.ok(req.codingWorktree, "the production runner must select the provisioned tree");
       seen = req.codingWorktree;
+      assert.equal(Boolean(req.codingWorktreeMount), process.platform === "linux", "only Linux coding turns acquire a writable grant");
       const registry = await o.toolsForTurn!(req);
       const dispatcher = new ToolDispatcher({ registry, approvals: approvals.service, grants: approvals.stores.grants,
         clock: { now: Date.now }, policyContext: () => ({ overrides: { "fs.write": "allowed", "shell.exec": "allowed" } }) });
       const ctx = { agentId: "coder", principal: who.userId, signal: req.signal, surface: 1 as const };
+      if (process.platform === "linux") {
+        const marker = join(seen, "normal-exec-output");
+        const call = { id: "bridge-exec", name: "exec.run", args: { program: "/usr/bin/touch", args: [marker], cwd: seen } };
+        for (const forged of [undefined, JSON.parse(JSON.stringify(req.codingWorktreeMount))]) {
+          const untrusted = { ...req }; delete untrusted.codingWorktreeMount;
+          if (forged) untrusted.codingWorktreeMount = forged;
+          const denied = new ToolDispatcher({ registry: await o.toolsForTurn!(untrusted), approvals: approvals.service,
+            grants: approvals.stores.grants, clock: { now: Date.now }, policyContext: () => ({ overrides: { "shell.exec": "allowed" } }) });
+          assert.equal((await denied.call(call, ctx)).isError, true, "path-only and serialized grants cannot enable a process");
+          assert.equal(existsSync(marker), false);
+        }
+        const executed = await dispatcher.call(call, ctx);
+        assert.equal(executed.isError, false, JSON.stringify(executed));
+        assert.equal((executed.value as { exitCode: number }).exitCode, 0);
+        assert.equal(existsSync(marker), true, "ordinary exec.run uses the Linux writable opt-in");
+      }
+      if (process.platform === "darwin") {
+        const marker = join(seen, "mac-must-not-start");
+        const refused = await dispatcher.call({ id: "bridge-mac-exec", name: "exec.run",
+          args: { program: "/usr/bin/touch", args: [marker], cwd: seen } }, ctx);
+        assert.equal(refused.isError, true, "macOS does not acquire the Linux worktree exception");
+        assert.equal(existsSync(marker), false);
+      }
       const written = await dispatcher.call({ id: "bridge-write", name: "file.write", args: { path: "notes.md", content: "local coding turn\n", overwrite: true } }, ctx);
       assert.equal(written.isError, false, JSON.stringify(written));
       const result = await dispatcher.call({ id: "bridge-complete", name: "coding_complete", args: { projectId, cardId } }, ctx);

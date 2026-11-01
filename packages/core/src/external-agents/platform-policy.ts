@@ -5,6 +5,6 @@ export function externalAgentRefusal(platform: NodeJS.Platform = process.platfor
   // A platform override may make policy stricter, but cannot disguise the actual host.
   if (process.platform === "darwin" || platform === "darwin")
     return { reason: "sandbox-unavailable", cause: "macos-acceptance-pending" };
-  if (process.platform === "win32" || platform === "win32") return { reason: "sandbox-unavailable" };
+  if (process.platform !== "linux" || platform !== "linux") return { reason: "sandbox-unavailable" };
   return null;
 }

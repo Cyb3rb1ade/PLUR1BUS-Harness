@@ -171,9 +171,9 @@ test("the child process does not inherit a parent secret and Windows is refused"
   const previous = process.env.SUPER_SECRET;
   process.env.SUPER_SECRET = "hunter2";
   try {
-    if (process.platform === "darwin") {
+    if (process.platform !== "linux") {
       await assert.rejects(launchExternalAgent({ argv: [process.execPath, "-e", "process.stdout.write(JSON.stringify(process.env))"], cwd, probe: true, limitsHelper }),
-        (error: unknown) => error instanceof LaunchError && error.reason === "sandbox-unavailable" && error.cause === "macos-acceptance-pending");
+        (error: unknown) => error instanceof LaunchError && error.reason === "sandbox-unavailable" && error.cause === (process.platform === "darwin" ? "macos-acceptance-pending" : undefined));
     } else {
       const handle = await launchExternalAgent({ argv: [process.execPath, "-e", "process.stdout.write(JSON.stringify(process.env))"], cwd, probe: true, limitsHelper, timeoutMs: 10_000 });
       let out = "";
@@ -188,7 +188,7 @@ test("the child process does not inherit a parent secret and Windows is refused"
     else process.env.SUPER_SECRET = previous;
   }
   await assert.rejects(() => launchExternalAgent({ argv: [process.execPath, "-e", ""], cwd, platform: "win32" }), (e: unknown) => e instanceof LaunchError && e.reason === "sandbox-unavailable");
-  await assert.rejects(() => launchExternalAgent({ argv: ["/bin/bash", "-lc", "true"], cwd, probe: true }), (e: unknown) => e instanceof LaunchError && e.reason === (process.platform === "darwin" ? "sandbox-unavailable" : "argv"));
+  await assert.rejects(() => launchExternalAgent({ argv: ["/bin/bash", "-lc", "true"], cwd, probe: true }), (e: unknown) => e instanceof LaunchError && e.reason === (process.platform === "linux" ? "argv" : "sandbox-unavailable"));
   await assert.rejects(resolveCommand("/bin/bash"), (e: unknown) => e instanceof LaunchError && e.reason === "argv");
 });
 
@@ -274,7 +274,7 @@ test("delegate_task runs the stub in the worktree, asks a person, and refuses an
     writeFileSync(join(fork.path, "stub.cjs"), stubSource(outside));
     provisioned = { root: () => fork.path };
     const handle = collab.delegate({ principal: who, projectId: project.id, fromAgent: "lead", toAgent: "coder", task: "write a note", acceptanceCriteria: "note exists" });
-    if (process.platform === "darwin") {
+    if (process.platform !== "linux") {
       const task = await handle.done;
       assert.equal(task.status, "failed");
       assert.match(task.error ?? "", /sandbox-unavailable/);

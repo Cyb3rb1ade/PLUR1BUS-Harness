@@ -197,17 +197,16 @@ export async function containedTerminal(o: {
   log?: (event: string, fields?: Record<string, number | string>) => void;
 }): Promise<TerminalResult | TerminalRefusal> {
   const refusal = externalAgentRefusal(o.platform);
-  if (refusal && !refusal.cause) return { ok: false, ...refusal };
+  if (refusal) {
+    if (refusal.cause) o.log?.("external.agent.refused", { process: "terminal", ...refusal });
+    return { ok: false, ...refusal };
+  }
   try {
     o.signal?.throwIfAborted();
     const hit = findHardlink(o.worktree);
     if (hit) {
       o.log?.("hardlink-in-worktree", { count: hit.count, path: hit.path });
       return { ok: false, reason: "hardlink-in-worktree" };
-    }
-    if (refusal) {
-      o.log?.("external.agent.refused", { process: "terminal", ...refusal });
-      return { ok: false, ...refusal };
     }
     const limit = Math.min(o.outputByteLimit ?? TERMINAL_OUTPUT_MAX, TERMINAL_OUTPUT_MAX);
     if (!Number.isSafeInteger(limit) || limit < 1) return { ok: false, reason: "output-limit" };

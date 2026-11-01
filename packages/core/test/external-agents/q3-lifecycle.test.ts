@@ -15,7 +15,6 @@ import { tempDir } from "../helpers/temp-dir.ts";
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 test("v1 terminals stream bounded output, enforce four slots, release and stop at run end; memory stays off wire", async () => {
-  if (process.platform === "win32") return;
   const root = tempDir("q3-lifecycle-");
   const home = join(root, "home"), repo = join(root, "repo");
   mkdirSync(repo);
@@ -43,7 +42,7 @@ test("v1 terminals stream bounded output, enforce four slots, release and stop a
     const ids: string[] = [];
     for (let i = 0; i < 4; i++) ids.push(await terminal(`let n=0;setInterval(()=>{require('fs').writeFileSync('heartbeat-${i}',String(++n));process.stdout.write('x'.repeat(100))},20)`));
     await assert.rejects(terminal(""), /terminal-limit/);
-    if (process.platform === "darwin") {
+    if (process.platform !== "linux") {
       for (const terminalId of ids) {
         await assert.rejects(request("terminal/wait_for_exit", { terminalId }), /sandbox-unavailable/);
         assert.deepEqual(await request("terminal/output", { terminalId }), { output: "", truncated: false });
@@ -111,7 +110,7 @@ test("v1 terminals stream bounded output, enforce four slots, release and stop a
     if (failure) throw failure;
     assert.equal(wire.length, 3);
     assert.doesNotMatch(wire.join("\n"), /MEMORY-MARKER|memoryExposure/);
-    if (process.platform === "darwin") {
+    if (process.platform !== "linux") {
       for (let i = 0; i < 4; i++) assert.equal(existsSync(join(worktree, `heartbeat-${i}`)), false);
     } else {
       const final = readFileSync(leftover, "utf8");

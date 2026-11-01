@@ -46,11 +46,15 @@ test("an existing hard link refuses the terminal and leaves the outside file unc
     worktree, home, ...mountOptions(worktree),
     log: (event, fields) => logs.push({ event, ...(fields ? { fields } : {}) }),
   });
-  assert.deepEqual(result, { ok: false, reason: "hardlink-in-worktree" });
+  assert.deepEqual(result, process.platform === "linux" ? { ok: false, reason: "hardlink-in-worktree" }
+    : { ok: false, reason: "sandbox-unavailable", ...(process.platform === "darwin" ? { cause: "macos-acceptance-pending" } : {}) });
   assert.equal(readFileSync(outside, "utf8"), "safe");
-  assert.equal(logs[0]?.event, "hardlink-in-worktree");
-  assert.equal(logs[0]?.fields?.count, 1);
-  assert.equal(logs[0]?.fields?.path, "hard");
+  if (process.platform === "linux") {
+    assert.equal(logs[0]?.event, "hardlink-in-worktree");
+    assert.equal(logs[0]?.fields?.count, 1);
+    assert.equal(logs[0]?.fields?.path, "hard");
+  } else assert.deepEqual(logs, process.platform === "darwin" ? [{ event: "external.agent.refused",
+    fields: { process: "terminal", reason: "sandbox-unavailable", cause: "macos-acceptance-pending" } }] : []);
   assert.equal(findHardlink(worktree)?.path, "hard");
 });
 

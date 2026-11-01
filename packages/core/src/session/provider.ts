@@ -29,6 +29,8 @@ export interface ChatRequest {
   readOnlyWorktree?: string;
   /** Trusted coding composition only; never taken from model messages. */
   codingWorktree?: string;
+  /** Opaque DB-backed grant from the trusted worktree port; never serialized or accepted over RPC. */
+  codingWorktreeMount?: import('../tools/sandbox/acp-worktree.ts').AcpWorktreeMount;
   collaborationTier?: 'cheap' | 'standard' | 'premium';
   /** Internal peer envelopes: persisted/rendered as tool results, never system or assistant text. */
   peerResults?: readonly { id: string; name: string; text: string }[];
