@@ -37,16 +37,23 @@ ordering; fan-out uses at most eight workers per request and settles all childre
 its first required error. Shared/optional sources and strict single-source timeout policy remain
 T6/RE-07 work; with T4's private routes the first route is the first private canonical source.
 
-T4 reads each leased store's existing embedding identity. Its pipeline selects an exact matching
-provider, coalesces the original query once per identity, merges each identity's results and uses
-reciprocal-rank fusion before an optional global rerank. A missing provider or invalid per-identity
-query vector reports `embedding-unavailable` and removes that identity's results; a foreign table
-is never searched with the active provider's vector, even when their dimensions match. These
-operations use the existing RE-03 provider and RE-02 identity APIs without changing either contract.
-Writable pools still refuse an unexpected identity, as the existing Node writer guard does.
-`NamespaceStores::open` receives one expected writer identity; resolving configured per-agent or
-per-active-route `embedding.routes` expectations belongs to RE-08's `create-engine` composition.
-Foreign read-only recordings do not claim that complete configuration surface.
+Every T4 route resolves an expected identity for its namespace and agent through
+`store::routes::StoreIdentityResolver`. `NamespaceStores::open` uses the active identity as the
+production fallback for **all** routes, including read-only legacy routes;
+`open_with_identity_resolver` accepts configured per-route/per-agent expectations. A stored
+mismatch refuses the complete recall before any provider call, merge or ledger write. This is
+the pin's `identityForStore`/`MemoryDB.init` policy, not a writer-only rule. The later facade
+reports `degraded:error` without a memories block; it does not fuse the remaining active hits.
+The low-level RE-02 read-only inspection API still exposes mismatch metadata; T4 applies the
+stricter production policy at its lease boundary.
+
+Tables without persisted identity metadata inherit their route expectation in the request's
+identity accounting and provider selection, without stamping a read-only table. When explicit
+routes correctly declare different spaces, T4 selects each matching provider, coalesces each
+original query, merges/fuses the results and optionally reranks globally. Only a declared,
+matching space whose provider is unavailable or returns an invalid query vector degrades with
+`embedding-unavailable`. The existing RE-03 provider API is unchanged; RE-08 connects configuration
+to the resolver port for all routes, while T4 already enforces its policy.
 
 After multi-identity fusion, the existing CP-5.5 provider opt-in also applies: a successful
 response with no valid indices and `empty_result_is_valid() == true` selects no memories and

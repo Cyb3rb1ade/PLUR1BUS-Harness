@@ -76,6 +76,14 @@ impl StorePool {
     /// different handles for the same agent. Only this user's private directory is created;
     /// a read-only lookup of an absent store performs no filesystem writes.
     pub fn get(&self, agent_id: &str) -> Result<Arc<Store>, StoreError> {
+        self.get_with_expected(agent_id, self.expected.as_ref())
+    }
+
+    pub(crate) fn get_with_expected(
+        &self,
+        agent_id: &str,
+        expected: Option<&VectorSpaceIdentity>,
+    ) -> Result<Arc<Store>, StoreError> {
         let path = self.agent_path(agent_id)?;
         let mut cache = self.cache.lock().map_err(|_| StoreError::Unavailable)?;
         cache.clock = cache.clock.saturating_add(1);
@@ -95,9 +103,9 @@ impl StorePool {
             Err(error) => return Err(StoreError::Io { kind: error.kind() }),
         };
         let store = if exists {
-            Store::open(&path, self.mode, self.expected.as_ref())?
+            Store::open(&path, self.mode, expected)?
         } else if self.mode == OpenMode::ReadWrite {
-            let identity = self.expected.as_ref().ok_or(StoreError::Unavailable)?;
+            let identity = expected.ok_or(StoreError::Unavailable)?;
             let dimension = identity
                 .dimension
                 .as_u64()

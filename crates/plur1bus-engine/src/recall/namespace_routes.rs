@@ -3,7 +3,7 @@
 use crate::contract::{EngineConfig, StoreError, VectorSpaceIdentity};
 use crate::store::directory::TrustedDirectory;
 use crate::store::paths::{namespace_path, secure_dir};
-use crate::store::{OpenMode, Store, StorePool, StoreRoute, StoreRoutes};
+use crate::store::{OpenMode, Store, StoreIdentityResolver, StorePool, StoreRoute, StoreRoutes};
 use serde_json::Value;
 use std::collections::HashSet;
 use std::fs;
@@ -25,6 +25,24 @@ impl NamespaceStores {
         identity: &VectorSpaceIdentity,
         capacity: usize,
     ) -> Result<Self, StoreError> {
+        Self::open_with_identity_resolver(
+            base,
+            config,
+            identity,
+            Arc::new(FixedIdentity(identity.clone())),
+            capacity,
+        )
+    }
+
+    /// Resolve expected identities for all route/agent pairs before opening their stores.
+    /// Both lease modes reject mismatches. Missing metadata inherits the expectation.
+    pub fn open_with_identity_resolver(
+        base: &Path,
+        config: &EngineConfig,
+        identity: &VectorSpaceIdentity,
+        resolver: Arc<dyn StoreIdentityResolver>,
+        capacity: usize,
+    ) -> Result<Self, StoreError> {
         let config = serde_json::to_value(config).map_err(|_| StoreError::InvalidInput)?;
         let layout = Layout::resolve(
             base,
@@ -35,9 +53,20 @@ impl NamespaceStores {
         if !configured.contains(&layout.writer) {
             configured.push(layout.writer.clone());
         }
+        let resolved_layout = &layout;
+        let pinned_root = root_pin.as_ref();
         let routes = configured
             .into_iter()
-            .map(|namespace| open_route(&layout, namespace, root_pin.as_ref(), identity, capacity))
+            .map(move |namespace| {
+                open_route(
+                    resolved_layout,
+                    namespace,
+                    pinned_root,
+                    identity,
+                    resolver.clone(),
+                    capacity,
+                )
+            })
             .collect::<Result<Vec<_>, _>>()?;
         let writer = find_route(&routes, &layout.writer)?;
         let read = layout
@@ -67,6 +96,7 @@ fn open_route(
     namespace: Option<String>,
     root: Option<&Arc<TrustedDirectory>>,
     identity: &VectorSpaceIdentity,
+    identity_resolver: Arc<dyn StoreIdentityResolver>,
     capacity: usize,
 ) -> Result<StoreRoute, StoreError> {
     let path = match &namespace {
@@ -92,6 +122,7 @@ fn open_route(
     Ok(StoreRoute {
         namespace,
         pool: Arc::new(pool),
+        identity_resolver,
         skip_missing: legacy,
         pins,
     })
@@ -228,5 +259,16 @@ fn namespace_parent(
         Err(StoreError::InvalidInput)
     } else {
         Ok(base.to_owned())
+    }
+}
+
+struct FixedIdentity(VectorSpaceIdentity);
+impl StoreIdentityResolver for FixedIdentity {
+    fn expected_identity(
+        &self,
+        _: Option<&str>,
+        _: &str,
+    ) -> Result<VectorSpaceIdentity, StoreError> {
+        Ok(self.0.clone())
     }
 }

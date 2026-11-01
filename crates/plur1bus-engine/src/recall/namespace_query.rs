@@ -17,6 +17,7 @@ pub struct RequestQueries {
     multi_identity: bool,
     trace_limits: Option<TraceLimits>,
     flights: Mutex<HashMap<String, QueryFlight>>,
+    identities: HashMap<Option<String>, VectorSpaceIdentity>,
 }
 
 impl RequestQueries {
@@ -33,19 +34,33 @@ impl RequestQueries {
             multi_identity: false,
             trace_limits: Some(TraceLimits::default()),
             flights: Mutex::new(HashMap::new()),
+            identities: HashMap::new(),
         }
     }
 
-    pub(crate) fn for_identity_count(
+    pub(crate) fn for_identities(
         query: &str,
-        count: usize,
+        identities: HashMap<Option<String>, VectorSpaceIdentity>,
         limits: Option<TraceLimits>,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, crate::contract::StoreError> {
+        let count = identities
+            .values()
+            .map(try_identity_id)
+            .collect::<Result<std::collections::HashSet<_>, _>>()?
+            .len();
+        Ok(Self {
             multi_identity: count > 1,
             trace_limits: limits,
+            identities,
             ..Self::new(query)
-        }
+        })
+    }
+
+    pub(crate) fn identity_for_namespace(
+        &self,
+        namespace: Option<&str>,
+    ) -> Option<&VectorSpaceIdentity> {
+        self.identities.get(&namespace.map(str::to_owned))
     }
 
     pub(crate) fn trace_limits(&self) -> Option<TraceLimits> {

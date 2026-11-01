@@ -23,9 +23,10 @@ use plur1bus_engine::recall::namespaces::{
 use plur1bus_engine::recall::stages::{StageClocks, StageError, StageFlags, StageLimits};
 use plur1bus_engine::store::ledger::JsonlLedger;
 use plur1bus_engine::store::ledger_types::RetrievalLedgerLine;
-use plur1bus_engine::store::Store;
+use plur1bus_engine::store::{Store, StoreIdentityResolver};
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use support::{memory_row, TestHost};
 
 #[test]
@@ -126,6 +127,16 @@ fn a_real_child_store_read_failure_settles_siblings_and_writes_no_ledger() {
     ));
 }
 
+#[test]
+fn unconfigured_foreign_legacy_identity_rejects_all_memories_at_both_widths() {
+    for width in [HASH_DIMENSION, HASH_DIMENSION / 2] {
+        assert!(matches!(
+            fixture_with_fault(1, Some(width), ReadFault::None),
+            Err(NamespaceError::Store(StoreError::IdentityMismatch))
+        ));
+    }
+}
+
 #[derive(Clone, Copy)]
 enum ReadFault {
     None,
@@ -136,13 +147,22 @@ fn fixture(
     count: usize,
     foreign_width: Option<usize>,
 ) -> Result<(NamespaceOutput, String), NamespaceError> {
-    fixture_with_fault(count, foreign_width, ReadFault::None)
+    fixture_with_routes(count, foreign_width, ReadFault::None, true)
 }
 
 fn fixture_with_fault(
     count: usize,
     foreign_width: Option<usize>,
     fault: ReadFault,
+) -> Result<(NamespaceOutput, String), NamespaceError> {
+    fixture_with_routes(count, foreign_width, fault, false)
+}
+
+fn fixture_with_routes(
+    count: usize,
+    foreign_width: Option<usize>,
+    fault: ReadFault,
+    configured_legacy: bool,
 ) -> Result<(NamespaceOutput, String), NamespaceError> {
     let root = tempfile::tempdir().unwrap();
     let base = root.path().join("stores");
@@ -174,7 +194,27 @@ fn fixture_with_fault(
         "legacyReadOnlyNamespaces":["legacy"], "crossNamespaceRecall":true
     }}))
     .unwrap();
-    let routes = NamespaceStores::open(&base, &config, embedder.identity(), 4).unwrap();
+    let routes = if configured_legacy && foreign_width.is_some() {
+        let legacy = Store::open(
+            &base.join("legacy/owner"),
+            plur1bus_engine::store::OpenMode::ReadOnly,
+            None,
+        )
+        .unwrap();
+        NamespaceStores::open_with_identity_resolver(
+            &base,
+            &config,
+            embedder.identity(),
+            Arc::new(ReviewIdentities {
+                active: embedder.identity().clone(),
+                legacy: legacy.identity().unwrap().clone(),
+            }),
+            4,
+        )
+        .unwrap()
+    } else {
+        NamespaceStores::open(&base, &config, embedder.identity(), 4).unwrap()
+    };
     let host = TestHost::new(root.path().to_owned());
     let principal: Principal = serde_json::from_value(json!({
         "agentId":"owner", "workspace":"workspace:v1:fixture", "channel":"", "accountId":"",
@@ -253,6 +293,18 @@ fn fixture_with_fault(
             ..MergeOptions::default()
         },
     });
+    if matches!(
+        &result,
+        Err(NamespaceError::Store(StoreError::IdentityMismatch))
+    ) {
+        assert!(
+            !completed.load(Ordering::SeqCst),
+            "identity mismatch started a child pipeline"
+        );
+        assert!(std::fs::read_to_string(&path)
+            .unwrap_or_default()
+            .is_empty());
+    }
     if matches!(fault, ReadFault::ReplaceLegacyAgent) {
         assert!(
             completed.load(Ordering::SeqCst),
@@ -334,4 +386,63 @@ impl TableRecall for FaultingPipeline<'_> {
         }
         result
     }
+}
+
+struct ReviewIdentities {
+    active: VectorSpaceIdentity,
+    legacy: VectorSpaceIdentity,
+}
+impl StoreIdentityResolver for ReviewIdentities {
+    fn expected_identity(
+        &self,
+        namespace: Option<&str>,
+        agent: &str,
+    ) -> Result<VectorSpaceIdentity, StoreError> {
+        Ok(if namespace == Some("legacy") && agent == "owner" {
+            self.legacy.clone()
+        } else {
+            self.active.clone()
+        })
+    }
+}
+
+#[test]
+fn expected_identity_is_resolved_for_each_agent_on_a_legacy_route() {
+    use plur1bus_engine::store::StoreRoutes;
+    let root = tempfile::tempdir().unwrap();
+    let active = HashEmbedder::new().identity().clone();
+    let mut legacy = active.clone();
+    legacy.model = "synthetic-old-profile".into();
+    Store::create(&root.path().join("legacy/owner"), &legacy, HASH_DIMENSION).unwrap();
+    Store::create(&root.path().join("legacy/other"), &active, HASH_DIMENSION).unwrap();
+    let config = serde_json::from_value(json!({"namespaces":{
+        "activeWriteNamespace":"active", "activeRecallNamespaces":["active"],
+        "legacyReadOnlyNamespaces":["legacy"], "crossNamespaceRecall":true
+    }}))
+    .unwrap();
+    let routes = NamespaceStores::open_with_identity_resolver(
+        root.path(),
+        &config,
+        &active,
+        Arc::new(ReviewIdentities {
+            active: active.clone(),
+            legacy: legacy.clone(),
+        }),
+        4,
+    )
+    .unwrap();
+    let reads = routes.read_routes().unwrap();
+    let route = reads
+        .iter()
+        .find(|r| r.namespace.as_deref() == Some("legacy"))
+        .unwrap();
+    let identity_id = plur1bus_engine::embedding::identity::try_identity_id;
+    assert_eq!(
+        identity_id(route.lease("owner").unwrap().unwrap().identity().unwrap()).unwrap(),
+        identity_id(&legacy).unwrap()
+    );
+    assert_eq!(
+        identity_id(route.lease("other").unwrap().unwrap().identity().unwrap()).unwrap(),
+        identity_id(&active).unwrap()
+    );
 }

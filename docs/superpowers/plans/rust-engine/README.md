@@ -119,7 +119,7 @@ Kept by the controller. A row changes when a task's PR opens or merges.
 | RE-01 | merged 2026-10-27 (T1–T4 in one PR); the A1 members carry `x-since: a1-pending` until the engine numbers them | [#793](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/793) |
 | RE-02 | merged 2026-10-28 (T1–T7 in one PR, with the Windows root follow-up and the review fixes) | [#795](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/795) |
 | RE-03 | in review: T0–T6 with T3b and T3c in one PR (package K); e5, EmbeddingGemma 2 and BGE goldens committed, jina parity live only | [#809](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/809) |
-| RE-04 | T0–T3 merged; T4 draft #850: review corrections cover merged tier budgets, per-table embedding identities and runtime/ledger parity; main merged after #846/#848 | [#792](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/792), [#829](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/829), [#846](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/846), [#848](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/848), [#850](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/850) |
+| RE-04 | T0–T3 merged; T4 #850 ready for re-review: production identity expectations cover all routes, with CP-5.1/options/raw-ledger oracles; main merged after #846/#848 | [#792](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/792), [#829](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/829), [#846](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/846), [#848](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/848), [#850](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/850) |
 | RE-05 | not started | — |
 | RE-06 | not started (go/no-go pending) | — |
 | RE-07 | not started | — |

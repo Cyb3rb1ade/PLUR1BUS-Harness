@@ -1,5 +1,6 @@
 // Actual namespace runtime coverage for the #850 review. Synthetic providers only.
 import assert from "node:assert/strict";
+import { productionPool, captureIdentityFailureFacade } from "./record-namespace-pools.mjs";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -84,6 +85,69 @@ function runtimeSpecs() {
       params: { topN: 4, budget: 3 },
       rerank: { 1: 0.7, 2: 0.9, 3: 0.8, 4: 0.6 },
     },
+    ...["plugin", "runtime"].map((source) => ({
+      name: `namespaces-mixed-tiers-child-rerank-${source}`,
+      source,
+      rows: [
+        item("active", 1),
+        item("active", 2),
+        item("active", 3, { coreMemoryScore: 0.8 }),
+        item("legacy", 4, { category: "project" }),
+        item("legacy", 5, { category: "project" }),
+        item("legacy", 6, {}, 1),
+        item("legacy", 7, {}, 2),
+      ],
+      edges: [
+        { source: id(4), target: id(6), strength: 0.9, directed: false, type: "related" },
+        { source: id(4), target: id(7), strength: 0.8, directed: false, type: "related" },
+      ],
+      params: { topN: 10, budget: 6, recallMinScore: 0.9, associativeEnabled: true },
+      rerank: { 1: 0.99, 2: 0.94, 3: 0.95, 4: 0.97, 5: 0.92, 6: 0.98, 7: 0.93 },
+    })),
+    ...[false, true].map((foreignAvailable) => ({
+      name: `namespaces-model-upgrade-unconfigured-legacy${foreignAvailable ? "-provider-present" : ""}-rejects`,
+      defaultMismatch: true,
+      foreignAvailable,
+      rows: [item("active", 1), item("legacy", 2)],
+      foreignDimension: WIDTH,
+      params: { topN: 4, budget: 4 },
+    })),
+    {
+      name: "namespaces-unbound-legacy-inherits-route-identity",
+      unboundLegacy: true,
+      rows: [item("active", 1), item("legacy", 2)],
+      foreignDimension: WIDTH,
+      foreignAvailable: true,
+      params: { topN: 4, budget: 4 },
+    },
+    {
+      name: "namespaces-budget-disabled-retains-thirteen",
+      rows: Array.from({ length: 13 }, (_, i) => item("active", i + 1)),
+      params: { topN: 20, budget: 2, adaptiveBudget: { enabled: false } },
+    },
+    ...[false, true].map((enabled) => ({
+      name: `namespaces-canonical-exceeds-top-n-budget-${enabled ? "enabled" : "disabled"}`,
+      rows: [item("active", 1), item("active", 2), item("legacy", 3), item("legacy", 4)],
+      foreignDimension: WIDTH / 2,
+      foreignAvailable: true,
+      knowledge:
+        "## First canonical\nSynthetic canonical first section.\n## Second canonical\nSynthetic canonical second section.\n",
+      params: { topN: 1, budget: 3, canonicalEnabled: true, canonicalMaxItems: 2, adaptiveBudget: { enabled } },
+      rerank: { 1: 0.7, 2: 0.9, 3: 0.8, 4: 0.6 },
+    })),
+    {
+      name: "namespaces-fusion-rerank-fallback-disabled",
+      foreignDimension: WIDTH / 2,
+      foreignAvailable: true,
+      rows: [item("active", 1), item("legacy", 2)],
+      rerank: "unavailable",
+      params: { topN: 4, budget: 4, rerankerFallbackOnError: false },
+    },
+    {
+      name: "namespaces-ledger-workspace-present",
+      rows: [item("active", 1), item("legacy", 2)],
+      params: { topN: 4, budget: 4, workspaceKey: "workspace:v1:namespace-fixture" },
+    },
     {
       name: "namespaces-graph-endpoint-acl-order",
       rows: [item("active", 1), item("active", 2, { agentId: "foreign", storedBy: "foreign" }, 1), item("legacy", 3)],
@@ -164,14 +228,19 @@ function provider(identity, calls) {
   };
 }
 
-async function seedRows(modules, base, specs, identities) {
+async function seedRows(modules, base, specs, identities, unboundLegacy) {
   const seeded = [];
   const rows = [];
   for (const spec of specs) {
     const identity = identities[spec.namespace];
     let db = seeded.find((db) => db.fixtureNamespace === spec.namespace);
     if (!db) {
-      db = new modules.MemoryDB(path.join(base, spec.namespace, AGENT), identity.dimension, null, { identity });
+      db = new modules.MemoryDB(
+        path.join(base, spec.namespace, AGENT),
+        identity.dimension,
+        null,
+        unboundLegacy && spec.namespace === "legacy" ? {} : { identity },
+      );
       db.fixtureNamespace = spec.namespace;
       seeded.push(db);
     }
@@ -225,9 +294,11 @@ async function captureRuntime(engineRoot, pluginRoot, spec, modules) {
     legacyReadOnlyNamespaces: ["legacy"],
     crossNamespaceRecall: true,
   };
-  const { seeded, rows } = await seedRows(modules, base, spec.rows, identities);
+  const { seeded, rows } = await seedRows(modules, base, spec.rows, identities, spec.unboundLegacy);
   const layout = modules.namespaceConfig.resolveNamespaceLayout(base, config, { explicit: true });
-  const pool = new modules.MultiNamespacePool(layout, WIDTH, modules.AgentDbPool);
+  const identityRoutes =
+    spec.foreignDimension && !spec.defaultMismatch ? [{ namespace: "legacy", identity: legacy }] : [];
+  const pool = productionPool(modules, layout, WIDTH, active, identityRoutes);
   const ledgerLines = [];
   const calls = [];
   const rankCalls = [];
@@ -238,38 +309,51 @@ async function captureRuntime(engineRoot, pluginRoot, spec, modules) {
   const realNow = Date.now;
   Date.now = () => NOW;
   try {
-    const result = await pool.withReadDbs(AGENT, async (leased) => {
-      const present = [];
-      for (const source of leased) {
-        if ((await source.db.init()) !== false && source.db.table) present.push({ ...source, sourceKind: "private" });
-      }
-      return runtime.runMergedNamespaceRecall(
-        present,
-        parameters(spec, {
-          logger: { info() {}, warn() {}, debug() {} },
-          embeddings,
-          identityProviders,
-          reranker: scriptedRanker(spec, rankCalls),
-          workspaceDir: spec.knowledge ? workspace : null,
-          emotionalState: spec.emotion ? { computeRecallBoost: () => spec.emotion } : null,
-          retrievalLogger: (entry) => {
-            const line = modules.dynamics.createRetrievalLedgerEntry({ ...entry, timestamp: NOW });
-            line.id = "__UUID__";
-            ledgerLines.push(`${JSON.stringify(line)}\n`);
-          },
-        }),
-        modules.traces.createRecallDecisionTrace({
-          query: QUERY,
-          maxCandidates: 100,
-          maxDecisions: 100,
-          maxGuards: 100,
-          maxStoreDecisions: 100,
-        }),
-        null,
-      );
-    });
+    let result = null;
+    let error = null;
+    try {
+      result = await pool.withReadDbs(AGENT, async (leased) => {
+        const present = [];
+        for (const source of leased) {
+          if ((await source.db.init()) !== false && source.db.table) present.push({ ...source, sourceKind: "private" });
+        }
+        return runtime.runMergedNamespaceRecall(
+          present,
+          parameters(spec, {
+            logger: { info() {}, warn() {}, debug() {} },
+            embeddings,
+            identityProviders,
+            reranker: scriptedRanker(spec, rankCalls),
+            workspaceDir: spec.knowledge ? workspace : null,
+            emotionalState: spec.emotion ? { computeRecallBoost: () => spec.emotion } : null,
+            retrievalLogger: (entry) => {
+              const line = modules.dynamics.createRetrievalLedgerEntry({ ...entry, timestamp: NOW });
+              line.id = "__UUID__";
+              ledgerLines.push(`${JSON.stringify(line)}\n`);
+            },
+          }),
+          modules.traces.createRecallDecisionTrace({
+            query: QUERY,
+            maxCandidates: 100,
+            maxDecisions: 100,
+            maxGuards: 100,
+            maxStoreDecisions: 100,
+          }),
+          null,
+        );
+      });
+    } catch (failure) {
+      error = { name: failure.name, code: failure.code ?? null, message: failure.message };
+    }
+    const facade = spec.defaultMismatch
+      ? await captureIdentityFailureFacade(modules, pool, scratch, AGENT, QUERY)
+      : null;
     return {
       config,
+      identityRoutes,
+      unboundLegacy: spec.unboundLegacy ?? false,
+      error,
+      facade,
       agentId: AGENT,
       query: QUERY,
       now: NOW,
@@ -281,7 +365,7 @@ async function captureRuntime(engineRoot, pluginRoot, spec, modules) {
       emotion: spec.emotion ?? null,
       foreignAvailable: spec.foreignAvailable ?? false,
       rerank: spec.rerank ?? null,
-      result: snapshot(result),
+      result: result ? snapshot(result) : null,
       ledgerLines,
       embeddingCalls: calls.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
       rerankCalls: rankCalls.sort((a, b) => JSON.stringify(a.docs).localeCompare(JSON.stringify(b.docs))),
@@ -304,6 +388,7 @@ export async function recordRuntimeCases(engineRoot, pluginRoot) {
     namespaceRecall: await load(engineRoot, "engine/recall/namespace-recall.js"),
     traces: await load(engineRoot, "lib/recall-decision-trace.js"),
     dynamics: await load(engineRoot, "lib/memory-dynamics.js"),
+    ...(await load(engineRoot, "engine/recall/assemble-prompt-context.js")),
   };
   const result = {};
   for (const spec of runtimeSpecs()) {
@@ -315,6 +400,8 @@ export async function recordRuntimeCases(engineRoot, pluginRoot) {
       const routed = await captureRuntime(engineRoot, pluginRoot, { ...spec, source: "runtime" }, modules);
       recorded.embeddingCallsAtResultSource = recorded.embeddingCalls;
       recorded.embeddingCalls = routed.embeddingCalls;
+      recorded.resultAtRoutingPin = routed.result;
+      recorded.ledgerLinesAtRoutingPin = routed.ledgerLines;
     }
     result[spec.name] = recorded;
   }

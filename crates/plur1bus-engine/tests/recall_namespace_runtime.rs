@@ -28,8 +28,9 @@ use plur1bus_engine::recall::namespaces::{
 use plur1bus_engine::recall::stages::{StageClocks, StageFlags, StageLimits};
 use plur1bus_engine::store::ledger::JsonlLedger;
 use plur1bus_engine::store::ledger_types::RetrievalLedgerLine;
-use plur1bus_engine::store::Store;
+use plur1bus_engine::store::{Store, StoreIdentityResolver};
 use serde_json::{json, Value};
+use std::sync::Arc;
 use support::{memory_row, TestHost};
 
 macro_rules! runtime_case {
@@ -85,6 +86,99 @@ runtime_case!(
     fused_identities_report_reranker_fallback,
     "namespaces-foreign-identities-rerank-fallback"
 );
+
+runtime_case!(
+    disabled_merged_budget_matches_node,
+    "namespaces-budget-disabled-retains-thirteen"
+);
+runtime_case!(
+    canonical_exceeds_top_n_with_budget_enabled,
+    "namespaces-canonical-exceeds-top-n-budget-enabled"
+);
+runtime_case!(
+    canonical_exceeds_top_n_with_budget_disabled,
+    "namespaces-canonical-exceeds-top-n-budget-disabled"
+);
+runtime_case!(
+    nonempty_workspace_key_is_preserved_in_ledger_bytes,
+    "namespaces-ledger-workspace-present"
+);
+runtime_case!(
+    unbound_legacy_store_inherits_its_expected_route_identity,
+    "namespaces-unbound-legacy-inherits-route-identity"
+);
+
+#[test]
+fn mixed_tier_child_rerank_matches_actual_cp51_and_differs_from_pin() {
+    let plugin = recorded("namespaces-mixed-tiers-child-rerank-plugin");
+    let pin = recorded("namespaces-mixed-tiers-child-rerank-runtime");
+    assert_eq!(plugin["runtime"]["rows"], pin["runtime"]["rows"]);
+    assert_ne!(
+        plugin["runtime"]["result"]["memories"],
+        pin["runtime"]["result"]["memories"]
+    );
+    assert_eq!(
+        plugin["runtime"]["resultAtRoutingPin"],
+        pin["runtime"]["result"]
+    );
+    assert!(plugin["runtime"]["result"]["memories"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|memory| memory["source"] == "graph"));
+    assert_runtime("namespaces-mixed-tiers-child-rerank-plugin");
+}
+
+#[test]
+fn production_model_upgrade_rejects_before_queries_and_ledger() {
+    for name in [
+        "namespaces-model-upgrade-unconfigured-legacy-rejects",
+        "namespaces-model-upgrade-unconfigured-legacy-provider-present-rejects",
+    ] {
+        let data = recorded(name);
+        let fixture = &data["runtime"];
+        assert!(fixture["identityRoutes"].as_array().unwrap().is_empty());
+        assert_eq!(fixture["error"]["code"], "EMBEDDING_IDENTITY_MISMATCH");
+        assert_eq!(fixture["facade"]["degraded"]["reason"], "error");
+        assert!(fixture["facade"]["blocks"].as_array().unwrap().is_empty());
+        let error = capture(fixture, None).unwrap_err();
+        assert!(matches!(
+            &error,
+            NamespaceError::Store(plur1bus_engine::contract::StoreError::IdentityMismatch)
+        ));
+        assert_eq!(
+            error.to_string(),
+            fixture["error"]["message"].as_str().unwrap()
+        );
+    }
+}
+
+#[test]
+fn fusion_provider_error_without_fallback_rejects_without_ledger() {
+    let data = recorded("namespaces-fusion-rerank-fallback-disabled");
+    let fixture = &data["runtime"];
+    assert_eq!(
+        fixture["error"]["message"],
+        "synthetic reranker unavailable"
+    );
+    assert!(matches!(capture(fixture, None),
+        Err(NamespaceError::Finalise(plur1bus_engine::contract::EngineError::NotAvailable { reason }))
+            if reason == "rerank"));
+}
+
+#[test]
+fn bounded_recall_integer_matches_the_actual_node_helper() {
+    let data = recorded("namespaces-merge-keeps-reranker-order");
+    for case in data["normalizationCases"].as_array().unwrap() {
+        let value = case["input"].as_f64().unwrap_or(f64::NAN);
+        assert_eq!(
+            plur1bus_engine::recall::namespace_budget::normalize_bounded_recall_integer(
+                value, 12.0, 1.0, 100.0
+            ),
+            case["result"].as_f64().unwrap()
+        );
+    }
+}
 
 fn assert_runtime(name: &str) {
     let data = recorded(name);
@@ -156,7 +250,21 @@ fn capture(fixture: &Value, ranking: Option<Ranking<'_>>) -> Result<Capture, Nam
         Vec::new()
     };
     let config = serde_json::from_value(json!({"namespaces":fixture["config"]})).unwrap();
-    let routes = NamespaceStores::open(&base, &config, provider.identity(), 4).unwrap();
+    let resolver = FixtureIdentities {
+        active: provider.identity.clone(),
+        routes: fixture["identityRoutes"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default(),
+    };
+    let routes = NamespaceStores::open_with_identity_resolver(
+        &base,
+        &config,
+        provider.identity(),
+        Arc::new(resolver),
+        4,
+    )
+    .unwrap();
     let host = TestHost::new(root.path().to_owned());
     let context = context(fixture, &host);
     let ranker = ScriptedRanker {
@@ -187,11 +295,36 @@ fn capture(fixture: &Value, ranking: Option<Ranking<'_>>) -> Result<Capture, Nam
         routes: &routes,
         pipeline: &pipeline,
         agent_id: fixture["agentId"].as_str().unwrap(),
-        workspace_key: "",
+        workspace_key: params["workspaceKey"].as_str().unwrap_or(""),
         query: fixture["query"].as_str().unwrap(),
         timestamp_ms: fixture["now"].as_i64().unwrap(),
         ledger: Some(&ledger),
         merge: merge_options(params),
+    })
+    .inspect_err(|_| {
+        assert!(
+            fs::read_to_string(&ledger_path)
+                .unwrap_or_default()
+                .is_empty(),
+            "failed recall wrote a ledger"
+        );
+        assert!(
+            fixture["error"].is_null() || fixture["ledgerLines"].as_array().unwrap().is_empty()
+        );
+        if !fixture["error"].is_null() {
+            let mut embedding_calls = calls.lock().unwrap().clone();
+            embedding_calls.sort_by_key(Value::to_string);
+            assert_eq!(json!(embedding_calls), fixture["embeddingCalls"]);
+            let mut rerank_calls = ranker.calls.lock().unwrap().clone();
+            rerank_calls.sort_by_key(|call| call["docs"].to_string());
+            assert_eq!(json!(rerank_calls), fixture["rerankCalls"]);
+        }
+        if fixture["error"]["code"] == "EMBEDDING_IDENTITY_MISMATCH" {
+            assert!(
+                calls.lock().unwrap().is_empty(),
+                "identity mismatch reached a provider"
+            );
+        }
     })?;
     assert_eq!(output.ledger_error, None);
     let result = &output.result;
@@ -248,6 +381,23 @@ fn seed(fixture: &Value, base: &Path) {
         store
             .upsert(&[serde_json::from_value(row).unwrap()])
             .unwrap();
+    }
+    drop(stores);
+    if fixture["unboundLegacy"] == true {
+        let path = base
+            .join("legacy")
+            .join(fixture["agentId"].as_str().unwrap());
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                let db = lancedb::connect(path.to_str().unwrap())
+                    .execute()
+                    .await
+                    .unwrap();
+                db.drop_table("_embedding_identity", &[]).await.unwrap();
+            });
     }
 }
 
@@ -326,7 +476,7 @@ fn pipeline<'a>(
             dedup_jaccard: 0.78,
             candidate_hard_limit: 100.0,
             summary_max_words: 60.0,
-            reranker_fallback_on_error: true,
+            reranker_fallback_on_error: p["rerankerFallbackOnError"].as_bool().unwrap_or(true),
             canonical_count: 0.0,
         },
     }
@@ -565,5 +715,29 @@ impl Reranker for EmptyRanker {
         assert_eq!(top_n, 4);
         self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Ok(Vec::new())
+    }
+}
+
+struct FixtureIdentities {
+    active: VectorSpaceIdentity,
+    routes: Vec<Value>,
+}
+impl StoreIdentityResolver for FixtureIdentities {
+    fn expected_identity(
+        &self,
+        namespace: Option<&str>,
+        agent_id: &str,
+    ) -> Result<VectorSpaceIdentity, plur1bus_engine::contract::StoreError> {
+        let route = self.routes.iter().find(|route| {
+            (route["namespace"].is_null() || route["namespace"].as_str() == namespace)
+                && (route["agentId"].is_null() || route["agentId"].as_str() == Some(agent_id))
+        });
+        route.map_or_else(
+            || Ok(self.active.clone()),
+            |route| {
+                serde_json::from_value(route["identity"].clone())
+                    .map_err(|_| plur1bus_engine::contract::StoreError::InvalidInput)
+            },
+        )
     }
 }

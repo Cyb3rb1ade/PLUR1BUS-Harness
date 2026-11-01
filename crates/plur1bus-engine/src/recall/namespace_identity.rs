@@ -5,9 +5,9 @@ use std::collections::HashMap;
 use serde_json::{json, Value};
 
 use crate::contract::StoreError;
+use crate::contract::VectorSpaceIdentity;
 use crate::embedding::identity::try_identity_id;
 use crate::embedding::{EmbedError, EmbeddingProvider};
-use crate::store::Store;
 
 use super::merge::{merge, MergeOptions, NamespaceResult};
 use super::namespaces::{NamespaceError, CANDIDATE_HARD_LIMIT};
@@ -21,12 +21,11 @@ pub(crate) struct Routed<'a> {
 }
 
 pub(crate) fn route<'a>(
-    store: &Store,
+    expected: Option<&VectorSpaceIdentity>,
     active: &'a dyn EmbeddingProvider,
     providers: &[&'a dyn EmbeddingProvider],
 ) -> Result<Routed<'a>, NamespaceError> {
-    let identity = store
-        .identity()
+    let identity = expected
         .map(try_identity_id)
         .transpose()
         .map_err(NamespaceError::Store)?;

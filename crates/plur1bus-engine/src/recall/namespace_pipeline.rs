@@ -77,7 +77,10 @@ impl TableRecall for Pipeline<'_> {
         canonical: CanonicalSource,
         queries: &RequestQueries,
     ) -> Result<NamespaceResult, NamespaceError> {
-        let routed = namespace_identity::route(store, self.embedder, self.identity_providers)?;
+        let identity = queries
+            .identity_for_namespace(namespace)
+            .or_else(|| store.identity());
+        let routed = namespace_identity::route(identity, self.embedder, self.identity_providers)?;
         let Some(provider) = routed.provider else {
             return Ok(namespace_identity::unavailable(
                 namespace,

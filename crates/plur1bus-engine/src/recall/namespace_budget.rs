@@ -28,11 +28,12 @@ pub(crate) fn apply(result: &mut NamespaceResult, policy: MergedBudget) {
     if !policy.enabled {
         return;
     }
-    let cap = if policy.limit.is_finite() {
-        policy.limit.floor().clamp(1.0, 100.0) as usize
-    } else {
-        12
-    };
+    let cap = normalize_bounded_recall_integer(
+        policy.limit,
+        12.0,
+        1.0,
+        super::namespaces::CANDIDATE_HARD_LIMIT as f64,
+    ) as usize;
     result.canonical.truncate(cap);
     let candidates = result.memories.iter().map(candidate_of).collect::<Vec<_>>();
     let preserve_order = candidates.iter().any(|row| row.rerank_score.is_some());
@@ -62,4 +63,22 @@ pub(crate) fn apply(result: &mut NamespaceResult, policy: MergedBudget) {
                 })
         })
         .collect::<Vec<Value>>();
+}
+
+/// The pin's `normalizeBoundedRecallInteger`; non-finite input uses the fallback.
+/// Bounds retain JavaScript Math.max/Math.min order, including invalid-bound NaNs.
+#[must_use]
+pub fn normalize_bounded_recall_integer(
+    value: f64,
+    fallback: f64,
+    minimum: f64,
+    maximum: f64,
+) -> f64 {
+    if !value.is_finite() {
+        return fallback;
+    }
+    if minimum.is_nan() || maximum.is_nan() {
+        return f64::NAN;
+    }
+    value.floor().max(minimum).min(maximum)
 }

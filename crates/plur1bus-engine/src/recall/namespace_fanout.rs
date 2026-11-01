@@ -1,10 +1,8 @@
 //! Lease all private routes and settle bounded batches before returning any failure.
 
-use std::sync::Arc;
-
 use crate::contract::StoreError;
-use crate::embedding::identity::try_identity_id;
-use crate::store::{Store, StoreRoutes};
+use crate::store::routes::IdentifiedStore;
+use crate::store::StoreRoutes;
 
 use super::merge::NamespaceResult;
 use super::namespace_query::RequestQueries;
@@ -15,22 +13,30 @@ const MAX_NAMESPACE_WORKERS: usize = 8;
 
 pub(crate) struct Lease {
     namespace: Option<String>,
-    store: Result<Option<Arc<Store>>, StoreError>,
+    store: Result<Option<IdentifiedStore>, StoreError>,
 }
 
 pub(crate) fn lease(routes: &dyn StoreRoutes, agent: &str) -> Result<Vec<Lease>, NamespaceError> {
-    Ok(routes
+    let leases = routes
         .read_routes()
         .map_err(NamespaceError::Store)?
         .into_iter()
         .map(|route| {
-            let store = route.lease(agent);
+            let store = route.lease_identified(agent);
             Lease {
                 namespace: route.namespace,
                 store,
             }
         })
-        .collect())
+        .collect::<Vec<_>>();
+    // Production initializes all required sources before any child pipeline starts.
+    // A known lease/identity error cannot turn into a partial provider invocation.
+    for lease in &leases {
+        if let Err(error) = &lease.store {
+            return Err(NamespaceError::Store(error.clone()));
+        }
+    }
+    Ok(leases)
 }
 
 pub(crate) fn query_scope(
@@ -40,15 +46,12 @@ pub(crate) fn query_scope(
 ) -> Result<RequestQueries, NamespaceError> {
     let identities = leases
         .iter()
-        .filter_map(|lease| lease.store.as_ref().ok()?.as_ref()?.identity())
-        .map(try_identity_id)
-        .collect::<Result<std::collections::HashSet<_>, _>>()
-        .map_err(NamespaceError::Store)?;
-    Ok(RequestQueries::for_identity_count(
-        query,
-        identities.len(),
-        limits,
-    ))
+        .filter_map(|lease| {
+            let store = lease.store.as_ref().ok()?.as_ref()?;
+            Some((lease.namespace.clone(), store.identity.clone()))
+        })
+        .collect();
+    RequestQueries::for_identities(query, identities, limits).map_err(NamespaceError::Store)
 }
 
 pub(crate) fn settle(
@@ -104,7 +107,7 @@ fn settle_batch(
                     };
                     request
                         .pipeline
-                        .recall(lease.namespace.as_deref(), store, canonical, queries)
+                        .recall(lease.namespace.as_deref(), &store.store, canonical, queries)
                         .map(Some)
                 })
             })

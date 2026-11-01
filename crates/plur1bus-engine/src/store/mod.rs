@@ -25,7 +25,7 @@ pub use schema_version::StoreSchemaVersion;
 pub use row::{RowPatch, Scored};
 
 pub use pool::StorePool;
-pub use routes::{StoreRoute, StoreRoutes};
+pub use routes::{StoreIdentityResolver, StoreRoute, StoreRoutes};
 
 impl From<std::io::Error> for crate::contract::StoreError {
     fn from(error: std::io::Error) -> Self {

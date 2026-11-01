@@ -103,6 +103,9 @@ pub enum NamespaceError {
 impl std::fmt::Display for NamespaceError {
     fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Store(StoreError::IdentityMismatch) => {
+                out.write_str("store identity differs; re-embedding migration required")
+            }
             Self::Store(error) => write!(out, "{error}"),
             Self::Stage(error) => write!(out, "{error}"),
             Self::Finalise(error) => write!(out, "{error}"),

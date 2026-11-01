@@ -25,7 +25,8 @@
           "lib/recall-decision-trace.js": "cee6208fa0a91654adae11ccd17c3b44e86c84fdf9b30c1addfa1d299c96711d",
           "lib/providers/embedding-identity.js": "82a08f98867c94480d4c5094e881483b0685189f6be51b601002dbbb98265702",
           "lib/memory-graph.js": "6e801999c3873fb210f9602c4c67d80d5d87e643f775064d415428fc7d797bac",
-          "engine/recall/assemble-prompt-context.js": "f2e1e0d671bdd28a4b66c8d57625984494f841aea74b33202dc0efc00aa09896"
+          "engine/recall/assemble-prompt-context.js": "f2e1e0d671bdd28a4b66c8d57625984494f841aea74b33202dc0efc00aa09896",
+          "engine/create-engine.js": "616601790f1859fee2a61494bfd2ed8cd82874bdc759c37b8e5295c183028ed6"
         }
       },
       "plugin": {
@@ -237,5 +238,47 @@
       }
     }
   ],
-  "nullableLedgerLine": "{\"id\":\"__UUID__\",\"agentId\":null,\"workspaceKey\":null,\"queryHash\":null,\"resultsCount\":2,\"selectedIds\":[null,\"kept\"],\"timestamp\":1798761600000}\n"
+  "nullableLedgerLine": "{\"id\":\"__UUID__\",\"agentId\":null,\"workspaceKey\":null,\"queryHash\":null,\"resultsCount\":2,\"selectedIds\":[null,\"kept\"],\"timestamp\":1798761600000}\n",
+  "normalizationCases": [
+    {
+      "input": null,
+      "result": 12
+    },
+    {
+      "input": "6",
+      "result": 12
+    },
+    {
+      "input": "NaN",
+      "result": 12
+    },
+    {
+      "input": "Infinity",
+      "result": 12
+    },
+    {
+      "input": "-Infinity",
+      "result": 12
+    },
+    {
+      "input": -2,
+      "result": 1
+    },
+    {
+      "input": 0,
+      "result": 1
+    },
+    {
+      "input": 1.9,
+      "result": 1
+    },
+    {
+      "input": 12,
+      "result": 12
+    },
+    {
+      "input": 101,
+      "result": 100
+    }
+  ]
 }

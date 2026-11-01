@@ -60,4 +60,14 @@
 
 - [x] Run focused RED→GREEN checks, independently repeat recordings, then the full prescribed gates.
 - [x] Obtain one independent read-only review; fix the valid-empty global reranker finding against G-RERANK-5 (both fallback policies, empty ledger), RED→GREEN.
-- [ ] Commit/push normally to #850 and update its German description with findings, source pins, goldens, results and remaining accepted T6 scope.
+- [x] Previous correction set published through `cdf878ef`; description updated and PR made ready on the owner's instruction.
+
+## Owner-directed re-review correction round (N1–N5)
+
+- [x] N1: enforce production expected identities for all route/agent leases, including legacy read-only; missing metadata inherits its expectation without a write. No unconfigured foreign-space fallback or partial fusion.
+- [x] Build recorder pools with production identityForStore, explicit routes for valid multi-space cases, and an actual model-upgrade rejection/facade golden.
+- [x] N2: record mixed core/project/episodic/graph child-rerank budget results from plugin and pin; verify the CP-5.1 branch against its actual oracle.
+- [x] N3: check hashes before Node version; negative test fails/passes for the correct reason under a non-pinned Node version.
+- [x] N4: record disabled budget, canonical-only topN edge with both budget states, disabled reranker fallback and nonempty workspace envelope; correct the enabled-budget edge condition.
+- [x] N5: port/reuse normalizeBoundedRecallInteger in T4; assign resolveRuntimeRecallBudget explicitly to RE-04/T6 (G3), because runMergedNamespaceRecall does not call it.
+- [ ] Complete independent review and final gates; then merge main, verify the merged head and publish normally. G2 remains paused until this round is published; the owner merges #850 after re-review.

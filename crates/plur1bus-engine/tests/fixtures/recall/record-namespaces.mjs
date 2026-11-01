@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { recordRuntimeCases } from "./record-namespace-runtime.mjs";
+import { productionPool } from "./record-namespace-pools.mjs";
 
 const PIN = "9f34008c143c5da87b2194b5a28442b407ff8ba7";
 const PLUGIN = "6419a60e79975d0b5244798c1fdbbd7997a712ce";
@@ -377,7 +378,8 @@ async function runtimeRun(root, name, modules) {
       seeded.push(db);
     }
     const layout = namespaceConfig.resolveNamespaceLayout(base, config, { explicit: true });
-    pool = new MultiNamespacePool(layout, WIDTH, AgentDbPool);
+    const expected = modules.embeddingIdentity({ provider: "fixture", model: "active", dimension: WIDTH });
+    pool = productionPool(modules, layout, WIDTH, expected, []);
     const ledger = [];
     const completed = [];
     const realNow = Date.now;
@@ -455,14 +457,15 @@ async function runtimeRun(root, name, modules) {
 }
 
 export async function recordNamespaces(engineRoot, pluginRoot) {
-  assert.equal(process.version, "v24.21.0", "record with the documented Node version");
   verifySources(engineRoot, pluginRoot);
+  assert.equal(process.version, "v24.21.0", "record with the documented Node version");
   const pipeline = await load(pluginRoot, "lib/recall-pipeline.js");
   const traces = await load(pluginRoot, "lib/recall-decision-trace.js");
   const modules = {
     ...(await load(engineRoot, "engine/store/memory-db.js")),
     ...(await load(engineRoot, "lib/multi-namespace-pool.js")),
     ...(await load(engineRoot, "engine/store/agent-db-pool.js")),
+    ...(await load(engineRoot, "lib/providers/embedding-identity.js")),
     namespaceConfig: await load(engineRoot, "lib/namespace-config.js"),
     namespaceRecall: await load(engineRoot, "engine/recall/namespace-recall.js"),
     traces: await load(engineRoot, "lib/recall-decision-trace.js"),
@@ -500,6 +503,10 @@ export async function recordNamespaces(engineRoot, pluginRoot) {
       recordedFrom,
       merges: orderRuns(pipeline, traces),
       nullableLedgerLine: `${JSON.stringify(nullableLine)}\n`,
+      normalizationCases: [null, "6", Number.NaN, Infinity, -Infinity, -2, 0, 1.9, 12, 101].map((value) => ({
+        input: typeof value === "number" && !Number.isFinite(value) ? String(value) : value,
+        result: modules.namespaceRecall.normalizeBoundedRecallInteger(value, 12, 1, 100),
+      })),
     };
     for (const [name, runtime] of Object.entries(await recordRuntimeCases(engineRoot, pluginRoot))) {
       files[name] = { recordedFrom, runtime };
