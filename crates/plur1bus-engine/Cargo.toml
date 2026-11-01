@@ -3,7 +3,7 @@ name = "plur1bus-engine"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "The PLUR1BUS memory engine in Rust (rust-engine plan §2): store, embeddings, recall, capture and jobs behind one supervised process. RE-00 skeleton: no engine behaviour yet."
+description = "The PLUR1BUS memory engine in Rust: authenticated process server, compatible stores and embedding providers."
 
 [lib]
 name = "plur1bus_engine"
@@ -29,6 +29,8 @@ real-models = []
 serde.workspace = true
 serde_json.workspace = true
 clap.workspace = true
+# Reuse the supervisor's already-locked OS entropy source for per-start RPC tokens.
+getrandom = "=0.3.4"
 # Pinned to the version the Node engine's committed lockfile resolves for @lancedb/lancedb (RE-D3): the Node SDK is a
 # binding of this crate, so the same version reads and writes the same on-disk Lance format.
 lancedb = "=0.26.2"
@@ -67,13 +69,14 @@ futures = "=0.3.34"
 chrono = "0.4"
 uuid = { version = "1", features = ["v4"] }
 plur1bus-rpc = { path = "../plur1bus-rpc" }
+plur1bus-config = { path = "../plur1bus-config" }
 tokio = { version = "=1.53.3", features = ["rt-multi-thread"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Storage_FileSystem"] }
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_Console"] }
 
 [dev-dependencies]
 tempfile.workspace = true

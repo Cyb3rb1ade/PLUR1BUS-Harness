@@ -14799,11 +14799,16 @@
         "kind": "patterns",
         "patterns": [
           "bearer",
+          "authorization-folded",
+          "credential-assignment-double-quoted",
+          "credential-assignment-single-quoted",
+          "credential-assignment",
           "basic",
           "sk",
           "ek",
           "ghp",
           "github-token",
+          "telegram-bot",
           "github-pat",
           "slack",
           "aws-access-key",
@@ -14869,6 +14874,75 @@
     },
     {
       "rule": "pattern",
+      "pattern": "bearer",
+      "parts": [
+        "Bearer ",
+        "\"",
+        "FAKE first",
+        " second",
+        "\""
+      ],
+      "matches": [
+        "Bearer \"FAKE first second\""
+      ]
+    },
+    {
+      "rule": "pattern",
+      "pattern": "authorization-folded",
+      "parts": [
+        "Authorization: ",
+        "FAKE first",
+        "\r\n ",
+        "FAKE second",
+        "\r\n\t",
+        "FAKE third"
+      ],
+      "matches": [
+        "Authorization: FAKE first\r\n FAKE second\r\n\tFAKE third"
+      ]
+    },
+    {
+      "rule": "pattern",
+      "pattern": "credential-assignment",
+      "parts": [
+        "client_credential=",
+        "FAKE-value"
+      ],
+      "matches": [
+        "credential=",
+        "FAKE-value"
+      ]
+    },
+    {
+      "rule": "pattern",
+      "pattern": "credential-assignment-double-quoted",
+      "parts": [
+        "credential=",
+        "\"",
+        "FAKE first",
+        " second",
+        "\""
+      ],
+      "matches": [
+        "credential=\"FAKE first second\""
+      ]
+    },
+    {
+      "rule": "pattern",
+      "pattern": "credential-assignment-single-quoted",
+      "parts": [
+        "client_credential=",
+        "'",
+        "FAKE first",
+        " second",
+        "'"
+      ],
+      "matches": [
+        "credential='FAKE first second'"
+      ]
+    },
+    {
+      "rule": "pattern",
       "pattern": "sk",
       "parts": [
         "key=",
@@ -14926,6 +15000,19 @@
       ],
       "matches": [
         "ghs_DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"
+      ]
+    },
+    {
+      "rule": "pattern",
+      "pattern": "telegram-bot",
+      "parts": [
+        "123456789:",
+        "FAKE_bot_value-",
+        "0123456789/+=."
+      ],
+      "matches": [
+        "123456789:",
+        "FAKE_bot_value-0123456789/+=."
       ]
     },
     {
@@ -15155,7 +15242,10 @@
       "session-key",
       "accessToken",
       "X-Auth-Token",
-      "private_key"
+      "private_key",
+      "access_key",
+      "access-key-id",
+      "accessKeyId"
     ],
     "keep": [
       "input_tokens",
@@ -15173,7 +15263,11 @@
       "passwords_checked",
       "model",
       "provider_request_id",
-      "retry_after_s"
+      "retry_after_s",
+      "access_count",
+      "credentials_count",
+      "credential",
+      "client_credential"
     ]
   },
   "redactionNonMatches": [
@@ -15196,6 +15290,11 @@
       "pattern": "basic",
       "text": "Basic info",
       "note": "prose"
+    },
+    {
+      "pattern": "telegram-bot",
+      "text": "123456789:short",
+      "note": "a short value is not a bot credential"
     },
     {
       "pattern": "github-token",

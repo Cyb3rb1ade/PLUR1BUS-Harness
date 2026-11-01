@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.11.0)
+# RPC reference (rpc 1.17.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -421,6 +421,7 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ### engine server
 
+- `engine.adopt`: experimental, since 1.17.0
 - `engine.auth`: experimental, since 1.7.0
 - `engine.open`: experimental, since 1.7.0
 - `engine.status`: experimental, since 1.7.0
@@ -488,6 +489,50 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `engine.agent.close`: experimental, since 1.7.0
 
 ## Methods
+
+### `engine.adopt`
+
+**Stability:** experimental · since 1.17.0
+
+**Served by:** engine
+
+Called by a supervisor on a running engine to adopt it. nonce is the current content of run/supervisor.token; the connection it succeeds on becomes the engine's lifeline.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "nonce"
+  ],
+  "properties": {
+    "nonce": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status"
+  ],
+  "properties": {
+    "status": {
+      "$ref": "#/$defs/EngineProcessStatus"
+    }
+  }
+}
+```
 
 ### `engine.auth`
 
@@ -613,7 +658,7 @@ The status operation on the memory-engine RPC endpoint.
 
 ```json
 {
-  "$ref": "#/$defs/EngineContractEngineStatusData"
+  "$ref": "#/$defs/EngineProcessStatus"
 }
 ```
 
@@ -25873,6 +25918,167 @@ D109 §4: a grant was created, used, revoked, expired or suspended. Opt-in (a su
 ## Definitions
 
 Shared `$defs` referenced above as `#/$defs/<Name>`.
+
+### `EngineProcessStatus`
+
+```json
+{
+  "title": "EngineProcessStatus",
+  "type": "object",
+  "properties": {
+    "ready": {
+      "type": "boolean"
+    },
+    "degraded": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EngineContractDegradedData"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "1.8.0: derived from models — embedder failed → {reason:\"model-failed\",capability:\"embedding\"}; embedder loading → {reason:\"models-warming\",capability:\"embedding\"}; reranker failed → model-failed/\"reranker\"; reranker loading → models-warming/\"reranker\"; first match wins; otherwise null."
+    },
+    "agents": {
+      "type": "number"
+    },
+    "contract": {
+      "$ref": "#/$defs/EngineContractContractVersionData"
+    },
+    "storeSchema": {
+      "type": "object",
+      "properties": {
+        "current": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EngineContractSchemaVersionData"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expected": {
+          "$ref": "#/$defs/EngineContractSchemaVersionData"
+        }
+      },
+      "required": [
+        "current",
+        "expected"
+      ],
+      "additionalProperties": false
+    },
+    "jobs": {
+      "$ref": "#/$defs/EngineContractJobsHealthData",
+      "description": "1.8.0"
+    },
+    "models": {
+      "$ref": "#/$defs/EngineContractModelsStatusData",
+      "description": "1.8.0"
+    },
+    "journal": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EngineContractJournalBacklogData"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "1.8.0: null when the host reports none."
+    },
+    "sharedMemory": {
+      "$ref": "#/$defs/EngineContractSharedMemorySupportData",
+      "description": "1.8.0"
+    },
+    "rpc": {
+      "type": "string"
+    },
+    "instanceId": {
+      "type": "string"
+    },
+    "pid": {
+      "type": "integer"
+    },
+    "process": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "orphanedSince"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "ready",
+            "orphaned",
+            "stopping"
+          ]
+        },
+        "orphanedSince": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requests",
+        "authFailures",
+        "activeConnections",
+        "capturesPending",
+        "capturesCompleted"
+      ],
+      "properties": {
+        "requests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "authFailures": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "activeConnections": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "capturesPending": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "capturesCompleted": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "schedulerLagMs": {
+      "type": "number",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "ready",
+    "degraded",
+    "agents",
+    "contract",
+    "storeSchema",
+    "jobs",
+    "models",
+    "journal",
+    "sharedMemory"
+  ],
+  "additionalProperties": false,
+  "description": "Engine status with optional process, lifeline and transport health metadata.",
+  "x-since": "1.17.0"
+}
+```
 
 ### `EngineContractEngineCapabilitiesData`
 

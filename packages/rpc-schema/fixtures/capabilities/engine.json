@@ -1,5 +1,9 @@
 {
   "methods": {
+    "engine.adopt": {
+      "stability": "experimental",
+      "since": "1.17.0"
+    },
     "engine.auth": {
       "stability": "experimental",
       "since": "1.7.0"

@@ -123,6 +123,13 @@ enum GatePort<'a> {
     Owned(Arc<dyn EgressGate>),
 }
 impl GatePort<'_> {
+    fn cache_decisions(&self) -> bool {
+        match self {
+            Self::Borrowed(gate) => gate.cache_decisions(),
+            Self::Owned(gate) => gate.cache_decisions(),
+        }
+    }
+
     fn decide(
         &self,
         target: &Target,
@@ -361,6 +368,9 @@ impl<'a> GuardedClient<'a> {
         deadline: Instant,
         cancel: &Cancel,
     ) -> Result<Decision, TransportError> {
+        if !self.gate.cache_decisions() {
+            return self.gate.decide(target, deadline, cancel);
+        }
         let generation = {
             let cache = self
                 .decisions
@@ -480,6 +490,54 @@ mod tests {
     use super::*;
     use crate::contract::{AddressRules, Scheme};
     use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[test]
+    fn an_uncacheable_gate_is_rechecked_for_the_same_target_without_invalidation() {
+        struct LiveGate(AtomicUsize);
+        impl EgressGate for LiveGate {
+            fn cache_decisions(&self) -> bool {
+                false
+            }
+
+            fn decide(&self, _: &Target) -> Decision {
+                if self.0.fetch_add(1, Ordering::SeqCst) == 0 {
+                    Decision::Allow {
+                        address_rules: AddressRules::default(),
+                    }
+                } else {
+                    Decision::Deny {
+                        reason: "changed".into(),
+                    }
+                }
+            }
+        }
+        let target = Target {
+            scheme: Scheme::Https,
+            host: "provider.test".into(),
+            port: 443,
+        };
+        let gate = Arc::new(LiveGate(AtomicUsize::new(0)));
+        let owned = GuardedClient::new_owned(gate.clone(), Box::new(super::super::SystemResolver));
+        let borrowed = GuardedClient::new(gate.as_ref(), Box::new(super::super::SystemResolver));
+        for client in [owned, borrowed] {
+            gate.0.store(0, Ordering::SeqCst);
+            let deadline = Instant::now() + Duration::from_secs(1);
+            assert!(matches!(
+                client
+                    .decision(&target, deadline, &Cancel::never())
+                    .unwrap(),
+                Decision::Allow { .. }
+            ));
+            assert!(matches!(
+                client
+                    .decision(&target, deadline, &Cancel::never())
+                    .unwrap(),
+                Decision::Deny { .. }
+            ));
+            assert_eq!(gate.0.load(Ordering::SeqCst), 2);
+            assert!(client.decisions.lock().unwrap().entries.is_empty());
+        }
+    }
 
     #[test]
     fn an_expired_sixty_second_decision_is_rechecked() {

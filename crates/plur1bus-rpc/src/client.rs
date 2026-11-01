@@ -1,6 +1,8 @@
 use crate::error::RpcError;
 use crate::transport::{connect as transport_connect, Stream};
-use crate::types::{CoreAuthResult, ErrorCode, ModuleAuthResult, SupervisorAuthResult};
+use crate::types::{
+    CoreAuthResult, EngineAuthResult, ErrorCode, ModuleAuthResult, SupervisorAuthResult,
+};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Read, Write};
@@ -17,6 +19,8 @@ pub enum Endpoint {
     /// A module process: `module.auth` (B9). Its address and run files are per module
     /// (`Layout::endpoints` in the CLI crate), so this variant carries no name.
     Module,
+    /// The memory engine process: `engine.auth`.
+    Engine,
 }
 impl Endpoint {
     /// The first call on a connection to this endpoint.
@@ -25,6 +29,7 @@ impl Endpoint {
             Endpoint::Core => "core.auth",
             Endpoint::Supervisor => "supervisor.auth",
             Endpoint::Module => "module.auth",
+            Endpoint::Engine => "engine.auth",
         }
     }
 }
@@ -74,12 +79,23 @@ pub struct Client {
 pub const MAX_LINE: usize = 4 * 1024 * 1024;
 
 impl Client {
+    /// Connects with token auth; engine connections also identify as `harness-core`.
     pub fn connect(address: &str, token: &str, opts: ConnectOptions) -> Result<Client, RpcError> {
+        Self::connect_with_auth(address, default_auth_params(token, opts.endpoint), opts)
+    }
+
+    /// Connects with the endpoint's complete authentication params, including an engine client id or delegation.
+    /// Address and kernel peer checks run before any of these params are sent, just as in [`Client::connect`].
+    pub fn connect_with_auth(
+        address: &str,
+        params: Value,
+        opts: ConnectOptions,
+    ) -> Result<Client, RpcError> {
         // Audit M2: a unix socket must sit in a real `run/` directory of ours (not a symlink, no group/other write) and
         // belong to us, or nothing is connected and no token is sent.
         crate::trust::verify_address(address)?;
         let stream = transport_connect(address, opts.connect_timeout)?;
-        Self::handshake(stream, token, opts)
+        Self::handshake_with_auth(stream, params, opts)
     }
 
     /// Authenticates on a stream that is already connected ([`crate::transport::connect`]): the handshake of
@@ -88,6 +104,15 @@ impl Client {
     pub fn handshake(
         stream: Box<dyn Stream>,
         token: &str,
+        opts: ConnectOptions,
+    ) -> Result<Client, RpcError> {
+        Self::handshake_with_auth(stream, default_auth_params(token, opts.endpoint), opts)
+    }
+
+    /// Authenticates an already-connected stream with complete params after verifying the kernel peer identity.
+    pub fn handshake_with_auth(
+        stream: Box<dyn Stream>,
+        params: Value,
         opts: ConnectOptions,
     ) -> Result<Client, RpcError> {
         let mut client = Client {
@@ -113,7 +138,7 @@ impl Client {
             .reader
             .get_ref()
             .set_read_timeout(Some(opts.connect_timeout))?;
-        let raw = match client.call(method, json!({ "token": token })) {
+        let raw = match client.call(method, params) {
             Err(RpcError::Unavailable { reason, detail }) if reason == "call-timeout" => {
                 return Err(RpcError::Unavailable {
                     reason: "handshake-timeout".into(),
@@ -140,6 +165,7 @@ impl Client {
                 serde_json::from_value::<SupervisorAuthResult>(raw.clone()).map(drop)
             }
             Endpoint::Module => serde_json::from_value::<ModuleAuthResult>(raw.clone()).map(drop),
+            Endpoint::Engine => serde_json::from_value::<EngineAuthResult>(raw.clone()).map(drop),
         };
         shape.map_err(|e| RpcError::Protocol(format!("{method} result: {e}")))?;
         client
@@ -150,7 +176,7 @@ impl Client {
         Ok(client)
     }
 
-    /// The handshake result exactly as the server sent it (`core.auth`, `supervisor.auth` or `module.auth`).
+    /// The handshake result exactly as the server sent it (`core.auth`, `supervisor.auth`, `module.auth` or `engine.auth`).
     pub fn hello(&self) -> &Value {
         &self.hello
     }
@@ -284,6 +310,14 @@ impl Client {
     }
 }
 
+fn default_auth_params(token: &str, endpoint: Endpoint) -> Value {
+    if endpoint == Endpoint::Engine {
+        json!({ "token": token, "clientId": "harness-core" })
+    } else {
+        json!({ "token": token })
+    }
+}
+
 enum Line {
     Data(Vec<u8>),
     TooLong,
@@ -344,6 +378,58 @@ fn call_error(err: &Value) -> RpcError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A hostile endpoint must never observe any byte of a delegated credential.
+    #[test]
+    fn explicit_auth_params_are_not_written_before_kernel_peer_verification() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+        struct Untrusted(Arc<AtomicUsize>);
+        impl Read for Untrusted {
+            fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
+                Ok(0)
+            }
+        }
+        impl Write for Untrusted {
+            fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+                self.0.fetch_add(bytes.len(), Ordering::SeqCst);
+                Ok(bytes.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        impl Stream for Untrusted {
+            fn set_read_timeout(&self, _: Option<Duration>) -> std::io::Result<()> {
+                Ok(())
+            }
+            fn peer_pid(&self) -> Option<u32> {
+                Some(42)
+            }
+            #[cfg(unix)]
+            fn peer_uid(&self) -> Option<u32> {
+                // SAFETY: geteuid has no preconditions and cannot fail.
+                Some(unsafe { libc::geteuid() }.wrapping_add(1))
+            }
+        }
+        let writes = Arc::new(AtomicUsize::new(0));
+        let result = Client::handshake_with_auth(
+            Box::new(Untrusted(writes.clone())),
+            json!({"token": "core-secret", "engine": {"token": "engine-secret", "clientId": "memory-engine"}}),
+            ConnectOptions {
+                expected_server_pid: Some(1),
+                ..Default::default()
+            },
+        );
+        assert!(matches!(
+            result,
+            Err(RpcError::Call {
+                error: ErrorCode::EUnauthorized,
+                ..
+            })
+        ));
+        assert_eq!(writes.load(Ordering::SeqCst), 0);
+    }
 
     fn reason(r: Result<(), RpcError>) -> Option<String> {
         match r {

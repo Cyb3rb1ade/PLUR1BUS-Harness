@@ -193,6 +193,7 @@ fn probe(
     let address = match endpoint {
         Endpoint::Core => layout.endpoints(&Role::core(), platform).address,
         Endpoint::Supervisor => supervisor_address(&layout.home, platform),
+        Endpoint::Engine => crate::paths::address(&layout.home, platform, "engine"),
         // 1staid probes only the core and the supervisor (modules through the supervisor's view); a module's address
         // needs its name (Layout::endpoints).
         Endpoint::Module => {

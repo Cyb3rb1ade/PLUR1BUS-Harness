@@ -98,6 +98,7 @@ fn read_token_of(layout: &Layout, endpoint: Endpoint) -> Option<String> {
     let path = match endpoint {
         Endpoint::Core => layout.core_token(),
         Endpoint::Supervisor => layout.supervisor_token(),
+        Endpoint::Engine => layout.run().join("engine.token"),
         // A module's token file is per module (`Layout::endpoints`); nothing reads one through this helper.
         Endpoint::Module => return None,
     };

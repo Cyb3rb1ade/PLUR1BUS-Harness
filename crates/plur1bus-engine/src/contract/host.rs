@@ -96,6 +96,15 @@ pub struct Target {
 pub trait EgressGate: Send + Sync {
     /// Decide whether the target may be resolved and connected to.
     fn decide(&self, target: &Target) -> Decision;
+    /// Whether decisions may be cached between outbound hops.
+    ///
+    /// A host that permits caching must reliably invalidate cached decisions when
+    /// its policy changes. Hosts without that notification path return false so
+    /// every hop, including a redirect to the same origin, consults live policy.
+    /// This capability query must not perform I/O.
+    fn cache_decisions(&self) -> bool {
+        true
+    }
 }
 
 /// The policy decision for a single outbound hop.

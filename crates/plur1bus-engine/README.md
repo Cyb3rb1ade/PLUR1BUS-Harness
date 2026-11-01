@@ -1,5 +1,8 @@
 # plur1bus-engine
 
+The experimental process server and its current implementation limits are described in
+[Engine process](../../docs/engine-process.md) (RE-08 T2 / U1).
+
 The PLUR1BUS memory engine in Rust: the stores (LanceDB table `memories`, the SQLite caches, the working-memory files
 and the ledgers), the embedding and rerank providers, the recall and capture pipelines and the background jobs, run as
 one process under the harness supervisor (plan `docs/superpowers/plans/2026-10-23-rust-engine-rewrite.md` §2, briefs in
