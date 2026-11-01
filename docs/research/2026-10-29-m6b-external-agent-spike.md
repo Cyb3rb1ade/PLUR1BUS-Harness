@@ -1,6 +1,6 @@
 # M6-B spike: linked worktree sandbox and ACP client (2026-10-29)
 
-Status: spike note for Arbeitspaket Q, task B0. The Seatbelt run was on this Mac. Linux bubblewrap is covered by the containment tests on the Linux CI runner. No new npm dependency was added.
+Status: historical spike note for Arbeitspaket Q, task B0. The observations below do not establish current macOS ACP acceptance. Owner Variant B (2026-11-01) disables macOS ACP processes, terminals and probes before launch; Linux retains the provisioned-worktree opt-in. See [the current handoff](../handoffs/2026-11-01-r820-variant-b.md). No new npm dependency was added.
 
 ## Seatbelt and a linked worktree
 

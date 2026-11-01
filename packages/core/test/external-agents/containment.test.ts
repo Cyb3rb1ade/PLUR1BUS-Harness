@@ -40,10 +40,11 @@ test("filesystem writes stay in the worktree", async () => {
   await assert.rejects(containedWrite(box, join(worktree, "..", "outside.txt"), "x"), (e) => typeof reason(e) === "string");
   await assert.rejects(containedWrite(box, outside, "x"), (e) => reason(e) === "outside-root" || reason(e) === "deny-listed");
   await assert.rejects(containedWrite(box, join(home, "notes.txt"), "x"), (e) => reason(e) === "deny-listed" || reason(e) === "outside-root");
-  const target = join(root, "hard-target.txt");
+  const target = join(home, "config.json");
   writeFileSync(target, "a");
   try { linkSync(target, join(worktree, "hard")); } catch { return; }
-  await assert.rejects(containedWrite(box, join(worktree, "hard"), "b"), (e) => reason(e) === "hard-link");
+  await assert.rejects(containedWrite(box, join(worktree, "hard"), "b"), (e) => reason(e) === "deny-listed");
+  assert.equal(readFileSync(target, "utf8"), "a", "a hard-link alias cannot overwrite protected Harness configuration");
 });
 
 test("a worktree under the harness home stays writable and the rest of home does not", async () => {
@@ -74,13 +75,15 @@ test("windows name rules refuse 8.3 and device names through the same canonicali
   await assert.rejects(() => containedRead(box, join(worktree, "ok.txt:secret")), (e) => typeof reason(e) === "string");
 });
 
-test("terminal callbacks are refused on Windows and cannot write the shared gitdir", async () => {
-  const refused = await containedTerminal({ argv: ["/bin/true"], worktree: "/tmp", home: "/tmp", platform: "win32" });
-  assert.deepEqual(refused, { ok: false, reason: "sandbox-unavailable" });
-  if (process.platform === "win32") return;
+test("terminal callbacks refuse unsupported platforms and Linux cannot write the shared gitdir", async () => {
+  for (const platform of ["darwin", "win32"] as const) {
+    const refused = await containedTerminal({ argv: ["/bin/true"], worktree: "/tmp", home: "/tmp", platform });
+    assert.deepEqual(refused, { ok: false, reason: "sandbox-unavailable" });
+  }
+  if (process.platform !== "linux") return;
   const root = tempDir("m6b-term-");
   const { repo, worktree, home } = gitWorktree(root);
-  const touch = process.platform === "darwin" ? "/usr/bin/touch" : "/usr/bin/touch";
+  const touch = "/usr/bin/touch";
   const inside = await containedTerminal({ argv: [touch, join(worktree, "from-terminal.txt")], worktree, home, ...mountOptions(worktree) });
   assert.equal(inside.ok, true, JSON.stringify(inside));
   if (inside.ok) assert.equal(inside.exitCode, 0, inside.stderr);
@@ -89,7 +92,7 @@ test("terminal callbacks are refused on Windows and cannot write the shared gitd
   const denied = await containedTerminal({ argv: [touch, hook], worktree, home, ...mountOptions(worktree) });
   assert.equal(existsSync(hook), false);
   if (denied.ok) assert.notEqual(denied.exitCode, 0);
-  const git = process.platform === "darwin" ? "/usr/bin/git" : "/usr/bin/git";
+  const git = "/usr/bin/git";
   const cfg = await containedTerminal({ argv: [git, "-C", repo, "config", "core.hooksPath", "/tmp/evil"], worktree, home, ...mountOptions(worktree) });
   if (cfg.ok) assert.notEqual(cfg.exitCode, 0, cfg.stderr);
   let hooks = "";
@@ -99,7 +102,7 @@ test("terminal callbacks are refused on Windows and cannot write the shared gitd
 });
 
 test("the agent process itself confines direct filesystem and TCP access", { timeout: 30000 }, async t => {
-  if (process.platform === "win32") {
+  if (process.platform !== "linux") {
     await assert.rejects(launchExternalAgent({ argv: [process.execPath], cwd: "/missing" }), /sandbox-unavailable/);
     return;
   }
@@ -108,7 +111,7 @@ test("the agent process itself confines direct filesystem and TCP access", { tim
     t.skip(detection.reason);
     return;
   }
-  // Missing/disabled bwrap must fail on CI, where the runner installs it. macOS acceptance is mandatory too.
+  // Missing/disabled bwrap must fail on CI; unsupported hosts assert refusal before detection.
   assert.equal(detection.available, true, detection.reason);
   const root = tempDir("m6b-agent-process-");
   const { repo, worktree, home } = gitWorktree(root);

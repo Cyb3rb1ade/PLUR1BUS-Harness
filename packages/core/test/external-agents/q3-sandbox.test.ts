@@ -84,7 +84,7 @@ test("host Git ignores a replaced .git pointer and never executes a clean filter
 });
 
 test("terminals see an isolated HOME, deny Harness state and run real Git commands", async () => {
-  if (process.platform === "win32") {
+  if (process.platform !== "linux") {
     assert.deepEqual(await containedTerminal({ argv: ["cmd.exe"], home: "/missing", worktree: "/missing" }), { ok: false, reason: "sandbox-unavailable" });
     return;
   }
@@ -113,11 +113,9 @@ for (const [name, argv] of [
   ["open", ["/usr/bin/open", "-a", "Terminal"]],
   ["osascript", ["/usr/bin/osascript", "-e", 'tell application "Finder" to get name']],
 ] as const) {
-  test(`macOS ${name} cannot escape the shared Seatbelt profile`, async () => {
-    if (process.platform !== "darwin") return;
+  test(`macOS ACP ${name} is refused before launch`, async () => {
     const f = fixture();
-    const result = await containedTerminal({ ...f.options, argv });
-    assert.equal(result.ok, true, JSON.stringify(result));
-    if (result.ok) assert.notEqual(result.exitCode, 0, JSON.stringify({ argv, result }));
+    const result = await containedTerminal({ ...f.options, argv, platform: "darwin" });
+    assert.deepEqual(result, { ok: false, reason: "sandbox-unavailable" });
   });
 }

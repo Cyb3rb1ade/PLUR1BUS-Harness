@@ -46,11 +46,13 @@ test("an existing hard link refuses the terminal and leaves the outside file unc
     worktree, home, ...mountOptions(worktree),
     log: (event, fields) => logs.push({ event, ...(fields ? { fields } : {}) }),
   });
-  assert.deepEqual(result, { ok: false, reason: "hardlink-in-worktree" });
+  assert.deepEqual(result, { ok: false, reason: process.platform === "linux" ? "hardlink-in-worktree" : "sandbox-unavailable" });
   assert.equal(readFileSync(outside, "utf8"), "safe");
-  assert.equal(logs[0]?.event, "hardlink-in-worktree");
-  assert.equal(logs[0]?.fields?.count, 1);
-  assert.equal(logs[0]?.fields?.path, "hard");
+  if (process.platform === "linux") {
+    assert.equal(logs[0]?.event, "hardlink-in-worktree");
+    assert.equal(logs[0]?.fields?.count, 1);
+    assert.equal(logs[0]?.fields?.path, "hard");
+  } else assert.equal(logs.length, 0, "unsupported hosts refuse before inspecting the worktree");
   assert.equal(findHardlink(worktree)?.path, "hard");
 });
 
@@ -74,14 +76,9 @@ catch (e) { console.log(e.code); }
     const system = await run("/etc/passwd");
     assert.equal(system.ok, true);
     if (system.ok) assert.match(system.stdout, /EXDEV/);
-  } else if (process.platform === "darwin") {
-    const created = await run(outside);
-    assert.equal(created.ok, true, JSON.stringify(created));
-    if (created.ok) assert.match(created.stdout, /EPERM/);
-    assert.equal(existsSync(dst), false);
   } else {
-    const refused = await containedTerminal({ argv: [process.execPath, script], worktree, home, ...mountOptions(worktree), platform: "win32" });
-    assert.deepEqual(refused, { ok: false, reason: "sandbox-unavailable" });
+    assert.deepEqual(await run(outside), { ok: false, reason: "sandbox-unavailable" });
+    assert.equal(existsSync(dst), false);
   }
   assert.equal(readFileSync(outside, "utf8"), "safe");
 });
@@ -131,13 +128,19 @@ child.on("exit", (code) => {
 });
 `);
   const result = await containedTerminal({ argv: [process.execPath, script], worktree, home, ...mountOptions(worktree), timeoutMs: 60_000 });
+  if (process.platform !== "linux") {
+    assert.deepEqual(result, { ok: false, reason: "sandbox-unavailable" });
+    assert.equal(existsSync(join(worktree, "node_modules")), false);
+    assert.equal(existsSync(join(worktree, "dist")), false);
+    return;
+  }
   assert.equal(result.ok && result.exitCode, 0, JSON.stringify(result));
   assert.ok(result.ok && /42/.test(result.stdout), JSON.stringify(result));
   assert.doesNotMatch(readFileSync(join(worktree, "dist", "index.mjs"), "utf8"), /: number/);
   const installed = join(worktree, "node_modules", "tiny-lib", "index.js");
   // Owner #820 Q3: Linux checks every alias before EACH mount. Same-run internal links are possible;
-  // macOS denies file-link entirely. Neither backend permits linking an external source.
-  assert.equal(statSync(installed).nlink, process.platform === "linux" ? 2 : 1);
+  // Unsupported hosts refuse before pnpm starts; Linux never permits linking an external source.
+  assert.equal(statSync(installed).nlink, 2);
   if (process.platform === "linux") assert.deepEqual(
     await containedTerminal({ argv: ["/usr/bin/true"], worktree, home, ...mountOptions(worktree) }),
     { ok: false, reason: "hardlink-in-worktree" },

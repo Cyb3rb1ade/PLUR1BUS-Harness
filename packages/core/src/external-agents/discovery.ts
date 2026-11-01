@@ -6,7 +6,7 @@ import { delimiter, join } from "node:path";
 import { AcpClient, AcpClientError } from "./acp-client.ts";
 import type { ConnectorId } from "./engine.ts";
 import type { WatchdogDetail } from "./watchdog-detail.ts";
-import { launchExternalAgent, LaunchError, type LaunchHandle } from "./launcher.ts";
+import { acpPlatformAvailable, launchExternalAgent, LaunchError, type LaunchHandle } from "./launcher.ts";
 
 export interface ConnectorDescriptor {
   id: ConnectorId;
@@ -56,7 +56,7 @@ export async function discoverConnectors(o: {
       out.push({ id: descriptor.id, effort: descriptor.effort, bin: null, version: null, protocol: "unprobed", login });
       continue;
     }
-    if (platform === "win32") {
+    if (!acpPlatformAvailable(platform)) {
       out.push({ id: descriptor.id, effort: descriptor.effort, bin, version: null, protocol: "unprobed", reason: "sandbox-unavailable", login });
       continue;
     }

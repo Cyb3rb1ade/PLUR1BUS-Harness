@@ -2,7 +2,7 @@
 // The terminal sandbox keeps the worktree writable and the shared gitdir read-only. Windows has no backend.
 import type { WatchdogDetail } from "./watchdog-detail.ts";
 import { homedir } from "node:os";
-import { launchExternalAgent, TRUSTED_PATH } from "./launcher.ts";
+import { acpPlatformAvailable, launchExternalAgent, TRUSTED_PATH } from "./launcher.ts";
 import type { AcpWorktreeMount } from "../tools/sandbox/acp-worktree.ts";
 import { constants as fsc, openSync, closeSync, fstatSync, readSync, existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
@@ -195,7 +195,7 @@ export async function containedTerminal(o: {
   onOutput?(output: string, truncated: boolean): void;
   log?: (event: string, fields?: Record<string, number | string>) => void;
 }): Promise<TerminalResult | TerminalRefusal> {
-  if ((o.platform ?? process.platform) === "win32") return { ok: false, reason: "sandbox-unavailable" };
+  if (!acpPlatformAvailable(o.platform)) return { ok: false, reason: "sandbox-unavailable" };
   try {
     o.signal?.throwIfAborted();
     const hit = findHardlink(o.worktree);

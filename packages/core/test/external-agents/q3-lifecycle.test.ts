@@ -1,7 +1,7 @@
 /** Handwritten agent-side v1 requests exercise real terminal containment and run cleanup. */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { test } from "node:test";
@@ -15,7 +15,6 @@ import { tempDir } from "../helpers/temp-dir.ts";
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 test("v1 terminals stream bounded output, enforce four slots, release and stop at run end; memory stays off wire", async () => {
-  if (process.platform === "win32") return;
   const root = tempDir("q3-lifecycle-");
   const home = join(root, "home"), repo = join(root, "repo");
   mkdirSync(repo);
@@ -40,6 +39,13 @@ test("v1 terminals stream bounded output, enforce four slots, release and stop a
   let failure: unknown;
   let leftover = "";
   const scenario = async () => {
+    if (process.platform !== "linux") {
+      const terminalId = await terminal("require('fs').writeFileSync('must-not-start','bad')");
+      await assert.rejects(request("terminal/wait_for_exit", { terminalId }), /sandbox-unavailable/);
+      await request("terminal/release", { terminalId });
+      assert.equal(existsSync(join(worktree, "must-not-start")), false);
+      return;
+    }
     const ids: string[] = [];
     for (let i = 0; i < 4; i++) ids.push(await terminal(`let n=0;setInterval(()=>{require('fs').writeFileSync('heartbeat-${i}',String(++n));process.stdout.write('x'.repeat(100))},20)`));
     await assert.rejects(terminal(""), /terminal-limit/);
@@ -97,8 +103,10 @@ test("v1 terminals stream bounded output, enforce four slots, release and stop a
     if (failure) throw failure;
     assert.equal(wire.length, 3);
     assert.doesNotMatch(wire.join("\n"), /MEMORY-MARKER|memoryExposure/);
-    const final = readFileSync(leftover, "utf8");
-    await delay(100);
-    assert.equal(readFileSync(leftover, "utf8"), final);
+    if (process.platform === "linux") {
+      const final = readFileSync(leftover, "utf8");
+      await delay(100);
+      assert.equal(readFileSync(leftover, "utf8"), final);
+    }
   } finally { sessions.close(); }
 });

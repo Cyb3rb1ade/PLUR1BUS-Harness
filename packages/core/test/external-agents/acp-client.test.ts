@@ -171,19 +171,24 @@ test("the child process does not inherit a parent secret and Windows is refused"
   const previous = process.env.SUPER_SECRET;
   process.env.SUPER_SECRET = "hunter2";
   try {
-    const handle = await launchExternalAgent({ argv: [process.execPath, "-e", "process.stdout.write(JSON.stringify(process.env))"], cwd, probe: true, limitsHelper, timeoutMs: 10_000 });
-    let out = "";
-    handle.stdout.on("data", (chunk: Buffer) => { out += chunk.toString("utf8"); });
-    await handle.exited;
-    const env = JSON.parse(out) as Record<string, string>;
-    assert.equal(env.SUPER_SECRET, undefined);
-    assert.equal("P1B_SECRET" in env, false);
+    if (process.platform !== "linux") {
+      await assert.rejects(launchExternalAgent({ argv: [process.execPath, "-e", "process.stdout.write(JSON.stringify(process.env))"], cwd, probe: true, limitsHelper }),
+        (error: unknown) => error instanceof LaunchError && error.reason === "sandbox-unavailable");
+    } else {
+      const handle = await launchExternalAgent({ argv: [process.execPath, "-e", "process.stdout.write(JSON.stringify(process.env))"], cwd, probe: true, limitsHelper, timeoutMs: 10_000 });
+      let out = "";
+      handle.stdout.on("data", (chunk: Buffer) => { out += chunk.toString("utf8"); });
+      await handle.exited;
+      const env = JSON.parse(out) as Record<string, string>;
+      assert.equal(env.SUPER_SECRET, undefined);
+      assert.equal("P1B_SECRET" in env, false);
+    }
   } finally {
     if (previous === undefined) delete process.env.SUPER_SECRET;
     else process.env.SUPER_SECRET = previous;
   }
   await assert.rejects(() => launchExternalAgent({ argv: [process.execPath, "-e", ""], cwd, platform: "win32" }), (e: unknown) => e instanceof LaunchError && e.reason === "sandbox-unavailable");
-  await assert.rejects(() => launchExternalAgent({ argv: ["/bin/bash", "-lc", "true"], cwd, probe: true }), (e: unknown) => e instanceof LaunchError && e.reason === "argv");
+  await assert.rejects(() => launchExternalAgent({ argv: ["/bin/bash", "-lc", "true"], cwd, probe: true }), (e: unknown) => e instanceof LaunchError && e.reason === (process.platform === "linux" ? "argv" : "sandbox-unavailable"));
 });
 
 test("a tool call in an acp-agent session is decided as subject acp-agent", async () => {
@@ -268,6 +273,15 @@ test("delegate_task runs the stub in the worktree, asks a person, and refuses an
     writeFileSync(join(fork.path, "stub.cjs"), stubSource(outside));
     provisioned = { root: () => fork.path };
     const handle = collab.delegate({ principal: who, projectId: project.id, fromAgent: "lead", toAgent: "coder", task: "write a note", acceptanceCriteria: "note exists" });
+    if (process.platform !== "linux") {
+      const task = await handle.done;
+      assert.equal(task.status, "failed");
+      assert.match(task.error ?? "", /sandbox-unavailable/);
+      assert.equal(readOrNull(join(fork.path, "note.txt")), null);
+      assert.equal(readOrNull(outside), null);
+      assert.equal(approvals.service.list({ status: "pending" }).length, 0);
+      return;
+    }
     const requested = await Promise.race([
       handle.done.then((task) => { throw new Error(task.error ?? task.status); }),
       waitEvent(approvals),

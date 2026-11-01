@@ -18,7 +18,6 @@ import { tempDir } from "../helpers/temp-dir.ts";
 import { limitsHelper } from "./fixture.ts";
 
 test("live tools.sandbox.maxTasks=2 reaches wired ACP terminal containment", async () => {
-  if (process.platform === "win32") return;
   const temp = tempDir("q3-config-");
   const home = join(temp, "home");
   const state = join(home, "state"), repo = join(temp, "repo");
@@ -51,9 +50,9 @@ test("live tools.sandbox.maxTasks=2 reaches wired ACP terminal containment", asy
     finally { clearInterval(timer); }
   };
   const scenario = async () => {
-    if (process.platform === "darwin") {
-      const terminalId = await create("/usr/bin/perl", ["-e", "for(1..4){if(fork()==0){sleep 2;exit 0}}sleep 2"]);
-      await assert.rejects(request("terminal/wait_for_exit", { terminalId }), /task-limit-exceeded/);
+    if (process.platform !== "linux") {
+      const terminalId = await create("/usr/bin/true", []);
+      await assert.rejects(request("terminal/wait_for_exit", { terminalId }), /sandbox-unavailable/);
     } else {
       const terminalId = await create("/usr/bin/cat", ["/proc/self/limits"]);
       assert.equal((await request("terminal/wait_for_exit", { terminalId })).exitCode, 0);
@@ -91,13 +90,16 @@ test("live tools.sandbox.maxTasks=2 reaches wired ACP terminal containment", asy
 
 
 test("configured ACP deadlines above ten minutes are preserved and bounded at one hour", async t => {
-  if (process.platform === "win32") return;
   const { readEngine } = await import("../../src/external-agents/engine.ts");
   const { launchExternalAgent } = await import("../../src/external-agents/launcher.ts");
   assert.equal(readEngine({ engine: { kind: "external", connector: "agy", timeoutMs: 1800000 } })?.connector, "agy");
   assert.deepEqual(readEngine({ engine: { kind: "external", connector: "agy", timeoutMs: 3600001 } }), { kind: "external", connector: null });
   const cwd = tempDir("q3-timeout-");
   await assert.rejects(launchExternalAgent({ argv: ["/usr/bin/sleep", "3600"], cwd, probe: true, timeoutMs: 3600001 }), /sandbox-unavailable/);
+  if (process.platform !== "linux") {
+    await assert.rejects(launchExternalAgent({ argv: ["/usr/bin/sleep", "3600"], cwd, probe: true, limitsHelper, timeoutMs: 1800000 }), /sandbox-unavailable/);
+    return;
+  }
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const handle = await launchExternalAgent({ argv: ["/usr/bin/sleep", "3600"], cwd, probe: true, limitsHelper, timeoutMs: 1800000 });
   try {

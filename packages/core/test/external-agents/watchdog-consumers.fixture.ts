@@ -49,6 +49,8 @@ let launchCalls = 0;
 const launcher = await import("../../src/external-agents/launcher.ts");
 mock.module(new URL("../../src/external-agents/launcher.ts", import.meta.url).href, { namedExports: {
   ...launcher,
+  // This fixture tests diagnostic consumers without a native launch on any host.
+  acpPlatformAvailable: () => true,
   launchExternalAgent: async (o: { argv: string[] }) => { launchCalls++; return failedHandle(trustedDiscovery, o.argv.includes("--version")); },
 } });
 const { ExternalDelegationTarget, externalRunLink } = await import("../../src/external-agents/delegation.ts");

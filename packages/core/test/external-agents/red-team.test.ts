@@ -54,7 +54,7 @@ test("an existing hard link refuses terminal/create and outside.txt stays safe",
   const { worktree, home, outside } = gitWorktree(root);
   linkSync(outside, join(worktree, "hard"));
   const result = await containedTerminal({ argv: ["/usr/bin/true"], worktree, home, ...mountOptions(worktree) });
-  assert.deepEqual(result, { ok: false, reason: "hardlink-in-worktree" });
+  assert.deepEqual(result, { ok: false, reason: process.platform === "linux" ? "hardlink-in-worktree" : "sandbox-unavailable" });
   assert.equal(readFileSync(outside, "utf8"), "safe");
 });
 
@@ -68,10 +68,10 @@ try { fs.linkSync(src, dst); console.log("OK"); }
 catch (e) { console.log(e.code); }
 `);
   const dst = join(worktree, "new-hard");
-  if (process.platform === "win32") {
-    const refused = await containedTerminal({ argv: [process.execPath, script, outside, dst], worktree, home, ...mountOptions(worktree), platform: "win32" });
+  if (process.platform !== "linux") {
+    const refused = await containedTerminal({ argv: [process.execPath, script, outside, dst], worktree, home, ...mountOptions(worktree) });
     assert.deepEqual(refused, { ok: false, reason: "sandbox-unavailable" });
-  } else if (process.platform === "linux") {
+  } else {
     const hidden = join(root, "not-mounted.txt");
     writeFileSync(hidden, "safe");
     const missing = await containedTerminal({ argv: [process.execPath, script, hidden, dst], worktree, home, ...mountOptions(worktree), timeoutMs: 15_000 });
@@ -80,23 +80,14 @@ catch (e) { console.log(e.code); }
     const system = await containedTerminal({ argv: [process.execPath, script, "/etc/passwd", dst], worktree, home, ...mountOptions(worktree), timeoutMs: 15_000 });
     assert.equal(system.ok, true, JSON.stringify(system));
     if (system.ok) assert.match(system.stdout, /EXDEV/);
-  } else {
-    const created = await containedTerminal({ argv: [process.execPath, script, outside, dst], worktree, home, ...mountOptions(worktree), timeoutMs: 15_000 });
-    assert.equal(created.ok, true, JSON.stringify(created));
-    if (created.ok) assert.match(created.stdout, /EPERM/);
-    const device = join(worktree, "dev");
-    const dev = await containedTerminal({ argv: [process.execPath, script, "/dev/null", device], worktree, home, ...mountOptions(worktree), timeoutMs: 15_000 });
-    assert.equal(dev.ok, true, JSON.stringify(dev));
-    if (dev.ok) assert.match(dev.stdout, /EPERM|EXDEV|EINVAL/);
-    assert.equal(existsSync(device), false);
   }
   assert.equal(existsSync(dst), false);
   assert.equal(readFileSync(outside, "utf8"), "safe");
 });
 
 test("terminal cannot write hooks or retarget core.hooksPath", async () => {
-  if (process.platform === "win32") {
-    const refused = await containedTerminal({ argv: ["/usr/bin/true"], worktree: "/tmp", home: "/tmp", platform: "win32" });
+  if (process.platform !== "linux") {
+    const refused = await containedTerminal({ argv: ["/usr/bin/true"], worktree: "/tmp", home: "/tmp" });
     assert.deepEqual(refused, { ok: false, reason: "sandbox-unavailable" });
     return;
   }
