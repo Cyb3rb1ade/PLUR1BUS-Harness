@@ -6,6 +6,8 @@ import { collaborationTools } from '../../src/tools/collaboration.ts';
 import { ToolRegistry } from '../../src/tools/registry.ts';
 import { delegationWorkBudget } from '../../src/collab/limits.ts';
 import { TurnDelegations } from '../../src/collab/delegations.ts';
+import { RetryBudget } from "../../src/budget/retry.ts";
+import { SessionModelRouting } from "../../src/composition/model-routing.ts";
 import { CollabError } from '../../src/collab/errors.ts';
 import { SessionStore } from '../../src/session/store.ts';
 import { Compactor } from '../../src/session/compaction.ts';
@@ -237,20 +239,57 @@ for (const cancelBeforeEmission of [false, true]) test(`standalone stream delive
   assert.equal(!!failure, cancelBeforeEmission);
 });
 
-test('closing a standalone stream after its task handle retains unseen child output and completes cleanup', async () => {
+test('closing a standalone stream after its task handle retains unseen child output and completes cleanup', async t => {
   const person = owner();
+  const endTurn = t.mock.method(RetryBudget.prototype, "endTurn");
+  const finished: boolean[] = [];
+  const endReasons: string[] = [];
+  const routing = new SessionModelRouting({
+    agent: () => ({ model: "default", modelPolicy: { mode: "fixed", tiers: ["default"], perTurn: false } }),
+    decision() {
+      throw new Error("fixed routing must not request a decision");
+    },
+    localOnly: () => false,
+    isLocal: () => true,
+  });
+  const select = routing.select.bind(routing);
+  t.mock.method(routing, "select", async (...args: Parameters<typeof select>) => {
+    const selection = await select(...args);
+    assert.ok(selection);
+    const finish = selection.finish;
+    selection.finish = success => {
+      finished.push(success);
+      finish(success);
+    };
+    return selection;
+  });
   let children: TurnDelegations | undefined;
   const collab = createCollab({ path: ':memory:', runner: { async run() { return { text: 'unseen retained evidence', inputTokens: 1, outputTokens: 1 }; } } });
   tmp.onCleanup(() => collab.shutdown());
   const project = collab.createProject(person, { name: 'Close after handle' });
   for (const agent of ['a1', 'peer']) collab.addAgent(person, project.id, agent);
   const script = scriptedAdapter([{ calls: [{ id: 'launch', name: 'consult_agent', args: { projectId: project.id, toAgent: 'peer', objective: 'inspect', wait: false } }] }]);
-  const fixture = turnFixture(script.adapter, { topK: 100, toolsForTurn: async request => {
-    children = request.delegations;
-    const registry = new ToolRegistry();
-    for (const tool of collaborationTools({ collab, enabled: () => true, principal: () => person, authority: { approvals: { get: () => undefined }, grants: { get: () => undefined }, audit() {}, now: Date.now } }, request)) registry.register(tool);
-    return registry;
-  } }, tmp.make());
+  const fixture = turnFixture(script.adapter, {
+    topK: 100,
+    modelRouting: routing,
+    onTelemetry: (_request, telemetry) => {
+      endReasons.push(telemetry.endReason);
+    },
+    toolsForTurn: async request => {
+      children = request.delegations;
+      const registry = new ToolRegistry();
+      const tools = collaborationTools({
+        collab,
+        enabled: () => true,
+        principal: () => person,
+        authority: {
+          approvals: { get: () => undefined }, grants: { get: () => undefined }, audit() {}, now: Date.now,
+        },
+      }, request);
+      for (const tool of tools) registry.register(tool);
+      return registry;
+    },
+  }, tmp.make());
   tmp.onCleanup(fixture.close);
   const stream = fixture.provider.stream(turnRequest({ principal: person.userId, approver: { person: person.userId, surface: 1 } }))[Symbol.asyncIterator]();
   while (true) {
@@ -261,10 +300,120 @@ test('closing a standalone stream after its task handle retains unseen child out
       break;
     }
   }
+  assert.equal(endTurn.mock.callCount(), 0);
+  assert.deepEqual(finished, []);
+  assert.deepEqual(endReasons, []);
   const closed = await stream.return!();
   assert.equal(closed.done, true);
+  assert.deepEqual(endTurn.mock.calls.map(call => call.arguments), [["t1"]]);
+  assert.deepEqual(finished, [false], "closing must finish the routing selection as unsuccessful");
+  assert.deepEqual(endReasons, ["cancelled"], "closing must publish final telemetry once");
   const retained = await children!.finish();
   assert.equal(retained.length, 1);
   assert.match(retained[0]!.result!.summary, /unseen retained evidence/);
   assert.deepEqual(await children!.finish(), []);
+});
+
+test("the session-owned dispatcher releases a child claim on persistence failure and commits its retry once", async () => {
+  const person = owner();
+  const children = new TurnDelegations();
+  let runs = 0;
+  const collab = createCollab({
+    path: ":memory:",
+    runner: {
+      async run() {
+        runs++;
+        return { text: "session-dispatched child evidence", inputTokens: 1, outputTokens: 1 };
+      },
+    },
+  });
+  tmp.onCleanup(() => collab.shutdown());
+  const project = collab.createProject(person, { name: "Session dispatcher receipt" });
+  for (const agent of ["a1", "peer"]) collab.addAgent(person, project.id, agent);
+  const store = new SessionStore({ path: ":memory:" });
+  tmp.onCleanup(() => store.close());
+  const session = store.createSession({ kind: "direct", agentId: "a1", owner: person.userId });
+  const registry = new ToolRegistry();
+  const request = turnRequest({ sessionId: session.id, principal: person.userId, delegations: children });
+  const tools = collaborationTools({
+    collab,
+    enabled: () => true,
+    principal: () => person,
+    authority: {
+      approvals: { get: () => undefined }, grants: { get: () => undefined }, audit() {}, now: Date.now,
+    },
+  }, request);
+  for (const tool of tools) registry.register(tool);
+  const dispatcher = new ToolDispatcher({
+    registry,
+    grants: { list: () => [], get: () => undefined },
+    clock: { now: Date.now },
+    approvals: {
+      async request() {
+        throw new Error("unexpected approval");
+      },
+    },
+  });
+  const context = {
+    agentId: session.agentId, principal: person.userId,
+    sessionId: session.id, surface: 1 as const, signal: request.signal,
+  };
+  const launch = await dispatcher.call({
+    id: "launch", name: "consult_agent",
+    args: { projectId: project.id, toAgent: "peer", objective: "inspect", wait: false },
+  }, context);
+  assert.equal(launch.isError, false);
+  const taskId = (launch.value as { taskId: string }).taskId;
+  assert.equal(typeof taskId, "string");
+  const append = store.appendEvent.bind(store);
+  let failedAppend = false;
+  store.appendEvent = (...args) => {
+    if (!failedAppend && args[1] === "tool.result") {
+      assert.match(String(args[2].output), /session-dispatched child evidence/, "persistence must receive the claimed child");
+      failedAppend = true;
+      throw new Error("child result persistence unavailable once");
+    }
+    return append(...args);
+  };
+  const runner = new TurnRunner({
+    store,
+    compactor: new Compactor(store),
+    memory: {
+      async recall() {
+        return { text: "", degraded: null };
+      },
+      async capture() {},
+      async checkpoint() {},
+    },
+    provider: () => ({
+      id: "collection-retry",
+      async *stream() {
+        yield {
+          type: "tool.call" as const, id: "collect", name: "await_delegations",
+          args: { taskIds: [taskId], timeoutMs: 1000 },
+        };
+      },
+    }),
+    toolCalls: { dispatcher, context: () => context },
+  });
+  const submit = () => runner.submit({
+    session, caller: { channel: "cli", accountId: "account", userId: person.userId }, text: "collect the owned child",
+  }).done;
+  const failed = await submit();
+  assert.equal(failed.state, "failed");
+  assert.equal(failed.error, "child result persistence unavailable once");
+  assert.equal(failedAppend, true);
+  assert.deepEqual(store.listEvents(session.id).filter(event => event.type === "tool.result"), []);
+  assert.equal((await submit()).state, "completed");
+  assert.equal((await submit()).state, "completed");
+  const collected = store.listEvents(session.id)
+    .filter(event => event.type === "tool.result")
+    .map(event => JSON.parse(String(event.data.output)));
+  assert.equal(collected.length, 2);
+  assert.equal(collected[0].value.results.length, 1, "failed persistence must release the claim for retry");
+  assert.equal(collected[0].value.results[0].taskId, taskId);
+  assert.match(JSON.stringify(collected[0].value.results[0]), /session-dispatched child evidence/);
+  assert.deepEqual(collected[1].value.results, [], "successful persistence must consume the claim exactly once");
+  assert.equal(runs, 1, "collection retries must not rerun the child");
+  assert.deepEqual(await children.finish(), []);
 });
