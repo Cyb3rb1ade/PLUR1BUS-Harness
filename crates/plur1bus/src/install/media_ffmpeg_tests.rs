@@ -1,6 +1,6 @@
-//! Fixed argv, consent and filesystem discovery tests; fake executables never invoke a package manager.
+//! Filesystem-only discovery and manual guidance; no installer process may run.
 use super::*;
-use std::cell::Cell;
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 struct Directory(PathBuf);
@@ -36,63 +36,18 @@ impl Drop for Directory {
 }
 
 #[test]
-fn package_plans_keep_fixed_argv_and_leave_os_approval_interactive() {
-    for (manager, program, args, command) in [
-        (
-            Manager::Brew,
-            "brew",
-            vec!["install", "ffmpeg"],
-            "brew install ffmpeg",
-        ),
-        (
-            Manager::Apt,
-            "sudo",
-            vec!["apt", "install", "ffmpeg"],
-            "sudo apt install ffmpeg",
-        ),
-        (
-            Manager::Dnf,
-            "sudo",
-            vec!["dnf", "install", "ffmpeg"],
-            "sudo dnf install ffmpeg",
-        ),
-        (
-            Manager::Pacman,
-            "sudo",
-            vec!["pacman", "-S", "ffmpeg"],
-            "sudo pacman -S ffmpeg",
-        ),
-        (
-            Manager::Zypper,
-            "sudo",
-            vec!["zypper", "install", "ffmpeg"],
-            "sudo zypper install ffmpeg",
-        ),
+fn manual_commands_are_fixed_for_each_supported_manager() {
+    for (manager, command) in [
+        (Manager::Brew, "brew install ffmpeg"),
+        (Manager::Apt, "sudo apt install ffmpeg"),
+        (Manager::Dnf, "sudo dnf install ffmpeg"),
+        (Manager::Pacman, "sudo pacman -S ffmpeg"),
+        (Manager::Zypper, "sudo zypper install ffmpeg"),
         (
             Manager::Winget,
-            "winget",
-            vec![
-                "install",
-                "--id",
-                "Gyan.FFmpeg",
-                "--exact",
-                "--source",
-                "winget",
-            ],
             "winget install --id Gyan.FFmpeg --exact --source winget",
         ),
     ] {
-        let plan = Plan {
-            manager,
-            executable: manager.name().into(),
-            fake: false,
-        };
-        let (actual_program, actual_args) = plan.invocation(Some(Path::new("sudo"))).unwrap();
-        assert_eq!(actual_program, Path::new(program));
-        assert_eq!(
-            actual_args,
-            args.iter().map(OsString::from).collect::<Vec<_>>()
-        );
         assert_eq!(manager.command(), command);
     }
 }
@@ -151,7 +106,7 @@ fn discovery_chooses_only_the_current_platforms_package_manager() {
         ("windows", Manager::Winget),
     ] {
         let inspection = inspect_with(platform, dir.0.as_os_str(), "", None);
-        assert_eq!(inspection.plan.unwrap().manager, expected);
+        assert_eq!(inspection.manual_commands, [expected.command()]);
     }
 }
 
@@ -196,17 +151,18 @@ fn fake_executable_override_requires_the_explicit_test_gate() {
         "unused",
     );
     for gate in [None, Some(OsStr::new("0")), Some(OsStr::new("true"))] {
-        assert!(test_plan(gate, Some(OsStr::new("apt")), Some(executable.as_os_str())).is_none());
+        assert!(
+            test_manager(gate, Some(OsStr::new("apt")), Some(executable.as_os_str())).is_none()
+        );
     }
-    let plan = test_plan(
+    let plan = test_manager(
         Some(OsStr::new("1")),
         Some(OsStr::new("apt")),
         Some(executable.as_os_str()),
     )
     .unwrap();
-    assert!(plan.fake);
-    assert_eq!(plan.executable, executable);
-    assert!(test_plan(
+    assert_eq!(plan, Manager::Apt);
+    assert!(test_manager(
         Some(OsStr::new("1")),
         Some(OsStr::new("sh")),
         Some(executable.as_os_str())
@@ -215,136 +171,88 @@ fn fake_executable_override_requires_the_explicit_test_gate() {
 }
 
 #[cfg(unix)]
-fn fake_inspection(dir: &Directory, script: &str) -> Inspection {
-    let executable = dir.executable("fake-package-manager", script);
-    let plan = test_plan(
-        Some(OsStr::new("1")),
-        Some(OsStr::new("apt")),
-        Some(executable.as_os_str()),
-    )
-    .unwrap();
-    inspect_with("linux", dir.0.as_os_str(), "ID=debian\n", Some(plan))
-}
-
-#[cfg(unix)]
 #[test]
-fn unattended_setup_never_prompts_or_launches_the_fake_manager() {
-    let dir = Directory::new();
-    let inspection = fake_inspection(&dir, "#!/bin/sh\nexit 99\n");
-    let outcome = offer(inspection, false, |_| {
-        panic!("unattended install asked for consent")
-    });
-    assert_eq!(outcome.state, "non-interactive");
-    assert!(!outcome.available);
-    assert_eq!(outcome.manual_commands, ["sudo apt install ffmpeg"]);
-}
-
-#[cfg(unix)]
-#[test]
-fn declined_install_never_executes_the_fake_manager() {
-    let dir = Directory::new();
-    let marker = dir.0.join("called");
-    let inspection = fake_inspection(&dir, &format!("#!/bin/sh\n: > '{}'\n", marker.display()));
-    let asked = Cell::new(false);
-    let outcome = offer(inspection, true, |question| {
-        asked.set(true);
-        assert!(question.contains("sudo apt install ffmpeg"));
-        false
-    });
-    assert!(asked.get());
-    assert_eq!(outcome.state, "declined");
-    assert!(!marker.exists());
-}
-
-#[cfg(unix)]
-#[test]
-fn accepted_install_runs_only_fixed_arguments_then_rechecks_ffmpeg() {
-    let dir = Directory::new();
-    let arguments = dir.0.join("arguments");
-    let ffmpeg = dir.0.join("ffmpeg");
-    let inspection = fake_inspection(
-        &dir,
-        &format!(
-            "#!/bin/sh\nprintf '%s\\n' \"$@\" > '{}'\n: > '{}'\n/bin/chmod 700 '{}'\n",
-            arguments.display(),
-            ffmpeg.display(),
-            ffmpeg.display()
-        ),
-    );
-    let outcome = offer(inspection, true, |_| true);
-    assert_eq!(outcome.state, "installed");
-    assert!(outcome.available);
-    assert_eq!(fs::read_to_string(arguments).unwrap(), "install\nffmpeg\n");
-}
-
-#[cfg(unix)]
-#[test]
-fn package_failure_keeps_photos_available_and_returns_the_manual_command() {
-    let dir = Directory::new();
-    for code in [1, 126] {
-        let inspection = fake_inspection(&dir, &format!("#!/bin/sh\nexit {code}\n"));
-        let outcome = offer(inspection, true, |_| true);
-        assert_eq!(outcome.state, "install-failed");
-        assert!(!outcome.available);
-        assert_eq!(outcome.manual_commands, ["sudo apt install ffmpeg"]);
+fn test_manager_override_remains_read_only_even_when_it_would_succeed_or_fail() {
+    for code in [0, 1, 126] {
+        let dir = Directory::new();
+        let marker = dir.0.join("executed");
+        let executable = dir.executable(
+            "fake-package-manager",
+            &format!("#!/bin/sh\n: > '{}'\nexit {code}\n", marker.display()),
+        );
+        let manager = test_manager(
+            Some(OsStr::new("1")),
+            Some(OsStr::new("apt")),
+            Some(executable.as_os_str()),
+        )
+        .unwrap();
+        for interactive in [true, false] {
+            let outcome = guidance(
+                inspect_with("linux", dir.0.as_os_str(), "", Some(manager)),
+                interactive,
+            );
+            assert!(!outcome.available);
+            assert_eq!(outcome.manual_commands, ["sudo apt install ffmpeg"]);
+            assert_eq!(
+                outcome.state,
+                if interactive {
+                    "manual"
+                } else {
+                    "non-interactive"
+                }
+            );
+            assert!(
+                !marker.exists(),
+                "the test seam must not enable an installation path"
+            );
+        }
     }
 }
 
-#[cfg(unix)]
 #[test]
-fn successful_package_install_without_a_visible_ffmpeg_keeps_the_manual_fallback() {
+fn missing_manager_still_provides_manual_guidance() {
     let dir = Directory::new();
-    let outcome = offer(fake_inspection(&dir, "#!/bin/sh\nexit 0\n"), true, |_| true);
-    assert_eq!(outcome.state, "not-on-path");
-    assert!(!outcome.available);
-    assert_eq!(outcome.manual_commands, ["sudo apt install ffmpeg"]);
-}
-
-#[cfg(unix)]
-#[test]
-fn package_manager_spawn_failure_keeps_setup_running() {
-    let dir = Directory::new();
-    let inspection = fake_inspection(&dir, "#!/bin/sh\nexit 0\n");
-    fs::remove_file(dir.0.join("fake-package-manager")).unwrap();
-    let outcome = offer(inspection, true, |_| true);
-    assert_eq!(outcome.state, "install-failed");
-    assert_eq!(outcome.manual_commands, ["sudo apt install ffmpeg"]);
-}
-
-#[test]
-fn missing_manager_never_prompts_and_provides_a_manual_command() {
-    let dir = Directory::new();
-    let outcome = offer(
-        inspect_with("macos", dir.0.as_os_str(), "", None),
-        true,
-        |_| panic!("no package manager"),
-    );
-    assert_eq!(outcome.state, "no-package-manager");
+    let outcome = guidance(inspect_with("macos", dir.0.as_os_str(), "", None), true);
+    assert_eq!(outcome.state, "manual");
     assert_eq!(outcome.manual_commands, ["brew install ffmpeg"]);
 }
 
 #[test]
-fn missing_sudo_never_launches_a_linux_package_manager() {
-    let dir = Directory::new();
-    dir.executable("apt", "unused");
-    let outcome = offer(
-        inspect_with("linux", dir.0.as_os_str(), "", None),
-        true,
-        |_| true,
-    );
-    assert_eq!(outcome.state, "elevation-unavailable");
-    assert_eq!(outcome.manual_commands, ["sudo apt install ffmpeg"]);
-}
-
-#[test]
-fn already_available_ffmpeg_requires_no_installation_consent() {
+fn already_available_ffmpeg_needs_no_installation() {
     let dir = Directory::new();
     dir.executable("ffmpeg", "unused");
-    let outcome = offer(
-        inspect_with("linux", dir.0.as_os_str(), "", None),
-        true,
-        |_| panic!("already available"),
-    );
+    let outcome = guidance(inspect_with("linux", dir.0.as_os_str(), "", None), true);
     assert_eq!(outcome.state, "available");
     assert!(outcome.available);
+}
+
+#[cfg(unix)]
+#[test]
+fn interactive_setup_never_executes_path_package_managers_or_sudo() {
+    for (platform, manager) in [
+        ("linux", "apt"),
+        ("linux", "dnf"),
+        ("linux", "pacman"),
+        ("linux", "zypper"),
+        ("macos", "brew"),
+        ("windows", "winget.exe"),
+    ] {
+        let dir = Directory::new();
+        let marker = dir.0.join("executed");
+        let script = format!("#!/bin/sh\n: > '{}'\nexit 0\n", marker.display());
+        dir.executable(manager, &script);
+        dir.executable("sudo", &script);
+        for interactive in [true, false] {
+            let outcome = guidance(
+                inspect_with(platform, dir.0.as_os_str(), "", None),
+                interactive,
+            );
+            assert!(!outcome.available);
+            assert!(!outcome.manual_commands.is_empty());
+            assert!(
+                !marker.exists(),
+                "setup executed a package manager or sudo on {platform}"
+            );
+        }
+    }
 }

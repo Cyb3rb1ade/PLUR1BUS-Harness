@@ -1,9 +1,8 @@
-//! MM-3a/E7: discover system ffmpeg and offer fixed package-manager commands after separate consent.
+//! MM-3a/E7: read-only ffmpeg discovery and manual package-manager guidance.
 //! No download, bundle or shell is involved; failures leave photo search available.
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Manager {
@@ -36,21 +35,6 @@ impl Manager {
         }
     }
 
-    fn args(self) -> &'static [&'static str] {
-        match self {
-            Self::Brew | Self::Apt | Self::Dnf | Self::Zypper => &["install", "ffmpeg"],
-            Self::Pacman => &["-S", "ffmpeg"],
-            Self::Winget => &[
-                "install",
-                "--id",
-                "Gyan.FFmpeg",
-                "--exact",
-                "--source",
-                "winget",
-            ],
-        }
-    }
-
     fn command(self) -> &'static str {
         match self {
             Self::Brew => "brew install ffmpeg",
@@ -61,28 +45,6 @@ impl Manager {
             Self::Winget => "winget install --id Gyan.FFmpeg --exact --source winget",
         }
     }
-
-    fn requires_sudo(self) -> bool {
-        matches!(self, Self::Apt | Self::Dnf | Self::Pacman | Self::Zypper)
-    }
-}
-
-#[derive(Debug, Clone)]
-struct Plan {
-    manager: Manager,
-    executable: PathBuf,
-    fake: bool,
-}
-
-impl Plan {
-    fn invocation(&self, sudo: Option<&Path>) -> Option<(PathBuf, Vec<OsString>)> {
-        let mut args: Vec<OsString> = self.manager.args().iter().map(OsString::from).collect();
-        if !self.fake && self.manager.requires_sudo() {
-            args.insert(0, self.executable.as_os_str().to_owned());
-            return Some((sudo?.to_path_buf(), args));
-        }
-        Some((self.executable.clone(), args))
-    }
 }
 
 /// Read-only filesystem discovery result, including actionable manual commands.
@@ -90,12 +52,9 @@ impl Plan {
 pub(crate) struct Inspection {
     pub(crate) available: bool,
     pub(crate) manual_commands: Vec<&'static str>,
-    plan: Option<Plan>,
-    platform: String,
-    search_path: OsString,
 }
 
-/// Optional installation outcome; a missing ffmpeg never makes setup fail.
+/// Read-only setup outcome; missing ffmpeg never makes setup fail.
 #[derive(Debug)]
 pub(crate) struct SetupOutcome {
     pub(crate) available: bool,
@@ -174,7 +133,11 @@ fn distro_manager(release: &str) -> Option<Manager> {
     None
 }
 
-fn test_plan(gate: Option<&OsStr>, manager: Option<&OsStr>, path: Option<&OsStr>) -> Option<Plan> {
+fn test_manager(
+    gate: Option<&OsStr>,
+    manager: Option<&OsStr>,
+    path: Option<&OsStr>,
+) -> Option<Manager> {
     if gate != Some(OsStr::new("1")) {
         return None;
     }
@@ -194,31 +157,25 @@ fn test_plan(gate: Option<&OsStr>, manager: Option<&OsStr>, path: Option<&OsStr>
     {
         return None;
     }
-    Some(Plan {
-        manager,
-        executable,
-        fake: true,
-    })
+    Some(manager)
 }
 
-fn inspect_with(platform: &str, path: &OsStr, release: &str, test: Option<Plan>) -> Inspection {
+fn inspect_with(platform: &str, path: &OsStr, release: &str, test: Option<Manager>) -> Inspection {
     let supported = managers(platform);
-    let plan = test.or_else(|| {
-        supported.iter().find_map(|manager| {
-            find_binary(manager.name(), platform, path).map(|executable| Plan {
-                manager: *manager,
-                executable,
-                fake: false,
-            })
+    let preferred = test
+        .or_else(|| {
+            supported
+                .iter()
+                .copied()
+                .find(|manager| find_binary(manager.name(), platform, path).is_some())
         })
-    });
-    let preferred = plan.as_ref().map(|p| p.manager).or_else(|| {
-        if platform == "linux" {
-            distro_manager(release)
-        } else {
-            supported.first().copied()
-        }
-    });
+        .or_else(|| {
+            if platform == "linux" {
+                distro_manager(release)
+            } else {
+                supported.first().copied()
+            }
+        });
     let manual_commands = preferred.map_or_else(
         || {
             let choices = if supported.is_empty() {
@@ -233,15 +190,12 @@ fn inspect_with(platform: &str, path: &OsStr, release: &str, test: Option<Plan>)
     Inspection {
         available: find_binary("ffmpeg", platform, path).is_some(),
         manual_commands,
-        plan,
-        platform: platform.into(),
-        search_path: path.into(),
     }
 }
 
 /// Finds ffmpeg and supported package managers on PATH without executing a process or changing the system.
 pub(crate) fn inspect() -> Inspection {
-    let test = test_plan(
+    let test = test_manager(
         std::env::var_os("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref(),
         std::env::var_os("PLUR1BUS_TEST_FFMPEG_MANAGER").as_deref(),
         std::env::var_os("PLUR1BUS_TEST_FFMPEG_PACKAGE_MANAGER").as_deref(),
@@ -269,11 +223,7 @@ fn fallback(inspection: Inspection, state: &'static str) -> SetupOutcome {
     }
 }
 
-fn offer(
-    inspection: Inspection,
-    interactive: bool,
-    mut confirm: impl FnMut(&str) -> bool,
-) -> SetupOutcome {
+fn guidance(inspection: Inspection, interactive: bool) -> SetupOutcome {
     if inspection.available {
         return SetupOutcome {
             available: true,
@@ -281,48 +231,22 @@ fn offer(
             manual_commands: inspection.manual_commands,
         };
     }
-    if !interactive {
-        return fallback(inspection, "non-interactive");
-    }
-    let Some(plan) = inspection.plan.as_ref() else {
-        return fallback(inspection, "no-package-manager");
-    };
-    let question = format!(
-        "Install ffmpeg with `{}`? This is separate consent; the system may ask for sudo/UAC approval",
-        plan.manager.command()
-    );
-    if !confirm(&question) {
-        return fallback(inspection, "declined");
-    }
-    let sudo = find_binary("sudo", &inspection.platform, &inspection.search_path);
-    let Some((program, args)) = plan.invocation(sudo.as_deref()) else {
-        return fallback(inspection, "elevation-unavailable");
-    };
-    // E7: the terminal belongs to the OS package manager. Never pass approval/elevation-bypass flags.
-    let result = Command::new(program)
-        .args(args)
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .status();
-    if !result.is_ok_and(|status| status.success()) {
-        return fallback(inspection, "install-failed");
-    }
-    if find_binary("ffmpeg", &inspection.platform, &inspection.search_path).is_none() {
-        eprintln!("The package manager completed, but ffmpeg is not on PATH. Refresh the terminal PATH and retry.");
-        return fallback(inspection, "not-on-path");
-    }
-    SetupOutcome {
-        available: true,
-        state: "installed",
-        manual_commands: inspection.manual_commands,
-    }
+    // Owner rule: never start sudo, a package manager or an elevation helper.
+    // This is identical for root and non-root callers, interactive or unattended.
+    fallback(
+        inspection,
+        if interactive {
+            "manual"
+        } else {
+            "non-interactive"
+        },
+    )
 }
 
-/// Offers installation only when the caller has an interactive terminal, using a separate, default-no answer.
-/// A global `--yes` is intentionally not an input to this consent gate. No failure aborts photo setup.
-pub(crate) fn setup(interactive: bool, confirm: impl FnMut(&str) -> bool) -> SetupOutcome {
-    offer(inspect(), interactive, confirm)
+/// Reports availability or manual installation commands without starting a process.
+/// Neither an interactive terminal, global `--yes`, root privileges nor test seams permit installation.
+pub(crate) fn setup(interactive: bool) -> SetupOutcome {
+    guidance(inspect(), interactive)
 }
 
 #[cfg(test)]

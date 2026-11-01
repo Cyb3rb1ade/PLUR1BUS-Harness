@@ -1043,10 +1043,10 @@ fn step_config(
         .filter(|m| m.enabled && m.provider != "off")
         .filter(|m| m.modalities.iter().any(|kind| matches!(kind.as_str(), "audio" | "video")))
         .map(|_| {
-            // E7: inherited package-manager stdout must not enter setup/1. Neither piped input nor --yes grants consent.
+            // E7: discovery and manual guidance only; setup never starts sudo or a package manager.
             let interactive = !o.non_interactive && !out.json
                 && io::stdin().is_terminal() && io::stderr().is_terminal();
-            let result = super::media_ffmpeg::setup(interactive, |question| ask.confirm(question));
+            let result = super::media_ffmpeg::setup(interactive);
             json!({ "available": result.available, "state": result.state, "manualCommands": result.manual_commands })
         });
     Ok(StepResult::done(
