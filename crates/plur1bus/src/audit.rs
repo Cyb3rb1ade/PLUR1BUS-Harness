@@ -80,7 +80,7 @@ pub fn append_as(
     target: &str,
     detail: Value,
 ) -> io::Result<()> {
-    append_inner(layout, actor, action, target, detail, OnRefusal::Fail).map(|_| ())
+    append_inner(layout, actor, action, target, detail, OnRefusal::Fail, &[]).map(|_| ())
 }
 
 /// That the chain declined a line that [`append_as_degrading`] wrote anyway.
@@ -121,6 +121,29 @@ pub fn append_as_degrading(
             max_lines: PENDING_MAX_LINES,
             max_bytes: PENDING_MAX_BYTES,
         },
+        &[],
+    )
+}
+
+/// Config changes already projected with the complete schema; preserve only their validated reference pointers.
+pub(crate) fn append_config_as_degrading(
+    layout: &Layout,
+    actor: (&str, &str),
+    target: &str,
+    detail: Value,
+    references: &[String],
+) -> io::Result<Option<ChainRefusal>> {
+    append_inner(
+        layout,
+        actor,
+        "audit.config.set",
+        target,
+        detail,
+        OnRefusal::Queue {
+            max_lines: PENDING_MAX_LINES,
+            max_bytes: PENDING_MAX_BYTES,
+        },
+        references,
     )
 }
 
@@ -150,6 +173,7 @@ fn append_inner(
     target: &str,
     detail: Value,
     on_refusal: OnRefusal,
+    references: &[String],
 ) -> io::Result<Option<ChainRefusal>> {
     let path = layout.audit_log();
     fs::create_dir_all(layout.logs())?;
@@ -160,7 +184,7 @@ fn append_inner(
     // `append_as_degrading`, and with it the pending journal the drain replays) puts the same redacted text into the
     // chain line and the `audit.log` line. When the redaction cannot be set up nothing is written; an audit line never
     // falls back to the raw detail.
-    let detail = redact::redact_detail(&detail)?;
+    let detail = redact::redact_detail_preserving_references(&detail, references)?;
     let mut line = log_line(actor, action, target, detail);
     match chain::append(&layout.logs(), &line) {
         Ok(()) => {
@@ -1189,6 +1213,7 @@ mod tests {
                 &format!("k{i}"),
                 json!({}),
                 queue,
+                &[],
             )
             .unwrap()
             .unwrap();

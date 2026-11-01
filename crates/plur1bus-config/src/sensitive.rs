@@ -1,4 +1,5 @@
 //! Schema-owned public projection and endpoint credential extraction. No configuration is modified in place.
+use super::references::Matcher;
 use serde_json::Value;
 use std::collections::BTreeSet;
 
@@ -11,7 +12,7 @@ struct Flags {
     url_credentials: bool,
 }
 
-fn field<'a>(schema: &'a Value, name: &str) -> Option<&'a Value> {
+pub(super) fn field<'a>(schema: &'a Value, name: &str) -> Option<&'a Value> {
     schema
         .get("x-value-schema")
         .and_then(|metadata| metadata.get(name))
@@ -84,8 +85,16 @@ fn value_flags(schema: &Value, inherited: Flags) -> Flags {
     }
 }
 
-fn project(value: &Value, schema: &Value, inherited: Flags) -> Value {
+fn project<'a>(
+    value: &Value,
+    schema: &'a Value,
+    inherited: Flags,
+    references: &mut Matcher<'a>,
+) -> Value {
     let flags = value_flags(schema, inherited);
+    if !flags.url_credentials && references.matches(value, schema) {
+        return value.clone();
+    }
     match value {
         Value::String(text) if flags.sensitive && !text.is_empty() => Value::String(MASK.into()),
         Value::Number(_) if flags.sensitive => Value::from(0),
@@ -94,12 +103,17 @@ fn project(value: &Value, schema: &Value, inherited: Flags) -> Value {
         Value::Array(items) => Value::Array(
             items
                 .iter()
-                .map(|item| project(item, item_schema(schema), flags))
+                .map(|item| project(item, item_schema(schema), flags, references))
                 .collect(),
         ),
         Value::Object(map) => Value::Object(
             map.iter()
-                .map(|(name, child)| (name.clone(), project(child, property(schema, name), flags)))
+                .map(|(name, child)| {
+                    (
+                        name.clone(),
+                        project(child, property(schema, name), flags, references),
+                    )
+                })
                 .collect(),
         ),
         _ => value.clone(),
@@ -113,7 +127,56 @@ pub fn redact_config(value: &Value) -> Value {
 
 /// Apply an explicit configuration schema, for example an installed module's own declarations.
 pub fn redact_with_schema(value: &Value, schema: &Value) -> Value {
-    project(value, schema, Flags::default())
+    project(value, schema, Flags::default(), &mut Matcher::new(schema))
+}
+
+/// JSON pointers to complete safe references, for downstream schema-aware output; targets are never read.
+pub fn reference_paths_with_schema(value: &Value, schema: &Value) -> Vec<String> {
+    fn visit<'a>(
+        value: &Value,
+        schema: &'a Value,
+        path: &str,
+        inherited: Flags,
+        matcher: &mut Matcher<'a>,
+        out: &mut Vec<String>,
+    ) {
+        let flags = value_flags(schema, inherited);
+        if !flags.url_credentials && matcher.matches(value, schema) {
+            out.push(path.to_owned());
+            return;
+        }
+        match value {
+            Value::Object(map) => {
+                for (name, child) in map {
+                    let path = format!("{path}/{}", name.replace('~', "~0").replace('/', "~1"));
+                    visit(child, property(schema, name), &path, flags, matcher, out);
+                }
+            }
+            Value::Array(items) => {
+                for (index, child) in items.iter().enumerate() {
+                    visit(
+                        child,
+                        item_schema(schema),
+                        &format!("{path}/{index}"),
+                        flags,
+                        matcher,
+                        out,
+                    );
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut paths = Vec::new();
+    visit(
+        value,
+        schema,
+        "",
+        Flags::default(),
+        &mut Matcher::new(schema),
+        &mut paths,
+    );
+    paths
 }
 
 fn normalized_url(value: &str) -> String {
@@ -282,11 +345,38 @@ fn url_parts(value: &str, values: &mut BTreeSet<String>) {
     }
 }
 
-fn collect(value: &Value, schema: &Value, inherited: Flags, out: &mut BTreeSet<String>) {
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ReferenceValues {
+    Include,
+    Omit,
+}
+
+struct References<'a> {
+    values: ReferenceValues,
+    matcher: Matcher<'a>,
+}
+
+fn collect<'a>(
+    value: &Value,
+    schema: &'a Value,
+    inherited: Flags,
+    out: &mut BTreeSet<String>,
+    references: &mut References<'a>,
+) {
     let flags = value_flags(schema, inherited);
+    if references.values == ReferenceValues::Omit
+        && flags.sensitive
+        && !flags.url_credentials
+        && references.matcher.matches(value, schema)
+    {
+        return;
+    }
     match value {
         Value::String(text) if flags.sensitive && !text.is_empty() => {
             out.insert(text.clone());
+            if references.values == ReferenceValues::Omit && flags.url_credentials {
+                url_parts(text, out);
+            }
         }
         Value::Number(_) | Value::Bool(_) if flags.sensitive => {
             out.insert(value.to_string());
@@ -294,26 +384,122 @@ fn collect(value: &Value, schema: &Value, inherited: Flags, out: &mut BTreeSet<S
         Value::String(text) if flags.url_credentials => url_parts(text, out),
         Value::Array(items) => {
             for item in items {
-                collect(item, item_schema(schema), flags, out);
+                collect(item, item_schema(schema), flags, out, references);
             }
         }
         Value::Object(map) => {
             for (name, child) in map {
-                collect(child, property(schema, name), flags, out);
+                collect(child, property(schema, name), flags, out, references);
             }
         }
         _ => {}
     }
 }
 
-/// Declared strings to register for redaction; endpoints contribute only extracted credential components.
+/// All declared sensitive strings, including reference metadata; endpoints contribute only credential components.
 pub fn config_secret_values(value: &Value) -> Vec<String> {
     secret_values_with_schema(value, super::schema())
 }
 
 /// Declared strings from an explicit schema, including supported module configuration declarations.
 pub fn secret_values_with_schema(value: &Value, schema: &Value) -> Vec<String> {
+    extract(value, schema, ReferenceValues::Include)
+}
+
+/// Literal credentials and endpoint parts for unstructured text; valid declared references are never resolved or registered.
+pub fn config_text_secret_values(value: &Value) -> Vec<String> {
+    secret_text_values_with_schema(value, super::schema())
+}
+
+/// Text-context extraction with per-pass local validator caching; malformed reference forms remain protected as literals.
+pub fn secret_text_values_with_schema(value: &Value, schema: &Value) -> Vec<String> {
+    extract(value, schema, ReferenceValues::Omit)
+}
+
+fn extract(value: &Value, schema: &Value, reference_values: ReferenceValues) -> Vec<String> {
     let mut values = BTreeSet::new();
-    collect(value, schema, Flags::default(), &mut values);
+    let mut references = References {
+        values: reference_values,
+        matcher: Matcher::new(schema),
+    };
+    collect(
+        value,
+        schema,
+        Flags::default(),
+        &mut values,
+        &mut references,
+    );
     values.into_iter().collect()
+}
+
+/// A bounded read-only notice; it contains a configuration key and guidance, never a configured value.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConfigReferenceWarning {
+    /// Dotted configuration key; it never contains the configured value.
+    pub key: String,
+    /// Fixed guidance suitable for stderr or an existing warning log record.
+    pub message: &'static str,
+}
+
+const REFERENCE_WARNING_LIMIT: usize = 50;
+const REFERENCE_WARNING: &str =
+    "Reference looks like a pasted key; use a secret-store reference name.";
+
+/// Read-only warnings for token-shaped inputs in declared reference slots; no backend or target is read.
+pub fn config_reference_warnings(value: &Value) -> Vec<ConfigReferenceWarning> {
+    reference_warnings_with_schema(value, super::schema())
+}
+
+/// Read-only reference warnings for an explicit module schema, with a maximum of 50 key-only notices.
+pub fn reference_warnings_with_schema(
+    value: &Value,
+    schema: &Value,
+) -> Vec<ConfigReferenceWarning> {
+    fn visit<'a>(
+        value: &Value,
+        schema: &'a Value,
+        key: &str,
+        references: &mut Matcher<'a>,
+        out: &mut Vec<ConfigReferenceWarning>,
+    ) {
+        if out.len() >= REFERENCE_WARNING_LIMIT {
+            return;
+        }
+        if references.suspicious(value, schema) {
+            out.push(ConfigReferenceWarning {
+                key: key.to_owned(),
+                message: REFERENCE_WARNING,
+            });
+            return;
+        }
+        if references.matches(value, schema) {
+            return;
+        }
+        match value {
+            Value::Object(map) => {
+                for (name, child) in map {
+                    let child_key = if key.is_empty() {
+                        name.clone()
+                    } else {
+                        format!("{key}.{name}")
+                    };
+                    visit(child, property(schema, name), &child_key, references, out);
+                }
+            }
+            Value::Array(items) => {
+                for (index, child) in items.iter().enumerate() {
+                    let child_key = if key.is_empty() {
+                        index.to_string()
+                    } else {
+                        format!("{key}.{index}")
+                    };
+                    visit(child, item_schema(schema), &child_key, references, out);
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut warnings = Vec::new();
+    visit(value, schema, "", &mut Matcher::new(schema), &mut warnings);
+    warnings
 }

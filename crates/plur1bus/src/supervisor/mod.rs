@@ -252,10 +252,16 @@ impl Log {
                 None
             }
         };
-        Self {
+        let log = Self {
             file: Mutex::new(file),
             redaction,
+        };
+        if let Ok(bytes) = std::fs::read(layout.config_path()) {
+            if let Ok(config) = serde_json::from_slice(&bytes) {
+                log.warn_references(layout, &config);
+            }
         }
+        log
     }
     /// A log that writes nowhere (before `logs/` exists).
     pub fn none() -> Self {
@@ -268,6 +274,16 @@ impl Log {
     /// Replace the pinned current configuration group before any consumer can observe an accepted update.
     pub fn register_config(&self, layout: &Layout, config: &Value) {
         self.redaction.replace_config(layout, config);
+        self.warn_references(layout, config);
+    }
+
+    fn warn_references(&self, layout: &Layout, config: &Value) {
+        // Metadata failures already withhold payloads through the registry; warning discovery cannot reopen that sink.
+        if let Ok(policy) = crate::config_redaction::ConfigDisclosurePolicy::load(layout, config) {
+            for warning in policy.reference_warnings(config) {
+                self.warn(warning.message, json!({"key":warning.key}));
+            }
+        }
     }
 
     pub fn write(&self, level: &str, msg: &str, fields: Value) {

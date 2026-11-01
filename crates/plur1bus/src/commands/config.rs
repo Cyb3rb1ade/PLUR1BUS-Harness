@@ -403,6 +403,29 @@ pub(crate) fn apply(
     }
 }
 
+// Guidance is read-only and advisory: failure to obtain a warning snapshot must not change a config command's result.
+fn emit_reference_warnings(layout: &Layout, changes: Option<&[(String, Value)]>) {
+    let snapshot = match route(layout) {
+        Ok(Route::Supervisor(mut client)) => call(&mut client, "config.watch", json!({}))
+            .ok()
+            .map(|value| value["config"].clone()),
+        Ok(Route::Direct) => cfg::read(&layout.config_path()).ok(),
+        Err(_) => None,
+    };
+    let Some(mut config) = snapshot else { return };
+    if let Some(changes) = changes {
+        let Ok(plan) = cfg::set_many(&config, changes) else {
+            return;
+        };
+        config = plan.after;
+    }
+    if let Ok(policy) = crate::config_redaction::ConfigDisclosurePolicy::load(layout, &config) {
+        for warning in policy.reference_warnings(&config) {
+            crate::output::say_err(&format!("plur1bus: {}: {}", warning.key, warning.message));
+        }
+    }
+}
+
 pub fn run(out: &Out, layout: &Layout, cmd: ConfigCmd) {
     match cmd {
         ConfigCmd::Schema { tier } => {
@@ -467,6 +490,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: ConfigCmd) {
                         )
                     })
             });
+            emit_reference_warnings(layout, None);
             out.ok("config.get/1", &v, || match v["key"].as_str() {
                 Some(k) => format!(
                     "{k} = {}  [{}, {}]",
@@ -485,6 +509,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: ConfigCmd) {
             background,
         } => {
             let changes = vec![(key, parse_value(&value))];
+            emit_reference_warnings(layout, Some(&changes));
             // The memory engine's models are checked by the running core first; a change that moves a store with data
             // runs the re-embedding migration, whose switch writes the new embedding (config_embedding.rs).
             if config_embedding::touches_memory_models(&changes) {

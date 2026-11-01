@@ -2,6 +2,8 @@
 
 The ordinary `plur1bus backup` archive never reads the secret store (keyring, encrypted fallback file, `run/`). Its
 schema-driven disclosure policy preserves secret references and replaces inline `x-sensitive` values with placeholders;
+only references matching both their declared form and the canonical name-safety policy are preserved. Pasted-key
+candidates in reference slots are replaced as literals, including bare token-shaped file/exec ids.
 `x-url-credentials` masks only userinfo and every query value, preserving host/path. A restored Telegram webhook secret
 gets a fresh random value. The ordinary manifest names replaced config keys in `secrets.note`; ordinary restore reports
 `Re-enter secret` for those keys on stderr, including with `--json`. It does contain the API account database

@@ -25,6 +25,10 @@ Secret-Referenzen in `config.json` bleiben unverändert: Namen im Secret-Store, 
 vom gepinnten Engine-Vertrag unterstützten strukturierten Referenzen sind keine Secret-Werte. Sie werden beim Restore
 bytegleich erhalten; ihr Ziel wird weder gelesen noch mitgesichert. Ein gewöhnlicher String in einem Engine-`apiKey`-Feld
 ist dagegen ein Literal; nur die vom gepinnten Resolver ausdrücklich unterstützten `${ENV_NAME}`-Formen sind Referenzen.
+Die deklarierte Referenzform und die kanonische Namensrichtlinie entscheiden gemeinsam: Ein eingefügter Schlüssel
+(bekannter Token-Präfix, überlanger oder hochentropischer Name) bleibt kein lesbarer Referenzname, sondern wird wie ein
+Literal ersetzt. Eindeutige Dateipfade behalten ihre normale Syntax und Länge; ein bloßer schlüsselartiger String im
+Datei- oder Exec-Feld bleibt geschützt. Diese Prüfung liest kein Referenzziel.
 Anhand der Schema-Metadaten `x-sensitive` ersetzt `create` dort abgelegte Literalwerte durch Platzhalter. Für
 konfigurierte, installierte Module gilt zusätzlich deren validiertes `configSchema` aus `module.json`, auch bei
 `enabled: false`. Fehlende oder nicht unterstützte Modul-Metadaten verweigern das Backup. Bei

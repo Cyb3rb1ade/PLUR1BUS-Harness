@@ -31,6 +31,7 @@ fn module_schema() -> Value {
         "type":"object", "$defs": {
             "name":{"type":"string"},
             "reference":{
+                "x-secret-reference":true, "x-secret-reference-kind":"engine-input",
                 "type":"object", "required":["source","provider","id"], "additionalProperties":false,
                 "properties":{"source":{"const":"store"},"provider":{"const":"fixture"},"id":{"type":"string"}}
             }
@@ -179,4 +180,65 @@ fn unavailable_configured_installed_module_metadata_refuses_the_archive_without_
             original
         );
     }
+}
+
+#[test]
+fn token_looking_reference_names_cannot_survive_an_ordinary_archive() {
+    let directory = tempfile::tempdir().unwrap();
+    let layout = Layout::new(directory.path().join("source"));
+    let snapshot = testkit::staged(&layout, b"database bytes", false);
+    let pasted = format!("sk-{}", uuid::Uuid::new_v4().simple());
+    let name = format!(
+        "service.{}",
+        &uuid::Uuid::new_v4().simple().to_string()[..12]
+    );
+    let original = json!({"schemaVersion":1,"channels":{"telegram":{"tokenSecret":name}},
+        "voice":{"providers":{"elevenlabs":{"apiKeyRef":pasted}}}})
+    .to_string();
+    fs::write(layout.home.join("config.json"), &original).unwrap();
+    let archive = directory.path().join("reference-guard.tar.gz");
+    create(&layout, &archive, &snapshot).unwrap();
+    let archived = config_in(&archive);
+    assert_eq!(archived["channels"]["telegram"]["tokenSecret"], name);
+    assert_eq!(
+        archived["voice"]["providers"]["elevenlabs"]["apiKeyRef"],
+        PLACEHOLDER
+    );
+    let mut bytes = Vec::new();
+    GzDecoder::new(fs::File::open(&archive).unwrap())
+        .read_to_end(&mut bytes)
+        .unwrap();
+    assert!(!bytes
+        .windows(pasted.len())
+        .any(|bytes| bytes == pasted.as_bytes()));
+    assert_eq!(
+        redacted_config_keys(&verify(&archive).unwrap().secrets.note).unwrap(),
+        ["voice.providers.elevenlabs.apiKeyRef"]
+    );
+    assert_eq!(
+        fs::read_to_string(layout.home.join("config.json")).unwrap(),
+        original
+    );
+    let destination = Layout::new(directory.path().join("destination"));
+    fs::create_dir_all(&destination.home).unwrap();
+    let report = restore(
+        &destination,
+        &archive,
+        &RestoreOpts {
+            dry_run: false,
+            fail_at: None,
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        report.redacted_config_keys,
+        ["voice.providers.elevenlabs.apiKeyRef"]
+    );
+    let restored: Value =
+        serde_json::from_slice(&fs::read(destination.home.join("config.json")).unwrap()).unwrap();
+    assert_eq!(restored["channels"]["telegram"]["tokenSecret"], name);
+    assert_eq!(
+        restored["voice"]["providers"]["elevenlabs"]["apiKeyRef"],
+        PLACEHOLDER
+    );
 }

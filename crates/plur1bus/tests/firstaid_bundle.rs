@@ -270,6 +270,67 @@ fn schema_secrets_and_endpoint_parts_are_removed_from_every_bundle_text_before_t
 }
 
 #[test]
+fn reference_metadata_stays_readable_in_bundle_views_and_texts_while_literals_stay_masked() {
+    let h = Home::new();
+    let name = uuid::Uuid::new_v4().to_string();
+    let provider = format!(
+        "public-{}",
+        &uuid::Uuid::new_v4().simple().to_string()[..12]
+    );
+    let id = uuid::Uuid::new_v4().to_string();
+    let literal = uuid::Uuid::new_v4().to_string();
+    let user = uuid::Uuid::new_v4().to_string();
+    let query = uuid::Uuid::new_v4().to_string();
+    let configured = serde_json::json!({"schemaVersion":1,
+        "channels":{"telegram":{"tokenSecret":name}},
+        "engine":{"embedding":{"apiKey":{"source":"store","provider":provider,"id":id}},
+            "reranker":{"apiKey":literal}},
+        "voice":{"providers":{"elevenlabs":{"apiKeyRef":name,
+            "baseUrl":format!("https://{user}:{literal}@relay.example.test/public?ordinary={query}")}}}
+    });
+    write(&h.home.join("config.json"), &configured.to_string());
+    write(&h.home.join("logs/core.out.log"),
+        &format!("provisioning {name} provider {provider} id {id} present=true literal {literal} {user} {query}\n"));
+    let dest = h._dir.path().join("reference-metadata.zip");
+    let result = h.bundle(&["--out", dest.to_str().unwrap()]);
+    assert_eq!(
+        result.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let files = unzip(&dest);
+    let output = String::from_utf8_lossy(&files["logs/core.out.log"]);
+    for reference in [&name, &provider, &id] {
+        assert!(
+            output.contains(reference),
+            "provisioning metadata was hidden by the text registry"
+        );
+    }
+    assert!(output.contains("present=true"));
+    for body in files.values() {
+        let text = String::from_utf8_lossy(body);
+        for secret in [&literal, &user, &query] {
+            assert!(
+                !text.contains(secret),
+                "a literal or URL credential escaped the bundle"
+            );
+        }
+    }
+    let public: Value = serde_json::from_slice(&files["config.json"]).unwrap();
+    assert_eq!(public["channels"]["telegram"]["tokenSecret"], name);
+    assert_eq!(
+        public["voice"]["providers"]["elevenlabs"]["apiKeyRef"],
+        name
+    );
+    assert_eq!(
+        public["engine"]["embedding"]["apiKey"]["provider"],
+        provider
+    );
+    assert_eq!(public["engine"]["embedding"]["apiKey"]["id"], id);
+}
+
+#[test]
 fn module_declarations_protect_bundle_texts_and_missing_policy_refuses_the_archive() {
     let h = Home::new();
     let secret = uuid::Uuid::new_v4().to_string();

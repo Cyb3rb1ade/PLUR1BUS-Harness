@@ -230,16 +230,46 @@ impl ConfigDisclosurePolicy {
         public
     }
 
-    /// Known values for unstructured output. Endpoint hosts and paths are never registered.
+    /// Literals for unstructured output; declared reference metadata and endpoint host/path material stay public.
     pub fn secret_values(&self, config: &Value) -> Vec<String> {
-        let mut values: BTreeSet<String> = plur1bus_config::config_secret_values(config)
+        let mut values: BTreeSet<String> = plur1bus_config::config_text_secret_values(config)
             .into_iter()
             .collect();
         for (name, schema) in &self.modules {
             if let Some(value) = config.get("modules").and_then(|modules| modules.get(name)) {
-                values.extend(plur1bus_config::secret_values_with_schema(value, schema));
+                values.extend(plur1bus_config::secret_text_values_with_schema(
+                    value, schema,
+                ));
             }
         }
         values.into_iter().collect()
+    }
+
+    /// Bounded value-free reference guidance from the same configured installed module snapshot.
+    pub fn reference_warnings(
+        &self,
+        config: &Value,
+    ) -> Vec<plur1bus_config::ConfigReferenceWarning> {
+        let mut warnings = plur1bus_config::config_reference_warnings(config);
+        for (name, schema) in &self.modules {
+            if let Some(value) = config.get("modules").and_then(|modules| modules.get(name)) {
+                warnings.extend(
+                    plur1bus_config::reference_warnings_with_schema(value, schema)
+                        .into_iter()
+                        .map(|mut warning| {
+                            warning.key = if warning.key.is_empty() {
+                                format!("modules.{name}")
+                            } else {
+                                format!("modules.{name}.{}", warning.key)
+                            };
+                            warning
+                        }),
+                );
+            }
+        }
+        warnings.sort_by(|left, right| left.key.cmp(&right.key));
+        warnings.dedup_by(|left, right| left.key == right.key);
+        warnings.truncate(50);
+        warnings
     }
 }

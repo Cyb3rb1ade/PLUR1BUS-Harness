@@ -17,6 +17,66 @@ fn text(registry: &Registry, input: &str) -> String {
 }
 
 #[test]
+fn reference_names_remain_readable_metadata_while_literals_and_url_parts_stay_masked() {
+    let directory = tempfile::tempdir().unwrap();
+    let layout = Layout::new(directory.path().to_path_buf());
+    let first = uuid::Uuid::new_v4().to_string();
+    let second = uuid::Uuid::new_v4().to_string();
+    let provider = format!(
+        "public-{}",
+        &uuid::Uuid::new_v4().simple().to_string()[..12]
+    );
+    let id = uuid::Uuid::new_v4().to_string();
+    let literal = uuid::Uuid::new_v4().to_string();
+    let user = uuid::Uuid::new_v4().to_string();
+    let query = uuid::Uuid::new_v4().to_string();
+    let endpoint = format!("https://{user}:{literal}@relay.example.test/public?ordinary={query}");
+    let configured = json!({
+        "channels":{"telegram":{"tokenSecret":first}},
+        "voice":{"providers":{"elevenlabs":{"apiKeyRef":second,"baseUrl":endpoint}}},
+        "engine":{"embedding":{"apiKey":{"source":"store","provider":provider,"id":id}},
+            "reranker":{"apiKey":literal}}
+    });
+    let public = plur1bus_config::redact_config(&configured);
+    assert_eq!(public["channels"]["telegram"]["tokenSecret"], first);
+    assert_eq!(public["engine"]["embedding"]["apiKey"]["id"], id);
+    let registry = Registry::new();
+    registry.replace_config(&layout, &configured);
+    let metadata = format!("names {first} {second} provider={provider} id={id} present=true literal={literal} endpoint={endpoint}");
+    let masked = text(&registry, &metadata);
+    for reference in [&first, &second, &provider, &id] {
+        assert!(
+            masked.contains(reference),
+            "reference provisioning metadata was hidden"
+        );
+    }
+    for secret in [&literal, &user, &query] {
+        assert!(
+            !masked.contains(secret),
+            "a literal or URL credential escaped text redaction"
+        );
+    }
+    assert!(masked.contains("relay.example.test/public"));
+    assert!(masked.contains("present=true"));
+}
+
+#[test]
+fn a_literal_equal_to_a_reference_name_is_still_registered_for_text_masking() {
+    let directory = tempfile::tempdir().unwrap();
+    let layout = Layout::new(directory.path().to_path_buf());
+    let shared = uuid::Uuid::new_v4().to_string();
+    let registry = Registry::new();
+    registry.replace_config(
+        &layout,
+        &json!({
+            "channels":{"telegram":{"tokenSecret":shared}},
+            "engine":{"embedding":{"apiKey":shared}}
+        }),
+    );
+    assert_eq!(text(&registry, &shared), "[REDACTED:secret]");
+}
+
+#[test]
 fn literal_encodings_and_json_escaped_unicode_are_masked_without_trimming_values() {
     let directory = tempfile::tempdir().unwrap();
     let layout = Layout::new(directory.path().to_path_buf());

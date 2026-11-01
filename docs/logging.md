@@ -89,9 +89,18 @@ spawns also refresh installed-module annotations against that running snapshot. 
 and captured child stdout/stderr share the registry. URL declarations contribute only userinfo and query values;
 their public host and path are never registered as whole URLs. Configuration classification does not guess key names.
 
+Safe references matched by the schema's `x-secret-reference` form remain readable in configuration views, audit
+changes and log text: their names, providers and source ids describe provisioning, not credential values. The
+reference policy in the configuration schema rejects pasted-key shapes, including known token prefixes, excessive
+name length and high entropy. Such inputs are masked and registered as literals. Source paths with an explicit path
+prefix retain ordinary path syntax and length; bare token-shaped file or exec ids receive the same protection as
+names. The CLI's configuration commands and the Supervisor warn with the key and value-free guidance. Reference
+classification never reads a target or a secret backend. A string also configured as an inline literal remains
+registered even if it equals a readable reference name; actual secret-store values remain protected independently.
+
 This unstructured value matching retains the existing eight-byte minimum, including for values inside structured
 Supervisor log fields. It covers raw, base64, base64url, percent, hex and JSON-escaped forms. Short bare credentials
-are outside this registry's guarantee; schema-projected public configuration masks declared values at every length.
+are outside this registry's guarantee; schema-projected public configuration masks declared literals at every length.
 The Rust output pump adds no generic URL, token-pattern or key-name backstop. Core's contextual redactor remains separate.
 
 Current values remain pinned; the registry keeps the newest 256 retired values. Each spawned generation also retains

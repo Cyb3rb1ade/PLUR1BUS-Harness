@@ -5,11 +5,15 @@ use serde_json::{Map, Value};
 use std::{fs, io, path::Path};
 
 mod diagnostics;
+mod references;
 mod sensitive;
 pub use diagnostics::validation_constraint;
+pub use references::{looks_like_pasted_key, reference_safety};
 pub use sensitive::{
-    config_secret_values, mask_url_credentials, redact_config, redact_with_schema,
-    secret_values_with_schema,
+    config_reference_warnings, config_secret_values, config_text_secret_values,
+    mask_url_credentials, redact_config, redact_with_schema, reference_paths_with_schema,
+    reference_warnings_with_schema, secret_text_values_with_schema, secret_values_with_schema,
+    ConfigReferenceWarning,
 };
 
 pub const SCHEMA_JSON: &str =

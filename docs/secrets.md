@@ -32,6 +32,16 @@ provider/channel scopes, presence and `leaseAllowed: false`. A configuration ref
 states this explicitly and offers no grant writer or lease operation. `secret_names` continues to expose names, scope,
 presence and descriptions through the dispatcher, never a value.
 
+Schema-declared secret references are provisioning metadata and remain readable in configuration views, audit changes,
+logs and ordinary backups. Matching uses the declared reference subschema and the canonical name-safety policy, never
+field-name guesses or target reads. Store and environment names follow their declared formats; structured Engine
+references retain the pinned source contract. Inline literals at `x-sensitive` keys remain masked. A name that looks
+like a pasted key (a known token prefix, excessive length or high entropy) is treated as a literal, masked and registered
+for text redaction. Configuration CLI stderr and Supervisor warnings name the key and say
+`Reference looks like a pasted key; use a secret-store reference name.` without echoing the value. Explicit file paths
+retain normal path syntax and length; bare token-shaped file/exec ids are still protected. Actual store values remain
+protected even when their bytes equal a reference name. These disclosure checks add no authority or backend access.
+
 The [lease design options](superpowers/specs/2026-10-18-agent-secret-lease-options.md) are an owner question for a later
 implementation: explicit per-agent/name/purpose grants with expiry and D109 `secrets.use`, policy-approved inheritance
 from configuration, or keeping leases core-only. This phase assumes no answer and implements none of the grant writers.

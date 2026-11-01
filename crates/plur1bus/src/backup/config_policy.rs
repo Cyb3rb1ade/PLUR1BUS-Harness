@@ -6,6 +6,17 @@ use std::collections::{BTreeSet, HashMap};
 
 static EMPTY_SCHEMA: Value = Value::Null;
 
+struct NoExternalSchemas;
+
+impl jsonschema::Retrieve for NoExternalSchemas {
+    fn retrieve(
+        &self,
+        _: &jsonschema::Uri<&str>,
+    ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+        Err(std::io::Error::other("external reference metadata is unsupported").into())
+    }
+}
+
 #[derive(Clone, Copy, Default)]
 struct Flags {
     sensitive: bool,
@@ -80,28 +91,45 @@ fn metadata_error() -> BackupError {
 }
 
 struct Projection<'a> {
-    references: HashMap<&'a str, jsonschema::Validator>,
+    references: HashMap<*const Value, (jsonschema::Validator, &'a Value)>,
+    local_references: HashMap<&'a str, *const Value>,
     keys: BTreeSet<String>,
     changed: bool,
 }
 
 impl<'a> Projection<'a> {
-    fn references(&mut self, node: &'a Value, root: &Value) -> Result<(), BackupError> {
+    fn references(&mut self, node: &'a Value, root: &'a Value) -> Result<(), BackupError> {
         match node {
             Value::Object(fields) => {
                 if let Some(metadata) = fields.get("x-secret-reference") {
-                    let reference = metadata
-                        .as_object()
-                        .filter(|object| object.len() == 1)
-                        .and_then(|object| object.get("$ref"))
-                        .and_then(Value::as_str)
-                        .filter(|reference| reference.starts_with("#/$defs/"))
-                        .ok_or_else(metadata_error)?;
-                    if !self.references.contains_key(reference) {
-                        let schema = root.pointer(&reference[1..]).ok_or_else(metadata_error)?;
-                        let validator =
-                            jsonschema::validator_for(schema).map_err(|_| metadata_error())?;
-                        self.references.insert(reference, validator);
+                    let target = if metadata.as_bool() == Some(true) {
+                        node
+                    } else {
+                        let reference = metadata
+                            .as_object()
+                            .filter(|object| object.len() == 1)
+                            .and_then(|object| object.get("$ref"))
+                            .and_then(Value::as_str)
+                            .filter(|reference| reference.starts_with("#/$defs/"))
+                            .ok_or_else(metadata_error)?;
+                        let target = root.pointer(&reference[1..]).ok_or_else(metadata_error)?;
+                        self.local_references
+                            .insert(reference, target as *const Value);
+                        target
+                    };
+                    let key = target as *const Value;
+                    if let std::collections::hash_map::Entry::Vacant(entry) =
+                        self.references.entry(key)
+                    {
+                        let mut schema = serde_json::json!({"allOf":[target]});
+                        if let Some(definitions) = root.get("$defs") {
+                            schema["$defs"] = definitions.clone();
+                        }
+                        let validator = jsonschema::options()
+                            .with_retriever(NoExternalSchemas)
+                            .build(&schema)
+                            .map_err(|_| metadata_error())?;
+                        entry.insert((validator, target));
                     }
                 }
                 for child in fields.values() {
@@ -119,11 +147,19 @@ impl<'a> Projection<'a> {
     }
 
     fn is_reference(&self, value: &Value, schema: &Value) -> bool {
-        field(schema, "x-secret-reference")
-            .and_then(|metadata| metadata.get("$ref"))
-            .and_then(Value::as_str)
-            .and_then(|reference| self.references.get(reference))
-            .is_some_and(|validator| validator.is_valid(value))
+        let key = match field(schema, "x-secret-reference") {
+            Some(Value::Bool(true)) => Some(schema as *const Value),
+            Some(metadata) => metadata
+                .get("$ref")
+                .and_then(Value::as_str)
+                .and_then(|reference| self.local_references.get(reference))
+                .copied(),
+            None => None,
+        };
+        key.and_then(|key| self.references.get(&key))
+            .is_some_and(|(validator, schema)| {
+                validator.is_valid(value) && plur1bus_config::reference_safety(value, schema)
+            })
     }
 
     fn visit(&mut self, value: &mut Value, schema: &Value, key: &str, inherited: Flags) {
@@ -196,6 +232,7 @@ pub(super) fn redact(
 ) -> Result<(Vec<String>, bool), BackupError> {
     let mut projection = Projection {
         references: HashMap::new(),
+        local_references: HashMap::new(),
         keys: BTreeSet::new(),
         changed: false,
     };
@@ -243,11 +280,30 @@ mod tests {
     #[test]
     fn malformed_reference_metadata_refuses_even_when_no_value_uses_it() {
         for metadata in [
-            json!(true),
+            json!(false),
             json!({"$ref":"#/$defs/missing"}),
             json!({"$ref":42}),
         ] {
             let schema = json!({"properties":{"ordinary":{"x-sensitive":true,"x-secret-reference":metadata}}});
+            assert_eq!(
+                redact(&mut json!({}), &schema).unwrap_err().reason,
+                "config-policy-invalid"
+            );
+        }
+    }
+
+    #[test]
+    fn reference_metadata_never_reads_external_schema_resources() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("schema.json");
+        std::fs::write(&path, json!({"type":"string"}).to_string()).unwrap();
+        for external in [
+            format!("file://{}", path.display()),
+            "https://schema.example.test/reference.json".to_owned(),
+        ] {
+            let schema = json!({"$defs":{"name":{"$ref":external}},"properties":{
+                "ordinary":{"x-sensitive":true,"x-secret-reference":{"$ref":"#/$defs/name"}}
+            }});
             assert_eq!(
                 redact(&mut json!({}), &schema).unwrap_err().reason,
                 "config-policy-invalid"
