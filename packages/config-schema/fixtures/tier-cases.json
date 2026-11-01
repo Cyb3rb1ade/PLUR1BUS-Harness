@@ -4441,6 +4441,9 @@
                       "object"
                     ],
                     "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupEngineSecretReference"
+                    },
                     "additionalProperties": false,
                     "properties": {
                       "source": {
@@ -4470,6 +4473,9 @@
                           "object"
                         ],
                         "x-sensitive": true,
+                        "x-secret-reference": {
+                          "$ref": "#/$defs/backupEngineSecretReference"
+                        },
                         "additionalProperties": false,
                         "properties": {
                           "source": {
@@ -4500,11 +4506,17 @@
                   "apiKeyRef": {
                     "type": "string",
                     "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupSecretName"
+                    },
                     "description": "Secret-store reference for an Engine credential."
                   },
                   "apiKeyEnv": {
                     "type": "string",
                     "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupSecretName"
+                    },
                     "description": "Environment reference for an Engine credential."
                   },
                   "baseUrl": {
@@ -4526,6 +4538,9 @@
                                 "object"
                               ],
                               "x-sensitive": true,
+                              "x-secret-reference": {
+                                "$ref": "#/$defs/backupEngineSecretReference"
+                              },
                               "additionalProperties": false,
                               "properties": {
                                 "source": {
@@ -4549,11 +4564,17 @@
                             "apiKeyRef": {
                               "type": "string",
                               "x-sensitive": true,
+                              "x-secret-reference": {
+                                "$ref": "#/$defs/backupSecretName"
+                              },
                               "description": "Secret-store reference for an Engine credential."
                             },
                             "apiKeyEnv": {
                               "type": "string",
                               "x-sensitive": true,
+                              "x-secret-reference": {
+                                "$ref": "#/$defs/backupSecretName"
+                              },
                               "description": "Environment reference for an Engine credential."
                             },
                             "baseUrl": {
@@ -4570,6 +4591,9 @@
                                     "object"
                                   ],
                                   "x-sensitive": true,
+                                  "x-secret-reference": {
+                                    "$ref": "#/$defs/backupEngineSecretReference"
+                                  },
                                   "additionalProperties": false,
                                   "properties": {
                                     "source": {
@@ -4613,6 +4637,9 @@
                       "object"
                     ],
                     "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupEngineSecretReference"
+                    },
                     "additionalProperties": false,
                     "properties": {
                       "source": {
@@ -4636,11 +4663,17 @@
                   "apiKeyRef": {
                     "type": "string",
                     "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupSecretName"
+                    },
                     "description": "Secret-store reference for an Engine credential."
                   },
                   "apiKeyEnv": {
                     "type": "string",
                     "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupSecretName"
+                    },
                     "description": "Environment reference for an Engine credential."
                   },
                   "baseUrl": {
@@ -4659,6 +4692,9 @@
                       "object"
                     ],
                     "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupEngineSecretReference"
+                    },
                     "additionalProperties": false,
                     "properties": {
                       "source": {
@@ -4682,6 +4718,9 @@
                   "apiKeyRef": {
                     "type": "string",
                     "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupSecretName"
+                    },
                     "description": "Secret-store reference for an Engine credential."
                   },
                   "headers": {
@@ -4708,6 +4747,9 @@
                       "object"
                     ],
                     "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupEngineSecretReference"
+                    },
                     "additionalProperties": false,
                     "properties": {
                       "source": {
@@ -4731,6 +4773,9 @@
                   "apiKeyRef": {
                     "type": "string",
                     "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupSecretName"
+                    },
                     "description": "Secret-store reference for an Engine credential."
                   },
                   "headers": {
@@ -4757,6 +4802,9 @@
                       "object"
                     ],
                     "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupEngineSecretReference"
+                    },
                     "additionalProperties": false,
                     "properties": {
                       "source": {
@@ -4780,6 +4828,9 @@
                   "apiKeyRef": {
                     "type": "string",
                     "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupSecretName"
+                    },
                     "description": "Secret-store reference for an Engine credential."
                   },
                   "headers": {
@@ -4809,6 +4860,9 @@
                           "object"
                         ],
                         "x-sensitive": true,
+                        "x-secret-reference": {
+                          "$ref": "#/$defs/backupEngineSecretReference"
+                        },
                         "additionalProperties": false,
                         "properties": {
                           "source": {
@@ -4832,6 +4886,9 @@
                       "apiKeyRef": {
                         "type": "string",
                         "x-sensitive": true,
+                        "x-secret-reference": {
+                          "$ref": "#/$defs/backupSecretName"
+                        },
                         "description": "Secret-store reference for an Engine credential."
                       },
                       "baseUrl": {
@@ -4849,6 +4906,9 @@
                   "apiKeyEnv": {
                     "type": "string",
                     "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupSecretName"
+                    },
                     "description": "Environment reference for an Engine credential."
                   }
                 }
@@ -5186,7 +5246,10 @@
                   "minLength": 1,
                   "maxLength": 128,
                   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
-                  "x-sensitive": true
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
                 },
                 "kid": {
                   "description": "Key identifier for the signing key.",
@@ -5320,7 +5383,10 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 4096,
-                      "x-sensitive": true
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "args": {
                       "description": "Arguments passed to command, one array element per argument (no shell interpolation).",
@@ -5415,7 +5481,10 @@
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "live",
                       "x-tier": "advanced",
-                      "x-sensitive": true
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     }
                   },
                   "x-restart": "live",
@@ -6185,7 +6254,10 @@
                   "default": "channels.discord.token",
                   "x-restart": "module:discord",
                   "x-tier": "advanced",
-                  "x-sensitive": true
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
                 },
                 "applicationId": {
                   "description": "Discord application id (needed to register slash commands). Taken from the gateway READY event when omitted.",
@@ -6312,7 +6384,10 @@
                   "default": "channels.slack.bot-token",
                   "x-restart": "module:slack",
                   "x-tier": "advanced",
-                  "x-sensitive": true
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
                 },
                 "appTokenSecret": {
                   "description": "Name of the secret holding the Slack app-level token (xapp-…) with the connections:write scope, used for Socket Mode.",
@@ -6321,7 +6396,10 @@
                   "default": "channels.slack.app-token",
                   "x-restart": "module:slack",
                   "x-tier": "advanced",
-                  "x-sensitive": true
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
                 },
                 "teamId": {
                   "description": "Slack workspace id; events from other workspaces are ignored when set.",
@@ -6460,7 +6538,10 @@
                   ],
                   "x-audit": true,
                   "pattern": "^channels\\.buzz\\.[a-zA-Z0-9._-]+$",
-                  "x-sensitive": true
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
                 },
                 "senderAllowlist": {
                   "type": "array",
@@ -6582,7 +6663,10 @@
                   "default": "channels.matrix.access-token",
                   "x-restart": "module:matrix",
                   "x-tier": "advanced",
-                  "x-sensitive": true
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
                 },
                 "deviceId": {
                   "description": "Device id of the access token, when the homeserver requires it to be stated.",
@@ -6925,7 +7009,10 @@
                       "default": "channels.email.imap-password",
                       "x-restart": "module:email",
                       "x-tier": "advanced",
-                      "x-sensitive": true
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "folder": {
                       "description": "IMAP folder to watch.",
@@ -7000,7 +7087,10 @@
                       "default": "channels.email.smtp-password",
                       "x-restart": "module:email",
                       "x-tier": "advanced",
-                      "x-sensitive": true
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     }
                   }
                 },
@@ -7100,7 +7190,10 @@
                   "default": "channels.telegram.botToken",
                   "x-restart": "module:telegram",
                   "x-tier": "advanced",
-                  "x-sensitive": true
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
                 },
                 "allowlist": {
                   "description": "Decimal chat IDs (users, groups, supergroups) that may talk to the bot. Empty allows nothing, inbound and outbound.",
@@ -7773,7 +7866,10 @@
                       "maxLength": 200,
                       "x-restart": "live",
                       "x-tier": "advanced",
-                      "x-sensitive": true
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "region": {
                       "description": "Data-residency region: default (global), us, eu or in. Ignored when baseUrl is set.",
@@ -7845,7 +7941,10 @@
                       "maxLength": 200,
                       "x-restart": "live",
                       "x-tier": "advanced",
-                      "x-sensitive": true
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "baseUrl": {
                       "description": "Override of the API base URL (https only, or loopback for a local relay).",
@@ -7891,7 +7990,10 @@
                       "maxLength": 200,
                       "x-restart": "live",
                       "x-tier": "advanced",
-                      "x-sensitive": true
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "baseUrl": {
                       "description": "Override of the API base URL (https only, or loopback for a local relay).",
@@ -9317,7 +9419,10 @@
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
                       "x-tier": "advanced",
-                      "x-sensitive": true
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
@@ -9374,7 +9479,10 @@
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
                       "x-tier": "advanced",
-                      "x-sensitive": true
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
@@ -9431,7 +9539,10 @@
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
                       "x-tier": "advanced",
-                      "x-sensitive": true
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
@@ -9488,7 +9599,10 @@
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
                       "x-tier": "advanced",
-                      "x-sensitive": true
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
@@ -9545,7 +9659,10 @@
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
                       "x-tier": "advanced",
-                      "x-sensitive": true
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
@@ -9602,7 +9719,10 @@
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
                       "x-tier": "advanced",
-                      "x-sensitive": true
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
@@ -9659,7 +9779,10 @@
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
                       "x-tier": "advanced",
-                      "x-sensitive": true
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",

@@ -1,6 +1,58 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://plur1bus.dev/schema/config/1/config.schema.json",
+  "$defs": {
+    "backupSecretName": {
+      "description": "Nonvalidating backup reference policy: a name or path is not the secret value.",
+      "type": "string"
+    },
+    "backupEngineSecretReference": {
+      "description": "Nonvalidating backup reference policy from the pinned Engine SecretInput schema and legacy resolver. Ordinary strings are inline values.",
+      "anyOf": [
+        {
+          "type": "object",
+          "minLength": 1,
+          "additionalProperties": false,
+          "required": [
+            "source",
+            "provider",
+            "id"
+          ],
+          "properties": {
+            "source": {
+              "type": "string",
+              "enum": [
+                "env",
+                "store",
+                "file",
+                "exec"
+              ]
+            },
+            "provider": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        },
+        {
+          "enum": [
+            "${COHERE_API_KEY}",
+            "${OPENAI_API_KEY}",
+            "${OPENAI_API_KEY_FALLBACK}",
+            "${OPENAI_COMPATIBLE_API_KEY}",
+            "${PLUR1BUS_COHERE_API_KEY}",
+            "${PLUR1BUS_OPENAI_API_KEY}",
+            "${PLUR1BUS_OPENAI_COMPATIBLE_API_KEY}"
+          ]
+        }
+      ]
+    }
+  },
   "title": "PLUR1BUS harness config.json (schemaVersion 1)",
   "description": "Configuration for the PLUR1BUS harness process, its supervisor, and optional integrations.",
   "type": "object",
@@ -1461,7 +1513,7 @@
                   "string",
                   "object"
                 ],
-                "x-sensitive": true,
+                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupEngineSecretReference"},
                 "additionalProperties": false,
                 "properties": {
                   "source": {
@@ -1490,7 +1542,7 @@
                       "string",
                       "object"
                     ],
-                    "x-sensitive": true,
+                    "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupEngineSecretReference"},
                     "additionalProperties": false,
                     "properties": {
                       "source": {
@@ -1520,12 +1572,12 @@
               },
               "apiKeyRef": {
                 "type": "string",
-                "x-sensitive": true,
+                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
                 "description": "Secret-store reference for an Engine credential."
               },
               "apiKeyEnv": {
                 "type": "string",
-                "x-sensitive": true,
+                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
                 "description": "Environment reference for an Engine credential."
               },
               "baseUrl": {
@@ -1546,7 +1598,7 @@
                             "string",
                             "object"
                           ],
-                          "x-sensitive": true,
+                          "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupEngineSecretReference"},
                           "additionalProperties": false,
                           "properties": {
                             "source": {
@@ -1569,12 +1621,12 @@
                         },
                         "apiKeyRef": {
                           "type": "string",
-                          "x-sensitive": true,
+                          "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
                           "description": "Secret-store reference for an Engine credential."
                         },
                         "apiKeyEnv": {
                           "type": "string",
-                          "x-sensitive": true,
+                          "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
                           "description": "Environment reference for an Engine credential."
                         },
                         "baseUrl": {
@@ -1590,7 +1642,7 @@
                                 "string",
                                 "object"
                               ],
-                              "x-sensitive": true,
+                              "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupEngineSecretReference"},
                               "additionalProperties": false,
                               "properties": {
                                 "source": {
@@ -1633,7 +1685,7 @@
                   "string",
                   "object"
                 ],
-                "x-sensitive": true,
+                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupEngineSecretReference"},
                 "additionalProperties": false,
                 "properties": {
                   "source": {
@@ -1656,12 +1708,12 @@
               },
               "apiKeyRef": {
                 "type": "string",
-                "x-sensitive": true,
+                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
                 "description": "Secret-store reference for an Engine credential."
               },
               "apiKeyEnv": {
                 "type": "string",
-                "x-sensitive": true,
+                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
                 "description": "Environment reference for an Engine credential."
               },
               "baseUrl": {
@@ -1679,7 +1731,7 @@
                   "string",
                   "object"
                 ],
-                "x-sensitive": true,
+                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupEngineSecretReference"},
                 "additionalProperties": false,
                 "properties": {
                   "source": {
@@ -1702,7 +1754,7 @@
               },
               "apiKeyRef": {
                 "type": "string",
-                "x-sensitive": true,
+                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
                 "description": "Secret-store reference for an Engine credential."
               },
               "headers": {
@@ -1728,7 +1780,7 @@
                   "string",
                   "object"
                 ],
-                "x-sensitive": true,
+                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupEngineSecretReference"},
                 "additionalProperties": false,
                 "properties": {
                   "source": {
@@ -1751,7 +1803,7 @@
               },
               "apiKeyRef": {
                 "type": "string",
-                "x-sensitive": true,
+                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
                 "description": "Secret-store reference for an Engine credential."
               },
               "headers": {
@@ -1777,7 +1829,7 @@
                   "string",
                   "object"
                 ],
-                "x-sensitive": true,
+                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupEngineSecretReference"},
                 "additionalProperties": false,
                 "properties": {
                   "source": {
@@ -1800,7 +1852,7 @@
               },
               "apiKeyRef": {
                 "type": "string",
-                "x-sensitive": true,
+                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
                 "description": "Secret-store reference for an Engine credential."
               },
               "headers": {
@@ -1829,7 +1881,7 @@
                       "string",
                       "object"
                     ],
-                    "x-sensitive": true,
+                    "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupEngineSecretReference"},
                     "additionalProperties": false,
                     "properties": {
                       "source": {
@@ -1852,7 +1904,7 @@
                   },
                   "apiKeyRef": {
                     "type": "string",
-                    "x-sensitive": true,
+                    "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
                     "description": "Secret-store reference for an Engine credential."
                   },
                   "baseUrl": {
@@ -1869,7 +1921,7 @@
             "properties": {
               "apiKeyEnv": {
                 "type": "string",
-                "x-sensitive": true,
+                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
                 "description": "Environment reference for an Engine credential."
               }
             }
@@ -2114,7 +2166,7 @@
               "minLength": 1,
               "maxLength": 128,
               "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
-              "x-sensitive": true
+              "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}
             },
             "kid": {
               "description": "Key identifier for the signing key.",
@@ -2233,7 +2285,7 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 4096,
-                  "x-sensitive": true
+                  "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}
                 },
                 "args": {
                   "description": "Arguments passed to command, one array element per argument (no shell interpolation).",
@@ -2317,7 +2369,7 @@
                   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                   "x-restart": "live",
                   "x-tier": "advanced",
-                  "x-sensitive": true
+                  "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}
                 }
               },
               "x-restart": "live",
@@ -2894,7 +2946,7 @@
               "default": "channels.discord.token",
               "x-restart": "module:discord",
               "x-tier": "advanced",
-              "x-sensitive": true
+              "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}
             },
             "applicationId": {
               "description": "Discord application id (needed to register slash commands). Taken from the gateway READY event when omitted.",
@@ -3021,7 +3073,7 @@
               "default": "channels.slack.bot-token",
               "x-restart": "module:slack",
               "x-tier": "advanced",
-              "x-sensitive": true
+              "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}
             },
             "appTokenSecret": {
               "description": "Name of the secret holding the Slack app-level token (xapp-…) with the connections:write scope, used for Socket Mode.",
@@ -3030,7 +3082,7 @@
               "default": "channels.slack.app-token",
               "x-restart": "module:slack",
               "x-tier": "advanced",
-              "x-sensitive": true
+              "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}
             },
             "teamId": {
               "description": "Slack workspace id; events from other workspaces are ignored when set.",
@@ -3112,7 +3164,7 @@
             }
           }
         },
-        "buzz": {"type": "object", "default": {}, "description": "NIP-17 text-only direct messages. Disabled by default.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "additionalProperties": false, "properties": {"enabled": {"type": "boolean", "default": false, "description": "Start Buzz.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true}, "relays": {"type": "array", "default": [], "description": "Permitted wss relays; ws only for literal loopback.", "x-url-credentials": true, "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "maxItems": 16, "uniqueItems": true, "items": {"type": "string", "maxLength": 2048}}, "privateKeySecret": {"type": "string", "maxLength": 128, "default": "channels.buzz.private-key", "description": "Name of the secret holding the Buzz private key; never the key itself.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "pattern": "^channels\\.buzz\\.[a-zA-Z0-9._-]+$", "x-sensitive": true}, "senderAllowlist": {"type": "array", "default": [], "description": "Allowed hex or npub sender keys.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "maxItems": 256, "uniqueItems": true, "items": {"type": "string", "maxLength": 128}}, "locale": {"type": "string", "default": "en", "description": "Local command language.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "enum": ["de", "en"]}}},
+        "buzz": {"type": "object", "default": {}, "description": "NIP-17 text-only direct messages. Disabled by default.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "additionalProperties": false, "properties": {"enabled": {"type": "boolean", "default": false, "description": "Start Buzz.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true}, "relays": {"type": "array", "default": [], "description": "Permitted wss relays; ws only for literal loopback.", "x-url-credentials": true, "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "maxItems": 16, "uniqueItems": true, "items": {"type": "string", "maxLength": 2048}}, "privateKeySecret": {"type": "string", "maxLength": 128, "default": "channels.buzz.private-key", "description": "Name of the secret holding the Buzz private key; never the key itself.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "pattern": "^channels\\.buzz\\.[a-zA-Z0-9._-]+$", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}}, "senderAllowlist": {"type": "array", "default": [], "description": "Allowed hex or npub sender keys.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "maxItems": 256, "uniqueItems": true, "items": {"type": "string", "maxLength": 128}}, "locale": {"type": "string", "default": "en", "description": "Local command language.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "enum": ["de", "en"]}}},
         "matrix": {
           "description": "Matrix channel adapter (client-server API, sync loop, reactions as approvals). Rooms with end-to-end encryption are refused in this version.",
           "type": "object",
@@ -3151,7 +3203,7 @@
               "default": "channels.matrix.access-token",
               "x-restart": "module:matrix",
               "x-tier": "advanced",
-              "x-sensitive": true
+              "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}
             },
             "deviceId": {
               "description": "Device id of the access token, when the homeserver requires it to be stated.",
@@ -3494,7 +3546,7 @@
                   "default": "channels.email.imap-password",
                   "x-restart": "module:email",
                   "x-tier": "advanced",
-                  "x-sensitive": true
+                  "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}
                 },
                 "folder": {
                   "description": "IMAP folder to watch.",
@@ -3569,7 +3621,7 @@
                   "default": "channels.email.smtp-password",
                   "x-restart": "module:email",
                   "x-tier": "advanced",
-                  "x-sensitive": true
+                  "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}
                 }
               }
             },
@@ -3669,7 +3721,7 @@
               "default": "channels.telegram.botToken",
               "x-restart": "module:telegram",
               "x-tier": "advanced",
-              "x-sensitive": true
+              "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}
             },
             "allowlist": {
               "description": "Decimal chat IDs (users, groups, supergroups) that may talk to the bot. Empty allows nothing, inbound and outbound.",
@@ -4306,7 +4358,7 @@
               "type": "object", "additionalProperties": false, "default": {},
               "properties": {
                 "enabled": { "description": "Whether ElevenLabs may be used. Off until enabled and given an apiKeyRef.", "type": "boolean", "default": false , "x-restart": "live", "x-tier": "advanced" },
-                "apiKeyRef": { "description": "Secret-store reference holding the ElevenLabs API key.", "type": "string", "minLength": 1, "maxLength": 200 , "x-restart": "live", "x-tier": "advanced", "x-sensitive": true },
+                "apiKeyRef": { "description": "Secret-store reference holding the ElevenLabs API key.", "type": "string", "minLength": 1, "maxLength": 200 , "x-restart": "live", "x-tier": "advanced", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"} },
                 "region": { "description": "Data-residency region: default (global), us, eu or in. Ignored when baseUrl is set.", "enum": ["default", "us", "eu", "in"], "default": "default" , "x-restart": "live", "x-tier": "advanced" },
                 "baseUrl": { "description": "Override of the API base URL (https only, or loopback for a local relay).", "type": "string", "maxLength": 300 , "x-restart": "live", "x-tier": "advanced", "x-url-credentials": true },
                 "defaultVoice": { "description": "Voice id used when a request names none.", "type": "string", "maxLength": 200 , "x-restart": "live", "x-tier": "advanced" },
@@ -4320,7 +4372,7 @@
               "type": "object", "additionalProperties": false, "default": {},
               "properties": {
                 "enabled": { "description": "Whether Grok Voice may be used. Off until enabled and given an apiKeyRef.", "type": "boolean", "default": false , "x-restart": "live", "x-tier": "advanced" },
-                "apiKeyRef": { "description": "Secret-store reference holding the xAI API key.", "type": "string", "minLength": 1, "maxLength": 200 , "x-restart": "live", "x-tier": "advanced", "x-sensitive": true },
+                "apiKeyRef": { "description": "Secret-store reference holding the xAI API key.", "type": "string", "minLength": 1, "maxLength": 200 , "x-restart": "live", "x-tier": "advanced", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"} },
                 "baseUrl": { "description": "Override of the API base URL (https only, or loopback for a local relay).", "type": "string", "maxLength": 300 , "x-restart": "live", "x-tier": "advanced", "x-url-credentials": true },
                 "defaultVoice": { "description": "Voice used when a session names none.", "type": "string", "maxLength": 200 , "x-restart": "live", "x-tier": "advanced" },
                 "defaultModel": { "description": "Realtime model id used when a session names none; found by discovery when empty.", "type": "string", "maxLength": 200 , "x-restart": "live", "x-tier": "advanced" }
@@ -4331,7 +4383,7 @@
               "type": "object", "additionalProperties": false, "default": {},
               "properties": {
                 "enabled": { "description": "Whether Gemini Live may be used. Off until enabled and given an apiKeyRef.", "type": "boolean", "default": false , "x-restart": "live", "x-tier": "advanced" },
-                "apiKeyRef": { "description": "Secret-store reference holding the Gemini API key.", "type": "string", "minLength": 1, "maxLength": 200 , "x-restart": "live", "x-tier": "advanced", "x-sensitive": true },
+                "apiKeyRef": { "description": "Secret-store reference holding the Gemini API key.", "type": "string", "minLength": 1, "maxLength": 200 , "x-restart": "live", "x-tier": "advanced", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"} },
                 "baseUrl": { "description": "Override of the API base URL (https only, or loopback for a local relay).", "type": "string", "maxLength": 300 , "x-restart": "live", "x-tier": "advanced", "x-url-credentials": true },
                 "defaultVoice": { "description": "Prebuilt voice name used when a session names none.", "type": "string", "maxLength": 200 , "x-restart": "live", "x-tier": "advanced" },
                 "defaultModel": { "description": "Live model id used when a session names none; native-audio models are found by discovery when empty.", "type": "string", "maxLength": 200 , "x-restart": "live", "x-tier": "advanced" }
@@ -5115,7 +5167,7 @@
               "default": {},
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
-                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true},
+                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}},
                 "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced", "x-url-credentials": true},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "gpt-image-2.5-sunburst", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
@@ -5129,7 +5181,7 @@
               "default": {},
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
-                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true},
+                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}},
                 "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced", "x-url-credentials": true},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "gemini-nano-banana-2.1", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
@@ -5143,7 +5195,7 @@
               "default": {},
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
-                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true},
+                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}},
                 "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced", "x-url-credentials": true},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "grok-imagine-image-2.0", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
@@ -5157,7 +5209,7 @@
               "default": {},
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
-                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true},
+                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}},
                 "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced", "x-url-credentials": true},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "google/gemini-2.5-flash-image", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
@@ -5171,7 +5223,7 @@
               "default": {},
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
-                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true},
+                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}},
                 "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced", "x-url-credentials": true},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "black-forest-labs/flux-schnell", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
@@ -5185,7 +5237,7 @@
               "default": {},
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
-                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true},
+                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}},
                 "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced", "x-url-credentials": true},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "fal-ai/flux/schnell", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
@@ -5199,7 +5251,7 @@
               "default": {},
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
-                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true},
+                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}},
                 "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced", "x-url-credentials": true},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "black-forest-labs/FLUX.2-dev", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
