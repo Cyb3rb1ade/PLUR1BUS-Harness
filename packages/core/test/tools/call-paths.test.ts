@@ -29,10 +29,10 @@ const all = files(SRC).map((f) => ({ file: rel(f), text: readFileSync(f, "utf8")
 const sitesOf = (re: RegExp): string[] => all.filter((f) => re.test(f.text)).map((f) => f.file).sort();
 
 describe("every way a tool can run goes through dispatcher.call (static guard)", () => {
-  it("tool.execute( is called by the dispatcher only; callWithRepair (a test-only helper) is used by nothing in src", () => {
-    // tools/repair.ts defines the helper that calls execute; it must not be imported from anywhere in src.
-    assert.deepEqual(sitesOf(/\.execute\(/), ["tools/dispatcher.ts", "tools/repair.ts"]);
-    assert.deepEqual(sitesOf(/\bcallWithRepair\b/), ["tools/repair.ts"], "callWithRepair would run a tool without the policy gate");
+  it("tool.execute( is called by the dispatcher only; callWithRepair (a test helper) is not in src", () => {
+    // callWithRepair runs execute directly; it lives in test/tools/call-with-repair.ts and must not come back to src.
+    assert.deepEqual(sitesOf(/\.execute\(/), ["tools/dispatcher.ts"]);
+    assert.deepEqual(sitesOf(/\bcallWithRepair\b/), [], "callWithRepair would run a tool without the policy gate");
   });
 
   it("an MCP server is called through McpRegistry.callTool, and McpRegistry is reached only from src/mcp and the dispatcher's bridge", () => {

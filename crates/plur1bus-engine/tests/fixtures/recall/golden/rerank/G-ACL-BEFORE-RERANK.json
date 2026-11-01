@@ -1,0 +1,134 @@
+{
+  "id": "G-ACL-BEFORE-RERANK",
+  "recordedFrom": {
+    "tag": "v7.18.31",
+    "commit": "6419a60e79975d0b5244798c1fdbbd7997a712ce",
+    "node": "v24.21.0",
+    "unicode": "17.0",
+    "icu": "78.3"
+  },
+  "runs": [
+    {
+      "name": "acl-before-rerank",
+      "kind": "pipeline",
+      "request": {
+        "name": "acl-before-rerank",
+        "query": "recall",
+        "topN": 5,
+        "budget": 5,
+        "rerankCandidates": 10,
+        "deferFinalCap": false,
+        "dedupEnabled": true,
+        "dedupJaccard": 0.78,
+        "candidateHardLimit": 100,
+        "summaryMaxWords": 150,
+        "rerankerTimeoutMs": 0,
+        "rerankerFallbackOnError": true,
+        "canonicalCount": 0,
+        "agentId": "a1",
+        "rerank": {
+          "emptyResultIsValid": false,
+          "hits": [
+            {
+              "index": 0,
+              "score": 0.4
+            },
+            {
+              "index": 1,
+              "score": 0.3
+            }
+          ]
+        }
+      },
+      "rows": [
+        {
+          "id": "own-1",
+          "text": "alpha bravo",
+          "summary": "alpha bravo",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.9,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "foreign",
+          "text": "foreign charlie",
+          "summary": "foreign charlie",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a2",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.8,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "own-2",
+          "text": "delta echo",
+          "summary": "delta echo",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.7,
+          "source": "vector",
+          "graphSource": ""
+        }
+      ],
+      "result": {
+        "threw": false,
+        "errorName": null,
+        "ids": [
+          "own-1",
+          "own-2"
+        ],
+        "rerankScores": [
+          0.4,
+          0.3
+        ],
+        "sources": [
+          "vector",
+          "vector"
+        ],
+        "saw": {
+          "docs": [
+            "alpha bravo",
+            "delta echo"
+          ],
+          "topN": 10
+        },
+        "decisions": [
+          {
+            "memoryId": "foreign",
+            "action": "rejection",
+            "stage": "provider-acl",
+            "reason": "acl.agent_private.mismatch"
+          }
+        ],
+        "guards": [
+          {
+            "name": "acl",
+            "passed": false,
+            "reason": "acl.agent_private.mismatch",
+            "memoryId": "foreign"
+          }
+        ]
+      }
+    }
+  ]
+}

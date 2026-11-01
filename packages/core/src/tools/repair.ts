@@ -26,12 +26,6 @@ export interface RepairRequest {
 /** Returns corrected arguments, or undefined to give up. Called at most once per call. */
 export type RepairHook = (req: RepairRequest) => Promise<unknown | undefined>;
 
-export interface Callable<C = unknown, R = unknown> {
-  name: string;
-  inputSchema: Record<string, unknown>;
-  execute(args: unknown, ctx: C): Promise<R>;
-}
-
 export interface ToolCallInvalid {
   isError: true;
   error: { code: "tool-call-invalid"; message: string; hint: string; issues: ValidationIssue[] };
@@ -100,41 +94,4 @@ export function validateArgs(schema: Record<string, unknown>, args: unknown): Va
 export function repairMessage(tool: string, issues: ValidationIssue[]): string {
   const lines = issues.slice(0, 10).map((i) => `- ${i.path === "" ? "(arguments)" : i.path}: ${i.message}; expected ${i.expected}, got ${i.got}`);
   return `The call to ${tool} was not executed because its arguments are invalid:\n${lines.join("\n")}\nCall ${tool} again once with corrected arguments.`;
-}
-
-function invalid(tool: string, issues: ValidationIssue[]): ToolCallInvalid {
-  return {
-    isError: true,
-    error: {
-      code: "tool-call-invalid",
-      message: `invalid arguments for ${tool}: ${issues.slice(0, 5).map((i) => `${i.path || "(arguments)"} ${i.message}`).join("; ")}`,
-      hint: `Check the tool's input schema and call ${tool} with arguments that match it, or use a different approach.`,
-      issues: issues.slice(0, 10),
-    },
-  };
-}
-
-/**
- * Validate, run at most one repair round, execute. `repairRounds` is for the trace. Exceptions thrown by the tool
- * itself propagate: a tool turns its own failures into `isError` results.
- */
-export async function callWithRepair<C, R>(
-  tool: Callable<C, R>,
-  args: unknown,
-  opts: { repair?: RepairHook; ctx?: C } = {},
-): Promise<{ repairRounds: 0 | 1; result: R | ToolCallInvalid }> {
-  const ctx = (opts.ctx ?? {}) as C;
-  let issues = validateArgs(tool.inputSchema, args);
-  if (issues.length === 0) return { repairRounds: 0, result: await tool.execute(args, ctx) };
-  if (!opts.repair) return { repairRounds: 0, result: invalid(tool.name, issues) };
-  let fixed: unknown;
-  try {
-    fixed = await opts.repair({ tool: tool.name, args, issues, message: repairMessage(tool.name, issues) });
-  } catch {
-    return { repairRounds: 1, result: invalid(tool.name, issues) };
-  }
-  if (fixed === undefined) return { repairRounds: 1, result: invalid(tool.name, issues) };
-  issues = validateArgs(tool.inputSchema, fixed);
-  if (issues.length > 0) return { repairRounds: 1, result: invalid(tool.name, issues) };
-  return { repairRounds: 1, result: await tool.execute(fixed, ctx) };
 }

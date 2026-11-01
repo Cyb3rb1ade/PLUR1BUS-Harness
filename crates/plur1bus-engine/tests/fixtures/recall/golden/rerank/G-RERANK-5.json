@@ -1,0 +1,480 @@
+{
+  "id": "G-RERANK-5",
+  "recordedFrom": {
+    "tag": "v7.18.31",
+    "commit": "6419a60e79975d0b5244798c1fdbbd7997a712ce",
+    "node": "v24.21.0",
+    "unicode": "17.0",
+    "icu": "78.3"
+  },
+  "runs": [
+    {
+      "name": "empty-is-valid",
+      "kind": "pipeline",
+      "request": {
+        "name": "empty-is-valid",
+        "query": "recall",
+        "topN": 2,
+        "budget": 10,
+        "rerankCandidates": 10,
+        "deferFinalCap": false,
+        "dedupEnabled": true,
+        "dedupJaccard": 0.78,
+        "candidateHardLimit": 100,
+        "summaryMaxWords": 150,
+        "rerankerTimeoutMs": 0,
+        "rerankerFallbackOnError": true,
+        "canonicalCount": 0,
+        "agentId": "a1",
+        "rerank": {
+          "emptyResultIsValid": true,
+          "hits": [],
+          "error": null
+        }
+      },
+      "rows": [
+        {
+          "id": "e0",
+          "text": "e0",
+          "summary": "e0",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 1,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "e1",
+          "text": "e1",
+          "summary": "e1",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.9,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "e2",
+          "text": "e2",
+          "summary": "e2",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.8,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "e3",
+          "text": "e3",
+          "summary": "e3",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.7,
+          "source": "vector",
+          "graphSource": ""
+        }
+      ],
+      "result": {
+        "threw": false,
+        "errorName": null,
+        "ids": [],
+        "rerankScores": [],
+        "sources": [],
+        "saw": {
+          "docs": [
+            "e0",
+            "e1",
+            "e2",
+            "e3"
+          ],
+          "topN": 4
+        },
+        "decisions": [],
+        "guards": []
+      }
+    },
+    {
+      "name": "empty-falls-back",
+      "kind": "pipeline",
+      "request": {
+        "name": "empty-falls-back",
+        "query": "recall",
+        "topN": 2,
+        "budget": 10,
+        "rerankCandidates": 10,
+        "deferFinalCap": false,
+        "dedupEnabled": true,
+        "dedupJaccard": 0.78,
+        "candidateHardLimit": 100,
+        "summaryMaxWords": 150,
+        "rerankerTimeoutMs": 0,
+        "rerankerFallbackOnError": true,
+        "canonicalCount": 0,
+        "agentId": "a1",
+        "rerank": {
+          "emptyResultIsValid": false,
+          "hits": [],
+          "error": null
+        }
+      },
+      "rows": [
+        {
+          "id": "e0",
+          "text": "e0",
+          "summary": "e0",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 1,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "e1",
+          "text": "e1",
+          "summary": "e1",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.9,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "e2",
+          "text": "e2",
+          "summary": "e2",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.8,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "e3",
+          "text": "e3",
+          "summary": "e3",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.7,
+          "source": "vector",
+          "graphSource": ""
+        }
+      ],
+      "result": {
+        "threw": false,
+        "errorName": null,
+        "ids": [
+          "e0",
+          "e1"
+        ],
+        "rerankScores": [
+          null,
+          null
+        ],
+        "sources": [
+          "vector",
+          "vector"
+        ],
+        "saw": {
+          "docs": [
+            "e0",
+            "e1",
+            "e2",
+            "e3"
+          ],
+          "topN": 4
+        },
+        "decisions": [],
+        "guards": [
+          {
+            "name": "rerank",
+            "passed": false,
+            "reason": "reranker returned no valid indices or threw; falling back to unreranked topN",
+            "memoryId": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "timeout-falls-back",
+      "kind": "pipeline",
+      "request": {
+        "name": "timeout-falls-back",
+        "query": "recall",
+        "topN": 2,
+        "budget": 10,
+        "rerankCandidates": 10,
+        "deferFinalCap": false,
+        "dedupEnabled": true,
+        "dedupJaccard": 0.78,
+        "candidateHardLimit": 100,
+        "summaryMaxWords": 150,
+        "rerankerTimeoutMs": 5000,
+        "rerankerFallbackOnError": true,
+        "canonicalCount": 0,
+        "agentId": "a1",
+        "rerank": {
+          "emptyResultIsValid": false,
+          "hits": [],
+          "error": "timeout"
+        }
+      },
+      "rows": [
+        {
+          "id": "e0",
+          "text": "e0",
+          "summary": "e0",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 1,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "e1",
+          "text": "e1",
+          "summary": "e1",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.9,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "e2",
+          "text": "e2",
+          "summary": "e2",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.8,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "e3",
+          "text": "e3",
+          "summary": "e3",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.7,
+          "source": "vector",
+          "graphSource": ""
+        }
+      ],
+      "result": {
+        "threw": false,
+        "errorName": null,
+        "ids": [
+          "e0",
+          "e1"
+        ],
+        "rerankScores": [
+          null,
+          null
+        ],
+        "sources": [
+          "vector",
+          "vector"
+        ],
+        "saw": {
+          "docs": [
+            "e0",
+            "e1",
+            "e2",
+            "e3"
+          ],
+          "topN": 4
+        },
+        "decisions": [],
+        "guards": [
+          {
+            "name": "rerank",
+            "passed": false,
+            "reason": "reranker returned no valid indices or threw; falling back to unreranked topN",
+            "memoryId": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "timeout-rethrows",
+      "kind": "pipeline",
+      "request": {
+        "name": "timeout-rethrows",
+        "query": "recall",
+        "topN": 2,
+        "budget": 10,
+        "rerankCandidates": 10,
+        "deferFinalCap": false,
+        "dedupEnabled": true,
+        "dedupJaccard": 0.78,
+        "candidateHardLimit": 100,
+        "summaryMaxWords": 150,
+        "rerankerTimeoutMs": 5000,
+        "rerankerFallbackOnError": false,
+        "canonicalCount": 0,
+        "agentId": "a1",
+        "rerank": {
+          "emptyResultIsValid": false,
+          "hits": [],
+          "error": "generic"
+        }
+      },
+      "rows": [
+        {
+          "id": "e0",
+          "text": "e0",
+          "summary": "e0",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 1,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "e1",
+          "text": "e1",
+          "summary": "e1",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.9,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "e2",
+          "text": "e2",
+          "summary": "e2",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.8,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "e3",
+          "text": "e3",
+          "summary": "e3",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.7,
+          "source": "vector",
+          "graphSource": ""
+        }
+      ],
+      "result": {
+        "threw": true,
+        "errorName": "Error",
+        "ids": [],
+        "rerankScores": [],
+        "sources": [],
+        "saw": {
+          "docs": [
+            "e0",
+            "e1",
+            "e2",
+            "e3"
+          ],
+          "topN": 4
+        },
+        "decisions": [],
+        "guards": []
+      }
+    }
+  ]
+}
