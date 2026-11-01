@@ -407,6 +407,7 @@ fn stale_run_files_are_a_warning() {
     std::fs::set_permissions(&run, std::fs::Permissions::from_mode(0o700)).unwrap();
     common::dead_socket(&run.join("supervisor.sock"));
     common::dead_socket(&run.join("core.sock"));
+    common::dead_socket(&run.join("tools.sock"));
     // Pids that cannot exist (above every pid_max), so the check sees them as dead.
     std::fs::write(
         run.join("supervisor.pid"),
@@ -418,6 +419,7 @@ fn stale_run_files_are_a_warning() {
         "2147483001 00000000-0000-4000-8000-000000000001\n",
     )
     .unwrap();
+    std::fs::write(run.join("tools.pid"), "2147483002 unused-instance\n").unwrap();
     for token in ["supervisor.token", "core.token"] {
         std::fs::write(run.join(token), "a".repeat(64)).unwrap();
         std::fs::set_permissions(run.join(token), std::fs::Permissions::from_mode(0o600)).unwrap();
@@ -434,7 +436,14 @@ fn stale_run_files_are_a_warning() {
         .iter()
         .map(|f| f.as_str().unwrap().to_string())
         .collect();
-    for f in ["supervisor.sock", "supervisor.pid", "core.sock", "core.pid"] {
+    for f in [
+        "supervisor.sock",
+        "supervisor.pid",
+        "core.sock",
+        "core.pid",
+        "tools.pid",
+        "tools.sock",
+    ] {
         assert!(files.contains(&f.to_string()), "{f} missing from {files:?}");
     }
     assert_eq!(checks["supervisor.state"]["status"], "warn", "{v}");

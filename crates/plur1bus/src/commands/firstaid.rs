@@ -798,7 +798,7 @@ fn windows_restricted_to_user_and_system(path: &Path) -> io::Result<bool> {
 /// A socket/pipe or pid file with no live peer behind it (Review Focus 3): `run/supervisor.lock` is never checked
 /// here (H3-R9: it is expected to exist and to be held for the supervisor's whole life), and neither are any
 /// `*.tmp` files a crash left behind (also expected, H3-R9) — this only looks at the core's and the supervisor's pid
-/// files and sockets and at each module's (`module-<name>.pid`, `module-<name>.sock`).
+/// files and sockets, the fixed tools service, and each module (`module-<name>.pid`, `module-<name>.sock`).
 fn check_run_stale_files(layout: &Layout, platform: &str) -> Check {
     const ID: &str = "run.stale-files";
     let run = layout.run();
@@ -846,19 +846,22 @@ fn check_run_stale_files(layout: &Layout, platform: &str) -> Check {
         }
     }
 
-    // A module's pid file and (POSIX) socket, `run/module-<name>.{pid,sock}`: stale on the same terms as the core's.
-    let mut module_files: Vec<String> = std::fs::read_dir(&run)
+    // The fixed tools service and module endpoints are stale on the same terms as the core's.
+    let mut endpoint_files: Vec<String> = std::fs::read_dir(&run)
         .map(|d| {
             d.flatten()
                 .map(|e| e.file_name().to_string_lossy().into_owned())
                 .filter(|n| {
-                    n.starts_with("module-") && (n.ends_with(".pid") || n.ends_with(".sock"))
+                    n == "tools.pid"
+                        || n == "tools.sock"
+                        || (n.starts_with("module-")
+                            && (n.ends_with(".pid") || n.ends_with(".sock")))
                 })
                 .collect()
         })
         .unwrap_or_default();
-    module_files.sort();
-    for name in module_files {
+    endpoint_files.sort();
+    for name in endpoint_files {
         let path = run.join(&name);
         let alive = if name.ends_with(".pid") {
             std::fs::read_to_string(&path)

@@ -8,13 +8,13 @@ The supervisor starts the tools slot after starting Core, with an independent re
 stdin lifeline, private output log and adoption. A tools crash does not restart Core. In standalone
 `plur1bus core run`, Core owns the child and reaps it on shutdown; a child adopted by a supervisor
 continues under its new lifeline. `PLUR1BUS_TOOLS_BIN` overrides the native binary path. Otherwise
-the binary is installed beside the CLI, or under `<home>/runtime/bin/`.
+the resolver checks beside the CLI or under `<home>/runtime/bin/`.
 
 For development, build `cargo build --locked -p plur1bus-tools` and set `PLUR1BUS_TOOLS_BIN` to its
 absolute executable path. The binary also accepts `serve --home <absolute-path>` independently.
 `--lifeline stdin --instance <uuid>` is the supervisor/Core process contract. Lifeline loss permits
-adoption for the configured startup grace (`--grace-ms`, supplied from `supervisor.graceMs`, ten seconds
-by default), then the process exits and removes its run files.
+adoption for the configured startup grace: direct `serve` defaults to ten seconds; Core/supervisor supply
+`--grace-ms` from `supervisor.graceMs` (sixty seconds by default). The process then exits and removes its run files.
 
 The endpoint is `<home>/run/tools.sock`, or the harness's per-home `-tools` named pipe. Run files
 are owner-private (0700 directories, 0600 files and sockets; owner-and-SYSTEM ACLs on Windows).
