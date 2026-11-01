@@ -108,14 +108,40 @@ fn verify_file(
     cancel: &Cancel,
 ) -> Result<(), MediaError> {
     cancel.check()?;
-    let mut file = std::fs::File::open(directory.join(&expected.path)).map_err(|_| {
-        MediaError::ArtifactMissing {
-            file: expected.path.clone(),
-        }
-    })?;
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        // Descriptor metadata below closes the replacement race: a FIFO cannot block open,
+        // and a final symlink cannot redirect it to a different object (MM-1 review P2).
+        options.custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        // FILE_FLAG_OPEN_REPARSE_POINT opens the link itself; descriptor metadata rejects it below.
+        options.custom_flags(0x0020_0000);
+    }
+    let mut file =
+        options
+            .open(directory.join(&expected.path))
+            .map_err(|_| MediaError::ArtifactMissing {
+                file: expected.path.clone(),
+            })?;
     let metadata = file.metadata().map_err(|_| MediaError::ArtifactMissing {
         file: expected.path.clone(),
     })?;
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        // Reject all reparse points, including symlinks, without following their targets.
+        if metadata.file_attributes() & 0x400 != 0 {
+            return Err(MediaError::ArtifactMissing {
+                file: expected.path.clone(),
+            });
+        }
+    }
     if !metadata.is_file() || metadata.len() != expected.bytes {
         return Err(MediaError::ArtifactSize {
             file: expected.path.clone(),
@@ -234,5 +260,59 @@ mod tests {
             Err(MediaError::Cancelled(_))
         ));
         assert_eq!(reader.reads, 1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fifo_cache_entries_are_refused_without_blocking_the_deadline() {
+        const CHILD: &str = "PLUR1BUS_TEST_MEDIA_FIFO";
+        if let Some(directory) = std::env::var_os(CHILD) {
+            let cancel = Cancel::with_deadline(
+                std::time::Instant::now() + std::time::Duration::from_millis(50),
+            );
+            assert!(matches!(
+                verify_file(Path::new(&directory), &small_file(), &cancel),
+                Err(MediaError::ArtifactSize { .. })
+            ));
+            return;
+        }
+        let directory = tempfile::tempdir().unwrap();
+        use std::os::unix::ffi::OsStrExt;
+        let path =
+            std::ffi::CString::new(directory.path().join("graph.onnx").as_os_str().as_bytes())
+                .unwrap();
+        // SAFETY: the CString is terminated and lives through mkfifo; the mode is owner read/write only.
+        assert_eq!(unsafe { libc::mkfifo(path.as_ptr(), 0o600) }, 0);
+        let mut child=std::process::Command::new(std::env::current_exe().unwrap())
+            .arg("--exact").arg("media::artifacts::tests::fifo_cache_entries_are_refused_without_blocking_the_deadline")
+            .arg("--nocapture").env(CHILD,directory.path()).spawn().unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_millis(500);
+        let status = loop {
+            if let Some(status) = child.try_wait().unwrap() {
+                break Some(status);
+            }
+            if std::time::Instant::now() >= deadline {
+                child.kill().unwrap();
+                child.wait().unwrap();
+                break None;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        };
+        assert!(
+            status.is_some_and(|status| status.success()),
+            "cache FIFO blocked past its deadline; child was terminated"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlink_cache_entries_cannot_bypass_the_descriptor_type_guard() {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::write(directory.path().join("regular"), b"abc").unwrap();
+        std::os::unix::fs::symlink("regular", directory.path().join("graph.onnx")).unwrap();
+        assert!(matches!(
+            verify_file(directory.path(), &small_file(), &Cancel::never()),
+            Err(MediaError::ArtifactMissing { .. })
+        ));
     }
 }

@@ -75,6 +75,98 @@ mod tests {
     use crate::media::embedder::{LocalMediaEmbedder, MediaEmbedder, MediaInput, VideoFrame};
     use crate::media::identity::test_text_identity;
     use std::sync::Arc;
+    #[test]
+    fn selected_budgets_reach_preprocessing_and_space_identity() {
+        use crate::media::embedder::MediaSettings;
+        struct RecordingEncoder {
+            patches: std::sync::Mutex<Vec<usize>>,
+        }
+        impl MediaEncoder for RecordingEncoder {
+            fn vision(
+                &self,
+                images: &[ImageTensor],
+                cancel: &Cancel,
+            ) -> Result<Vec<f32>, MediaError> {
+                self.patches
+                    .lock()
+                    .unwrap()
+                    .extend(images.iter().map(|image| image.max_patches));
+                FlatMediaEncoder::for_test().vision(images, cancel)
+            }
+            fn audio(&self, audio: &AudioTensor, cancel: &Cancel) -> Result<Vec<f32>, MediaError> {
+                FlatMediaEncoder::for_test().audio(audio, cancel)
+            }
+            fn fuse(
+                &self,
+                modality: MediaModality,
+                features: &[f32],
+                cancel: &Cancel,
+            ) -> Result<Vec<f32>, MediaError> {
+                FlatMediaEncoder::for_test().fuse(modality, features, cancel)
+            }
+        }
+        let mut identities = std::collections::BTreeSet::new();
+        for (photo, video) in [(280, 140), (140, 70), (70, 140)] {
+            let settings = MediaSettings {
+                image_soft_tokens: photo,
+                video_soft_tokens: video,
+            };
+            let encoder = Arc::new(RecordingEncoder {
+                patches: std::sync::Mutex::new(Vec::new()),
+            });
+            let provider = LocalMediaEmbedder::with_encoder_and_settings(
+                test_text_identity(),
+                encoder.clone(),
+                settings,
+            )
+            .unwrap();
+            let bytes = image();
+            provider
+                .embed(&MediaInput::Image(&bytes), &Cancel::never())
+                .unwrap();
+            let frames = [
+                VideoFrame {
+                    bytes: &bytes,
+                    timestamp_ms: 0,
+                },
+                VideoFrame {
+                    bytes: &bytes,
+                    timestamp_ms: 1000,
+                },
+            ];
+            provider
+                .embed(&MediaInput::Video(&frames), &Cancel::never())
+                .unwrap();
+            assert_eq!(
+                *encoder.patches.lock().unwrap(),
+                vec![photo * 9, video * 9, video * 9]
+            );
+            assert_eq!(provider.identity().image_soft_tokens, photo);
+            assert_eq!(provider.identity().video_soft_tokens, video);
+            assert!(identities.insert(provider.identity().space_id().unwrap()));
+        }
+        for settings in [
+            MediaSettings {
+                image_soft_tokens: 0,
+                video_soft_tokens: 70,
+            },
+            MediaSettings {
+                image_soft_tokens: 140,
+                video_soft_tokens: 281,
+            },
+            MediaSettings {
+                image_soft_tokens: usize::MAX,
+                video_soft_tokens: 70,
+            },
+        ] {
+            assert!(LocalMediaEmbedder::with_encoder_and_settings(
+                test_text_identity(),
+                Arc::new(FlatMediaEncoder::for_test()),
+                settings
+            )
+            .is_err());
+        }
+    }
     fn image() -> Vec<u8> {
         let rgb = ::image::RgbImage::from_pixel(48, 48, ::image::Rgb([1, 2, 3]));
         let mut output = std::io::Cursor::new(Vec::new());

@@ -1,7 +1,7 @@
 //! Separate, versioned media-space identity; the Node text identity algorithm stays unchanged.
 
 use super::artifacts::{graph_files, text_profile, MediaGraph, MODEL, REPOSITORY, REVISION};
-use super::embedder::MediaError;
+use super::embedder::{MediaError, MediaSettings};
 use crate::contract::VectorSpaceIdentity;
 use crate::embedding::artifacts::ArtifactFile;
 use serde::{Deserialize, Serialize};
@@ -47,8 +47,17 @@ pub struct MediaSpaceIdentity {
 
 impl MediaSpaceIdentity {
     /// Validate the real q8 text-space identity and build the fixed MM-1 media profile.
-    #[allow(clippy::needless_pass_by_value)] // Construction takes ownership; canonicalization replaces it with the normalized owned value.
     pub fn new(text: VectorSpaceIdentity) -> Result<Self, MediaError> {
+        Self::new_with_settings(text, MediaSettings::default())
+    }
+
+    /// Build an identity for the same validated budgets actually selected by the media provider.
+    #[allow(clippy::needless_pass_by_value)] // Canonicalization replaces the owned input with its normalized value.
+    pub fn new_with_settings(
+        text: VectorSpaceIdentity,
+        settings: MediaSettings,
+    ) -> Result<Self, MediaError> {
+        let settings = settings.validate()?;
         let (text, _, _) = crate::store::identity::canonical_identity(&text)
             .map_err(|_| MediaError::InvalidProfile)?;
         validate_text_identity(&text)?;
@@ -61,7 +70,7 @@ impl MediaSpaceIdentity {
             image_preprocessing: "mm1-image-v1:jpeg-png-webp;exif;white-alpha;pil-bicubic-fixed22;hwc16;scale1/255;pool3;pad-minus1".into(),
             audio_preprocessing: "mm1-audio-v1:mono16k;windows480000-all-tail;rebalance-tail-min161;left160;hann320;hop160;fft512;htk128;ln-mel+0.001;no-right-pad;mask-stride4".into(),
             tokenization: "mm1-tokens-v1:bos2;boi255999;image258880;video258884;eoi258882;boa256000;audio258881;eoa258883;eos1;pad0;context8192".into(),
-            image_soft_tokens: 140, video_soft_tokens: 70, max_video_frames: 32,
+            image_soft_tokens: settings.image_soft_tokens, video_soft_tokens: settings.video_soft_tokens, max_video_frames: 32,
             video_sampling: "floor-linspace-endpoints-v1;batch4-except-final5-is3+2;per-frame-vector".into(),
             video_batch_range: [2,4], dimensions: 768,
         })

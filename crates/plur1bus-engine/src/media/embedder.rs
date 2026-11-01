@@ -14,6 +14,40 @@ pub const MEDIA_DIMENSIONS: usize = 768;
 /// Encoder feature width consumed by the pinned media-conditioned text graph.
 pub const FEATURE_WIDTH: usize = 512;
 
+/// Per-provider image and video preprocessing budgets; both are bounded by the pinned vision model.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MediaSettings {
+    /// Maximum soft tokens for each photo, in 1..=280. Default: 140.
+    pub image_soft_tokens: usize,
+    /// Maximum soft tokens for each sampled video frame, in 1..=280. Default: 70.
+    pub video_soft_tokens: usize,
+}
+
+impl Default for MediaSettings {
+    fn default() -> Self {
+        Self {
+            image_soft_tokens: 140,
+            video_soft_tokens: 70,
+        }
+    }
+}
+
+impl MediaSettings {
+    /// Refuse budgets outside the vision model and direct media-token context limits.
+    pub(crate) fn validate(self) -> Result<Self, MediaError> {
+        if [self.image_soft_tokens, self.video_soft_tokens]
+            .iter()
+            .any(|budget| {
+                !(1..=image::MAX_SOFT_TOKENS).contains(budget)
+                    || budget.checked_add(4).is_none_or(|tokens| tokens > 8192)
+            })
+        {
+            return Err(MediaError::InvalidProfile);
+        }
+        Ok(self)
+    }
+}
+
 /// Provenance of an independently searchable vector.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MediaModality {
@@ -154,6 +188,11 @@ pub trait MediaEmbedder: Send + Sync {
 
 /// Explicit graph boundary shared by production ORT and deliberately injected test encoders.
 pub trait MediaEncoder: Send + Sync {
+    /// Prepare the shared runtime at caller priority before starting background work; never load model files.
+    /// Custom encoders without a native runtime only check the cancellation budget.
+    fn prepare_runtime(&self, cancel: &Cancel) -> Result<(), MediaError> {
+        cancel.check().map_err(Into::into)
+    }
     /// Produce concatenated finite `[sum(soft_tokens),512]` features for one bounded image batch.
     fn vision(&self, images: &[ImageTensor], cancel: &Cancel) -> Result<Vec<f32>, MediaError>;
     /// Produce finite `[soft_tokens,512]` features for one unpadded audio window.
@@ -181,10 +220,20 @@ impl LocalMediaEmbedder {
         cache_root: PathBuf,
         text_identity: VectorSpaceIdentity,
     ) -> Result<Self, MediaError> {
+        Self::new_with_settings(cache_root, text_identity, MediaSettings::default())
+    }
+
+    /// Construct real lazy q8 sessions with validated photo/video budgets, fingerprinted in their identity.
+    pub fn new_with_settings(
+        cache_root: PathBuf,
+        text_identity: VectorSpaceIdentity,
+        settings: MediaSettings,
+    ) -> Result<Self, MediaError> {
         super::artifacts::platform_dtypes(std::env::consts::OS, std::env::consts::ARCH)?;
-        Self::with_encoder(
+        Self::with_encoder_and_settings(
             text_identity,
             Arc::new(super::session::SessionMediaEncoder::new(cache_root)),
+            settings,
         )
     }
 
@@ -193,7 +242,16 @@ impl LocalMediaEmbedder {
         text_identity: VectorSpaceIdentity,
         encoder: Arc<dyn MediaEncoder>,
     ) -> Result<Self, MediaError> {
-        let identity = MediaSpaceIdentity::new(text_identity)?;
+        Self::with_encoder_and_settings(text_identity, encoder, MediaSettings::default())
+    }
+
+    /// Explicitly inject an authorized encoder and validated preprocessing budgets for this provider.
+    pub fn with_encoder_and_settings(
+        text_identity: VectorSpaceIdentity,
+        encoder: Arc<dyn MediaEncoder>,
+        settings: MediaSettings,
+    ) -> Result<Self, MediaError> {
+        let identity = MediaSpaceIdentity::new_with_settings(text_identity, settings)?;
         let audio_profile = AudioProfile::from_processor_config(&serde_json::json!({"feature_extractor": {
             "feature_extractor_type":"Gemma4AudioFeatureExtractor","feature_size":128,"sampling_rate":16000,
             "fft_length":512,"frame_length":320,"hop_length":160,"fft_overdrive":false,"dither":0.0,
@@ -238,7 +296,8 @@ impl LocalMediaEmbedder {
         let mut segments = Vec::new();
         match input {
             MediaInput::Image(bytes) => {
-                let tensor = image::preprocess(bytes, 140, cancel).map_err(image_error)?;
+                let tensor = image::preprocess(bytes, self.identity.image_soft_tokens, cancel)
+                    .map_err(image_error)?;
                 let expected = tensor.soft_tokens;
                 let features = self.encoder.vision(&[tensor], cancel)?;
                 segments.push(self.segment(MediaModality::Image, &features, expected, cancel)?);
@@ -277,7 +336,12 @@ impl LocalMediaEmbedder {
                     let tensors = plan.indices[batch.clone()]
                         .iter()
                         .map(|index| {
-                            image::preprocess(frames[*index].bytes, 70, cancel).map_err(image_error)
+                            image::preprocess(
+                                frames[*index].bytes,
+                                self.identity.video_soft_tokens,
+                                cancel,
+                            )
+                            .map_err(image_error)
                         })
                         .collect::<Result<Vec<_>, _>>()?;
                     let features = self.encoder.vision(&tensors, cancel)?;
@@ -321,6 +385,10 @@ impl MediaEmbedder for LocalMediaEmbedder {
     fn embed(&self, input: &MediaInput<'_>, cancel: &Cancel) -> Result<MediaEmbedding, MediaError> {
         cancel.check()?;
         let _admission = super::session::lock_cancel(&self.admission, cancel)?;
+        // Initialize the shared text pool at caller priority. Creating it inside the lowered
+        // media worker would permanently give Linux text workers inherited background niceness.
+        self.encoder.prepare_runtime(cancel)?;
+        cancel.check()?;
         // The low-priority worker owns all preprocessing and native runs; caller thread priority is preserved.
         std::thread::scope(|scope| {
             let worker = std::thread::Builder::new()
@@ -392,6 +460,80 @@ fn audio_ranges(count: usize) -> Result<Vec<std::ops::Range<usize>>, MediaError>
 mod tests {
     #![allow(clippy::unwrap_used)]
     use super::*;
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn runtime_preparation_precedes_background_priority_and_expired_calls_never_prepare() {
+        fn priority() -> i32 {
+            // SAFETY: current TID only, no pointer arguments.
+            unsafe {
+                libc::getpriority(
+                    libc::PRIO_PROCESS,
+                    libc::syscall(libc::SYS_gettid) as libc::id_t,
+                )
+            }
+        }
+        struct RecordingEncoder {
+            priorities: Mutex<Vec<i32>>,
+        }
+        impl MediaEncoder for RecordingEncoder {
+            fn prepare_runtime(&self, cancel: &Cancel) -> Result<(), MediaError> {
+                cancel.check()?;
+                let inherited = std::thread::spawn(priority).join().unwrap();
+                self.priorities
+                    .lock()
+                    .unwrap()
+                    .extend([priority(), inherited]);
+                Ok(())
+            }
+            fn vision(
+                &self,
+                images: &[ImageTensor],
+                cancel: &Cancel,
+            ) -> Result<Vec<f32>, MediaError> {
+                self.priorities.lock().unwrap().push(priority());
+                super::super::seam::FlatMediaEncoder::for_test().vision(images, cancel)
+            }
+            fn audio(&self, audio: &AudioTensor, cancel: &Cancel) -> Result<Vec<f32>, MediaError> {
+                super::super::seam::FlatMediaEncoder::for_test().audio(audio, cancel)
+            }
+            fn fuse(
+                &self,
+                modality: MediaModality,
+                features: &[f32],
+                cancel: &Cancel,
+            ) -> Result<Vec<f32>, MediaError> {
+                super::super::seam::FlatMediaEncoder::for_test().fuse(modality, features, cancel)
+            }
+        }
+        let caller = priority();
+        let encoder = Arc::new(RecordingEncoder {
+            priorities: Mutex::new(Vec::new()),
+        });
+        let provider = LocalMediaEmbedder::with_encoder(
+            super::super::identity::test_text_identity(),
+            encoder.clone(),
+        )
+        .unwrap();
+        let mut encoded = std::io::Cursor::new(Vec::new());
+        ::image::RgbImage::from_pixel(48, 48, ::image::Rgb([1, 2, 3]))
+            .write_to(&mut encoded, ::image::ImageFormat::Png)
+            .unwrap();
+        let cancel = Cancel::never();
+        cancel.cancel();
+        assert!(matches!(
+            provider.embed(&MediaInput::Image(encoded.get_ref()), &cancel),
+            Err(MediaError::Cancelled(_))
+        ));
+        assert!(encoder.priorities.lock().unwrap().is_empty());
+        provider
+            .embed(&MediaInput::Image(encoded.get_ref()), &Cancel::never())
+            .unwrap();
+        assert_eq!(
+            *encoder.priorities.lock().unwrap(),
+            vec![caller, caller, caller.max(10)]
+        );
+        assert_eq!(priority(), caller);
+    }
     #[test]
     fn normalization_refuses_bad_width_nonfinite_and_zero_but_handles_huge_finite_vectors() {
         assert!(normalize(vec![0.0; 768]).is_err());

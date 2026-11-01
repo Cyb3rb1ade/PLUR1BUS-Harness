@@ -140,6 +140,12 @@ impl SessionMediaEncoder {
 }
 
 impl MediaEncoder for SessionMediaEncoder {
+    fn prepare_runtime(&self, cancel: &Cancel) -> Result<(), MediaError> {
+        cancel.check()?;
+        media_environment().map_err(runtime_error)?;
+        cancel.check()?;
+        Ok(())
+    }
     fn vision(&self, images: &[ImageTensor], cancel: &Cancel) -> Result<Vec<f32>, MediaError> {
         cancel.check()?;
         if images.is_empty() || images.len() > 4 {
