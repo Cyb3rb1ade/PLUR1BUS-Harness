@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — SH3
+
+- Protect registered secrets in JSON-escaped text, share variants across stable secret sets, and preserve complete
+  redaction before Core output caps without leaving broken UTF-16 characters.
+- Preload readable Store values before startup logging, retain the initial snapshot for the Core lifetime, and cover
+  512-secret workloads with bounded event-loop regression tests.
+
 All notable user-visible changes to the PLUR1BUS Harness are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project does not yet follow semantic versioning
 (pre-1.0, milestone-cut releases).

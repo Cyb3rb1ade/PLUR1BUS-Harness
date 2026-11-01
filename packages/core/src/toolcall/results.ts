@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { wellFormedPrefix } from '../logs/utf16.ts';
 import type { ToolErrorCode } from '../tools/dispatcher.ts';
 export interface FullResultPort { put(value: unknown): Promise<string> }
 export interface CappedResult { isError: boolean; value?: unknown; error?: { code: ToolErrorCode; hint: string }; truncated: boolean; reference?: string }
@@ -10,7 +11,7 @@ export async function capResult(value: unknown, store: FullResultPort, maxBytes 
     const error = 'error' in value && value.error && typeof value.error === 'object' ? value.error : {};
     const codes: readonly ToolErrorCode[] = ['tool-unknown', 'tool-call-invalid', 'tool-denied', 'tool-not-approved', 'tool-timeout', 'tool-failed', 'tool-result-too-large', 'tool-result-invalid', 'aborted'];
     const code = 'code' in error && codes.includes(error.code as ToolErrorCode) ? error.code as ToolErrorCode : 'tool-failed';
-    const hint = 'hint' in error && typeof error.hint === 'string' ? error.hint.replace(/[\r\n]+/g, ' ').slice(0, 80) : 'Tool reported an error.';
+    const hint = 'hint' in error && typeof error.hint === 'string' ? wellFormedPrefix(error.hint.replace(/[\r\n]+/g, ' '), 80) : 'Tool reported an error.';
     const result: CappedResult = { isError: true, error: { code, hint }, truncated: false };
     if (Buffer.byteLength(JSON.stringify(result)) <= maxBytes) return result;
     const reference = await store.put(value);

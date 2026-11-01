@@ -1,6 +1,5 @@
 import type { HarnessConfig } from "@plur1bus/config-schema";
 import { agentSecretRefs } from "../agents/secrets.ts";
-import { createRedactor } from "../logs/redact.ts";
 import { RpcError } from "../rpc/errors.ts";
 import type { Handler } from "../rpc/server.ts";
 import { SecretError, shortValueWarning, type SecretErrorCode } from "./types.ts";
@@ -44,7 +43,7 @@ export function buildSecretMethods(d: SecretMethodDeps): Record<SecretMethod, Ha
       const config = d.config?.();
       const references = config ? Object.entries(config.agents).flatMap(([agentId, agent]) => agentSecretRefs(config, agent).map(ref => ({ agentId, ...ref, present: present.has(ref.name), leaseAllowed: false as const }))) : [];
       // Public names stay readable unless the store independently holds their bytes as a known value.
-      return createRedactor({ secrets: d.store.redaction.values(), secretsOnly: true })
+      return d.store.redaction.redactor({ secretsOnly: true })
         .value({ agentLeasesEnabled: false, grants: [], references });
     }),
     "secret.status": wrap("secret.status", (p) => d.store.status(p)),

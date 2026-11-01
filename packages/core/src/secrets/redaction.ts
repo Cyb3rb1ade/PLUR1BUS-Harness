@@ -8,6 +8,7 @@
 // somewhere must stay masked, but retired values are bounded (the newest `MAX_REGISTERED_SECRETS`), which is what keeps a
 // token that refreshes every hour from growing the set, and the cost of every log line, without end.
 import { createRedactor, type Redactor } from "../logs/redact.ts";
+import { SecretFormsCache } from "../logs/secret-forms.ts";
 import { MIN_REDACTED_VALUE_CHARS } from "./types.ts";
 
 /** How many retired (and name-less) values are kept, newest first. Pinned values are not counted and never leave. */
@@ -32,6 +33,8 @@ export interface SecretRedaction {
   /** Every value that is masked now, as registered: the current ones of a store name, then the retired ones. For a caller that
    *  applies the exact-value rule itself (a tool result, `createRedactor({ secretsOnly })`). */
   values(): readonly string[];
+  /** Cached variants for the current membership generation, shared by all registry consumers. */
+  forms(): readonly string[];
   /** True when `text` contains a value registered so far (plain, as the user typed it). */
   contains(text: string): boolean;
   /** `text` with every registered value replaced by a fixed mask. Nothing else in the text is touched. */
@@ -47,6 +50,8 @@ export function createSecretRedaction(): SecretRedaction {
   const retired = new Set<string>();
   const sinks = new Set<SecretSink>(); let version = 0;
   const known = (): string[] => [...pins.keys(), ...retired];
+  const formCache = new SecretFormsCache();
+  const forms = (): readonly string[] => formCache.forms(known());
   const tell = (value: string): void => { const pinned = pins.has(value); for (const sink of sinks) { try { sink(value, { pinned }); } catch { /* one failing sink must not stop the others or the caller */ } } };
   const eligible = (value: unknown): value is string => typeof value === "string" && value.length >= MIN_LENGTH;
   /** Drops one name's hold on `value`; true when no name holds it any more. */
@@ -98,10 +103,11 @@ export function createSecretRedaction(): SecretRedaction {
     },
     redactor(options = {}) {
       let seen = -1; let inner: Redactor | undefined;
-      const rebuild = (): Redactor => { if (!inner || seen !== version) { inner = createRedactor({ ...options, secrets: new Set(known()) }); seen = version; } return inner; };
+      const rebuild = (): Redactor => { if (!inner || seen !== version) { inner = createRedactor({ ...options, secretForms: forms() }); seen = version; } return inner; };
       return { text: s => rebuild().text(s), value: v => rebuild().value(v) };
     },
     values: () => known(),
+    forms,
     contains: (text) => typeof text === "string" && known().some((v) => text.includes(v)),
     mask: (text) => { let out = text; for (const v of known().sort((a, b) => b.length - a.length)) if (out.includes(v)) out = out.split(v).join("[redacted]"); return out; },
   };

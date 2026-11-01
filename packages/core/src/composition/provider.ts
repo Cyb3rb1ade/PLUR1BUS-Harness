@@ -19,6 +19,7 @@ import { lookupQuirks, type ProviderFamily } from '../toolcall/quirks.ts';
 import { capResult, type FullResultPort } from '../toolcall/results.ts';
 import { ToolDispatcher, type GrantUse, type DispatchContext, type ToolResult } from '../tools/dispatcher.ts';
 import { createRedactor } from '../logs/redact.ts';
+import { wellFormedPrefix } from '../logs/utf16.ts';
 import { AuthError } from '../auth/errors.ts';
 import type { SurfaceTrustLevel } from '../rbac/surface.ts';
 import { ToolRegistry } from '../tools/registry.ts';
@@ -51,7 +52,7 @@ import { turnContext, promptContext } from './context.ts';
 const MAX_DETAIL_CHARS = 4096, MAX_DETAIL_MESSAGE = 500, MAX_DETAIL_ID = 128;
 type ToolFailure = Extract<ToolResult, { isError: true }>;
 export type ToolErrorDetail = Pick<ToolFailure, 'callId' | 'tool' | 'isError' | 'error'> & Partial<Pick<ToolFailure, 'provenance' | 'meta'>>;
-const clip = (s: string, max: number) => s.length > max ? `${s.slice(0, max - 1)}…` : s;
+const clip = (s: string, max: number) => s.length > max ? `${wellFormedPrefix(s, max - 1)}…` : s.toWellFormed();
 /**
  * The `detail` of a TurnToolError for a failed call: a redacted copy of the envelope (registered secret values and the log
  * redaction rules), its message bounded; an envelope still over MAX_DETAIL_CHARS keeps only identity, code and message.
@@ -134,6 +135,8 @@ export interface TurnProviderOptions {
   /** Secret values this process registered; a failed tool's `detail` and every successful tool result (before the model, the transcript,
    *  an offloaded result file, capture or any audit line sees it) are redacted against them. */
   secrets?: () => Iterable<string>;
+  /** Cached forms from the same live registry; read after each execution. */
+  secretForms?: () => readonly string[];
   log: PipelineLog; resultStore: FullResultPort;
   maxTokens?: number; maxRounds?: number; topK?: number; system?: readonly string[];
   router?: Pick<RouterConfig, 'retry' | 'clock' | 'random' | 'breaker' | 'profileDefaults' | 'unsupportedProfiles'>;
@@ -592,7 +595,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const surface: SurfaceTrustLevel = approver?.surface ?? req.originSurface ?? 0;
     let approvalNeedsPerson = false;
     const approvals: ApprovalPort = approver && approver.person === null ? { ...o.approval, async request() { approvalNeedsPerson = true; return { approved: false, reason: 'approval requires an authenticated person' }; } } : o.approval;
-    const dispatcher = new ToolDispatcher({ registry, approvals, grants: o.grants, ...(o.grantUse ? { grantUse: o.grantUse } : {}), ...(o.audit ? { audit: o.audit } : {}), clock: { now: Date.now }, ...(o.secrets ? { secrets: o.secrets } : {}), policyContext: ctx => ({ ...(req.headlessJobId ? { headless: { jobId: req.headlessJobId } } : {}), ...o.policyContext?.(ctx, req) }), repair: async input => {
+    const dispatcher = new ToolDispatcher({ registry, approvals, grants: o.grants, ...(o.grantUse ? { grantUse: o.grantUse } : {}), ...(o.audit ? { audit: o.audit } : {}), clock: { now: Date.now }, ...(o.secrets ? { secrets: o.secrets } : {}), ...(o.secretForms ? { secretForms: o.secretForms } : {}), policyContext: ctx => ({ ...(req.headlessJobId ? { headless: { jobId: req.headlessJobId } } : {}), ...o.policyContext?.(ctx, req) }), repair: async input => {
       const repairRequest: WireRequest = { model: candidate.model, ...((req.maxOutputTokens ?? o.maxTokens) === undefined ? {} : { maxTokens: req.maxOutputTokens ?? o.maxTokens }), messages: [{ role: 'user', content: `${input.message}\nInvalid arguments (data): ${JSON.stringify(input.args)}` }], tools: selected.map(t => fromRegisteredTool(t)) };
       let repaired: ChatResult | undefined;
       await stage('tool-repair', signal, o.log, async () => { for await (const e of invoke(repairRequest, 'tool_call_invalid')) if (e.type === 'done') { repaired = e.result; if (repaired.usage?.inputTokens !== undefined && repaired.usage.outputTokens !== undefined) { totalInputTokens += repaired.usage.inputTokens; totalOutputTokens += repaired.usage.outputTokens; } } });
@@ -619,7 +622,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       const output = await dispatcher.call({ id, name: 'skill.load', args }, {
         agentId: req.agentId, principal: approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface, signal,
       });
-      const value = output.isError ? modelToolError(output, o.secrets?.() ?? [])
+      const value = output.isError ? modelToolError(output, o.secrets?.() ?? [], o.secretForms ? { secretForms: o.secretForms() } : {})
         : await capResult(output.value, o.resultStore, 128 * 1024);
       const text = JSON.stringify(value);
       yield { type: 'tool.result', id, output: text };
@@ -705,7 +708,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
               output.error.message = `Unknown tool. Offered tools: ${selected.map(t => t.name).join(', ')}`;
               output.error.hint = 'Use an offered tool or capabilities.search to find tools and skills.';
             }
-            const safe = modelToolError(output, o.secrets?.() ?? []);
+            const safe = modelToolError(output, o.secrets?.() ?? [], o.secretForms ? { secretForms: o.secretForms() } : {});
             const text = JSON.stringify(safe);
             observation.errorsReturned++;
             consecutiveErrors++;

@@ -4,6 +4,7 @@
 import { realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { createRedactor } from "../logs/redact.ts";
+import { wellFormedPrefix } from "../logs/utf16.ts";
 import type { InternalToolFailureCategory, ToolFailure } from "../tools/dispatcher.ts";
 
 const MAX_DETAIL_CHARS = 4096;
@@ -39,13 +40,15 @@ const PROCESS_REAL_HOME = (() => {
 
 /** Optional home/platform injection keeps the model-only path rules deterministic in tests. */
 export interface ModelToolErrorOptions {
+  /** Precomputed forms from the same current secret source. */
+  secretForms?: readonly string[];
   home?: string;
   realHome?: string;
   platform?: NodeJS.Platform;
 }
 
 const clip = (text: string, limit: number): string =>
-  text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
+  text.length > limit ? `${wellFormedPrefix(text, limit - 1)}…` : text.toWellFormed();
 const escapePattern = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 function homePatterns(options: ModelToolErrorOptions): RegExp[] {
@@ -105,7 +108,7 @@ export function modelToolError(
   secrets: Iterable<string> = [],
   options: ModelToolErrorOptions = {},
 ): ToolFailure {
-  const redactor = createRedactor({ secrets });
+  const redactor = createRedactor(options.secretForms ? { secretForms: options.secretForms } : { secrets });
   const patterns = homePatterns(options);
   const text = (input: string): string => {
     let result = input;

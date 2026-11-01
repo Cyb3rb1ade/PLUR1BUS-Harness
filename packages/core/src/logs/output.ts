@@ -68,9 +68,8 @@ export class OutputLines {
     else {
       this.tokens--;
       const framed = this.bytes > 65536;
-      // Redact a window twice the cut, not the whole 64 KiB: a secret that starts before the cut is matched in full or, when it runs past
-      // the window, up to the window's end (every rule's minimum is far below the cut), and the cost of a hostile line stays bounded.
-      let text = framed ? "[TRUNCATED:oversized-line]" : this.redact.text(masked.length > 2 * LIMITS.lineBytes ? masked.slice(0, 2 * LIMITS.lineBytes) : masked);
+      // The retained frame is already bounded at 64 KiB. Mask it before the visible cut so a long secret cannot lose its suffix first.
+      let text = framed ? "[TRUNCATED:oversized-line]" : this.redact.text(this.writer.redactText?.(masked) ?? masked);
       if (!framed && Buffer.byteLength(text) > LIMITS.lineBytes) text = cutUtf8(text, LIMITS.lineBytes);
       this.writer.write("process.output.line", { text, untrusted: true,
         ...(this.bytes > LIMITS.lineBytes ? { truncated: true, bytes: this.bytes } : {}) }, { stream: this.stream, bypassRate: true });

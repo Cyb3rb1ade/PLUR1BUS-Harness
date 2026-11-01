@@ -111,11 +111,13 @@ export function createWriter(o: WriterOptions) {
     if (entry.stream !== "diagnostic") throw new Error("diagnostic writer cannot write audit or payload");
     const level = fields.level ?? entry.level!;
     if (!internal && !levelAtLeast(level, policy.resolve(source))) return;
+    // The fixed failure event must survive the same broken policy that made the original record unavailable.
+    const failedPolicy = internal && event === "log.redaction.failed";
     let safeAttrs: RecordValue;
-    try { safeAttrs = redactor.value(attrs); }
+    try { safeAttrs = failedPolicy ? { attempted_event: lookupEvent(String(attrs.attempted_event))?.event ?? "process.output.line" } : redactor.value(attrs); }
     catch { emit("log.redaction.failed", { attempted_event: entry.event }, { source }, true); return; }
     const trace = currentTrace() ?? newTrace();
-    let record: RecordValue = { ts: new Date(now()).toISOString(), level, source: redactor.value({ kind: source.kind, id: source.id, version: source.version }), event, msg: entry.msg!, trace_id: trace.trace_id, span_id: trace.span_id,
+    let record: RecordValue = { ts: new Date(now()).toISOString(), level, source: failedPolicy ? { kind: "harness", id: "redaction", version: "0.1.0" } : redactor.value({ kind: source.kind, id: source.id, version: source.version }), event, msg: entry.msg!, trace_id: trace.trace_id, span_id: trace.span_id,
       ...(fields.stream ? { stream: fields.stream } : {}), attrs: { ...safeAttrs, ...(trace.link_trace_id ? { link_trace_id: trace.link_trace_id } : {}) } };
     record = fit(record);
     // Explicit ordering also protects callers from accidentally changing the wire format.
@@ -153,6 +155,11 @@ export function createWriter(o: WriterOptions) {
   timer?.unref();
   return {
     write: emit, flush, tick,
+    /** Internal framing boundary: apply this writer's live and manual policy before any caller cuts text. */
+    redactText(text: string): string {
+      try { return redactor.text(text); }
+      catch { return "[REDACTED:failed]"; }
+    },
     /** Transitional callers retain {at,role}; one sink owns both formats until their catalogue migration. */
     writeLegacy(level: Level, msg: string, fields: Record<string, unknown> = {}) {
       if (closed) throw new Error("log writer closed");

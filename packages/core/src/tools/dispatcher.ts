@@ -11,6 +11,8 @@ import type { RegisteredTool, ToolClassification, ToolRegistry, ToolTrust } from
 import { ToolAdapterError } from "./tool-adapter-error.ts";
 import { FsFailure } from "./fs/failure.ts";
 import { createRedactor, maskSecretsInJson } from "../logs/redact.ts";
+import { SecretFormsCache } from "../logs/secret-forms.ts";
+import { wellFormedPrefix } from "../logs/utf16.ts";
 
 /** Arguments are bounded before they are validated or hashed. */
 export const MAX_ARGS_BYTES = 256 * 1024;
@@ -108,6 +110,8 @@ export interface ToolDispatcherDeps {
    * number cannot be masked, so that result is withheld). Without it nothing is redacted.
    */
   secrets?: () => Iterable<string>;
+  /** Same live registry as secrets; reuse its cached forms across dispatchers and output sinks. */
+  secretForms?: () => readonly string[];
 }
 
 /** Stable JSON: object keys sorted, so equal arguments hash equal. */
@@ -120,9 +124,14 @@ export function canonicalJson(v: unknown): string {
   return JSON.stringify(v) ?? "null";
 }
 
-const clip = (s: string): string => (s.length > MAX_MESSAGE ? `${s.slice(0, MAX_MESSAGE - 1)}…` : s);
+const clip = (s: string): string => (s.length > MAX_MESSAGE ? `${wellFormedPrefix(s, MAX_MESSAGE - 1)}…` : s.toWellFormed());
 
 export class ToolDispatcher {
+  readonly #formCache = new SecretFormsCache();
+  #forms(): readonly string[] {
+    const values = this.#d.secrets?.() ?? [];
+    return this.#d.secretForms?.() ?? this.#formCache.forms(values);
+  }
   readonly #taintedTurns = new Set<string>();
   #turnKey(ctx: DispatchContext): string { return JSON.stringify([ctx.principal, ctx.agentId, ctx.sessionId, ctx.turnId ?? ctx.sessionId]); }
 
@@ -136,7 +145,7 @@ export class ToolDispatcher {
    */
   #clip(message: string): string {
     let masked = message;
-    try { if (this.#d.secrets) masked = createRedactor({ secrets: this.#d.secrets(), secretsOnly: true }).text(message); }
+    try { if (this.#d.secrets) masked = createRedactor({ secretForms: this.#forms(), secretsOnly: true }).text(message); }
     catch { masked = "[message withheld: it could not be checked for secret values]"; }
     return clip(masked);
   }
@@ -283,7 +292,7 @@ export class ToolDispatcher {
       // tool ran, so a value it registered itself counts. A result that holds none of them is passed on as it is. Fail closed: a result
       // that cannot be checked, or that holds a value the redactor cannot mask (a number), is withheld, never passed on.
       try {
-        const masked = this.#d.secrets ? maskSecretsInJson(json, value, this.#d.secrets()) : undefined;
+        const masked = this.#d.secrets ? maskSecretsInJson(json, value, [], this.#forms()) : undefined;
         if (masked) ({ value, json } = masked);
       } catch { return out(fail("tool-result-invalid", `${tool.name} returned a result that could not be checked for secret values; it was withheld`, via, {}, true)); }
       // Masking can lengthen a result (the marker is longer than a short value): the limit holds for what is passed on.

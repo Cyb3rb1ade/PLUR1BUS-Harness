@@ -113,6 +113,38 @@ The current process home and its real path become `~`. Other user-home prefixes 
 Windows drive paths, `\\?\` paths and `/mnt/<drive>/Users/<name>` paths. This step does not replace standalone
 username words or existing `<deny:ssh>/…#hash` placeholders. The serialized failure is bounded to 4096 characters.
 
+Exact registered values have an eight-UTF-16-code-unit minimum. Their cached variants include raw text, padded and
+unpadded base64/base64url, lower/upper hex, URL encoding and canonical JSON string escapes. Matching also recognizes
+one equivalent JSON-escape layer within text, including mixed `\uXXXX`, escaped slashes and Go-style escapes for
+`<`, `>` and `&`. It preserves source spelling outside matched spans; it does not recursively decode arbitrary layers.
+The successful-result scan distinguishes JSON strings/keys from structural punctuation. With no hit it returns the
+original parsed result without a depth-limited walk; numeric hits still withhold the whole result. Overlapping hits
+mask their entire combined span, and colliding redacted keys retain separate numbered entries.
+
+Core masks a complete retained process-output line before its 4096-byte visible cap. A line over the existing 64 KiB
+framing bound is replaced in full. Thus a secret crossing the visible cap cannot leave a prefix behind; there is no
+approximate prefix rule that would conceal a public URL merely because it shares a webhook's prefix. Diagnostic
+failures are masked before their 500-character cap, model-only messages before their 300-character cap, and result
+hints keep their 80-character bound. These character cuts preserve code-point boundaries, and text redaction makes
+remaining unmatched surrogates well formed. These guarantees cover the Core boundaries described here, not Engine
+or external sandbox capture paths.
+
+An unmatched surrogate in a stored string does not invalidate the shared forms cache: matching covers its original
+JSON spelling and the replacement-character representation used by UTF-8 output. Unrelated results still take the
+no-hit path. A policy failure from another cause withholds the original line and emits a fixed diagnostic failure
+record without retrying that failed policy recursively.
+
+Core preloads readable Store values before constructing diagnostic writers or draining queued startup messages.
+This trusted internal operation does not migrate copies, create leases, produce access-audit records or return
+plaintext. Disabled file fallback is not opened; unavailable backends remain unavailable. An unreadable entry cannot
+be registered, so failures report only fixed backend/phase identifiers and counts while other readable values remain
+protected. The initial snapshot stays pinned until Core exits. See [secrets.md](secrets.md) for Store availability.
+
+`test/secrets/secret-load.test.ts` covers 512 secrets with a near-1-MiB public result, a large nested-escape no-hit
+result, an escaped hit, 50,000 short values, and 512 overlapping values. It checks unchanged public output, secret masking, cache reuse and
+a 2000 ms event-loop-delay regression ceiling per complete dispatch on shared runners. Timings are emitted as test
+diagnostics; this ceiling is not a production latency SLO.
+
 Unknown-tool results list the offered tools and recommend `capabilities.search`. Invalid calls after the one repair,
 denials, tool errors and timeouts return correlated `tool.result` events and cost another model round. Three
 consecutive failures stop the turn; successful execution resets that count, and fixed internal-error sentences also
