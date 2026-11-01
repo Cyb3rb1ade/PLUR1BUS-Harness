@@ -1,0 +1,778 @@
+{
+  "id": "G-RERANK-3",
+  "recordedFrom": {
+    "tag": "v7.18.31",
+    "commit": "6419a60e79975d0b5244798c1fdbbd7997a712ce",
+    "node": "v24.21.0",
+    "unicode": "17.0",
+    "icu": "78.3"
+  },
+  "runs": [
+    {
+      "name": "cap-above-topn",
+      "kind": "pipeline",
+      "request": {
+        "name": "cap-above-topn",
+        "query": "recall",
+        "topN": 2,
+        "budget": 20,
+        "rerankCandidates": 4,
+        "deferFinalCap": false,
+        "dedupEnabled": true,
+        "dedupJaccard": 0.78,
+        "candidateHardLimit": 100,
+        "summaryMaxWords": 150,
+        "rerankerTimeoutMs": 0,
+        "rerankerFallbackOnError": true,
+        "canonicalCount": 0,
+        "agentId": "a1",
+        "rerank": {
+          "emptyResultIsValid": false,
+          "hits": [
+            {
+              "index": 0,
+              "score": 1
+            },
+            {
+              "index": 1,
+              "score": 0.95
+            },
+            {
+              "index": 2,
+              "score": 0.9
+            },
+            {
+              "index": 3,
+              "score": 0.85
+            },
+            {
+              "index": 4,
+              "score": 0.8
+            },
+            {
+              "index": 5,
+              "score": 0.75
+            },
+            {
+              "index": 6,
+              "score": 0.7
+            },
+            {
+              "index": 7,
+              "score": 0.65
+            }
+          ]
+        }
+      },
+      "rows": [
+        {
+          "id": "m0",
+          "text": "m0",
+          "summary": "m0",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 1,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m1",
+          "text": "m1",
+          "summary": "m1",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.9,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m2",
+          "text": "m2",
+          "summary": "m2",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.8,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m3",
+          "text": "m3",
+          "summary": "m3",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.7,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m4",
+          "text": "m4",
+          "summary": "m4",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.6,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m5",
+          "text": "m5",
+          "summary": "m5",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.5,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m6",
+          "text": "m6",
+          "summary": "m6",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.4,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m7",
+          "text": "m7",
+          "summary": "m7",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.30000000000000004,
+          "source": "vector",
+          "graphSource": ""
+        }
+      ],
+      "result": {
+        "threw": false,
+        "errorName": null,
+        "ids": [
+          "m0",
+          "m1"
+        ],
+        "rerankScores": [
+          1,
+          0.95
+        ],
+        "sources": [
+          "vector",
+          "vector"
+        ],
+        "saw": {
+          "docs": [
+            "m0",
+            "m1",
+            "m2",
+            "m3"
+          ],
+          "topN": 4
+        },
+        "decisions": [
+          {
+            "memoryId": "m2",
+            "action": "deduped",
+            "stage": "jaccard-dedup",
+            "reason": "duplicate or beyond slot limit"
+          },
+          {
+            "memoryId": "m3",
+            "action": "deduped",
+            "stage": "jaccard-dedup",
+            "reason": "duplicate or beyond slot limit"
+          }
+        ],
+        "guards": []
+      }
+    },
+    {
+      "name": "topn-above-cap",
+      "kind": "pipeline",
+      "request": {
+        "name": "topn-above-cap",
+        "query": "recall",
+        "topN": 5,
+        "budget": 20,
+        "rerankCandidates": 2,
+        "deferFinalCap": false,
+        "dedupEnabled": true,
+        "dedupJaccard": 0.78,
+        "candidateHardLimit": 100,
+        "summaryMaxWords": 150,
+        "rerankerTimeoutMs": 0,
+        "rerankerFallbackOnError": true,
+        "canonicalCount": 0,
+        "agentId": "a1",
+        "rerank": {
+          "emptyResultIsValid": false,
+          "hits": [
+            {
+              "index": 0,
+              "score": 1
+            },
+            {
+              "index": 1,
+              "score": 0.95
+            },
+            {
+              "index": 2,
+              "score": 0.9
+            },
+            {
+              "index": 3,
+              "score": 0.85
+            },
+            {
+              "index": 4,
+              "score": 0.8
+            },
+            {
+              "index": 5,
+              "score": 0.75
+            },
+            {
+              "index": 6,
+              "score": 0.7
+            },
+            {
+              "index": 7,
+              "score": 0.65
+            }
+          ]
+        }
+      },
+      "rows": [
+        {
+          "id": "m0",
+          "text": "m0",
+          "summary": "m0",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 1,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m1",
+          "text": "m1",
+          "summary": "m1",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.9,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m2",
+          "text": "m2",
+          "summary": "m2",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.8,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m3",
+          "text": "m3",
+          "summary": "m3",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.7,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m4",
+          "text": "m4",
+          "summary": "m4",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.6,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m5",
+          "text": "m5",
+          "summary": "m5",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.5,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m6",
+          "text": "m6",
+          "summary": "m6",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.4,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m7",
+          "text": "m7",
+          "summary": "m7",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.30000000000000004,
+          "source": "vector",
+          "graphSource": ""
+        }
+      ],
+      "result": {
+        "threw": false,
+        "errorName": null,
+        "ids": [
+          "m0",
+          "m1",
+          "m2",
+          "m3",
+          "m4"
+        ],
+        "rerankScores": [
+          1,
+          0.95,
+          0.9,
+          0.85,
+          0.8
+        ],
+        "sources": [
+          "vector",
+          "vector",
+          "vector",
+          "vector",
+          "vector"
+        ],
+        "saw": {
+          "docs": [
+            "m0",
+            "m1",
+            "m2",
+            "m3",
+            "m4"
+          ],
+          "topN": 10
+        },
+        "decisions": [],
+        "guards": []
+      }
+    },
+    {
+      "name": "cap-zero-means-all",
+      "kind": "pipeline",
+      "request": {
+        "name": "cap-zero-means-all",
+        "query": "recall",
+        "topN": 3,
+        "budget": 20,
+        "rerankCandidates": 0,
+        "deferFinalCap": false,
+        "dedupEnabled": true,
+        "dedupJaccard": 0.78,
+        "candidateHardLimit": 100,
+        "summaryMaxWords": 150,
+        "rerankerTimeoutMs": 0,
+        "rerankerFallbackOnError": true,
+        "canonicalCount": 0,
+        "agentId": "a1",
+        "rerank": {
+          "emptyResultIsValid": false,
+          "hits": [
+            {
+              "index": 0,
+              "score": 1
+            },
+            {
+              "index": 1,
+              "score": 0.95
+            },
+            {
+              "index": 2,
+              "score": 0.9
+            },
+            {
+              "index": 3,
+              "score": 0.85
+            },
+            {
+              "index": 4,
+              "score": 0.8
+            },
+            {
+              "index": 5,
+              "score": 0.75
+            },
+            {
+              "index": 6,
+              "score": 0.7
+            },
+            {
+              "index": 7,
+              "score": 0.65
+            }
+          ]
+        }
+      },
+      "rows": [
+        {
+          "id": "m0",
+          "text": "m0",
+          "summary": "m0",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 1,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m1",
+          "text": "m1",
+          "summary": "m1",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.9,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m2",
+          "text": "m2",
+          "summary": "m2",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.8,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m3",
+          "text": "m3",
+          "summary": "m3",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.7,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m4",
+          "text": "m4",
+          "summary": "m4",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.6,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m5",
+          "text": "m5",
+          "summary": "m5",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.5,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m6",
+          "text": "m6",
+          "summary": "m6",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.4,
+          "source": "vector",
+          "graphSource": ""
+        },
+        {
+          "id": "m7",
+          "text": "m7",
+          "summary": "m7",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 0.30000000000000004,
+          "source": "vector",
+          "graphSource": ""
+        }
+      ],
+      "result": {
+        "threw": false,
+        "errorName": null,
+        "ids": [
+          "m0",
+          "m1",
+          "m2"
+        ],
+        "rerankScores": [
+          1,
+          0.95,
+          0.9
+        ],
+        "sources": [
+          "vector",
+          "vector",
+          "vector"
+        ],
+        "saw": {
+          "docs": [
+            "m0",
+            "m1",
+            "m2",
+            "m3",
+            "m4",
+            "m5",
+            "m6",
+            "m7"
+          ],
+          "topN": 6
+        },
+        "decisions": [
+          {
+            "memoryId": "m3",
+            "action": "deduped",
+            "stage": "jaccard-dedup",
+            "reason": "duplicate or beyond slot limit"
+          },
+          {
+            "memoryId": "m4",
+            "action": "deduped",
+            "stage": "jaccard-dedup",
+            "reason": "duplicate or beyond slot limit"
+          },
+          {
+            "memoryId": "m5",
+            "action": "deduped",
+            "stage": "jaccard-dedup",
+            "reason": "duplicate or beyond slot limit"
+          },
+          {
+            "memoryId": "m6",
+            "action": "deduped",
+            "stage": "jaccard-dedup",
+            "reason": "duplicate or beyond slot limit"
+          },
+          {
+            "memoryId": "m7",
+            "action": "deduped",
+            "stage": "jaccard-dedup",
+            "reason": "duplicate or beyond slot limit"
+          }
+        ],
+        "guards": []
+      }
+    },
+    {
+      "name": "single-row-skips-rerank",
+      "kind": "pipeline",
+      "request": {
+        "name": "single-row-skips-rerank",
+        "query": "recall",
+        "topN": 3,
+        "budget": 20,
+        "rerankCandidates": 4,
+        "deferFinalCap": false,
+        "dedupEnabled": true,
+        "dedupJaccard": 0.78,
+        "candidateHardLimit": 100,
+        "summaryMaxWords": 150,
+        "rerankerTimeoutMs": 0,
+        "rerankerFallbackOnError": true,
+        "canonicalCount": 0,
+        "agentId": "a1",
+        "rerank": {
+          "emptyResultIsValid": false,
+          "hits": [
+            {
+              "index": 0,
+              "score": 1
+            }
+          ]
+        }
+      },
+      "rows": [
+        {
+          "id": "m0",
+          "text": "m0",
+          "summary": "m0",
+          "category": "note",
+          "coreMemoryScore": 0,
+          "agentId": "a1",
+          "scope": "agent-private",
+          "chunkGroupId": "",
+          "sourceTurnId": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "score": 1,
+          "source": "vector",
+          "graphSource": ""
+        }
+      ],
+      "result": {
+        "threw": false,
+        "errorName": null,
+        "ids": [
+          "m0"
+        ],
+        "rerankScores": [
+          null
+        ],
+        "sources": [
+          "vector"
+        ],
+        "saw": null,
+        "decisions": [],
+        "guards": []
+      }
+    }
+  ]
+}
