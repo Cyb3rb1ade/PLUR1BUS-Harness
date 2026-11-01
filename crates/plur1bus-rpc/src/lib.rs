@@ -10,6 +10,7 @@ pub mod capabilities;
 pub mod client;
 pub mod error;
 pub mod process;
+pub mod server_transport;
 pub mod transport;
 pub mod trust;
 #[cfg(windows)]
@@ -17,6 +18,3 @@ pub mod win;
 pub use capabilities::{capabilities, SCHEMA_JSON};
 pub use client::{Client, ConnectOptions, Endpoint};
 pub use error::{is_unavailable, RpcError};
-
-/// Owner-only native server transport shared by supervised Rust processes.
-pub mod server_transport;
