@@ -2,6 +2,8 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { browserSkip, openRoute, setup, teardown, withApp } from "./harness.ts";
+import { defaults, type HarnessConfig } from "@plur1bus/config-schema";
+import { validateMediaChanges } from "../../core/src/media-search/validate.ts";
 import { installAgents } from "./agents-fixtures.ts";
 import { overrideChanges, overrideOf } from "../src/pages/media-search/override.ts";
 import { seedConfig } from "./settings-config-fixtures.ts";
@@ -122,13 +124,13 @@ test("without a reported backend choice setup explicitly writes the manual schem
 });
 
 
-test("agent audio overrides read, change and clear only their own segment key", () => {
-  const config = { agents: { main: { memory: { mediaEmbedding: { audio: { segmentSec: 12 }, video: { softTokens: 70 } } } } } };
+test("clearing an agent audio segment replaces its parent while preserving other audio settings", () => {
+  const config = { agents: { main: { memory: { mediaEmbedding: { audio: { segmentSec: 12, maxSeconds: 90 }, video: { softTokens: 70 } } } } } };
   const before = overrideOf(config, "main");
   assert.equal(before.audioSegmentSec, 12);
   assert.equal(overrideOf({}, "main").audioSegmentSec, null);
   assert.deepEqual(overrideChanges("main", before, { ...before, audioSegmentSec: null }), [
-    { key: "agents.main.memory.mediaEmbedding.audio.segmentSec", value: null },
+    { key: "agents.main.memory.mediaEmbedding.audio", value: { maxSeconds: 90 } },
   ]);
 });
 
@@ -204,5 +206,37 @@ test("Next preserves backend backfill even before the step's config read returns
         .flatMap((c) => (c.params as { changes: { key: string }[] }).changes);
       assert.equal(changes.some((c) => c.key === "memory.mediaEmbedding.backfill"), false);
     } finally { release(); }
+  });
+});
+
+
+test("clearing an audio override saves valid configuration and inherits the global segment", { skip: browserSkip }, async () => {
+  await withApp({}, async (app) => {
+    const config = defaults();
+    config.memory.mediaEmbedding.audio.segmentSec = 18;
+    config.agents.main = { memory: { mediaEmbedding: { audio: { segmentSec: 12, maxSeconds: 90 } } } };
+    installAgents(app.server);
+    const fixture = seedConfig(app.server.rpc, config as unknown as Record<string, unknown>);
+    app.server.rpc.handle("config.set", async (params) => {
+      const p = params as { changes: { key: string; value: unknown }[]; ifRevision: string };
+      await validateMediaChanges(fixture.config as unknown as HarnessConfig, p.changes);
+      assert.equal(p.ifRevision, "r1");
+      assert.deepEqual(p.changes, [{ key: "agents.main.memory.mediaEmbedding.audio", value: { maxSeconds: 90 } }]);
+      config.agents.main!.memory!.mediaEmbedding!.audio = p.changes[0]!.value as { maxSeconds: number };
+      fixture.revision++;
+      return { applied: true, dryRun: false, changed: p.changes.map((c) => c.key), restart: {}, revision: "r2" };
+    });
+    await openRoute(app.page, "#/agents/main");
+    const audio = app.page.locator("#override-audio-segmentSec");
+    await audio.waitFor();
+    assert.equal(await audio.inputValue(), "12");
+    await audio.fill("");
+    await app.page.getByRole("button", { name: "Save for this agent" }).click();
+    await app.page.getByText("Saved for this agent.").waitFor();
+    assert.equal(await audio.inputValue(), "");
+    assert.equal(await audio.getAttribute("placeholder"), "18");
+    assert.deepEqual(config.agents.main!.memory!.mediaEmbedding!.audio, { maxSeconds: 90 });
+    assert.equal({ ...config.memory.mediaEmbedding.audio, ...config.agents.main!.memory!.mediaEmbedding!.audio }.segmentSec, 18);
+    assert.equal(await app.page.getByRole("button", { name: "Save for this agent" }).isDisabled(), true);
   });
 });

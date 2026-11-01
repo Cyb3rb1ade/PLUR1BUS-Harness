@@ -1,6 +1,6 @@
 // Per-agent media index override, shown in the agent's detail (Agents page). Same fields as the global settings; every field is
 // either "inherits" (the global value, shown) or set for this agent. Saves only the changed fields as
-// `agents.<id>.memory.mediaEmbedding.<field>` with ifRevision. Clearing a field writes null (see the note in docs/web-ui.md).
+// `agents.<id>.memory.mediaEmbedding.<field>` with ifRevision. Clearing audio replaces its parent without segmentSec.
 import { h } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
@@ -15,6 +15,8 @@ import "./rpc-types.ts";
 export type OverrideFields = {
   provider: string | null; modalities: MediaModality[] | null;
   captionProvider: string | null; captionSource: string | null; audioSegmentSec: number | null;
+  /** Original audio block, retained so clearing a segment never removes unrelated audio settings. */
+  audioSettings: Record<string, unknown>;
 };
 type Change = { key: string; value: unknown };
 
@@ -28,6 +30,7 @@ export function overrideOf(config: unknown, agentId: string): OverrideFields {
   const audio = isObj(m?.audio) ? m.audio : {};
   return {
     audioSegmentSec: typeof audio.segmentSec === "number" ? audio.segmentSec : null,
+    audioSettings: { ...audio },
     provider: typeof m?.provider === "string" ? m.provider : null,
     modalities: Array.isArray(m?.modalities) ? (m.modalities as MediaModality[]) : null,
     captionProvider: typeof caption.provider === "string" ? caption.provider : null,
@@ -35,7 +38,7 @@ export function overrideOf(config: unknown, agentId: string): OverrideFields {
   };
 }
 
-/** Changed fields only. A field that inherits now but was set before writes null (clears the override). */
+/** Changed fields only. Audio inherits by omitting segmentSec from a replacement audio block; null is not legal there. */
 export function overrideChanges(agentId: string, before: OverrideFields, after: OverrideFields): Change[] {
   const out: Change[] = [];
   const eq = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
@@ -44,7 +47,13 @@ export function overrideChanges(agentId: string, before: OverrideFields, after: 
   if (!eq(before.captionProvider, after.captionProvider)) out.push({ key: overrideKey(agentId, "caption.provider"), value: after.captionProvider });
   if (!eq(before.captionSource, after.captionSource)) out.push({ key: overrideKey(agentId, "caption.source"), value: after.captionSource });
   if (!eq(before.audioSegmentSec, after.audioSegmentSec)) {
-    out.push({ key: overrideKey(agentId, "audio.segmentSec"), value: after.audioSegmentSec });
+    if (after.audioSegmentSec === null) {
+      const audio = { ...before.audioSettings };
+      delete audio.segmentSec;
+      out.push({ key: overrideKey(agentId, "audio"), value: audio });
+    } else {
+      out.push({ key: overrideKey(agentId, "audio.segmentSec"), value: after.audioSegmentSec });
+    }
   }
   return out;
 }
