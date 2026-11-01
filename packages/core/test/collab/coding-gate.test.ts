@@ -59,12 +59,12 @@ test('200 changed lines require independent exact-tree reviewer; later edits inv
   assert.equal((await gate.verify({ task: 'p/card', root: f.root, signal: new AbortController().signal })).reason, 'review-required');
 });
 
-test("foreign reviewers cannot register or satisfy a persisted independent review", async t => {
+test("foreign reviewers cannot register or satisfy a persisted independent review", async () => {
   const f = fixture();
   writeFileSync(join(f.root, "code.ts"), "// base\n" + "// change\n".repeat(200));
   const path = join(tmp.make(), "reviews.sqlite");
   const gate = new CodingGate({ path, verifier: GREEN, audit() {}, isLocalReviewer: (id: string) => id !== "remote-alias" });
-  t.after(() => gate.close());
+  tmp.onCleanup(() => gate.close());
   const snapshot = gate.snapshot(f.root);
   const rows = new DatabaseSync(path);
   for (const reviewer of ["a2a:peer", "remote-alias"]) {
