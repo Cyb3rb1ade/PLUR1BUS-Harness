@@ -1,7 +1,8 @@
 // Binds the switchboard host to the core's own services. `core.ts` calls this once; everything here is a thin adapter from a core
 // service to the host's port, so the host itself stays testable without a core.
 import { join } from "node:path";
-import { OutputStore } from "../../../media/src/index.ts";
+import type { OutputStore } from "../../../media/src/index.ts";
+import { createMediaOutputStore } from "../media-output-store.ts";
 import type { AgentRegistry } from "../agents.ts";
 import type { PermissionRuntime } from "../approvals/runtime.ts";
 import type { IdentityService } from "../identity/service.ts";
@@ -75,7 +76,7 @@ export function openChannelSwitchboard(d: CoreHostDeps): Switchboard {
       return s ? { store: s.store, runner: s.runner, agentId: () => channelAgentId(d.agents) } : null;
     },
     approvals: () => d.permissions()?.current()?.service ?? null,
-    outputs: { store: () => (outputs ??= new OutputStore(join(d.layout.home, "media", "outputs"))) },
+    outputs: { store: () => (outputs ??= createMediaOutputStore(d.layout.home, d.log)) },
     clock,
     log: d.log,
     bindings: d.bindings ?? DEFAULT_BINDINGS,

@@ -76,6 +76,7 @@ import { createExternalTurnService } from '../external-turn/index.ts';
 import { legacyAdapter } from './legacy.ts';
 import { composeMediaSearch, mediaSearchMethods } from './media-search.ts';
 import { createChannelUploadService } from './channel-uploads.ts';
+import { createMediaOutputStore } from '../media-output-store.ts';
 import { mediaToInbox } from '../inbox/producers.ts';
 import { isLocalEndpoint, localEndpoints, localOnlyFor, localOnlyShared, LOCAL_ONLY_REASON, LOCAL_ONLY_HINT } from '../privacy/local-only.ts';
 import { subjectForOrigin } from './protocols.ts';
@@ -262,16 +263,16 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     // privacy.localOnly for media generation: per agent inside a turn, installation-wide for a direct RPC call.
     const mediaPrivacy = { localOnly: (agentId?: string) => localOnlyFor(d.config(), agentId), localEndpoints: () => localEndpoints(d.config()) };
     const mediaLocal = new Map<string, () => boolean>();
-    if (!media) try { const composed = await composeMedia(d.home, mediaConfig?.adapters ?? [], d.secrets, d.egress, registerSecret, mediaPrivacy, d.maintenance); if (composed) { mediaLocal.set(composed.adapter.id, composed.local); disposers.push(composed.close); } media = composed; }
+    if (!media) try { const composed = await composeMedia(d.home, mediaConfig?.adapters ?? [], d.secrets, d.egress, registerSecret, mediaPrivacy, d.maintenance, d.logger); if (composed) { mediaLocal.set(composed.adapter.id, composed.local); disposers.push(composed.close); } media = composed; }
     catch (e) { d.logger.error('turn media unavailable', { err: e }); }
     const adapters = media ? [media.adapter] : [];
     for (const definition of (mediaConfig?.adapters ?? []).slice(1)) {
       try {
-        const configured = await composeMedia(d.home, [definition], d.secrets, d.egress, registerSecret, mediaPrivacy, d.maintenance);
+        const configured = await composeMedia(d.home, [definition], d.secrets, d.egress, registerSecret, mediaPrivacy, d.maintenance, d.logger);
         if (configured) { adapters.push(configured.adapter); mediaLocal.set(configured.adapter.id, configured.local); disposers.push(configured.close); }
       } catch (error) { d.logger.error('media adapter unavailable', { err: error }); }
     }
-    const mediaStore = media?.store ?? new (await import('../../../media/src/index.ts')).OutputStore(join(d.home, 'media', 'outputs'));
+    const mediaStore = media?.store ?? createMediaOutputStore(d.home, d.logger);
     if (!media) {
       // The core owns this home exclusively. Upload-only installations need the same crash recovery as generation.
       const unwatchRecovery = deferMaintenanceStart(d.maintenance, () => mediaStore.recoverStaging());
@@ -300,6 +301,20 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     const ingestChannelAttachments = createChannelUploadService({ home: d.home, store: mediaStore, hook: mediaSearch.hook,
       person: id => d.resolveCollaborationPerson?.(id) ?? null, hasAgent: id => d.agents.has(id), signal: d.signal });
     disposers.push(mediaStore.addListener({ onDeleteUploaded: id => mediaSearch.hook.onDeleted(id) }));
+    // The authenticated maintenance gate postpones retention during import/startup recovery.
+    let pruning: Promise<void> | undefined;
+    const pruneOutputs = async () => {
+      if (d.signal.aborted || d.maintenance?.held()) return;
+      pruning ??= mediaStore.prune().then(() => {}).catch(() => {
+        d.logger.warn('media retention failed', { code: 'storage-unavailable' });
+      }).finally(() => { pruning = undefined; });
+      await pruning;
+    };
+    const unwatchRetention = deferMaintenanceStart(d.maintenance, pruneOutputs);
+    if (!unwatchRetention) await pruneOutputs();
+    const retentionTimer = setInterval(() => { void pruneOutputs(); }, 60 * 60 * 1000);
+    retentionTimer.unref();
+    disposers.push(async () => { clearInterval(retentionTimer); unwatchRetention?.(); await pruning; });
     const profiles = options.providers?.profiles ?? (d.provider ? { default: [{ provider: 'fixture', model: 'gpt-4.1', adapter: legacyAdapter(d.provider) }] } : auth?.profiles ?? {});
     // privacy.localOnly: a chat/role provider is local when its endpoint is loopback or listed in privacy.localEndpoints.
     // No base_url means the vendor's cloud default; a managed OpenAI login is always cloud. The in-process test provider

@@ -12,6 +12,8 @@ import { useTempDirs } from "./helpers.ts";
 import { createSecretStore } from "../../src/secrets/store.ts";
 import { createMemoryBackend } from "../../src/secrets/memory-backend.ts";
 import { createMemoryAuditSink } from "../../src/secrets/audit.ts";
+import { createHash } from "node:crypto";
+import { MEDIA_OUTPUT_RETENTION_MS } from "../../src/media-output-store.ts";
 
 const tmp = useTempDirs("p1b-open-comp-");
 const MEDIA_METHODS = ["chat.promote.links", "chat.promote.preview", "chat.promote.commit", "task.complete", "media.generate", "media.edit", "media.job.get", "media.job.list", "media.job.cancel", "media.output.get", "media.output.list", "media.output.delete", "media.adapters.list", "media.preferences.get", "media.preferences.set"];
@@ -51,6 +53,26 @@ async function open(over: Partial<CompositionDeps> = {}, prepare: (home: string)
 }
 
 describe("composition openTurnComposition", () => {
+  it("applies production retention at startup and removes expired upload owners", async () => {
+    const id = "11111111-1111-4111-8111-111111111111";
+    const { composition: c, home, identity } = await open({}, home => {
+      const data = Buffer.concat([Buffer.from("RIFF"), Buffer.from([36, 0, 0, 0]), Buffer.from("WAVE"), Buffer.alloc(32)]);
+      const directory = join(home, "media", "outputs", ".uploads", id);
+      mkdirSync(directory, { recursive: true, mode: 0o700 });
+      mkdirSync(join(home, "media", "owners"), { recursive: true, mode: 0o700 });
+      writeFileSync(join(directory, "0.wav"), data, { mode: 0o600 });
+      writeFileSync(join(directory, "manifest.json"), JSON.stringify({
+        schema: "media.upload/1", id, createdAt: Date.now() - MEDIA_OUTPUT_RETENTION_MS - 1,
+        kind: "audio", mimeType: "audio/wav", file: { path: "0.wav", format: "wav", bytes: data.length,
+          sha256: createHash("sha256").update(data).digest("hex") },
+      }), { mode: 0o600 });
+      writeFileSync(join(home, "media", "owners", `${id}.json`), JSON.stringify({ agentId: "bernd", userId: "private-person" }), { mode: 0o600 });
+    });
+    try {
+      assert.equal(existsSync(join(home, "media", "outputs", ".uploads", id)), false);
+      assert.equal(existsSync(join(home, "media", "owners", `${id}.json`)), false);
+    } finally { await c.close(); identity.close(); }
+  });
   it("recovers unpublished upload state without a generation provider", async () => {
     const stage = ".stage-11111111-1111-1111-1111-111111111111";
     const { composition: c, home, identity } = await open({}, home => {
