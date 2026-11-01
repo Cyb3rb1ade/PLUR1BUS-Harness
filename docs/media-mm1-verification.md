@@ -2,7 +2,8 @@
 
 Stand: 2026-11-01. Der finale Mac-Modelltest für `f2bddf31` besteht. Im vollständigen
 Engine-Crate bestehen alle 111 Bibliotheks- und 23 Transport-Integrationstests,
-darunter 56 Medientests. Breites Clippy läuft noch. Dieser Bericht ist ein Prüfstand
+darunter 56 Medientests. Clippy für alle Engine-Targets einschließlich `real-models`
+besteht mit `-D warnings`. Dieser Bericht ist ein Prüfstand
 für den PR, keine pauschale Freigabe aller Plattformen und Betriebsfälle.
 
 MM-1 ergänzt die Rust-Bibliothek um lokale Bild-, Audio- und Video-Embeddings mit
@@ -50,8 +51,8 @@ Modellvektoren und fremde Bilder werden nicht eingecheckt.
 | Bildgrenzen und P1-Regressionen | 64 MiB kodierte/native Decoder-Ausgabe, 40 Mio. Pixel, Container-/Metadaten-/innere WebP-Dimensionen vor Decoder geprüft | Decoderinterne Bibliotheksgrenzen sind teilweise Best-Effort; zusätzliche explizite Prüfungen bleiben aktiv. |
 | Laufzeit-Review | FIFO-/Symlink-Verweigerung, Initialisierung vor Prioritätsabsenkung und budgetabhängige Identität korrigiert; Review geschlossen | Windows-Datei-/Schedulingpfade quellengeprüft, nicht nativ ausgeführt. |
 | Explizite Modellvorbereitung über K | 12 Vorbereitungstests, 2 Grenzwerttests und 23 bestehende Transporttests bestanden; unabhängiges Review ohne bestätigten Befund | Quellcode-Harness/Loopback, kein echter HF-Download; automatischer Core-Aufruf bleibt MM-3b. |
-| MM-1-Lint | 163 bestanden, 0 Fehler, 3 bestehende LAYA-TODOs | Lauf im MM-1-Arbeitsbaum. |
-| Breites Clippy | **Läuft:** `--all-targets --features real-models`; fokussierte Modulprüfungen bestanden | Endergebnis vor vollständiger Abnahme nachtragen. |
+| MM-1-Lint und Dokumentation | Lint: 163 bestanden, 0 Fehler, 3 bestehende LAYA-TODOs; `pnpm docs:check` bestanden | Lauf im MM-1-Arbeitsbaum; fehlende Cloud-Modellartefakte werden nicht als bestanden gewertet. |
+| Engine-Clippy | **Bestanden:** `--all-targets --features real-models -- -D warnings` | Alle Engine-Testtargets kompiliert; echte Modelle werden dadurch nicht in der Cloud ausgeführt. |
 | Abhängigkeiten / Attribution | Lizenzprüfung 0 Verstöße; Release-Audit 0 blockierende Befunde und 0 Erfassungs-/Policyfehler | Bestehende Owner-Ausnahmen und Warnungen bleiben sichtbar; keine Policyänderung. |
 | Produktions-Binary / Kaltbau / Recall | **Offen** | Vollständige Binary-Größendifferenz, vollständige kalte Buildzeit und echter Recall `<600 ms` sind nicht nachgewiesen. |
 
@@ -184,7 +185,9 @@ Tests. Der erneute Lauf reduzierte ausschließlich Debugdaten des Engine-Testpak
 (`debug=0`, `strip=debuginfo`), bei unveränderten Produktabhängigkeiten und
 Assertions. Damit bestehen alle 111 Bibliothekstests einschließlich der 56 Medientests sowie
 die 23 echten Transport-Integrationstests, jeweils ohne Fehler und ignorierte Tests.
-Das breite Clippy-Ergebnis ist noch offen.
+`cargo clippy --locked -p plur1bus-engine --all-targets --features real-models -- -D warnings`
+besteht ebenfalls. Der Aufbau der nativen Build-Abhängigkeiten dieses Check-Profils
+ist keine Messung einer vollständigen kalten Produktionsbauzeit.
 
 Weiter offen bleiben Produktions-Binary-Größendifferenz, vollständige kalte
 Buildzeit auf der Controller-Basis, echter Recall und native Ausführung auf den
@@ -198,5 +201,7 @@ Die Rohbelege liegen im Controller-Berichtsverzeichnis `/workspace/reports`:
 `mm1-runtime-review.txt`, `mm1-image-license-closure.log`,
 `mm1-jpeg-vendor-audit-deps.json`, `mm1-release-audit-policy.log`,
 `mm1-vendor-native-preservation.log` und
-`mm1-engine-media-bounded-debug-final.log`. Die offenen Prüfungen sind vom
+`mm1-engine-media-bounded-debug-final.log`, `mm1-engine-all-unit-final.log`,
+`mm1-engine-transport-final.log`, `mm1-engine-final-clippy.log` und
+`mm1-docs-final.log`. Die offenen Prüfungen sind vom
 Controller vor einer vollständigen Abnahme nachzutragen.
