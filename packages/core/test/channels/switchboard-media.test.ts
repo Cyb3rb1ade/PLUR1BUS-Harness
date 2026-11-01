@@ -123,7 +123,7 @@ for (const changed of ["archive", "unlink", "disable"] as const) {
       assert.match(failure, reason);
       assert.equal(published, false);
       assert.equal(r.provider.requests.length, 0);
-      assert.deepEqual(r.adapter().sent.map((message) => message.text), [FAILED_TEXT]);
+      assert.deepEqual(r.adapter().sent.map((message) => message.text), ["You cannot upload files to this session."]);
     } finally { release(); await pending; r.close(); }
   });
 }
