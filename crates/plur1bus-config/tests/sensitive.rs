@@ -10,6 +10,44 @@ fn canary() -> String {
 }
 
 #[test]
+fn direct_reference_metadata_uses_its_declared_source_kind() {
+    let schema = json!({"properties":{"ordinary":{"type":"string","x-value-schema":{
+        "type":"string","x-secret-reference":true,"x-secret-reference-kind":"env-name"
+    }}}});
+    let config = json!({"ordinary":"_FIXTURE_KEY"});
+    assert_eq!(cfg::redact_with_schema(&config, &schema), config);
+    assert!(cfg::secret_text_values_with_schema(&config, &schema).is_empty());
+    assert_eq!(
+        cfg::reference_paths_with_schema(&config, &schema),
+        ["/ordinary"]
+    );
+}
+
+#[test]
+fn direct_reference_metadata_merges_wrapper_kind_and_validation_constraints() {
+    let schema = json!({"properties":{
+        "environment":{"type":"string","x-secret-reference-kind":"env-name",
+            "x-value-schema":{"x-secret-reference":true}},
+        "constrained":{"type":"string","enum":["allowed.reference"],
+            "x-value-schema":{"x-secret-reference":true}}
+    }});
+    let literal = format!("service.{}", &canary()[..12]);
+    let config = json!({"environment":"_FIXTURE_KEY","constrained":literal});
+    assert_eq!(
+        cfg::redact_with_schema(&config, &schema),
+        json!({"environment":"_FIXTURE_KEY","constrained":"••••"})
+    );
+    assert_eq!(
+        cfg::secret_text_values_with_schema(&config, &schema),
+        [literal]
+    );
+    assert_eq!(
+        cfg::reference_paths_with_schema(&config, &schema),
+        ["/environment"]
+    );
+}
+
+#[test]
 fn reference_only_slots_protect_nonmatching_values_without_changing_the_annotation_inventory() {
     let name = format!("service.{}", &canary()[..12]);
     let pasted = format!("sk-{}", &canary()[..24]);

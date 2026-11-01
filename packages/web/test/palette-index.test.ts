@@ -79,7 +79,7 @@ describe("buildIndex", () => {
   });
   test("values come from a config.get result by dotted path; objects and null are skipped, lists are joined", () => {
     const values = settingValues({ metrics: { port: 9464, enabled: true }, egress: { allowHosts: ["a.example", "b.example"] }, agents: { x: {} }, core: { logLevel: null } });
-    assert.deepEqual(values, { "metrics.port": "9464", "metrics.enabled": "true", "egress.allowHosts": "a.example, b.example" });
+    assert.deepEqual(values, { "metrics.port": "9464", "metrics.enabled": "true", "egress.allowHosts": ["a.example", "b.example"] });
     const hit = search(buildIndex({ lang: "en", values }), "9464");
     assert.deepEqual(hit.map((h) => h.entry.key), ["metrics.port"]);
     assert.equal(hit[0]?.entry.value, "9464");
@@ -89,9 +89,9 @@ describe("buildIndex", () => {
   });
   test("values of sensitive keys never enter the index, whatever the source", () => {
     const specs: SettingSpec[] = [
-      { key: "providers.openai.apiKey", type: "string", tier: "basic" }, { key: "x.accessToken", type: "string", tier: "basic" },
-      { key: "secrets.store", type: "string", tier: "advanced" }, { key: "auth.password", type: "string", tier: "basic" },
-      { key: "oauth.credentials", type: "string", tier: "advanced" }, { key: "core.logLevel", type: "enum", tier: "advanced" },
+      { key: "providers.openai.apiKey", type: "string", tier: "basic", sensitive: true }, { key: "x.accessToken", type: "string", tier: "basic", sensitive: true },
+      { key: "secrets.store", type: "string", tier: "advanced", sensitive: true }, { key: "auth.password", type: "string", tier: "basic", sensitive: true },
+      { key: "oauth.credentials", type: "string", tier: "advanced", sensitive: true }, { key: "core.logLevel", type: "enum", tier: "advanced" },
     ];
     const values = Object.fromEntries(specs.map((s) => [s.key, s.key === "core.logLevel" ? "debug" : "sk-TOPSECRET-123"]));
     const index = buildIndex({ lang: "en", settings: specs, values });
@@ -102,12 +102,12 @@ describe("buildIndex", () => {
     assert.equal(search(index, "apikey")[0]?.entry.key, "providers.openai.apiKey");
   });
   test("settingValues drops sensitive keys itself when given specs", () => {
-    const specs: SettingSpec[] = [{ key: "a.apiKey", type: "string", tier: "basic" }, { key: "a.name", type: "string", tier: "basic" }];
+    const specs: SettingSpec[] = [{ key: "a.apiKey", type: "string", tier: "basic", sensitive: true }, { key: "a.name", type: "string", tier: "basic" }];
     assert.deepEqual(settingValues({ a: { apiKey: "sk-1", name: "n" } }, specs), { "a.name": "n" });
   });
-  test("the keys the first heuristic missed stay out of the index, both from settingValues and from buildIndex", () => {
+  test("explicitly marked values stay out of the index through either input", () => {
     const keys = ["egress.proxy.authorization", "web.cookie", "tls.passphrase", "auth.bearer", "egress.proxy.auth"];
-    const specs: SettingSpec[] = [...keys.map((key) => ({ key, type: "string", tier: "advanced" as const })), { key: "core.logLevel", type: "enum", tier: "advanced" }];
+    const specs: SettingSpec[] = [...keys.map((key) => ({ key, type: "string", tier: "advanced" as const, sensitive: true })), { key: "core.logLevel", type: "enum", tier: "advanced" }];
     const config = { egress: { proxy: { authorization: "hunter2", auth: "hunter2" } }, web: { cookie: "hunter2" }, tls: { passphrase: "hunter2" }, auth: { bearer: "hunter2" }, core: { logLevel: "debug" } };
     const values = settingValues(config, specs);
     assert.deepEqual(values, { "core.logLevel": "debug" });
@@ -115,12 +115,12 @@ describe("buildIndex", () => {
     assert.equal(JSON.stringify(index).includes("hunter2"), false);
   });
   test("credentials inside a URL value are masked, whatever the key is called", () => {
-    const specs: SettingSpec[] = [{ key: "metrics.remoteWrite", type: "string", tier: "advanced" }, { key: "core.dataDir", type: "string", tier: "advanced" }];
+    const specs: SettingSpec[] = [{ key: "metrics.remoteWrite", type: "string", tier: "advanced", urlCredentials: true }, { key: "core.dataDir", type: "string", tier: "advanced" }];
     const config = { metrics: { remoteWrite: "https://bob:hunter2@metrics.example/api?api_key=hunter3&x=1" }, core: { dataDir: "/var/lib" } };
     const values = settingValues(config, specs);
     assert.equal(values["core.dataDir"], "/var/lib");
     assert.equal(JSON.stringify(values).includes("hunter"), false);
-    assert.match(values["metrics.remoteWrite"] ?? "", /metrics\.example\/api\?api_key=••••&x=1$/);
+    assert.equal(values["metrics.remoteWrite"], "https://••••@metrics.example/api?api_key=••••&x=••••");
     const index = buildIndex({ lang: "en", settings: specs, values: { "metrics.remoteWrite": "https://bob:hunter2@metrics.example/" } });
     assert.equal(JSON.stringify(index).includes("hunter2"), false);
     assert.deepEqual(search(index, "hunter2"), []);

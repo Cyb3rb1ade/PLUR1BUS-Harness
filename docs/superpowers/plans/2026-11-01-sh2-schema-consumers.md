@@ -6,7 +6,9 @@
 
 **Architecture:** Pure schema projections preserve JSON structure. Existing private watch snapshots serve runtime
 and write-back consumers. A configuration registration group feeds the existing Core redaction registry before
-logs; Rust consumers share one projection and credential extractor.
+logs; Rust public-output consumers share one projection and credential extractor. Regular backups have an archive
+projection because the Owner requires literal placeholders and replaced-key inventory rather than public display
+masks. It reuses reference safety and URL primitives; archive/restore regressions cover the separate traversal.
 
 **Tech Stack:** TypeScript, JSON Schema, Rust 1.95, Node 24.21, pnpm 10; no new dependencies.
 
@@ -19,7 +21,7 @@ logs; Rust consumers share one projection and credential extractor.
 - Only required SH2 Rust changes are authorized. No Engine-contract or import implementation edits.
 - Generate canaries at runtime; never weaken, retry or skip tests.
 - English docs, German PR, author Cyb3rb1ade <cyb3rblade@me.com>; no rebase, amend, force-push or merge.
-- Run gates sequentially, never alongside full Core; do not poll CI. Regular-backup policy awaits the Owner.
+- Run gates sequentially, never alongside full Core; do not poll CI. Regular backups follow the Owner ruling of 2026-11-01: preserve explicit references, replace literals and report re-entry.
 
 ## Review Focus
 
@@ -28,6 +30,8 @@ logs; Rust consumers share one projection and credential extractor.
 - Agent removal, provisioning compensation and repair must preserve other agents' original credentials.
 - Rejected candidate values must not appear in validation errors, status, first aid or logs.
 - Startup and accepted changes must register configuration values before any dependent log or output.
+- Safe reference names remain readable everywhere and never enter the text registry. Pasted-key references are
+  masked, registered and warned about; source-specific reference safety is identical in Core, Web and Rust.
 
 ### Task 1: Shared projection
 
@@ -72,20 +76,20 @@ final rendering. `SecretRedaction.replaceGroup(group: symbol, values: readonly s
 private registration group; the store's named values retain their existing API. Optional registry injection lets
 the Core, store and audit/log sinks share one registry.
 
-- [ ] Activate the Web metadata regression; reproduce arbitrary marked keys and joined-URL-list masking.
-- [ ] Remove runtime configuration name guesses; implement untouched/replaced/cleared secret and URL drafts.
-- [ ] Mask JSON and review cells with their configuration prefix; preserve public numeric/policy values.
-- [ ] Reproduce configuration leaks before a store read and on configuration changes, including rotated/removed values.
-- [ ] Register initial values before early-log flush and accepted changes before downstream listeners.
-- [ ] Apply metadata to agent configuration exports and channel configuration projection without changing RPC shape.
-- [ ] Check captured Rust process output with a red reproduction and fix the proven shared sink if necessary.
-- [ ] Extend secret/protocol leak tests and run focused browser/Core tests.
+- [x] Activate the Web metadata regression; reproduce arbitrary marked keys and joined-URL-list masking.
+- [x] Remove runtime configuration name guesses; implement untouched/replaced/cleared secret and URL drafts.
+- [x] Mask JSON and review cells with their configuration prefix; preserve public numeric/policy values.
+- [x] Reproduce configuration leaks before a store read and on configuration changes, including rotated/removed values.
+- [x] Register initial values before early-log flush and accepted changes before downstream listeners.
+- [x] Apply metadata to agent configuration exports and channel configuration projection without changing RPC shape.
+- [x] Check captured Rust process output with a red reproduction and fix the proven shared sink if necessary.
+- [x] Extend secret/protocol leak tests and run focused browser/Core tests.
 
 ### Task 4: Verification and publication
 
 **Files:** `CHANGELOG.md`, `docs/config.md` and its generator when generated text changes, relevant diagnostic docs.
 
-- [ ] Resolve the regular-backup scope answer and record the exact boundary.
+- [x] Resolve the regular-backup scope answer and record the exact boundary.
 - [ ] Document the complete source-to-output inventory and preserved private-snapshot behavior in the German PR.
 - [ ] Obtain one fresh read-only bypass/regression review, confirm findings and fix them with red/green evidence.
 - [ ] Run `pnpm lint`, Config Schema, full Core, full Web, affected Rust suites, `cargo fmt --all -- --check`,

@@ -55,6 +55,13 @@ export function configNodes(schema: SchemaNode): ConfigNode[] {
 
 /** Public heuristic matches require an exact key and a maintained justification. */
 export const PUBLIC_EXCEPTIONS: Readonly<Record<string, string>> = {
+  "providers.*.profile.tokenUrl": "Token endpoint address; x-url-credentials conceals userinfo and query values only.",
+  "providers.*.profile.authorization_endpoint":
+    "Authorization endpoint address; x-url-credentials conceals userinfo and query values only.",
+  "providers.*.profile.token_endpoint":
+    "Token endpoint address; x-url-credentials conceals userinfo and query values only.",
+  "providers.*.profile.device_authorization_endpoint":
+    "Device authorization endpoint address; x-url-credentials conceals userinfo and query values only.",
   "import.ssh.connections.*.allowPrivate":
     "Boolean consent for private destination addresses, not private key material.",
   "import.ssh.connections.*.hostKey": "Public SSH host-key metadata; no private material.",

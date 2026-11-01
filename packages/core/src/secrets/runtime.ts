@@ -5,6 +5,7 @@ import { createFileAuditSink } from "./audit.ts";
 import { createFileBackend } from "./file-backend.ts";
 import { createKeyringBackend, type KeyringEntry, type KeyringLoader, type KeyringModule } from "./keyring-backend.ts";
 import { createSecretStore, type SecretStore, type SecretStoreLogger } from "./store.ts";
+import type { SecretRedaction } from "./redaction.ts";
 
 /** An in-process stand-in for the OS keyring, selected only by the test seam below. */
 function memoryKeyringModule(): KeyringModule {
@@ -36,6 +37,7 @@ export function keyringLoaderFor(env: NodeJS.ProcessEnv): KeyringLoader | undefi
 
 export function createCoreSecretStore(o: {
   layout: Layout; securePath: SecurePath; fileFallback: () => boolean; clock?: () => number; logger?: SecretStoreLogger; env?: NodeJS.ProcessEnv;
+  redaction?: SecretRedaction;
 }): SecretStore {
   const load = keyringLoaderFor(o.env ?? process.env);
   // One keyring service per home, so two homes of one OS user never see each other's secrets.
@@ -46,6 +48,7 @@ export function createCoreSecretStore(o: {
     file: createFileBackend({ dir: o.layout.secrets, secure: o.securePath }),
     fileFallback: o.fileFallback,
     audit,
+    ...(o.redaction ? { redaction: o.redaction } : {}),
     ...(o.clock ? { clock: o.clock } : {}),
     ...(o.logger ? { logger: o.logger } : {}),
   });

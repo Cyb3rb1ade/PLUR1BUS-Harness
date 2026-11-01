@@ -33,7 +33,7 @@ test("backup reference metadata accepts only reference forms from the pinned Eng
   const accepts = referenceValidator("engine.embedding.apiKey");
   const engineAccepts = new Ajv2020({ strict: false }).compile(engine.$defs.secretInput);
   for (const source of ["env", "store", "file", "exec"]) {
-    const reference = { source, provider: "fixture", id: randomUUID() };
+    const reference = { source, provider: "fixture", id: source === "env" ? "FIXTURE_REFERENCE_NAME" : randomUUID() };
     assert.equal(engineAccepts(reference), true);
     assert.equal(accepts(reference), true);
   }
@@ -58,10 +58,10 @@ test("reference-only config members retain sensitivity and do not classify a mal
     "engine.embedding.apiKeyEnv",
   ]) {
     const accepts = referenceValidator(path);
-    assert.equal(accepts(randomUUID()), true, path);
+    assert.equal(accepts(path.endsWith("apiKeyEnv") ? "FIXTURE_REFERENCE_NAME" : randomUUID()), true, path);
     assert.equal(accepts(42), false, path);
     assert.equal(accepts({ literal: randomUUID() }), false, path);
-    assert.equal(sensitiveOf(path), true, "references must remain hidden in public outputs");
+    assert.equal(sensitiveOf(path), true, "literal values in reference-capable fields must remain sensitive");
   }
   const cfg = defaults();
   cfg.engine = { implementation: "node", embedding: { apiKey: { unexpected: 42 }, apiKeyRef: false } };
@@ -79,7 +79,9 @@ test("reference classification follows explicit metadata on unrelated keys and r
   assert.equal(secretReferenceOf("ordinary", value, custom), true);
   assert.equal(secretReferenceOf("passwordRef", value, custom), false);
   assert.equal(secretReferenceOf("ordinary", 42, custom), false);
-  for (const metadata of [true, { $ref: "#/$defs/missing" }, { $ref: "https://example.test/policy" }]) {
+  const marked = { properties: { ordinary: { type: "string", "x-secret-reference": true } } } as ConfigSchemaNode;
+  assert.equal(secretReferenceOf("ordinary", value, marked), true, "a directly marked reference subschema is supported");
+  for (const metadata of [1, { $ref: "#/$defs/missing" }, { $ref: "https://example.test/policy" }]) {
     const invalid = { properties: { ordinary: { "x-secret-reference": metadata } } } as unknown as ConfigSchemaNode;
     assert.throws(() => secretReferenceOf("ordinary", value, invalid), (error: unknown) => {
       assert.ok(error instanceof Error);

@@ -91,7 +91,7 @@ fn metadata_error() -> BackupError {
 }
 
 struct Projection<'a> {
-    references: HashMap<*const Value, (jsonschema::Validator, &'a Value)>,
+    references: HashMap<*const Value, (jsonschema::Validator, Value)>,
     local_references: HashMap<&'a str, *const Value>,
     keys: BTreeSet<String>,
     changed: bool,
@@ -101,8 +101,7 @@ impl<'a> Projection<'a> {
     fn references(&mut self, node: &'a Value, root: &'a Value) -> Result<(), BackupError> {
         match node {
             Value::Object(fields) => {
-                if let Some(metadata) = fields
-                    .get("x-secret-reference")
+                if let Some(metadata) = field(node, "x-secret-reference")
                     .filter(|metadata| metadata.as_bool() != Some(false))
                 {
                     let target = if metadata.as_bool() == Some(true) {
@@ -124,7 +123,8 @@ impl<'a> Projection<'a> {
                     if let std::collections::hash_map::Entry::Vacant(entry) =
                         self.references.entry(key)
                     {
-                        let mut schema = serde_json::json!({"allOf":[target]});
+                        let effective = plur1bus_config::reference_schema(target);
+                        let mut schema = serde_json::json!({"allOf":[&effective]});
                         if let Some(definitions) = root.get("$defs") {
                             schema["$defs"] = definitions.clone();
                         }
@@ -132,7 +132,7 @@ impl<'a> Projection<'a> {
                             .with_retriever(NoExternalSchemas)
                             .build(&schema)
                             .map_err(|_| metadata_error())?;
-                        entry.insert((validator, target));
+                        entry.insert((validator, effective));
                     }
                 }
                 for child in fields.values() {

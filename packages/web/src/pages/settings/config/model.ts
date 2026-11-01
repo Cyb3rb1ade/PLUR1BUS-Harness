@@ -1,7 +1,7 @@
 // Pure logic of the config sections: which fields a section shows, draft parsing, the change list, restart classes, and the
 // mapping of E_CONFIG_INVALID text onto fields. No DOM, no RPC.
 import type { Key } from "../../../i18n.ts";
-import { isSensitiveKey } from "../../../palette/match.ts";
+import { configPolicyOf, redactConfigView } from "../../../config-policy.ts";
 import { sectionOf, type SectionDef } from "../../../settings-sections.ts";
 import { META, type Kind } from "./meta.ts";
 
@@ -41,10 +41,11 @@ export function coreSliderValue(draft: string, detected: number): number {
 export const coreDraftValue = (position: number, detected: number): string => (position >= detected ? "0" : String(position));
 export type Draft = Record<string, string | boolean>;
 
-/** Names the shared key heuristic (key, token, secret, password, credential) does not cover but that hold secrets all the same. */
-const MORE_SECRET = /authori[sz]ation|bearer|cookie|passphrase|passwd|pwd|private|signature|jwt|hmac|(^|[._-])auth($|[._-])/i;
-/** Whether a key may hold a secret value: such keys are never shown as fields and are masked in formatted JSON. */
-export const isSecretKey = (key: string): boolean => isSensitiveKey(key) || MORE_SECRET.test(key);
+/** Replacement controls follow schema metadata; an untouched control never writes the masked public snapshot back. */
+export const replacementOnly = (field: Field): boolean => {
+  const policy = configPolicyOf(field.key);
+  return policy.sensitive || policy.urlCredentials || policy.referenceSchema !== undefined;
+};
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const pathHas = (o: unknown, key: string): unknown => key.split(".").reduce<unknown>((at, seg) => (isObj(at) ? at[seg] : undefined), o);
@@ -73,11 +74,11 @@ function extraLeaves(config: Record<string, unknown>, known: ReadonlySet<string>
   return out.filter(([key]) => key !== "engine" && !key.startsWith("engine."));
 }
 
-/** The fields of a config section, in schema order. Keys that may hold secret values are never included. `host.cores` (from
+/** The fields of a config section, in schema order. Displayed values follow the disclosure policy. `host.cores` (from
  *  `daemon.status`) turns `supervisor.maxCores` into a slider. */
 export function buildFields(config: unknown, section: SectionDef, restart: Readonly<Record<string, string | null>> = {}, host: { cores?: CoreInfo } = {}): Field[] {
   const cfg = isObj(config) ? config : {};
-  const mine = (key: string): boolean => sectionOf(key)?.id === section.id && !isSecretKey(key);
+  const mine = (key: string): boolean => sectionOf(key)?.id === section.id;
   const fields: Field[] = META.filter((m) => mine(m.key)).map((m) => {
     const value = pathHas(cfg, m.key);
     return {
@@ -102,6 +103,7 @@ export const effective = (f: Field): unknown => (f.value !== undefined ? f.value
 const isList = (k: Kind): boolean => k === "strings" || k === "ints";
 
 export function toDraftValue(f: Field): string | boolean {
+  if (replacementOnly(f)) return "";
   const v = effective(f);
   if (f.kind === "bool") return v === true;
   if (isList(f.kind)) return Array.isArray(v) ? v.join("\n") : "";
@@ -109,7 +111,7 @@ export function toDraftValue(f: Field): string | boolean {
 }
 export function initialDraft(fields: readonly Field[]): Draft {
   const d: Draft = {};
-  for (const f of fields) if (!f.readOnly) d[f.key] = toDraftValue(f);
+  for (const f of fields) if (!f.readOnly && !replacementOnly(f)) d[f.key] = toDraftValue(f);
   return d;
 }
 
@@ -157,11 +159,11 @@ export function collectChanges(fields: readonly Field[], draft: Draft): { change
     if (f.readOnly) continue;
     const raw = draft[f.key];
     if (raw === undefined) continue;
-    if (raw === toDraftValue(f)) continue;
+    if (!replacementOnly(f) && raw === toDraftValue(f)) continue;
     const p = parseDraft(f, raw);
     if (!p.ok) { errors[f.key] = { key: p.error, ...(p.params ? { params: p.params } : {}) }; continue; }
     const old = effective(f);
-    if (JSON.stringify(old ?? null) === JSON.stringify(p.value) || (old === undefined && p.value === "")) continue;
+    if (!replacementOnly(f) && (JSON.stringify(old ?? null) === JSON.stringify(p.value) || (old === undefined && p.value === ""))) continue;
     changes.push({ key: f.key, old, value: p.value, restartClass: f.restartClass });
   }
   return { changes, errors };
@@ -177,13 +179,8 @@ export function show(v: unknown): string {
   return JSON.stringify(v);
 }
 
-/** Replaces the values of keys that may hold secrets by a mask, at any depth, before formatted JSON is shown. */
-export function redact(v: unknown): unknown {
-  if (Array.isArray(v)) return v.map(redact);
-  if (isObj(v)) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, isSecretKey(k) ? "••••" : redact(x)]));
-  if (typeof v === "string") return v.replace(/^\s*(bearer|basic)\s+\S+/i, "••••").replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/@\s]+@/i, "$1••••@");
-  return v;
-}
+/** Masks secret literals at any depth while keeping validated reference names readable. */
+export const redact = redactConfigView;
 
 /** Assigns the segments of an E_CONFIG_INVALID text ("/core/logLevel must be ...; ...") to the fields they name (dotted key or
  *  JSON pointer). Segments that name no field come back in `rest`. */

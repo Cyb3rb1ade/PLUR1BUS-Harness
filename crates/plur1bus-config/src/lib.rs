@@ -8,7 +8,7 @@ mod diagnostics;
 mod references;
 mod sensitive;
 pub use diagnostics::validation_constraint;
-pub use references::{looks_like_pasted_key, reference_safety};
+pub use references::{looks_like_pasted_key, reference_safety, reference_schema};
 pub use sensitive::{
     config_reference_warnings, config_secret_values, config_text_secret_values,
     mask_url_credentials, redact_config, redact_with_schema, reference_paths_with_schema,

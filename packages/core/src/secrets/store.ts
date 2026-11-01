@@ -2,7 +2,7 @@ import { surfaceSatisfies } from "../rbac/surface.ts";
 import { MIN_SECRET_SURFACE, MIN_DESCRIPTION_VALUE_CHARS, SecretError, checkDescription, checkName, checkValue, isSecretName, type BackendKind, type SecretBackend, type SecretMeta, type SecretPrincipal } from "./types.ts";
 import { createLeaseTable, type Lease, type LeaseInfo } from "./leases.ts";
 import type { AuditAction, AuditDetail, AuditSink } from "./audit.ts";
-import { createSecretRedaction } from "./redaction.ts";
+import { createSecretRedaction, type SecretRedaction } from "./redaction.ts";
 
 export interface SecretStoreLogger { debug(msg: string, fields?: Record<string, unknown>): void; info(msg: string, fields?: Record<string, unknown>): void; warn(msg: string, fields?: Record<string, unknown>): void }
 
@@ -15,6 +15,8 @@ export interface SecretStoreOptions {
   audit: AuditSink;
   clock?: () => number;
   logger?: SecretStoreLogger;
+  /** Share startup configuration registrations with store values and every downstream sink. */
+  redaction?: SecretRedaction;
 }
 
 export interface SecretStatus {
@@ -38,7 +40,7 @@ export function createSecretStore(o: SecretStoreOptions) {
   const clock = o.clock ?? Date.now;
   const leases = createLeaseTable(clock);
   /** Every value this store writes or reads is registered before it is returned, so no log, audit or report redactor misses it. */
-  const redaction = createSecretRedaction();
+  const redaction = o.redaction ?? createSecretRedaction();
   const changeListeners = new Set<(name: string) => void>();
   const changed = (name: string): void => {
     for (const listener of [...changeListeners]) {

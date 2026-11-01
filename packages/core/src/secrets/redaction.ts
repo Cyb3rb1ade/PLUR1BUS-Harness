@@ -23,10 +23,12 @@ export interface SecretRedaction {
   /** Registers a value (and, for an authorization header value, its bare credential). Short or non-string input is ignored.
    *  With `name`, it becomes the current value of that store name (pinned) and the name's previous value is retired. */
   register(value: string, name?: string): void;
+  /** Atomically replace an internal registration group. Removed values retire under the normal bound; empty clears it. */
+  replaceGroup(group: symbol, values: readonly string[]): void;
   /** `sink` receives every value registered so far and every later one. Returns the unsubscribe function. */
   subscribe(sink: SecretSink): () => void;
   /** A redactor that always masks the values registered at the time of each call. */
-  redactor(options?: { pii?: boolean }): Redactor;
+  redactor(options?: { pii?: boolean; secretsOnly?: boolean }): Redactor;
   /** Every value that is masked now, as registered: the current ones of a store name, then the retired ones. For a caller that
    *  applies the exact-value rule itself (a tool result, `createRedactor({ secretsOnly })`). */
   values(): readonly string[];
@@ -38,7 +40,7 @@ export interface SecretRedaction {
 
 export function createSecretRedaction(): SecretRedaction {
   /** name -> the values it holds now (a header value and its bare credential are two values of one name). */
-  const current = new Map<string, Set<string>>();
+  const current = new Map<string | symbol, Set<string>>();
   /** value -> how many names hold it now. */
   const pins = new Map<string, number>();
   /** Not current anywhere, oldest first. */
@@ -56,16 +58,16 @@ export function createSecretRedaction(): SecretRedaction {
     retired.add(value); bound(); version++;
     tell(value);
   }
-  function addNamed(name: string, values: string[]): void {
+  function addNamed(name: string | symbol, values: readonly string[]): void {
     const next = new Set(values.filter(eligible));
-    if (next.size === 0) return;
     const prev = current.get(name) ?? new Set<string>();
     // A value that is already current for this name is a re-read (the common case): nothing changes.
-    if ([...next].every((v) => prev.has(v))) return;
+    if (next.size === prev.size && [...next].every((v) => prev.has(v))) return;
     const changed: string[] = [];
     for (const v of prev) if (!next.has(v) && unpin(v)) { retired.add(v); changed.push(v); }
     for (const v of next) if (!prev.has(v)) { pins.set(v, (pins.get(v) ?? 0) + 1); retired.delete(v); changed.push(v); }
-    current.set(name, next);
+    if (next.size > 0) current.set(name, next);
+    else current.delete(name);
     bound(); version++;
     for (const v of changed) tell(v);
   }
@@ -74,9 +76,20 @@ export function createSecretRedaction(): SecretRedaction {
     register(value, name) {
       if (typeof value !== "string") return;
       const bare = value.replace(/^(?:Bearer|Basic)\s+/i, "");
-      if (typeof name === "string" && name !== "") { addNamed(name, bare !== value ? [value, bare] : [value]); return; }
+      if (typeof name === "string" && name !== "") {
+        const values = (bare !== value ? [value, bare] : [value]).filter(eligible);
+        if (values.length > 0) addNamed(name, values);
+        return;
+      }
       addAnonymous(value);
       if (bare !== value) addAnonymous(bare);
+    },
+    replaceGroup(group, values) {
+      const expanded = values.flatMap((value) => {
+        const bare = value.replace(/^(?:Bearer|Basic)\s+/i, "");
+        return bare === value ? [value] : [value, bare];
+      });
+      addNamed(group, expanded);
     },
     subscribe(sink) {
       sinks.add(sink);

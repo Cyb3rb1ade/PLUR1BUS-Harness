@@ -1,6 +1,7 @@
 // Settings config sections (general, models, memory, extensions, network): states, edit -> diff -> save, conflict, restart badge,
 // focus, secrets, role, a11y, 400 px. Runs against test/mock-rpc.ts; the backend serves no /rpc yet.
 import assert from "node:assert/strict";
+import { randomBytes, randomUUID } from "node:crypto";
 import { after, before, describe, test } from "node:test";
 import { expectAxeClean } from "./axe.ts";
 import { browserSkip, openRoute, setup, teardown, withApp, type App } from "./harness.ts";
@@ -71,9 +72,29 @@ describe("settings config: states", opts, () => {
 });
 
 describe("settings config: sections and fields", opts, () => {
+  test("opaque Config views keep reference names readable and hide literal values at the same reference field", async () => {
+    await withApp({}, async (app) => {
+      const name = `providers.openai.${randomUUID().slice(0, 8)}`;
+      const literal = `sk-${randomBytes(24).toString("base64url")}`;
+      seedConfig(app.server.rpc, { providers: {
+        "safe.vendor": { profile: { secret_ref: name } },
+        "literal.vendor": { profile: { secret_ref: literal, extra_headers: { ordinary: literal } } },
+      } });
+      await open(app, "#/settings/models?focus=providers");
+      const current = app.page.locator("#cfg-providers");
+      await current.waitFor();
+      const text = await current.innerText();
+      assert.ok(text.includes(name));
+      assert.ok(!text.includes(literal));
+      assert.match(text, /••••/);
+      assert.match(await app.page.locator('.cfg-field[data-key="providers"]').innerText(), /looks like a pasted key/i);
+      assert.ok(!(await app.page.content()).includes(literal));
+    });
+  });
   test("each section shows only its own keys; secret-holding values are masked", async () => {
     await withApp({}, async (app) => {
-      seedConfig(app.server.rpc);
+      const secret = randomUUID();
+      seedConfig(app.server.rpc, { engine: { schicht15: { headers: { ordinary: secret } } } });
       await open(app, "#/settings/network");
       await app.page.locator("#cfg-egress-allowHosts").waitFor();
       assert.equal(await app.page.locator("#cfg-egress-allowHosts").inputValue(), "api.example.com");
@@ -84,11 +105,17 @@ describe("settings config: sections and fields", opts, () => {
       const roles = app.page.locator("#cfg-modelRoles-chat");
       await roles.waitFor();
       const text = await app.page.locator("main").innerText();
-      assert.ok(!text.includes("sk-secret-123") && !text.includes("sk-should-not-show"), "secret value shown");
+      assert.ok(!text.includes(secret), "secret value shown");
+      assert.match(await app.page.locator("#cfg-modelProfiles").innerText(), /4096/);
       assert.equal(await roles.inputValue(), "anthropic/claude-x");
       assert.equal(await roles.isEnabled(), true);
       assert.equal(await app.page.locator("#cfg-modelRoles-decision").count(), 1);
       assert.equal(await app.page.locator("#cfg-models-scan-enabled").getAttribute("role"), "switch");
+      await app.page.evaluate(() => { location.hash = "#/settings/memory"; });
+      const opaque = app.page.locator("#cfg-engine-schicht15");
+      await opaque.waitFor();
+      assert.ok(!(await opaque.innerText()).includes(secret));
+      assert.match(await opaque.innerText(), /••••/);
     });
   });
   test("a key unknown to the metadata gets a widget from its value type", async () => {
@@ -130,6 +157,45 @@ describe("settings config: edit, review, save", opts, () => {
       assert.deepEqual(fake.sets, [{ changes: [{ key: "core.logLevel", value: "debug" }, { key: "core.recall.softBudgetMs", value: 500 }, { key: "metrics.enabled", value: true }], ifRevision: "r1" }]);
       assert.match(await app.page.locator("[data-section=general] .form-notice").first().innerText(), /after a restart/);
       await app.page.waitForFunction(() => (document.getElementById("cfg-core-logLevel") as HTMLSelectElement | null)?.value === "debug");
+    });
+  });
+  test("endpoint replacements mask current and review values, preserve untouched URLs and support an explicit clear", async () => {
+    await withApp({}, async (app) => {
+      const oldSecret = randomUUID();
+      const newSecret = randomUUID();
+      const oldUrl = `https://relay.example.test/public/path?ordinary=${oldSecret}`;
+      const newUrl = `https://${newSecret}@other.example.test/new/path?ordinary=${newSecret}`;
+      const fake = seedConfig(app.server.rpc, { core: { logLevel: "warn", webHandoffBaseUrl: oldUrl } });
+      await open(app, "#/settings/general");
+      const row = app.page.locator('.cfg-field[data-key="core.webHandoffBaseUrl"]');
+      const input = row.locator("input");
+      await input.waitFor();
+      assert.equal(await input.inputValue(), "");
+      assert.match(await row.innerText(), /relay\.example\.test\/public\/path\?ordinary=••••/);
+      assert.ok(!(await row.innerText()).includes(oldSecret));
+      await app.page.locator("#cfg-core-logLevel").selectOption("debug");
+      await app.page.getByRole("button", { name: "Review changes" }).click();
+      await app.page.getByRole("button", { name: "Save changes" }).click();
+      await app.page.getByText(/Saved 1 changes/).waitFor();
+      assert.deepEqual((fake.sets[0] as { changes: unknown }).changes, [{ key: "core.logLevel", value: "debug" }]);
+      assert.equal((fake.config.core as Record<string, unknown>).webHandoffBaseUrl, oldUrl);
+      await input.fill(newUrl);
+      await app.page.getByRole("button", { name: "Review changes" }).click();
+      const diff = app.page.locator(".cfg-diff");
+      await diff.waitFor();
+      const text = await diff.innerText();
+      assert.ok(!text.includes(oldSecret) && !text.includes(newSecret));
+      assert.match(text, /relay\.example\.test\/public\/path/);
+      assert.match(text, /other\.example\.test\/new\/path/);
+      await app.page.getByRole("button", { name: "Save changes" }).click();
+      await app.page.locator(".cfg-review").waitFor({ state: "detached" });
+      await row.getByText(/Current: https:\/\/••••@other\.example\.test\/new\/path/).waitFor();
+      assert.equal((fake.config.core as Record<string, unknown>).webHandoffBaseUrl, newUrl);
+      await row.getByRole("button", { name: "Clear value", exact: true }).click();
+      await app.page.getByRole("button", { name: "Review changes" }).click();
+      await app.page.getByRole("button", { name: "Save changes" }).click();
+      await app.page.locator(".cfg-review").waitFor({ state: "detached" });
+      assert.equal((fake.config.core as Record<string, unknown>).webHandoffBaseUrl, "");
     });
   });
   test("list fields send arrays", async () => {

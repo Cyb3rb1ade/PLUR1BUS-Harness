@@ -147,7 +147,7 @@ pub fn looks_like_pasted_key(value: &Value) -> bool {
 }
 
 fn kind(schema: &Value) -> Option<&str> {
-    match schema.get("x-secret-reference-kind") {
+    match super::sensitive::field(schema, "x-secret-reference-kind") {
         None => Some("store-name"),
         Some(Value::String(kind))
             if matches!(
@@ -159,6 +159,27 @@ fn kind(schema: &Value) -> Option<&str> {
         }
         _ => None,
     }
+}
+
+/// Merge nonvalidating metadata for reference-form matching, retaining wrapper constraints and property siblings.
+pub fn reference_schema(schema: &Value) -> Value {
+    let Some(wrapper) = schema.as_object() else {
+        return schema.clone();
+    };
+    let Some(metadata) = wrapper.get("x-value-schema").and_then(Value::as_object) else {
+        return schema.clone();
+    };
+    let mut effective = wrapper.clone();
+    effective.extend(metadata.clone());
+    if let (Some(base), Some(extra)) = (
+        wrapper.get("properties").and_then(Value::as_object),
+        metadata.get("properties").and_then(Value::as_object),
+    ) {
+        let mut properties = base.clone();
+        properties.extend(extra.clone());
+        effective.insert("properties".into(), Value::Object(properties));
+    }
+    Value::Object(effective)
 }
 
 /// Guard an already schema-matched reference using canonical name/token policy; runtime validation remains unchanged.
@@ -212,7 +233,7 @@ enum CacheKey<'a> {
 /// One immutable schema pass; compiled local forms are reused, configured values are never cached.
 pub(crate) struct Matcher<'a> {
     root: &'a Value,
-    validators: HashMap<CacheKey<'a>, Option<jsonschema::Validator>>,
+    validators: HashMap<CacheKey<'a>, Option<(jsonschema::Validator, Value)>>,
 }
 
 impl<'a> Matcher<'a> {
@@ -253,17 +274,12 @@ impl<'a> Matcher<'a> {
         let Some((definition, key)) = self.definition(node) else {
             return false;
         };
-        if !reference_safety(value, definition) {
-            return false;
-        }
         let root = self.root;
         self.validators
             .entry(key)
             .or_insert_with(|| {
-                let mut schema = match key {
-                    CacheKey::Local(reference) => json!({"$ref":reference}),
-                    CacheKey::Direct(_) => json!({"allOf":[definition]}),
-                };
+                let effective = reference_schema(definition);
+                let mut schema = json!({"allOf":[&effective]});
                 if let Some(definitions) = root.get("$defs") {
                     schema["$defs"] = definitions.clone();
                 }
@@ -271,9 +287,12 @@ impl<'a> Matcher<'a> {
                     .with_retriever(NoExternalSchemas)
                     .build(&schema)
                     .ok()
+                    .map(|validator| (validator, effective))
             })
             .as_ref()
-            .is_some_and(|validator| validator.is_valid(value))
+            .is_some_and(|(validator, schema)| {
+                validator.is_valid(value) && reference_safety(value, schema)
+            })
     }
 
     pub(crate) fn suspicious(&mut self, value: &Value, node: &'a Value) -> bool {

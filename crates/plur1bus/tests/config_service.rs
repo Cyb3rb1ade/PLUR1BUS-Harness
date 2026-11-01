@@ -144,11 +144,12 @@ fn public_config_get_masks_declared_values_while_private_watch_keeps_the_runtime
     let secret = uuid::Uuid::new_v4().to_string();
     let user = uuid::Uuid::new_v4().to_string();
     let public_id = uuid::Uuid::new_v4().to_string();
+    let reference = format!("fixture.reference.{}", &public_id[..8]);
     let endpoint = format!(
         "https://{user}:{secret}@relay.example.test/service?ordinary={secret}&ordinary={secret}"
     );
     let mut config = plur1bus_config::defaults();
-    config["voice"]["providers"]["elevenlabs"]["apiKeyRef"] = json!(secret);
+    config["voice"]["providers"]["elevenlabs"]["apiKeyRef"] = json!(reference);
     config["voice"]["providers"]["elevenlabs"]["baseUrl"] = json!(endpoint);
     config["engine"]["embedding"] = json!({"apiKey":secret});
     config["channels"]["buzz"]["relays"] = json!([
@@ -157,6 +158,12 @@ fn public_config_get_masks_declared_values_while_private_watch_keeps_the_runtime
     ]);
     config["a2aServer"]["signingKey"]["kid"] = json!(public_id);
     config["providers"]["futurePublic"] = json!({"enabled":true});
+    config["providers"]["fixture"] = json!({"profile":{
+        "extra_headers":{"X-Ordinary-Name":secret},"secret_ref":reference,"base_url":endpoint
+    },"entries":[{"secretRef":reference}]});
+    config["providers"]["mcp"] = json!({"servers":[{"authSecret":reference,"transport":{
+        "url":endpoint,"headers":{"X-Ordinary-Name":secret},"args":[secret],"env":{"ORDINARY":secret}
+    }}]});
     write_config(home, &config);
     let _sup = start(home);
     let mut c = client(home);
@@ -173,6 +180,8 @@ fn public_config_get_masks_declared_values_while_private_watch_keeps_the_runtime
         json!({"key":"voice.providers.elevenlabs.apiKeyRef"}),
         json!({"key":"voice.providers.elevenlabs.baseUrl"}),
         json!({"key":"channels.buzz.relays"}),
+        json!({"key":"providers.fixture.profile"}),
+        json!({"key":"providers.mcp.servers"}),
         json!({"tier":"advanced"}),
         json!({"tier":"basic"}),
     ] {
@@ -192,6 +201,10 @@ fn public_config_get_masks_declared_values_while_private_watch_keeps_the_runtime
         original["session"]["compaction"]["maxMessageTokens"]
     );
     assert_eq!(whole["value"]["a2aServer"]["signingKey"]["kid"], public_id);
+    assert_eq!(
+        whole["value"]["voice"]["providers"]["elevenlabs"]["apiKeyRef"],
+        reference
+    );
     assert_eq!(
         whole["value"]["providers"]["futurePublic"],
         json!({"enabled":true})
@@ -314,6 +327,8 @@ fn an_uninterpretable_module_policy_refuses_public_data_instead_of_ignoring_mark
         json!({"properties":{"ordinary":{"type":"string","x-sensitive":true,"x-url-credentials":true}}}),
         json!({"dependencies":{"ordinary":{"properties":{"ordinary":{"type":"string","x-sensitive":true}}}}}),
         json!({"items":[{"type":"string"}],"additionalItems":{"type":"string","x-sensitive":true}}),
+        json!({"$defs":{"name":{"type":"string","x-secret-reference":true}},"properties":{"ordinary":{"$ref":"#/$defs/name"}}}),
+        json!({"allOf":[{"properties":{"ordinary":{"type":"string","x-secret-reference":true}}}]}),
     ] {
         let mut manifest = original.clone();
         manifest["configSchema"] = policy;

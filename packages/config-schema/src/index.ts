@@ -1,4 +1,5 @@
 import type { BehaviourSet } from "./behaviour.ts";
+export { supportsConfigDisclosurePolicy } from "./disclosure-policy.ts";
 export type { BehaviourSet, BehaviourLayer } from "./behaviour.ts";
 import { privacyAcknowledgmentError, type PrivacyAcknowledgment } from "./privacy.ts";
 export { privacyAcknowledgmentError } from "./privacy.ts";
@@ -8,8 +9,10 @@ import addFormats from "ajv-formats";
 import schemaJson from "../schema/config.schema.json" with { type: "json" };
 import { configurationWarnings, type ConfigWarning } from "./sensitive.ts";
 export { sensitiveOf, urlCredentialsOf, configSecretEntries, configurationWarnings, redactConfig } from "./sensitive.ts";
+export { configTextSecretEntries } from "./sensitive.ts";
 export { maskUrlCredentials } from "./url-credentials.ts";
 export { secretReferenceOf } from "./sensitive.ts";
+export { looksLikePastedKey } from "./secret-reference.ts";
 export type { ConfigSchemaNode, ConfigSecretEntry, ConfigWarning, ConfigRedactionOptions } from "./sensitive.ts";
 
 export const CONFIG_SCHEMA = schemaJson as Record<string, any>;

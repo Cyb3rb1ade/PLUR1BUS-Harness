@@ -105,10 +105,12 @@ fn direct_policy(
     }
     let sensitive = declaration(node, "x-sensitive").and_then(Value::as_bool) == Some(true);
     let endpoint = declaration(node, "x-url-credentials").and_then(Value::as_bool) == Some(true);
+    let reference_slot = declaration(node, "x-secret-reference")
+        .is_some_and(|metadata| metadata.as_bool() != Some(false));
     if sensitive && endpoint {
         return false;
     }
-    if !direct && (sensitive || endpoint) {
+    if !direct && (sensitive || endpoint || reference_slot) {
         return false;
     }
     if node.get("$dynamicRef").is_some() || node.get("$recursiveRef").is_some() {
@@ -271,5 +273,26 @@ impl ConfigDisclosurePolicy {
         warnings.dedup_by(|left, right| left.key == right.key);
         warnings.truncate(50);
         warnings
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn direct_member_capabilities_match_the_typescript_vectors() {
+        let vectors: Value = serde_json::from_str(include_str!(
+            "../../../packages/config-schema/test/fixtures/disclosure-policies.json"
+        ))
+        .unwrap();
+        for vector in vectors.as_array().unwrap() {
+            assert_eq!(
+                interpretable(&vector["schema"]),
+                vector["supported"].as_bool().unwrap(),
+                "{}",
+                vector["name"]
+            );
+        }
     }
 }

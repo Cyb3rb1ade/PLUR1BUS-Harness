@@ -57,7 +57,12 @@ export function policiesFromSchema(schemaObj) {
     const node = raw["x-value-schema"] ? { ...raw, ...raw["x-value-schema"], properties: { ...raw.properties, ...raw["x-value-schema"].properties } } : raw;
     const sensitive = inherited.sensitive === true || node["x-sensitive"] === true || node.items?.["x-sensitive"] === true;
     const urlCredentials = inherited.urlCredentials === true || node["x-url-credentials"] === true || node.items?.["x-url-credentials"] === true;
-    if (key && (sensitive || urlCredentials)) rows.push({ key, ...(sensitive ? { sensitive: true } : {}), ...(urlCredentials ? { urlCredentials: true } : {}) });
+    const declaration = node["x-secret-reference"];
+    const ref = declaration?.$ref;
+    const referenceSchema = declaration === true ? node : typeof ref === "string" && ref.startsWith("#/$defs/")
+      ? schemaObj.$defs?.[ref.slice("#/$defs/".length).replaceAll("~1", "/").replaceAll("~0", "~")]
+      : undefined;
+    if (key && (sensitive || urlCredentials || referenceSchema)) rows.push({ key, ...(sensitive ? { sensitive: true } : {}), ...(urlCredentials ? { urlCredentials: true } : {}), ...(referenceSchema ? { referenceSchema } : {}) });
     const flags = { sensitive, urlCredentials };
     for (const [name, child] of Object.entries(node.properties ?? {})) walk(child, key ? `${key}.${name}` : name, flags);
     if (node.additionalProperties && typeof node.additionalProperties === "object") walk(node.additionalProperties, `${key}.*`, flags);
@@ -79,6 +84,8 @@ const HEADER = `// The settings catalogue behind the palette's "Settings" group:
 // What is NOT available: localised labels. The schema has no titles, so the label is derived from the last key segment
 // (\`softBudgetMs\` -> "Soft budget ms") and help stays in the schema's English. A localised catalogue needs schema titles or an
 // owner-approved UI catalogue (follow-up).
+import type { SecretReferencePolicy } from "../../../config-schema/src/secret-reference.ts";
+
 export type SettingSpec = { readonly key: string; readonly type: string; readonly tier: "basic" | "advanced"; readonly sensitive?: boolean; readonly urlCredentials?: boolean; readonly help?: string };
 
 export const SETTINGS: readonly SettingSpec[] = [
@@ -100,7 +107,7 @@ export function generateFileContent(schemaObj) {
     return `  { ${parts.join(", ")} },`;
   });
   const policy = policiesFromSchema(schemaObj).map(row => `  ${JSON.stringify(row)},`).join("\n");
-  return `${HEADER}${lines.join("\n")}\n];\n\n// Complete sensitivity policy, including nonvalidating x-value-schema members, maps and array items.\n// These rows describe values; they do not add widgets or palette navigation targets.\nexport type ConfigPolicySpec = Pick<SettingSpec, "key" | "sensitive" | "urlCredentials">;\nexport const CONFIG_POLICY: readonly ConfigPolicySpec[] = [\n${policy}\n];\n`;
+  return `${HEADER}${lines.join("\n")}\n];\n\n// Complete sensitivity policy, including nonvalidating x-value-schema members, maps and array items.\n// These rows describe values; they do not add widgets or palette navigation targets.\nexport type ConfigPolicySpec = Pick<SettingSpec, "key" | "sensitive" | "urlCredentials"> & { readonly referenceSchema?: unknown };\nexport const CONFIG_POLICY: readonly ConfigPolicySpec[] = [\n${policy}\n];\n\n// Shared value-safety rules for reference names; no stored secret is resolved by the browser.\nexport const REFERENCE_POLICY: SecretReferencePolicy = ${JSON.stringify(schemaObj["x-secret-reference-policy"], null, 2)};\n`;
 }
 
 const content = generateFileContent(schema);

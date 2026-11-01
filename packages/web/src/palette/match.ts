@@ -1,5 +1,6 @@
 // Pure matching, ranking and highlighting for the palette. No DOM, no i18n, no signals: unit-tested in test/palette-match.test.ts.
 import { maskUrlCredentials } from "../../../config-schema/src/url-credentials.ts";
+import { configPolicyOf } from "../config-policy.ts";
 import type { RolePreset } from "../pages/common/load.ts";
 
 export type Group = "nav" | "action" | "log" | "agent" | "session" | "setting";
@@ -15,7 +16,7 @@ export type Entry = {
   /** Config key, or route path for navigation. */
   key: string;
   help?: string;
-  /** Current non-sensitive value, as text. Never set for a sensitive key (see `isSensitiveKey`). */
+  /** Current public value or validated reference name, as text. Secret literals never enter the index. */
   value?: string;
   /** Second line for navigation entries (the sidebar group). */
   meta?: string;
@@ -44,24 +45,14 @@ export function fold(s: string): { text: string; map: number[] } {
 
 const words = (q: string): string[] => fold(q).text.split(/\s+/).filter((w) => w !== "");
 
-/** Keys whose value must never be indexed or shown: a name that says key, token, secret, password (or passwd/pwd/passphrase), credential,
- * authorization, bearer, cookie, private material, a signature, jwt or hmac, or a leaf called `auth`. The same list as the Settings page
- * (pages/settings/config/model.ts `isSecretKey`), kept here because Settings imports this module and a back-import would be a cycle.
- * `auth.*` tuning keys (timeouts, capacity) are not secrets, hence the leaf-only `auth` rule. */
-const SENSITIVE = /key|token|secret|passw|pwd|passphrase|credential|authori[sz]ation|bearer|cookie|private|signature|jwt|hmac|(^|[._-])auth$/i;
+/** Only schema-marked configuration values are sensitive, including dynamic members of marked containers. */
 export function isSensitiveKey(key: string): boolean {
-  return SENSITIVE.test(key);
+  return configPolicyOf(key).sensitive;
 }
 
-const MASK = "••••";
-/** A value that is a URL may carry its secret in the text: `scheme://user:password@host` loses the user part, and a query parameter with a
- * sensitive name (`?api_key=…`) loses its value. Schema-classified endpoints mask all query values. */
+/** Schema-classified endpoints hide userinfo and every query value while retaining host and path. */
 export function maskUrlSecrets(value: string, urlCredentials = false): string {
-  if (urlCredentials) return maskUrlCredentials(value);
-  if (!value.includes("://") && !value.includes("?")) return value;
-  return value
-    .replace(/([a-z][a-z0-9+.-]{0,31}:\/\/)[^/?#\s@]*@/gi, `$1${MASK}@`)
-    .replace(/([?&;])([^=&#\s]+)=([^&#\s]*)/g, (m, sep: string, name: string) => (isSensitiveKey(name) ? `${sep}${name}=${MASK}` : m));
+  return urlCredentials ? maskUrlCredentials(value) : value;
 }
 
 // Field classes, best first: label starts with the word, label contains it, key, help, value.

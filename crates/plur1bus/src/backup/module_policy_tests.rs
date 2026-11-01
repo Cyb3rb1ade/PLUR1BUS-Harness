@@ -141,7 +141,13 @@ fn installed_module_literals_are_removed_and_prefixed_reference_data_round_trips
 
 #[test]
 fn unavailable_configured_installed_module_metadata_refuses_the_archive_without_leaking_values() {
-    for problem in ["missing", "invalid", "unsupported", "registry"] {
+    for problem in [
+        "missing",
+        "invalid",
+        "unsupported",
+        "reference-only",
+        "registry",
+    ] {
         let directory = tempfile::tempdir().unwrap();
         let layout = Layout::new(directory.path().join("source"));
         let snapshot = testkit::staged(&layout, b"database bytes", false);
@@ -158,6 +164,11 @@ fn unavailable_configured_installed_module_metadata_refuses_the_archive_without_
             "unsupported" => install(
                 &layout,
                 json!({"allOf":[{"properties":{"ordinary":{"x-sensitive":true}}}]}),
+            ),
+            "reference-only" => install(
+                &layout,
+                json!({"$defs":{"name":{"type":"string","x-secret-reference":true}},
+                    "properties":{"ordinary":{"$ref":"#/$defs/name"}}}),
             ),
             "registry" => {
                 fs::remove_dir_all(layout.home.join("modules")).unwrap();
@@ -256,7 +267,10 @@ fn reference_only_module_slots_preserve_names_and_remove_pasted_keys_with_restor
             "directPasted":{"type":"string","x-secret-reference":true},
             "linkedSafe":{"type":"string","x-secret-reference":{"$ref":"#/$defs/name"}},
             "linkedPasted":{"type":"string","x-secret-reference":{"$ref":"#/$defs/name"}},
-            "ordinary":{"type":"string","x-sensitive":true}
+            "ordinary":{"type":"string","x-sensitive":true},
+            "inheritedKind":{"type":"string","x-secret-reference-kind":"env-name","x-value-schema":{"x-secret-reference":true}},
+            "metadataSafe":{"type":"string","x-value-schema":{"type":"string","x-secret-reference":true}},
+            "metadataPasted":{"type":"string","x-value-schema":{"type":"string","x-secret-reference":true}}
         }}),
     );
     let name = format!(
@@ -266,7 +280,7 @@ fn reference_only_module_slots_preserve_names_and_remove_pasted_keys_with_restor
     let pasted = format!("sk-{}", uuid::Uuid::new_v4().simple());
     let literal = uuid::Uuid::new_v4().to_string();
     let config = json!({"schemaVersion":1,"modules":{"fixture":{
-        "enabled":false,"directSafe":name,"linkedSafe":name,
+        "enabled":false,"inheritedKind":"_FIXTURE_KEY","directSafe":name,"linkedSafe":name,"metadataSafe":name,"metadataPasted":pasted,
         "directPasted":pasted,"linkedPasted":pasted,"ordinary":literal
     }}});
     let original = config.to_string();
@@ -274,13 +288,18 @@ fn reference_only_module_slots_preserve_names_and_remove_pasted_keys_with_restor
     let archive = directory.path().join("reference-only.tar.gz");
     let policy = crate::config_redaction::ConfigDisclosurePolicy::load(&layout, &config).unwrap();
     let public = policy.project(&config);
-    for key in ["directSafe", "linkedSafe"] {
+    assert_eq!(
+        public["modules"]["fixture"]["inheritedKind"],
+        "_FIXTURE_KEY"
+    );
+    for key in ["directSafe", "linkedSafe", "metadataSafe"] {
         assert_eq!(public["modules"]["fixture"][key], name);
     }
-    for key in ["directPasted", "linkedPasted", "ordinary"] {
+    for key in ["directPasted", "linkedPasted", "metadataPasted", "ordinary"] {
         assert_eq!(public["modules"]["fixture"][key], "••••");
     }
     let registered = policy.secret_values(&config);
+    assert!(!registered.iter().any(|value| value == "_FIXTURE_KEY"));
     assert!(registered.contains(&pasted) && registered.contains(&literal));
     assert!(!registered.contains(&name));
     let warnings = policy.reference_warnings(&config);
@@ -291,7 +310,8 @@ fn reference_only_module_slots_preserve_names_and_remove_pasted_keys_with_restor
             .collect::<Vec<_>>(),
         [
             "modules.fixture.directPasted",
-            "modules.fixture.linkedPasted"
+            "modules.fixture.linkedPasted",
+            "modules.fixture.metadataPasted"
         ]
     );
     assert!(!format!("{warnings:?}").contains(&pasted));
@@ -309,15 +329,20 @@ fn reference_only_module_slots_preserve_names_and_remove_pasted_keys_with_restor
         );
     }
     let archived = config_in(&archive);
-    for key in ["directSafe", "linkedSafe"] {
+    assert_eq!(
+        archived["modules"]["fixture"]["inheritedKind"],
+        "_FIXTURE_KEY"
+    );
+    for key in ["directSafe", "linkedSafe", "metadataSafe"] {
         assert_eq!(archived["modules"]["fixture"][key], name);
     }
-    for key in ["directPasted", "linkedPasted", "ordinary"] {
+    for key in ["directPasted", "linkedPasted", "metadataPasted", "ordinary"] {
         assert_eq!(archived["modules"]["fixture"][key], PLACEHOLDER);
     }
     let expected = [
         "modules.fixture.directPasted",
         "modules.fixture.linkedPasted",
+        "modules.fixture.metadataPasted",
         "modules.fixture.ordinary",
     ];
     assert_eq!(
@@ -338,7 +363,11 @@ fn reference_only_module_slots_preserve_names_and_remove_pasted_keys_with_restor
     assert_eq!(report.redacted_config_keys, expected);
     let restored: Value =
         serde_json::from_slice(&fs::read(destination.home.join("config.json")).unwrap()).unwrap();
-    for key in ["directSafe", "linkedSafe"] {
+    assert_eq!(
+        restored["modules"]["fixture"]["inheritedKind"],
+        "_FIXTURE_KEY"
+    );
+    for key in ["directSafe", "linkedSafe", "metadataSafe"] {
         assert_eq!(restored["modules"]["fixture"][key], name);
     }
     assert_eq!(

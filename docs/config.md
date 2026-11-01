@@ -5,6 +5,13 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 `config get --tier basic` (and `advanced`) filter to the settings in the matching section below (D29).
 
 The complete [key reference](reference/config-keys.md) also lists inherited sensitivity and URL-credential metadata.
+Public reads and diagnostic exports apply that policy before selecting a key or tier. See
+[configuration disclosure](config-disclosure.md) for replacement controls, runtime snapshots and backup rules.
+
+Valid, safe secret-reference names remain readable in configuration views, provisioning metadata and logs; they
+are not registered as text secrets. Reference subschemas carry `x-secret-reference`. Literals in sensitive fields
+are masked and registered. A reference value that resembles a pasted key is treated as a literal and produces a
+value-free warning. Classification never reads a reference target. See [reference safety](secrets.md#reference-names-and-pasted-keys).
 
 ## Basic settings
 
@@ -13,7 +20,7 @@ The complete [key reference](reference/config-keys.md) also lists inherited sens
 | `agents` | object | `{}` | live | Per-agent settings keyed by a lowercase agent identifier. |
 | `embedding.useClass` | enum | `"general"` | core | Intended use of the embedding model: general, research, or commercial. |
 | `memory.mediaEmbedding` | object | `{}` | core | Media index (image, video, audio) with its own provider, independent of the text embedding. Captions land in the text index. |
-| `providers` | object | `{}` | live | Reserved namespace for model-provider configuration. |
+| `providers` | object | `{}` | live | Open namespace for provider definitions. Non-validating privacy metadata follows the existing auth, MCP and media consumers. |
 | `modelRoles` | object | `{}` | live | Model identifiers assigned to the supported functional roles. The summarize role is the model that writes session compaction summaries (a profile name or provider/model); when it is unset, compaction falls back to its deterministic digest. The embedding and rerank roles are still accepted but select no model: the memory engine takes its models from engine.embedding and engine.reranker. |
 | `privacy.localOnly` | boolean | `false` | live | Only local models: every model or inference endpoint must be loopback (localhost, 127.0.0.0/8, ::1) or listed in privacy.localEndpoints. A cloud provider is refused with E_DENIED reason local-only, never silently replaced by another model. Web tools (web.fetch, web.search) are not model calls and are not affected. An agent can override it with agents.<id>.privacy.localOnly. |
 

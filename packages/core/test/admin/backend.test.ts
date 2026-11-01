@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createHash, createPublicKey, generateKeyPairSync, verify } from "node:crypto";
+import { createHash, createPublicKey, generateKeyPairSync, randomUUID, verify } from "node:crypto";
 import { AdminStore } from "../../src/identity/admin-store.ts";
 import { AgentLifecycle } from "../../src/agents/lifecycle.ts";
 import { exportAgent } from "../../src/agents/export.ts";
@@ -35,12 +35,13 @@ function setup(t: { after(fn: () => void): void }, principal = owner, over: Part
   const sessions = new SessionStore({ path: ":memory:", clock: () => now });
   const bg = createBreakGlass({ audit: sink, notify: n => { notices.push(n); }, clock: () => now });
   const keys = generateKeyPairSync("ed25519");
+  const marker = randomUUID();
   mkdirSync(join(root, "agents", "alpha", "workspace"), { recursive: true });
   writeFileSync(join(root, "agents", "alpha", "SOUL.md"), "A helpful persona");
   const exported: string[] = [], erased: string[] = [];
   const raw = buildAdminSurface({ people, lifecycle, identity: identities, sessions: () => sessions, breakglass: bg, clock: () => now, audit: sink,
     agents: () => ({ alpha: { displayName: "Alpha", skills: ["summary"] } }),
-    export: async (id, who) => { exported.push(id); return exportAgent({ root: join(root, "agents", id), agentId: id, config: { skills: ["summary"], password: "synthetic-sensitive-value" }, memories: [], signer: async hash => ({ publicKey: keys.publicKey.export({ type: "spki", format: "der" }).toString("base64"), signature: (await import("node:crypto")).sign(null, Buffer.from(hash, "hex"), keys.privateKey).toString("base64") }) }); },
+    export: async (id, who) => { exported.push(id); return exportAgent({ root: join(root, "agents", id), agentId: id, config: { skills: ["summary"], memory: { mediaEmbedding: { privacyAck: { endpoint: `//${marker}@relay.example.test/public` } } } }, memories: [], signer: async hash => ({ publicKey: keys.publicKey.export({ type: "spki", format: "der" }).toString("base64"), signature: (await import("node:crypto")).sign(null, Buffer.from(hash, "hex"), keys.privateKey).toString("base64") }) }); },
     erase: async id => { erased.push(id); },
     ownership: p => [p.userId],
     ...over,
@@ -48,7 +49,7 @@ function setup(t: { after(fn: () => void): void }, principal = owner, over: Part
   const guarded = guardMethods(raw, { resolve: () => people.resolve(principal), audit: sink, now: () => now });
   const call = (m: string, p: any = {}) => guarded[m]!(p, ctx());
   t.after(() => { sessions.close(); identities.close(); people.close(); lifecycle.close(); rmSync(root, { recursive: true, force: true }); });
-  return { root, people, identities, lifecycle, sessions, raw, call, bg, notices, audit, exported, erased, tick: (ms: number) => { now += ms; } };
+  return { root, marker, people, identities, lifecycle, sessions, raw, call, bg, notices, audit, exported, erased, tick: (ms: number) => { now += ms; } };
 }
 
 test("every admin method is schema-declared, closed, core-served and guarded", t => {
@@ -172,13 +173,13 @@ test("pairing.qr formats an existing validated offer and never issues a code", a
 });
 test("export has an Ed25519 signature over manifest hash, redacted config and bounded allowlisted files", async t => {
   const s = setup(t);
-  writeFileSync(join(s.root, "agents", "alpha", "USER.md"), "password=synthetic-sensitive-value");
+  writeFileSync(join(s.root, "agents", "alpha", "USER.md"), `password=${s.marker}`);
   writeFileSync(join(s.root, "agents", "alpha", ".env"), "sensitive ignored");
   symlinkSync(join(s.root, "identity.sqlite"), join(s.root, "agents", "alpha", "IDENTITY.md"));
   const result = await s.call("agent.export", { agentId: "alpha" }) as any;
   const bundle = result.bundle;
   assert.equal(bundle.format, "plur1bus.agent-export/1");
-  assert.ok(!JSON.stringify(bundle).includes("synthetic-sensitive-value"));
+  assert.ok(!JSON.stringify(bundle).includes(s.marker));
   assert.ok(!bundle.files.some((f: any) => f.path === ".env" || f.path === "IDENTITY.md"));
   assert.equal(createHash("sha256").update(JSON.stringify(bundle.manifest)).digest("hex"), bundle.manifestHash);
   assert.equal(verify(null, Buffer.from(bundle.manifestHash, "hex"), createPublicKey({ key: Buffer.from(bundle.publicKey, "base64"), type: "spki", format: "der" }), Buffer.from(bundle.signature, "base64")), true);
@@ -234,6 +235,21 @@ test("export scans recognizable patterns and exact secret canaries without commi
   const bundle = await exportAgent({ root:join(s.root,"agents","alpha"),agentId:"alpha",config:{ skills:["summary"],apiKey:canary },memories:[{ text:token,summary:canary }],secrets:[canary],signer:async hash=>({ publicKey: keys.publicKey.export({format:"der",type:"spki"}).toString("base64"),signature:(await import("node:crypto")).sign(null,Buffer.from(hash,"hex"),keys.privateKey).toString("base64") }) });
   const serialized=JSON.stringify(bundle); assert.equal(serialized.includes(token),false); assert.equal(serialized.includes(canary),false);
   assert.equal(bundle.files.some(f=>f.path.endsWith(".sqlite") || f.path===".env"),false);
+});
+
+test("agent config export uses its schema prefix, preserves public keys and masks normalized endpoint parts", async t => {
+  const s = setup(t);
+  const secret = randomUUID();
+  const config = { memory: { mediaEmbedding: { privacyAck: {
+    endpoint: `//${secret}@relay.example.test/public/path?ordinary=${secret}#public-fragment`,
+  } } }, maxTokens: 4096, password: "public-label" };
+  const bundle = await exportAgent({ root: join(s.root, "agents", "alpha"), agentId: "alpha", config,
+    memories: [], signer: async () => ({ publicKey: "unused", signature: "unused" }) });
+  const text = bundle.files.find((file) => file.path === "config.json")!.text;
+  assert.ok(!text.includes(secret), "a declared endpoint component escaped its agent config export");
+  assert.deepEqual(JSON.parse(text), { ...config, memory: { mediaEmbedding: { privacyAck: {
+    endpoint: "//••••@relay.example.test/public/path?ordinary=••••#public-fragment",
+  } } } });
 });
 test("audit failure blocks role, rights and lifecycle mutations", async t => {
   const s=setup(t);

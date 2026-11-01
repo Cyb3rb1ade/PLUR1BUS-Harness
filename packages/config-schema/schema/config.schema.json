@@ -1,13 +1,42 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://plur1bus.dev/schema/config/1/config.schema.json",
+  "x-secret-reference-policy": {
+    "storeNamePattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+    "envNamePattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+    "tokenPrefixPattern": "(?:^|[/:.])(?:sk[-_]|gh[pousr]_|github_pat_|xox)",
+    "maxNameLength": 96,
+    "entropyMinLength": 32,
+    "entropyMinBits": 4.5,
+    "hexMinLength": 32,
+    "hexMinEntropyBits": 3
+  },
   "$defs": {
     "backupSecretName": {
-      "description": "Nonvalidating backup reference policy: a name or path is not the secret value.",
-      "type": "string"
+      "description": "Secret-store reference names remain public metadata; the value safety policy rejects pasted keys.",
+      "x-secret-reference": true,
+      "x-secret-reference-kind": "store-name",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+    },
+    "secretEnvironmentName": {
+      "description": "Environment references retain their source-specific name syntax.",
+      "x-secret-reference": true,
+      "x-secret-reference-kind": "env-name",
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "secretFileReference": {
+      "description": "A file reference is a path, never the file's secret contents. No target is read for classification.",
+      "x-secret-reference": true,
+      "x-secret-reference-kind": "file-path",
+      "type": "string",
+      "minLength": 1
     },
     "backupEngineSecretReference": {
       "description": "Nonvalidating backup reference policy from the pinned Engine SecretInput schema and legacy resolver. Ordinary strings are inline values.",
+      "x-secret-reference": true,
+      "x-secret-reference-kind": "engine-input",
       "anyOf": [
         {
           "type": "object",
@@ -1577,7 +1606,7 @@
               },
               "apiKeyEnv": {
                 "type": "string",
-                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
+                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/secretEnvironmentName"},
                 "description": "Environment reference for an Engine credential."
               },
               "baseUrl": {
@@ -1626,7 +1655,7 @@
                         },
                         "apiKeyEnv": {
                           "type": "string",
-                          "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
+                          "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/secretEnvironmentName"},
                           "description": "Environment reference for an Engine credential."
                         },
                         "baseUrl": {
@@ -1713,7 +1742,7 @@
               },
               "apiKeyEnv": {
                 "type": "string",
-                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
+                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/secretEnvironmentName"},
                 "description": "Environment reference for an Engine credential."
               },
               "baseUrl": {
@@ -1921,7 +1950,7 @@
             "properties": {
               "apiKeyEnv": {
                 "type": "string",
-                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"},
+                "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/secretEnvironmentName"},
                 "description": "Environment reference for an Engine credential."
               }
             }
@@ -2177,7 +2206,56 @@
         }
       }
     },
-    "providers": { "description": "Reserved namespace for model-provider configuration.", "type": "object", "default": {}, "x-restart": "live", "x-tier": "basic", "x-reserved": "M2 (D15)", "additionalProperties": true },
+    "providers": {
+      "description": "Open namespace for provider definitions. Non-validating privacy metadata follows the existing auth, MCP and media consumers.",
+      "type": "object", "default": {}, "x-restart": "live", "x-tier": "basic", "x-reserved": "M2 (D15)", "additionalProperties": true,
+      "x-value-schema": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "apiKeyRef": {"description": "Legacy provider reference used by agent provisioning and secret_names; auth profiles use profile.secret_ref.", "type": "string", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}},
+            "profile": {
+              "type": "object",
+              "properties": {
+                "secret_ref": {"description": "Auth profile secret-store reference.", "type": "string", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}},
+                "extra_headers": {"description": "Configured request header values, irrespective of header names.", "type": "object", "additionalProperties": {"type": "string"}, "x-sensitive": true},
+                "base_url": {"description": "Provider base URL.", "type": "string", "x-url-credentials": true},
+                "authorizeUrl": {"description": "Authorization endpoint URL.", "type": "string", "x-url-credentials": true},
+                "tokenUrl": {"description": "Token endpoint URL.", "type": "string", "x-url-credentials": true},
+                "deviceUrl": {"description": "Device authorization endpoint URL.", "type": "string", "x-url-credentials": true},
+                "authorization_endpoint": {"description": "Authorization endpoint URL (legacy spelling).", "type": "string", "x-url-credentials": true},
+                "token_endpoint": {"description": "Token endpoint URL (legacy spelling).", "type": "string", "x-url-credentials": true},
+                "device_authorization_endpoint": {"description": "Device authorization endpoint URL (legacy spelling).", "type": "string", "x-url-credentials": true},
+                "revocation_endpoint": {"description": "Credential revocation endpoint URL.", "type": "string", "x-url-credentials": true}
+              }
+            },
+            "entries": {"type": "array", "items": {"type": "object", "properties": {
+              "secretRef": {"description": "Credential pool secret-store reference.", "type": "string", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}}
+            }}}
+          }
+        },
+        "properties": {
+          "media": {"type": "object", "properties": {
+            "adapters": {"type": "array", "items": {"type": "object", "properties": {
+              "secretRef": {"description": "Media adapter secret-store reference.", "type": "string", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}},
+              "baseUrl": {"description": "Media generation base URL.", "type": "string", "x-url-credentials": true}
+            }}}
+          }},
+          "mcp": {"type": "object", "properties": {
+            "servers": {"type": "array", "items": {"type": "object", "properties": {
+              "authSecret": {"description": "MCP server secret-store reference.", "type": "string", "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}},
+              "transport": {"type": "object", "properties": {
+                "url": {"description": "MCP HTTP endpoint URL.", "type": "string", "x-url-credentials": true},
+                "headers": {"description": "Configured MCP request header values.", "type": "object", "additionalProperties": {"type": "string"}, "x-sensitive": true},
+                "env": {"description": "Explicit child environment values may contain credentials.", "type": "object", "additionalProperties": {"type": "string"}, "x-sensitive": true},
+                "args": {"description": "Explicit child arguments may contain credentials.", "type": "array", "items": {"type": "string", "x-sensitive": true}}
+              }}
+            }}}
+          }}
+        }
+      }
+    },
     "auth": {
       "description": "Provider sign-in and credential lifecycle (D110): OAuth/PKCE login, federated tokens, refresh and the credential store.",
       "type": "object",
@@ -2285,7 +2363,7 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 4096,
-                  "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/backupSecretName"}
+                  "x-sensitive": true, "x-secret-reference": {"$ref": "#/$defs/secretFileReference"}
                 },
                 "args": {
                   "description": "Arguments passed to command, one array element per argument (no shell interpolation).",

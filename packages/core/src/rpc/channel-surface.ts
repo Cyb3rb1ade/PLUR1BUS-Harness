@@ -4,14 +4,15 @@ import { resolveBehaviour } from "../channels/behaviour.ts";
 // Generic over the channel registry and the config schema's `channels.*` block: nothing here knows one channel from
 // another. A channel is "known" when the schema describes `channels.<id>` or the registry holds it.
 //
-//  - Secrets: a `*Secret` key holds a secret NAME. Reads show the name and whether the store has it, never a value;
-//    `channel.set` refuses anything that looks like a credential in a `*Secret` key (and a recognisable token in any key)
+//  - Schema-declared references hold secret names. Reads show the name and whether the store has it, never a value;
+//    `channel.set` refuses anything that looks like a credential in a reference field (and a recognisable token in any key)
 //    without echoing it. Error messages and results never contain a submitted value.
 //  - Writes go through the config source (`config.set` on the supervisor), so the per-key restart class applies: the
 //    result carries the restart plan (`module:<id>` for a channel key).
 //  - `channel.test --send-owner` sends one fixed text to the caller's own linked identity on that channel, never to a
 //    recipient named by the caller.
-import { CONFIG_SCHEMA, restartClassOf, restartPlan, validate, type HarnessConfig } from "@plur1bus/config-schema";
+import { CONFIG_SCHEMA, configTextSecretEntries, looksLikePastedKey, redactConfig, restartClassOf, restartPlan, validate, type HarnessConfig } from "@plur1bus/config-schema";
+import { createRedactor, type Redactor } from "../logs/redact.ts";
 import type { Handler, CallContext } from "./server.ts";
 import { RpcError } from "./errors.ts";
 import { authenticatedPrincipal } from "../rbac/guard.ts";
@@ -45,6 +46,10 @@ export interface ChannelSurfaceDeps {
   registry: () => ChannelRegistryView | null;
   audit?: AuditSink;
   clock: () => number;
+  /** Shared configuration/store registry for free-text diagnostics. */
+  redactor?: Redactor;
+  /** Exact known-value backstop for structured configuration and reference names, without free-text heuristics. */
+  knownValueRedactor?: Redactor;
 }
 
 /** The fixed text `channel.test --send-owner` sends. Nothing the caller supplies is part of it. */
@@ -52,7 +57,6 @@ export const TEST_MESSAGE = "PLUR1BUS test message: this channel is connected. Y
 const MAX_ERROR = 300;
 const ID = /^[a-z][a-z0-9-]{1,31}$/;
 const KEY = /^[A-Za-z][A-Za-z0-9]{0,63}(\.[A-Za-z][A-Za-z0-9]{0,63}){0,3}$/;
-const SECRET_KEY = /Secret$/;
 const MAX_TEXT = 8192;
 type Schema = Record<string, any>;
 
@@ -103,21 +107,24 @@ function channelConfig(cfg: HarnessConfig, id: string): Record<string, unknown> 
   return isObj(v) ? v : {};
 }
 interface SecretRef { key: string; name: string }
-function secretRefs(cfg: Record<string, unknown>, prefix: string[] = []): SecretRef[] {
+const referenceField = (id: string, path: string[]): boolean =>
+  nodeAt(channelSchemas()[id] as Schema, path)?.["x-secret-reference"] !== undefined;
+
+function secretRefs(id: string, cfg: Record<string, unknown>, prefix: string[] = []): SecretRef[] {
   const out: SecretRef[] = [];
   for (const [k, v] of Object.entries(cfg)) {
-    if (typeof v === "string" && SECRET_KEY.test(k)) out.push({ key: [...prefix, k].join("."), name: v });
-    else if (isObj(v)) out.push(...secretRefs(v, [...prefix, k]));
+    if (typeof v === "string" && referenceField(id, [...prefix, k])) out.push({ key: [...prefix, k].join("."), name: v });
+    else if (isObj(v)) out.push(...secretRefs(id, v, [...prefix, k]));
   }
   return out;
 }
-/** The config with every `*Secret` leaf replaced by `{ secret: <name>, present }`; whatever else is configured is not secret by construction. */
-function project(cfg: Record<string, unknown>, present: ReadonlySet<string>): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
+/** Preserve the existing reference object shape and presence facts; all display values follow schema metadata. */
+function project(id: string, cfg: Record<string, unknown>, present: ReadonlySet<string>, path: string[] = []): Record<string, unknown> {
+  const prefix = ["channels", id, ...path].join(".");
+  const out = redactConfig(cfg, { key: prefix }) as Record<string, unknown>;
   for (const [k, v] of Object.entries(cfg)) {
-    if (typeof v === "string" && SECRET_KEY.test(k)) out[k] = { secret: v, present: present.has(v) };
-    else if (isObj(v)) out[k] = project(v, present);
-    else out[k] = structuredClone(v);
+    if (typeof v === "string" && referenceField(id, [...path, k])) out[k] = { secret: out[k], present: present.has(v) };
+    else if (isObj(v)) out[k] = project(id, v, present, [...path, k]);
   }
   return out;
 }
@@ -184,6 +191,15 @@ function idParam(p: unknown): string {
 }
 
 export function buildChannelSurface(d: ChannelSurfaceDeps): Record<string, Handler> {
+  const knownValues = (): Redactor => d.knownValueRedactor ?? createRedactor({
+    secrets: configTextSecretEntries(d.config()).map(({ value }) => value), secretsOnly: true,
+  });
+  const referenceName = (id: string, key: string, value: unknown): string =>
+    knownValues().text(String(redactConfig(value, { key: `channels.${id}.${key}` }) ?? ""));
+  const diagnostic = (text: unknown): string => {
+    const redactor = d.redactor ?? createRedactor({ secrets: configTextSecretEntries(d.config()).map(({ value }) => value) });
+    return scrub(redactor.text(String(text ?? ""))).replaceAll("[REDACTED:pattern]", "[redacted]");
+  };
   const knownIds = (): string[] => {
     const ids = new Set<string>(Object.keys(channelSchemas()));
     for (const s of d.registry()?.list() ?? []) ids.add(s.name);
@@ -209,7 +225,10 @@ export function buildChannelSurface(d: ChannelSurfaceDeps): Record<string, Handl
     const status = registry?.status(id);
     const manifest = registry?.manifestOf(id);
     const own = channelConfig(cfg, id);
-    const secrets = secretRefs(own).map((r) => ({ ...r, present: present.has(r.name) }));
+    const secrets = secretRefs(id, own).map((reference) => ({
+      ...reference, present: present.has(reference.name),
+      name: referenceName(id, reference.key, reference.name),
+    }));
     const state = status?.state ?? "not-registered";
     const health = state === "running" ? (status?.health?.ok === false ? "failing" : "ok") : state === "backoff" || state === "failed" || state === "misconfigured" ? "failing" : "unknown";
     return {
@@ -280,7 +299,7 @@ export function buildChannelSurface(d: ChannelSurfaceDeps): Record<string, Handl
         host: d.registry() !== null,
         channels: knownIds().map((id) => {
           const f = facts(id, cfg, present);
-          return { id, enabled: f.enabled, state: f.state, health: f.health, ...(f.status?.lastError ? { lastError: scrub(f.status.lastError) } : {}) };
+          return { id, enabled: f.enabled, state: f.state, health: f.health, ...(f.status?.lastError ? { lastError: diagnostic(f.status.lastError) } : {}) };
         }),
       };
     }),
@@ -301,12 +320,12 @@ export function buildChannelSurface(d: ChannelSurfaceDeps): Record<string, Handl
         restart: f.configurable ? restartClassOf(`channels.${id}.enabled`) : "none",
         missing: f.missing,
         secrets: f.secrets,
-        config: project(channelConfig(cfg, id), present),
+        config: knownValues().value(project(id, channelConfig(cfg, id), present)),
         behaviour: channelBehaviourView(cfg, id),
         attempts: f.status?.attempts ?? 0,
-        ...(f.status?.lastError ? { lastError: scrub(f.status.lastError) } : {}),
+        ...(f.status?.lastError ? { lastError: diagnostic(f.status.lastError) } : {}),
         ...(f.status?.startedAt !== undefined ? { startedAt: f.status.startedAt } : {}),
-        ...(probe ? { probe: { ok: probe.ok, ...(probe.detail ? { detail: scrub(probe.detail) } : {}) } } : {}),
+        ...(probe ? { probe: { ok: probe.ok, ...(probe.detail ? { detail: diagnostic(probe.detail) } : {}) } } : {}),
         linkHelp: manifest?.linkHelp ?? GENERIC_LINK_HELP(id, f.displayName),
       };
     }),
@@ -335,9 +354,9 @@ export function buildChannelSurface(d: ChannelSurfaceDeps): Record<string, Handl
         value = parsed.value;
       } else value = params.value;
 
-      const leaf = path[path.length - 1]!;
-      if (SECRET_KEY.test(leaf)) {
-        if (typeof value !== "string" || looksLikeSecretValue(value)) {
+      if (referenceField(id, path)) {
+        if (typeof value !== "string" || looksLikeSecretValue(value) ||
+          looksLikePastedKey(value, CONFIG_SCHEMA["x-secret-reference-policy"])) {
           throw new RpcError("E_INVALID_PARAMS",
             `${key} takes the NAME of a secret, not its value; store the value with \`plur1bus secret set <name>\` (read from stdin) and give the name here`,
             { reason: "secret-value" });
@@ -358,15 +377,16 @@ export function buildChannelSurface(d: ChannelSurfaceDeps): Record<string, Handl
       const current = channelConfig(before, id);
       const before1 = JSON.stringify(path.reduce<unknown>((o, s) => (isObj(o) ? o[s] : undefined), current));
       const after1 = JSON.stringify(path.reduce<unknown>((o, s) => (isObj(o) ? o[s] : undefined), normalized));
-      const secret = SECRET_KEY.test(leaf);
+      const secret = referenceField(id, path);
       const present = await presentSecrets();
       const result = (changed: boolean, restart: { live: string[]; core: boolean; modules: string[] }) => ({
         id, key, changed, restart,
-        ...(secret ? { secret: { name: value as string, present: present.has(value as string) } } : { value: structuredClone(path.reduce<unknown>((o, s) => (isObj(o) ? o[s] : undefined), normalized)) }),
+        ...(secret ? { secret: { name: referenceName(id, key, value), present: present.has(value as string) } }
+          : { value: knownValues().value(redactConfig(path.reduce<unknown>((o, s) => (isObj(o) ? o[s] : undefined), normalized), { key: `channels.${id}.${key}` })) }),
       });
       if (before1 === after1) return result(false, { live: [], core: false, modules: [] });
       const restart = await write([{ key: `channels.${id}.${key}`, value }], before, checked.config);
-      audit(principal.userId, "channel.set", id, { key, ...(secret ? { secretName: value } : {}) });
+      audit(principal.userId, "channel.set", id, { key, ...(secret ? { secretName: referenceName(id, key, value) } : {}) });
       return result(true, restart);
     },
 
@@ -386,7 +406,7 @@ export function buildChannelSurface(d: ChannelSurfaceDeps): Record<string, Handl
       const state = status?.state ?? "not-registered";
       const probe = await registry?.probe(id);
       const health = probe ?? { ok: false, detail: registry ? "not registered" : "no switchboard host" };
-      const out: Record<string, unknown> = { id, ok: health.ok, state, ...(health.detail ? { detail: scrub(health.detail) } : {}), sent: false };
+      const out: Record<string, unknown> = { id, ok: health.ok, state, ...(health.detail ? { detail: diagnostic(health.detail) } : {}), sent: false };
       if (!sendOwner) return out;
       if (!registry || state !== "running") throw new RpcError("E_NOT_AVAILABLE", "the channel is not running", { reason: "channel-not-running" });
       const identity = d.identity();
@@ -401,7 +421,7 @@ export function buildChannelSurface(d: ChannelSurfaceDeps): Record<string, Handl
         if (!delivered) throw new RpcError("E_NOT_AVAILABLE", "the channel is not running", { reason: "channel-not-running" });
       } catch (e) {
         if (e instanceof RpcError) throw e;
-        throw new RpcError("E_NOT_AVAILABLE", "the test message could not be sent", { reason: "send-failed", detail: scrub(e instanceof Error ? e.message : e) });
+        throw new RpcError("E_NOT_AVAILABLE", "the test message could not be sent", { reason: "send-failed", detail: diagnostic(e instanceof Error ? e.message : e) });
       }
       audit(principal.userId, "channel.test.send", id, { linkId: mine.id });
       return { ...out, sent: true, sentTo: { linkId: mine.id } };

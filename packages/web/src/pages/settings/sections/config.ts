@@ -1,6 +1,6 @@
 // Settings config sections (general, models, memory, extensions, network): forms for the keys a section owns, built from the
 // running configuration (`config.get`) and the static field metadata (config/meta.ts; there is no schema RPC). Edit, review a diff
-// (`config.set` with dryRun), save (`config.set` with ifRevision). Secrets-bearing keys are never shown.
+// (`config.set` with dryRun), save (`config.set` with ifRevision). Displayed secret literals are masked; safe references stay readable.
 import { h } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { View } from "../../../view.ts";
@@ -13,7 +13,7 @@ import { setUnsaved } from "../unsaved.ts";
 import { DecisionHint, decisionRoleMissing } from "../../common/decision-hint.ts";
 import { FieldRow, groupOf, groupTitle, RestartBadge } from "../config/fields.ts";
 import { fieldId } from "../config/meta.ts";
-import { buildFields, CORES_KEY, coreInfo, localOnlyAgentSources, collectChanges, initialDraft, mapInvalid, restartKind, show, type Change, type CoreInfo, type Draft, type Field } from "../config/model.ts";
+import { buildFields, CORES_KEY, coreInfo, localOnlyAgentSources, collectChanges, initialDraft, mapInvalid, redact, restartKind, show, type Change, type CoreInfo, type Draft, type Field } from "../config/model.ts";
 import { sectionOf } from "../../../settings-sections.ts";
 import { roleFields } from "../config/roles.ts";
 import { EngineModelsNote, readEngineModels, type EngineModels } from "../config/engine.ts";
@@ -211,7 +211,7 @@ function Form({ data, section, focus, onSaved, reload }: FormProps): View {
       h("ul", { class: "cfg-diff", "aria-label": t("settings.cfg.diffCaption") }, review.changes.map((c) =>
         h("li", { key: c.key },
           h("code", { class: "cfg-diff-key" }, c.key),
-          h("span", { class: "cfg-diff-val" }, h("span", { class: "cfg-old" }, show(c.old) || t("settings.cfg.unset")), h("span", { "aria-hidden": "true" }, " → "), h("span", { class: "sr-only" }, ` ${t("settings.cfg.to")} `), h("strong", { class: "cfg-new" }, show(c.value) || t("settings.cfg.unset"))),
+          h("span", { class: "cfg-diff-val" }, h("span", { class: "cfg-old" }, show(redact(c.old, c.key)) || t("settings.cfg.unset")), h("span", { "aria-hidden": "true" }, " → "), h("span", { class: "sr-only" }, ` ${t("settings.cfg.to")} `), h("strong", { class: "cfg-new" }, show(redact(c.value, c.key)) || t("settings.cfg.unset"))),
           h(RestartBadge, { cls: c.restartClass })))),
       restartKeys.length ? h(Notice, { tone: "warn" }, t("settings.cfg.restartNotice", { keys: restartKeys.join(", ") }),
         review.plan?.core ? ` ${t("settings.cfg.planCore")}` : "", review.plan?.modules?.length ? ` ${t("settings.cfg.planModules", { modules: review.plan.modules.join(", ") })}` : "") : null,
