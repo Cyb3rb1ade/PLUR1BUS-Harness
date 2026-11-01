@@ -510,3 +510,34 @@ for (const bound of ['project', 'hardware'] as const) test(`writer ${bound} refu
   const nested = f.collab.getTrace(owner(), trace.traceId).spans.find(span => span.agentId === 'c')!;
   assert.equal(nested.parentSpanId, trace.spans[0]!.spanId);
 });
+
+
+for (const cancelled of [false, true]) test(`blocking failure is delivered once when dispatcher cancellation=${cancelled}`, async t => {
+  const started = Promise.withResolvers<void>();
+  const f = fixture(t, { runner: { async run(input) {
+    started.resolve();
+    if (cancelled) {
+      input.onProgress?.({ text: 'retained evidence', inputTokens: 1, outputTokens: 1 });
+      await new Promise<void>(resolve => input.signal.addEventListener('abort', () => resolve(), { once: true }));
+      input.signal.throwIfAborted();
+    }
+    throw new Error('worker failure');
+  } } });
+  const abort = new AbortController();
+  const dispatcher = new ToolDispatcher({ registry: f.registry, approvals: { async request() { throw new Error('unexpected approval'); } }, grants: { list: () => [], get: () => undefined }, clock: { now: Date.now } });
+  const pending = dispatcher.call({ id: 'blocking-failure', name: 'delegate_task', args: { projectId: f.project.id, toAgent: 'a', objective: 'work' } }, { ...f.context, signal: abort.signal });
+  await started.promise;
+  if (cancelled) abort.abort(new Error('caller cancelled'));
+  const result = await pending;
+  assert.equal(result.isError, true);
+  const joined = await f.request.delegations!.finish();
+  if (cancelled) {
+    assert.equal(joined.length, 1, 'a dispatcher abort must leave the child return for the final join');
+    assert.equal(joined[0]!.result!.status, 'partial');
+    assert.match(joined[0]!.result!.summary, /retained evidence/);
+  } else {
+    assert.match(JSON.stringify(result), /delegation failed/);
+    assert.deepEqual(joined, [], 'a delivered blocking error must not reappear at turn completion');
+  }
+  assert.deepEqual(await f.request.delegations!.finish(), []);
+});

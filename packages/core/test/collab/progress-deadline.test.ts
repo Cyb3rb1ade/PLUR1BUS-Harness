@@ -100,8 +100,19 @@ for (const wait of [true, false]) for (const abortBehavior of ['hang', 'throw'] 
   time.advance(expectedLifetime - 1);
   assert.equal(collab.getTrace(owner(), trace.traceId).spans[0]!.status, 'running');
   time.advance(1);
-  await call;
-  await request.delegations!.finish();
+  const delivery = await call;
+  assert.equal(delivery.isError, false, JSON.stringify(delivery));
+  const joined = await request.delegations!.finish();
+  if (wait) {
+    assert.match(JSON.stringify(delivery), /first file inspected/);
+    assert.match(JSON.stringify(delivery), /partial/);
+    assert.deepEqual(joined, [], 'the blocking result must not be delivered twice');
+  } else {
+    assert.equal(joined.length, 1);
+    assert.equal(joined[0]!.result!.status, 'partial');
+    assert.match(joined[0]!.result!.summary, /first file inspected/);
+  }
+  assert.deepEqual(await request.delegations!.finish(), [], 'joining again never repeats a result');
   const replay = collab.replay(owner(), trace.traceId, trace.spans[0]!.spanId);
   assert.equal(replay.events.filter(e => e.type === 'tool.result' && e.data.status === 'partial').length, 1);
   assert.equal(replay.events.filter(e => e.type === 'turn.failed').length, 1);
