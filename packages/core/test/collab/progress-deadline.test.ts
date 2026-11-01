@@ -7,7 +7,7 @@ import { providerRunner } from '../../src/collab/runner.ts';
 import { composedAgentRunner } from '../../src/composition/collaboration.ts';
 import { alsAgentScopePort } from '../../src/collab/scope.ts';
 import { SessionStore } from '../../src/session/store.ts';
-import { ToolRegistry, HARD_MAX_TIMEOUT_MS } from '../../src/tools/registry.ts';
+import { ToolRegistry } from '../../src/tools/registry.ts';
 import { ToolDispatcher } from '../../src/tools/dispatcher.ts';
 import { collaborationTools } from '../../src/tools/collaboration.ts';
 import type { ChatProvider, ChatRequest } from '../../src/session/provider.ts';
@@ -80,7 +80,9 @@ for (const wait of [true, false]) for (const abortBehavior of ['hang', 'throw'] 
     if (abortBehavior === 'hang') await new Promise(() => {});
     else { await new Promise<void>(resolve => req.signal.addEventListener('abort', () => resolve(), { once: true })); req.signal.throwIfAborted(); }
   } };
-  const collab = createCollab({ path: ':memory:', clock: () => time.now, timers: time.timers, sessions: () => sessions, runner: composedAgentRunner(provider, alsAgentScopePort(), tmp.make()) });
+  const limits = defaults().collaboration.limits;
+  limits.taskClasses['code-large'].stallTimeMs = limits.taskClasses['code-large'].wallTimeMs;
+  const collab = createCollab({ path: ':memory:', clock: () => time.now, timers: time.timers, limits: () => limits, sessions: () => sessions, runner: composedAgentRunner(provider, alsAgentScopePort(), tmp.make()) });
   tmp.onCleanup(() => collab.shutdown());
   const project = collab.createProject(owner(), { name: 'Deadline' });
   for (const a of ['lead', 'peer']) collab.addAgent(owner(), project.id, a);
@@ -93,8 +95,9 @@ for (const wait of [true, false]) for (const abortBehavior of ['hang', 'throw'] 
   const trace = collab.listTraces(owner(), project.id)[0]!;
   const before = collab.replay(owner(), trace.traceId, trace.spans[0]!.spanId);
   const contract = before.events.find(e => e.data.handoff)!.data.handoff as { budget: { deadline: string } };
-  assert.equal(Date.parse(contract.budget.deadline) - time.now, HARD_MAX_TIMEOUT_MS);
-  time.advance(HARD_MAX_TIMEOUT_MS - 1);
+  const expectedLifetime = wait ? 299_000 : 7_200_000;
+  assert.equal(Date.parse(contract.budget.deadline) - time.now, expectedLifetime);
+  time.advance(expectedLifetime - 1);
   assert.equal(collab.getTrace(owner(), trace.traceId).spans[0]!.status, 'running');
   time.advance(1);
   await call;

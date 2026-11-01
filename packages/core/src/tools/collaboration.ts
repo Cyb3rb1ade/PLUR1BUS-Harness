@@ -21,6 +21,8 @@ export interface CollaborationTools {
   toolEffect?: (name: string) => import('../policy/index.ts').Effect | undefined;
   review?: { start(project: string, card: string, from: string): unknown; root(ticket: unknown): string; finish(ticket: unknown, to: string, result: ReturnEnvelope): void };
 }
+// Leave time for the child's partial result to settle before the blocking dispatcher aborts.
+const BLOCKING_RETURN_MARGIN_MS = 1_000;
 const str = { type: 'string', minLength: 1, maxLength: 8000 };
 const strings = { type: 'array', items: str, maxItems: 32 };
 const schema = (properties: Record<string, unknown>, required: string[]) => ({ type: 'object', additionalProperties: false, properties, required });
@@ -118,7 +120,7 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
       objective: a.objective, ...(a.context ? { why: a.context } : {}), doneWhen: a.doneWhen ?? [review ? 'Independent reviewer reports findings and evidence' : a.objective],
       constraints: { must: [], mustNot: a.forbiddenActions ?? [], scope: { paths: a.scope?.paths ?? [], tools: scopedTools } },
       authority: { mayDecide: [], mustAsk: ['Any action outside scope'], approvalsHeld: a.approvalsHeld ?? [] },
-      budget: { tokens: Math.min(a.workTokens ?? limits.workTokens, limits.workTokens, limits.tokenBudget ?? Infinity), toolCalls: taskLimits.rounds, deadline: new Date(Math.min(requestedDeadline, o.authority.now() + Math.min(taskLimits.wallTimeMs, HARD_MAX_TIMEOUT_MS))).toISOString(), modelTier: a.modelTier ?? 'standard' },
+      budget: { tokens: Math.min(a.workTokens ?? limits.workTokens, limits.workTokens, limits.tokenBudget ?? Infinity), toolCalls: taskLimits.rounds, deadline: new Date(Math.min(requestedDeadline, o.authority.now() + Math.min(taskLimits.wallTimeMs, a.wait === false ? Infinity : HARD_MAX_TIMEOUT_MS - BLOCKING_RETURN_MARGIN_MS))).toISOString(), modelTier: a.modelTier ?? 'standard' },
       returnContract: { format: 'plur1bus.return/1', maxTokens: limits.returnTokens, outputSchema: a.outputSchema ?? {}, citationsRequired: a.citationsRequired ?? false },
       ...(kind === 'handoff' ? { state: { done: [], current: a.context ?? a.objective, next: a.doneWhen ?? [a.objective] } } : {}),
     };

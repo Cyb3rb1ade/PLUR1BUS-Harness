@@ -142,8 +142,10 @@ The collection uses the registry's 1 MiB hard result ceiling so 32 valid bounded
 tool limits stay unchanged. The provider's usual context cap may return a full-result reference for a large batch.
 Failure entries carry bounded diagnostics derived from typed error codes; full redacted failure details remain in the
 child trace, rather than copying arbitrary provider error bodies into a collection.
-Every tool handoff contract uses the smaller of its task-class wall time, the dispatcher's five-minute bound, and
-any requested deadline. Nonblocking starts retain this contract deadline after the starting call returns.
+Every tool handoff contract uses the smaller of its task-class wall time and any requested deadline. Blocking
+calls are additionally bounded one second below the dispatcher's five-minute limit, leaving time to deliver a
+partial result before dispatcher cancellation. Nonblocking starts retain their task deadline after returning
+a handle and are not capped by the dispatcher's call limit.
 
 When the model finishes, all its children (including card-bound children) are joined until their own deadlines and previously uncollected results
 are emitted through the normal redaction and result-size boundary. User abort or a failed parent turn cancels them,

@@ -165,8 +165,9 @@ provider profile, and returned summaries remain capped at 2,000 tokens. `consult
 `wait: false`; `await_delegations` collects the starting turn's children. Turn and pair slots, project writer slots,
 shared CPU/RAM capacity and the trace are reserved before asynchronous preparation. The starting turn owns and
 collects all children, including card-bound ones; cancellation stops them all. A handoff cancels the sender's other
-unbound children before joining. Effective tool-contract deadlines are also bounded by the dispatcher's five-minute
-limit and any narrower requested deadline; the task-class values in the table are configuration ceilings.
+unbound children before joining. Effective tool-contract deadlines respect the task-class wall time and any narrower
+requested deadline. Blocking calls also end one second before the dispatcher's five-minute limit so partial results
+can settle; nonblocking children keep their task deadlines without that dispatcher cap.
 Versionless project settings normalize legacy defaults on read; the next save writes `settingsVersion: 2`, after
 which explicit values are preserved. This changes neither the SQLite schema nor the RPC version. The configured
 positive disk floor is reserved for admission before the provisioner-backed team scheduler creates worktrees.
