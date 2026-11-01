@@ -93,6 +93,8 @@ describe("authenticated channel uploads", () => {
         const owner = JSON.parse(readFileSync(join(home, "media", "owners", `${record.mediaId}.json`), "utf8"));
         assert.equal(owner.userId, "alice");
         assert.equal(owner.agentId, "main");
+        assert.equal(owner.chatKind, "direct");
+        assert.equal(owner.owner, deriveUserPrincipal("alice"));
         assert.equal(owner.provenance.origin.system, "channel:telegram");
         assert.equal(owner.provenance.origin.principal, "alice");
         assert.equal(owner.provenance.origin.trust, "untrusted");

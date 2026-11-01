@@ -70,6 +70,7 @@ export function createChannelUploadService(deps: ChannelUploadDeps) {
           provenance: { origin: { system: `channel:${input.message.channel}`, agent: null,
             principal: input.humanId, trust: "untrusted" }, hops: 1, transformedBy: [] },
           channel: input.message.channel, sessionId: input.session.id,
+          chatKind: input.message.chatKind, owner: input.session.owner,
           ...(input.message.messageId ? { messageId: input.message.messageId } : {}),
         });
       }
