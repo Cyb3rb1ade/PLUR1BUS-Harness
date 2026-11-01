@@ -12,18 +12,22 @@ register entry D124, proposed (Q1).
 **Architecture.** Orchestration extends the TypeScript `collab/` module: the scheduler drives TypeScript turns, the D109
 dispatcher, the call budget and the collab store, and the merge queue extends PR #820's provisioner, the single git
 implementation D115 §6.5 asks for; this is ADR-019 (3) ("changes to existing TypeScript code that are not new components
-stay TypeScript", D120 §13), argued in spec §6.3. The new pure components, the plan checker and the router, are Rust in
-`plur1bus-tools` behind `x-server: "tools"` (ADR-019 (1)).
+stay TypeScript", D120 §13), argued in spec §6.3 and put to the owner as Q21. The new pure components, the plan checker
+and the router, are Rust in `plur1bus-tools` behind `x-server: "tools"` (ADR-019 (1)).
 
-**Status.** Plan only, no product code. Owner intents of 2026-11-01 are binding (spec §2); Q1–Q20 are open (spec §16).
-None blocks PT-1 or PT-2: they ship with the recommended defaults behind configuration. PT-6 and PT-7 wait for Q6, PT-7
-also for Q18, PT-12 for Q13 and Q14, PT-14 for Q15.
+**Status.** Plan only, no product code. Owner intents of 2026-11-01 are binding (spec §2); Q1–Q21 are open (spec §16).
+None blocks PT-1 or PT-2: they ship with the recommended defaults behind configuration. PT-4 waits for Q21 (the language
+of the scheduler); PT-6 and PT-7 wait for Q6, PT-7 also for Q18; PT-12 is built and runs in shadow mode, and leaves it
+only after Q13 and Q14; PT-13 waits for Q17, PT-14 for Q15; router-initiated teams wait for Q16 ("Gates", item 4).
 
 **Constraints.**
 - **RPC.** JSON Schema is the single source: closed params, `x-stability: "experimental"`, `x-since` set to the next free
   minor **at implementation time** (1.11–1.14 are taken by open PRs #835, #843, #838 and #820). No new RPC error codes;
-  new reason strings go into `docs/errors.md`. **Every human-only method goes into `FORBIDDEN_EXACT` in
-  `packages/webmcp/src/provider.ts`**; `packages/core/test/protocols/exposure-matrix.test.ts` enforces it.
+  new reason strings go into `docs/errors.md`. **Every `team.*` core method is human-only and goes into
+  `FORBIDDEN_EXACT` in `packages/webmcp/src/provider.ts`**; `packages/core/test/protocols/exposure-matrix.test.ts`
+  enforces it (spec §6.6 lists methods, rights and the WP that adds each).
+- **Versions.** Collab-store migrations and the budget call schema take the next free version at implementation time,
+  like the RPC minor (#820 and #843 each add a collab migration; the call schema is at 2 on main).
 - **Config.** Every new key has `x-restart` and `x-tier` (ADR-013); project overrides may only narrow (D115 S3).
 - **Security.** Only a person approves, grants or merges (D109); an agent message is never an approval; no history rewrite,
   force, reset or rebase by the core; secrets never in briefs, logs or `plur1bus-tools` (D120 §5).
@@ -41,21 +45,21 @@ also for Q18, PT-12 for Q13 and Q14, PT-14 for Q15.
 | WP | Scope | Files | Language | Executor | Estimate (agent days) | Depends on |
 |---|---|---|---|---|---|---|
 | **PT-0** | Register entry D124, the ADR-003 guardrail table and the removal of the "proposed amendment" note, a milestones row; after the owner's answers | `docs/superpowers/specs/2026-09-24-m1b-2a-core-daemon-cli-design.md` §2, `docs/adr/ADR-003-agent-model-and-collaboration.md`, `docs/milestones.md` | docs | Claude | 0.5 | owner decisions |
-| **PT-1** | Limits by class from one source; work budget separated from the return cap; per-delegation deadlines by task class; read-only depth 2; `wait: false` and `await_delegations`; structured concurrency; the start-slot race closed; the concurrency proof | `packages/core/src/collab/{limits.ts (new),defaults.ts,guardrails.ts,types.ts,service.ts,store.ts,migrations.ts}`, `packages/core/src/tools/collaboration.ts`, `packages/core/src/composition/{collaboration.ts,provider.ts}`, `packages/config-schema/schema/config.schema.json`, `packages/core/test/collab/{concurrency.test.ts (new),guardrails.test.ts,tools.test.ts,project-store.test.ts}`, `docs/collaboration.md`, generated `docs/config.md` | TypeScript | Sonnet or Opus | 2.5 | — |
-| **PT-2** | Evaluation: team tier (12 decomposable, 6 coupled tasks), arms and budgets of spec §11, MAST tags, nightly advisory job, baseline; replaces `fanout-eval.ts` | `tests/bench/coding/team/<id>/` (new), `packages/core/src/toolcall/coding-bench.ts` (D120 B1's runner), `packages/core/src/collab/team-eval.ts` (new; `fanout-eval.ts` and its test removed), `scripts/eval/team-eval.ts` (new; `scripts/m5-fanout-eval.mjs` removed), `.github/workflows/nightly.yml`, `docs/evals/2026-11-baseline-team-eval.md` (new), `docs/turn-eval.md`, `docs/ci.md`, `docs/collaboration.md` | TypeScript and fixtures | Sonnet | 5 (4–6) | PT-1; D120 B1 runner (or builds it, see PT-2) |
-| **PT-3a** | Team data model, plan schema, core RPC (run, plan and package methods), roles and events | `packages/core/src/collab/{migrations.ts,types.ts}`, `packages/core/src/collab/team/{store.ts,plan.ts}` (new), `packages/core/src/collab/schemas/teamplan.schema.json` (new), `packages/rpc-schema/schema/rpc.schema.json` and fixtures, `packages/core/src/rpc/collab-surface.ts`, `packages/core/src/rbac/{guard.ts,policy.ts}`, `packages/webmcp/src/provider.ts`, `docs/errors.md`, generated `docs/rpc.md` | TypeScript and schema | Sonnet | 3 | PT-1; PR #820 merged (migration order) |
+| **PT-1** | Limits by class from one source; work budget separated from the return cap; per-delegation deadlines by task class; read-only depth 2; `wait: false` and `await_delegations`; structured concurrency; the start, pair and trace races closed; the concurrency proof | `packages/core/src/collab/{limits.ts (new),defaults.ts,guardrails.ts,types.ts,service.ts,store.ts,migrations.ts}`, `packages/core/src/tools/collaboration.ts`, `packages/core/src/composition/{collaboration.ts,provider.ts}`, `packages/config-schema/schema/config.schema.json`, `packages/core/test/collab/{concurrency.test.ts (new),guardrails.test.ts,tools.test.ts,project-store.test.ts}`, `docs/collaboration.md`, generated `docs/config.md` | TypeScript | Sonnet or Opus | 2.5 | — |
+| **PT-2** | Evaluation: team tier (12 decomposable, 6 coupled tasks), arms and budgets of spec §11, MAST tags, local-model concurrency measurement, nightly advisory job, baseline; replaces `fanout-eval.ts` and `eval:m5` | `tests/bench/coding/team/<id>/` (new), `packages/core/src/toolcall/coding-bench.ts` (D120 B1's runner), `packages/core/src/collab/team-eval.ts` (new; `fanout-eval.ts` and its test removed), `scripts/eval/team-eval.ts` (new; `scripts/m5-fanout-eval.mjs` removed), `package.json` (`eval:m5` replaced), `docs/demos/m5.md`, `.github/ci/core-test-timings.json` (the `fanout-eval.test.ts` entry), `.github/workflows/nightly.yml`, `docs/evals/2026-11-baseline-team-eval.md` (new), `docs/turn-eval.md`, `docs/ci.md`, `docs/collaboration.md` | TypeScript and fixtures | Sonnet | 5 (4–6) | D120 B1 runner (or builds it, see PT-2); PT-1 only for the `explore+single` arm |
+| **PT-3a** | Team data model, plan schema, core RPC for runs, plans, packages and budgets, roles and events | `packages/core/src/collab/{migrations.ts,types.ts}`, `packages/core/src/collab/team/{store.ts,plan.ts}` (new), `packages/core/src/collab/schemas/teamplan.schema.json` (new), `packages/rpc-schema/schema/rpc.schema.json` and fixtures, `packages/core/src/rpc/collab-surface.ts`, `packages/core/src/rbac/{guard.ts,policy.ts}`, `packages/webmcp/src/provider.ts`, `packages/core/test/protocols/exposure-matrix.test.ts`, `docs/errors.md`, generated `docs/rpc.md` | TypeScript and schema | Sonnet | 3 | PT-1; PR #820 merged (its `project_worktrees` table) |
 | **PT-3b** | Plan checker in Rust: DAG, ownership disjointness by glob intersection, merge order against dependencies, overlap prediction, diff against ownership | `crates/plur1bus-tools/src/team/` (new), `tools.team.check` and `tools.team.diffcheck` in the schema with fixtures, `crates/plur1bus-tools/tests/team_*.rs` | Rust | Claude agent | 2 | D120 H1-1; PT-3a (plan schema) |
-| **PT-4** | Scheduler: admission (spec §7.4), call-budget scopes `team` and `package` (call schema 3), card worktrees per package with stacks, writer briefs, native writers, lead turns, team agent tools, pause, cancel, steering hooks, failure handling, resumability and the kill test | `packages/core/src/collab/team/{scheduler.ts,admission.ts,brief.ts,resume.ts}` (new), `packages/core/src/budget/calls.ts`, `packages/core/src/tools/collaboration.ts`, `packages/core/src/composition/{index.ts,collaboration.ts}`, `packages/log-schema/schema/catalogue.json`, `docs/budgets.md`, `docs/collaboration.md` | TypeScript | Opus | 6 (5–7) | PT-1, PT-3a, PT-3b, #820 merged; its PR carries the PT-2 delta |
-| **PT-5** | Review loop: D98 checks before review, fresh-context reviewer per round, findings with severity, fix rounds capped at 5, repetition detector, adjudication, ownership and interface checks | `packages/core/src/collab/team/review.ts` (new), `packages/core/src/collab/coding-surface.ts`, `packages/core/src/tools/collaboration.ts` | TypeScript | Sonnet or Opus | 3 | PT-4 |
-| **PT-6** | Merge queue, local sink: fixed order, retarget by merge, merge preview, gate on the exact tree, `team.merge.confirm`, merge commit; provisioner `mergePreview`/`merge`/`revert` to D115 §6.5, prune and orphan detection | `packages/core/src/external-agents/provisioner.ts` (#820), `packages/core/src/collab/coding-surface.ts` (provisioner interface), `packages/core/src/collab/team/merge-queue.ts` (new), schema and handlers for `team.merge.*`, `packages/webmcp/src/provider.ts` | TypeScript | Opus | 4 | PT-5; Q6 |
+| **PT-4** | Scheduler: admission (spec §7.4), call-budget scopes `team` and `package` (next call-schema version), card worktrees per package with stacks, writer briefs, native writers, lead turns, team agent tools, local-model semaphore (default 1), pause, cancel, steering hooks, failure handling, resumability and the kill test | `packages/core/src/collab/team/{scheduler.ts,admission.ts,brief.ts,resume.ts}` (new), `packages/core/src/budget/calls.ts`, `packages/core/src/tools/collaboration.ts`, `packages/core/src/composition/{index.ts,collaboration.ts}`, `packages/log-schema/schema/catalogue.json`, `docs/budgets.md`, `docs/collaboration.md` | TypeScript | Opus | 6 (5–7) | PT-1, PT-3a, PT-3b (so also D120 H1-1), #820 merged; Q21; its PR carries the PT-2 delta |
+| **PT-5** | Review loop: D98 checks before review, fresh-context reviewer per round, findings with severity, fix rounds capped at 5, repetition detector, adjudication, ownership and interface checks; human-only `team.package.decide` and `team.interface.approve` | `packages/core/src/collab/team/review.ts` (new), `packages/core/src/collab/coding-surface.ts`, `packages/core/src/tools/collaboration.ts`, `packages/rpc-schema/schema/rpc.schema.json` and fixtures, `packages/core/src/rpc/collab-surface.ts`, `packages/core/src/rbac/policy.ts`, `packages/webmcp/src/provider.ts`, `packages/core/test/protocols/exposure-matrix.test.ts` | TypeScript | Sonnet or Opus | 3.5 | PT-4 |
+| **PT-6** | Merge queue, local sink: fixed order, retarget by merge, merge preview, gate on the exact tree, merge commit; human-only `team.merge.order.set` and `team.merge.confirm`; provisioner `mergePreview`/`merge`/`revert` to D115 §6.5 (worktree removal through the existing `remove`); the orphan scan (new in D124) | `packages/core/src/external-agents/provisioner.ts` (#820), `packages/core/src/collab/coding-surface.ts` (provisioner interface), `packages/core/src/collab/team/merge-queue.ts` (new), `packages/rpc-schema/schema/rpc.schema.json` and fixtures, `packages/core/src/rpc/collab-surface.ts`, `packages/core/src/rbac/policy.ts`, `packages/webmcp/src/provider.ts`, `packages/core/test/protocols/exposure-matrix.test.ts` | TypeScript | Opus | 4 | PT-5; Q6 |
 | **PT-7** | Forge sink: push the run's `p1b/` branches under a task-scoped grant, stacked pull requests, required checks as the CI gate, merge by the person on the forge or by API after `team.merge.confirm`, retarget dependents after an upstream merge | `packages/core/src/collab/team/forge.ts` (new), grant capability rows, `docs/collaboration.md` | TypeScript | Sonnet | 3 | PT-6; the GitHub credential profile (D115 WP4b); Q6, Q18 |
 | **PT-8** | External workers: ACP CLIs as writers (session per package, `cwd` = package worktree, approvals to the team panel, resume through `session/load` where supported, else the resume brief); A2A peers as read helpers and reviewers | `packages/core/src/external-agents/delegation.ts` (#820), `packages/core/src/collab/team/workers.ts` (new) | TypeScript | Sonnet | 2.5 | PT-4; #820 merged (D123 SB-5 later swaps containment underneath) |
-| **PT-9a** | Web team view: lanes per package, rounds, token burn against allocation, wall time, findings, merge queue order and reorder, one approvals panel, router explanation; de and en | `packages/web/src/pages/projects/{team-view.ts (new),page.ts,rpc-types.ts}`, i18n catalogues | TypeScript | Sonnet | 3 | PT-4; PT-6 for the queue lane |
-| **PT-9b** | CLI `plur1bus project team status\|approve\|pause\|resume\|cancel\|merge` | `crates/plur1bus/src/commands/{project.rs,project_team.rs (new)}`, `crates/plur1bus/tests/cli_surface.rs` | Rust | Claude agent | 1.5 | PT-3a |
+| **PT-9a** | Web team view: lanes per package, rounds, token burn against allocation, wall time, findings, merge queue order and reorder (`team.merge.order.set`, from PT-6), one approvals panel, router explanation; de and en | `packages/web/src/pages/projects/{team-view.ts (new),page.ts,rpc-types.ts}`, i18n catalogues | TypeScript | Sonnet | 3 | PT-4; PT-6 for the queue lane |
+| **PT-9b** | CLI `plur1bus project team status\|approve\|pause\|resume\|cancel\|merge` | `crates/plur1bus/src/commands/{project.rs,project_team.rs (new)}`, `crates/plur1bus/tests/cli_surface.rs` | Rust | Claude agent | 1.5 | PT-3a; PT-6 (for `merge`) |
 | **PT-10** | Best-of-N: N attempts in worktrees, tests-first selection, pairwise tournament judge, early stop, optional distill-refine, budget caps, evaluation arm | `packages/core/src/collab/team/best-of-n.ts` (new), `packages/core/src/collab/verifier.ts` (oracle run) | TypeScript | Sonnet or Opus | 3.5 | PT-4, PT-2 |
-| **PT-11** | Router, heuristic stage: features, rules and hard masks of spec §8.3, overrides, explanation records | `crates/plur1bus-tools/src/router/{features,heuristic,explain}.rs` (new), `packages/core/src/collab/team/route.ts` (new; collects features), `tools.router.decide`/`explain`, `team.route.explain` | Rust and TypeScript | Claude agent | 2.5 | H1-1, PT-2, PT-3b |
-| **PT-12** | Router, contextual bandit: linear Thompson sampling, rewards and delayed updates, propensities, shadow mode, exploration cap, decay, store, reset | `crates/plur1bus-tools/src/router/{bandit,reward,store}.rs` (new), `tools.router.outcome`/`reset`, `team.route.reset` | Rust | Claude agent | 3 | PT-11; outcome signals from PT-5 and PT-6; Q13, Q14 |
-| | **Total** | | | | **45** | |
+| **PT-11** | Router, heuristic stage: features, rules and hard masks of spec §8.3, overrides, explanation records; human-only `team.route.explain` | `crates/plur1bus-tools/src/router/{features,heuristic,explain}.rs` (new), `packages/core/src/collab/team/route.ts` (new; collects features), `tools.router.decide`/`explain` and `team.route.explain` in `packages/rpc-schema/schema/rpc.schema.json` with fixtures, `packages/core/src/rpc/collab-surface.ts`, `packages/core/src/rbac/policy.ts`, `packages/webmcp/src/provider.ts`, `packages/core/test/protocols/exposure-matrix.test.ts` | Rust and TypeScript | Claude agent | 2.5 | H1-1, PT-2, PT-3b |
+| **PT-12** | Router, contextual bandit: linear Thompson sampling, rewards and delayed updates, propensities, shadow mode, exploration cap, decay, store; human-only `team.route.reset` | `crates/plur1bus-tools/src/router/{bandit,reward,store}.rs` (new), `tools.router.outcome`/`reset` and `team.route.reset` in `packages/rpc-schema/schema/rpc.schema.json` with fixtures, `packages/core/src/rpc/collab-surface.ts`, `packages/core/src/rbac/policy.ts`, `packages/webmcp/src/provider.ts`, `packages/core/test/protocols/exposure-matrix.test.ts` | Rust and TypeScript | Claude agent | 3.5 | PT-11; outcome signals from PT-5 and PT-6. Leaves shadow mode only after Q13 and Q14 |
+| | **Total** | | | | **46** | |
 
 **Follow-ups** (not in the total):
 
@@ -65,33 +69,37 @@ also for Q18, PT-12 for Q13 and Q14, PT-14 for Q15.
 | PT-14 | Local-only external benchmark runner: SWE-bench Verified and Terminal-Bench subsets fetched at run time, never vendored, never in CI, aggregate report | `scripts/eval/external-bench.ts` (new) | TypeScript | Sonnet | 2.5 | PT-2, PT-10; Q15 |
 
 ```text
- PT-1 limits + async delegation + concurrency proof ─┬─► PT-2 evaluation + baseline (GATE for PT-4 merge) ─────────────┐
-                                                     └─► PT-3a data model + RPC ─┬─► PT-9b CLI                        │
- D120 H1-1 (plur1bus-tools skeleton) ───────────────────► PT-3b plan checker ◄───┘                                    │
- #820 merged ─────────────────────────────────────────────────► PT-4 scheduler + writers + resume ◄──────────────────────┤
-                                                                  ├─► PT-5 review loop ─► PT-6 merge queue (local) ─► PT-7 forge sink
-                                                                  ├─► PT-8 ACP and A2A workers
-                                                                  ├─► PT-9a web team view
-                                                                  └─► PT-10 best-of-N ─► PT-13 verification gate (later)
- PT-2 + PT-3b + H1-1 ─► PT-11 router heuristic ─► PT-12 contextual bandit (needs PT-5/PT-6 outcomes)
+ PT-1 limits + async delegation + concurrency proof ─┬─► PT-3a data model + RPC ─┬─► PT-3b plan checker ◄── D120 H1-1
+                                                     │                           │        (H1-1 gates PT-4 onward)
+                                                     └ ─ ─► PT-2 explore+single arm
+ D120 B1 runner (or built by PT-2) ─► PT-2 evaluation + baseline (GATE for PT-4 merge)
+ #820 merged + Q21 + PT-3a + PT-3b ─► PT-4 scheduler + writers + resume
+                                         ├─► PT-5 review loop ─► PT-6 merge queue (local, Q6) ─┬─► PT-7 forge sink (Q6, Q18)
+                                         │                                                     └─► PT-9b CLI
+                                         ├─► PT-8 ACP and A2A workers
+                                         ├─► PT-9a web team view (queue lane after PT-6)
+                                         └─► PT-10 best-of-N ─► PT-13 verification gate (later, Q17)
+ PT-2 + PT-3b ─► PT-11 router heuristic ─► PT-12 contextual bandit (outcomes from PT-5/PT-6; shadow until Q13, Q14)
  PT-0 docs: after the owner's answers, alongside; gates nothing
 ```
 
 ## What can start now
 
 - **PT-1** has no dependency and no pending owner answer (it ships the recommended defaults behind configuration).
-- **PT-2's task authoring** (the 18 team-tier tasks with checkers and seeds) can start at once in parallel; its runner
-  waits for PT-1 only if B1's runner is missing (see PT-2).
-- **D120 H1-1** gates three Rust packages here (PT-3b, PT-11, PT-12) as it gates D123's SB-4; pulling it forward, as D123
-  Q11 recommends, unblocks both.
-- **#820** gates PT-3a's migration order, PT-4 and PT-8.
+- **PT-2** can start at once: the 18 team-tier tasks with checkers and seeds, and the runner (on B1's runner, or B1's
+  runner built to the D120 plan). Only its `explore+single` arm needs PT-1's asynchronous consults.
+- **D120 H1-1** (3 agent days in the D120 plan, not counted here) gates PT-3b, PT-11 and PT-12 directly and, through
+  PT-3b, PT-4 and everything after it, as it gates D123's SB-4; pulling it forward, as D123 Q11 recommends, unblocks
+  both.
+- **#820** gates PT-3a (its `project_worktrees` table), PT-4 and PT-8.
 
 ## Best first package: PT-1
 
-PT-1 is small, independent and useful on its own: it removes the hard-coded limits from five files, lets a person raise
-them by configuration, makes `delegate_task` asynchronous as ADR-003 describes it, closes the start-slot race, and proves
-with a barrier test that delegations started in one step overlap. Every later package builds on its `CollabLimits` and its
-concurrency.
+PT-1 is small, independent and useful on its own: it removes the hard-coded limits from `tools/collaboration.ts`,
+`collab/service.ts`, `composition/collaboration.ts` and `composition/provider.ts` into one resolved source next to
+`collab/defaults.ts` and `guardrails.ts`, lets a person raise them by configuration, makes `delegate_task` asynchronous
+as ADR-003 describes it, closes the start, pair and trace races, and proves with a barrier test that delegations started
+in one step overlap. Every later package builds on its `CollabLimits` and its concurrency.
 
 ## PT-0 — Register entry, ADR-003 and milestones (0.5 agent days; Claude, docs)
 
@@ -108,22 +116,30 @@ accepted limits and remove the "Proposed amendment (D124, pending owner decision
   classes of spec §7.2) and the project's narrowing overrides. `guardrails.ts` takes a call class (`read`, `write`,
   `review`); `tools/collaboration.ts` drops its constants (`:45`, `:49-50`, `:59`), `service.ts` drops the 300,000 ms cap
   (`:267`) and the chain-wide timer becomes a per-delegation deadline.
-- **Work budget.** `composition/collaboration.ts:51` takes the delegation's token allocation instead of `budget.tokens`,
-  and the delegated turn gets the class's round limit through a per-request round limit in place of the turn-wide
-  default of 25 (`composition/provider.ts:738`); `returnContract.maxTokens` stays at most 2,000.
+- **Work budget.** Today every model call of a delegated turn is capped at `budget.tokens` = 2,000 output tokens
+  (`composition/collaboration.ts:51`, a per-call cap) and nothing caps the delegation as a whole. After PT-1 the per-call
+  output cap comes from the model profile, the delegation as a whole is admitted against its token allocation, and the
+  delegated turn gets the class's round limit through a per-request round limit in place of the turn-wide default of 25
+  (`composition/provider.ts:738`); `returnContract.maxTokens` stays at most 2,000.
 - **Depth by class.** A read-only delegation (scope tools all `read` effect) may start one more read-only delegation; a
   nested writer is refused with `depth`.
 - **Concurrency.** `wait: false` on `consult_agent` and `delegate_task` returns `{ taskId }`; `await_delegations { taskIds,
   timeoutMs }` returns finished envelopes and the running ids; at the end of a turn unbound children are awaited up to
-  their deadlines, then cancelled with partial results. The start slot is reserved before the first `await`.
+  their deadlines, then cancelled with partial results.
+- **Races.** The start and pair slots are reserved before the first `await` (today checked at
+  `tools/collaboration.ts:49-50`, incremented at `:80` after `await prepareHandoff` at `:68`), and the turn's trace is
+  created before the first start, not stored after the first completion (`:101`), so concurrent first calls share one
+  chain instead of each opening a new one with fan-out 0 (`collab/service.ts:206-207`). Parallel dispatch in the turn
+  loop is not part of PT-1; if it is built later, the tested but unused `executeBatch` (`toolcall/results.ts:57-67`) is
+  the helper to reuse.
 - **Settings migration (Q20).** One collab-store migration drops stored project settings equal to the old defaults
   (`store.ts:87-91` wrote them in full).
-- **Tests (red first):** the barrier test of spec §7.5 (four delegations, each blocked on a barrier released only when all
-  four started; red on main because the second never starts; green after, maximum concurrency 4); a race test that issues
-  starts concurrently against a limit of 3 and asserts exactly 3 admitted; class limits and ceilings; depth 2 read-only
-  allowed, nested writer refused; a delegation running past 5 minutes on an injected clock is not killed by the old chain
-  timer; the migration keeps a non-default value and drops a default one; a steer arriving during `await_delegations`
-  (U13, coordinated with D120 H3-1 if it has landed).
+- **Tests (red first):** the barrier test of spec §7.5 (four delegations, each blocked on a barrier released only when
+  all four started; red on main because the second never starts; green after, maximum concurrency 4); race tests that
+  issue starts concurrently against a limit of 3 and a pair limit of 2 and assert exactly 3 and 2 admitted, all in one
+  trace; class limits and ceilings; depth 2 read-only allowed, nested writer refused; a delegation running past 5
+  minutes on an injected clock is not killed by the old chain timer; the migration keeps a non-default value and drops a
+  default one; a steer arriving during `await_delegations` (U13, coordinated with D120 H3-1 if it has landed).
 - **Docs:** `docs/collaboration.md` guardrail table; `pnpm docs:gen` for `docs/config.md`.
 - **Acceptance:** no collaboration limit constant remains in `tools/collaboration.ts`, `service.ts` or
   `composition/collaboration.ts`, and delegated turns no longer stop at the turn-wide 25 rounds;
@@ -141,11 +157,15 @@ accepted limits and remove the "Proposed amendment (D124, pending owner decision
   variants, hidden checkers (the D120 Q21 rules).
 - **Arms and budgets** of spec §11: `single`, `single` at the highest effort, `single+review`, `explore+single` now;
   `team` joins with PT-4, `best-of-n` with PT-10. Matched and natural budgets.
-- **Metrics** of spec §11, including MAST tags (rules over the trace map each failure to specification, inter-agent
+- **Metrics** of spec §11, including MAST tags (rules over the trace map each failure to system design, inter-agent
   misalignment or task verification, with a step-repetition count; untagged failures are counted, not guessed) and the
   cache-read share (U12); rounds and wall time per task class to calibrate spec §7.2.
-- **Replace** `collab/fanout-eval.ts`, its test and `scripts/m5-fanout-eval.mjs`; `docs/evals/m5-fanout.json` stays as a
-  historical record, referenced from the new report.
+- **Local-model concurrency (U3):** for each configured local endpoint, throughput and latency at 1, 2 and 4 concurrent
+  requests, reported per endpoint; PT-4's semaphore default (1) moves to the measured value.
+- **Replace** `collab/fanout-eval.ts`, its test and `scripts/m5-fanout-eval.mjs`, together with everything that names
+  them: the `eval:m5` script in `package.json`, `docs/demos/m5.md`, the `test/collab/fanout-eval.test.ts` entry in
+  `.github/ci/core-test-timings.json` and `docs/collaboration.md`; `docs/evals/m5-fanout.json` stays as a historical
+  record, referenced from the new report.
 - **Tests:** the fixture self-test per PR (every checker fails on the start tree and passes on the reference for three
   seeds; the coupled tasks really are coupled: their packages' reference diffs overlap); report schema tests; the canary
   secret test.
@@ -156,12 +176,14 @@ accepted limits and remove the "Proposed amendment (D124, pending owner decision
 
 **Language:** TypeScript; collab store, RPC surface and RBAC are existing TypeScript.
 
-The tables of spec §6.4 in one migration after #820's; `plur1bus.teamplan/1` (closed, bounded: 32 packages, the D104
-2,000-token rule per brief); `ProjectRole` gains `worker` and `reviewer`; `team.*` and `package.*` events; the methods of
-spec §6.6 that do not depend on later packages (`team.create`, `team.get`, `team.list`; human-only `team.plan.approve`,
-`team.pause`, `team.resume`, `team.cancel`, `team.package.reassign`, `team.package.budget.set`) with schema, fixtures,
-RBAC rules (`humanOnly` where listed) and every human-only name in `FORBIDDEN_EXACT`. The merge methods come with PT-6,
-`team.route.explain` with PT-11 and `team.route.reset` with PT-12, each with the same exposure rule. **Tests:** store
+The tables of spec §6.4 in one migration (the next free version at implementation time); `plur1bus.teamplan/1`
+(closed, bounded: 32 packages, the D104 2,000-token rule per brief); `ProjectRole` gains `worker` and `reviewer`; `team.*`
+and `package.*` events; the methods of spec §6.6 that do not depend on later packages: `team.get` and `team.list`
+(`project.read` plus project visibility), `team.create` (`project.write`), and `team.plan.approve`, `team.pause`,
+`team.resume`, `team.cancel`, `team.package.reassign`, `team.package.budget.set`, `team.budget.set` (`project.write` and
+project lead, owner or admin), with schema, fixtures, `humanOnly` RBAC rules and every name in `FORBIDDEN_EXACT`.
+`team.package.decide` and `team.interface.approve` come with PT-5, the merge methods with PT-6, `team.route.explain` with
+PT-11 and `team.route.reset` with PT-12, each under the same rule. **Tests:** store
 round trips; plan schema bounds; RBAC matrix; `exposure-matrix.test.ts` green with the new methods; a viewer and an agent
 principal are refused on every human-only method. **Acceptance:** `pnpm docs:check` (schema and `docs/rpc.md` current).
 
@@ -182,13 +204,13 @@ intersection against brute-force expansion on generated trees; cycle detection; 
 **Language:** TypeScript; the scheduler drives TypeScript turns, D109, the call budget and the collab store until Phase 4
 step 3 (spec §6.3).
 
-- **Admission** of spec §7.4; call schema 3 with scopes `team` and `package` in `budget/calls.ts` (additive columns,
-  default empty); limits set at plan approval.
+- **Admission** of spec §7.4; the next call-schema version with scopes `team` and `package` in `budget/calls.ts`
+  (additive columns, default empty); limits set at plan approval.
 - **Packages:** claim in one `BEGIN IMMEDIATE` transaction; card worktree through #820 `fork` with an optional base
   branch for stacks; a D104 brief from the package; the native writer runs with the package worktree as its only root.
 - **Lead turns** at plan, adjudication, interface changes and synthesis; `team_propose_plan`, `team_decide`, `team_status`.
-- **Capacity:** writer bound from `supervisor.maxCores`; per-endpoint semaphore for local models; person-merge
-  back-pressure.
+- **Capacity:** writer bound from `supervisor.maxCores`; per-endpoint semaphore for local models, default 1 until PT-2's
+  measurement; person-merge back-pressure.
 - **Failure handling** of spec §6.11; **resumability** of spec §6.12.
 - **Tests (red first):** admission (slots, budget refusal before any provider call, back-pressure waits instead of
   refusing); two packages of one agent identity in parallel keep separate scopes and captures (U9); stacked fork from a
@@ -198,16 +220,19 @@ step 3 (spec §6.3).
 - **Acceptance:** a three-package fixture project runs end to end with native writers and fake reviewers up to
   `queued`; the PR carries the `team` arm's first PT-2 numbers.
 
-## PT-5 — Review loop and adjudication (3 agent days; Sonnet or Opus, TypeScript)
+## PT-5 — Review loop and adjudication (3.5 agent days; Sonnet or Opus, TypeScript)
 
 **Language:** TypeScript; it extends `request_review` and `coding-surface.ts`.
 
 The flow of spec §6.8: D98 checks before review; a fresh reviewer session per round with the diff and the contract only;
 findings with severity as untrusted data; writer answers per finding; the round cap (Q9) and the repetition detector
 (the same finding hash in three rounds, or the same dispute twice); adjudication decisions; `tools.team.diffcheck` before
-review, interface changes paused for the lead. **Tests:** the reviewer's input never contains the writer's transcript
+review, interface changes paused for the lead; the human-only `team.package.decide` (an escalated package) and
+`team.interface.approve` (an interface marked `person-review`) with schema, fixtures, RBAC rules and `FORBIDDEN_EXACT`.
+**Tests:** the reviewer's input never contains the writer's transcript
 (asserted on the recorded request); the cap and the detector trigger adjudication; `split` changes the plan hash and asks
-the person again; a change outside `owns` is refused back. **Acceptance:** a fixture package with a seeded bug is caught,
+the person again; a change outside `owns` is refused back; `exposure-matrix.test.ts` green with both new methods, and an
+agent principal is refused on both. **Acceptance:** a fixture package with a seeded bug is caught,
 fixed and passed within the cap.
 
 ## PT-6 — Merge queue, local sink (4 agent days; Opus, TypeScript)
@@ -216,13 +241,17 @@ fixed and passed within the cap.
 TypeScript as harness-owned git.
 
 `mergePreview`, `merge`, `revert` on the provisioner to D115 §6.5's interface (merge commits with fixed argv, the
-`approvedTreeHash` and target-head checks of D115 §6.6–§6.7), `prune` and the orphan scan of spec §6.7; the queue of spec
-§6.9 with retarget by merge, the gate on the exact tree, `team.merge.confirm` bound to tree hash and target head, and
-`MERGE_HEAD` recovery after a crash. **Tests:** order and reorder (a reorder against a dependency is refused); retarget by
-merge leaves no rewritten commit (every old SHA is an ancestor of the new head); a conflict becomes a fix round; a changed
-tree voids the confirmation; an orphan directory is reported and not deleted; the merge refuses without a person's
-confirmation from a T2 or T3 surface. **Acceptance:** the PT-4 fixture project merges all three packages in order into
-the root branch with merge commits after three confirmations; D115 WP4 can reuse the provisioner methods unchanged.
+`approvedTreeHash` and target-head checks of D115 §6.6–§6.7); worktree removal after a merge through the existing
+`remove` (D115 §6.5 lists `fork`, `mergePreview`, `merge`, `revert`, `remove`) and the orphan scan of spec §6.7, which
+is new in D124; the queue of spec §6.9 with retarget by merge and merge-based conflict resolution (spec §6.9 on how this
+differs from D115 §6.6 step 3), the gate on the exact tree, the human-only `team.merge.order.set` and
+`team.merge.confirm` (bound to tree hash and target head) with schema, fixtures, RBAC rules and `FORBIDDEN_EXACT`, and
+`MERGE_HEAD` recovery after a crash. **Tests:** order and reorder (a reorder against a dependency is refused); retarget
+by merge leaves no rewritten commit (every old SHA is an ancestor of the new head); a conflict becomes a fix round; a
+changed tree voids the confirmation; an orphan directory is reported and not deleted; the merge refuses without a
+person's confirmation from a T2 or T3 surface; `exposure-matrix.test.ts` green with both merge methods. **Acceptance:**
+the PT-4 fixture project merges all three packages in order into the root branch with merge commits after three
+confirmations; D115 WP4 can reuse the provisioner methods unchanged.
 
 ## PT-7 — Forge sink (3 agent days; Sonnet, TypeScript)
 
@@ -253,9 +282,9 @@ queue with drag reorder calling `team.merge.order.set`; the approvals panel; the
 **Tests:** component tests per lane state; keyboard reorder; i18n completeness. **Acceptance:** the PT-6 fixture run can
 be followed and merged from the web.
 
-## PT-9b — CLI (1.5 agent days; Claude agent, Rust)
+## PT-9b — CLI (1.5 agent days; Claude agent, Rust; after PT-6)
 
-**Language:** Rust; the CLI is Rust.
+**Language:** Rust; the CLI is Rust. It starts after PT-6 so that `merge` calls an existing `team.merge.confirm`.
 
 `plur1bus project team status|approve|pause|resume|cancel|merge` as a thin RPC client with `--json` documents.
 **Tests:** `crates/plur1bus/tests/cli_surface.rs` and help snapshots; exit codes through `scripts/check-cli-exit-codes.mjs`.
@@ -276,20 +305,25 @@ it; the budget refuses N above the run budget before any call; early stop cancel
 **Language:** Rust for the router (a new component, ADR-019 (1)); the feature collector stays in the TypeScript core
 because it reads the plan, the budget and the ledger.
 
-Features and rules of spec §8.2–§8.3, hard masks, overrides, `tools.router.decide`, `tools.router.explain`,
-`team.route.explain`. **Tests:** each rule on fixture feature vectors; a masked arm is never returned; an override wins;
-the explanation lists every fired rule. **Acceptance:** on PT-2's tasks, the router's choice per task is reported next to
-the best arm per task.
+Features and rules of spec §8.2–§8.3, hard masks, overrides, `tools.router.decide`, `tools.router.explain`, and the
+human-only core method `team.route.explain` (`project.read` plus project visibility) with schema, fixtures, RBAC rule
+and `FORBIDDEN_EXACT`. **Tests:** each rule on fixture feature vectors; a masked arm is never returned; an override
+wins; the explanation lists every fired rule; `exposure-matrix.test.ts` green with `team.route.explain`. **Acceptance:**
+on PT-2's tasks, the router's choice per task is reported next to the best arm per task.
 
-## PT-12 — Router, contextual bandit (3 agent days; Claude agent, Rust)
+## PT-12 — Router, contextual bandit (3.5 agent days; Claude agent, Rust and TypeScript)
 
-**Language:** Rust; new component in `plur1bus-tools`, own store.
+**Language:** Rust for the bandit (a new component in `plur1bus-tools`, own store); the human-only `team.route.reset` is a
+core method in TypeScript (RPC surface and RBAC). Built and run in shadow mode without owner answers; leaving shadow mode
+needs Q13 and Q14.
 
 Linear Thompson sampling per arm, the reward of spec §8.4 with provisional and final updates (idempotent per decision),
 propensities, decay, shadow mode and the exploration cap (Q13), weights (Q14), `state/router.sqlite` with no text,
-`tools.router.outcome`, `tools.router.reset` behind the human-only `team.route.reset`. **Tests:** seeded simulations where
+`tools.router.outcome`, `tools.router.reset` behind the human-only `team.route.reset` (owner or admin; schema, fixtures,
+RBAC rule, `FORBIDDEN_EXACT`). **Tests:** seeded simulations where
 one arm is better for a feature region: the policy converges there and never selects a masked arm; shadow mode never
-changes the acted arm; a replayed outcome does not double-count; reset empties the store. **Acceptance:** after PT-2's
+changes the acted arm; a replayed outcome does not double-count; reset empties the store; `exposure-matrix.test.ts` green
+with `team.route.reset`. **Acceptance:** after PT-2's
 nightly runs feed it, the explanation shows posterior means per arm; nothing leaves the installation (no network code in
 the module).
 
@@ -308,10 +342,12 @@ Only if Q15 amends D120 Q21: fetch the official harness and a subset at run time
    delta against the baseline.
 2. **Delta rule.** Every behaviour package reports its delta; a package that makes a gated rate worse does not merge
    without an owner decision.
-3. **Code dependencies:** #820 merged before PT-3a (migration order), PT-4 and PT-8; D120 H1-1 before PT-3b, PT-11 and
-   PT-12; the GitHub credential profile before PT-7.
-4. **Owner answers:** Q6 before PT-6 and PT-7; Q18 before PT-7; Q13 and Q14 before PT-12 leaves shadow mode; Q15 before
-   PT-14; Q16 before router-initiated teams are switched on; Q17 before PT-13.
+3. **Code dependencies:** #820 merged before PT-3a (its `project_worktrees` table), PT-4 and PT-8; D120 H1-1 before
+   PT-3b, PT-11 and PT-12, and therefore, through PT-3b, before PT-4 and everything that depends on it; PT-6 before PT-9b;
+   the GitHub credential profile before PT-7.
+4. **Owner answers:** Q21 before PT-4 (if the owner chooses Rust, PT-4 to PT-6 are re-planned); Q6 before PT-6 and PT-7;
+   Q18 before PT-7; Q13 and Q14 before PT-12 leaves shadow mode (it is built and runs in shadow mode without them); Q15
+   before PT-14; Q16 before router-initiated teams are switched on; Q17 before PT-13. Spec §16 states the same.
 5. **Enablement:** `collaboration.teams.enabled` stays `false` until PT-4 to PT-6 have landed; router-initiated teams per
    task class only after PT-2 shows the gain spec §11 names.
 
@@ -324,13 +360,17 @@ Only if Q15 amends D120 Q21: fetch the official harness and a subset at run time
 | PT-2 evaluation | 5 (4–6) |
 | PT-3a, PT-3b data model and plan checker | 5 |
 | PT-4 scheduler and resumability | 6 (5–7) |
-| PT-5, PT-6, PT-7 review, local merge queue, forge sink | 10 |
+| PT-5, PT-6, PT-7 review, local merge queue, forge sink | 10.5 |
 | PT-8 external workers | 2.5 |
 | PT-9a, PT-9b web and CLI | 4.5 |
 | PT-10 best-of-N | 3.5 |
-| PT-11, PT-12 router | 5.5 |
-| **Total** | **45** (range 40–55 with review rounds) |
+| PT-11, PT-12 router | 6 |
+| **Total** | **46** (range 44–48 from the PT-2 and PT-4 ranges) |
 | Follow-ups PT-13, PT-14 | 5 |
 
-The team mode that reproduces the controller workflow with native workers and a local merge needs PT-1, PT-2, PT-3a,
-PT-3b, PT-4, PT-5 and PT-6: 25.5 agent days. The forge sink, external workers, UI, best-of-N and the router add the rest.
+The range covers only the two packages with their own ranges. Rework from the review of each implementing pull request
+(PR review rounds, as in the D120 and D123 plans) is not included; these are not the product's package fix rounds of
+spec §6.8 (capped at 5, Q9). The team mode that reproduces the controller workflow with native workers and a local merge
+needs PT-1, PT-2, PT-3a, PT-3b, PT-4, PT-5 and PT-6: 26 agent days, plus D120 H1-1 (3 agent days in the D120 plan, not
+counted here), which PT-3b and therefore PT-4 need. The forge sink, external workers, UI, best-of-N and the router add
+the rest.

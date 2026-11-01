@@ -1,7 +1,7 @@
 # Parallel agent teams — design (D124)
 
 **Status:** Proposed (specification and plan only, no product code). The owner intents of 2026-11-01 are binding (§2);
-owner questions Q1–Q20 are open (§16) · **Date:** 2026-11-01 · **Owner:** Christian (Cyb3rb1ade) · **Track:** M5
+owner questions Q1–Q21 are open (§16) · **Date:** 2026-11-01 · **Owner:** Christian (Cyb3rb1ade) · **Track:** M5
 collaboration follow-up, beside M5+ (D115) and M6 · **Register entry:** proposed **D124** (Q1) in the core spec's
 register ([`2026-09-24-m1b-2a-core-daemon-cli-design.md`](2026-09-24-m1b-2a-core-daemon-cli-design.md) §2), not entered
 yet. D120 is on main; D121 is used by open PR #840, D122 by open PR #845, D123 by open PR #847; `D124` appears in no file
@@ -27,8 +27,9 @@ the heads of `collab/{board,handoff,store}.ts`, `collab/schemas/handoff.schema.j
 `crates/plur1bus-engine/src/store/ledger_types.rs` (reply outcomes), the heads of
 `packages/web/src/pages/projects/{board-view,delegation-trace}.ts`, the D109 register row, the D115 spec (§1–§3, §6.5–§6.7),
 D120 (§2, §4, §5, §6.6, §12, §13, §16–§18 and its plan), D119 (§5, §8.4), D118 (header), the D114 federation spec (§2,
-§7), [`docs/acp.md`](../../acp.md). Open PRs: #820 at `42ced5f736` (`external-agents/provisioner.ts`, the
-`ProjectWorktreeProvisioner` interface in `collab/coding-surface.ts`, the `project_worktrees` migration), #847 at
+§7), [`docs/acp.md`](../../acp.md). Open PRs: #820 at `dbdb6202c9` (`external-agents/provisioner.ts`, the
+`ProjectWorktreeProvisioner` interface in `collab/coding-surface.ts`, the `project_worktrees` migration; unchanged since
+`42ced5f736`, the newer commits touch tests only), #847 at
 `0d542df7da` (D123 spec and plan), #845 at `5773ca3857` (D122 spec and plan). External sources in §3, re-checked
 2026-11-01 where marked.
 
@@ -48,13 +49,13 @@ to do this (§2).
 | Area | Today | Evidence |
 |---|---|---|
 | Guardrail defaults | depth 1, 3 starts per chain, 2 per pair, 25 turns, 5 min, 2,000-token return, no token budget | `collab/defaults.ts:3-14`; ADR-003 table `ADR-003:149-159` |
-| Where the limits live | **Spread over five files, not one place** (with the next row). `evaluateGuardrails` reads project settings (`collab/guardrails.ts:20-30`); the agent tools hard-code 3 starts and 2 per pair (`tools/collaboration.ts:49-50`), refuse any nested call through `currentAgentScope()` regardless of `maxDepth` (`:45`), give every contract `budget: { tokens: 2000, toolCalls: 25, deadline: +300 s }` (`:59`) and a 300 s tool timeout (`:41`); `runTarget` caps a contract deadline at 300,000 ms (`collab/service.ts:267`); the turn loop stops at 25 rounds (`composition/provider.ts:738`) | as listed |
-| Work budget vs return cap | The delegated turn runs with `maxOutputTokens` = the contract's `budget.tokens` (`composition/collaboration.ts:51`), i.e. 2,000; the return is capped at 2,000 again (`:79`, `budget/subagent.ts:7-8`, schema `returnContract.maxTokens` maximum 2,000 at `handoff.schema.json:458`). The work budget and the summary cap are the same number | as listed |
+| Where the limits live | **Spread, not in one place:** `collab/defaults.ts` and `collab/guardrails.ts`, `tools/collaboration.ts`, `collab/service.ts`, `composition/provider.ts` and, in the next row, `composition/collaboration.ts`. `evaluateGuardrails` reads project settings (`collab/guardrails.ts:20-30`); the agent tools hard-code 3 starts and 2 per pair (`tools/collaboration.ts:49-50`), refuse any nested call through `currentAgentScope()` regardless of `maxDepth` (`:45`), give every contract `budget: { tokens: 2000, toolCalls: 25, deadline: +300 s }` (`:59`) and a 300 s tool timeout (`:41`); `runTarget` caps a contract deadline at 300,000 ms (`collab/service.ts:267`); the turn loop stops at 25 rounds (`composition/provider.ts:738`) | as listed |
+| Work budget vs return cap | Every model call of the delegated turn carries `maxOutputTokens` = the contract's `budget.tokens` (`composition/collaboration.ts:51`), i.e. 2,000 output tokens **per call** (a multi-round turn can emit more in total); the return is capped at 2,000 again (`:79`, `budget/subagent.ts:7-8`, schema `returnContract.maxTokens` maximum 2,000 at `handoff.schema.json:461`). One number serves as per-call output cap and as summary cap, and no token budget covers the whole delegation | as listed |
 | Time | One chain-wide timer from the chain's start (`collab/service.ts:190-195`): every child of a chain dies 5 min after the first hop. `maxTurns` is stored but not counted (`docs/collaboration.md:88`) | as listed |
 | Fan-out switch | `collaboration.fanoutEnabled`, default `false` until "owner review of the equal-token-budget evaluation" (`config.schema.json:123`; wiring `composition/index.ts:312`) | as listed |
 | Evaluation | 24 synthetic arithmetic fixtures, "not a live-model quality claim" (`collab/fanout-eval.ts:1,13`); result 24/24 both modes, 576 vs 1,728 tokens (`docs/collaboration.md:300-306`, `docs/milestones.md:377`) | as listed |
 | Project roles and board | `ProjectRole` is `member \| lead` (`collab/types.ts:3`), not ADR-003's lead/worker/reviewer (`ADR-003:143`). A card has no dependencies, ownership or merge position (`collab/board.ts:8-13`); the board is one JSON document per project (`board.ts:57,67`) with column WIP limits (`board.ts:6`) | as listed |
-| Worktrees | Main: `ProjectWorktreePort.root()` only, "no second worktree creator exists" (`collab/coding-surface.ts:15`). PR #820 adds the one provisioner: `fork`, `remove`, `status` (`coding-surface.ts:22-26` at `42ced5f736`), card worktrees on branches `p1b/<key>/c-<suffix>` forked from the project root worktree, a live-row index per (project, card) (`collab/migrations.ts:127-139`), and a refusal set `--force`, `reset`, `rebase`, `push` (`external-agents/provisioner.ts:11`); "M5+ adds merge and revert here" (`:1`). No prune and no orphan detection | PR #820 |
+| Worktrees | Main: `ProjectWorktreePort.root()` only, "no second worktree creator exists" (`collab/coding-surface.ts:15`). PR #820 adds the one provisioner: `fork`, `remove`, `status` (`coding-surface.ts:22-26` at `dbdb6202c9`), card worktrees on branches `p1b/<key>/c-<suffix>` forked from the project root worktree, a live-row index per (project, card) (#820's `collab/migrations.ts:127-139`), and a refusal set `--force`, `reset`, `rebase`, `push` (`external-agents/provisioner.ts:11`); "M5+ adds merge and revert here" (`:1`). No prune and no orphan detection | PR #820 |
 | D98 gate and review | Format, lint, typecheck, test in the verifier sandbox; review required at 200 changed lines (`collab/coding-gate.ts:80`); the reviewer must differ from the author and see the same tree hash (`:54`); `request_review` gives a read-only worktree, `file.read/list/stat` only, and a `verdict`/`findings` schema (`tools/collaboration.ts:63-65`) | as listed |
 | Durability | Live chains are an in-memory map (`collab/service.ts:95`); shutdown abandons in-flight runs and marks them cancelled (`:308-325`); a persisted trace can be revived as metadata, its runs cannot (`:214-225`) | as listed |
 | Budget port | Atomic pre-call admission and reservation with scopes `global, user, project, agent, turn, session` (`budget/calls.ts:13`), called before every provider call (`composition/provider.ts:532`); reservations survive restart until a 30 min TTL ([`docs/budgets.md`](../../budgets.md), "Admission") | as listed |
@@ -71,19 +72,25 @@ path serialises them twice:
    ADR-003 calls `delegate_task` "asynchronous, result report" (`ADR-003:145`).
 
 So three `delegate_task` calls in one step run strictly in sequence, and ADR-010's L8 "independent tool calls issued
-concurrently" (`ADR-010:103`) is not implemented for any tool. A latent race follows for the day calls do run
-concurrently: the tool checks `starts >= 3` (`tools/collaboration.ts:50`), then awaits `prepareHandoff` (`:68`), and
-increments only afterwards (`:80`), so concurrent calls could all pass the check. The library's own check and increment
-have no `await` between them (`service.ts:403-409`) and are safe.
+concurrently" (`ADR-010:103`) is not implemented on the turn path. A tested helper exists: `executeBatch`
+(`toolcall/results.ts:57-67`) runs `parallelSafe` calls in groups with barriers for unsafe ones, but no production caller
+uses it; it is the reuse candidate if L8 is built.
+
+A latent race follows for the day calls do run concurrently. The tool checks `starts >= 3` and the pair count
+(`tools/collaboration.ts:50`, `:49`), then awaits `prepareHandoff` (`:68`), and increments both only afterwards (`:80`),
+so concurrent calls could all pass both checks. The library would not catch them: its own check and increment have no
+`await` between them (`service.ts:403-409` for consult, `:466-472` for delegate), but the tool passes the turn's trace id
+only once a call has completed (`traces.set`, `tools/collaboration.ts:101`), so concurrent first calls arrive without
+one and `getChain` starts a new chain with fan-out 0 for each (`service.ts:206-207`); no layer sees the siblings.
 
 ### 1.4 Problem
 
-The constants are too small for real work (a coding package needs hours and hundreds of rounds, not 5 minutes and 2,000
-output tokens), they are scattered so raising one changes nothing, and nothing in the harness turns a multi-package job
-into parallel writers with review, ordered merges, gates and a human merge. Raising the constants alone would be the
-wrong fix: the evidence (§3) says parallel agents pay off only for some tasks and fail expensively on others, so the
-design needs limits governed by budget and capacity, a coding team mode with single-threaded writes, a selector between
-single agent, team and best-of-N, and an evaluation that measures what each costs.
+The constants are too small for real work (a coding package needs hours and hundreds of rounds, not 5 minutes, 25 rounds
+and 2,000 output tokens per call), they are scattered so raising one changes nothing, and nothing in the harness turns a
+multi-package job into parallel writers with review, ordered merges, gates and a human merge. Raising the constants
+alone would be the wrong fix: the evidence (§3) says parallel agents pay off only for some tasks and fail expensively on
+others, so the design needs limits governed by budget and capacity, a coding team mode with single-threaded writes, a
+selector between single agent, team and best-of-N, and an evaluation that measures what each costs.
 
 ## 2. Owner intents of 2026-11-01 (binding)
 
@@ -102,28 +109,28 @@ is on by default), and that the router learns (not its start mode, Q13).
 ### 3.1 Sources
 
 "Re-checked" means the cited page was read again on 2026-11-01; the other entries are taken from the owner's research
-brief of the same day and were not re-fetched. Every figure below appears in its source; this spec adds no number of its
-own to them.
+brief of the same day and were not re-fetched. Figures belong to the source version named in the row; where versions
+differ, the row says so. This spec adds no number of its own to them.
 
 | # | Source | Finding as used here | Consequence |
 |---|---|---|---|
-| R1 | Google Research and MIT, "Towards a science of scaling agent systems", Dec 2025, arXiv 2512.08296 ([blog](https://research.google/blog/towards-a-science-of-scaling-agent-systems-when-and-why-agent-systems-work/)); re-checked | 180 configurations. Centralised coordination +80.9 % on the parallelisable Finance-Agent; every multi-agent variant −39 to −70 % on the sequential PlanCraft. Independent multi-agent systems amplify errors 17.2×, centralised ones 4.4×. A tool-coordination trade-off: the coordination "tax" rises disproportionately with tool count (the blog's example: "16+ tools"). A model from task properties (tool count, decomposability) reaches R² 0.513 and picks the best architecture for 87 % of unseen configurations | Centralised topology only (TD2); sequential and tool-heavy tasks go to a single agent (§8.3); task properties are the router's features |
+| R1 | Google Research and MIT, "Towards a science of scaling agent systems": the [blog](https://research.google/blog/towards-a-science-of-scaling-agent-systems-when-and-why-agent-systems-work/) and arXiv 2512.08296 v1 (Dec 2025); re-checked. The current [arXiv v3](https://arxiv.org/abs/2512.08296) (2026-04-08) reports 260 configurations over six benchmarks and a cross-validated R² of 0.373 (0.413 with a task-grounded capability metric), still picking the best architecture for 87 % of held-out configurations; the figures in this row are the blog's and v1's | 180 configurations. Centralised coordination +80.9 % on the parallelisable Finance-Agent; every multi-agent variant −39 to −70 % on the sequential PlanCraft. Independent multi-agent systems amplify errors 17.2×, centralised ones 4.4×. A tool-coordination trade-off: the coordination "tax" rises disproportionately with tool count (the blog's example: "16+ tools"). A model from task properties (tool count, decomposability) reaches R² 0.513 and picks the best architecture for 87 % of unseen configurations | Centralised topology only (TD2); sequential and tool-heavy tasks go to a single agent (§8.3); task properties are the router's features |
 | R2 | Tran and Kiela, arXiv [2604.02460](https://arxiv.org/abs/2604.02460), Apr 2026; re-checked | At equal thinking-token budgets single agents match or beat multi-agent systems on multi-hop reasoning; many reported multi-agent gains reflect extra compute and context effects | The evaluation compares at matched budgets as well as at natural ones (§11); no team for pure reasoning |
 | R3 | Anthropic, multi-agent research system, 2025, as cited in `ADR-003:12` | Token spend explains about 80 % of performance variance; multi-agent work costs about 15× chat tokens | The token budget is the main governor (§7.3) |
-| R4 | Vals Vibe Code Bench, as reported by [yage.ai](https://yage.ai/share/multi-agent-what-it-buys-en-20261021.html), 2026-10-21; re-checked | Team runs cost 1.8–5.1× solo. One team configuration was significant (+7.3 points) while raising reasoning effort gave +11.4. Teams +15 points on hard broad apps, about +1 on easy ones. Serial waves made teams up to 2.3× slower. Cohere (same article): a weak lead with cheap workers did worse than a strong solo model; delegating only exploration and planning nearly matched full delegation at about half the cost | A strong lead is required (§6.2); "single at higher effort" and "explore + single" are evaluation arms (§11) and router arms (§8); packages are scheduled by dependency, not in waves (§6.5) |
-| R5 | Cognition, ["Multi-Agents: What's Actually Working"](https://cognition.com/blog/multi-agents-working), 2026-04-22 (re-checked); earlier ["Don't build multi-agents"](https://cognition.ai/blog/dont-build-multi-agents) | Writes stay single-threaded; extra agents contribute intelligence, not actions. The generator–verifier review loop works (Devin Review about 2 bugs per PR, about 58 % severe). Manager and child agents run in production. The reviewer works best with a clean context. Unstructured swarms are mostly noise. Parallel writers fragment implicit decisions | One writer per branch (TD3); ownership and interface contracts in the plan (§6.4); fresh-context review of every package (§6.8); map, reduce and manage, never a swarm |
+| R4 | Vals Vibe Code Bench, as reported by [yage.ai](https://yage.ai/share/multi-agent-what-it-buys-en-20261021.html), 2026-10-21; re-checked | Team runs cost 1.8–5.1× solo. Only one team configuration was significant, Sol at medium effort (+7.3 points), while raising a single Sol from medium to max effort gave +11.4; in that configuration teams beat solo by about 15 points on hard apps and about 1 on easy ones. The Opus teams dispatched subtasks in serial waves and at their slowest took 2.3× as long as a single agent; the Sol teams were faster. Cohere (same article): a weak lead with cheap workers did worse than a strong solo model; delegating only exploration and planning nearly matched full delegation at about half the cost | A strong lead is required (§6.2); "single at higher effort" and "explore + single" are evaluation arms (§11) and router arms (§8); packages are scheduled by dependency, not in serial waves (§6.5) |
+| R5 | Cognition, ["Multi-Agents: What's Actually Working"](https://cognition.com/blog/multi-agents-working), 2026-04-22 (re-checked); earlier ["Don't build multi-agents"](https://cognition.ai/blog/dont-build-multi-agents) | Writes stay single-threaded; extra agents contribute intelligence, not actions. The generator–verifier review loop works (Devin Review about 2 bugs per PR, about 58 % severe). Manager and child agents run in production. The reviewer works best with a clean context. The unstructured-swarm approach is "mostly a distraction". Parallel writers fragment implicit decisions | One writer per branch (TD3); ownership and interface contracts in the plan (§6.4); fresh-context review of every package (§6.8); map, reduce and manage, never a swarm |
 | R6 | Kim et al., "Scaling Test-Time Compute for Agentic Coding", arXiv 2604.16529, Apr 2026 ([summary](https://www.emergentmind.com/papers/2604.16529)); re-checked | Parallel rollouts are summarised; Recursive Tournament Voting (pairwise groups, about 8 votes) plus Parallel-Distill-Refine. Claude-4.5-Opus: SWE-bench Verified 70.9 → 77.6 %, Terminal-Bench v2.0 46.9 → 59.1 %. Costs are not characterised; the LM judge stays below an oracle selector | Best-of-N with bounded summaries, tests first and the judge only as tie-break, distill-refine optional (§9); we measure the cost ourselves (§11) |
 | R7 | Zou et al., "SWE-Verifier", arXiv [2610.30284](https://arxiv.org/html/2610.30284), Oct 2026; re-checked | A small gate-and-selector verifier at decision points: +1.7 points at 1.09× cost, against 3.5–4.2× for trajectory-level verification; verifying every step is not worth it | A later gate at decision points only, never per step (§10) |
-| R8 | Cursor 2.0/2.2, Dec 2025 ([forum](https://forum.cursor.com/t/cursor-2-2-multi-agent-judging/145826)) | Parallel agents in worktrees; a judge picks the winner | Product precedent for best-of-N in worktrees (§9) |
+| R8 | Cursor 2.2, Dec 2025 ([forum](https://forum.cursor.com/t/cursor-2-2-multi-agent-judging/145826)); not re-checked | Parallel agents with a judge that picks the winner (multi-agent judging) | Product precedent for parallel attempts with a judge (§9) |
 | R9 | Claude Code agent teams, experimental ([docs](https://code.claude.com/docs/en/agent-teams)); re-checked | A lead plus teammates with their own contexts; a shared task list with dependencies and file-locked claiming; a mailbox; hooks as quality gates (`TeammateIdle`, `TaskCreated`, `TaskCompleted`); no hard limit, 3–5 teammates recommended, 5–6 tasks per teammate; no nested teams; avoid same-file edits; permission prompts bubble to the lead; a teammate cannot approve or consent on the user's behalf and cannot relay a denied action to another teammate; in-process teammates are not restored on resume | Atomic claiming, dependencies and gate hooks (§6.5); the approval rule (§12); no nested team inside one project (§6.1); resumability is an explicit requirement here because the reference product lacks it (§6.12) |
-| R10 | OpenAI Codex subagents, 2026 ([announcement](https://x.com/OpenAIDevs/status/2033636701848174967)) | A second vendor ships subagents | Precedent only |
-| R11 | MAST, "Why Do Multi-Agent LLM Systems Fail?", NeurIPS 2025, [arXiv 2503.13657v2](https://arxiv.org/abs/2503.13657v2); abstract re-checked | A failure taxonomy of 14 modes in three categories: specification, inter-agent misalignment, task verification. Step repetition is the largest single cause (about 15.7 %; this share is from the brief, the abstract page does not show it) | Typed plans and contracts (specification), ownership and interfaces (misalignment), external verifiers and review (verification); a repetition detector (§6.8); MAST tags in the evaluation (§11) |
+| R10 | OpenAI Codex subagents, 2026 ([announcement](https://x.com/OpenAIDevs/status/2033636701848174967)); not re-verified (the post cannot be fetched automatically) | A second vendor ships subagents | Precedent only |
+| R11 | MAST, "Why Do Multi-Agent LLM Systems Fail?", [arXiv 2503.13657 v3](https://arxiv.org/abs/2503.13657v3); re-checked | A failure taxonomy of 14 modes in three categories: system design issues (called specification issues in v2), inter-agent misalignment, task verification. Step repetition (FM-1.3) is the largest single mode: 15.7 % in v3 (v2's full text gives 17.14 %, per the 2026-11-01 fact-check) | Typed plans and contracts (specification), ownership and interfaces (misalignment), external verifiers and review (verification); a repetition detector (§6.8); MAST tags in the evaluation (§11) |
 | R12 | Simon Willison, ["Embracing the parallel coding agent lifestyle"](https://simonw.substack.com/p/embracing-the-parallel-coding-agent), Oct 2025 | Human review is the bottleneck; parallel agents suit research, explanations, small maintenance and carefully specified work | Back-pressure on packages waiting for a person (§7.3); plans are specified before writers start (§6.5) |
-| R13 | Christopher Meiklejohn, [MAS series part 7](https://christophermeiklejohn.com/ai/agents/mas-series/2026/04/30/mas-series-07-benchmarks.html), 2026-04-30 | Most multi-agent claims use single-agent benchmarks and omit token cost and failure rates | A team tier of decomposable tasks; tokens, wall time and failure modes in every report (§11) |
+| R13 | Christopher Meiklejohn, [MAS series part 7](https://christophermeiklejohn.com/ai/agents/mas-series/2026/04/30/mas-series-07-benchmarks.html), 2026-04-30 | Most widely used benchmarks are designed for single agents and cannot measure coordination quality, communication overhead or failure recovery; the post advises asking for token cost and failure rates | A team tier of decomposable tasks; tokens, wall time and failure modes in every report (§11) |
 
 ### 3.2 What follows for the design
 
-- **Teams help** when the work is parallelisable and decomposable, hard and broad, verifiable, and led by a strong model
+- **Teams help** when the work is parallelisable and decomposable, hard, verifiable, and led by a strong model
   (R1, R4). **They hurt** on sequential or tightly coupled work, on tool-heavy tasks with little decomposition, on easy
   tasks, with a weak lead, and whenever several agents write the same code (R1, R4, R5).
 - Much of the cheap gain sits in **verification** (a fresh reviewer, R5; dedicated verification roles on hard apps, R4)
@@ -167,7 +174,8 @@ defaults.
 - No peer-to-peer messaging between workers and no unstructured swarm (TD2).
 - No nested team inside one project; a package that needs its own team becomes a D115 subproject (§6.1, Q5).
 - No general parallel dispatch of all read-only tool calls in the turn loop (ADR-010 L8); concurrency for delegations
-  comes from asynchronous delegation (§7.5). L8 stays its own item because it interacts with D120 H3 steering.
+  comes from asynchronous delegation (§7.5). L8 stays its own item because it interacts with D120 H3 steering; the
+  existing `executeBatch` helper (`toolcall/results.ts:57-67`) is its reuse candidate.
 - No change to D109: only a person approves or grants; no new RPC error codes; no history rewrite, force or rebase by the
   core.
 - No untrusted code on D119 compute nodes (D123 §11 keeps that boundary); workers run where the project worktree lives.
@@ -178,16 +186,16 @@ defaults.
 | # | Topic | Decision | Main alternative, why not |
 |---|---|---|---|
 | TD1 | Limits | Classes (read helper, writer, reviewer, judge) with per-class defaults and ceilings; real governors are the team token budget, machine capacity, local-model concurrency and person-review capacity (§7) | Raise the constants: still five copies, still one number for different risks |
-| TD2 | Topology | Centralised: a lead agent plus an event-driven core scheduler; workers report only to the lead; no worker-to-worker channel | Teammates messaging each other (R9): R1's error amplification, R5's swarm noise, and D115 S8 already chose coordinator forwarding |
-| TD3 | Writes | One writer per worktree and branch; a work package is a board card with a card worktree (PR #820) and declared file ownership | Shared worktree with file locks: R5's fragmented decisions, R9's "avoid same-file edits" |
+| TD2 | Topology | Centralised: a lead agent plus an event-driven core scheduler; workers report only to the lead; no worker-to-worker channel | Teammates messaging each other (R9): R1's error amplification, R5's "mostly a distraction" for swarms, and D115 S8 already chose coordinator forwarding |
+| TD3 | Writes | One writer per worktree and branch; a work package is a board card with a card worktree (PR #820) and declared file ownership | Shared worktree with file locks: R5's fragmented decisions; R9: "Two teammates editing the same file leads to overwrites" |
 | TD4 | Review | Every package gets the D98 checks and a fresh-context reviewer that sees the diff and the contract, not the writer's transcript; at most 5 fix rounds, then adjudication by the lead (Q8, Q9) | Self-review or review only above 200 lines: R5's clean-context result, R4's verification gains |
-| TD5 | Merge | A durable merge queue in the plan's fixed order; dependent packages stack on their dependency's branch and are retargeted by a merge, never a rebase; D98 gate and, with a forge, CI; only a person confirms each merge (§6.9) | Auto-merge (I2 says the person merges); rebase (D115 §6.6 forbids history rewrite by the core) |
+| TD5 | Merge | A durable merge queue in the plan's fixed order; dependent packages stack on their dependency's branch and are retargeted by a merge, never a rebase; D98 gate and, with a forge, CI; only a person confirms each merge (§6.9) | Auto-merge (I2 says the person merges); rebase: it rewrites the commits a review is bound to and dependants forked from (§6.9) |
 | TD6 | Lead | Event-driven lead turns at decision points (plan, adjudication, interface changes, synthesis), not a polling loop | A lead that polls the board: tokens spent on waiting |
 | TD7 | Durability | All team state in SQLite; a restart reconciles worktrees and resumes packages (§6.12) | In-memory chains (today, `service.ts:95`) and R9's missing resume |
 | TD8 | Best-of-N | Tests first, a pairwise LM tournament only as tie-break, distill-refine optional, N capped by budget (§9) | Judge only: R6's judge stays below an oracle |
 | TD9 | Router | Heuristic rules with overrides, then a local contextual bandit (linear Thompson sampling) with hard masks, shadow start and an exploration cap (§8) | A fixed default: I3; weight-changing RL: excluded by I3 |
 | TD10 | Evaluation | B1 coding tasks plus a self-authored team tier, at matched and natural budgets, with MAST tags; nightly and advisory (§11) | Keep `fanout-eval.ts`: it measures routing, not quality |
-| TD11 | Language | Orchestration extends TypeScript `collab/` (ADR-019 (3)); the new pure components, plan checks and the router, are Rust in `plur1bus-tools` (§6.3) | All Rust now: the scheduler drives TypeScript turns, D109 and the collab store until Phase 4 step 3 |
+| TD11 | Language | Orchestration extends TypeScript `collab/` (ADR-019 (3)); the new pure components, plan checks and the router, are Rust in `plur1bus-tools` (§6.3; Q21) | All Rust now: the scheduler drives TypeScript turns, D109 and the collab store until Phase 4 step 3 |
 | TD12 | Concurrency | `delegate_task` and `consult_agent` gain `wait: false`, plus an `await_delegations` tool; structured concurrency per turn (§7.5) | Parallel dispatch in the turn loop: touches D120 H3 steering semantics and every tool |
 | TD13 | Verification gate | Later phase, decision points only, behind the evaluation (§10) | Now: no trained verifier, no baseline |
 | TD14 | Workers | Native and external ACP agents write; A2A peers serve as read helpers and reviewers in v1 (Q11) | A2A writers now: no worktree containment across instances |
@@ -231,17 +239,18 @@ team, so hierarchy depth (D115 S2, ceiling 2) and chain depth stay separate axes
        │               ├─► writers: native turn in its worktree │ ACP CLI (#820 client, D123 sandbox)
        │               ├─► reviewers and read helpers (local or A2A), fresh contexts
        │               ├─► D98 gate (verifier sandbox; D123 SB-8 moves it to Rust later)
-       │               └─► merge queue ─► provisioner (#820; D115 §6.5: fork · mergePreview · merge · revert · prune)
+       │               └─► merge queue ─► provisioner (#820; D115 §6.5 fork · mergePreview · merge · revert · remove;
+       │                               │  orphan scan new in D124)
        │                               └─► forge sink: push, pull request, required checks (credentials stay in the core)
        └─ x-server "tools" ─► plur1bus-tools (Rust): tools.team.check · tools.team.diffcheck · tools.router.*
 ```
 
-- **TypeScript, with reasons (ADR-019 (3), "changes to existing TypeScript code that are not new components stay
-  TypeScript until their subsystem's Phase 4 step").** The scheduler drives TypeScript turns, the D109 dispatcher, the
-  call budget and the collab store; splitting it across RPC would add a hop to every state change and still leave the
-  turns in TypeScript until Phase 4 step 3 (D120 §12.2). The merge queue extends #820's provisioner, which D115 §6.5 makes
-  the single git implementation and D123 keeps in TypeScript as harness-owned git (D123 §1). The forge sink needs a
-  credential, and secrets never enter `plur1bus-tools` (D120 §5).
+- **TypeScript, with reasons, for the owner's ruling as Q21 (ADR-019 (3), "changes to existing TypeScript code that are
+  not new components stay TypeScript until their subsystem's Phase 4 step").** The scheduler drives TypeScript turns,
+  the D109 dispatcher, the call budget and the collab store; splitting it across RPC would add a hop to every state
+  change and still leave the turns in TypeScript until Phase 4 step 3 (D120 §12.2). The merge queue extends #820's
+  provisioner, which D115 §6.5 makes the single git implementation and D123 keeps in TypeScript as harness-owned git
+  (D123 §1). The forge sink needs a credential, and secrets never enter `plur1bus-tools` (D120 §5).
 - **Rust in `plur1bus-tools` (ADR-019 (1)).** The plan checker (DAG, ownership disjointness by glob intersection, merge
   order consistency, overlap prediction, diff-against-ownership) and the router (features in, decision out, outcome
   updates, its own store) are new, pure, secret-free components. They need D120 H1-1 (the skeleton); D123 Q11 proposes to
@@ -251,7 +260,8 @@ team, so hierarchy depth (D115 S2, ceiling 2) and chain depth stay separate axes
 
 ### 6.4 Data model
 
-New tables in the collab store (one migration in `collab/migrations.ts`, next version after #820's); every free-text
+New tables in the collab store (one migration in `collab/migrations.ts`, the next free version at implementation time;
+#820 and #843 each add one ahead of it); every free-text
 field passes the core redactor before it is written, as delegation contracts do today (`service.ts:275`).
 
 | Table | Key columns | Purpose |
@@ -308,11 +318,21 @@ feedback"; no other code path runs project code on the host.
 | `team_decide { packageId, decision, note }` | lead | adjudication (`accept`, `reassign`, `split`, `escalate`) and interface approvals |
 | `team_status { runId }` | lead, writers (own package only) | read |
 
-**RPC (core).** `team.create`, `team.get`, `team.list`, `team.route.explain` (read or project write); and the human-only
-`team.plan.approve { runId, planHash, tokenBudget, wallBudgetMs }`, `team.pause`, `team.resume`, `team.cancel`,
-`team.package.reassign`, `team.package.budget.set`, `team.merge.order.set`, `team.merge.confirm { runId, packageId,
-treeHash, targetHead }` and `team.route.reset`. **Every human-only method goes into `FORBIDDEN_EXACT` in
-`packages/webmcp/src/provider.ts` (`:52`)**, which `exposure-matrix.test.ts:74-84` enforces for `humanOnly` rules.
+**RPC (core).** Every `team.*` method is **human-only**, as `collab.trace.*` and `collab.chain.cancel` are today (they
+are in `FORBIDDEN_EXACT`); agents reach the same information and decisions only through the agent tools above.
+
+| Method | Rights | Work package |
+|---|---|---|
+| `team.get`, `team.list`, `team.route.explain` | `project.read` and project visibility (the `visibleProject` rule, `collab/service.ts:137-142`) | PT-3a; `team.route.explain` PT-11 |
+| `team.create { projectId, objective, mode?, cardId? }` | `project.write`; starts a planning lead turn, which spends tokens | PT-3a |
+| `team.plan.approve { runId, planHash, tokenBudget, wallBudgetMs }`, `team.pause`, `team.resume`, `team.cancel`, `team.package.reassign`, `team.package.budget.set`, `team.budget.set { runId, tokenBudget, wallBudgetMs }` | `project.write` and project role lead, or owner or admin | PT-3a |
+| `team.package.decide { runId, packageId, decision, note }` (an `escalate`d package), `team.interface.approve { runId, packageId, files[], treeHash }` (an interface marked `person-review`) | as above | PT-5 |
+| `team.merge.order.set { runId, order[] }`, `team.merge.confirm { runId, packageId, treeHash, targetHead }` | as above; `merge.confirm` on a T2 or T3 surface (D109) | PT-6 |
+| `team.route.reset` | owner or admin | PT-12 |
+
+**Every one of these methods goes into `FORBIDDEN_EXACT` in `packages/webmcp/src/provider.ts` (`:52`)** with a
+`humanOnly` RBAC rule, which `exposure-matrix.test.ts:74-84` enforces.
+
 **RPC (tools).** `tools.team.check`, `tools.team.diffcheck`, `tools.router.decide`, `tools.router.outcome`,
 `tools.router.explain`, `tools.router.reset`; core-only guard as for every `tools.*` method (D120 §5).
 All methods: closed params, `x-stability: "experimental"`, `x-since` = the next free minor **at implementation time**
@@ -346,10 +366,11 @@ state changed, round finished, merge queued, merged, budget warning); the web bo
    failure cause.
 4. **Adjudication** is a lead turn: `accept` (residual findings are listed on the card and in the merge request),
    `reassign` (new writer, same worktree), `split` (new packages; the plan's hash changes and the person re-approves) or
-   `escalate` (a person decides).
+   `escalate` (a person decides through `team.package.decide`).
 5. **Ownership and interfaces:** before review, `tools.team.diffcheck` compares the changed files with the package's
    globs. A change outside `owns` is refused back to the writer; a change to an `interface` file pauses the package until
-   the lead approves through `team_decide` (and a person, if the plan marks the interface `person-review`).
+   the lead approves through `team_decide` (and a person through `team.interface.approve`, if the plan marks the interface
+   `person-review`).
 
 ### 6.9 Merge queue
 
@@ -358,8 +379,13 @@ state changed, round finished, merge queued, merged, budget warning); the web bo
 - **Stacks:** a package with a `code` dependency forks from the dependency's branch. When the dependency merges, the
   scheduler **retargets by merge**: on a clean package worktree (the writer idle, its work committed) it merges the
   updated target branch into the package branch with fixed argv (`git merge --no-ff --no-edit`), never a rebase, re-runs
-  the checks and, if the tree changed beyond the merge, a review round. A conflict becomes a fix round for the package's writer ("merge the target and resolve"), the D115 §6.6 step 3
-  rule.
+  the checks and, if the tree changed beyond the merge, a review round. A conflict becomes a fix round for the package's
+  writer: merge the target into the package branch and resolve, as a normal commit-producing task.
+- **Deliberate difference from D115 §6.6 step 3.** D115 sends a conflicting child back with the instruction "rebase onto
+  parent", done by the child agent as a normal commit-producing task in its own worktree (never a history rewrite by the
+  core), or resolves in the parent. D124 uses a merge instead of a rebase for team packages, because a package branch may
+  already carry a review bound to its tree, have stacked packages forked from its commits, or be pushed as a pull request
+  (forge sink); a rebase would rewrite exactly those commits. Both keep D115's rule that the core never rewrites history.
 - **Shared files** (lockfiles, generated registries): owned by none; after each merge the queue regenerates them in the
   next package's worktree through the project's D98 manifest, or the plan names one package as their owner (a plan
   field, not an owner question).
@@ -398,7 +424,7 @@ state changed, round finished, merge queued, merged, budget warning); the web bo
 | Writer crash or model error | run rejects | one retry with the profile's fallback model; then `adjudication` |
 | Writer stalls | no tool call and no tree change for the class's stall time | a D120 H3 steer ("report status"), then restart with a resume brief (§6.12), then adjudication |
 | Package exceeds its allocation or deadline | budget refusal or timer | partial return kept (today's `interrupted` semantics, `ADR-003:159`); adjudication may raise the allocation within the run budget |
-| Run budget exhausted | team scope refusal | the run pauses (never cancels); the person may raise the budget |
+| Run budget exhausted | team scope refusal | the run pauses (never cancels); the person may raise the budget (`team.budget.set`) |
 | Review does not converge | round cap or repetition (§6.8) | adjudication |
 | Checks or CI red | gate result | fix round with failing names |
 | Merge conflict | `mergePreview` | fix round for the later package |
@@ -435,7 +461,7 @@ R9's reference product does not restore teammates on resume. Here a restart must
   token burn against allocation, wall time, findings by severity, the merge queue in order, pending approvals of all
   workers in one panel, and the router's explanation.
 - **Steering:** a person can steer the lead or any writer through D120 H3 (`session.submit` with `delivery: "steer"`,
-  D120 §9.6); pause, resume, cancel, reassign, re-budget and reorder are the human-only RPCs of §6.6. The CLI gets
+  D120 §9.6); pause, resume, cancel, reassign, re-budget, decide and reorder are the human-only RPCs of §6.6. The CLI gets
   `plur1bus project team status|approve|pause|resume|cancel|merge` as a thin client.
 - **Logs:** `team.*` events in the D111 catalogue carry ids, counts, states and reasons, never brief or diff text.
 
@@ -450,7 +476,7 @@ R9's reference product does not restore teammates on resume. Here a restart must
 | Writers | none (same counter) | 4 concurrent per project (Q3), never above the capacity bound (§7.3) | judgment; R9's 3–5 teammates as a comparable product default |
 | Per pair | 2 (`defaults.ts:7`, `tools/collaboration.ts:49`) | 4 for consults (anti ping-pong); none for package delegation, where each package is its own card | MAST repetition is caught by §6.8 and the repeat guard |
 | Turns and time | 25 turns, 5 min per chain (`defaults.ts:8-9`, `service.ts:190-195`, `:267`) | per delegation, by task class (§7.2); the run has a wall-time budget | a chain-wide 5 min timer cannot host a coding package |
-| Work budget | 2,000 output tokens (`composition/collaboration.ts:51`) | the package's token allocation from the run budget | separates work from summary |
+| Work budget | none for the delegation; 2,000 output tokens per model call (`composition/collaboration.ts:51`) | the package's token allocation from the run budget, admitted per call; the per-call output cap from the model profile | separates work from summary |
 | Return cap | 2,000 tokens | unchanged; full results by pointer | ADR-010 §4; R6 summarises rollouts too |
 | Token budget | optional per project (`defaults.ts:13`) | mandatory per run, allocated per package, admitted per call | R3 |
 | Cycle and self-call, abort propagation, partial results, repeat window | as in `guardrails.ts:21-22,27`, `service.ts:235-247` | unchanged | ADR-003 table |
@@ -474,15 +500,16 @@ is the run budget split by the plan's estimates (§7.3).
 
 1. **Token budget.** A run cannot start without a finite `tokenBudget` (the person sets it with the plan approval; the
    plan's estimate is the suggestion). The call budget gains two scopes, `team` (id = run) and `package` (id = package),
-   as an additive call-schema 3 (`budget/calls.ts:13`); each package's limit is its allocation, the run's limit is the
-   budget, and every provider call is admitted against all matching scopes as today (`composition/provider.ts:532`). A
-   refusal happens before the call, never after.
+   as an additive change in the next call-schema version (`budget/calls.ts:13`; main is at version 2, `:134`); each
+   package's limit is its allocation, the run's limit is the budget, and every provider call is admitted against all
+   matching scopes as today (`composition/provider.ts:532`). A refusal happens before the call, never after.
 2. **Machine capacity.** Concurrent writers are bounded by `min(writers.perProject, capacity.maxWriters)`, where the
    capacity default is half the cores `supervisor.maxCores` allows, at least one (`config.schema.json:602`; judgment:
    each writer runs builds and tests). Concurrent D98 checks have their own bound. Each external worker process keeps
    its D123 task and memory limits.
 3. **Local-model concurrency.** Calls to a local endpoint (loopback or a D51 node; D119 leaves `llm.chat` unqueued,
-   D119 §5.1) pass a per-endpoint semaphore, default 1 (judgment; measured by PT-2, U3). A blocked call waits; it is not
+   D119 §5.1) pass a per-endpoint semaphore, default 1 (judgment; PT-4 builds it, PT-2 measures throughput at 1, 2
+   and 4 concurrent requests per endpoint, U3). A blocked call waits; it is not
    refused. Cloud providers have no fixed cap; rate-limit errors go through the retry budget.
 4. **Review capacity.** Reviewer runs count against a reviewer pool (default = the writer limit); person merges against
    `maxPendingPersonMerges` (Q19).
@@ -506,8 +533,10 @@ admit(start s):
 - **Structured concurrency:** a turn cannot end with children it started and did not bind to a card; at the end of the
   turn they are awaited up to their deadlines, then cancelled with partial results. Card-bound children survive the turn
   (they belong to the scheduler).
-- **The race is closed:** the tool reserves its start slot before any `await` (today it checks at
-  `tools/collaboration.ts:50`, awaits at `:68`, increments at `:80`).
+- **The race is closed:** the tool reserves its start slot and its pair slot before any `await` (today it checks at
+  `tools/collaboration.ts:49-50`, awaits at `:68`, increments both at `:80`), and the turn's trace is created before the
+  first start instead of after the first completion (`:101`), so concurrent first calls share one chain and the
+  library's per-chain counters see every sibling (today `getChain` opens a new chain for each, `service.ts:206-207`).
 - **Proof (PT-1 acceptance):** four delegations started in one step run against fake runners that each block on a
   shared barrier released only when all four have started. On today's code the test times out, because the second run
   never starts while the first waits; after PT-1 it passes, and the recorded maximum concurrency is 4. No `sleep`
@@ -611,7 +640,7 @@ Replaces `collab/fanout-eval.ts` and `scripts/m5-fanout-eval.mjs` (ADR-003 actio
   default (what a person pays).
 - **Metrics.** Resolved rate per tier and language; tokens in and out with the cache-read share; wall time p50 and p95;
   model calls; review findings by severity; fix rounds; merge conflicts; person interventions and approvals; failure
-  modes tagged by MAST category (specification, inter-agent misalignment, task verification) with a step-repetition
+  modes tagged by MAST category (system design, inter-agent misalignment, task verification) with a step-repetition
   count (R11); resolved per million tokens.
 - **Statistics.** Paired per task and seed (McNemar or sign test) with the counts shown, as B1 does.
 - **Schedule.** Nightly and advisory, B1's secret pattern (credentials only in the setup step, a canary searched in log
@@ -640,7 +669,7 @@ Replaces `collab/fanout-eval.ts` and `scripts/m5-fanout-eval.mjs` (ADR-003 actio
 
 1. **One source.** PT-1 moves every limit into a resolved `CollabLimits` (config keys under `collaboration.limits.*`,
    `x-restart: live`, `x-tier: advanced`, project overrides that may only narrow, as D115 S3 rules); the tool layer, the
-   service and the composed runner read from it. The copies spread over the five files of §1.2 disappear.
+   service, the composed runner and the turn loop read from it. The copies listed in §1.2 disappear.
 2. **Stored project settings.** `createProject` persists the full merged settings (`collab/store.ts:87-91`), so every
    existing project carries today's defaults. One migration drops stored values equal to the old defaults so the new
    defaults apply (Q20); explicit non-default values stay. Fan-out was off by default (`config.schema.json:123`), so no
@@ -675,7 +704,11 @@ Replaces `collab/fanout-eval.ts` and `scripts/m5-fanout-eval.mjs` (ADR-003 actio
   propensities for off-policy evaluation.
 - Asynchronous delegation with structured concurrency instead of parallel dispatch in the turn loop (TD12).
 - The table and column names in §6.4, the plan schema name `plur1bus.teamplan/1`, the method and tool names in §6.6.
-- Retarget by merge, merge preview before the person is asked, the shared-files rule (§6.9).
+- Retarget by merge and merge-based conflict resolution, deliberately different from D115 §6.6 step 3's rebase
+  (§6.9); merge preview before the person is asked; the shared-files rule (§6.9).
+- All `team.*` RPC methods human-only, agents limited to the agent tools (§6.6).
+- The scheduler and merge queue in TypeScript under ADR-019 (3) (TD11, §6.3). Because a new `collab/team/` module can also
+  be read as a new component under ADR-019 (1), this call is put to the owner as Q21.
 - Orphaned worktree directories are reported, never deleted (§6.7).
 - The resume brief instead of transcript replay (§6.12).
 - A tied best-of-N pair goes to the smaller diff (§9).
@@ -704,9 +737,12 @@ Replaces `collab/fanout-eval.ts` and `scripts/m5-fanout-eval.mjs` (ADR-003 actio
 | Q18 | Push authority for the forge sink | an approval per push; one task-scoped grant per run limited to the run's `p1b/` branches; a standing grant | **Task-scoped grant per run** |
 | Q19 | Packages waiting for a person | 3; 5; no limit | **3** (R12) |
 | Q20 | Stored settings of existing projects | drop values equal to the old defaults; keep them | **Drop** (§13 step 2) |
+| Q21 | Language of the team scheduler and merge queue | (a) TypeScript, extending `collab/` under ADR-019 (3); (b) Rust in `plur1bus-tools` as a new component under ADR-019 (1) | **(a).** The scheduler drives TypeScript turns, the D109 dispatcher, the call budget and the collab store, and the merge queue extends #820's single git implementation; (b) would put an RPC hop into every state change and still leave turns in TypeScript until Phase 4 step 3 (§6.3). The plan checker and the router are Rust either way |
 
-None blocks PT-1's mechanism: it ships with the recommended defaults behind configuration, and an answer changes only
-values. PT-6 and PT-7 wait for Q6, PT-12 for Q13 and Q14, PT-14 for Q15.
+None blocks PT-1 or PT-2: they ship with the recommended defaults behind configuration, and an answer changes only
+values. PT-4 waits for Q21; PT-6 and PT-7 wait for Q6, PT-7 also for Q18; PT-12 can be built and run in shadow mode,
+but leaves it only after Q13 and Q14; PT-13 waits for Q17, PT-14 for Q15; router-initiated teams wait for Q16. The plan's
+"Gates" list the same.
 
 ## 17. Unknowns
 
@@ -714,12 +750,12 @@ values. PT-6 and PT-7 wait for Q6, PT-12 for Q13 and Q14, PT-14 for Q15.
 |---|---|---|
 | U1 | Which ACP CLIs support `session/load` for resuming a worker (our own ACP server says `loadSession: false`, `docs/acp.md:16`; #820's client side is not checked) | PT-8 probes each M6 CLI; the resume brief is the fallback |
 | U2 | A2A task re-reading after a long restart for remote helpers | PT-8 |
-| U3 | Real concurrency of local model servers behind D51 endpoints | PT-2 measures; the default semaphore is 1 until then |
+| U3 | Real concurrency of local model servers behind D51 endpoints | PT-2 measures throughput at 1, 2 and 4 concurrent requests per endpoint; PT-4's semaphore defaults to 1 until then |
 | U4 | Whether D115 WP4 builds the provisioner's merge operations before PT-6 | PT-6 builds them to the D115 §6.5 interface; WP4 reuses them |
 | U5 | The GitHub credential profile needed by D115 WP4b and PT-7 | checked when PT-7 starts |
 | U6 | Token and wall-time cost of team and best-of-N on our stack (R6 reports none; R4 reports 1.8–5.1×) | PT-2, PT-10 |
 | U7 | Whether a prompted verifier gives R7-like gains without training | PT-13 |
-| U8 | MAST's step-repetition share (about 15.7 %) is from the brief; the abstract page does not show it | not used as a threshold |
+| U8 | MAST's step-repetition share differs between versions (v3 15.7 %, v2 17.14 %) | not used as a threshold; only the ranking (largest single mode) is used |
 | U9 | Hidden shared state when one agent identity runs several sessions at once | PT-4 isolation test |
 | U10 | When D120 B1's runner lands | PT-2 builds it to D120's plan if B1 has not started |
 | U11 | Precision of glob ownership for generated files and lockfiles | PT-3b and the team tier |
