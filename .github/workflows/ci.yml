@@ -104,8 +104,9 @@ jobs:
       - run: node --test scripts/check-toolchain.test.mjs
       - name: AF0 offline probe contracts (Unix)
         if: runner.os != 'Windows'
-        run: node --test scripts/test/apple-fm-probe.test.mjs
+        run: node --test scripts/test/apple-fm-probe.test.mjs scripts/test/apple-fm-probe-process.test.mjs
         env:
+          # macOS per-user TMPDIR paths can exceed sun_path; use a short test-only socket root.
           TMPDIR: /tmp
       - name: config fixture drift (before generation)
         run: node packages/config-schema/src/gen-defaults.mjs --check
@@ -278,8 +279,9 @@ jobs:
       - run: node --test scripts/check-toolchain.test.mjs
       - name: AF0 offline probe contracts (Unix)
         if: runner.os != 'Windows'
-        run: node --test scripts/test/apple-fm-probe.test.mjs
+        run: node --test scripts/test/apple-fm-probe.test.mjs scripts/test/apple-fm-probe-process.test.mjs
         env:
+          # macOS per-user TMPDIR paths can exceed sun_path; use a short test-only socket root.
           TMPDIR: /tmp
       - name: config fixture drift (before generation)
         run: node packages/config-schema/src/gen-defaults.mjs --check
