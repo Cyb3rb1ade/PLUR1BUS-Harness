@@ -203,7 +203,7 @@ flowchart TD
 
     subgraph Intake["Intake & Security Boundary"]
         Readonly["ReadonlyFs / SourceReader (O_NOFOLLOW)\n(Strict Key-Allowlists, No Auth Files)"]
-        RustAudit["Rust Archive Auditor (plur1bus-tools / crates/plur1bus-ext)\n(100:1 Decompression Ratio, 10 MiB Entry Cap, No Symlinks)"]
+        RustAudit["Rust Archive Auditor (plur1bus-tools)\n(100:1 Decompression Ratio, 10 MiB Entry Cap, No Symlinks)"]
         TextSanitize["Memory Prompt Parser & Redactor\n(strip Markdown noise, scrub sk-ant-, JWT)"]
         LegacyImporter["Existing M v2 Importers (docs/import.md §13)\n(OpenClaw/Hermes Stores, Cron, LanceDB Take-over)"]
     end
@@ -211,7 +211,7 @@ flowchart TD
     subgraph Normalization["PLUR1BUS Target Model (Zones 1-3)"]
         Soul["SOUL.md / IDENTITY.md (Zone 2, above BP2)"]
         User["USER.md + Memory Cards (Zone 3, BP3, proved user, vertraulich)"]
-        Rules["AGENTS.md / propose-rule Queue (Zone 2)"]
+        Rules["AGENTS.md (Zone 2)"]
         Skills["Agent Skills (skills/<id>/SKILL.md)"]
         MCP["mcp-servers (import.mcp-candidate/1, disabled)"]
         Bridge["Foreign Plugin Manifest Discovery & Native Ports (D121-J1)"]
@@ -232,9 +232,9 @@ flowchart TD
 - **Hardened Archive Intake**:
   - Stream-select named entries required by detected parsers; ignore unrelated files.
   - Enforce a strict 100:1 maximum decompression ratio ceiling (matching `zipaudit`) to neutralize zip-bomb attacks while admitting valid sparse JSON exports.
-  - Enforce a 10 MiB maximum decompressed file size per single entry; 100 MiB total uncompressed bytes per archive.
+  - Enforce a 10 MiB maximum decompressed file size per single entry; 100 MiB total uncompressed bytes per archive. Archives exceeding 100 MiB total uncompressed bytes are refused with typed error `archive-too-large` / `download-too-large` (`E_INVALID_PARAMS`); large account dumps (e.g. multi-gigabyte Takeout) must be unpacked or pre-filtered for selective intake.
   - Disallow symlinks, hardlinks, absolute paths, directory traversal (`..`), and nested archives.
-  - Selective extraction supporting `.zip` (including ZIP64) and `.tar.gz`.
+  - Selective extraction supporting `.zip` (standard 32-bit ZIP per `zipaudit`; ZIP64 is refused) and `.tar.gz`. Crate additions (`tar`, `flate2`/`gzip`) are audited under `deny.toml`.
   - Implemented in Rust under `plur1bus-tools` by a Claude agent per D120 / ADR-019 (1), called over harness RPC.
 
 ### 3.3 Interactive User Paste Sources (ChatGPT, Grok, Claude Web)

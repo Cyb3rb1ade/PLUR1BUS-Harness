@@ -10,20 +10,21 @@
 
 The PLUR1BUS Harness provides offline and supervised import capabilities for legacy OpenClaw and Hermes installations ([`docs/import.md`](../../import.md) §10–§13). However, two critical gaps remain:
 
-1. **No profile import from modern AI coding and chat tools**: While the harness can drive external coding agents via the Agent Bridge ([ADR-011](../../adr/ADR-011-external-coding-agents.md)), it cannot import user profiles, custom instructions, persona definitions, project rules, skills, or MCP server configurations from tools such as Claude Code, OpenAI Codex, Cursor, Kimi, AGY/Gemini, or Grok. Note that legacy OpenClaw, Hermes, HM1, and HM2 remain fully covered by their existing dedicated M v2 importers (`docs/import.md` §13); the profile importer focuses strictly on the 7 new tool sources.
+1. **No profile import from modern AI coding and chat tools**: While the harness can drive external coding agents via the Agent Bridge ([ADR-011](../../adr/ADR-011-external-coding-agents.md)), it cannot import user profiles, custom instructions, persona definitions, project rules, skills, or MCP server configurations from tools such as Claude Code, OpenAI Codex, Cursor, Kimi, AGY/Gemini, or Grok. Note that legacy OpenClaw, Hermes, HM1, and HM2 remain fully covered by their existing dedicated M v2 importers (`docs/import.md` §13); the profile importer focuses strictly on the new tool sources.
 2. **Web UI Import wizard extension**: The original commission ([`docs/phase0/auftrag-original-2026-09-21.md`](../../phase0/auftrag-original-2026-09-21.md) §4.2) requires a re-runnable UI wizard. On main, F37 already describes the built `ImportWizard` ([`docs/web-ui.md`](../../web-ui.md) F37, `packages/web/src/pages/import/*`), and Paket O ([#838](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/838)) adds prompt import. Milestone M7c extends `ImportWizard` (F37) with new tiles for the new sources, granular component selection, side-by-side conflict resolution, archive dropzone, and atomic rollback.
-3. **Foreign plugin compatibility (Owner decision D121-J1, 2026-10-31)**: The Extensions specification ([`docs/superpowers/specs/2026-09-27-extensions-ecosystem-design.md`](2026-09-27-extensions-ecosystem-design.md) §3, §7.3) originally excluded foreign plugin code as "not portable". Following the owner directive of 2026-10-27 to examine how plugins could work, and the owner ruling of 2026-10-31 (D121-J1), compatibility is achieved without emulation shims or execution bridges. Decision D9 (*"Modules that would only work as an emulation are rewritten"*) remains binding. Compatibility is provided through **native ports** (first by PLUR1BUS agents in the PR workflow, later by users via `plur1bus code`), accompanied by **read-only plugin manifest discovery during import** and a structured **port pipeline**. Option 1 ("Host as MCP server") is retained strictly as a theoretical reserve.
+3. **Foreign plugin compatibility (Owner decision D121-J1, 2026-10-31)**: The Extensions specification ([`docs/superpowers/specs/2026-09-27-extensions-ecosystem-design.md`](2026-09-27-extensions-ecosystem-design.md) §3, §7.3) originally excluded foreign plugin code as "not portable". Following the owner directive of 2026-10-27 to examine how plugins could work, and the owner ruling of 2026-10-31 (D121-J1), compatibility is achieved without emulation shims or execution bridges. Decision D9 (*"Modules that would only work as an emulation are rewritten"*) remains binding. Compatibility is provided through **native ports** (first by PLUR1BUS agents in the PR workflow, later by users via `plur1bus code`), accompanied by **read-only plugin manifest discovery extending the existing classifier during import** and a structured **port pipeline**. Fallback reserve: "Host as MCP server" is retained strictly as a fallback reserve.
 
 ### 1.2 Core Objectives
 
 - **Scoped profile intake**: Ingest persona, instructions, user facts, memories, skills, and MCP configurations across new AI tool sources (Claude Code, OpenAI Codex, Cursor, Kimi, AGY/Gemini via direct file intake; Grok via user paste / prompt export; Grokbot dropped/unsupported as multi-party transcript).
 - **Extended Web wizard (extending F37 `ImportWizard`)**: Deliver a fully accessible, bilingual (DE/EN) wizard extension with automatic source detection, granular entity selection, side-by-side conflict resolution, transactional execution, and one-click rollback.
-- **Read-only foreign plugin manifest discovery and native port pipeline (D121-J1 decided)**: Provide read-only discovery of OpenClaw and Hermes plugin manifests during import without foreign code execution. Classify discovered plugins into four discrete categories:
-  1. *Native equivalent available*
-  2. *Known MCP server available*
-  3. *Candidate for a port*
-  4. *Non-portable (with reason)*
-  Surface findings in preview and import reports, with local-only demand counting (strictly local, zero telemetry). Establish a structured 6-stage port pipeline (license audit, target form selection, behavior-derived tests, D109 capability declarations, human review, signed catalog distribution vs. sandboxed local ports from `plur1bus code`).
+- **Read-only foreign plugin manifest discovery and native port pipeline (D121-J1 decided)**: Extend the existing classifier (`packages/core/src/import/plugin-classification.ts`, RPC type `ImportDetection` in `docs/rpc.md`) during the detect step of existing OpenClaw and Hermes importers (D121-J5) without building a parallel scanner. Classify discovered plugin manifests into five discrete categories:
+  1. *Native equivalent available* (`native-equivalent`)
+  2. *Known MCP server available* (`mcp-equivalent`)
+  3. *Candidate for a port* (`port-candidate`; `bridge-possible` is deprecated and mapped here)
+  4. *Non-portable with reason* (`nonportable`)
+  5. *Unknown declaration / unclassified metadata* (`unknown`, display state `unknown` with reason `incomplete-declaration`)
+  The RPC enum change is scheduled for the next free minor RPC version at implementation time. Surface findings in preview and import reports, with local-only demand counting in `<home>/state/plugin-demand.json` (strictly local, zero telemetry). Establish a structured 6-stage port pipeline (license audit enforcing upstream attribution for permissive code and restricting copyleft to standalone add-ons, target form selection, behavior-derived blackbox tests, D109 capability declarations, human review per ext §11.3, signed catalog distribution via X4/X5 vs. sandboxed local ports from `plur1bus code`).
 - **Strict security & zero credential migration (ADR-005, ADR-011)**: Untrusted imported instructions never enter the prompt cache or system prompt without explicit user preview and quarantine (in v1 reported as `instructions-not-imported` per Paket O) with read-only copy-out. Sensitive tokens are scrubbed using the central redactor. Zero credential or session hijacking is permitted; no code path reads credential files (`auth.json`, `.credentials.json`, Cursor `state.vscdb`).
 
 ---
@@ -37,13 +38,13 @@ PLUR1BUS structures agent cognition and runtime configuration through explicit a
 | Source Entity | PLUR1BUS Target | Architectural Placement | Rationale & Cache Rules (ADR-010) |
 |---|---|---|---|
 | **Persona / Tone / Voice** | `SOUL.md` (read-only copy-out in v1) | System Prompt (Zone 2, above BP2) | Static persona definition; changes invalidate prompt cache from BP2 downwards. In v1 under D121-J3 Option A, imported personas are presented read-only in preview and report with copy-out to preserve prompt cache and prevent prompt injection; `--conflict` does not apply and never writes to `SOUL.md` without operator preview. |
-| **Agent Operational Identity** | `IDENTITY.md` | System Prompt (Zone 2, above BP2) | Operating context and environment facts for the agent. Written when targeting an existing agent with verified identity facts. |
+| **Agent Operational Identity** | `IDENTITY.md` | System Prompt (Zone 2, above BP2) | Operating context and environment facts for the agent. `IDENTITY.md` is never overwritten with unverified identity facts; identity statements from foreign profiles are curated or imported to user-scope memory (Zone 3). |
 | **User Facts & Preferences** | `USER.md` + Engine Memory Cards (`scope: user`) | Frozen Memory Snapshot (Zone 3, BP3) | Stable facts about the human user. Bound to verified human principal (`trust: "proved"`). Without proved user, rejected with `unresolved-user-scope` (no automatic fallback to agent-private scope per ADR-007 Q4). Default confidentiality is `vertraulich` (D116 (6)), never `teilbar`. |
 | **Global / Operating Instructions** | Agent Operating Instructions (`AGENTS.md` / `SOUL.md` sections) | System Prompt (Zone 2, above BP2) | General guidelines ("always do X", "never do Y"). In v1, presented in preview and report as `instructions-not-imported` (per Paket O) with read-only copy-out to prevent automated prompt injection. Never automatically written to Zone 2. |
 | **Project / Workspace Rules** | Workspace Guidelines (`AGENTS.md`) | Workspace Scope (Zone 2 for active workspace) | Context rules derived from `.cursorrules`, `CLAUDE.md`, or project `AGENTS.md`. In v1, presented in preview and report as `instructions-not-imported` (per Paket O) with read-only copy-out. |
 | **Skills** | Agent Skills (`skills/<id>/SKILL.md`) | Extensions Registry (`skills/`) | Conforms to Agent Skills standard (Extensions Spec §4.3). Trust tier `imported`. Subject to `--conflict skip \| rename \| replace`. |
 | **MCP Servers** | `mcp-servers` configuration | Tool Definitions (Zone 1, BP1) | Declarative stdio/HTTP server entries. Conforms to `import.mcp-candidate/1`: slot names preserved, arguments and env values scrubbed, disabled by default. Changes invalidate BP1. Subject to `--conflict`. |
-| **Foreign Plugins (Manifest Discovery)** | Plugin Manifest Discovery (D121-J1) | Import Report / Catalog Queue | Manifests read strictly read-only (`openclaw.plugin.json`, `package.json`, `plugin.yaml`). Classified into 4 categories; zero foreign code executed. Local demand count incremented without telemetry; feeds native port pipeline. |
+| **Foreign Plugins (Manifest Discovery)** | Plugin Manifest Discovery (D121-J1) | Import Report / Catalog Queue | Manifests read strictly read-only (`openclaw.plugin.json`, `package.json`, `plugin.yaml`) extending `plugin-classification.ts`. Classified into 5 categories; zero foreign code executed. Local demand count incremented in `<home>/state/plugin-demand.json` without telemetry; feeds native port pipeline. |
 | **Foreign Memory / Channels / Providers** | *Non-Portable* | N/A | Handled natively by PLUR1BUS core and engine. Classified as non-portable with explicit architectural reason. |
 
 #### Confidentiality & Principal Constraints (D116, ADR-007)
@@ -88,10 +89,10 @@ flowchart TD
    - *Replace* (`--conflict replace`): Overwrites existing skill, MCP entry, or memory card with explicit operator confirmation. In v1, `replace` never performs an unreviewed overwrite of Zone 2 files (`SOUL.md` / `AGENTS.md`).
    - *Synthesize / Edit*: For memory cards, opens an inline editor allowing the operator to combine both intents.
 4. **Plan Hash and Byte Invariance**: The preview displayed in the CLI or Web UI must exactly equal the applied bytes (plan hash). Preprocessing and normalization must not strip content (such as HTML comments or bidirectional Unicode characters) in preview while leaving them in apply.
-5. **Per-Entry Bounds**: Following Paket O standards (`packages/core/src/import/prompt/parse.ts:11,13`), individual imported prompt memory payloads are capped at 512 KiB total input (`MAX_INPUT_BYTES`) and 4 000 characters per statement text (`MAX_ENTRY_CHARS`).
+5. **Per-Entry Bounds**: Following Paket O standards (`packages/core/src/import/prompt/parse.ts:11,13`, originating from PR #838), individual imported prompt memory payloads are capped at 512 KiB total input (`MAX_INPUT_BYTES`) and 4 000 characters per statement text (`MAX_ENTRY_CHARS`).
 6. **Provenance Tracking**: Every imported skill, MCP entry, and memory card carries immutable metadata:
    - `provenance: "imported"`
-   - `sourceRef: "<source>:<kind>:<id>;run=<runId>"`
+   - `sourceRef`: Memory cards use `profile-import;source=<source>;run=<runId>;category=<category>` (aligned with Paket O's `prompt-import;run=<runId>;category=<category>`); skills and MCP entries record `<source>:<kind>:<id>;run=<runId>`.
 
 ---
 
@@ -99,7 +100,7 @@ flowchart TD
 
 ### 3.1 CLI Interface
 
-Profile import integrates into the existing `plur1bus import` command structure under `crates/plur1bus` (`src/cli.rs`, `src/commands/import.rs`), strictly scoped to the 7 new sources:
+Profile import integrates into the existing `plur1bus import` command structure under `crates/plur1bus` (`src/cli.rs`, `src/commands/import.rs`). The `profile` subcommand (`plur1bus import profile`) operates alongside existing subcommands `import openclaw`, `import hermes`, and `import prompt`, strictly scoped to the new tool sources:
 
 ```bash
 # Detect available profile sources across the host
@@ -135,7 +136,7 @@ Legacy OpenClaw, Hermes, HM1, and HM2 sources are handled by the existing dedica
 Profile import extends the existing administrative import namespace (`admin.import.*`, `docs/import.md` §13.1) rather than creating a parallel API surface. All methods are Owner/Admin only, require authenticated sessions, and are assigned the **next free RPC minor version at implementation time** (extending `SourceType`, `source-catalog.json`, and the source registry under `packages/core/src/import/sources/`):
 
 - `admin.import.detect`: Extended to return detected profile sources alongside existing OpenClaw/Hermes installations.
-- `admin.import.plan`: Generates an immutable preview manifest for a profile source, archive, or prompt text, checking for component conflicts against target agents. Foreign plugin manifests are detected and classified.
+- `admin.import.plan`: Generates an immutable preview manifest for a profile source or archive, checking for component conflicts against target agents. Conversational memory prompt text delegates to Paket O's `memory.importText.*` RPC (`#838`) rather than creating a duplicate prompt intake path. Foreign plugin manifests are detected and classified.
 - `admin.import.apply`: Requires fresh preflight and downtime consent; takes import locks, journals intent, snapshots mutated state, applies memory cards, skills, and MCP configs atomically, and writes `report.json` (0600).
 - `admin.import.rollback`: Reverts changes associated with a specific `importRunId` using the cold recovery snapshot.
 
@@ -178,7 +179,7 @@ sequenceDiagram
     Core-->>UI: Step 6: Completion Report (Discovered Plugins Classification) & Rollback Button
 ```
 
-1. **Step 1: Detect & Select Source**: Adds tiles for the 7 new tools alongside existing OpenClaw, Hermes, and Prompt Import tiles. Provides an archive dropzone (`.zip`, `.tar.gz`) and prompt paste box.
+1. **Step 1: Detect & Select Source**: Adds tiles for the new tool sources alongside existing OpenClaw, Hermes, and Prompt Import tiles. Conversational prompt import delegates directly to Paket O's dedicated wizard flow. Provides an archive dropzone (`.zip`, `.tar.gz`) for profile archives.
 2. **Step 2: Component Selection**: Granular checklist grouped by category (Persona/Identity, Instructions, User Facts, Skills, MCP Servers, Foreign Plugin Discovery).
 3. **Step 3: Preview**: Diffs for `IDENTITY.md`, `USER.md`, proposed skills, memory cards, and MCP tool additions. Persona definitions and operating instructions are presented read-only with copy-out buttons; foreign plugin discovery findings are displayed by category.
 4. **Step 4: Conflict Resolution**: Side-by-side comparison screen for detected skill, MCP, or memory clashes with Skip / Rename / Replace options.
@@ -227,8 +228,8 @@ When PLUR1BUS runs inside a container (e.g., Docker desktop bundle per D77):
   - Stream selection of named entries required by detected parsers.
   - A maximum decompression ratio ceiling of 100:1 (matching `zipaudit`).
   - A 10 MiB limit per single decompressed file.
-  - A 100 MiB total uncompressed bytes limit for the entire archive payload.
-  - Rejection of symlinks, hardlinks, absolute paths, directory traversal (`..`), and nested archives.
+  - A 100 MiB total uncompressed bytes limit for the entire archive payload. Archives exceeding 100 MiB are refused with typed error `archive-too-large` / `download-too-large` (`E_INVALID_PARAMS`); operators must pre-filter or unpack extensive dumps (e.g. multi-gigabyte Takeout) prior to selective intake.
+  - Rejection of symlinks, hardlinks, absolute paths, directory traversal (`..`), and nested archives. Standard 32-bit `.zip` (per `zipaudit`; ZIP64 is refused) and `.tar.gz` are supported; crate additions (`tar`, `flate2`/`gzip`) are audited under `deny.toml`.
   - **Sequential `.tar.gz` stream handling**: Because `.tar.gz` is a single sequential gzip stream, skipping entries requires decompressing through the gzip stream in memory; all decompressed bytes count towards the 100:1 ratio ceiling and the 100 MiB total cap.
 
 ---
@@ -241,20 +242,23 @@ In accordance with Owner Decision D121-J1 (decided 2026-10-31), foreign plugin c
 
 ### 4.1 Read-Only Plugin Manifest Discovery during Import
 
-During profile import, PLUR1BUS scans the plugin directories of legacy host installations (`~/.openclaw/extensions/`, `~/.hermes/plugins/`) strictly in read-only mode (`O_NOFOLLOW`).
+Foreign plugin discovery occurs during the detection step of existing OpenClaw and Hermes imports (`plur1bus import openclaw` and `plur1bus import hermes`, per D121-J5) rather than creating a parallel scanner or running during profile import. It extends the existing classifier in `packages/core/src/import/plugin-classification.ts` and the RPC type `ImportDetection` (`docs/rpc.md`), reading manifests strictly in read-only mode (`O_NOFOLLOW`).
 
 #### Discovery Rules
 - **Manifest-Only Inspection**: Only declarative metadata manifests are read (`openclaw.plugin.json`, `package.json`, `plugin.yaml`).
 - **Zero Foreign Code Execution**: No Node.js or Python runtime is spawned; no package dependencies are installed; no code is evaluated (`eval`/`Function`).
-- **Deterministic 4-Way Classification**: Every discovered plugin is mapped to one of four discrete categories:
-  1. **Native Equivalent Available**: A native PLUR1BUS tool, skill, or engine capability already provides this functionality (e.g. native filesystem, process execution, Git, Web search, LanceDB memory).
-  2. **Known MCP Server Available**: An existing, standard Model Context Protocol (MCP) server exists in the ecosystem that provides equivalent capability (e.g. Postgres, SQLite, GitHub, Fetch). The import wizard suggests adding the corresponding MCP server configuration.
-  3. **Candidate for a Port**: A standalone tool plugin with a well-defined functional contract, eligible for the native port pipeline.
-  4. **Non-Portable (with Reason)**: Incompatible architectural role (e.g. context-engine override, turn lifecycle hook modifying prompt cache, custom channel adapter, private memory backend, binary dependency requiring C/C++ compilation). The report documents the specific incompatibility reason.
+- **Deterministic 5-Way Classification**: Extending `plugin-classification.ts`, every discovered plugin is mapped to one of five discrete categories:
+  1. **Native Equivalent Available** (`native-equivalent`): A native PLUR1BUS capability, skill, or engine tool already provides this functionality (e.g. native filesystem read/write `fs.read`/`fs.write`, process execution `exec.run`, Web search `web.search`, LanceDB memory).
+  2. **Known MCP Server Available** (`mcp-equivalent`): A standard, maintained Model Context Protocol (MCP) server exists in the ecosystem that provides equivalent capability (e.g. GitHub MCP server published by GitHub, SQLite, Postgres; reference catalogue maintained with clear provenance). The import wizard suggests adding the corresponding MCP server configuration.
+  3. **Candidate for a Port** (`port-candidate`): A standalone tool plugin with a well-defined functional contract, eligible for the native port pipeline. The legacy status `bridge-possible` is marked deprecated and mapped directly to `port-candidate`.
+  4. **Non-Portable with Reason** (`nonportable`): Incompatible architectural role (e.g. context-engine override, turn lifecycle hook modifying prompt cache, custom channel adapter, private memory backend, binary dependency requiring C/C++ compilation). The report documents the specific incompatibility reason.
+  5. **Unknown Declaration** (`unknown`): Manifests with incomplete declarations, unparseable entries, or missing metadata remain in display state `unknown` with reason `incomplete-declaration`.
+- **RPC Migration**: The `ImportDetection.classification` enum in `docs/rpc.md` is updated to include these five discrete values at the next free minor RPC version at implementation time.
 
 #### Presentation & Local Demand Tracking
 - **Wizard Preview & Report**: The discovered plugins and their classifications are displayed in Step 3 of the import wizard and documented in the final `report.json`.
-- **Local Demand Counting (Zero Telemetry)**: If an imported plugin is classified as a port candidate or known MCP server, a local counter is incremented within the user's local instance configuration (`~/.plur1bus/state/plugin-demand.json`). This demand metric is used exclusively by the local operator and local `plur1bus code` to prioritize porting efforts. **Zero telemetry or external network calls are performed.**
+- **Local Demand Counting (Zero Telemetry)**: If an imported plugin is classified as a port candidate or known MCP server, a local counter is incremented within the user's local instance state (`<home>/state/plugin-demand.json`, honoring `--home` / `$PLUR1BUS_HOME`). This demand metric is used exclusively by the local operator and local `plur1bus code` to prioritize porting efforts. **Zero telemetry or external network calls are performed.**
+- **Demand Data Source for First Ports (D121-J7 Decided 2026-10-31)**: Official first ports authored by project agents in the PR workflow are prioritized based on the Owner's verified production environments and public registry statistics (such as npm and GitHub star counts). A dedicated CLI command (`plur1bus plugin export-demand`) allows users to deliberately export their local demand summary to a text file for manual sharing (e.g., pasting into a GitHub issue); no demand data is ever uploaded automatically.
 
 ---
 
@@ -266,41 +270,51 @@ To provide genuine, sustainable compatibility without violating harness architec
 flowchart TD
     Discover["1. Discover Foreign Plugin Manifest\n(Metadata & Behavioral Contract)"] --> License{"2. License Audit"}
     License -- "Unlicensed / Proprietary" --> RejectLicense["Refuse Port\n(Zero Unlicensed Ports Allowed)"]
-    License -- "Copyleft (GPL / AGPL)" --> CopyleftPkg["Designate as Standalone Add-On\n(Identical Copyleft License Mandatory)"]
+    License -- "Copyleft (GPL / AGPL)" --> CopyleftPkg["Designate as Standalone Add-On (.p1x)\n(Separate Repo; Identical Copyleft License Mandatory)"]
     License -- "Permissive (MIT / Apache / BSD)" --> ChooseForm["3. Select Target Form"]
     CopyleftPkg --> ChooseForm
     ChooseForm -- "Workflow / Multi-Step" --> SkillForm["Agent Skill\n(skills/<id>/SKILL.md)"]
     ChooseForm -- "External Service / API" --> McpForm["MCP Server Config\n(mcp-servers JSON)"]
-    ChooseForm -- "High-Performance / OS Utility" --> ToolForm["Rust Module in plur1bus-tools\n(D120 / ADR-019)"]
+    ChooseForm -- "High-Performance / OS Utility" --> ToolForm["Rust Module in plur1bus-tools\n(D120 / ADR-019; Permissive Only)"]
     SkillForm --> BehaviorTests["4. Derive Behavior-Based Tests\n(Blackbox Contract from Observed Input/Output)"]
     McpForm --> BehaviorTests
     ToolForm --> BehaviorTests
     BehaviorTests --> DeclareD109["5. Declare D109 Capabilities & Effects\n(Explicit network, fs, exec scopes)"]
-    DeclareD109 --> HumanReview{"6. 4-Eyes Human Review"}
+    DeclareD109 --> HumanReview{"6. Human Review (ext §11.3 REVIEW.md)"}
     HumanReview -- "Approved (Official Port)" --> SignedCatalog["Sign with Minisign & Publish\nto Catalog (extensions.plur1bus.app)"]
-    HumanReview -- "Local Port (plur1bus code)" --> LocalSandbox["Unsigned Local Extension\n(Marked 'local'; requires operator consent; runs in sandbox)"]
+    HumanReview -- "Official plur1bus-tools Module" --> HarnessRelease["Harness Release PR (MIT)\n(Requires Owner Sign-Off)"]
+    HumanReview -- "Local Port (plur1bus code)" --> LocalSandbox["Unsigned Local Extension (Tier 'local')\n(Requires D109 'ask' approval; runs in sandboxSpawn)"]
 ```
 
 #### The 6-Stage Porting Procedure
 1. **License Audit First**:
-   - *Permissive Licenses* (MIT, Apache 2.0, BSD, ISC): Eligible for porting directly into the official PLUR1BUS catalog.
-   - *Copyleft Licenses* (GPL, AGPL, LGPL): May only be ported as a distinct, standalone add-on package distributed under the identical copyleft license.
-   - *Unlicensed / Proprietary / All Rights Reserved*: **Strictly prohibited from porting.** No code or behavioral specification is ported without explicit legal license.
-2. **Select Target Form**:
-   - *Agent Skill* (`skills/<id>/SKILL.md`): Selected for prompt-driven workflows, instruction templates, or composable multi-step procedures.
-   - *MCP Server Configuration* (`mcp-servers`): Selected for external service integrations, REST APIs, or database connectors.
-   - *Module in `plur1bus-tools`* (Rust, D120): Selected for high-performance data processing, cryptographic utilities, or low-level OS operations.
+   - *Permissive Licenses* (MIT, Apache 2.0, BSD, ISC): Eligible for porting into the official PLUR1BUS catalog or `plur1bus-tools`. Upstream attribution is strictly mandatory:
+     1. In the file header comments of the ported source code.
+     2. In the `NOTICE` or `LICENSE` file of the packaged `.p1x` extension (per ext §11.3 item 1).
+     3. In `THIRD_PARTY.md` when the target is a module in `plur1bus-tools`.
+   - *Copyleft Licenses* (GPL, AGPL, LGPL): May only be ported as a distinct, standalone add-on package (`.p1x`) in its own separate repository, distributed under the identical copyleft license, as a skill or as a separate MCP server process. **Copyleft code is strictly barred from `plur1bus-tools` and the MIT harness binary.**
+   - *Unlicensed / Proprietary / All Rights Reserved*: **Strictly prohibited from porting.** "No license, no port." No code or behavioral specification is ported without explicit legal license.
+2. **Select Target Form & Distribution Path**:
+   - *Agent Skill* (`skills/<id>/SKILL.md`): Selected for prompt-driven workflows, instruction templates, or composable multi-step procedures. Distributed as `.p1x` via the signed catalogue (`extensions.plur1bus.app`), depending on milestones X4/X5.
+   - *MCP Server Configuration* (`mcp-servers`): Selected for external service integrations, REST APIs, or database connectors. Distributed as `.p1x` via the signed catalogue, depending on milestones X4/X5.
+   - *Module in `plur1bus-tools`* (Rust, D120): Selected for high-performance data processing, cryptographic utilities, or low-level OS operations. **Permissive only**; compiled into the harness binary and shipped exclusively via harness releases (never through the catalogue).
 3. **Derive Behavior-Based Tests**:
    - Blackbox test fixtures are authored based strictly on observable behavioral specifications (input arguments, schema, expected return formats, error cases).
-   - Foreign source code is never copy-pasted; implementations are clean-room native implementations satisfying the behavioral test suite.
+   - Foreign source code is never blindly imported; native implementations satisfy the behavior-derived test suite.
 4. **Declare D109 Capabilities**:
    - Required capabilities (network egress, filesystem roots, process execution) are explicitly declared.
    - Default effect levels are set (`external`/ask for network/write operations).
 5. **Human Review**:
-   - Every official port requires mandatory 4-eyes human review before merge into the catalog repository (`Cyb3rb1ade/plur1bus-extensions`).
+   - Every official port requires human review following ext §11.3 `REVIEW.md`, with the Owner as required reviewer, before merge into the catalog repository (`Cyb3rb1ade/plur1bus-extensions`) or harness.
 6. **Distribution & Trust Model**:
-   - *Official Ports*: Signed via Minisign and distributed through the verified extensions catalog (`extensions.plur1bus.app`).
-   - *Local Ports from `plur1bus code`*: Remain unsigned, explicitly marked with trust tier `local`, require interactive operator authorization to enable, and execute strictly within the tool sandbox.
+
+| Target Form | License Requirements | Distribution Channel | Review & Verification |
+|---|---|---|---|
+| **Skill / MCP Configuration** (Official) | Permissive (or Copyleft standalone `.p1x`) | Signed catalogue (`extensions.plur1bus.app`), depends on milestones X4/X5 | ext §11.3 `REVIEW.md` (Owner as required reviewer) |
+| **Rust Module in `plur1bus-tools`** (Official) | Permissive only (MIT compatible; copyleft forbidden) | Shipped with Harness releases via PR to main repo | Standard PR review + Owner sign-off |
+| **Local Port (`plur1bus code`)** | Permissive (local use) | Local machine only, marked tier `local`, unsigned | Operator prompt per invocation (D109 `ask` floor), sandboxed via `sandboxSpawn` |
+
+- *Local Ports from `plur1bus code`*: Restricted strictly to skill and standalone MCP server forms (never a module in `plur1bus-tools`). Marked with trust tier `local` (ext §8.2), remain unsigned, run strictly within the tool sandbox with MCP launched via `sandboxSpawn`, and require D109 operator approval on every invocation (`ask` default floor; enable-time consent is insufficient). Local ports are refused when `tools.sandbox.required=false`.
 
 ---
 
@@ -313,7 +327,7 @@ Decision D9 ([`docs/superpowers/specs/2026-09-24-m1b-2a-core-daemon-cli-design.m
 #### Faithful Realization
 The owner's decision under D121-J1 strictly enforces D9. No OpenClaw compatibility shims or emulation layers are introduced. The harness core (`packages/core`) remains 100% free of foreign idioms under `HYG-001`. Useful capabilities from external ecosystems are cleanly re-implemented as native PLUR1BUS skills, MCP configurations, or `plur1bus-tools` modules.
 
-*Note on Option 1 ("Host as MCP server"):* Running the foreign host application externally as a whole and connecting to it via standard MCP remains a theoretical architecture reserve. It is not implemented in v1.
+*Note on Fallback Reserve ("Host as MCP server"):* Running the foreign host application externally as a whole and connecting to it via standard MCP remains a theoretical architecture fallback reserve. It is not implemented in v1.
 
 ---
 
@@ -345,11 +359,11 @@ All three milestones sit outside the v0.1.0 total:
    - Full bilingual DE/EN accessibility (axe-core green).
    - Total effort: **3–5 ad**.
 3. **`X3b` — Foreign Plugin Discovery & Native Port Pipeline**:
-   - **Plugin Manifest Discovery in Import (P-J4a)**: Read-only scanning and 4-way classification in import preview and report; local demand counting without telemetry. (2–3 ad).
+   - **Plugin Manifest Discovery in Import (P-J4a)**: Read-only scanning and 5-way classification in import preview and report; local demand counting without telemetry. (2–3 ad).
    - **Port Pipeline Tooling & Validation in `plur1bus-tools` (P-J4b)**: License checking, D109 capability declarations, behavior test generation. (2–3 ad).
-   - **Initial Native Ports (P-J4c)**: First wave of native ports based on local demand. (3–5 ad).
-   - **Integration in `plur1bus code` (P-J4d)**: Workflow for local user-driven ports, gated by D120 milestone. (2–3 ad).
-   - Total effort: **6–10 ad** (post-v0.1.0).
+   - **Initial Native Ports (P-J4c)**: First wave of native ports based on local demand and Owner setups. (3–5 ad).
+   - **Integration in `plur1bus code` (P-J4d)**: Workflow for local user-driven ports, gated by D120 milestone and D106 tool sandbox. (2–3 ad).
+   - Total effort: **9–14 ad** (post-v0.1.0).
 
 ---
 
@@ -359,9 +373,10 @@ The following architectural decisions have been confirmed by the owner under reg
 
 | ID | Decision Question | Context & Constraints | Options | Recommendation | Decided | Notes |
 |---|---|---|---|---|---|---|
-| **D121-J1** | Foreign Plugin Compatibility Strategy | Owner directive 2026-10-27 explored foreign plugin support. D9 (`docs/superpowers/specs/2026-09-24-m1b-2a-core-daemon-cli-design.md:23`) explicitly mandates: *"Modules that would only work as an emulation are rewritten"* and quotes owner: *"nicht so wirken, als hätten wir … eine OpenClaw-Emulationsschicht gebaut … Wenn wir dann ein Modul neu schreiben müssen, dann müssen wir ein Modul neu schreiben."* | **Option A (Decided)**: Native ports and read-only manifest discovery during import. Zero shims, zero execution bridges. 6-stage port pipeline (license check, target form, behavior tests, D109 declaration, human review, signed catalog vs. sandboxed local ports). Option 1 ("Host as MCP server") kept as theoretical reserve.<br>**Option B**: Out-of-process bridge (rejected by owner).<br>**Option C**: In-process emulation (rejected: violates security & D9). | Adopt Option A: Native Ports & Discovery Pipeline. | **Decided: Option A (2026-10-31)** | Strictly upholds D9 and HYG-001. No foreign runtime shims. |
-| **D121-J2** | Lint Hygiene Allowlist & Shim Package Location | `scripts/lint-hygiene.mjs` enforces `HYG-001` (banning OpenClaw idioms). D9 requires keeping harness core clean of foreign idioms. | **Entfällt**: Since no compatibility shim is built under D121-J1, no `hosts/openclaw-shim/` package is created and no hygiene allowlist exceptions are needed. `packages/core` remains 100% clean of OpenClaw idioms. | Entfällt (no shim built). | **Entfällt (2026-10-31)** | Superseded by D121-J1 Option A. |
+| **D121-J1** | Foreign Plugin Compatibility Strategy | Owner directive 2026-10-27 explored foreign plugin support. D9 (`docs/superpowers/specs/2026-09-24-m1b-2a-core-daemon-cli-design.md:23`) explicitly mandates: *"Modules that would only work as an emulation are rewritten"* and quotes owner: *"nicht so wirken, als hätten wir … eine OpenClaw-Emulationsschicht gebaut … Wenn wir dann ein Modul neu schreiben müssen, dann müssen wir ein Modul neu schreiben."* | **Option A (Decided)**: Native ports and read-only manifest discovery during import. Zero shims, zero execution bridges. 6-stage port pipeline (license check with mandatory attribution for permissive and copyleft standalone add-on restriction, target form, behavior tests, D109 declaration, human review, signed catalog vs. sandboxed local ports). Fallback reserve ("Host as MCP server") kept as theoretical reserve.<br>**Option B**: Out-of-process bridge (rejected by owner).<br>**Option C**: In-process emulation (rejected: violates security & D9). | Adopt Option A: Native Ports & Discovery Pipeline. | **Decided: Option A (2026-10-31)** | Strictly upholds D9 and HYG-001. No foreign runtime shims. |
+| **D121-J2** | Lint Hygiene Allowlist & Shim Package Location | `scripts/lint-hygiene.mjs` enforces `HYG-001` (banning OpenClaw idioms). D9 requires keeping harness core clean of foreign idioms. | **Obsolete**: Since no compatibility shim is built under D121-J1, no `hosts/openclaw-shim/` package is created and no hygiene allowlist exceptions are needed. `packages/core` remains 100% clean of OpenClaw idioms. | Obsolete: no shim is built, so no hygiene exception. | **Obsolete (2026-10-31)** | Superseded by D121-J1 Option A. |
 | **D121-J3** | Default Instruction Conflict Resolution & Zone 2 Safety | When importing instructions into an agent with existing guidelines, how should conflicts resolve, and how is Zone 2 protected against prompt injection? | **Option A (Decided for v1)**: In v1, instructions and persona definitions are presented in preview and report as `instructions-not-imported` (matching Paket O) with read-only copy-out. No automated or unconfirmed writes to Zone 2 (`SOUL.md` / `AGENTS.md`). `--conflict` (`skip \| rename \| replace`, default `skip`) applies only to skills, MCP entries, and memory cards.<br>**Option B**: Rule proposal queue (deferred post-D120 in `plur1bus-tools`).<br>**Option C**: Direct unconfirmed overwrite (`replace`) or concatenation (rejected: violates Zone 2 integrity and prompt cache). | Adopt Option A for v1: Default `skip`. Instructions and personas reported as `instructions-not-imported` per Paket O with copy-out. Replace never bypasses preview. | **Decided: Option A (2026-10-31)** | Aligned with Paket O, ADR-010, and Zone 2 safety. |
 | **D121-J4** | Confidentiality and Memory Scope Defaults | Ingesting facts and memories into engine stores under D116 and ADR-007 Q4. | **Option A (Decided)**: Default D116 confidentiality level is `vertraulich` (never `teilbar`). `scope: user` requires proved human principal; unauthenticated CLI calls fail with `unresolved-user-scope` (no fallback per ADR-007 Q4).<br>**Option B**: Import as `teilbar` or fallback to agent-private (rejected: potential data leak / scope breach). | Adopt Option A: Default `vertraulich`. Strict adherence to ADR-007 Q4 and Paket O. | **Decided: Option A (2026-10-31)** | Follows D116 (6). |
 | **D121-J5** | Source Scope Partitioning | Multiple overlapping import paths exist in the harness (M v2, Paket O, profile import). | **Option A (Decided)**: Scope `plur1bus import profile` strictly to the new sources (5 direct file-based: Claude, Codex, Cursor, Kimi, AGY; Grok via user paste / prompt export; Grokbot dropped). Existing OpenClaw, Hermes, HM1, HM2 remain with existing M v2 importers.<br>**Option B**: Re-implement OpenClaw/Hermes in profile importer (rejected: code duplication). | Adopt Option A: Strict scope boundary. Sources 8–11 delegate to existing M v2 importers. | **Decided: Option A (2026-10-31)** | Prevents parallel API surfaces. |
 | **D121-J6** | Milestone Boundaries & ADR-019 / D120 Compliance | Sequencing and technology choice for implementation. | **Option A (Decided)**: M7b, M7c, and X3b sit outside v0.1.0 total. RPC minor assigned as next free at implementation time. All new components in Rust by Claude agents per D120 / ADR-019.<br>**Option B**: Implement components in TypeScript without ADR-019 justification (rejected: violates D120 / ADR-019). | Adopt Option A: Rust components assigned to Claude agents. Milestones scheduled outside v0.1.0. | **Decided: Option A (2026-10-31)** | Complies with ADR-019. |
+| **D121-J7** | Foreign Plugin Demand Source & Selection | Local demand counting is strictly local with zero telemetry, but official first ports require prioritization. | **Decided (2026-10-31)**: Official first ports are selected based on the Owner's setups and public registry statistics (e.g. npm/GitHub star counts). Local demand counting in `<home>/state/plugin-demand.json` remains strictly local without telemetry. A deliberate manual export command (`plur1bus plugin export-demand`) allows users to export their local demand summary to a file for pasting into an issue. Never automatic. | Adopt Decided: Owner setups + public registries; local export command. | **Decided (2026-10-31)** | Zero telemetry; actionable prioritization. |
