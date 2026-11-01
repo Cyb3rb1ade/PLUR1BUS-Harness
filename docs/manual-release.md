@@ -43,7 +43,7 @@ Desktop releases exclude v1-compatible updater artifacts because the plugin's `z
 
 - [ ] Actions → harness-release → Run workflow on the release branch with `dry-run` checked (the default).
 - [ ] All five `payload` legs and all five `binary` legs are green; `sign-macos` is skipped; `native` is green and its
-      job summary shows `release-native.json` with five `binary` and five `core.payload` entries.
+      job summary shows `release-native.json` with five `binary`, five `tools` and five `core.payload` entries.
 - [ ] A warning about a missing `PLUR1BUS_RELEASE_PUBKEY_*` variable means the dry-run binaries cannot verify the
       feed; a real run refuses to build without both.
 
@@ -57,7 +57,7 @@ Desktop releases exclude v1-compatible updater artifacts because the plugin's `z
 - [ ] Approve the `macos-signing` deployment when asked. `sign-macos` signs with the hardened runtime and a timestamp,
       notarises (`notarytool --wait`) and uploads `signed-darwin-arm64`. A bare Mach-O cannot be stapled: Gatekeeper
       fetches the ticket online.
-- [ ] Download the artefact `harness-release-<version>`: five `plur1bus-<target>[.exe]`, five
+- [ ] Download the artefact `harness-release-<version>`: five `plur1bus-<target>[.exe]`, five `plur1bus-tools-<target>[.exe]`, five
       `core-<version>-<target>.tar.gz` with `.sha256`, `release-native.json`, `SHA256SUMS`, the Hermes provider
       `plur1bus-hermes-provider-<version>.tar.gz`, the client `plur1bus_memory_client-<version>-py3-none-any.whl` and
       `plur1bus_memory_client-<version>.tar.gz` (not uploaded to PyPI), and `hermes-sidecar.lock.json` (the seed of
@@ -69,7 +69,7 @@ Desktop releases exclude v1-compatible updater artifacts because the plugin's `z
 - [ ] `sha256sum -c SHA256SUMS` passes, and `release-native.json`'s hashes match it.
 - [ ] macOS: `codesign --verify --strict --verbose=2 plur1bus-darwin-arm64` and
       `spctl --assess --type execute -vv plur1bus-darwin-arm64` (after downloading it through a browser, so it carries
-      the quarantine attribute) both accept it.
+      the quarantine attribute) both accept it; repeat both checks for `plur1bus-tools-darwin-arm64`.
 - [ ] Merge `release-native.json` as the `native` key of `release.json`, sign that with the channel's secret key
       (`minisign -S -s stable.key -m stable.json`), and publish the binaries and payloads under the base URL and
       `stable.json` plus `stable.json.minisig` on the feed host.

@@ -4,7 +4,7 @@
 //
 //   node scripts/release/release-native.mjs --artifacts <dir> --version <v> [--base-url <url>] --out <file>
 //
-// <dir> holds, per target: `plur1bus-<target>[.exe]` (for darwin-arm64: the signed binary), and from
+// <dir> holds, per target: `plur1bus-<target>[.exe]` and `plur1bus-tools-<target>[.exe]` (signed on macOS), and from
 // assemble-payload.mjs `core-<v>-<target>.tar.gz`, its `.sha256` and its `.json` metadata. A missing file, a
 // `.sha256` that does not match, or targets that disagree on the core or the bundled modules exit 1 and write nothing.
 import { createHash } from "node:crypto";
@@ -106,6 +106,7 @@ function readJson(path, what) {
 export async function buildNative({ artifacts, version, baseUrl = defaultBaseUrl(version), targets = TARGETS }) {
   const base = baseUrl.replace(/\/+$/, "");
   const binary = {};
+  const tools = {};
   const payload = {};
   let core = null;
   let modules = null;
@@ -115,6 +116,11 @@ export async function buildNative({ artifacts, version, baseUrl = defaultBaseUrl
     const bin = join(artifacts, binaryName(t));
     if (!existsSync(bin)) throw new Error(`${t}: no binary (${basename(bin)})`);
     binary[t] = { url: `${base}/${binaryName(t)}`, sha256: await sha256File(bin) };
+
+    const toolsName = binaryName(t).replace("plur1bus-", "plur1bus-tools-");
+    const companion = join(artifacts, toolsName);
+    if (!existsSync(companion)) throw new Error(`${t}: no tools binary (${toolsName})`);
+    tools[t] = { url: `${base}/${toolsName}`, sha256: await sha256File(companion) };
 
     const p = join(artifacts, payloadName(version, t));
     if (!existsSync(p)) throw new Error(`${t}: no core payload (${basename(p)})`);
@@ -138,6 +144,7 @@ export async function buildNative({ artifacts, version, baseUrl = defaultBaseUrl
   }
   const native = {
     binary,
+    tools,
     core: { ...core, payload },
     node: { version: pinnedNodeVersion() },
     modules: modules ?? [],

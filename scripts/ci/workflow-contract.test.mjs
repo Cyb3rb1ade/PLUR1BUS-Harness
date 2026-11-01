@@ -296,3 +296,23 @@ test("Core shards prepare the pinned Rust toolchain and protected cache before n
     assert.match(block.slice(cache, build), /cache-on-failure: false/);
   }
 });
+
+test('native installation and served-stack acceptance carry the required CLI and tools release pair', () => {
+  const jobs = jobBlocks(workflow());
+  const build = jobs['web-browser-build'];
+  assert.match(build, /path: \|\n\s+target\/debug\/plur1bus\n\s+target\/debug\/plur1bus-tools/);
+  assert.match(jobs['web-browser-shard'], /chmod \+x.*plur1bus-tools/);
+  for (const workflowName of ['release-smoke.yml', 'hermes-host.yml', 'nightly.yml']) {
+    const text = readFileSync(new URL(`../../.github/workflows/${workflowName}`, import.meta.url), 'utf8');
+    const commands = text.split('\n').filter(line => /cargo build --release -p plur1bus(?: |$)/.test(line));
+    assert.ok(commands.length > 0, workflowName);
+    for (const command of commands) assert.match(command, /-p plur1bus-tools(?: |$)/, workflowName);
+  }
+  const release = readFileSync(new URL('../../.github/workflows/harness-release.yml', import.meta.url), 'utf8');
+  for (const command of release.split('\n').filter(line => /cargo (?:zigbuild|build) --locked --release -p plur1bus(?: |$)/.test(line))) {
+    assert.match(command, /-p plur1bus-tools(?: |$)/);
+  }
+  assert.match(release, /cp "target\/\$TRIPLE\/release\/plur1bus-tools\$ext" "out\/plur1bus-tools-\$TARGET\$ext"/);
+  assert.match(release, /for binary in out\/plur1bus-darwin-arm64 out\/plur1bus-tools-darwin-arm64; do/);
+  assert.match(release, /name: signed-darwin-arm64\n\s+path: \|\n\s+out\/plur1bus-darwin-arm64\n\s+out\/plur1bus-tools-darwin-arm64/);
+});

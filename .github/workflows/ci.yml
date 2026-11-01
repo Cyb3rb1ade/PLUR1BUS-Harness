@@ -677,7 +677,9 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: web-browser-cli
-          path: target/debug/plur1bus
+          path: |
+            target/debug/plur1bus
+            target/debug/plur1bus-tools
           if-no-files-found: error
           retention-days: 1
   web-browser-shard:
@@ -724,7 +726,7 @@ jobs:
           name: web-browser-cli
           path: target/debug
       - name: current-branch CLI from web-browser-build
-        run: chmod +x "$PLUR1BUS_BIN" && "$PLUR1BUS_BIN" --version
+        run: chmod +x "$PLUR1BUS_BIN" "$(dirname "$PLUR1BUS_BIN")/plur1bus-tools" && "$PLUR1BUS_BIN" --version
       # The browser files are keyed by the lockfile (it pins Playwright and so the Chromium revision); the install step
       # below still runs, adds the Linux libraries and downloads the browser on a miss.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -852,7 +854,7 @@ jobs:
         with: { toolchain: "1.95" }
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
       - run: cargo build --release -p plur1bus -p plur1bus-tools
-      - run: cargo test --release -p plur1bus --test service
+      - run: cargo build --release -p plur1bus -p plur1bus-tools && cargo test --release -p plur1bus --test service
         timeout-minutes: 5
       - name: user service manager
         id: manager

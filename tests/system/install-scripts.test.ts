@@ -36,29 +36,34 @@ function fakeWindowsBinary(dir: string): Buffer {
   return fakeExe;
 }
 
-type Fixture = { root: string; home: string; feed: string; binary: Buffer };
+type Fixture = { root: string; home: string; feed: string; binary: Buffer; tools: Buffer };
 
 /** A temp root with `home/` and `release/` (the fake binaries and `stable.json`). `recorded` replaces the sha256 the
  *  feed records for every binary; `compact` writes the feed on one line with `sha256` before `url` and escaped
  *  slashes, as a JSON serializer may. The core payload entries carry different hashes, so reading the wrong map
  *  fails the checksum. */
-function fixture(opts: { recorded?: string; compact?: boolean } = {}): Fixture {
+function fixture(opts: { recorded?: string; compact?: boolean; toolsHash?: string; toolsMissing?: boolean } = {}): Fixture {
   const root = mkdtempSync(join(tmpdir(), "p1b-inst-"));
   const home = join(root, "home");
   const rel = join(root, "release");
   mkdirSync(home);
   mkdirSync(rel);
   const binary = WIN ? fakeWindowsBinary(root) : Buffer.from(FAKE_SH);
+  const tools = Buffer.from("native tools companion; must never run as setup");
   const asset = (name: string, digest: string) => {
     const url = pathToFileURL(join(rel, name)).href;
     return opts.compact ? { sha256: digest, url: url.replace(/\//g, "\\/") } : { url, sha256: digest };
   };
   const binaryMap: Record<string, unknown> = {};
+  const toolsMap: Record<string, unknown> = {};
   const payloadMap: Record<string, unknown> = {};
   for (const t of TARGETS) {
     const name = `plur1bus-${t}${t.startsWith("win-") ? ".exe" : ""}`;
     writeFileSync(join(rel, name), binary);
     binaryMap[t] = asset(name, opts.recorded ?? sha(binary));
+    const toolsName = `plur1bus-tools-${t}${t.startsWith("win-") ? ".exe" : ""}`;
+    writeFileSync(join(rel, toolsName), tools);
+    if (!opts.toolsMissing) toolsMap[t] = asset(toolsName, opts.toolsHash ?? sha(tools));
     payloadMap[t] = asset(`core-0.2.0-${t}.tar.gz`, sha(`payload ${t}`));
   }
   const doc = {
@@ -70,6 +75,7 @@ function fixture(opts: { recorded?: string; compact?: boolean } = {}): Fixture {
     minFromVersion: "0.1.0",
     native: {
       binary: binaryMap,
+      tools: toolsMap,
       core: { version: "0.2.0", contract: "1.9.0", rpc: "1.3.0", payload: payloadMap },
       node: { version: "24.21.0" },
       modules: [],
@@ -79,7 +85,7 @@ function fixture(opts: { recorded?: string; compact?: boolean } = {}): Fixture {
   let text = opts.compact ? JSON.stringify(doc) : JSON.stringify(doc, null, 2);
   if (opts.compact) text = text.replace(/\\\\\//g, "\\/"); // keep the single JSON escape `\/` in URLs
   writeFileSync(join(rel, "stable.json"), text);
-  return { root, home, feed: pathToFileURL(join(rel, "{channel}.json")).href.replace(/%7B/g, "{").replace(/%7D/g, "}"), binary };
+  return { root, home, feed: pathToFileURL(join(rel, "{channel}.json")).href.replace(/%7B/g, "{").replace(/%7D/g, "}"), binary, tools };
 }
 
 /** The installed binary's path in a temp home. */
@@ -160,9 +166,12 @@ describe(`one-line installer (${NAME}, ${shell})`, () => {
       const lines = r.stdout.trim().split(/\r?\n/);
       assert.deepEqual(lines, ["fake-plur1bus", "[setup]", ...FLAGS.map((a) => `[${a}]`)], "setup runs with the flags, word boundaries kept");
       const bin = installed(f);
+      const companion = bin.replace(/plur1bus(\.exe)?$/, "plur1bus-tools$1");
       assert.deepEqual(readFileSync(bin), f.binary);
+      assert.deepEqual(readFileSync(companion), f.tools);
       if (!WIN) assert.equal(statSync(bin).mode & 0o777, 0o755);
-      assert.deepEqual(ours(f), [bin], "only the binary is left behind");
+      if (!WIN) assert.equal(statSync(companion).mode & 0o777, 0o755);
+      assert.deepEqual(ours(f).sort(), [bin, companion].sort(), "only the verified release pair is left behind");
     } finally {
       rmSync(f.root, { recursive: true, force: true });
     }
@@ -215,4 +224,23 @@ describe(`one-line installer (${NAME}, ${shell})`, () => {
       rmSync(f.root, { recursive: true, force: true });
     }
   });
+
+  for (const [label, options] of [["missing companion", { toolsMissing: true }], ["bad companion hash", { toolsHash: sha("wrong companion") }]] as const) {
+    it(`${NAME} refuses ${label} before replacing either installed binary or running setup`, () => {
+      const f = fixture(options);
+      try {
+        const bin = installed(f);
+        const companion = bin.replace(/plur1bus(\.exe)?$/, "plur1bus-tools$1");
+        mkdirSync(join(bin, ".."), { recursive: true });
+        writeFileSync(bin, "previous CLI");
+        writeFileSync(companion, "previous tools");
+        const r = run(shell, f, FLAGS);
+        assert.equal(r.status, 1, `${r.stdout}\n${r.stderr}`);
+        assert.doesNotMatch(r.stdout, /fake-plur1bus/);
+        assert.equal(readFileSync(bin, "utf8"), "previous CLI");
+        assert.equal(readFileSync(companion, "utf8"), "previous tools");
+        assert.deepEqual(ours(f).sort(), [bin, companion].sort());
+      } finally { rmSync(f.root, { recursive: true, force: true }); }
+    });
+  }
 });

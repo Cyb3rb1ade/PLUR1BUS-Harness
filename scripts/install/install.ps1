@@ -2,8 +2,8 @@
 #
 #   & ([scriptblock]::Create((irm https://<release host>/install.ps1))) [setup flags]
 #
-# Reads the release feed ({channel}.json), takes native.binary[<target>], downloads the binary, verifies its SHA-256
-# BEFORE anything runs, installs it to %LOCALAPPDATA%\PLUR1BUS\bin\plur1bus.exe and runs `plur1bus setup <flags>`.
+# Reads the release feed ({channel}.json), takes native.binary/tools[<target>], downloads both binaries, verifies both SHA-256 hashes
+# BEFORE anything runs, installs both beside each other in %LOCALAPPDATA%\PLUR1BUS\bin and runs `plur1bus setup <flags>`.
 # setup then verifies the Node runtime and the core payload against the hashes baked into the binary. A checksum
 # mismatch, an unknown target or a feed without that target exit 1 with nothing installed. Needs no administrator
 # rights and writes nothing outside the user's profile.
@@ -68,6 +68,9 @@ $created = New-Object System.Collections.ArrayList
 $tmp = $null
 $feedFile = $null
 $dest = $null
+$stage = $null
+$pair = @()
+$swapping = $false
 $ok = $false
 try {
   $channel = $env:PLUR1BUS_CHANNEL
@@ -88,31 +91,37 @@ try {
   foreach ($d in @((Join-Path $env:LOCALAPPDATA 'PLUR1BUS'), $binDir)) {
     if (-not (Test-Path -LiteralPath $d)) { New-Item -ItemType Directory -Path $d | Out-Null; [void]$created.Add($d) }
   }
-  $tmp = Join-Path $binDir "plur1bus.exe.tmp-$PID"
-  $feedFile = Join-Path $binDir "plur1bus-feed.tmp-$PID"
-
+  $stage = Join-Path $binDir ".plur1bus-install.tmp-$PID"
+  if (Test-Path -LiteralPath $stage) { Fail 'installation staging already exists' }
+  New-Item -ItemType Directory -Path $stage | Out-Null
+  $feedFile = Join-Path $stage 'feed.json'
   try { Get-Resource $feedUrl $feedFile } catch { Fail "could not read the release feed ${feedUrl}: $($_.Exception.Message)" }
   try { $feed = Get-Content -LiteralPath $feedFile -Raw | ConvertFrom-Json } catch { Fail "the release feed is not valid JSON: $($_.Exception.Message)" }
-
-  $asset = $null
-  if ($feed.PSObject.Properties['native'] -and $feed.native.PSObject.Properties['binary'] -and $feed.native.binary.PSObject.Properties[$target]) {
-    $asset = $feed.native.binary.$target
+  foreach ($kind in @('binary', 'tools')) {
+    $asset = $null
+    if ($feed.PSObject.Properties['native'] -and $feed.native.PSObject.Properties[$kind] -and $feed.native.$kind.PSObject.Properties[$target]) {
+      $asset = $feed.native.$kind.$target
+    }
+    if ($null -eq $asset -or -not $asset.PSObject.Properties['url'] -or -not $asset.PSObject.Properties['sha256']) { Fail "the release feed has no $kind binary for $target" }
+    $url = [string]$asset.url
+    $want = ([string]$asset.sha256).ToLowerInvariant()
+    if ($want -notmatch '^[0-9a-f]{64}$') { Fail "the release feed has no valid sha256 for $kind/$target" }
+    $name = if ($kind -eq 'binary') { 'plur1bus.exe' } else { 'plur1bus-tools.exe' }
+    $tmp = Join-Path $stage $name
+    [Console]::Error.WriteLine("plur1bus install: downloading $url ($target)")
+    try { Get-Resource $url $tmp } catch { Fail "could not download ${url}: $($_.Exception.Message)" }
+    $got = Get-Sha256 $tmp
+    if ($got -ne $want) { Fail "checksum mismatch for ${url}: expected $want, got $got (nothing installed)" }
+    $to = Join-Path $binDir $name
+    $backup = Join-Path $stage "$name.old"
+    $existed = Test-Path -LiteralPath $to
+    if ($existed) { [System.IO.File]::Copy($to, $backup, $false) }
+    $pair += @{ staged = $tmp; dest = $to; backup = $backup; existed = $existed }
   }
-  if ($null -eq $asset -or -not $asset.PSObject.Properties['url'] -or -not $asset.PSObject.Properties['sha256']) {
-    Fail "the release feed has no binary for $target"
-  }
-  $url = [string]$asset.url
-  $want = ([string]$asset.sha256).ToLowerInvariant()
-  if ($want -notmatch '^[0-9a-f]{64}$') { Fail "the release feed has no valid sha256 for $target" }
-
-  [Console]::Error.WriteLine("plur1bus install: downloading $url ($target)")
-  try { Get-Resource $url $tmp } catch { Fail "could not download ${url}: $($_.Exception.Message)" }
-  $got = Get-Sha256 $tmp
-  if ($got -ne $want) { Fail "checksum mismatch for ${url}: expected $want, got $got (nothing installed)" }
-
-  Move-Item -LiteralPath $tmp -Destination $dest -Force
+  $swapping = $true
+  foreach ($file in $pair) { Move-Item -LiteralPath $file.staged -Destination $file.dest -Force }
   $ok = $true
-  [Console]::Error.WriteLine("plur1bus install: installed $dest (sha256 $got)")
+  [Console]::Error.WriteLine("plur1bus install: installed CLI and native tools in $binDir")
   $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
   if ($null -eq $userPath -or ($userPath -split ';') -notcontains $binDir) {
     [Console]::Error.WriteLine("plur1bus install: add $binDir to your PATH")
@@ -120,9 +129,13 @@ try {
 } catch {
   [Console]::Error.WriteLine("plur1bus install: $($_.Exception.Message)")
 } finally {
-  foreach ($f in @($tmp, $feedFile)) {
-    if ($f) { Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue }
+  if ($swapping -and -not $ok) {
+    foreach ($file in $pair) {
+      if ($file.existed) { [System.IO.File]::Copy($file.backup, $file.dest, $true) }
+      else { Remove-Item -LiteralPath $file.dest -Force -ErrorAction SilentlyContinue }
+    }
   }
+  if ($stage -and (Test-Path -LiteralPath $stage)) { Remove-Item -LiteralPath $stage -Recurse -Force }
   if (-not $ok) {
     for ($i = $created.Count - 1; $i -ge 0; $i--) { Remove-Item -LiteralPath $created[$i] -Force -ErrorAction SilentlyContinue }
   }

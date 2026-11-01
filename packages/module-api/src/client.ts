@@ -74,8 +74,9 @@ export interface ConnectOptions {
   /** The pid the OS names as the server of a connected pipe (`GetNamedPipeServerProcessId`). Node has no API for it, so
    *  by default there is none and the client falls back to comparing `hello.pid` with `expectedServerPid` after the
    *  handshake (which cannot keep the token from a squatter that answers); a host with a native lookup passes it here,
-   *  and then a mismatch is refused before `core.auth` is sent. Also the test seam. */
-  serverPidOf?: (sock: Socket) => number | undefined;
+   *  and then a mismatch is refused before authentication is sent. Required for `tools`, whose key must never
+   *  reach an unverified pipe. Async lookups are awaited on the same socket. Also the test seam. */
+  serverPidOf?: (sock: Socket) => number | undefined | Promise<number | undefined>;
   /** Default `process.platform`; the Windows paths are testable on any host through it. */
   platform?: NodeJS.Platform;
   /** Test seam for the POSIX `run/` checks (uid, lstat). */
@@ -100,6 +101,10 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
   if (platform === "win32" && opts.expectedServerPid === undefined) {
     throw untrusted("server-pid-unknown", "the pipe's expected server pid is unknown (run/*.pid is missing); nothing was sent", "the recorded pid file is missing or unreadable");
   }
+  // A tools handshake carries a Core-lifetime MAC key. A claimed hello.pid cannot protect either credential.
+  if (platform === "win32" && opts.endpoint === "tools" && !opts.serverPidOf) {
+    throw untrusted("server-pid-unavailable", "tools requires a native pipe server PID check; nothing was sent");
+  }
   const mismatch = (actual: number | undefined, late: boolean) => untrusted(
     "pipe-server-mismatch", "the pipe is not served by the expected process",
     `${actual === undefined ? "the OS does not name the server" : `served by pid ${actual}`}, expected pid ${opts.expectedServerPid}${late ? " (found after the token was sent)" : ""}`,
@@ -118,8 +123,8 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
 
   if (platform === "win32" && opts.serverPidOf) {
     let actual: number | undefined;
-    try { actual = opts.serverPidOf(sock); } catch { actual = undefined; }
-    if (actual !== opts.expectedServerPid) { sock.destroy(); throw mismatch(actual, false); }
+    try { actual = await opts.serverPidOf(sock); } catch { actual = undefined; }
+    if (sock.destroyed || opts.signal?.aborted || actual !== opts.expectedServerPid) { sock.destroy(); throw mismatch(actual, false); }
   }
 
   const pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: NodeJS.Timeout }>();

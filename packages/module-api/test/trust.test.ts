@@ -203,3 +203,36 @@ describe("client connect refuses an untrusted endpoint and sends nothing", () =>
     } finally { await core.close(); }
   });
 });
+
+describe("tools Windows handshake keeps both credentials behind the OS PID check (B4 L3)", () => {
+  it("refuses tools without a native lookup before connecting", T, async () => {
+    const core = await fakeCore(join(home(), "run"));
+    try {
+      await assert.rejects(connect({ address: core.address, platform: "win32", endpoint: "tools", token: TOKEN,
+        ticketKey: "0".repeat(64), expectedServerPid: 4242 }),
+        (e: unknown) => e instanceof RpcCallError && e.reason === "server-pid-unavailable");
+      assert.equal(core.seen.bytes, 0);
+      assert.equal(core.seen.connections, 0);
+    } finally { await core.close(); }
+  });
+
+  for (const actual of [999, undefined]) {
+    it(`an asynchronous native lookup returning ${actual} refuses before any byte is sent`, T, async () => {
+      const core = await fakeCore(join(home(), "run"));
+      let lookupStarted!: () => void;
+      const started = new Promise<void>(resolve => { lookupStarted = resolve; });
+      let release!: (pid: number | undefined) => void;
+      const lookup = new Promise<number | undefined>(resolve => { release = resolve; });
+      const pending = connect({ address: core.address, platform: "win32", endpoint: "tools", token: TOKEN,
+        ticketKey: "0".repeat(64), expectedServerPid: 4242, serverPidOf: () => { lookupStarted(); return lookup; } });
+      const rejected = assert.rejects(pending, (e: unknown) => e instanceof RpcCallError && e.reason === "pipe-server-mismatch");
+      try {
+        await started;
+        assert.equal(core.seen.bytes, 0, "not even tools.hello may precede the OS result");
+        release(actual);
+        await rejected;
+        assert.equal(core.seen.bytes, 0, "a foreign pipe server must receive neither token nor MAC key");
+      } finally { release(undefined); await rejected; await core.close(); }
+    });
+  }
+});

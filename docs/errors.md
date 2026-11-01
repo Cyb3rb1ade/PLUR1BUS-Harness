@@ -116,6 +116,7 @@ not lost: `plur1bus media job <id>` shows it.
 | `release-key-expired` | The release is signed by a rotated key whose expiry has passed. |
 | `key-list-invalid` | A key list is not signed by a trusted key, is for another channel, or is malformed. |
 | `release-unreachable`, `download-too-large`, `digest-mismatch`, `size-mismatch`, `io` | Fetching or verifying a file failed (a declared `size` must match exactly). |
+| `tools-missing` | Setup or the signed release lacks the required native tools companion. Install the CLI and `plur1bus-tools` from the same release; update applies neither binary without the matching target asset. |
 | `release-malformed`, `min-from-version`, `no-native-release`, `target-unsupported`, `unit-unsupported` | The release cannot be applied to this install (`unit-unsupported`: it also changes the Node runtime or modules, run `plur1bus setup`). |
 | `downgrade-refused` | The release is older than the installed version; `--allow-downgrade` overrides. |
 | `release-replay` | The release is older than the newest one this install accepted on the channel; `--allow-downgrade` overrides. |
