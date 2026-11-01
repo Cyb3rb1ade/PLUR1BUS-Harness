@@ -52,7 +52,7 @@ export function createEgress(o: EgressOptions): Egress {
   // Only a host that is itself a loopback spelling may resolve to loopback: a public name answering 127.0.0.1 (alone or
   // beside a public record) is a private-address refusal, so allowLoopback cannot be used for rebinding.
   const addressPolicy = (p: EgressPolicy, a2a = false) => ({ allow: [], deny: metadata, forHost: (h: string) =>
-    p.allowLoopback && isLoopbackHost(h) ? loopback : a2a && hostAllowed(p, h, { explicitOnly: true }) ? tailnet : [] });
+    p.allowLoopback && isLoopbackHost(h) ? loopback : a2a && hostAllowed(p, h, { exactOnly: true }) ? tailnet : [] });
 
   return {
     async request(url, options) {
@@ -77,6 +77,10 @@ export function createEgress(o: EgressOptions): Egress {
       }
       try {
         gate.beforeResolve(url);
+        if (options?.purpose === "a2a" && !hostAllowed(policy, bareHost(url), { exactOnly: true })) {
+          record({ allowed: false, reason: "host-not-allowed" });
+          return { allowed: false, reason: "host-not-allowed", message: "A2A requires an exact allowed host name or IP literal" };
+        }
         const pin = await resolveGuarded(url.hostname, resolver, addressPolicy(policy, options?.purpose === 'a2a'));
         gate.afterResolve(url, pin);
         return { allowed: true, host: bareHost(url), port: effectivePort(url), address: pin.address, family: pin.family };

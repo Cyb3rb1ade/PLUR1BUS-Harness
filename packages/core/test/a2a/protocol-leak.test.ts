@@ -16,7 +16,7 @@ import { composeA2a } from "../../src/composition/a2a.ts";
 import { composedAgentRunner } from "../../src/composition/collaboration.ts";
 import { createCollab } from "../../src/collab/service.ts";
 import { alsAgentScopePort } from "../../src/collab/scope.ts";
-import { returnFromText } from "../../src/collab/handoff.ts";
+import { returnFromText, type Handoff } from "../../src/collab/handoff.ts";
 import { createEgress } from "../../src/egress/service.ts";
 import { createPolicyAudit } from "../../src/policy/audit.ts";
 import { memoryAuditSink } from "../../src/rbac/audit.ts";
@@ -27,16 +27,17 @@ import { ToolRegistry } from "../../src/tools/registry.ts";
 import { collaborationTools } from "../../src/tools/collaboration.ts";
 import { fakeSecretService } from "../composition/helpers.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
+import type { ApprovalView } from "../../src/approvals/service.ts";
 
 const owner: Principal = { kind: "person", role: "owner", userId: "owner" };
 const CARD = "FOREIGN-CARD-TEXT-99112233", TOKEN = "FOREIGN-BEARER-99112233", ANSWER = "FOREIGN-ANSWER-99112233";
 
-async function fixture(options: { echo?: boolean; token?: string; structured?: boolean } = {}) {
+async function fixture(options: { echo?: boolean; token?: string; structured?: boolean; wrongBinding?: boolean; endpointPath?: string } = {}) {
   const token = options.token ?? TOKEN;
   const home = tempDir("a2a-integration-");
   const keys = generateKeyPairSync("ed25519");
   let card: Record<string, unknown> = {}, tamper = false, badReply = false;
-  const calls: string[] = [], wireErrors: unknown[] = [];
+  const calls: string[] = [], wireErrors: unknown[] = [], wireHandoffs: Handoff[] = [];
   const server = createServer(async (req, res) => {
     try {
       assert.equal(req.headers.authorization, `Bearer ${token}`);
@@ -49,6 +50,7 @@ async function fixture(options: { echo?: boolean; token?: string; structured?: b
       assert.equal(input.configuration?.returnImmediately, false);
       assert.deepEqual(input.configuration?.acceptedOutputModes, ["text/plain"]);
       const prompt = JSON.parse(rpc.params.message.parts[0].text);
+      wireHandoffs.push(prompt.handoff);
       assert.deepEqual(prompt.handoff.authority.approvalsHeld, []);
       const ack = prompt.instruction.startsWith("Acceptance check"); calls.push(ack ? "ack" : "run");
       let text = ack ? JSON.stringify({ schema: "plur1bus.ack/1", inReplyTo: prompt.handoff.id, objective: options.echo ? `${prompt.handoff.objective} ${token}` : prompt.handoff.objective, status: "ok", blockingQuestions: [] }) : options.echo ? `${ANSWER} ${token} ${Buffer.from(token).toString('base64')}` : ANSWER;
@@ -57,6 +59,11 @@ async function fixture(options: { echo?: boolean; token?: string; structured?: b
         text = JSON.stringify(returnFromText(prompt.handoff, `${ANSWER} ${token}`, { tokens: 1, toolCalls: 1, durationMs: 1 }));
         text = text.replaceAll(token, [...token].map(c => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`).join(''));
       }
+      if (options.wrongBinding) {
+        const envelope = JSON.parse(text);
+        envelope.inReplyTo = "unrelated-operation";
+        text = JSON.stringify(envelope);
+      }
       const result = { task: { id: "task", contextId: "ctx", status: { state: "TASK_STATE_COMPLETED" }, artifacts: [{ artifactId: "reply", parts: [{ text }] }] } };
       res.end(JSON.stringify(badReply ? { jsonrpc: "2.0", id: rpc.id, error: { code: -32603, message: "REMOTE-ERROR-99112233" } } : { jsonrpc: "2.0", id: rpc.id, result }));
     } catch (error) { wireErrors.push(error); res.statusCode = 500; res.end("{}"); }
@@ -64,27 +71,30 @@ async function fixture(options: { echo?: boolean; token?: string; structured?: b
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
   const address = server.address(); assert.ok(address && typeof address === "object");
   const origin = `http://127.0.0.1:${address.port}`;
-  const signed = await generateAgentCardSignature(keys.privateKey, { alg: "EdDSA", typ: "JWT", kid: "peer-key" })(AgentCard.fromJSON({ name: CARD, description: CARD, version: "1", supportedInterfaces: [{ protocolBinding: "JSONRPC", protocolVersion: "1.0", url: `${origin}/a2a` }], capabilities: { streaming: false }, defaultInputModes: ["text/plain"], defaultOutputModes: ["text/plain"], skills: [{ id: "chat", name: "Chat", description: "Chat" }] }));
+  const endpoint = `${origin}${options.endpointPath ?? "/a2a"}`;
+  const signed = await generateAgentCardSignature(keys.privateKey, { alg: "EdDSA", typ: "JWT", kid: "peer-key" })(AgentCard.fromJSON({ name: CARD, description: CARD, version: "1", supportedInterfaces: [{ protocolBinding: "JSONRPC", protocolVersion: "1.0", url: endpoint }], capabilities: { streaming: false }, defaultInputModes: ["text/plain"], defaultOutputModes: ["text/plain"], skills: [{ id: "chat", name: "Chat", description: "Chat" }] }));
   card = AgentCard.toJSON(signed) as Record<string, unknown>;
   const config = defaults(); config.a2aClient!.enabled = true; config.privacy.localOnly = true;
   config.egress = { allowHosts: ["127.0.0.1"], allowPorts: [address.port], allowLoopback: true };
   const audit = memoryAuditSink();
   const policyAudit = createPolicyAudit({ sink: audit, clock: { now: Date.now } });
+  const approvalViews: ApprovalView[] = [];
   const permissions = createPermissionRuntime({ dbPath: join(home, "approvals.sqlite"), keys: staticKeySource(randomBytes(32)), clock: { now: Date.now }, audit: policyAudit, events: { emit(name, payload) {
     if (name === "approval.requested" && "approval" in payload) {
+      approvalViews.push(payload.approval);
       const decision = permissions.current()!.service.decideForSession({ requestId: payload.approval.id, person: owner.userId, surface: 3, decision: "approve" });
       assert.equal(decision.ok, true);
     }
   } } });
   const budget = createCallBudget({ path: join(home, "state", "budget.sqlite"), clock: { now: Date.now } });
-  const secrets = fakeSecretService({ "peer-token": token });
+  const secrets = fakeSecretService({ "a2a/peer/token": token });
   const egress = createEgress({ config: () => config.egress });
   const composed = composeA2a({ home, config: () => config, egress: { ...egress, async decide(raw, options) { assert.equal(currentAgentScope(), undefined, 'foreign I/O has no local agent-store authority'); return egress.decide(raw, options); } }, permissions, audit, clock: Date.now, secrets: secrets.service, signal: new AbortController().signal, surfaceOf: () => 3 }, budget, () => {});
   let principal = owner;
   const rpc = guardMethods(composed.methods, { resolve: () => principal, audit, now: Date.now });
   let sequence = 0;
   const invoke = (method: string, params: object) => rpc[method]!(params, { requestId: `rpc-${++sequence}`, connectionId: "owner-connection", signal: new AbortController().signal });
-  const added = await invoke("a2a.peer.add", { id: "peer", kid: "peer-key", cardUrl: `${origin}/card`, publicKey: keys.publicKey.export({ format: "jwk" }), credentialSecret: "peer-token" }) as A2aPeer;
+  const added = await invoke("a2a.peer.add", { id: "peer", kid: "peer-key", cardUrl: `${origin}/card`, publicKey: keys.publicKey.export({ format: "jwk" }), credentialSecret: "a2a/peer/token" }) as A2aPeer;
   const collab = createCollab({ path: join(home, "collab.sqlite"), runner: composedAgentRunner({ id: "local", async *stream() { throw new Error("must not invoke a local provider"); } }, alsAgentScopePort(), home, [composed.client.target]), directory: { get: id => composed.client.hasAgent(id) ? { id, state: "active", targetKind: "external" } : id === "main" ? { id, state: "active" } : null } });
   const project = collab.createProject(owner, { name: "Remote project", settings: { repeatWindowMs: 0 } });
   collab.addAgent(owner, project.id, "main"); collab.addAgent(owner, project.id, "a2a:peer");
@@ -97,8 +107,68 @@ async function fixture(options: { echo?: boolean; token?: string; structured?: b
     const dispatcher = new ToolDispatcher({ registry, approvals: opened.service, grants: opened.grants, grantUse: opened.grants, audit: policyAudit, clock: { now: Date.now }, policyContext: ctx => ({ ...opened.service.policyContext()(ctx), ...(options.headless ? { headless: { jobId: "job" } } : {}) }) });
     return dispatcher.call({ id: `tool-${sequence}`, name, args: { projectId: project.id, toAgent: "a2a:peer", objective: "Review a stable sort", doneWhen: ["Advice returned"] } }, { agentId: "main", principal: owner.userId, sessionId: req.sessionId, turnId, surface: 3, signal: req.signal });
   }
-  return { home, added, composed, collab, project, audit, calls, wireErrors, config, secrets, invoke, tool, principal: (p: Principal) => { principal = p; }, tamper: () => { tamper = true; }, badReply: () => { badReply = true; }, trust: () => invoke("a2a.peer.trust", { id: added.id, fingerprint: added.fingerprint, revision: added.revision }), async close() { await collab.shutdown(); composed.close(); budget.close(); await permissions.close(); server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); } };
+  return { home, added, endpoint, approvalViews, composed, collab, project, audit, calls, wireErrors, wireHandoffs, config, secrets, invoke, tool, principal: (p: Principal) => { principal = p; }, tamper: () => { tamper = true; }, badReply: () => { badReply = true; }, trust: () => invoke("a2a.peer.trust", { id: added.id, fingerprint: added.fingerprint, revision: added.revision }), async close() { await collab.shutdown(); composed.close(); budget.close(); await permissions.close(); server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); } };
 }
+
+it("shows the complete public pin and endpoint through the real approval-service redactor", async () => {
+  const f = await fixture({ endpointPath: "/.ssh/rpc" });
+  try {
+    await f.trust();
+    const view = f.approvalViews.find(v => v.tool === "peer.a2a_trust");
+    assert.ok(view);
+    assert.ok(view.diff);
+    assert.ok(view.diff.includes(f.endpoint));
+    assert.ok(view.diff.includes(f.added.fingerprint));
+    assert.ok(view.diff.includes(f.added.revision));
+    assert.equal(view.summary, view.diff, "every surface receives complete trust coordinates in its normal summary");
+  } finally { await f.close(); }
+});
+
+it("refuses a trust coordinate containing the leased secret before it can enter a human prompt", async () => {
+  const token = randomBytes(24).toString("base64url");
+  const f = await fixture({ token, endpointPath: `/rpc/${token}` });
+  try {
+    await assert.rejects(f.trust(), { error: "E_APPROVAL_REQUIRED" });
+    assert.equal(f.composed.client.hasAgent("a2a:peer"), false);
+    assert.ok(!f.approvalViews.some(v => v.tool === "peer.a2a_trust"));
+    assert.ok(!JSON.stringify([f.approvalViews, f.audit.events]).includes(token));
+  } finally { await f.close(); }
+});
+
+it("uses operation-local foreign aliases while preserving ack and structured-return binding", async () => {
+  const f = await fixture({ structured: true });
+  try {
+    await f.trust();
+    const result = await f.tool("delegate_task");
+    assert.equal(result.isError, false, JSON.stringify(result));
+    assert.equal(f.wireHandoffs.length, 2);
+    const [ack, run] = f.wireHandoffs;
+    assert.equal(ack!.id, run!.id);
+    assert.deepEqual(ack!.from, run!.from);
+    assert.deepEqual(ack!.task, run!.task);
+    const foreign = JSON.stringify(f.wireHandoffs);
+    for (const local of ["main", "root-session", "a2a:peer", f.project.id]) {
+      assert.ok(!foreign.includes(local), `does not disclose local identity ${local}`);
+    }
+    assert.equal(run!.task.card, undefined);
+    assert.equal(run!.returnContract.reportTo, undefined);
+    assert.deepEqual(run!.authority.approvalsHeld, []);
+    await f.tool("delegate_task");
+    assert.notEqual(f.wireHandoffs[2]!.id, run!.id);
+    assert.deepEqual(f.wireErrors, []);
+  } finally { await f.close(); }
+});
+
+it("refuses a mismatched foreign acknowledgement or structured return before accepting peer work", async () => {
+  const f = await fixture({ structured: true, wrongBinding: true });
+  try {
+    await f.trust();
+    assert.equal((await f.tool("delegate_task")).isError, true);
+    assert.ok(!f.calls.includes("run"));
+    assert.equal((await f.tool("consult_agent")).isError, true);
+    assert.deepEqual(f.wireErrors, []);
+  } finally { await f.close(); }
+});
 
 it("uses real signed discovery, explicit TOFU and D104 ack through consult_agent and delegate_task", async () => {
   const f = await fixture();
@@ -140,6 +210,7 @@ it("headless calls, changed signatures and remote errors cannot leak peer data",
     assert.equal((await f.tool("consult_agent", { headless: true })).isError, true); assert.equal(f.calls.length, before);
     f.badReply(); const remote = await f.tool("consult_agent"); assert.equal(remote.isError, true); assert.ok(!JSON.stringify(remote).includes("REMOTE-ERROR"));
     f.tamper(); const changed = await f.tool("consult_agent"); assert.equal(changed.isError, true); assert.ok(!JSON.stringify(changed).includes("TAMPERED"));
+    assert.ok(f.audit.events.some(e => e.action === "a2a.card.rejected" && e.detail.reason === "card-signature"));
     assert.equal(f.calls.at(-1), "card");
     for (const marker of [CARD, TOKEN, ANSWER, "REMOTE-ERROR", "TAMPERED"]) assert.ok(!JSON.stringify(f.audit.events).includes(marker), marker);
   } finally { await f.close(); }

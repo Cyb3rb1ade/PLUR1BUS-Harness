@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { tempDir } from "../helpers/temp-dir.ts";
 import { PeerCallBudget } from "../../src/budget/peer.ts";
+import { DatabaseSync } from "node:sqlite";
 
 const identity = { person: "person", agent: "main", session: "session", turn: "turn", peer: "peer" };
 const limits = { peerCalls: 2, turnCalls: 3, peerTokens: 100, turnTokens: 150 };
@@ -12,6 +13,34 @@ function fixture() {
 }
 
 describe("A2A peer/turn budgets", () => {
+  it("compacts expired call rows without resetting replayed turn quotas or refunding orphan reservations", () => {
+    const path = join(tempDir("a2a-peer-retention-"), "budget.sqlite");
+    let now = 1_000;
+    const budget = new PeerCallBudget({ path, now: () => now });
+    try {
+      const spent = budget.reserve(identity, 40, limits);
+      assert.equal(spent.kind, "allow");
+      if (spent.kind !== "allow") assert.fail();
+      budget.finish(spent.id, 20);
+      const cancelled = budget.reserve(identity, 10, limits);
+      if (cancelled.kind !== "allow") assert.fail();
+      budget.cancel(cancelled.id);
+      const orphan = budget.reserve(identity, 80, limits);
+      assert.equal(orphan.kind, "allow");
+      now += 31 * 24 * 60 * 60 * 1000;
+      assert.equal(budget.reserve(identity, 0, limits).kind, "refuse");
+      const db = new DatabaseSync(path, { readOnly: true });
+      try {
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM a2a_peer_call").get()!.n, 0);
+      } finally { db.close(); }
+      const reopened = new PeerCallBudget({ path, now: () => now });
+      try {
+        assert.equal(reopened.reserve({ ...identity, peer: "other" }, 51, limits).kind, "refuse");
+        assert.equal(reopened.reserve({ ...identity, turn: "new-turn" }, 100, limits).kind, "allow");
+        assert.equal(reopened.reserve(identity, 0, limits).kind, "refuse");
+      } finally { reopened.close(); }
+    } finally { budget.close(); }
+  });
   it("reserves capacity before a call and settles accepted token counts once", () => {
     const { budget } = fixture();
     try {

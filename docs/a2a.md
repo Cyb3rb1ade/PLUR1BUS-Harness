@@ -1,6 +1,6 @@
 # A2A server (inbound, loopback)
 
-Status: inbound A2A Protocol **0.3.0** (https://a2a-protocol.org/v0.3.0/specification/). Authority: ADR-008 §A2A and its 2026-09-27 amendment, ADR-007. Code: `packages/core/src/a2a/`.
+Status: the inbound server below uses A2A Protocol **0.3.0** (https://a2a-protocol.org/v0.3.0/specification/); the opt-in outbound V1 client uses signed **1.0** JSON-RPC cards and `A2A-Version: 1.0`. Authority: ADR-008 §A2A and its 2026-09-27 amendment, ADR-007. Code: `packages/core/src/a2a/`.
 
 The server is **off by default**. A host builds `createA2aServer({ peers, agents, provider })` (loopback, `node:http`) or mounts `createA2aHandler(...).handle` on its own listener. The inbound `a2a`/`a2aServer` settings remain separate from outbound peer trust.
 
@@ -124,7 +124,8 @@ Body 1 MiB (enforced while streaming, 413), message text 64 KiB, file part 256 K
 
 ## Follow-ups
 
-- **Outbound A2A** — the harness calling a foreign agent (card fetch, client, TCK against someone else's server). Explicitly out of this PR.
+- **Inbound card signing / 1.0** — the inbound server still emits unsigned 0.3 cards; it cannot yet serve as a peer for the signed-card outbound V1 client. That migration and broader external conformance are separate work.
+- **Outbound remote cancellation** — local abort closes the socket; V1 does not send `CancelTask` or guarantee stopping foreign work. See the V1 handoff for accounting and admission requirements.
 - **Persistent task store** — survive a core restart; the in-memory cap+TTL store does not.
 - **D109 rights** — bind `a2a-peer` actions to the permission/approval evaluator; today grants are the A2A peer table only.
 - **`packages/api` exposure** — serve A2A next to the harness HTTP API rather than as a separate loopback listener.

@@ -1,18 +1,50 @@
 import { it } from "node:test";
 import assert from "node:assert/strict";
 import { createServer, type RequestListener } from "node:http";
-import { generateKeyPairSync } from "node:crypto";
+import { generateKeyPairSync, randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { createCallBudget } from "../../src/budget/calls.ts";
 import { PeerCallBudget } from "../../src/budget/peer.ts";
 import { A2aPeerStore } from "../../src/a2a/peer-store.ts";
 import { A2aPeerTransport, type A2aExecution, type PeerTransportDeps } from "../../src/tools/a2a-transport.ts";
 import { memoryAuditSink } from "../../src/rbac/audit.ts";
+import { AgentCard } from "@a2a-js/sdk";
+import { ServerCallContext, validateVersion } from "@a2a-js/sdk/server";
 import { createPolicyAudit } from "../../src/policy/audit.ts";
-import { MemoryGrants } from "../policy/helpers.ts";
+import { grant, MemoryGrants } from "../policy/helpers.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
+import type { ApprovalAsk } from "../../src/tools/approval.ts";
 
 const execution: A2aExecution = { person: "owner", agent: "main", session: "session", turn: "turn", project: "project", surface: 3, policy: {} };
+
+it("negotiates A2A 1.0 through the SDK server version check on every HTTP request", async () => {
+  const card = AgentCard.fromJSON({
+    name: "Version control",
+    supportedInterfaces: [{ protocolBinding: "JSONRPC", protocolVersion: "1.0", url: "https://peer.example/rpc" }],
+  });
+  assert.throws(() => validateVersion(new ServerCallContext({}).requestedVersion, card, "JSONRPC"));
+  const versions: string[] = [];
+  const f = await fixture((req, res) => {
+    const version = req.headers["a2a-version"];
+    const context = new ServerCallContext(typeof version === "string" ? { requestedVersion: version } : {});
+    versions.push(context.requestedVersion);
+    res.setHeader("content-type", "application/json");
+    try {
+      validateVersion(context.requestedVersion, card, "JSONRPC");
+      res.end("{}");
+    } catch {
+      res.statusCode = 400;
+      res.end("{}");
+    }
+  });
+  try {
+    await f.request();
+    await f.request({ method: "POST", body: "{}", purpose: "message" });
+    assert.deepEqual(versions, ["1.0", "1.0"]);
+  } finally {
+    await f.close();
+  }
+});
 async function fixture(handler: RequestListener, options: Pick<PeerTransportDeps, "credential"> = {}) {
   const server = createServer(handler);
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
@@ -23,22 +55,91 @@ async function fixture(handler: RequestListener, options: Pick<PeerTransportDeps
   const store = new A2aPeerStore({ path: join(dir, "peers.sqlite"), now: Date.now });
   store.add({ id: "peer", cardUrl: url, kid: "key", publicKey: generateKeyPairSync("ed25519").publicKey.export({ format: "jwk" }) });
   const peer = store.get("peer")!;
-  if (options.credential) peer.credentialSecret = "peer-token";
+  if (options.credential) peer.credentialSecret = "a2a/peer/token";
   const path = join(dir, "budget.sqlite");
   const budget = createCallBudget({ path, clock: { now: Date.now } });
   const peerBudget = new PeerCallBudget({ path, now: Date.now });
   const audit = memoryAuditSink();
-  const asks: unknown[] = [], urls: string[] = [];
+  const grants = new MemoryGrants();
+  const asks: unknown[] = [], approvalDetails: ApprovalAsk[] = [], urls: string[] = [];
   let localOnly = false, current = true;
   let pin = "127.0.0.1";
   const settings = { enabled: true, timeoutMs: 2000, maxCardBytes: 1024, maxRequestBytes: 1024, maxReplyBytes: 1024, peerCalls: 8, turnCalls: 16, peerTokens: 10000, turnTokens: 20000 };
   const transport = new A2aPeerTransport({ ...options, settings: () => settings, localOnly: () => localOnly, now: Date.now, peerBudget, budget, audit,
     egress: { async decide(raw) { urls.push(raw); return { allowed: true, host: "unresolvable.invalid", port: address.port, address: pin, family: 4 }; } },
-    dispatch: { grants: new MemoryGrants(), audit: createPolicyAudit({ sink: audit, clock: { now: Date.now } }), approvals: { async request(ask) { asks.push(ask.args); return { approved: true }; } } },
+    dispatch: { grants, grantUse: { markUsed() {}, consumeOnce() { return true; } }, audit: createPolicyAudit({ sink: audit, clock: { now: Date.now } }), approvals: { async request(ask) { asks.push(ask.args); approvalDetails.push(ask); return { approved: true }; } } },
   });
   const request = (overrides: Partial<Parameters<A2aPeerTransport['request']>[1]> = {}) => transport.request(peer, { url, method: "GET", purpose: "card", execution, signal: new AbortController().signal, current: () => current, ...overrides });
-  return { transport, peer, settings, request, audit, asks, urls, setPin: (v: string) => { pin = v; }, localOnly: () => { localOnly = true; }, revoke: () => { current = false; }, async close() { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); peerBudget.close(); budget.close(); store.close(); } };
+  return { transport, peer, settings, request, audit, grants, asks, approvalDetails, urls, setPin: (v: string) => { pin = v; }, localOnly: () => { localOnly = true; }, revoke: () => { current = false; }, async close() { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); peerBudget.close(); budget.close(); store.close(); } };
 }
+
+it("shows a bounded decoded and redacted approval preview with recurring-job context", async () => {
+  const value = randomBytes(32).toString("base64url");
+  let released = 0;
+  const f = await fixture((_req, res) => { res.setHeader("content-type", "application/json"); res.end("{}"); }, {
+    credential: async () => ({ value, release() { released++; } }),
+  });
+  try {
+    f.settings.maxRequestBytes = 16_384;
+    const objective = "Compare the supplied sort algorithms";
+    const encoded = JSON.stringify({ question: `${objective}: ${value} ${Buffer.from(value).toString("base64")}` });
+    await f.request({ method: "POST", purpose: "message", body: JSON.stringify({ params: { message: { parts: [{ text: encoded }] } } }),
+      execution: { ...execution, recurring: { jobId: "daily", jobName: "Daily comparison" } } });
+    const ask = f.approvalDetails[0]!;
+    assert.ok(ask.reason?.includes(objective));
+    assert.ok(ask.reason!.length <= 2048);
+    assert.deepEqual(ask.recurring, { jobId: "daily", jobName: "Daily comparison" });
+    for (const secret of [value, Buffer.from(value).toString("base64")]) {
+      assert.ok(!JSON.stringify(f.approvalDetails).includes(secret));
+      assert.ok(!JSON.stringify(f.audit.events).includes(secret));
+    }
+    assert.ok(!JSON.stringify(f.audit.events).includes(objective));
+    assert.equal(released, 1);
+  } finally { await f.close(); }
+});
+
+it("requires a fresh trust answer and displays the full endpoint separately from bounded summaries", async () => {
+  const f = await fixture((_req, res) => { res.end(); });
+  try {
+    f.grants.grants.push(grant("network.a2a", "session", { kind: "capability" }, {
+      person: execution.person, agent: execution.agent, sessionId: execution.session, createdAt: Date.now(),
+    }));
+    const endpoint = new URL(f.peer.cardUrl);
+    endpoint.pathname = `/${"a".repeat(1850)}/confirm-this-suffix`;
+    await f.transport.confirmTrust(f.peer, endpoint.toString(), execution, new AbortController().signal, () => true);
+    const ask = f.approvalDetails[0]!;
+    assert.equal(ask.tool, "peer.a2a_trust");
+    assert.ok(ask.diff?.includes(endpoint.toString()));
+    assert.ok(ask.diff!.length < 8192);
+    assert.deepEqual(f.urls, []);
+  } finally { await f.close(); }
+});
+
+it("releases a late lease after approval cancellation without showing or sending it", async () => {
+  const value = randomBytes(24).toString("base64url");
+  let resolveLease!: (lease: { value: string; release(): void }) => void;
+  let leaseStarted!: () => void;
+  const started = new Promise<void>(resolve => { leaseStarted = resolve; });
+  let released = 0, hits = 0;
+  const f = await fixture((_req, res) => { hits++; res.end(); }, {
+    credential: async () => {
+      leaseStarted();
+      return new Promise(resolve => { resolveLease = resolve; });
+    },
+  });
+  try {
+    const controller = new AbortController();
+    const operation = f.request({ signal: controller.signal });
+    await started;
+    controller.abort();
+    await assert.rejects(operation, { code: "aborted" });
+    resolveLease({ value, release() { released++; } });
+    await new Promise<void>(resolve => setImmediate(resolve));
+    assert.equal(released, 1);
+    assert.equal(hits, 0);
+    assert.deepEqual(f.approvalDetails, []);
+  } finally { await f.close(); }
+});
 
 it("pins the actual HTTP connection and audits only identifiers, hashes and counts", async () => {
   const marker = "FOREIGN-SECRET-CONTENT-123456789";
@@ -50,6 +151,23 @@ it("pins the actual HTTP connection and audits only identifiers, hashes and coun
     assert.equal(f.audit.events.filter(e => e.action === "a2a.call").length, 1);
     assert.ok(!JSON.stringify([f.audit.events, f.asks]).includes(marker));
     assert.ok(!JSON.stringify(f.audit.events).includes("unresolvable"));
+  } finally { await f.close(); }
+});
+
+it("refuses a persisted out-of-scope credential before approval, lease or connection", async () => {
+  let leases = 0;
+  let calls = 0;
+  const value = randomBytes(24).toString("base64url");
+  const f = await fixture((_req, res) => { calls++; res.setHeader("content-type", "application/json"); res.end("{}"); }, {
+    credential: async () => { leases++; return { value, release() {} }; },
+  });
+  try {
+    f.peer.credentialSecret = "provider-key";
+    await assert.rejects(f.request(), { code: "invalid-peer" });
+    assert.equal(leases, 0);
+    assert.equal(calls, 0);
+    assert.deepEqual(f.asks, []);
+    assert.deepEqual(f.urls, []);
   } finally { await f.close(); }
 });
 

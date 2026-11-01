@@ -57,6 +57,8 @@ interface Chain {
 export interface Collab {
   readonly boardStore: import("./board.ts").ProjectBoardStore;
   boardProject(id: string): Project | null;
+  /** Authoritative target metadata; names in the reserved A2A namespace remain foreign after revocation. */
+  isA2aAgent(id: string): boolean;
   close(): void;
   /** Aborts every chain, waits up to `budgetMs` (default 5 s) for in-flight runs, then abandons the rest (`chain.abandoned`). */
   shutdown(budgetMs?: number): Promise<void>;
@@ -87,6 +89,15 @@ export function createCollab(o: CollabOptions): Collab {
   const emit = o.emit ?? noopEmitter();
   const scope = o.scope ?? alsAgentScopePort();
   const directory = o.directory ?? activeDirectory();
+  const isA2aAgent = (id: string): boolean => {
+    const target = directory.get(id);
+    return id.startsWith("a2a:") || target?.origin === "a2a" || target?.targetKind === "a2a";
+  };
+  const requireA2aOwner = (principal: Principal, id: string): void => {
+    if (isA2aAgent(id) && (principal.kind !== "person" || principal.role !== "owner")) {
+      throw new CollabError("unauthorized", "A2A assignment and execution require an Owner person");
+    }
+  };
   const artifacts: ArtifactPort = o.artifacts ?? {
     put: (a) => store.putArtifact(a.projectId, a.body, a.contentType ?? "text/plain"),
     get: (id) => store.getArtifact(id),
@@ -335,6 +346,7 @@ export function createCollab(o: CollabOptions): Collab {
 
     boardStore: store.board,
     boardProject: id => store.getProject(id),
+    isA2aAgent,
     createProject(principal, input) {
       const id = store.id("prj");
       authz(principal, "project.write", { kind: "project", projectId: id });
@@ -379,6 +391,7 @@ export function createCollab(o: CollabOptions): Collab {
     },
 
     addAgent(principal, projectId, agentId) {
+      requireA2aOwner(principal, agentId);
       authz(principal, "project.write", { kind: "project", projectId });
       const p = store.addAgent(projectId, agentId);
       fire({ type: "project.agent.added", projectId, data: { agentId } });
@@ -393,6 +406,7 @@ export function createCollab(o: CollabOptions): Collab {
     },
 
     async consult(input) {
+      requireA2aOwner(input.principal, input.toAgent);
       if (!input.question.trim()) throw new CollabError("invalid", "question is required", { reason: "question" });
       authz(input.principal, "project.write", { kind: "project", projectId: input.projectId });
       const project = liveProject(input.projectId);
@@ -456,6 +470,7 @@ export function createCollab(o: CollabOptions): Collab {
     },
 
     delegate(input) {
+      requireA2aOwner(input.principal, input.toAgent);
       if (!input.task.trim()) throw new CollabError("invalid", "task is required", { reason: "task" });
       authz(input.principal, "project.write", { kind: "project", projectId: input.projectId });
       const project = liveProject(input.projectId);

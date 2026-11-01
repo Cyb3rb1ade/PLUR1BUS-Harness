@@ -9,6 +9,18 @@ import { A2aPeerStore } from "../../src/a2a/peer-store.ts";
 const input = () => ({ id: "peer", cardUrl: "https://peer.example/card", kid: "peer-key", publicKey: generateKeyPairSync("ed25519").publicKey.export({ format: "jwk" }) });
 
 describe("A2A peer pins", () => {
+  it("accepts only credential names scoped to this A2A peer", () => {
+    const store = new A2aPeerStore({ path: join(tempDir("a2a-secret-scope-"), "peers.sqlite"), now: Date.now });
+    try {
+      for (const credentialSecret of ["provider-key", "a2a/other/token", "a2a/peer/../token", "a2a/peer/token/extra"]) {
+        assert.throws(() => store.add({ ...input(), credentialSecret }), { code: "invalid-peer" });
+        assert.equal(store.list().length, 0);
+      }
+      const peer = store.add({ ...input(), credentialSecret: "a2a/peer/token" });
+      assert.equal(peer.authenticated, true);
+      assert.equal("credentialSecret" in peer, false);
+    } finally { store.close(); }
+  });
   it("persists a pending peer and pins only the explicitly approved fingerprint", () => {
     const path = join(tempDir("a2a-peers-"), "peers.sqlite");
     const store = new A2aPeerStore({ path, now: () => 123 });

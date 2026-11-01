@@ -4,6 +4,7 @@ import { A2aPeerError } from "./peer-error.ts";
 export function redactPeerReply(raw: string, redact: (text: string) => string): string {
   let value: unknown;
   try { value = JSON.parse(raw); } catch { return redact(raw); }
+  if (typeof value === "string") return redact(value);
   let nodes = 0;
   const walk = (v: unknown, depth: number): unknown => {
     if (++nodes > 8192 || depth > 32) throw new A2aPeerError("request-failed");

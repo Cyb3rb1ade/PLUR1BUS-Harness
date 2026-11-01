@@ -1,5 +1,5 @@
 import { composeA2a } from "./a2a.ts";
-import { targetRunner } from "../collab/target.ts";
+import { isA2aTarget, targetRunner } from "../collab/target.ts";
 import { createTurnObserver } from './turn-observer.ts';
 import { createMemoryTools } from '../tools/memory.ts';
 import { createWebFetch } from '../tools/web/fetch.ts';
@@ -435,7 +435,13 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     };
     voice.setDelegate(provider);
     collab = budget ? isolated('collaboration', () => createCollab({ path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock, sessions: () => sessions.store, redact: liveLogsRedactionPort(() => registered),
-      runner: provider ? composedAgentRunner(provider, alsAgentScopePort(), d.home, delegationTargets, collabMemory({ memory, config: d.config, logger: d.logger })) : targetRunner([...delegationTargets, { kind: 'local', accepts: id => !delegationTargets.some(t => t.accepts(id)), async ack() { throw new Error('no-provider'); }, async run() { throw new Error('no-provider'); } }]), directory: { get: id => a2a?.client.hasAgent(id) ? { id, state: 'active', targetKind: 'external' } : d.agents.has(id) || options.delegationTargets?.some(t => t.accepts(id)) ? { id, state: 'active' } : null },
+      runner: provider ? composedAgentRunner(provider, alsAgentScopePort(), d.home, delegationTargets, collabMemory({ memory, config: d.config, logger: d.logger })) : targetRunner([...delegationTargets, { kind: 'local', accepts: id => !delegationTargets.some(t => t.accepts(id)), async ack() { throw new Error('no-provider'); }, async run() { throw new Error('no-provider'); } }]),
+      directory: { get: id => {
+        const matches = options.delegationTargets?.filter(target => target.accepts(id)) ?? [];
+        if (matches.length > 1) return null;
+        if (a2a?.client.hasAgent(id) || matches.some(isA2aTarget)) return { id, state: 'active', targetKind: 'external', origin: 'a2a' };
+        return d.agents.has(id) || matches.length === 1 ? { id, state: 'active' } : null;
+      } },
       emit: { emit: event => d.logger.info(event.type, { projectId: event.projectId, traceId: event.traceId }) },
       logWarn: (msg, fields) => d.logger.warn(msg, fields),
       grants: { endTask: (taskId, by) => {
@@ -454,6 +460,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     if (collab) {
       disposers.push(() => collab.shutdown());
       const gate = new CodingGate({ path: join(d.home, 'state', 'coding-gate.sqlite'),
+        isLocalReviewer: id => !collab!.isA2aAgent(id) && (d.agents.has(id) || !!options.delegationTargets?.some(target => target.accepts(id))),
         verifier: sandboxVerifier(60000, { limitsHelper: join(d.home, 'bin', 'plur1bus-sandbox-limits'), maxTasks: () => d.config().tools.sandbox.maxTasks }), audit: event => { d.audit.append({ at: d.clock(), actor: { user: 'core', host: 'core' }, action: 'coding.gate', target: 'task', detail: { ...event } }); } });
       disposers.push(() => gate.close());
       coding = { collab, gate, worktrees: options.projectWorktrees ?? { root: agentId => d.agents.workspaceOf(agentId) ?? null } };

@@ -21,6 +21,25 @@ function fixture() {
   const call = async (method: string, params: any = {}) => { const result = await methods[method]!({ projectId: project.id, ...params }, { signal: new AbortController().signal, requestId: "1", connectionId: "test" }); assert.deepEqual(validateResult(method, result), { ok: true }, method); return result; };
   return { service, project, events, raw, call, as: (p: Principal | null) => { principal = p; } };
 }
+test("normal board assignment refuses A2A ownership for Owner and Admin while retaining local assignments", async () => {
+  const f = fixture();
+  const owner: Principal = { userId: "alice", role: "owner", kind: "person" };
+  try {
+    f.service.addAgent(owner, f.project.id, "a2a:peer");
+    const columnId = f.service.boardStore.columns(f.project.id)[0]!.id;
+    const card = f.service.boardStore.createCard(f.project.id, { title: "Local task", columnId },
+      { kind: "person", id: "alice" });
+    for (const role of ["owner", "admin"] as const) {
+      f.as({ kind: "person", role, userId: "alice" });
+      await assert.rejects(f.call("project.card.assign", {
+        cardId: card.id, assignee: { kind: "agent", id: "a2a:peer" },
+      }), isCode("E_DENIED"));
+    }
+    assert.deepEqual(f.service.boardStore.getCard(f.project.id, card.id).assignees, []);
+    await f.call("project.card.assign", { cardId: card.id, assignee: { kind: "agent", id: "agent1" } });
+    assert.deepEqual(f.service.boardStore.getCard(f.project.id, card.id).assignees, [{ kind: "agent", id: "agent1" }]);
+  } finally { f.service.close(); }
+});
 test("every board method: guard fails closed for missing/unknown identity, empty scopes, viewer writes and unassigned agents", async () => {
   const f = fixture();
   try {
