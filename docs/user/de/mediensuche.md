@@ -86,9 +86,7 @@ je Foto und 70 je Videobild. Auf allen unterstützten Plattformen gilt derzeit q
 Jede Medienart (Bild, Video, Audio) kannst du einzeln ausschalten. Das verifizierte lokale q8-Encoder-Paket für
 EmbeddingGemma 2 umfasst 535.699.121 Bytes (etwa 511 MiB),
 ohne das Textmodell. Die Einrichtung zeigt diese zusätzliche Downloadgröße getrennt vom Installationsstatus.
-Die Zeit je Foto auf deinem Gerät wurde noch nicht gemessen; die Einrichtung weist darauf hin. Mit Zustimmung des
-Controllers sind diese gerätespezifischen Zeitmessungen für MM-3b vorgesehen. MM-3a zeigt die verifizierte
-Downloadgröße und den Messstatus.
+Die Zeit je Foto auf deinem Gerät wurde noch nicht gemessen; die Einrichtung weist darauf hin.
 
 ## Lizenzen
 
