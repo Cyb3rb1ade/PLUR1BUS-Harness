@@ -1,4 +1,5 @@
 /** #820: D109 decisions and single-use ACP grants bind exact ToolCall-ID and canonical action bytes. */
+import type { CanonicalPath, Identity } from "../policy/paths.ts";
 import { createHash } from "node:crypto";
 import type { ApprovalService } from "../approvals/service.ts";
 import type { ApprovalAnswer, ApprovalAsk } from "../tools/approval.ts";
@@ -11,12 +12,14 @@ export interface AcpAction {
   tool: string;
   args: Record<string, unknown>;
   targets: string[];
+  /** Trusted classification only, never copied from ACP input. Bind identity across permission and effect callbacks. */
+  binding?: { file: CanonicalPath } | { command: Identity; cwd: Identity };
 }
 
 /** Exact paths, bytes and argv participate; no title or agent-supplied hash is trusted. */
 export function acpActionHash(action: AcpAction): string {
   return createHash("sha256").update(canonicalJson({ capability: action.capability, tool: action.tool,
-    args: action.args, targets: action.targets })).digest("hex");
+    args: action.args, targets: action.targets, ...(action.binding ? { binding: action.binding } : {}) })).digest("hex");
 }
 
 /** One instance per run. Pending approvals expire with its AbortSignal. */

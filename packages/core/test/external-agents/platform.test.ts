@@ -1,3 +1,4 @@
+import { windowsPnpmRefusal } from "./windows-pnpm-refusal.fixture.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { containedTerminal } from "../../src/external-agents/containment.ts";
@@ -34,4 +35,17 @@ test("the Linux-only availability export and launcher agree for actual hosts and
           && error.cause === (host === "darwin" ? "macos-acceptance-pending" : undefined));
     }
   }
+});
+
+
+test("the Windows pnpm callback refuses without a Mac cause or any process creation", async t => {
+  const original = Object.getOwnPropertyDescriptor(process, "platform")!;
+  Object.defineProperty(process, "platform", { ...original, value: "win32" });
+  t.after(() => Object.defineProperty(process, "platform", original));
+  await windowsPnpmRefusal(t);
+  const git = await import(new URL("../../src/external-agents/git.ts?windows-hardening", import.meta.url).href);
+  const args = git.gitArgv(["status"]);
+  assert.ok(args.includes("core.hooksPath=NUL"));
+  assert.ok(args.includes("core.excludesFile=NUL"));
+  assert.equal(args.includes("core.hooksPath=/dev/null"), false);
 });

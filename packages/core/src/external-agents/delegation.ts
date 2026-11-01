@@ -124,7 +124,7 @@ export class ExternalDelegationTarget implements DelegationTarget {
         if (typeof params.path !== "string" || typeof params.content !== "string") throw new Error("path");
         const path = await containedPath({ worktree, home: this.#d.home, signal }, params.path, "write");
         signal.throwIfAborted();
-        const action: AcpAction = { callId, capability: "fs.write", tool, args: { path: path.canonical, content: params.content }, targets: [path.canonical] };
+        const action: AcpAction = { callId, capability: "fs.write", tool, args: { path: path.canonical, content: params.content }, targets: [path.canonical], binding: { file: path } };
         approvedFiles.set(action, path);
         return action;
       }
@@ -137,7 +137,9 @@ export class ExternalDelegationTarget implements DelegationTarget {
       const cwd = await containedPath({ worktree, home: this.#d.home, signal }, typeof params.cwd === "string" ? params.cwd : worktree, "read");
       signal.throwIfAborted();
       const action: AcpAction = { callId, capability: "shell.exec", tool: "terminal/create", args: { command, args: argv.slice(1), cwd: cwd.canonical }, targets: [cwd.canonical] };
-      approvedProcesses.set(action, { command: { dev: String(stat.dev), ino: String(stat.ino), ...(stat.birthtimeNs > 0n ? { birth: String(stat.birthtimeNs) } : {}) }, cwd: cwd.identity });
+      const binding = { command: { dev: String(stat.dev), ino: String(stat.ino), ...(stat.birthtimeNs > 0n ? { birth: String(stat.birthtimeNs) } : {}) }, cwd: cwd.identity };
+      action.binding = binding;
+      approvedProcesses.set(action, binding);
       return action;
     };
     try {

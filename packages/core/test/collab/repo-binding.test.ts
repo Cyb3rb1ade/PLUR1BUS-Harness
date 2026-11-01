@@ -48,7 +48,7 @@ test("bind records toplevel and base branch; unbind clears it; only a lead perso
     assert.equal(bound.repo?.baseBranch, "main");
     assert.equal(collab.getProject(lead, project.id).repo?.baseBranch, "main");
     const flat = rec.calls.flat();
-    assert.ok(flat.includes("core.hooksPath=/dev/null"));
+    assert.ok(flat.includes(`core.hooksPath=${process.platform === "win32" ? "NUL" : "/dev/null"}`));
     assert.equal(flat.includes("--force"), false);
     assert.equal(flat.some((a) => a === "reset" || a === "rebase" || a === "push"), false);
     assert.ok(rec.calls.every((c) => c[0] === "git"));

@@ -55,7 +55,7 @@ test("fork names the branch and worktree, remove keeps the branch, and argv stay
     assert.equal(provisionedWorktreePort(store, () => "/workspace").root("agent", id, "crd_aabbcc"), card.path);
     assert.equal(provisionedWorktreePort(store, () => "/workspace").root("agent", id, "missing"), null);
     const flat = calls.flat();
-    assert.ok(flat.includes("core.hooksPath=/dev/null"));
+    assert.ok(flat.includes(`core.hooksPath=${process.platform === "win32" ? "NUL" : "/dev/null"}`));
     assert.equal(flat.includes("--force"), false);
     assert.equal(flat.some((a) => a === "reset" || a === "rebase" || a === "push" || a === "sh" || a === "bash"), false);
     assert.ok(calls.every((c) => c[0] === "git"));
@@ -89,8 +89,8 @@ test("normal card IDs exclude their prefix, collisions stay distinct and retaine
     const ids = ["card_12300000-0000-4000-8000-000000000001", "card_123fffff-ffff-4fff-8fff-ffffffffffff",
       "card_abcdef00-0000-4000-8000-000000000001", "card_abcdef11-0000-4000-8000-000000000002"];
     const cards = ids.map(cardId => provisioner.fork({ projectId: project.id, cardId }));
-    assert.equal(cards[0]!.path.endsWith("cards/c-123000"), true);
-    assert.equal(cards[1]!.path.endsWith("cards/c-123fff"), true);
+    assert.equal(cards[0]!.path.endsWith(join("cards", "c-123000")), true);
+    assert.equal(cards[1]!.path.endsWith(join("cards", "c-123fff")), true);
     assert.equal(new Set(cards.map(c => c.path)).size, 4);
     assert.equal(new Set(cards.map(c => c.branch)).size, 4);
     for (const cardId of ids) provisioner.remove({ projectId: project.id, cardId });

@@ -1,3 +1,4 @@
+import { windowsPnpmRefusal } from "./windows-pnpm-refusal.fixture.ts";
 import { provisionFixture, mountOptions } from "./fixture.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -102,7 +103,7 @@ test("Windows terminal stays refused", async () => {
   assert.deepEqual(refused, { ok: false, reason: "sandbox-unavailable", ...(process.platform === "darwin" ? { cause: "macos-acceptance-pending" } : {}) });
 });
 
-test("pnpm installs and builds offline; the next Linux mount refuses its resulting hardlinks", { todo: process.platform === "darwin" ? "pnpm hardlink / RSS PROC_PIDTASKINFO ESRCH: macos-acceptance-pending — D123 SB-1" : false }, async () => {
+test("pnpm installs and builds offline; the next Linux mount refuses its resulting hardlinks", { todo: process.platform === "darwin" ? "pnpm hardlink / RSS PROC_PIDTASKINFO ESRCH: macos-acceptance-pending — D123 SB-1" : false }, process.platform === "win32" ? windowsPnpmRefusal : async () => {
   const pnpm = onPath("pnpm");
   assert.ok(pnpm, "pnpm is on PATH");
   const entry = pnpmEntry(pnpm);
