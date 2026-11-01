@@ -87,7 +87,8 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
     const tools = a.scope?.tools ?? [];
     const isReadTool = (name: string) => (o.toolEffect?.(name) ?? (readTools.includes(name) ? 'read' : undefined)) === 'read';
     const readOnly = tools.length > 0 && tools.every(isReadTool);
-    const callClass: CallClass = kind === 'handoff' ? 'write' : review ? 'review' : kind === 'consult' || readOnly ? 'read' : 'write';
+    if (kind === 'delegate' && !review && readOnly) throw new CollabError('invalid', 'read-only tasks must use consult_agent');
+    const callClass: CallClass = kind === 'handoff' ? 'write' : review ? 'review' : kind === 'consult' ? 'read' : 'write';
     if ((kind === 'consult' || review) && tools.length && !readOnly) throw new CollabError('unauthorized', 'consult and review scope must contain only read tools');
     const nested = currentAgentScope();
     const parent = nested?.delegation;

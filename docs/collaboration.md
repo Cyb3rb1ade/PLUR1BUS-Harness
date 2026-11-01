@@ -128,6 +128,7 @@ version 2. This is an idempotent JSON format change, without a SQLite migration 
 ## Nonblocking tools and turn lifetime (D124 PT-1)
 
 `consult_agent` and `delegate_task` accept `wait: false`, `taskClass` and an optional smaller `workTokens` allocation.
+A read-only tool scope must use `consult_agent`; `delegate_task` refuses it and names the correct tool.
 Consults accept only `consult`, reviews only `review`, and delegates/handoffs only `code-small` or `code-large`;
 incompatible overrides are rejected. Reviews accept only read tools and default to the filesystem read list.
 The default remains a blocking call. Before asynchronous handoff repair, a nonblocking writer reserves both its

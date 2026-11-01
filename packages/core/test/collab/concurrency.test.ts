@@ -541,3 +541,18 @@ for (const cancelled of [false, true]) test(`blocking failure is delivered once 
   }
   assert.deepEqual(await f.request.delegations!.finish(), []);
 });
+
+for (const wait of [true, false]) test(`read-only delegate_task scope directs the caller to consult_agent, wait=${wait}`, async t => {
+  let runs = 0;
+  const f = fixture(t, { runner: { async run() { runs++; return { text: 'evidence', inputTokens: 1, outputTokens: 1 }; } } });
+  f.config.toolEffect = name => name === 'custom.read' ? 'read' : undefined;
+  const args = { projectId: f.project.id, toAgent: 'a', objective: 'inspect', wait, scope: { paths: [], tools: ['file.read', 'custom.read'] } };
+  const refused = await f.call('delegate_task', args);
+  assert.equal(refused.isError, true);
+  assert.match(JSON.stringify(refused), /consult_agent/);
+  assert.equal(runs, 0);
+  assert.deepEqual(f.collab.listTraces(owner(), f.project.id), []);
+  const consult = await f.call('consult_agent', { ...args, wait: true });
+  assert.equal(consult.isError, false, JSON.stringify(consult));
+  assert.equal(runs, 1);
+});
