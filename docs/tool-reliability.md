@@ -113,37 +113,51 @@ The current process home and its real path become `~`. Other user-home prefixes 
 Windows drive paths, `\\?\` paths and `/mnt/<drive>/Users/<name>` paths. This step does not replace standalone
 username words or existing `<deny:ssh>/…#hash` placeholders. The serialized failure is bounded to 4096 characters.
 
-Exact registered values have an eight-UTF-16-code-unit minimum. Their cached variants include raw text, padded and
-unpadded base64/base64url, lower/upper hex, URL encoding and canonical JSON string escapes. Matching also recognizes
-one equivalent JSON-escape layer within text, including mixed `\uXXXX`, escaped slashes and Go-style escapes for
-`<`, `>` and `&`. It preserves source spelling outside matched spans; it does not recursively decode arbitrary layers.
-The successful-result scan distinguishes JSON strings/keys from structural punctuation. With no hit it returns the
-original parsed result without a depth-limited walk; numeric hits still withhold the whole result. Overlapping hits
-mask their entire combined span, and colliding redacted keys retain separate numbered entries.
+Exact registered values have an eight-UTF-16-code-unit minimum. One immutable snapshot per secret-set generation
+holds their raw, base64/base64url, hex, URL-encoded and canonical JSON-escaped forms and a compiled Aho–Corasick
+matcher. Reordering or pinning an existing value reuses that snapshot. Raw text and equivalent JSON escapes are
+scanned in a constant number of passes, including one nested escape layer within JSON string tokens. Mixed
+`\uXXXX`, escaped slashes and Go-style escapes for `<`, `>` and `&` retain their original spelling outside matches.
+The scanner does not retain a view per token or search every form through every token. Overlapping hits mask their
+whole union, numeric hits withhold the result, and colliding redacted keys retain separate numbered entries.
+A no-hit result keeps its original parsed value. Unmatched surrogates become well formed; matching also covers the
+replacement-character spelling used by UTF-8 output. A hit includes its whole surrogate pair; masking cannot create
+a dangling half that turns into a different registered value. Visible source windows omit incomplete public pairs.
 
-Core masks a complete retained process-output line before its 4096-byte visible cap. A line over the existing 64 KiB
-framing bound is replaced in full. Thus a secret crossing the visible cap cannot leave a prefix behind; there is no
-approximate prefix rule that would conceal a public URL merely because it shares a webhook's prefix. Diagnostic
-failures are masked before their 500-character cap, model-only messages before their 300-character cap, and result
-hints keep their 80-character bound. These character cuts preserve code-point boundaries, and text redaction makes
-remaining unmatched surrogates well formed. These guarantees cover the Core boundaries described here, not Engine
-or external sandbox capture paths.
+Native output boundaries mask before clipping or encoding. Exec captures a bounded source prefix plus match context,
+including the sandbox adapter's earlier capture boundary, and drains the remaining output. Ranged file reads obtain
+context on both sides through the verified handle, project matches onto the original byte window, and only then
+produce UTF-8 or base64. Source offsets, byte counts, identity and EOF checks retain their original meaning. Web keeps
+its HTTP size rejection and masks decoded text and entity-decoded metadata before presentation limits or pagination.
+Reaching the HTML parser's node limit refuses the document rather than exposing a partial entity-decoded result.
+Cursor reads use the current snapshot and its final projection onto original source coordinates. If a newly registered value requires context already discarded at capture,
+the affected output is withheld. Validation and repair previews also mask before their 80- and 40-unit cuts; repair
+execution still uses the original arguments.
 
-An unmatched surrogate in a stored string does not invalidate the shared forms cache: matching covers its original
-JSON spelling and the replacement-character representation used by UTF-8 output. Unrelated results still take the
-no-hit path. A policy failure from another cause withholds the original line and emits a fixed diagnostic failure
-record without retrying that failed policy recursively.
+Process-output framing retains up to 64 KiB for a pending frame and up to 64 KiB of raw lookbehind. Idle flushes retain
+match padding and UTF-8 decoder state, so a secret split across an idle interval or newline cannot expose its pieces.
+Each visible line is prepared once before its 4096-byte cap. Oversized frames, or frames lacking required context,
+receive fixed withholding markers. The writer still checks other attributes, PII, schema, rate limits and deduplication.
+Diagnostic failures are masked before their 500-character cap and model-only messages before their 300-character cap.
+Character cuts preserve code-point boundaries. There is no approximate secret-prefix rule that hides a public URL
+just because it shares a webhook's prefix. These guarantees cover the Core-owned adapters; already clipped Engine or
+external content cannot supply source context the Core never received. A policy failure withholds the original line
+and emits a fixed diagnostic failure without recursively retrying the failed policy.
 
 Core preloads readable Store values before constructing diagnostic writers or draining queued startup messages.
-This trusted internal operation does not migrate copies, create leases, produce access-audit records or return
-plaintext. Disabled file fallback is not opened; unavailable backends remain unavailable. An unreadable entry cannot
-be registered, so failures report only fixed backend/phase identifiers and counts while other readable values remain
-protected. The initial snapshot stays pinned until Core exits. See [secrets.md](secrets.md) for Store availability.
+Persistent keyring and encrypted-file operations run in private child processes, outside the Core event loop. One
+three-second deadline covers the whole attempt, including helper import, probe, listing and reads. Timeout leaves
+secret use unavailable while Core remains responsive; unsafe queued startup records are discarded at final queue
+release. An empty successful Store is distinct from an unavailable attempt. Recovery is demand driven after a
+30-second cooldown and must complete a fresh bounded preload before values or leases become available. Initial and
+recovery snapshots stay pinned until Core exits. Disabled file fallback is not opened, and this internal operation
+creates no lease, credential-access audit record or plaintext response. See [secrets.md](secrets.md).
 
-`test/secrets/secret-load.test.ts` covers 512 secrets with a near-1-MiB public result, a large nested-escape no-hit
-result, an escaped hit, 50,000 short values, and 512 overlapping values. It checks unchanged public output, secret masking, cache reuse and
-a 2000 ms event-loop-delay regression ceiling per complete dispatch on shared runners. Timings are emitted as test
-diagnostics; this ceiling is not a production latency SLO.
+`test/secrets/secret-load.test.ts` covers 512 generated secrets, near-1-MiB public results, overlapping forms, and
+about 170,000 short escaped JSON tokens with both no hit and a late hit. Deterministic counters bound actual scanning
+work and require zero substring probes. A coarse 10-second event-loop-delay ceiling is over ten times the observed
+runtime of these forms; emitted timings are regression evidence, not a production latency SLO. Instrumented old-code
+RED timings include measurement overhead and are not a clean benchmark comparison.
 
 Unknown-tool results list the offered tools and recommend `capabilities.search`. Invalid calls after the one repair,
 denials, tool errors and timeouts return correlated `tool.result` events and cost another model round. Three
@@ -338,6 +352,14 @@ pnpm lint
 
 The optional report prefix writes `.json` and `.md` from the test runner. No files
 are written and no networking is performed by the fixture runner itself.
+
+## Single execution path (D120 T1-a)
+
+Two tests keep every tool execution behind `ToolDispatcher`. `packages/core/test/tools/call-paths.test.ts` is a text scan of `packages/core/src` plus end-to-end turns; `packages/core/test/architecture/single-gate.test.ts` is a type-checked scan of `packages/*/src`.
+G1 allows `ToolDef.execute` only inside `ToolDispatcher.#run` and `ToolRegistry.register`. G2 allows `FsToolSpec.execute`, `ExecToolSpec.execute`, `ToolSpec.execute`, `HostTool.run`, `McpToolPort.callTool`, `McpRegistry.callTool`, `McpConnection.callTool`, `Hostctl.invoke` and `runHostTool` only inside a `ToolDef` `execute` body, an `McpToolPort` `callTool` decorator, `McpRegistry.callTool` (for `McpConnection.callTool`), or `runHostTool` and `createHostctl`'s `invoke` (for `HostTool.run`).
+The scan does not see values typed `any` or `unknown` and then cast, reflective access (`Reflect.get`, computed keys that are not string literals), objects whose type is inferred and only structurally compatible with an executor interface, or code outside `packages/*/src` (tests call executors directly on purpose).
+`packages/webmcp` contains browser-side tools of the web page, not core tools; none of its declarations is in the table. The scan complements the dispatcher and does not replace the end-to-end tests.
+A new executor kind is added by putting its declaration in the table in the test.
 
 ## Follow-ups (integration owners)
 

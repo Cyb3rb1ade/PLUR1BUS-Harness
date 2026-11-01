@@ -2,7 +2,9 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { test } from "node:test";
-import * as config from "../src/index.ts";
+import * as publicConfig from "../src/index.ts";
+import { configSecretEntries } from "../src/sensitive.ts";
+const config = { ...publicConfig, configSecretEntries };
 
 const MASK = "••••";
 
@@ -87,7 +89,7 @@ test("endpoint projection masks only userinfo and every query value, including a
   };
   assert.deepEqual(config.redactConfig(value, { schema }), {
     endpoints: [
-      `https://${MASK}@relay.example.test/first?ordinary=${MASK}&ordinary=${MASK}#public`,
+      `https://${MASK}@relay.example.test/first?ordinary=${MASK}&ordinary=${MASK}#${MASK}`,
       `wss://relay.example.test/second?another=${MASK}`,
       "https://relay.example.test/default",
     ],

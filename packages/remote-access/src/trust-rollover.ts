@@ -105,6 +105,7 @@ export function switchTrust(s: TrustState, devices: readonly TrustDevice[], now:
 }
 
 export function cancelTrust(s: TrustState): TrustResult {
+  if (s.phase === "none") return { ok: true, state: s };
   if (s.phase !== "staged") return err("not-staged", "no trust change is staged");
   return { ok: true, state: { ...initTrust(s.current), revoked: s.revoked } };
 }

@@ -1,5 +1,5 @@
 import { createTurnObserver } from './turn-observer.ts';
-import { SecretFormsCache } from '../logs/secret-forms.ts';
+import { SecretFormsCache, type SecretFormsSnapshot } from '../logs/secret-forms.ts';
 import { createMemoryTools } from '../tools/memory.ts';
 import { createWebFetch } from '../tools/web/fetch.ts';
 import { restoreSessionSkills } from './session-skills.ts';
@@ -226,12 +226,13 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     const registered = new Set<string>();
     const composedForms = new SecretFormsCache();
     const secretValues = (): Set<string> => new Set([...registered, ...(d.secrets.redaction?.values() ?? [])]);
-    const secretForms = (): readonly string[] => {
+    const knownSecrets = (): SecretFormsSnapshot => {
       const shared = d.secrets.redaction;
       const base = new Set(shared?.values() ?? []);
-      if (shared && typeof shared.forms === 'function' && [...registered].every(value => base.has(value))) return shared.forms();
-      return composedForms.forms(secretValues());
+      if (shared && typeof shared.snapshot === 'function' && [...registered].every(value => base.has(value))) return shared.snapshot();
+      return composedForms.snapshot(secretValues());
     };
+    const secretForms = (): readonly string[] => knownSecrets().forms;
     const registerSecret = (value: string) => { d.secrets.redaction?.register(value); registered.delete(value); registered.add(value); if (registered.size > 256) registered.delete(registered.values().next().value!); };
     disposers.push(() => registered.clear());
     const auth = isolated('turn providers', () => composeAuth({ config: cfg, definitions, openai, secrets: d.secrets, egress: d.egress, registerSecret, log: record => d.logger.info('turn.stage', { ...record }), ...(options.fetch ? { fetch: options.fetch } : {}) }));
@@ -417,7 +418,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
         id: skill.id, source: skill.source, ...(skill.confidence === undefined ? {} : { confidence: skill.confidence }),
       })) });
       d.notify('session.event', { agentId: request.agentId, event: toWireEvent(event) }, { optIn: true });
-    }, requireTriage: !!cfg.modelRoles.decision, triageTimeoutMs: typeof cfg.decision.timeoutMs === 'number' ? cfg.decision.timeoutMs : 2000, profileForAgent: agent => d.config().agents[agent]?.model, capabilities, skillsForAgent: agent => d.config().agents[agent]?.skills ?? {}, profiles, reasoningFor, profile: auth?.resolved.defaultProfile ?? 'default', profileForClass: modelClass => loadClassProfiles(join(d.home, 'model-class-profiles.json'), (d.config().decision.classProfiles as Record<string, string> | undefined) ?? classProfiles)[modelClass as import('../triage/classes.ts').ModelClass], router: { profileDefaults: auth?.resolved.defaults ?? {}, unsupportedProfiles: auth?.resolved.unsupported ?? {}, ...options.providers?.router }, family: options.providers?.family ?? auth?.families ?? {}, billing: options.providers?.billing ?? auth?.billing ?? {}, cacheRoutes: auth?.cacheRoutes ?? {}, profileCache: Object.fromEntries(Object.entries(auth?.resolved.profiles ?? {}).map(([name, p]) => [name, p.cache])), allowCrossBilling: name => profilePolicy[name]?.allowCrossBilling === true, localOnly: agentId => localOnlyFor(d.config(), agentId), isLocalProvider, secrets: secretValues, secretForms, onRouterEvent: routerEventSink(d), policyContext: approvalPolicyContext(d.permissions, sessionId => sessions?.forSession(sessionId).store.getSession(sessionId)?.origin), registry: new ToolRegistry(), budget, principal, toolsForTurn, snapshot: (req, memory) => req.projectId ? memory : sessions.forSession(req.sessionId).store.freezePromptSnapshot(req.sessionId, memory), onUsage: record => d.logger.info('provider.cache_usage', { ...record }), onPrompt: prompt => { options.providers?.onPrompt?.(prompt); for (const event of prompt.events) d.logger.info(event.type, { ...event }); }, beforeTools: async () => { await d.permissions.open(); }, grants, grantUse: { markUsed: id => d.permissions.current()!.grants.markUsed(id), consumeOnce: (id, binding) => d.permissions.current()!.grants.consumeOnce(id, binding) }, approval: { request: async ask => (await d.permissions.open()).service.request(ask), begin: (answer, ask) => d.permissions.current()?.service.begin(answer, ask) ?? false }, audit, log: record => d.logger.info('turn.stage', { ...record }), resultStore: { async put(value) {
+    }, requireTriage: !!cfg.modelRoles.decision, triageTimeoutMs: typeof cfg.decision.timeoutMs === 'number' ? cfg.decision.timeoutMs : 2000, profileForAgent: agent => d.config().agents[agent]?.model, capabilities, skillsForAgent: agent => d.config().agents[agent]?.skills ?? {}, profiles, reasoningFor, profile: auth?.resolved.defaultProfile ?? 'default', profileForClass: modelClass => loadClassProfiles(join(d.home, 'model-class-profiles.json'), (d.config().decision.classProfiles as Record<string, string> | undefined) ?? classProfiles)[modelClass as import('../triage/classes.ts').ModelClass], router: { profileDefaults: auth?.resolved.defaults ?? {}, unsupportedProfiles: auth?.resolved.unsupported ?? {}, ...options.providers?.router }, family: options.providers?.family ?? auth?.families ?? {}, billing: options.providers?.billing ?? auth?.billing ?? {}, cacheRoutes: auth?.cacheRoutes ?? {}, profileCache: Object.fromEntries(Object.entries(auth?.resolved.profiles ?? {}).map(([name, p]) => [name, p.cache])), allowCrossBilling: name => profilePolicy[name]?.allowCrossBilling === true, localOnly: agentId => localOnlyFor(d.config(), agentId), isLocalProvider, secrets: secretValues, secretForms, knownSecrets, onRouterEvent: routerEventSink(d), policyContext: approvalPolicyContext(d.permissions, sessionId => sessions?.forSession(sessionId).store.getSession(sessionId)?.origin), registry: new ToolRegistry(), budget, principal, toolsForTurn, snapshot: (req, memory) => req.projectId ? memory : sessions.forSession(req.sessionId).store.freezePromptSnapshot(req.sessionId, memory), onUsage: record => d.logger.info('provider.cache_usage', { ...record }), onPrompt: prompt => { options.providers?.onPrompt?.(prompt); for (const event of prompt.events) d.logger.info(event.type, { ...event }); }, beforeTools: async () => { await d.permissions.open(); }, grants, grantUse: { markUsed: id => d.permissions.current()!.grants.markUsed(id), consumeOnce: (id, binding) => d.permissions.current()!.grants.consumeOnce(id, binding) }, approval: { request: async ask => (await d.permissions.open()).service.request(ask), begin: (answer, ask) => d.permissions.current()?.service.begin(answer, ask) ?? false }, audit, log: record => d.logger.info('turn.stage', { ...record }), resultStore: { async put(value) {
       const dir = join(d.home, 'state', 'tool-results'); await mkdir(dir, { recursive: true, mode: 0o700 });
       const id = randomUUID(); await writeFile(join(dir, `${id}.json`), JSON.stringify(value), { flag: 'wx', mode: 0o600 }); return `tool-result:${id}`;
     } } } : null;
@@ -438,7 +439,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       } catch (error) { record(signal.aborted ? 'cancelled' : 'refused'); throw error; }
     };
     voice.setDelegate(provider);
-    collab = budget ? isolated('collaboration', () => createCollab({ path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock, sessions: () => sessions.store, redact: liveLogsRedactionPort(() => registered),
+    collab = budget ? isolated('collaboration', () => createCollab({ path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock, sessions: () => sessions.store, redact: liveLogsRedactionPort(secretValues, knownSecrets),
       runner: provider ? composedAgentRunner(provider, alsAgentScopePort(), d.home, options.delegationTargets, collabMemory({ memory, config: d.config, logger: d.logger })) : { async run() { throw new Error('no-provider'); } }, directory: { get: id => d.agents.has(id) || options.delegationTargets?.some(t => t.accepts(id)) ? { id, state: 'active' } : null },
       emit: { emit: event => d.logger.info(event.type, { projectId: event.projectId, traceId: event.traceId }) },
       logWarn: (msg, fields) => d.logger.warn(msg, fields),

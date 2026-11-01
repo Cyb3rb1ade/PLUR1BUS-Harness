@@ -59,12 +59,17 @@ async function loadConfig(section: SectionProps["section"], signal: AbortSignal)
 export function ConfigSection({ section, focus }: SectionProps): View {
   const { state, reload } = useLoad((signal) => loadConfig(section, signal), [section.id]);
   const [saved, setSaved] = useState<Saved | null>(null);
+  const formLoad = useRef<{ data: Loaded | null; generation: number }>({ data: null, generation: 0 });
+  // An identical replacement can keep its content revision; every completed load still needs a fresh, unlocked form.
+  if (state.status === "ok" && formLoad.current.data !== state.data) {
+    formLoad.current = { data: state.data, generation: formLoad.current.generation + 1 };
+  }
   useEffect(() => { setSaved(null); }, [section.id]);
   const title = section.id === "privacy" ? t("settings.privacy.sectionTitle") : t(section.label);
   let body: View;
   if (state.status === "loading") body = h(PageLoading, { label: t("state.loading") });
   else if (state.status === "fail") body = h(FailureState, { failure: state.failure, unavailable: t("settings.cfg.unavailable"), onRetry: reload });
-  else body = h(Form, { key: state.data.revision, data: state.data, section, ...(focus === undefined ? {} : { focus }), saved, onSaved: (s: Saved) => { setSaved(s); reload(); }, reload });
+  else body = h(Form, { key: formLoad.current.generation, data: state.data, section, ...(focus === undefined ? {} : { focus }), saved, onSaved: (s: Saved) => { setSaved(s); reload(); }, reload });
   return h("section", { "data-section": section.id, "aria-labelledby": "cfg-title", class: "cfg" },
     h("h2", { id: "cfg-title", class: "cfg-title" }, title),
     section.id === "privacy" ? h("p",{class:"cfg-help",role:"status",style:"overflow-wrap:anywhere"},t("settings.privacy.liveNotice")) : null,
@@ -121,6 +126,7 @@ function Form({ data, section, focus, onSaved, reload }: FormProps): View {
   const unsaved = dirty > 0 || Object.keys(errors).length > 0;
   useEffect(() => { setUnsaved(unsaved); return () => { setUnsaved(false); }; }, [unsaved]);
   const edit = (key: string, value: string | boolean): void => {
+    if (busy === "save") return;
     epoch.current += 1;
     setDraft((d) => ({ ...d, [key]: value }));
     setErrors((e) => { if (!(key in e)) return e; const { [key]: _drop, ...rest } = e; return rest; });
@@ -184,7 +190,9 @@ function Form({ data, section, focus, onSaved, reload }: FormProps): View {
       });
     } catch (e) {
       if (fail(e) === "local") setBanner({ tone: "warn", text: t("settings.cfg.unavailable") });
-    } finally { setBusy(null); }
+      setBusy(null);
+    }
+    // On success the parent reload replaces this snapshot or shows a retryable load failure. Keep its old fields locked.
   };
 
   if (fields.length === 0) return h(PageState, { state: "empty", title: t("settings.cfg.empty"), detail: t("settings.cfg.emptyBody") });
@@ -202,7 +210,7 @@ function Form({ data, section, focus, onSaved, reload }: FormProps): View {
           h("button", { type: "button", class: "cfg-toggle", "aria-expanded": open[g] === true, "aria-controls": gid, onClick: () => { setOpen((o) => ({ ...o, [g]: !o[g] })); } },
             h("span", { "aria-hidden": "true", class: "cfg-chev" }, open[g] ? "▾" : "▸"), groupTitle(g))),
         h("div", { id: gid, hidden: open[g] !== true }, fs.map((f) =>
-          h(FieldRow, { key: f.key, field: f, draft, error: errors[f.key], disabled: !canWrite, highlighted: focused?.key === f.key, onChange: edit })),
+          h(FieldRow, { key: f.key, field: f, draft, error: errors[f.key], disabled: !canWrite || busy === "save", highlighted: focused?.key === f.key, onChange: edit })),
           g === "modelRoles" && section.id === "models" ? h(EngineModelsNote, { models: data.engine ?? null, setupLink: canWrite }) : null));
     }),
     review ? h("section", { class: "cfg-review", "aria-labelledby": "cfg-review-h" },
@@ -216,7 +224,7 @@ function Form({ data, section, focus, onSaved, reload }: FormProps): View {
       restartKeys.length ? h(Notice, { tone: "warn" }, t("settings.cfg.restartNotice", { keys: restartKeys.join(", ") }),
         review.plan?.core ? ` ${t("settings.cfg.planCore")}` : "", review.plan?.modules?.length ? ` ${t("settings.cfg.planModules", { modules: review.plan.modules.join(", ") })}` : "") : null,
       h("div", { class: "cfg-actions" },
-        h("button", { type: "button", class: "btn", onClick: () => { setReview(null); } }, t("settings.cfg.back")),
+        h("button", { type: "button", class: "btn", disabled: busy === "save", onClick: () => { setReview(null); } }, t("settings.cfg.back")),
         h("button", { type: "button", class: "btn btn-primary", disabled: busy !== null || !canWrite, onClick: () => { void save(); } }, busy === "save" ? t("settings.cfg.saving") : t("settings.cfg.save")))) : null,
     !review ? h("div", { class: "cfg-bar" },
       h("p", { class: "cfg-count", role: "status" }, dirty ? t("settings.cfg.count", { n: dirty }) : t("settings.cfg.noChanges")),

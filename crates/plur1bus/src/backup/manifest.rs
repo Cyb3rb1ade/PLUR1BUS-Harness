@@ -124,9 +124,9 @@ pub struct Secrets {
 }
 
 /// What the manifest says about secrets. It must say what the archive holds: the secret store is never read, but the API account
-/// database `state/api/accounts.db` is part of the archive (docs/portable-backup.md: the API accounts are restored from it) and
+/// database `state/api/accounts.db` is currently included by default; the owner decision of 2026-10-21 requires opt-in, to be implemented in SH8, and
 /// it holds password hashes, TOTP seeds and token hashes. Keep both phrases the tests look for.
-pub const SECRETS_NOTE: &str = "no secret-store values are part of this archive: API keys and tokens stay in the OS keyring, run/ is never archived, and the encrypted fallback file is not included; config secret references are preserved, schema-marked literals are replaced by placeholders, and URL userinfo and query values are masked; the API account database (state/api/accounts.db, when present) is archived with its password hashes, TOTP seeds and token hashes, and the archive is neither signed nor encrypted";
+pub const SECRETS_NOTE: &str = "no secret-store values are part of this archive: API keys and tokens stay in the OS keyring, run/ is never archived, and the encrypted fallback file is not included; config secret references are preserved, schema-marked literals are replaced by placeholders, and URL userinfo, query and fragment values are masked; the API account database (state/api/accounts.db, when present) is currently included in the default ordinary archive with its password hashes, TOTP seeds and token hashes, contrary to the owner decision of 2026-10-21 requiring opt-in; that correction follows in SH8, and the archive is neither signed nor encrypted";
 
 // The existing note field carries versioned names-only metadata without changing CLI/RPC result shapes (SH2).
 const CONFIG_REDACTIONS_PREFIX: &str = "plur1bus.backup.config-redactions/";

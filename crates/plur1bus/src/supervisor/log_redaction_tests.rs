@@ -30,7 +30,7 @@ fn reference_names_remain_readable_metadata_while_literals_and_url_parts_stay_ma
     let literal = uuid::Uuid::new_v4().to_string();
     let user = uuid::Uuid::new_v4().to_string();
     let query = uuid::Uuid::new_v4().to_string();
-    let endpoint = format!("https://{user}:{literal}@relay.example.test/public?ordinary={query}");
+    let endpoint = format!("https://{user}:{literal}@relay.example.test/public?token={query}");
     let configured = json!({
         "channels":{"telegram":{"tokenSecret":first}},
         "voice":{"providers":{"elevenlabs":{"apiKeyRef":second,"baseUrl":endpoint}}},
@@ -50,12 +50,16 @@ fn reference_names_remain_readable_metadata_while_literals_and_url_parts_stay_ma
             "reference provisioning metadata was hidden"
         );
     }
-    for secret in [&literal, &user, &query] {
+    for secret in [&literal, &query] {
         assert!(
             !masked.contains(secret),
             "a literal or URL credential escaped text redaction"
         );
     }
+    assert!(
+        masked.contains(&user),
+        "a public URL username entered the global registry"
+    );
     assert!(masked.contains("relay.example.test/public"));
     assert!(masked.contains("present=true"));
 }
@@ -321,26 +325,40 @@ fn unstructured_matching_retains_the_eight_byte_minimum_and_never_registers_url_
 }
 
 #[test]
-fn missing_policy_and_matcher_capacity_withhold_output_until_restart() {
+fn missing_policy_keeps_logs_private_and_repaired_metadata_recovers_without_config_edit() {
     let directory = tempfile::tempdir().unwrap();
     let layout = Layout::new(directory.path().to_path_buf());
-    std::fs::create_dir_all(layout.home.join("modules/fixture")).unwrap();
+    let module_dir = layout.home.join("modules/fixture");
+    std::fs::create_dir_all(&module_dir).unwrap();
+    let secret = format!("runtime-{}", uuid::Uuid::new_v4());
+    let configured =
+        json!({"modules":{"fixture":{"ordinary":secret,"public":"public-label","enabled":false}}});
     let registry = Registry::new();
-    registry.replace_config(
-        &layout,
-        &json!({"modules":{"fixture":{"ordinary":"unavailable"}}}),
+    registry.replace_config(&layout, &configured);
+    assert_eq!(
+        text(&registry, &format!("still logging {secret}")),
+        "still logging [REDACTED:secret]"
+    );
+    std::fs::write(
+        module_dir.join("module.json"),
+        json!({"name":"fixture","version":"0.1.0","apiVersion":"1",
+        "entry":"index.js","scope":"installation","priority":500,"configSchema":{"properties":{
+            "ordinary":{"type":"string","x-sensitive":true},"public":{"type":"string"}
+        }}})
+        .to_string(),
+    )
+    .unwrap();
+    registry.replace_config(&layout, &configured);
+    assert_eq!(
+        text(&registry, &format!("still logging {secret}")),
+        "still logging [REDACTED:secret]"
     );
     assert_eq!(
-        registry.with_matcher(|_| Ok(())),
-        Err(Unavailable::Metadata)
+        text(&registry, "public-label"),
+        "public-label",
+        "repaired public metadata must recover"
     );
-    registry.replace_config(&layout, &config("repaired-value"));
-    assert_eq!(
-        registry.with_matcher(|_| Ok(())),
-        Err(Unavailable::Metadata),
-        "unclassified history requires restart"
-    );
-    let registry = Registry::new();
+    assert!(registry.with_matcher(|_| Ok(())).is_ok());
     registry.replace_config(&layout, &config(&"x".repeat(MAX_MATCH_BYTES + 1)));
     assert_eq!(
         registry.with_matcher(|_| Ok(())),

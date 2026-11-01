@@ -44,6 +44,8 @@ function versionRange(text) {
   const lowerInclusive = low[1] === '>=', upperInclusive = high[1] === '<=';
   const first = lowerInclusive ? lower : nextVersion(lower);
   if (!first || compareVersion(first, upper) > 0 || (compareVersion(first, upper) === 0 && !upperInclusive)) return bad();
+  const withinMajor = lower[0] === upper[0] || (!upperInclusive && upper[0] === lower[0] + 1 && upper[1] === 0 && upper[2] === 0);
+  if (!withinMajor) throw new Error('Audit exception version range must stay within one major version');
   const canonical = compareVersion(lower, upper) === 0 ? `=${lower.join('.')}` : `${low[1]}${lower.join('.')}, ${high[1]}${upper.join('.')}`;
   return { lower, upper, lowerInclusive, upperInclusive, canonical };
 }
@@ -63,6 +65,7 @@ export function validateAllowlist(policy, now = new Date()) {
       || Object.keys(entry).sort().join() !== 'advisoryId,crate,created,expires,reason,versionRange'
       || !idPattern.test(entry.advisoryId) || typeof entry.crate !== 'string' || !entry.crate || entry.crate !== entry.crate.trim()
       || typeof entry.reason !== 'string' || !entry.reason.trim()) throw new Error('Invalid audit exception');
+    if (entry.advisoryId.startsWith('GHSA-')) throw new Error('GHSA exceptions require an installed version, which the pnpm collector does not provide');
     const range = versionRange(entry.versionRange);
     const tuple = JSON.stringify([entry.advisoryId, entry.crate, range.canonical]);
     if (seen.has(tuple)) throw new Error('Duplicate audit exception');
@@ -147,9 +150,15 @@ export function evaluate(production, all, exceptions) {
 }
 
 const cell = value => String(value ?? '').replace(/[\r\n|<>]/g, ' ');
-export function renderSummary(findings, errors) {
+const exceptionKey = entry => JSON.stringify([entry.advisoryId, entry.crate, entry.versionRange]);
+export function renderSummary(findings, errors, exceptions = new Map()) {
   const lines = ['## Release dependency audit', '', 'Production High/Critical (and unscored vulnerabilities) block. Dev findings and production Low/Moderate warn.', '', '| Ecosystem | Advisory | Package | Scope | Severity | Result |', '|---|---|---|---|---|---|'];
   for (const item of findings) lines.push(`| ${cell(item.ecosystem)} | ${cell(item.id)} | ${cell(item.package)} | ${item.scope} | ${item.severity} | ${item.block ? 'BLOCK' : item.exception ? `owner exception until ${item.exception.expires}: ${cell(item.exception.reason)}` : 'warning'} |`);
+  const used = new Set(findings.filter(item => item.exception).map(item => exceptionKey(item.exception)));
+  // Validated range grammar is safe text; preserve its operators with HTML escaping.
+  for (const entries of exceptions.values()) for (const entry of entries) if (!used.has(exceptionKey(entry))) {
+    lines.push('', `Warning: unused audit exception: ${cell(entry.advisoryId)}/${cell(entry.crate)}/${entry.versionRange.replaceAll('<', '&lt;').replaceAll('>', '&gt;')}`);
+  }
   for (const error of errors) lines.push('', `**BLOCK: ${cell(error)}**`);
   lines.push('', `${findings.filter(item => item.block).length} blocking findings; ${errors.length} collection/policy errors.`, '');
   return lines.join('\n');
@@ -212,7 +221,7 @@ export function main(root = process.cwd()) {
       catch (error) { errors.push(`${ecosystem}: ${error.message}`); }
     }
   } finally { rmSync(scratch, { recursive: true, force: true }); }
-  const summary = renderSummary(findings, errors);
+  const summary = renderSummary(findings, errors, exceptions ?? new Map());
   process.stdout.write(summary);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
   return errors.length || findings.some(item => item.block) ? 1 : 0;

@@ -119,7 +119,7 @@ test("cancel: back to none, acknowledgements forgotten, current untouched", () =
   assert.deepEqual(c.current, OLD);
   assert.equal(c.next, undefined);
   assert.deepEqual(c.acks, {});
-  assert.equal(cancelTrust(c).ok, false);
+  assert.equal(okState(cancelTrust(c)), c, "cancelling an already cancelled change is an unchanged success");
 });
 
 test("a device follows the whole change without pairing again", () => {
@@ -222,6 +222,32 @@ function refusesRetired(state: TrustState, anchor: Anchor): void {
   assert.ok(!result.ok, "a recorded retired anchor was staged again");
   assert.equal(result.code, "retired-anchor");
 }
+
+test("cancel in none is idempotent and preserves the complete retired history and state", () => {
+  const switched = rotate(rotate(initTrust(OLD), NEW, T0), CA, T0 + 2);
+  const state = persisted(okState(clearSwitched(switched)));
+  const text = serializeTrust(state), history = state.revoked;
+  assert.deepEqual(history, [OLD, NEW]);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const cancelled = okState(cancelTrust(state));
+    assert.equal(cancelled, state, "none cancellation returns the existing state");
+    assert.equal(cancelled.revoked, history, "none cancellation retains the existing history");
+    assert.equal(serializeTrust(cancelled), text);
+    refusesRetired(cancelled, OLD); refusesRetired(cancelled, NEW);
+  }
+});
+
+test("cancel still refuses the switched summary and leaves its history and repair data intact", () => {
+  const staged = okState(stageTrust(initTrust(OLD), NEW, T0));
+  const state = okState(switchTrust(staged, DEVICES, T0 + 1));
+  const text = serializeTrust(state);
+  const result = cancelTrust(state);
+  assert.ok(!result.ok);
+  assert.equal(result.code, "not-staged");
+  assert.equal(serializeTrust(state), text);
+  assert.deepEqual(state.revoked, [OLD]);
+  assert.deepEqual(state.repairIds, PAIRED);
+});
 
 test("retired history survives A to B to C and persisted restarts", () => {
   const first = persisted(rotate(initTrust(OLD), NEW, T0));

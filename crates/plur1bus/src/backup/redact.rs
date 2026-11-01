@@ -1,7 +1,7 @@
 //! Apply schema-owned disclosure policy only to the private backup copy of `config.json` (SH2).
 //!
 //! References are preserved without reading their targets. Declared literals become placeholders and endpoint URLs lose
-//! only userinfo/query values. Restore keeps that copy, except for the existing Telegram webhook regeneration: the channel
+//! only userinfo/query/fragment values. Restore keeps that copy, except for the existing Telegram webhook regeneration: the channel
 //! registers the new random value with `setWebhook` when it starts. Unmodified configurations retain their original bytes.
 use super::BackupError;
 use crate::config_redaction::ConfigDisclosurePolicy;
@@ -27,7 +27,7 @@ fn slot<'a>(config: &'a mut Value, path: &[&str]) -> Option<&'a mut Value> {
 
 /// The configuration text with every secret value replaced, or `None` when it held none (nothing is to be rewritten then).
 fn redacted(layout: &Layout, text: &[u8]) -> Result<(Option<String>, Vec<String>), BackupError> {
-    let mut config = super::config_json::parse(text).map_err(|_| {
+    let config = super::config_json::parse(text).map_err(|_| {
         BackupError::new(
             "config-unreadable",
             "config.json must be valid JSON with unique object member names before it can be checked for secret values; repair it first (plur1bus 1staid repair)",
@@ -41,18 +41,32 @@ fn redacted(layout: &Layout, text: &[u8]) -> Result<(Option<String>, Vec<String>
             "the installed configuration schema is not valid JSON",
         )
     })?;
+    let original = config;
+    let mut config = installed.harness_config(&original);
     let (mut keys, mut changed) = super::config_policy::redact(&mut config, &schema)?;
     for (name, schema) in installed.module_schemas() {
-        let Some(module) = config
-            .get_mut("modules")
-            .and_then(|modules| modules.get_mut(name))
+        let Some(original_module) = original
+            .get("modules")
+            .and_then(|modules| modules.get(name))
         else {
             continue;
         };
-        let (module_keys, module_changed) =
-            super::config_policy::redact(module, schema).map_err(|error| {
+        let mut module = original_module.clone();
+        let (module_keys, module_changed) = super::config_policy::redact(&mut module, schema)
+            .map_err(|error| {
                 BackupError::new(error.reason, format!("module {name}: {}", error.detail))
             })?;
+        if let (Some(enabled), Some(object)) = (
+            original_module
+                .get("enabled")
+                .filter(|value| value.is_boolean()),
+            module.as_object_mut(),
+        ) {
+            object.insert("enabled".into(), enabled.clone());
+        }
+        if let Some(modules) = config.get_mut("modules").and_then(Value::as_object_mut) {
+            modules.insert(name.to_owned(), module);
+        }
         let prefix = format!("modules.{name}");
         keys.extend(module_keys.into_iter().map(|key| {
             if key.is_empty() {

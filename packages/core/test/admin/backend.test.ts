@@ -237,7 +237,7 @@ test("export scans recognizable patterns and exact secret canaries without commi
   assert.equal(bundle.files.some(f=>f.path.endsWith(".sqlite") || f.path===".env"),false);
 });
 
-test("agent config export uses its schema prefix, preserves public keys and masks normalized endpoint parts", async t => {
+test("agent config export uses its schema prefix, preserves public numbers and masks unknown strings and endpoint parts", async t => {
   const s = setup(t);
   const secret = randomUUID();
   const config = { memory: { mediaEmbedding: { privacyAck: {
@@ -247,8 +247,8 @@ test("agent config export uses its schema prefix, preserves public keys and mask
     memories: [], signer: async () => ({ publicKey: "unused", signature: "unused" }) });
   const text = bundle.files.find((file) => file.path === "config.json")!.text;
   assert.ok(!text.includes(secret), "a declared endpoint component escaped its agent config export");
-  assert.deepEqual(JSON.parse(text), { ...config, memory: { mediaEmbedding: { privacyAck: {
-    endpoint: "//••••@relay.example.test/public/path?ordinary=••••#public-fragment",
+  assert.deepEqual(JSON.parse(text), { ...config, password: "••••", memory: { mediaEmbedding: { privacyAck: {
+    endpoint: "//••••@relay.example.test/public/path?ordinary=••••#••••",
   } } } });
 });
 test("audit failure blocks role, rights and lifecycle mutations", async t => {

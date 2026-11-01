@@ -18,11 +18,10 @@ const MAX_PATTERN_BYTES: usize = 2 * 1024 * 1024;
 const MAX_MATCHER_STATES: usize = 128 * 1024;
 const UTF8_SUFFIX_BYTES: usize = 3;
 
-/// Value-free failures. Unclassified sensitivity history for an accepted snapshot stays withheld until restart.
+/// Value-free failures for unreadable configuration or bounded matcher resources.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Unavailable {
     Config,
-    Metadata,
     Capacity,
     Matcher,
     Poisoned,
@@ -33,7 +32,6 @@ impl fmt::Display for Unavailable {
     fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
         out.write_str(match self {
             Self::Config => "configuration is unreadable; repair config.json to resume log output",
-            Self::Metadata => "configuration sensitivity metadata is unavailable; repair module metadata and restart the Supervisor",
             Self::Capacity => "configuration redaction exceeds its bounded matcher capacity; reduce configuration values and restart the Supervisor",
             Self::Matcher => "configuration redaction matcher is unavailable; repair configuration and restart the Supervisor",
             Self::Poisoned => "configuration redaction registry is unavailable; restart the Supervisor",
@@ -44,6 +42,7 @@ impl fmt::Display for Unavailable {
 
 struct State {
     current: BTreeSet<String>,
+    fallback: BTreeSet<String>,
     retired: VecDeque<String>,
     matcher: Result<Arc<Matcher>, Unavailable>,
     pins: Vec<Weak<Matcher>>,
@@ -60,6 +59,7 @@ impl Registry {
         Self {
             state: Mutex::new(State {
                 current: BTreeSet::new(),
+                fallback: BTreeSet::new(),
                 retired: VecDeque::new(),
                 matcher: Ok(Arc::new(Matcher::empty())),
                 pins: Vec::new(),
@@ -88,46 +88,58 @@ impl Registry {
         }
     }
 
-    /// Withhold payloads with a value-free reason; only an invalid startup configuration can recover live.
+    /// Withhold unreadable payloads with a value-free reason until a usable snapshot arrives.
     pub(super) fn disable(&self, reason: Unavailable) {
         if let Ok(mut state) = self.state.lock() {
-            if !matches!(&state.matcher, Err(previous) if *previous != Unavailable::Config) {
-                state.matcher = Err(reason);
-            }
+            state.matcher = Err(reason);
         }
     }
 
-    /// Replace current declared values, retain bounded retired history, or permanently withhold on policy failure.
+    /// Replace current literals and retain bounded history; repaired metadata is applied on the next refresh.
     pub(super) fn replace_config(&self, layout: &Layout, config: &Value) {
         let Ok(mut state) = self.state.lock() else {
             return;
         };
-        // Invalid JSON cannot become running configuration; its first valid snapshot can restore logging.
-        // Missing sensitivity history for an accepted snapshot requires a restart instead.
-        if matches!(&state.matcher, Err(reason) if *reason != Unavailable::Config) {
-            return;
-        }
-        let policy = match ConfigDisclosurePolicy::load(layout, config) {
-            Ok(policy) => policy,
-            Err(_) => {
-                state.matcher = Err(Unavailable::Metadata);
-                return;
-            }
+        // Unavailable module metadata gets a private fallback, so diagnostics still flow during repair.
+        let (values, fallback) = match ConfigDisclosurePolicy::load(layout, config) {
+            Ok(policy) => (policy.secret_values(config), false),
+            Err(_) => (
+                plur1bus_config::secret_text_values_with_schema(
+                    config,
+                    &serde_json::json!({"x-sensitive":true}),
+                ),
+                true,
+            ),
         };
-        let current: BTreeSet<String> = policy
-            .secret_values(config)
+        let current: BTreeSet<String> = values
             .into_iter()
             .filter(|value| value.len() >= MIN_SECRET_BYTES)
             .collect();
-        let retired: Vec<String> = state.current.difference(&current).cloned().collect();
+        let previous = if fallback {
+            &state.fallback
+        } else {
+            &state.current
+        };
+        let retired: Vec<String> = previous.difference(&current).cloned().collect();
         state.retired.retain(|value| !current.contains(value));
         state.retired.extend(retired);
         while state.retired.len() > MAX_RETIRED_VALUES {
             state.retired.pop_front();
         }
-        state.current = current;
-        state.matcher =
-            Matcher::build(state.current.iter().chain(state.retired.iter())).map(Arc::new);
+        if fallback {
+            state.fallback = current;
+        } else {
+            state.current = current;
+            state.fallback.clear();
+        }
+        state.matcher = Matcher::build(
+            state
+                .current
+                .iter()
+                .chain(state.fallback.iter())
+                .chain(state.retired.iter()),
+        )
+        .map(Arc::new);
         state.pins.retain(|pin| pin.strong_count() > 0);
     }
 

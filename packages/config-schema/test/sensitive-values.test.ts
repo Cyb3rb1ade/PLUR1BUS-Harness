@@ -2,7 +2,9 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { test } from "node:test";
-import * as config from "../src/index.ts";
+import * as publicConfig from "../src/index.ts";
+import { configSecretEntries } from "../src/sensitive.ts";
+const config = { ...publicConfig, configSecretEntries };
 import { createSecretRedaction } from "../../core/src/secrets/redaction.ts";
 import { elevenlabsHost } from "../../voice-providers/src/constants.ts";
 

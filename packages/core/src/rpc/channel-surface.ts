@@ -13,6 +13,7 @@ import { resolveBehaviour } from "../channels/behaviour.ts";
 //    recipient named by the caller.
 import { CONFIG_SCHEMA, configTextSecretEntries, looksLikePastedKey, redactConfig, restartClassOf, restartPlan, validate, type HarnessConfig } from "@plur1bus/config-schema";
 import { createRedactor, type Redactor } from "../logs/redact.ts";
+import { SecretFormsCache, type SecretFormsSnapshot } from "../logs/secret-forms.ts";
 import type { Handler, CallContext } from "./server.ts";
 import { RpcError } from "./errors.ts";
 import { authenticatedPrincipal } from "../rbac/guard.ts";
@@ -191,13 +192,22 @@ function idParam(p: unknown): string {
 }
 
 export function buildChannelSurface(d: ChannelSurfaceDeps): Record<string, Handler> {
-  const knownValues = (): Redactor => d.knownValueRedactor ?? createRedactor({
-    secrets: configTextSecretEntries(d.config()).map(({ value }) => value), secretsOnly: true,
-  });
+  const fallbackForms = new SecretFormsCache();
+  let fallback: { snapshot: SecretFormsSnapshot; known: Redactor; diagnostic: Redactor } | undefined;
+  const fallbackRedactors = () => {
+    const snapshot = fallbackForms.snapshot(configTextSecretEntries(d.config()).map(({ value }) => value));
+    if (!fallback || fallback.snapshot !== snapshot) fallback = {
+      snapshot,
+      known: createRedactor({ secretMatcher: snapshot.matcher, secretsOnly: true }),
+      diagnostic: createRedactor({ secretMatcher: snapshot.matcher }),
+    };
+    return fallback;
+  };
+  const knownValues = (): Redactor => d.knownValueRedactor ?? fallbackRedactors().known;
   const referenceName = (id: string, key: string, value: unknown): string =>
     knownValues().text(String(redactConfig(value, { key: `channels.${id}.${key}` }) ?? ""));
   const diagnostic = (text: unknown): string => {
-    const redactor = d.redactor ?? createRedactor({ secrets: configTextSecretEntries(d.config()).map(({ value }) => value) });
+    const redactor = d.redactor ?? fallbackRedactors().diagnostic;
     return scrub(redactor.text(String(text ?? ""))).replaceAll("[REDACTED:pattern]", "[redacted]");
   };
   const knownIds = (): string[] => {

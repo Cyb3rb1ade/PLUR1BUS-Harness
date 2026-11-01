@@ -2,6 +2,8 @@ import { isDeepStrictEqual } from 'node:util';
 import { lookupQuirks } from './quirks.ts';
 import type { ValidationIssue, RepairRequest, ToolCallInvalid } from '../tools/repair.ts';
 import type { ToolErrorCode } from '../tools/dispatcher.ts';
+import { wellFormedPrefix } from '../logs/utf16.ts';
+import type { SecretFormsSnapshot } from '../logs/secret-forms.ts';
 export type { ValidationIssue };
 export type Schema = Record<string, unknown>;
 export interface RepairRecord { kind: 'unwrap-json-string' | 'trailing-comma' | 'numeric-string'; path: string }
@@ -30,23 +32,28 @@ export function assertSchema(s: unknown, depth = 0): asserts s is Schema {
     if (k === 'additionalProperties' && typeof v !== 'boolean' && !object(v)) throw Error('invalid additionalProperties');
   }
 }
-function check(s: Schema, v: unknown, path: string, out: ValidationIssue[], depth: number): void {
-  const issue = (expected: string, message = `expected ${expected}`) => { const shown = JSON.stringify(v); out.push({ path, expected, got: (shown ?? typeOf(v)).slice(0, 80), message }); };
+function check(s: Schema, v: unknown, path: string, out: ValidationIssue[], depth: number, knownSecrets?: () => SecretFormsSnapshot): void {
+  const issue = (expected: string, message = `expected ${expected}`) => {
+    let shown = JSON.stringify(v) ?? typeOf(v);
+    try { if (knownSecrets) shown = knownSecrets().matcher.maskText(shown); }
+    catch { shown = '[value withheld]'; }
+    out.push({ path, expected, got: wellFormedPrefix(shown, 80), message });
+  };
   if (depth > 64) { issue('bounded JSON value'); return; }
   if (s.type !== undefined && !(Array.isArray(s.type) ? s.type : [s.type]).some(t => matches(t, v))) { issue(String(s.type)); return; }
   if (Array.isArray(s.enum) && !s.enum.some(e => isDeepStrictEqual(e, v))) issue(`one of ${JSON.stringify(s.enum)}`);
   if (Object.hasOwn(s, 'const') && !isDeepStrictEqual(s.const, v)) issue(JSON.stringify(s.const));
   for (const k of ['anyOf', 'oneOf', 'allOf'] as const) if (Array.isArray(s[k])) {
-    const good = s[k].filter(sub => { const errors: ValidationIssue[] = []; check(sub as Schema, v, path, errors, depth + 1); return errors.length === 0; }).length;
+    const good = s[k].filter(sub => { const errors: ValidationIssue[] = []; check(sub as Schema, v, path, errors, depth + 1, knownSecrets); return errors.length === 0; }).length;
     if ((k === 'anyOf' && good === 0) || (k === 'oneOf' && good !== 1) || (k === 'allOf' && good !== s[k].length)) issue(k);
   }
   if (object(v)) {
     const props = object(s.properties) ? s.properties : {};
     for (const key of (s.required ?? []) as string[]) if (!Object.hasOwn(v, key)) out.push({ path: pointer(path, key), expected: 'required value', got: 'missing', message: 'required property missing' });
     for (const [key, val] of Object.entries(v)) {
-      if (Object.hasOwn(props, key)) check(props[key] as Schema, val, pointer(path, key), out, depth + 1);
+      if (Object.hasOwn(props, key)) check(props[key] as Schema, val, pointer(path, key), out, depth + 1, knownSecrets);
       else if (s.additionalProperties === false) out.push({ path: pointer(path, key), expected: 'no additional property', got: typeOf(val), message: 'unknown property' });
-      else if (object(s.additionalProperties)) check(s.additionalProperties, val, pointer(path, key), out, depth + 1);
+      else if (object(s.additionalProperties)) check(s.additionalProperties, val, pointer(path, key), out, depth + 1, knownSecrets);
     }
     if (typeof s.minProperties === 'number' && Object.keys(v).length < s.minProperties) issue(`at least ${s.minProperties} properties`);
     if (typeof s.maxProperties === 'number' && Object.keys(v).length > s.maxProperties) issue(`at most ${s.maxProperties} properties`);
@@ -55,7 +62,7 @@ function check(s: Schema, v: unknown, path: string, out: ValidationIssue[], dept
     if (typeof s.minItems === 'number' && v.length < s.minItems) issue(`at least ${s.minItems} items`);
     if (typeof s.maxItems === 'number' && v.length > s.maxItems) issue(`at most ${s.maxItems} items`);
     if (s.uniqueItems === true && v.some((x, i) => v.slice(0, i).some(y => isDeepStrictEqual(x, y)))) issue('unique items');
-    if (object(s.items)) v.forEach((x, i) => check(s.items as Schema, x, pointer(path, String(i)), out, depth + 1));
+    if (object(s.items)) v.forEach((x, i) => check(s.items as Schema, x, pointer(path, String(i)), out, depth + 1, knownSecrets));
   }
   if (typeof v === 'string') {
     const n = [...v].length;
@@ -72,7 +79,7 @@ function check(s: Schema, v: unknown, path: string, out: ValidationIssue[], dept
     if (typeof s.multipleOf === 'number' && (s.multipleOf <= 0 || Math.abs(v / s.multipleOf - Math.round(v / s.multipleOf)) > 1e-10)) issue(`multiple of ${s.multipleOf}`);
   }
 }
-export function validateArguments(schema: Schema, value: unknown): ValidationIssue[] {
+export function validateArguments(schema: Schema, value: unknown, knownSecrets?: () => SecretFormsSnapshot): ValidationIssue[] {
   assertSchema(schema); const issues: ValidationIssue[] = [];
   let nodes = 0; const active = new Set<object>();
   const json = (v: unknown, depth: number): boolean => {
@@ -84,7 +91,7 @@ export function validateArguments(schema: Schema, value: unknown): ValidationIss
     active.add(v); const valid = Object.values(v).every(x => json(x, depth + 1)); active.delete(v); return valid;
   };
   if (!json(value, 0)) return [{ path: '', expected: 'bounded finite acyclic JSON', got: typeOf(value), message: 'invalid JSON arguments' }];
-  check(schema, value, '', issues, 0); return issues;
+  check(schema, value, '', issues, 0, knownSecrets); return issues;
 }
 /** Scan JSON tokens, so a comma inside a quoted string is never changed. */
 function trailingCommas(text: string): string {
@@ -110,7 +117,7 @@ function normalize(s: Schema, v: unknown, path: string, log: RepairRecord[], all
   if (Array.isArray(v) && object(s.items)) return v.map((val, i) => normalize(s.items as Schema, val, pointer(path, String(i)), log, allowed, depth + 1));
   return v;
 }
-function decode(raw: unknown, s: Schema, log: RepairRecord[], allowed: readonly string[]): { value: unknown; issues: ValidationIssue[] } {
+function decode(raw: unknown, s: Schema, log: RepairRecord[], allowed: readonly string[], knownSecrets?: () => SecretFormsSnapshot): { value: unknown; issues: ValidationIssue[] } {
   let value = raw;
   if (typeof raw === 'string') {
     if (Buffer.byteLength(raw) > 256 * 1024) return { value: undefined, issues: [{ path: '', expected: 'arguments <= 256 KiB', got: 'oversized', message: 'arguments too large' }] };
@@ -122,15 +129,15 @@ function decode(raw: unknown, s: Schema, log: RepairRecord[], allowed: readonly 
       log.push({ kind: 'unwrap-json-string', path: '' }); text = value;
     }
   }
-  const safety = validateArguments({}, value); if (safety.length) return { value, issues: safety };
-  value = normalize(s, value, '', log, allowed); return { value, issues: validateArguments(s, value) };
+  const safety = validateArguments({}, value, knownSecrets); if (safety.length) return { value, issues: safety };
+  value = normalize(s, value, '', log, allowed); return { value, issues: validateArguments(s, value, knownSecrets) };
 }
-export async function prepareCall(name: string, schema: Schema, raw: unknown, repair?: ModelRepairPort, modelFamily = 'unknown'): Promise<PreparedCall> {
-  assertSchema(schema); const repairs: RepairRecord[] = []; const quirks = lookupQuirks(modelFamily); const allowed = quirks.malformedArguments; let decoded = decode(raw, schema, repairs, allowed); let repairRounds: 0 | 1 = 0;
+export async function prepareCall(name: string, schema: Schema, raw: unknown, repair?: ModelRepairPort, modelFamily = 'unknown', knownSecrets?: () => SecretFormsSnapshot): Promise<PreparedCall> {
+  assertSchema(schema); const repairs: RepairRecord[] = []; const quirks = lookupQuirks(modelFamily); const allowed = quirks.malformedArguments; let decoded = decode(raw, schema, repairs, allowed, knownSecrets); let repairRounds: 0 | 1 = 0;
   if (decoded.issues.length && repair) {
     repairRounds = 1;
     const message = `Correct arguments for ${name}. Return JSON only. Known ${modelFamily} slips: ${allowed.join(', ')}.\n${decoded.issues.map(i => `${i.path || '(arguments)'}: expected ${i.expected}; got ${i.got}`).join('\n')}`;
-    try { decoded = decode(await repair({ tool: name, args: decoded.value, issues: decoded.issues, message }), schema, repairs, allowed); } catch { /* failed repair retains the initial structured issues */ }
+    try { decoded = decode(await repair({ tool: name, args: decoded.value, issues: decoded.issues, message }), schema, repairs, allowed, knownSecrets); } catch { /* failed repair retains the initial structured issues */ }
   }
   if (!decoded.issues.length) return { ok: true, arguments: decoded.value, repairs, repairRounds };
   const code: ToolErrorCode = 'tool-call-invalid';

@@ -106,6 +106,7 @@ describe("keyring test seam", () => {
   it("is absent by default, refuses to work without the test-internals gate, and rejects unknown modes", () => {
     assert.equal(keyringLoaderFor({}), undefined);
     assert.throws(() => keyringLoaderFor({ PLUR1BUS_SECRETS_KEYRING: "memory" }), /ALLOW_TEST_INTERNALS/);
+    assert.throws(() => keyringLoaderFor({ PLUR1BUS_SECRETS_KEYRING: "off" }), /ALLOW_TEST_INTERNALS/);
     assert.throws(() => keyringLoaderFor({ PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_SECRETS_KEYRING: "real" }), /unknown/);
     assert.equal(typeof keyringLoaderFor({ PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_SECRETS_KEYRING: "off" }), "function");
   });

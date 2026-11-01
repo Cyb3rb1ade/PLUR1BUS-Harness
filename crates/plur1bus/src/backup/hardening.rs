@@ -613,7 +613,7 @@ fn marked_config_literals_are_removed_from_the_archive_and_only_their_keys_are_r
     );
     assert_eq!(
         archived["engine"]["reranker"]["baseUrl"],
-        "https://••••@relay.example.test/service?ordinary=••••&flag#public"
+        "https://REDACTED@relay.example.test/service?ordinary=REDACTED&flag#REDACTED"
     );
     assert_eq!(
         archived["modelProfiles"]["local"]["params"]["maxTokens"],
@@ -641,7 +641,10 @@ fn marked_config_literals_are_removed_from_the_archive_and_only_their_keys_are_r
     let restored: serde_json::Value =
         serde_json::from_slice(&fs::read(destination.home.join("config.json")).unwrap()).unwrap();
     for document in [&archived, &restored] {
-        assert_eq!(document["publicData"], config["publicData"]);
+        assert_eq!(
+            document["publicData"],
+            serde_json::json!({"fraction":1.5,"negative":-1,"unset":null,"choices":[PLACEHOLDER,false]})
+        );
         for (group, key) in [("embedding", "apiKeyRef"), ("reranker", "apiKey")] {
             assert_eq!(
                 serde_json::to_vec(&document["engine"][group][key]).unwrap(),
@@ -759,7 +762,7 @@ fn a_restore_gives_the_webhook_a_fresh_valid_secret_instead_of_the_placeholder()
 
 /// `state/api/accounts.db` is staged by the core like every database under `state/`, and docs/portable-backup.md restores the API
 /// accounts from it. It holds password hashes and TOTP seeds, so the manifest must not claim there are no secrets in the archive.
-/// (OWNER QUESTION: whether the seeds should stay in the ordinary archive at all; until that is decided this pins what is true.)
+/// The owner decided on 2026-10-21 that inclusion requires opt-in. This test records the current gap; SH8 implements that decision.
 #[test]
 fn the_account_database_is_archived_and_the_manifest_says_what_is_in_it() {
     let d = tempfile::tempdir().unwrap();
