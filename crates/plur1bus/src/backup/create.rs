@@ -319,7 +319,7 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
                 copy_file_stable(&live, &dst, target)?;
                 if target == "config.json" {
                     // A secret VALUE kept in the config never reaches the archive (the live file is not touched).
-                    redacted_config_keys = super::redact::redact_staged_config(&dst)?;
+                    redacted_config_keys = super::redact::redact_staged_config(layout, &dst)?;
                 }
                 units.push(Unit {
                     archive,

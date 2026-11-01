@@ -394,7 +394,7 @@ fn restore_reports_replaced_config_keys_on_stderr_without_changing_json_shape() 
     let (_d, home, archive) = setup();
     let mut f = fixture();
     f.manifest["secrets"]["note"] = json!(
-        "no secret-store values\nplur1bus.backup.config-redactions/1: [\"engine.embedding.apiKey\",\"engine.reranker.baseUrl\"]"
+        "no secret-store values\nplur1bus.backup.config-redactions/1: [\"engine.embedding.apiKey\",\"engine.reranker.baseUrl\",\"modules.fixture.ordinary\"]"
     );
     build(&archive, &f);
     for mode in ["--dry-run", "--yes"] {
@@ -412,6 +412,7 @@ fn restore_reports_replaced_config_keys_on_stderr_without_changing_json_shape() 
         );
         assert!(notice.contains("engine.embedding.apiKey"));
         assert!(notice.contains("engine.reranker.baseUrl"));
+        assert!(notice.contains("modules.fixture.ordinary"));
         let value = doc(&out);
         let mut keys = value
             .as_object()

@@ -210,6 +210,13 @@ impl ConfigDisclosurePolicy {
         Ok(Self { modules: policies })
     }
 
+    /// Validated schemas for configured installed modules; this snapshot performs no further filesystem reads.
+    pub(crate) fn module_schemas(&self) -> impl Iterator<Item = (&str, &Value)> {
+        self.modules
+            .iter()
+            .map(|(name, schema)| (name.as_str(), schema))
+    }
+
     pub fn project(&self, config: &Value) -> Value {
         let mut public = plur1bus_config::redact_config(config);
         for (name, schema) in &self.modules {

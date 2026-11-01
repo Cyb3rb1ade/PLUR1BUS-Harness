@@ -4,6 +4,8 @@
 //! only userinfo/query values. Restore keeps that copy, except for the existing Telegram webhook regeneration: the channel
 //! registers the new random value with `setWebhook` when it starts. Unmodified configurations retain their original bytes.
 use super::BackupError;
+use crate::config_redaction::ConfigDisclosurePolicy;
+use crate::paths::Layout;
 use serde_json::Value;
 use std::fs;
 use std::io;
@@ -24,26 +26,52 @@ fn slot<'a>(config: &'a mut Value, path: &[&str]) -> Option<&'a mut Value> {
 }
 
 /// The configuration text with every secret value replaced, or `None` when it held none (nothing is to be rewritten then).
-fn redacted(text: &[u8]) -> Result<(Option<String>, Vec<String>), BackupError> {
+fn redacted(layout: &Layout, text: &[u8]) -> Result<(Option<String>, Vec<String>), BackupError> {
     let mut config = super::config_json::parse(text).map_err(|_| {
         BackupError::new(
             "config-unreadable",
             "config.json must be valid JSON with unique object member names before it can be checked for secret values; repair it first (plur1bus 1staid repair)",
         )
     })?;
+    let installed = ConfigDisclosurePolicy::load(layout, &config)
+        .map_err(|error| BackupError::new("config-policy-invalid", error.to_string()))?;
     let schema: Value = serde_json::from_str(plur1bus_config::SCHEMA_JSON).map_err(|_| {
         BackupError::new(
             "config-policy-invalid",
             "the installed configuration schema is not valid JSON",
         )
     })?;
-    let (keys, changed) = super::config_policy::redact(&mut config, &schema)?;
+    let (mut keys, mut changed) = super::config_policy::redact(&mut config, &schema)?;
+    for (name, schema) in installed.module_schemas() {
+        let Some(module) = config
+            .get_mut("modules")
+            .and_then(|modules| modules.get_mut(name))
+        else {
+            continue;
+        };
+        let (module_keys, module_changed) =
+            super::config_policy::redact(module, schema).map_err(|error| {
+                BackupError::new(error.reason, format!("module {name}: {}", error.detail))
+            })?;
+        let prefix = format!("modules.{name}");
+        keys.extend(module_keys.into_iter().map(|key| {
+            if key.is_empty() {
+                prefix.clone()
+            } else {
+                format!("{prefix}.{key}")
+            }
+        }));
+        changed |= module_changed;
+    }
+    keys.sort_unstable();
+    keys.dedup();
     Ok((changed.then(|| plur1bus_config::serialize(&config)), keys))
 }
 
 #[cfg(test)]
 fn redact(text: &[u8]) -> Result<Option<String>, BackupError> {
-    redacted(text).map(|(text, _)| text)
+    let directory = tempfile::tempdir().unwrap();
+    redacted(&Layout::new(directory.path().to_path_buf()), text).map(|(text, _)| text)
 }
 
 /// Lets the owner write the file again (a staged copy of a read-only source is read-only).
@@ -72,10 +100,11 @@ fn rewrite(path: &Path, text: &str) -> io::Result<()> {
     fs::set_permissions(path, permissions)
 }
 
-/// Redact the staged copy in place and return only affected key names. Invalid JSON or policy fails closed.
-pub fn redact_staged_config(staged: &Path) -> Result<Vec<String>, BackupError> {
+/// Redact the staged copy using its real home's installed module policies; return only affected key names.
+/// Invalid JSON or unavailable/unsupported configured installed module metadata fails closed.
+pub fn redact_staged_config(layout: &Layout, staged: &Path) -> Result<Vec<String>, BackupError> {
     let bytes = fs::read(staged)?;
-    let (redacted, keys) = redacted(&bytes)?;
+    let (redacted, keys) = redacted(layout, &bytes)?;
     if let Some(text) = redacted {
         rewrite(staged, &text)?;
     }
@@ -214,7 +243,7 @@ mod tests {
             fs::set_permissions(&p, fs::Permissions::from_mode(0o640)).unwrap();
         }
         assert_eq!(
-            redact_staged_config(&p).unwrap(),
+            redact_staged_config(&Layout::new(d.path().to_path_buf()), &p).unwrap(),
             ["channels.telegram.webhook.secret"]
         );
         let text = fs::read_to_string(&p).unwrap();
@@ -230,7 +259,7 @@ mod tests {
         }
         // Run again: keep the restore guidance without rewriting the file.
         assert_eq!(
-            redact_staged_config(&p).unwrap(),
+            redact_staged_config(&Layout::new(d.path().to_path_buf()), &p).unwrap(),
             ["channels.telegram.webhook.secret"]
         );
         assert_eq!(fs::read_to_string(&p).unwrap(), text);
@@ -242,7 +271,11 @@ mod tests {
         let p = d.path().join("config.json");
         let original = b"{ \"schemaVersion\": 1,   \"restored\": true }";
         fs::write(&p, original).unwrap();
-        assert!(redact_staged_config(&p).unwrap().is_empty());
+        assert!(
+            redact_staged_config(&Layout::new(d.path().to_path_buf()), &p)
+                .unwrap()
+                .is_empty()
+        );
         assert_eq!(fs::read(&p).unwrap(), original, "byte for byte");
     }
 
@@ -251,7 +284,7 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         let p = d.path().join("config.json");
         fs::write(&p, format!("not json, but it names {MARKER}")).unwrap();
-        let e = redact_staged_config(&p).unwrap_err();
+        let e = redact_staged_config(&Layout::new(d.path().to_path_buf()), &p).unwrap_err();
         assert_eq!(e.reason, "config-unreadable");
         assert!(!e.detail.contains(MARKER), "{}", e.detail);
     }

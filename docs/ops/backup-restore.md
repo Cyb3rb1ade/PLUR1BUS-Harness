@@ -25,7 +25,9 @@ Secret-Referenzen in `config.json` bleiben unverändert: Namen im Secret-Store, 
 vom gepinnten Engine-Vertrag unterstützten strukturierten Referenzen sind keine Secret-Werte. Sie werden beim Restore
 bytegleich erhalten; ihr Ziel wird weder gelesen noch mitgesichert. Ein gewöhnlicher String in einem Engine-`apiKey`-Feld
 ist dagegen ein Literal; nur die vom gepinnten Resolver ausdrücklich unterstützten `${ENV_NAME}`-Formen sind Referenzen.
-Anhand der Schema-Metadaten `x-sensitive` ersetzt `create` dort abgelegte Literalwerte durch Platzhalter. Bei
+Anhand der Schema-Metadaten `x-sensitive` ersetzt `create` dort abgelegte Literalwerte durch Platzhalter. Für
+konfigurierte, installierte Module gilt zusätzlich deren validiertes `configSchema` aus `module.json`, auch bei
+`enabled: false`. Fehlende oder nicht unterstützte Modul-Metadaten verweigern das Backup. Bei
 `x-url-credentials` werden ausschließlich Userinfo und alle Query-Werte maskiert; Host, Pfad, Parameternamen und Fragment
 bleiben erhalten. Die Live-Datei bleibt unverändert. Das Manifest nennt die ersetzten Konfigurationsschlüssel, niemals
 deren Werte, im bestehenden Feld `secrets.note` als versionierte Zeile
@@ -178,7 +180,7 @@ Nach einer Wiederherstellung sind Dienstbereitschaft, Archivprüfung und Audit-I
 |---|---|
 | `create` erreicht den Core nicht (`E_CORE_UNAVAILABLE`) | `create` benötigt den laufenden Core. `plur1bus daemon status` prüfen und den Supervisor bei Bedarf mit `plur1bus daemon start` starten. |
 | `create` meldet `config-unreadable` | `config.json` ist kein gültiges JSON mit eindeutigen Objektschlüsseln und kann nicht auf Secret-Werte geprüft werden; das Archiv wird nicht geschrieben. Datei korrigieren oder `plur1bus 1staid repair` ausführen und `create` wiederholen. |
-| `create` meldet `config-policy-invalid` | Die eingebetteten Schema-Metadaten für die Offenlegung sind ungültig. Eine intakte Version installieren und `create` wiederholen. |
+| `create` meldet `config-policy-invalid` | Die eingebetteten oder installierten Modul-Metadaten für die Offenlegung sind ungültig, nicht verfügbar oder nicht unterstützt. Das betroffene `module.json` reparieren beziehungsweise eine intakte Version installieren und `create` wiederholen. |
 | Ziel existiert bereits (`exists`) | Das Ziel wird nicht überschrieben. Einen anderen Pfad mit `--out <FILE>` wählen. |
 | Restore meldet `E_LOCKED` / `core-running` | Ein Supervisor oder Core antwortet noch oder der Core-Lock ist belegt. `plur1bus daemon stop` ausführen und sicherstellen, dass kein Prozess für dieses Home mehr läuft. |
 | `verify` meldet `archive-corrupt`, `truncated`, `manifest-invalid`, `unsupported-format`, `unexpected-entry`, `checksum-mismatch` oder `missing-entry` | Das Archiv ist beschädigt, unvollständig oder wird nicht unterstützt. Nicht wiederherstellen; eine intakte Kopie verwenden. |

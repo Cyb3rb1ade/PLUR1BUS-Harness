@@ -14,6 +14,8 @@ pub mod restore;
 
 #[cfg(test)]
 mod hardening;
+#[cfg(test)]
+mod module_policy_tests;
 
 use std::fmt;
 
