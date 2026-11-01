@@ -2,13 +2,15 @@ import { resolveBehaviour, permitsMessage, type ResolvedBehaviour } from "./beha
 import { BehaviourRateGate, channelBehaviour, channelOrigin } from "./behaviour-context.ts";
 import type { Clock } from "./clock.ts";
 import type { ChannelLogger, IdentityPort, InboundMessage, OutboundMessage, SenderRef, SessionPort } from "./types.ts";
+import { supportedUpload } from "../../../media/src/index.ts";
+import { RpcError } from "../rpc/errors.ts";
 
 export const MAX_TEXT = 65_536;
 /** Framework bounds apply in addition to each adapter's existing, possibly tighter limits. */
 export const MAX_ATTACHMENTS = 10;
 export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 const ATTACHMENT_KINDS = new Set(["photo", "document", "voice", "audio", "video", "image", "file"]);
-const ATTACHMENT_MIME = /^(image\/(jpeg|png|webp|gif)|audio\/(ogg|mpeg|mp4|wav|x-wav|flac|webm)|video\/(mp4|webm)|application\/(pdf|json|zip|octet-stream)|text\/plain)$/;
+const MIME_SHAPE = /^[a-zA-Z0-9!#$&^_.+-]+\/[a-zA-Z0-9!#$&^_.+-]+$/;
 /** Messages of one chat waiting behind a running turn; the next ones are dropped (a flood must not queue without bound). */
 export const MAX_PENDING_PER_CHAT = 20;
 const MAX_ID = 256;
@@ -29,11 +31,17 @@ export const PAIRED_TEXT = (pairingId: string) =>
 export const NEW_SESSION_TEXT = "Started a new session.";
 export const UPLOADED_TEXT = "Attachments received.";
 export const FAILED_TEXT = "Sorry, that did not work. Please try again.";
+const UPLOAD_FAILURES = {
+  en: { incognito: "Files cannot be saved in an Incognito session.", "media-quota": "Media storage is full. Remove old files or ask the owner for help.", "media-too-large": "This file is too large to upload.", "upload-forbidden": "You cannot upload files to this session.", "media-unavailable": "File uploads are not available right now.", "media-format": "This file format could not be read.", "media-storage": "The file could not be saved. Please try again." },
+  de: { incognito: "Dateien können in einer Inkognito-Sitzung nicht gespeichert werden.", "media-quota": "Der Medienspeicher ist voll. Entferne alte Dateien oder bitte den Owner um Hilfe.", "media-too-large": "Diese Datei ist für den Upload zu groß.", "upload-forbidden": "Du kannst in dieser Sitzung keine Dateien hochladen.", "media-unavailable": "Datei-Uploads sind gerade nicht verfügbar.", "media-format": "Dieses Dateiformat konnte nicht gelesen werden.", "media-storage": "Die Datei konnte nicht gespeichert werden. Bitte versuche es erneut." },
+} as const;
 
 /** Authenticated ingress, after the session has been selected; must resolve after private publication only. */
 export interface AttachmentIngressInput { message: InboundMessage; sessionId: string; humanId: string }
 
 export interface RouterDeps {
+  /** Host-selected channel language; untrusted message bytes never choose authorization or errors. */
+  locale?: (message: InboundMessage) => "de" | "en";
   /** Absent means attachments are unavailable. Do not await captioning or embedding here. */
   ingestAttachments?: (input: AttachmentIngressInput) => Promise<void>;
   identity: IdentityPort; sessions: SessionPort; clock: Clock; log: ChannelLogger;
@@ -133,12 +141,24 @@ export class ChannelRouter {
         await this.#reply(send, msg, NEW_SESSION_TEXT);
         return;
       }
+      const incoming = msg.attachments ?? [];
+      const supported = incoming.filter(a => supportedUpload(a.mimeType, a.kind));
+      const skipped = incoming.filter(a => !supportedUpload(a.mimeType, a.kind));
+      if (skipped.length) {
+        const kinds = [...new Set(skipped.map(a => a.mimeType))].join(", ");
+        const text = this.#d.locale?.(msg) === "de"
+          ? `Nicht unterstützte Anhänge übersprungen: ${kinds}. Dein Nachrichtentext bleibt erhalten.`
+          : `Unsupported attachments skipped: ${kinds}. Your message text is kept.`;
+        await this.#reply(send, msg, clipReply(text, profile.rateLimits.maxReplyChars));
+        if (!supported.length && !msg.text.trim()) return;
+        msg = { ...msg, attachments: supported };
+      }
       // A private chat belongs to one person: if the handle was relinked, the previous person's session is not carried over.
       // A group is one shared conversation (anyone in the room continues it), so there the owner is not compared.
       const forOwner = msg.chatKind === "direct" ? { userId } : undefined;
       const sessionId = (await this.#d.sessions.findActive(chat, forOwner)) ?? (await this.#d.sessions.create(chat, { userId }));
       if (msg.attachments?.length) {
-        if (!this.#d.ingestAttachments) throw new Error("channel attachment ingestion unavailable");
+        if (!this.#d.ingestAttachments) throw new RpcError("E_NOT_AVAILABLE", "channel attachment ingestion unavailable", { reason: "media-unavailable" });
         await this.#d.ingestAttachments({ message: msg, sessionId, humanId: userId });
         if (!msg.text.trim()) { await this.#reply(send, msg, clipReply(UPLOADED_TEXT, profile.rateLimits.maxReplyChars)); return; }
       }
@@ -147,7 +167,10 @@ export class ChannelRouter {
       await this.#reply(send, msg, clipReply(out.text, profile.rateLimits.maxReplyChars));
     } catch (e) {
       this.#d.log.error("channel.session.failed", { channel: msg.channel, error: this.#err(e) });
-      await this.#reply(send, msg, FAILED_TEXT);
+      const messages = UPLOAD_FAILURES[this.#d.locale?.(msg) ?? "en"];
+      const reason = e instanceof RpcError ? e.reason : undefined;
+      const text = reason && Object.hasOwn(messages, reason) ? messages[reason as keyof typeof messages] : FAILED_TEXT;
+      await this.#reply(send, msg, clipReply(text, profile.rateLimits.maxReplyChars));
     }
   }
 
@@ -199,12 +222,9 @@ function validAttachments(attachments: InboundMessage["attachments"]): boolean {
   let bytes = 0;
   for (const a of attachments) {
     if (!a || !ATTACHMENT_KINDS.has(a.kind) || !(a.data instanceof Uint8Array) || a.data.byteLength === 0
-      || typeof a.mimeType !== "string" || !ATTACHMENT_MIME.test(a.mimeType)
+      || typeof a.mimeType !== "string" || a.mimeType.length > 128 || !MIME_SHAPE.test(a.mimeType)
       || (a.filename !== undefined && (typeof a.filename !== "string" || a.filename.length > 1024))
       || (a.sizeBytes !== undefined && (!Number.isSafeInteger(a.sizeBytes) || a.sizeBytes !== a.data.byteLength))) return false;
-    if (((a.kind === "photo" || a.kind === "image") && !a.mimeType.startsWith("image/"))
-      || ((a.kind === "voice" || a.kind === "audio") && !a.mimeType.startsWith("audio/"))
-      || (a.kind === "video" && !a.mimeType.startsWith("video/"))) return false;
     bytes += a.data.byteLength;
     if (bytes > MAX_ATTACHMENT_BYTES) return false;
   }

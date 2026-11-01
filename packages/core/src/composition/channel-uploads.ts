@@ -1,5 +1,5 @@
 /** Authenticated channel uploads: private byte persistence and owner publication before background indexing. */
-import type { OutputStore } from "../../../media/src/index.ts";
+import { MediaError, supportedUpload, uploadMediaType, type OutputStore } from "../../../media/src/index.ts";
 import type { ChannelAttachmentIngressInput } from "../channels/switchboard.ts";
 import { MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES } from "../channels/router.ts";
 import type { MediaIndexHook } from "../media-search/hook.ts";
@@ -10,7 +10,6 @@ import { atomicJson } from "../../../media/src/files.ts";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { UploadedMedia } from "../../../media/src/index.ts";
-import type { MediaKind } from "../media-search/types.ts";
 import { RpcError } from "../rpc/errors.ts";
 
 /** Trusted current host services; no upload field supplies authorization or a path. */
@@ -35,11 +34,11 @@ export function createChannelUploadService(deps: ChannelUploadDeps) {
       || session.id !== input.session.id || session.agentId !== input.session.agentId
       || session.owner !== input.session.owner || session.chatKey !== input.session.chatKey
       || !deps.hasAgent(session.agentId) || session.kind !== "channel" || session.archivedAt !== null
-      || session.memoryMode === "incognito"
       || (message.chatKind === "direct" && session.owner !== deriveUserPrincipal(humanId))
       || authorize(principal, "agent.use", { kind: "agent", agentId: session.agentId }).effect !== "allow") {
-      throw new RpcError("E_DENIED", "channel upload requires a current person and agent rights");
+      throw new RpcError("E_DENIED", "channel upload requires a current person and agent rights", { reason: "upload-forbidden" });
     }
+    if (session.memoryMode === "incognito") throw new RpcError("E_DENIED", "incognito sessions do not persist channel uploads", { reason: "incognito" });
   };
   return async (input: ChannelAttachmentIngressInput): Promise<void> => {
     await check(input);
@@ -49,12 +48,9 @@ export function createChannelUploadService(deps: ChannelUploadDeps) {
       || attachments.reduce((sum, a) => sum + a.data.byteLength, 0) > MAX_ATTACHMENT_BYTES) {
       throw new RpcError("E_INVALID_PARAMS", "channel attachments exceed the ingress limit");
     }
-    const pending = attachments.map(attachment => {
-      const family = attachment.mimeType.split("/", 1)[0];
-      if (family !== "image" && family !== "audio" && family !== "video") {
-        throw new RpcError("E_INVALID_PARAMS", "channel attachment is not a supported medium");
-      }
-      return { kind: family as MediaKind, mimeType: attachment.mimeType, data: Uint8Array.from(attachment.data),
+    const pending = attachments.filter(attachment => supportedUpload(attachment.mimeType, attachment.kind)).map(attachment => {
+      const [kind] = uploadMediaType(attachment.mimeType)!;
+      return { kind, mimeType: attachment.mimeType, data: Uint8Array.from(attachment.data),
         ...(attachment.filename ? { filename: attachment.filename } : {}) };
     });
     const stored: UploadedMedia[] = [];
@@ -81,10 +77,15 @@ export function createChannelUploadService(deps: ChannelUploadDeps) {
         await rm(ownerPath(result.manifest.id), { force: true });
       }));
       if (cleanup.some(result => result.status === "rejected")) {
-        throw new RpcError("E_STORAGE", "channel upload cleanup failed");
+        throw new RpcError("E_STORAGE", "channel upload cleanup failed", { reason: "media-storage" });
       }
       if (error instanceof RpcError || deps.signal.aborted) throw error;
-      throw new RpcError("E_STORAGE", "channel attachment could not be saved");
+      if (error instanceof MediaError) {
+        if (error.code === "quota") throw new RpcError("E_STORAGE", "media quota exceeded", { reason: "media-quota" });
+        if (error.code === "too_large") throw new RpcError("E_INVALID_PARAMS", "attachment is too large", { reason: "media-too-large" });
+        if (error.code === "unsupported_parameter") throw new RpcError("E_INVALID_PARAMS", "attachment format is not supported", { reason: "media-format" });
+      }
+      throw new RpcError("E_STORAGE", "channel attachment could not be saved", { reason: "media-storage" });
     }
     for (const result of stored) {
       deps.hook.onUploaded({ mediaId: result.manifest.id, kind: result.manifest.kind, mime: result.manifest.mimeType,

@@ -16,7 +16,6 @@ import type { Principal } from "../../src/rbac/types.ts";
 import { FakePort } from "./fakes.ts";
 import { silentLogger } from "@plur1bus/module-api";
 import { makeRig } from "../channels/switchboard-rig.ts";
-import { FAILED_TEXT } from "../../src/channels/router.ts";
 
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aW5kAAAAASUVORK5CYII=", "base64");
 const person = (): Principal => ({ kind: "person", userId: "alice", role: "member", agentRights: { main: "use" } });
@@ -74,7 +73,9 @@ describe("authenticated channel uploads", () => {
         await pending;
         assert.deepEqual(seen, []);
         assert.deepEqual(await readdir(join(store.root, ".uploads")), []);
-        assert.deepEqual(rig.adapter().sent.map(m => m.text), [FAILED_TEXT]);
+        assert.deepEqual(rig.adapter().sent.map(m => m.text), [mode === "incognito"
+          ? "Files cannot be saved in an Incognito session."
+          : "You cannot upload files to this session."]);
       } finally {
         release();
         rig.close();

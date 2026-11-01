@@ -32,6 +32,7 @@ import type { ChannelRegistryView } from "../rpc/channel-surface.ts";
 import { type Clock, type Timer } from "./clock.ts";
 import { ChannelRegistry, type ChannelStatus, type RegistryOptions } from "./registry.ts";
 import { ChannelRouter } from "./router.ts";
+import { RpcError } from "../rpc/errors.ts";
 import type {
   Channel, ChannelHealth, ChannelHost, ChannelLogger, ChatKey, ChatKind, IdentityPort, IdentityResolution, InboundMessage,
   OutboundMessage, PairingResult, SenderRef, SessionPort,
@@ -218,7 +219,7 @@ class Host implements Switchboard {
 
   constructor(o: SwitchboardOptions) {
     this.#o = o;
-    const router = new ChannelRouter({ identity: this.#identityPort(), sessions: this.#sessionPort(), clock: o.clock, log: o.log, behaviour: (msg) => this.behaviour(msg), ...(o.command ? { command: o.command } : {}), ...(o.observed ? { observed: o.observed } : {}), ...(o.ingestAttachments ? { ingestAttachments: (input) => this.#ingestAttachments(input) } : {}) });
+    const router = new ChannelRouter({ identity: this.#identityPort(), sessions: this.#sessionPort(), clock: o.clock, log: o.log, locale: (msg) => channelConfigOf(o.config.current(), msg.channel).locale === "de" ? "de" : "en", behaviour: (msg) => this.behaviour(msg), ...(o.command ? { command: o.command } : {}), ...(o.observed ? { observed: o.observed } : {}), ...(o.ingestAttachments ? { ingestAttachments: (input) => this.#ingestAttachments(input) } : {}) });
     this.#registry = new ChannelRegistry({ clock: o.clock, router, log: o.log, redact: (t) => this.#redact(t), ...o.registry });
     for (const b of o.bindings) this.#bindings.set(b.id, b);
     const r = this.#registry;
@@ -510,7 +511,7 @@ class Host implements Switchboard {
   /** Recheck current identity and session ownership at the byte-publication boundary. */
   async #ingestAttachments(input: import("./router.ts").AttachmentIngressInput): Promise<void> {
     const ingest = this.#o.ingestAttachments;
-    if (!ingest) throw new Error("channel attachment ingestion unavailable");
+    if (!ingest) throw new RpcError("E_NOT_AVAILABLE", "channel attachment ingestion unavailable", { reason: "media-unavailable" });
     const revalidate = () => this.#attachmentBinding(input);
     const session = await revalidate();
     await ingest({ message: input.message, session, humanId: input.humanId, revalidate });
@@ -519,15 +520,15 @@ class Host implements Switchboard {
   /** Session records are snapshots: refresh both authorities whenever upload I/O yields control. */
   async #attachmentBinding(input: import("./router.ts").AttachmentIngressInput): Promise<SessionRecord> {
     const { message, sessionId, humanId } = input;
-    if (!this.#active(humanId)) throw new Error("person is disabled");
+    if (!this.#active(humanId)) throw new RpcError("E_DENIED", "person is disabled", { reason: "upload-forbidden" });
     const current = await this.#identityPort().resolve({ channel: message.channel, senderId: message.senderId, ...(message.accountId !== undefined ? { accountId: message.accountId } : {}) });
-    if (!current.linked || current.disabled || current.userId !== humanId) throw new Error("channel identity is no longer linked");
-    if (!this.#active(humanId)) throw new Error("person is disabled");
+    if (!current.linked || current.disabled || current.userId !== humanId) throw new RpcError("E_DENIED", "channel identity is no longer linked", { reason: "upload-forbidden" });
+    if (!this.#active(humanId)) throw new RpcError("E_DENIED", "person is disabled", { reason: "upload-forbidden" });
     // Read after the awaited identity lookup so mutable session state is current on return.
     const session = this.#o.turns()?.store.getSession(sessionId);
     if (!session || session.kind !== "channel" || session.archivedAt !== null
-      || session.chatKey !== chatKeyOf(message.channel, message.chatId)) throw new Error("not an active channel session");
-    if (message.chatKind === "direct" && session.owner !== deriveUserPrincipal(humanId)) throw new Error("session belongs to someone else");
+      || session.chatKey !== chatKeyOf(message.channel, message.chatId)) throw new RpcError("E_DENIED", "not an active channel session", { reason: "upload-forbidden" });
+    if (message.chatKind === "direct" && session.owner !== deriveUserPrincipal(humanId)) throw new RpcError("E_DENIED", "session belongs to someone else", { reason: "upload-forbidden" });
     return session;
   }
 

@@ -5,6 +5,7 @@ import { mkdir, readdir, readFile, rename, rm, open, lstat } from 'node:fs/promi
 import { join, resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { safeId } from './files.ts';
+import { uploadMediaType } from './upload-types.ts';
 import { embedImage } from './adapters/_shared/metadata.ts';
 import { assertDimensions, sniffFormat } from './adapters/_shared/images.ts';
 import { MediaError, failure, metadataEnabled, validateRequest } from './types.ts';
@@ -281,21 +282,13 @@ export class OutputStore {
 
 async function writePrivate(path: string): Promise<void> { const file = await open(path,'wx',0o600); await file.close(); }
 
-const UPLOAD_TYPES: Record<string, readonly [UploadedManifest['kind'], string]> = {
-  'image/png': ['image', 'png'], 'image/jpeg': ['image', 'jpeg'], 'image/webp': ['image', 'webp'],
-  'image/gif': ['image', 'gif'], 'audio/wav': ['audio', 'wav'], 'audio/x-wav': ['audio', 'wav'],
-  'audio/mpeg': ['audio', 'mp3'], 'audio/mp3': ['audio', 'mp3'], 'audio/ogg': ['audio', 'ogg'],
-  'audio/flac': ['audio', 'flac'], 'audio/aac': ['audio', 'aac'], 'audio/mp4': ['audio', 'm4a'],
-  'audio/x-m4a': ['audio', 'm4a'], 'audio/webm': ['audio', 'webm'], 'video/mp4': ['video', 'mp4'],
-  'video/quicktime': ['video', 'mov'], 'video/webm': ['video', 'webm'], 'video/ogg': ['video', 'ogv'],
-};
 function displayFilename(value: string | undefined): string | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== 'string') throw new MediaError('unsupported_parameter');
   return value.slice(0, 160).replace(/[/\\\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, '_').trim();
 }
 function uploadFormat(kind: UploadRequest['kind'], mimeType: string, bytes: Buffer): string {
-  const type = Object.hasOwn(UPLOAD_TYPES, mimeType) ? UPLOAD_TYPES[mimeType] : undefined;
+  const type = uploadMediaType(mimeType);
   if (!type || type[0] !== kind || !matchesUploadMagic(type[1], bytes)) throw new MediaError('unsupported_parameter');
   if (type[1] === 'png' || type[1] === 'jpeg' || type[1] === 'webp') assertDimensions(bytes, type[1]);
   return type[1];
@@ -338,8 +331,7 @@ function validUploadedManifest(value: unknown, id: string): value is UploadedMan
   const m = value as Record<string, unknown>, file = m.file;
   if (!file || typeof file !== 'object') return false;
   const f = file as Record<string, unknown>;
-  const type = typeof m.mimeType === 'string' && Object.hasOwn(UPLOAD_TYPES, m.mimeType)
-    ? UPLOAD_TYPES[m.mimeType] : undefined;
+  const type = typeof m.mimeType === 'string' ? uploadMediaType(m.mimeType) : undefined;
   return m.schema === 'media.upload/1' && m.id === id && typeof m.createdAt === 'number'
     && Number.isFinite(m.createdAt) && m.createdAt >= 0 && !!type && type[0] === m.kind && type[1] === f.format
     && f.path === `0.${type[1]}` && typeof f.bytes === 'number' && Number.isInteger(f.bytes)
