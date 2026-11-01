@@ -15,6 +15,7 @@ import { parseCodingLiveReport, type CodingLiveCase, type CodingLiveReport } fro
 import { copyCodingRuntime, resolveCodingRuntimes, type CodingRuntimes } from "./coding-bench-runtime.ts";
 import { singleCodingArm, type CodingArm, type SingleCodingOptions } from "./coding-bench-subject.ts";
 import { verifyCodingCandidate } from "./coding-bench-verify.ts";
+import { defineCodingArm, type CodingArmSpec } from "./coding-bench-arms.ts";
 import {
   codingProvisionerApi,
   provisionCodingCard,
@@ -29,8 +30,7 @@ import {
 } from "./turn-eval-live.ts";
 
 /** PT-2 supplies factories explicitly. No team/best-of-n behavior is implicitly emulated by B1. */
-export interface CodingArmFactory {
-  id: string;
+export interface CodingArmFactory extends CodingArmSpec {
   create(options: SingleCodingOptions): CodingArm;
 }
 /** Credentials live in an already marked eval home; no key environment or endpoint reaches a task process. */
@@ -168,13 +168,14 @@ export async function runCodingLive(root: string, options: CodingLiveOptions): P
   await codingProvisionerApi();
   const models = parseTurnEvalModels(JSON.stringify(options.models));
   const configurations = models.map(codingConfiguration);
-  const arms = options.arms ?? [{ id: "single", create: singleCodingArm }];
+  const definitions = options.arms ?? [{ family: "single", params: {}, create: singleCodingArm }];
+  const arms = definitions.map((factory) => ({ ...defineCodingArm(factory), create: factory.create }));
   if (
     new Set(configurations).size !== models.length ||
     !arms.length ||
     arms.length > 8 ||
     new Set(arms.map((arm) => arm.id)).size !== arms.length ||
-    arms.some((arm) => !/^[a-z][a-z0-9-]{0,63}$/u.test(arm.id))
+    arms.some((arm) => typeof arm.create !== "function")
   )
     throw new Error("coding matrix refused");
   const corpus = await loadCodingCorpus(root);
@@ -296,7 +297,7 @@ export async function runCodingLive(root: string, options: CodingLiveOptions): P
         configuration: configurations[index]!,
         capturedAt: capturedAt.get(index)!,
       })),
-      arms: arms.map((arm) => arm.id),
+      arms: arms.map(({ id, family, params }) => ({ id, family, params })),
       cases,
       comparison: null,
     });

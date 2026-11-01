@@ -3,6 +3,30 @@ import type { CodingLanguage, CodingTier } from "./coding-bench-corpus.ts";
 import type { CodingMetrics, CodingSubjectResult } from "./coding-bench-subject.ts";
 import { createRedactor, secretFormsIn } from "../logs/redact.ts";
 import { comparePairedOutcomes, exactPairedSignP, type PairComparison } from "./coding-bench-stats.ts";
+import { parseCodingArmDefinition, type CodingArmDefinition } from "./coding-bench-arms.ts";
+
+/** K2 owns this exact public environment allowlist; TM2 consumes the same boundary. */
+export const CODING_ENVIRONMENT_KEYS = ["platform", "node", "rust", "go", "python", "rpc"] as const;
+export interface CodingEnvironment {
+  platform: "linux";
+  node: string;
+  rust: string;
+  go: string;
+  python: string;
+  rpc: string;
+}
+
+/** Normalize field order and refuse paths, endpoints or other host metadata outside the allowlist. */
+export function parseCodingEnvironment(value: unknown): CodingEnvironment {
+  const environment = closed(value, CODING_ENVIRONMENT_KEYS);
+  if (environment.platform !== "linux") invalid();
+  for (const name of CODING_ENVIRONMENT_KEYS.slice(1)) {
+    if (!/^[0-9]+\.[0-9]+\.[0-9]+$/u.test(string(environment[name], 32))) invalid();
+  }
+  return Object.fromEntries(
+    CODING_ENVIRONMENT_KEYS.map((key) => [key, environment[key]]),
+  ) as unknown as CodingEnvironment;
+}
 
 /** Only complete paired evidence may pass; statistical significance never overrides the resolved-rate gate. */
 export type CodingComparisonGate = "incomparable" | "regressed" | "not-regressed";
@@ -54,11 +78,11 @@ export interface CodingLiveReport {
   generatedAt: string;
   corpus: string;
   revision: string;
-  environment: { platform: "linux"; node: string; rust: string; go: string; python: string; rpc: string };
+  environment: CodingEnvironment;
   tasks: CodingReportTask[];
   seeds: number[];
   models: CodingReportModel[];
-  arms: string[];
+  arms: CodingArmDefinition[];
   cases: CodingLiveCase[];
   comparison: CodingComparison | null;
 }
@@ -83,15 +107,11 @@ export function parseCodingLiveReport(value: unknown): CodingLiveReport {
   if (!Number.isFinite(date) || date > Date.now() + 60_000) invalid();
   hash(root.corpus);
   revision(root.revision);
-  const environment = closed(root.environment, ["platform", "node", "rust", "go", "python", "rpc"]);
-  if (environment.platform !== "linux") invalid();
-  for (const name of ["node", "rust", "go", "python", "rpc"]) {
-    if (!/^[0-9]+\.[0-9]+\.[0-9]+$/u.test(string(environment[name], 32))) invalid();
-  }
-  validateTaskMatrix(root);
-  if (root.comparison !== null)
-    validateCandidateComparison(value as CodingLiveReport, parseCodingComparison(root.comparison));
-  return value as CodingLiveReport;
+  const environment = parseCodingEnvironment(root.environment);
+  const arms = validateTaskMatrix(root);
+  const report = { ...root, environment, arms } as unknown as CodingLiveReport;
+  if (report.comparison !== null) validateCandidateComparison(report, parseCodingComparison(report.comparison));
+  return report;
 }
 /** Redact before publication, validate the sanitized shape again, and scan every registered secret encoding. */
 export function publicCodingReport(value: unknown, secrets: Iterable<string>): string {
@@ -111,7 +131,8 @@ export function compareCodingReports(
 ): CodingComparison {
   const baseline = parseCodingLiveReport(before);
   const candidate = parseCodingLiveReport(after);
-  if (!baseline.arms.includes(baselineArm) || !candidate.arms.includes(candidateArm)) invalid();
+  if (!baseline.arms.some((arm) => arm.id === baselineArm) || !candidate.arms.some((arm) => arm.id === candidateArm))
+    invalid();
   const identity = (model: CodingReportModel) => JSON.stringify([model.provider, model.model, model.configuration]);
   const sameRuntime = (["platform", "node", "rust", "go", "python"] as const).every(
     (key) => baseline.environment[key] === candidate.environment[key],
@@ -210,7 +231,7 @@ function unique(values: readonly unknown[]): void {
   if (new Set(values).size !== values.length) invalid();
 }
 
-function validateTaskMatrix(root: Record<string, unknown>): void {
+function validateTaskMatrix(root: Record<string, unknown>): CodingArmDefinition[] {
   const tasks = array(root.tasks, 24).map((value) => {
     const task = closed(value, ["id", "tier", "language", "kind"]);
     if (!/^[a-z][a-z0-9-]+$/u.test(string(task.id, 64))) invalid();
@@ -242,13 +263,14 @@ function validateTaskMatrix(root: Record<string, unknown>): void {
     return model;
   });
   unique(models.map((model) => model.configuration));
-  const arms = array(root.arms, 8).map((value) => string(value, 64));
-  if (arms.some((arm) => !/^[a-z][a-z0-9-]{0,63}$/u.test(arm))) invalid();
+  const definitions = array(root.arms, 8).map(parseCodingArmDefinition);
+  const arms = definitions.map((arm) => arm.id);
   unique(arms);
   const cases = array(root.cases, 24 * 3 * 32 * 8);
   if (cases.length !== tasks.length * seeds.length * models.length * arms.length) invalid();
   const keys = cases.map((value) => validateCase(value, tasks, seeds, models, arms));
   unique(keys);
+  return definitions;
 }
 
 function validateCase(
@@ -324,7 +346,7 @@ function measured(row: CodingLiveCase): boolean {
 }
 
 function validateCandidateComparison(report: CodingLiveReport, comparison: CodingComparison): void {
-  if (!report.arms.includes(comparison.candidateArm)) invalid();
+  if (!report.arms.some((arm) => arm.id === comparison.candidateArm)) invalid();
   const identity = (model: CodingReportModel) => JSON.stringify([model.provider, model.model, model.configuration]);
   for (const model of report.models) {
     const paired = comparison.models.find((entry) => identity(entry) === identity(model));

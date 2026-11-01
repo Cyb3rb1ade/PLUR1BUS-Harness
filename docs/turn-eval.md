@@ -125,12 +125,21 @@ call budget. `CodingArmFactory` is the explicit PT-2 extension point; team and b
 `hostCodingArm` hook consumes the existing `HostEvalModel` / `HostEvalHarness` registry and dispatcher. A host session must
 bind its provider's token budget and abort signal and close every owned request/process; missing usage remains null.
 
+The reserved `tests/bench/coding/team/` subtree belongs to TM2. B1 excludes it from discovery, file limits and its corpus
+fingerprint; adding team fixtures does not change the 24-task B1 matrix or invalidate its paired baseline.
+
 **Preparation gate:** #820 (the shared provisioner and narrow Linux writable-worktree opt-in) and K2a (normal native-turn
 mount pass-through) must be merged before owner live acceptance or enabling `coding-bench-live`. K2 changes neither sandbox
 validation nor its backend. Its runtime dependency check fails closed until those APIs exist. After each dependency merges,
 merge approved `main`, verify actual provisioned card-turn integration, and obtain the separate Claude review of K2a. No RPC
 change is needed by B1. K3–K8 remain blocked until the owner live baseline is committed (D120 Gate 2); K1 has the owner's
 explicit H1-1 exception. Do not create a placeholder baseline or relabel fixture evidence as live.
+
+K2a is a separate ready PR based on main after #820 merges. Its [implementation and acceptance plan](superpowers/plans/2026-11-01-k2a-native-card-worktrees.md)
+includes H-1, H-2, M-1, M-2, M-4 and L-5 from the owner's #820 review. In particular, native binding requires a live card
+assignment to the actual agent; neither a model-selected card nor the root checkout is a writable grant. The planned mount
+API receives `agentId` as well as project/card identity. K2 does not implement that security boundary or treat its absence
+as a model loss.
 
 ### Per-PR fixture validity
 
@@ -214,6 +223,21 @@ source, model responses and tool transcripts are excluded. Publication applies t
 again, and scans raw/encoded secret forms. Nightly captures evaluator stdout/stderr privately, scans report and log, then
 prints the scanned log and uploads only `report.json`. A failed scan blocks both publication paths. The eval home is always
 deleted, including after failed setup/run/scan. Never upload the home or an unscanned log.
+
+K2 owns this report format and `plur1bus.coding-comparison/1`; TM2 consumes the same contract. The shared environment
+allowlist is exactly `platform`, `node`, `rust`, `go`, `python`, `rpc` (`CODING_ENVIRONMENT_KEYS` and
+`parseCodingEnvironment` in `coding-bench-report.ts`). Platform is `linux`; versions have three numeric components.
+Extra environment fields refuse publication. Normalization makes object-key insertion order irrelevant to capture merging.
+
+Report `arms` are closed `{ id, family, params }` definitions; each case's `arm` references one canonical ID. Producers use
+`defineCodingArm` / `canonicalArmId` from `coding-bench-arms.ts`, and `CodingArmFactory` supplies `{ family, params, create }`.
+The single control is `{ id: "single", family: "single", params: {} }`. Parameterized IDs retain TM2's existing encoding:
+the family prefix (`+` rendered as `-`) and 32 hexadecimal SHA-256 characters over the canonical family/parameter JSON.
+Object keys sort recursively, array order remains significant, and changing parameters changes identity. Params are public
+configuration data, never credentials, endpoints, private paths or model output. Only plain finite JSON data is allowed,
+bounded to depth 32, 4,096 nodes and 16 KiB of parameter JSON. Accessors, custom serialization, cycles and sparse arrays
+are refused. Publication recomputes IDs, rejects duplicates and retains normalized parameter copies. Declaring an arm does
+not enable it; execution still requires an explicitly supplied factory whose returned arm has the same identity.
 
 `wallMs` measures the solve turn including tool/provider work and cleanup; trusted workspace/runtime provisioning is outside
 that interval. `verificationMs` is separate. Usage aggregates authoritative per-request uncached input, cache-read, cache-create

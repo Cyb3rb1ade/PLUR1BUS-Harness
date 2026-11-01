@@ -11,6 +11,7 @@ import {
   publicCodingReport,
   type CodingLiveReport,
 } from "../../src/toolcall/coding-bench-report.ts";
+import { defineCodingArm } from "../../src/toolcall/coding-bench-arms.ts";
 import { secretFormsIn } from "../../src/logs/redact.ts";
 
 async function structuralReport(): Promise<CodingLiveReport> {
@@ -28,7 +29,7 @@ async function structuralReport(): Promise<CodingLiveReport> {
     tasks: corpus.tasks.map(({ meta: { id, tier, language, kind } }) => ({ id, tier, language, kind })),
     seeds: corpus.seeds,
     models: [{ provider: "fixture", model: "structural-test", configuration, capturedAt: date }],
-    arms: ["single"],
+    arms: [{ id: "single", family: "single", params: {} }],
     cases: corpus.tasks.flatMap((task) =>
       corpus.seeds.map((seed) => ({
         arm: "single",
@@ -138,4 +139,55 @@ test("an embedded comparison cannot contradict the candidate's actual outcomes",
   pairs.bothResolved = 2;
   pairs.bothUnresolved -= 2;
   assert.throws(() => parseCodingLiveReport(report));
+});
+
+test("reports bind every arm ID to its complete family and parameters", async () => {
+  const report = await structuralReport();
+  const arm = defineCodingArm({ family: "single", params: { effort: "highest" } });
+  report.arms = [arm];
+  report.cases.forEach((row) => {
+    row.arm = arm.id;
+  });
+  assert.equal(parseCodingLiveReport(report).cases.length, 72);
+  assert.throws(() => parseCodingLiveReport({ ...report, arms: [arm.id] }));
+  assert.throws(() => parseCodingLiveReport({ ...report, arms: [{ ...arm, id: "single" }] }));
+  assert.throws(() => parseCodingLiveReport({ ...report, arms: [{ ...arm, params: {} }] }));
+  const baseline = await structuralReport();
+  const comparison = compareCodingReports(baseline, report, "single", arm.id);
+  assert.equal(comparison.gate, "not-regressed");
+  report.comparison = comparison;
+  assert.equal(parseCodingLiveReport(report).comparison!.candidateArm, arm.id);
+});
+
+test("the shared environment boundary is closed and normalizes field order", async () => {
+  const report = await structuralReport();
+  const order = ["platform", "node", "rust", "go", "python", "rpc"];
+  const environment = Object.fromEntries(Object.entries(report.environment).reverse());
+  const parsed = parseCodingLiveReport({ ...report, environment });
+  assert.deepEqual(Object.keys(parsed.environment), order);
+  for (const bad of [
+    { ...environment, endpoint: "private" },
+    { ...environment, platform: "darwin" },
+    { ...environment, node: "v24.21.0" },
+    { ...environment, rpc: "1.15" },
+  ]) {
+    assert.throws(() => parseCodingLiveReport({ ...report, environment: bad }));
+  }
+});
+
+test("model captures with equivalent parameter key orders merge without changing arm identities", async () => {
+  const first = await structuralReport();
+  const second = await structuralReport();
+  const arm = defineCodingArm({ family: "single", params: { review: true, effort: "highest" } });
+  first.arms = [arm];
+  second.arms = [{ ...arm, params: { effort: "highest", review: true } }];
+  first.cases.forEach((row) => {
+    row.arm = arm.id;
+  });
+  second.models[0]!.configuration = "c".repeat(64);
+  second.cases.forEach((row) => {
+    row.arm = arm.id;
+    row.configuration = "c".repeat(64);
+  });
+  assert.equal(mergeCodingReports([first, second]).cases.length, 144);
 });

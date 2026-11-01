@@ -24,7 +24,7 @@ export interface CodingProvisionedWorkspace {
   close(): Promise<void>;
 }
 interface MountApi {
-  fromStore(store: CollabStore, stateDir: string, projectId: string, cardId: string): object;
+  fromStore(store: CollabStore, stateDir: string, projectId: string, cardId: string, agentId: string): object;
 }
 
 /** Runtime dependency gate permits K2 preparation before #820/K2a merge; it never substitutes an implementation. */
@@ -99,7 +99,7 @@ export async function provisionCodingCard(
     )
       throw new Error("invalid card binding");
     store = new CollabStore({ path: join(caseHome, "state", "collab.sqlite") });
-    const worktreeMount = api.fromStore(store, join(caseHome, "state"), row.projectId, row.cardId);
+    const worktreeMount = api.fromStore(store, join(caseHome, "state"), row.projectId, row.cardId, agentId);
     const opened = store;
     return {
       home: caseHome,

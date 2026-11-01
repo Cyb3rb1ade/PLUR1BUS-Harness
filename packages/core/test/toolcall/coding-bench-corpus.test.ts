@@ -2,6 +2,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { realTempDir } from "../helpers/real-temp-dir.ts";
 import { fileURLToPath } from "node:url";
 import { loadCodingCorpus, parseCodingTask, renderCodingTask } from "../../src/toolcall/coding-bench-corpus.ts";
 
@@ -62,4 +65,29 @@ test("manifest boundaries refuse unknown keys, escaping paths and missing budget
     { ...value, origin: "upstream" },
   ])
     assert.throws(() => parseCodingTask(bad));
+});
+
+test("the reserved top-level team corpus cannot alter B1 tasks, limits or fingerprint", async () => {
+  const temporary = await realTempDir("p1b-coding-team-boundary-");
+  try {
+    const directory = join(temporary, "coding");
+    await cp(root, directory, { recursive: true });
+    const before = await loadCodingCorpus(directory);
+    await mkdir(join(directory, "team"));
+    await writeFile(join(directory, "team", "task.json"), "invalid independent team metadata");
+    await writeFile(join(directory, "team", "large.bin"), Buffer.alloc(1_048_577));
+    const after = await loadCodingCorpus(directory);
+    assert.equal(after.fingerprint, before.fingerprint);
+    assert.deepEqual(
+      after.tasks.map((task) => task.meta),
+      before.tasks.map((task) => task.meta),
+    );
+    assert.deepEqual(after.seeds, before.seeds);
+    const task = before.tasks[0]!;
+    const entry = join(directory, task.meta.id, "start", task.meta.entry);
+    await writeFile(entry, (await readFile(entry, "utf8")) + "\n");
+    assert.notEqual((await loadCodingCorpus(directory)).fingerprint, before.fingerprint);
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
 });

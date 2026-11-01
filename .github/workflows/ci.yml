@@ -107,6 +107,7 @@ jobs:
       - run: pnpm gen
       - run: pnpm build
       - name: B1 coding checker selftest (24 tasks, three seeds, no model)
+        if: runner.os == 'Linux'
         run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts --fixture
         timeout-minutes: 12
       # A cold full-program strict check needs >2 GiB (incremental only saves warm runs).
@@ -281,6 +282,10 @@ jobs:
         run: node packages/config-schema/src/gen-defaults.mjs --check
       - run: pnpm gen
       - run: pnpm build
+      - name: B1 coding checker selftest (24 tasks, three seeds, no model)
+        if: runner.os == 'Linux'
+        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts --fixture
+        timeout-minutes: 12
       # A cold full-program strict check needs >2 GiB (incremental only saves warm runs).
       # Preserve the same compiler inputs/options; give V8 headroom on the 7 GiB macOS runner.
       - run: node packages/config-schema/src/gen-defaults.mjs --check && pnpm lint

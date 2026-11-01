@@ -159,11 +159,12 @@ export function parseCodingTask(value: unknown): CodingTaskMeta {
   };
 }
 
-async function files(root: string): Promise<Map<string, Buffer>> {
+async function files(root: string, ignoreTeam = false): Promise<Map<string, Buffer>> {
   const result = new Map<string, Buffer>();
   let total = 0;
   async function walk(relative: string): Promise<void> {
     for (const name of (await readdir(join(root, relative))).sort()) {
+      if (ignoreTeam && relative === "" && name === "team") continue;
       const rel = relative ? `${relative}/${name}` : name;
       const file = join(root, rel);
       const stat = await lstat(file);
@@ -183,13 +184,13 @@ async function files(root: string): Promise<Map<string, Buffer>> {
   return result;
 }
 
-/** Load exactly the original 24-task distribution and hash every corpus byte in path order. */
+/** Load/hash the original 24-task distribution; the reserved top-level team corpus is independent. */
 export async function loadCodingCorpus(directory: string): Promise<CodingCorpus> {
   if (!(await lstat(directory)).isDirectory() || (await lstat(directory)).isSymbolicLink()) {
     throw new Error("invalid coding corpus root");
   }
   const root = await realpath(directory);
-  const all = await files(root);
+  const all = await files(root, true);
   const tasks: CodingTask[] = [];
   for (const [name, data] of all) {
     if (!/^[a-z0-9-]+\/task\.json$/u.test(name)) continue;

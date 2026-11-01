@@ -187,7 +187,7 @@ function baselineMarkdown(report: CodingLiveReport): string {
     "",
   ];
   for (const model of report.models)
-    for (const arm of report.arms) {
+    for (const { id: arm } of report.arms) {
       const rows = report.cases.filter((row) => row.configuration === model.configuration && row.arm === arm);
       const metrics = summarizeCodingRows(report, rows);
       const label = `${model.provider}/${model.model}`.replace(/[|`<>]/gu, " ");

@@ -230,6 +230,12 @@ incomparable baselines fail. Credentials are scoped to the encrypted-store setup
 A runtime canary is searched in the report and captured evaluator log before either is published. Only the scanned report
 is uploaded, and the disposable eval home is removed with `always()`. A failed scan blocks log/artifact publication.
 The selected Linux `unit` job runs the separate no-model `--fixture` checker selftest (72 start-fail/reference-pass pairs).
+The shared `unit`/`unit-os` step list carries the same Linux condition, so this selftest executes only on Ubuntu and the
+existing workflow parity check stays exact. B1 excludes TM2's `tests/bench/coding/team/` from discovery, limits and its hash.
+K2 owns the closed report/comparison formats, canonical `{ id, family, params }` arm definitions and the exact public
+environment allowlist (`platform`, `node`, `rust`, `go`, `python`, `rpc`); TM2 consumes those shared types and validators.
+The separate [K2a plan](superpowers/plans/2026-11-01-k2a-native-card-worktrees.md) records the owner's six native-turn
+requirements, including trusted assignment, exec-only scope, mandatory Linux task limits and large-repository alias checks.
 See [the B1 operator instructions](turn-eval.md#b1-coding-benchmark) for prerequisites, runtime limits, capture and pairing.
 
 ## Using it
