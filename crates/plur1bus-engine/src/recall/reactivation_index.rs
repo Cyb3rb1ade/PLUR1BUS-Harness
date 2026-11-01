@@ -2,6 +2,7 @@
 
 use super::render::RenderError;
 use super::render_value::truthy;
+use crate::text::js::JsString;
 use crate::text::json::{parse_json, write_json, TolerantJsonValue};
 use serde_json::{json, Value};
 
@@ -33,12 +34,25 @@ fn value(value: &TolerantJsonValue) -> Option<Value> {
 fn ordered_values(value: Option<&TolerantJsonValue>) -> Vec<Value> {
     match value {
         Some(TolerantJsonValue::Array(items)) => items.iter().filter_map(self::value).collect(),
-        Some(TolerantJsonValue::Object(items)) => items
-            .iter()
+        Some(TolerantJsonValue::Object(items)) => object_entries(items)
+            .into_iter()
             .filter_map(|(_, item)| self::value(item))
             .collect(),
         _ => Vec::new(),
     }
+}
+
+fn object_entries(fields: &[(JsString, TolerantJsonValue)]) -> Vec<&(JsString, TolerantJsonValue)> {
+    let mut ordered = fields.iter().enumerate().collect::<Vec<_>>();
+    ordered.sort_by_cached_key(|(position, (key, _))| {
+        let text = key.to_utf8_lossy();
+        let index = text
+            .parse::<u32>()
+            .ok()
+            .filter(|index| *index < u32::MAX && index.to_string() == text);
+        (index.is_none(), index.unwrap_or_default(), *position)
+    });
+    ordered.into_iter().map(|(_, field)| field).collect()
 }
 
 fn community(raw: &Value, array_shape: bool) -> Value {
@@ -71,8 +85,8 @@ impl LensIndex {
             .map(|raw| community(&raw, array_shape))
             .collect();
         let entries = match field(parsed, "entries") {
-            Some(TolerantJsonValue::Object(fields)) => fields
-                .iter()
+            Some(TolerantJsonValue::Object(fields)) => object_entries(fields)
+                .into_iter()
                 .filter_map(|(key, child)| value(child).map(|value| (key.to_utf8_lossy(), value)))
                 .collect(),
             _ => Vec::new(),

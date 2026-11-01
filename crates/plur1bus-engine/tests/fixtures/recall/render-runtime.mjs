@@ -90,6 +90,11 @@ export async function captureRender(engineRoot) {
       messages: [],
       ...(spec.internal ? { origin: "internal" } : {}),
     };
+    if (spec.overlays?.length) {
+      const { InterpretationOverlayStore } = await load("lib/interpretation-overlay.js");
+      const overlays = new InterpretationOverlayStore(workspace);
+      for (const overlay of spec.overlays) await overlays.append(overlay);
+    }
     let crrIndex = null;
     if (spec.previous != null) {
       writeFileSync(

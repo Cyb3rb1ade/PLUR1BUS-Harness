@@ -38,6 +38,7 @@
     "lib/epistemic-status.js": "552a71f9616c8caa2151b54feadd3e6ab19a470218022027425b11ccaf967fec",
     "lib/contradiction-detector.js": "480a9fcf96bcaf1baf416da12cac81d560fceec37e5f8b64a4206375bee85f17",
     "lib/setup/feature-profiles.js": "f15dd589740bf58490abdd9c148f36922a27544c55a88e5f6e36b71c7416d00c",
-    "engine/create-engine.js": "616601790f1859fee2a61494bfd2ed8cd82874bdc759c37b8e5295c183028ed6"
+    "engine/create-engine.js": "616601790f1859fee2a61494bfd2ed8cd82874bdc759c37b8e5295c183028ed6",
+    "lib/interpretation-overlay.js": "3b540dc7832ee1e4c43c92699bd9d6abbda89525646fb3eb563cc64835b7215d"
   }
 }

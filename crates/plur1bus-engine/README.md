@@ -20,7 +20,7 @@ read-only pipeline port and persists nothing; optional retrieval-counter mainten
 for exactly `retrievalCount` and `lastRetrievedAt`.
 
 The [T5 fixtures](tests/fixtures/recall/golden/render/README.md) describe the real Node recorder,
-the 102 cases and the narrowly authorized Semantic Lens ACL parity exception. The Node reference
+the 119 cases and the narrowly authorized Semantic Lens ACL parity exception. The Node reference
 is unchanged; default/on/off Lens settings all retain the authorized base and omit foreign user rows.
 
 ## Targets

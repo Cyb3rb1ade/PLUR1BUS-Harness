@@ -295,7 +295,7 @@ it introduces no persisted checkpoint file. Existing file-based hook/re-embeddin
 
 T5 receives already selected rows through `SelectedRecallPipeline`; it does not depend on the
 separate T4 branch. `assemble_context` forwards `recall.maxPromptMemories` (default 12, bounded
-1–100) and `summaryMaxWords` (default 150). Rendering returns the original `neo`, `start`,
+1–100) and numeric `summaryMaxWords` (default 150, including decimal/exponent encodings). Rendering returns the original `neo`, `start`,
 `memories`, `time`, `temporal` and `reminder` blocks with UTF-16 `chars`. The inner memories cap
 runs before the aggregate host plan; callers join using `inject_budget::plan` so the original
 block array is not capped twice. `tokensEstimate` is absent, matching Node.
@@ -316,6 +316,9 @@ This is the sole controller-authorized exception to the Node pin, documented in 
 on the four affected runtime cases in the [T5 fixture README](../crates/plur1bus-engine/tests/fixtures/recall/golden/render/README.md).
 Node itself is unchanged. Full trace normalization, timing, deadlines and degraded orchestration
 remain RE-04/T6; durable reminder/session workflows remain with their owning RE-05/RE-06/RE-07 tasks.
+
+The [T5 review rulings](superpowers/plans/rust-engine/RE-04-T5-review-rulings.md) record
+the single fix pass, remaining owning-task boundaries and the protected T0 zero-word follow-up.
 
 ## Fixtures and upgrades
 

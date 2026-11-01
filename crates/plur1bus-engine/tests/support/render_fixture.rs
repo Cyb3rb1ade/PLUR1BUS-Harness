@@ -104,6 +104,10 @@ pub fn request(case: &Value) -> render::RenderRequest {
         canonical: serde_json::from_value(input["canonical"].clone()).unwrap_or_default(),
     };
     request.config = input["cfg"].clone();
+    if let Some(encoding) = input["summaryEncoding"].as_str() {
+        request.config["summaryMaxWords"] = serde_json::from_str(encoding).unwrap();
+    }
+    request.overlays = input["overlays"].as_array().cloned().unwrap_or_default();
     request.context.user_principal = input["userPrincipal"].as_str().unwrap_or("").to_owned();
     request.lens.index = input["lensIndex"].clone();
     request.lens.hydrated = input["hydratedRows"]
@@ -148,9 +152,9 @@ pub fn assemble(case: &Value, neo: &FixtureNeo) -> RenderedRecall {
                 self.0["calls"]["pipelines"][0]["topN"].as_u64().unwrap()
             );
             assert_eq!(
-                parameters.summary_max_words as u64,
+                parameters.summary_max_words,
                 self.0["calls"]["pipelines"][0]["summaryMaxWords"]
-                    .as_u64()
+                    .as_f64()
                     .unwrap()
             );
             let mut selected = self.1.clone();
@@ -318,10 +322,12 @@ pub fn verify_helper(case: &Value) {
                     .flatten()
                     .map(text)
                     .collect(),
-                index: reactivation::LensIndex::from_value(
-                    input.get("semanticLens").unwrap_or(&index),
-                )
-                .unwrap(),
+                index: if let Some(line) = input["semanticLensLine"].as_str() {
+                    reactivation::LensIndex::from_json(line).unwrap()
+                } else {
+                    reactivation::LensIndex::from_value(input.get("semanticLens").unwrap_or(&index))
+                        .unwrap()
+                },
                 graph_edges: input["graphEdges"].as_array().cloned().unwrap_or_default(),
                 hydrated: input["hydrated"]
                     .as_array()

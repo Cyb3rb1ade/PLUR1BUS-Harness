@@ -97,7 +97,7 @@ the pin carry the RE-04-T5-LENS-ACL parity-exception marker; the disabled contro
 remain unmarked. The recorder uses the production default, with no forced disable.
 The reference Node checkout is unchanged; the controller/owner handles its issue.
 
-The resumed recorder now uses the production default and contains 102 actual Node
+The resumed recorder now uses the production default and contains 119 actual Node
 cases in eleven files. Exactly four default/enabled security cases (compression
 on/off) carry the exception marker; both disabled controls remain unmarked.
 The boundary has no logger or ledger port. Focused tests additionally verify that

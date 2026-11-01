@@ -92,9 +92,10 @@ pub(super) fn authorized(
 
 fn same_tuple(a: &Value, b: &Value) -> bool {
     a["schemaVersion"].as_f64() == b["schemaVersion"].as_f64()
-        && ["scope", "agentId", "workspaceIdentity", "ownerUserId"]
+        && a["scope"] == b["scope"]
+        && ["agentId", "workspaceIdentity", "ownerUserId"]
             .iter()
-            .all(|key| a[key] == b[key])
+            .all(|key| text(&a[key]) == text(&b[key]))
 }
 
 fn endpoint(edge: &Value, key: &str, subject: &AclSubject) -> Option<Value> {
@@ -132,14 +133,30 @@ pub(super) fn safe_edges(edges: &[Value], subject: Option<&AclSubject>) -> Vec<V
     }
     edges
         .iter()
-        .filter(|edge| {
-            edge["ownershipStatus"] == "bound"
-                && edge["needsRebuild"] != true
-                && !text(&edge["source"]).trim().is_empty()
-                && !text(&edge["target"]).trim().is_empty()
-                && endpoint(edge, "sourceOwnership", subject).is_some()
-                && endpoint(edge, "targetOwnership", subject).is_some()
-        })
+        .filter(|edge| bound_for_request(edge, subject))
         .cloned()
         .collect()
+}
+
+fn bound_for_request(edge: &Value, subject: &AclSubject) -> bool {
+    if edge["ownershipStatus"] != "bound"
+        || edge["needsRebuild"] == true
+        || text(&edge["source"]).trim().is_empty()
+        || text(&edge["target"]).trim().is_empty()
+    {
+        return false;
+    }
+    let (Some(source), Some(target)) = (
+        endpoint(edge, "sourceOwnership", subject),
+        endpoint(edge, "targetOwnership", subject),
+    ) else {
+        return false;
+    };
+    let (Some(nested_source), Some(nested_target)) = (
+        endpoint(&edge["ownership"], "source", subject),
+        endpoint(&edge["ownership"], "target", subject),
+    ) else {
+        return false;
+    };
+    same_tuple(&source, &nested_source) && same_tuple(&target, &nested_target)
 }

@@ -13,69 +13,33 @@ use plur1bus_engine::text::json::{parse_json, TolerantJsonValue};
 
 fn verify(name: &str) {
     for case in fixture::cases(name) {
-        if case["input"]["kind"].is_string() {
-            fixture::verify_helper(&case);
-            continue;
-        }
-        if name == "system-supplement" {
-            fixture::verify_supplement(&case);
-            continue;
-        }
-        let neo = fixture::FixtureNeo::new(&case);
-        let actual = if case["input"]["minimal"] == true {
-            let mut request = fixture::request(&case);
-            request.additions.knowledge_nudge =
-                fixture::text(&case["input"]["knowledgeNudge"]).into();
-            maintenance::minimal(
-                &request,
-                &maintenance::MinimalPolicy {
-                    allowed: case["input"]["denied"] != true,
-                    internal: case["input"]["internal"] == true,
-                    has_workspace: case["input"]["noWorkspace"] != true,
-                    neo_enabled: false,
-                    gc_enabled: false,
-                },
-            )
-            .unwrap()
-        } else if name == "warm-only-path" && case["input"]["warm"] == true {
-            fixture::warm(&case, &neo)
-        } else {
-            fixture::assemble(&case, &neo)
-        };
-        if case["input"]["lensSecurity"] == true {
-            let denied = &case["input"]["hydratedRows"][0];
-            let safe = !actual
-                .to_json_line()
-                .contains(&fixture::text(&denied["id"]))
-                && !actual
-                    .to_json_line()
-                    .contains(&fixture::text(&denied["text"]));
-            assert!(safe, "Lens authorization failed");
-        }
-        assert_eq!(
-            actual.to_json_line(),
-            fixture::text(&case["rawLine"]),
-            "{name}/{} result bytes",
-            case["input"]["variant"]
-        );
-        let joined = inject_budget::plan(&actual.blocks, actual.cap_chars);
-        assert_eq!(joined.to_json_line(), fixture::text(&case["joinedLine"]));
-        let expected = parse_json(&fixture::text(&case["rawLine"])).unwrap();
-        let TolerantJsonValue::Array(blocks) = fixture::field(&expected, "blocks") else {
-            panic!("blocks are required");
-        };
-        for (actual, expected) in actual.blocks.iter().zip(blocks) {
-            assert_eq!(
-                actual.text.to_json(),
-                fixture::string(fixture::field(expected, "text")).to_json(),
-                "{name}/{} block {}",
-                case["input"]["variant"],
-                actual.name
-            );
-            assert_eq!(actual.chars, actual.text.utf16_len());
-            assert!(!actual.to_json_line().contains("tokensEstimate"));
-        }
+        verify_case(name, &case);
     }
+}
+
+fn verify_case(name: &str, case: &serde_json::Value) {
+    if case["input"]["kind"].is_string() {
+        fixture::verify_helper(case);
+        return;
+    }
+    if name == "system-supplement" {
+        fixture::verify_supplement(case);
+        return;
+    }
+    if case.get("disclosureLine").is_some() {
+        verify_disclosure(case);
+    }
+    let actual = render_case(name, case);
+    assert_lens_authorized(case, &actual);
+    assert_eq!(
+        actual.to_json_line(),
+        fixture::text(&case["rawLine"]),
+        "{name}/{} result bytes",
+        case["input"]["variant"]
+    );
+    let joined = inject_budget::plan(&actual.blocks, actual.cap_chars);
+    assert_eq!(joined.to_json_line(), fixture::text(&case["joinedLine"]));
+    verify_blocks(name, case, &actual);
 }
 
 macro_rules! golden_test {
@@ -115,5 +79,165 @@ fn block_texts_are_byte_identical() {
         "render-confidence-framing",
     ] {
         verify(name);
+    }
+}
+
+fn verify_variants(name: &str, variants: &[&str]) {
+    let cases = fixture::cases(name)
+        .into_iter()
+        .filter(|case| variants.contains(&case["input"]["variant"].as_str().unwrap()))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        cases.len(),
+        variants.len(),
+        "all specified Node cases must exist"
+    );
+    for case in cases {
+        verify_case(name, &case);
+    }
+}
+
+fn verify_disclosure(case: &serde_json::Value) {
+    use plur1bus_engine::recall::boosters;
+    let rows = case["input"]["rows"].as_array().unwrap();
+    let (a, b) = (&rows[0]["entry"], &rows[1]["entry"]);
+    let winner = boosters::contradiction_winner(a, b);
+    assert_eq!(winner["id"], case["winnerId"]);
+    let loser = if std::ptr::eq(winner, a) { b } else { a };
+    let pairs = [(winner.clone(), loser.clone())];
+    let actual = boosters::contradiction_disclosure(
+        &pairs,
+        case["input"]["cfg"]["contradictionDisclosure"]["enabled"] != false,
+    );
+    let line = actual
+        .as_ref()
+        .map_or_else(|| "null".into(), |text| text.to_json());
+    assert_eq!(line, fixture::text(&case["disclosureLine"]));
+}
+
+#[test]
+fn review_crr_nested_bindings_match_the_pin() {
+    verify_variants(
+        "render-reactivation-boost",
+        &[
+            "selector-graph-bound",
+            "selector-graph-missing-nested",
+            "selector-graph-conflicting-source",
+            "selector-graph-conflicting-target",
+            "selector-graph-sparse-bound",
+        ],
+    );
+}
+
+#[test]
+fn review_overlay_switches_preserve_the_base() {
+    verify_variants(
+        "render-plain",
+        &[
+            "overlay-default",
+            "overlay-enabled",
+            "overlay-disabled",
+            "overlay-continuity-disabled",
+            "overlay-no-workspace",
+        ],
+    );
+}
+
+#[test]
+fn review_summary_numeric_encodings_match_the_pin() {
+    verify_variants(
+        "render-plain",
+        &[
+            "summary-words-4",
+            "summary-number-4.0",
+            "summary-number-4e0",
+            "summary-number-4.5",
+            "summary-number-0",
+            "summary-number--1",
+        ],
+    );
+}
+
+#[test]
+fn review_crr_property_enumeration_preserves_selected_ids() {
+    verify_variants(
+        "render-reactivation-boost",
+        &[
+            "selector-object-order-numeric",
+            "selector-object-order-prefixed",
+            "selector-object-order-array",
+        ],
+    );
+}
+
+#[test]
+fn review_disclosure_uses_recorded_nonempty_and_disabled_oracles() {
+    verify_variants(
+        "render-contradiction-disclosure",
+        &["default", "enabled", "disabled", "entity-cut"],
+    );
+}
+
+fn render_case(
+    name: &str,
+    case: &serde_json::Value,
+) -> plur1bus_engine::recall::blocks::RenderedRecall {
+    let neo = fixture::FixtureNeo::new(case);
+    if case["input"]["minimal"] == true {
+        let mut request = fixture::request(case);
+        request.additions.knowledge_nudge = fixture::text(&case["input"]["knowledgeNudge"]).into();
+        maintenance::minimal(
+            &request,
+            &maintenance::MinimalPolicy {
+                allowed: case["input"]["denied"] != true,
+                internal: case["input"]["internal"] == true,
+                has_workspace: case["input"]["noWorkspace"] != true,
+                neo_enabled: false,
+                gc_enabled: false,
+            },
+        )
+        .unwrap()
+    } else if name == "warm-only-path" && case["input"]["warm"] == true {
+        fixture::warm(case, &neo)
+    } else {
+        fixture::assemble(case, &neo)
+    }
+}
+
+fn assert_lens_authorized(
+    case: &serde_json::Value,
+    actual: &plur1bus_engine::recall::blocks::RenderedRecall,
+) {
+    if case["input"]["lensSecurity"] == true {
+        let denied = &case["input"]["hydratedRows"][0];
+        let safe = !actual
+            .to_json_line()
+            .contains(&fixture::text(&denied["id"]))
+            && !actual
+                .to_json_line()
+                .contains(&fixture::text(&denied["text"]));
+        assert!(safe, "Lens authorization failed");
+    }
+}
+
+fn verify_blocks(
+    name: &str,
+    case: &serde_json::Value,
+    actual: &plur1bus_engine::recall::blocks::RenderedRecall,
+) {
+    let expected = parse_json(&fixture::text(&case["rawLine"])).unwrap();
+    let TolerantJsonValue::Array(blocks) = fixture::field(&expected, "blocks") else {
+        panic!("blocks are required");
+    };
+    for (actual, expected) in actual.blocks.iter().zip(blocks) {
+        assert_eq!(
+            actual.text.to_json(),
+            fixture::string(fixture::field(expected, "text")).to_json(),
+            "{name}/{} block {}",
+            case["input"]["variant"],
+            actual.name
+        );
+        assert_eq!(actual.chars, actual.text.utf16_len());
+        assert!(!actual.to_json_line().contains("tokensEstimate"));
     }
 }

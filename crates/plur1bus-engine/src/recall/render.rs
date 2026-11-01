@@ -87,7 +87,7 @@ pub struct SelectionParameters<'a> {
     /// Normalized recall.maxPromptMemories.
     pub top_n: usize,
     /// Existing summary word limit.
-    pub summary_max_words: usize,
+    pub summary_max_words: f64,
 }
 
 /// The selected-row boundary keeps G2 independent of unmerged T4 types.
@@ -98,12 +98,12 @@ pub trait SelectedRecallPipeline {
 
 const DEFAULT_PROMPT_MEMORIES: usize = 12;
 const MAX_PROMPT_MEMORIES: usize = 100;
-const DEFAULT_SUMMARY_WORDS: usize = 150;
+const DEFAULT_SUMMARY_WORDS: f64 = 150.0;
 
-fn summary_words(request: &RenderRequest) -> usize {
+fn summary_words(request: &RenderRequest) -> f64 {
     request.config["summaryMaxWords"]
-        .as_u64()
-        .map_or(DEFAULT_SUMMARY_WORDS, |n| n as usize)
+        .as_f64()
+        .unwrap_or(DEFAULT_SUMMARY_WORDS)
 }
 
 /// Forward configured limits once, then render the selected pipeline's result.
@@ -442,7 +442,12 @@ fn format_options(request: &RenderRequest, lens: Vec<PromptItem>, trace: Value) 
     options.max_total_chars = config["recall"]["memoriesMaxChars"]
         .as_f64()
         .unwrap_or(12_000.0);
-    options.overlays = request.overlays.clone();
+    if request.has_workspace
+        && config["continuityEngine"]["enabled"] != false
+        && config["continuityEngine"]["overlays"]["enabled"] != false
+    {
+        options.overlays = request.overlays.clone();
+    }
     options.matched_pattern = super::render_boosters::pattern(request);
     options.semantic_lens = lens;
     options.trace = request.trace_enabled.then_some(trace);

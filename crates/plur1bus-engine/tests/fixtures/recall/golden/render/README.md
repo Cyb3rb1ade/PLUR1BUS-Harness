@@ -8,7 +8,7 @@ Run from the repository root with Node **24.21.0**, `TZ=UTC`, and
 node crates/plur1bus-engine/tests/fixtures/recall/record.mjs --render
 ```
 
-`render-sources.json` verifies 38 immutable source hashes **before** the Node-version
+`render-sources.json` verifies 39 immutable source hashes **before** the Node-version
 check and before imports. `record-render.mjs` records two fresh child processes and
 refuses differing output. No model, tokenizer, network or LLM call is involved.
 The real assembler, warm/minimal paths and helper formatters run at the pin; the
@@ -16,7 +16,7 @@ selected T3/T4 pipeline rows, clock, lease holder, scheduler and CA5 Neo store a
 synthetic external collaborators. Neo prelude output is separately recorded as a
 dependency and consumed in Rust through `NeoPrelude`, not a T5 Neo implementation.
 
-Eleven JSON files contain 102 cases. Inputs cover defaults and explicit on/off
+Eleven JSON files contain 119 cases. Inputs cover defaults and explicit on/off
 states for compression, full text, confidence framing, contradiction disclosure,
 CRR/visible hints, Neo, temporal context and trace inclusion. They also cover
 native-production top-N/summary defaults, surrogate cuts, nested unknown wrappers,
@@ -62,3 +62,18 @@ Warm recall itself persists nothing. Separate native-store tests verify that
 optional retrieval maintenance can change only `retrievalCount` and
 `lastRetrievedAt`, and that warm vector reads preserve row/file/ledger bytes.
 T6 and RE-08 retain full trace/timing/degraded and production composition work.
+
+The single final-review fix pass also covers missing/conflicting nested graph
+ownership, a valid sparse tuple, overlay default/on/off/continuity-off/no-workspace
+states, and raw-JSON property enumeration for numeric/prefixed/array communities.
+The actual stored-overlay fixture uses the pinned InterpretationOverlayStore.
+Decimal/exponent summary encodings retain a separate input lexeme so Rust tests
+exercise serde floating variants even when JSON.stringify prints an integer.
+Fractional and non-positive limits preserve Node's strict-counter result.
+Recorded raw-row contradiction winner/disclosure fields are now asserted for all
+four cases, including the disabled null and 400-unit entity-cut case.
+
+The [review rulings](../../../../../../../docs/superpowers/plans/rust-engine/RE-04-T5-review-rulings.md)
+record the one source review, its single fix pass and every explicit ownership
+boundary. All textual runtime/helper results use raw JSON/text assertions; extra
+nontextual policy metadata checks supplement those assertions.

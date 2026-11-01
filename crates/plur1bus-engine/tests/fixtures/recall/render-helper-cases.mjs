@@ -165,7 +165,16 @@ export function helperCases() {
           createdAt: NOW - 3_600_000,
         })),
       },
-      ...["bound", "foreign-endpoint", "drifted-hydration", "legacy"].map((graphCase) => ({
+      ...[
+        "bound",
+        "foreign-endpoint",
+        "drifted-hydration",
+        "legacy",
+        "missing-nested",
+        "conflicting-source",
+        "conflicting-target",
+        "sparse-bound",
+      ].map((graphCase) => ({
         variant: "selector-graph-" + graphCase,
         graphCase,
         kind: "reactivation",
@@ -187,6 +196,42 @@ export function helperCases() {
           }).entry,
         ],
       })),
+      ...["numeric", "prefixed", "array"].map((shape) => {
+        const first = { id: "community-two", representativeMemoryIds: [id(64)] };
+        const second = { id: "community-one", representativeMemoryIds: [id(65)] };
+        const communities =
+          shape === "array"
+            ? JSON.stringify([first, second])
+            : "{" +
+              JSON.stringify(shape === "numeric" ? "2" : "prefix-2") +
+              ":" +
+              JSON.stringify(first) +
+              "," +
+              JSON.stringify(shape === "numeric" ? "1" : "prefix-1") +
+              ":" +
+              JSON.stringify(second) +
+              "}";
+        return {
+          variant: "selector-object-order-" + shape,
+          kind: "reactivation",
+          memories: [],
+          prompt: "Dashboard architecture",
+          baseRecallIds: [],
+          cfg: { maxCommunities: 1, maxReactivationMemories: 1 },
+          requestContext: {
+            agentId: AGENT,
+            workspaceIdentity: "",
+            userPrincipal: "",
+            workspaceAliases: { paths: [], aliases: [] },
+          },
+          semanticLensLine:
+            '{"communities":' +
+            communities +
+            ',"memories":' +
+            JSON.stringify([row(64).entry, row(65).entry]) +
+            ',"entries":{}}',
+        };
+      }),
       ...["array", "object"].map((shape) => ({
         variant: "selector-community-shape-" + shape,
         kind: "reactivation",
@@ -292,13 +337,34 @@ export async function captureHelpers(load) {
                 }),
           ];
         }
+        if (input.graphCase && input.graphCase !== "legacy") {
+          const edge = input.graphEdges[0];
+          input.graphEdges[0] = {
+            ...edge,
+            sourceOwnership: { ...edge.sourceOwnership },
+            targetOwnership: { ...edge.targetOwnership },
+            ownership: { source: { ...edge.ownership.source }, target: { ...edge.ownership.target } },
+          };
+        }
+        if (input.graphCase === "missing-nested") delete input.graphEdges[0].ownership;
+        if (input.graphCase === "conflicting-source") input.graphEdges[0].ownership.source.agentId = "other-agent";
+        if (input.graphCase === "conflicting-target")
+          input.graphEdges[0].ownership.target.ownerUserId = "user:v2:" + "b".repeat(64);
+        if (input.graphCase === "sparse-bound") {
+          for (const tuple of [input.graphEdges[0].sourceOwnership, input.graphEdges[0].targetOwnership]) {
+            delete tuple.workspaceIdentity;
+            delete tuple.ownerUserId;
+          }
+        }
         const selected = await crr.selectReactivationMemories({
           ...input,
-          semanticLens: input.semanticLens || {
-            memories: input.memories,
-            communities: [{ id: "helper-community", representativeMemoryIds: input.memories.map((m) => m.id) }],
-            entries: {},
-          },
+          semanticLens: input.semanticLensLine
+            ? JSON.parse(input.semanticLensLine)
+            : input.semanticLens || {
+                memories: input.memories,
+                communities: [{ id: "helper-community", representativeMemoryIds: input.memories.map((m) => m.id) }],
+                entries: {},
+              },
           graphEdges: input.graphEdges || [],
           now: NOW,
           getMemoryById: async (memoryId) => input.hydrated?.find((memory) => memory.id === memoryId) || null,

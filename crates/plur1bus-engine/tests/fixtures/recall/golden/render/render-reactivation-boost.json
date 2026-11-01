@@ -40,7 +40,8 @@
       "lib/epistemic-status.js": "552a71f9616c8caa2151b54feadd3e6ab19a470218022027425b11ccaf967fec",
       "lib/contradiction-detector.js": "480a9fcf96bcaf1baf416da12cac81d560fceec37e5f8b64a4206375bee85f17",
       "lib/setup/feature-profiles.js": "f15dd589740bf58490abdd9c148f36922a27544c55a88e5f6e36b71c7416d00c",
-      "engine/create-engine.js": "616601790f1859fee2a61494bfd2ed8cd82874bdc759c37b8e5295c183028ed6"
+      "engine/create-engine.js": "616601790f1859fee2a61494bfd2ed8cd82874bdc759c37b8e5295c183028ed6",
+      "lib/interpretation-overlay.js": "3b540dc7832ee1e4c43c92699bd9d6abbda89525646fb3eb563cc64835b7215d"
     },
     "node": "v24.21.0",
     "unicode": "17.0",
@@ -2425,6 +2426,465 @@
         "text": ""
       },
       "rawLine": "{\"ids\":[],\"text\":\"\"}",
+      "deferrals": []
+    },
+    {
+      "input": {
+        "variant": "selector-graph-missing-nested",
+        "graphCase": "missing-nested",
+        "kind": "reactivation",
+        "prompt": "Unrelated question",
+        "baseRecallIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ],
+        "cfg": {},
+        "memories": [],
+        "requestContext": {
+          "agentId": "render-fixture",
+          "workspaceIdentity": "",
+          "userPrincipal": "",
+          "workspaceAliases": {
+            "paths": [],
+            "aliases": []
+          }
+        },
+        "hydrated": [
+          {
+            "id": "00000000-0000-4000-8000-000000000062",
+            "text": "Bound bridge fixture",
+            "summary": "Bound bridge fixture",
+            "category": "project",
+            "origin": "dm",
+            "memoryStrength": 1,
+            "createdAt": 1768302000000,
+            "epistemicStatus": "user_asserted",
+            "status": "active",
+            "scope": "agent-private",
+            "agentId": "render-fixture",
+            "storedBy": "render-fixture"
+          }
+        ],
+        "graphEdges": [
+          {
+            "source": "00000000-0000-4000-8000-000000000001",
+            "target": "00000000-0000-4000-8000-000000000062",
+            "type": "semantic",
+            "strength": 0.9,
+            "directed": false,
+            "sourceOwnership": {
+              "schemaVersion": 1,
+              "scope": "agent-private",
+              "agentId": "render-fixture",
+              "workspaceIdentity": "",
+              "ownerUserId": ""
+            },
+            "targetOwnership": {
+              "schemaVersion": 1,
+              "scope": "agent-private",
+              "agentId": "render-fixture",
+              "workspaceIdentity": "",
+              "ownerUserId": ""
+            },
+            "ownershipStatus": "bound",
+            "needsRebuild": false,
+            "visibility": {
+              "scope": "agent-private",
+              "agentId": "render-fixture",
+              "workspaceIdentity": "",
+              "ownerUserId": ""
+            },
+            "createdAt": "2026-01-13T12:00:00.000Z",
+            "updatedAt": "2026-01-13T12:00:00.000Z",
+            "lastReinforcedAt": "2026-01-13T12:00:00.000Z",
+            "observations": 1,
+            "algorithmVersion": "1.0"
+          }
+        ]
+      },
+      "value": {
+        "ids": [],
+        "text": ""
+      },
+      "rawLine": "{\"ids\":[],\"text\":\"\"}",
+      "deferrals": []
+    },
+    {
+      "input": {
+        "variant": "selector-graph-conflicting-source",
+        "graphCase": "conflicting-source",
+        "kind": "reactivation",
+        "prompt": "Unrelated question",
+        "baseRecallIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ],
+        "cfg": {},
+        "memories": [],
+        "requestContext": {
+          "agentId": "render-fixture",
+          "workspaceIdentity": "",
+          "userPrincipal": "",
+          "workspaceAliases": {
+            "paths": [],
+            "aliases": []
+          }
+        },
+        "hydrated": [
+          {
+            "id": "00000000-0000-4000-8000-000000000062",
+            "text": "Bound bridge fixture",
+            "summary": "Bound bridge fixture",
+            "category": "project",
+            "origin": "dm",
+            "memoryStrength": 1,
+            "createdAt": 1768302000000,
+            "epistemicStatus": "user_asserted",
+            "status": "active",
+            "scope": "agent-private",
+            "agentId": "render-fixture",
+            "storedBy": "render-fixture"
+          }
+        ],
+        "graphEdges": [
+          {
+            "source": "00000000-0000-4000-8000-000000000001",
+            "target": "00000000-0000-4000-8000-000000000062",
+            "type": "semantic",
+            "strength": 0.9,
+            "directed": false,
+            "sourceOwnership": {
+              "schemaVersion": 1,
+              "scope": "agent-private",
+              "agentId": "render-fixture",
+              "workspaceIdentity": "",
+              "ownerUserId": ""
+            },
+            "targetOwnership": {
+              "schemaVersion": 1,
+              "scope": "agent-private",
+              "agentId": "render-fixture",
+              "workspaceIdentity": "",
+              "ownerUserId": ""
+            },
+            "ownership": {
+              "source": {
+                "schemaVersion": 1,
+                "scope": "agent-private",
+                "agentId": "other-agent",
+                "workspaceIdentity": "",
+                "ownerUserId": ""
+              },
+              "target": {
+                "schemaVersion": 1,
+                "scope": "agent-private",
+                "agentId": "render-fixture",
+                "workspaceIdentity": "",
+                "ownerUserId": ""
+              }
+            },
+            "ownershipStatus": "bound",
+            "needsRebuild": false,
+            "visibility": {
+              "scope": "agent-private",
+              "agentId": "render-fixture",
+              "workspaceIdentity": "",
+              "ownerUserId": ""
+            },
+            "createdAt": "2026-01-13T12:00:00.000Z",
+            "updatedAt": "2026-01-13T12:00:00.000Z",
+            "lastReinforcedAt": "2026-01-13T12:00:00.000Z",
+            "observations": 1,
+            "algorithmVersion": "1.0"
+          }
+        ]
+      },
+      "value": {
+        "ids": [],
+        "text": ""
+      },
+      "rawLine": "{\"ids\":[],\"text\":\"\"}",
+      "deferrals": []
+    },
+    {
+      "input": {
+        "variant": "selector-graph-conflicting-target",
+        "graphCase": "conflicting-target",
+        "kind": "reactivation",
+        "prompt": "Unrelated question",
+        "baseRecallIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ],
+        "cfg": {},
+        "memories": [],
+        "requestContext": {
+          "agentId": "render-fixture",
+          "workspaceIdentity": "",
+          "userPrincipal": "",
+          "workspaceAliases": {
+            "paths": [],
+            "aliases": []
+          }
+        },
+        "hydrated": [
+          {
+            "id": "00000000-0000-4000-8000-000000000062",
+            "text": "Bound bridge fixture",
+            "summary": "Bound bridge fixture",
+            "category": "project",
+            "origin": "dm",
+            "memoryStrength": 1,
+            "createdAt": 1768302000000,
+            "epistemicStatus": "user_asserted",
+            "status": "active",
+            "scope": "agent-private",
+            "agentId": "render-fixture",
+            "storedBy": "render-fixture"
+          }
+        ],
+        "graphEdges": [
+          {
+            "source": "00000000-0000-4000-8000-000000000001",
+            "target": "00000000-0000-4000-8000-000000000062",
+            "type": "semantic",
+            "strength": 0.9,
+            "directed": false,
+            "sourceOwnership": {
+              "schemaVersion": 1,
+              "scope": "agent-private",
+              "agentId": "render-fixture",
+              "workspaceIdentity": "",
+              "ownerUserId": ""
+            },
+            "targetOwnership": {
+              "schemaVersion": 1,
+              "scope": "agent-private",
+              "agentId": "render-fixture",
+              "workspaceIdentity": "",
+              "ownerUserId": ""
+            },
+            "ownership": {
+              "source": {
+                "schemaVersion": 1,
+                "scope": "agent-private",
+                "agentId": "render-fixture",
+                "workspaceIdentity": "",
+                "ownerUserId": ""
+              },
+              "target": {
+                "schemaVersion": 1,
+                "scope": "agent-private",
+                "agentId": "render-fixture",
+                "workspaceIdentity": "",
+                "ownerUserId": "user:v2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            },
+            "ownershipStatus": "bound",
+            "needsRebuild": false,
+            "visibility": {
+              "scope": "agent-private",
+              "agentId": "render-fixture",
+              "workspaceIdentity": "",
+              "ownerUserId": ""
+            },
+            "createdAt": "2026-01-13T12:00:00.000Z",
+            "updatedAt": "2026-01-13T12:00:00.000Z",
+            "lastReinforcedAt": "2026-01-13T12:00:00.000Z",
+            "observations": 1,
+            "algorithmVersion": "1.0"
+          }
+        ]
+      },
+      "value": {
+        "ids": [],
+        "text": ""
+      },
+      "rawLine": "{\"ids\":[],\"text\":\"\"}",
+      "deferrals": []
+    },
+    {
+      "input": {
+        "variant": "selector-graph-sparse-bound",
+        "graphCase": "sparse-bound",
+        "kind": "reactivation",
+        "prompt": "Unrelated question",
+        "baseRecallIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ],
+        "cfg": {},
+        "memories": [],
+        "requestContext": {
+          "agentId": "render-fixture",
+          "workspaceIdentity": "",
+          "userPrincipal": "",
+          "workspaceAliases": {
+            "paths": [],
+            "aliases": []
+          }
+        },
+        "hydrated": [
+          {
+            "id": "00000000-0000-4000-8000-000000000062",
+            "text": "Bound bridge fixture",
+            "summary": "Bound bridge fixture",
+            "category": "project",
+            "origin": "dm",
+            "memoryStrength": 1,
+            "createdAt": 1768302000000,
+            "epistemicStatus": "user_asserted",
+            "status": "active",
+            "scope": "agent-private",
+            "agentId": "render-fixture",
+            "storedBy": "render-fixture"
+          }
+        ],
+        "graphEdges": [
+          {
+            "source": "00000000-0000-4000-8000-000000000001",
+            "target": "00000000-0000-4000-8000-000000000062",
+            "type": "semantic",
+            "strength": 0.9,
+            "directed": false,
+            "sourceOwnership": {
+              "schemaVersion": 1,
+              "scope": "agent-private",
+              "agentId": "render-fixture"
+            },
+            "targetOwnership": {
+              "schemaVersion": 1,
+              "scope": "agent-private",
+              "agentId": "render-fixture"
+            },
+            "ownership": {
+              "source": {
+                "schemaVersion": 1,
+                "scope": "agent-private",
+                "agentId": "render-fixture",
+                "workspaceIdentity": "",
+                "ownerUserId": ""
+              },
+              "target": {
+                "schemaVersion": 1,
+                "scope": "agent-private",
+                "agentId": "render-fixture",
+                "workspaceIdentity": "",
+                "ownerUserId": ""
+              }
+            },
+            "ownershipStatus": "bound",
+            "needsRebuild": false,
+            "visibility": {
+              "scope": "agent-private",
+              "agentId": "render-fixture",
+              "workspaceIdentity": "",
+              "ownerUserId": ""
+            },
+            "createdAt": "2026-01-13T12:00:00.000Z",
+            "updatedAt": "2026-01-13T12:00:00.000Z",
+            "lastReinforcedAt": "2026-01-13T12:00:00.000Z",
+            "observations": 1,
+            "algorithmVersion": "1.0"
+          }
+        ]
+      },
+      "value": {
+        "ids": [
+          "00000000-0000-4000-8000-000000000062"
+        ],
+        "text": "<memory-reactivation untrusted=\"true\" mode=\"historical-evidence-only\">\n[HINT: The following memories were reactivated because the conversation appears to resume after a gap.]\nRecall safety: facts are memory-derived, may be stale, verify before acting.\n  <memory-record category=\"project\" source=\"reactivation\" id=\"00000000-0000-4000-8000-000000000062\" age=\"1h ago\" freshness=\"recent\"><quoted-evidence>Bound bridge fixture</quoted-evidence></memory-record>\n</memory-reactivation>"
+      },
+      "rawLine": "{\"ids\":[\"00000000-0000-4000-8000-000000000062\"],\"text\":\"<memory-reactivation untrusted=\\\"true\\\" mode=\\\"historical-evidence-only\\\">\\n[HINT: The following memories were reactivated because the conversation appears to resume after a gap.]\\nRecall safety: facts are memory-derived, may be stale, verify before acting.\\n  <memory-record category=\\\"project\\\" source=\\\"reactivation\\\" id=\\\"00000000-0000-4000-8000-000000000062\\\" age=\\\"1h ago\\\" freshness=\\\"recent\\\"><quoted-evidence>Bound bridge fixture</quoted-evidence></memory-record>\\n</memory-reactivation>\"}",
+      "deferrals": []
+    },
+    {
+      "input": {
+        "variant": "selector-object-order-numeric",
+        "kind": "reactivation",
+        "memories": [],
+        "prompt": "Dashboard architecture",
+        "baseRecallIds": [],
+        "cfg": {
+          "maxCommunities": 1,
+          "maxReactivationMemories": 1
+        },
+        "requestContext": {
+          "agentId": "render-fixture",
+          "workspaceIdentity": "",
+          "userPrincipal": "",
+          "workspaceAliases": {
+            "paths": [],
+            "aliases": []
+          }
+        },
+        "semanticLensLine": "{\"communities\":{\"2\":{\"id\":\"community-two\",\"representativeMemoryIds\":[\"00000000-0000-4000-8000-000000000064\"]},\"1\":{\"id\":\"community-one\",\"representativeMemoryIds\":[\"00000000-0000-4000-8000-000000000065\"]}},\"memories\":[{\"id\":\"00000000-0000-4000-8000-000000000064\",\"text\":\"Dashboard architecture notes: quote <section> & verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. \",\"summary\":\"Dashboard architecture notes <summary> & decisions\",\"category\":\"project\",\"origin\":\"dm\",\"memoryStrength\":1,\"createdAt\":1768302000000,\"epistemicStatus\":\"user_asserted\",\"status\":\"active\",\"scope\":\"agent-private\",\"agentId\":\"render-fixture\",\"storedBy\":\"render-fixture\"},{\"id\":\"00000000-0000-4000-8000-000000000065\",\"text\":\"Dashboard architecture notes: quote <section> & verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. \",\"summary\":\"Dashboard architecture notes <summary> & decisions\",\"category\":\"project\",\"origin\":\"dm\",\"memoryStrength\":1,\"createdAt\":1768302000000,\"epistemicStatus\":\"user_asserted\",\"status\":\"active\",\"scope\":\"agent-private\",\"agentId\":\"render-fixture\",\"storedBy\":\"render-fixture\"}],\"entries\":{}}"
+      },
+      "value": {
+        "ids": [
+          "00000000-0000-4000-8000-000000000065"
+        ],
+        "text": "<memory-reactivation untrusted=\"true\" mode=\"historical-evidence-only\">\n[HINT: The following memories were reactivated because the conversation appears to resume after a gap.]\nRecall safety: facts are memory-derived, may be stale, verify before acting.\n  <memory-record category=\"project\" source=\"reactivation\" id=\"00000000-0000-4000-8000-000000000065\" age=\"1h ago\" freshness=\"recent\"><quoted-evidence>Dashboard architecture notes &lt;summary&gt; &amp; decisions</quoted-evidence></memory-record>\n</memory-reactivation>"
+      },
+      "rawLine": "{\"ids\":[\"00000000-0000-4000-8000-000000000065\"],\"text\":\"<memory-reactivation untrusted=\\\"true\\\" mode=\\\"historical-evidence-only\\\">\\n[HINT: The following memories were reactivated because the conversation appears to resume after a gap.]\\nRecall safety: facts are memory-derived, may be stale, verify before acting.\\n  <memory-record category=\\\"project\\\" source=\\\"reactivation\\\" id=\\\"00000000-0000-4000-8000-000000000065\\\" age=\\\"1h ago\\\" freshness=\\\"recent\\\"><quoted-evidence>Dashboard architecture notes &lt;summary&gt; &amp; decisions</quoted-evidence></memory-record>\\n</memory-reactivation>\"}",
+      "deferrals": []
+    },
+    {
+      "input": {
+        "variant": "selector-object-order-prefixed",
+        "kind": "reactivation",
+        "memories": [],
+        "prompt": "Dashboard architecture",
+        "baseRecallIds": [],
+        "cfg": {
+          "maxCommunities": 1,
+          "maxReactivationMemories": 1
+        },
+        "requestContext": {
+          "agentId": "render-fixture",
+          "workspaceIdentity": "",
+          "userPrincipal": "",
+          "workspaceAliases": {
+            "paths": [],
+            "aliases": []
+          }
+        },
+        "semanticLensLine": "{\"communities\":{\"prefix-2\":{\"id\":\"community-two\",\"representativeMemoryIds\":[\"00000000-0000-4000-8000-000000000064\"]},\"prefix-1\":{\"id\":\"community-one\",\"representativeMemoryIds\":[\"00000000-0000-4000-8000-000000000065\"]}},\"memories\":[{\"id\":\"00000000-0000-4000-8000-000000000064\",\"text\":\"Dashboard architecture notes: quote <section> & verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. \",\"summary\":\"Dashboard architecture notes <summary> & decisions\",\"category\":\"project\",\"origin\":\"dm\",\"memoryStrength\":1,\"createdAt\":1768302000000,\"epistemicStatus\":\"user_asserted\",\"status\":\"active\",\"scope\":\"agent-private\",\"agentId\":\"render-fixture\",\"storedBy\":\"render-fixture\"},{\"id\":\"00000000-0000-4000-8000-000000000065\",\"text\":\"Dashboard architecture notes: quote <section> & verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. \",\"summary\":\"Dashboard architecture notes <summary> & decisions\",\"category\":\"project\",\"origin\":\"dm\",\"memoryStrength\":1,\"createdAt\":1768302000000,\"epistemicStatus\":\"user_asserted\",\"status\":\"active\",\"scope\":\"agent-private\",\"agentId\":\"render-fixture\",\"storedBy\":\"render-fixture\"}],\"entries\":{}}"
+      },
+      "value": {
+        "ids": [
+          "00000000-0000-4000-8000-000000000064"
+        ],
+        "text": "<memory-reactivation untrusted=\"true\" mode=\"historical-evidence-only\">\n[HINT: The following memories were reactivated because the conversation appears to resume after a gap.]\nRecall safety: facts are memory-derived, may be stale, verify before acting.\n  <memory-record category=\"project\" source=\"reactivation\" id=\"00000000-0000-4000-8000-000000000064\" age=\"1h ago\" freshness=\"recent\"><quoted-evidence>Dashboard architecture notes &lt;summary&gt; &amp; decisions</quoted-evidence></memory-record>\n</memory-reactivation>"
+      },
+      "rawLine": "{\"ids\":[\"00000000-0000-4000-8000-000000000064\"],\"text\":\"<memory-reactivation untrusted=\\\"true\\\" mode=\\\"historical-evidence-only\\\">\\n[HINT: The following memories were reactivated because the conversation appears to resume after a gap.]\\nRecall safety: facts are memory-derived, may be stale, verify before acting.\\n  <memory-record category=\\\"project\\\" source=\\\"reactivation\\\" id=\\\"00000000-0000-4000-8000-000000000064\\\" age=\\\"1h ago\\\" freshness=\\\"recent\\\"><quoted-evidence>Dashboard architecture notes &lt;summary&gt; &amp; decisions</quoted-evidence></memory-record>\\n</memory-reactivation>\"}",
+      "deferrals": []
+    },
+    {
+      "input": {
+        "variant": "selector-object-order-array",
+        "kind": "reactivation",
+        "memories": [],
+        "prompt": "Dashboard architecture",
+        "baseRecallIds": [],
+        "cfg": {
+          "maxCommunities": 1,
+          "maxReactivationMemories": 1
+        },
+        "requestContext": {
+          "agentId": "render-fixture",
+          "workspaceIdentity": "",
+          "userPrincipal": "",
+          "workspaceAliases": {
+            "paths": [],
+            "aliases": []
+          }
+        },
+        "semanticLensLine": "{\"communities\":[{\"id\":\"community-two\",\"representativeMemoryIds\":[\"00000000-0000-4000-8000-000000000064\"]},{\"id\":\"community-one\",\"representativeMemoryIds\":[\"00000000-0000-4000-8000-000000000065\"]}],\"memories\":[{\"id\":\"00000000-0000-4000-8000-000000000064\",\"text\":\"Dashboard architecture notes: quote <section> & verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. \",\"summary\":\"Dashboard architecture notes <summary> & decisions\",\"category\":\"project\",\"origin\":\"dm\",\"memoryStrength\":1,\"createdAt\":1768302000000,\"epistemicStatus\":\"user_asserted\",\"status\":\"active\",\"scope\":\"agent-private\",\"agentId\":\"render-fixture\",\"storedBy\":\"render-fixture\"},{\"id\":\"00000000-0000-4000-8000-000000000065\",\"text\":\"Dashboard architecture notes: quote <section> & verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. \",\"summary\":\"Dashboard architecture notes <summary> & decisions\",\"category\":\"project\",\"origin\":\"dm\",\"memoryStrength\":1,\"createdAt\":1768302000000,\"epistemicStatus\":\"user_asserted\",\"status\":\"active\",\"scope\":\"agent-private\",\"agentId\":\"render-fixture\",\"storedBy\":\"render-fixture\"}],\"entries\":{}}"
+      },
+      "value": {
+        "ids": [
+          "00000000-0000-4000-8000-000000000064"
+        ],
+        "text": "<memory-reactivation untrusted=\"true\" mode=\"historical-evidence-only\">\n[HINT: The following memories were reactivated because the conversation appears to resume after a gap.]\nRecall safety: facts are memory-derived, may be stale, verify before acting.\n  <memory-record category=\"project\" source=\"reactivation\" id=\"00000000-0000-4000-8000-000000000064\" age=\"1h ago\" freshness=\"recent\"><quoted-evidence>Dashboard architecture notes &lt;summary&gt; &amp; decisions</quoted-evidence></memory-record>\n</memory-reactivation>"
+      },
+      "rawLine": "{\"ids\":[\"00000000-0000-4000-8000-000000000064\"],\"text\":\"<memory-reactivation untrusted=\\\"true\\\" mode=\\\"historical-evidence-only\\\">\\n[HINT: The following memories were reactivated because the conversation appears to resume after a gap.]\\nRecall safety: facts are memory-derived, may be stale, verify before acting.\\n  <memory-record category=\\\"project\\\" source=\\\"reactivation\\\" id=\\\"00000000-0000-4000-8000-000000000064\\\" age=\\\"1h ago\\\" freshness=\\\"recent\\\"><quoted-evidence>Dashboard architecture notes &lt;summary&gt; &amp; decisions</quoted-evidence></memory-record>\\n</memory-reactivation>\"}",
       "deferrals": []
     },
     {

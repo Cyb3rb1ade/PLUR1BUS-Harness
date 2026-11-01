@@ -73,6 +73,44 @@ export function scenarios() {
   return {
     "render-plain": [
       ...lensCases,
+      ...["default", "enabled", "disabled", "continuity-disabled", "no-workspace"].map((mode) => ({
+        variant: "overlay-" + mode,
+        rows: [row(1)],
+        noWorkspace: mode === "no-workspace",
+        cfg:
+          mode === "default"
+            ? {}
+            : {
+                continuityEngine: {
+                  enabled: mode !== "continuity-disabled",
+                  overlays: { enabled: mode !== "disabled" },
+                },
+              },
+        overlays: [
+          {
+            id: id(75),
+            targetMemoryId: id(1),
+            shiftType: "meaning",
+            shiftDescription: "Authorized architecture interpretation",
+            triggerContext: "fixture turn",
+            status: "active",
+            confidence: 0.8,
+            createdAt: NOW - 1000,
+            provenance: { triggerMemoryIds: [id(1)] },
+          },
+        ],
+      })),
+      ...["4.0", "4e0", "4.5", "0", "-1"].map((encoding) => ({
+        variant: "summary-number-" + encoding,
+        summaryEncoding: encoding,
+        rows: [row(1, { summary: "", text: "architecture details ".repeat(120) })],
+        cfg: {
+          summaryMaxWords: JSON.parse(encoding),
+          recall: { fullTextTopRecords: 0 },
+          semanticCompression: { enabled: false },
+        },
+      })),
+
       { variant: "defaults", rows: ordinary() },
       {
         variant: "controls-off",

@@ -45,11 +45,11 @@ pub(super) fn canonical(hit: &CanonicalHit, traced: bool) -> PromptItem {
     }
 }
 
-pub(super) fn selected(hit: &RenderHit, summary_words: usize, traced: bool) -> PromptItem {
+pub(super) fn selected(hit: &RenderHit, summary_words: f64, traced: bool) -> PromptItem {
     let display = if truthy(&hit.entry["summary"]) {
         text(&hit.entry["summary"])
     } else {
-        generate_summary(&text(&hit.entry["text"]), summary_words)
+        summary(&text(&hit.entry["text"]), summary_words)
     };
     let fields = selected_fields(hit);
     let graph = matches!(hit.source.as_str(), "graph" | "both");
@@ -66,13 +66,31 @@ pub(super) fn selected(hit: &RenderHit, summary_words: usize, traced: bool) -> P
     }
 }
 
-pub(super) fn lens(hit: &RenderHit, summary_words: usize) -> PromptItem {
+pub(super) fn lens(hit: &RenderHit, summary_words: f64) -> PromptItem {
     let mut item = selected(hit, summary_words, false);
     item.fields["source"] = json!("semantic-lens");
     if let Some(fields) = item.fields.as_object_mut() {
         fields.remove("fullText");
     }
     item
+}
+
+fn summary(text: &str, maximum: f64) -> String {
+    let trimmed = js_trim(text);
+    let words = trimmed
+        .split(is_js_whitespace)
+        .filter(|word| !word.is_empty())
+        .count()
+        .max(1);
+    if words as f64 <= maximum {
+        return trimmed.to_owned();
+    }
+    if maximum > 0.0 && maximum.fract() == 0.0 {
+        return generate_summary(text, maximum as usize);
+    }
+    // The pin compares its integer word counter to the supplied Number strictly.
+    // A fractional/non-positive limit never finds a cut position and emits only this mark.
+    "…".into()
 }
 
 fn selected_fields(hit: &RenderHit) -> Value {
