@@ -23,3 +23,12 @@ describe("D120 rewind contract", () => {
     });
   }
 });
+
+for (const method of ["chat.rewind", "session.rewind"] as const) {
+  it(`${method} accepts 1567-character notes and refuses 1568`, () => {
+    const params = { sessionId: "ses_example", toSeq: 0,
+      ...(method === "session.rewind" ? { caller: { channel: "cli", accountId: "local", userId: "owner" } } : {}) };
+    assert.equal(validateParams(method, { ...params, lesson: "N".repeat(1567) }).ok, true);
+    assert.equal(validateParams(method, { ...params, lesson: "N".repeat(1568) }).ok, false);
+  });
+}

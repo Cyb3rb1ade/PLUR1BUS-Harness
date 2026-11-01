@@ -109,6 +109,10 @@ flag. `chat.export` separates `messages` from `discarded`.
 
 The stored harness note renders at conversation rank after the kept prefix. This
 keeps provider system blocks stable, including on providers that hoist system messages.
+Human corrective notes are limited to 1567 UTF-16 code units and preserved verbatim.
+Inline file context uses the remaining note budget and may be shortened or omitted;
+the original tool history retains the file references. Model-derived text is bounded
+without splitting a Unicode code point.
 Forks copy an active corrective note at conversation rank too; they do not inherit
 the source session's overlay identifiers. The owning M3 transcript reader applies
 the same rewind markers after its existing privacy and breakglass checks.

@@ -10,7 +10,12 @@ import { failedEditCycles, rewindResult } from "./rewind-cycles.ts";
 const MAX_LESSON_TOKENS = 400;
 const LESSON_PREFIX = "Lesson from a discarded attempt: ";
 const BODY_CHARS = MAX_LESSON_TOKENS * 4 - LESSON_PREFIX.length;
-const line = (text: string) => text.replace(/\s+/g, " ").trim().slice(0, 256);
+function fitText(text: string, limit: number): string {
+  let end = Math.max(0, limit);
+  if (text.length > end && /[\uD800-\uDBFF]/.test(text.charAt(end - 1))) end--;
+  return text.slice(0, end);
+}
+const line = (text: string) => fitText(text.replace(/\s+/g, " ").trim(), 256);
 const object = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 
@@ -105,12 +110,15 @@ export class RewindService {
   }
 
   async #lesson(input: RewindRequest, plan: ReturnType<SessionStore["planRewind"]>): Promise<string> {
+    if (input.lesson !== undefined && (!input.lesson.trim() || input.lesson.length > BODY_CHARS)) {
+      throw new SessionError("invalid", "corrective note must contain text and fit within 1567 characters", "rewind-lesson");
+    }
     // The raw plan is the immutable audit range. Summary input also excludes failed/recovered harness commands.
     const messages = this.#d.store.contextMessages(input.sessionId)
       .filter(message => message.seq >= plan.hiddenFromSeq && message.seq <= plan.hiddenToSeq);
     const facts = lessonFacts(messages, this.#d.store.contextToolEvents(input.sessionId));
     const fileNote = facts.files.length ? `Files changed: ${facts.files.join(", ")}.` : "Files changed: none recorded.";
-    let body = input.lesson?.trim() ?? `${fileNote} ${facts.failure}`;
+    let body = input.lesson ?? `${fileNote} ${facts.failure}`;
     if (input.lesson === undefined && this.#d.summarize) {
       try {
         const distilled = await this.#d.summarize([
@@ -122,8 +130,17 @@ export class RewindService {
       } catch (error) { this.#d.onError?.(error); }
     }
     // The note names changed files because conversation rewind deliberately leaves them changed (Q14).
-    if (facts.files.length && !facts.files.every(path => body.includes(path))) body = `${fileNote} ${body}`;
-    return LESSON_PREFIX + body.slice(0, BODY_CHARS);
+    if (facts.files.length && !facts.files.every(path => body.includes(path))) {
+      if (input.lesson === undefined) body = `${fileNote} ${body}`;
+      else {
+        // An accepted human note is verbatim. Optional file context uses only the remaining budget.
+        const room = BODY_CHARS - body.length - 1;
+        const notice = fileNote.length <= room ? fileNote
+          : room >= "Files changed: …".length ? `${fitText(fileNote, room - 1)}…` : "";
+        if (notice) body = `${notice} ${body}`;
+      }
+    }
+    return LESSON_PREFIX + fitText(body, BODY_CHARS);
   }
 
   #notify(event: EventRecord): void {

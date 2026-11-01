@@ -7896,7 +7896,7 @@
                   "lesson": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 1568
+                    "maxLength": 1567
                   },
                   "files": {
                     "type": "boolean"
@@ -7929,7 +7929,7 @@
                       "lesson": {
                         "type": "string",
                         "minLength": 1,
-                        "maxLength": 1568
+                        "maxLength": 1567
                       },
                       "files": {
                         "type": "boolean"

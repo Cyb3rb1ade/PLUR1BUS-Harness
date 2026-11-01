@@ -26,6 +26,42 @@ function rig(artifactId: unknown = "artifact-a") {
 }
 
 describe("D120 lesson service", () => {
+  it("preserves a 1567-character human note verbatim even when the attempt changed files", async () => {
+    const { store, session, audit } = rig();
+    try {
+      const note = ` ${"N".repeat(1565)} `;
+      await new RewindService({ store, audit, now: () => 42, summarize: async () => { throw Error("human note must not call a model"); } })
+        .rewind({ sessionId: session.id, toSeq: 2, lesson: note, actor: "owner" });
+      assert.equal(store.contextMessages(session.id).at(-1)!.text, `Lesson from a discarded attempt: ${note}`);
+      assert.doesNotMatch(JSON.stringify(audit.events), /NNNN/);
+    } finally { store.close(); }
+  });
+
+  it("rejects an oversized human note instead of silently cutting it", async () => {
+    const { store, session, audit } = rig();
+    try {
+      const before = store.listMessages(session.id);
+      await assert.rejects(new RewindService({ store, audit, now: () => 42 })
+        .rewind({ sessionId: session.id, toSeq: 2, lesson: "N".repeat(1568), actor: "owner" }), { reason: "rewind-lesson" });
+      assert.deepEqual(store.listMessages(session.id), before);
+      assert.deepEqual(audit.events, []);
+    } finally { store.close(); }
+  });
+
+  it("clipping model output or file context does not split a Unicode code point", async () => {
+    for (const leading of ["", "x"]) {
+      const { store, session, audit } = rig();
+      try {
+        await new RewindService({ store, audit, now: () => 42, summarize: async () => leading + "😀".repeat(2000) })
+          .rewind({ sessionId: session.id, toSeq: 2, actor: "owner" });
+        const text = store.contextMessages(session.id).at(-1)!.text;
+        assert.equal(text.isWellFormed(), true);
+        assert.doesNotMatch(text, /\uFFFD/, "storage must not have to replace a surrogate cut in half");
+        assert.ok(text.length <= 1600);
+      } finally { store.close(); }
+    }
+  });
+
   it("does not accept an artifact body disguised as an identifier in untrusted metadata", async () => {
     for (const id of [{ body: "MISLABELED_ARTIFACT_BODY" }, "x".repeat(10000)]) {
       const { store, session, audit } = rig(id);

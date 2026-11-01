@@ -24500,7 +24500,7 @@ D120 H4. Human-only, owned idle-session rewind or undo. Transcript messages/even
     "lesson": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 1568
+      "maxLength": 1567
     },
     "files": {
       "type": "boolean"
@@ -24538,7 +24538,7 @@ D120 H4. Human-only, owned idle-session rewind or undo. Transcript messages/even
         "lesson": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 1568
+          "maxLength": 1567
         },
         "files": {
           "type": "boolean"
@@ -24629,7 +24629,7 @@ D120 H4. Human-only, owned idle-session rewind or undo. Transcript messages/even
     "lesson": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 1568
+      "maxLength": 1567
     },
     "files": {
       "type": "boolean"
@@ -24671,7 +24671,7 @@ D120 H4. Human-only, owned idle-session rewind or undo. Transcript messages/even
         "lesson": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 1568
+          "maxLength": 1567
         },
         "files": {
           "type": "boolean"
