@@ -223,6 +223,30 @@ den noch nicht implementierten `serve`-Pfad. Die unveränderte Binary-Größe mi
 diesen Einstiegspunkt; sie ist keine Aussage über den Platzbedarf der noch nicht
 angebundenen Medienpipeline oder geladener ORT-/Modelldateien.
 
+**MM-1 wird als Library kompiliert, erreicht die gemessene ausführbare Datei aber
+nicht als Medienpipeline.** `crates/plur1bus-engine/src/lib.rs` bindet `pub mod media`
+ohne `cfg` ein. Es gibt kein Media-Feature-Flag: `real-models = []` schaltet
+Modelltests frei (Integrationstest-Targets und das lokale ORT-Testmodul), keine
+Produktionsmodule. Der gemessene Release-Build verwendet es nicht. Die
+aufgezeichnete rustc-Ausführung baut die Library ohne
+Feature-`cfg`. Ihr Release-Archiv enthält 110 definierte Media-Symbole, darunter
+`LocalMediaEmbedder::new`/`embed`, `decode_rgb`/`preprocess` und
+`prepare_media_artifacts`.
+
+`src/main.rs` referenziert aus der Library ausschließlich die Konstante
+`CRATE_VERSION`; kein ausführbarer Pfad ruft Media-Code auf. Die erhaltenen
+Baseline- und Kandidaten-Binaries haben jeweils 1886 Symbole in `nm`, darunter
+keine Media-Symbole; beide enthalten weiterhin den `serve`-Stubtext. Die
+Kompilierung der Library bedeutet deshalb noch keine Einbindung ihrer
+unreferenzierten Medienimplementierung in diese ausführbare Datei. Ein bestimmter
+LTO-Modus ist nicht belegt und wird als Erklärung nicht vorausgesetzt.
+
+Die **0 B Größenänderung belegen keinen MM-1-Laufzeit-Footprint**. Eine solche
+Messung benötigt den produktiv angebundenen Media-Pfad nach RE-08 und eine dazu
+passende neue Baseline; das Aktivieren von `real-models` stellt diese Anbindung
+nicht her. Die oben genannten unterschiedlichen SHA-256 wurden erneut an beiden
+erhaltenen Binaries geprüft; aus der identischen Länge folgt keine Bytegleichheit.
+
 Der Gegenmessbericht liegt auf dem Mac unter
 `/Users/cyberblade/worktrees/reviews/mm1-macos-countermeasurement-7993b634.md`.
 Binärdatei und Rohbelege bleiben unter
