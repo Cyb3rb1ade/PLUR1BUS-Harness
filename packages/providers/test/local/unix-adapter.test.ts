@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { createChatCompletionsAdapter, createLocalChatAdapter, NO_AUTH, ProviderError } from "../../src/index.ts";
 import type { ChatRequest, ChatResult, ChatStreamEvent, LocalAdapterEndpoint } from "../../src/index.ts";
 import { startFakeFmServe } from "../fixtures/fake-fm-serve.ts";
-import type { FakeFmServe } from "../fixtures/fake-fm-serve.ts";
+import type { FakeFmOptions, FakeFmServe } from "../fixtures/fake-fm-serve.ts";
 
 const T = { timeout: 15_000 };
 const POSIX = { ...T, skip: process.platform === "win32" && "D122: native Unix socket tests require POSIX" };
@@ -318,6 +318,23 @@ test("Unix adapter also maps a transcript overflow delivered inside a 200 SSE re
       await assert.rejects(call(), (error: unknown) => error instanceof ProviderError
         && error.kind === "invalid_request" && error.code === "context_overflow" && !error.retryable);
     }
+  } finally {
+    await fm.close();
+  }
+});
+
+test("Unix adapter preserves native overflow after an SSE role chunk without DONE and releases capacity", POSIX, async () => {
+  const options: FakeFmOptions = { mode: "stream-overflow" };
+  const fm = await startFakeFmServe(options);
+  try {
+    const local = adapter(fm);
+    for (const call of [() => local.complete(REQUEST), () => drain(local.stream(REQUEST))]) {
+      await assert.rejects(call(), (error: unknown) => error instanceof ProviderError
+        && error.kind === "invalid_request" && error.code === "context_overflow" && !error.retryable);
+    }
+    assert.deepEqual(fm.requests.map(request => JSON.parse(request.body).stream), [false, true]);
+    options.mode = "text";
+    assert.equal((await local.complete(REQUEST)).text, "Hallo");
   } finally {
     await fm.close();
   }

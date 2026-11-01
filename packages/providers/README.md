@@ -298,12 +298,18 @@ completions adapter. Both APIs refuse every model id except the exact wire id `s
 Tools, forced choice, `parallel_tool_calls` and `json_schema` retain the existing wire encoding.
 
 AF0 observed that `max_tokens` was ineffective, so Unix mode uses `max_completion_tokens`. Usage is requested by
-default and remains absent when unreported. `[DONE]` is required by default; `allowMissingDone: true` tolerates its
-absence only after a finish reason. The native HTTP 500 transcript/context-size error maps to non-retryable
-`invalid_request` / `context_overflow`, as does that same error message in SSE. Other vendors' HTTP 5xx
+default and remains absent when unreported. Successful streams require `[DONE]` by default;
+`allowMissingDone: true` tolerates its absence only after a finish reason. Native transcript/context-size
+errors map to non-retryable `invalid_request` / `context_overflow`: HTTP 500 JSON for the observed non-streaming
+request, or HTTP 200 SSE with an assistant-role chunk, then the same `server_error` and no `[DONE]` for
+`stream:true`. The explicit error takes precedence over missing-DONE validation. Other vendors' HTTP 5xx
 classification is unchanged.
-See the [AF0 native receipt](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/blob/7e2d0f8640981f8cfadf59134d14d86fb7ef2c28/docs/evidence/apple-fm/2026-11-01-probe-final.md)
-in independently reviewed PR #865.
+See the [corrected AF0 full receipt](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/blob/171e5aceac0f54864c9a3f69b57089336720d658/docs/evidence/apple-fm/2026-11-01-probe-final.md) and
+[additional native streaming/lifecycle receipt](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/blob/171e5aceac0f54864c9a3f69b57089336720d658/docs/evidence/apple-fm/2026-11-01-probe-review.md)
+in independently reviewed PR #865. At least 5056 server prompt tokens were accepted, refuting a 4096-token
+shared hardware window. The exact window remains unknown; AF2's conservative 4096 catalog/guard policy is
+unchanged. The lifecycle evidence spans ten seconds after parent death and post-start stdin EOF; AF3 still
+owns production lifecycle and orphan cleanup.
 
 One inference may be active per managed adapter. A busy call gets a non-retryable `network` / `unavailable`
 refusal so the router can fall back; there is no hidden waiting queue. Probes can still run during inference.
@@ -312,8 +318,9 @@ release capacity. The exact context-window guard and eligibility are AF2; sideca
 directory creation are AF3. This library alone does not enable an Apple provider in the product.
 
 Tests use `test/fixtures/fake-fm-serve.ts`: a real Unix socket deliberately mode 0755 under a private 0700 temporary
-directory, synthetic health/models and an always-streaming chat endpoint, tool/schema answers, optional usage/DONE,
-native overflow, hangs and controlled disconnects. Native socket cases run on POSIX; Windows runs the explicit
+directory, synthetic health/models and JSON/SSE chat responses, tool/schema answers, optional usage/DONE,
+native JSON overflow and role-then-error SSE overflow without DONE, hangs and controlled disconnects.
+Native socket cases run on POSIX; Windows runs the explicit
 platform-refusal tests. No test invokes real `fm`, `sudo` or licence commands. Run `pnpm --filter @plur1bus/providers test`.
 
 Tests: `pnpm --filter @plur1bus/providers test` (synthetic loopback HTTP and managed Unix servers).

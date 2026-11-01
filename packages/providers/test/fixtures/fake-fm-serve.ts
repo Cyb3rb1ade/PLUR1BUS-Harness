@@ -1,4 +1,4 @@
-/** Synthetic D122 fm boundary: Unix HTTP only, a 0755 socket inside a 0700 test directory, and always SSE chat. */
+/** Synthetic D122 fm boundary: Unix HTTP only, a 0755 socket inside a 0700 directory, and JSON/SSE responses. */
 import { chmod, mkdtemp, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { IncomingHttpHeaders, ServerResponse } from "node:http";
@@ -16,7 +16,7 @@ export interface FakeFmRequest {
 
 /** Boundary variants; no mode invokes a real executable or a model. */
 export interface FakeFmOptions {
-  mode?: "text" | "tools" | "schema" | "overflow" | "hang" | "hang-headers";
+  mode?: "text" | "tools" | "schema" | "overflow" | "stream-overflow" | "hang" | "hang-headers";
   health?: unknown;
   models?: unknown;
   usage?: boolean;
@@ -42,6 +42,11 @@ const READY = {
   models: [{ name: "system", available: true }, { name: "pcc", available: false, reason: "synthetic cloud refusal" }],
 };
 const MODELS = { object: "list", data: [{ id: "system", owned_by: "Apple" }, { id: "pcc", owned_by: "Apple" }] };
+const TRANSCRIPT_OVERFLOW = {
+  error: {
+    message: "The session's transcript exceeded the model's context size.", type: "server_error", code: "500",
+  },
+};
 
 function json(response: ServerResponse, status: number, value: unknown): void {
   response.writeHead(status, { "content-type": "application/json" });
@@ -56,15 +61,17 @@ function delta(response: ServerResponse, value: object, finish: string | null = 
 
 function completion(response: ServerResponse, options: FakeFmOptions): void {
   if (options.mode === "overflow") {
-    json(response, 500, {
-      error: {
-        message: "The session's transcript exceeded the model's context size.", type: "server_error", code: "500",
-      },
-    });
+    json(response, 500, TRANSCRIPT_OVERFLOW);
     return;
   }
   if (options.mode === "hang-headers") return;
   response.writeHead(200, { "content-type": "text/event-stream; charset=utf-8" });
+  if (options.mode === "stream-overflow") {
+    // AF0's review follow-up: role chunk, transcript error, clean EOF without finish, usage or DONE.
+    delta(response, { role: "assistant" });
+    response.end(`data: ${JSON.stringify(TRANSCRIPT_OVERFLOW)}\n\n`);
+    return;
+  }
   if (options.mode === "tools") {
     delta(response, { tool_calls: [{
       index: 0, id: "weather-1", type: "function", function: { name: "weather", arguments: "{\"city\":" },

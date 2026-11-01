@@ -64,7 +64,8 @@ function managedError(error: unknown): unknown {
   if (error instanceof ProviderError && (error.kind === "context_length"
     || ((error.status === 500 || error.status === undefined) && error.providerType === "server_error"
       && error.providerMessage === "The session's transcript exceeded the model's context size."))) {
-    // AF0: fm reports overflow as HTTP 500, not a retryable outage. Do not change other vendors' 5xx taxonomy.
+    // AF0: HTTP 500 JSON or the same error inside HTTP 200 SSE. Neither is a retryable outage.
+    // Keep other vendors' 5xx taxonomy unchanged.
     return new ProviderError("invalid_request", "Apple FM request exceeds the model context window", {
       code: "context_overflow", retryable: false, ...(error.status === undefined ? {} : { status: error.status }),
     });
