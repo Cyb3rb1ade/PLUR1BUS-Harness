@@ -12,9 +12,9 @@
     8675309
   ],
   "budgets": {
-    "tokens": 131072,
-    "maxRounds": 100,
-    "wallMs": 2700000
+    "tokens": 61440,
+    "maxRounds": 60,
+    "wallMs": 900000
   },
   "instruction": "prompt.md",
   "start": "start",
@@ -23,7 +23,7 @@
     {
       "id": "merge",
       "entry": "src/merge.__SEED__.ts",
-      "symbol": "solve",
+      "symbol": "solve__SEED__",
       "owns": [
         "src/merge.__SEED__.ts"
       ],
@@ -37,7 +37,7 @@
     {
       "id": "gaps",
       "entry": "src/gaps.__SEED__.ts",
-      "symbol": "solve",
+      "symbol": "solve__SEED__",
       "owns": [
         "src/gaps.__SEED__.ts"
       ],
@@ -51,7 +51,7 @@
     {
       "id": "choose",
       "entry": "src/choose.__SEED__.ts",
-      "symbol": "solve",
+      "symbol": "solve__SEED__",
       "owns": [
         "src/choose.__SEED__.ts"
       ],
@@ -60,6 +60,34 @@
       "checker": {
         "path": "check.mjs",
         "scope": "choose"
+      }
+    },
+    {
+      "id": "duration",
+      "entry": "src/duration.__SEED__.ts",
+      "symbol": "solve__SEED__",
+      "owns": [
+        "src/duration.__SEED__.ts"
+      ],
+      "dependsOn": [],
+      "reference": "reference/duration",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "duration"
+      }
+    },
+    {
+      "id": "display",
+      "entry": "src/display.__SEED__.ts",
+      "symbol": "solve__SEED__",
+      "owns": [
+        "src/display.__SEED__.ts"
+      ],
+      "dependsOn": [],
+      "reference": "reference/display",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "display"
       }
     }
   ],
@@ -71,7 +99,9 @@
     "order": [
       "merge",
       "gaps",
-      "choose"
+      "choose",
+      "duration",
+      "display"
     ]
   }
 }

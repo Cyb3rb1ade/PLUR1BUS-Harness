@@ -12,9 +12,9 @@
     8675309
   ],
   "budgets": {
-    "tokens": 131072,
-    "maxRounds": 100,
-    "wallMs": 2700000
+    "tokens": 65536,
+    "maxRounds": 63,
+    "wallMs": 945000
   },
   "instruction": "prompt.md",
   "start": "start",
@@ -23,7 +23,7 @@
     {
       "id": "decode",
       "entry": "src/decode.__SEED__.rs",
-      "symbol": "solve",
+      "symbol": "solve__SEED__",
       "owns": [
         "src/decode.__SEED__.rs"
       ],
@@ -37,7 +37,7 @@
     {
       "id": "normalize",
       "entry": "src/normalize.__SEED__.rs",
-      "symbol": "solve",
+      "symbol": "solve__SEED__",
       "owns": [
         "src/normalize.__SEED__.rs"
       ],
@@ -51,7 +51,7 @@
     {
       "id": "encode",
       "entry": "src/encode.__SEED__.rs",
-      "symbol": "solve",
+      "symbol": "solve__SEED__",
       "owns": [
         "src/encode.__SEED__.rs"
       ],
@@ -60,6 +60,34 @@
       "checker": {
         "path": "check.mjs",
         "scope": "encode"
+      }
+    },
+    {
+      "id": "segments",
+      "entry": "src/segments.__SEED__.rs",
+      "symbol": "solve__SEED__",
+      "owns": [
+        "src/segments.__SEED__.rs"
+      ],
+      "dependsOn": [],
+      "reference": "reference/segments",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "segments"
+      }
+    },
+    {
+      "id": "etag",
+      "entry": "src/etag.__SEED__.rs",
+      "symbol": "solve__SEED__",
+      "owns": [
+        "src/etag.__SEED__.rs"
+      ],
+      "dependsOn": [],
+      "reference": "reference/etag",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "etag"
       }
     }
   ],
@@ -71,7 +99,9 @@
     "order": [
       "decode",
       "normalize",
-      "encode"
+      "encode",
+      "segments",
+      "etag"
     ]
   }
 }

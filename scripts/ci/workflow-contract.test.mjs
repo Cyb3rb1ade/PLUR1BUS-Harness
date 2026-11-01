@@ -64,7 +64,21 @@ test('unit-os preserves every unit step while Ubuntu and Windows run Core only i
     '            pnpm test\n' +
     '          fi\n';
   assert.ok(stepsOf(jobs.unit).includes(coreSplit));
-  assert.equal(stepsOf(jobs['unit-os']), stepsOf(jobs.unit).replace(coreSplit, osSplit));
+  const rustToolchain =
+    '      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)\n' +
+    '        with: { toolchain: "1.95", components: "clippy, rustfmt" }\n';
+  const macToolchains =
+    '      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0\n' +
+    "        if: matrix.os == 'macos-15'\n" +
+    '        with: { go-version: "1.27.1", cache: false }\n' +
+    '      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0\n' +
+    "        if: matrix.os == 'macos-15'\n" +
+    '        with: { python-version: "3.13" }\n';
+  assert.ok(stepsOf(jobs.unit).includes(rustToolchain));
+  const expected = stepsOf(jobs.unit)
+    .replace(coreSplit, osSplit)
+    .replace(rustToolchain, rustToolchain + macToolchains);
+  assert.equal(stepsOf(jobs['unit-os']), expected);
   assert.match(jobs['core-unit-shard'], /pnpm --filter @plur1bus\/core test/);
   assert.match(jobs['core-unit'], /core-unit-shard/);
   const field = (block, re) => re.exec(block)[0];

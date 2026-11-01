@@ -507,21 +507,24 @@ No repository rules, release policy, controller merging or watcher behavior chan
 
 ### D124 team fixture self-tests
 
-`collab/team-eval.test.ts` validates the arm metadata and team manifest contract. `collab/team-fixtures.test.ts` checks
-all 18 original team-tier tasks: every package and end-to-end checker fails on the start and passes on the reference
-for three seeds; coupled reference diffs overlap and decomposable diffs are disjoint. No model or network is used.
+`collab/team-eval.test.ts` validates the arm registry, canonical identities and allocations tied to all three task limits.
+The split `collab/team-fixture*.test.ts` files grade 18 authored tasks across three seeds, partial implementations and
+ownership boundaries. The common materializer proof hashes all 108 start/reference variants twice. The mutant gate
+kills twelve previously surviving validation mutants; stdin carries NUL cases. No model or network is used.
 
-Core's Linux/Windows shards install Rust 1.95, Go 1.27.1 and Python 3.13 for these checkers. The macOS Core leg uses its
-existing Rust toolchain and the same Go/Python versions. Go builds disable module proxies and use only the fixture's
-standard-library code. Missing tools fail; the fixture suite introduces no platform skips.
+Linux and macOS authored-fixture tests use Node 24.21, repository Rust, Go 1.27.1 and Python 3.13. Preflight compiles/runs
+known-good code before candidate evaluation. Missing tools fail as infrastructure; candidate self-deletion remains a
+candidate failure. Linux live acceptance requires the existing bubblewrap/user-namespace setup above and proves PID,
+oracle-path and outside-write isolation. Mac/Windows live tests assert typed refusal; Windows process isolation is
+explicitly deferred to D123 Q6, with no fallback and no skips. Materialization and contract proofs still run there.
 
-The B1 runtime adapter and nightly team evaluation wait for K2. The existing fan-out replay test and timing weight
-remain until the runtime replacement lands. Local preparation timings for new files are labeled separately from the
-existing Ubuntu Actions source in `.github/ci/core-test-timings.json`.
+The checker adopts K2 #868's result shape and command-environment allowlist. Its host-only oracle never enters the
+candidate's input-only bridge. K2 owns public `plur1bus.coding-bench/1` reports and their closed environment metadata.
+K2's loader excludes `tests/bench/coding/team/`. The task/arm package adds no model runner, live baseline or nightly.
+Task caps remain provisional until the K2 single-arm pilot calibrates difficulty. The runtime adapter and replacement
+of `fanout-eval.ts`/`eval:m5` still wait for K2; executable `explore+single` also waits for #853 on main.
 
-The team arm model uses `{ family, params }` and a deterministic canonical ID, with roles/capabilities kept as metadata.
-Comparisons and natural-budget keys use that ID; `team` and `best-of-n` remain unbound extension points. K2's B1 loader
-skips `tests/bench/coding/team/`, so this additive corpus does not change its baseline corpus. K2 owns the benchmark
-report schema and runtime environment allowlist; TM2 adopts them from K2's PR rather than defining a parallel report
-or execution profile. Both PRs extend this document: the second package to merge integrates `main` with a merge commit
-and resolves any overlap here. No rebase is used.
+`.github/ci/core-test-timings.json` uses measured Linux grader costs for shard weights and labels separate local macOS
+measurements with their actual toolchains. Native Windows timings require a Windows run; no number is inferred from
+another platform. These measurements do not represent model throughput. Both packages extend this document; the
+second merger integrates main with a merge commit and resolves the overlap. No rebase is used.

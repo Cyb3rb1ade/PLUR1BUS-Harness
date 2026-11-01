@@ -1,154 +1,182 @@
 // SPDX-License-Identifier: MIT
-// Behavioral checker support, not a model/benchmark runner. K2 supplies the
-// verifier sandbox for model-generated candidates. Self-tests use authored code.
-import { execFile } from 'node:child_process';
-import { lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { isAbsolute, join, relative, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { promisify } from 'node:util';
-import { seedValues } from './seed.mjs';
-const exec = promisify(execFile);
-const EXEC_LIMITS = { timeout: 30000, maxBuffer: 1024 * 1024, encoding: 'utf8' };
-const RUNTIME_KEYS = ['PATH', 'Path', 'SystemRoot', 'SYSTEMROOT', 'WINDIR', 'windir', 'SYSTEMDRIVE', 'PATHEXT', 'TEMP', 'TMP', 'TMPDIR', 'LANG', 'LC_ALL'];
-const COMPILER_KEYS = [...RUNTIME_KEYS, 'HOME', 'USERPROFILE', 'LOCALAPPDATA', 'APPDATA', 'RUSTUP_HOME', 'CARGO_HOME', 'GOROOT', 'GOCACHE', 'GOPATH'];
-function environment(keys) {
-  return Object.fromEntries(keys.filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]]));
-}
-function infrastructure(error) {
-  if (error?.code === 'TOOLCHAIN_UNAVAILABLE') throw error;
-}
-async function execute(command, args, options) {
-  try { return await exec(command, args, options); }
-  catch (error) {
-    if (error?.code !== 'ENOENT') throw error;
-    const failure = new Error('fixture toolchain unavailable');
-    failure.code = 'TOOLCHAIN_UNAVAILABLE';
-    throw failure;
+/** Host-only oracle comparison. Candidates run through an input-only K2-compatible isolation port. */
+import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { checkerVerdict, IsolationUnavailable, requirePlatform } from "./contract.mjs";
+import { createIsolation } from "./isolation.mjs";
+import { loadManifest } from "./manifest.mjs";
+import { sourceFiles } from "./materialize.mjs";
+import { prepareProbe } from "./probe.mjs";
+import { languageRuntime, preflight } from "./runtime.mjs";
+import { seedValues } from "./seed.mjs";
+
+async function snapshot(candidateRoot, destination) {
+  await mkdir(destination);
+  for (const file of await sourceFiles(candidateRoot)) {
+    if (!file.startsWith("src/") && !["TASK.md", "instance.json"].includes(file)) continue;
+    const target = join(destination, file);
+    await mkdir(dirname(target), { recursive: true });
+    await copyFile(join(candidateRoot, file), target);
   }
-}
-function scopedTask(task, scope) {
-  if (scope === 'e2e') return task;
-  const entry = task.packages.find(item => item.id === scope);
-  if (!entry) throw new Error('unknown checker scope');
-  return { ...task, packages: [entry], endToEnd: { ...task.endToEnd, order: [entry.id] } };
-}
-function nodeProbe(task, entries) {
-  return `const entries = ${JSON.stringify(entries)};\nconst symbols = ${JSON.stringify(Object.fromEntries(task.packages.map(item => [item.id, item.symbol])))};\nconst order = ${JSON.stringify(task.endToEnd.order)};\nconst [scope, input] = process.argv.slice(2);\nlet value = input;\nfor (const id of scope === 'e2e' ? order : [scope]) { const module = await import(entries[id]); value = await module[symbols[id]](value); if (typeof value !== 'string') throw Error('expected string'); }\nprocess.stdout.write(value);\n`;
-}
-function pythonProbe(task, entries) {
-  return `import importlib.util, json, sys\nentries = json.loads(${JSON.stringify(JSON.stringify(entries))})\nsymbols = json.loads(${JSON.stringify(JSON.stringify(Object.fromEntries(task.packages.map(item => [item.id, item.symbol]))))})\norder = json.loads(${JSON.stringify(JSON.stringify(task.endToEnd.order))})\nvalue = sys.argv[2]\nfor index, key in enumerate(order if sys.argv[1] == 'e2e' else [sys.argv[1]]):\n    spec = importlib.util.spec_from_file_location('candidate_' + str(index), entries[key])\n    module = importlib.util.module_from_spec(spec)\n    spec.loader.exec_module(module)\n    value = getattr(module, symbols[key])(value)\n    if not isinstance(value, str):\n        raise TypeError('expected string')\nsys.stdout.write(value)\n`;
-}
-function rustProbe(task, entries) {
-  const imports = task.packages.map((item, i) => `#[path = ${JSON.stringify(entries[item.id])}] mod p${i};`).join('\n');
-  const call = item => `p${task.packages.indexOf(item)}::${item.symbol}(&value)`;
-  const arms = task.packages.map(item => `${JSON.stringify(item.id)} => value = ${call(item)},`).join('\n');
-  const pipeline = task.packages.map(item => `value = ${call(item)};`).join('\n');
-  return `#![allow(dead_code)]\n${imports}\nfn main() { let args: Vec<String> = std::env::args().collect(); let mut value = args[2].clone(); match args[1].as_str() { ${arms} "e2e" => { ${pipeline} }, _ => panic!("unknown scope") } print!("{}", value); }\n`;
-}
-function goProbe(task) {
-  const imports = task.packages.map((_, i) => `p${i} "fixture.local/checker/p${i}"`).join('\n');
-  const call = item => `p${task.packages.indexOf(item)}.${item.symbol}(value)`;
-  const arms = task.packages.map(item => `case ${JSON.stringify(item.id)}: value = ${call(item)}`).join('\n');
-  const pipeline = task.packages.map(item => `value = ${call(item)}`).join('\n');
-  return `package main\nimport ("fmt"; "os"; ${imports})\nfunc main() { value := os.Args[2]; switch os.Args[1] { ${arms}\ncase "e2e": ${pipeline}\ndefault: panic("unknown scope") }; fmt.Print(value) }\n`;
+  await writeFile(join(destination, "go.mod"), "module fixture.local/task\ngo 1.22\n");
 }
 
-export async function createProbe(fullTask, candidateRoot, seed, scope = 'e2e') {
-  const task = scopedTask(fullTask, scope);
-  const directory = await mkdtemp(join(tmpdir(), 'p1b-team-probe-'));
-  const tag = seedValues(seed).tag;
-  const paths = Object.fromEntries(task.packages.map(item => [item.id, resolve(candidateRoot, item.entry.replaceAll('__SEED__', tag))]));
-  let command, args;
-  try {
-    const root = await realpath(candidateRoot);
-    for (const file of Object.values(paths)) {
-      const stat = await lstat(file), inside = relative(root, await realpath(file));
-      if (!stat.isFile() || inside === '..' || inside.startsWith('../') || inside.startsWith('..\\') || isAbsolute(inside)) throw new Error('candidate entry must be a regular file inside its tree');
-    }
-    if (task.language === 'typescript') {
-      const file = join(directory, 'probe.mjs');
-      await writeFile(file, nodeProbe(task, Object.fromEntries(Object.entries(paths).map(([key, value]) => [key, pathToFileURL(value).href]))));
-      command = process.execPath; args = ['--experimental-strip-types', '--no-warnings=ExperimentalWarning', file];
-    } else if (task.language === 'python') {
-      const file = join(directory, 'probe.py');
-      await writeFile(file, pythonProbe(task, paths));
-      command = process.platform === 'win32' ? 'python' : 'python3'; args = ['-I', '-B', '-X', 'utf8', file];
-    } else if (task.language === 'rust') {
-      const source = join(directory, 'probe.rs'), binary = join(directory, process.platform === 'win32' ? 'probe.exe' : 'probe');
-      await writeFile(source, rustProbe(task, paths));
-      await execute('rustc', ['--edition=2024', source, '-o', binary], { ...EXEC_LIMITS, cwd: directory, env: { ...environment(COMPILER_KEYS), RUSTUP_TOOLCHAIN: '1.95', RUSTUP_AUTO_INSTALL: '0' } });
-      command = binary; args = [];
-    } else if (task.language === 'go') {
-      const binary = join(directory, process.platform === 'win32' ? 'probe.exe' : 'probe');
-      // The private build has no candidate-controlled go.mod, toolchain or replace.
-      for (const [index, item] of task.packages.entries()) {
-        const destination = join(directory, `p${index}`);
-        await mkdir(destination);
-        await writeFile(join(destination, 'solution.go'), await readFile(paths[item.id], 'utf8'));
-      }
-      await writeFile(join(directory, 'go.mod'), 'module fixture.local/checker\ngo 1.22\n');
-      await writeFile(join(directory, 'main.go'), goProbe(task));
-      await execute('go', ['build', '-o', binary, '.'], { ...EXEC_LIMITS, cwd: directory, env: { ...environment(COMPILER_KEYS), GOWORK: 'off', GOPROXY: 'off', GOSUMDB: 'off', GOTOOLCHAIN: 'local', GOENV: 'off', CGO_ENABLED: '0', GOFLAGS: '-mod=readonly' } });
-      command = binary; args = [];
-    } else throw new Error('unsupported fixture language');
-    return {
-      async invoke(key, input) { return (await execute(command, [...args, key, input], { ...EXEC_LIMITS, env: environment(RUNTIME_KEYS) })).stdout; },
-      async close() { await rm(directory, { recursive: true, force: true }); },
-    };
-  } catch (error) {
-    await rm(directory, { recursive: true, force: true });
-    throw error;
-  }
-}
-
+/** Refuse missing, empty or ambiguous host case sets before executing any candidate code. */
 export function validateCases(cases, scopes) {
   for (const key of scopes) {
-    if (!Object.hasOwn(cases, key) || !Array.isArray(cases[key]) || !cases[key].length) throw new Error('checker scope requires nonempty cases');
+    if (!Object.hasOwn(cases, key) || !Array.isArray(cases[key]) || !cases[key].length) {
+      throw new Error("checker scope requires nonempty cases");
+    }
     const ids = new Set();
     for (const item of cases[key]) {
-      if (!item || typeof item.id !== 'string' || !item.id || ids.has(item.id) || typeof item.input !== 'string' || typeof item.expected !== 'string') throw new Error('invalid checker case');
+      if (
+        !item ||
+        typeof item.id !== "string" ||
+        !item.id ||
+        ids.has(item.id) ||
+        typeof item.input !== "string" ||
+        typeof item.expected !== "string" ||
+        (item.prefix !== undefined && typeof item.prefix !== "boolean")
+      )
+        throw new Error("invalid checker case");
+      if (item.state !== undefined && !["stale", "corrupt"].includes(item.state)) {
+        throw new Error("invalid checker state");
+      }
       ids.add(item.id);
     }
   }
 }
-export async function verify(taskRoot, candidateRoot, seed, scope = 'all') {
-  const task = JSON.parse(await readFile(join(taskRoot, 'task.json'), 'utf8'));
-  if (!task.seeds.includes(seed)) throw new Error('seed is not declared by this task');
-  const instance = JSON.parse(await readFile(join(candidateRoot, 'instance.json'), 'utf8'));
-  if (instance.taskId !== task.id || instance.seed !== seed) throw new Error('candidate instance does not match task and seed');
-  const { casesForSeed } = await import(pathToFileURL(join(taskRoot, task.seedGenerator)).href);
-  const cases = casesForSeed(seed), scopes = scope === 'all' ? [...task.packages.map(item => item.id), 'e2e'] : [scope];
-  validateCases(cases, scopes);
-  const checks = [];
-  for (const key of scopes) {
-    let probe, reason;
-    const failures = new Set();
-    try {
-      probe = await createProbe(task, candidateRoot, seed, key);
-      for (const item of cases[key]) {
-        try { if (await probe.invoke(key, item.input) !== item.expected) failures.add(item.id); }
-        catch (error) { infrastructure(error); reason = 'candidate-error'; failures.add(item.id); }
+
+async function scopeCheck(task, scope, cases, image, values, root, runtime, execute) {
+  const failures = new Set();
+  let reason;
+  try {
+    const probe = await prepareProbe(task, image, values.tag, scope, root, runtime, execute);
+    for (const item of cases) {
+      try {
+        if ((await probe.invoke(item.input, item.prefix === true || scope === "e2e", item.state)) !== item.expected) {
+          failures.add(item.id);
+        }
+      } catch (error) {
+        reason = error.message === "timeout" || error.message === "aborted" ? error.message : "candidate-error";
+        failures.add(item.id);
       }
-    } catch (error) {
-      infrastructure(error);
-      reason = 'candidate-error';
-      for (const item of cases[key]) failures.add(item.id);
-    } finally { if (probe) await probe.close(); }
-    checks.push({ scope: key, passed: failures.size === 0, cases: cases[key].length, failures: [...failures], ...(reason ? { reason } : {}) });
+    }
+  } catch {
+    reason = "candidate-error";
+    for (const item of cases) failures.add(item.id);
   }
-  return { schema: 'plur1bus.team-check/1', taskId: task.id, seed, passed: checks.every(check => check.passed), checks };
+  return { scope, passed: !failures.size, cases: cases.length, failures: [...failures], ...(reason ? { reason } : {}) };
 }
+
+async function grade(task, taskRoot, candidateRoot, seed, scopes, options, began) {
+  const timeoutMs = Math.min(task.budgets.wallMs, options.timeoutMs ?? 60000);
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 300000) throw new Error("invalid checker limit");
+  const root = await realpath(await mkdtemp(join(tmpdir(), "p1b-team-check-")));
+  const deadline = performance.now() + timeoutMs;
+  const signal = AbortSignal.any([AbortSignal.timeout(timeoutMs), ...(options.signal ? [options.signal] : [])]);
+  try {
+    const isolation = await createIsolation({ ...options, root, taskRoot, signal });
+    const execute = (request) => {
+      const remaining = Math.ceil(deadline - performance.now());
+      if (remaining < 1) return Promise.resolve({ code: null, stdout: "", stderr: "", reason: "timeout" });
+      return isolation.run({ ...request, timeoutMs: Math.min(remaining, 30000) });
+    };
+    let runtime;
+    try {
+      runtime = await languageRuntime(task.language, root, options);
+      await preflight(task.language, runtime, root, execute);
+    } catch {
+      throw new IsolationUnavailable("toolchain-unavailable");
+    }
+    const { casesForSeed } = await import(pathToFileURL(join(taskRoot, task.seedGenerator)).href);
+    const cases = casesForSeed(seed);
+    validateCases(cases, scopes);
+    const image = join(root, "image");
+    try {
+      const instance = JSON.parse(await readFile(join(candidateRoot, "instance.json"), "utf8"));
+      if (instance.taskId !== task.id || instance.tag !== seedValues(seed).tag) {
+        throw new Error("candidate instance mismatch");
+      }
+      await snapshot(candidateRoot, image);
+    } catch {
+      for (const scope of scopes)
+        options.onCheck?.({
+          scope,
+          passed: false,
+          cases: cases[scope].length,
+          failures: cases[scope].map((item) => item.id),
+          reason: "candidate-error",
+        });
+      return checkerVerdict("unresolved", began);
+    }
+    const checks = [];
+    for (const scope of scopes) {
+      const check = await scopeCheck(task, scope, cases[scope], image, seedValues(seed), root, runtime, execute);
+      checks.push(check);
+      options.onCheck?.(check);
+    }
+    const reason = options.signal?.aborted
+      ? "aborted"
+      : checks.every((check) => check.passed)
+        ? "passed"
+        : "unresolved";
+    return checkerVerdict(reason, began);
+  } catch (error) {
+    if (!(error instanceof IsolationUnavailable)) throw error;
+    if (options.signal?.aborted) return checkerVerdict("aborted", began);
+    options.onInfrastructureFailure?.(error.code);
+    return checkerVerdict("unavailable", began);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}
+
+/** K2 checker verdict only; scopes are private host diagnostics. Fixture mode must be chosen by the trusted caller. */
+export async function verify(taskRoot, candidateRoot, seed, scope = "all", options = {}) {
+  const began = performance.now();
+  const task = await loadManifest(taskRoot);
+  if (!task.seeds.includes(seed)) throw new Error("seed is not declared by this task");
+  const scopes = scope === "all" ? [...task.packages.map((item) => item.id), "e2e"] : [scope];
+  if (scopes.some((key) => key !== "e2e" && !task.packages.some((item) => item.id === key))) {
+    throw new Error("unknown checker scope");
+  }
+  try {
+    requirePlatform(options.mode ?? "live");
+  } catch (error) {
+    options.onInfrastructureFailure?.(error.code);
+    return checkerVerdict("unavailable", began);
+  }
+  return grade(task, taskRoot, candidateRoot, seed, scopes, { ...options, mode: options.mode ?? "live" }, began);
+}
+
+/** Standalone host command defaults to Linux live isolation. --fixture is restricted to authored self-tests. */
 export async function checkerCli(taskRoot) {
+  const began = performance.now();
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  process.once("SIGTERM", abort);
+  process.once("SIGINT", abort);
   try {
     const args = process.argv.slice(2);
-    if (args.length !== 6 || args[0] !== '--candidate' || args[2] !== '--seed' || args[4] !== '--scope') throw new Error('use --candidate <tree> --seed <uint32> --scope <package|e2e|all>');
-    const result = await verify(taskRoot, resolve(args[1]), Number(args[3]), args[5]);
-    process.stdout.write(JSON.stringify(result) + '\n');
+    const fixture = args.at(-1) === "--fixture";
+    if (fixture) args.pop();
+    if (args.length !== 6 || args[0] !== "--candidate" || args[2] !== "--seed" || args[4] !== "--scope") {
+      throw new Error("invalid checker arguments");
+    }
+    const result = await verify(taskRoot, resolve(args[1]), Number(args[3]), args[5], {
+      mode: fixture ? "fixture" : "live",
+      signal: controller.signal,
+    });
+    process.stdout.write(JSON.stringify(result) + "\n");
     process.exitCode = result.passed ? 0 : 1;
-  } catch (error) {
-    const reason = error?.code === 'TOOLCHAIN_UNAVAILABLE' ? 'toolchain-unavailable' : 'checker-error';
-    process.stdout.write(JSON.stringify({ schema: 'plur1bus.team-check/1', passed: false, reason, checks: [] }) + '\n');
+  } catch {
+    process.stdout.write(JSON.stringify(checkerVerdict("unavailable", began)) + "\n");
     process.exitCode = 1;
+  } finally {
+    process.removeListener("SIGTERM", abort);
+    process.removeListener("SIGINT", abort);
   }
 }

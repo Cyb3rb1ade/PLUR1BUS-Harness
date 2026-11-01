@@ -12,9 +12,9 @@
     8675309
   ],
   "budgets": {
-    "tokens": 131072,
-    "maxRounds": 100,
-    "wallMs": 2700000
+    "tokens": 49152,
+    "maxRounds": 45,
+    "wallMs": 675000
   },
   "instruction": "prompt.md",
   "start": "start",
@@ -23,7 +23,7 @@
     {
       "id": "normalize",
       "entry": "src/normalize.__SEED__.py",
-      "symbol": "solve",
+      "symbol": "solve__SEED__",
       "owns": [
         "src/normalize.__SEED__.py"
       ],
@@ -37,7 +37,7 @@
     {
       "id": "price",
       "entry": "src/price.__SEED__.py",
-      "symbol": "solve",
+      "symbol": "solve__SEED__",
       "owns": [
         "src/price.__SEED__.py"
       ],
@@ -51,7 +51,7 @@
     {
       "id": "receipt",
       "entry": "src/receipt.__SEED__.py",
-      "symbol": "solve",
+      "symbol": "solve__SEED__",
       "owns": [
         "src/receipt.__SEED__.py"
       ],

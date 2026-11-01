@@ -12,9 +12,9 @@
     8675309
   ],
   "budgets": {
-    "tokens": 131072,
-    "maxRounds": 100,
-    "wallMs": 2700000
+    "tokens": 61440,
+    "maxRounds": 51,
+    "wallMs": 765000
   },
   "instruction": "prompt.md",
   "start": "start",
@@ -23,7 +23,7 @@
     {
       "id": "decode",
       "entry": "src/pipeline.__SEED__.rs",
-      "symbol": "decode",
+      "symbol": "decode__SEED__",
       "owns": [
         "src/pipeline.__SEED__.rs"
       ],
@@ -37,7 +37,7 @@
     {
       "id": "normalize",
       "entry": "src/pipeline.__SEED__.rs",
-      "symbol": "normalize",
+      "symbol": "normalize__SEED__",
       "owns": [
         "src/pipeline.__SEED__.rs"
       ],
@@ -53,11 +53,12 @@
     {
       "id": "encode",
       "entry": "src/pipeline.__SEED__.rs",
-      "symbol": "encode",
+      "symbol": "encode__SEED__",
       "owns": [
         "src/pipeline.__SEED__.rs"
       ],
       "dependsOn": [
+        "decode",
         "normalize"
       ],
       "reference": "reference/encode",

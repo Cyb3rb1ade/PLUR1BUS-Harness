@@ -12,9 +12,9 @@
     8675309
   ],
   "budgets": {
-    "tokens": 131072,
-    "maxRounds": 100,
-    "wallMs": 2700000
+    "tokens": 49152,
+    "maxRounds": 45,
+    "wallMs": 675000
   },
   "instruction": "prompt.md",
   "start": "start",
@@ -23,7 +23,7 @@
     {
       "id": "versions",
       "entry": "src/versions.__SEED__.ts",
-      "symbol": "solve",
+      "symbol": "solve__SEED__",
       "owns": [
         "src/versions.__SEED__.ts"
       ],
@@ -37,7 +37,7 @@
     {
       "id": "latest",
       "entry": "src/latest.__SEED__.ts",
-      "symbol": "solve",
+      "symbol": "solve__SEED__",
       "owns": [
         "src/latest.__SEED__.ts"
       ],
@@ -51,7 +51,7 @@
     {
       "id": "notes",
       "entry": "src/notes.__SEED__.ts",
-      "symbol": "solve",
+      "symbol": "solve__SEED__",
       "owns": [
         "src/notes.__SEED__.ts"
       ],

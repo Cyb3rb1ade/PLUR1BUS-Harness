@@ -1,113 +1,142 @@
 # Team-tier coding fixtures (D124 PT-2)
 
-Eighteen original MIT tasks: twelve decomposable tasks with three separately owned packages each, and six sequential
-or tightly coupled tasks. Each task has its own instruction, seed generator, starting tree, reference overlays,
-package checkers and end-to-end checker. No upstream benchmark content or third-party dependencies are included.
+Eighteen original MIT tasks: twelve decomposable tasks and six coupled tasks, in TypeScript, Python, Rust and Go.
+This package supplies tasks, private behavioral graders and arm planning data. K2 owns the B1 model runner,
+worktree provisioner, public benchmark report and execution policy. No model baseline or throughput result is included.
 
-| Task | Language | Kind |
-| --- | --- | --- |
-| `ts-event-ledger` | TypeScript | Decomposable |
-| `ts-release-notes` | TypeScript | Decomposable |
-| `ts-calendar` | TypeScript | Decomposable |
-| `py-order-allocation` | Python | Decomposable |
-| `py-document-index` | Python | Decomposable |
-| `py-csv-import` | Python | Decomposable |
-| `rs-range-set` | Rust | Decomposable |
-| `rs-route-path` | Rust | Decomposable |
-| `rs-frame-checksum` | Rust | Decomposable |
-| `go-access-log` | Go | Decomposable |
-| `go-retry-plan` | Go | Decomposable |
-| `go-file-manifest` | Go | Decomposable |
-| `ts-schema-migration` | TypeScript | Coupled |
-| `ts-balance-reducer` | TypeScript | Coupled |
-| `py-money-pipeline` | Python | Coupled |
-| `py-url-pipeline` | Python | Coupled |
-| `rs-frame-pipeline` | Rust | Coupled |
-| `go-stock-ledger` | Go | Coupled |
+| Task | Language | Kind | Packages |
+| --- | --- | --- | ---: |
+| `ts-event-ledger` | TypeScript | Decomposable | 3 |
+| `ts-release-notes` | TypeScript | Decomposable | 3 |
+| `ts-calendar` | TypeScript | Decomposable | 5 |
+| `py-order-allocation` | Python | Decomposable | 3 |
+| `py-document-index` | Python | Decomposable | 4 |
+| `py-csv-import` | Python | Decomposable | 3 |
+| `rs-range-set` | Rust | Decomposable | 3 |
+| `rs-route-path` | Rust | Decomposable | 5 |
+| `rs-frame-checksum` | Rust | Decomposable | 3 |
+| `go-access-log` | Go | Decomposable | 4 |
+| `go-retry-plan` | Go | Decomposable | 3 |
+| `go-file-manifest` | Go | Decomposable | 3 |
+| `ts-schema-migration` | TypeScript | Coupled | 3 |
+| `ts-balance-reducer` | TypeScript | Coupled | 3 |
+| `py-money-pipeline` | Python | Coupled | 3 |
+| `py-url-pipeline` | Python | Coupled | 3 |
+| `rs-frame-pipeline` | Rust | Coupled | 3 |
+| `go-stock-ledger` | Go | Coupled | 3 |
 
-## Fixture contract
+## Corpus and public inputs
 
-`catalog.json` is the task list. The closed `plur1bus.team-task/1` manifests are validated by
-`packages/core/src/collab/team-eval.ts`. K2's B1 loader intentionally skips this `team/` directory. Its future team adapter will map this additive contract
-to the runner; this change supplies no second runner and no model execution.
+`catalog.json` is the explicit task list; K2's B1 loader excludes this `team/` directory. Both the materializer and
+checker load manifests through `parseTeamTask`. Paths, symbols, exact ownership, backward dependencies, language,
+three uint32 seeds and positive allocations are validated before use. Seed generators and references are trusted,
+authored fixture source; arbitrary downloaded task generators are outside this interface's trust boundary.
 
-Each manifest declares three uint32 seeds (17, 104729, 8675309), explicit file ownership and package dependencies,
-an integration order and a checker scope per package plus `e2e`. Each package owns one exact seeded source path;
-`__SEED__` is resolved to the instance tag, with no broad ownership glob. The parser verifies that the entry is owned and
-decomposable ownership is disjoint. The initial fixture allocation is 131,072 total tokens,
-100 model rounds and 2,700,000 ms. These are benchmark inputs, not changes to product defaults or measured recommendations.
-At matched budgets every arm shares the same task cap across all model calls, including helpers, reviewers and repairs.
-Natural budgets must come from the runner's configured defaults and remain explicit in the comparison.
+The materializer copies only `start/`, the neutral instruction as `TASK.md` and allowlisted instance metadata.
+The kind and package ownership remain private manifest metadata. `TASK.md` states the public entry points, runtime,
+allowed neighbor files, optional text frame and input/output contract. It gives no routing label or ownership plan.
+References and checkers are never copied into model input. Links and special files are refused, traversal is bounded,
+and failed materialization removes only its newly created destination.
 
-Each private `seed.mjs` exports `instanceForSeed(seed)` for public instance metadata and `casesForSeed(seed)` for private
-checker inputs/oracles. The common materializer expands filenames and instance identifiers from the seed and writes
-only `start/`, the instruction as `TASK.md` and an allowlisted `instance.json` into the candidate tree. It never copies
-checkers, seed-generator code or references into agent input. Reference overlays are for fixture self-tests only.
+Seeds 17, 104729 and 8675309 produce opaque names, seeded exported function names, numeric literals and three distinct
+text-frame algorithms: sentinel, UTF-8 byte length, or byte length plus checksum. The numeric seed is host-only;
+public metadata contains the instance tag, literal and frame profile. The frame has no private answer data.
+`__SEED__`, `__PROFILE__` and `__SALT__` are expanded only by materialization. Every one of the 108
+(task × seed × start/reference) variants is materialized twice and compared by path and byte hash.
+Git enforces LF for the whole fixture tree.
 
-The initial and reference implementations use the same UTF-8 string-to-string contracts. Hidden probes call the
-candidate's exported functions in separate processes; they do not trust candidate tests, printed claims or source-text
-matching. Each scope builds only its package, so a broken sibling cannot contaminate its grade; `e2e` composes all
-packages. Go and Rust compile with only their standard libraries. Go uses a private module containing the owned source,
-ignoring candidate `go.mod`/toolchain/replace directives, with proxies and cgo disabled. Child processes receive an
-allowlisted environment without ambient credentials.
-Python runs isolated with bytecode writing disabled and explicit UTF-8 mode, including on Windows. Probe/build
-directories are temporary and removed in `finally`.
+All languages have actual public contract modules. Coupled stages consume typed `Packet` state containing the
+preceding semantic result, stage identity and integrity stamp. Checkers test standalone stage behavior, corrupt/stale
+state and prefixes using the actual preceding implementations. A correct later function therefore loses prefix grades
+when its producer is broken. Coupled reference overlays update their shared source file; decomposable changes have
+disjoint ownership. Calendar slot records, route summaries, search records and error-rate modules add real work at
+four- and five-package boundaries. The source architecture and functional requirements remain visible to the solver.
 
-For coupled tasks each reference overlay preserves preceding fixes and changes the shared pipeline file. The self-test
-checks actual changed content and intersecting file sets. For decomposable tasks those sets are disjoint. It also grades
-one isolated solution at a time for decomposable tasks and the successive partial reference stages for coupled tasks.
+Task allocations differ according to module count, validation groups and coupled-state work. They are provisional
+benchmark caps, not measured recommendations or product defaults. **Before capturing a baseline after K2 merges,
+pilot `single` and calibrate individual tasks toward roughly 40–80% resolution.** Review difficulty, case coverage and
+budgets then; do not assert that structural complexity establishes that target. Freeze the calibrated corpus revision
+with the first baseline. Matched plans derive tokens, `maxRounds` and `wallMs` directly from that task; all roles share
+one allocation. Natural comparisons require a complete explicit allocation per canonical arm ID.
 
-## Run the fixture self-test
+## Host oracle and execution boundary
 
-Use Node 24.21, Rust 1.95, Go 1.27.1 and Python 3.13 on PATH; missing tools fail explicitly. From the repository root:
+The host retains the seed, private case IDs, expected results and reference paths. An input-only bridge receives raw
+UTF-8 via stdin, including NUL, and returns text. The host compares every result; candidate output never decides a grade.
+Bridges, command descriptors, candidate environments and sandbox parent command lines contain no expected output or
+private seed. A candidate snapshot contains only public input files and allowed neighbor modules under `src/`.
+
+`_shared/isolation.mjs` is the replaceable process-isolation interface. Following K2 and owner ruling D123 Q6:
+
+- Live candidates run only under Linux, through `VerifierPort`, without network access and with a private PID space.
+  Host oracle/repository paths are absent. The adapter also makes ephemeral parent directories read-only; only its
+  private workspace is writable. An oracle under an exposed system/runtime mount is refused before execution.
+- Authored fixture self-tests explicitly choose trusted `fixture` mode on Linux/macOS. A live failure never selects it.
+- Windows refuses both process paths with typed `platform-unavailable`; it runs materialization/contract proofs and
+  asserts that refusal. Job Object isolation is deferred to D123. No unisolated Windows fallback exists.
+
+The port owns a process group, sends SIGTERM then SIGKILL after 100 ms, and kills descendants when the leader exits.
+Combined output is bounded. One task-wide checker deadline covers preflight, compilation, every case and every scope
+(default 60 seconds, at most the task's remaining wall allocation; caller limit up to 300 seconds).
+The standalone host command also propagates SIGTERM/SIGINT and cleans its workspace in `finally`.
+
+A known-good compile-and-run preflight runs before candidate evaluation for each language. Missing/broken tools are
+infrastructure failures. A candidate compile error, deleted executable, bad output or timeout remains an unresolved
+candidate, including ENOENT after preflight. Rust's channel comes from repository `rust-toolchain.toml`; candidate
+compiler/module configuration is ignored. TypeScript uses Node's type transformation (including `enum`), Python adds
+the entry directory and `src/` to its isolated module path, and Go/Rust support the public neighbor-module layout.
+All use only their standard libraries; Go proxies/cgo are disabled.
+
+## K2 contracts and tests
+
+The published K2 contract at [#868](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/868), revision
+`c25213eed108170d1a06f8d52ed0fa9d4e8cde56`, is recorded in `_shared/k2-contract.json` while K2 is absent from main.
+The checker returns exactly K2's `CodingCheckResult`: `passed`, `unavailable`, `reason`, `wallMs`.
+Reasons are `passed`, `unresolved`, `unavailable`, `aborted`. Scope/case diagnostics are private host callbacks.
+There is no separate `team-check` report. K2's live report remains `plur1bus.coding-bench/1` and alone owns paired
+results and model metrics. Its public environment keys are `platform`, `node`, `rust`, `go`, `python`, `rpc` with
+Linux/semver values; paths, endpoints, credentials and transcripts never enter it. Command environments use K2's exact
+compiler/runtime allowlist, filtering ambient credentials and loader injection. Replace the pinned contract facade
+with K2 imports when the runtime adapter lands; never introduce a second runner or public report schema.
+
+With Node 24.21, repository Rust, Go 1.27.1 and Python 3.13 on PATH, run from the repository root:
 
 ```sh
-node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 --test-timeout=120000 packages/core/test/collab/team-eval.test.ts packages/core/test/collab/team-fixtures.test.ts
+node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 --test-timeout=120000 packages/core/test/collab/team*.test.ts
 ```
 
-Every package checker and the integration checker must fail on the starting tree and pass on the reference for all
-three seeds. The public tree must contain neither hidden artifacts nor unexpanded seed filenames. This fixture proof
-runs in the normal Core suite; the CI jobs that run Core install the corresponding language toolchains.
+Linux also requires the same usable bubblewrap/user-namespace setup as the Core CI jobs. Language/task files are split
+for measured shard balance. Tests cover every seed's start/reference grades, partial solutions, ownership, all 108
+deterministic variants, the twelve review mutants, NUL inputs, enum/neighbor compatibility, runtime preflight,
+self-deletion, trapping/orphan processes, total deadlines, oracle reading and outside writes. On macOS/Windows the live
+proof asserts refusal; the actual adversarial execution proof runs on Linux. No platform test is skipped.
 
-A B1 verifier invokes one private checker as follows, with absolute paths for the checker and candidate:
+A standalone private checker is a **host** process, outside the candidate sandbox:
 
 ```sh
-node <task>/check.mjs --candidate <candidate-tree> --seed 17 --scope all
+node --experimental-strip-types <task>/check.mjs --candidate <public-tree> --seed 17 --scope all
 ```
 
-`--scope` accepts a package id, `e2e` or `all`. Success requires exit code 0 **and** a `plur1bus.team-check/1` report with
-`passed: true`. Reports contain case ids and counts, never expected/actual candidate text. Initialization or compilation
-errors produce exit code 1 and `passed: false`. Candidate compilation failures are scoped `candidate-error` grades;
-missing executables are reported as `toolchain-unavailable`. Empty case sets and undeclared seeds are refused before
-candidate execution. A missing tool is a failure, never an empty successful report.
+`--scope` accepts a package ID, `e2e` or `all`. Exit 0 requires `passed: true`. `--fixture` is an explicit authored-code
+self-test option; it must never be offered to a model or selected after isolation failure. Reports suppress all candidate
+stdout/stderr, expected/actual text and private seed data. K2's eventual team adapter supplies its provisioned runtime
+paths and verifier; the private fixture directory is never granted to model tools or mounted into the candidate.
 
-The fixture self-test executes only the authored starting/reference code. K2 remains responsible for running model
-candidates inside the existing verifier sandbox, fresh worktrees, cleanup, call budgets, redaction and paired reports.
-The private fixture directory must not be granted to a model's tools or copied to its working tree.
+## Arms and remaining TM2 integration
 
-## Arm definitions and remaining integration
+An arm is `{ family, params }` plus a canonical ID; roles/capabilities are separate planning metadata. A caller-owned
+registry provides `registerArm` and explicit extension families. Unknown IDs raise `arm-unknown`; reserved families
+without a definition raise `arm-not-executable`. Initial definitions are `single`, highest-effort `single`, reviewed
+`single`, and `explore+single`. These are data; capability metadata grants no execution or tool authority.
 
-Arms are extensible data definitions `{ family, params }`, with separate roles and capability requirements. The initial
-controls are `{ family: 'single', params: {} }`, `single` with `{ effort: 'highest' }`, `single` with `{ review: true }`,
-and `{ family: 'explore+single', params: {} }`. These are planning data, not executable bindings.
+The ID encoding matches K2: recursively sorted UTF-16 object keys, exact JSON strings and array order, finite numbers
+(`-0` becomes `0`), data properties only, depth 32, 4096 visited values and 16,384 serialized UTF-8 bytes. Empty `single`
+keeps ID `single`. Other IDs use the family (`+` becomes `-`), a hyphen and the first 32 hex digits of SHA-256 over
+canonical `{"family":...,"params":...}`. Families are 1–31 lowercase ASCII letters/digits/`+`/`-`, starting with a letter;
+IDs fit 64 portable characters. Stable vectors pin the initial controls. `team` and `best-of-n` remain extension points.
 
-`canonicalArmId` derives the ID from the family and parameters only. Object keys are sorted recursively in UTF-16 code-unit order; exact JSON
-strings and array order are preserved, while numeric `-0` serializes as `0`. Unsupported data, cycles and non-finite
-numbers are refused. Serialization is bounded to depth 32 (the parameter object is depth 0) and 4096 visited values. The empty `single`
-control keeps B1's baseline ID `single`; other IDs use the family with `+` replaced by `-`, a hyphen and the first 32
-hex digits of SHA-256 over the UTF-8 canonical JSON `{ "family": ..., "params": ... }` without whitespace. Family labels
-use 1–31 lowercase ASCII letters/digits/`+`/`-`, starting with a letter, so IDs remain portable ASCII strings of at most 64 characters.
-Test vectors pin the initial controls. Future families/parameter combinations get stable identities without extending
-a closed ID enum; they still require an explicit runtime binding. Comparisons accept descriptors or canonical IDs,
-and natural-budget maps use canonical IDs. All roles continue sharing the matched task cap. `team` (PT-4b) and `best-of-n` (PT-10) are extension
-points only. Declaring an arm or satisfying a metadata capability does not execute it or grant any tool authority.
-
-K2 owns the benchmark report schema and execution-environment allowlist. TM2 adopts those contracts from K2's PR
-when available; the fixture self-test's private checker receipt is not a second live benchmark report. Both packages
-extend `docs/ci.md`; whichever merges second merges `main` and resolves the documentation overlap, without rebasing.
-
-The team loader requires an explicit directory `file:` URL, including from a bundled caller. K2's B1 runner must land before
-the runtime adapter, live baseline, nightly job and the replacement of `fanout-eval.ts`
-and `eval:m5`. The executable `explore+single` binding is the last TM2 commit, after #853 lands on main; first merge main,
-never rebase. Capacity trials declare request concurrency 1/2/4 and writer-capacity multipliers 1/1.5/2. No throughput,
-latency, peak-memory or overcommit-slowdown results have been measured by these fixture tests.
+K2 must merge before the runtime adapter, live baseline, nightly and replacement of `fanout-eval.ts`/`eval:m5`.
+`explore+single` becomes executable in the last TM2 commit, only after #853 is on main; first merge main, never rebase.
+The declared trials remain 1/2/4 concurrent local-model requests and 1/1.5/2 writer-capacity multipliers.
+Fixture timings measure grader cost only. They establish no model throughput, peak memory, slowdown or team-quality result.
+Both K2 and TM2 edit `docs/ci.md`; the second merger integrates main and resolves that overlap.

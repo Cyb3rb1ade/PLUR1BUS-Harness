@@ -12,9 +12,9 @@
     8675309
   ],
   "budgets": {
-    "tokens": 131072,
-    "maxRounds": 100,
-    "wallMs": 2700000
+    "tokens": 77824,
+    "maxRounds": 63,
+    "wallMs": 945000
   },
   "instruction": "prompt.md",
   "start": "start",
@@ -23,7 +23,7 @@
     {
       "id": "decode",
       "entry": "src/pipeline__SEED__/solution__SEED__.go",
-      "symbol": "Decode",
+      "symbol": "Decode__SEED__",
       "owns": [
         "src/pipeline__SEED__/solution__SEED__.go"
       ],
@@ -37,7 +37,7 @@
     {
       "id": "apply",
       "entry": "src/pipeline__SEED__/solution__SEED__.go",
-      "symbol": "Apply",
+      "symbol": "Apply__SEED__",
       "owns": [
         "src/pipeline__SEED__/solution__SEED__.go"
       ],
@@ -53,11 +53,12 @@
     {
       "id": "render",
       "entry": "src/pipeline__SEED__/solution__SEED__.go",
-      "symbol": "Render",
+      "symbol": "Render__SEED__",
       "owns": [
         "src/pipeline__SEED__/solution__SEED__.go"
       ],
       "dependsOn": [
+        "decode",
         "apply"
       ],
       "reference": "reference/render",

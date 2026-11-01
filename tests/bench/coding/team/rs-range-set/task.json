@@ -12,9 +12,9 @@
     8675309
   ],
   "budgets": {
-    "tokens": 131072,
-    "maxRounds": 100,
-    "wallMs": 2700000
+    "tokens": 40960,
+    "maxRounds": 39,
+    "wallMs": 585000
   },
   "instruction": "prompt.md",
   "start": "start",
@@ -23,7 +23,7 @@
     {
       "id": "union",
       "entry": "src/union.__SEED__.rs",
-      "symbol": "solve",
+      "symbol": "solve__SEED__",
       "owns": [
         "src/union.__SEED__.rs"
       ],
@@ -37,7 +37,7 @@
     {
       "id": "cardinality",
       "entry": "src/cardinality.__SEED__.rs",
-      "symbol": "solve",
+      "symbol": "solve__SEED__",
       "owns": [
         "src/cardinality.__SEED__.rs"
       ],
@@ -51,7 +51,7 @@
     {
       "id": "describe",
       "entry": "src/describe.__SEED__.rs",
-      "symbol": "solve",
+      "symbol": "solve__SEED__",
       "owns": [
         "src/describe.__SEED__.rs"
       ],

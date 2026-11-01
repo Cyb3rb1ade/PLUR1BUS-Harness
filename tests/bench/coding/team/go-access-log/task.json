@@ -12,9 +12,9 @@
     8675309
   ],
   "budgets": {
-    "tokens": 131072,
-    "maxRounds": 100,
-    "wallMs": 2700000
+    "tokens": 57344,
+    "maxRounds": 54,
+    "wallMs": 810000
   },
   "instruction": "prompt.md",
   "start": "start",
@@ -23,7 +23,7 @@
     {
       "id": "parse",
       "entry": "src/parse__SEED__/solution__SEED__.go",
-      "symbol": "Solve",
+      "symbol": "Solve__SEED__",
       "owns": [
         "src/parse__SEED__/solution__SEED__.go"
       ],
@@ -37,7 +37,7 @@
     {
       "id": "families",
       "entry": "src/families__SEED__/solution__SEED__.go",
-      "symbol": "Solve",
+      "symbol": "Solve__SEED__",
       "owns": [
         "src/families__SEED__/solution__SEED__.go"
       ],
@@ -51,7 +51,7 @@
     {
       "id": "report",
       "entry": "src/report__SEED__/solution__SEED__.go",
-      "symbol": "Solve",
+      "symbol": "Solve__SEED__",
       "owns": [
         "src/report__SEED__/solution__SEED__.go"
       ],
@@ -60,6 +60,20 @@
       "checker": {
         "path": "check.mjs",
         "scope": "report"
+      }
+    },
+    {
+      "id": "rates",
+      "entry": "src/rates__SEED__/solution__SEED__.go",
+      "symbol": "Solve__SEED__",
+      "owns": [
+        "src/rates__SEED__/solution__SEED__.go"
+      ],
+      "dependsOn": [],
+      "reference": "reference/rates",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "rates"
       }
     }
   ],
@@ -71,7 +85,8 @@
     "order": [
       "parse",
       "families",
-      "report"
+      "report",
+      "rates"
     ]
   }
 }
