@@ -10,6 +10,7 @@ import { RpcError } from "./rpc/errors.ts";
 import type { Handler } from "./rpc/server.ts";
 import { createRedactor, type Redactor } from "./logs/redact.ts";
 import { TURN_END_REASONS, type TurnTelemetrySummary } from "./session/turn-telemetry.ts";
+import { externalAgentRefusal } from "./external-agents/platform-policy.ts";
 
 type Status = "ok" | "warn" | "fail" | "skipped";
 type Check = { id: string; status: Status; summary: string; repair?: { kind: string; label: string } };
@@ -71,6 +72,12 @@ export function buildDoctorMethods(o: { home: string; clock: () => number; sandb
       ...(tasks.hint ? { repair: { kind: "hint", label: tasks.hint } } : {}) };
     checks.push({ ...taskCheck, summary: safe(taskCheck.summary),
       ...(taskCheck.repair ? { repair: { kind: taskCheck.repair.kind, label: safe(taskCheck.repair.label) } } : {}) });
+    const acpRefusal = externalAgentRefusal();
+    const acpSandboxAvailable = sandbox.available && (process.platform !== "linux" || tasks.mechanism === "namespace-limit");
+    checks.push({ id: "external.agents.sandbox", status: acpRefusal || !acpSandboxAvailable ? "fail" : "ok",
+      summary: acpRefusal ? `External ACP agents, terminals and discovery probes: ${acpRefusal.reason}${acpRefusal.cause ? ` (${acpRefusal.cause})` : ""}.`
+        : acpSandboxAvailable ? "External ACP process sandbox available; connector acceptance is checked separately."
+          : "External ACP process sandbox: sandbox-unavailable." });
     const toolGate = hostEvalGate(o.toolEvalDefaults?.() ?? [], await readHostEvalReports(o.home, o.clock()));
     checks.push({ id: "tools.tool-eval", status: toolGate.passed ? "ok" : toolGate.models.some(m => m.label === "limited tool use") ? "fail" : "warn", summary: safe(toolGate.models.length ? toolGate.models.map(m => `${m.provider}/${m.model}: ${m.label}`).join("; ") : "Host tool use unknown: no default model inventory/evidence available.") });
     // These categories have no authoritative 1staid check in this revision. Report that explicitly; do not invent probes.

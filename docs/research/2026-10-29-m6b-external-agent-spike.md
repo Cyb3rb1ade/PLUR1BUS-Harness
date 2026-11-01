@@ -2,6 +2,19 @@
 
 Status: spike note for Arbeitspaket Q, task B0. The Seatbelt run was on this Mac. Linux bubblewrap is covered by the containment tests on the Linux CI runner. No new npm dependency was added.
 
+## Current acceptance policy (2026-11-01)
+
+The observations below are historical spike evidence, not current macOS ACP acceptance. External ACP agents, terminals and discovery probes now refuse on macOS before creating any process: typed `sandbox-unavailable`, cause `macos-acceptance-pending`. Discovery reports executable/login metadata only (existence and mode, never credential contents). There is no unsandboxed fallback or platform-override bypass. Linux keeps the bubblewrap/native-helper confinement path; Windows keeps its fail-closed refusal. Ordinary sandboxed tools retain their independent policy and Doctor status.
+
+The launcher already uses the Rust native resource helper; this decision does not replace it with a TypeScript watchdog or alter its measurement behavior. No broad Developer/Xcode read roots are permitted. The bounded Core event `external.agent.refused` and separate Doctor row `external.agents.sandbox` preserve the policy cause; native `WatchdogDetail` remains a distinct diagnostic type.
+
+Pending native acceptance is tracked by [D123](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/blob/main/docs/superpowers/plans/2026-10-31-containment-rust.md):
+
+- **SB-1:** the pnpm offline hardlink/build case and RSS `PROC_PIDTASKINFO` ESRCH failure require native acceptance with genuine process/resource evidence.
+- **SB-3:** real Git commands must work with relocated Xcode (`libxcrun.dylib`) without broad developer-directory read allowances; `open` and `osascript` must remain contained.
+
+Only those three failure groups carry macOS-conditional `node:test` TODOs. They still execute with their original bodies/assertions and visible failures. The open/osascript group has two separately named entries, so there are four TODO test entries for three groups. Linux remains sharp, including direct-agent filesystem/network denial. All other macOS tests assert the typed refusal or retain their pure protocol/policy coverage. Removing this policy requires the pending native acceptance, not merely a passing simulated-platform test.
+
 ## Seatbelt and a linked worktree
 
 A linked worktree has a `.git` file, not a directory. `config`, `hooks` and `info` live in the main repository and are shared. The profile allows writes in the worktree and denies writes to:

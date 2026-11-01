@@ -2138,6 +2138,24 @@
           "maximum": 9007199254740991
         }
       }
+    },
+    "external_agent_refused": {
+      "description": "Fixed ACP platform acceptance refusal before process creation. No paths, error text, process output or credentials.",
+      "properties": {
+        "process": {
+          "enum": [
+            "connector",
+            "terminal",
+            "discovery"
+          ]
+        },
+        "reason": {
+          "const": "sandbox-unavailable"
+        },
+        "cause": {
+          "const": "macos-acceptance-pending"
+        }
+      }
     }
   },
   "events": [
@@ -8030,6 +8048,46 @@
             "processRssBytes": 0,
             "count": 2,
             "rssBytes": 1048576
+          }
+        }
+      ]
+    },
+    {
+      "event": "external.agent.refused",
+      "note": "External ACP launch refused pending macOS acceptance (D123 SB-1/SB-3). Ordinary sandboxed tools retain their independent policy.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "external.agent.refused",
+      "attrs": "external_agent_refused",
+      "requiredAttrs": [
+        "process",
+        "reason",
+        "cause"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-11-01T10:00:00.000Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "core",
+            "version": "0.1.0"
+          },
+          "event": "external.agent.refused",
+          "msg": "external.agent.refused",
+          "attrs": {
+            "process": "connector",
+            "reason": "sandbox-unavailable",
+            "cause": "macos-acceptance-pending"
           }
         }
       ]

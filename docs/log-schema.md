@@ -204,6 +204,7 @@ emitters land in later parts of D111; the names are already reserved.
 | `model.scan.failed` | provider | error / **warn** | model_discovery | `provider`, `result`, `next_scan_at`, `consecutive_failures`, `err` |  | error for failed:auth and failed:invalid, otherwise warn; Model discovery event (D112 Task 12). |
 | `model.scan.completed` | provider | debug | model_discovery | `provider`, `result`, `duration_ms`, `counts` |  | Model discovery event (D112 Task 12). |
 | `sandbox.watchdog.failure` | harness | info | sandbox_watchdog_failure | `process`, `version`, `cause`, `operation`, `phase`, `sample`, `elapsedMicros`, `pid`, `returned`, `expected`, `errno`, `probeReturned`, `probeErrno`, `ppid`, `pgid`, `status`, `startSeconds`, `startMicros`, `processRssBytes`, `count`, `rssBytes` | experimental | The supervised ACP connector exited125 with a validated native sampling cause. Detail comes from the target-closed helper fd, never child stderr; transport results and enforcement decisions are unchanged. Example values illustrate the format and are not a diagnosis of a native failure. |
+| `external.agent.refused` | harness | info | external_agent_refused | `process`, `reason`, `cause` | experimental | External ACP launch refused pending macOS acceptance (D123 SB-1/SB-3). Ordinary sandboxed tools retain their independent policy. |
 
 ### Audit stream
 
@@ -1093,6 +1094,16 @@ Trusted, bounded native watchdog measurement failure after fail-closed exit125. 
 | `processRssBytes` | `integer` |  |
 | `count` | `integer` |  |
 | `rssBytes` | `integer` |  |
+
+#### `external_agent_refused`
+
+Fixed ACP platform acceptance refusal before process creation. No paths, error text, process output or credentials.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `process` | `connector` \| `terminal` \| `discovery` |  |
+| `reason` | `"sandbox-unavailable"` |  |
+| `cause` | `"macos-acceptance-pending"` |  |
 
 ## Redaction data
 

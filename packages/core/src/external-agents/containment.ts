@@ -2,7 +2,8 @@
 // The terminal sandbox keeps the worktree writable and the shared gitdir read-only. Windows has no backend.
 import type { WatchdogDetail } from "./watchdog-detail.ts";
 import { homedir } from "node:os";
-import { launchExternalAgent, TRUSTED_PATH } from "./launcher.ts";
+import { launchExternalAgent, LaunchError, TRUSTED_PATH } from "./launcher.ts";
+import { externalAgentRefusal, type ExternalAgentRefusal } from "./platform-policy.ts";
 import type { AcpWorktreeMount } from "../tools/sandbox/acp-worktree.ts";
 import { constants as fsc, openSync, closeSync, fstatSync, readSync, existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
@@ -183,7 +184,7 @@ export function findHardlink(worktree: string): HardlinkHit | null {
 
 /** Bounded terminal result, shared by streaming snapshots and wait_for_exit. */
 export interface TerminalResult { ok: true; exitCode: number | null; stdout: string; stderr: string; signal?: string; truncated?: boolean }
-export interface TerminalRefusal { ok: false; reason: string; detail?: WatchdogDetail }
+export interface TerminalRefusal { ok: false; reason: string; cause?: ExternalAgentRefusal["cause"]; detail?: WatchdogDetail }
 
 /** The same shared sandbox and native helper supervise agents, terminals and probes. */
 export async function containedTerminal(o: {
@@ -195,13 +196,18 @@ export async function containedTerminal(o: {
   onOutput?(output: string, truncated: boolean): void;
   log?: (event: string, fields?: Record<string, number | string>) => void;
 }): Promise<TerminalResult | TerminalRefusal> {
-  if ((o.platform ?? process.platform) === "win32") return { ok: false, reason: "sandbox-unavailable" };
+  const refusal = externalAgentRefusal(o.platform);
+  if (refusal && !refusal.cause) return { ok: false, ...refusal };
   try {
     o.signal?.throwIfAborted();
     const hit = findHardlink(o.worktree);
     if (hit) {
       o.log?.("hardlink-in-worktree", { count: hit.count, path: hit.path });
       return { ok: false, reason: "hardlink-in-worktree" };
+    }
+    if (refusal) {
+      o.log?.("external.agent.refused", { process: "terminal", ...refusal });
+      return { ok: false, ...refusal };
     }
     const limit = Math.min(o.outputByteLimit ?? TERMINAL_OUTPUT_MAX, TERMINAL_OUTPUT_MAX);
     if (!Number.isSafeInteger(limit) || limit < 1) return { ok: false, reason: "output-limit" };
@@ -232,6 +238,10 @@ export async function containedTerminal(o: {
     if (exitCode === 125) return { ok: false, reason: "sandbox-unavailable", ...(handle.exitStatus.detail ? { detail: handle.exitStatus.detail } : {}) };
     return { ok: true, exitCode, stdout: Buffer.concat(chunks).toString("utf8"), stderr: "", truncated, ...(handle.exitStatus.signal ? { signal: handle.exitStatus.signal } : {}) };
   } catch (error) {
+    if (error instanceof LaunchError && error.cause) {
+      o.log?.("external.agent.refused", { process: "terminal", reason: error.reason, cause: error.cause });
+      return { ok: false, reason: error.reason, cause: error.cause };
+    }
     if (o.killSignal?.aborted && !o.signal?.aborted) return { ok: true, exitCode: null, signal: "SIGTERM", stdout: "", stderr: "" };
     return { ok: false, reason: o.signal?.aborted ? "aborted" : error instanceof ContainmentError
       ? error.reason : "sandbox-unavailable" };

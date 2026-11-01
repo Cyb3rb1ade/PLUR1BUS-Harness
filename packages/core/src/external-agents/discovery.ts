@@ -7,6 +7,7 @@ import { AcpClient, AcpClientError } from "./acp-client.ts";
 import type { ConnectorId } from "./engine.ts";
 import type { WatchdogDetail } from "./watchdog-detail.ts";
 import { launchExternalAgent, LaunchError, type LaunchHandle } from "./launcher.ts";
+import { externalAgentRefusal, type ExternalAgentRefusal } from "./platform-policy.ts";
 
 export interface ConnectorDescriptor {
   id: ConnectorId;
@@ -32,6 +33,7 @@ export interface ConnectorProbe {
   version: string | null;
   protocol: "ok" | "refused" | "unprobed";
   reason?: string;
+  cause?: ExternalAgentRefusal["cause"];
   /** Validated native-helper cause, independently retained for each probe without changing its decision. */
   diagnostics?: { version?: WatchdogDetail; initialize?: WatchdogDetail };
   login: LoginProbe[];
@@ -44,10 +46,13 @@ export async function discoverConnectors(o: {
   timeoutMs?: number;
   platform?: NodeJS.Platform;
   limitsHelper?: string;
+  log?(event: string, fields?: Record<string, number | string>): void;
 }): Promise<ConnectorProbe[]> {
   const pathEnv = o.pathEnv ?? o.env?.PATH ?? "";
   const platform = o.platform ?? process.platform;
   const timeoutMs = o.timeoutMs ?? 5_000;
+  const refusal = externalAgentRefusal(platform);
+  if (refusal?.cause) o.log?.("external.agent.refused", { process: "discovery", ...refusal });
   const out: ConnectorProbe[] = [];
   for (const descriptor of DESCRIPTORS) {
     const bin = findBin(descriptor.bins, pathEnv);
@@ -56,8 +61,8 @@ export async function discoverConnectors(o: {
       out.push({ id: descriptor.id, effort: descriptor.effort, bin: null, version: null, protocol: "unprobed", login });
       continue;
     }
-    if (platform === "win32") {
-      out.push({ id: descriptor.id, effort: descriptor.effort, bin, version: null, protocol: "unprobed", reason: "sandbox-unavailable", login });
+    if (refusal) {
+      out.push({ id: descriptor.id, effort: descriptor.effort, bin, version: null, protocol: "unprobed", ...refusal, login });
       continue;
     }
     const scratch = await realpath(await mkdtemp(join(tmpdir(), "p1b-acp-probe-")));

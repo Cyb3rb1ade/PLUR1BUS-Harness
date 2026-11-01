@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { ContainmentError, containedRead, containedTerminal, containedWrite, gitDenyPaths } from "../../src/external-agents/containment.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
-import { launchExternalAgent, type LaunchHandle } from "../../src/external-agents/launcher.ts";
+import { launchExternalAgent, LaunchError, type LaunchHandle } from "../../src/external-agents/launcher.ts";
 import { detectSandbox } from "../../src/tools/sandbox/backends.ts";
 
 function gitWorktree(root: string): { repo: string; worktree: string; home: string } {
@@ -75,22 +75,27 @@ test("windows name rules refuse 8.3 and device names through the same canonicali
 });
 
 test("terminal callbacks are refused on Windows and cannot write the shared gitdir", async () => {
-  const refused = await containedTerminal({ argv: ["/bin/true"], worktree: "/tmp", home: "/tmp", platform: "win32" });
-  assert.deepEqual(refused, { ok: false, reason: "sandbox-unavailable" });
+  const refused = await containedTerminal({ argv: ["/bin/true"], worktree: tempDir("m6b-win-refusal-"), home: "/tmp", platform: "win32" });
+  assert.deepEqual(refused, { ok: false, reason: "sandbox-unavailable", ...(process.platform === "darwin" ? { cause: "macos-acceptance-pending" } : {}) });
   if (process.platform === "win32") return;
   const root = tempDir("m6b-term-");
   const { repo, worktree, home } = gitWorktree(root);
   const touch = process.platform === "darwin" ? "/usr/bin/touch" : "/usr/bin/touch";
   const inside = await containedTerminal({ argv: [touch, join(worktree, "from-terminal.txt")], worktree, home, ...mountOptions(worktree) });
-  assert.equal(inside.ok, true, JSON.stringify(inside));
-  if (inside.ok) assert.equal(inside.exitCode, 0, inside.stderr);
-  assert.equal(existsSync(join(worktree, "from-terminal.txt")), true);
+  if (process.platform === "darwin") assert.deepEqual(inside, { ok: false, reason: "sandbox-unavailable", cause: "macos-acceptance-pending" });
+  else {
+    assert.equal(inside.ok, true, JSON.stringify(inside));
+    if (inside.ok) assert.equal(inside.exitCode, 0, inside.stderr);
+  }
+  assert.equal(existsSync(join(worktree, "from-terminal.txt")), process.platform !== "darwin");
   const hook = join(repo, ".git", "hooks", "pre-commit");
   const denied = await containedTerminal({ argv: [touch, hook], worktree, home, ...mountOptions(worktree) });
   assert.equal(existsSync(hook), false);
+  if (process.platform === "darwin") assert.deepEqual(denied, { ok: false, reason: "sandbox-unavailable", cause: "macos-acceptance-pending" });
   if (denied.ok) assert.notEqual(denied.exitCode, 0);
   const git = process.platform === "darwin" ? "/usr/bin/git" : "/usr/bin/git";
   const cfg = await containedTerminal({ argv: [git, "-C", repo, "config", "core.hooksPath", "/tmp/evil"], worktree, home, ...mountOptions(worktree) });
+  if (process.platform === "darwin") assert.deepEqual(cfg, { ok: false, reason: "sandbox-unavailable", cause: "macos-acceptance-pending" });
   if (cfg.ok) assert.notEqual(cfg.exitCode, 0, cfg.stderr);
   let hooks = "";
   try { hooks = execFileSync("git", ["-C", repo, "config", "--get", "core.hooksPath"], { encoding: "utf8" }).trim(); } catch { hooks = ""; }
@@ -103,12 +108,22 @@ test("the agent process itself confines direct filesystem and TCP access", { tim
     await assert.rejects(launchExternalAgent({ argv: [process.execPath], cwd: "/missing" }), /sandbox-unavailable/);
     return;
   }
+  if (process.platform === "darwin") {
+    const root = tempDir("m6b-agent-refusal-");
+    const { worktree, home } = gitWorktree(root);
+    const marker = join(worktree, "must-not-launch");
+    await assert.rejects(launchExternalAgent({ argv: [process.execPath, "-e", `require("fs").writeFileSync(${JSON.stringify(marker)}, "bad")`],
+      cwd: worktree, worktree, home, ...mountOptions(worktree), platform: "linux" }),
+    (error: unknown) => error instanceof LaunchError && error.reason === "sandbox-unavailable" && error.cause === "macos-acceptance-pending");
+    assert.equal(existsSync(marker), false);
+    return;
+  }
   const detection = await detectSandbox(limitsHelper);
   if (process.platform === "linux" && !detection.available && !process.env.CI) {
     t.skip(detection.reason);
     return;
   }
-  // Missing/disabled bwrap must fail on CI, where the runner installs it. macOS acceptance is mandatory too.
+  // Missing/disabled bwrap must fail on CI, where the runner installs it. macOS production refusal is checked above.
   assert.equal(detection.available, true, detection.reason);
   const root = tempDir("m6b-agent-process-");
   const { repo, worktree, home } = gitWorktree(root);

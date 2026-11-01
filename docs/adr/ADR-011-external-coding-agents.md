@@ -267,3 +267,9 @@ Owner request of 2026-10-07: the bridge covers the systems below. Source and evi
 * Cursor and Kiro: no explicit harness clause found.
 
 **Not connectors.** The Grok bot (Grok in Telegram or @grok on X) and Amazon Bedrock have no local drive or attach surface; they are **provider profiles** (xAI API; Bedrock Converse or its OpenAI-compatible endpoint). Bedrock Agents and Bedrock AgentCore are remote managed runtimes reachable only through the AWS API; they would need a separate remote-API engine adapter, out of scope for T1–T3.
+
+## 2026-11-01 implementation policy: macOS acceptance pending
+
+External ACP agent launches, terminal callbacks and executable discovery probes fail closed on macOS with typed `sandbox-unavailable`, cause `macos-acceptance-pending`, before process creation. Discovery retains only executable/login metadata; credential contents remain unread. A platform override cannot disguise a macOS host. Linux retains bubblewrap and the Rust resource helper; Windows remains refused. This ACP policy is independent of ordinary sandboxed tools and does not widen Developer/Xcode read roots. Core logs the fixed cause in `external.agent.refused`; Doctor exposes it in `external.agents.sandbox`.
+
+Native acceptance remains D123 **SB-1** (pnpm hardlink/build and RSS `PROC_PIDTASKINFO` ESRCH) and **SB-3** (real Git with relocated-Xcode `libxcrun.dylib`, and open/osascript containment). The [spike record](../research/2026-10-29-m6b-external-agent-spike.md#current-acceptance-policy-2026-11-01) distinguishes historical observations from those pending criteria. The existing Rust helper is unchanged; this policy does not claim a native watchdog correction.

@@ -1,7 +1,7 @@
 /** Handwritten agent-side v1 requests exercise real terminal containment and run cleanup. */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { test } from "node:test";
@@ -43,35 +43,49 @@ test("v1 terminals stream bounded output, enforce four slots, release and stop a
     const ids: string[] = [];
     for (let i = 0; i < 4; i++) ids.push(await terminal(`let n=0;setInterval(()=>{require('fs').writeFileSync('heartbeat-${i}',String(++n));process.stdout.write('x'.repeat(100))},20)`));
     await assert.rejects(terminal(""), /terminal-limit/);
-    for (let i = 0; i < 100; i++) {
-      const snapshot = await request("terminal/output", { terminalId: ids[0] });
-      assert.equal(snapshot.exitStatus, undefined);
-      if (snapshot.truncated) { assert.equal(Buffer.byteLength(String(snapshot.output)), 32); break; }
-      if (i === 99) assert.fail("terminal did not stream");
-      await delay(20);
+    if (process.platform === "darwin") {
+      for (const terminalId of ids) {
+        await assert.rejects(request("terminal/wait_for_exit", { terminalId }), /sandbox-unavailable/);
+        assert.deepEqual(await request("terminal/output", { terminalId }), { output: "", truncated: false });
+      }
+      await request("terminal/release", { terminalId: ids[0] });
+      await assert.rejects(request("terminal/output", { terminalId: ids[0] }), /terminal/);
+      const replacement = await terminal("process.exit(7)");
+      await assert.rejects(request("terminal/wait_for_exit", { terminalId: replacement }), /sandbox-unavailable/);
+      await request("terminal/kill", { terminalId: replacement });
+      await request("terminal/release", { terminalId: replacement });
+      for (let i = 0; i < 4; i++) assert.equal(existsSync(join(worktree, `heartbeat-${i}`)), false);
+    } else {
+      for (let i = 0; i < 100; i++) {
+        const snapshot = await request("terminal/output", { terminalId: ids[0] });
+        assert.equal(snapshot.exitStatus, undefined);
+        if (snapshot.truncated) { assert.equal(Buffer.byteLength(String(snapshot.output)), 32); break; }
+        if (i === 99) assert.fail("terminal did not stream");
+        await delay(20);
+      }
+      await request("terminal/release", { terminalId: ids[0] });
+      const count = readFileSync(join(worktree, "heartbeat-0"), "utf8");
+      await delay(100);
+      assert.equal(readFileSync(join(worktree, "heartbeat-0"), "utf8"), count);
+      await assert.rejects(request("terminal/output", { terminalId: ids[0] }), /terminal/);
+      const completed = await terminal("process.exit(7)");
+      assert.deepEqual(await request("terminal/wait_for_exit", { terminalId: completed }), { exitCode: 7 });
+      assert.deepEqual((await request("terminal/output", { terminalId: completed })).exitStatus, { exitCode: 7 });
+      await request("terminal/release", { terminalId: completed });
+      const killed = await terminal("process.stdout.write('ready');setInterval(()=>{},1000)");
+      for (let i = 0; ; i++) {
+        if (String((await request("terminal/output", { terminalId: killed })).output).includes("ready")) break;
+        assert.ok(i < 100, "terminal must execute before explicit kill");
+        await delay(20);
+      }
+      await request("terminal/kill", { terminalId: killed });
+      const afterKill = await request("terminal/output", { terminalId: killed });
+      const killedStatus = await request("terminal/wait_for_exit", { terminalId: killed });
+      assert.deepEqual(afterKill.exitStatus, killedStatus);
+      assert.ok(typeof killedStatus.signal === "string" || typeof killedStatus.exitCode === "number");
+      await request("terminal/release", { terminalId: killed });
+      leftover = join(worktree, "heartbeat-1");
     }
-    await request("terminal/release", { terminalId: ids[0] });
-    const count = readFileSync(join(worktree, "heartbeat-0"), "utf8");
-    await delay(100);
-    assert.equal(readFileSync(join(worktree, "heartbeat-0"), "utf8"), count);
-    await assert.rejects(request("terminal/output", { terminalId: ids[0] }), /terminal/);
-    const completed = await terminal("process.exit(7)");
-    assert.deepEqual(await request("terminal/wait_for_exit", { terminalId: completed }), { exitCode: 7 });
-    assert.deepEqual((await request("terminal/output", { terminalId: completed })).exitStatus, { exitCode: 7 });
-    await request("terminal/release", { terminalId: completed });
-    const killed = await terminal("process.stdout.write('ready');setInterval(()=>{},1000)");
-    for (let i = 0; ; i++) {
-      if (String((await request("terminal/output", { terminalId: killed })).output).includes("ready")) break;
-      assert.ok(i < 100, "terminal must execute before explicit kill");
-      await delay(20);
-    }
-    await request("terminal/kill", { terminalId: killed });
-    const afterKill = await request("terminal/output", { terminalId: killed });
-    const killedStatus = await request("terminal/wait_for_exit", { terminalId: killed });
-    assert.deepEqual(afterKill.exitStatus, killedStatus);
-    assert.ok(typeof killedStatus.signal === "string" || typeof killedStatus.exitCode === "number");
-    await request("terminal/release", { terminalId: killed });
-    leftover = join(worktree, "heartbeat-1");
   };
   output.on("data", (data: Buffer) => {
     for (const line of data.toString().trim().split("\n")) {
@@ -97,8 +111,12 @@ test("v1 terminals stream bounded output, enforce four slots, release and stop a
     if (failure) throw failure;
     assert.equal(wire.length, 3);
     assert.doesNotMatch(wire.join("\n"), /MEMORY-MARKER|memoryExposure/);
-    const final = readFileSync(leftover, "utf8");
-    await delay(100);
-    assert.equal(readFileSync(leftover, "utf8"), final);
+    if (process.platform === "darwin") {
+      for (let i = 0; i < 4; i++) assert.equal(existsSync(join(worktree, `heartbeat-${i}`)), false);
+    } else {
+      const final = readFileSync(leftover, "utf8");
+      await delay(100);
+      assert.equal(readFileSync(leftover, "utf8"), final);
+    }
   } finally { sessions.close(); }
 });

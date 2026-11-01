@@ -1019,6 +1019,12 @@
       "expect": "ok"
     },
     {
+      "name": "example:external.agent.refused",
+      "validator": "diagnostic",
+      "line": "{\"ts\":\"2026-11-01T10:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"external.agent.refused\",\"msg\":\"external.agent.refused\",\"attrs\":{\"process\":\"connector\",\"reason\":\"sandbox-unavailable\",\"cause\":\"macos-acceptance-pending\"}}",
+      "expect": "ok"
+    },
+    {
       "name": "watchdog:aggregate-rss-incomplete",
       "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"sandbox.watchdog.failure\",\"msg\":\"sandbox.watchdog.failure\",\"attrs\":{\"process\":\"connector\",\"version\":1,\"cause\":\"aggregate-rss-incomplete\",\"operation\":\"task-info\",\"phase\":\"runtime\",\"sample\":2,\"elapsedMicros\":1234,\"pid\":321,\"returned\":0,\"expected\":96,\"errno\":3,\"probeReturned\":0,\"probeErrno\":0,\"ppid\":123,\"pgid\":123,\"status\":5,\"startSeconds\":1700000000,\"startMicros\":500,\"processRssBytes\":0,\"count\":2,\"rssBytes\":1048576}}",
@@ -15006,6 +15012,84 @@
           "processRssBytes",
           "count",
           "rssBytes"
+        ]
+      }
+    },
+    {
+      "event": "external.agent.refused",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "attrs": "external_agent_refused",
+      "requiredAttrs": [
+        "process",
+        "reason",
+        "cause"
+      ],
+      "streamed": false,
+      "family": false,
+      "activity": false,
+      "stability": "experimental",
+      "attrsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "repeat": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "dedup summary: all occurrences in the window, the first included (§2.9)"
+          },
+          "window_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "dedup or rate-limit window length"
+          },
+          "link_trace_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$",
+            "description": "a foreign trace id that was not adopted (§2.8)"
+          },
+          "foreign_message": {
+            "type": "string",
+            "maxLength": 2048,
+            "description": "untrusted foreign error text, truncated and redacted by the writer"
+          },
+          "untrusted": {
+            "type": "boolean",
+            "description": "true on wrapped third-party output"
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "the value was cut to its limit"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "original size in bytes when truncated"
+          },
+          "process": {
+            "enum": [
+              "connector",
+              "terminal",
+              "discovery"
+            ]
+          },
+          "reason": {
+            "const": "sandbox-unavailable"
+          },
+          "cause": {
+            "const": "macos-acceptance-pending"
+          }
+        },
+        "required": [
+          "process",
+          "reason",
+          "cause"
         ]
       }
     }

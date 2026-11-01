@@ -50,6 +50,38 @@ it("a read-only scoped operator token cannot request a fresh check", async () =>
 
 const ctxOf = () => ({ requestId: "request", connectionId: "connection", signal: new AbortController().signal });
 const viewer = (now: () => number) => ({ resolve: () => ({ kind: "person", role: "viewer", userId: "person-alice" }) as Principal, now });
+it("Doctor exposes macOS ACP refusal independently of ordinary Seatbelt availability", async t => {
+  const descriptor = Object.getOwnPropertyDescriptor(process, "platform")!;
+  Object.defineProperty(process, "platform", { ...descriptor, value: "darwin" });
+  t.after(() => Object.defineProperty(process, "platform", descriptor));
+  const methods = guardMethods(buildDoctorMethods({ home: "/fixture", clock: () => 1000,
+    check: async () => ({ schema: "1staid.check/1", checks: [] }),
+    detectSandbox: async () => ({ available: true, backend: "seatbelt", strength: "partial", reason: "available",
+      tasks: { mechanism: "fork-denied", reason: "fork denied" } }),
+  }), viewer(() => 1000));
+  const report = await methods["doctor.report"]!({}, ctxOf()) as { groups: { checks: { id: string; status: string; summary: string }[] }[] };
+  const checks = report.groups.flatMap(group => group.checks);
+  const acp = checks.find(check => check.id === "external.agents.sandbox");
+  assert.equal(acp?.status, "fail");
+  assert.match(acp?.summary ?? "", /sandbox-unavailable.*macos-acceptance-pending/);
+  assert.equal(checks.find(check => check.id === "tools.sandbox")?.status, "warn");
+  assert.equal(checks.find(check => check.id === "tools.sandbox.tasks")?.status, "ok");
+});
+it("Doctor does not advertise Linux ACP when namespace task enforcement is unavailable", async t => {
+  const descriptor = Object.getOwnPropertyDescriptor(process, "platform")!;
+  Object.defineProperty(process, "platform", { ...descriptor, value: "linux" });
+  t.after(() => Object.defineProperty(process, "platform", descriptor));
+  for (const mechanism of ["none", "namespace-limit"] as const) {
+    const methods = guardMethods(buildDoctorMethods({ home: "/fixture", clock: () => 1000,
+      check: async () => ({ schema: "1staid.check/1", checks: [] }),
+      detectSandbox: async () => ({ available: true, backend: "bubblewrap", strength: "partial", reason: "available",
+        tasks: { mechanism, reason: "measured" } }),
+    }), viewer(() => 1000));
+    const report = await methods["doctor.report"]!({}, ctxOf()) as { groups: { checks: { id: string; status: string }[] }[] };
+    assert.equal(report.groups.flatMap(group => group.checks).find(check => check.id === "external.agents.sandbox")?.status,
+      mechanism === "namespace-limit" ? "ok" : "fail");
+  }
+});
 const reportOf = (home: string, summary: string, hint?: string) => guardMethods(buildDoctorMethods({ home, clock: () => 1000, check: async () => ({ schema: "1staid.check/1", checks: [{ id: "models.cache", status: "warn", summary, ...(hint ? { hint } : {}) }] }) }), viewer(() => 1000))["doctor.report"]!({}, ctxOf());
 
 it("shows a live numeric tool-use summary and p50/p95 without refreshing provisioning", async () => {

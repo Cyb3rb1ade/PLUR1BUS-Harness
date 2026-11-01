@@ -47,8 +47,15 @@ rl.on("line", (line) => {
     assert.equal(found.find((c) => c.id === "goose")?.login[0]?.exists, true);
     const hit = found.find((c) => c.id === "agy");
     assert.equal(hit?.bin, bin);
-    assert.equal(hit?.version, "stub 1");
-    assert.equal(hit?.protocol, "ok");
+    if (process.platform === "darwin") {
+      assert.equal(hit?.version, null);
+      assert.equal(hit?.protocol, "unprobed");
+      assert.equal(hit?.reason, "sandbox-unavailable");
+      assert.equal(hit?.cause, "macos-acceptance-pending");
+    } else {
+      assert.equal(hit?.version, "stub 1");
+      assert.equal(hit?.protocol, "ok");
+    }
     assert.equal(hit?.effort, "best-effort");
     const win = await discoverConnectors({ home, pathEnv: binDir, platform: "win32" });
     assert.equal(win.find((c) => c.id === "agy")?.reason, "sandbox-unavailable");

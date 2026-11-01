@@ -116,7 +116,9 @@ The API credential narrows ordinary local-client capabilities, but cannot isolat
 
 ### External agent worktree
 
-An external coding agent writes only inside its provisioned worktree. Two checks cover hard links. The sandbox denies creating one (`file-link` on macOS; on Linux an unmounted target is `ENOENT` and a read-only system bind is `EXDEV`). Before the session and before `terminal/create`, a regular file with `nlink > 1` refuses the run (`hardlink-in-worktree`). A process outside the sandbox could still create a link between that scan and the launch. That process is outside the threat model, because the agent itself runs in the sandbox. Symlinks are resolved before a read or write and do not escape the worktree.
+External ACP agents, terminals and discovery probes are unavailable on macOS pending acceptance: every production launch refuses with `sandbox-unavailable`, cause `macos-acceptance-pending`, before creating any process. A platform override cannot bypass the actual host policy. Windows remains fail-closed. Ordinary sandboxed tools keep their separate Seatbelt policy. The Core diagnostic event `external.agent.refused` and Doctor row `external.agents.sandbox` expose this fixed acceptance cause without process output or credentials.
+
+On Linux an external coding agent writes only inside its provisioned worktree, using bubblewrap and the native resource helper. Two checks cover hard links. The sandbox denies links to outside files (an unmounted target is `ENOENT` and a read-only system bind is `EXDEV`). Before the session and before `terminal/create`, a regular file with `nlink > 1` refuses the run (`hardlink-in-worktree`). A process outside the sandbox could still create a link between that scan and the launch. That process is outside the threat model, because the agent itself runs in the sandbox. Symlinks are resolved before a read or write and do not escape the worktree.
 
 ### Known boundary: same OS user
 

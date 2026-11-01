@@ -82,12 +82,10 @@ catch (e) { console.log(e.code); }
     if (system.ok) assert.match(system.stdout, /EXDEV/);
   } else {
     const created = await containedTerminal({ argv: [process.execPath, script, outside, dst], worktree, home, ...mountOptions(worktree), timeoutMs: 15_000 });
-    assert.equal(created.ok, true, JSON.stringify(created));
-    if (created.ok) assert.match(created.stdout, /EPERM/);
+    assert.deepEqual(created, { ok: false, reason: "sandbox-unavailable", cause: "macos-acceptance-pending" });
     const device = join(worktree, "dev");
     const dev = await containedTerminal({ argv: [process.execPath, script, "/dev/null", device], worktree, home, ...mountOptions(worktree), timeoutMs: 15_000 });
-    assert.equal(dev.ok, true, JSON.stringify(dev));
-    if (dev.ok) assert.match(dev.stdout, /EPERM|EXDEV|EINVAL/);
+    assert.deepEqual(dev, { ok: false, reason: "sandbox-unavailable", cause: "macos-acceptance-pending" });
     assert.equal(existsSync(device), false);
   }
   assert.equal(existsSync(dst), false);
@@ -107,8 +105,10 @@ test("terminal cannot write hooks or retarget core.hooksPath", async () => {
   const hook = join(repo, ".git", "hooks", "pre-commit");
   const denied = await containedTerminal({ argv: [touch, hook], worktree, home, ...mountOptions(worktree), timeoutMs: 15_000 });
   assert.equal(existsSync(hook), false);
+  if (process.platform === "darwin") assert.deepEqual(denied, { ok: false, reason: "sandbox-unavailable", cause: "macos-acceptance-pending" });
   if (denied.ok) assert.notEqual(denied.exitCode, 0);
   const cfg = await containedTerminal({ argv: [git, "-C", repo, "config", "core.hooksPath", "/tmp/evil"], worktree, home, ...mountOptions(worktree), timeoutMs: 15_000 });
+  if (process.platform === "darwin") assert.deepEqual(cfg, { ok: false, reason: "sandbox-unavailable", cause: "macos-acceptance-pending" });
   if (cfg.ok) assert.notEqual(cfg.exitCode, 0, cfg.stderr);
   let hooks = "";
   try { hooks = execFileSync("git", ["-C", repo, "config", "--get", "core.hooksPath"], { encoding: "utf8" }).trim(); } catch { hooks = ""; }

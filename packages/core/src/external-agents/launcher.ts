@@ -12,6 +12,7 @@ import { preparePolicy } from "../tools/sandbox/policy.ts";
 import type { AcpWorktreeMount } from "../tools/sandbox/acp-worktree.ts";
 import { matchDeny } from "../policy/paths.ts";
 import { DEFAULT_MAX_TASKS } from "../tools/sandbox/types.ts";
+import { externalAgentRefusal, type ExternalAgentRefusal } from "./platform-policy.ts";
 
 export const DEFAULT_MAX_TURNS = 20;
 export const DEFAULT_RUN_TIMEOUT_MS = 600_000;
@@ -22,10 +23,12 @@ const SHELLS = new Set(["sh", "bash", "zsh", "cmd", "cmd.exe", "powershell", "pw
 /** A typed refusal before the target starts. */
 export class LaunchError extends Error {
   readonly reason: "sandbox-unavailable" | "argv" | "spawn-failed" | "aborted";
-  constructor(reason: LaunchError["reason"]) {
+  override readonly cause: ExternalAgentRefusal["cause"];
+  constructor(reason: LaunchError["reason"], cause?: ExternalAgentRefusal["cause"]) {
     super(reason);
     this.name = "LaunchError";
     this.reason = reason;
+    this.cause = cause;
   }
 }
 
@@ -80,7 +83,8 @@ export async function resolveCommand(command: string, scope: { worktree?: string
 
 /** Every async preparation step is followed by a cancellation check before the single spawn boundary. */
 export async function launchExternalAgent(o: LaunchOptions): Promise<LaunchHandle> {
-  if ((o.platform ?? process.platform) === "win32") throw new LaunchError("sandbox-unavailable");
+  const refusal = externalAgentRefusal(o.platform);
+  if (refusal) throw new LaunchError(refusal.reason, refusal.cause);
   if (!o.probe && !o.mount) throw new LaunchError("sandbox-unavailable");
   if (!o.argv.length || o.argv.some(a => typeof a !== "string" || a.includes("\0"))) throw new LaunchError("argv");
   if (!Number.isSafeInteger(o.maxTasks ?? DEFAULT_MAX_TASKS) || (o.maxTasks ?? DEFAULT_MAX_TASKS) < 1)

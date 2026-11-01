@@ -53,7 +53,7 @@ test("live tools.sandbox.maxTasks=2 reaches wired ACP terminal containment", asy
   const scenario = async () => {
     if (process.platform === "darwin") {
       const terminalId = await create("/usr/bin/perl", ["-e", "for(1..4){if(fork()==0){sleep 2;exit 0}}sleep 2"]);
-      await assert.rejects(request("terminal/wait_for_exit", { terminalId }), /task-limit-exceeded/);
+      await assert.rejects(request("terminal/wait_for_exit", { terminalId }), /sandbox-unavailable/);
     } else {
       const terminalId = await create("/usr/bin/cat", ["/proc/self/limits"]);
       assert.equal((await request("terminal/wait_for_exit", { terminalId })).exitCode, 0);
@@ -77,15 +77,19 @@ test("live tools.sandbox.maxTasks=2 reaches wired ACP terminal containment", asy
       }
     }
   });
+  const events: { event: string; fields?: Record<string, number | string> }[] = [];
   const options: { delegationTargets?: readonly DelegationTarget[] } = {};
   wireExternalAgents({ home, config: () => config, agents: { workspaceOf: () => null },
-    permissions: { current: () => ({ service: approvals.service }), open: async () => ({ service: approvals.service }) }, logger: { info() {} } },
+    permissions: { current: () => ({ service: approvals.service }), open: async () => ({ service: approvals.service }) }, logger: { info: (event, fields) => events.push({ event, ...(fields ? { fields } : {}) }) } },
   options, () => ({ store: sessions }), () => collab,
   deps => new ExternalDelegationTarget({ ...deps, limitsHelper, connect: () => ({ input, output, stop() {} }) }));
   try {
     await runWithAgentScope(scopeFor("worker", project.id), () => options.delegationTargets![0]!.run({ agentId: "worker", principal: who,
       question: "Check limit", context: "", signal: new AbortController().signal }));
     if (failure) throw failure;
+    if (process.platform === "darwin") assert.deepEqual(events.filter(row => row.event === "external.agent.refused"), [1, 2].map(() => ({
+      event: "external.agent.refused", fields: { process: "terminal", reason: "sandbox-unavailable", cause: "macos-acceptance-pending" },
+    })));
   } finally { approvals.service.dispose(); approvals.stores.db.close(); sessions.close(); collab.close(); }
 });
 
@@ -98,14 +102,19 @@ test("configured ACP deadlines above ten minutes are preserved and bounded at on
   assert.deepEqual(readEngine({ engine: { kind: "external", connector: "agy", timeoutMs: 3600001 } }), { kind: "external", connector: null });
   const cwd = tempDir("q3-timeout-");
   await assert.rejects(launchExternalAgent({ argv: ["/usr/bin/sleep", "3600"], cwd, probe: true, timeoutMs: 3600001 }), /sandbox-unavailable/);
-  t.mock.timers.enable({ apis: ["setTimeout"] });
-  const handle = await launchExternalAgent({ argv: ["/usr/bin/sleep", "3600"], cwd, probe: true, limitsHelper, timeoutMs: 1800000 });
-  try {
-    t.mock.timers.tick(600001);
-    assert.equal(handle.exitStatus.reason, undefined);
-    t.mock.timers.tick(1199999);
-    assert.equal(handle.exitStatus.reason, "timeout");
-    t.mock.timers.tick(100);
-    await handle.exited;
-  } finally { handle.stop(); t.mock.timers.tick(100); await handle.exited; }
+  if (process.platform === "darwin") {
+    await assert.rejects(launchExternalAgent({ argv: ["/usr/bin/sleep", "3600"], cwd, probe: true, limitsHelper, timeoutMs: 1800000 }),
+      { reason: "sandbox-unavailable", cause: "macos-acceptance-pending" });
+  } else {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    const handle = await launchExternalAgent({ argv: ["/usr/bin/sleep", "3600"], cwd, probe: true, limitsHelper, timeoutMs: 1800000 });
+    try {
+      t.mock.timers.tick(600001);
+      assert.equal(handle.exitStatus.reason, undefined);
+      t.mock.timers.tick(1199999);
+      assert.equal(handle.exitStatus.reason, "timeout");
+      t.mock.timers.tick(100);
+      await handle.exited;
+    } finally { handle.stop(); t.mock.timers.tick(100); await handle.exited; }
+  }
 });

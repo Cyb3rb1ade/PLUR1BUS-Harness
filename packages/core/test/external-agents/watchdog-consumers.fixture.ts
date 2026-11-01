@@ -86,6 +86,7 @@ try {
     }
     assert.equal(launchCalls, 0, "the existing connect seam does not enable a real connector");
   } else if (mode === "discovery") {
+    Object.defineProperty(process, "platform", { value: "linux", configurable: true }); // Mocked launch results only; no production process.
     const binDir = join(root, "bin"); mkdirSync(binDir);
     writeFileSync(join(binDir, "agy"), "fixture", { mode: 0o755 });
     for (const trusted of [true, false]) {

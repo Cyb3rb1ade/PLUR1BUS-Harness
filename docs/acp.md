@@ -50,7 +50,13 @@ The agent-side table above is unchanged: `plur1bus acp serve` still does not imp
 
 ## External process containment (#820 Q3)
 
-Every agent, discovery probe and terminal uses the shared sandbox and native resource helper. Children get a fresh empty
+On macOS, every external ACP agent, discovery probe and terminal launch refuses before any process is created with typed
+`sandbox-unavailable`, cause `macos-acceptance-pending`. Discovery is metadata-only (executable/login existence and mode),
+with no version/initialize execution or credential-content reads. A platform override cannot disguise the real macOS host.
+The bounded Core event `external.agent.refused` and Doctor row `external.agents.sandbox` retain the cause. Ordinary sandboxed
+tools keep their independent policy. Windows remains fail-closed; there is no unsandboxed fallback.
+
+On Linux, every agent, discovery probe and terminal uses the shared sandbox and native resource helper. Children get a fresh empty
 HOME/TMPDIR, a fixed system PATH, no inherited credentials and no network. Discovery runs from empty scratch, never the
 user's home. Windows refuses before spawn. Four terminals may be live at once; release and run completion kill and await them.
 Terminal creation accepts command, args, cwd and outputByteLimit; output returns immediately with bounded output/truncated and
@@ -68,9 +74,11 @@ Linux's sole writable bind exception is an opaque grant from a live Harness work
 state/worktrees, its provisioned device/inode must match, every ancestor must be free of symlinks, and the bounded pre-mount
 scan must find no regular file with more than one hard link. Ordinary backend callers retain writable-root refusal. Both
 per-worktree and common Git directories are read-only. A Linux process can create links within its own writable mount;
-those links make the next mount refuse. Outside link attempts fail with ENOENT or EXDEV. macOS denies file-link entirely.
+those links make the next mount refuse. Outside link attempts fail with ENOENT or EXDEV.
 
-On macOS each ACP process has its own process group. The shared native helper attaches before releasing the target's exec
+The existing macOS native helper remains available for D123 acceptance work; production ACP cannot reach it while the
+acceptance policy is in force. It has not been replaced by a TypeScript watchdog. The implementation under acceptance gives
+each ACP process its own process group. The shared native helper attaches before releasing the target's exec
 gate, enumerates all members of its process group with proc_listpgrppids, recursively enumerates children using
 proc_listchildpids/proc_pidinfo, and retains identity-checked known descendants across reparenting on 50 ms cycles.
 Each PID/start-time identity contributes once to task count and aggregate RSS; same-group orphan children remain measured.
@@ -79,7 +87,9 @@ or RSS kills the entire group with SIGKILL and reports task-limit-exceeded or rs
 Observation/attach failure is sandbox-unavailable. Enforcement is sampled: brief overshoot between observations is possible.
 A descendant that creates a new session/process group is a residual boundary for group cleanup; this is not a kernel Job
 Object/cgroup guarantee or a UID-wide cap. The shared deny-default Seatbelt profile permits ACP forks while preserving
-ordinary no-fork callers, denies Apple events and limits file reads/writes to measured runtime, worktree and scratch paths.
+ordinary no-fork callers, denies Apple events and new hard links, and limits file reads/writes to measured runtime, worktree
+and scratch paths. Native acceptance remains D123 SB-1 (pnpm hardlink/build and RSS `PROC_PIDTASKINFO` ESRCH) and SB-3
+(real Git with relocated-Xcode `libxcrun.dylib`, open/osascript containment). No broad Developer/Xcode read allowance is added.
 
 Root and card checkouts are siblings beneath state/worktrees/<rootId>; local coding and completion use the same provisioned
 checkout. Host verification uses DB-pinned Git metadata, never a writable .git pointer, and disables clean/smudge/process filters.

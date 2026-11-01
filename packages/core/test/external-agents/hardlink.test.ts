@@ -76,8 +76,7 @@ catch (e) { console.log(e.code); }
     if (system.ok) assert.match(system.stdout, /EXDEV/);
   } else if (process.platform === "darwin") {
     const created = await run(outside);
-    assert.equal(created.ok, true, JSON.stringify(created));
-    if (created.ok) assert.match(created.stdout, /EPERM/);
+    assert.deepEqual(created, { ok: false, reason: "sandbox-unavailable", cause: "macos-acceptance-pending" });
     assert.equal(existsSync(dst), false);
   } else {
     const refused = await containedTerminal({ argv: [process.execPath, script], worktree, home, ...mountOptions(worktree), platform: "win32" });
@@ -95,11 +94,11 @@ test("a symlink out of the worktree is still refused on write", async () => {
 });
 
 test("Windows terminal stays refused", async () => {
-  const refused = await containedTerminal({ argv: ["/bin/true"], worktree: "/tmp", home: "/tmp", platform: "win32" });
-  assert.deepEqual(refused, { ok: false, reason: "sandbox-unavailable" });
+  const refused = await containedTerminal({ argv: ["/bin/true"], worktree: tempDir("m6b-win-refusal-"), home: "/tmp", platform: "win32" });
+  assert.deepEqual(refused, { ok: false, reason: "sandbox-unavailable", ...(process.platform === "darwin" ? { cause: "macos-acceptance-pending" } : {}) });
 });
 
-test("pnpm installs and builds offline; the next Linux mount refuses its resulting hardlinks", async () => {
+test("pnpm installs and builds offline; the next Linux mount refuses its resulting hardlinks", { todo: process.platform === "darwin" ? "pnpm hardlink / RSS PROC_PIDTASKINFO ESRCH: macos-acceptance-pending — D123 SB-1" : false }, async () => {
   const pnpm = onPath("pnpm");
   assert.ok(pnpm, "pnpm is on PATH");
   const entry = pnpmEntry(pnpm);

@@ -18,7 +18,8 @@ import type { SessionStore } from "../session/store.ts";
 import { AcpClient, AcpClientError, type AcpClientHandlers } from "./acp-client.ts";
 import { containedRead, containedTerminal, containedWrite, containedPath, ContainmentError, findHardlink } from "./containment.ts";
 import { connectorArgv, type ResolvedEngine } from "./engine.ts";
-import { launchExternalAgent, resolveCommand, type LaunchHandle } from "./launcher.ts";
+import { launchExternalAgent, LaunchError, resolveCommand, type LaunchHandle } from "./launcher.ts";
+import { externalAgentRefusal } from "./platform-policy.ts";
 
 export interface ExternalRunLink {
   input: Readable;
@@ -187,6 +188,7 @@ export class ExternalDelegationTarget implements DelegationTarget {
               ...(this.#d.maxTasks !== undefined ? { maxTasks: typeof this.#d.maxTasks === "function" ? this.#d.maxTasks() : this.#d.maxTasks } : {}),
               ...(typeof params.outputByteLimit === "number" ? { outputByteLimit: params.outputByteLimit } : {}),
               onOutput: (output, truncated) => { rec.output = output; rec.truncated = truncated; },
+              ...(this.#d.log ? { log: this.#d.log } : {}),
             }).then(result => { rec.result = result; return result; });
             return { terminalId: id };
           }
@@ -231,6 +233,8 @@ export class ExternalDelegationTarget implements DelegationTarget {
       store.completeTurn(turnId, { text: text || result.stopReason, tokens: Math.ceil((text || result.stopReason).length / 4) });
       return { text: text || result.stopReason, inputTokens: 1, outputTokens: Math.ceil((text || result.stopReason).length / 4), targetKind: "external" };
     } catch (e) {
+      if (e instanceof LaunchError && e.cause)
+        this.#d.log?.("external.agent.refused", { process: "connector", reason: e.reason, cause: e.cause });
       const reason = e instanceof AcpClientError ? e.reason : e instanceof ContainmentError ? e.reason : e instanceof CollabError ? (e.reason ?? e.message) : e instanceof Error ? e.message : "failed";
       try { store.failTurn(turnId, reason.slice(0, 200)); } catch { /* the turn may already be closed */ }
       if (e instanceof CollabError) throw e;
@@ -246,6 +250,8 @@ export class ExternalDelegationTarget implements DelegationTarget {
 
   async #open(input: AgentRunInput, engine: ResolvedEngine, worktree: string): Promise<ExternalRunLink> {
     if (this.#d.connect) return this.#d.connect({ agentId: input.agentId, cwd: worktree, signal: input.signal, timeoutMs: engine.timeoutMs });
+    const refusal = externalAgentRefusal();
+    if (refusal) throw new LaunchError(refusal.reason, refusal.cause);
     const argv = connectorArgv(engine.connector);
     if (!argv) throw new CollabError("invalid", "connector has no command yet", { reason: "connector-unavailable" });
     const handle: LaunchHandle = await launchExternalAgent({ argv, cwd: worktree, worktree, home: this.#d.home,
