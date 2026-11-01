@@ -17,6 +17,9 @@ const PATCH_SIZE: usize = 16;
 const POOL_SIZE: usize = 3;
 const PATCH_DIM: usize = PATCH_SIZE * PATCH_SIZE * 3;
 
+#[path = "image_container.rs"]
+mod container;
+
 /// Owned batch-one Gemma4 inputs with padded HWC 16×16 RGB patches.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImageTensor {
@@ -45,6 +48,8 @@ pub enum ImageError {
     AllocationLimit,
     /// The encoded type is not JPEG, PNG or WebP.
     UnsupportedFormat,
+    /// Encoded container lengths or nested image dimensions are inconsistent.
+    InvalidContainer,
     /// A decoder rejected the encoded image or metadata.
     Decode(image::ImageError),
 }
@@ -83,6 +88,7 @@ fn decode(bytes: &[u8], cancel: &Cancel) -> Result<DynamicImage, ImageError> {
     ) {
         return Err(ImageError::UnsupportedFormat);
     }
+    container::validate(bytes, format, cancel)?;
     let mut reader = ImageReader::with_format(Cursor::new(bytes), format);
     let mut limits = Limits::default();
     limits.max_image_width = Some(MAX_DECODED_PIXELS as u32);
@@ -190,6 +196,9 @@ impl fmt::Display for ImageError {
             }
             Self::UnsupportedFormat => {
                 formatter.write_str("image format must be JPEG, PNG or WebP")
+            }
+            Self::InvalidContainer => {
+                formatter.write_str("image container lengths or dimensions are inconsistent")
             }
             Self::Decode(error) => write!(formatter, "image decoding failed: {error}"),
         }

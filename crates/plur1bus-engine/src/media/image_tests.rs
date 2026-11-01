@@ -61,7 +61,7 @@ fn corrupt_and_unsupported_images_are_rejected() {
     ));
     assert!(matches!(
         preprocess(b"\x89PNG\r\n\x1a\n", 140, &Cancel::never()),
-        Err(ImageError::Decode(_))
+        Err(ImageError::Decode(_) | ImageError::InvalidContainer)
     ));
 }
 #[test]
@@ -226,5 +226,99 @@ fn grayscale_headers_over_the_pixel_limit_fail_even_below_the_byte_limit() {
     assert!(matches!(
         preprocess(&bytes, 1, &Cancel::never()),
         Err(ImageError::PixelLimit)
+    ));
+}
+
+fn webp_container(chunks: &[(&[u8; 4], &[u8])]) -> Vec<u8> {
+    let mut body = b"WEBP".to_vec();
+    for (kind, data) in chunks {
+        body.extend_from_slice(*kind);
+        body.extend_from_slice(&(data.len() as u32).to_le_bytes());
+        body.extend_from_slice(data);
+        if data.len() % 2 != 0 {
+            body.push(0);
+        }
+    }
+    let mut bytes = b"RIFF".to_vec();
+    bytes.extend_from_slice(&(body.len() as u32).to_le_bytes());
+    bytes.extend_from_slice(&body);
+    bytes
+}
+
+#[test]
+fn claimed_metadata_ranges_are_rejected_before_decoder_metadata_reads() {
+    for kind in [b"EXIF", b"ICCP", b"XMP "] {
+        let mut bytes = webp_container(&[
+            (b"VP8X", &[8, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+            (b"VP8L", &[47, 0, 0, 0, 0]),
+            (kind, &[]),
+        ]);
+        let length = bytes.len();
+        // Keep the red case safe: the missing guard allocates only64KiB, then returns Decode.
+        bytes[length - 4..].copy_from_slice(&65_536_u32.to_le_bytes());
+        assert!(matches!(
+            preprocess(&bytes, 1, &Cancel::never()),
+            Err(ImageError::InvalidContainer)
+        ));
+    }
+    for bytes in [
+        b"\x89PNG\r\n\x1a\n\x00\x01\x00\x00eXIf".as_slice(),
+        b"\xff\xd8\xff\xe1\xff\xff".as_slice(),
+    ] {
+        assert!(matches!(
+            preprocess(bytes, 1, &Cancel::never()),
+            Err(ImageError::InvalidContainer)
+        ));
+    }
+}
+
+#[test]
+fn webp_inner_dimensions_must_match_the_bounded_canvas_and_frame() {
+    let vp8 = [0, 0, 0, 157, 1, 42, 16, 0, 16, 0];
+    let bytes = webp_container(&[(b"VP8X", &[0; 10]), (b"VP8 ", &vp8)]);
+    assert!(matches!(
+        preprocess(&bytes, 1, &Cancel::never()),
+        Err(ImageError::InvalidContainer)
+    ));
+    let mut frame = vec![0; 16];
+    frame.extend_from_slice(b"VP8 ");
+    frame.extend_from_slice(&10_u32.to_le_bytes());
+    frame.extend_from_slice(&vp8);
+    let bytes = webp_container(&[
+        (b"VP8X", &[2, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+        (b"ANIM", &[0; 6]),
+        (b"ANMF", &frame),
+    ]);
+    assert!(matches!(
+        preprocess(&bytes, 1, &Cancel::never()),
+        Err(ImageError::InvalidContainer)
+    ));
+}
+
+#[test]
+fn webp_preflight_checks_padding_nested_ranges_and_valid_inner_headers() {
+    let vp8 = [0, 0, 0, 157, 1, 42, 1, 0, 1, 0];
+    let canvas = [0; 10];
+    let bytes = webp_container(&[(b"VP8X", &canvas), (b"VP8 ", &vp8)]);
+    container::validate(&bytes, ImageFormat::WebP, &Cancel::never()).unwrap();
+    let mut frame = vec![0; 16];
+    frame.extend_from_slice(b"VP8 ");
+    frame.extend_from_slice(&10_u32.to_le_bytes());
+    frame.extend_from_slice(&vp8);
+    let bytes = webp_container(&[(b"VP8X", &canvas), (b"ANMF", &frame)]);
+    container::validate(&bytes, ImageFormat::WebP, &Cancel::never()).unwrap();
+    frame[20..24].copy_from_slice(&65_536_u32.to_le_bytes());
+    let bytes = webp_container(&[(b"VP8X", &canvas), (b"ANMF", &frame)]);
+    assert!(matches!(
+        container::validate(&bytes, ImageFormat::WebP, &Cancel::never()),
+        Err(ImageError::InvalidContainer)
+    ));
+    let mut bytes = webp_container(&[(b"VP8L", &[47, 0, 0, 0, 0])]);
+    bytes.pop();
+    let riff_size = bytes.len() as u32 - 8;
+    bytes[4..8].copy_from_slice(&riff_size.to_le_bytes());
+    assert!(matches!(
+        container::validate(&bytes, ImageFormat::WebP, &Cancel::never()),
+        Err(ImageError::InvalidContainer)
     ));
 }
