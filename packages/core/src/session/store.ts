@@ -694,9 +694,10 @@ export class SessionStore {
     if (!Number.isSafeInteger(parentSeq) || parentSeq < 0 || (parentSeq !== 0 && !active.some(m => m.seq === parentSeq))) {
       throw new SessionError("invalid", "rewind target must be on the active path", "rewind-target");
     }
-    const from = active.find(message => message.seq > parentSeq)?.seq;
+    // Cover earlier hidden attempts too: undoing an older overlay must not pierce this newer boundary.
+    const from = parentSeq + 1;
     const to = active.at(-1)?.seq;
-    if (from === undefined || to === undefined) throw new SessionError("invalid", "rewind range is empty", "rewind-empty");
+    if (to === undefined || from > to) throw new SessionError("invalid", "rewind range is empty", "rewind-empty");
     const messages = this.#all("SELECT * FROM messages WHERE session_id=? AND seq BETWEEN ? AND ? ORDER BY seq",
       sessionId, from, to).map(toMessage);
     return { parentSeq, hiddenFromSeq: from, hiddenToSeq: to, messages, eventSeq: this.lastEventSeq(sessionId)! };

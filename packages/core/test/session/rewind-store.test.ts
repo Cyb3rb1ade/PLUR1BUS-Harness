@@ -37,6 +37,25 @@ function rig(path = ":memory:") {
 const options = { toSeq: 2, lesson: "Lesson from a discarded attempt: inspect the type first.", actor: "owner", trigger: "user" as const };
 
 describe("D120 stored rewind", () => {
+  it("undoing an older rewind cannot resurrect history covered by a newer rewind to the same parent", () => {
+    const { store, session } = rig();
+    try {
+      const before = store.listMessages(session.id), events = store.listEvents(session.id);
+      const first = store.rewindPath(session.id, { ...options, lesson: "lesson A" });
+      const beforeSecond = store.listMessages(session.id);
+      const second = store.rewindPath(session.id, { ...options, lesson: "lesson B" });
+      store.undoRewind(session.id, first.id, "owner");
+      assert.deepEqual(store.contextMessages(session.id).map(m => m.text), ["kept task", "answer: kept task", "lesson B"]);
+      assert.equal(second.hiddenFromSeq, options.toSeq + 1);
+      assert.equal(second.hiddenDigest, createHash("sha256")
+        .update(JSON.stringify(beforeSecond.filter(m => m.seq > options.toSeq).map(m => [m.id, m.text]))).digest("hex"));
+      assert.deepEqual(store.listMessages(session.id).slice(0, before.length), before);
+      assert.deepEqual(store.listEvents(session.id).slice(0, events.length), events);
+      store.undoRewind(session.id, second.id, "owner");
+      assert.deepEqual(store.contextMessages(session.id), before);
+    } finally { store.close(); }
+  });
+
   it("forked corrective lessons keep conversation rank without relying on the source overlay's ids", () => {
     const { store, session } = rig();
     try {
