@@ -121,6 +121,9 @@ test("engine sensitivity metadata preserves the existing opaque pass-through val
   assert.deepEqual(configurationWarnings(cfg), []);
   assert.deepEqual(
     configSecretEntries(cfg).filter((entry) => entry.key.startsWith("engine.")),
-    [],
+    [
+      { key: "engine.embedding.apiKeyRef", value: "42" },
+      { key: "engine.merging.headers.arbitrary", value: "42" },
+    ],
   );
 });

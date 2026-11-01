@@ -4,7 +4,9 @@
 use serde_json::{Map, Value};
 use std::{fs, io, path::Path};
 
+mod diagnostics;
 mod sensitive;
+pub use diagnostics::validation_constraint;
 pub use sensitive::{
     config_secret_values, mask_url_credentials, redact_config, redact_with_schema,
     secret_values_with_schema,
@@ -218,7 +220,7 @@ pub fn validate(v: &Value) -> Result<(), Vec<String>> {
                 } else {
                     path
                 },
-                e
+                validation_constraint(&e)
             )
         })
         .collect();

@@ -54,6 +54,11 @@ pub struct Redactor {
     secrets: Vec<String>,
 }
 
+enum Context {
+    Text,
+    ConfigValue,
+}
+
 impl Redactor {
     /// `secrets` are the exact values this process knows (here: the supervisor and core tokens). Values shorter than
     /// eight characters are ignored: they would redact ordinary words.
@@ -81,24 +86,38 @@ impl Redactor {
 
     /// `text` with every match of rules 1–4 replaced.
     pub fn redact(&self, text: &str) -> String {
-        self.apply(text).0
+        self.apply(text, Context::Text).0
     }
 
     /// The rules that still match `text` — empty for anything [`Redactor::redact`] returned.
     pub fn scan(&self, text: &str) -> Vec<&'static str> {
-        self.apply(text).1
+        self.apply(text, Context::Text).1
     }
 
-    fn apply(&self, text: &str) -> (String, Vec<&'static str>) {
+    /// A schema-projected configuration value: preserve public key names while retaining value-pattern backstops.
+    pub fn redact_config_value(&self, text: &str) -> String {
+        self.apply(text, Context::ConfigValue).0
+    }
+
+    /// Rescan a schema-projected configuration without treating public property names as credentials.
+    pub fn scan_config_value(&self, text: &str) -> Vec<&'static str> {
+        self.apply(text, Context::ConfigValue).1
+    }
+
+    fn apply(&self, text: &str, context: Context) -> (String, Vec<&'static str>) {
         let mut hits: Vec<&'static str> = Vec::new();
         let mut s = text.to_string();
         s = substitute(&s, RULE_SECRET, &mut hits, |t| {
             find_secrets(t, &self.secrets)
         });
         s = substitute(&s, RULE_PATTERN, &mut hits, find_pem);
-        s = substitute(&s, RULE_KEY, &mut hits, find_keyed_values);
+        if matches!(context, Context::Text) {
+            s = substitute(&s, RULE_KEY, &mut hits, find_keyed_values);
+        }
         s = substitute(&s, RULE_PATTERN, &mut hits, find_patterns);
-        s = substitute(&s, RULE_URL, &mut hits, find_url_parts);
+        if matches!(context, Context::Text) {
+            s = substitute(&s, RULE_URL, &mut hits, find_url_parts);
+        }
         hits.dedup();
         (s, hits)
     }

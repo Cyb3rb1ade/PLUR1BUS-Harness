@@ -53,12 +53,12 @@ Harness schema. `maskUrlCredentials(string)` is a pure browser-safe helper. Rust
 `get_result` still returns its existing envelope after applying the shared projection. Installed module schemas
 apply at their own `modules.<name>` subtree. Validation formatting emits paths/constraints rather than values.
 
-- [ ] Reproduce public output, invalid candidate, audit and bundle leaks with runtime canaries.
-- [ ] Move internal write-back readers to private snapshots first; test surviving agents and repair round trips.
-- [ ] Apply the shared public projection to whole/key/tier, config audit and bundle configuration.
-- [ ] Register configuration values for other bundle texts before cleaning/sealing; retain pattern/rescan checks.
-- [ ] Make validation diagnostics value-free and extend the already-sharp Rust marker coverage.
-- [ ] Run focused Rust config-service, CLI, first-aid, bundle, repair and log-schema tests.
+- [x] Reproduce public output, invalid candidate, audit and bundle leaks with runtime canaries.
+- [x] Move internal write-back readers to private snapshots first; test surviving agents and repair round trips.
+- [x] Apply the shared public projection to whole/key/tier, config audit and bundle configuration.
+- [x] Register configuration values for other bundle texts before cleaning/sealing; retain pattern/rescan checks.
+- [x] Make validation diagnostics value-free and extend the already-sharp Rust marker coverage.
+- [x] Run focused Rust config-service, CLI, bundle, repair and log-schema tests; remaining full Rust gate is Task 4.
 
 ### Task 3: Web and Core consumers
 

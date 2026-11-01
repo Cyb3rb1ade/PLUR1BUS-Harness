@@ -4198,6 +4198,27 @@
           "type": "object",
           "additionalProperties": false,
           "default": {},
+          "x-value-schema": {
+            "description": "Diagnostic-only privacy metadata for retired OTLP settings; these keys remain invalid configuration.",
+            "properties": {
+              "otlp": {
+                "type": "object",
+                "properties": {
+                  "endpoint": {
+                    "type": "string",
+                    "x-url-credentials": true
+                  },
+                  "headers": {
+                    "type": "object",
+                    "x-sensitive": true,
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "properties": {
             "maxBytes": {
               "description": "Maximum size of each log file before rotation, in bytes.",

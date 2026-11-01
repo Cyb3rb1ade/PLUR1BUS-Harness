@@ -32,6 +32,7 @@ pub const MANIFEST_SCHEMA: &str = "1staid.bundle.manifest/1";
 pub enum BundleError {
     /// The bundle's own re-scan found something the redactor should have removed: `(entry, rules)`.
     Refused(Vec<(String, Vec<&'static str>)>),
+    ConfigPolicy(crate::config_redaction::ConfigRedactionError),
     Io(io::Error),
 }
 
@@ -111,40 +112,16 @@ fn tail(path: &Path, n: usize) -> io::Result<String> {
     Ok(lines[from..].join("\n"))
 }
 
-/// Config values by key name: a scalar under a secret-looking key is replaced, `logs.otlp.headers` is dropped, every
-/// other string goes through the text redactor.
-fn redact_config(v: &mut Value, path: &mut Vec<String>, r: &Redactor) {
+/// Pattern backstops apply to strings after the schema projection; public names and JSON types remain intact.
+fn clean_config_values(v: &mut Value, r: &Redactor) {
     match v {
         Value::Object(map) => {
-            let keys: Vec<String> = map.keys().cloned().collect();
-            for k in keys {
-                path.push(k.clone());
-                if path
-                    .iter()
-                    .map(String::as_str)
-                    .eq(["logs", "otlp", "headers"])
-                {
-                    map.insert(k, json!("[REDACTED:key]"));
-                } else if let Some(child) = map.get_mut(&k) {
-                    let named = r
-                        .scan(&format!("\"{k}\":\"x-value-0123\""))
-                        .contains(&redact::RULE_KEY);
-                    if named
-                        && !child.is_object()
-                        && !child.is_array()
-                        && !child.is_null()
-                        && !child.is_boolean()
-                    {
-                        *child = json!("[REDACTED:key]");
-                    } else {
-                        redact_config(child, path, r);
-                    }
-                }
-                path.pop();
+            for child in map.values_mut() {
+                clean_config_values(child, r);
             }
         }
-        Value::Array(items) => items.iter_mut().for_each(|i| redact_config(i, path, r)),
-        Value::String(s) => *s = r.redact(s),
+        Value::Array(items) => items.iter_mut().for_each(|i| clean_config_values(i, r)),
+        Value::String(s) => *s = r.redact_config_value(s),
         _ => {}
     }
 }
@@ -153,13 +130,17 @@ fn redact_config(v: &mut Value, path: &mut Vec<String>, r: &Redactor) {
 fn seal(
     texts: Vec<(String, String)>,
     r: &Redactor,
-    clean: impl Fn(&str) -> String,
+    clean: impl Fn(&str, &str) -> String,
 ) -> Result<Vec<Part>, BundleError> {
     let mut parts = Vec::new();
     let mut refused = Vec::new();
     for (path, text) in texts {
-        let clean = clean(&text);
-        let hits = r.scan(&clean);
+        let clean = clean(&path, &text);
+        let hits = if path == "config.json" {
+            r.scan_config_value(&clean)
+        } else {
+            r.scan(&clean)
+        };
         if !hits.is_empty() {
             refused.push((path.clone(), hits));
         }
@@ -181,9 +162,34 @@ pub fn build(
     checks: &[Check],
     opts: &Options,
 ) -> Result<Bundle, BundleError> {
-    let r = Redactor::new(registered_secrets(layout));
-    let mut texts: Vec<(String, String)> = Vec::new();
+    let mut secrets = registered_secrets(layout);
     let mut omitted = Vec::new();
+    let config = match fs::read_to_string(layout.config_path()) {
+        Ok(text) => match serde_json::from_str::<Value>(&text) {
+            Ok(value) => {
+                let policy = crate::config_redaction::ConfigDisclosurePolicy::load(layout, &value)
+                    .map_err(BundleError::ConfigPolicy)?;
+                secrets.extend(policy.secret_values(&value));
+                Some(policy.project(&value))
+            }
+            Err(_) => {
+                omitted.push(json!({"path":"config.json","reason":"not valid JSON"}));
+                None
+            }
+        },
+        Err(error) => {
+            let reason = if error.kind() == io::ErrorKind::NotFound {
+                "no config file".to_string()
+            } else {
+                format!("unreadable: {error}")
+            };
+            omitted.push(json!({"path":"config.json","reason":reason}));
+            None
+        }
+    };
+    // Register before versions, checks, service output and logs are cleaned, including values never read from the store.
+    let r = Redactor::new(secrets);
+    let mut texts: Vec<(String, String)> = Vec::new();
 
     let install: Value = fs::read_to_string(layout.install_manifest())
         .ok()
@@ -222,25 +228,12 @@ pub fn build(
         serde_json::to_string_pretty(&service::status(runner, layout)).unwrap_or_default(),
     ));
 
-    // RULING (spec §4): the config schema carries no `x-sensitive` annotation yet, so values are removed by key name
-    // and by value pattern, and `logs.otlp.headers` wholesale; a config that does not parse is left out (fail closed).
-    match fs::read_to_string(layout.config_path()) {
-        Ok(t) => match serde_json::from_str::<Value>(&t) {
-            Ok(mut v) => {
-                redact_config(&mut v, &mut Vec::new(), &r);
-                texts.push((
-                    "config.json".into(),
-                    serde_json::to_string_pretty(&v).unwrap_or_default(),
-                ));
-            }
-            Err(_) => omitted.push(json!({ "path": "config.json", "reason": "not valid JSON" })),
-        },
-        Err(e) if e.kind() == io::ErrorKind::NotFound => {
-            omitted.push(json!({ "path": "config.json", "reason": "no config file" }))
-        }
-        Err(e) => {
-            omitted.push(json!({ "path": "config.json", "reason": format!("unreadable: {e}") }))
-        }
+    if let Some(mut value) = config {
+        clean_config_values(&mut value, &r);
+        texts.push((
+            "config.json".into(),
+            serde_json::to_string_pretty(&value).unwrap_or_default(),
+        ));
     }
 
     let mut logs: Vec<PathBuf> = fs::read_dir(layout.logs())
@@ -272,7 +265,14 @@ pub fn build(
         }
     }
 
-    let mut parts = seal(texts, &r, |t| r.redact(&scrub_paths(t, layout)))?;
+    let mut parts = seal(texts, &r, |path, text| {
+        let text = scrub_paths(text, layout);
+        if path == "config.json" {
+            text
+        } else {
+            r.redact(&text)
+        }
+    })?;
 
     let entries: Vec<Value> = parts
         .iter()
@@ -374,7 +374,7 @@ mod tests {
             ("b.txt".to_string(), "leak tok-0123456789 here".to_string()),
         ];
         // a redactor that does nothing stands for a bug in the real one
-        match seal(texts.clone(), &r, |t| t.to_string()) {
+        match seal(texts.clone(), &r, |_, t| t.to_string()) {
             Err(BundleError::Refused(hits)) => {
                 assert_eq!(hits.len(), 1);
                 assert_eq!(hits[0].0, "b.txt");
@@ -382,7 +382,7 @@ mod tests {
             }
             other => panic!("expected a refusal, got ok={}", other.is_ok()),
         }
-        assert!(seal(texts, &r, |t| r.redact(t)).is_ok());
+        assert!(seal(texts, &r, |_, t| r.redact(t)).is_ok());
     }
 
     #[test]

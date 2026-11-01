@@ -45,7 +45,7 @@ impl Home {
             &home.join("config.json"),
             &format!(
                 r#"{{"schemaVersion":1,"logs":{{"otlp":{{"endpoint":"http://127.0.0.1:4318","headers":{{"x-api":"{}"}}}}}},
-"engine":{{"apiKey":"{}","note":"uses {}"}},"supervisor":{{"graceMs":900}}}}"#,
+"engine":{{"embedding":{{"apiKey":"{}"}},"note":"uses {}"}},"supervisor":{{"graceMs":900}}}}"#,
                 CANARIES[1], CANARIES[0], "sk-CANARY-CONFIG-VENDOR-8841-abcdefgh"
             ),
         );
@@ -209,8 +209,102 @@ fn no_marker_secret_survives_in_any_file_of_the_bundle() {
     );
     let cfg: Value = serde_json::from_slice(&files["config.json"]).unwrap();
     assert_eq!(cfg["supervisor"]["graceMs"], 900);
-    assert_eq!(cfg["engine"]["apiKey"], "[REDACTED:key]");
-    assert_eq!(cfg["logs"]["otlp"]["headers"], "[REDACTED:key]");
+    assert_eq!(cfg["engine"]["embedding"]["apiKey"], "••••");
+    assert_eq!(cfg["logs"]["otlp"]["headers"]["x-api"], "••••");
+}
+
+#[test]
+fn schema_secrets_and_endpoint_parts_are_removed_from_every_bundle_text_before_the_first_store_read(
+) {
+    let h = Home::new();
+    let secret = uuid::Uuid::new_v4().to_string();
+    let user = uuid::Uuid::new_v4().to_string();
+    let query = uuid::Uuid::new_v4().to_string();
+    let endpoint =
+        format!("https://{user}:{secret}@relay.example.test/public/path?ordinary={query}");
+    let configured = serde_json::json!({"schemaVersion":1,
+        "engine":{"embedding":{"apiKey":secret}},
+        "voice":{"providers":{"elevenlabs":{"baseUrl":endpoint}}},
+        "modelProfiles":{"primary":{"params":{"maxTokens":4096}}}});
+    write(&h.home.join("config.json"), &configured.to_string());
+    write(
+        &h.home.join("logs/core.out.log"),
+        &format!("ordinary {secret} {user} {query}\npublic relay.example.test/public/path\n"),
+    );
+    let dest = h._dir.path().join("schema.zip");
+    let result = h.bundle(&["--out", dest.to_str().unwrap()]);
+    assert_eq!(
+        result.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let files = unzip(&dest);
+    for body in files.values() {
+        let text = String::from_utf8_lossy(body);
+        for value in [&secret, &user, &query] {
+            assert!(
+                !text.contains(value),
+                "a declared credential escaped the support bundle"
+            );
+        }
+    }
+    let public: Value = serde_json::from_slice(&files["config.json"]).unwrap();
+    assert_eq!(
+        public["voice"]["providers"]["elevenlabs"]["baseUrl"],
+        "https://••••@relay.example.test/public/path?ordinary=••••"
+    );
+    assert_eq!(
+        public["modelProfiles"]["primary"]["params"]["maxTokens"],
+        4096
+    );
+    assert!(String::from_utf8_lossy(&files["logs/core.out.log"])
+        .contains("relay.example.test/public/path"));
+    assert_eq!(
+        serde_json::from_str::<Value>(
+            &std::fs::read_to_string(h.home.join("config.json")).unwrap()
+        )
+        .unwrap(),
+        configured
+    );
+}
+
+#[test]
+fn module_declarations_protect_bundle_texts_and_missing_policy_refuses_the_archive() {
+    let h = Home::new();
+    let secret = uuid::Uuid::new_v4().to_string();
+    let module = h.home.join("modules/fixture");
+    write(&module.join("index.js"), "export {};\n");
+    write(&module.join("module.json"), &serde_json::json!({
+        "name":"fixture","version":"0.1.0","apiVersion":"1","entry":"index.js","scope":"installation","priority":500,
+        "configSchema":{"properties":{"ordinary":{"type":"string","x-sensitive":true}}}
+    }).to_string());
+    write(&h.home.join("config.json"), &serde_json::json!({"schemaVersion":1,"modules":{"fixture":{"enabled":false,"ordinary":secret}}}).to_string());
+    write(
+        &h.home.join("logs/core.out.log"),
+        &format!("ordinary {secret}\n"),
+    );
+    let dest = h._dir.path().join("module.zip");
+    let result = h.bundle(&["--out", dest.to_str().unwrap()]);
+    assert_eq!(
+        result.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    for body in unzip(&dest).values() {
+        assert!(!String::from_utf8_lossy(body).contains(&secret));
+    }
+    std::fs::remove_file(module.join("module.json")).unwrap();
+    let refused = h._dir.path().join("refused.zip");
+    let result = h.bundle(&["--out", refused.to_str().unwrap()]);
+    assert!(!result.status.success());
+    assert!(String::from_utf8_lossy(&result.stdout).contains("config-policy-unavailable"));
+    assert!(!String::from_utf8_lossy(&result.stdout).contains(&secret));
+    assert!(
+        !refused.exists(),
+        "no archive may escape when classification metadata is unavailable"
+    );
 }
 
 #[test]

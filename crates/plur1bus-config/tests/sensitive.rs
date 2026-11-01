@@ -127,3 +127,57 @@ fn root_projection_and_registration_apply_engine_metadata_and_endpoint_array_ite
     let public: Value = json!({"voice":{"providers":{"elevenlabs":{"baseUrl":"https://relay.example.test/default"}}}});
     assert!(cfg::config_secret_values(&public).is_empty());
 }
+
+#[test]
+fn malformed_secret_scalars_are_fixed_placeholders_and_are_registered_for_text_redaction() {
+    let secret = u64::from_str_radix(&canary()[..8], 16).unwrap() + 100_000_000;
+    let value = json!({"engine":{"embedding":{"apiKey":secret}}});
+    let projected = cfg::redact_config(&value);
+    assert_eq!(projected["engine"]["embedding"]["apiKey"], 0);
+    assert!(projected["engine"]["embedding"]["apiKey"].is_number());
+    assert!(cfg::config_secret_values(&value).contains(&secret.to_string()));
+    assert_eq!(value["engine"]["embedding"]["apiKey"], secret);
+    let schema = json!({"properties":{"ordinary":{"type":"string","x-sensitive":true},"enabled":{"type":"boolean"}}});
+    assert_eq!(
+        cfg::redact_with_schema(&json!({"ordinary":true,"enabled":true}), &schema),
+        json!({"ordinary":false,"enabled":true})
+    );
+}
+
+#[test]
+fn malformed_homogeneous_collections_retain_their_shape_and_declared_secrecy() {
+    let secrets = [canary(), canary(), canary()];
+    let schema = json!({"properties":{
+        "batch":{"type":"array","items":{"properties":{
+            "ordinary":{"type":"string","x-sensitive":true},"enabled":{"type":"boolean"}
+        }}},
+        "secrets":{"type":"array","items":{"type":"string","x-sensitive":true}},
+        "headers":{"type":"object","additionalProperties":{"type":"string","x-sensitive":true}}
+    }});
+    let value = json!({"batch":{"0":{"ordinary":secrets[0],"enabled":true}},
+        "secrets":{"0":secrets[1]},"headers":[secrets[2]]});
+    assert_eq!(
+        cfg::redact_with_schema(&value, &schema),
+        json!({
+            "batch":{"0":{"ordinary":"••••","enabled":true}},"secrets":{"0":"••••"},"headers":["••••"]
+        })
+    );
+    let registered = cfg::secret_values_with_schema(&value, &schema);
+    for secret in secrets {
+        assert!(registered.contains(&secret));
+    }
+}
+
+#[test]
+fn invalid_secret_values_are_not_interpolated_into_config_diagnostics() {
+    let secret = canary();
+    let mut value = cfg::defaults();
+    value["voice"]["providers"]["elevenlabs"]["apiKeyRef"] = json!([secret]);
+    let diagnostics = cfg::validate(&value).unwrap_err().join("\n");
+    assert!(
+        !diagnostics.contains(&secret),
+        "a diagnostic printed a rejected secret value"
+    );
+    assert!(diagnostics.contains("/voice/providers/elevenlabs/apiKeyRef"));
+    assert!(diagnostics.contains("string") || diagnostics.contains("type"));
+}

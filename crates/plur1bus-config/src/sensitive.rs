@@ -34,7 +34,37 @@ fn property<'a>(schema: &'a Value, name: &str) -> &'a Value {
                 .get("properties")
                 .and_then(|properties| properties.get(name))
         })
-        .unwrap_or_else(|| object_schema(field(schema, "additionalProperties")))
+        .unwrap_or_else(|| {
+            if field(schema, "type").and_then(Value::as_str) == Some("array")
+                && !name.is_empty()
+                && name.bytes().all(|byte| byte.is_ascii_digit())
+            {
+                item_schema(schema)
+            } else {
+                object_schema(field(schema, "additionalProperties"))
+            }
+        })
+}
+
+fn homogeneous_map(schema: &Value) -> bool {
+    field(schema, "type").and_then(Value::as_str) == Some("object")
+        && schema
+            .get("properties")
+            .and_then(Value::as_object)
+            .is_none_or(|properties| properties.is_empty())
+        && schema
+            .get("x-value-schema")
+            .and_then(|metadata| metadata.get("properties"))
+            .and_then(Value::as_object)
+            .is_none_or(|properties| properties.is_empty())
+}
+
+fn item_schema(schema: &Value) -> &Value {
+    object_schema(field(schema, "items").or_else(|| {
+        homogeneous_map(schema)
+            .then(|| field(schema, "additionalProperties"))
+            .flatten()
+    }))
 }
 
 fn annotated(schema: &Value, inherited: Flags) -> Flags {
@@ -45,15 +75,26 @@ fn annotated(schema: &Value, inherited: Flags) -> Flags {
     }
 }
 
-fn project(value: &Value, schema: &Value, inherited: Flags) -> Value {
+fn value_flags(schema: &Value, inherited: Flags) -> Flags {
     let flags = annotated(schema, inherited);
+    if field(schema, "type").and_then(Value::as_str) == Some("array") || homogeneous_map(schema) {
+        annotated(item_schema(schema), flags)
+    } else {
+        flags
+    }
+}
+
+fn project(value: &Value, schema: &Value, inherited: Flags) -> Value {
+    let flags = value_flags(schema, inherited);
     match value {
         Value::String(text) if flags.sensitive && !text.is_empty() => Value::String(MASK.into()),
+        Value::Number(_) if flags.sensitive => Value::from(0),
+        Value::Bool(_) if flags.sensitive => Value::Bool(false),
         Value::String(text) if flags.url_credentials => Value::String(mask_url_credentials(text)),
         Value::Array(items) => Value::Array(
             items
                 .iter()
-                .map(|item| project(item, object_schema(field(schema, "items")), flags))
+                .map(|item| project(item, item_schema(schema), flags))
                 .collect(),
         ),
         Value::Object(map) => Value::Object(
@@ -242,15 +283,18 @@ fn url_parts(value: &str, values: &mut BTreeSet<String>) {
 }
 
 fn collect(value: &Value, schema: &Value, inherited: Flags, out: &mut BTreeSet<String>) {
-    let flags = annotated(schema, inherited);
+    let flags = value_flags(schema, inherited);
     match value {
         Value::String(text) if flags.sensitive && !text.is_empty() => {
             out.insert(text.clone());
         }
+        Value::Number(_) | Value::Bool(_) if flags.sensitive => {
+            out.insert(value.to_string());
+        }
         Value::String(text) if flags.url_credentials => url_parts(text, out),
         Value::Array(items) => {
             for item in items {
-                collect(item, object_schema(field(schema, "items")), flags, out);
+                collect(item, item_schema(schema), flags, out);
             }
         }
         Value::Object(map) => {

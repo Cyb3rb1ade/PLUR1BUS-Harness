@@ -614,6 +614,18 @@
     "logs": {
       "description": "Retention limits for rotating harness log files.",
       "type": "object", "additionalProperties": false, "default": {},
+      "x-value-schema": {
+        "description": "Diagnostic-only privacy metadata for retired OTLP settings; these keys remain invalid configuration.",
+        "properties": {
+          "otlp": {
+            "type": "object",
+            "properties": {
+              "endpoint": { "type": "string", "x-url-credentials": true },
+              "headers": { "type": "object", "x-sensitive": true, "additionalProperties": { "type": "string" } }
+            }
+          }
+        }
+      },
       "properties": {
         "maxBytes": { "description": "Maximum size of each log file before rotation, in bytes.", "type": "integer", "minimum": 1048576, "maximum": 10737418240, "default": 20971520, "x-restart": "live", "x-tier": "advanced" },
         "keep": { "description": "Number of rotated log files to retain.", "type": "integer", "minimum": 1, "maximum": 1000, "default": 5, "x-restart": "live", "x-tier": "advanced" }

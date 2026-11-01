@@ -8,6 +8,52 @@ fn bin() -> Command {
 }
 
 #[test]
+fn offline_config_get_masks_schema_secrets_in_json_and_human_output_without_rewriting_the_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let secret = uuid::Uuid::new_v4().to_string();
+    let user = uuid::Uuid::new_v4().to_string();
+    let mut config = plur1bus_config::defaults();
+    config["voice"]["providers"]["elevenlabs"]["apiKeyRef"] = serde_json::json!(secret);
+    config["voice"]["providers"]["elevenlabs"]["baseUrl"] = serde_json::json!(format!(
+        "https://{user}:{secret}@relay.example.test/service?ordinary={secret}"
+    ));
+    let path = dir.path().join("config.json");
+    let original = serde_json::to_vec_pretty(&config).unwrap();
+    std::fs::write(&path, &original).unwrap();
+    for arguments in [
+        vec!["--json", "config", "get"],
+        vec!["config", "get"],
+        vec![
+            "--json",
+            "config",
+            "get",
+            "voice.providers.elevenlabs.baseUrl",
+        ],
+        vec!["config", "get", "voice.providers.elevenlabs.baseUrl"],
+    ] {
+        let result = bin()
+            .env_remove("PLUR1BUS_CONTAINER")
+            .arg("--home")
+            .arg(dir.path())
+            .args(arguments)
+            .assert()
+            .success()
+            .get_output()
+            .clone();
+        let output = String::from_utf8(result.stdout).unwrap();
+        assert!(
+            !output.contains(&secret),
+            "offline CLI printed a marked configuration value"
+        );
+        assert!(!output.contains(&user), "offline CLI printed URL userinfo");
+        assert!(output.contains("relay.example.test/service"));
+        let diagnostics = String::from_utf8(result.stderr).unwrap();
+        assert!(!diagnostics.contains(&secret) && !diagnostics.contains(&user));
+    }
+    assert_eq!(std::fs::read(path).unwrap(), original);
+}
+
+#[test]
 fn help_lists_the_2a_commands() {
     bin()
         .arg("--help")

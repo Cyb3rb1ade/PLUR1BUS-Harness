@@ -154,14 +154,14 @@ fn fail_message(e: &RpcError) -> String {
     }
 }
 
-/// The running configuration and its revision: the supervisor's when it answers, else config.json (created with
-/// the defaults when missing, as before).
+/// The private running snapshot and its revision: the supervisor's `config.watch` when it answers, else config.json
+/// (created with the defaults when missing). Never use a public masked view for write-back operations.
 pub(crate) fn running(out: &Out, layout: &Layout) -> (Value, String) {
     match route(layout) {
-        Ok(Route::Supervisor(mut c)) => match call(&mut c, "config.get", json!({})) {
+        Ok(Route::Supervisor(mut c)) => match call(&mut c, "config.watch", json!({})) {
             Ok(v) => {
                 return (
-                    v["value"].clone(),
+                    v["config"].clone(),
                     v["revision"].as_str().unwrap_or_default().to_string(),
                 )
             }
@@ -183,8 +183,8 @@ pub(crate) fn running(out: &Out, layout: &Layout) -> (Value, String) {
 /// configuration runs is `E_CONFIG_INVALID`; while the supervisor runs the last valid one, that one is used.
 pub(crate) fn running_read_only(out: &Out, layout: &Layout) -> Value {
     match route(layout) {
-        Ok(Route::Supervisor(mut c)) => match call(&mut c, "config.get", json!({})) {
-            Ok(v) => return v["value"].clone(),
+        Ok(Route::Supervisor(mut c)) => match call(&mut c, "config.watch", json!({})) {
+            Ok(v) => return v["config"].clone(),
             Err(e) if reason_of(&e) == Some("config-unavailable") => {}
             Err(e) => fail_rpc(out, &e),
         },
@@ -451,13 +451,21 @@ pub fn run(out: &Out, layout: &Layout, cmd: ConfigCmd) {
                 let loaded = cfg::load(&layout.config_path())
                     .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({})));
                 let revision = cfg::revision(&loaded.config);
-                get_result(&loaded.config, &revision, key.as_deref(), tier).unwrap_or_else(|| {
-                    out.fail(
-                        "E_INVALID_PARAMS",
-                        &format!("no such key: {}", key.clone().unwrap_or_default()),
-                        json!({}),
-                    )
-                })
+                get_result(layout, &loaded.config, &revision, key.as_deref(), tier)
+                    .unwrap_or_else(|error| {
+                        out.fail(
+                            "E_NOT_AVAILABLE",
+                            &error.to_string(),
+                            json!({"reason":"config-policy-unavailable"}),
+                        )
+                    })
+                    .unwrap_or_else(|| {
+                        out.fail(
+                            "E_INVALID_PARAMS",
+                            &format!("no such key: {}", key.clone().unwrap_or_default()),
+                            json!({}),
+                        )
+                    })
             });
             out.ok("config.get/1", &v, || match v["key"].as_str() {
                 Some(k) => format!(

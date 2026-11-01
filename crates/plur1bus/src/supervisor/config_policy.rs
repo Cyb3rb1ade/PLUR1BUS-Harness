@@ -10,65 +10,6 @@ pub fn schema() -> &'static Value {
         serde_json::from_str(plur1bus_config::SCHEMA_JSON).expect("embedded config schema")
     })
 }
-fn secret_key(key: &str) -> bool {
-    let key = key.to_ascii_lowercase();
-    [
-        "token",
-        "secret",
-        "password",
-        "credential",
-        "authorization",
-        "passphrase",
-        "api-key",
-        "apikey",
-        "api_key",
-    ]
-    .iter()
-    .any(|s| key.contains(s))
-}
-fn redacted(schema: &Value, value: &Value) -> Value {
-    if schema["x-sensitive"] == true {
-        return json!("[REDACTED]");
-    }
-    match value {
-        Value::Object(map) => Value::Object(
-            map.iter()
-                .map(|(key, value)| {
-                    let child = &schema["properties"][key];
-                    (
-                        key.clone(),
-                        if secret_key(key) {
-                            json!("[REDACTED]")
-                        } else {
-                            redacted(child, value)
-                        },
-                    )
-                })
-                .collect(),
-        ),
-        Value::Array(items) => Value::Array(
-            items
-                .iter()
-                .map(|v| redacted(&schema["items"], v))
-                .collect(),
-        ),
-        Value::String(text) => match reqwest::Url::parse(text) {
-            Ok(url)
-                if !url.username().is_empty()
-                    || url.password().is_some()
-                    || url.scheme() == "data"
-                    || url.query_pairs().any(|(key, _)| {
-                        secret_key(&key)
-                            || matches!(key.as_ref(), "key" | "auth" | "code" | "sig" | "signature")
-                    }) =>
-            {
-                json!("[REDACTED]")
-            }
-            _ => value.clone(),
-        },
-        _ => value.clone(),
-    }
-}
 #[derive(Debug, PartialEq)]
 pub struct AuditChange {
     pub key: String,
@@ -106,12 +47,12 @@ pub fn changes(
                 old: if sensitive {
                     json!("[REDACTED]")
                 } else {
-                    redacted(s, old)
+                    plur1bus_config::redact_with_schema(old, s)
                 },
                 new: if sensitive {
                     json!("[REDACTED]")
                 } else {
-                    redacted(s, new)
+                    plur1bus_config::redact_with_schema(new, s)
                 },
             });
         }
@@ -150,15 +91,7 @@ pub fn changes(
                 } else {
                     format!("{path}.{key}")
                 };
-                walk(
-                    child,
-                    &old[key],
-                    &new[key],
-                    &next,
-                    role,
-                    sensitive || secret_key(key),
-                    out,
-                )?;
+                walk(child, &old[key], &new[key], &next, role, sensitive, out)?;
             }
         }
         Ok(())
@@ -413,16 +346,40 @@ mod tests {
     }
     #[test]
     fn audit_redacts_embedded_url_credentials_and_sensitive_query_parameters() {
-        let schema = json!({"x-audit":true});
-        for endpoint in [
-            "https://account:password-marker@service.invalid/v1",
-            "https://service.invalid/v1?access_token=secret-marker",
-            "https://service.invalid/v1?%61pi_key=secret-marker",
+        let schema = json!({"x-audit":true,"properties":{"endpoint":{"x-url-credentials":true}}});
+        let secret = uuid::Uuid::new_v4().to_string();
+        for (endpoint, expected) in [
+            (
+                format!("https://{secret}:{secret}@service.invalid/v1"),
+                "https://••••@service.invalid/v1",
+            ),
+            (
+                format!("https://service.invalid/v1?access_token={secret}"),
+                "https://service.invalid/v1?access_token=••••",
+            ),
+            (
+                format!("https://service.invalid/v1?ordinary={secret}"),
+                "https://service.invalid/v1?ordinary=••••",
+            ),
         ] {
             let rows =
                 changes(&schema, &json!({"endpoint":endpoint}), &json!({}), "owner").unwrap();
-            assert_eq!(rows[0].old["endpoint"], "[REDACTED]");
+            assert_eq!(rows[0].old["endpoint"], expected);
         }
+    }
+    #[test]
+    fn audit_uses_declared_metadata_for_ordinary_names_and_keeps_public_controls() {
+        let secret = uuid::Uuid::new_v4().to_string();
+        let schema = json!({"x-audit":true,"properties":{
+            "opaque":{"x-value-schema":{"properties":{"ordinary":{"x-sensitive":true}}}},
+            "maxTokens":{"type":"integer"},"password":{"type":"string"}
+        }});
+        let old = json!({"opaque":{"ordinary":secret},"maxTokens":4096,"password":"public-label"});
+        let rows = changes(&schema, &old, &json!({}), "owner").unwrap();
+        assert_eq!(
+            rows[0].old,
+            json!({"opaque":{"ordinary":"••••"},"maxTokens":4096,"password":"public-label"})
+        );
     }
     #[test]
     fn audit_records_person_and_redacted_values_and_fails_closed_on_io() {
@@ -491,7 +448,7 @@ mod tests {
                 "max":{"x-audit":true},
                 "secret":{"x-sensitive":true,"properties":{"value":{"x-audit":true}}}}},
             "endpoint":{"x-audit":true},
-            "login":{"x-audit":true}}});
+            "login":{"x-audit":true,"properties":{"api_key":{"x-sensitive":true}}}}});
         let before = json!({
             "security":{"max":90,"secret":{"value":"old-marker"}},
             "endpoint":"https://service.invalid/v1",

@@ -107,3 +107,44 @@ test("the default public projection applies known opaque Engine metadata without
     unknown: { newer: true },
   });
 });
+
+test("a malformed scalar in an opaque secret slot is concealed without changing its JSON type", () => {
+  const secret = Number.parseInt(randomUUID().slice(0, 8), 16) + 100_000_000;
+  const value = { engine: { embedding: { apiKey: secret } } };
+  const projected = config.redactConfig(value) as typeof value;
+  assert.equal(projected.engine.embedding.apiKey, 0);
+  assert.equal(typeof projected.engine.embedding.apiKey, "number");
+  assert.ok(config.configSecretEntries(value).some((entry) => entry.value === String(secret)));
+  assert.equal(value.engine.embedding.apiKey, secret);
+  const schema = { properties: { ordinary: { type: "string", "x-sensitive": true }, enabled: { type: "boolean" } } };
+  assert.deepEqual(config.redactConfig({ ordinary: true, enabled: true }, { schema }), { ordinary: false, enabled: true });
+});
+
+test("malformed homogeneous collections retain their shape and declared item or map secrecy", () => {
+  const secrets = [randomUUID(), randomUUID(), randomUUID()];
+  const schema = {
+    properties: {
+      batch: { type: "array", items: { properties: {
+        ordinary: { type: "string", "x-sensitive": true }, enabled: { type: "boolean" },
+      } } },
+      secrets: { type: "array", items: { type: "string", "x-sensitive": true } },
+      headers: { type: "object", additionalProperties: { type: "string", "x-sensitive": true } },
+    },
+  };
+  const value = { batch: { 0: { ordinary: secrets[0], enabled: true } }, secrets: { 0: secrets[1] }, headers: [secrets[2]] };
+  assert.deepEqual(config.redactConfig(value, { schema }), {
+    batch: { 0: { ordinary: MASK, enabled: true } }, secrets: { 0: MASK }, headers: [MASK],
+  });
+  for (const secret of secrets) assert.ok(config.configSecretEntries(value, schema).some((entry) => entry.value === secret));
+});
+
+test("diagnostic projection protects legacy OTLP headers without accepting the retired configuration", () => {
+  const secret = randomUUID();
+  const value = { logs: { otlp: { headers: { ordinary: secret }, endpoint: `https://relay.example.test/trace?ordinary=${secret}` } } };
+  assert.equal(config.sensitiveOf("logs.otlp.headers.ordinary"), true);
+  assert.deepEqual(config.redactConfig(value), {
+    logs: { otlp: { headers: { ordinary: MASK }, endpoint: `https://relay.example.test/trace?ordinary=${MASK}` } },
+  });
+  assert.ok(config.configSecretEntries(value).some((entry) => entry.value === secret));
+  assert.equal(config.validate(value).ok, false, "display metadata must not reintroduce retired settings");
+});

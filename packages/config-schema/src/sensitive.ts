@@ -27,7 +27,7 @@ interface Annotations {
   sensitive: boolean;
   urlCredentials: boolean;
 }
-interface StringField extends Annotations {
+interface ScalarField extends Annotations {
   key: string;
   value: string;
   parent: ConfigSchemaNode;
@@ -46,6 +46,15 @@ const annotations = (node: ConfigSchemaNode, inherited: Annotations): Annotation
   sensitive: inherited.sensitive || node["x-sensitive"] === true,
   urlCredentials: inherited.urlCredentials || node["x-url-credentials"] === true,
 });
+const homogeneousMap = (node: ConfigSchemaNode): boolean =>
+  node.type === "object" && Object.keys(node.properties ?? {}).length === 0;
+const itemSchema = (node: ConfigSchemaNode): ConfigSchemaNode =>
+  schemaObject(node.items ?? (homogeneousMap(node) ? node.additionalProperties : undefined));
+const memberSchema = (node: ConfigSchemaNode, name: string): ConfigSchemaNode =>
+  propertySchema(node, name) ??
+  schemaObject(node.type === "array" && /^\d+$/.test(name) ? node.items : node.additionalProperties);
+const valueAnnotations = (node: ConfigSchemaNode, inherited: Annotations): Annotations =>
+  annotations(node.type === "array" || homogeneousMap(node) ? itemSchema(node) : {}, annotations(node, inherited));
 
 function schemaPath(key: string, schema: ConfigSchemaNode): { node: ConfigSchemaNode; flags: Annotations } {
   let node = valueSchema(schema);
@@ -82,22 +91,25 @@ export interface ConfigRedactionOptions {
   key?: string;
 }
 
-/** Mask declared string values without changing JSON types, unknown fields or the running configuration. */
+/** Mask declared secrets without changing JSON types, unknown fields or the running configuration. */
 export function redactConfig(value: unknown, options: ConfigRedactionOptions = {}): unknown {
   const start = schemaPath(options.key ?? "", options.schema ?? SCHEMA);
   function project(at: unknown, node: ConfigSchemaNode, inherited: Annotations): unknown {
     node = valueSchema(node);
-    const flags = annotations(node, inherited);
+    const flags = valueAnnotations(node, inherited);
     if (typeof at === "string") {
       if (flags.sensitive) return at === "" ? "" : "••••";
       return flags.urlCredentials ? maskUrlCredentials(at) : at;
     }
-    if (Array.isArray(at)) return at.map((child) => project(child, schemaObject(node.items), flags));
+    // Opaque or invalid configuration can contain a malformed scalar in a declared secret slot.
+    if (flags.sensitive && typeof at === "number") return 0;
+    if (flags.sensitive && typeof at === "boolean") return false;
+    if (Array.isArray(at)) return at.map((child) => project(child, itemSchema(node), flags));
     if (at && typeof at === "object") {
       return Object.fromEntries(
         Object.entries(at).map(([name, child]) => [
           name,
-          project(child, propertySchema(node, name) ?? schemaObject(node.additionalProperties), flags),
+          project(child, memberSchema(node, name), flags),
         ]),
       );
     }
@@ -107,7 +119,7 @@ export function redactConfig(value: unknown, options: ConfigRedactionOptions = {
 }
 
 /** Walk actual values with their property/map/item schemas; unknown members gain no name-based classification. */
-function stringFields(value: unknown, schema: ConfigSchemaNode, consume: (field: StringField) => void): void {
+function scalarFields(value: unknown, schema: ConfigSchemaNode, consume: (field: ScalarField) => void): void {
   function visit(
     at: unknown,
     node: ConfigSchemaNode,
@@ -116,19 +128,23 @@ function stringFields(value: unknown, schema: ConfigSchemaNode, consume: (field:
     parent: ConfigSchemaNode,
   ): void {
     node = valueSchema(node);
-    const flags = annotations(node, inherited);
+    const flags = valueAnnotations(node, inherited);
     if (typeof at === "string") {
       consume({ key, value: at, parent, ...flags });
       return;
     }
+    if (flags.sensitive && (typeof at === "number" || typeof at === "boolean")) {
+      consume({ key, value: String(at), parent, ...flags });
+      return;
+    }
     if (Array.isArray(at)) {
       for (const [index, child] of at.entries())
-        visit(child, schemaObject(node.items), key ? `${key}.${index}` : String(index), flags, node);
+        visit(child, itemSchema(node), key ? `${key}.${index}` : String(index), flags, node);
     } else if (at && typeof at === "object") {
       for (const [name, child] of Object.entries(at))
         visit(
           child,
-          propertySchema(node, name) ?? schemaObject(node.additionalProperties),
+          memberSchema(node, name),
           key ? `${key}.${name}` : name,
           flags,
           node,
@@ -141,7 +157,7 @@ function stringFields(value: unknown, schema: ConfigSchemaNode, consume: (field:
 /** Registry slots for declared sensitive strings; endpoint slots contain only extracted credential parts. */
 export function configSecretEntries(value: unknown, schema: ConfigSchemaNode = SCHEMA): ConfigSecretEntry[] {
   const entries: ConfigSecretEntry[] = [];
-  stringFields(value, schema, (field) => {
+  scalarFields(value, schema, (field) => {
     if (field.sensitive) entries.push({ key: field.key, value: field.value });
     else if (field.urlCredentials) {
       for (const [index, part] of urlParts(field.value).values.entries())
@@ -154,7 +170,7 @@ export function configSecretEntries(value: unknown, schema: ConfigSchemaNode = S
 /** Value-free, bounded warnings. Endpoints remain valid and retain their original representation. */
 export function configurationWarnings(value: unknown, schema: ConfigSchemaNode = SCHEMA): ConfigWarning[] {
   const warnings: ConfigWarning[] = [];
-  stringFields(value, schema, (field) => {
+  scalarFields(value, schema, (field) => {
     if (warnings.length >= WARNING_LIMIT || !field.urlCredentials || !urlParts(field.value).userInfo) return;
     const sibling = Object.entries(field.parent.properties ?? {}).find(
       ([, node]) => node["x-sensitive"] === true && node.type === "string",
