@@ -234,14 +234,16 @@ pub fn bind_inspection(layout: &Layout, id: &str, caller: Caller<'_>) -> Result<
     }
     private_path(&layout.run(), true).map_err(|_| record::expired())?;
     let dir = layout.run().join("inspect");
-    match fs::create_dir(&dir) {
+    // Concurrent inspectors must see a private directory from its first visible instant.
+    #[cfg(unix)]
+    let created = {
+        use std::os::unix::fs::DirBuilderExt;
+        fs::DirBuilder::new().mode(0o700).create(&dir)
+    };
+    #[cfg(not(unix))]
+    let created = fs::create_dir(&dir);
+    match created {
         Ok(()) => {
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                fs::set_permissions(&dir, fs::Permissions::from_mode(0o700))
-                    .map_err(|_| record::expired())?;
-            }
             #[cfg(windows)]
             {
                 let user = plur1bus_rpc::win::user_sid().map_err(|_| record::expired())?;
