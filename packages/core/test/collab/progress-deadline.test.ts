@@ -139,3 +139,59 @@ test('composed acknowledgement and return repair text each keep the task alive w
   assert.match(JSON.stringify(out), /repaired evidence/); assert.equal(phase, 3);
   assert.equal(collab.listTraces(owner(), project.id)[0]!.spans[0]!.status, 'succeeded');
 });
+
+for (const composed of [false, true]) for (const wait of [true, false]) for (const stalled of [false, true]) test(`${composed ? 'composed' : 'provider'} runner: depth-two progress during ${wait ? 'blocking consult' : 'await_delegations'}, stalled=${stalled}`, async () => {
+  const time = new Time(), limits = defaults().collaboration.limits;
+  limits.taskClasses.consult = { rounds: 100, wallTimeMs: 10_000, stallTimeMs: 1_000 };
+  let config: Parameters<typeof collaborationTools>[0], projectId: string;
+  let waits = 0, childProgress = 0;
+  const provider: ChatProvider = { id: 'nested-progress', async *stream(request) {
+    if (request.agentId === 'parent') {
+      const definitions = collaborationTools(config, request);
+      const context = { agentId: 'parent', principal: owner().userId, signal: request.signal };
+      yield { type: 'delta', text: 'parent evidence; ' };
+      yield { type: 'tool.call', id: 'nested', name: 'consult_agent', args: {} };
+      const result = await definitions.find(tool => tool.name === 'consult_agent')!.execute({ projectId, toAgent: 'child', objective: 'inspect slowly', wait }, context);
+      if (!wait) {
+        waits++;
+        await definitions.find(tool => tool.name === 'await_delegations')!.execute({ taskIds: [(result as { taskId: string }).taskId], timeoutMs: 5000 }, context);
+      }
+      request.signal.throwIfAborted();
+      yield { type: 'delta', text: 'parent completed with child evidence' };
+    } else {
+      for (let i = 0; i < 4; i++) {
+        // Let the parent enter its real tool wait before advancing the service clock.
+        await new Promise<void>(resolve => setImmediate(resolve));
+        time.advance(900);
+        request.signal.throwIfAborted();
+        childProgress++;
+        yield { type: 'delta', text: 'child evidence' };
+      }
+      if (stalled) {
+        await new Promise<void>(resolve => setImmediate(resolve));
+        time.advance(1_000);
+        request.signal.throwIfAborted();
+      }
+    }
+  } };
+  const scope = alsAgentScopePort();
+  const collab = createCollab({ path: ':memory:', clock: () => time.now, timers: time.timers, limits: () => limits, runner: composed ? composedAgentRunner(provider, scope, tmp.make()) : providerRunner(provider, scope) });
+  tmp.onCleanup(() => collab.shutdown());
+  projectId = collab.createProject(owner(), { name: 'Nested progress' }).id;
+  for (const agent of ['lead', 'parent', 'child']) collab.addAgent(owner(), projectId, agent);
+  config = { collab, enabled: () => true, principal: () => owner(), authority: { approvals: { get: () => undefined }, grants: { get: () => undefined }, audit() {}, now: () => time.now } };
+  const request: ChatRequest = { sessionId: 'root', turnId: 'turn', agentId: 'lead', projectId, summaries: [], memory: '', messages: [], signal: new AbortController().signal };
+  const tool = collaborationTools(config, request).find(tool => tool.name === 'consult_agent')!;
+  const result = await tool.execute({ projectId, toAgent: 'parent', objective: 'inspect with a helper' }, { agentId: 'lead', principal: owner().userId, signal: request.signal });
+  assert.equal((result as { result: { status: string } }).result.status, stalled ? 'partial' : 'done_with_concerns');
+  assert.match(JSON.stringify(result), stalled ? /parent evidence/ : /parent completed with child evidence/);
+  assert.equal(childProgress, 4);
+  assert.equal(waits, wait ? 0 : 1);
+  assert.deepEqual(await request.delegations!.finish(), []);
+  const trace = collab.listTraces(owner(), projectId)[0]!;
+  const parent = trace.spans.find(span => span.agentId === 'parent')!;
+  const child = trace.spans.find(span => span.agentId === 'child')!;
+  assert.equal(child.parentSpanId, parent.spanId);
+  assert.deepEqual([parent.status, child.status], stalled ? ['partial', 'partial'] : ['succeeded', 'succeeded']);
+  assert.equal(time.entries.size, 0);
+});

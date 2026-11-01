@@ -10,7 +10,11 @@ export interface AgentScopeValue {
   budgetLedger: string;
   toolView: readonly string[];
   /** Trusted path and work allocation, installed only by the collaboration service. */
-  delegation?: { traceId: string; spanId: string; path: string[]; callClass: import('./limits.ts').CallClass; workBudget: import('./limits.ts').DelegationWorkBudget };
+  delegation?: {
+    /** Descendant activity keeps waiting ancestors alive without changing their work results. */
+    onProgress?: () => void;
+    traceId: string; spanId: string; path: string[]; callClass: import('./limits.ts').CallClass; workBudget: import('./limits.ts').DelegationWorkBudget;
+  };
 }
 
 

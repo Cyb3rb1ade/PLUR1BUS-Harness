@@ -331,16 +331,22 @@ export function createCollab(o: CollabOptions): Collab {
     const remaining = Math.max(0, Math.min(taskLimits.wallTimeMs, handoff ? Date.parse(handoff.contract.budget.deadline) - store.now() : Infinity));
     const stopDeadline = timers.set(() => deadline.abort(new Error('delegation deadline')), remaining);
     signal = AbortSignal.any([signal, deadline.signal]);
-    let stopStall = () => {};
-    const markProgress = () => { if (signal.aborted) return; stopStall(); stopStall = timers.set(() => deadline.abort(new Error('delegation stalled')), taskLimits.stallTimeMs); };
-    markProgress();
-    const clearTimers = () => { stopDeadline(); stopStall(); };
-    signal.addEventListener('abort', clearTimers, { once: true });
     const parent = scope.current()?.delegation;
+    let finished = false;
+    let stopStall = () => {};
+    const markProgress = () => {
+      if (signal.aborted || finished) return;
+      stopStall();
+      stopStall = timers.set(() => deadline.abort(new Error('delegation stalled')), taskLimits.stallTimeMs);
+      parent?.onProgress?.();
+    };
+    markProgress();
+    const clearTimers = () => { finished = true; stopDeadline(); stopStall(); };
+    signal.addEventListener('abort', clearTimers, { once: true });
     const workBudget = delegationWorkBudget(Math.min(handoff?.contract.budget.tokens ?? limits.workTokens, limits.workTokens), parent?.workBudget);
     const sc = scopeFor(toAgent, project.id);
     if (hop?.callClass === 'write') sc.toolView = (o.toolView?.(toAgent) ?? []).filter(name => handoff?.contract.constraints.scope.tools.includes(name));
-    if (hop) sc.delegation = { traceId: chain.traceId, spanId: hop.spanId, path: hop.path, callClass: hop.callClass, workBudget };
+    if (hop) sc.delegation = { traceId: chain.traceId, spanId: hop.spanId, path: hop.path, callClass: hop.callClass, workBudget, onProgress: markProgress };
     if (hop?.callClass !== 'write') sc.toolView = handoff ? handoff.contract.constraints.scope.tools : ['file.read', 'file.list', 'file.stat'];
     const external = directory.get(toAgent)?.targetKind === "external";
     const sessions = external ? undefined : o.sessions?.();
