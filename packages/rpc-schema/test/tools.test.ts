@@ -6,6 +6,17 @@ import assert from "node:assert/strict";
 import { SCHEMA, buildCapabilities, validateParams, validateResult } from "../src/index.ts";
 
 describe("tools service contract", () => {
+  it("the committed hello fixture validates without credential hydration", () => {
+    const fixture = JSON.parse(
+      readFileSync(
+        new URL("../fixtures/methods/tools.hello.json", import.meta.url),
+        "utf8",
+      ),
+    );
+    assert.deepEqual(validateParams("tools.hello", fixture.params), {
+      ok: true,
+    });
+  });
   it("advertises tools methods only on the tools server", () => {
     const schema = SCHEMA as { $defs: { methods: Record<string, Record<string, unknown>> } };
     for (const name of ["tools.hello", "tools.health"]) {

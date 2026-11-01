@@ -487,6 +487,11 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `engine.tombstones.reapply`: experimental, since 1.7.0
 - `engine.agent.close`: experimental, since 1.7.0
 
+### tools server
+
+- `tools.hello`: experimental, since 1.15.0
+- `tools.health`: experimental, since 1.15.0
+
 ## Methods
 
 ### `engine.auth`
@@ -24420,7 +24425,7 @@ D109 §9.10: approval-related HMAC-chain entries of the calling person, newest f
 
 **Served by:** tools
 
-First call on a Core tools connection. The dedicated Core credential establishes the principal; ticketKey is a fresh 32-byte hex HMAC key per Core start (D120 §11.2). Neither credential is returned or logged. Supervisor lifecycle uses the existing module control contract with a separate token.
+First call on a Core tools connection. The dedicated credential and recorded Core PID/instance establish the principal; where available the kernel peer PID must match run/core.pid. The first hello installs a process-wide 32-byte hex HMAC ticketKey for that Core start (D120 §11.2); further connections must present the same key. A new Core identity replaces the key and closes old Core connections. Neither credential is returned or logged. Supervisor lifecycle uses a separate control token.
 
 **params**
 
@@ -32770,7 +32775,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "api",
         "tools"
       ],
-      "description": "Experimental (1.3.0). Whether the child is the core, HTTP API or a module; absent from supervisors before 1.3.0."
+      "description": "Experimental (1.3.0). Whether the child is Core, HTTP API, an installable module, or the native tools service (since 1.15.0 / D120 H1-1); absent from supervisors before 1.3.0."
     }
   }
 }

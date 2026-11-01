@@ -504,6 +504,31 @@ fn create_private_dir(dir: &Path) -> io::Result<()> {
     Ok(())
 }
 
+/// Prepare shared state before any child starts, without changing an existing directory's permissions.
+fn prepare_shared_state(dir: &Path) -> io::Result<()> {
+    #[cfg(unix)]
+    let builder = {
+        use std::os::unix::fs::DirBuilderExt;
+        let mut builder = fs::DirBuilder::new();
+        builder.mode(0o700);
+        builder
+    };
+    #[cfg(not(unix))]
+    let builder = fs::DirBuilder::new();
+    match builder.create(dir) {
+        Ok(()) => {
+            #[cfg(windows)]
+            {
+                let sid = plur1bus_rpc::win::user_sid()?;
+                plur1bus_rpc::win::set_path_dacl(dir, &plur1bus_rpc::acl::run_dir_sddl(&sid))?;
+            }
+            Ok(())
+        }
+        Err(error) if error.kind() == io::ErrorKind::AlreadyExists && dir.is_dir() => Ok(()),
+        Err(error) => Err(error),
+    }
+}
+
 fn create_private_log_dir(dir: &Path) -> io::Result<()> {
     create_private_dir(dir)?;
     #[cfg(windows)]
@@ -710,6 +735,16 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             1,
             &format!("cannot create run/ under {}: {e}", layout.home.display()),
         );
+    }
+    if !opts.no_core {
+        // The supervisor owns shared layout preparation. Tools only inspects Home and state/.
+        if let Err(e) = prepare_shared_state(&layout.state()) {
+            fail(
+                layout,
+                1,
+                &format!("cannot create shared state/ directory: {e}"),
+            );
+        }
     }
     let tightened = match tighten_log_tree(&layout.logs()) {
         Ok(n) => n,
@@ -1566,6 +1601,30 @@ mod tests {
             0o755
         );
         assert_eq!(fs::read(&target_file).unwrap(), b"leave this alone\n");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn preparing_new_shared_state_restricts_inherited_windows_access() {
+        let home = tempfile::tempdir().unwrap();
+        plur1bus_rpc::win::set_path_dacl(home.path(), "D:P(A;OICI;FA;;;WD)").unwrap();
+        let state = home.path().join("state");
+        prepare_shared_state(&state).unwrap();
+        let sid = plur1bus_rpc::win::user_sid().unwrap();
+        let entries = plur1bus_rpc::win::file_dacl_report(&state).unwrap();
+        assert!(plur1bus_rpc::acl::run_writable_by_others(&entries, &sid).is_empty());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn preparing_existing_shared_state_leaves_its_windows_acl_unchanged() {
+        let home = tempfile::tempdir().unwrap();
+        let state = home.path().join("state");
+        fs::create_dir(&state).unwrap();
+        plur1bus_rpc::win::set_path_dacl(&state, "D:P(A;OICI;FA;;;WD)").unwrap();
+        let before = plur1bus_rpc::win::file_dacl_report(&state).unwrap();
+        prepare_shared_state(&state).unwrap();
+        assert_eq!(plur1bus_rpc::win::file_dacl_report(&state).unwrap(), before);
     }
 
     #[cfg(windows)]

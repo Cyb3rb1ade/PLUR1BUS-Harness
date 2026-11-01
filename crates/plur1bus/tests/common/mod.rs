@@ -1,6 +1,7 @@
 //! Shared by `config_service.rs` and `cli.rs`: a `supervise --no-core` process in a temp home, an authenticated
 //! `Client`, and a raw `config.watch` connection whose notifications a reader thread collects.
 #![allow(dead_code)]
+pub mod owned_children;
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
 use serde_json::{json, Value};
 use std::cell::RefCell;
@@ -29,6 +30,7 @@ impl Drop for Supervisor {
         }
         let _ = self.child.kill();
         let _ = self.child.wait();
+        owned_children::cleanup(&self.home, self.child.id());
     }
 }
 

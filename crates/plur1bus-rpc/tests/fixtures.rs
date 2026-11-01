@@ -1,6 +1,5 @@
 //! Every fixture in packages/rpc-schema/fixtures must deserialize into the generated Rust types
 //! and serialize back to the same JSON. This is the Rust half of spec criterion 7.
-mod support;
 
 use plur1bus_rpc::types::{self, ErrorCode};
 use serde::{de::DeserializeOwned, Serialize};
@@ -42,9 +41,7 @@ fn pair<P: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize>(name: 
 fn method_fixture(name: &str, f: &Value) {
     use types::*;
     match name {
-        "tools.hello" => {
-            pair::<ToolsHelloParams, ToolsHelloResult>(name, &support::hydrated(name, f))
-        }
+        "tools.hello" => pair::<ToolsHelloParams, ToolsHelloResult>(name, f),
         "tools.health" => pair::<ToolsHealthParams, ToolsHealthResult>(name, f),
         "admin.extensions.auth.cancel" => {
             pair::<AdminExtensionsAuthCancelParams, AdminExtensionsAuthCancelResult>(name, f)

@@ -37,7 +37,7 @@ const MAX_BUDGET_MS: i64 = 120_000;
 /// `config.set { changes }` bounds, as in the schema (typify does not check array lengths).
 const MAX_CHANGES: usize = 64;
 
-pub(crate) use plur1bus_rpc::listener::Accepted;
+pub(crate) use plur1bus_rpc::server_transport::Accepted;
 
 pub struct SupervisorServer {
     listener: imp::Listener,
@@ -375,6 +375,7 @@ impl ConnCtx {
             writer,
             closer,
             mut drain,
+            ..
         } = conn;
         let mut conn = Conn {
             peer_pid,
@@ -1354,7 +1355,7 @@ impl ConnCtx {
 }
 
 #[cfg(unix)]
-use plur1bus_rpc::listener as imp;
+use plur1bus_rpc::server_transport as imp;
 
 #[cfg(windows)]
 use super::pipe_windows as imp;

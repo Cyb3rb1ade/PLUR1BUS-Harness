@@ -39,7 +39,7 @@ export function classify({ event, files, enginePinChanged = false }) {
       r.rust = true;
       r.web = true; // web-browser-build compiles Core and the CLI for the served-stack tests
       // Core/system tests share Rust-owned fixtures and check the restore marker's source parity.
-      if (/^crates\/.*\/fixtures\//.test(file) || file === 'crates/plur1bus/src/backup/restore.rs') r['ts-core'] = true;
+      if (/^crates\/(?:plur1bus-tools|plur1bus-rpc)\//.test(file) || /^crates\/.*\/fixtures\//.test(file) || file === 'crates/plur1bus/src/backup/restore.rs') r['ts-core'] = true;
     }
     else if (file.startsWith('packages/web/')) r.web = true;
     else if (file.startsWith('packages/')) {

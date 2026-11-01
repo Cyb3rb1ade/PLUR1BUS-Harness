@@ -663,7 +663,7 @@ fn check_host_mode_coexistence(env: &crate::coexistence::HostEnvironment) -> Che
 // ---- run.permissions --------------------------------------------------------------------------
 
 /// The token files `run.permissions` covers: the core's, the supervisor's and every module's (`module-*.token`, HB5 d),
-/// the modules' sorted by name.
+/// the tools service's two credentials and the modules' sorted by name.
 fn token_files(run: &Path) -> Vec<String> {
     let mut modules: Vec<String> = std::fs::read_dir(run)
         .map(|d| {
@@ -674,7 +674,12 @@ fn token_files(run: &Path) -> Vec<String> {
         })
         .unwrap_or_default();
     modules.sort();
-    let mut names = vec!["core.token".to_string(), "supervisor.token".to_string()];
+    let mut names = vec![
+        "core.token".to_string(),
+        "supervisor.token".to_string(),
+        "tools.token".to_string(),
+        "tools-core.token".to_string(),
+    ];
     names.extend(modules);
     names
 }
@@ -1816,20 +1821,23 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn run_permissions_covers_module_tokens() {
+    fn run_permissions_covers_module_and_tools_tokens() {
         use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::tempdir().unwrap();
         let layout = Layout::new(dir.path().to_path_buf());
         std::fs::create_dir_all(layout.run()).unwrap();
         std::fs::set_permissions(layout.run(), std::fs::Permissions::from_mode(0o700)).unwrap();
-        let token = layout.run().join("module-fixture.token");
-        std::fs::write(&token, "t").unwrap();
-        std::fs::set_permissions(&token, std::fs::Permissions::from_mode(0o600)).unwrap();
-        assert_eq!(check_run_permissions(&layout).status, Status::Ok);
-        std::fs::set_permissions(&token, std::fs::Permissions::from_mode(0o644)).unwrap();
-        let c = check_run_permissions(&layout);
-        assert_eq!(c.status, Status::Fail, "{c:?}");
-        assert!(c.summary.contains("module-fixture.token"), "{c:?}");
+        for name in ["module-fixture.token", "tools.token", "tools-core.token"] {
+            let token = layout.run().join(name);
+            std::fs::write(&token, "fixture").unwrap();
+            std::fs::set_permissions(&token, std::fs::Permissions::from_mode(0o600)).unwrap();
+            assert_eq!(check_run_permissions(&layout).status, Status::Ok);
+            std::fs::set_permissions(&token, std::fs::Permissions::from_mode(0o644)).unwrap();
+            let c = check_run_permissions(&layout);
+            assert_eq!(c.status, Status::Fail, "{name}: {c:?}");
+            assert!(c.summary.contains(name), "{c:?}");
+            std::fs::set_permissions(&token, std::fs::Permissions::from_mode(0o600)).unwrap();
+        }
     }
 
     #[test]

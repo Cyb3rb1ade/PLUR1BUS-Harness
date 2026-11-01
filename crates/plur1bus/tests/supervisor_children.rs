@@ -1,6 +1,8 @@
 //! `plur1bus supervise` with a child: spawn, handshake readiness, health, hang kill, restart with backoff, the out
 //! log, `daemon.start` and the stop sequence. The core is `tests/fixtures/fake-core.mjs`, reached through
 //! `PLUR1BUS_CORE_JS` / `PLUR1BUS_NODE`. Every test uses its own temp home.
+#[path = "common/owned_children.rs"]
+mod owned_children;
 use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -75,14 +77,16 @@ impl Home {
     }
 }
 
-/// Kills the supervisor if a test ends before it exits; its core then loses the lifeline and exits after its grace.
+/// Reaps the supervisor and any remaining peers of this home if a test ends early.
 struct Supervisor {
     child: Child,
+    home: PathBuf,
 }
 impl Drop for Supervisor {
     fn drop(&mut self) {
         let _ = self.child.kill();
         let _ = self.child.wait();
+        owned_children::cleanup(&self.home, self.child.id());
     }
 }
 impl Supervisor {
@@ -135,7 +139,10 @@ fn start_env(
         .stderr(Stdio::null())
         .spawn()
         .unwrap();
-    let s = Supervisor { child };
+    let s = Supervisor {
+        child,
+        home: h.home.clone(),
+    };
     wait_until("run/supervisor.token", WAIT, || {
         h.home.join("run/supervisor.token").exists()
     });
@@ -314,6 +321,12 @@ fn tools_crash_restarts_its_own_slot_while_core_keeps_serving() {
         .unwrap();
     assert_eq!(tools_status["pid"], tools_pid);
     assert_eq!(tools_status["process"]["state"], "ready");
+    assert_eq!(
+        tools_status["restarts"],
+        0,
+        "tools must start without a shared-layout race: {}",
+        h.log("tools.out.log")
+    );
     kill_tools(tools_pid);
     wait_until("tools restarted", WAIT, || {
         let status = connection.call("daemon.status", json!({})).unwrap();
@@ -373,11 +386,134 @@ fn tools_crash_restarts_its_own_slot_while_core_keeps_serving() {
     assert!(h
         .log_records()
         .iter()
-        .any(|row| row.to_string().contains("tools")));
+        .any(|row| row["msg"] == "tools exited" && row["pid"] == tools_pid));
     connection
         .call("daemon.stop", json!({"budgetMs":2000}))
         .unwrap();
     assert!(supervisor.wait_exit(WAIT).success());
+}
+
+#[test]
+fn a_restarted_supervisor_adopts_the_same_tools_process() {
+    let h = Home::new();
+    let tools = assert_cmd::cargo::cargo_bin("plur1bus-tools");
+    let env = [
+        ("PLUR1BUS_TOOLS_BIN", tools.to_str().unwrap()),
+        ("FAKE_CORE_GRACE_MS", "30000"),
+    ];
+    let mut first = start_env(&h, "ready", "0.1", &fixture(), &env);
+    let mut connection = client(&h.home);
+    wait_child(&mut connection, "initial Core ready", WAIT, |child| {
+        state(child) == "ready"
+    });
+    let mut original = 0;
+    wait_until("initial tools ready", WAIT, || {
+        let status = connection.call("daemon.status", json!({})).unwrap();
+        let tools = status["children"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|child| child["role"] == "tools")
+            .unwrap();
+        original = tools["pid"].as_u64().unwrap_or(0) as u32;
+        tools["process"]["state"] == "ready"
+    });
+    first.child.kill().unwrap();
+    first.child.wait().unwrap();
+    drop(connection);
+    let mut replacement = start_env(&h, "ready", "0.1", &fixture(), &env);
+    let mut connection = client(&h.home);
+    wait_until("same tools adopted", WAIT, || {
+        let status = connection.call("daemon.status", json!({})).unwrap();
+        let Some(tools) = status["children"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|child| child["role"] == "tools")
+        else {
+            return false;
+        };
+        tools["pid"] == original && tools["process"]["state"] == "ready" && tools["adopted"] == true
+    });
+    // The old guard must preserve peers that now belong to the replacement supervisor.
+    drop(first);
+    let token = std::fs::read_to_string(h.home.join("run/tools.token")).unwrap();
+    let mut control = Client::connect(
+        &owned_children::address(&h.home, "tools"),
+        &token,
+        ConnectOptions {
+            endpoint: Endpoint::Module,
+            expected_server_pid: Some(original),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        control.call("module.status", json!({})).unwrap()["detail"]["adopted"],
+        true
+    );
+    connection
+        .call("daemon.stop", json!({"budgetMs":2000}))
+        .unwrap();
+    assert!(replacement.wait_exit(WAIT).success());
+}
+
+#[test]
+fn dropping_the_supervisor_guard_reaps_the_owned_tools_child() {
+    let h = Home::new();
+    let tools = assert_cmd::cargo::cargo_bin("plur1bus-tools");
+    let supervisor = start_env(
+        &h,
+        "ready",
+        "0.1",
+        &fixture(),
+        &[("PLUR1BUS_TOOLS_BIN", tools.to_str().unwrap())],
+    );
+    let mut control = client(&h.home);
+    let core = wait_child(&mut control, "Core ready before cleanup", WAIT, |child| {
+        state(child) == "ready"
+    });
+    let mut pid = 0;
+    wait_until("tools ready before guard drop", WAIT, || {
+        let status = control.call("daemon.status", json!({})).unwrap();
+        let child = status["children"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|child| child["role"] == "tools")
+            .unwrap();
+        pid = child["pid"].as_u64().unwrap_or(0) as u32;
+        child["process"]["state"] == "ready"
+    });
+    drop(control);
+    drop(supervisor);
+    let left_alive = plur1bus_rpc::process::alive(pid) == plur1bus_rpc::process::Liveness::Alive;
+    if left_alive {
+        // Even the failing regression test must clean its native peer instead of waiting out the long orphan grace.
+        let token = std::fs::read_to_string(h.home.join("run/tools.token")).unwrap();
+        let mut tools = Client::connect(
+            &owned_children::address(&h.home, "tools"),
+            &token,
+            ConnectOptions {
+                endpoint: Endpoint::Module,
+                expected_server_pid: Some(pid),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        tools.call("module.shutdown", json!({})).unwrap();
+    }
+    wait_until("tools exited after cleanup", WAIT, || {
+        plur1bus_rpc::process::alive(pid) == plur1bus_rpc::process::Liveness::Gone
+    });
+    let core_pid = core["pid"].as_u64().unwrap() as u32;
+    wait_until("fixture Core exited after cleanup", WAIT, || {
+        plur1bus_rpc::process::alive(core_pid) == plur1bus_rpc::process::Liveness::Gone
+    });
+    assert!(
+        !left_alive,
+        "the guard returned while its native tools child was still running"
+    );
 }
 
 fn pid_file(home: &Path) -> Option<u64> {
@@ -838,6 +974,7 @@ fn logs_and_child_output_are_private_under_umask_022() {
     }
     let supervisor = Supervisor {
         child: command.spawn().unwrap(),
+        home: h.home.clone(),
     };
     let out_log = logs.join("core.out.log");
     wait_until("the fake core's canary output", WAIT, || {

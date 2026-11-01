@@ -266,3 +266,33 @@ test('a PR without the platform policy still gets a passing gate when the gated 
   assert.deepEqual(evaluateGate(needs), []);
   assert(!('unit-os' in needs), 'the gated non-Linux jobs are not part of the gate');
 });
+
+test("Core shards prepare the pinned Rust toolchain and protected cache before native integration builds", () => {
+  const jobs = jobBlocks(workflow());
+  for (const job of ["core-unit-shard", "core-unit-shard-windows"]) {
+    const block = jobs[job];
+    const build = block.indexOf(
+      "run: cargo build --locked -p plur1bus-tools -p plur1bus",
+    );
+    const toolchain = block.indexOf(
+      "uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d",
+    );
+    const cache = block.indexOf(
+      "uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c",
+    );
+    assert.ok(
+      toolchain >= 0 && toolchain < build,
+      `${job}: pinned toolchain before native build`,
+    );
+    assert.ok(
+      cache > toolchain && cache < build,
+      `${job}: pinned cache after toolchain and before build`,
+    );
+    assert.match(block.slice(toolchain, cache), /toolchain: "1\.95"/);
+    assert.match(
+      block.slice(cache, build),
+      /save-if: \$\{\{ github\.ref == 'refs\/heads\/main' \}\}/,
+    );
+    assert.match(block.slice(cache, build), /cache-on-failure: false/);
+  }
+});

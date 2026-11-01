@@ -1,4 +1,4 @@
-//! The supervisor's named pipe (ruling S11): a byte-mode pipe whose DACL grants full control to the user and SYSTEM
+//! The shared named pipe (ruling S11): a byte-mode pipe whose DACL grants full control to the user and SYSTEM
 //! only (`D:P(A;;GA;;;<user SID>)(A;;GA;;;SY)`), whose first instance is created with `FILE_FLAG_FIRST_PIPE_INSTANCE`
 //! (a pipe of that name that someone else created first makes the bind fail instead of sharing the name), and which
 //! refuses remote clients.
@@ -8,13 +8,13 @@
 //! synchronous handle the disconnect would wait behind the pending read instead. `drain` (`FlushFileBuffers`, which
 //! waits until the client has read everything) runs with a deadline, so a client that never reads cannot hold up a
 //! close or a `daemon.stop`.
-use super::listener::Accepted;
-use plur1bus_rpc::win::{overlapped_op, pipe_client_pid, OverlappedPipe, SecurityDescriptor};
+use super::Accepted;
+use crate::win::{overlapped_op, pipe_client_pid, OverlappedPipe, SecurityDescriptor};
 use std::io::{self, Read, Write};
 use std::os::windows::ffi::OsStrExt;
 use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, TryLockError};
 use std::time::{Duration, Instant};
 use windows_sys::Win32::Foundation::{
     ERROR_ACCESS_DENIED, ERROR_PIPE_CONNECTED, INVALID_HANDLE_VALUE,
@@ -33,7 +33,9 @@ use windows_sys::Win32::System::IO::CancelSynchronousIo;
 const DRAIN_DEADLINE: Duration = Duration::from_secs(2);
 const FIRST_INSTANCE_RETRY_DEADLINE: Duration = Duration::from_secs(1);
 const FIRST_INSTANCE_RETRY_INTERVAL: Duration = Duration::from_millis(10);
+const ACCEPT_LOCK_RETRY_INTERVAL: Duration = Duration::from_millis(1);
 
+/// A local byte-mode pipe restricted to the current user and SYSTEM (S11).
 pub struct Listener {
     name: Vec<u16>,
     security: SecurityDescriptor,
@@ -75,7 +77,7 @@ fn create_instance(
 }
 
 /// Waits for a client on the overlapped instance `h`.
-fn wait_for_client(h: &OwnedHandle) -> io::Result<()> {
+fn wait_for_client(h: &OwnedHandle, timeout: Option<Duration>) -> io::Result<()> {
     // SAFETY: default security, manual reset, not signalled, unnamed.
     let event = unsafe { CreateEventW(std::ptr::null(), 1, 0, std::ptr::null()) };
     if event.is_null() {
@@ -85,7 +87,10 @@ fn wait_for_client(h: &OwnedHandle) -> io::Result<()> {
     let event = unsafe { OwnedHandle::from_raw_handle(event) };
     let raw = h.as_raw_handle();
     // SAFETY: `raw` is a pipe instance this listener owns; overlapped_op keeps the OVERLAPPED alive until done.
-    match overlapped_op(raw, event.as_raw_handle(), INFINITE, |ov| unsafe {
+    let timeout_ms = timeout.map_or(INFINITE, |d| {
+        d.as_millis().clamp(1, u128::from(INFINITE - 1)) as u32
+    });
+    match overlapped_op(raw, event.as_raw_handle(), timeout_ms, |ov| unsafe {
         ConnectNamedPipe(raw, ov)
     }) {
         Ok(_) => Ok(()),
@@ -163,21 +168,59 @@ impl Listener {
         })
     }
 
+    /// Waits for one connection without a deadline.
     pub fn accept(&self) -> io::Result<Accepted> {
-        let h = match self.next.lock().unwrap_or_else(|e| e.into_inner()).take() {
+        self.accept_inner(None)?
+            .ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "accept deadline passed"))
+    }
+
+    /// Cancels only the pending overlapped connect at the deadline, retaining the instance for the next accept.
+    /// A connect that completed during cancellation is accepted by `overlapped_op`, never discarded.
+    pub fn accept_timeout(&self, timeout: Duration) -> io::Result<Option<Accepted>> {
+        self.accept_inner(Some(timeout))
+    }
+
+    fn accept_inner(&self, timeout: Option<Duration>) -> io::Result<Option<Accepted>> {
+        let start = Instant::now();
+        // Keep concurrent accepts serialized without allowing an unbounded accept to defeat another's deadline.
+        let mut next = match timeout {
+            None => self.next.lock().unwrap_or_else(|e| e.into_inner()),
+            Some(timeout) => loop {
+                match self.next.try_lock() {
+                    Ok(next) => break next,
+                    Err(TryLockError::Poisoned(error)) => break error.into_inner(),
+                    Err(TryLockError::WouldBlock) => {
+                        let remaining = timeout.saturating_sub(start.elapsed());
+                        if remaining.is_zero() {
+                            return Ok(None);
+                        }
+                        std::thread::sleep(remaining.min(ACCEPT_LOCK_RETRY_INTERVAL));
+                    }
+                }
+            },
+        };
+        let h = match next.take() {
             Some(h) => h,
             None => create_instance(&self.name, &self.security, false)?,
         };
-        wait_for_client(&h)?;
+        let remaining = timeout.map(|timeout| timeout.saturating_sub(start.elapsed()));
+        if let Err(error) = wait_for_client(&h, remaining) {
+            if error.kind() == io::ErrorKind::TimedOut {
+                *next = Some(h);
+                return Ok(None);
+            }
+            return Err(error);
+        }
         // Keep an instance listening while this one is served (clients retry on ERROR_PIPE_BUSY meanwhile).
         if let Ok(n) = create_instance(&self.name, &self.security, false) {
-            *self.next.lock().unwrap_or_else(|e| e.into_inner()) = Some(n);
+            *next = Some(n);
         }
         let pipe = Arc::new(OverlappedPipe::new(h)?);
         let peer_pid = pipe_client_pid(pipe.handle());
         let closer = pipe.clone();
         let drain = pipe.clone();
-        Ok(Accepted {
+        let timer = pipe.clone();
+        Ok(Some(Accepted {
             peer_pid,
             reader: Box::new(Pipe(pipe.clone())),
             writer: Box::new(Pipe(pipe)),
@@ -188,7 +231,11 @@ impl Listener {
                 unsafe { DisconnectNamedPipe(closer.handle()) };
             }),
             drain: Box::new(move || drain_with_deadline(&drain, DRAIN_DEADLINE)),
-        })
+            read_timeout: Box::new(move |timeout| {
+                timer.set_timeout(timeout);
+                Ok(())
+            }),
+        }))
     }
 }
 
@@ -196,9 +243,32 @@ impl Listener {
 mod tests {
     use super::*;
 
+    fn address() -> String {
+        format!(
+            r"\\.\pipe\plur1bus-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        )
+    }
+
+    #[test]
+    fn accept_deadline_includes_waiting_for_another_accept_to_release_the_instance() {
+        let listener = Listener::bind(&address()).unwrap();
+        let _held = listener.next.lock().unwrap();
+        let start = Instant::now();
+        assert!(listener
+            .accept_timeout(Duration::from_millis(20))
+            .unwrap()
+            .is_none());
+        assert!(start.elapsed() < Duration::from_secs(1));
+    }
+
     #[test]
     fn bind_retries_a_transient_first_instance_collision() {
-        let address = format!(r"\\.\pipe\plur1bus-test-{}", std::process::id());
+        let address = address();
         let name: Vec<u16> = std::ffi::OsStr::new(&address)
             .encode_wide()
             .chain(Some(0))

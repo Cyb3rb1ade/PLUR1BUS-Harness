@@ -74,6 +74,10 @@ zwischengespeichertes, exakt gepinntes Paket. Ohne diese Abhängigkeit können d
 und die Engine-abhängigen TS-Tests nicht laufen. Die Vorbereitung nennt das ausdrücklich. Sie
 entfernt oder ersetzt die Engine nicht und verwendet das bestehende Lockfile mit `--frozen-lockfile`.
 
+Before CLI Rust tests or Core tools-service integration, build both native binaries:
+`cargo build --locked -p plur1bus-tools -p plur1bus`. This is also required on a clean target before
+`cargo test -p plur1bus --locked`; `pnpm test:prep` does not build Rust binaries.
+
 Danach laufen die gewünschten Tests, zum Beispiel `cargo test --workspace` oder `pnpm test`.
 Die gemischten Rust/TS-Audit-Tests prüfen ihre Workspace-Voraussetzungen vor dem Kindprozessstart;
 `repair_never_removes_a_live_endpoint` prüft zuerst den gebauten Core. Der Paket-Testrunner ergänzt
@@ -126,6 +130,9 @@ Env vars that matter when driving the core directly instead of through the CLI:
 - `PLUR1BUS_CORE_JS` — path to the built core entry (`packages/core/dist/core.js`); `plur1bus core
   run` and the supervisor's own spawn (`supervisor::child::core_spec`) both use this instead of the
   installed `<home>/runtime/core/core.js` (written by `setup`).
+- `PLUR1BUS_TOOLS_BIN` — absolute path to the built `plur1bus-tools` binary for the supervisor and standalone Core;
+  otherwise they use the packaged native companion. The [native tools service](docs/tools-service.md) documents
+  its Core-PID-bound ticket key, private run files and independent lifecycle.
 - `PLUR1BUS_NODE` — the Node binary `plur1bus core run` and the supervisor exec; falls back to the install
   manifest's node path, then the first `<home>/runtime/node-*/bin/node`, then whatever `node` is on `PATH`. Must name `node`/`node.exe`
   directly — never a shell shim (`.cmd`, a wrapper script) — because the supervisor's identity

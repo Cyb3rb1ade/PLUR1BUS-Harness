@@ -3,6 +3,52 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::path::Path;
 
+pub(crate) fn shared_dir(path: &Path) -> io::Result<()> {
+    // Core owns these directories, including the choice to place Home on a symlinked volume.
+    if !fs::metadata(path)?.is_dir() {
+        return Err(io::Error::other("tools shared path is not a directory"));
+    }
+    Ok(())
+}
+
+pub(crate) fn run_dir(path: &Path) -> io::Result<()> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) if !metadata.is_dir() || metadata.is_symlink() => {
+            return Err(io::Error::other("tools run directory is not trusted"));
+        }
+        Ok(_) => {}
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            #[cfg(unix)]
+            let created = {
+                use std::os::unix::fs::DirBuilderExt;
+                fs::DirBuilder::new().mode(0o700).create(path)
+            };
+            #[cfg(not(unix))]
+            let created = fs::create_dir(path);
+            match created {
+                Ok(()) => secure(path, true)?,
+                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
+                Err(error) => return Err(error),
+            }
+        }
+        Err(error) => return Err(error),
+    }
+    let metadata = fs::symlink_metadata(path)?;
+    if !metadata.is_dir() || metadata.is_symlink() {
+        return Err(io::Error::other("tools run directory is not trusted"));
+    }
+    #[cfg(windows)]
+    {
+        let sid = plur1bus_rpc::win::user_sid()?;
+        let entries = plur1bus_rpc::win::file_dacl_report(path)?;
+        if !plur1bus_rpc::acl::run_writable_by_others(&entries, &sid).is_empty() {
+            return Err(io::Error::other("tools run directory is not trusted"));
+        }
+    }
+    plur1bus_rpc::trust::verify_run_dir(path)
+        .map_err(|_| io::Error::other("tools run directory is not trusted"))
+}
+
 pub(crate) fn private_dir(path: &Path) -> io::Result<()> {
     if path
         .symlink_metadata()
@@ -113,4 +159,33 @@ pub(crate) fn ticket_key(value: &str) -> Option<zeroize::Zeroizing<[u8; 32]>> {
         key[index] = digit(pair[0]) * 16 + digit(pair[1]);
     }
     Some(key)
+}
+
+#[cfg(all(test, windows))]
+mod windows_permissions_tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+
+    #[test]
+    fn an_existing_run_with_foreign_writers_is_refused_without_changing_its_acl() {
+        let home = tempfile::tempdir().unwrap();
+        let run = home.path().join("run");
+        fs::create_dir(&run).unwrap();
+        plur1bus_rpc::win::set_path_dacl(&run, "D:P(A;OICI;FA;;;WD)").unwrap();
+        let before = plur1bus_rpc::win::file_dacl_report(&run).unwrap();
+        assert!(run_dir(&run).is_err());
+        assert_eq!(plur1bus_rpc::win::file_dacl_report(&run).unwrap(), before);
+        assert!(!run.join("tools-core.token").exists());
+    }
+
+    #[test]
+    fn a_new_run_is_created_with_only_owner_and_system_writers() {
+        let home = tempfile::tempdir().unwrap();
+        plur1bus_rpc::win::set_path_dacl(home.path(), "D:P(A;OICI;FA;;;WD)").unwrap();
+        let run = home.path().join("run");
+        run_dir(&run).unwrap();
+        let sid = plur1bus_rpc::win::user_sid().unwrap();
+        let entries = plur1bus_rpc::win::file_dacl_report(&run).unwrap();
+        assert!(plur1bus_rpc::acl::run_writable_by_others(&entries, &sid).is_empty());
+    }
 }

@@ -4,8 +4,19 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { dirname, isAbsolute, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { connect, readRecordedPid, readRunToken, RpcCallError, unitAddress, type CoreClient } from "@plur1bus/module-api";
-import { validateResult, type ToolsHealthResult, type ToolsServiceStatus } from "@plur1bus/rpc-schema";
+import {
+  connect,
+  readRecordedPid,
+  readRunToken,
+  RpcCallError,
+  unitAddress,
+  type CoreClient,
+} from "@plur1bus/module-api";
+import {
+  validateResult,
+  type ToolsHealthResult,
+  type ToolsServiceStatus,
+} from "@plur1bus/rpc-schema";
 import { helperPinned } from "../attestation/helper.ts";
 import { RpcError } from "../rpc/errors.ts";
 
@@ -18,15 +29,37 @@ export interface ToolsClientOptions {
   pollIntervalMs?: number;
 }
 
-const unavailable = () => new RpcError("E_NOT_AVAILABLE", "native tools are unavailable", {
-  reason: "tools-unavailable",
-});
+const unavailable = () =>
+  new RpcError("E_NOT_AVAILABLE", "native tools are unavailable", {
+    reason: "tools-unavailable",
+  });
+
+interface ToolsChannel {
+  connection: CoreClient | undefined;
+  connecting: Promise<CoreClient> | undefined;
+}
 
 /** Minimal OS environment, including Windows loader basics; excludes all provider and application credentials. */
 export function toolsEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const allowed = ["PATH", "HOME", "USERPROFILE", "SystemRoot", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "TMPDIR",
-    "LANG", "LC_ALL", "CI"];
-  return Object.fromEntries(allowed.flatMap(name => env[name] === undefined ? [] : [[name, env[name]]]));
+  const allowed = [
+    "PATH",
+    "HOME",
+    "USERPROFILE",
+    "SystemRoot",
+    "SYSTEMROOT",
+    "WINDIR",
+    "TEMP",
+    "TMP",
+    "TMPDIR",
+    "LANG",
+    "LC_ALL",
+    "CI",
+  ];
+  return Object.fromEntries(
+    allowed.flatMap((name) =>
+      env[name] === undefined ? [] : [[name, env[name]]],
+    ),
+  );
 }
 
 function binaryPath(options: ToolsClientOptions): string {
@@ -48,12 +81,23 @@ export class ToolsClient {
   private readonly options: ToolsClientOptions;
   private readonly key = randomBytes(32);
   private readonly abort = new AbortController();
-  private connection: CoreClient | undefined;
-  private connecting: Promise<CoreClient> | undefined;
+  private readonly work: ToolsChannel = {
+    connection: undefined,
+    connecting: undefined,
+  };
+  private readonly probe: ToolsChannel = {
+    connection: undefined,
+    connecting: undefined,
+  };
   private child: ChildProcess | undefined;
   private timer: ReturnType<typeof setTimeout> | undefined;
-  private cached: ToolsServiceStatus = { ready: false, pid: null, checkedAt: null };
+  private cached: ToolsServiceStatus = {
+    ready: false,
+    pid: null,
+    checkedAt: null,
+  };
   private nextSpawnAt = 0;
+  private spawnBackoffMs = 250;
   private closed = false;
   private closing: Promise<void> | undefined;
 
@@ -67,9 +111,13 @@ export class ToolsClient {
     const tick = async () => {
       try {
         await this.health();
-      } catch { /* health records the explicit unavailable snapshot; Core remains usable. */ }
+      } catch {
+        /* health records the explicit unavailable snapshot; Core remains usable. */
+      }
       if (!this.closed) {
-        this.timer = setTimeout(() => { void tick(); }, this.options.pollIntervalMs ?? 1000);
+        this.timer = setTimeout(() => {
+          void tick();
+        }, this.options.pollIntervalMs ?? 1000);
         this.timer.unref();
       }
     };
@@ -84,8 +132,18 @@ export class ToolsClient {
   /** Probe tools.health with the Core principal; unavailable/restarting tools are a typed refusal. */
   async health(): Promise<ToolsHealthResult> {
     try {
-      const result = await this.call<ToolsHealthResult>("tools.health", {});
-      this.cached = { ready: result.process.state === "ready", pid: result.pid, checkedAt: Date.now() };
+      const result = await this.request<ToolsHealthResult>(
+        this.probe,
+        "tools.health",
+        {},
+        1000,
+      );
+      this.cached = {
+        ready: result.process.state === "ready",
+        pid: result.pid,
+        checkedAt: Date.now(),
+      };
+      if (this.cached.ready) this.spawnBackoffMs = 250;
       return result;
     } catch {
       this.cached = { ready: false, pid: null, checkedAt: Date.now() };
@@ -94,60 +152,89 @@ export class ToolsClient {
   }
 
   /** Call an internal tools method. All results are validated against the shared schema before exposure. */
-  async call<T = unknown>(method: string, params: object, timeoutMs = 1000): Promise<T> {
-    if (this.closed || !method.startsWith("tools.") || method === "tools.hello") throw unavailable();
+  async call<T = unknown>(
+    method: string,
+    params: object,
+    timeoutMs = 1000,
+  ): Promise<T> {
+    return this.request<T>(this.work, method, params, timeoutMs);
+  }
+
+  private async request<T>(
+    channel: ToolsChannel,
+    method: string,
+    params: object,
+    timeoutMs: number,
+  ): Promise<T> {
+    if (this.closed || !method.startsWith("tools.") || method === "tools.hello")
+      throw unavailable();
     let connection: CoreClient | undefined;
     try {
-      connection = await this.connected();
+      connection = await this.connected(channel);
       const result = await connection.call<T>(method, params, timeoutMs);
       if (!validateResult(method, result).ok) throw unavailable();
       return result;
     } catch (error) {
-      if (connection && this.connection === connection) {
-        this.connection = undefined;
+      if (error instanceof RpcCallError) {
+        // The pending request has expired; the framing client still owns the other requests and drops late replies.
+        if (error.reason === "call-timeout") throw unavailable();
+        if (error.error !== "E_CORE_UNAVAILABLE") throw error;
+      }
+      if (connection && channel.connection === connection) {
+        channel.connection = undefined;
         await connection.close();
       }
-      if (error instanceof RpcCallError && error.error !== "E_CORE_UNAVAILABLE") throw error;
       throw unavailable();
     }
   }
 
-  private async connected(): Promise<CoreClient> {
-    if (this.connection) return this.connection;
+  private async connected(channel: ToolsChannel): Promise<CoreClient> {
+    if (channel.connection) return channel.connection;
     if (this.closed) throw unavailable();
-    if (!this.connecting) {
-      this.connecting = this.open().finally(() => { this.connecting = undefined; });
+    if (!channel.connecting) {
+      channel.connecting = this.open(channel).finally(() => {
+        channel.connecting = undefined;
+      });
     }
-    return this.connecting;
+    return channel.connecting;
   }
 
-  private async open(): Promise<CoreClient> {
+  private async open(channel: ToolsChannel): Promise<CoreClient> {
     if (!this.options.supervised) await this.spawnStandalone();
     const deadline = Date.now() + (this.child ? 2500 : 300);
     do {
       try {
         const run = join(this.options.home, "run");
         const connection = await connect({
-          address: unitAddress(this.options.home, "tools"), endpoint: "tools",
+          address: unitAddress(this.options.home, "tools"),
+          endpoint: "tools",
           token: readRunToken(this.options.home, join(run, "tools-core.token")),
-          ticketKey: this.key.toString("hex"), signal: this.abort.signal,
+          ticketKey: this.key.toString("hex"),
+          signal: this.abort.signal,
           ...recordedServerPid(this.options.home),
-          connectTimeoutMs: 300, callTimeoutMs: 1000, handshakeTimeoutMs: 1000,
+          connectTimeoutMs: 300,
+          callTimeoutMs: 1000,
+          handshakeTimeoutMs: 1000,
         });
-        if (!validateResult("tools.hello", connection.hello).ok || this.closed) {
+        if (
+          !validateResult("tools.hello", connection.hello).ok ||
+          this.closed
+        ) {
           await connection.close();
           throw unavailable();
         }
-        this.connection = connection;
+        channel.connection = connection;
         connection.onClose(() => {
-          if (this.connection === connection) {
-            this.connection = undefined;
-            this.cached = { ready: false, pid: null, checkedAt: Date.now() };
+          if (channel.connection === connection) {
+            channel.connection = undefined;
+            if (channel === this.probe)
+              this.cached = { ready: false, pid: null, checkedAt: Date.now() };
           }
         });
         return connection;
       } catch {
-        if (!this.child || this.closed || Date.now() >= deadline) throw unavailable();
+        if (!this.child || this.closed || Date.now() >= deadline)
+          throw unavailable();
         await delay(25, undefined, { signal: this.abort.signal });
       }
     } while (!this.closed);
@@ -158,16 +245,32 @@ export class ToolsClient {
     if (this.child || Date.now() < this.nextSpawnAt) return;
     const binary = binaryPath(this.options);
     if (!isAbsolute(binary) || !helperPinned(binary)) throw unavailable();
-    const child = spawn(binary, ["serve", "--home", this.options.home, "--lifeline", "stdin",
-      "--grace-ms", String(this.options.orphanGraceMs ?? 10_000)], {
-      stdio: ["pipe", "ignore", "ignore"], windowsHide: true, env: toolsEnvironment(process.env),
+    const child = spawn(
+      binary,
+      [
+        "serve",
+        "--home",
+        this.options.home,
+        "--lifeline",
+        "stdin",
+        "--grace-ms",
+        String(this.options.orphanGraceMs ?? 10_000),
+      ],
+      {
+        stdio: ["pipe", "ignore", "ignore"],
+        windowsHide: true,
+        env: toolsEnvironment(process.env),
+      },
+    );
+    child.stdin?.on("error", () => {
+      /* A crashed child can close its lifeline before shutdown finishes. */
     });
-    child.stdin?.on("error", () => { /* A crashed child can close its lifeline before shutdown finishes. */ });
     this.child = child;
     const exited = () => {
       if (this.child === child) {
         this.child = undefined;
-        this.nextSpawnAt = Date.now() + 250;
+        this.nextSpawnAt = Date.now() + this.spawnBackoffMs;
+        this.spawnBackoffMs = Math.min(this.spawnBackoffMs * 2, 30_000);
         this.cached = { ready: false, pid: null, checkedAt: Date.now() };
       }
     };
@@ -189,9 +292,13 @@ export class ToolsClient {
     this.closed = true;
     if (this.timer) clearTimeout(this.timer);
     this.abort.abort();
-    await this.connecting?.catch(() => { /* An interrupted connection is expected on shutdown. */ });
-    await this.connection?.close();
-    this.connection = undefined;
+    for (const channel of [this.work, this.probe]) {
+      await channel.connecting?.catch(() => {
+        /* An interrupted connection is expected on shutdown. */
+      });
+      await channel.connection?.close();
+      channel.connection = undefined;
+    }
     this.key.fill(0);
     const child = this.child;
     if (!child) return;
@@ -202,21 +309,35 @@ export class ToolsClient {
       this.child = undefined;
       return;
     }
-    await new Promise<void>(resolve => {
-      if (child.exitCode !== null || child.signalCode !== null) return resolve();
-      const timer = setTimeout(() => { child.kill("SIGKILL"); }, 2000);
-      child.once("close", () => { clearTimeout(timer); resolve(); });
+    await new Promise<void>((resolve) => {
+      if (child.exitCode !== null || child.signalCode !== null)
+        return resolve();
+      const timer = setTimeout(() => {
+        child.kill("SIGKILL");
+      }, 2000);
+      child.once("close", () => {
+        clearTimeout(timer);
+        resolve();
+      });
     });
     this.child = undefined;
   }
 
   private async stopOwnedChild(): Promise<boolean> {
     const run = join(this.options.home, "run");
-    const control = await connect({ address: unitAddress(this.options.home, "tools"), endpoint: "module",
+    const control = await connect({
+      address: unitAddress(this.options.home, "tools"),
+      endpoint: "module",
       token: readRunToken(this.options.home, join(run, "tools.token")),
-      ...recordedServerPid(this.options.home), connectTimeoutMs: 300, callTimeoutMs: 300 });
+      ...recordedServerPid(this.options.home),
+      connectTimeoutMs: 300,
+      callTimeoutMs: 300,
+    });
     try {
-      const status = await control.call<{ detail?: { adopted?: boolean } }>("module.status", {});
+      const status = await control.call<{ detail?: { adopted?: boolean } }>(
+        "module.status",
+        {},
+      );
       if (status.detail?.adopted === true) return true;
       await control.call("module.shutdown", {});
       return false;
