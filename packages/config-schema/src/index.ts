@@ -9,6 +9,7 @@ import schemaJson from "../schema/config.schema.json" with { type: "json" };
 import { configurationWarnings, type ConfigWarning } from "./sensitive.ts";
 export { sensitiveOf, urlCredentialsOf, configSecretEntries, configurationWarnings, redactConfig } from "./sensitive.ts";
 export { maskUrlCredentials } from "./url-credentials.ts";
+export { secretReferenceOf } from "./sensitive.ts";
 export type { ConfigSchemaNode, ConfigSecretEntry, ConfigWarning, ConfigRedactionOptions } from "./sensitive.ts";
 
 export const CONFIG_SCHEMA = schemaJson as Record<string, any>;

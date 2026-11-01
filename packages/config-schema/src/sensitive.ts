@@ -1,9 +1,11 @@
 // Schema-owned policy lookup and credential extraction; metadata never changes configuration validation.
 import schemaJson from "../schema/config.schema.json" with { type: "json" };
 import { maskUrlCredentials, urlParts } from "./url-credentials.ts";
+import { Ajv2020, type ValidateFunction } from "ajv/dist/2020.js";
 
 /** Configuration-member metadata, independent of validation and of credential-looking names. */
 export interface ConfigSchemaNode {
+  $defs?: Readonly<Record<string, unknown>>;
   type?: string | readonly string[];
   properties?: Readonly<Record<string, ConfigSchemaNode>>;
   additionalProperties?: boolean | ConfigSchemaNode;
@@ -12,6 +14,8 @@ export interface ConfigSchemaNode {
   "x-value-schema"?: ConfigSchemaNode;
   "x-sensitive"?: boolean;
   "x-url-credentials"?: boolean;
+  /** Values matching this local definition are references; classification never resolves their targets. */
+  "x-secret-reference"?: { $ref: string };
 }
 /** One concrete string to register, with its schema path or extracted URL-component slot. */
 export interface ConfigSecretEntry {
@@ -84,6 +88,36 @@ export const sensitiveOf = (key: string, schema: ConfigSchemaNode = SCHEMA): boo
 /** Resolve endpoint-component policy without treating the host or path as a secret. */
 export const urlCredentialsOf = (key: string, schema: ConfigSchemaNode = SCHEMA): boolean =>
   pathAnnotations(key, schema).urlCredentials;
+
+// Validators are keyed by immutable schema identity and local definition; configured values are never cached.
+const SECRET_REFERENCE_VALIDATORS = new WeakMap<ConfigSchemaNode, Map<string, ValidateFunction>>();
+
+/** Match explicit reference forms without reading targets; invalid metadata throws a value-free policy error. */
+export function secretReferenceOf(key: string, value: unknown, schema: ConfigSchemaNode = SCHEMA): boolean {
+  const metadata = schemaPath(key, schema).node["x-secret-reference"];
+  if (metadata === undefined) return false;
+  const invalid = (): Error => new Error(`Invalid secret-reference metadata for config key ${key}`);
+  if (
+    !metadata || typeof metadata !== "object" || Object.keys(metadata).length !== 1 ||
+    typeof metadata.$ref !== "string" || !metadata.$ref.startsWith("#/$defs/")
+  ) throw invalid();
+  let validators = SECRET_REFERENCE_VALIDATORS.get(schema);
+  if (!validators) {
+    validators = new Map();
+    SECRET_REFERENCE_VALIDATORS.set(schema, validators);
+  }
+  let validator = validators.get(metadata.$ref);
+  if (!validator) {
+    try {
+      validator = new Ajv2020({ strict: false }).compile({ $ref: metadata.$ref, $defs: schema.$defs });
+    } catch {
+      // Schema diagnostics can contain configured metadata; callers need a bounded, value-free failure.
+      throw invalid();
+    }
+    validators.set(metadata.$ref, validator);
+  }
+  return validator(value);
+}
 
 /** A public projection may start at a selected subtree while retaining the root policy. */
 export interface ConfigRedactionOptions {
