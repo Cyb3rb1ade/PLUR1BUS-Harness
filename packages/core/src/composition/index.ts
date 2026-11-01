@@ -303,14 +303,15 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     disposers.push(mediaStore.addListener({ onDeleteUploaded: id => mediaSearch.hook.onDeleted(id) }));
     // The authenticated maintenance gate postpones retention during import/startup recovery.
     let pruning: Promise<void> | undefined;
-    const pruneOutputs = async () => {
-      if (d.signal.aborted || d.maintenance?.held()) return;
+    const pruneOutputs = async (admittedByRelease = false) => {
+      if (d.signal.aborted || (!admittedByRelease && d.maintenance?.held())) return;
       pruning ??= mediaStore.prune().then(() => {}).catch(() => {
         d.logger.warn('media retention failed', { code: 'storage-unavailable' });
       }).finally(() => { pruning = undefined; });
       await pruning;
     };
-    const unwatchRetention = deferMaintenanceStart(d.maintenance, pruneOutputs);
+    // onRelease admits deferred startup before held() becomes false.
+    const unwatchRetention = deferMaintenanceStart(d.maintenance, () => pruneOutputs(true));
     if (!unwatchRetention) await pruneOutputs();
     const retentionTimer = setInterval(() => { void pruneOutputs(); }, 60 * 60 * 1000);
     retentionTimer.unref();
