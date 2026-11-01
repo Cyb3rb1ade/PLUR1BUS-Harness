@@ -6,7 +6,6 @@ import type { SessionStore, RewindAudit } from "./store.ts";
 import type { Summarizer, SummaryMessage } from "./summarizer.ts";
 import { SessionError, type EventRecord, type MessageRecord, type RewindRecord } from "./types.ts";
 import { failedEditCycles, rewindResult } from "./rewind-cycles.ts";
-import { activePath } from "./rewind-path.ts";
 
 const MAX_LESSON_TOKENS = 400;
 const LESSON_PREFIX = "Lesson from a discarded attempt: ";
@@ -106,7 +105,9 @@ export class RewindService {
   }
 
   async #lesson(input: RewindRequest, plan: ReturnType<SessionStore["planRewind"]>): Promise<string> {
-    const messages = activePath(plan.messages, this.#d.store.rewinds(input.sessionId));
+    // The raw plan is the immutable audit range. Summary input also excludes failed/recovered harness commands.
+    const messages = this.#d.store.contextMessages(input.sessionId)
+      .filter(message => message.seq >= plan.hiddenFromSeq && message.seq <= plan.hiddenToSeq);
     const facts = lessonFacts(messages, this.#d.store.contextToolEvents(input.sessionId));
     const fileNote = facts.files.length ? `Files changed: ${facts.files.join(", ")}.` : "Files changed: none recorded.";
     let body = input.lesson?.trim() ?? `${fileNote} ${facts.failure}`;

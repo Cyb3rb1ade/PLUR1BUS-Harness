@@ -9,13 +9,14 @@ import { FakeChatProvider, type ChatRequest } from "../../src/session/provider.t
 import { TurnRunner } from "../../src/session/turn-loop.ts";
 import { RewindService, type RewindFilesPort } from "../../src/session/rewind.ts";
 import { SessionError } from "../../src/session/types.ts";
+import type { Summarizer, SummaryMessage } from "../../src/session/summarizer.ts";
 
-function rig(restore?: RewindFilesPort["restore"]) {
+function rig(restore?: RewindFilesPort["restore"], summarize?: Summarizer) {
   const store = new SessionStore({ path: ":memory:" });
   const requests: ChatRequest[] = [];
   const session = store.createSession({ kind: "card", agentId: "agent", owner: deriveUserPrincipal("person") });
   let fileRequests = 0;
-  const rewind = new RewindService({ store, audit: memoryAuditSink(), now: () => 42, files: {
+  const rewind = new RewindService({ store, audit: memoryAuditSink(), now: () => 42, ...(summarize ? { summarize } : {}), files: {
     async restore(input) {
       fileRequests++;
       if (restore) return restore(input);
@@ -66,4 +67,20 @@ test("recovery of an interrupted file-approval command keeps its private lesson 
   release(); await pending;
   await r.submit("next task");
   assert.doesNotMatch(JSON.stringify(r.requests.at(-1)!.messages), /\/rewind|PRIVATE_LESSON_RECOVERY/);
+});
+
+test("a later rewind never sends a failed command or its private note to the lesson summarizer", { timeout: 10_000 }, async () => {
+  const inputs: SummaryMessage[][] = [];
+  const r = rig(undefined, async messages => { inputs.push([...messages]); return "Try a different approach."; });
+  try {
+    await r.submit("first task");
+    const command = '/rewind 99 --lesson "PRIVATE_LESSON_SUMMARY"';
+    assert.equal((await r.submit(command)).state, "failed");
+    await r.submit("next task");
+    assert.equal((await r.submit("/rewind 0")).state, "completed");
+    assert.equal(inputs.length, 1);
+    assert.doesNotMatch(JSON.stringify(inputs), /\/rewind|PRIVATE_LESSON_SUMMARY/);
+    assert.match(JSON.stringify(inputs), /first task|next task/);
+    assert.ok(r.store.listMessages(r.session.id).some(message => message.text === command));
+  } finally { await r.close(); }
 });
