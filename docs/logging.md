@@ -80,6 +80,36 @@ keys; eviction emits its pending summary. Fatal records are never deduplicated; 
 here. After dedup, a source receives a token bucket of 100 records/second, burst 500. Excess records
 produce `log.suppressed` with a drop count. Reader timestamps/cursors are unaffected.
 
+## Supervisor configuration values (SH2)
+
+The Rust Supervisor registers root and installed-module configuration values from `x-sensitive` and
+`x-url-credentials` before its first startup record. It refreshes that registry from the exact running snapshot
+after recovery and before applying accepted live changes or notifying consumers. Module installation and child
+spawns also refresh installed-module annotations against that running snapshot. Structured Supervisor records
+and captured child stdout/stderr share the registry. URL declarations contribute only userinfo and query values;
+their public host and path are never registered as whole URLs. Configuration classification does not guess key names.
+
+This unstructured value matching retains the existing eight-byte minimum, including for values inside structured
+Supervisor log fields. It covers raw, base64, base64url, percent, hex and JSON-escaped forms. Short bare credentials
+are outside this registry's guarantee; schema-projected public configuration masks declared values at every length.
+The Rust output pump adds no generic URL, token-pattern or key-name backstop. Core's contextual redactor remains separate.
+
+Current values remain pinned; the registry keeps the newest 256 retired values. Each spawned generation also retains
+its initial matcher until its output streams close, protecting shutdown output after later rotations evict an old value.
+The pump processes 8 KiB reads with at most a 64 KiB match suffix and three additional UTF-8 boundary bytes, so an
+unbroken line cannot grow its buffer without limit. It preserves public bytes, including UTF-8 split across reads.
+
+An unreadable configuration, unavailable module sensitivity metadata, poisoned registry or matcher-capacity failure
+withholds the payload and writes a value-free reason. A malformed startup configuration cannot run; its first valid
+running snapshot restores logging. Other failures require repair and a Supervisor restart because a later snapshot
+cannot reconstruct unclassified historical values. Matcher limits are 64 KiB per encoded candidate, 2 MiB of literal
+candidates and 131,072 byte-transition states. These limits fail closed. The streaming matcher retains only a suffix
+that can still become a known value, so small public writes flush without waiting for another read or EOF.
+
+Validation: `cargo test -p plur1bus --test supervisor_log_redaction` exercises real Supervisor startup, accepted
+changes and both child streams; `cargo test -p plur1bus --bin plur1bus supervisor::log_redaction::tests` covers
+encoding, lifetime, bounded-buffer, UTF-8 and rotation behavior.
+
 ## Rotation and retention
 
 Rotation occurs before a line crosses `maxBytes` (default 20 MiB) or on a UTC-day transition.

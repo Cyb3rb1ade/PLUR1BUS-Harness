@@ -69,14 +69,7 @@ impl Redactor {
             if s.len() < 8 {
                 continue;
             }
-            all.push(base64(s.as_bytes(), false, true));
-            all.push(base64(s.as_bytes(), false, false));
-            all.push(base64(s.as_bytes(), true, false));
-            all.push(base64(s.as_bytes(), true, true));
-            all.push(percent_encode(&s));
-            all.push(hex_encode(s.as_bytes(), false));
-            all.push(hex_encode(s.as_bytes(), true));
-            all.push(s);
+            all.extend(known_secret_forms(&s));
         }
         all.retain(|s| s.len() >= 8);
         all.sort_by_key(|s| std::cmp::Reverse(s.len()));
@@ -121,6 +114,20 @@ impl Redactor {
         hits.dedup();
         (s, hits)
     }
+}
+
+/// Literal encodings shared by bundle and Supervisor redaction; callers enforce their own value limits.
+pub(crate) fn known_secret_forms(value: &str) -> Vec<String> {
+    vec![
+        value.to_string(),
+        base64(value.as_bytes(), false, true),
+        base64(value.as_bytes(), false, false),
+        base64(value.as_bytes(), true, false),
+        base64(value.as_bytes(), true, true),
+        percent_encode(value),
+        hex_encode(value.as_bytes(), false),
+        hex_encode(value.as_bytes(), true),
+    ]
 }
 
 /// Replaces the (sorted, non-overlapping) ranges `find` returns with `[REDACTED:<rule>]`.
