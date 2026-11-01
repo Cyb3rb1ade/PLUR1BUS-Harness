@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** Owned command lifetime for trusted fixture tests and the isolation adapter, following K2 #868. */
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { isAbsolute } from "node:path";
 import { executionEnvironment, requirePlatform } from "./contract.mjs";
 
@@ -27,6 +28,8 @@ export function runOwnedCommand(request) {
       stdio: ["pipe", "pipe", "pipe"],
     });
     const stdout = [];
+    const digest = request.digestOutput ? createHash("sha256") : undefined;
+    let stdoutBytes = 0;
     const stderr = [];
     let size = 0;
     let reason;
@@ -51,7 +54,10 @@ export function runOwnedCommand(request) {
     const collect = (chunks, chunk) => {
       const cap = request.maxOutputBytes ?? 65536;
       const room = cap - size;
-      if (room > 0) {
+      if (chunks === stdout && digest) {
+        digest.update(chunk);
+        stdoutBytes += chunk.length;
+      } else if (room > 0) {
         chunks.push(chunk.subarray(0, room));
       }
       size += chunk.length;
@@ -78,7 +84,9 @@ export function runOwnedCommand(request) {
       resolve({
         code,
         signal,
-        stdout: Buffer.concat(stdout).toString("utf8"),
+        stdout: digest
+          ? JSON.stringify({ sha256: digest.digest("hex"), bytes: stdoutBytes })
+          : Buffer.concat(stdout).toString("utf8"),
         stderr: Buffer.concat(stderr).toString("utf8"),
         ...(reason ? { reason } : {}),
       });

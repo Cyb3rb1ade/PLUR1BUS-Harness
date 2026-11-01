@@ -34,7 +34,13 @@ const TEMPLATE = {
 };
 /** Expand the private semantic and transport cases for one declared seed. */
 export function casesForSeed(seed) {
-  return checkedCases(TEMPLATE, seed);
+  const cases = checkedCases(TEMPLATE, seed);
+  const payload = "a".repeat(65536);
+  cases.decode.push({ id: "decode-max-bytes", input: "65536:" + payload, expected: payload });
+  cases.decode.push({ id: "decode-too-many-bytes", input: "65537:" + payload + "a", expected: "error" });
+  cases.hex.push({ id: "hex-max-payload", input: payload, expected: "61".repeat(65536) });
+  cases.e2e.push({ id: "e2e-max-payload", input: "65536:" + payload, expected: "00" });
+  return cases;
 }
 /** Return deterministic instance metadata to the trusted materializer. */
 export function instanceForSeed(seed) {

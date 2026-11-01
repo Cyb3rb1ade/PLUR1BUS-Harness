@@ -44,6 +44,8 @@ export async function createIsolation({ mode, root, taskRoot, signal, verifier }
           stdin: Buffer.from(request.stdin ?? "", "utf8").toString("base64"),
           env: executionEnvironment(request.env),
           timeoutMs: request.timeoutMs,
+          maxOutputBytes: request.maxOutputBytes,
+          digestOutput: request.digestOutput,
         }),
       );
       // A2 M1: hide host paths first, then make ephemeral parent directories read-only as well.

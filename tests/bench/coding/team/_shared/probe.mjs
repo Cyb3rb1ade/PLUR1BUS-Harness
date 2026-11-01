@@ -66,7 +66,7 @@ function pythonSource(meta) {
     "    sys.modules[spec.name] = module",
     "    spec.loader.exec_module(module)",
     "    steps.append(getattr(module, symbols[index]))",
-    "value = sys.stdin.read()",
+    "value = sys.stdin.buffer.read().decode('utf8')",
     "direct = sys.argv[1] == 'direct'",
     ...(meta.task.kind === "coupled"
       ? [
@@ -195,6 +195,8 @@ export async function prepareProbe(task, image, tag, scope, root, runtime, execu
         cwd: image,
         env: runtime.env,
         stdin: input,
+        digestOutput: true,
+        maxOutputBytes: 1024 * 1024,
       });
       if (result.code !== 0 || result.reason) throw new Error(result.reason ?? "candidate-error");
       return result.stdout;

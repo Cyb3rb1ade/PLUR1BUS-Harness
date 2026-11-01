@@ -3,6 +3,7 @@
 import { checkedCases, seedValues } from "../_shared/seed.mjs";
 const TEMPLATE = {
   tokens: [
+    ["hello\r\nworld", "hello world"],
     ["Hello, WORLD! 42", "hello world 42"],
     ["Äpfel_Öl", "äpfel öl"],
     ["__TAG__", "__TAGWORD__"],

@@ -1,5 +1,6 @@
 /** Real Linux verifier acceptance for input-only execution; macOS/Windows assert the K2 live refusal instead. */
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -56,6 +57,20 @@ process.stdout.write("written"); } catch { process.stdout.write("denied"); }`);
     assert.equal(write.code, 0);
     assert.equal(write.stdout, "denied");
     await assert.rejects(access(outsideWrite));
+    const large = await port.run({
+      program: process.execPath,
+      args: ["-e", 'process.stdout.write("é".repeat(65536))'],
+      cwd: root,
+      env: { HOME: root, TMPDIR: root, PATH: "/usr/bin:/bin", CI: "1" },
+      timeoutMs: 5000,
+      digestOutput: true,
+      maxOutputBytes: 1024 * 1024,
+    });
+    assert.equal(large.code, 0);
+    assert.deepEqual(JSON.parse(large.stdout), {
+      sha256: createHash("sha256").update("é".repeat(65536), "utf8").digest("hex"),
+      bytes: 131072,
+    });
     const descriptor = await readFile(join(root, "command.json"), "utf8");
     assert.doesNotMatch(descriptor, /"expected"|"seed"|"taskRoot"/);
   } finally {

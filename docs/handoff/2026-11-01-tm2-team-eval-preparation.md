@@ -28,7 +28,7 @@ sessions and are unchanged by this work. Main is integrated by merge, never reba
 | H2, M1 | Oracle/seed stay in the host; input-only stdin bridges run in private PID/filesystem namespaces. Linux acceptance proves oracle-path hiding and outside-write denial. The port owns process groups, TERM/KILL escalation, orphan cleanup, output bounds and one overall deadline. CLI termination cleans its snapshot. |
 | M2 | Known-good language compile/run preflight; repository Rust channel; post-preflight errors, executable self-deletion and tampered public metadata remain candidate failures. |
 | M3 | Every TASK.md states runtime, entry points, neighbor files and I/O; TS enum and Python neighbor solutions pass. |
-| M4 | All twelve previously surviving mutants lose behavioral cases; NUL travels through stdin. Frame integrity and malformed predecessor states have dedicated cases. |
+| M4 | All twelve previously surviving mutants lose behavioral cases; NUL and CRLF travel byte-for-byte through stdin; max-size payloads and 128-KiB output use a compact output digest. Frame integrity and malformed predecessor states have dedicated cases. |
 | M5, M6 | 3/4/5-package graphs, shared interfaces, real coupled prefixes, distinct provisional caps and neutral functional instructions. Live difficulty calibration remains a K2 gate. |
 | M7, L6 | Registry and stable IDs; explicit extension errors; complete allocations tied to tasks. |
 | L1 | Expensive language/task proofs are split into separate shardable files; weights use actual Linux measurements, with separate macOS provenance. Native Windows timings remain pending a Windows run. |

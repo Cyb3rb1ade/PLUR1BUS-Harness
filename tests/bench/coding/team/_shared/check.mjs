@@ -2,6 +2,7 @@
 /** Host-only oracle comparison. Candidates run through an input-only K2-compatible isolation port. */
 import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { createHash } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { checkerVerdict, IsolationUnavailable, requirePlatform } from "./contract.mjs";
@@ -49,6 +50,13 @@ export function validateCases(cases, scopes) {
   }
 }
 
+function expectedDigest(value) {
+  return JSON.stringify({
+    sha256: createHash("sha256").update(value, "utf8").digest("hex"),
+    bytes: Buffer.byteLength(value, "utf8"),
+  });
+}
+
 async function scopeCheck(task, scope, cases, image, values, root, runtime, execute) {
   const failures = new Set();
   let reason;
@@ -56,7 +64,10 @@ async function scopeCheck(task, scope, cases, image, values, root, runtime, exec
     const probe = await prepareProbe(task, image, values.tag, scope, root, runtime, execute);
     for (const item of cases) {
       try {
-        if ((await probe.invoke(item.input, item.prefix === true || scope === "e2e", item.state)) !== item.expected) {
+        if (
+          (await probe.invoke(item.input, item.prefix === true || scope === "e2e", item.state)) !==
+          expectedDigest(item.expected)
+        ) {
           failures.add(item.id);
         }
       } catch (error) {

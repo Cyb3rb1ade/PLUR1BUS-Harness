@@ -7,7 +7,7 @@ const request = JSON.parse(await readFile(process.argv[2], "utf8"));
 const result = await runOwnedCommand({
   ...request,
   stdin: Buffer.from(request.stdin, "base64").toString("utf8"),
-  maxOutputBytes: 8192,
+  maxOutputBytes: request.maxOutputBytes ?? 65536,
 });
 const frame = {
   code: result.reason ? null : result.code,

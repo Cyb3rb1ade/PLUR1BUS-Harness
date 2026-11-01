@@ -168,7 +168,7 @@ test("the host CLI emits only the K2 verdict when candidate compilation contains
             "--fixture",
           ],
           { timeout: 30000, encoding: "utf8" },
-          (error, stdout, stderr) => resolve({ code: error?.code, stdout, stderr }),
+          (error, stdout, stderr) => resolve({ code: error?.code ?? undefined, stdout, stderr }),
         );
       },
     );
@@ -216,7 +216,7 @@ for (;;) {}
           "--fixture",
         ],
         { timeout: 15000, encoding: "utf8" },
-        (error, stdout) => resolve({ code: error?.code, stdout }),
+        (error, stdout) => resolve({ code: error?.code ?? undefined, stdout }),
       );
     });
     const observed = (async () => {

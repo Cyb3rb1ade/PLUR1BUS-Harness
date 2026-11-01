@@ -62,7 +62,9 @@ one allocation. Natural comparisons require a complete explicit allocation per c
 ## Host oracle and execution boundary
 
 The host retains the seed, private case IDs, expected results and reference paths. An input-only bridge receives raw
-UTF-8 via stdin, including NUL, and returns text. The host compares every result; candidate output never decides a grade.
+UTF-8 via stdin, including NUL. The sandbox returns SHA-256 and byte count of stdout; only the host has the expected
+value/digest and compares it. The 128-KiB valid hex boundary therefore fits the bounded K2 control frame. Candidate
+output never decides a grade. Python reads stdin bytes directly, preserving CRLF as well as UTF-8.
 Bridges, command descriptors, candidate environments and sandbox parent command lines contain no expected output or
 private seed. A candidate snapshot contains only public input files and allowed neighbor modules under `src/`.
 
@@ -76,7 +78,7 @@ private seed. A candidate snapshot contains only public input files and allowed 
   asserts that refusal. Job Object isolation is deferred to D123. No unisolated Windows fallback exists.
 
 The port owns a process group, sends SIGTERM then SIGKILL after 100 ms, and kills descendants when the leader exits.
-Combined output is bounded. One task-wide checker deadline covers preflight, compilation, every case and every scope
+Candidate stdout/stderr are bounded to 1 MiB combined; command/preflight output defaults to 64 KiB. One task-wide checker deadline covers preflight, compilation, every case and every scope
 (default 60 seconds, at most the task's remaining wall allocation; caller limit up to 300 seconds).
 The standalone host command also propagates SIGTERM/SIGINT and cleans its workspace in `finally`.
 

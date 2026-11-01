@@ -68,7 +68,10 @@ export function checkedCases(template, seed, prefixes = {}) {
   const result = expandCases(template, seed);
   for (const [scope, cases] of Object.entries(result)) {
     const valid = cases.filter((item) => item.expected !== "error");
-    for (const item of valid.slice(0, 2)) {
+    const framed = valid.slice(0, 2);
+    const preserved = valid.find((item) => item.input.includes("\r"));
+    if (preserved && !framed.includes(preserved)) framed.push(preserved);
+    for (const item of framed) {
       cases.push({ ...item, id: `${item.id}-frame`, input: frameInput(item.input, seed) });
     }
     cases.push({ id: `${scope}-frame-invalid`, input: "@TEXT:invalid\nvalue", expected: "error" });
