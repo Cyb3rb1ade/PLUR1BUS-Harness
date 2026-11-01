@@ -72,8 +72,13 @@ A new installation starts with these settings, all of which you can change in se
 
 The model capability display lists the modalities reported by the server. Model support does not mean the extra encoders
 are installed or the Rust media index is available yet. Photos can be decoded without ffmpeg. For audio and video,
-setup offers a separate ffmpeg installation through your system package manager; declining or running noninteractively
-leaves a manual command. Plur1bus does not distribute ffmpeg. `plur1bus 1staid check` reports whether it is present.
+setup displays the command you can run yourself if ffmpeg is missing. Plur1bus never runs sudo or a package-manager
+installation and does not distribute ffmpeg. `plur1bus 1staid check` reports whether it is present.
+
+Uploads from private direct messages remain bound to the sending person; another person's rights on the same agent
+do not grant read access. Uploads and generated media share 1 GiB of storage and are automatically removed after
+30 days. Uploaded files currently have no individual delete command; the generated-media delete action applies only
+to generated outputs.
 
 Audio segments are at most 30 seconds (one hour maximum per audio input). Older configured segment lengths above 30
 are rejected with a configuration error. Image and video frame token budgets default to 140 and 70; all supported

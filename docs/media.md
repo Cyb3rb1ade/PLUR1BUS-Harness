@@ -130,6 +130,19 @@ MIME/container checks, private 0700 directories/0600 files, SHA-256 verification
 quota/retention also apply to uploads. Display filenames never become paths. The host publishes its owner record before
 calling the background upload hook; raw uploads do not trigger the generated-output `onPut` listener.
 
+The production Core uses one store factory with a **1 GiB total quota** shared by generated outputs and uploads and
+**30 days retention**. It prunes on startup and hourly, deferring while import maintenance holds the home. Upload
+deletion awaits its cleanup hooks before unlinking the bytes; the host removes the corresponding owner record.
+Failed cleanup leaves the upload available for an idempotent retry and returns a stable storage error. Private direct-chat
+uploads additionally require the owning person, even when another person has rights on the same agent; incomplete older
+channel ownership records fail closed. Generated-media ownership rules remain agent-based.
+
+Quota accounting uses actual owned file sizes, including damaged upload directories, and never follows symlinks.
+One damaged upload does not stop unrelated publications. Recovery and pruning remove corrupt uploads after a one-hour
+grace period measured from their newest file/directory modification, emitting `onCorruptUploadRemoved` without raw
+paths or content. Healthy reads continue to verify the stored hash. Uploads currently have no per-file RPC/CLI delete
+command; `media.output.delete` and `plur1bus media rm` delete generated outputs. Automatic retention applies to uploads.
+
 Each output directory is published by a single rename after files and manifest
 have been flushed. SHA-256 hashes describe the stored bytes (including embedded
 metadata). The manifest always includes adapter/model, prompt, parameters,

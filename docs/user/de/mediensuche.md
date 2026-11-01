@@ -73,9 +73,14 @@ Eine neue Installation startet mit diesen Einstellungen, die du in der Einrichtu
 
 Die Anzeige der Modellfähigkeiten nennt die vom Server gemeldeten Medienarten. Unterstützung durch das Modell bedeutet
 noch nicht, dass zusätzliche Encoder installiert sind oder der Rust-Medienindex schon verfügbar ist. Fotos brauchen
-zum Dekodieren kein ffmpeg. Für Audio und Video bietet die Einrichtung eine eigene ffmpeg-Installation über den
-Paketmanager des Systems an. Bei Ablehnung oder ohne interaktives Terminal zeigt sie den manuellen Befehl. Plur1bus
-liefert ffmpeg nicht mit. `plur1bus 1staid check` prüft, ob es vorhanden ist.
+zum Dekodieren kein ffmpeg. Fehlt ffmpeg für Audio und Video, zeigt die Einrichtung den Befehl, den du selbst
+ausführen kannst. Plur1bus führt weder sudo noch eine Paketmanager-Installation aus und liefert ffmpeg nicht mit.
+`plur1bus 1staid check` prüft, ob es vorhanden ist.
+
+Uploads aus privaten Direktnachrichten bleiben an die sendende Person gebunden; Rechte auf denselben Agenten reichen
+anderen Personen nicht zum Lesen. Uploads und erzeugte Medien teilen sich 1 GiB Speicher und werden nach 30 Tagen
+automatisch bereinigt. Einzelne hochgeladene Dateien haben derzeit keinen eigenen Löschbefehl; die Löschfunktion
+für erzeugte Medien gilt nur für diese.
 
 Audioabschnitte sind höchstens 30 Sekunden lang, die gesamte Audiodatei höchstens eine Stunde. Ältere konfigurierte
 Abschnittslängen über 30 werden mit einem Konfigurationsfehler abgelehnt. Das Token-Budget beträgt standardmäßig 140

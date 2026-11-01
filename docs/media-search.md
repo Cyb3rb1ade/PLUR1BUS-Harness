@@ -77,10 +77,10 @@ engine reports `unsupported-kind` for that medium (no crash). Calls use no shell
 `file:<path>` with `-protocol_whitelist file,pipe`, and every call has a timeout and an output size limit. Byte sources are written
 to `<home>/media/tmp` and removed afterwards, also on errors.
 
-Setup can offer installation through brew, apt, dnf, pacman, zypper or winget. It uses a fixed argument list and a separate
-interactive answer; `--yes` does not authorize this external installation. The operating system handles sudo/UAC.
-Without an interactive terminal, a supported package manager or sufficient rights, setup prints the manual command and
-continues. `plur1bus 1staid check` includes the read-only `media.ffmpeg` check. Photos do not require ffmpeg; audio/video
+Setup detects ffmpeg without executing it. If it is absent, setup displays the system package-manager command for the
+person to run manually and continues. The Harness never runs sudo, a package manager or an elevation helper, including
+when launched as root; `--yes` does not change this. A displayed command may contain sudo, but is never executed by the
+Harness. `plur1bus 1staid check` includes the read-only `media.ffmpeg` check. Photos do not require ffmpeg; audio/video
 decoding does. This project does not distribute, link or download ffmpeg, and the container image is unchanged.
 
 ## Captions
@@ -157,6 +157,10 @@ With Controller approval (E1), hardware-specific photo timing is deferred to MM-
 download size and measurement status.
 
 ## Privacy acknowledgments
+
+Schema-valid legacy local model/dimension selections remain readable and are not rewritten. The media runtime uses
+schema defaults only for unsupported local fields and emits a content-free warning per affected configuration entry.
+Relevant media writes still require a supported catalog selection; unrelated writes preserve the legacy values.
 
 Text embedding currently uses `local-transformers` only. `memory.embedding.privacyAck` is optional preparation for a future cloud-text decision; its cloud validation is unit-tested with synthetic choices. Setup has no cloud-text selection and `buildEngineConfig` still forces the local provider.
 
