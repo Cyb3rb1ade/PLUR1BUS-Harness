@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://plur1bus.dev/schema/rpc/1.11.0/rpc.schema.json",
-  "title": "PLUR1BUS harness RPC 1.11.0",
+  "$id": "https://plur1bus.dev/schema/rpc/1.20.0/rpc.schema.json",
+  "title": "PLUR1BUS harness RPC 1.20.0",
   "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch.",
-  "x-rpc-version": "1.11.0",
+  "x-rpc-version": "1.20.0",
   "$defs": {
     "EngineContractEngineCapabilitiesData": {
       "title": "EngineContractEngineCapabilitiesData",
@@ -18066,6 +18066,20 @@
             "embeddingSwitch"
           ],
           "properties": {
+            "capabilities": {
+              "description": "Selected-model support, independent of installed encoders or ffmpeg.",
+              "x-since": "1.20.0",
+              "$ref": "#/$defs/MediaCapabilities"
+            },
+            "encoders": {
+              "description": "Verified encoder metadata only. An empty array reports no verified encoder installation; it does not imply the selected model lacks media support. No private paths.",
+              "x-since": "1.20.0",
+              "type": "array",
+              "maxItems": 3,
+              "items": {
+                "$ref": "#/$defs/MediaEncoderStatus"
+              }
+            },
             "embedding": {
               "type": "object",
               "additionalProperties": false,
@@ -29791,6 +29805,68 @@
         }
       }
     },
+    "MediaCapabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "text",
+        "image",
+        "audio",
+        "video"
+      ],
+      "properties": {
+        "text": {
+          "type": "boolean"
+        },
+        "image": {
+          "type": "boolean"
+        },
+        "audio": {
+          "type": "boolean"
+        },
+        "video": {
+          "type": "boolean"
+        }
+      },
+      "x-since": "1.20.0"
+    },
+    "MediaEncoderStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "dtype",
+        "state"
+      ],
+      "properties": {
+        "role": {
+          "enum": [
+            "text",
+            "vision",
+            "audio"
+          ]
+        },
+        "dtype": {
+          "const": "q8"
+        },
+        "state": {
+          "enum": [
+            "unavailable",
+            "not-installed",
+            "ready"
+          ]
+        },
+        "downloadBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        }
+      },
+      "x-since": "1.20.0"
+    },
     "MediaIndexStatus": {
       "description": "Experimental (1.5.0). The state of the media index and its backfill.",
       "x-stability": "experimental",
@@ -29807,6 +29883,20 @@
         "backfill"
       ],
       "properties": {
+        "capabilities": {
+          "description": "Selected-model support, independent of installed encoders or ffmpeg.",
+          "x-since": "1.20.0",
+          "$ref": "#/$defs/MediaCapabilities"
+        },
+        "encoders": {
+          "description": "Verified encoder metadata only. An empty array reports no verified encoder installation; it does not imply the selected model lacks media support. No private paths.",
+          "x-since": "1.20.0",
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/MediaEncoderStatus"
+          }
+        },
         "enabled": {
           "type": "boolean"
         },

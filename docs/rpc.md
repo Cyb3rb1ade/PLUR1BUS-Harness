@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.11.0)
+# RPC reference (rpc 1.20.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -12667,6 +12667,20 @@ The embedding and reranker models the running memory engine was built with (engi
     "embeddingSwitch"
   ],
   "properties": {
+    "capabilities": {
+      "description": "Selected-model support, independent of installed encoders or ffmpeg.",
+      "x-since": "1.20.0",
+      "$ref": "#/$defs/MediaCapabilities"
+    },
+    "encoders": {
+      "description": "Verified encoder metadata only. An empty array reports no verified encoder installation; it does not imply the selected model lacks media support. No private paths.",
+      "x-since": "1.20.0",
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "$ref": "#/$defs/MediaEncoderStatus"
+      }
+    },
     "embedding": {
       "type": "object",
       "additionalProperties": false,
@@ -37839,6 +37853,78 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `MediaCapabilities`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "text",
+    "image",
+    "audio",
+    "video"
+  ],
+  "properties": {
+    "text": {
+      "type": "boolean"
+    },
+    "image": {
+      "type": "boolean"
+    },
+    "audio": {
+      "type": "boolean"
+    },
+    "video": {
+      "type": "boolean"
+    }
+  },
+  "x-since": "1.20.0"
+}
+```
+
+### `MediaEncoderStatus`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "role",
+    "dtype",
+    "state"
+  ],
+  "properties": {
+    "role": {
+      "enum": [
+        "text",
+        "vision",
+        "audio"
+      ]
+    },
+    "dtype": {
+      "const": "q8"
+    },
+    "state": {
+      "enum": [
+        "unavailable",
+        "not-installed",
+        "ready"
+      ]
+    },
+    "downloadBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    }
+  },
+  "x-since": "1.20.0"
+}
+```
+
 ### `MediaIndexStatus`
 
 ```json
@@ -37858,6 +37944,20 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "backfill"
   ],
   "properties": {
+    "capabilities": {
+      "description": "Selected-model support, independent of installed encoders or ffmpeg.",
+      "x-since": "1.20.0",
+      "$ref": "#/$defs/MediaCapabilities"
+    },
+    "encoders": {
+      "description": "Verified encoder metadata only. An empty array reports no verified encoder installation; it does not imply the selected model lacks media support. No private paths.",
+      "x-since": "1.20.0",
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "$ref": "#/$defs/MediaEncoderStatus"
+      }
+    },
     "enabled": {
       "type": "boolean"
     },

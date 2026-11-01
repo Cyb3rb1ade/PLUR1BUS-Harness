@@ -22,6 +22,7 @@ const AGENT: Principal = { userId: "bernd", role: "member", kind: "agent" };
 const STATUS: MediaIndexStatus = {
   enabled: true, provider: "local-transformers", model: "google/embeddinggemma-2", dim: 768, fingerprint: "fp-1",
   counts: { indexed: 2, pending: 1, failed: 0, unsupported: 0 }, backfill: { state: "running", done: 2, total: 3 },
+  capabilities: { text: true, image: true, audio: true, video: true }, encoders: [],
 };
 
 function setup(o: { hits?: MediaHit[]; readable?: (p: Principal, id: string) => boolean; editable?: (p: Principal, id: string) => boolean; index?: boolean; mediaCfg?: Record<string, unknown>; searchError?: unknown; scopes?: Scope[]; scores?: number[]; globalStatus?: boolean } = {}) {

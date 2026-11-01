@@ -9,12 +9,18 @@ import schemaJson from "../schema/config.schema.json" with { type: "json" };
 
 export const CONFIG_SCHEMA = schemaJson as Record<string, any>;
 export const SCHEMA_VERSION = 1 as const;
+/** Fixed MM-3a local support catalog, shared with Rust config ownership through the schema. */
+export const MEDIA_MODEL_CATALOG = schemaJson["x-media-models"];
 
 export interface MediaEmbeddingConfig {
   enabled: boolean; provider: string; privacyAck?: PrivacyAcknowledgment; model: string; dimensions: number;
   modalities: ("image" | "video" | "audio")[];
-  video: { segmentSec: number; maxFrames: number; sceneDetect: boolean };
+  image: { softTokens: number };
+  video: { segmentSec: number; maxFrames: number; sceneDetect: boolean; softTokens: number };
   audio: { segmentSec: number; maxSeconds: number };
+  dtypes: Record<"linux-x64" | "linux-arm64" | "darwin-arm64" | "win32-x64" | "win32-arm64", {
+    text: "q8"; vision: "q8"; audio: "q8";
+  }>;
   caption: { source: "prompt-then-user-then-auto" | "user-only" | "off"; provider?: string; privacyAck?: PrivacyAcknowledgment; maxChars: number; perSegment: boolean };
   backfill: "auto" | "manual";
 }
@@ -186,6 +192,7 @@ export type RestartClass = "live" | "core" | `module:${string}`;
 const ajv = new ((Ajv2020 as any).default ?? Ajv2020)({ strict: true, allErrors: true, useDefaults: true, strictSchema: false });
 ((addFormats as any).default ?? addFormats)(ajv);
 ajv.addKeyword("x-restart"); ajv.addKeyword("x-reserved"); ajv.addKeyword("x-tier");
+ajv.addKeyword("x-media-models");
 const validateFn: ValidateFunction = ajv.compile(CONFIG_SCHEMA);
 
 /** Defaults are produced by validating an empty object with useDefaults — one source of truth. */
@@ -211,6 +218,12 @@ export function validate(value: unknown): { ok: true; config: HarnessConfig } | 
     })] as [string, MediaEmbeddingConfig][];
     for (const [path, media] of mediaLayers) {
       if (!media.enabled) continue;
+      if (MEDIA_MODEL_CATALOG.providers.includes(media.provider)) {
+        const info = Object.hasOwn(MEDIA_MODEL_CATALOG.models, media.model)
+          ? MEDIA_MODEL_CATALOG.models[media.model as keyof typeof MEDIA_MODEL_CATALOG.models] : undefined;
+        if (!info) return { ok: false, errors: [`${path}/model E_MEDIA_UNAVAILABLE: unknown local media model`] };
+        if (!info.dimensions.includes(media.dimensions)) return { ok: false, errors: [`${path}/dimensions E_MEDIA_DIMENSION: unsupported media dimensions`] };
+      }
       for (const [suffix, provider, ack, local] of [
         ["", media.provider, media.privacyAck, ["local", "local-transformers", "egemma2", "off"].includes(media.provider)],
         ["/caption", media.caption.provider, media.caption.privacyAck, !media.caption.provider || ["local", "off"].includes(media.caption.provider) || media.caption.source === "off"],

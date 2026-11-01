@@ -28,6 +28,7 @@ import type { Principal } from "../rbac/types.ts";
 import { RpcError } from "./errors.ts";
 import type { CallContext, Handler } from "./server.ts";
 import { surfaceError } from "./surface-errors.ts";
+import { productionMediaProviderCatalog } from "../media-search/validate.ts";
 
 export interface MediaSearchSurfaceDeps {
   index: () => MediaIndexPort | null;
@@ -104,6 +105,15 @@ function projectStatus(s: MediaIndexStatus) {
       ...(s.backfill.startedAt !== undefined ? { startedAt: s.backfill.startedAt } : {}),
       ...(s.backfill.pausedReason !== undefined ? { pausedReason: s.backfill.pausedReason } : {}),
     },
+    ...(s.capabilities ? { capabilities: {
+      text: s.capabilities.text, image: s.capabilities.image,
+      audio: s.capabilities.audio, video: s.capabilities.video,
+    } } : {}),
+    ...(s.encoders ? { encoders: s.encoders.map(encoder => ({
+      role: encoder.role, dtype: encoder.dtype, state: encoder.state,
+      ...(encoder.downloadBytes !== undefined ? { downloadBytes: encoder.downloadBytes } : {}),
+      ...(encoder.revision !== undefined ? { revision: encoder.revision } : {}),
+    })) } : {}),
   };
 }
 
@@ -122,7 +132,12 @@ export function createMediaSearchSurface(d: MediaSearchSurfaceDeps): { methods: 
     try { return await fn(p, authenticatedPrincipal(ctx), ctx); }
     catch (e) { return surfaceError(e); }
   };
-  const status = async () => projectStatus(await port().status());
+  const status = async () => {
+    const current = await port().status(), selected = d.config().memory.mediaEmbedding;
+    const capabilities = current.capabilities
+      ?? productionMediaProviderCatalog.lookup(current.provider || selected.provider, current.model || selected.model)?.capabilities;
+    return projectStatus({ ...current, ...(capabilities ? { capabilities } : {}), encoders: current.encoders ?? [] });
+  };
 
   const hitOf = async (h: MediaHit) => {
     const caption = d.captionOf ? await d.captionOf(h.captionMemoryId).catch(() => undefined) : undefined;

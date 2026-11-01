@@ -423,6 +423,10 @@ fn integer_and_number_bounds_hold_on_both_sides_of_every_limit() {
                 "core.recall.hardBudgetMs" => {
                     candidate["core"]["recall"]["softBudgetMs"] = json!(50)
                 }
+                // Generic schema bounds also cover disabled selections; enabled local media use catalog widths.
+                "memory.mediaEmbedding.dimensions" => {
+                    candidate["memory"]["mediaEmbedding"]["enabled"] = json!(false)
+                }
                 _ => {}
             }
             validate(&candidate)
@@ -611,11 +615,15 @@ fn string_length_limits_hold_where_nothing_else_constrains_the_string() {
             continue;
         }
         let name = dotted(&n.path);
-        // A media provider that is not local needs a privacy acknowledgment while the index is enabled, a separate cross-field
-        // rule: probe the length of the provider id with the index switched off.
+        // Enabled media have separate catalog and privacy constraints. Probe generic id lengths with the index off.
         let put = |v: Value| {
             let mut candidate = with_value_at(&cfg, &n.path, v);
-            if name == "memory.mediaEmbedding.provider" {
+            if [
+                "memory.mediaEmbedding.provider",
+                "memory.mediaEmbedding.model",
+            ]
+            .contains(&name.as_str())
+            {
                 candidate["memory"]["mediaEmbedding"]["enabled"] = json!(false);
             }
             candidate

@@ -2624,6 +2624,212 @@
                         "x-restart": "core",
                         "x-tier": "basic"
                       },
+                      "image": {
+                        "description": "Image preprocessing token budget (owner E3).",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "x-restart": "core",
+                        "x-tier": "advanced",
+                        "properties": {
+                          "softTokens": {
+                            "description": "Soft token budget per photo; changing it changes the media vector space.",
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 280,
+                            "x-restart": "core",
+                            "x-tier": "advanced"
+                          }
+                        }
+                      },
+                      "dtypes": {
+                        "description": "Pinned encoder precision per platform (owner E2): q8 until a separate measured decision. Audio always uses q8.",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "x-restart": "core",
+                        "x-tier": "advanced",
+                        "properties": {
+                          "linux-x64": {
+                            "description": "Encoder precision on linux-x64.",
+                            "type": "object",
+                            "additionalProperties": false,
+                            "x-restart": "core",
+                            "x-tier": "advanced",
+                            "properties": {
+                              "text": {
+                                "description": "Pinned text encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              },
+                              "vision": {
+                                "description": "Pinned vision encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              },
+                              "audio": {
+                                "description": "Pinned audio encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              }
+                            }
+                          },
+                          "linux-arm64": {
+                            "description": "Encoder precision on linux-arm64.",
+                            "type": "object",
+                            "additionalProperties": false,
+                            "x-restart": "core",
+                            "x-tier": "advanced",
+                            "properties": {
+                              "text": {
+                                "description": "Pinned text encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              },
+                              "vision": {
+                                "description": "Pinned vision encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              },
+                              "audio": {
+                                "description": "Pinned audio encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              }
+                            }
+                          },
+                          "darwin-arm64": {
+                            "description": "Encoder precision on darwin-arm64.",
+                            "type": "object",
+                            "additionalProperties": false,
+                            "x-restart": "core",
+                            "x-tier": "advanced",
+                            "properties": {
+                              "text": {
+                                "description": "Pinned text encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              },
+                              "vision": {
+                                "description": "Pinned vision encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              },
+                              "audio": {
+                                "description": "Pinned audio encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              }
+                            }
+                          },
+                          "win32-x64": {
+                            "description": "Encoder precision on win32-x64.",
+                            "type": "object",
+                            "additionalProperties": false,
+                            "x-restart": "core",
+                            "x-tier": "advanced",
+                            "properties": {
+                              "text": {
+                                "description": "Pinned text encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              },
+                              "vision": {
+                                "description": "Pinned vision encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              },
+                              "audio": {
+                                "description": "Pinned audio encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              }
+                            }
+                          },
+                          "win32-arm64": {
+                            "description": "Encoder precision on win32-arm64.",
+                            "type": "object",
+                            "additionalProperties": false,
+                            "x-restart": "core",
+                            "x-tier": "advanced",
+                            "properties": {
+                              "text": {
+                                "description": "Pinned text encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              },
+                              "vision": {
+                                "description": "Pinned vision encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              },
+                              "audio": {
+                                "description": "Pinned audio encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              }
+                            }
+                          }
+                        }
+                      },
                       "video": {
                         "description": "How video is cut into segments and frames before embedding.",
                         "type": "object",
@@ -2650,6 +2856,14 @@
                             "type": "boolean",
                             "x-restart": "core",
                             "x-tier": "advanced"
+                          },
+                          "softTokens": {
+                            "description": "Soft token budget per video frame (owner E3); changing it changes the media vector space.",
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 280,
+                            "x-restart": "core",
+                            "x-tier": "advanced"
                           }
                         }
                       },
@@ -2659,10 +2873,10 @@
                         "additionalProperties": false,
                         "properties": {
                           "segmentSec": {
-                            "description": "Length of one audio segment in seconds.",
+                            "description": "Length of one audio segment in seconds; the model silently truncates above 30 (owner E8).",
                             "type": "integer",
                             "minimum": 1,
-                            "maximum": 3600,
+                            "maximum": 30,
                             "x-restart": "core",
                             "x-tier": "advanced"
                           },
@@ -3007,6 +3221,235 @@
                   "x-restart": "core",
                   "x-tier": "basic"
                 },
+                "image": {
+                  "description": "Image preprocessing token budget (owner E3).",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "properties": {
+                    "softTokens": {
+                      "description": "Soft token budget per photo; changing it changes the media vector space.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 280,
+                      "default": 140,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "dtypes": {
+                  "description": "Pinned encoder precision per platform (owner E2): q8 until a separate measured decision. Audio always uses q8.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "properties": {
+                    "linux-x64": {
+                      "description": "Encoder precision on linux-x64.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "default": {},
+                      "x-restart": "core",
+                      "x-tier": "advanced",
+                      "properties": {
+                        "text": {
+                          "description": "Pinned text encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        },
+                        "vision": {
+                          "description": "Pinned vision encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        },
+                        "audio": {
+                          "description": "Pinned audio encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        }
+                      }
+                    },
+                    "linux-arm64": {
+                      "description": "Encoder precision on linux-arm64.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "default": {},
+                      "x-restart": "core",
+                      "x-tier": "advanced",
+                      "properties": {
+                        "text": {
+                          "description": "Pinned text encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        },
+                        "vision": {
+                          "description": "Pinned vision encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        },
+                        "audio": {
+                          "description": "Pinned audio encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        }
+                      }
+                    },
+                    "darwin-arm64": {
+                      "description": "Encoder precision on darwin-arm64.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "default": {},
+                      "x-restart": "core",
+                      "x-tier": "advanced",
+                      "properties": {
+                        "text": {
+                          "description": "Pinned text encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        },
+                        "vision": {
+                          "description": "Pinned vision encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        },
+                        "audio": {
+                          "description": "Pinned audio encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        }
+                      }
+                    },
+                    "win32-x64": {
+                      "description": "Encoder precision on win32-x64.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "default": {},
+                      "x-restart": "core",
+                      "x-tier": "advanced",
+                      "properties": {
+                        "text": {
+                          "description": "Pinned text encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        },
+                        "vision": {
+                          "description": "Pinned vision encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        },
+                        "audio": {
+                          "description": "Pinned audio encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        }
+                      }
+                    },
+                    "win32-arm64": {
+                      "description": "Encoder precision on win32-arm64.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "default": {},
+                      "x-restart": "core",
+                      "x-tier": "advanced",
+                      "properties": {
+                        "text": {
+                          "description": "Pinned text encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        },
+                        "vision": {
+                          "description": "Pinned vision encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        },
+                        "audio": {
+                          "description": "Pinned audio encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        }
+                      }
+                    }
+                  }
+                },
                 "video": {
                   "description": "How video is cut into segments and frames before embedding.",
                   "type": "object",
@@ -3037,6 +3480,15 @@
                       "default": true,
                       "x-restart": "core",
                       "x-tier": "advanced"
+                    },
+                    "softTokens": {
+                      "description": "Soft token budget per video frame (owner E3); changing it changes the media vector space.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 280,
+                      "default": 70,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
                     }
                   }
                 },
@@ -3047,10 +3499,10 @@
                   "default": {},
                   "properties": {
                     "segmentSec": {
-                      "description": "Length of one audio segment in seconds.",
+                      "description": "Length of one audio segment in seconds; the model silently truncates above 30 (owner E8).",
                       "type": "integer",
                       "minimum": 1,
-                      "maximum": 3600,
+                      "maximum": 30,
                       "default": 30,
                       "x-restart": "core",
                       "x-tier": "advanced"
@@ -3159,7 +3611,7 @@
                     "auto",
                     "manual"
                   ],
-                  "default": "auto",
+                  "default": "manual",
                   "x-restart": "core",
                   "x-tier": "advanced"
                 }
