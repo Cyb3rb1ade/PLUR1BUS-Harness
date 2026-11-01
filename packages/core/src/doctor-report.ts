@@ -73,7 +73,8 @@ export function buildDoctorMethods(o: { home: string; clock: () => number; sandb
     checks.push({ ...taskCheck, summary: safe(taskCheck.summary),
       ...(taskCheck.repair ? { repair: { kind: taskCheck.repair.kind, label: safe(taskCheck.repair.label) } } : {}) });
     const acpRefusal = externalAgentRefusal();
-    const acpSandboxAvailable = sandbox.available && (process.platform !== "linux" || tasks.mechanism === "namespace-limit");
+    const acpSandboxAvailable = sandbox.available && Number.isSafeInteger(n) && n >= 1
+      && (process.platform !== "linux" || tasks.mechanism === "namespace-limit");
     checks.push({ id: "external.agents.sandbox", status: acpRefusal || !acpSandboxAvailable ? "fail" : "ok",
       summary: acpRefusal ? `External ACP agents, terminals and discovery probes: ${acpRefusal.reason}${acpRefusal.cause ? ` (${acpRefusal.cause})` : ""}.`
         : acpSandboxAvailable ? "External ACP process sandbox available; connector acceptance is checked separately."

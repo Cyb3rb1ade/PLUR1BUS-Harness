@@ -67,19 +67,28 @@ it("Doctor exposes macOS ACP refusal independently of ordinary Seatbelt availabi
   assert.equal(checks.find(check => check.id === "tools.sandbox")?.status, "warn");
   assert.equal(checks.find(check => check.id === "tools.sandbox.tasks")?.status, "ok");
 });
-it("Doctor does not advertise Linux ACP when namespace task enforcement is unavailable", async t => {
+it("Doctor requires namespace task enforcement and a positive task limit for Linux ACP", async t => {
   const descriptor = Object.getOwnPropertyDescriptor(process, "platform")!;
   Object.defineProperty(process, "platform", { ...descriptor, value: "linux" });
   t.after(() => Object.defineProperty(process, "platform", descriptor));
-  for (const mechanism of ["none", "namespace-limit"] as const) {
+  for (const { mechanism, maxTasks, status } of [
+    { mechanism: "none", maxTasks: 512, status: "fail" },
+    { mechanism: "namespace-limit", maxTasks: 0, status: "fail" },
+    { mechanism: "namespace-limit", maxTasks: 1, status: "ok" },
+    { mechanism: "namespace-limit", maxTasks: 512, status: "ok" },
+  ] as const) {
     const methods = guardMethods(buildDoctorMethods({ home: "/fixture", clock: () => 1000,
+      sandboxMaxTasks: () => maxTasks,
       check: async () => ({ schema: "1staid.check/1", checks: [] }),
       detectSandbox: async () => ({ available: true, backend: "bubblewrap", strength: "partial", reason: "available",
         tasks: { mechanism, reason: "measured" } }),
     }), viewer(() => 1000));
-    const report = await methods["doctor.report"]!({}, ctxOf()) as { groups: { checks: { id: string; status: string }[] }[] };
-    assert.equal(report.groups.flatMap(group => group.checks).find(check => check.id === "external.agents.sandbox")?.status,
-      mechanism === "namespace-limit" ? "ok" : "fail");
+    const report = await methods["doctor.report"]!({}, ctxOf()) as { groups: { checks: { id: string; status: string; summary: string }[] }[] };
+    const checks = report.groups.flatMap(group => group.checks);
+    const acp = checks.find(check => check.id === "external.agents.sandbox");
+    assert.equal(acp?.status, status, `${mechanism}, maxTasks=${maxTasks}`);
+    assert.match(acp?.summary ?? "", status === "ok" ? /sandbox available/ : /sandbox-unavailable/);
+    if (maxTasks === 0) assert.equal(checks.find(check => check.id === "tools.sandbox.tasks")?.status, "warn");
   }
 });
 const reportOf = (home: string, summary: string, hint?: string) => guardMethods(buildDoctorMethods({ home, clock: () => 1000, check: async () => ({ schema: "1staid.check/1", checks: [{ id: "models.cache", status: "warn", summary, ...(hint ? { hint } : {}) }] }) }), viewer(() => 1000))["doctor.report"]!({}, ctxOf());
