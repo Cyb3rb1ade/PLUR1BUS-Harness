@@ -151,6 +151,19 @@ export const MIGRATIONS: readonly string[] = [
    WHEN NEW.kind IS NOT OLD.kind OR NEW.agent_id IS NOT OLD.agent_id OR NEW.owner IS NOT OLD.owner
      OR NEW.scope IS NOT OLD.scope OR NEW.chat_key IS NOT OLD.chat_key OR NEW.origin IS NOT OLD.origin
    BEGIN SELECT RAISE(ABORT, 'I1: session kind, agent, owner, scope and origin are immutable'); END;`,
+  // Reserved v11 (Controller 2026-11-01). Independent main base is v9; the Controller orders/renumbers at merge.
+  // Additive metadata only: never rewrite messages or events, as with v3/v6.
+  `CREATE TABLE session_worktrees (
+     session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+     root TEXT NOT NULL,
+     project_id TEXT,
+     card_id TEXT,
+     created_by TEXT NOT NULL,
+     created_at INTEGER NOT NULL,
+     CHECK ((project_id IS NULL) = (card_id IS NULL))
+   );
+   CREATE TRIGGER session_worktrees_immutable BEFORE UPDATE ON session_worktrees
+   BEGIN SELECT RAISE(ABORT, 'coding worktree bindings are immutable'); END;`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

@@ -1167,6 +1167,18 @@
     "approval.audit": {
       "stability": "experimental",
       "since": "1.5.0"
+    },
+    "code.session.open": {
+      "stability": "experimental",
+      "since": "1.19.0"
+    },
+    "code.session.diff": {
+      "stability": "experimental",
+      "since": "1.19.0"
+    },
+    "code.session.check": {
+      "stability": "experimental",
+      "since": "1.19.0"
     }
   },
   "notifications": {

@@ -710,6 +710,15 @@ fn generate(schema: &Schema, node: &Value, optionals: Optionals, rng: &mut Rng) 
 /// `bundle.manifest.format`, a pinned value). Until 2026-10 the keyword removal took the property with it (#405).
 #[test]
 fn properties_named_format_survive() {
+    fn has_format_property(value: &Value) -> bool {
+        match value {
+            Value::Object(fields) => {
+                fields.contains_key("format") || fields.values().any(has_format_property)
+            }
+            Value::Array(items) => items.iter().any(has_format_property),
+            _ => false,
+        }
+    }
     let schema = Schema::load();
     let mut failures = Vec::new();
     let mut hit = BTreeSet::new();
@@ -720,7 +729,7 @@ fn properties_named_format_survive() {
             optionals: Optionals::All,
         }
         .gen(e.node(&schema), 0);
-        if !x.to_string().contains("\"format\"") {
+        if !has_format_property(&x) {
             continue;
         }
         hit.insert(e.name);
@@ -735,9 +744,11 @@ fn properties_named_format_survive() {
         }
     }
     assert_eq!(
-        hit.len(),
-        3,
-        "the schema has three methods with a `format` property: {hit:?}"
+        hit,
+        ["agent.export", "media.edit", "media.generate"]
+            .into_iter()
+            .collect(),
+        "every method with a `format` property must survive the round trip"
     );
     report("properties named format", &failures);
 }
@@ -2605,6 +2616,12 @@ table! {
     Result "session.submit" SessionSubmitResult,
     Params "session.events" SessionEventsParams,
     Result "session.events" SessionEventsResult,
+    Params "code.session.open" CodeSessionOpenParams,
+    Result "code.session.open" CodeSessionOpenResult,
+    Params "code.session.diff" CodeSessionDiffParams,
+    Result "code.session.diff" CodeSessionDiffResult,
+    Params "code.session.check" CodeSessionCheckParams,
+    Result "code.session.check" CodeSessionCheckResult,
     Params "session.model.get" SessionModelGetParams,
     Result "session.model.get" SessionModelGetResult,
     Params "session.model.set" SessionModelSetParams,

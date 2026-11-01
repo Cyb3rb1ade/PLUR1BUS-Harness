@@ -81,12 +81,14 @@ describe("composition openTurnComposition", () => {
   it("assembles sessions, collaboration, voice, openai and the media RPC surface", async () => {
     const { composition: c, identity } = await open();
     try {
-      assert.deepEqual(Object.keys(c).sort(), ["budget", "cacheTelemetry", "capabilities", "chatModels", "close", "collab", "discoveryCredentials", "engineComplete", "importSsh", "mining", "openai", "refusedProviders", "sessions", "skillReview", "surfaceMethods", "voice"]);
+      assert.deepEqual(Object.keys(c).sort(), ["budget", "cacheTelemetry", "capabilities", "chatModels", "close", "codeSessions", "collab", "discoveryCredentials", "engineComplete", "importSsh", "mining", "openai", "refusedProviders", "sessions", "skillReview", "surfaceMethods", "voice"]);
       assert.equal(c.skillReview.status().state, "engine-unavailable");
       assert.equal(c.mining.status().state, "engine-unavailable");
       assert.ok(c.collab, "collaboration needs the call budget, which opened");
       assert.equal(typeof c.sessions.close, "function");
-      assert.deepEqual(Object.keys(c.surfaceMethods).sort(), [...MEDIA_METHODS, ...SEARCH_METHODS, ...EXTENSION_METHODS, ...SSH_METHODS, ...EXTERNAL_TURN_METHODS, "decision.status", "decision.test", "models.test"].sort());
+      assert.ok(c.codeSessions, "coding session binding must be composed");
+      assert.equal(typeof c.codeSessions.connectionClosed, "function", "coding grants must follow connection lifetime");
+      assert.deepEqual(Object.keys(c.surfaceMethods).sort(), [...MEDIA_METHODS, ...SEARCH_METHODS, ...EXTENSION_METHODS, ...SSH_METHODS, ...EXTERNAL_TURN_METHODS, "code.session.open", "code.session.diff", "code.session.check", "decision.status", "decision.test", "models.test"].sort());
       for (const m of Object.values(c.surfaceMethods)) assert.equal(typeof m, "function");
     } finally { await c.close(); identity.close(); }
   });

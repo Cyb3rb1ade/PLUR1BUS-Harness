@@ -235,6 +235,34 @@ export class SessionStore {
   #all(sql: string, ...args: (string | number | null)[]): Row[] { return this.#db.prepare(sql).all(...args) as Row[]; }
   #run(sql: string, ...args: (string | number | null)[]): void { this.#db.prepare(sql).run(...args); }
 
+  /** Immutable CLI-1 worktree metadata, read through the session's own SQLite writer. */
+  worktree(sessionId: string): import("./types.ts").WorktreeBinding | null {
+    const row = this.#get("SELECT * FROM session_worktrees WHERE session_id=?", sessionId);
+    return row ? { sessionId, root: row.root as string, projectId: row.project_id as string | null,
+      cardId: row.card_id as string | null, createdBy: row.created_by as string, createdAt: Number(row.created_at) } : null;
+  }
+
+  /** Bind once or confirm exactly the same binding; this never grants filesystem access. */
+  bindWorktree(input: Omit<import("./types.ts").WorktreeBinding, "createdAt">): void {
+    this.#tx(() => {
+      const session = this.getSession(input.sessionId);
+      if (!session) throw new SessionError("not-found", "session not found");
+      if (session.archivedAt !== null || this.runningTurn(session.id)) {
+        throw new SessionError("conflict", "worktree binding requires an idle active session");
+      }
+      const old = this.worktree(session.id);
+      if (old) {
+        if (old.root !== input.root || old.projectId !== input.projectId || old.cardId !== input.cardId
+          || old.createdBy !== input.createdBy) {
+          throw new SessionError("immutable", "worktree binding is immutable");
+        }
+        return;
+      }
+      this.#run("INSERT INTO session_worktrees(session_id,root,project_id,card_id,created_by,created_at) VALUES (?,?,?,?,?,?)",
+        session.id, input.root, input.projectId, input.cardId, input.createdBy, this.#clock());
+    });
+  }
+
   // ---- sessions -----------------------------------------------------------------------------------------------
 
   createSession(i: CreateSessionInput): SessionRecord {
@@ -554,6 +582,15 @@ export class SessionStore {
 
   listEvents(sessionId: string, afterSeq = 0, limit = 500): EventRecord[] {
     return this.#all("SELECT * FROM events WHERE session_id = ? AND seq > ? ORDER BY seq LIMIT ?", sessionId, afterSeq, Math.min(Math.max(limit, 1), 2000)).map(toEvent);
+  }
+
+  /** Human diff lookup: one session-scoped tool result, without loading the complete event history. */
+  toolResult(sessionId: string, callId: string): string | null {
+    const row = this.#get("SELECT data FROM events WHERE session_id=? AND type='tool.result' AND json_extract(data,'$.id')=? ORDER BY seq DESC LIMIT 1",
+      sessionId, callId);
+    if (!row) return null;
+    const data = JSON.parse(row.data as string) as Record<string, unknown>;
+    return typeof data.output === "string" ? data.output : null;
   }
 
   listMessages(sessionId: string, o: { afterSeq?: number; beforeSeq?: number; limit?: number; keep?: "newest" | "oldest" } = {}): MessageRecord[] {

@@ -44,7 +44,8 @@ mod imp {
     }
     impl Stream for S {
         fn set_read_timeout(&self, d: Option<Duration>) -> io::Result<()> {
-            self.0.set_read_timeout(d)
+            self.0.set_read_timeout(d)?;
+            self.0.set_write_timeout(d)
         }
         fn peer_pid(&self) -> Option<u32> {
             use std::os::unix::io::AsRawFd;

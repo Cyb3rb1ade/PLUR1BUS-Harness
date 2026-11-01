@@ -742,3 +742,26 @@ Erledigte Punkte nennen den Test. Die übrigen bleiben offen.
 ### D106 sandbox follow-up (2026-10-15 Draft)
 
 Production exec/host subprocesses now require sandbox ports. run/, state/, secrets, configuration and runtime binaries are denied. Owner-only tools.sandbox.required=false is audited before launch and warned in Doctor. This does **not** close §9.6 as a cross-platform acceptance claim: Windows isolation, Linux writable policies, hostctl/stdin/service adapters, hard containment and installer delivery remain open. See docs/handoffs/2026-10-15-d106-p1.md and p2.md for per-backend evidence. No T3 attestation supplier is added.
+
+
+## Code-session worktree permission (D120 Q25)
+
+`code.session.open` is a human-only method. When an interactive native CLI lacks access, the Core creates a D109
+request for the **canonical worktree root**, with write access and a recursive match. The signed request has the
+Core-owned `code-session-root` origin. Neither a tool name nor model-supplied arguments can select this origin.
+The CLI shows the folder and asks once, then calls `approval.decide` with `scope: "session"` and `attest: true`.
+The existing OS confirmation lifts that one T1 decision to T2; `grant.create` and the connection's trust stay unchanged.
+
+This origin has one narrowly defined exception to the ordinary tool-request path rule: an approved decision creates
+an exact recursive write grant and its read companion for this agent, person and Code session. It never grants the
+parent directory. The only offered scope is `session`; `always`, `once`, task-wide permission and helper delegation
+are refused for this request, including from a trusted T3 surface. Archive/replacement ends the grants through the
+existing session lifecycle; closing a volatile Incognito session ends its grants too. Another session cannot use them.
+Home roots, drive roots, system trees and the Harness's protected state/run tree remain denied.
+
+Ordinary tool approvals still narrow each target to its **parent directory and direct children**, with
+`recursive: false`. Spoofing `code.session.open` as a tool name or putting `origin`/`recursive` in model arguments does
+not change that rule. A T1 connection without OS confirmation, an agent, ACP or a noninteractive run cannot bind an
+ungranted root. A cancelled or disconnected request creates no binding. A pending code-root decision also requires
+its live host session; after a Core restart it needs a fresh request. Request, decision, grant creation and session-end
+revocation retain their normal D109 audit/chain records. No message or session event is rewritten.
