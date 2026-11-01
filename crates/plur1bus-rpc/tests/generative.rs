@@ -2618,6 +2618,8 @@ table! {
     Result "session.events" SessionEventsResult,
     Params "code.session.open" CodeSessionOpenParams,
     Result "code.session.open" CodeSessionOpenResult,
+    Params "code.session.mode" CodeSessionModeParams,
+    Result "code.session.mode" CodeSessionModeResult,
     Params "code.session.diff" CodeSessionDiffParams,
     Result "code.session.diff" CodeSessionDiffResult,
     Params "code.session.check" CodeSessionCheckParams,
