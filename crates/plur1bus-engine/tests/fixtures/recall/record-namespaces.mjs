@@ -7,6 +7,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { recordRuntimeCases } from "./record-namespace-runtime.mjs";
 
 const PIN = "9f34008c143c5da87b2194b5a28442b407ff8ba7";
 const PLUGIN = "6419a60e79975d0b5244798c1fdbbd7997a712ce";
@@ -25,6 +26,20 @@ const hash = (root, file) =>
   createHash("sha256")
     .update(readFileSync(path.join(root, file)))
     .digest("hex");
+const sources = JSON.parse(readFileSync(new URL("./namespace-sources.json", import.meta.url), "utf8"));
+
+function verifySources(engineRoot, pluginRoot) {
+  assert.equal(sources.runtime.commit, PIN);
+  assert.equal(sources.plugin.commit, PLUGIN);
+  for (const [kind, root] of [
+    ["runtime", engineRoot],
+    ["plugin", pluginRoot],
+  ]) {
+    for (const [file, expected] of Object.entries(sources[kind].sha256)) {
+      assert.equal(hash(root, file), expected, `immutable ${kind} source mismatch: ${file}`);
+    }
+  }
+}
 const vector = () => Array.from({ length: WIDTH }, (_, index) => (index === 0 ? 1 : 0));
 
 function row(id, text = id, extra = {}) {
@@ -259,6 +274,23 @@ function orderRuns(pipeline, traces) {
         pipeline.mergeNamespaceRecallResults(input, { maxOut: 3, dedupEnabled: false, trace: traceOf(traces) }),
       ),
     },
+    {
+      name: "equal-rerank-scores-retain-namespace-ordinal",
+      input: [
+        { namespace: "first", memories: [memory("tie-first", 0.1, { rerankScore: 0.8 })] },
+        { namespace: "second", memories: [memory("tie-second", 0.99, { rerankScore: 0.8 })] },
+      ],
+      options: { maxOut: 2, dedupEnabled: false },
+      result: project(
+        pipeline.mergeNamespaceRecallResults(
+          [
+            { namespace: "first", memories: [memory("tie-first", 0.1, { rerankScore: 0.8 })] },
+            { namespace: "second", memories: [memory("tie-second", 0.99, { rerankScore: 0.8 })] },
+          ],
+          { maxOut: 2, dedupEnabled: false, trace: traceOf(traces) },
+        ),
+      ),
+    },
   ];
 }
 
@@ -385,7 +417,6 @@ async function runtimeRun(root, name, modules) {
             associativeEnabled: false,
             dedupEnabled: false,
             queryRefinerEnabled: false,
-            adaptiveBudget: { enabled: false },
             embeddings: { embed: async () => vector(), embedQuery: async () => vector() },
             aclCtx: { agentId: AGENT, allowedAgents: [AGENT], visibleScopes: ["agent-private"] },
             retrievalLogger: (entry) => {
@@ -413,6 +444,7 @@ async function runtimeRun(root, name, modules) {
       missingLegacyCreated: missing ? existsSync(path.join(base, "legacy")) : null,
       result,
       ledger,
+      ledgerLines: ledger.map((line) => `${JSON.stringify(line)}\n`),
       completed: completed.sort(),
     };
   } finally {
@@ -424,6 +456,7 @@ async function runtimeRun(root, name, modules) {
 
 export async function recordNamespaces(engineRoot, pluginRoot) {
   assert.equal(process.version, "v24.21.0", "record with the documented Node version");
+  verifySources(engineRoot, pluginRoot);
   const pipeline = await load(pluginRoot, "lib/recall-pipeline.js");
   const traces = await load(pluginRoot, "lib/recall-decision-trace.js");
   const modules = {
@@ -446,6 +479,7 @@ export async function recordNamespaces(engineRoot, pluginRoot) {
     runtimeSourceSha256: hash(engineRoot, "engine/recall/namespace-recall.js"),
     ledgerSourceSha256: hash(engineRoot, "lib/memory-dynamics.js"),
     mergeSourceSha256: hash(pluginRoot, "lib/recall-pipeline.js"),
+    sources,
   };
   const capture = async () => {
     const files = {};
@@ -453,7 +487,23 @@ export async function recordNamespaces(engineRoot, pluginRoot) {
       files[name] = { recordedFrom, runtime: await runtimeRun(engineRoot, name, modules) };
     files[names[0]].merges = mergeRuns(pipeline, traces);
     files[names[0]].routing = routingRuns(modules.namespaceConfig);
-    files[names[3]] = { recordedFrom, merges: orderRuns(pipeline, traces) };
+    const nullableLine = modules.dynamics.createRetrievalLedgerEntry({
+      agentId: "",
+      workspaceKey: "",
+      query: "",
+      resultsCount: 2,
+      selectedIds: [undefined, "kept"],
+      timestamp: NOW,
+    });
+    nullableLine.id = "__UUID__";
+    files[names[3]] = {
+      recordedFrom,
+      merges: orderRuns(pipeline, traces),
+      nullableLedgerLine: `${JSON.stringify(nullableLine)}\n`,
+    };
+    for (const [name, runtime] of Object.entries(await recordRuntimeCases(engineRoot, pluginRoot))) {
+      files[name] = { recordedFrom, runtime };
+    }
     return files;
   };
   const first = await capture();
@@ -465,5 +515,5 @@ export async function recordNamespaces(engineRoot, pluginRoot) {
     assert.equal(text.toLowerCase().includes("open" + "claw"), false, "forbidden marker in fixture");
     writeFileSync(path.join(out, `${name}.json`), text);
   }
-  process.stdout.write(`recorded ${names.length} namespace goldens from Node\n`);
+  process.stdout.write(`recorded ${Object.keys(first).length} namespace goldens from Node\n`);
 }

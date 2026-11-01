@@ -31,6 +31,8 @@ pub struct KnowledgeSection {
 /// A canonical hit kept beside the memory list.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CanonicalHit {
+    /// Knowledge file mtime carried by Node's canonical wrapper.
+    pub mtime_ms: i64,
     /// Section heading.
     pub heading: String,
     /// Exact section text retained for namespace dedupe and later rendering.
@@ -83,6 +85,7 @@ pub fn search_canonical(
     let mut scored = chunks
         .into_iter()
         .map(|chunk| CanonicalHit {
+            mtime_ms: chunk.mtime,
             heading: chunk.heading,
             text: chunk.text,
             score: cosine_similarity(query_vector, &chunk.vector),
@@ -103,6 +106,7 @@ pub fn cached_chunk_count(workspace: &Path) -> Option<usize> {
 }
 
 struct Chunk {
+    mtime: i64,
     heading: String,
     text: String,
     vector: Vec<f32>,
@@ -134,6 +138,7 @@ fn knowledge_chunks(
         if let Ok(vectors) = embedded {
             if let Some(vector) = vectors.into_iter().next() {
                 chunks.push(Chunk {
+                    mtime,
                     heading: section.heading.clone(),
                     text: section.text.clone(),
                     vector,
@@ -173,6 +178,7 @@ fn read_cache(workspace: &Path, mtime: i64) -> Option<Vec<Chunk>> {
                 .map(|value| value.as_f64().unwrap_or(0.0) as f32)
                 .collect();
             Some(Chunk {
+                mtime,
                 heading,
                 text,
                 vector,

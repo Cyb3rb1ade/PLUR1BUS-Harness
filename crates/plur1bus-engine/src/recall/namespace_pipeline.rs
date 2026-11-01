@@ -6,10 +6,11 @@ use super::candidate::RecallCandidate;
 use super::finalise::{self, FinaliseLimits, FinaliseRequest};
 use super::graph::GraphEdge;
 use super::merge::NamespaceResult;
+use super::namespace_entry::project_entry;
 use super::namespace_query::RequestQueries;
-use super::namespace_trace::NamespaceTrace;
 use super::namespaces::{CanonicalSource, NamespaceError, TableRecall};
 use super::stages::{self, StageClocks, StageFlags, StageInput, StageLimits};
+use super::{namespace_identity, namespace_rerank};
 use crate::context::RequestContext;
 use crate::contract::MemoryRow;
 use crate::embedding::{Cancel, EmbeddingProvider, Reranker};
@@ -19,8 +20,10 @@ use std::path::Path;
 
 /// Per-table dependencies shared across a namespace fan-out.
 pub struct Pipeline<'a> {
-    /// User query.
-    pub query: &'a str,
+    /// Optional emotional-state factor applied by the scoring stage.
+    pub emotion: Option<&'a dyn super::score::EmotionalRecallState>,
+    /// Optional providers keyed by their complete identities; no cross-space fallback.
+    pub identity_providers: &'a [&'a dyn EmbeddingProvider],
     /// Resolved ACL subject.
     pub context: &'a RequestContext,
     /// Thread-safe caller sink; namespace workers must not discard denials.
@@ -46,6 +49,27 @@ pub struct Pipeline<'a> {
 }
 
 impl TableRecall for Pipeline<'_> {
+    fn has_reranker(&self) -> bool {
+        self.reranker.is_some()
+    }
+
+    fn rerank_merged(
+        &self,
+        result: &mut NamespaceResult,
+        queries: &RequestQueries,
+    ) -> Result<(), NamespaceError> {
+        if let Some(reranker) = self.reranker {
+            namespace_rerank::apply(
+                result,
+                queries.query(),
+                reranker,
+                self.cancel,
+                self.finalise_limits.reranker_fallback_on_error,
+            )?;
+        }
+        Ok(())
+    }
+
     fn recall(
         &self,
         namespace: Option<&str>,
@@ -53,18 +77,49 @@ impl TableRecall for Pipeline<'_> {
         canonical: CanonicalSource,
         queries: &RequestQueries,
     ) -> Result<NamespaceResult, NamespaceError> {
-        let embedder = queries.wrap(self.embedder);
+        let routed = namespace_identity::route(store, self.embedder, self.identity_providers)?;
+        let Some(provider) = routed.provider else {
+            return Ok(namespace_identity::unavailable(
+                namespace,
+                routed.identity,
+                "EMBEDDER_UNAVAILABLE",
+            ));
+        };
+        let snapshot = match self.snapshot(store, canonical, queries, provider) {
+            Ok(snapshot) => snapshot,
+            Err(stages::StageError::Embed(error))
+                if queries.is_multi_identity()
+                    && !matches!(error, crate::embedding::EmbedError::Cancelled(_)) =>
+            {
+                return Ok(namespace_identity::unavailable(
+                    namespace,
+                    routed.identity,
+                    namespace_identity::failure_code(&error),
+                ));
+            }
+            Err(error) => return Err(NamespaceError::Stage(error)),
+        };
+        self.complete(namespace, routed.identity, snapshot, queries)
+    }
+}
+
+impl Pipeline<'_> {
+    fn snapshot(
+        &self,
+        store: &Store,
+        canonical: CanonicalSource,
+        queries: &RequestQueries,
+        provider: &dyn EmbeddingProvider,
+    ) -> Result<stages::StageSnapshot, stages::StageError> {
+        let embedder = queries.wrap(provider);
         let mut flags = self.flags.clone();
         flags.canonical &= canonical == CanonicalSource::Read;
         flags.defer_final_cap = true;
         let mut limits = self.limits.clone();
-        limits.candidate_hard_limit = 100;
-        let mut finalise_limits = self.finalise_limits;
-        finalise_limits.defer_final_cap = true;
-        finalise_limits.candidate_hard_limit = 100.0;
-        let snapshot = stages::run_through_stage_7(
+        limits.candidate_hard_limit = super::namespaces::CANDIDATE_HARD_LIMIT;
+        stages::run_observed_stage_7(
             &StageInput {
-                query: self.query,
+                query: queries.query(),
                 store,
                 embedder: &embedder,
                 context: self.context,
@@ -75,88 +130,110 @@ impl TableRecall for Pipeline<'_> {
                 clocks: self.clocks.clone(),
             },
             self.denials,
+            queries.trace_limits(),
+            self.emotion,
         )
-        .map_err(NamespaceError::Stage)?;
+    }
+
+    fn complete(
+        &self,
+        namespace: Option<&str>,
+        identity: Option<String>,
+        snapshot: stages::StageSnapshot,
+        queries: &RequestQueries,
+    ) -> Result<NamespaceResult, NamespaceError> {
         let candidates = snapshot
-            .rows
+            .hydrated
             .iter()
-            .zip(&snapshot.scores)
-            .zip(&snapshot.sources)
-            .map(|((row, score), source)| candidate(row, *score, source))
-            .collect::<Result<Vec<_>, _>>()?;
+            .map(|hit| candidate(&hit.row, hit.score, hit.source))
+            .collect::<Vec<_>>();
+        let mut limits = self.finalise_limits;
+        limits.defer_final_cap = true;
+        limits.candidate_hard_limit = super::namespaces::CANDIDATE_HARD_LIMIT as f64;
         let finalised = finalise::apply(
             &FinaliseRequest {
-                query: self.query,
+                query: queries.query(),
                 rows: &candidates,
                 context: self.context,
-                reranker: self.reranker,
+                reranker: if queries.is_multi_identity() {
+                    None
+                } else {
+                    self.reranker
+                },
                 filter: None,
                 cancel: self.cancel,
-                limits: finalise_limits,
+                limits,
                 leaked: &[],
             },
             self.denials,
         )
         .map_err(|failure| NamespaceError::Finalise(failure.error))?;
-        let memories = finalised.ids.iter().zip(&finalised.rerank_scores).zip(&finalised.sources)
-            .filter_map(|((id,rerank),source)| snapshot.rows.iter().position(|row| &row.id == id).map(|index| {
-                let mut wrapper = json!({"entry":snapshot.rows[index],"score":snapshot.scores[index],"source":source});
-                if let Some(score) = rerank { wrapper["rerankScore"] = json!(score); }
-                wrapper
-            })).collect();
-        let mut trace = NamespaceTrace {
-            candidates: snapshot
-                .candidate_ids
-                .iter()
-                .map(|id| json!({"id":id}))
-                .collect(),
-            decisions: snapshot
-                .rejections
-                .iter()
-                .map(|r| {
-                    json!({"memoryId":r.memory_id,"action":"rejection",
-            "stage":r.stage,"reason":r.reason})
-                })
-                .collect(),
-            ..NamespaceTrace::default()
-        };
-        if !snapshot.rows.is_empty() {
-            trace.guards.push(json!({"name":"score-recompute","passed":true,"reason":"strength/epistemic re-scoring applied"}));
-            trace.decisions.extend(snapshot.rows.iter().map(|row| {
-                json!({"memoryId":row.id,"action":"inclusion",
-                "stage":"score-recompute","reason":"re-scored"})
-            }));
-        }
-        trace.decisions.extend(finalised.decisions.iter().map(|r| {
-            json!({"memoryId":r.memory_id,"action":r.action,
-            "stage":r.stage,"reason":r.reason})
-        }));
-        trace.guards.extend(finalised.guards.iter().map(|g| {
-            let mut value = json!({"name":g.name,"passed":g.passed,"reason":g.reason});
-            if let Some(id) = &g.memory_id {
-                value["memoryId"] = json!(id);
-            }
-            value
-        }));
+        let memories = wrappers(&snapshot.hydrated, &finalised);
+        let mut trace = snapshot.trace;
+        append_final_observations(&mut trace, &finalised);
         Ok(NamespaceResult {
-            namespace: namespace.map(str::to_owned),
-            source_kind: Some("private".to_owned()),
-            query_vector: Some(snapshot.query_vector),
-            memories,
-            trace: Some(trace),
-            canonical: snapshot
-                .canonical
-                .iter()
-                .map(|c| json!({"heading":c.heading,"text":c.text,"score":c.score}))
-                .collect(),
+            identity_id: identity, namespace: namespace.map(str::to_owned),
+            source_kind: Some("private".to_owned()), query_vector: Some(snapshot.query_vector),
+            memories, trace: Some(trace), canonical: snapshot.canonical.iter().map(|c| {
+                json!({"heading":c.heading,"text":c.text,"score":c.score,"mtimeMs":c.mtime_ms})
+            }).collect(), ..NamespaceResult::default()
         })
     }
 }
 
-fn candidate(row: &MemoryRow, score: f64, source: &str) -> Result<RecallCandidate, NamespaceError> {
-    let ownership = AclMemory::from_row(row)
-        .ok_or(NamespaceError::Store(crate::contract::StoreError::Corrupt))?;
-    Ok(RecallCandidate {
+fn wrappers(
+    hydrated: &[stages::HydratedMemory],
+    finalised: &finalise::FinaliseOutput,
+) -> Vec<serde_json::Value> {
+    finalised
+        .ids
+        .iter()
+        .zip(&finalised.rerank_scores)
+        .zip(&finalised.sources)
+        .filter_map(|((id, rerank), source)| {
+            hydrated.iter().find(|hit| &hit.row.id == id).map(|hit| {
+                let mut value =
+                    json!({"entry":project_entry(&hit.row),"score":hit.score,"source":source});
+                if let Some(score) = rerank {
+                    value["rerankScore"] = json!(score);
+                }
+                if let Some(depth) = hit.depth {
+                    value["depth"] = json!(depth);
+                }
+                value
+            })
+        })
+        .collect()
+}
+
+fn append_final_observations(
+    trace: &mut super::namespace_trace::NamespaceTrace,
+    output: &finalise::FinaliseOutput,
+) {
+    trace.decisions.extend(output.decisions.iter().map(
+        |r| json!({"memoryId":r.memory_id,"action":r.action,"stage":r.stage,"reason":r.reason}),
+    ));
+    trace.guards.extend(output.guards.iter().map(|g| {
+        let mut value = json!({"name":g.name,"passed":g.passed,"reason":g.reason});
+        if let Some(id) = &g.memory_id {
+            value["memoryId"] = json!(id);
+        }
+        value
+    }));
+}
+
+fn candidate(row: &MemoryRow, score: f64, source: &str) -> RecallCandidate {
+    let ownership = AclMemory {
+        id: row.id.clone(),
+        scope: row.scope.clone(),
+        agent_id: row.agent_id.clone(),
+        stored_by: row.stored_by.clone(),
+        workspace_id: row.workspace_id.clone(),
+        workspace_key: row.workspace_key.clone(),
+        owner_user_id: row.owner_user_id.clone(),
+        type_name: row.type_.clone(),
+    };
+    RecallCandidate {
         id: row.id.clone(),
         text: row.text.clone(),
         summary: row.summary.clone(),
@@ -170,7 +247,6 @@ fn candidate(row: &MemoryRow, score: f64, source: &str) -> Result<RecallCandidat
         valid_until: row.valid_until.as_f64().unwrap_or(0.0),
         score: Some(score),
         source: source.to_owned(),
-        ownership: Some(ownership),
-        ..RecallCandidate::default()
-    })
+        ..RecallCandidate::new(ownership)
+    }
 }

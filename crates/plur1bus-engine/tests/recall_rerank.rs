@@ -23,7 +23,7 @@ use plur1bus_engine::contract::{
     Principal, RerankHit,
 };
 use plur1bus_engine::embedding::{Cancel, RerankError, Reranker};
-use plur1bus_engine::recall::acl::DenialSink;
+use plur1bus_engine::recall::acl::{AclMemory, DenialSink};
 use plur1bus_engine::recall::budget::{
     apply_recall_budget, resolve_recall_budget, BudgetResolution, TierCounts,
 };
@@ -448,7 +448,12 @@ fn sample(id: &str, agent: &str, text: &str) -> RecallCandidate {
         scope: "agent-private".to_owned(),
         score: Some(0.5),
         source: "vector".to_owned(),
-        ..RecallCandidate::default()
+        ..RecallCandidate::new(AclMemory {
+            id: id.to_owned(),
+            agent_id: agent.to_owned(),
+            scope: "agent-private".to_owned(),
+            ..AclMemory::default()
+        })
     }
 }
 
@@ -473,7 +478,16 @@ fn candidate_of(value: &Value) -> RecallCandidate {
         source: field(value, "source"),
         graph_source: field(value, "graphSource"),
         rerank_score: None,
-        ownership: None,
+        ownership: AclMemory {
+            id: field(value, "id"),
+            scope: field(value, "scope"),
+            agent_id: field(value, "agentId"),
+            stored_by: field(value, "storedBy"),
+            workspace_id: field(value, "workspaceId"),
+            workspace_key: field(value, "workspaceKey"),
+            owner_user_id: field(value, "ownerUserId"),
+            type_name: field(value, "type"),
+        },
     }
 }
 

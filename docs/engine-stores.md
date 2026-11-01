@@ -26,11 +26,32 @@ unit vectors return 2 and opposite unit vectors return 4. Phase 1 retains the No
 The store does not build a lexical index; RE-10 owns the derived `_lexical` table and its index. A round trip checks
 that an additional derived table does not alter the Node reader's `memories` or identity view.
 
-RE-04/T4 namespace recalls append a single retrieval record after the global merge, through
+`store::routes::StoreRoutes` supplies an ordered read plan without fetching memory rows.
+Each `StoreRoute` retains its namespace label, shared `Arc<StorePool>`, missing-table policy
+and trusted directory pins. `lease(agent_id)` returns `Option<Arc<Store>>`: a missing read-only
+legacy table returns `None` without creating files; path replacements and other failures remain
+errors. Holding the `Arc` prevents pool eviction while a child runs. `recall::namespaces::NamespaceStores`
+builds these private routes from the namespace configuration and exposes the active writer
+separately through `write_store`. Read ordering is configuration ordering, never worker completion
+ordering; fan-out uses at most eight workers per request and settles all children before selecting
+its first required error. Shared/optional sources and strict single-source timeout policy remain
+T6/RE-07 work; with T4's private routes the first route is the first private canonical source.
+
+T4 reads each leased store's existing embedding identity. Its pipeline selects an exact matching
+provider, coalesces the original query once per identity, merges each identity's results and uses
+reciprocal-rank fusion before an optional global rerank. A missing provider or invalid per-identity
+query vector reports `embedding-unavailable` and removes that identity's results; a foreign table
+is never searched with the active provider's vector, even when their dimensions match. These
+operations use the existing RE-03 provider and RE-02 identity APIs without changing either contract.
+
+RE-04/T4 namespace recalls apply the global tier budget after merge/rerank and append a single
+retrieval record from the final selection, through
 `store::ledger::JsonlLedger<RetrievalLedgerLine>`. The persisted shape matches Node's
 `lib/memory-dynamics.js::createRetrievalLedgerEntry`: `id` (UUID), `agentId` and `workspaceKey`
 (nullable strings), `queryHash` (SHA-256 of the UTF-8 query, or null for an empty query),
-`resultsCount`, ordered `selectedIds`, and `timestamp` (epoch milliseconds). Neither the query
+`resultsCount`, ordered `selectedIds` (null for an absent id), and `timestamp` (epoch milliseconds).
+The typed record serializes those fields in Node order; tests compare the persisted JSONL text
+with actual Node output after replacing only its generated UUID. Neither the query
 text nor memory text enters this line. Canonical sections do not count toward `resultsCount`.
 Child pipelines do not write ledger entries; a required table failure writes none. An absent
 read-only legacy table is skipped without creating its directory. As in Node, a failed ledger

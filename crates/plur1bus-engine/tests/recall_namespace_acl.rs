@@ -121,11 +121,13 @@ fn assert_request_query_calls(fail: bool) {
     let cancel = Cancel::never();
     let pipeline = pipeline(&context, &embedder, &denials, None, &cancel);
     let request = NamespaceRequest {
+        rrf_k: plur1bus_engine::recall::namespace_identity::DEFAULT_RRF_K,
+        budget: Default::default(),
         routes: &stores,
         pipeline: &pipeline,
         agent_id: "owner",
         workspace_key: "",
-        query: pipeline.query,
+        query: "fixture",
         timestamp_ms: 1,
         ledger: None,
         merge: MergeOptions {
@@ -280,6 +282,8 @@ fn recall_namespaces_read_canonical_knowledge_only_in_the_first_table() {
     pipeline.workspace_dir = Some(&workspace);
     pipeline.flags.canonical = true;
     let output = recall(&NamespaceRequest {
+        rrf_k: plur1bus_engine::recall::namespace_identity::DEFAULT_RRF_K,
+        budget: Default::default(),
         routes: &stores,
         pipeline: &pipeline,
         agent_id: "owner",
@@ -380,7 +384,8 @@ fn pipeline<'a>(
     cancel: &'a Cancel,
 ) -> Pipeline<'a> {
     Pipeline {
-        query: "fixture",
+        emotion: None,
+        identity_providers: &[],
         context,
         embedder,
         denials,

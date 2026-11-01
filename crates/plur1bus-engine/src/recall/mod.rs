@@ -26,10 +26,20 @@ pub mod knowledge;
 pub mod lifecycle;
 /// Global namespace dedupe, caps and rerank-preserving order.
 pub mod merge;
+/// The post-merge tier budget used before retrieval-ledger persistence.
+pub mod namespace_budget;
+/// Vector-free metadata projection at the per-table recall boundary.
+pub mod namespace_entry;
+mod namespace_fanout;
+/// Query routing and rank fusion across independent embedding identities.
+pub mod namespace_identity;
+mod namespace_observation;
 /// Existing stages composed for a physical namespace table.
 pub mod namespace_pipeline;
 /// Request-local coalescing of the original namespace query embedding.
 pub mod namespace_query;
+mod namespace_rerank;
+mod namespace_routes;
 /// Bounded child trace replay into a master trace.
 pub mod namespace_trace;
 /// Configured physical routes, settle-all fan-out and the global retrieval ledger.

@@ -102,7 +102,17 @@ fn namespaces_merge_keeps_reranker_order() {
 
 #[test]
 fn for_every_permutation_the_merged_order_restricted_to_reranked_ids_equals_it() {
-    let mut count = 0;
+    let base = [0.2, 0.9, 0.5, 0.1]
+        .into_iter()
+        .enumerate()
+        .map(|(id, score)| {
+            json!({
+                "entry":{"id":format!("r{id}"),"text":format!("distinct {id}"),"agentId":"a"},
+                "score":score,
+            })
+        })
+        .collect::<Vec<_>>();
+    let mut seen = std::collections::HashSet::new();
     for a in 0..4 {
         for b in 0..4 {
             for c in 0..4 {
@@ -111,14 +121,15 @@ fn for_every_permutation_the_merged_order_restricted_to_reranked_ids_equals_it()
                     if (0..4).any(|i| (i + 1..4).any(|j| permutation[i] == permutation[j])) {
                         continue;
                     }
-                    let ranked: Vec<Value> = permutation.iter().enumerate().map(|(position, id)| json!({
-                        "entry": { "id": format!("r{id}"), "text": format!("distinct {id}"), "agentId": "a" },
-                        "score": position as f64, "rerankScore": (4-position) as f64,
-                    })).collect();
+                    let mut ranked = base.clone();
+                    for (position, index) in permutation.iter().enumerate() {
+                        ranked[*index]["rerankScore"] = json!((4 - position) as f64 / 4.0);
+                    }
                     let input: Vec<NamespaceResult> = serde_json::from_value(json!([
-                        {"namespace":"first", "memories":[ranked[0],ranked[2],{"entry":{"id":"u"},"score":999}]},
-                        {"namespace":"second", "memories":[ranked[1],ranked[3]]},
-                    ])).unwrap();
+            {"namespace":"first","memories":[ranked[0],ranked[2],{"entry":{"id":"u"},"score":999}]},
+            {"namespace":"second","memories":[ranked[1],ranked[3]]},
+        ])).unwrap();
+                    assert!(seen.insert(serde_json::to_string(&input).unwrap()));
                     let result = merge(
                         &input,
                         &MergeOptions {
@@ -128,25 +139,22 @@ fn for_every_permutation_the_merged_order_restricted_to_reranked_ids_equals_it()
                             ..MergeOptions::default()
                         },
                     );
-                    let ids: Vec<_> = result
+                    let ids = result
                         .memories
                         .iter()
-                        .filter_map(|item| item["entry"]["id"].as_str())
-                        .filter(|id| id.starts_with('r'))
-                        .collect();
-                    assert_eq!(
-                        ids,
-                        permutation
-                            .iter()
-                            .map(|id| format!("r{id}"))
-                            .collect::<Vec<_>>()
-                    );
-                    count += 1;
+                        .map(|item| item["entry"]["id"].as_str().unwrap())
+                        .collect::<Vec<_>>();
+                    let mut expected = permutation
+                        .iter()
+                        .map(|id| format!("r{id}"))
+                        .collect::<Vec<_>>();
+                    expected.push("u".to_owned());
+                    assert_eq!(ids, expected);
                 }
             }
         }
     }
-    assert_eq!(count, 24);
+    assert_eq!(seen.len(), 24);
 }
 
 #[test]
@@ -288,7 +296,8 @@ fn assert_runtime(name: &str) {
     let context = RequestContext::build(&principal, &agent, &host).unwrap();
     let flat_embedder = Flat(embedder);
     let pipeline = Pipeline {
-        query: runtime["query"].as_str().unwrap(),
+        emotion: None,
+        identity_providers: &[],
         context: &context,
         denials: &DiscardDenials,
         embedder: &flat_embedder,
@@ -341,6 +350,8 @@ fn assert_runtime(name: &str) {
     let ledger =
         JsonlLedger::<RetrievalLedgerLine>::open(&scratch.path().join("retrieval.jsonl")).unwrap();
     let outcome = recall(&NamespaceRequest {
+        rrf_k: plur1bus_engine::recall::namespace_identity::DEFAULT_RRF_K,
+        budget: Default::default(),
         routes: &routes,
         pipeline: &seam,
         agent_id: runtime["agentId"].as_str().unwrap(),
@@ -362,7 +373,10 @@ fn assert_runtime(name: &str) {
         },
     });
     if fail {
-        assert!(outcome.is_err());
+        assert!(matches!(
+            outcome,
+            Err(NamespaceError::Store(StoreError::Unavailable))
+        ));
         assert!(
             completed.load(Ordering::SeqCst),
             "recall released a still-running child after the second failed"
@@ -374,6 +388,24 @@ fn assert_runtime(name: &str) {
         expected.as_object_mut().unwrap().remove("threw");
         assert_node_json(&project(&outcome.result), &expected);
     }
+    let raw = fs::read_to_string(scratch.path().join("retrieval.jsonl")).unwrap_or_default();
+    let normalized = raw
+        .lines()
+        .map(|line| {
+            let prefix = "{\"id\":\"";
+            assert!(line.starts_with(prefix));
+            let end = line[prefix.len()..].find('"').unwrap() + prefix.len();
+            assert!(uuid::Uuid::parse_str(&line[prefix.len()..end]).is_ok());
+            let mut line = line.to_owned();
+            line.replace_range(prefix.len()..end, "__UUID__");
+            format!("{line}\n")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        json!(normalized),
+        runtime["ledgerLines"],
+        "byte-exact Node ledger"
+    );
     let lines: Vec<Value> = ledger
         .iter()
         .map(|line| {
@@ -502,7 +534,8 @@ fn project(result: &NamespaceResult) -> Value {
 
 // JSON numbers have Node's one numeric type. Compare their exact values, so
 // integer tokens and serialized f32 values such as 1.0 do not create false drift.
-// Strings remain byte-for-byte assertions; array order and object keys are exact.
+// Strings are byte-exact; array order and the object key set are exact.
+// Object insertion order is tested on the raw persisted ledger text separately.
 fn assert_node_json(got: &Value, want: &Value) {
     match (got, want) {
         (Value::Number(left), Value::Number(right)) => assert_eq!(left.as_f64(), right.as_f64()),

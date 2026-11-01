@@ -7,6 +7,7 @@ use std::collections::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+use super::acl::AclMemory;
 use super::candidate::RecallCandidate;
 use super::dedupe::{dedup_results, has_disjoint_validity_windows};
 use super::namespace_trace::{NamespaceTrace, Replay, TraceLimits};
@@ -16,6 +17,10 @@ use crate::text::js;
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct NamespaceResult {
+    /// Per-store embedding identity, used before combining independent vector spaces.
+    pub identity_id: Option<String>,
+    /// Bounded capability degradation, matching the namespace wrapper's Node shape.
+    pub degraded: Option<Value>,
     /// Namespace that produced this child.
     pub namespace: Option<String>,
     /// `private`, `workspace` or `user`; inferred from shared namespace labels when absent.
@@ -68,6 +73,30 @@ struct Candidate {
 /// Finite rerank scores sort first, then raw scores; every tie retains configured order.
 #[must_use]
 pub fn merge(results: &[NamespaceResult], options: &MergeOptions) -> NamespaceResult {
+    let mut replay = child_traces(results, options);
+    let (canonicals, memories) = candidates(results);
+    let canonical = select_canonical(canonicals, options, &mut replay);
+    let mut unique = origins(memories, &mut replay);
+    unique.sort_by(compare);
+    dedup_ids(&mut unique, &mut replay);
+    let slots = options.max_out.saturating_sub(canonical.len());
+    let selected = select(&unique, slots, options);
+    note_unselected(&unique, &selected, &mut replay);
+    NamespaceResult {
+        query_vector: results
+            .iter()
+            .find_map(|result| result.query_vector.clone()),
+        canonical,
+        memories: selected
+            .into_iter()
+            .map(|index| unique[index].item.clone())
+            .collect(),
+        trace: replay.map(Replay::finish),
+        ..NamespaceResult::default()
+    }
+}
+
+fn child_traces(results: &[NamespaceResult], options: &MergeOptions) -> Option<Replay> {
     let mut replay = options.trace_limits.map(Replay::new);
     if let Some(replay) = &mut replay {
         let sources = results
@@ -81,11 +110,18 @@ pub fn merge(results: &[NamespaceResult], options: &MergeOptions) -> NamespaceRe
             .collect::<Vec<_>>();
         replay.children(&sources);
     }
-    let (mut canonicals, memories) = candidates(results);
-    canonicals.sort_by(compare);
+    replay
+}
+
+fn select_canonical(
+    mut candidates: Vec<Candidate>,
+    options: &MergeOptions,
+    replay: &mut Option<Replay>,
+) -> Vec<Value> {
+    candidates.sort_by(compare);
     let mut canonical = Vec::new();
     let mut keys = HashSet::new();
-    for candidate in canonicals {
+    for candidate in candidates {
         let key = format!(
             "{}\0{}",
             normalized(&candidate.item["heading"]),
@@ -106,56 +142,46 @@ pub fn merge(results: &[NamespaceResult], options: &MergeOptions) -> NamespaceRe
             title
         };
         note(
-            &mut replay,
+            replay,
             &candidate,
             format!("canonical:{}", preview(&title, 40)),
             stage,
             reason.to_owned(),
         );
     }
-    let mut unique = origins(memories, &mut replay);
-    unique.sort_by(compare);
+    canonical
+}
+
+fn dedup_ids(candidates: &mut Vec<Candidate>, replay: &mut Option<Replay>) {
     let mut ids = HashSet::new();
-    unique.retain(|candidate| {
+    candidates.retain(|candidate| {
         let id = text(&candidate.item["entry"]["id"]);
         if id.is_empty() || ids.insert(id.clone()) {
-            true
-        } else {
-            note(
-                &mut replay,
-                candidate,
-                id,
-                "namespace-id-dedup",
-                "duplicate memory ID with a lower global score".to_owned(),
-            );
-            false
+            return true;
         }
+        note(
+            replay,
+            candidate,
+            id,
+            "namespace-id-dedup",
+            "duplicate memory ID with a lower global score".to_owned(),
+        );
+        false
     });
-    let slots = options.max_out.saturating_sub(canonical.len());
-    let selected = select(&unique, slots, options);
-    let selected_set = selected.iter().copied().collect::<HashSet<_>>();
-    for (index, candidate) in unique.iter().enumerate() {
-        if !selected_set.contains(&index) {
+}
+
+fn note_unselected(candidates: &[Candidate], selected: &[usize], replay: &mut Option<Replay>) {
+    let selected = selected.iter().copied().collect::<HashSet<_>>();
+    for (index, candidate) in candidates.iter().enumerate() {
+        if !selected.contains(&index) {
             note(
-                &mut replay,
+                replay,
                 candidate,
                 text(&candidate.item["entry"]["id"]),
                 "namespace-result-dedup",
                 "duplicate or beyond global result cap".to_owned(),
             );
         }
-    }
-    NamespaceResult {
-        query_vector: results
-            .iter()
-            .find_map(|result| result.query_vector.clone()),
-        canonical,
-        memories: selected
-            .into_iter()
-            .map(|index| unique[index].item.clone())
-            .collect(),
-        trace: replay.map(Replay::finish),
-        ..NamespaceResult::default()
     }
 }
 
@@ -186,7 +212,8 @@ fn candidates(results: &[NamespaceResult]) -> (Vec<Candidate>, Vec<Candidate>) {
                 if !item.is_object() || (memory && !item["entry"].is_object()) {
                     continue;
                 }
-                let mut item = item.clone(); // Namespace labels belong to wrappers, never the shared input entries.
+                // Namespace labels belong to wrappers, never the shared input entries.
+                let mut item = item.clone();
                 item["namespace"] = json!(namespace);
                 target.push(Candidate {
                     item,
@@ -211,43 +238,7 @@ fn origins(memories: Vec<Candidate>, replay: &mut Option<Replay>) -> Vec<Candida
             continue;
         }
         let winners = groups.entry(key.clone()).or_default();
-        let current = candidate_of(&candidate.item);
-        let overlaps = winners
-            .iter()
-            .enumerate()
-            .filter(|(_, old)| !has_disjoint_validity_windows(&candidate_of(&old.item), &current))
-            .map(|(i, _)| i)
-            .collect::<Vec<_>>();
-        if overlaps.iter().all(|index| {
-            candidate.priority < winners[*index].priority
-                || (candidate.priority == winners[*index].priority
-                    && compare(&candidate, &winners[*index]) == Ordering::Less)
-        }) {
-            for index in &overlaps {
-                note(
-                    replay,
-                    &winners[*index],
-                    text(&winners[*index].item["entry"]["id"]),
-                    "namespace-origin-dedup",
-                    format!("duplicate canonical origin {key}"),
-                );
-            }
-            let mut index = 0;
-            winners.retain(|_| {
-                let keep = !overlaps.contains(&index);
-                index += 1;
-                keep
-            });
-            winners.push(candidate);
-        } else {
-            note(
-                replay,
-                &candidate,
-                text(&candidate.item["entry"]["id"]),
-                "namespace-origin-dedup",
-                format!("duplicate canonical origin {key}"),
-            );
-        }
+        insert_origin(winners, candidate, &key, replay);
     }
     unique.extend(groups.into_values().flatten());
     unique
@@ -319,7 +310,16 @@ pub(crate) fn candidate_of(item: &Value) -> RecallCandidate {
         rerank_score: finite(&item["rerankScore"]),
         source: text(&item["source"]),
         graph_source: text(&item["graphSource"]),
-        ..RecallCandidate::default()
+        ownership: AclMemory {
+            id: text(&e["id"]),
+            scope: text(&e["scope"]),
+            agent_id: text(&e["agentId"]),
+            stored_by: text(&e["storedBy"]),
+            workspace_id: text(&e["workspaceId"]),
+            workspace_key: text(&e["workspaceKey"]),
+            owner_user_id: text(&e["ownerUserId"]),
+            type_name: text(&e["type"]),
+        },
     }
 }
 fn origin_key(entry: &Value) -> String {
@@ -365,7 +365,7 @@ fn finite(value: &Value) -> Option<f64> {
 fn text(value: &Value) -> String {
     value.as_str().unwrap_or("").to_owned()
 }
-fn preview(value: &str, limit: usize) -> String {
+pub(crate) fn preview(value: &str, limit: usize) -> String {
     let clean = value
         .chars()
         .map(|c| {
@@ -406,5 +406,59 @@ fn note(
 ) {
     if let Some(replay) = replay {
         replay.decision(candidate.namespace.clone(), id, stage, reason);
+    }
+}
+
+fn insert_origin(
+    winners: &mut Vec<Candidate>,
+    candidate: Candidate,
+    key: &str,
+    replay: &mut Option<Replay>,
+) {
+    let current = candidate_of(&candidate.item);
+    let overlaps = winners
+        .iter()
+        .enumerate()
+        .filter(|(_, old)| !has_disjoint_validity_windows(&candidate_of(&old.item), &current))
+        .map(|(i, _)| i)
+        .collect::<Vec<_>>();
+    if overlaps.iter().all(|index| {
+        candidate.priority < winners[*index].priority
+            || (candidate.priority == winners[*index].priority
+                && compare(&candidate, &winners[*index]) == Ordering::Less)
+    }) {
+        note_replaced_origins(winners, &overlaps, key, replay);
+        let mut index = 0;
+        winners.retain(|_| {
+            let keep = !overlaps.contains(&index);
+            index += 1;
+            keep
+        });
+        winners.push(candidate);
+    } else {
+        note(
+            replay,
+            &candidate,
+            text(&candidate.item["entry"]["id"]),
+            "namespace-origin-dedup",
+            format!("duplicate canonical origin {key}"),
+        );
+    }
+}
+
+fn note_replaced_origins(
+    winners: &[Candidate],
+    overlaps: &[usize],
+    key: &str,
+    replay: &mut Option<Replay>,
+) {
+    for index in overlaps {
+        note(
+            replay,
+            &winners[*index],
+            text(&winners[*index].item["entry"]["id"]),
+            "namespace-origin-dedup",
+            format!("duplicate canonical origin {key}"),
+        );
     }
 }
