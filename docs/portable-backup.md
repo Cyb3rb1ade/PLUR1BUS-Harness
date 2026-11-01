@@ -1,7 +1,10 @@
 # Portable encrypted backup / portables verschlüsseltes Backup
 
-The ordinary `plur1bus backup` archive never reads the secret store (keyring, encrypted fallback file, `run/`) and replaces a
-webhook secret kept in `config.json` by a placeholder (a restore draws a fresh one). It does contain the API account database
+The ordinary `plur1bus backup` archive never reads the secret store (keyring, encrypted fallback file, `run/`). Its
+schema-driven disclosure policy preserves secret references and replaces inline `x-sensitive` values with placeholders;
+`x-url-credentials` masks only userinfo and every query value, preserving host/path. A restored Telegram webhook secret
+gets a fresh random value. The ordinary manifest names replaced config keys in `secrets.note`; ordinary restore reports
+`Re-enter secret` for those keys on stderr, including with `--json`. It does contain the API account database
 `state/api/accounts.db`, with password hashes, TOTP seeds and token hashes, and it is not encrypted. For M8 full-state recovery,
 `scripts/release/portable-backup.mjs` wraps that verified archive and owner-readable vault values in
 one encrypted `.p1backup` file. Release payloads also ship `portable-backup.mjs` beside `core.js`.
@@ -23,6 +26,16 @@ Remove `--dry-run` to restore. **The target must already be installed and runnin
 secret backend. Stores/config/users/API accounts/sessions/dream ledger come from the ordinary archive;
 vault values are reinserted through owner-only `secret set` using stdin. Target-only secrets are removed,
 so the vault has the backed-up names and values. Existing owner authorization remains mandatory.
+
+The encrypted wrapper keeps this boundary: it encrypts the already-redacted ordinary archive and the separately read
+vault; it does not read an original config copy or recover removed inline literals, command arguments, header values or
+URL credentials. Secret-store references regain their backed-up values through vault restoration. Environment/file/exec
+references still require their external targets on the destination. Re-enter redacted inline and URL credentials before
+using affected connections after either ordinary or portable restore. The portable script suppresses child-process
+output, including the ordinary restore notice; its existing plan remains units and vault names only. Encryption does
+not turn this into a verbatim backup of inline config credentials, and it does not change webhook regeneration.
+The encrypted rollback artifact uses the same ordinary-archive policy, so a portable rollback also requires re-entry of
+redacted inline and URL credentials; backed-up vault values and reference data are restored by the existing workflow.
 
 Passphrase input is a regular non-symlink file, 0600 on POSIX, at least 16 bytes; exact bytes count,
 including a trailing newline. Keep it separately from the archive. On Windows use a private user/SYSTEM

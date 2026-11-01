@@ -579,6 +579,102 @@ fn a_config_without_a_secret_value_is_archived_byte_for_byte() {
 }
 
 #[test]
+fn marked_config_literals_are_removed_from_the_archive_and_only_their_keys_are_recorded() {
+    let d = tempfile::tempdir().unwrap();
+    let layout = Layout::new(d.path().join("source"));
+    let snap = testkit::staged(&layout, b"database bytes", false);
+    let secret = super::short_id();
+    let reference_name = uuid::Uuid::new_v4().to_string();
+    let reference =
+        serde_json::json!({"source":"store", "provider":"fixture", "id":reference_name});
+    let config = serde_json::json!({
+        "engine": {
+            "embedding": {"apiKey": secret, "apiKeyRef":reference_name},
+            "schicht15": {"headers": {"arbitrary": secret}},
+            "reranker": {"apiKey":reference, "baseUrl": format!("https://{secret}:{secret}@relay.example.test/service?ordinary={secret}&flag#public")}
+        },
+        "modelProfiles": {"local": {"params": {"maxTokens": 4096}}},
+        "publicData": {"fraction":1.5,"negative":-1,"unset":null,"choices":["public",false]}
+    });
+    let original = config.to_string();
+    put(&layout.home, "config.json", original.as_bytes());
+    let archive = d.path().join("config.tar.gz");
+    create(&layout, &archive, &snap).unwrap();
+    let (names, bytes) = everything_in(&archive);
+    assert!(
+        found_forms(&names, &bytes, &secret).is_empty(),
+        "a marked literal reached the archive"
+    );
+    let archived: serde_json::Value = serde_json::from_str(&archived_config(&archive)).unwrap();
+    assert_eq!(archived["engine"]["embedding"]["apiKey"], PLACEHOLDER);
+    assert_eq!(
+        archived["engine"]["schicht15"]["headers"]["arbitrary"],
+        PLACEHOLDER
+    );
+    assert_eq!(
+        archived["engine"]["reranker"]["baseUrl"],
+        "https://••••@relay.example.test/service?ordinary=••••&flag#public"
+    );
+    assert_eq!(
+        archived["modelProfiles"]["local"]["params"]["maxTokens"],
+        4096
+    );
+    let manifest = verify(&archive).unwrap();
+    for key in [
+        "engine.embedding.apiKey",
+        "engine.schicht15.headers.arbitrary",
+        "engine.reranker.baseUrl",
+    ] {
+        assert!(
+            manifest.secrets.note.contains(key),
+            "the manifest omitted a replaced key"
+        );
+    }
+    assert!(!manifest.secrets.note.contains(&secret));
+    assert_eq!(
+        fs::read_to_string(layout.home.join("config.json")).unwrap(),
+        original
+    );
+    let destination = Layout::new(d.path().join("destination"));
+    fs::create_dir_all(&destination.home).unwrap();
+    restore(&destination, &archive, &opts()).unwrap();
+    let restored: serde_json::Value =
+        serde_json::from_slice(&fs::read(destination.home.join("config.json")).unwrap()).unwrap();
+    for document in [&archived, &restored] {
+        assert_eq!(document["publicData"], config["publicData"]);
+        for (group, key) in [("embedding", "apiKeyRef"), ("reranker", "apiKey")] {
+            assert_eq!(
+                serde_json::to_vec(&document["engine"][group][key]).unwrap(),
+                serde_json::to_vec(&config["engine"][group][key]).unwrap(),
+                "reference data stays byte-identical beside replaced literals"
+            );
+        }
+    }
+}
+
+#[test]
+fn secret_reference_only_configuration_round_trips_byte_for_byte() {
+    let d = tempfile::tempdir().unwrap();
+    let layout = Layout::new(d.path().join("source"));
+    let snap = testkit::staged(&layout, b"database bytes", false);
+    let name = super::short_id();
+    let original = format!(
+        "{{ \"engine\": {{ \"embedding\": {{ \"apiKey\": {{\"source\":\"store\",\"provider\":\"fixture\",\"id\":\"{name}\"}}, \"apiKeyRef\": \"{name}\", \"apiKeyEnv\": \"FIXTURE_CREDENTIAL\" }}, \"reranker\": {{ \"apiKey\": \"${{COHERE_API_KEY}}\" }} }}, \"channels\": {{ \"telegram\": {{ \"tokenSecret\": \"{name}\" }} }} }}\n"
+    );
+    put(&layout.home, "config.json", original.as_bytes());
+    let archive = d.path().join("references.tar.gz");
+    create(&layout, &archive, &snap).unwrap();
+    assert_eq!(archived_config(&archive), original);
+    let destination = Layout::new(d.path().join("destination"));
+    fs::create_dir_all(&destination.home).unwrap();
+    restore(&destination, &archive, &opts()).unwrap();
+    assert_eq!(
+        fs::read(destination.home.join("config.json")).unwrap(),
+        original.as_bytes()
+    );
+}
+
+#[test]
 fn a_config_that_is_not_json_makes_create_fail_closed_and_writes_no_archive() {
     let d = tempfile::tempdir().unwrap();
     let layout = Layout::new(d.path().join("a"));
@@ -594,6 +690,37 @@ fn a_config_that_is_not_json_makes_create_fail_closed_and_writes_no_archive() {
     assert_eq!(e.reason, "config-unreadable");
     assert!(!e.detail.contains(CONFIG_MARKER), "{}", e.detail);
     assert!(!out.exists());
+}
+
+#[test]
+fn repeated_json_members_cannot_hide_marked_literals_from_the_archive_policy() {
+    let d = tempfile::tempdir().unwrap();
+    let secret = uuid::Uuid::new_v4().to_string();
+    for (index, text) in [
+        format!("{{\"engine\":{{\"embedding\":{{\"apiKey\":\"{secret}\",\"apiKey\":\"\"}}}}}}"),
+        format!(
+            "{{\"engine\":{{\"embedding\":{{\"apiKey\":\"{secret}\",\"\\u0061piKey\":\"\"}}}}}}"
+        ),
+        format!("{{\"engine\":{{\"embedding\":{{\"apiKey\":\"{secret}\"}}}},\"engine\":{{}}}}"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let layout = Layout::new(d.path().join(index.to_string()));
+        let snap = testkit::staged(&layout, b"database bytes", false);
+        put(&layout.home, "config.json", text.as_bytes());
+        let archive = d.path().join(format!("ambiguous-{index}.tar.gz"));
+        let error = create(&layout, &archive, &snap)
+            .err()
+            .expect("ambiguous JSON must fail closed");
+        assert_eq!(error.reason, "config-unreadable");
+        assert!(!error.detail.contains(&secret));
+        assert!(!archive.exists());
+        assert_eq!(
+            fs::read(layout.home.join("config.json")).unwrap(),
+            text.as_bytes()
+        );
+    }
 }
 
 #[test]

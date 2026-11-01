@@ -390,6 +390,57 @@ fn a_dry_run_reports_the_plan_and_changes_nothing() {
 }
 
 #[test]
+fn restore_reports_replaced_config_keys_on_stderr_without_changing_json_shape() {
+    let (_d, home, archive) = setup();
+    let mut f = fixture();
+    f.manifest["secrets"]["note"] = json!(
+        "no secret-store values\nplur1bus.backup.config-redactions/1: [\"engine.embedding.apiKey\",\"engine.reranker.baseUrl\"]"
+    );
+    build(&archive, &f);
+    for mode in ["--dry-run", "--yes"] {
+        let out = cli(&home)
+            .args(["backup", "restore", mode])
+            .arg(&archive)
+            .assert()
+            .success()
+            .get_output()
+            .clone();
+        let notice = String::from_utf8(out.stderr.clone()).unwrap();
+        assert!(
+            notice.contains("Re-enter secret"),
+            "restore omitted the required action"
+        );
+        assert!(notice.contains("engine.embedding.apiKey"));
+        assert!(notice.contains("engine.reranker.baseUrl"));
+        let value = doc(&out);
+        let mut keys = value
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+        keys.sort_unstable();
+        assert_eq!(
+            keys,
+            [
+                "applied",
+                "archive",
+                "archiveHarness",
+                "createdAtMs",
+                "currentHarness",
+                "dryRun",
+                "preRestore",
+                "removed",
+                "schema",
+                "storeSchema",
+                "units"
+            ],
+            "the JSON result shape must stay unchanged"
+        );
+    }
+}
+
+#[test]
 fn restore_without_yes_in_a_script_is_refused_before_anything_changes() {
     let (_d, home, a) = setup();
     old_home(&home);

@@ -258,8 +258,9 @@ ids, scores and reasons; texts only up to the configured cap. `audit.log` record
 ### 7.3 Security
 
 - Secret values enter through stdin or the secret store, never argv or an environment variable for a value
-  (`secret set`, `login`); they leave only through `secret get --reveal`. Config holds secret **names**, with the one
-  known exception the backup redactor tracks by a drift test.
+  (`secret set`, `login`); they leave only through `secret get --reveal`. Configuration references have explicit schema
+  metadata; supported inline credentials carry `x-sensitive`, and endpoint URLs carry `x-url-credentials`. Ordinary
+  backups preserve reference data without resolving it, replace inline sensitive values and mask URL userinfo/query values.
 - Paths pass `securePath`; symlinks and Windows junctions are refused where the Node engine refused symlinks; `run/`
   and pipes carry the Windows ACL of `crates/plur1bus-rpc/src/acl.rs`.
 - Deny by default: egress allow-lists, `policy.decide()` for every tool call, RBAC for every human principal, closed
