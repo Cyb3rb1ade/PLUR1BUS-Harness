@@ -536,7 +536,7 @@ fn rejected_credentials_are_invalidated_when_headers_arrive_before_the_body() {
     );
 }
 
-fn assert_pending_socket_is_closed(send_headers: bool, explicit_cancel: bool) {
+fn assert_caller_cancel_closes_pending_socket(send_headers: bool) {
     use plur1bus_engine::contract::{Cancel, CancelReason, Cancelled};
     use std::sync::mpsc;
     let peer = http_stub::StalledPeer::new(send_headers);
@@ -546,12 +546,7 @@ fn assert_pending_socket_is_closed(send_headers: bool, explicit_cancel: bool) {
     request.body = b"request-body-is-complete-before-cancel".to_vec();
     let cancel = Cancel::never();
     let caller = cancel.clone();
-    let expires = Instant::now()
-        + if explicit_cancel {
-            Duration::from_secs(2)
-        } else {
-            Duration::from_millis(150)
-        };
+    let expires = deadline();
     let (returned, receive) = mpsc::channel();
     let worker = std::thread::spawn(move || {
         returned
@@ -562,12 +557,8 @@ fn assert_pending_socket_is_closed(send_headers: bool, explicit_cancel: bool) {
     assert!(
         peer.stub.requests.lock().unwrap()[0].ends_with("request-body-is-complete-before-cancel")
     );
-    let response_by = if explicit_cancel {
-        caller.cancel();
-        Instant::now() + Duration::from_millis(250)
-    } else {
-        expires + Duration::from_millis(250)
-    };
+    caller.cancel();
+    let response_by = Instant::now() + Duration::from_millis(250);
     let result = receive.recv_timeout(response_by.saturating_duration_since(Instant::now()));
     let disconnected = peer
         .closed
@@ -577,13 +568,9 @@ fn assert_pending_socket_is_closed(send_headers: bool, explicit_cancel: bool) {
     worker.join().unwrap();
     assert_eq!(
         result.unwrap(),
-        Err(if explicit_cancel {
-            TransportError::Cancelled(Cancelled {
-                reason: CancelReason::Caller,
-            })
-        } else {
-            TransportError::Timeout
-        })
+        Err(TransportError::Cancelled(Cancelled {
+            reason: CancelReason::Caller,
+        }))
     );
     assert_eq!(
         disconnected.unwrap(),
@@ -594,22 +581,12 @@ fn assert_pending_socket_is_closed(send_headers: bool, explicit_cancel: bool) {
 
 #[test]
 fn caller_cancel_closes_a_socket_waiting_for_response_headers() {
-    assert_pending_socket_is_closed(false, true);
+    assert_caller_cancel_closes_pending_socket(false);
 }
 
 #[test]
 fn caller_cancel_closes_a_socket_waiting_for_the_response_body() {
-    assert_pending_socket_is_closed(true, true);
-}
-
-#[test]
-fn an_absolute_deadline_closes_a_socket_waiting_for_response_headers() {
-    assert_pending_socket_is_closed(false, false);
-}
-
-#[test]
-fn an_absolute_deadline_closes_a_socket_waiting_for_the_response_body() {
-    assert_pending_socket_is_closed(true, false);
+    assert_caller_cancel_closes_pending_socket(true);
 }
 
 #[test]

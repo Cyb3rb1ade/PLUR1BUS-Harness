@@ -16,6 +16,13 @@ use std::sync::{
 };
 use std::time::{Duration, Instant};
 
+fn cache_directory() -> tempfile::TempDir {
+    // Store APIs require physical paths; macOS system temp roots contain aliases
+    // such as /var -> /private/var and /tmp -> /private/tmp.
+    let root = std::fs::canonicalize(std::env::temp_dir()).unwrap();
+    tempfile::tempdir_in(root).unwrap()
+}
+
 fn space(width: usize) -> VectorSpaceIdentity {
     serde_json::from_value(serde_json::json!({"provider":"local-transformers","model":"fixture", "revision":"main", "dimension":width,"normalization":"l2","prefixScheme":"none","instruction":"","dtype":"fp32"})).unwrap()
 }
@@ -79,9 +86,43 @@ fn service(
     )
 }
 
+#[cfg(unix)]
+#[test]
+fn sqlite_cache_fixtures_work_with_a_symlinked_system_temp_root() {
+    use std::os::unix::fs::symlink;
+
+    let root = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let physical = tempfile::tempdir_in(root.path()).unwrap();
+    let alias = root.path().join("system-temp-alias");
+    symlink(physical.path(), &alias).unwrap();
+    let executable = std::env::current_exe().unwrap();
+    let mut failures = Vec::new();
+    for test in [
+        "embed_uses_the_cache_on_the_second_call",
+        "gemma_cache_model_includes_dtype_before_purpose_as_node_does",
+        "omitted_envelope_spaces_still_isolate_the_actual_provider_revisions_in_sqlite",
+        "sqlite_cache_failures_do_not_prevent_provider_results",
+    ] {
+        // Only this child sees the alias; parallel tests retain their original environment.
+        let output = std::process::Command::new(&executable)
+            .args(["--exact", test, "--nocapture"])
+            .env("TMPDIR", &alias)
+            .output()
+            .unwrap();
+        if !output.status.success() {
+            failures.push(format!(
+                "{test}:\n{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            ));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
 #[test]
 fn embed_uses_the_cache_on_the_second_call() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = cache_directory();
     let (service, calls) = service(
         3,
         3,
@@ -498,7 +539,7 @@ fn the_facade_honors_the_top_level_embedding_batch_size_without_dropping_texts()
 
 #[test]
 fn gemma_cache_model_includes_dtype_before_purpose_as_node_does() {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = cache_directory();
     let path = directory.path().join("cache.sqlite");
     let mut configured = space(768);
     configured.model = "google/embeddinggemma-2".into();
@@ -608,7 +649,7 @@ fn egress_changes_invalidate_the_owned_embedding_and_reranker_clients() {
 
 #[test]
 fn omitted_envelope_spaces_still_isolate_the_actual_provider_revisions_in_sqlite() {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = cache_directory();
     let path = directory.path().join("cache.sqlite");
     for revision in ["revision-one", "revision-two"] {
         let mut configured = space(3);
@@ -779,7 +820,7 @@ fn a_blocked_cache_miss_does_not_delay_an_unrelated_warm_hit() {
 
 #[test]
 fn sqlite_cache_failures_do_not_prevent_provider_results() {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = cache_directory();
     let path = directory.path().join("cache.sqlite");
     let cache = EmbeddingCache::open(&path).unwrap();
     // A real SQLite schema failure makes both the cache read and its later persistent write fail.
