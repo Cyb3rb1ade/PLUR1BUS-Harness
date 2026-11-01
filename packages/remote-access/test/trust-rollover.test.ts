@@ -213,3 +213,87 @@ test("serialize / parse: round trip, and corrupt state is refused", () => {
     assert.equal(parseTrust(bad).ok, false, bad);
   }
 });
+
+const rotate = (state: TrustState, next: Anchor, at: number): TrustState =>
+  okState(switchTrust(okState(stageTrust(state, next, at)), [], at + 1));
+const persisted = (state: TrustState): TrustState => okState(parseTrust(serializeTrust(state)));
+function refusesRetired(state: TrustState, anchor: Anchor): void {
+  const result = stageTrust(state, anchor, T0 + 10000);
+  assert.ok(!result.ok, "a recorded retired anchor was staged again");
+  assert.equal(result.code, "retired-anchor");
+}
+
+test("retired history survives A to B to C and persisted restarts", () => {
+  const first = persisted(rotate(initTrust(OLD), NEW, T0));
+  assert.deepEqual(first.revoked, [OLD]);
+  refusesRetired(first, OLD);
+  const second = persisted(rotate(first, CA, T0 + 2));
+  assert.deepEqual(second.revoked, [OLD, NEW]);
+  for (const anchor of [OLD, NEW, { kind: "ca" as const, pin: OLD.pin }]) refusesRetired(second, anchor);
+  assert.deepEqual(acceptedAnchors(second), [CA]);
+  assert.deepEqual(announcementFor(second), { phase: "none", current: CA });
+});
+
+test("clear, stage, acknowledgement and cancellation preserve retired history", () => {
+  const first = rotate(initTrust(OLD), NEW, T0);
+  const cleared = okState(clearSwitched(first));
+  let staged = okState(stageTrust(cleared, CA, T0 + 2));
+  staged = okState(ackTrust(staged, { deviceId: "d1", pin: CA.pin, now: T0 + 3, paired: PAIRED }));
+  const cancelled = persisted(okState(cancelTrust(staged)));
+  for (const state of [first, cleared, staged, cancelled]) {
+    assert.deepEqual(state.revoked, [OLD]);
+    if (state.phase !== "staged") refusesRetired(state, OLD);
+  }
+  assert.ok(stageTrust(cancelled, CA, T0 + 4).ok, "an unused cancelled candidate was never retired");
+});
+
+test("legacy snapshots without retired history remain readable in every phase", () => {
+  const fresh = initTrust(OLD), staged = okState(stageTrust(fresh, NEW, T0));
+  const switched = okState(switchTrust(staged, [], T0 + 1));
+  for (const state of [fresh, staged, switched]) {
+    const legacy = JSON.parse(serializeTrust(state)); delete legacy.revoked;
+    const restored = okState(parseTrust(JSON.stringify(legacy)));
+    assert.deepEqual(restored.revoked, []);
+    assert.equal(restored.phase, state.phase);
+    assert.deepEqual(restored.current, state.current);
+    const next = restored.phase === "staged" ? okState(switchTrust(restored, [], T0 + 2))
+      : rotate(restored, CA, T0 + 2);
+    assert.deepEqual(next.revoked, [state.current], "the first new rotation begins recording known history");
+  }
+});
+
+test("malformed retired lists and staged retired fingerprints fail closed", () => {
+  const base = initTrust(NEW);
+  for (const revoked of [null, false, "bad", {}, [null], [42], [{ kind: "bad", pin: OLD.pin }],
+    [{ kind: "cert", pin: "sha256:nope" }], [OLD, OLD], [NEW]]) {
+    assert.equal(parseTrust(JSON.stringify({ ...base, revoked })).ok, false, JSON.stringify(revoked));
+  }
+  const staged = okState(stageTrust(base, CA, T0));
+  assert.equal(parseTrust(JSON.stringify({ ...staged, revoked: [{ kind: "cert", pin: CA.pin }] })).ok, false);
+});
+
+test("activation refuses a recorded retired next fingerprint if a caller bypasses staging", () => {
+  const staged = okState(stageTrust(initTrust(NEW), CA, T0));
+  const result = switchTrust({ ...staged, revoked: [{ kind: "cert", pin: CA.pin }] }, [], T0 + 1);
+  assert.ok(!result.ok);
+  assert.equal(result.code, "retired-anchor");
+});
+
+test("current-pin role changes remain valid while retired fingerprints cannot return under another role", () => {
+  const caRole: Anchor = { kind: "ca", pin: OLD.pin };
+  const changed = persisted(rotate(initTrust(OLD), caRole, T0));
+  assert.deepEqual(changed.current, caRole);
+  assert.deepEqual(changed.revoked, [OLD]);
+  refusesRetired(changed, OLD);
+  const left = persisted(rotate(changed, NEW, T0 + 2));
+  assert.deepEqual(left.revoked, [OLD, caRole]);
+  refusesRetired(left, OLD); refusesRetired(left, caRole);
+});
+
+test("retired history is not evicted after hundreds of rotations", () => {
+  let state = initTrust(OLD);
+  for (let i = 0; i < 300; i++) state = rotate(state, { kind: "cert", pin: pin(`rotation ${i}`) }, T0 + i * 2);
+  const restored = persisted(state);
+  assert.equal(restored.revoked.length, 300);
+  refusesRetired(restored, OLD);
+});

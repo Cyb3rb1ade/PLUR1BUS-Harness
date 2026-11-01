@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased — SH6
+
+- Persist retired remote trust anchors across rotations and restarts, and refuse staging their fingerprints again
+  under either role. Preserve legacy state imports without changing announcements or RPC fields.
+
 ## Unreleased — SH5
 
 - Scope release-audit exceptions to advisory, crate and stable-version range together; reject incomplete approvals

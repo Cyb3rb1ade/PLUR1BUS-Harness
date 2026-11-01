@@ -94,6 +94,15 @@ Any change of what a client pins — a new self-signed certificate, `self-signed
 - `switchTrust` makes the next current and returns exactly the devices that never confirmed: only those pair again.
 - **Device side** (`receiveAnnouncement`, `evaluateConnection`, `promote`): a next pin is accepted only from an authenticated request on a connection the *current* trust verified; both fingerprints are accepted during the transition; the next is promoted when the harness serves it; a device that missed the change gets `certificate-changed`. A CA anchor compares the chain's root, so a renewed leaf from the same CA needs nothing. A stolen device token pushes trust to nobody.
 - `serializeTrust` / `parseTrust` persist the harness state with strict validation.
+- The private harness state records departed anchors in `revoked`. Stage, acknowledgement, cancellation and clearing
+  the switched summary retain this history; switching appends the departing anchor without truncating earlier entries.
+  `stageTrust` returns the library reason `retired-anchor` for a recorded fingerprint, including attempts to reuse it
+  under the other certificate/CA role. The existing same-current-pin role change remains valid; once that fingerprint
+  has departed, neither role can be staged again. Announcements, pairing offers and RPC fields retain their existing shapes.
+- Old states without `revoked` load with an empty list and begin recording history on subsequent rotations. Invalid
+  entries, duplicate exact anchors, an exact current anchor in the retired list, or a retired staged-next fingerprint
+  refuse the persisted state. The intentionally supported current-pin role change can leave the old role in history
+  while the new role remains current.
 
 ## Allow-list, notice and 1staid
 
@@ -218,6 +227,14 @@ PRNG whose seed is in every failure message. A test marked `KNOWN GAP` is a `tod
 | Exposure | Zone ids need 1-64 printable characters; only `0.0.0.0` is unspecified (`0.0.0.1` is refused as public); configuration deeper than 32 levels is a finding; the security notice's `by` is at most 128 characters without control characters; an unreadable `certNotAfter` raises `remote.tls-not-ready`. |
 | Secrets | A whole pairing (code, offer, link, proof, refusals, pair, replay, connect, rename, revoke) is searched for the code, the key derived from it, the offer signing key and the device's private key over every return value, error, audit event, the code store snapshot and the device file. The code appears only in the answers that issue it. |
 
+**Retired trust anchors** (`hardening-certs.test.ts`, `trust-rollover.test.ts`): persisted A → B → A and
+A → B → C → A are refused before another announcement is produced. The history lives in the API-owned private
+`state/remote/trust.json`; the desktop's connection pins and wire projections remain separate. Normal restart and
+activation crash recovery preserve history. A missing/deleted file or an old snapshot without the list cannot
+reconstruct earlier withdrawals; retain the current private state to retain that knowledge.
+The existing 256 KiB private-file read limit still applies and refuses an oversized state; history is not silently
+discarded to fit that limit.
+
 ### Known gaps
 
 - **pair-proof is an offline oracle for the code.** `POST /api/v1/devices/pair-proof` is unauthenticated and returns
@@ -228,8 +245,6 @@ PRNG whose seed is in every failure message. A test marked `KNOWN GAP` is a `tod
 - **Revocation across processes is not locked**: instances re-read the file before writing (a revocation always wins), but
   there is no lock file, so two *processes* writing in the same instant could still lose an update; the core keeps one
   owner per file.
-- **A retired trust anchor can be staged again** (`hardening-certs.test.ts`): after A to B, A can be staged as `next`; there is no list of
-  retired anchors.
 - **An unknown critical extension is imported** (`hardening-certs.test.ts`): RFC 5280 clients must refuse such a certificate, so the
   import succeeds and the connection fails later.
 
