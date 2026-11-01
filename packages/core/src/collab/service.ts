@@ -63,7 +63,7 @@ interface Chain {
 }
 
 export interface WriterReservation { release(): void }
-type WriterIdentity = Pick<DelegateInput, 'principal' | 'projectId' | 'fromAgent' | 'toAgent'>;
+type WriterIdentity = Pick<DelegateInput, 'principal' | 'projectId' | 'fromAgent' | 'toAgent' | 'traceId' | 'parentSpanId'>;
 
 export interface Collab {
   /** Synchronous trusted admission, shared across all turns using this service. */
@@ -301,7 +301,10 @@ export function createCollab(o: CollabOptions): Collab {
     assertAgents(project, identity.fromAgent, identity.toAgent);
     const limits = store.limits(project.id), local = !isA2aAgent(identity.toAgent);
     const capacity = local && o.capacity ? writerCapacity(limits.writers.perProject, o.capacity(), localRunning) : undefined;
-    if ((writers.get(project.id) ?? 0) >= limits.writers.perProject || (capacity && localReserved >= capacity.slots)) throw new CollabError('guardrail', 'project writer slots full', { guardrail: 'fanout' });
+    if ((writers.get(project.id) ?? 0) >= limits.writers.perProject || (capacity && localReserved >= capacity.slots)) {
+      const chain = getChain(identity.traceId, project, identity.fromAgent);
+      refuse(chain, { agentId: identity.toAgent, parentSpanId: identity.parentSpanId ?? null, reason: 'fanout', detail: 'project writer slots full' });
+    }
     if (capacity?.exceeded && localReserved >= capacity.computed) o.logWarn?.(`team.capacity.exceeded: project ${project.id}, computed ${capacity.computed}, configured ${capacity.slots}`);
     const state = { identity: { ...identity, principal: { ...identity.principal } }, local, running: false, released: false };
     const reservation: WriterReservation = { release() {
@@ -579,7 +582,7 @@ export function createCollab(o: CollabOptions): Collab {
         throw e;
       }
       if (callClass === 'write') {
-        const held = input.writerReservation ?? reserveWriter(input);
+        const held = input.writerReservation ?? reserveWriter({ ...input, traceId: chain.traceId });
         try { useReservation(held, input); } catch (error) { if (!input.writerReservation) held.release(); throw error; }
         reservation = held;
       }

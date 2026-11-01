@@ -485,3 +485,28 @@ test('a writer consulting with default scope exposes only read tools to the actu
   assert.equal(result.isError, false, JSON.stringify(result));
   assert.deepEqual(views, [['file.read', 'custom.read', 'consult_agent', 'await_delegations']]);
 });
+
+for (const bound of ['project', 'hardware'] as const) test(`writer ${bound} refusal records a guardrail span and audit event before preparation`, async t => {
+  const events: import('../../src/collab/types.ts').CollabEvent[] = [];
+  const limits = defaults().collaboration;
+  const f = fixture(t, {
+    emit: { emit: event => { events.push(event); } },
+    ...(bound === 'hardware' ? { capacity: () => ({ cores: 1, availableMemory: limits.teams.capacity.memoryPerWriter, settings: limits.teams.capacity }) } : {}),
+  });
+  const reservations = Array.from({ length: bound === 'project' ? 4 : 1 }, () => f.collab.reserveWriter({ principal: owner(), projectId: f.project.id, fromAgent: 'lead', toAgent: 'a' }));
+  t.after(() => reservations.forEach(reservation => reservation.release()));
+  const denied = await f.call('delegate_task', { projectId: f.project.id, toAgent: 'b', objective: 'denied writer', wait: false });
+  assert.equal(denied.isError, true);
+  await f.request.delegations!.finish();
+  const trace = f.collab.listTraces(owner(), f.project.id)[0]!;
+  assert.equal(trace.spans.length, 1);
+  assert.equal(trace.spans[0]!.kind, 'guardrail');
+  assert.equal(trace.spans[0]!.status, 'refused');
+  assert.equal(trace.spans[0]!.guardrail, 'fanout');
+  assert.equal(trace.spans[0]!.parentSpanId, null);
+  assert.equal(trace.status, 'failed');
+  assert.deepEqual(events.filter(event => event.type === 'guardrail.refused').map(event => ({ traceId: event.traceId, agentId: event.agentId, reason: event.data.reason })), [{ traceId: trace.traceId, agentId: 'b', reason: 'fanout' }]);
+  assert.throws(() => f.collab.reserveWriter({ principal: owner(), projectId: f.project.id, fromAgent: 'lead', toAgent: 'c', traceId: trace.traceId, parentSpanId: trace.spans[0]!.spanId }), /slots full/);
+  const nested = f.collab.getTrace(owner(), trace.traceId).spans.find(span => span.agentId === 'c')!;
+  assert.equal(nested.parentSpanId, trace.spans[0]!.spanId);
+});

@@ -35,7 +35,6 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
   const traces = new Map<string, string>();
   const children = req.delegations ??= new TurnDelegations();
   let transferred = false, starts = 0;
-  const writers = new Map<string, number>();
   const pairStarts = new Map<string, number>();
   const admitted = (ctx: ToolRunContext, projectId: string, finalizing = false) => {
     if (transferred && !finalizing) throw new CollabError('conflict', 'sender already handed off ownership');
@@ -103,7 +102,6 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
     const pair = `${ctx.agentId}→${a.toAgent}`;
     if (kind === 'consult' && (pairStarts.get(pair) ?? 0) >= limits.consults.perPairPerTurn) throw new CollabError('guardrail', 'guardrail pair-limit', { guardrail: 'pair-limit' });
     if (callClass !== 'write' && starts >= limits.readHelpers.perTurn) throw new CollabError('guardrail', 'guardrail fanout', { guardrail: 'fanout' });
-    if (callClass === 'write' && (writers.get(a.projectId) ?? 0) >= limits.writers.perProject) throw new CollabError('guardrail', 'project writer slots full', { guardrail: 'fanout' });
     let traceId = parent?.traceId ?? traces.get(a.projectId);
     if (!traceId) {
       traceId = o.collab.openChain(who, a.projectId, ctx.agentId, req.signal); traces.set(a.projectId, traceId);
@@ -133,7 +131,7 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
     authority.expected = structuredClone({ kind: expectedKind, from, to, task, constraints, authority: expectedAuthority, budget: expectedBudget, returnContract, ...(doneWhen ? { doneWhen } : {}) });
     const childId = `dlg_${randomUUID()}`, abort = new AbortController();
     const childSignal = AbortSignal.any([req.signal, ctx.signal, abort.signal, AbortSignal.timeout(Math.max(0, Date.parse(candidate.budget.deadline) - o.authority.now()))]);
-    const writerReservation = callClass === 'write' ? o.collab.reserveWriter({ principal: who, projectId: a.projectId, fromAgent: ctx.agentId, toAgent: a.toAgent }) : undefined;
+    const writerReservation = callClass === 'write' ? o.collab.reserveWriter({ principal: who, projectId: a.projectId, fromAgent: ctx.agentId, toAgent: a.toAgent, traceId: sharedTrace, ...(parent ? { parentSpanId: parent.spanId } : {}) }) : undefined;
     let workerStarted = false;
     const execute = async () => {
     childSignal.throwIfAborted();
@@ -191,13 +189,12 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
     let done: Promise<import('../collab/delegations.ts').ChildOutput>;
     try { done = children.start(childId, a.projectId, !!a.cardId, abort, async () => {
       // The synchronous preparation above can fail. Reserve inside the registered child, before its first await.
-      if (callClass === 'write') writers.set(a.projectId, (writers.get(a.projectId) ?? 0) + 1); else starts++;
+      if (callClass !== 'write') starts++;
       if (kind === 'consult') pairStarts.set(pair, (pairStarts.get(pair) ?? 0) + 1);
       try { return await execute(); }
       finally {
         writerReservation?.release();
-        if (callClass === 'write') writers.set(a.projectId, (writers.get(a.projectId) ?? 1) - 1);
-        else if (!workerStarted) starts--;
+        if (callClass !== 'write' && !workerStarted) starts--;
         if (kind === 'consult' && !workerStarted) pairStarts.set(pair, (pairStarts.get(pair) ?? 1) - 1);
       }
     }, { agentId: a.toAgent, traceId: sharedTrace });
