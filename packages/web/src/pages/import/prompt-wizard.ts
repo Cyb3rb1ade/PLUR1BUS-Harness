@@ -59,6 +59,7 @@ export function PromptImportWizard(): View {
     remaining?: number;
     keptModified?: number;
     preservedUserScope?: number;
+    unlinked?: number;
     discardedProposals: number;
   } | null>(null);
 
@@ -553,6 +554,7 @@ export function PromptImportWizard(): View {
                         failed: rollbackResult.failed ?? 0,
                         remaining: rollbackResult.remaining ?? 0,
                         keptModified: rollbackResult.keptModified ?? 0,
+                        unlinked: rollbackResult.unlinked ?? 0,
                       }),
                     )
                   : null,
@@ -572,6 +574,7 @@ export function PromptImportWizard(): View {
                 {},
                 t("imports.prompt.rollbackSuccess", {
                   rolledBack: rollbackResult.rolledBack,
+                  unlinked: rollbackResult.unlinked ?? 0,
                 }),
               ),
         )

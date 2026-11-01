@@ -7,6 +7,7 @@
     "failed": 0,
     "remaining": 0,
     "keptModified": 0,
+    "unlinked": 0,
     "preservedUserScope": 0,
     "discardedProposals": 1,
     "unhandledProposals": 0

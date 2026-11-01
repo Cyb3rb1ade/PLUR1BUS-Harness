@@ -258,10 +258,10 @@ export const en = {
   "imports.prompt.success": "Import completed successfully",
   "imports.prompt.resultCounts": "{imported} imported, {linked} linked, {skipped} skipped (run: {runId})",
   "imports.prompt.rollback": "Undo import (Rollback)",
-  "imports.prompt.rollbackSuccess": "Rollback completed: {rolledBack} cards removed",
+  "imports.prompt.rollbackSuccess": "Rollback completed: {rolledBack} cards removed, {unlinked} links lifted",
   "imports.prompt.userScopeAgentHint": "Stored through this agent.",
   "imports.prompt.rollbackPreserved": "{count} user-scope memories of another person were kept. The person who imported them can roll the run back themselves.",
-  "imports.prompt.rollbackPartial": "Rollback partially completed: {rolledBack} removed, {failed} failed, {remaining} remaining, {keptModified} preserved",
+  "imports.prompt.rollbackPartial": "Rollback partially completed: {rolledBack} removed, {failed} failed, {remaining} remaining, {keptModified} preserved, {unlinked} links lifted",
   "imports.prompt.empty": "No entries found in pasted text.",
 } as const;
 export const de: Record<keyof typeof en, string> = {
@@ -530,9 +530,9 @@ export const de: Record<keyof typeof en, string> = {
   "imports.prompt.success": "Import erfolgreich abgeschlossen",
   "imports.prompt.resultCounts": "{imported} importiert, {linked} verknüpft, {skipped} übersprungen (Lauf: {runId})",
   "imports.prompt.rollback": "Import rückgängig machen (Rollback)",
-  "imports.prompt.rollbackSuccess": "Rückgängig gemacht: {rolledBack} Karten entfernt",
+  "imports.prompt.rollbackSuccess": "Rückgängig gemacht: {rolledBack} Karten entfernt, {unlinked} Verknüpfungen gelöst",
   "imports.prompt.userScopeAgentHint": "Wird über diesen Agenten gespeichert.",
   "imports.prompt.rollbackPreserved": "{count} Nutzer-Erinnerungen einer anderen Person blieben erhalten. Die importierende Person kann den Lauf selbst zurücknehmen.",
-  "imports.prompt.rollbackPartial": "Rollback teilweise abgeschlossen: {rolledBack} entfernt, {failed} fehlgeschlagen, {remaining} verbleibend, {keptModified} erhalten",
+  "imports.prompt.rollbackPartial": "Rollback teilweise abgeschlossen: {rolledBack} entfernt, {failed} fehlgeschlagen, {remaining} verbleibend, {keptModified} erhalten, {unlinked} Verknüpfungen gelöst",
   "imports.prompt.empty": "Keine Einträge im eingefügten Text gefunden.",
 };

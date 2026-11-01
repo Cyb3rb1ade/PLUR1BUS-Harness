@@ -114,6 +114,18 @@ STATUS: COMPLETE
     assert.equal(res.entries[1]!.text, "Next project.");
   });
 
+  it("reads STATUS: PARTIAL (not read: ...) as a partial export and keeps the note out of the entries", () => {
+    const text = `
+## Preferences
+[2024-01-01] [memory] - Likes tea.
+STATUS: PARTIAL (not read: second: memory-export-truncated)
+`;
+    const res = parseMemoryExport(text);
+    assert.equal(res.status, "more");
+    assert.equal(res.entries.length, 1);
+    assert.equal(res.entries[0]!.text, "Likes tea.");
+  });
+
   it("detects STATUS: MORE", () => {
     const text = `
 ## Instructions

@@ -54,6 +54,8 @@ export interface PromptRollbackResult {
   failed: number;
   remaining: number;
   keptModified: number;
+  /** Links of the run that were lifted (a rollback that only unlinks removes no card). */
+  unlinked: number;
   /** User-scope cards of another person that an owner's rollback of a foreign run left in place. */
   preservedUserScope: number;
   discardedProposals: number;

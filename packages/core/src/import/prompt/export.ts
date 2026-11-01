@@ -29,7 +29,8 @@ export interface ExportMemoriesOptions {
   agentId?: string | undefined;
   /**
    * Agents whose tables are read for the person's user-scope cards. The engine keeps a user-scope card in the table
-   * of the agent it was written through, so a complete export reads every agent; default: the principal's agent.
+   * of the agent it was written through. The host passes the places such a card can be: the first agent, the requested
+   * agent and the agents of the person's own import runs. Default: the principal's agent.
    */
   userScopeAgents?: string[] | undefined;
   /** The principal to read one agent's table with (its own workspace); default: the principal with that agent id. */
@@ -170,8 +171,21 @@ export async function exportMemoriesAsText(
   // the same text imported through several agents is exported once.
   const userItems: any[] = [];
   const seenUserText = new Set<string>();
+  const unread: Array<{ agentId: string; reason: string }> = [];
+  // One agent that cannot be read (not pageable, no workspace directory, ...) must not take the export down: it is
+  // reported as unread and the status becomes PARTIAL; everything else is still exported in full.
+  const readAgent = async (ag: string, scope: "user" | "agent-private"): Promise<any[] | null> => {
+    try {
+      return await fetchAllCardsForScope(engine, asAgent(ag), scope);
+    } catch (err) {
+      const reason = err instanceof RpcError && err.reason ? err.reason : "read-failed";
+      if (!unread.some((u) => u.agentId === ag && u.reason === reason)) unread.push({ agentId: ag, reason });
+      return null;
+    }
+  };
   for (const ag of userScopeAgents) {
-    const items = await fetchAllCardsForScope(engine, asAgent(ag), "user");
+    const items = await readAgent(ag, "user");
+    if (!items) continue;
     for (const item of items) {
       const key = `${extractCategory(item)}\u0000${String(item.text ?? "").trim().toLowerCase()}`;
       if (seenUserText.has(key)) continue;
@@ -196,8 +210,7 @@ export async function exportMemoriesAsText(
 
   // 2. Fetch agent-private memories if agentId specified
   if (agentId) {
-    const agentPrincipal: E.Principal = asAgent(agentId);
-    const agentItems = await fetchAllCardsForScope(engine, agentPrincipal, "agent-private");
+    const agentItems = (await readAgent(agentId, "agent-private")) ?? [];
     for (const item of agentItems) {
       if (sensitivityService) {
         const cats = await sensitivityService.assessCard({ id: item.id, text: item.text, summary: item.summary });
@@ -246,6 +259,12 @@ export async function exportMemoriesAsText(
     }
   }
 
-  lines.push("STATUS: COMPLETE");
+  if (unread.length === 0) {
+    lines.push("STATUS: COMPLETE");
+  } else {
+    const safe = (s: string) => s.replace(/[^A-Za-z0-9._-]/g, "_");
+    const detail = unread.map((u) => `${safe(u.agentId)}: ${safe(u.reason)}`).join("; ");
+    lines.push(`STATUS: PARTIAL (not read: ${detail})`);
+  }
   return lines.join("\n") + "\n";
 }

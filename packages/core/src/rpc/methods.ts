@@ -22,7 +22,7 @@ import { apiPrincipal, isClientContext } from "@plur1bus/module-api";
 import { buildMemoryCurationMethods } from "../memory-curation.ts";
 import { buildMemoryOpMethods, mapMemoryOpError, requireAgent } from "../memory-ops.ts";
 import { parseMemoryExport } from "../import/prompt/parse.ts";
-import { executePromptImport, rollbackPromptImport } from "../import/prompt/execute.ts";
+import { agentsOfOwnPromptRuns, executePromptImport, rollbackPromptImport } from "../import/prompt/execute.ts";
 import { exportMemoriesAsText, EXPORT_PROMPT_TEXT } from "../import/prompt/export.ts";
 import { recommendTargets } from "../import/prompt/recommend.ts";
 import type { ParsedEntry } from "../import/prompt/types.ts";
@@ -472,13 +472,18 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
         ap.trust = "proved";
         return ap;
       };
+      // A user-scope card is only in the table of an agent it was written through: read the first agent, the requested
+      // one and the agents of this person's own prompt-import runs, not every agent of the installation.
+      const known = new Set(d.agents.list());
+      const userScopeAgents = [...new Set([d.agents.list()[0], p.agentId, ...agentsOfOwnPromptRuns(d.hostEvalHome ?? process.cwd(), userId)])]
+        .filter((a): a is string => typeof a === "string" && known.has(a));
       const sensitivity = d.memorySensitivity ? sensitivityService(d.memorySensitivity) : null;
       try {
         const text = await exportMemoriesAsText({
           principal,
           engine: d.engine,
           agentId: p.agentId,
-          userScopeAgents: d.agents.list(),
+          userScopeAgents,
           principalFor,
           sensitivityService: sensitivity,
         });

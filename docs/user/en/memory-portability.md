@@ -26,7 +26,7 @@ Every extracted entry belongs to one of six categories:
 
 You can assign each entry to:
 * **Do not import** (`skip`): entry is ignored.
-* **My Memory** (`user`): stored in your personal user scope. The engine keeps these entries in the memory of the agent they are written through, so you choose that agent in the wizard (default: your first agent). The export reads your My Memory entries through every agent.
+* **My Memory** (`user`): stored in your personal user scope. The engine keeps these entries in the memory of the agent they are written through, so you choose that agent in the wizard (default: your first agent). Only the agent you chose finds such an entry in conversation (recall); other agents do not. The export reads your My Memory entries through the first agent, the agent you export and the agents of your own imports; an agent that cannot be read is named in the last line (`STATUS: PARTIAL`).
 * **Selected agents** (`agent`): stored privately in an agent's own memory. Note that an agent uses agent-private memories across all its conversations, including with other people and in groups.
 
 Click **Apply recommendations** to set recommended defaults across all entries.

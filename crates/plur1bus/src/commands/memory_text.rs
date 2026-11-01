@@ -439,12 +439,13 @@ fn rollback(out: &Out, layout: &Layout, run_id: &str, yes: bool) {
         }
     };
     let n = |k: &str| v[k].as_u64();
-    let (Some(done), Some(failed), Some(remaining), Some(kept), Some(preserved)) = (
+    let (Some(done), Some(failed), Some(remaining), Some(kept), Some(preserved), Some(unlinked)) = (
         n("rolledBack"),
         n("failed"),
         n("remaining"),
         n("keptModified"),
         n("preservedUserScope"),
+        n("unlinked"),
     ) else {
         out.fail(
             "E_INTERNAL",
@@ -452,7 +453,7 @@ fn rollback(out: &Out, layout: &Layout, run_id: &str, yes: bool) {
             json!({}),
         );
     };
-    let line = rollback_line(run_id, done, remaining, failed, kept, preserved);
+    let line = rollback_line(run_id, done, remaining, failed, kept, preserved, unlinked);
     if remaining + failed > 0 {
         out.ok_but_failed(
             "memory.importText.rollback/1",
@@ -475,9 +476,10 @@ fn rollback_line(
     failed: u64,
     kept: u64,
     preserved: u64,
+    unlinked: u64,
 ) -> String {
     let mut s = format!(
-        "rollback {run_id}: {done} removed, {remaining} remaining, {failed} failed, {kept} kept (modified since import)"
+        "rollback {run_id}: {done} removed, {unlinked} links lifted, {remaining} remaining, {failed} failed, {kept} kept (modified since import)"
     );
     if preserved > 0 {
         s.push_str(&format!(

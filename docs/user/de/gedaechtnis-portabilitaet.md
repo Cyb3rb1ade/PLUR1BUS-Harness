@@ -26,7 +26,7 @@ Jeder gefundene Eintrag gehört zu einer von sechs Kategorien:
 
 Für jeden Eintrag wählst du ein Ziel:
 * **Nicht importieren**: Der Eintrag wird übersprungen.
-* **Mein Gedächtnis**: Gespeichert im persönlichen Nutzerbereich (`scope: user`). Die Engine legt diese Einträge im Speicher des Agenten ab, über den sie geschrieben werden; diesen Agenten wählst du im Assistenten (Standard: dein erster Agent). Der Export liest deine Einträge in „Mein Gedächtnis“ über alle Agenten.
+* **Mein Gedächtnis**: Gespeichert im persönlichen Nutzerbereich (`scope: user`). Die Engine legt diese Einträge im Speicher des Agenten ab, über den sie geschrieben werden; diesen Agenten wählst du im Assistenten (Standard: dein erster Agent). Nur der gewählte Agent findet einen solchen Eintrag im Gespräch (Recall); andere Agenten nicht. Der Export liest deine Einträge in „Mein Gedächtnis“ über den ersten Agenten, den exportierten Agenten und die Agenten deiner eigenen Importe; ein Agent, der sich nicht lesen lässt, steht in der letzten Zeile (`STATUS: PARTIAL`).
 * **Ausgewählte Agenten**: Wird als agent-private Erinnerung hinterlegt. Ein Agent greift in allen Unterhaltungen auf diesen Speicher zu, auch mit anderen Personen und in Gruppen.
 
 Der Knopf **Empfehlung übernehmen** setzt empfohlene Standardziele für alle Einträge.

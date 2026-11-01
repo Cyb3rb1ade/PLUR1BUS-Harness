@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type * as E from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { RpcError } from "../../rpc/errors.ts";
@@ -503,17 +503,27 @@ export async function rollbackPromptImport(
   let failedCount = 0;
   let remainingCount = 0;
   let keptModifiedCount = 0;
+  let unlinkedCount = 0;
 
   for (const agentId of report.affectedAgents ?? []) {
     // In a foreign run, skip agents that have no agent-scoped cards to unimport
     if (isForeignRun && !agentKeyFilters.has(agentId)) {
       continue;
     }
-    const agentPrincipal = opts.principalFor ? opts.principalFor(agentId) : { ...principal, agentId };
     // The engine accepts at most 500 idempotency keys per unimport call.
     const keys = isForeignRun ? agentKeyFilters.get(agentId)! : undefined;
     const chunks: Array<string[] | undefined> = keys ? [] : [undefined];
     if (keys) for (let i = 0; i < keys.length; i += 500) chunks.push(keys.slice(i, i + 500));
+    // An agent whose principal cannot be built (no workspace directory) fails alone: the other agents are still
+    // rolled back and the run is reported `partial`.
+    let agentPrincipal: E.Principal;
+    try {
+      agentPrincipal = opts.principalFor ? opts.principalFor(agentId) : { ...principal, agentId };
+    } catch {
+      failedCount += 1;
+      remainingCount += 1;
+      continue;
+    }
     for (const chunk of chunks) {
       try {
         const req: E.MemoryUnimportRequest = {
@@ -524,6 +534,7 @@ export async function rollbackPromptImport(
         };
         const res = await engine.memory.unimport(req, agentPrincipal, SYSTEM_CONTEXT);
         rolledBackCount += res.unimported ?? 0;
+        unlinkedCount += res.links?.unlinked ?? 0;
         keptModifiedCount += res.keptModified ?? 0;
         failedCount += res.failed ?? 0;
         remainingCount += res.remaining ?? 0;
@@ -583,8 +594,35 @@ export async function rollbackPromptImport(
     failed: failedCount,
     remaining: remainingCount,
     keptModified: keptModifiedCount,
+    unlinked: unlinkedCount,
     preservedUserScope,
     discardedProposals,
     unhandledProposals,
   };
+}
+
+/**
+ * Agents through which `userId` imported by prompt (from the `affectedAgents` of their own run reports). A user-scope
+ * card can only be in the table of an agent it was written through, so these are the extra agents an export reads.
+ */
+export function agentsOfOwnPromptRuns(home: string, userId: string, maxRuns = 1000): string[] {
+  const root = join(home, "imports");
+  let names: string[];
+  try {
+    names = readdirSync(root).filter((n) => PROMPT_RUN_ID_RE.test(n)).sort().slice(-maxRuns);
+  } catch {
+    return [];
+  }
+  const agents = new Set<string>();
+  for (const name of names) {
+    try {
+      const r = JSON.parse(readFileSync(join(root, name, "report.json"), "utf8")) as Partial<PromptImportReport>;
+      if (r.source === "prompt" && r.importedBy === userId) {
+        for (const a of r.affectedAgents ?? []) if (typeof a === "string") agents.add(a);
+      }
+    } catch {
+      // unreadable report: not this person's evidence
+    }
+  }
+  return [...agents];
 }

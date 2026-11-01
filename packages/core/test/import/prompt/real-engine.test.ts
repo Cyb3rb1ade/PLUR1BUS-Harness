@@ -14,6 +14,8 @@ import { guardMethods } from "../../../src/rbac/guard.ts";
 import { RpcError } from "../../../src/rpc/errors.ts";
 import type { CallContext } from "../../../src/rpc/server.ts";
 import type { Principal } from "../../../src/rbac/types.ts";
+import { callerToPrincipal } from "../../../src/principal.ts";
+import { deriveUserPrincipal } from "../../../src/identity/principals.ts";
 
 const timeout = 120_000;
 
@@ -538,6 +540,85 @@ describe("Prompt Import & Export against Real Engine (Production Path)", { timeo
         assert.ok(exp.text.includes("Through default agent"));
         assert.ok(exp.text.endsWith("STATUS: COMPLETE\n"));
       }
+    });
+  });
+
+  it("exports completely although another agent holds an unpageable batch, and reports PARTIAL for one in the person's own scope (N1)", async () => {
+    const home = tempDir("p-real-engine-n1-tie-");
+    await withEngine(home, async (engine, _l, agents) => {
+      const activePrincipal: Principal = { userId: "user-n1", role: "owner", kind: "person" };
+      const methods = setupTestMethods(home, engine, agents, () => activePrincipal);
+      const ctx: CallContext = { requestId: "r-n1", connectionId: "c-n1", signal: new AbortController().signal };
+
+      // A migration writes 130 agent-private cards without createdAt into `second`: one engine call, one timestamp.
+      const { principal: wallPrincipal } = callerToPrincipal({ channel: "cli", accountId: "api", userId: "migrator" }, "second", agents.workspaceOf("second")!);
+      wallPrincipal.user = deriveUserPrincipal("migrator");
+      wallPrincipal.trust = "proved";
+      await engine.memory.import({
+        agentId: "second",
+        principal: wallPrincipal,
+        cards: Array.from({ length: 130 }, (_, i) => ({
+          idempotencyKey: `wall-${i}`, text: `Migrated MEMORY.md line ${i}.`, provenance: "imported" as const, scope: "agent-private" as const,
+        })),
+        dryRun: false,
+      }, wallPrincipal, { origin: "system", background: false });
+
+      // Person A imports through the default agent only: second is not in A's scope, so A's export is COMPLETE.
+      await methods.apply({
+        entries: [{ category: "Preferences", sourceType: "memory", text: "A likes tea.", warnings: [], idempotencyKey: "a1" }],
+        targets: [{ target: "user" }],
+      }, ctx);
+      const full = await methods.export({}, ctx) as { text: string; entryCount: number };
+      assert.ok(full.text.endsWith("STATUS: COMPLETE\n"), full.text.slice(-120));
+      assert.equal(full.entryCount, 1);
+      assert.ok(full.text.includes("A likes tea."));
+
+      // Now A also imports through `second`: the agent is in A's own scope and cannot be paged -> PARTIAL with reason.
+      await methods.apply({
+        entries: [{ category: "Preferences", sourceType: "memory", text: "A also likes coffee.", warnings: [], idempotencyKey: "a2" }],
+        targets: [{ target: "user", agentIds: ["second"] }],
+      }, ctx);
+      const partial = await methods.export({}, ctx) as { text: string; entryCount: number };
+      assert.match(partial.text, /STATUS: PARTIAL \(not read: second: memory-export-truncated\)\n$/);
+      assert.ok(partial.text.includes("A likes tea."), "the readable part is exported in full");
+      assert.ok(!partial.text.includes("COMPLETE"));
+      // the same through an explicit agent
+      const viaSecond = await methods.export({ agentId: "second" }, ctx) as { text: string };
+      assert.match(viaSecond.text, /STATUS: PARTIAL \(not read: second: memory-export-truncated\)/);
+      assert.ok(viaSecond.text.includes("A likes tea."));
+    });
+  });
+
+  it("rollback and export survive an agent without a workspace directory (L2)", async () => {
+    const home = tempDir("p-real-engine-l2-ghost-");
+    await withEngine(home, async (engine, l, base) => {
+      const agents = {
+        ...base,
+        list: () => ["default", "second", "ghost"],
+        has: (id: string) => ["default", "second", "ghost"].includes(id),
+        workspaceOf: (id: string) => (id === "ghost" ? join(l.state, "no-such-workspace") : l.workspaceDir(id)),
+      };
+      const activePrincipal: Principal = { userId: "user-ghost", role: "owner", kind: "person" };
+      const methods = setupTestMethods(home, engine, agents, () => activePrincipal);
+      const ctx: CallContext = { requestId: "r-l2g", connectionId: "c-l2g", signal: new AbortController().signal };
+      const applyRes = await methods.apply({
+        entries: [{ category: "Projects", sourceType: "memory", text: "Project for default.", warnings: [], idempotencyKey: "p" }],
+        targets: [{ target: "agent", agentIds: ["default"] }],
+      }, ctx);
+      const dir = join(home, "imports", applyRes.runId);
+      const report = JSON.parse(readFileSync(join(dir, "report.json"), "utf8"));
+      report.affectedAgents = ["ghost", "default"];
+      writeFileSync(join(dir, "report.json"), JSON.stringify(report));
+
+      const exp = await methods.export({}, ctx) as { text: string };
+      assert.match(exp.text, /STATUS: PARTIAL \(not read: ghost: read-failed\)/);
+
+      const rb = await methods.rollback({ runId: applyRes.runId }, ctx);
+      assert.equal(rb.rolledBack, 1, "default is still rolled back");
+      assert.equal(rb.failed, 1, "the ghost agent fails alone");
+      assert.equal(rb.remaining, 1);
+      const after = JSON.parse(readFileSync(join(dir, "report.json"), "utf8"));
+      assert.equal(after.status, "partial");
     });
   });
 });

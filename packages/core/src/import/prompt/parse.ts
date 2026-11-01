@@ -107,9 +107,9 @@ export function parseMemoryExport(
 
   // Look for status line anywhere in text (typically at the end)
   let status: "complete" | "more" | "unrecognized" = "complete";
-  const statusMatch = /STATUS:\s*(COMPLETE|MORE)/i.exec(text);
+  const statusMatch = /STATUS:\s*(COMPLETE|MORE|PARTIAL)/i.exec(text);
   if (statusMatch) {
-    status = statusMatch[1]!.toUpperCase() === "MORE" ? "more" : "complete";
+    status = statusMatch[1]!.toUpperCase() === "COMPLETE" ? "complete" : "more";
   }
 
   // Extract lines
@@ -180,7 +180,7 @@ export function parseMemoryExport(
       trimmed === "" ||
       trimmed.startsWith("```") ||
       trimmed === "PLUR1BUS-MEMORY-EXPORT v1" ||
-      /^STATUS:\s*(COMPLETE|MORE)$/i.test(trimmed)
+      /^STATUS:\s*(COMPLETE|MORE|PARTIAL)\b.*$/i.test(trimmed)
     ) {
       continue;
     }

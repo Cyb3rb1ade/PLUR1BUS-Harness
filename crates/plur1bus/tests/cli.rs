@@ -2770,7 +2770,7 @@ mod import_text {
             dir.path(),
             vec![(
                 "memory.importText.rollback",
-                json!({ "result": { "rolledBack": 2, "failed": 0, "remaining": 0, "keptModified": 1, "preservedUserScope": 0, "discardedProposals": 0, "unhandledProposals": 0 } }),
+                json!({ "result": { "rolledBack": 2, "failed": 0, "remaining": 0, "keptModified": 1, "unlinked": 4, "preservedUserScope": 0, "discardedProposals": 0, "unhandledProposals": 0 } }),
             )],
         );
         let v = err_doc(
@@ -2831,7 +2831,7 @@ mod import_text {
             .clone();
         assert!(String::from_utf8(out)
             .unwrap()
-            .contains("2 removed, 0 remaining, 0 failed, 1 kept"));
+            .contains("2 removed, 4 links lifted, 0 remaining, 0 failed, 1 kept"));
     }
 
     #[test]
@@ -3145,7 +3145,7 @@ mod import_text {
                 "memory.importText.rollback",
                 json!({ "result": {
                     "rolledBack": done, "failed": failed, "remaining": remaining,
-                    "keptModified": kept, "preservedUserScope": preserved, "discardedProposals": 0, "unhandledProposals": 0
+                    "keptModified": kept, "unlinked": 0, "preservedUserScope": preserved, "discardedProposals": 0, "unhandledProposals": 0
                 } }),
             )],
         );
@@ -3175,7 +3175,7 @@ mod import_text {
             String::from_utf8_lossy(&o.stderr)
         );
         assert!(
-            all.contains("3 removed, 2 remaining, 1 failed, 4 kept"),
+            all.contains("3 removed, 0 links lifted, 2 remaining, 1 failed, 4 kept"),
             "{all}"
         );
         assert!(all.contains("run the same command again"), "{all}");
@@ -3237,7 +3237,7 @@ mod import_text {
             .clone();
         let s = String::from_utf8(out).unwrap();
         assert!(
-            s.contains("2 removed, 0 remaining, 0 failed, 1 kept (modified since import)\n"),
+            s.contains("2 removed, 0 links lifted, 0 remaining, 0 failed, 1 kept (modified since import)\n"),
             "{s}"
         );
         assert!(

@@ -24552,6 +24552,7 @@ Roll back a prompt memory import run.
     "failed",
     "remaining",
     "keptModified",
+    "unlinked",
     "preservedUserScope",
     "discardedProposals",
     "unhandledProposals"
@@ -24570,6 +24571,10 @@ Roll back a prompt memory import run.
       "minimum": 0
     },
     "keptModified": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unlinked": {
       "type": "integer",
       "minimum": 0
     },
