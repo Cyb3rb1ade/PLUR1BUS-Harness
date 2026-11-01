@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased — SH4
+
+- Verify collaboration replay with fixed W3C trace/span IDs that collide with the generic PII rule. The existing
+  authorized-provenance restoration remains in place; arbitrary content and unauthorized replay stay protected.
+
 ## Unreleased — SH3
 
 - Protect registered secrets in JSON-escaped text, share variants across stable secret sets, and preserve complete

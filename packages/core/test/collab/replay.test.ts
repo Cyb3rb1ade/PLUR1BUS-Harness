@@ -29,6 +29,12 @@ for (const [shape, traceId, spanId] of [
   ['IBAN-shaped', 'da5505d54b1a3491f41ff579e3175224', 'da5505d54b1a3491'],
   ['ordinary', 'a105f7ab7ec24989a6a1528f4ef63b44', 'a105f7ab7ec24989'],
 ] as const) test(`replay preserves authorized ${shape} provenance IDs while redacting untrusted content`, () => {
+  assert.match(traceId, /^[0-9a-f]{32}$/, 'exercise the generated W3C trace-id format');
+  assert.match(spanId, /^[0-9a-f]{16}$/, 'exercise the generated W3C span-id format');
+  const untrusted = logsRedactionPort().value({ traceId, spanId });
+  assert.deepEqual(untrusted, shape === 'IBAN-shaped'
+    ? { traceId: '[REDACTED:pii]', spanId: '[REDACTED:pii]' } : { traceId, spanId },
+  'the generic PII rule stays strict; only authorized provenance may recover these IDs');
   const dir = tmp.make(), path = join(dir, 'collab.sqlite');
   let sessions = new SessionStore({ path: join(dir, 'sessions.sqlite') });
   const store = new CollabStore({ path });
