@@ -149,8 +149,11 @@ index remains unchanged. An unavailable
 checkpoint is logged and `--files` refuses rather than substituting HEAD.
 Incognito sessions create no file checkpoints.
 
-`/rewind ... --files` (or RPC `files: true`) requests a T3, single-use
-`local-destructive` approval through D109. The action binds the session, root,
+`/rewind ... --files` (or RPC `files: true`) requests a T2, single-use
+`local-destructive` approval through D109. An unattested local connection (T1)
+uses the existing `approval.decide` flow with `attest: true` and OS confirmation
+to lift that one decision to T2. Without the helper or confirmation it is refused;
+the scope remains `once`. The action binds the session, root,
 recorded checkpoint, current working tree and real-index digest. The session is
 reserved while approval is pending. Changed files, index, assignment, checkpoint
 or session revision invalidate the request before restoration. Only tracked

@@ -215,7 +215,7 @@ export class RewindCheckpoints implements RewindFilesPort {
     const actionHash = createHash("sha256").update(JSON.stringify(args)).digest("hex");
     const ask: ApprovalAsk = { request: { capability: "fs.write", tool: "rewind.files.restore", effect: "local-destructive",
       risk: "high", reversible: true, flags: { outsideRoots: false, denyListHit: false }, actionHash,
-      grantOptions: [{ scope: "once", requiredSurface: 3 }], requiredSurface: 3, tainted: false,
+      grantOptions: [{ scope: "once", requiredSurface: 2 }], requiredSurface: 2, tainted: false,
       taintSuspended: false, originSurface: input.approver.surface }, callId: randomUUID(), tool: "rewind.files.restore", args,
       agentId: bound.session.agentId, principal: input.approver.person, sessionId: input.sessionId,
       projectId: bound.projectId, targets: [bound.root], diff: preview.diff, access: "write", park: false, signal: input.signal };

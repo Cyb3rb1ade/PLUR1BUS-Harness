@@ -9,9 +9,10 @@ import { SessionStore } from "../../src/session/store.ts";
 import { checkpointEnvironment, RewindCheckpoints } from "../../src/session/rewind-checkpoints.ts";
 import { RewindService } from "../../src/session/rewind.ts";
 import { memoryAuditSink } from "../../src/rbac/audit.ts";
-import type { ApprovalAsk } from "../../src/tools/approval.ts";
+import type { ApprovalAsk, ApprovalPort } from "../../src/tools/approval.ts";
+import { rig as approvalRig, tick } from "../approvals/service-helpers.ts";
 
-function rig(approved: boolean) {
+function rig(approved: boolean, approval?: ApprovalPort & Required<Pick<ApprovalPort, "begin">>) {
   const root = mkdtempSync(join(tmpdir(), "cx-checkpoint-"));
   const git = (...args: string[]) => execFileSync("git", ["-C", root, ...args], { encoding: "utf8" });
   git("init", "-q");
@@ -32,8 +33,12 @@ function rig(approved: boolean) {
   let onAsk: (() => void) | undefined;
   const checkpoints = new RewindCheckpoints({ store, audit, now: () => 42,
     project: () => ({ projectId: "p", cardId: "c", root }), approval: {
-      request: async ask => { asks.push(ask); onAsk?.(); return { approved, scope: "once" }; },
-      begin: () => { begins++; return approved; },
+      request: async ask => {
+        asks.push(ask);
+        const answer = approval ? approval.request(ask) : Promise.resolve({ approved, scope: "once" as const });
+        onAsk?.(); return answer;
+      },
+      begin: (answer, ask) => { begins++; return approval ? approval.begin(answer, ask) : approved; },
     } });
   return { root, git, store, session, audit, asks, checkpoints, begins: () => begins,
     whenAsked(callback: () => void) { onAsk = callback; },
@@ -73,7 +78,7 @@ test("checkpoint and approved restore retain dirty working bytes, staged bytes, 
     assert.equal(readFileSync(join(r.root, "untracked.txt"), "utf8"), "untracked must survive\n");
     assert.equal(r.asks.length, 1);
     assert.equal(r.asks[0]?.request.effect, "local-destructive");
-    assert.deepEqual(r.asks[0]?.request.grantOptions, [{ scope: "once", requiredSurface: 3 }]);
+    assert.deepEqual(r.asks[0]?.request.grantOptions, [{ scope: "once", requiredSurface: 2 }]);
     assert.equal(r.begins(), 1);
     assert.match(r.git("for-each-ref", "--format=%(refname)", "refs/plur1bus/checkpoints/"),
       new RegExp(`${r.session.id}/${first.turn.id}`));
@@ -328,4 +333,41 @@ test("a restore whose complete path preview exceeds the cap asks nobody and chan
     assert.ok(names.every(name => existsSync(join(r.root, name))));
     assert.deepEqual(readFileSync(join(r.root, ".git", "index")), index);
   } finally { r.close(); }
+});
+
+test("the real approval service refuses T1 and permits one redacted T2 restore with matching metadata", async () => {
+  const permissions = await approvalRig({ service: { secrets: ["new-tracked.txt"] } });
+  const r = rig(true, permissions.service);
+  let requestId = "";
+  try {
+    const first = r.store.beginTurn(r.session.id, "edit", 1);
+    await r.checkpoints.capture({ sessionId: r.session.id, turnId: first.turn.id, personId: "owner", signal: new AbortController().signal });
+    r.store.completeTurn(first.turn.id, { text: "failed", tokens: 1 });
+    writeFileSync(join(r.root, "new-tracked.txt"), "preserve\n"); r.git("add", "new-tracked.txt");
+    writeFileSync(join(r.root, "tracked.txt"), "failed edit\n");
+    r.whenAsked(() => {
+      const request = permissions.service.list({ principal: "owner", status: "pending" })[0]; assert.ok(request);
+      requestId = request.id;
+      const untrusted = permissions.service.decideForSession({ requestId, person: "owner", surface: 1, decision: "approve", scope: "once" });
+      assert.equal(untrusted.ok, false);
+      assert.equal(permissions.service.get(requestId, "owner")?.status, "pending");
+      assert.equal(permissions.stores.grants.inspect({ person: "owner" }).length, 0);
+      assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), "failed edit\n");
+      const trusted = permissions.service.decideForSession({ requestId, person: "owner", surface: 2, decision: "approve", scope: "once" });
+      assert.equal(trusted.ok, true);
+    });
+    await new RewindService({ store: r.store, audit: r.audit, now: () => 42, files: r.checkpoints }).rewind({
+      sessionId: r.session.id, toSeq: 0, actor: "owner", files: true, approver: { person: "owner", surface: 1 } });
+    assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), "checkpoint working contents\n");
+    assert.equal(readFileSync(join(r.root, "new-tracked.txt"), "utf8"), "preserve\n");
+    assert.equal(r.begins(), 1, "the actual approval and once grant were consumed before writing");
+    const record = permissions.service.get(requestId, "owner"); assert.ok(record);
+    assert.doesNotMatch(JSON.stringify({ summary: record.summary, diff: record.diff }), /new-tracked\.txt/);
+    assert.match(record.diff ?? "", /tracked\.txt/);
+    assert.equal(record.requiredSurface, 2);
+    assert.deepEqual(record.grantOptions, [{ scope: "once", requiredSurface: 2 }]);
+    const grants = permissions.stores.grants.inspect({ person: "owner" });
+    assert.equal(grants.length, 1);
+    assert.ok(grants.every(view => view.grant.scope === "once"));
+  } finally { permissions.service.dispose(); await tick(); permissions.stores.close(); r.close(); }
 });
