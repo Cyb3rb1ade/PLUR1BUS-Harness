@@ -762,9 +762,9 @@ fn a_restore_gives_the_webhook_a_fresh_valid_secret_instead_of_the_placeholder()
 
 /// `state/api/accounts.db` is staged by the core like every database under `state/`, and docs/portable-backup.md restores the API
 /// accounts from it. It holds password hashes and TOTP seeds, so the manifest must not claim there are no secrets in the archive.
-/// The owner decided on 2026-10-21 that inclusion requires opt-in. This test records the current gap; SH8 implements that decision.
+/// The owner decided on 2026-10-21 that inclusion requires opt-in; this test keeps the inclusive archive's disclosure honest.
 #[test]
-fn the_account_database_is_archived_and_the_manifest_says_what_is_in_it() {
+fn the_account_database_is_archived_when_requested_and_the_manifest_says_what_is_in_it() {
     let d = tempfile::tempdir().unwrap();
     let layout = Layout::new(d.path().join("a"));
     fs::create_dir_all(&layout.home).unwrap();
@@ -780,7 +780,15 @@ fn the_account_database_is_archived_and_the_manifest_says_what_is_in_it() {
         sha256,
     });
     let out = d.path().join("accounts.tar.gz");
-    create(&layout, &out, &snap).expect("create");
+    super::create::create_with_opts(
+        &layout,
+        &out,
+        &snap,
+        super::create::CreateOpts {
+            include_api_accounts: true,
+        },
+    )
+    .expect("create");
     let m = verify(&out).unwrap();
     assert!(
         m.units.iter().any(|u| u.target == "state/api/accounts.db"),
