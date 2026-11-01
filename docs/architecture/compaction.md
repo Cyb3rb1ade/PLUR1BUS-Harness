@@ -154,7 +154,13 @@ Incognito sessions create no file checkpoints.
 recorded checkpoint, current working tree and real-index digest. The session is
 reserved while approval is pending. Changed files, index, assignment, checkpoint
 or session revision invalidate the request before restoration. Only tracked
-working files are restored; staging, HEAD and untracked files are preserved.
+working files present in the checkpoint are restored in overlay mode; newly
+tracked files, staging, HEAD and untracked files are preserved. The approval
+lists overwritten paths and newly tracked paths that will be kept, with counts.
+The Core computes the list from immutable Git trees; D109 redacts it before
+display. A preview exceeding 200 paths or 4096 characters is refused before
+asking for approval. A file/directory collision that would overwrite a preserved
+path is also refused.
 The file action is audited separately as `session.rewind.files`. Git restoration
 and the SQLite overlay are separate operations: a later storage failure does not
 roll back an already approved file restoration. Undo is conversation-only and

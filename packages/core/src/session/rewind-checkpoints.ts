@@ -15,6 +15,8 @@ const execute = promisify(execFile);
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
 const OID = /^[a-f0-9]{40,64}$/;
 const CHECKPOINT = "refs/plur1bus/checkpoints";
+const MAX_PREVIEW_PATHS = 200;
+const MAX_PREVIEW_CHARS = 4096;
 
 interface CheckpointDeps {
   store: SessionStore;
@@ -119,6 +121,31 @@ async function protectUntracked(root: string, tree: string, signal: AbortSignal)
   }
 }
 
+/** Both trees are immutable native snapshots. Name-status output never invokes a repository diff program. */
+async function restorePreview(root: string, checkpoint: string, current: string, signal: AbortSignal) {
+  const raw = await git(root, ["diff", "--no-ext-diff", "--no-textconv", "--no-renames", "--name-status", "-z", checkpoint, current, "--"], { signal });
+  const fields = raw ? raw.split("\0").slice(0, -1) : [];
+  if ((raw && !raw.endsWith("\0")) || fields.length % 2 !== 0 || raw.includes("\uFFFD")) {
+    throw new SessionError("storage", "file restore paths cannot be represented exactly", "rewind-files-preview");
+  }
+  const overwritten: string[] = [], preserved: string[] = [];
+  for (let i = 0; i < fields.length; i += 2) {
+    const status = fields[i]!, path = fields[i + 1]!;
+    if (!/^[AMDT]$/.test(status) || !path) throw new SessionError("storage", "invalid file restore preview", "rewind-files-preview");
+    (status === "A" ? preserved : overwritten).push(path);
+  }
+  const changes = { overwritten, preserved, overwrittenCount: overwritten.length, preservedCount: preserved.length };
+  const diff = [`Overlay restore: overwrite ${overwritten.length}; preserve ${preserved.length} newly tracked paths.`,
+    ...overwritten.map(path => `Overwrite: ${JSON.stringify(path)}`),
+    ...preserved.map(path => `Preserve new tracked: ${JSON.stringify(path)}`)].join("\n");
+  // Refuse an incomplete preview rather than ask for an operation whose affected paths cannot all be shown.
+  if (overwritten.length + preserved.length > MAX_PREVIEW_PATHS || diff.length > MAX_PREVIEW_CHARS
+    || JSON.stringify(changes).length > MAX_PREVIEW_CHARS) {
+    throw new SessionError("conflict", "file restore exceeds the bounded approval preview", "rewind-files-preview-limit");
+  }
+  return { changes, diff };
+}
+
 /** Git object/ref writes never stage files, move HEAD or reset the real index. A restore always asks for a once approval. */
 export class RewindCheckpoints implements RewindFilesPort {
   readonly #d: CheckpointDeps;
@@ -182,14 +209,16 @@ export class RewindCheckpoints implements RewindFilesPort {
     }
     await protectUntracked(bound.root, checkpoint, input.signal);
     const before = await workingTree(bound.root, input.signal);
-    const args = { sessionId: input.sessionId, root: bound.root, ref, checkpoint, beforeTree: before.tree, indexHash: before.indexHash };
+    const preview = await restorePreview(bound.root, checkpoint, before.tree, input.signal);
+    const args = { sessionId: input.sessionId, root: bound.root, ref, checkpoint, beforeTree: before.tree, indexHash: before.indexHash,
+      changes: preview.changes };
     const actionHash = createHash("sha256").update(JSON.stringify(args)).digest("hex");
     const ask: ApprovalAsk = { request: { capability: "fs.write", tool: "rewind.files.restore", effect: "local-destructive",
       risk: "high", reversible: true, flags: { outsideRoots: false, denyListHit: false }, actionHash,
       grantOptions: [{ scope: "once", requiredSurface: 3 }], requiredSurface: 3, tainted: false,
       taintSuspended: false, originSurface: input.approver.surface }, callId: randomUUID(), tool: "rewind.files.restore", args,
       agentId: bound.session.agentId, principal: input.approver.person, sessionId: input.sessionId,
-      projectId: bound.projectId, targets: [bound.root], access: "write", park: false, signal: input.signal };
+      projectId: bound.projectId, targets: [bound.root], diff: preview.diff, access: "write", park: false, signal: input.signal };
     const answer = await this.#d.approval.request(ask);
     input.signal.throwIfAborted();
     if (!answer.approved || answer.scope !== "once") {
@@ -211,7 +240,7 @@ export class RewindCheckpoints implements RewindFilesPort {
       action: "session.rewind.files", target: input.sessionId, detail: { ...args, actionHash, requestId: answer.requestId } });
     await workingIndex(bound.root, input.signal, async (options, indexHash) => {
       if (indexHash !== before.indexHash) throw new SessionError("conflict", "index changed before approved restore", "rewind-files-changed");
-      await git(bound.root, ["restore", `--source=${checkpoint}`, "--worktree", "--", "."], options);
+      await git(bound.root, ["restore", "--overlay", `--source=${checkpoint}`, "--worktree", "--", "."], options);
     });
     if (await indexDigest(bound.root, input.signal) !== before.indexHash) {
       throw new SessionError("conflict", "index changed during approved restore", "rewind-files-changed");

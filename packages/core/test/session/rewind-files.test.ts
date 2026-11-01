@@ -1,7 +1,7 @@
 /** D120 Q14: native Git checkpoints preserve the real index and never restore files without a bound human approval. */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -252,5 +252,80 @@ test("a Git ref changed outside the checkpoint service cannot impersonate the re
         approver: { person: "owner", surface: 3 } }), /checkpoint.*changed/);
     assert.equal(r.asks.length, 0);
     assert.deepEqual(r.store.rewinds(r.session.id), []);
+  } finally { r.close(); }
+});
+
+test("overlay restore preserves files staged after the checkpoint and the real index", async () => {
+  const r = rig(true);
+  try {
+    const first = r.store.beginTurn(r.session.id, "edit", 1);
+    await r.checkpoints.capture({ sessionId: r.session.id, turnId: first.turn.id, personId: "owner", signal: new AbortController().signal });
+    r.store.completeTurn(first.turn.id, { text: "failed", tokens: 1 });
+    writeFileSync(join(r.root, "new-tracked.txt"), "new staged file must survive\n");
+    r.git("add", "new-tracked.txt");
+    writeFileSync(join(r.root, "tracked.txt"), "failed edit\n");
+    const index = readFileSync(join(r.root, ".git", "index")), head = r.git("rev-parse", "HEAD");
+    await new RewindService({ store: r.store, audit: r.audit, now: () => 42, files: r.checkpoints }).rewind({
+      sessionId: r.session.id, toSeq: 0, actor: "owner", files: true, approver: { person: "owner", surface: 3 } });
+    assert.equal(existsSync(join(r.root, "new-tracked.txt")), true, "a newly staged path must not be deleted");
+    assert.equal(readFileSync(join(r.root, "new-tracked.txt"), "utf8"), "new staged file must survive\n");
+    assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), "checkpoint working contents\n");
+    assert.deepEqual(readFileSync(join(r.root, ".git", "index")), index);
+    assert.equal(r.git("rev-parse", "HEAD"), head);
+  } finally { r.close(); }
+});
+
+test("the approval preview names overwritten and preserved new paths with their counts", async () => {
+  const r = rig(false);
+  try {
+    const first = r.store.beginTurn(r.session.id, "edit", 1);
+    await r.checkpoints.capture({ sessionId: r.session.id, turnId: first.turn.id, personId: "owner", signal: new AbortController().signal });
+    r.store.completeTurn(first.turn.id, { text: "failed", tokens: 1 });
+    writeFileSync(join(r.root, "new-tracked.txt"), "preserve\n"); r.git("add", "new-tracked.txt");
+    writeFileSync(join(r.root, "tracked.txt"), "failed edit\n");
+    await assert.rejects(new RewindService({ store: r.store, audit: r.audit, now: () => 42, files: r.checkpoints }).rewind({
+      sessionId: r.session.id, toSeq: 0, actor: "owner", files: true, approver: { person: "owner", surface: 3 } }), /not approved/);
+    const ask = r.asks[0]!;
+    assert.match(ask.diff ?? "", /tracked\.txt/);
+    assert.match(ask.diff ?? "", /new-tracked\.txt/);
+    assert.deepEqual((ask.args as { changes: unknown }).changes, {
+      overwritten: ["tracked.txt"], preserved: ["new-tracked.txt"], overwrittenCount: 1, preservedCount: 1,
+    });
+    assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), "failed edit\n");
+    assert.equal(r.begins(), 0);
+  } finally { r.close(); }
+});
+
+test("a checkpoint file cannot replace a directory containing a newly tracked path", async () => {
+  const r = rig(true);
+  try {
+    const first = r.store.beginTurn(r.session.id, "edit", 1);
+    await r.checkpoints.capture({ sessionId: r.session.id, turnId: first.turn.id, personId: "owner", signal: new AbortController().signal });
+    r.store.completeTurn(first.turn.id, { text: "failed", tokens: 1 });
+    rmSync(join(r.root, "tracked.txt")); mkdirSync(join(r.root, "tracked.txt"));
+    writeFileSync(join(r.root, "tracked.txt", "new-child.txt"), "keep child\n"); r.git("add", "-A");
+    await assert.rejects(new RewindService({ store: r.store, audit: r.audit, now: () => 42, files: r.checkpoints }).rewind({
+      sessionId: r.session.id, toSeq: 0, actor: "owner", files: true, approver: { person: "owner", surface: 3 } }), { reason: "rewind-files-changed" });
+    assert.equal(readFileSync(join(r.root, "tracked.txt", "new-child.txt"), "utf8"), "keep child\n");
+    assert.equal(r.asks.length, 0);
+  } finally { r.close(); }
+});
+
+test("a restore whose complete path preview exceeds the cap asks nobody and changes no working files", async () => {
+  const r = rig(true);
+  try {
+    const first = r.store.beginTurn(r.session.id, "edit", 1);
+    await r.checkpoints.capture({ sessionId: r.session.id, turnId: first.turn.id, personId: "owner", signal: new AbortController().signal });
+    r.store.completeTurn(first.turn.id, { text: "failed", tokens: 1 });
+    const names = Array.from({ length: 201 }, (_, i) => `new-${i}.txt`);
+    for (const name of names) writeFileSync(join(r.root, name), "preserve\n");
+    r.git("add", ...names); writeFileSync(join(r.root, "tracked.txt"), "failed edit\n");
+    const index = readFileSync(join(r.root, ".git", "index"));
+    await assert.rejects(new RewindService({ store: r.store, audit: r.audit, now: () => 42, files: r.checkpoints }).rewind({
+      sessionId: r.session.id, toSeq: 0, actor: "owner", files: true, approver: { person: "owner", surface: 3 } }), { reason: "rewind-files-preview-limit" });
+    assert.equal(r.asks.length, 0); assert.equal(r.begins(), 0);
+    assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), "failed edit\n");
+    assert.ok(names.every(name => existsSync(join(r.root, name))));
+    assert.deepEqual(readFileSync(join(r.root, ".git", "index")), index);
   } finally { r.close(); }
 });
