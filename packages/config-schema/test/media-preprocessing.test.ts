@@ -27,21 +27,25 @@ it("defaults new or unset backfill choices to manual and preserves an explicitly
   assert.equal(unset.config.memory.mediaEmbedding.backfill, "manual");
 });
 
-it("checks the fixed local catalog and effective inherited agent settings before a config write", () => {
+it("keeps schema-valid legacy local model selections readable without rewriting them", () => {
   for (const invalid of [{ model: "unknown" }, { model: "constructor" }, { model: "__proto__" }, { dimensions: 129 }]) {
     const global = defaults();
     Object.assign(global.memory.mediaEmbedding, invalid);
-    assert.equal(validate(global).ok, false);
+    const before = structuredClone(global);
+    const result = validate(global);
+    assert.equal(result.ok, true);
+    assert.deepEqual(global, before);
+    if (result.ok) assert.deepEqual(result.config.memory.mediaEmbedding, global.memory.mediaEmbedding);
     const agent = defaults();
     agent.agents.main = { memory: { mediaEmbedding: invalid } };
-    assert.equal(validate(agent).ok, false);
+    assert.equal(validate(agent).ok, true);
   }
   const cfg = defaults();
   cfg.memory.mediaEmbedding.enabled = false;
   cfg.agents.main = { memory: { mediaEmbedding: { enabled: true, dimensions: 256 } } };
   assert.equal(validate(cfg).ok, true);
   cfg.agents.main.memory!.mediaEmbedding!.model = "unknown";
-  assert.equal(validate(cfg).ok, false);
+  assert.equal(validate(cfg).ok, true);
 });
 
 it("defaults to measured token budgets and q8 on every supported platform", () => {

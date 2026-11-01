@@ -6,6 +6,22 @@ import { defaults } from "@plur1bus/config-schema";
 import { ConfigInvalid, loadConfig, readConfigFile, validateConfig, writeConfigAtomic } from "../src/config-load.ts";
 import { tempDir } from "./helpers/temp-dir.ts";
 
+it("loads legacy local media choices unchanged without rewriting either global or agent settings", () => {
+  for (const load of [loadConfig, readConfigFile]) {
+    const config = defaults();
+    config.memory.mediaEmbedding.model = "legacy-local-model";
+    config.memory.mediaEmbedding.dimensions = 129;
+    config.agents.main = { memory: { mediaEmbedding: { model: "legacy-agent-model", dimensions: 257 } } };
+    const path = join(tempDir("legacy-media-load-"), "config.json"), text = JSON.stringify(config);
+    writeFileSync(path, text);
+    const result = load(path), loaded = "config" in result ? result.config : result;
+    assert.deepEqual(loaded.memory.mediaEmbedding, config.memory.mediaEmbedding);
+    assert.deepEqual(loaded.agents.main?.memory?.mediaEmbedding, config.agents.main.memory?.mediaEmbedding);
+    assert.deepEqual(loaded.core, config.core);
+    assert.equal(readFileSync(path, "utf8"), text);
+  }
+});
+
 const MARK = "zxq-plain-marker-value";
 const file = (name = "config.json") => join(tempDir("p1b-cfg-hard-"), name);
 

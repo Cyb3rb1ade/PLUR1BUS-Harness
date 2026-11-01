@@ -50,3 +50,28 @@ it("validates the complete effective global and agent media config and awaits av
   };
   await check(existingRemote, [{ key: "agents.main.displayName", value: "Main" }]);
 });
+
+it("uses defaults only for unsupported legacy local runtime fields and preserves stored selections", async () => {
+  assert.ok("mediaConfigForLoad" in validation);
+  const fallback = (validation as typeof validation & {
+    mediaConfigForLoad<T extends validation.MediaEmbeddingConfig>(config: T): T;
+  }).mediaConfigForLoad;
+  const cfg = defaults().memory.mediaEmbedding;
+  cfg.model = "legacy-local-model";
+  cfg.dimensions = 129;
+  cfg.audio.segmentSec = 15;
+  const before = structuredClone(cfg), result = fallback(cfg);
+  assert.equal(result.model, defaults().memory.mediaEmbedding.model);
+  assert.equal(result.dimensions, defaults().memory.mediaEmbedding.dimensions);
+  assert.equal(result.audio.segmentSec, 15);
+  assert.deepEqual(cfg, before);
+  assert.equal(fallback(result), result, "supported selections are untouched");
+  const remote = { ...cfg, provider: "old-cloud-provider" };
+  assert.equal(fallback(remote), remote, "never activate a remote legacy provider as a local model");
+  const inactive = { ...cfg, enabled: false };
+  assert.equal(fallback(inactive), inactive);
+  const current = defaults();
+  Object.assign(current.memory.mediaEmbedding, before);
+  await validation.validateMediaChanges(current, [{ key: "core.logLevel", value: "debug" }]);
+  await assert.rejects(validation.validateMediaChanges(current, [{ key: "memory.mediaEmbedding.audio.segmentSec", value: 15 }]));
+});

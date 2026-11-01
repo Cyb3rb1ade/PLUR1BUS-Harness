@@ -218,12 +218,8 @@ export function validate(value: unknown): { ok: true; config: HarnessConfig } | 
     })] as [string, MediaEmbeddingConfig][];
     for (const [path, media] of mediaLayers) {
       if (!media.enabled) continue;
-      if (MEDIA_MODEL_CATALOG.providers.includes(media.provider)) {
-        const info = Object.hasOwn(MEDIA_MODEL_CATALOG.models, media.model)
-          ? MEDIA_MODEL_CATALOG.models[media.model as keyof typeof MEDIA_MODEL_CATALOG.models] : undefined;
-        if (!info) return { ok: false, errors: [`${path}/model E_MEDIA_UNAVAILABLE: unknown local media model`] };
-        if (!info.dimensions.includes(media.dimensions)) return { ok: false, errors: [`${path}/dimensions E_MEDIA_DIMENSION: unsupported media dimensions`] };
-      }
+      // Loading existing schema-valid media selections is tolerant. Catalog support is
+      // checked on relevant writes; the runtime uses documented local defaults for legacy entries.
       for (const [suffix, provider, ack, local] of [
         ["", media.provider, media.privacyAck, ["local", "local-transformers", "egemma2", "off"].includes(media.provider)],
         ["/caption", media.caption.provider, media.caption.privacyAck, !media.caption.provider || ["local", "off"].includes(media.caption.provider) || media.caption.source === "off"],

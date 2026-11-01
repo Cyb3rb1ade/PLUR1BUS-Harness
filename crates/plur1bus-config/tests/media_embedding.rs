@@ -1,24 +1,52 @@
 //! MM-3a static config validation also covers supervisor, offline CLI and setup writes.
-use plur1bus_config::{defaults, set_many, validate};
+use plur1bus_config::{defaults, load, parse, read, serialize, set_many, validate};
 use serde_json::json;
 
 #[test]
-fn local_catalog_is_checked_globally_and_after_agent_inheritance() {
+fn legacy_local_catalog_values_remain_readable_globally_and_after_agent_inheritance() {
     for invalid in [json!({"model":"unknown"}), json!({"dimensions":129})] {
         let mut cfg = defaults();
         cfg["memory"]["mediaEmbedding"]
             .as_object_mut()
             .unwrap()
             .extend(invalid.as_object().unwrap().clone());
-        assert!(validate(&cfg).is_err());
+        assert!(validate(&cfg).is_ok());
         let mut cfg = defaults();
         cfg["agents"]["main"] = json!({"memory":{"mediaEmbedding":invalid}});
-        assert!(validate(&cfg).is_err());
+        assert!(validate(&cfg).is_ok());
     }
     let mut cfg = defaults();
     cfg["memory"]["mediaEmbedding"]["enabled"] = json!(false);
     cfg["agents"]["main"] = json!({"memory":{"mediaEmbedding":{"enabled":true,"dimensions":256}}});
     assert!(validate(&cfg).is_ok());
+}
+
+#[test]
+fn loading_legacy_local_entries_and_unrelated_writes_preserves_their_original_fields() {
+    let mut cfg = defaults();
+    cfg["memory"]["mediaEmbedding"]["model"] = json!("legacy-local-model");
+    cfg["memory"]["mediaEmbedding"]["dimensions"] = json!(129);
+    cfg["agents"]["main"] =
+        json!({"memory":{"mediaEmbedding":{"model":"old-agent-model","dimensions":257}}});
+    let text = serialize(&cfg);
+    let temp = tempfile::tempdir().unwrap();
+    let file = temp.path().join("config.json");
+    std::fs::write(&file, &text).unwrap();
+    assert_eq!(parse(&text).unwrap(), cfg);
+    assert_eq!(load(&file).unwrap().config, cfg);
+    assert_eq!(read(&file).unwrap(), cfg);
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), text);
+    let plan = set_many(&cfg, &[("core.logLevel".into(), json!("debug"))]).unwrap();
+    assert_eq!(
+        plan.after["memory"]["mediaEmbedding"],
+        cfg["memory"]["mediaEmbedding"]
+    );
+    assert_eq!(plan.after["agents"], cfg["agents"]);
+    assert!(set_many(
+        &cfg,
+        &[("memory.mediaEmbedding.audio.segmentSec".into(), json!(15))]
+    )
+    .is_err());
 }
 
 #[test]

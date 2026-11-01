@@ -1,6 +1,6 @@
 /** Catalog and configuration checks; model support never proves encoder installation. */
 import {
-  MEDIA_MODEL_CATALOG, privacyAcknowledgmentError, validate, type HarnessConfig, type PrivacyAcknowledgment,
+  CONFIG_SCHEMA, MEDIA_MODEL_CATALOG, privacyAcknowledgmentError, validate, type HarnessConfig, type PrivacyAcknowledgment,
 } from "@plur1bus/config-schema";
 import { localOnlyShared } from "../privacy/local-only.ts";
 import { RpcError } from "../rpc/errors.ts";
@@ -35,6 +35,18 @@ export const productionMediaProviderCatalog: MediaProviderCatalog = {
     return info ? structuredClone(info) : undefined;
   },
 };
+
+/** Runtime-only fallback for legacy local entries; never rewrite the file or repair a pending config write. */
+export function mediaConfigForLoad<T extends MediaEmbeddingConfig>(config: T): T {
+  if (config.enabled === false || !config.provider || !MEDIA_MODEL_CATALOG.providers.includes(config.provider)) return config;
+  const properties = CONFIG_SCHEMA.properties.memory.properties.mediaEmbedding.properties;
+  const known = productionMediaProviderCatalog.lookup(config.provider, config.model ?? "");
+  const model: string = known ? config.model! : properties.model.default;
+  const info = known ?? productionMediaProviderCatalog.lookup(config.provider, model);
+  const dimensions: number = config.dimensions !== undefined && info?.dimensions.includes(config.dimensions)
+    ? config.dimensions : properties.dimensions.default;
+  return model === config.model && dimensions === config.dimensions ? config : { ...config, model, dimensions };
+}
 
 export interface MediaValidationContext {
   catalog: MediaProviderCatalog;

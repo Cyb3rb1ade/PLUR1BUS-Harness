@@ -1046,39 +1046,8 @@ fn check_media_privacy(media: &Value, path: &str, errs: &mut Vec<String>) {
     if media["enabled"].as_bool() == Some(false) {
         return;
     }
-    // MM-3a support metadata is shared with the Core catalog; it never implies an installed encoder.
-    let catalog = &schema()["x-media-models"];
-    if catalog["providers"]
-        .as_array()
-        .is_some_and(|providers| providers.contains(&media["provider"]))
-    {
-        let properties =
-            &schema()["properties"]["memory"]["properties"]["mediaEmbedding"]["properties"];
-        let model = media
-            .get("model")
-            .unwrap_or(&properties["model"]["default"]);
-        let dimensions = media
-            .get("dimensions")
-            .unwrap_or(&properties["dimensions"]["default"]);
-        let info = model
-            .as_str()
-            .and_then(|model| catalog["models"].get(model));
-        match info {
-            None => errs.push(format!(
-                "{path}/model E_MEDIA_UNAVAILABLE: unknown local media model"
-            )),
-            Some(info)
-                if !info["dimensions"]
-                    .as_array()
-                    .is_some_and(|dims| dims.contains(dimensions)) =>
-            {
-                errs.push(format!(
-                    "{path}/dimensions E_MEDIA_DIMENSION: unsupported media dimensions"
-                ));
-            }
-            Some(_) => {}
-        }
-    }
+    // A legacy schema-valid local model/dimension stays readable. The fixed catalog
+    // is enforced by validate_media_mutation on relevant writes, not while loading.
     for (choice, suffix, local) in [
         (
             media,
