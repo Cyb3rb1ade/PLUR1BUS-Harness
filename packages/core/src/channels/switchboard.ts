@@ -92,7 +92,13 @@ export interface ApprovalDecider { decide(input: ServiceDecideInput): ServiceDec
 export interface OutputsPort { store(): unknown | null }
 
 /** Host-selected session and linked human; callers must authorize agent.use before privately publishing any bytes. */
-export interface ChannelAttachmentIngressInput { message: InboundMessage; session: SessionRecord; humanId: string }
+export interface ChannelAttachmentIngressInput {
+  message: InboundMessage;
+  session: SessionRecord;
+  humanId: string;
+  /** Refresh the session and current linked human after each I/O boundary; rejects when the binding is no longer valid. */
+  revalidate: () => Promise<SessionRecord>;
+}
 
 export interface SwitchboardOptions {
   /** Resolves after private storage and background indexing enqueue, never after encoding or captioning. */
@@ -505,16 +511,24 @@ class Host implements Switchboard {
   async #ingestAttachments(input: import("./router.ts").AttachmentIngressInput): Promise<void> {
     const ingest = this.#o.ingestAttachments;
     if (!ingest) throw new Error("channel attachment ingestion unavailable");
+    const revalidate = () => this.#attachmentBinding(input);
+    const session = await revalidate();
+    await ingest({ message: input.message, session, humanId: input.humanId, revalidate });
+  }
+
+  /** Session records are snapshots: refresh both authorities whenever upload I/O yields control. */
+  async #attachmentBinding(input: import("./router.ts").AttachmentIngressInput): Promise<SessionRecord> {
     const { message, sessionId, humanId } = input;
-    const t = this.#o.turns();
-    const session = t?.store.getSession(sessionId);
-    if (!session || session.kind !== "channel" || session.archivedAt !== null
-      || session.chatKey !== chatKeyOf(message.channel, message.chatId)) throw new Error("not an active channel session");
     if (!this.#active(humanId)) throw new Error("person is disabled");
     const current = await this.#identityPort().resolve({ channel: message.channel, senderId: message.senderId, ...(message.accountId !== undefined ? { accountId: message.accountId } : {}) });
     if (!current.linked || current.disabled || current.userId !== humanId) throw new Error("channel identity is no longer linked");
+    if (!this.#active(humanId)) throw new Error("person is disabled");
+    // Read after the awaited identity lookup so mutable session state is current on return.
+    const session = this.#o.turns()?.store.getSession(sessionId);
+    if (!session || session.kind !== "channel" || session.archivedAt !== null
+      || session.chatKey !== chatKeyOf(message.channel, message.chatId)) throw new Error("not an active channel session");
     if (message.chatKind === "direct" && session.owner !== deriveUserPrincipal(humanId)) throw new Error("session belongs to someone else");
-    await ingest({ message, session, humanId });
+    return session;
   }
 
   #sessionPort(): SessionPort {

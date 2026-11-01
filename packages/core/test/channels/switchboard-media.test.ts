@@ -58,3 +58,72 @@ test("wrong-channel, unlinked and disabled uploads never reach the ingestion ser
     assert.equal(r.provider.requests.length, 0);
   } finally { r.close(); }
 });
+
+test("upload revalidation reads the current session memory mode after asynchronous work", async () => {
+  let entered!: () => void;
+  let release!: () => void;
+  const started = new Promise<void>((resolve) => { entered = resolve; });
+  const paused = new Promise<void>((resolve) => { release = resolve; });
+  let initial: ChannelAttachmentIngressInput["session"] | undefined;
+  let fresh: ChannelAttachmentIngressInput["session"] | undefined;
+  const r = await running({ ingestAttachments: async (input) => {
+    initial = input.session;
+    entered();
+    await paused;
+    fresh = await input.revalidate();
+  } });
+  let pending: Promise<void> | undefined;
+  try {
+    r.link("discord", "bot-1", "sender-1");
+    pending = r.adapter().host!.receive({ channel: "discord", chatId: "chat-1", chatKind: "direct", senderId: "sender-1", text: "", attachments });
+    await started;
+    const session = r.store.activeForChat("discord:chat-1")!;
+    r.store.updateSession(session.id, { memoryMode: "incognito" });
+    release();
+    await pending;
+    assert.equal(initial?.memoryMode, "remember");
+    assert.equal(fresh?.memoryMode, "incognito");
+    assert.equal(fresh?.id, session.id);
+    assert.notEqual(fresh, initial, "revalidation returns a new store read, not the captured record");
+    assert.equal(r.provider.requests.length, 0);
+    assert.notEqual(r.adapter().sent.at(-1)?.text, FAILED_TEXT);
+  } finally { release(); await pending; r.close(); }
+});
+
+for (const changed of ["archive", "unlink", "disable"] as const) {
+  test(`upload revalidation fails closed when the session or identity changes during I/O: ${changed}`, async () => {
+    let active = true;
+    let entered!: () => void;
+    let release!: () => void;
+    const started = new Promise<void>((resolve) => { entered = resolve; });
+    const paused = new Promise<void>((resolve) => { release = resolve; });
+    let failure = "";
+    let published = false;
+    const r = await running({ personActive: () => active, ingestAttachments: async (input) => {
+      entered();
+      await paused;
+      try { await input.revalidate(); }
+      catch (error) { failure = error instanceof Error ? error.message : String(error); throw error; }
+      published = true;
+    } });
+    let pending: Promise<void> | undefined;
+    try {
+      const { humanId } = r.link("discord", "bot-1", "sender-1");
+      pending = r.adapter().host!.receive({ channel: "discord", chatId: "chat-1", chatKind: "direct", senderId: "sender-1", text: "", attachments });
+      await started;
+      if (changed === "archive") r.store.archiveSession(r.store.activeForChat("discord:chat-1")!.id);
+      if (changed === "disable") active = false;
+      if (changed === "unlink") {
+        const link = r.identity.list({}).humans.find((human) => human.id === humanId)!.identities[0]!;
+        r.identity.unlink({ linkId: link.id }, { user: humanId, host: "test", kind: "person", role: "member" });
+      }
+      release();
+      await pending;
+      const reason = changed === "archive" ? /not an active channel session/ : changed === "unlink" ? /no longer linked/ : /disabled/;
+      assert.match(failure, reason);
+      assert.equal(published, false);
+      assert.equal(r.provider.requests.length, 0);
+      assert.deepEqual(r.adapter().sent.map((message) => message.text), [FAILED_TEXT]);
+    } finally { release(); await pending; r.close(); }
+  });
+}
