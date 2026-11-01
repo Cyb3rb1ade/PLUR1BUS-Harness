@@ -77,4 +77,46 @@ describe("budget RPC", () => {
     assert.equal(validateParams("budget.set", { limit: { scope: "global", period: "day", metric: "tokens", hard: 1 } }).ok, true);
     assert.equal(validateParams("budget.set", { limit: { scope: "global", period: "day", metric: "cost", hard: 1 } }).ok, false);
   });
+
+  it("sets and returns cache-read weights, preserving existing limits when weight is omitted", async () => {
+    const limit = { scope: "agent", agentId: "weighted", period: "day", metric: "tokens", hard: 1200 };
+    const set = await client.call<any>("budget.set", { limit, cacheReadWeight: 0.1 });
+    assert.equal(set.cacheReadWeight, 0.1);
+    assert.equal(set.limit.hard, 1200);
+    assert.equal(validateResult("budget.set", set).ok, true);
+    svc.recordUsage({ agent: "weighted", model: "m-small", inputTokens: 1000, outputTokens: 100, cacheReadTokens: 900, cacheWriteTokens: 50 });
+    const status = await client.call<any>("budget.status", { agentId: "weighted" });
+    assert.equal(status.cacheReadWeight, 0.1);
+    assert.equal(status.periods[0].total.freshInputTokens, 50);
+    assert.equal(status.periods[0].total.countedTokens, 290);
+    assert.equal(status.limits[0].used, 290);
+    assert.equal(validateResult("budget.status", status).ok, true);
+    const zone = await client.call<any>("budget.set", { timeZone: "UTC" });
+    assert.equal(zone.cacheReadWeight, 0.1);
+    assert.equal(zone.limits.find((l: { agentId: string }) => l.agentId === "weighted").hard, 1200);
+    assert.equal((await client.call<any>("budget.set", { cacheReadWeight: 0 })).cacheReadWeight, 0);
+    assert.equal((await client.call<any>("budget.set", { cacheReadWeight: 1 })).cacheReadWeight, 1);
+    assert.equal((await client.call<any>("budget.set", { cacheReadWeight: 0.1234567 })).cacheReadWeight, 0.123457);
+  });
+
+  it("rejects bad combined settings without persisting a partial change", async () => {
+    await client.call("budget.set", { timeZone: "UTC" });
+    svc.setCacheReadWeight(0.25);
+    const before = svc.status();
+    const bad = [
+      { timeZone: "Europe/Berlin", cacheReadWeight: -0.1 },
+      { timeZone: "Europe/Berlin", cacheReadWeight: 1.1 },
+      { timeZone: "Europe/Berlin", cacheReadWeight: "0.1" },
+      { timeZone: "Europe/Berlin", cacheReadWeight: null },
+      { timeZone: "Europe/Berlin", cacheReadWeight: 0, limit: { scope: "global", period: "day", metric: "tokens", soft: 10, hard: 1 } },
+      { timeZone: "Mars/Base", cacheReadWeight: 0 },
+      { timeZone: "Mars/Base", cacheReadWeight: 0, limit: { scope: "global", period: "day", metric: "tokens", hard: 444 } },
+    ];
+    for (const params of bad) {
+      await assert.rejects(client.call("budget.set", params as never), (e: unknown) => e instanceof RpcCallError && e.error === "E_INVALID_PARAMS");
+      assert.equal(svc.timeZone(), "UTC");
+      assert.equal(svc.cacheReadWeight(), 0.25);
+      assert.deepEqual(svc.limits(), before.limits.map(({ used: _used, state: _state, ...limit }) => limit));
+    }
+  });
 });
