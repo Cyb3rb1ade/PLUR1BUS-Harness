@@ -133,6 +133,14 @@ pub fn initial(layout: &Layout) -> ConfigState {
     }
 }
 
+/// A manifest may change without a config edit; register its declarations before diagnostics or a new child.
+pub(crate) fn refresh_log_policy(shared: &Shared, layout: &Layout) {
+    let state = relock(&shared.config);
+    if let Some(running) = &state.running {
+        shared.log.register_config(layout, running);
+    }
+}
+
 /// `supervisor.*` and `logs.*` of the running configuration (the defaults while none runs).
 pub fn supervisor_config(running: Option<&Value>) -> SupervisorConfig {
     let defaults;
@@ -253,11 +261,13 @@ fn rearm_core(shared: &Shared) {
 /// notifications go out in revision order.
 fn install(
     shared: &Shared,
+    layout: &Layout,
     st: &mut ConfigState,
     new: Value,
     source: &str,
     idle: Option<&super::imports::Idle<'_>>,
 ) {
+    shared.log.register_config(layout, &new);
     let previous = st.revision.clone();
     let was_invalid = st.running.is_none() || st.rejected.is_some();
     let before = st.running.take().unwrap_or_else(|| json!({}));
@@ -426,7 +436,14 @@ pub(crate) fn restore_maintenance(
     }
     state.applied_hash = bytes.map(sha256);
     state.stamp = file_stamp(&layout.config_path());
-    install(shared, &mut state, config, "maintenance-restore", None);
+    install(
+        shared,
+        layout,
+        &mut state,
+        config,
+        "maintenance-restore",
+        None,
+    );
     Ok(json!({"revision":state.revision}))
 }
 
@@ -571,7 +588,7 @@ fn set_inner(
             st.applied_hash = Some(sha256(cfg::serialize(&plan.after).as_bytes()));
             // The temp file's stamp, taken before the rename: a write that lands after it always differs.
             st.stamp = meta.modified().ok().map(|m| (m, meta.len()));
-            install(shared, &mut st, plan.after, "set", idle.as_ref());
+            install(shared, layout, &mut st, plan.after, "set", idle.as_ref());
             let revision = st.revision.clone().unwrap_or_default();
             // Queued before the config lock is released, so the job precedes any the restarted core's own
             // `restartPending` could cause. A module key restarts its module (B13), `enabled` stops or starts it.
@@ -781,7 +798,7 @@ fn poll_locked(
                 return;
             }
             st.applied_hash = Some(hash);
-            install(shared, st, new, "file", idle);
+            install(shared, layout, st, new, "file", idle);
         }
     }
 }
@@ -866,7 +883,7 @@ mod tests {
             maintenance: Default::default(),
             state: std::sync::Mutex::new(crate::supervisor::test_state()),
             wake: std::sync::Condvar::new(),
-            log: crate::supervisor::Log::open(&layout.logs().join("supervisor.log"), 1 << 20, 3),
+            log: crate::supervisor::Log::open(layout, 1 << 20, 3),
             config: std::sync::Mutex::new(initial(layout)),
             subscribers: Default::default(),
             out_logs: std::sync::Mutex::new(Vec::new()),

@@ -28,6 +28,7 @@ pub mod import_recovery;
 pub mod import_secrets;
 pub mod import_worker;
 pub mod imports;
+mod log_redaction;
 pub mod logfile;
 pub mod modules;
 #[cfg(windows)]
@@ -237,11 +238,14 @@ impl Shared {
 /// failure never reaches the caller: the line is dropped.
 pub struct Log {
     file: Mutex<Option<RotatingFile>>,
+    redaction: Arc<log_redaction::Registry>,
 }
 
 impl Log {
-    pub fn open(path: &Path, max_bytes: u64, keep: u32) -> Self {
-        let file = match RotatingFile::open(path, max_bytes, keep) {
+    /// Load sensitivity before any startup record, including diagnostics for an invalid configuration.
+    pub fn open(layout: &Layout, max_bytes: u64, keep: u32) -> Self {
+        let redaction = Arc::new(log_redaction::Registry::from_file(layout));
+        let file = match RotatingFile::open(layout.log_file("supervisor"), max_bytes, keep) {
             Ok(file) => Some(file),
             Err(e) => {
                 eprintln!("plur1bus supervise: cannot open private log; output is dropped: {e}");
@@ -250,14 +254,22 @@ impl Log {
         };
         Self {
             file: Mutex::new(file),
+            redaction,
         }
     }
     /// A log that writes nowhere (before `logs/` exists).
     pub fn none() -> Self {
         Self {
             file: Mutex::new(None),
+            redaction: Arc::new(log_redaction::Registry::new()),
         }
     }
+
+    /// Replace the pinned current configuration group before any consumer can observe an accepted update.
+    pub fn register_config(&self, layout: &Layout, config: &Value) {
+        self.redaction.replace_config(layout, config);
+    }
+
     pub fn write(&self, level: &str, msg: &str, fields: Value) {
         let mut rec = Map::new();
         rec.insert("at".into(), json!(iso8601(now_ms())));
@@ -267,7 +279,22 @@ impl Log {
             rec.extend(f);
         }
         rec.insert("msg".into(), json!(msg));
-        let mut line = Value::Object(rec).to_string();
+        let mut rec = Value::Object(rec);
+        let written = self.redaction.with_matcher(|matcher| {
+            matcher.redact_value(&mut rec)?;
+            self.append(&rec);
+            Ok(())
+        });
+        if let Err(reason) = written {
+            self.append(&json!({
+                "at": iso8601(now_ms()), "level":"error", "role":"supervisor",
+                "msg":"log redaction unavailable; payload withheld", "reason":reason.to_string()
+            }));
+        }
+    }
+
+    fn append(&self, record: &Value) {
+        let mut line = record.to_string();
         line.push('\n');
         let mut file = self.file.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(f) = file.as_mut() {
@@ -650,7 +677,7 @@ fn fail(layout: &Layout, code: i32, msg: &str) -> ! {
             "exiting {mapped} instead of {code} so launchd does not restart a non-transient failure"
         );
         eprintln!("{note}");
-        let log = Log::open(&layout.log_file("supervisor"), u64::MAX, 1);
+        let log = Log::open(layout, u64::MAX, 1);
         log.info(&note, json!({}));
     }
     std::process::exit(mapped)
@@ -673,7 +700,7 @@ pub fn run(layout: &Layout, opts: SuperviseOpts) -> ! {
         Ok(code) => std::process::exit(code),
         Err(p) => {
             // The shared log went down with the panicking frame; append the one line that matters through a new one.
-            let log = Log::open(&layout.log_file("supervisor"), u64::MAX, 1);
+            let log = Log::open(layout, u64::MAX, 1);
             die_of_panic(&log, "main", p.as_ref())
         }
     }
@@ -724,7 +751,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     };
     // HB17: one record per start, before anything can fail with a remapped exit, so `1staid repair` can tell a
     // restart loop (under launchd, systemd or Task Scheduler alike) from the log. Opened like `fail`'s ad hoc log.
-    let log = Log::open(&layout.log_file("supervisor"), u64::MAX, 1);
+    let log = Log::open(layout, u64::MAX, 1);
     log.info("log permissions tightened", json!({ "entries": tightened }));
     log.info(
         "supervisor started",
@@ -779,11 +806,19 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     let recovered = crate::ext::recover(layout);
     let config_state = config::initial(layout);
     let config = config::supervisor_config(config_state.running.as_ref());
-    let log = Log::open(
-        &layout.log_file("supervisor"),
-        config.log_max_bytes,
-        config.log_keep,
-    );
+    // Keep the early registry: recovery can change config.json, and the runtime must register its exact snapshot.
+    if let Some(running) = &config_state.running {
+        log.register_config(layout, running);
+    } else if let Some(bytes) = config_state
+        .rejected
+        .as_ref()
+        .and_then(|rejected| rejected.bytes.as_deref())
+    {
+        log.redaction.replace_bytes(layout, bytes);
+    } else {
+        log.redaction.disable(log_redaction::Unavailable::Config);
+    }
+    log.set_limits(config.log_max_bytes, config.log_keep);
     if let Some(r) = &config_state.rejected {
         // B18: no configuration runs until a valid file appears; a core started now exits 2 (config-invalid).
         log.warn(
