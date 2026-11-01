@@ -1563,6 +1563,149 @@
         }
       }
     },
+    "a2aClient": {
+      "description": "Outbound A2A client. Pins live in the private peer registry; no credentials or foreign card text belong in configuration.",
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "x-restart": "live",
+      "x-tier": "advanced",
+      "x-write-roles": [
+        "owner"
+      ],
+      "x-audit": true,
+      "x-since": "1.12.0",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable the outbound A2A client. Peer registration and explicit trust use Owner-only RPC.",
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 120000,
+          "default": 30000,
+          "description": "Network deadline for an outbound A2A operation, including same-origin redirects.",
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true
+        },
+        "maxCardBytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 131072,
+          "default": 131072,
+          "description": "Maximum raw UTF-8 bytes of a signed foreign agent card.",
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true
+        },
+        "maxRequestBytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 65536,
+          "default": 16384,
+          "description": "Maximum raw JSON request bytes sent to a peer.",
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true
+        },
+        "maxReplyBytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 65536,
+          "default": 16384,
+          "description": "Maximum raw JSON response bytes accepted from a peer.",
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true
+        },
+        "maxPeers": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024,
+          "default": 64,
+          "description": "Maximum registered outbound peers. Existing pins remain removable when lowered.",
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true
+        },
+        "peerCalls": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "default": 8,
+          "description": "Maximum outgoing HTTP requests to one peer in one authenticated turn, including card reads.",
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true
+        },
+        "turnCalls": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000,
+          "default": 16,
+          "description": "Maximum outgoing A2A HTTP requests across peers in one authenticated turn.",
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true
+        },
+        "peerTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000000,
+          "default": 65536,
+          "description": "Per-peer per-turn communicated-token bound, conservatively measured in UTF-8 request and reply bytes. Hidden peer usage is not metered.",
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true
+        },
+        "turnTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000000,
+          "default": 131072,
+          "description": "Communicated-token bound across all peers in one turn, measured in UTF-8 request and reply bytes.",
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true
+        }
+      }
+    },
     "a2aServer": {
       "description": "Harness A2A server exposure configuration.",
       "type": "object",

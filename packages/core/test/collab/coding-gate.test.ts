@@ -11,6 +11,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { INNER_LAUNCHER, tasksStep, probeTasks } from '../../src/tools/sandbox/backends.ts';
 import { bombTasks } from '../tools/sandbox/bomb-tasks.ts';
 import { useTempDirs } from '../composition/helpers.ts';
+import { DatabaseSync } from "node:sqlite";
 const tmp = useTempDirs('m5-gate-');
 // Windows has no verifier sandbox backend: every verifier run there is refused before anything starts (fail closed,
 // verifier.ts), so the tests below assert that refusal where Linux and macOS assert what the sandbox does.
@@ -56,6 +57,26 @@ test('200 changed lines require independent exact-tree reviewer; later edits inv
   assert.equal((await gate.verify({ task: 'p/card', root: f.root, signal: new AbortController().signal })).ok, true);
   writeFileSync(join(f.root, 'code.ts'), readFileSync(join(f.root, 'code.ts'), 'utf8') + '// later\n');
   assert.equal((await gate.verify({ task: 'p/card', root: f.root, signal: new AbortController().signal })).reason, 'review-required');
+});
+
+test("foreign reviewers cannot register or satisfy a persisted independent review", async t => {
+  const f = fixture();
+  writeFileSync(join(f.root, "code.ts"), "// base\n" + "// change\n".repeat(200));
+  const path = join(tmp.make(), "reviews.sqlite");
+  const gate = new CodingGate({ path, verifier: GREEN, audit() {}, isLocalReviewer: (id: string) => id !== "remote-alias" });
+  t.after(() => gate.close());
+  const snapshot = gate.snapshot(f.root);
+  const rows = new DatabaseSync(path);
+  for (const reviewer of ["a2a:peer", "remote-alias"]) {
+    rows.prepare("INSERT INTO coding_reviews VALUES (?,?,?,?)").run("p/card", snapshot.treeHash, reviewer, "worker");
+  }
+  rows.close();
+  assert.equal((await gate.verify({ task: "p/card", root: f.root, signal: new AbortController().signal })).reason, "review-required");
+  for (const reviewer of ["a2a:peer", "remote-alias"]) {
+    assert.throws(() => gate.recordReview("p/card", snapshot, reviewer, "worker"));
+  }
+  gate.recordReview("p/card", snapshot, "reviewer", "worker");
+  assert.equal((await gate.verify({ task: "p/card", root: f.root, signal: new AbortController().signal })).ok, true);
 });
 test('delegate cannot replace the committed verifier commands with a no-op', async t => {
   const f = fixture(), gate = new CodingGate({ path: ':memory:', audit() {} }); t.after(() => gate.close());

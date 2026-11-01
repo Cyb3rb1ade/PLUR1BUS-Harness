@@ -127,6 +127,14 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Fixed
 
+- **Outbound A2A review boundaries and trust confirmation (V1).** Foreign peers cannot satisfy independent local
+  reviews or receive board-card ownership; local collaboration keeps its discovery and trust behavior. Requests send
+  `A2A-Version: 1.0`, require exact host admission, use peer-scoped credentials and opaque operation-local identifiers,
+  and show a redacted approval preview. Assignment and execution require an Owner person. Trust requires a fresh
+  confirmation of the complete endpoint and key pin; management writes fail closed when audit cannot record them.
+  Per-call budget rows are compacted after 30 days without resetting replayed turn quotas. Local abort closes the
+  connection but does not promise remote task cancellation. See the [V1 CLI handoff](docs/handoff/2026-10-31-v1-a2a-peer-cli.md).
+
 - **A successful tool result is redacted against the registered secret values before the model, the transcript or a result file
   sees it.** Only a failed call was redacted, so a tool that printed a secret (a shell command echoing a variable, a file read
   of a config, a fetch that reflects a token) put the value into the model context, the session transcript, the offloaded
