@@ -322,7 +322,7 @@ test("future packages register caller-owned arm definitions without changing a f
   );
   assert.throws(
     () => createEvaluationArmRegistry().resolve(id),
-    (error: unknown) => error instanceof EvaluationArmError && error.code === "arm-unknown",
+    (error: unknown) => error instanceof EvaluationArmError && error.code === "arm-not-executable",
   );
   assert.throws(() => registry.registerArm({ family: "custom", params: {}, roles: [], requires: ["runtime"] }));
 });
@@ -349,4 +349,25 @@ test("arm identities match K2's byte bound and never invoke descriptor getters o
   );
   assert.equal(invoked, false);
   assert.throws(() => canonicalArmId({ family: "custom", params: { text: "x".repeat(16384) } }), /byte limit/);
+});
+
+test("reserved canonical string IDs and structured arms share the unbound error, while object aliases stay unknown", () => {
+  const registry = createEvaluationArmRegistry();
+  registry.registerExtension("future+family");
+  for (const definition of [
+    { family: "team", params: { writers: 4 } },
+    { family: "best-of-n", params: { n: 3 } },
+    { family: "future+family", params: {} },
+  ]) {
+    for (const input of [definition, canonicalArmId(definition)]) {
+      assert.throws(
+        () => registry.resolve(input),
+        (error: unknown) => error instanceof EvaluationArmError && error.code === "arm-not-executable",
+      );
+    }
+  }
+  assert.throws(
+    () => registry.resolve({ family: "future-family", params: {} }),
+    (error: unknown) => error instanceof EvaluationArmError && error.code === "arm-unknown",
+  );
 });

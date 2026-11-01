@@ -18,7 +18,7 @@ export function executionEnvironment(values) {
   const allowed = new Set(contract.environment);
   return Object.fromEntries(
     Object.entries(values).filter(
-      ([key, value]) => allowed.has(key) && typeof value === "string" && !value.includes("\0"),
+      ([key, value]) => allowed.has(key) && typeof value === "string" && !value.includes("\u0000"),
     ),
   );
 }

@@ -25,24 +25,24 @@ function nodeSource(meta) {
     (item) => `${item.id.replaceAll("-", "_")}[${JSON.stringify(item.symbol.replaceAll("__SEED__", meta.tag))}]`,
   );
   return [
-    'import { readFileSync } from "node:fs";',
+    "import { readFileSync } from \"node:fs\";",
     ...imports,
     `const steps = [${functions.join(",")}];`,
     `const coupled = ${meta.task.kind === "coupled"};`,
     `const final = ${meta.last === meta.task.packages.length - 1};`,
     ...(meta.task.kind === "coupled" ? [`import { packet } from ${JSON.stringify(contractUrl)};`] : []),
-    'let value = readFileSync(0, "utf8");',
-    'const direct = process.argv[2] === "direct";',
+    "let value = readFileSync(0, \"utf8\");",
+    "const direct = process.argv[2] === \"direct\";",
     ...(meta.task.kind === "coupled"
       ? [
-          `if (direct && steps.length > 1) value = packet(value, steps.length - 1);`,
-          'if (direct && steps.length > 1 && process.argv[3] === "stale") value.stage++;',
-          'if (direct && steps.length > 1 && process.argv[3] === "corrupt") value.stamp++;',
+          "if (direct && steps.length > 1) value = packet(value, steps.length - 1);",
+          "if (direct && steps.length > 1 && process.argv[3] === \"stale\") value.stage++;",
+          "if (direct && steps.length > 1 && process.argv[3] === \"corrupt\") value.stamp++;",
         ]
       : []),
     "for (const step of direct ? steps.slice(-1) : steps) value = await step(value);",
     "if (coupled && !final) value = value.payload;",
-    'if (typeof value !== "string") throw Error("expected string");',
+    "if (typeof value !== \"string\") throw Error(\"expected string\");",
     "process.stdout.write(value);",
   ].join("\n");
 }
@@ -107,18 +107,18 @@ function rustSource(meta) {
     "fn main() {",
     "let mut raw = String::new();",
     "std::io::stdin().read_to_string(&mut raw).unwrap();",
-    'let direct = std::env::args().nth(1).as_deref() == Some("direct");',
+    "let direct = std::env::args().nth(1).as_deref() == Some(\"direct\");",
     ...(meta.task.kind === "coupled" && meta.packages.length > 1
       ? [
           `let mut state = contract::packet(raw.clone(), ${meta.packages.length - 1});`,
-          'if std::env::args().nth(2).as_deref() == Some("stale") { state.stage += 1; }',
-          'if std::env::args().nth(2).as_deref() == Some("corrupt") { state.stamp += 1; }',
+          "if std::env::args().nth(2).as_deref() == Some(\"stale\") { state.stage += 1; }",
+          "if std::env::args().nth(2).as_deref() == Some(\"corrupt\") { state.stamp += 1; }",
         ]
       : []),
     `let result = if direct { ${calls.at(-1)}(${directInput})${unwrap} } else {`,
     ...prefix,
     `value${unwrap} };`,
-    'print!("{}", result);',
+    "print!(\"{}\", result);",
     "}",
   ].join("\n");
 }
@@ -137,7 +137,7 @@ function goSource(meta) {
   const prefix = calls.map((call, index) => `value${index} := ${call}(${index ? `value${index - 1}` : "raw"})`);
   return [
     "package main",
-    'import ("fmt"; "os"; "io";',
+    "import (\"fmt\"; \"os\"; \"io\";",
     ...(coupled && meta.packages.length > 1 ? [`contract "fixture.local/task/src/contracts${meta.tag}"`] : []),
     ...modules,
     ")",
@@ -145,12 +145,12 @@ function goSource(meta) {
     "bytes, err := io.ReadAll(os.Stdin)",
     "if err != nil { panic(err) }",
     "raw := string(bytes)",
-    'if len(os.Args) > 1 && os.Args[1] == "direct" {',
+    "if len(os.Args) > 1 && os.Args[1] == \"direct\" {",
     ...(coupled && meta.packages.length > 1
       ? [
           `state := contract.PacketOf(raw, ${meta.packages.length - 1})`,
-          'if len(os.Args) > 2 && os.Args[2] == "stale" { state.Stage++ }',
-          'if len(os.Args) > 2 && os.Args[2] == "corrupt" { state.Stamp++ }',
+          "if len(os.Args) > 2 && os.Args[2] == \"stale\" { state.Stage++ }",
+          "if len(os.Args) > 2 && os.Args[2] == \"corrupt\" { state.Stamp++ }",
         ]
       : []),
     `fmt.Print(${calls.at(-1)}(${directInput})${unwrap})`,
@@ -176,7 +176,7 @@ export async function prepareProbe(task, image, tag, scope, root, runtime, execu
   if (task.language === "typescript") {
     args = ["--experimental-transform-types", "--no-warnings=ExperimentalWarning", source];
   } else if (task.language === "python") {
-    args = ["-I", "-B", "-X", "utf8", source];
+    args = ["-I", "-S", "-B", "-X", "utf8", source];
   } else {
     program = join(directory, "probe");
     const build =

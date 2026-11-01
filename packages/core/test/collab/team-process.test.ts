@@ -32,7 +32,7 @@ test("the published K2 platform and environment boundary is exact, with typed Wi
       NODE_OPTIONS: "injected",
       AWS_SECRET_ACCESS_KEY: "canary",
       RUSTFLAGS: "injected",
-      LC_ALL: "bad\0value",
+      LC_ALL: "bad\u0000value",
     }),
     { HOME: "/owned", PATH: "/bin", CI: "1", GOROOT: "/runtime/go" },
   );
@@ -70,7 +70,7 @@ setInterval(() => {}, 1000);`;
     assert.ok(performance.now() - start < 4000);
     const capped = await runOwnedCommand({
       program: process.execPath,
-      args: ["-e", 'process.stdout.write("x".repeat(100000)); setInterval(() => {}, 1000)'],
+      args: ["-e", "process.stdout.write(\"x\".repeat(100000)); setInterval(() => {}, 1000)"],
       cwd: root,
       env: {},
       timeoutMs: 5000,
@@ -80,7 +80,7 @@ setInterval(() => {}, 1000);`;
     assert.ok(Buffer.byteLength(capped.stdout) <= 512);
     const environment = await runOwnedCommand({
       program: process.execPath,
-      args: ["-e", 'process.stdout.write(process.env.PLUR1BUS_TEAM_ENV_CANARY ?? "absent")'],
+      args: ["-e", "process.stdout.write(process.env.PLUR1BUS_TEAM_ENV_CANARY ?? \"absent\")"],
       cwd: root,
       env: { NODE_OPTIONS: "--require /missing-loader", PLUR1BUS_TEAM_ENV_CANARY: "private" },
       timeoutMs: 5000,

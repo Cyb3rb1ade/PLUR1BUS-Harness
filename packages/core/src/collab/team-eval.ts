@@ -337,8 +337,12 @@ export class EvaluationArmRegistry {
     const id = typeof definition === "string" ? definition : canonicalArmId(definition);
     const arm = this.#arms.get(id);
     if (arm) return copyArm(arm);
-    const family = typeof definition === "string" ? definition : definition.family;
-    throw new EvaluationArmError(this.#extensions.has(family) ? "arm-not-executable" : "arm-unknown", id);
+    const slug = typeof definition === "string" ? (/^(.+)-[0-9a-f]{32}$/.exec(definition)?.[1] ?? definition) : "";
+    const reserved =
+      typeof definition === "string"
+        ? [...this.#extensions].some((extension) => extension.replaceAll("+", "-") === slug)
+        : this.#extensions.has(definition.family);
+    throw new EvaluationArmError(reserved ? "arm-not-executable" : "arm-unknown", id);
   }
 }
 

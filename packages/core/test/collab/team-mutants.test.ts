@@ -21,8 +21,8 @@ const MUTANTS = [
     mutate: (s: string) =>
       replaceOnce(
         s,
-        'if len(fields) != 4 || !strings.HasPrefix(fields[1], "/") {',
-        'if false && (len(fields) != 4 || !strings.HasPrefix(fields[1], "/")) {',
+        "if len(fields) != 4 || !strings.HasPrefix(fields[1], \"/\") {",
+        "if false && (len(fields) != 4 || !strings.HasPrefix(fields[1], \"/\")) {",
       ),
   },
   {
@@ -95,8 +95,10 @@ const MUTANTS = [
     mutate: (s: string) =>
       replaceOnce(
         s,
-        'if len(fields) != 3 || !valid.MatchString(fields[1]) || (fields[0] != "A" && fields[0] != "R") {',
-        'if false && (len(fields) != 3 || !valid.MatchString(fields[1]) || (fields[0] != "A" && fields[0] != "R")) {',
+        "if len(fields) != 3 || !valid.MatchString(fields[1]) || (fields[0] != \"A\" && fields[0] != \"R\") {",
+        "if false && (len(fields) != 3 || !valid." +
+          "MatchString(fields[1]) || (fields[0] != " +
+          "\"A\" && fields[0] != \"R\")) {",
       ),
   },
   {

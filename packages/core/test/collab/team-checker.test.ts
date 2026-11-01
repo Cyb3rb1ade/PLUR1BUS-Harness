@@ -1,6 +1,6 @@
 /** Runtime compatibility and infrastructure/candidate distinction using authored adversarial fixtures only. */
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile, mkdir, symlink, open, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -56,7 +56,7 @@ test("valid TypeScript enum syntax and a Python neighbor module pass the declare
 test("candidate compiler and module configuration is ignored; broken siblings retain separate compiled grades", async () => {
   for (const taskId of ["rs-range-set", "go-file-manifest"]) {
     await candidate(taskId, async (task, root, tag) => {
-      await writeFile(join(root, "rust-toolchain.toml"), '[toolchain]\nchannel = "missing-custom-channel"\n');
+      await writeFile(join(root, "rust-toolchain.toml"), "[toolchain]\nchannel = \"missing-custom-channel\"\n");
       await writeFile(join(root, "go.mod"), "invalid toolchain/replace module data\n");
       const before = await verifyFixture(task, root, task.seeds[0]!);
       if (unsupported(before)) return;
@@ -263,4 +263,39 @@ test("candidate-controlled instance metadata cannot turn an unresolved candidate
     assert.equal(report.checks.length, task.packages.length + 1);
     assert.ok(report.checks.every((check) => check.reason === "candidate-error" && !check.passed));
   });
+});
+
+test("unrelated build, Git, large-file and cache-link artifacts outside src do not affect a correct solution", async () => {
+  await candidate("ts-event-ledger", async (task, root) => {
+    await mkdir(join(root, ".git"));
+    await writeFile(join(root, ".git", "config"), "unrelated data");
+    await mkdir(join(root, "cache-target"));
+    await symlink(join(root, "cache-target"), join(root, "cache"), process.platform === "win32" ? "junction" : "dir");
+    const large = await open(join(root, "build-output"), "w");
+    try {
+      await large.truncate(17 * 1024 * 1024);
+    } finally {
+      await large.close();
+    }
+    const report = await verifyFixture(task, root, task.seeds[0]!);
+    if (!unsupported(report)) assert.equal(report.result.passed, true, JSON.stringify(report));
+  });
+});
+
+test("provided contract edits and document symlinks are candidate failures with no infrastructure exclusion", async () => {
+  for (const target of ["contract", "document"]) {
+    await candidate("ts-event-ledger", async (task, root, tag) => {
+      if (target === "contract") {
+        await writeFile(join(root, "src", `contracts.${tag}.ts`), "replaced public interface");
+      } else if (process.platform !== "win32") {
+        await unlink(join(root, "TASK.md"));
+        await symlink(fileURLToPath(new URL(`${task.id}/seed.mjs`, TEAM_ROOT)), join(root, "TASK.md"));
+      }
+      const report = await verifyFixture(task, root, task.seeds[0]!);
+      if (unsupported(report)) return;
+      assert.equal(report.result.reason, "unresolved");
+      assert.deepEqual(report.infrastructure, []);
+      assert.ok(report.checks.every((check) => check.reason === "candidate-error"));
+    });
+  }
 });

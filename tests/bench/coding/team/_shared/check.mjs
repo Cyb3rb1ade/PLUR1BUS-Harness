@@ -8,21 +8,10 @@ import { pathToFileURL } from "node:url";
 import { checkerVerdict, IsolationUnavailable, requirePlatform } from "./contract.mjs";
 import { createIsolation } from "./isolation.mjs";
 import { loadManifest } from "./manifest.mjs";
-import { sourceFiles } from "./materialize.mjs";
+import { snapshotInputs } from "./snapshot.mjs";
 import { prepareProbe } from "./probe.mjs";
 import { languageRuntime, preflight } from "./runtime.mjs";
 import { seedValues } from "./seed.mjs";
-
-async function snapshot(candidateRoot, destination) {
-  await mkdir(destination);
-  for (const file of await sourceFiles(candidateRoot)) {
-    if (!file.startsWith("src/") && !["TASK.md", "instance.json"].includes(file)) continue;
-    const target = join(destination, file);
-    await mkdir(dirname(target), { recursive: true });
-    await copyFile(join(candidateRoot, file), target);
-  }
-  await writeFile(join(destination, "go.mod"), "module fixture.local/task\ngo 1.22\n");
-}
 
 /** Refuse missing, empty or ambiguous host case sets before executing any candidate code. */
 export function validateCases(cases, scopes) {
@@ -89,15 +78,19 @@ async function grade(task, taskRoot, candidateRoot, seed, scopes, options, began
   const deadline = performance.now() + timeoutMs;
   const signal = AbortSignal.any([AbortSignal.timeout(timeoutMs), ...(options.signal ? [options.signal] : [])]);
   try {
-    const isolation = await createIsolation({ ...options, root, taskRoot, signal });
+    let runtime;
+    try {
+      runtime = await languageRuntime(task.language, root, { ...options, signal });
+    } catch {
+      throw new IsolationUnavailable("toolchain-unavailable");
+    }
+    const isolation = await createIsolation({ ...options, root, taskRoot, signal, runtimeRoots: runtime.roots });
     const execute = (request) => {
       const remaining = Math.ceil(deadline - performance.now());
       if (remaining < 1) return Promise.resolve({ code: null, stdout: "", stderr: "", reason: "timeout" });
       return isolation.run({ ...request, timeoutMs: Math.min(remaining, 30000) });
     };
-    let runtime;
     try {
-      runtime = await languageRuntime(task.language, root, options);
       await preflight(task.language, runtime, root, execute);
     } catch {
       throw new IsolationUnavailable("toolchain-unavailable");
@@ -107,11 +100,7 @@ async function grade(task, taskRoot, candidateRoot, seed, scopes, options, began
     validateCases(cases, scopes);
     const image = join(root, "image");
     try {
-      const instance = JSON.parse(await readFile(join(candidateRoot, "instance.json"), "utf8"));
-      if (instance.taskId !== task.id || instance.tag !== seedValues(seed).tag) {
-        throw new Error("candidate instance mismatch");
-      }
-      await snapshot(candidateRoot, image);
+      await snapshotInputs(task, taskRoot, candidateRoot, image, seed, signal);
     } catch {
       for (const scope of scopes)
         options.onCheck?.({

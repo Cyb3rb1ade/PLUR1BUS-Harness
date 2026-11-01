@@ -25,7 +25,7 @@ sessions and are unchanged by this work. Main is integrated by merge, never reba
 | Findings | Result |
 | --- | --- |
 | H1 | Exact macOS Go/Python workflow steps are covered by the workflow contract. The entire CI-script group is required before every push. |
-| H2, M1 | Oracle/seed stay in the host; input-only stdin bridges run in private PID/filesystem namespaces. Linux acceptance proves oracle-path hiding and outside-write denial. The port owns process groups, TERM/KILL escalation, orphan cleanup, output bounds and one overall deadline. CLI termination cleans its snapshot. |
+| H2, M1 | Oracle/seed stay in the host; input-only stdin bridges run in private PID/filesystem namespaces. Linux acceptance proves oracle-path hiding, outside-write denial and all four live language runtimes through explicit readonly SDK roots. The port owns process groups, TERM/KILL escalation, orphan cleanup, output bounds and one overall deadline. CLI termination cleans its snapshot. |
 | M2 | Known-good language compile/run preflight; repository Rust channel; post-preflight errors, executable self-deletion and tampered public metadata remain candidate failures. |
 | M3 | Every TASK.md states runtime, entry points, neighbor files and I/O; TS enum and Python neighbor solutions pass. |
 | M4 | All twelve previously surviving mutants lose behavioral cases; NUL and CRLF travel byte-for-byte through stdin; max-size payloads and 128-KiB output use a compact output digest. Frame integrity and malformed predecessor states have dedicated cases. |
@@ -33,6 +33,7 @@ sessions and are unchanged by this work. Main is integrated by merge, never reba
 | M7, L6 | Registry and stable IDs; explicit extension errors; complete allocations tied to tasks. |
 | L1 | Expensive language/task proofs are split into separate shardable files; weights use actual Linux measurements, with separate macOS provenance. Native Windows timings remain pending a Windows run. |
 | L2–L5 | 108 deterministic variants, LF attributes, formatted/documented code, shared manifest parser, cleanup after failed traversal and seeded symbols/logic. |
+| Claude follow-up | Snapshot only public inputs, pin Linux directory handles, ignore root build/Git/cache artifacts, enforce the fixed public contract, preserve live timeout reasons, omit stderr from frames and resolve reserved canonical string IDs consistently. |
 | L7 | K2 #868 revision c25213ee supplies the recorded checker/report/environment contracts; no competing live report or model runner. |
 
 The Linux acceptance runs as an ordinary user in a two-CPU Linux arm64 VM with Node 24.21.0, Rust 1.95.0,

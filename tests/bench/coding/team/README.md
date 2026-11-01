@@ -35,7 +35,9 @@ authored fixture source; arbitrary downloaded task generators are outside this i
 The materializer copies only `start/`, the neutral instruction as `TASK.md` and allowlisted instance metadata.
 The kind and package ownership remain private manifest metadata. `TASK.md` states the public entry points, runtime,
 allowed neighbor files, optional text frame and input/output contract. It gives no routing label or ownership plan.
-References and checkers are never copied into model input. Links and special files are refused, traversal is bounded,
+References and checkers are never copied into model input. Only src and the two public documents are snapshotted; Git/build/cache artifacts elsewhere are ignored.
+The supplied contract module is fixed/read-only; editing it is an unresolved candidate. Linux snapshots pin directory
+file descriptors and read regular files without following links. Links and special files are refused, traversal is bounded,
 and failed materialization removes only its newly created destination.
 
 Seeds 17, 104729 and 8675309 produce opaque names, seeded exported function names, numeric literals and three distinct
@@ -72,7 +74,10 @@ private seed. A candidate snapshot contains only public input files and allowed 
 
 - Live candidates run only under Linux, through `VerifierPort`, without network access and with a private PID space.
   Host oracle/repository paths are absent. The adapter also makes ephemeral parent directories read-only; only its
-  private workspace is writable. An oracle under an exposed system/runtime mount is refused before execution.
+  private workspace is writable. The default port reuses Core’s verifier mount plan and adds explicit read-only
+  SDK roots discovered from trusted toolchains (Rust sysroot, Go GOROOT, Python prefix). Oracle/runtime path overlap
+  in either direction is refused before execution. A caller-supplied K2 port must supply the same runtime visibility;
+  an unavailable runtime or isolation fails closed.
 - Authored fixture self-tests explicitly choose trusted `fixture` mode on Linux/macOS. A live failure never selects it.
 - Windows refuses both process paths with typed `platform-unavailable`; it runs materialization/contract proofs and
   asserts that refusal. Job Object isolation is deferred to D123. No unisolated Windows fallback exists.
@@ -85,7 +90,7 @@ The standalone host command also propagates SIGTERM/SIGINT and cleans its worksp
 A known-good compile-and-run preflight runs before candidate evaluation for each language. Missing/broken tools are
 infrastructure failures. A candidate compile error, deleted executable, bad output or timeout remains an unresolved
 candidate, including ENOENT after preflight. Rust's channel comes from repository `rust-toolchain.toml`; candidate
-compiler/module configuration is ignored. TypeScript uses Node's type transformation (including `enum`), Python adds
+compiler/module configuration is ignored. TypeScript uses Node's type transformation (including `enum`), Python disables site packages and adds
 the entry directory and `src/` to its isolated module path, and Go/Rust support the public neighbor-module layout.
 All use only their standard libraries; Go proxies/cgo are disabled.
 
@@ -110,7 +115,7 @@ node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWa
 Linux also requires the same usable bubblewrap/user-namespace setup as the Core CI jobs. Language/task files are split
 for measured shard balance. Tests cover every seed's start/reference grades, partial solutions, ownership, all 108
 deterministic variants, the twelve review mutants, NUL inputs, enum/neighbor compatibility, runtime preflight,
-self-deletion, trapping/orphan processes, total deadlines, oracle reading and outside writes. On macOS/Windows the live
+self-deletion, trapping/orphan processes, total deadlines, oracle reading, outside writes, four-language live smoke, ignored root artifacts and readonly-contract tampering. On macOS/Windows the live
 proof asserts refusal; the actual adversarial execution proof runs on Linux. No platform test is skipped.
 
 A standalone private checker is a **host** process, outside the candidate sandbox:

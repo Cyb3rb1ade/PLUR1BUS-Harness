@@ -3,7 +3,7 @@
 import { copyFile, realpath, writeFile } from "node:fs/promises";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { sandboxVerifier } from "../../../../../packages/core/src/collab/verifier.ts";
+import { runtimeVerifier } from "./verifier-port.mjs";
 import { executionEnvironment, IsolationUnavailable, requirePlatform } from "./contract.mjs";
 import { runOwnedCommand } from "./process.mjs";
 
@@ -12,22 +12,32 @@ function within(parent, path) {
   return suffix === "" || (!suffix.startsWith(`..${sep}`) && suffix !== ".." && !suffix.startsWith(sep));
 }
 
-async function safeMounts(privateRoot, taskRoot) {
+async function safeMounts(privateRoot, taskRoot, runtimeRoots) {
   const hidden = await realpath(taskRoot);
-  const exposed = ["/usr", "/bin", "/lib", "/lib64", "/etc", dirname(await realpath(process.execPath)), privateRoot];
-  if (exposed.some((path) => within(path, hidden))) {
+  const exposed = [
+    "/usr",
+    "/bin",
+    "/lib",
+    "/lib64",
+    "/etc",
+    dirname(await realpath(process.execPath)),
+    privateRoot,
+    ...runtimeRoots,
+  ];
+  if (exposed.some((path) => within(path, hidden) || within(hidden, path))) {
     throw new IsolationUnavailable("oracle-path-exposed");
   }
 }
 
 /** Create the same explicit fixture/live boundary as K2; a future Windows backend implements this run interface. */
-export async function createIsolation({ mode, root, taskRoot, signal, verifier }) {
+export async function createIsolation({ mode, root, taskRoot, signal, verifier, runtimeRoots = [] }) {
   requirePlatform(mode);
   if (mode === "fixture") {
     return { run: (request) => runOwnedCommand({ ...request, signal }) };
   }
-  await safeMounts(root, taskRoot);
-  const port = verifier ?? sandboxVerifier(60000);
+  const roots = await Promise.all(runtimeRoots.map((path) => realpath(path)));
+  await safeMounts(root, taskRoot, roots);
+  const port = verifier ?? runtimeVerifier(roots);
   const bridge = join(root, "capture.mjs");
   for (const file of ["capture.mjs", "process.mjs", "contract.mjs", "k2-contract.json"]) {
     await copyFile(fileURLToPath(new URL(file, import.meta.url)), join(root, file));
@@ -89,6 +99,15 @@ export async function createIsolation({ mode, root, taskRoot, signal, verifier }
           typeof frame.stderr !== "string"
         )
           throw new Error("invalid frame");
+        const stdout = Buffer.from(frame.stdout, "base64").toString("utf8");
+        if (frame.code === null) {
+          const failure = JSON.parse(stdout);
+          const allowed = ["spawn-failed", "aborted", "timeout", "output-limit"];
+          if (Object.keys(failure).join(",") !== "failure" || !allowed.includes(failure.failure)) {
+            throw new Error("invalid failure frame");
+          }
+          return { code: null, stdout: "", stderr: "", reason: failure.failure };
+        }
         return {
           code: frame.code,
           stdout: Buffer.from(frame.stdout, "base64").toString("utf8"),

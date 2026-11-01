@@ -13,9 +13,9 @@ async function digest(directory: string): Promise<string> {
   for (const file of await materializer.sourceFiles(directory)) {
     hash
       .update(file)
-      .update("\0")
+      .update("\u0000")
       .update(await readFile(join(directory, file)))
-      .update("\0");
+      .update("\u0000");
   }
   return hash.digest("hex");
 }
@@ -112,5 +112,5 @@ test("host case validation refuses empty or malformed cases, including duplicate
   ]) {
     assert.throws(() => checker.validateCases(cases, ["a"]));
   }
-  checker.validateCases({ a: [{ id: "nul", input: "\0", expected: "" }] }, ["a"]);
+  checker.validateCases({ a: [{ id: "nul", input: "\u0000", expected: "" }] }, ["a"]);
 });

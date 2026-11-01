@@ -22,14 +22,14 @@ const TEMPLATE = {
     ["a:0", "error"],
   ],
   e2e: [
-    ["Hello, hello world", '{"term":"hello","bytes":5}'],
-    ["Öl äpfel öl", '{"term":"öl","bytes":3}'],
-    ["", '{"term":null,"bytes":0}'],
+    ["Hello, hello world", "{\"term\":\"hello\",\"bytes\":5}"],
+    ["Öl äpfel öl", "{\"term\":\"öl\",\"bytes\":3}"],
+    ["", "{\"term\":null,\"bytes\":0}"],
   ],
   lookup: [
-    ["hello", '{"term":"hello","bytes":5}'],
-    ["öl", '{"term":"öl","bytes":3}'],
-    ["none", '{"term":null,"bytes":0}'],
+    ["hello", "{\"term\":\"hello\",\"bytes\":5}"],
+    ["öl", "{\"term\":\"öl\",\"bytes\":3}"],
+    ["none", "{\"term\":null,\"bytes\":0}"],
     ["A-b", "error"],
   ],
 };

@@ -8,6 +8,8 @@ import { seedValues } from "./seed.mjs";
 
 /** Enumerate bounded regular source files; links and special files never enter public inputs or snapshots. */
 export async function sourceFiles(root) {
+  const stat = await lstat(root);
+  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error("fixture tree requires a regular directory");
   const files = [];
   let bytes = 0;
   async function visit(directory) {
@@ -30,15 +32,21 @@ export async function sourceFiles(root) {
   return files.sort();
 }
 
+/** Expand public source templates without copying private seed/oracle data. */
+export function expandSource(text, seed) {
+  const values = seedValues(seed);
+  return text
+    .replaceAll("__SEED__", values.tag)
+    .replaceAll("__PROFILE__", String(values.profile))
+    .replaceAll("__SALT__", String(values.n));
+}
+
 /** Apply a source overlay using the same public name and logic substitutions as the starting tree. */
 export async function applyTree(source, destination, seed) {
   const values = seedValues(seed);
   for (const file of await sourceFiles(source)) {
     const target = join(destination, file.replaceAll("__SEED__", values.tag));
-    const text = (await readFile(join(source, file), "utf8"))
-      .replaceAll("__SEED__", values.tag)
-      .replaceAll("__PROFILE__", String(values.profile))
-      .replaceAll("__SALT__", String(values.n));
+    const text = expandSource(await readFile(join(source, file), "utf8"), seed);
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, text);
   }
@@ -59,13 +67,20 @@ function runContract(task, tag) {
       ? "The first function accepts text, middle functions accept/return Packet, and the last returns text. " +
         "Packet carries the previous stage's payload, stage and integrity stamp; use the public contract module. " +
         "Later stages are also tested with the actual outputs of their predecessors."
-      : "Each listed function accepts and returns a UTF-8 string. The integration entry composes the public endpoints.";
+      : "Each listed function accepts and returns" +
+        " a UTF-8 string. The integration entry c" +
+        "omposes the public endpoints.";
   return (
     `\n## How your code is run\n\n${runtime}\n\n${entries}\n\n${values}\n\n` +
     "The host sends raw UTF-8 through stdin, including embedded NUL, and compares the returned value outside " +
-    "the candidate process. Do not print diagnostics. Neighbor modules under src/ are allowed; external packages, " +
+    "the candidate process. Do not print diag" +
+      "nostics. Neighbor modules under src/ are" +
+      " allowed; the provided contracts " +
+    "module is fixed/read-only. Build artifacts outside src/ are ignored. External packages, " +
     "links and files outside the working directory are unavailable. The public contract module documents the " +
-    "instance's optional text frame. Candidate go.mod, rust-toolchain.toml and compiler configuration are ignored.\n"
+    "instance's optional text frame. Candidat" +
+      "e go.mod, rust-toolchain.toml and compil" +
+      "er configuration are ignored.\n"
   );
 }
 

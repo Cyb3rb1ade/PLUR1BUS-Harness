@@ -3,7 +3,7 @@
 import { access, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { homedir } from "node:os";
-import { delimiter, dirname, join, resolve } from "node:path";
+import { delimiter, dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { executionEnvironment, IsolationUnavailable } from "./contract.mjs";
 import { runOwnedCommand } from "./process.mjs";
@@ -19,6 +19,7 @@ export async function rustChannel() {
 async function executable(name, path = process.env.PATH ?? "") {
   if (name.includes("/")) return realpath(name);
   for (const directory of path.split(delimiter)) {
+    if (!isAbsolute(directory)) continue;
     const target = resolve(directory, name);
     try {
       await access(target, constants.X_OK);
@@ -69,7 +70,27 @@ export async function languageRuntime(language, root, options) {
     RUSTUP_TOOLCHAIN: await rustChannel(),
     ...provided?.env,
   });
-  return { program, env };
+  const runtime = { program, env };
+  const queries = {
+    rust: ["--print", "sysroot"],
+    go: ["env", "GOROOT"],
+    python: ["-I", "-S", "-c", "import sys; print(sys.prefix)"],
+  };
+  const roots = [];
+  if (queries[language]) {
+    const result = await runOwnedCommand({
+      ...runtime,
+      args: queries[language],
+      cwd: root,
+      timeoutMs: 10000,
+      signal: options.signal,
+    });
+    if (result.code !== 0 || result.reason || !isAbsolute(result.stdout.trim())) {
+      throw new IsolationUnavailable("toolchain-unavailable");
+    }
+    roots.push(await realpath(result.stdout.trim()));
+  }
+  return { ...runtime, roots };
 }
 
 /** Compile and execute known-good authored code before considering any candidate output. */
@@ -82,13 +103,13 @@ export async function preflight(language, runtime, root, execute) {
       "enum Answer { Value = 7 }; process.stdout.write(String(Answer.Value));",
       ["--experimental-transform-types", "--no-warnings=ExperimentalWarning", source + ".ts"],
     ],
-    python: [".py", 'print("7", end="")', ["-I", "-B", "-X", "utf8", source + ".py"]],
+    python: [".py", "print(\"7\", end=\"\")", ["-I", "-S", "-B", "-X", "utf8", source + ".py"]],
     rust: [
       ".rs",
-      'fn main() { print!("7"); }',
+      "fn main() { print!(\"7\"); }",
       ["--edition=2024", "--crate-name", "known_good", source + ".rs", "-o", bin],
     ],
-    go: [".go", 'package main\nimport "fmt"\nfunc main() { fmt.Print("7") }', ["build", "-o", bin, source + ".go"]],
+    go: [".go", "package main\nimport \"fmt\"\nfunc main() { fmt.Print(\"7\") }", ["build", "-o", bin, source + ".go"]],
   };
   const [extension, text, args] = definitions[language];
   await writeFile(source + extension, text);

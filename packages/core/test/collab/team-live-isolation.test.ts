@@ -36,7 +36,7 @@ test("Linux isolation hides host PID/oracle paths and prevents outside writes; o
         env: { HOME: root, TMPDIR: root, PATH: "/usr/bin:/bin", CI: "1" },
         timeoutMs: 5000,
       });
-    const ready = await run('process.stdout.write("ready")');
+    const ready = await run("process.stdout.write(\"ready\")");
     assert.equal(ready.code, 0, JSON.stringify(ready));
     assert.equal(ready.stdout, "ready");
     const privateFile = join(parent, "host-only");
@@ -59,7 +59,7 @@ process.stdout.write("written"); } catch { process.stdout.write("denied"); }`);
     await assert.rejects(access(outsideWrite));
     const large = await port.run({
       program: process.execPath,
-      args: ["-e", 'process.stdout.write("é".repeat(65536))'],
+      args: ["-e", "process.stdout.write(\"é\".repeat(65536))"],
       cwd: root,
       env: { HOME: root, TMPDIR: root, PATH: "/usr/bin:/bin", CI: "1" },
       timeoutMs: 5000,
@@ -71,6 +71,26 @@ process.stdout.write("written"); } catch { process.stdout.write("denied"); }`);
       sha256: createHash("sha256").update("é".repeat(65536), "utf8").digest("hex"),
       bytes: 131072,
     });
+    const trapped = await port.run({
+      program: process.execPath,
+      args: ["-e", "process.on(\"SIGTERM\", () => {}); setInterval(() => {}, 1000)"],
+      cwd: root,
+      env: {},
+      timeoutMs: 300,
+    });
+    assert.equal(trapped.reason, "timeout");
+    const stderr = await port.run({
+      program: process.execPath,
+      args: ["-e", "process.stderr.write(\"x\".repeat(60000)); process.stdout.write(\"ready\")"],
+      cwd: root,
+      env: {},
+      timeoutMs: 5000,
+      digestOutput: true,
+      maxOutputBytes: 1024 * 1024,
+    });
+    assert.equal(stderr.code, 0);
+    assert.equal(stderr.stderr, "");
+    assert.equal((JSON.parse(stderr.stdout) as { bytes: number }).bytes, 5);
     const descriptor = await readFile(join(root, "command.json"), "utf8");
     assert.doesNotMatch(descriptor, /"expected"|"seed"|"taskRoot"/);
   } finally {
@@ -132,5 +152,54 @@ return command.includes("--seed") ? "host-pid-exposed" : "oracle-hidden";
     }
   } finally {
     await rm(parent, { recursive: true, force: true });
+  }
+});
+
+test("live references compile and run in all four languages with explicit readonly runtime roots, or refuse by platform", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "p1b-team-live-languages-"));
+  try {
+    for (const id of ["ts-event-ledger", "py-order-allocation", "rs-range-set", "go-file-manifest"]) {
+      const task = TEAM_TASKS.find((task) => task.id === id)!;
+      const taskRoot = fileURLToPath(new URL(`${id}/`, TEAM_ROOT));
+      const candidate = join(parent, id);
+      await materializer.materialize(taskRoot, candidate, task.seeds[0], task.packages.length);
+      const infrastructure: string[] = [];
+      const result = (await checker.verify(taskRoot, candidate, task.seeds[0], "e2e", {
+        mode: "live",
+        onInfrastructureFailure: (reason: string) => infrastructure.push(reason),
+      })) as TeamVerdict;
+      if (process.platform === "linux") {
+        assert.equal(result.passed, true, JSON.stringify({ id, result, infrastructure }));
+        assert.deepEqual(infrastructure, []);
+      } else {
+        assert.equal(result.reason, "unavailable");
+        assert.deepEqual(infrastructure, ["platform-unavailable"]);
+      }
+    }
+  } finally {
+    await rm(parent, { recursive: true, force: true });
+  }
+});
+
+test("a runtime root that exposes the private oracle is refused before creating a live command", async () => {
+  const root = await mkdtemp(join(tmpdir(), "p1b-team-live-mount-"));
+  const taskRoot = fileURLToPath(new URL("ts-calendar/", TEAM_ROOT));
+  try {
+    await assert.rejects(
+      createIsolation({
+        mode: "live",
+        root,
+        taskRoot,
+        runtimeRoots: [join(taskRoot, "reference")],
+        signal: AbortSignal.timeout(5000),
+      }),
+      (error: unknown) =>
+        error instanceof IsolationUnavailable &&
+        (error as { code: string }).code ===
+          (process.platform === "linux" ? "oracle-path-exposed" : "platform-unavailable"),
+    );
+    await assert.rejects(access(join(root, "command.json")));
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });

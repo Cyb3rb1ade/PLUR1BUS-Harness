@@ -33,15 +33,15 @@ const TEMPLATE = {
     ["", "AVAILABLE 0..100 (100 minutes)"],
   ],
   duration: [
-    ["0..12", '{"start":0,"end":12,"minutes":12}'],
-    ["none", '{"start":null,"end":null,"minutes":0}'],
+    ["0..12", "{\"start\":0,\"end\":12,\"minutes\":12}"],
+    ["none", "{\"start\":null,\"end\":null,\"minutes\":0}"],
     ["9..8", "error"],
     ["x", "error"],
   ],
   display: [
-    ['{"start":0,"end":12,"minutes":12}', "AVAILABLE 0..12 (12 minutes)"],
-    ['{"start":null,"end":null,"minutes":0}', "FULL"],
-    ['{"start":0,"end":12,"minutes":11}', "error"],
+    ["{\"start\":0,\"end\":12,\"minutes\":12}", "AVAILABLE 0..12 (12 minutes)"],
+    ["{\"start\":null,\"end\":null,\"minutes\":0}", "FULL"],
+    ["{\"start\":0,\"end\":12,\"minutes\":11}", "error"],
     ["{}", "error"],
   ],
 };

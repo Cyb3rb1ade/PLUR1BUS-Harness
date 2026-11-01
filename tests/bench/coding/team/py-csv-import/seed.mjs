@@ -3,10 +3,10 @@
 import { checkedCases, seedValues } from "../_shared/seed.mjs";
 const TEMPLATE = {
   parse: [
-    ['"__TAG__","__N__"\nz,-2\n', "__TAG__:__N__;z:-2"],
+    ["\"__TAG__\",\"__N__\"\nz,-2\n", "__TAG__:__N__;z:-2"],
     ["", ""],
     ["a,2,3", "error"],
-    ['"a,1', "error"],
+    ["\"a,1", "error"],
   ],
   deduplicate: [
     ["__TAG__:__N__;z:2;__TAG__:__N2__", "__TAG__:__N2__;z:2"],
@@ -21,7 +21,7 @@ const TEMPLATE = {
     ["bad", "error"],
   ],
   e2e: [
-    ['"__TAG__",__N__\n__TAG__,__N2__', "count=1;mean=__N2__"],
+    ["\"__TAG__\",__N__\n__TAG__,__N2__", "count=1;mean=__N2__"],
     ["a,-2\nb,-1\n", "count=2;mean=-2"],
     ["", "count=0;mean=0"],
   ],

@@ -11,7 +11,7 @@ const result = await runOwnedCommand({
 });
 const frame = {
   code: result.reason ? null : result.code,
-  stdout: Buffer.from(result.stdout).toString("base64"),
-  stderr: Buffer.from(result.stderr).toString("base64"),
+  stdout: Buffer.from(result.reason ? JSON.stringify({ failure: result.reason }) : result.stdout).toString("base64"),
+  stderr: "",
 };
 process.stdout.write(JSON.stringify(frame));
