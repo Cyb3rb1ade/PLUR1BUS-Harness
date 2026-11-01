@@ -1,5 +1,13 @@
 // chat area catalogue: keys `chat.<topic>`; en and de must have the same keys and {placeholders} (test/i18n.test.ts).
 export const en = {
+  "chat.rewind.here": "Rewind to here",
+  "chat.rewind.target": "Rewind to message {seq}",
+  "chat.rewind.undo": "Undo rewind",
+  "chat.rewind.discarded": "Discarded message (preserved)",
+  "chat.rewind.retained": "Discarded messages are preserved. Rewind changes the conversation; files stay as they are.",
+  "chat.rewind.error": "Rewind could not be applied. Wait for the reply to finish and try again.",
+  "chat.rewind.proposal": "The agent suggests rewinding after {cycles} failed edit and check cycles.",
+  "chat.rewind.confirm": "Confirm rewind",
   "chat.channel.history": "Channel direct messages",
   "chat.channel.readOnly": "Read only",
   "chat.channel.continue": "Continue in Web",
@@ -120,6 +128,14 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "chat.rewind.here": "Bis hier zurückspulen",
+  "chat.rewind.target": "Bis Nachricht {seq} zurückspulen",
+  "chat.rewind.undo": "Zurückspulen rückgängig machen",
+  "chat.rewind.discarded": "Verworfene Nachricht (aufbewahrt)",
+  "chat.rewind.retained": "Verworfene Nachrichten bleiben erhalten. Zurückspulen ändert das Gespräch; die Dateien bleiben wie sie sind.",
+  "chat.rewind.error": "Zurückspulen war nicht möglich. Warte auf das Ende der Antwort und versuche es erneut.",
+  "chat.rewind.proposal": "Der Agent schlägt nach {cycles} erfolglosen Änderungs- und Prüfschritten ein Zurückspulen vor.",
+  "chat.rewind.confirm": "Zurückspulen bestätigen",
   "chat.channel.history": "Channel-Direktnachrichten",
   "chat.channel.readOnly": "Nur lesend",
   "chat.channel.continue": "In Web fortsetzen",

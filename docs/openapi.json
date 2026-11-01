@@ -6000,6 +6000,10 @@
                           },
                           "createdAt": {
                             "type": "integer"
+                          },
+                          "rewound": {
+                            "type": "boolean",
+                            "description": "Retained transcript message excluded from the active context by a rewind or an undone lesson."
                           }
                         }
                       }
@@ -6053,7 +6057,10 @@
                               "decision.completed",
                               "model.selected",
                               "compaction.prune",
-                              "skills.selected"
+                              "skills.selected",
+                              "session.rewind",
+                              "session.rewind.undone",
+                              "session.rewind.proposed"
                             ]
                           },
                           "data": {
@@ -6064,6 +6071,158 @@
                           }
                         }
                       }
+                    },
+                    "rewinds": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "sessionId",
+                          "parentSeq",
+                          "hiddenFromSeq",
+                          "hiddenToSeq",
+                          "lessonMessageId",
+                          "hiddenDigest",
+                          "trigger",
+                          "actor",
+                          "createdAt",
+                          "undoneAt"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "sessionId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "parentSeq": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "hiddenFromSeq": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "hiddenToSeq": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "lessonMessageId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "hiddenDigest": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          },
+                          "trigger": {
+                            "enum": [
+                              "user",
+                              "agent"
+                            ]
+                          },
+                          "actor": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "createdAt": {
+                            "type": "integer"
+                          },
+                          "undoneAt": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          }
+                        }
+                      },
+                      "description": "Reversible path overlays, including undone overlays."
+                    },
+                    "discarded": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "seq",
+                          "role",
+                          "text",
+                          "createdAt"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "seq": {
+                            "type": "integer"
+                          },
+                          "turnId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "role": {
+                            "enum": [
+                              "system",
+                              "user",
+                              "assistant",
+                              "tool"
+                            ]
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "integer"
+                          },
+                          "rewound": {
+                            "type": "boolean",
+                            "description": "Retained transcript message excluded from the active context by a rewind or an undone lesson."
+                          }
+                        }
+                      },
+                      "description": "Retained discarded messages for export and transcript display."
+                    },
+                    "rewindProposal": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "parentSeq": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "failedCycles": {
+                          "type": "integer",
+                          "minimum": 3
+                        },
+                        "lastCheckSeq": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "agentId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "parentSeq",
+                        "failedCycles",
+                        "lastCheckSeq",
+                        "agentId"
+                      ]
                     }
                   }
                 }
@@ -6823,6 +6982,10 @@
                           },
                           "createdAt": {
                             "type": "integer"
+                          },
+                          "rewound": {
+                            "type": "boolean",
+                            "description": "Retained transcript message excluded from the active context by a rewind or an undone lesson."
                           }
                         }
                       }
@@ -6876,7 +7039,10 @@
                               "decision.completed",
                               "model.selected",
                               "compaction.prune",
-                              "skills.selected"
+                              "skills.selected",
+                              "session.rewind",
+                              "session.rewind.undone",
+                              "session.rewind.proposed"
                             ]
                           },
                           "data": {
@@ -6887,6 +7053,158 @@
                           }
                         }
                       }
+                    },
+                    "rewinds": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "sessionId",
+                          "parentSeq",
+                          "hiddenFromSeq",
+                          "hiddenToSeq",
+                          "lessonMessageId",
+                          "hiddenDigest",
+                          "trigger",
+                          "actor",
+                          "createdAt",
+                          "undoneAt"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "sessionId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "parentSeq": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "hiddenFromSeq": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "hiddenToSeq": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "lessonMessageId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "hiddenDigest": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          },
+                          "trigger": {
+                            "enum": [
+                              "user",
+                              "agent"
+                            ]
+                          },
+                          "actor": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "createdAt": {
+                            "type": "integer"
+                          },
+                          "undoneAt": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          }
+                        }
+                      },
+                      "description": "Reversible path overlays, including undone overlays."
+                    },
+                    "discarded": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "seq",
+                          "role",
+                          "text",
+                          "createdAt"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "seq": {
+                            "type": "integer"
+                          },
+                          "turnId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "role": {
+                            "enum": [
+                              "system",
+                              "user",
+                              "assistant",
+                              "tool"
+                            ]
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "integer"
+                          },
+                          "rewound": {
+                            "type": "boolean",
+                            "description": "Retained transcript message excluded from the active context by a rewind or an undone lesson."
+                          }
+                        }
+                      },
+                      "description": "Retained discarded messages for export and transcript display."
+                    },
+                    "rewindProposal": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "parentSeq": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "failedCycles": {
+                          "type": "integer",
+                          "minimum": 3
+                        },
+                        "lastCheckSeq": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "agentId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "parentSeq",
+                        "failedCycles",
+                        "lastCheckSeq",
+                        "agentId"
+                      ]
                     }
                   }
                 }
@@ -7248,7 +7566,10 @@
                               "decision.completed",
                               "model.selected",
                               "compaction.prune",
-                              "skills.selected"
+                              "skills.selected",
+                              "session.rewind",
+                              "session.rewind.undone",
+                              "session.rewind.proposed"
                             ]
                           },
                           "data": {
@@ -7424,6 +7745,308 @@
                     },
                     "cancelled": {
                       "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The one-time CSRF token is missing, wrong, spent or expired (`reason`: `csrf`); or a foreign `Origin` / cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "write",
+        "x-csrf": true,
+        "x-authz": "chat:write"
+      }
+    },
+    "/api/v1/chats/{sessionId}/rewind": {
+      "post": {
+        "operationId": "chats.rewind",
+        "tags": [
+          "chats"
+        ],
+        "summary": "Own direct chat rewind",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "A one-time token from GET /api/v1/csrf.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "toSeq": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "const": "last"
+                      }
+                    ]
+                  },
+                  "lesson": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1568
+                  },
+                  "files": {
+                    "type": "boolean"
+                  },
+                  "undo": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9_-]+$"
+                  }
+                },
+                "required": [],
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "toSeq": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "const": "last"
+                          }
+                        ]
+                      },
+                      "lesson": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1568
+                      },
+                      "files": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "toSeq"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "undo": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "^[A-Za-z0-9_-]+$"
+                      }
+                    },
+                    "required": [
+                      "undo"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Principal-bound direct-chat result; incognito transcripts are volatile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "sessionId",
+                    "rewind"
+                  ],
+                  "properties": {
+                    "sessionId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "rewind": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "sessionId",
+                        "parentSeq",
+                        "hiddenFromSeq",
+                        "hiddenToSeq",
+                        "lessonMessageId",
+                        "hiddenDigest",
+                        "trigger",
+                        "actor",
+                        "createdAt",
+                        "undoneAt"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "sessionId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "parentSeq": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "hiddenFromSeq": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "hiddenToSeq": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "lessonMessageId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "hiddenDigest": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "trigger": {
+                          "enum": [
+                            "user",
+                            "agent"
+                          ]
+                        },
+                        "actor": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 256
+                        },
+                        "createdAt": {
+                          "type": "integer"
+                        },
+                        "undoneAt": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        }
+                      }
                     }
                   }
                 }
@@ -8549,9 +9172,135 @@
                           },
                           "createdAt": {
                             "type": "integer"
+                          },
+                          "rewound": {
+                            "type": "boolean",
+                            "description": "Retained transcript message excluded from the active context by a rewind or an undone lesson."
                           }
                         }
                       }
+                    },
+                    "rewinds": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "sessionId",
+                          "parentSeq",
+                          "hiddenFromSeq",
+                          "hiddenToSeq",
+                          "lessonMessageId",
+                          "hiddenDigest",
+                          "trigger",
+                          "actor",
+                          "createdAt",
+                          "undoneAt"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "sessionId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "parentSeq": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "hiddenFromSeq": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "hiddenToSeq": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "lessonMessageId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "hiddenDigest": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          },
+                          "trigger": {
+                            "enum": [
+                              "user",
+                              "agent"
+                            ]
+                          },
+                          "actor": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "createdAt": {
+                            "type": "integer"
+                          },
+                          "undoneAt": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          }
+                        }
+                      },
+                      "description": "Reversible path overlays, including undone overlays."
+                    },
+                    "discarded": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "seq",
+                          "role",
+                          "text",
+                          "createdAt"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "seq": {
+                            "type": "integer"
+                          },
+                          "turnId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "role": {
+                            "enum": [
+                              "system",
+                              "user",
+                              "assistant",
+                              "tool"
+                            ]
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "integer"
+                          },
+                          "rewound": {
+                            "type": "boolean",
+                            "description": "Retained transcript message excluded from the active context by a rewind or an undone lesson."
+                          }
+                        }
+                      },
+                      "description": "Retained discarded messages for export and transcript display."
                     }
                   },
                   "required": [

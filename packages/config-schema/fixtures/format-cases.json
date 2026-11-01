@@ -244,6 +244,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -777,6 +780,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -1310,6 +1316,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -1843,6 +1852,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -2376,6 +2388,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -2909,6 +2924,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -3442,6 +3460,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -3975,6 +3996,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -4508,6 +4532,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -5041,6 +5068,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -5574,6 +5604,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -6107,6 +6140,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -6640,6 +6676,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -7173,6 +7212,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -7706,6 +7748,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -8239,6 +8284,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -8772,6 +8820,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -9305,6 +9356,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -9838,6 +9892,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -10371,6 +10428,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -10904,6 +10964,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -11437,6 +11500,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -11970,6 +12036,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -12503,6 +12572,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -13036,6 +13108,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -13569,6 +13644,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -14102,6 +14180,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -14635,6 +14716,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -15168,6 +15252,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -15698,6 +15785,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -16228,6 +16318,9 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": []
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,

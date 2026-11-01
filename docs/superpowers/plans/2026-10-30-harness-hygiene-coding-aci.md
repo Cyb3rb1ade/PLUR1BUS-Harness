@@ -269,7 +269,7 @@ Alt+Enter = queue, `/steer`, `/queue`, `/unqueue`, Ctrl+C/Ctrl+D, `approve.rs` i
 `commands.rs` for `/check`, `/diff`, `/done`, `/rewind`, `/compact`, `/model`, `/help`), the `Code(CodeArgs)` entry in
 `crates/plur1bus/src/cli.rs` sharing `pick_agent` and the model switch with `commands/session.rs`; the core method
 `code.session.open` (RPC schema, handler beside `rpc/chat-surface.ts`, D115 card binding through `ProjectWorktreePort`,
-`session_worktrees` in session schema v10, the D109 grant request for a folder that is not a granted root) and the coding
+`session_worktrees` in session schema v11 (owner allocation 2026-11-01), the D109 grant request for a folder that is not a granted root) and the coding
 profile (pre-admitted ACI tools, the static coding section in zone 2); `reedline` 0.52.1 through the dependency gate
 (`deny.toml`, `docs/dependency-policy.md`, `THIRD_PARTY*`); the non-interactive mode with `code.event/1` documents. Spec
 §8.8, Q22–Q25. Tests: Rust unit tests for key handling (Enter and Alt+Enter while busy and idle), the renderer against
@@ -301,7 +301,7 @@ skips review or the manifest check. Docs: `docs/collaboration.md`, the D98 secti
 
 ## H4 — Rewind with lesson (3 agent days; Sonnet or Opus, TypeScript)
 
-Session schema v11 (`path_rewinds`, spec §10.1; v10 is CLI-1's `session_worktrees`) in `session/migrations.ts`; the active-path filter wherever the prompt is
+Session schema v10 (`path_rewinds`, spec §10.1; owner allocation 2026-11-01 reserves v11 for CLI-1's `session_worktrees`) in `session/migrations.ts`; the active-path filter wherever the prompt is
 built and in compaction (`session/compaction.ts`, summaries overlapping a hidden range dropped from the view); `/rewind` as
 a transcript command in `session/turn-loop.ts`; `chat.rewind`/`session.rewind` and `--undo` in `rpc/chat-surface.ts` with
 the audit record and `hiddenDigest`; lesson distillation through the `summarize` role with the deterministic fallback;

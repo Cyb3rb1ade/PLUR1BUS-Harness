@@ -94,6 +94,22 @@ function createRig(opts: TestRigOptions = {}) {
 }
 
 describe("M6A-A1.3: External turns service in core", () => {
+  it("D120: external continuation builds its model history from the active path", async () => {
+    const rig = createRig();
+    try {
+      rig.setPrincipal({ userId: "mcp-user", role: "owner", tokenId: "tok-1" });
+      const first = await rig.call("external.turn.start", { agentId: "bernd", message: "DISCARDED_PROTOCOL_HISTORY",
+        audience: "mcp", tokenId: "tok-1", wait: true }) as { sessionId: string };
+      rig.store.rewindPath(first.sessionId, { toSeq: 0, lesson: "Use the known interface.", actor: "owner", trigger: "user" });
+      let seen: ChatRequest | undefined;
+      rig.setProvider({ id: "after-rewind", async *stream(request) { seen = request; yield { type: "delta", text: "ok" }; } });
+      await rig.call("external.turn.start", { agentId: "bernd", sessionId: first.sessionId, message: "continue",
+        audience: "mcp", tokenId: "tok-1", wait: true });
+      assert.doesNotMatch(JSON.stringify(seen?.messages), /DISCARDED_PROTOCOL_HISTORY/);
+      assert.match(JSON.stringify(seen?.messages), /Use the known interface/);
+    } finally { await rig.service.idle(); rig.store.close(); }
+  });
+
   it("external.turn.start with wait: true runs complete turn with recall and capture", async () => {
     const rig = createRig();
     rig.setPrincipal({

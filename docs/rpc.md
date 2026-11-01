@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.11.0)
+# RPC reference (rpc 1.18.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -376,6 +376,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `approval.cancel`: experimental, since 1.5.0
 - `approval.verify`: experimental, since 1.5.0
 - `approval.audit`: experimental, since 1.5.0
+- `chat.rewind`: experimental, since 1.18.0
+- `session.rewind`: experimental, since 1.18.0
 
 ### supervisor server
 
@@ -6137,6 +6139,23 @@ Authenticated own direct-chat get. Identity is derived from the current principa
       "items": {
         "$ref": "#/$defs/SessionEvent"
       }
+    },
+    "rewinds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RewindRecord"
+      },
+      "description": "Reversible path overlays, including undone overlays."
+    },
+    "discarded": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionMessage"
+      },
+      "description": "Retained discarded messages for export and transcript display."
+    },
+    "rewindProposal": {
+      "$ref": "#/$defs/RewindProposal"
     }
   }
 }
@@ -6677,6 +6696,20 @@ Authenticated own direct-chat export. Identity is derived from the current princ
       "items": {
         "$ref": "#/$defs/SessionMessage"
       }
+    },
+    "rewinds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RewindRecord"
+      },
+      "description": "Reversible path overlays, including undone overlays."
+    },
+    "discarded": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionMessage"
+      },
+      "description": "Retained discarded messages for export and transcript display."
     }
   },
   "required": [
@@ -23460,6 +23493,16 @@ One session of the caller's (archived ones included), with the id of its running
           }
         }
       }
+    },
+    "rewinds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RewindRecord"
+      },
+      "description": "Reversible path overlays, including undone overlays."
+    },
+    "rewindProposal": {
+      "$ref": "#/$defs/RewindProposal"
     }
   }
 }
@@ -23537,6 +23580,16 @@ Get plus the transcript (the last `limit` messages, default 100) and the last ev
       "items": {
         "$ref": "#/$defs/SessionEvent"
       }
+    },
+    "rewinds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RewindRecord"
+      },
+      "description": "Reversible path overlays, including undone overlays."
+    },
+    "rewindProposal": {
+      "$ref": "#/$defs/RewindProposal"
     }
   }
 }
@@ -24409,6 +24462,270 @@ D109 §9.10: approval-related HMAC-chain entries of the calling person, newest f
     },
     "nextCursor": {
       "type": "string"
+    }
+  }
+}
+```
+
+### `chat.rewind`
+
+**Stability:** experimental · since 1.18.0
+
+**Served by:** core
+
+D120 H4. Human-only, owned idle-session rewind or undo. Transcript messages/events remain append-only; hidden ranges and obsolete lessons never enter model context. files requests an approved D115 checkpoint restore; conversation-only by default.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "toSeq": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "const": "last"
+        }
+      ]
+    },
+    "lesson": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1568
+    },
+    "files": {
+      "type": "boolean"
+    },
+    "undo": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    }
+  },
+  "required": [
+    "sessionId"
+  ],
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "toSeq": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "const": "last"
+            }
+          ]
+        },
+        "lesson": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1568
+        },
+        "files": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "sessionId",
+        "toSeq"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "undo": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        }
+      },
+      "required": [
+        "sessionId",
+        "undo"
+      ]
+    }
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "rewind"
+  ],
+  "properties": {
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "rewind": {
+      "$ref": "#/$defs/RewindRecord"
+    }
+  }
+}
+```
+
+### `session.rewind`
+
+**Stability:** experimental · since 1.18.0
+
+**Served by:** core
+
+D120 H4. Human-only, owned idle-session rewind or undo. Transcript messages/events remain append-only; hidden ranges and obsolete lessons never enter model context. files requests an approved D115 checkpoint restore; conversation-only by default.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "toSeq": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "const": "last"
+        }
+      ]
+    },
+    "lesson": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1568
+    },
+    "files": {
+      "type": "boolean"
+    },
+    "undo": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    }
+  },
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "caller": {
+          "$ref": "#/$defs/CallerIdentity"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "toSeq": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "const": "last"
+            }
+          ]
+        },
+        "lesson": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1568
+        },
+        "files": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "caller",
+        "sessionId",
+        "toSeq"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "caller": {
+          "$ref": "#/$defs/CallerIdentity"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "undo": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        }
+      },
+      "required": [
+        "caller",
+        "sessionId",
+        "undo"
+      ]
+    }
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "rewind"
+  ],
+  "properties": {
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "rewind": {
+      "$ref": "#/$defs/RewindRecord"
     }
   }
 }
@@ -36321,6 +36638,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "createdAt": {
       "type": "integer"
+    },
+    "rewound": {
+      "type": "boolean",
+      "description": "Retained transcript message excluded from the active context by a rewind or an undone lesson."
     }
   }
 }
@@ -36341,7 +36662,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "decision.completed",
     "model.selected",
     "compaction.prune",
-    "skills.selected"
+    "skills.selected",
+    "session.rewind",
+    "session.rewind.undone",
+    "session.rewind.proposed"
   ]
 }
 ```
@@ -38799,5 +39123,114 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "minimum": 0
     }
   }
+}
+```
+
+### `RewindRecord`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "sessionId",
+    "parentSeq",
+    "hiddenFromSeq",
+    "hiddenToSeq",
+    "lessonMessageId",
+    "hiddenDigest",
+    "trigger",
+    "actor",
+    "createdAt",
+    "undoneAt"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "parentSeq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "hiddenFromSeq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "hiddenToSeq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "lessonMessageId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "hiddenDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "trigger": {
+      "enum": [
+        "user",
+        "agent"
+      ]
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "createdAt": {
+      "type": "integer"
+    },
+    "undoneAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+### `RewindProposal`
+
+```json
+{
+  "type": [
+    "object",
+    "null"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "parentSeq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failedCycles": {
+      "type": "integer",
+      "minimum": 3
+    },
+    "lastCheckSeq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "agentId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "parentSeq",
+    "failedCycles",
+    "lastCheckSeq",
+    "agentId"
+  ]
 }
 ```

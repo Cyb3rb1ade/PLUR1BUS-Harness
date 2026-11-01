@@ -7,7 +7,7 @@ import { authorize } from "../rbac/authorize.ts";
 import type { Principal } from "../rbac/types.ts";
 import type { AuditSink } from "../rbac/audit.ts";
 import { deriveUserPrincipal } from "../identity/principals.ts";
-import { mapSessionError, toWireEvent, toWireSession } from "../session/methods.ts";
+import { mapSessionError, toWireEvent, toWireSession, toWireMessages } from "../session/methods.ts";
 import type { SessionService } from "../session/service.ts";
 import { SessionError } from "../session/types.ts";
 import type { Handler } from "./server.ts";
@@ -19,7 +19,7 @@ function canonical(value:unknown):unknown { return Array.isArray(value)?value.ma
 export function buildChatSurface(d: { sessions: () => SessionService | null; agents: AgentRegistry; audit: AuditSink; now: () => number; approver: (ctx: Parameters<Handler>[1], params: unknown) => Promise<import("../session/provider.ts").TurnApprover>;
   /** The per-chat model choice (profiles, reasoning per model, "Nur lokal"); absent or null: chat.model.* answer E_NOT_AVAILABLE. */
   models?: () => ChatModelSources | null }): Record<string, Handler> {
-  const writes = new Set(["create", "submit", "cancel", "update", "archive", "restore", "fork", "delete", "model.set"]);
+  const writes = new Set(["create", "submit", "cancel", "update", "archive", "restore", "fork", "delete", "model.set", "rewind"]);
   const sources = () => { const s = d.models?.(); if (!s) throw new RpcError("E_NOT_AVAILABLE", "no chat provider is configured", { reason: "no-provider" }); return s; };
   const storedChoice = (v: string | null): ReasoningChoice => (isReasoningChoice(v) ? v : "default");
   const idempotent = new Map<string, { fingerprint: string; result: Promise<unknown> }>();
@@ -69,7 +69,7 @@ export function buildChatSurface(d: { sessions: () => SessionService | null; age
     },
     get(p,a) {
       const { service,session } = owned(p.sessionId,a,false);
-      return { session: toWireSession(session), modelChanges: service.store.modelChanges(session.id).map(toWireEvent), messages: service.store.listMessages(session.id,{limit:p.limit ?? 200,...(p.beforeSeq!==undefined?{beforeSeq:p.beforeSeq}:{keep:"oldest" as const})}).map(({id,seq,turnId,role,text,createdAt})=>({id,seq,turnId,role,text,createdAt})), runningTurnId:service.store.runningTurn(session.id)?.id ?? null, lastEventSeq:service.store.lastEventSeq(session.id) ?? 0 };
+      return { session: toWireSession(session), modelChanges: service.store.modelChanges(session.id).map(toWireEvent), messages: toWireMessages(service.store, session.id, service.store.listMessages(session.id,{limit:p.limit ?? 200,...(p.beforeSeq!==undefined?{beforeSeq:p.beforeSeq}:{keep:"oldest" as const})})), rewinds: service.store.rewinds(session.id), rewindProposal: service.store.rewindProposal(session.id), runningTurnId:service.store.runningTurn(session.id)?.id ?? null, lastEventSeq:service.store.lastEventSeq(session.id) ?? 0 };
     },
     update(p,a) { const {service}=owned(p.sessionId,a,true); if (service.store.runningTurn(p.sessionId)) throw new SessionError("conflict","turn running","turn-running"); record("update",a,p.sessionId); return {session:toWireSession(service.store.updateSession(p.sessionId,{...(p.title !== undefined ? {title:p.title}:{}),...(p.pinned !== undefined ? {pinned:p.pinned}:{})}))}; },
     archive(p,a) { const {service}=owned(p.sessionId,a,true); record("archive",a,p.sessionId);return {session:toWireSession(service.store.archiveSession(p.sessionId))}; },
@@ -98,6 +98,15 @@ export function buildChatSurface(d: { sessions: () => SessionService | null; age
       const result=await h.done;return {sessionId:session.id,turnId:h.turnId,messageId:h.messageId,state:result.state,...(result.reply!==undefined?{reply:result.reply}:{}),...(result.error!==undefined?{error:result.error}:{})};
     },
     cancel(p,a) {const {service}=owned(p.sessionId,a,true);record("cancel",a,p.sessionId);const turnId=service.runner.cancel(p.sessionId);return {sessionId:p.sessionId,turnId,cancelled:turnId !== null};},
+    async rewind(p, a, ctx) {
+      if (a.kind !== "person") throw new RpcError("E_DENIED", "rewind requires a person");
+      const { service, session } = owned(p.sessionId, a, true);
+      const result = p.undo !== undefined ? service.rewind.undo(session.id, p.undo, a.userId)
+        : await service.rewind.rewind({ sessionId: session.id, toSeq: p.toSeq, actor: a.userId,
+          ...(p.lesson !== undefined ? { lesson: p.lesson } : {}), ...(p.files ? { files: true } : {}),
+          approver: await d.approver(ctx, p) });
+      return { sessionId: session.id, rewind: result };
+    },
     events(p,a) {const {service}=owned(p.sessionId,a,false);return {sessionId:p.sessionId,events:service.store.listEvents(p.sessionId,p.afterSeq ?? 0,p.limit ?? 500).map(toWireEvent),lastSeq:service.store.lastEventSeq(p.sessionId) ?? 0,running:service.store.runningTurn(p.sessionId)!==null};},
     "model.get"(p,a) {
       // The chat's own model and reasoning choice and what it may pick: identity from the authenticated person only.
@@ -124,7 +133,12 @@ export function buildChatSurface(d: { sessions: () => SessionService | null; age
         ...(changed?{warning:"cache-rebuild-cost-prefixes-preserved"}:{}),
         ...(now.level!==null&&order.indexOf(now.level)>=order.indexOf("high")&&(was===null||order.indexOf(now.level)>order.indexOf(was))?{costHint:"reasoning-cost-higher"}:{}) };
     },
-    export(p,a) {const {service,session}=owned(p.sessionId,a,false);record("export",a,p.sessionId);return {session:toWireSession(session),messages:service.store.listMessages(p.sessionId).map(({id,seq,turnId,role,text,createdAt})=>({id,seq,turnId,role,text,createdAt}))};},
+    export(p,a) {
+      const {service,session}=owned(p.sessionId,a,false);record("export",a,p.sessionId);
+      const messages = toWireMessages(service.store, session.id, service.store.listMessages(session.id));
+      return { session: toWireSession(session), messages: messages.filter(message => !message.rewound),
+        discarded: messages.filter(message => message.rewound), rewinds: service.store.rewinds(session.id) };
+    },
   };
   return Object.fromEntries(Object.entries(actions).map(([name,run])=>[`chat.${name}`,async(p,ctx)=>{
     try {

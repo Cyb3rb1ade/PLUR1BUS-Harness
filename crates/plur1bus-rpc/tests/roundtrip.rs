@@ -584,6 +584,11 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "chat.rewind" => check_pair::<types::ChatRewindParams, types::ChatRewindResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "chat.fork" => check_pair::<types::ChatForkParams, types::ChatForkResult>(
                 name,
                 fixture,
@@ -1598,6 +1603,13 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
             >(name, fixture, &root_schema),
             "session.cancel" => {
                 check_pair::<types::SessionCancelParams, types::SessionCancelResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "session.rewind" => {
+                check_pair::<types::SessionRewindParams, types::SessionRewindResult>(
                     name,
                     fixture,
                     &root_schema,

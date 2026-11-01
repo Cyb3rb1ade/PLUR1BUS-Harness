@@ -2252,6 +2252,18 @@
       "default": {},
       "description": "Session context maintenance.",
       "properties": {
+        "rewind": {
+          "type": "object", "additionalProperties": false, "default": {},
+          "description": "D120 reversible conversation paths. Automatic agent rewind is disabled unless a project is explicitly listed.",
+          "properties": {
+            "autoProjects": {
+              "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "uniqueItems": true, "maxItems": 128, "default": [],
+              "description": "Projects that permit automatic rewind after three failed edit/test cycles on unattended D115 cards. Interactive sessions only propose; no file restore is automatic.",
+              "x-restart": "live", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true
+            }
+          }
+        },
         "compaction": {
           "type": "object",
           "additionalProperties": false,

@@ -6,6 +6,8 @@ import type { SessionEvent, SessionMessage, TurnState } from "./rpc-types.ts";
 
 export type Entry = {
   id: string;
+  seq?: number;
+  rewound?: boolean;
   role: "user" | "assistant" | "system" | "tool";
   text: string;
   turnId: string | null;
@@ -37,7 +39,7 @@ export function fromResume(r: { messages: readonly SessionMessage[]; runningTurn
   const entries: Entry[] = sorted.map((m) => {
     const turnId = m.turnId ?? null;
     if (m.role === "assistant" && turnId !== null) done.add(turnId);
-    return { id: m.id, role: m.role, text: m.text, turnId };
+    return { id: m.id, seq: m.seq, role: m.role, text: m.text, turnId, ...(m.rewound ? { rewound: true } : {}) };
   });
   for (const event of r.modelChanges ?? []) {
     if (event.type !== "session.model.changed") continue;

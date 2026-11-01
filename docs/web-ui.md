@@ -1,5 +1,17 @@
 # Web UI pages and API usage (`packages/web`)
 
+D120 CX1 (RPC 1.18.0) adds **Rewind to here** to stored messages of an idle chat.
+It keeps that message and hides the later path. Discarded messages stay available
+in collapsed transcript entries; **Undo rewind** restores their active view.
+The server distills a bounded lesson through the configured summarize role or
+uses a deterministic fallback. A three-cycle agent proposal shows a separate
+**Confirm rewind** button; receiving the proposal performs no rewind.
+The browser uses authenticated `POST /api/v1/chats/{sessionId}/rewind`, with
+`toSeq` or `undo`; it supplies no caller identity. Live rewind/undo events reload
+the authoritative overlay. Actions are disabled while a turn or another write is
+running. Web rewinds change the conversation and leave files as they are; the
+optional D115 `--files` path requires a separate native approval.
+
 `@plur1bus/web` is the M3 web UI: the shell of [`ui/web-shell.md`](ui/web-shell.md) plus the pages Chat, Memories & Dreams, Models, Usage & Quota,
 Doctor (M3 part 1) and Agents, Settings (general, models, memory, extensions, network, users & roles, secrets, devices), Logs
 (log viewer, activity feed, sessions overview) and the first-run wizard (M3 part 2), a command palette (⌘K / Ctrl+K), a typed API

@@ -4,13 +4,36 @@ import { randomUUID } from "node:crypto";
 import { chmodSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { migrate } from "./migrations.ts";
+import { activePath, hiddenDigest, type RewindRange } from "./rewind-path.ts";
+import { failedEditCycles } from "./rewind-cycles.ts";
 import {
   SESSION_KINDS, SESSION_ORIGINS, SessionError,
   type EventRecord, type EventType, type MemoryMode, type MessageRecord, type MessageRole, type SearchHit, type SessionKind, type SessionOrigin, type SessionRecord,
-  type SummaryRecord, type TurnRecord,
+  type SummaryRecord, type TurnRecord, type RewindRecord,
 } from "./types.ts";
 
 export interface StoreOptions { path: string; clock?: () => number; newId?: (prefix: string) => string }
+
+/** Audit runs before the overlay commits; failure rolls back every store change. No transcript text crosses it. */
+export type RewindAudit = (event: { action: "session.rewind" | "session.rewind.undone"; detail: Record<string, unknown> }) => void;
+
+/** Trusted internal input. The RPC and transcript-command boundaries separately require a person. */
+export interface RewindInput {
+  toSeq: number | "last";
+  lesson: string;
+  actor: string;
+  trigger: RewindRecord["trigger"];
+  expectedEventSeq?: number;
+  audit?: RewindAudit;
+  /** Only the admitted transcript command itself may be running; never accepted from RPC params. */
+  commandTurnId?: string;
+  reservation?: symbol;
+}
+
+/** Harness-owned checkpoint identity. A mutable Git ref alone is never proof of its original contents. */
+export interface StoredCheckpoint {
+  sessionId: string; turnId: string; root: string; ref: string; tree: string; commitId: string;
+}
 
 export interface CreateSessionInput {
   kind: SessionKind; agentId: string; owner: string;
@@ -44,18 +67,25 @@ const MAX_SESSION_TOOL_OFFERS = 128;
 // The ToolRegistry's canonical spelling, including D106's one camel-case host-tool exception.
 const CANONICAL_TOOL_NAME = /^(?:[a-z][a-z0-9_.-]{0,63}|sys\.startupItems)$/;
 
+// A partially discarded turn cannot contribute tool/skill state: its assistant-side tools belong to that attempt too.
+const ACTIVE_TURN_SQL = `NOT EXISTS (
+  SELECT 1 FROM messages tm JOIN path_rewinds r ON r.session_id=tm.session_id
+  WHERE tm.turn_id=t.id AND tm.session_id=t.session_id AND
+    ((r.undone_at IS NULL AND tm.seq BETWEEN r.hidden_from_seq AND r.hidden_to_seq)
+      OR (r.undone_at IS NOT NULL AND tm.id=r.lesson_message_id)))`;
+
 // Deduplication happens before the distinct-skill bound: repeated loads cannot evict another skill's older pair.
 const SKILL_EVENTS_SQL = `
   WITH calls AS (
     SELECT e.*,json_extract(e.data,'$.id') AS call_id,json_extract(e.data,'$.args.name') AS skill_name
     FROM events e JOIN turns t ON t.id=e.turn_id AND t.session_id=e.session_id
-    WHERE e.session_id=? AND t.state='completed' AND e.type='tool.call'
+    WHERE e.session_id=? AND t.state='completed' AND e.type='tool.call' AND ${ACTIVE_TURN_SQL}
       AND json_extract(e.data,'$.name')='skill.load' AND json_type(e.data,'$.id')='text'
       AND json_type(e.data,'$.args.name')='text'
   ), result_events AS MATERIALIZED (
     SELECT e.*,json_extract(e.data,'$.id') AS result_id
     FROM events e JOIN turns t ON t.id=e.turn_id AND t.session_id=e.session_id
-    WHERE e.session_id=? AND t.state='completed' AND e.type='tool.result'
+    WHERE e.session_id=? AND t.state='completed' AND e.type='tool.result' AND ${ACTIVE_TURN_SQL}
       AND json_extract(e.data,'$.isError') IS NOT 1
   ), outputs AS (
     SELECT e.*,c.seq AS call_seq,c.data AS call_data,c.skill_name,
@@ -76,7 +106,8 @@ const SKILL_EVENTS_SQL = `
         WHERE type!='text' OR length(CAST(value AS BLOB))>16384)
   ), latest AS (SELECT * FROM ranked WHERE rank=1 ORDER BY seq DESC LIMIT ?), selected AS (
     SELECT e.* FROM events e JOIN turns t ON t.id=e.turn_id AND t.session_id=e.session_id
-    WHERE e.session_id=? AND t.state='completed' AND e.type='skills.selected' ORDER BY e.seq DESC LIMIT 1
+    WHERE e.session_id=? AND t.state='completed' AND e.type='skills.selected' AND ${ACTIVE_TURN_SQL}
+    ORDER BY e.seq DESC LIMIT 1
   )
   SELECT session_id,turn_id,call_seq AS seq,'tool.call' AS type,call_data AS data,at FROM latest
   UNION ALL SELECT session_id,turn_id,seq,'tool.result',data,at FROM latest
@@ -115,8 +146,16 @@ const toSummary = (r: Row): SummaryRecord => ({
   id: r.id as string, sessionId: r.session_id as string, fromSeq: r.from_seq as number, toSeq: r.to_seq as number, text: r.text as string,
   tokens: r.tokens as number, tier: r.tier as number, state: r.state as SummaryRecord["state"], createdAt: r.created_at as number,
 });
+const toRewind = (r: Row): RewindRecord => ({
+  id: String(r.id), sessionId: String(r.session_id), parentSeq: Number(r.parent_seq),
+  hiddenFromSeq: Number(r.hidden_from_seq), hiddenToSeq: Number(r.hidden_to_seq),
+  lessonMessageId: r.lesson_message_id as string | null, hiddenDigest: String(r.hidden_digest),
+  trigger: r.trigger as RewindRecord["trigger"], actor: String(r.actor), createdAt: Number(r.created_at),
+  undoneAt: r.undone_at === null ? null : Number(r.undone_at),
+});
 
 export class SessionStore {
+  readonly #rewindReservations = new Map<string, symbol>();
   readonly #archiveListeners = new Set<(id: string) => void>();
   /** Observe committed archive/replacement; resource observers cannot roll back or fail a stored session change. */
   onArchived(listener: (id: string) => void): () => void { this.#archiveListeners.add(listener); return () => { this.#archiveListeners.delete(listener); }; }
@@ -379,12 +418,16 @@ export class SessionStore {
     const archived = f.archived ?? "exclude";
     if (archived === "exclude") where.push("s.archived_at IS NULL"); else if (archived === "only") where.push("s.archived_at IS NOT NULL");
     const rows = this.#all(
-      `SELECT m.session_id, m.id, m.seq, snippet(messages_fts, 0, '[', ']', '…', 12) AS snip, bm25(messages_fts) AS rank
+      `SELECT m.session_id, m.id, m.seq, snippet(messages_fts, 0, '[', ']', '…', 12) AS snip, bm25(messages_fts) AS rank,
+       EXISTS(SELECT 1 FROM path_rewinds r WHERE r.session_id=m.session_id AND
+         ((r.undone_at IS NULL AND m.seq BETWEEN r.hidden_from_seq AND r.hidden_to_seq)
+           OR (r.undone_at IS NOT NULL AND m.id=r.lesson_message_id))) AS rewound
        FROM messages_fts JOIN messages m ON m.rowid = messages_fts.rowid JOIN sessions s ON s.id = m.session_id
        WHERE messages_fts MATCH ? AND ${where.join(" AND ")} ORDER BY rank LIMIT ?`,
       ftsQuery(f.search), ...args, limit,
     );
-    return rows.map((r) => ({ sessionId: r.session_id as string, messageId: r.id as string, seq: r.seq as number, snippet: r.snip as string, rank: r.rank as number }));
+    return rows.map((r) => ({ sessionId: r.session_id as string, messageId: r.id as string, seq: r.seq as number, snippet: r.snip as string, rank: r.rank as number,
+      ...(r.rewound === 1 ? { rewound: true } : {}) }));
   }
 
   /** I1: only title, pinned and memoryMode can change; an attempt on anything else is an error, not a silent drop. */
@@ -433,7 +476,8 @@ export class SessionStore {
       const source=this.getSession(id);if(!source)throw new SessionError("not-found","session not found");
       if(source.kind!=="direct")throw new SessionError("invalid","only direct chats can be forked");
       const next=this.createSession({kind:"direct",agentId:source.agentId,owner:source.owner,title:o.title ?? source.title,memoryMode:source.memoryMode});
-      for(const message of this.listMessages(id).filter(m=>o.beforeSeq===undefined||m.seq<=o.beforeSeq))this.#insertMessage(next.id,null,message.role,message.text,message.tokens);
+      const lessons = new Set(this.rewinds(id).map(rewind => rewind.lessonMessageId));
+      for(const message of this.contextMessages(id).filter(m=>o.beforeSeq===undefined||m.seq<=o.beforeSeq))this.#insertMessage(next.id,null,lessons.has(message.id)?"user":message.role,message.text,message.tokens);
       return this.getSession(next.id)!;
     });
   }
@@ -450,7 +494,7 @@ export class SessionStore {
       const tombstoneId = this.#newId("era");
       this.#run("INSERT INTO erasures (id, session_id, agent_id, owner, kind, message_count, erased_at, actor, reason) VALUES (?,?,?,?,?,?,?,?,?)",
         tombstoneId, id, s.agentId, s.owner, s.kind, messages, this.#clock(), o.actor, o.reason);
-      for (const t of ["summaries", "events", "messages", "turns"]) this.#run(`DELETE FROM ${t} WHERE session_id = ?`, id);
+      for (const t of ["path_rewinds", "session_checkpoints", "summaries", "events", "messages", "turns"]) this.#run(`DELETE FROM ${t} WHERE session_id = ?`, id);
       this.#run("DELETE FROM sessions WHERE id = ?", id);
       return { tombstoneId, messages };
     });
@@ -470,6 +514,7 @@ export class SessionStore {
       const s = this.getSession(sessionId);
       if (!s) throw new SessionError("not-found", `session ${sessionId} not found`, "session");
       if (s.archivedAt !== null) throw new SessionError("conflict", `session ${sessionId} is archived`, "archived");
+      if (this.rewindReserved(sessionId)) throw new SessionError("conflict", "file rewind is awaiting or applying approval", "rewind-in-progress");
       if (this.runningTurn(sessionId)) throw new SessionError("conflict", `session ${sessionId} already has a running turn`, "turn-in-progress");
       const now = this.#clock(); const turnId = this.#newId("trn"); const seq = s.turnCount + 1;
       this.#run("INSERT INTO turns (id, session_id, seq, state, started_at, incognito) VALUES (?,?,?,?,?,?)", turnId, sessionId, seq, "running", now, s.memoryMode === "incognito" ? 1 : 0);
@@ -564,6 +609,164 @@ export class SessionStore {
     return this.#all("SELECT * FROM messages WHERE session_id=? AND seq<? AND seq>? ORDER BY seq DESC LIMIT ?", sessionId, o.beforeSeq ?? Number.MAX_SAFE_INTEGER, o.afterSeq ?? 0, limit).map(toMessage).reverse();
   }
 
+  /** Full active history for prompt/compaction readers. No transcript pagination can silently truncate a rewind digest. */
+  contextMessages(sessionId: string): MessageRecord[] {
+    const rows = this.#all(`SELECT m.* FROM messages m WHERE m.session_id=? AND NOT EXISTS
+      (SELECT 1 FROM events e WHERE e.session_id=m.session_id AND e.turn_id=m.turn_id
+        AND e.type='turn.completed' AND json_extract(e.data,'$.provider')='harness-command') ORDER BY m.seq`, sessionId);
+    return activePath(rows.map(toMessage), this.rewinds(sessionId));
+  }
+
+  /** Overlay metadata for transcript readers, ordered by the append-only lesson sequence. */
+  rewinds(sessionId: string): RewindRecord[] {
+    return this.#all("SELECT * FROM path_rewinds WHERE session_id=? ORDER BY rowid", sessionId)
+      .map(toRewind);
+  }
+
+  /** Summary coverage must exclude discarded branches and the message of every now-obsolete lesson. */
+  summaryRewinds(sessionId: string): RewindRange[] {
+    return this.#all(`SELECT r.*,m.seq AS lesson_seq FROM path_rewinds r
+      LEFT JOIN messages m ON m.id=r.lesson_message_id WHERE r.session_id=?`, sessionId).flatMap(row => {
+      if (row.undone_at === null) return [{ hiddenFromSeq: Number(row.hidden_from_seq),
+        hiddenToSeq: Number(row.hidden_to_seq), undoneAt: null }];
+      return typeof row.lesson_seq === "number"
+        ? [{ hiddenFromSeq: row.lesson_seq, hiddenToSeq: row.lesson_seq, undoneAt: null }] : [];
+    });
+  }
+
+  /** Record the exact root/ref/object identities after a successful native checkpoint; never overwrite a turn's record. */
+  recordCheckpoint(checkpoint: StoredCheckpoint): void {
+    this.#tx(() => {
+      const turn = this.getTurn(checkpoint.turnId);
+      if (!turn || turn.sessionId !== checkpoint.sessionId || turn.state !== "running") {
+        throw new SessionError("conflict", "checkpoint turn is not running in the session", "rewind-checkpoint");
+      }
+      this.#run(`INSERT INTO session_checkpoints(session_id,turn_id,root,ref,tree,commit_id,created_at)
+        VALUES (?,?,?,?,?,?,?)`, checkpoint.sessionId, checkpoint.turnId, checkpoint.root, checkpoint.ref,
+        checkpoint.tree, checkpoint.commitId, this.#clock());
+    });
+  }
+
+  /** Native restore checks these stored identities before asking a person, and again before restoring files. */
+  checkpoint(sessionId: string, turnId: string): StoredCheckpoint | null {
+    const row = this.#get("SELECT * FROM session_checkpoints WHERE session_id=? AND turn_id=?", sessionId, turnId);
+    return row ? { sessionId, turnId, root: String(row.root), ref: String(row.ref), tree: String(row.tree),
+      commitId: String(row.commit_id) } : null;
+  }
+
+  /** The newest still-unapplied proposal; one-click confirmation remains a human rewind call. */
+  rewindProposal(sessionId: string): { parentSeq: number; failedCycles: number; lastCheckSeq: number; agentId: string } | null {
+    const row = this.#get(`SELECT data FROM events WHERE session_id=?
+      AND type IN ('session.rewind.proposed','session.rewind','session.rewind.undone') ORDER BY seq DESC LIMIT 1`, sessionId);
+    if (!row) return null;
+    const data = JSON.parse(String(row.data)) as Record<string, unknown>;
+    const cycles = failedEditCycles(this.contextToolEvents(sessionId));
+    if (cycles.lastCheckSeq !== data.lastCheckSeq || cycles.failedCycles < 3 || cycles.pendingEdit) return null;
+    return typeof data.lastCheckSeq === "number" && typeof data.parentSeq === "number"
+      && typeof data.failedCycles === "number" && typeof data.agentId === "string"
+      ? { parentSeq: data.parentSeq, failedCycles: data.failedCycles, lastCheckSeq: data.lastCheckSeq, agentId: data.agentId }
+      : null;
+  }
+
+  /** Append at most one proposal per observed check; neither a proposal nor an agent message is human approval. */
+  proposeRewind(sessionId: string, proposal: { parentSeq: number; failedCycles: number; lastCheckSeq: number; agentId: string }): EventRecord | null {
+    return this.#tx(() => {
+      this.#rewindIdle(sessionId);
+      if (this.rewindProposal(sessionId)?.lastCheckSeq === proposal.lastCheckSeq) return null;
+      return this.#insertEvent(sessionId, null, "session.rewind.proposed", proposal);
+    });
+  }
+
+  /** Read/validate an idle rewind target before asynchronous distillation. Commit rechecks the event revision. */
+  planRewind(sessionId: string, toSeq: number | "last", commandTurnId?: string, reservation?: symbol): {
+    parentSeq: number; hiddenFromSeq: number; hiddenToSeq: number; messages: MessageRecord[]; eventSeq: number;
+  } {
+    this.#rewindIdle(sessionId, commandTurnId, reservation);
+    const active = this.contextMessages(sessionId).filter(message => message.turnId !== commandTurnId);
+    let parentSeq: number;
+    if (toSeq === "last") {
+      const newest = active.findLast(message => message.turnId !== null);
+      const first = newest && active.find(message => message.turnId === newest.turnId);
+      parentSeq = first ? active.findLast(message => message.seq < first.seq)?.seq ?? 0 : -1;
+    } else parentSeq = toSeq;
+    if (!Number.isSafeInteger(parentSeq) || parentSeq < 0 || (parentSeq !== 0 && !active.some(m => m.seq === parentSeq))) {
+      throw new SessionError("invalid", "rewind target must be on the active path", "rewind-target");
+    }
+    const from = active.find(message => message.seq > parentSeq)?.seq;
+    const to = active.at(-1)?.seq;
+    if (from === undefined || to === undefined) throw new SessionError("invalid", "rewind range is empty", "rewind-empty");
+    const messages = this.#all("SELECT * FROM messages WHERE session_id=? AND seq BETWEEN ? AND ? ORDER BY seq",
+      sessionId, from, to).map(toMessage);
+    return { parentSeq, hiddenFromSeq: from, hiddenToSeq: to, messages, eventSeq: this.lastEventSeq(sessionId)! };
+  }
+
+  /** Append an audited overlay and its harness note in one transaction. Original messages/events remain byte-identical. */
+  rewindPath(sessionId: string, input: RewindInput): RewindRecord {
+    if (!input.actor || !["user", "agent"].includes(input.trigger) || !input.lesson.trim() || input.lesson.length > 1600) {
+      throw new SessionError("invalid", "rewind needs an actor and a lesson of at most 400 estimated tokens", "rewind-lesson");
+    }
+    return this.#tx(() => {
+      const plan = this.planRewind(sessionId, input.toSeq, input.commandTurnId, input.reservation);
+      if (input.expectedEventSeq !== undefined && plan.eventSeq !== input.expectedEventSeq) {
+        throw new SessionError("conflict", "session changed during rewind; retry on the current path", "rewind-stale");
+      }
+      const id = this.#newId("rew"), at = this.#clock(), digest = hiddenDigest(plan.messages);
+      const detail = { sessionId, rewindId: id, parentSeq: plan.parentSeq, hiddenFrom: plan.hiddenFromSeq,
+        hiddenTo: plan.hiddenToSeq, trigger: input.trigger, actor: input.actor, hiddenDigest: digest };
+      input.audit?.({ action: "session.rewind", detail });
+      const lesson = this.#insertMessage(sessionId, null, "system", input.lesson, Math.ceil(input.lesson.length / 4));
+      this.#run(`INSERT INTO path_rewinds(id,session_id,parent_seq,hidden_from_seq,hidden_to_seq,lesson_message_id,
+        hidden_digest,trigger,actor,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+        id, sessionId, plan.parentSeq, plan.hiddenFromSeq, plan.hiddenToSeq, lesson.id, digest, input.trigger, input.actor, at);
+      this.#run("UPDATE sessions SET updated_at=? WHERE id=?", at, sessionId);
+      this.#insertEvent(sessionId, null, "session.rewind", { ...detail, lessonMessageId: lesson.id });
+      return toRewind(this.#get("SELECT * FROM path_rewinds WHERE id=?", id)!);
+    });
+  }
+
+  /** Lift an overlay and its lesson without deleting either. A second undo is idempotent. */
+  undoRewind(sessionId: string, rewindId: string, actor: string, audit?: RewindAudit, commandTurnId?: string): RewindRecord {
+    return this.#tx(() => {
+      this.#rewindIdle(sessionId, commandTurnId);
+      const row = this.#get("SELECT * FROM path_rewinds WHERE session_id=? AND id=?", sessionId, rewindId);
+      if (!row) throw new SessionError("not-found", "rewind not found", "rewind");
+      if (!actor) throw new SessionError("invalid", "undo needs an actor", "rewind-actor");
+      const rewind = toRewind(row);
+      if (rewind.undoneAt !== null) return rewind;
+      const detail = { sessionId, rewindId, actor, hiddenDigest: rewind.hiddenDigest };
+      audit?.({ action: "session.rewind.undone", detail });
+      const at = this.#clock();
+      this.#run("UPDATE path_rewinds SET undone_at=? WHERE id=?", at, rewindId);
+      this.#run("UPDATE sessions SET updated_at=? WHERE id=?", at, sessionId);
+      this.#insertEvent(sessionId, null, "session.rewind.undone", detail);
+      return { ...rewind, undoneAt: at };
+    });
+  }
+
+  /** Reserve an idle path while a destructive file restore awaits approval; no database transaction spans the await. */
+  reserveRewind(sessionId: string, commandTurnId?: string): { token: symbol; release(): void } {
+    this.#rewindIdle(sessionId, commandTurnId);
+    const token = Symbol("rewind");
+    this.#rewindReservations.set(sessionId, token);
+    return { token, release: () => {
+      if (this.#rewindReservations.get(sessionId) === token) this.#rewindReservations.delete(sessionId);
+    } };
+  }
+
+  /** Background model work must not change the path while approved file restoration is pending. */
+  rewindReserved(sessionId: string): boolean { return this.#rewindReservations.has(sessionId); }
+
+  #rewindIdle(sessionId: string, commandTurnId?: string, reservation?: symbol): void {
+    const session = this.getSession(sessionId);
+    if (!session) throw new SessionError("not-found", "session not found", "session");
+    if (session.archivedAt !== null) throw new SessionError("conflict", "session is archived", "archived");
+    if (this.rewindReserved(sessionId) && this.#rewindReservations.get(sessionId) !== reservation) {
+      throw new SessionError("conflict", "file rewind is awaiting or applying approval", "rewind-in-progress");
+    }
+    const running = this.runningTurn(sessionId);
+    if (running && running.id !== commandTurnId) throw new SessionError("conflict", "rewind requires an idle session", "turn-running");
+  }
+
   tokenCalibration(model: string): number | null { return (this.#get("SELECT factor FROM token_calibration WHERE model=?", model)?.factor as number | undefined) ?? null; }
   tokenFactor(model: string): number { return this.tokenCalibration(model) ?? 1; }
   setTokenFactor(model: string, factor: number): void { this.#run("INSERT INTO token_calibration(model,factor) VALUES (?,?) ON CONFLICT(model) DO UPDATE SET factor=excluded.factor", model, factor); }
@@ -578,7 +781,7 @@ export class SessionStore {
   }
   /** Administrative transcript replies are not semantic references to original tool output. */
   latestAssistantContext(sessionId: string): string {
-    return this.#get("SELECT m.text FROM messages m WHERE m.session_id=? AND m.role='assistant' AND NOT EXISTS (SELECT 1 FROM events e WHERE e.session_id=m.session_id AND e.turn_id=m.turn_id AND e.type='turn.completed' AND json_extract(e.data,'$.provider')='harness-command') ORDER BY m.seq DESC LIMIT 1",sessionId)?.text as string ?? '';
+    return this.contextMessages(sessionId).findLast(message => message.role === "assistant")?.text ?? "";
   }
   pruneExplanation(sessionId: string): {ref:string;hidden:boolean;verdict:string;confidence:number|null;tokensSaved:number}[] {
     return this.#all("SELECT ref,hidden,mode,confidence,tokens_saved FROM tool_visibility WHERE session_id=? ORDER BY ref",sessionId).map(r=>({ref:String(r.ref),hidden:r.hidden===1,verdict:String(r.mode),confidence:r.confidence===null?null:Number(r.confidence),tokensSaved:Number(r.tokens_saved)}));
@@ -601,6 +804,13 @@ export class SessionStore {
   }
   /** Internal read-only background scan; event pagination never drops older tool pairs. */
   toolEvents(sessionId: string): EventRecord[] { return this.#all("SELECT * FROM events WHERE session_id=? AND type IN ('tool.call','tool.result') ORDER BY seq", sessionId).map(toEvent); }
+
+  /** Prompt and background model readers may only consume tool events of wholly active turns. */
+  contextToolEvents(sessionId: string): EventRecord[] {
+    return this.#all(`SELECT e.* FROM events e JOIN turns t ON t.id=e.turn_id AND t.session_id=e.session_id
+      WHERE e.session_id=? AND e.type IN ('tool.call','tool.result') AND ${ACTIVE_TURN_SQL} ORDER BY e.seq`, sessionId)
+      .map(toEvent);
+  }
 
   // ---- summaries (compaction) --------------------------------------------------------------------------------------
 

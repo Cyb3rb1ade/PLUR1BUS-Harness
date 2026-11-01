@@ -516,7 +516,7 @@ plur1bus code [PATH] [--agent <id>] [--project <id> --card <id>] [--model <profi
   (x-server core) binds it: with `--project`/`--card`, the root must equal `ProjectWorktreePort.root(agent, project,
   card)` and the session is the card's (kind `card`), so D98 applies in full (`/done` runs `coding_complete`); without a
   card it is a direct session with a worktree binding (`session_worktrees(session_id, root)`, one more session schema
-  migration; CLI-1 lands before H4, so it takes v10 and `path_rewinds` follows as v11), and "done" is the advisory
+  migration; owner allocation 2026-11-01 assigns CLI-1 v11, with H4's rewind overlay in v10), and "done" is the advisory
   `/check` with the same runners (Q24). A folder that is not a granted root
   is offered as a D109 grant request to the person at the terminal (scoped to that folder, never wider than D109's caps;
   Q25); nothing is bound silently.
@@ -684,7 +684,8 @@ Also a change to existing TypeScript (session store, compaction view, chat surfa
 
 Rewind hides a contiguous range of the active path and puts a short lesson after the last kept message. It is an
 overlay, like trimming and pruning: messages and events stay append-only (the v3 ruling "never rewrite transcript
-messages/events"). One session schema migration (v11, after CLI-1's `session_worktrees` in v10) adds one table:
+messages/events"). The owner allocation of 2026-11-01 assigns this additive session migration v10, before CLI-1's
+`session_worktrees` in v11. Its overlay table is:
 
 ```sql
 CREATE TABLE path_rewinds (

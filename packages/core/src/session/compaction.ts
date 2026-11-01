@@ -6,6 +6,7 @@ import type { Summarizer } from "./summarizer.ts";
 import type { ToolPruner } from "./pruning.ts";
 import type { SessionStore } from "./store.ts";
 import type { MessageRecord, SummaryRecord } from "./types.ts";
+import { activeSummaries } from "./rewind-path.ts";
 
 export interface CompactionConfig {
   /** The model's context window in tokens (8192 fallback only when the read-only catalogue has no window). */
@@ -106,25 +107,35 @@ export class Compactor {
   get hardLimit(): number { return Math.floor(this.cfg.windowTokens * this.cfg.hardRatio); }
   get softLimit(): number { return Math.floor(this.cfg.windowTokens * this.cfg.softRatio); }
 
-  #applied(sessionId: string): SummaryRecord[] { return this.#store.listSummaries(sessionId, "applied"); }
-  #coveredTo(applied: SummaryRecord[]): number { return applied.reduce((m, s) => Math.max(m, s.toSeq), 0); }
+  #applied(sessionId: string): SummaryRecord[] {
+    const summaries = activeSummaries(this.#store.listSummaries(sessionId, "applied"), this.#store.summaryRewinds(sessionId));
+    // Undo can revive a wider original while a replacement of its kept prefix still exists. Render that prefix once.
+    return summaries.filter(summary => !summaries.some(other => other.id !== summary.id
+      && other.fromSeq <= summary.fromSeq && other.toSeq >= summary.toSeq
+      && (other.fromSeq < summary.fromSeq || other.toSeq > summary.toSeq)));
+  }
+  #prepared(sessionId: string): SummaryRecord[] {
+    return activeSummaries(this.#store.listSummaries(sessionId, "prepared"), this.#store.summaryRewinds(sessionId));
+  }
 
   /** What the next model call sees of the history: applied summaries plus the uncovered messages, each message capped. */
   view(sessionId: string): ContextView {
     const cfg = this.configFor(sessionId);
     const summaries = this.#applied(sessionId);
-    const covered = this.#coveredTo(summaries);
+    const covered = (seq: number) => summaries.some(summary => seq >= summary.fromSeq && seq <= summary.toSeq);
     let clipped = 0;
-    const messages: ContextView["messages"] = this.#store.listMessages(sessionId, { afterSeq: covered }).map((m) => {
+    const source = this.#store.contextMessages(sessionId);
+    const lessons = new Set(this.#store.rewinds(sessionId).map(rewind => rewind.lessonMessageId));
+    const messages: ContextView["messages"] = source.filter(message => !covered(message.seq)).map((m) => {
       const t = truncateWithPointer(m.text, cfg.maxMessageTokens, `full text is message ${m.id} in the session transcript`);
       if (t.truncated) clipped++;
-      return { id: m.id, role: m.role, text: t.text, seq: m.seq, turnId: m.turnId };
+      // Providers hoist system messages. A distilled lesson stays after the kept conversation, below system rank.
+      return { id: m.id, role: lessons.has(m.id) ? "user" : m.role, text: t.text, seq: m.seq, turnId: m.turnId };
     });
     const pairs = this.#hooks.pruner?.view(sessionId) ?? [];
-    const source = this.#store.listMessages(sessionId);
     for (const pair of pairs) {
       const first = source.find(m => m.turnId === pair.turnId);
-      if (!first || (first.seq <= covered && !pair.restored)) continue;
+      if (!first || (covered(first.seq) && !pair.restored)) continue;
       const keepWhole = pair.call.data.name === SKILL_LOAD && !pair.hidden && pair.result.data.isError !== true
         && pair.text.length <= MAX_WHOLE_SKILL_PAIR_CHARS;
       const t = keepWhole ? { text: pair.text, truncated: false }
@@ -134,11 +145,11 @@ export class Compactor {
         toolCall: { id: String(pair.call.data.id), name: String(pair.call.data.name), whole: !pair.hidden && !t.truncated } });
     }
     const paired = new Set(pairs.map(p => p.ref));
-    for (const call of this.#store.toolEvents(sessionId)) {
+    for (const call of this.#store.contextToolEvents(sessionId)) {
       const ref = `event:${call.seq}`;
       if (call.type !== "tool.call" || paired.has(ref)) continue;
       const first = source.find(m => m.turnId === call.turnId);
-      if (!first || first.seq <= covered) continue;
+      if (!first || covered(first.seq)) continue;
       const t = truncateWithPointer(JSON.stringify({ call: call.data, result: "pending" }),cfg.maxMessageTokens,`original call ${ref}`);
       if (t.truncated) clipped++;
       messages.push({ id:ref,role:"tool",text:t.text,seq:first.seq,turnId:call.turnId });
@@ -179,16 +190,17 @@ export class Compactor {
 
   /** After a turn: above the soft threshold, build (but do not swap in) the summary of the oldest segment (D23). */
   async afterTurn(sessionId: string, caller?: import("@plur1bus/rpc-schema").CallerIdentity): Promise<{ prepared: boolean }> {
-    if (this.#stopped || this.#store.runningTurn(sessionId)) return { prepared: false };
+    if (this.#stopped || this.#store.runningTurn(sessionId) || this.#store.rewindReserved(sessionId)) return { prepared: false };
     await this.#hooks.pruner?.run(sessionId);
     if (this.#stopped) return { prepared: false };
     const cfg = this.configFor(sessionId);
     const v = this.view(sessionId);
     if (v.tokens <= Math.floor(cfg.windowTokens * cfg.softRatio)) return { prepared: false };
-    if (this.#store.listSummaries(sessionId, "prepared").length > 0) return { prepared: false };
+    if (this.#prepared(sessionId).length > 0) return { prepared: false };
     const seg = this.#segment(v, this.configFor(sessionId), sessionId);
     if (!seg) return { prepared: false };
-    const older = v.summaries;
+    const revision = this.#store.lastEventSeq(sessionId);
+    const older = this.#mergeable(sessionId, v.summaries, seg);
     const fromSeq = older.length ? Math.min(...older.map(s => s.fromSeq)) : seg.fromSeq;
     const tier = Math.max(1, ...older.map(s => s.tier + 1));
     const input = [...older.map(s => ({ role: "system" as const, text: s.text, seq: s.fromSeq })), ...seg.messages];
@@ -198,7 +210,10 @@ export class Compactor {
       catch (err) { this.#hooks.onError?.("compaction summary", err); }
     }
     // A foreground swap while the model ran invalidates this prepared segment.
-    if (this.#stopped || this.#coveredTo(this.#applied(sessionId)) >= seg.fromSeq || this.#store.listSummaries(sessionId, "prepared").length) return { prepared: false };
+    if (this.#stopped || this.#store.lastEventSeq(sessionId) !== revision || this.#prepared(sessionId).length
+      || this.#applied(sessionId).some(summary => summary.fromSeq <= seg.toSeq && summary.toSeq >= seg.fromSeq)) {
+      return { prepared: false };
+    }
     const text = this.#marked(body, fromSeq, seg.toSeq, Math.floor(cfg.summaryMaxTokens / this.#store.tokenFactor(this.#models.get(sessionId)?.model ?? "")));
     this.#store.addSummary({ sessionId, fromSeq, toSeq: seg.toSeq, text, tokens: this.count(sessionId, text), tier, state: "prepared" });
     this.#hooks.emit?.("compaction.summary.created", { sessionId, fromSeq, toSeq: seg.toSeq, tier });
@@ -214,12 +229,24 @@ export class Compactor {
     }
     if (groups.length < 2) return null; // only the newest turn is left: nothing may be cut
     const target = Math.floor(cfg.windowTokens * cfg.softRatio * 0.5);
+    const rewinds = this.#store.summaryRewinds(sessionId);
     let tokens = v.tokens; const cut: ContextView["messages"] = [];
     for (let i = 0; i < groups.length - 1 && tokens > target; i++) {
+      // A summary records one inclusive source range. Never cross a discarded gap and claim to cover its originals.
+      const from = cut[0]?.seq ?? groups[i]![0]!.seq;
+      const to = groups[i]!.at(-1)!.seq;
+      if (!activeSummaries([{ fromSeq: from, toSeq: to }], rewinds).length) break;
       for (const m of groups[i]!) { cut.push(m); tokens -= this.count(sessionId, m.text, m.id); }
     }
     if (cut.length === 0) return null;
     return { messages: cut, fromSeq: cut[0]!.seq, toSeq: cut[cut.length - 1]!.seq };
+  }
+
+  #mergeable(sessionId: string, summaries: SummaryRecord[], segment: { fromSeq: number; toSeq: number }): SummaryRecord[] {
+    const rewinds = this.#store.summaryRewinds(sessionId);
+    return summaries.filter(summary => summary.toSeq < segment.fromSeq && activeSummaries([
+      { fromSeq: summary.fromSeq, toSeq: segment.toSeq },
+    ], rewinds).length > 0);
   }
 
   #marked(body: string, from: number, to: number, max: number): string {
@@ -230,6 +257,7 @@ export class Compactor {
   async #swap(sessionId: string, v: ContextView): Promise<{ swapped: boolean; fromSeq?: number; toSeq?: number; checkpoint?: "done" | "failed" | "skipped" }> {
     const seg = this.#segment(v, this.configFor(sessionId), sessionId);
     if (!seg) return { swapped: false };
+    const revision = this.#store.lastEventSeq(sessionId);
     let checkpoint: "done" | "failed" | "skipped" = "skipped";
     if (this.#hooks.beforeSwap) {
       // RULING: a failed pre-swap checkpoint does not stop the swap (the L14 bound wins over a missed memory write); it is
@@ -237,13 +265,15 @@ export class Compactor {
       try { checkpoint = (await this.#hooks.beforeSwap({ sessionId, fromSeq: seg.fromSeq, toSeq: seg.toSeq })) === "skipped" ? "skipped" : "done"; }
       catch (e) { checkpoint = "failed"; this.#hooks.onError?.("compaction checkpoint", e); }
     }
-    const older = v.summaries;
+    if (this.#store.lastEventSeq(sessionId) !== revision) return { swapped: false };
+    const older = this.#mergeable(sessionId, v.summaries, seg);
     const fromSeq = older.length ? Math.min(...older.map(s => s.fromSeq)) : seg.fromSeq;
-    const prepared = this.#store.listSummaries(sessionId, "prepared").find(p => p.toSeq <= seg.toSeq && p.fromSeq === fromSeq);
+    const prepared = this.#prepared(sessionId).find(p => p.toSeq <= seg.toSeq && p.fromSeq === fromSeq);
     const newText = prepared ? [prepared.text, digest(seg.messages.filter(m => m.seq > prepared.toSeq))].join("\n") : [...older.map(s => s.text), digest(seg.messages)].join("\n");
     const merged = this.#marked(newText, older.length ? Math.min(...older.map(s => s.fromSeq)) : seg.fromSeq, seg.toSeq, Math.floor(this.configFor(sessionId).summaryMaxTokens / this.#store.tokenFactor(this.#models.get(sessionId)?.model ?? "")));
     const tier = Math.max(1, ...older.map((s) => s.tier + 1));
-    const supersede = [...older.map((s) => s.id), ...this.#store.listSummaries(sessionId, "prepared").map((s) => s.id)];
+    const supersede = [...older.map((s) => s.id), ...this.#prepared(sessionId)
+      .filter(summary => summary.fromSeq >= fromSeq && summary.toSeq <= seg.toSeq).map(summary => summary.id)];
     this.#store.replaceSummaries(supersede, { sessionId, fromSeq: older.length ? Math.min(...older.map((s) => s.fromSeq)) : seg.fromSeq, toSeq: seg.toSeq, text: merged, tokens: this.count(sessionId, merged), tier, state: "applied" });
     return { swapped: true, fromSeq: seg.fromSeq, toSeq: seg.toSeq, checkpoint };
   }

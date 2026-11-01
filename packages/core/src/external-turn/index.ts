@@ -186,7 +186,7 @@ export function createExternalTurnService(d: ExternalTurnDeps): {
 
         cancel.signal.throwIfAborted();
 
-        const existingMessages = d.store.listMessages(session.id);
+        const existingMessages = d.store.contextMessages(session.id);
         const historyMessages: { role: "system" | "user" | "assistant"; text: string; turnId?: string }[] = [];
         if (origin === "a2a") {
           historyMessages.push({ role: "system", text: A2A_SYSTEM_INSTRUCTION });

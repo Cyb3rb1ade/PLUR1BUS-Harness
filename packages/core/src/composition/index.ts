@@ -79,6 +79,8 @@ import { mediaToInbox } from '../inbox/producers.ts';
 import { isLocalEndpoint, localEndpoints, localOnlyFor, localOnlyShared, LOCAL_ONLY_REASON, LOCAL_ONLY_HINT } from '../privacy/local-only.ts';
 import { subjectForOrigin } from './protocols.ts';
 import type { SessionOrigin } from '../session/types.ts';
+import { rewindProjectContext } from '../session/rewind-project.ts';
+import { RewindCheckpoints } from '../session/rewind-checkpoints.ts';
 
 export interface CompositionOptions {
   /** Internal loopback-only System One test endpoint; never a configuration or RPC field. */
@@ -453,13 +455,23 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       disposers.push(() => gate.close());
       coding = { collab, gate, worktrees: options.projectWorktrees ?? { root: agentId => d.agents.workspaceOf(agentId) ?? null } };
     }
-    sessions = openSessionService({ ...maintenance, ...(d.maintenance ? { maintenance: d.maintenance } : {}), pruneConfidence: () => { const floor = (d.config().decision.confidence as Record<string, number> | undefined)?.pruning; return typeof floor === 'number' && Number.isFinite(floor) ? floor : DEFAULT_PRUNE_CONFIDENCE; }, laya: decisionPruningPort(decisions, (pair, signal) => {
+    const rewindProject = (sessionId: string, personId: string) => {
+      const session = sessions?.forSession(sessionId).store.getSession(sessionId);
+      const person = d.resolveCollaborationPerson?.(personId);
+      return session && person && coding ? rewindProjectContext(session, person, coding.collab, coding.worktrees) : null;
+    };
+    sessions = openSessionService({ ...maintenance, rewindProject,
+      autoRewindProjects: () => d.config().session.rewind.autoProjects,
+      rewindFilesFactory: store => new RewindCheckpoints({ store, project: rewindProject, audit: d.audit, now: d.clock,
+        approval: { request: async ask => (await d.permissions.open()).service.request(ask),
+          begin: (answer, ask) => d.permissions.current()?.service.begin(answer, ask) ?? false } }),
+      ...(d.maintenance ? { maintenance: d.maintenance } : {}), pruneConfidence: () => { const floor = (d.config().decision.confidence as Record<string, number> | undefined)?.pruning; return typeof floor === 'number' && Number.isFinite(floor) ? floor : DEFAULT_PRUNE_CONFIDENCE; }, laya: decisionPruningPort(decisions, (pair, signal) => {
       const service = sessions.forSession(pair.call.sessionId);
       const session = service.store.getSession(pair.call.sessionId);
       if (!session) throw new Error('pruning-session-unavailable');
       // Background request has no running turn; trace remains aggregate without transcript data.
       return { sessionId: session.id, agentId: session.agentId, principal: session.owner, signal, chat: { sessionId: session.id, agentId: session.agentId, principal: session.owner, role: 'decision', incognito: session.memoryMode === 'incognito', signal, summaries: [], memory: '', messages: [] } };
-    }), dbPath: join(d.home, 'state', 'sessions.sqlite'), clock: d.clock, logger: d.logger, agents: d.agents, isStopping: d.isStopping, memory, provider: () => provider, notify: d.notify, signal: d.signal, onSessionEnd: id => {
+    }), dbPath: join(d.home, 'state', 'sessions.sqlite'), audit: d.audit, clock: d.clock, logger: d.logger, agents: d.agents, isStopping: d.isStopping, memory, provider: () => provider, notify: d.notify, signal: d.signal, onSessionEnd: id => {
       void hostctl.endSession(id).catch(err => d.logger.warn('hostctl session cleanup failed', { err }));
       const cur = d.permissions.current();
       if (cur) {

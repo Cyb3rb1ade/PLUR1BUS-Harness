@@ -82,6 +82,84 @@ rendered character counts divided by four; it is not provider usage. Re-fetch
 rate counts explicit restores divided by all pruned overlay rows, including
 restored rows. Similar later tool calls are not classified as restores.
 
+## Rewind with a lesson (D120 CX1)
+
+RPC 1.18.0 adds human-only `session.rewind` and `chat.rewind`. Apply with
+`{ sessionId, toSeq, lesson? }` (`session.*` also carries the existing CLI caller),
+or undo with `{ sessionId, undo: rewindId }`. The session must be idle. Transcript
+commands use `/rewind [<seq> | last] [--lesson "..."]` and `/rewind --undo <id>`.
+They never reach recall, capture, the model or its cached prefix.
+
+Session schema v10, allocated by the owner on 2026-11-01, adds `path_rewinds` and
+checkpoint metadata. Original messages and events remain byte-identical. The
+overlay records the last kept sequence, inclusive hidden range, lesson message,
+actor, trigger and SHA-256 digest. The digest is over the UTF-8 JSON array of
+ordered `[id, text]` tuples. Audit actions are `session.rewind` and
+`session.rewind.undone`; no transcript text enters the audit. Undo lifts the hidden
+range and hides the obsolete lesson, without deleting either. Nested rewinds are
+independent overlays.
+
+Prompt readers, loaded-skill restoration and pruning use the active path. Tools
+from a partially discarded turn are excluded too. Applied and prepared summaries
+that touch a hidden range leave the view; new summaries never span that hole.
+A summary awaiting its model is discarded if the session revision changed.
+Undo exposes the original tool-visibility overlays and summaries again. FTS keeps
+all original text and marks hidden hits `rewound`; transcript APIs carry the same
+flag. `chat.export` separates `messages` from `discarded`.
+
+The stored harness note renders at conversation rank after the kept prefix. This
+keeps provider system blocks stable, including on providers that hoist system messages.
+Forks copy an active corrective note at conversation rank too; they do not inherit
+the source session's overlay identifiers. The owning M3 transcript reader applies
+the same rewind markers after its existing privacy and breakglass checks.
+
+An explicit lesson avoids a model call. Otherwise the existing `summarize` role
+and budget distill the selected active range, bounded tool envelopes and final failing
+check essence. A trusted system instruction requests a corrective lesson; supplied
+transcript text stays untrusted. Already discarded messages and tool metadata stay
+out of later lessons too. Artifact bodies, invalid artifact identifiers and full
+stdout/stderr are excluded. Missing role,
+unavailable model or budget refusal uses a deterministic changed-file/failure
+digest. The complete harness note is capped at 400 estimated tokens, using the
+existing four-character estimate. Rewind leaves previously captured memory alone;
+correct a remembered fact through the existing memory correction/forget surface.
+
+Q13 counts a successful `file.edit`/`file.write` followed by a failing `code.check`,
+test-running `exec.run`, or coding gate result. Three consecutive cycles produce
+an interactive proposal, confirmed by a human action or `/rewind`. A successful
+check resets the streak. `session.rewind.autoProjects` is an advanced, live,
+Owner/Admin-written list (default `[]`). Automatic application additionally needs
+a trusted unattended turn, kind `card`, a unique active D115 card link, the assigned
+agent and the shared worktree binding. The turn runner treats a trusted background
+origin on a T0 surface as unattended, including one-shot work; the responsible person's identity does not
+mean a person is present to approve. An agent message does not
+provide human approval; automatic rewind never restores files.
+
+Q14 leaves files unchanged by default. For a bound D115 card, each model turn
+attempts a checkpoint at `refs/plur1bus/checkpoints/<session>/<turn>`. Git uses a
+private temporary index, preserving dirty working bytes, staging and HEAD;
+untracked files are excluded. Repository filters, hooks, pagers and signing
+programs are disabled during these harness-owned Git operations. Capture and
+restore use an owner-private temporary Git directory as well as a copied index.
+Its highest-precedence attributes disable filters, text/EOL normalization,
+encoding conversion and ident expansion, including drivers from included or
+worktree configuration. Capture re-reads tracked contents rather than reusing a
+cached normalized blob. Split-index dependencies are copied privately; the real
+index remains unchanged. An unavailable
+checkpoint is logged and `--files` refuses rather than substituting HEAD.
+Incognito sessions create no file checkpoints.
+
+`/rewind ... --files` (or RPC `files: true`) requests a T3, single-use
+`local-destructive` approval through D109. The action binds the session, root,
+recorded checkpoint, current working tree and real-index digest. The session is
+reserved while approval is pending. Changed files, index, assignment, checkpoint
+or session revision invalidate the request before restoration. Only tracked
+working files are restored; staging, HEAD and untracked files are preserved.
+The file action is audited separately as `session.rewind.files`. Git restoration
+and the SQLite overlay are separate operations: a later storage failure does not
+roll back an already approved file restoration. Undo is conversation-only and
+does not undo a file restoration.
+
 ## Configuration and events
 
 `session.compaction` is advanced tier and restarts the Core. Defaults:
