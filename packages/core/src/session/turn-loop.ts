@@ -137,6 +137,11 @@ export class TurnRunner {
       let reply = ""; let usage: { inputTokens: number; outputTokens: number; model?: string; measurements?: import("./provider.ts").UsageMeasurement[] } | null = null; let index = 0;
       telemetry.rounds = 1;
       for await (const chunk of provider.stream({
+        onDelegationResult: result => {
+          // Harness-owned joins have no model tool call. Persist a matching read operation without accepting reported provenance.
+          this.#event(turnId, 'tool.call', { id: result.taskId, name: 'await_delegations', args: { taskIds: [result.taskId], timeoutMs: 0 }, origin: 'harness:collaboration' }, session);
+          this.#event(turnId, 'tool.result', { id: result.taskId, output: result.output, origin: 'harness:collaboration' }, session);
+        },
         onTurnTelemetry: observation => { telemetry = structuredClone(observation); },
         buffered: !!recurring || !['cli', 'web', 'api', 'voice'].includes(caller.channel),
         ...(selectedProfile ? { modelProfile: selectedProfile } : {}), ...(reasoning ? { reasoning } : {}),

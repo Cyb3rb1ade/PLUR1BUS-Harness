@@ -16,6 +16,12 @@ export interface TurnApprover { person: string | null; surface: 0 | 1 | 2 | 3 }
 export interface RecurringOrigin { jobId: string; jobName: string; runAs: string; trigger: "recurring" }
 
 export interface ChatRequest {
+  /** Trusted turn owner shared through internal request copies; never an RPC parameter. */
+  delegations?: import('../collab/delegations.ts').TurnDelegations;
+  maxRounds?: number;
+  delegationBudget?: import('../collab/limits.ts').DelegationWorkBudget;
+  /** Trusted in-process completion sink; wire adapters never receive it or construct these results from model text. */
+  onDelegationResult?: (result: { taskId: string; output: string }) => void;
   /** Session owner receives the final snapshot before persisting its authoritative outcome. */
   onTurnTelemetry?: (telemetry: import("./turn-telemetry.ts").TurnTelemetry) => void;
   /** Trusted per-turn override for scheduled, headless and delegated work; never an RPC parameter. */

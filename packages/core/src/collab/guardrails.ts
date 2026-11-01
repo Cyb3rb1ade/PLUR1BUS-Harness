@@ -1,7 +1,11 @@
 import type { GuardrailReason } from "./errors.ts";
 import type { CollabSettings } from "./types.ts";
+import type { CallClass } from './limits.ts';
 
 export interface GuardrailInput {
+  callClass?: CallClass;
+  consult?: boolean;
+  deadlineAt?: number;
   settings: CollabSettings;
   fromAgent: string;
   toAgent: string;
@@ -20,10 +24,10 @@ export interface GuardrailInput {
 export function evaluateGuardrails(i: GuardrailInput): GuardrailReason | null {
   if (i.fromAgent === i.toAgent) return "self-call";
   if (i.path.includes(i.toAgent)) return "cycle";
-  if (i.path.length > i.settings.maxDepth) return "depth";
-  if (i.fanout >= i.settings.maxFanout) return "fanout";
-  if (i.pairCount >= i.settings.maxPairPerTurn) return "pair-limit";
-  if (i.now - i.chainStartedAt >= i.settings.timeoutMs) return "timeout";
+  if (i.path.length > (i.callClass === 'write' ? 1 : i.settings.maxDepth)) return "depth";
+  if (i.callClass !== 'write' && i.fanout >= i.settings.maxFanout) return "fanout";
+  if (i.consult !== false && i.pairCount >= i.settings.maxPairPerTurn) return "pair-limit";
+  if (i.deadlineAt !== undefined && i.now >= i.deadlineAt) return "timeout";
   if (i.lastRepeatAt !== null && i.now - i.lastRepeatAt < i.settings.repeatWindowMs) return "repeat";
   if (!i.sameProject && !i.settings.allowCrossProject) return "project-boundary";
   if (i.settings.tokenBudget !== null && i.tokensUsed + i.nextTokens > i.settings.tokenBudget) return "token-budget";

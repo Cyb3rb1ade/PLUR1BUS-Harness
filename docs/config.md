@@ -21,6 +21,8 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 |---|---|---|---|---|
 | `import.ssh` | object | `{}` | live | Owner-managed SSH source identity and endpoint configuration. |
 | `collaboration.fanoutEnabled` | boolean | `false` | live | Enable collaboration fan-out only after owner review of the equal-token-budget evaluation. |
+| `collaboration.teams` | object | `{}` | live | D124 capacity facts; team scheduling remains disabled until its scheduler, reviews and merge queue land. |
+| `collaboration.limits` | object | `{}` | live | D124 collaboration limits. Project settings can only narrow these installation limits. |
 | `approvals.maxGrantDays` | integer | `90` | core | Always-grant idle lifetime in days. Explicit shorter expiries still apply. |
 | `approvals.requireOsConfirmation` | boolean | `true` | core | Allow the required OS confirmation for an otherwise untrusted local decision. False disables this lift; it never bypasses surface trust. |
 | `breakglass.reasonMinChars` | integer | `10` | core | Minimum trimmed break-glass reason length. |

@@ -17,10 +17,10 @@ describe("guardrails (pure)", () => {
   it("refuses self-call, cycle, depth, fanout, pair, timeout, repeat, boundary, budgets", () => {
     assert.equal(evaluateGuardrails(base({ toAgent: "a" })), "self-call");
     assert.equal(evaluateGuardrails(base({ fromAgent: "b", path: ["a", "b"], toAgent: "a" })), "cycle");
-    assert.equal(evaluateGuardrails(base({ path: ["a", "b"], toAgent: "c" })), "depth");
-    assert.equal(evaluateGuardrails(base({ fanout: 3 })), "fanout");
-    assert.equal(evaluateGuardrails(base({ pairCount: 2 })), "pair-limit");
-    assert.equal(evaluateGuardrails(base({ now: 5 * 60 * 1000, chainStartedAt: 0 })), "timeout");
+    assert.equal(evaluateGuardrails(base({ path: ["a", "b", "c"], toAgent: "d" })), "depth");
+    assert.equal(evaluateGuardrails(base({ fanout: 8 })), "fanout");
+    assert.equal(evaluateGuardrails(base({ pairCount: 4 })), "pair-limit");
+    assert.equal(evaluateGuardrails(base({ now: 5 * 60 * 1000, deadlineAt: 5 * 60 * 1000 })), "timeout");
     assert.equal(evaluateGuardrails(base({ lastRepeatAt: 990, now: 1000 })), "repeat");
     assert.equal(evaluateGuardrails(base({ sameProject: false })), "project-boundary");
     assert.equal(evaluateGuardrails(base({ settings: { ...DEFAULT_COLLAB_SETTINGS, tokenBudget: 1 }, tokensUsed: 1, nextTokens: 1 })), "token-budget");
@@ -44,7 +44,7 @@ describe("guardrails (service)", () => {
 
   it("blocks a second hop when maxDepth is 1", async () => {
     const h = open();
-    const p = await projectWithAgents(h);
+    const p = await projectWithAgents(h, undefined, { maxDepth: 1 });
     const first = await h.collab.consult({ principal: owner(), projectId: p.id, fromAgent: "lead", toAgent: "worker", question: "q1", context: "" });
     await assert.rejects(
       h.collab.consult({

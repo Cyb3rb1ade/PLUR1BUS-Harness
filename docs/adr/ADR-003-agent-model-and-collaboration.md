@@ -150,13 +150,23 @@ interface BehaviourLayer {
 
 | Guard | Default | Source |
 |---|---|---|
-| Consultation depth | 1 (a consulted agent may not consult further) | Goose's structural depth guard, ibid. §5 |
+| Consultation depth | Read-only helpers: 2; writers: 1 | D124 Q2, decided 2026-11-01 |
 | Cycle / self-call | blocked; call graph checked per root turn | auftrag §7 |
-| Calls per turn / per agent pair | 3 per turn, 2 per pair per turn | ours; tunable |
-| Turn and time budget per delegation | 25 turns, 5 minutes | Goose defaults, ibid. §5 |
+| Calls per turn / per agent pair | 8 read helpers per calling turn, configurable up to 32; 4 consults per pair; package delegations have no pair cap | D124 Q2 and §7.1 |
+| Concurrent writers | 4 per project, configurable; CPU and available memory determine the soft capacity, explicit overcommit warns | D124 Q3; `collaboration.limits.writers` and `collaboration.teams.capacity` |
+| Turn and time budget per delegation | consult 25/5 min; research 50/15 min; review 40/20 min; code-small 100/45 min; code-large 200/120 min | D124 Q4; per-delegation deadlines replace the chain timer |
 | Token/cost budget | checked **before** every call, against project and agent budgets | auftrag §7; ≈15× cost multiplier, ibid. §5 |
 | User abort | always available, propagates to children | auftrag §7 |
 | Partial success | representable — a timed-out delegation returns a partial result marked `interrupted`, never silence | Goose failure semantics, ibid. §5 |
+
+**D124 amendment (owner, 2026-11-01; TM1).** Limits resolve from `collaboration.limits` and narrowing project
+overrides. Work allocations cover acceptance, work, retries and return repair; per-call output limits come from the
+provider profile, and returned summaries remain capped at 2,000 tokens. `consult_agent` and `delegate_task` support
+`wait: false`; `await_delegations` collects the starting turn's children. Starts, pair reservations and the trace are
+established before asynchronous preparation. The provider joins unbound children before completing the turn.
+Versionless project settings normalize legacy defaults on read; the next save writes `settingsVersion: 2`, after
+which explicit values are preserved. This changes neither the SQLite schema nor the RPC version. The configured
+positive disk floor is reserved for admission before the provisioner-backed team scheduler creates worktrees.
 
 **Security invariants.** Other agents' messages are **data, not instructions** — results enter the caller's context as `tool_result` with a provenance envelope `{agentId, sessionId, projectId, at, cost, target-kind}` and never as system or assistant text (auftrag §7, §11). The caller's permissions **do not transfer** to the callee; the callee runs under its own approval policy, its own toolset and its own budget. The triggering user's RBAC bounds the set of consultable agents (ADR-007). Private knowledge of the consulted agent and any `user`-scope memory never migrates automatically into the caller's store, the workspace pool, or a remote agent (auftrag §7) — the only automatic write is the provenance-tagged result card in the caller's own `agent-private` scope; anything beyond that goes through explicit `/share`, which is copy-never-move and re-embeds (`lib/shared-memory.js:216-231`, `memory-edit.js:508`).
 

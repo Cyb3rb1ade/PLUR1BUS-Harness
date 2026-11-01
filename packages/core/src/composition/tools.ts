@@ -95,7 +95,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
     registry.register({ ...tool, ...(discovery ? { discovery } : {}) });
   };
   if (o.coding && o.collaboration) register(codingCompletionTool(o.coding, req, () => o.collaboration!.principal(req)));
-  if (o.collaboration) for (const tool of collaborationTools(o.collaboration, req)) register(tool);
+  if (o.collaboration) for (const tool of collaborationTools({ ...o.collaboration, toolEffect: name => registry.entries().find(tool => tool.name === name)?.effect }, req)) register(tool);
   const platform = isHostPlatform(process.platform) ? process.platform : 'linux';
   const deny = [...denyEntriesFor(homedir(), process.env, platform), { path: join(o.home, 'run') }, { path: join(o.home, 'state') }, { path: join(o.home, 'config.json') }, { path: join(o.home, 'bin') }, { path: join(o.home, 'runtime') }, { path: join(o.home, 'secrets') }, ...(o.deny ?? [])];
   const fs = o.roots.length ? createFsTools({ roots: o.roots, deny }) : { tools: [] };

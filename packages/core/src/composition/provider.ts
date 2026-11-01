@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { TurnDelegations } from '../collab/delegations.ts';
 import { createTurnTelemetry, type TurnTelemetry } from '../session/turn-telemetry.ts';
 import type { SessionModelRouting, ModelRoutingEvent } from './model-routing.ts';
 import { carryThinking } from "../../../providers/src/anthropic/thinking.ts";
@@ -529,15 +530,19 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
             const directive = req.reasoning !== undefined && req.role !== 'summarize' && o.reasoningFor ? directiveFor(req.reasoning, o.reasoningFor(info.provider, info.model)) : undefined;
             const answer = request.maxTokens ?? o.maxTokens ?? 4096;
             const maximum = directive?.vendorParam === 'thinking.budget_tokens' ? anthropicOutputLimit(answer, directive.value as number) : answer;
-            const admitted = o.budget.checkBeforeCall({ principal, agent: req.agentId, project: req.projectId ?? 'direct', model: info.model, provider: info.provider, turn: turnId, session: req.sessionId, estimatedInputTokens, maxOutputTokens: maximum });
-            if (admitted.kind === 'refuse') throw new CallBudgetExceededError(admitted);
+            const work = req.delegationBudget?.reserve(estimatedInputTokens + maximum);
+            let admitted: ReturnType<typeof o.budget.checkBeforeCall>;
+            try {
+              admitted = o.budget.checkBeforeCall({ principal, agent: req.agentId, project: req.projectId ?? 'direct', model: info.model, provider: info.provider, turn: turnId, session: req.sessionId, estimatedInputTokens, maxOutputTokens: maximum });
+              if (admitted.kind === 'refuse') throw new CallBudgetExceededError(admitted);
+            } catch (error) { work?.release(); throw error; }
             // A retry or fallback inside this router call is charged to the class of the failure that caused it; the first
             // attempt is charged only when the call itself is a retry (a tool-argument repair).
             const retryClass = info.attempt > 1 ? call.lastFailure ?? 'network' : call.firstClass;
             let ticket: number | undefined;
             if (retryClass) {
               try { ticket = retryBudget.consume(turnId, retryClass, admitted.estimatedTokens); }
-              catch (e) { o.budget.releaseUnused(admitted.reservationId); throw e; }
+              catch (e) { o.budget.releaseUnused(admitted.reservationId); work?.release(); throw e; }
             }
             const attempt: AttemptState = { invoked: false, received: false, outputChars: 0 };
             call.current = attempt;
@@ -547,7 +552,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
               if (!counts) {
                 if (nothingBillable(attempt)) {
                   // Nothing billable was sent: the reservation is given back, never left pending.
-                  try { o.budget.releaseUnused(admitted.reservationId); if (ticket !== undefined) retryBudget.settle(ticket, 0); }
+                  try { o.budget.releaseUnused(admitted.reservationId); work?.release(); if (ticket !== undefined) retryBudget.settle(ticket, 0); }
                   catch (e) { fatal = e; throw e; }
                   return;
                 }
@@ -557,6 +562,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
               const settled = counts;
               try { await stage('usage', new AbortController().signal, o.log, () => {
                 o.budget.settle(admitted.reservationId, settled);
+                work?.settle(settled.inputTokens + settled.outputTokens);
                 if (ticket !== undefined) retryBudget.settle(ticket, settled.inputTokens + settled.outputTokens);
                 if (rendered && !estimated) { const cacheRecord = telemetry.record(rendered, { cache_read: settled.cacheReadTokens, cache_creation: settled.cacheWriteTokens, input: Math.max(0, settled.inputTokens - settled.cacheReadTokens - settled.cacheWriteTokens) }); o.onUsage?.(cacheRecord); }
               }); } catch (e) { fatal = e; throw e; }
@@ -606,6 +612,16 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       ? `Task checklist:\n${decision.tasks.map(task => `- [ ] ${task.summary}`).join('\n')}` : '';
     let totalInputTokens = 0, totalOutputTokens = 0, completed = false;
     let consecutiveErrors = 0;
+    const joinChildren = async (cancel = false): Promise<ChatChunk[]> => {
+      const chunks: ChatChunk[] = [];
+      for (const child of await req.delegations?.finish(cancel) ?? []) {
+        const value = createRedactor({ secrets: o.secrets?.() ?? [] }).value(child);
+        const capped = await capResult(value, o.resultStore, 32 * 1024), output = JSON.stringify(capped);
+        if (req.onDelegationResult) req.onDelegationResult({ taskId: child.taskId, output });
+        else chunks.push({ type: 'tool.result', id: child.taskId, output });
+      }
+      return chunks;
+    };
     try {
     for (const skill of chosenSkills) {
       if (loaded.has(skill.entry.name) || !selected.some(tool => tool.name === 'skill.load')) continue;
@@ -639,7 +655,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         loaded.set(skill.entry.name, { id, name: skill.entry.name, text, turnId });
       }
     }
-      for (let round = 0; round < (o.maxRounds ?? 25); round++) {
+      for (let round = 0; round < (req.maxRounds ?? o.maxRounds ?? 25); round++) {
         observation.rounds++;
         modelRound = round;
         renderInput = { agentId: req.agentId, sessionId: req.sessionId, model: candidate.model, ...cacheFor(candidate.provider, candidate.model), tools: selected.map(t => ({ ...fromRegisteredTool(t) })), system: [...(o.system ?? [TOOL_USE_INSTRUCTIONS]), ...(skillCatalogue ? [skillCatalogue] : []), ...(req.recurring ? [`Automatically triggered by recurring task ${req.recurring.jobName} (${req.recurring.jobId}); runAs=${req.recurring.runAs}. This is a scheduled task, not a live message.`] : [])], memory: snapshot, conversation: conversationItems(messages.slice(summaryMessages.length)), volatile: { blocks: [...(capabilityHint ? [{ name: 'capability-hint', text: capabilityHint, chars: capabilityHint.length, droppable: false }] : []), ...(taskChecklist ? [{ name: 'task-checklist', text: taskChecklist, chars: taskChecklist.length, droppable: false }] : []), { name: 'recall', text: req.memory, chars: req.memory.length, droppable: false }] } };
@@ -675,7 +691,10 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           continue;
         }
         if (buffered && (done.text || roundText)) yield { type: 'delta', text: done.text || roundText };
-        if (!done.toolCalls.length) { completed = true; return; }
+        if (!done.toolCalls.length) {
+          for (const chunk of await joinChildren()) yield chunk;
+          completed = true; return;
+        }
         // Engine maintenance is a background role with no permission to execute model-proposed tools.
         if (req.role === 'engine') throw new TurnToolError('engine-tools-forbidden', null);
         hasModelToolCall = true;
@@ -732,11 +751,15 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           }
           yield { type: 'tool.result', id: call.id, output: text };
           messages.push({ role: 'tool', toolCallId: call.id, content: text });
-          if (call.name === 'handoff' && output.value && typeof output.value === 'object' && (output.value as { ownershipTransferred?: unknown }).ownershipTransferred === true) { completed = true; return; }
+          if (call.name === 'handoff' && output.value && typeof output.value === 'object' && (output.value as { ownershipTransferred?: unknown }).ownershipTransferred === true) {
+            for (const chunk of await joinChildren()) yield chunk;
+            completed = true; return;
+          }
         }
       }
-      throw new TurnToolError('turn-round-limit', o.maxRounds ?? 25);
+      throw new TurnToolError('turn-round-limit', req.maxRounds ?? o.maxRounds ?? 25);
     } finally {
+      await joinChildren(!completed || signal.aborted);
       retryBudget.endTurn(turnId);
       const succeeded = completed && !signal.aborted;
       if (succeeded && !req.role && !req.onTurnTelemetry) {
@@ -750,7 +773,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
   }
   return { id: 'composition', telemetry, async *stream(req) {
     const trace = currentTrace() ?? newTrace();
-    const request = { ...req };
+    const request = { ...req, delegations: new TurnDelegations() };
     const observation = createTurnTelemetry();
     const stream = run(request, observation);
     let finished = false, failed = false;
