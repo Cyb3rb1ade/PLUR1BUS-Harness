@@ -14,7 +14,7 @@ export interface WriterCapacity {
   exceeded: boolean;
 }
 
-/** A configured override can exceed CPU/memory capacity, never the configured per-project writer count. */
+/** Shared CPU/memory admission; the service enforces each project's writer count separately. */
 export function writerCapacity(perProject: number, facts: CapacityFacts, runningLocalWriters = 0): WriterCapacity {
   // Existing writers already consumed part of the measured free memory; do not count their reservation twice.
   const memory = Math.min(facts.totalMemory ?? Number.MAX_SAFE_INTEGER,
@@ -23,8 +23,9 @@ export function writerCapacity(perProject: number, facts: CapacityFacts, running
     Math.floor(facts.cores / facts.settings.coresPerWriter),
     Math.floor(memory / facts.settings.memoryPerWriter),
   ));
-  const requested = facts.settings.maxWriters
-    ?? (perProject === DEFAULT_COLLAB_LIMITS.writers.perProject ? computed : perProject);
-  const slots = Math.min(perProject, requested);
+  // A changed project limit can explicitly overcommit hardware, but a smaller project cannot
+  // narrow the machine's shared capacity for unrelated projects. An explicit capacity override can.
+  const slots = facts.settings.maxWriters
+    ?? Math.max(computed, perProject === DEFAULT_COLLAB_LIMITS.writers.perProject ? 0 : perProject);
   return { computed, slots, exceeded: slots > computed };
 }

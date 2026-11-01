@@ -45,7 +45,7 @@ export function delegationIdentity(input: AgentRunInput): { principal?: string; 
 
 /** Use the receiver's own tools for writes; scoped reads and independent review never gain write tools. */
 export function delegationToolView(input: AgentRunInput, held: AgentScopeValue): { toolView?: readonly string[]; readOnlyWorktree?: string } {
-  if (input.handoff?.context.readOnlyWorktree) return { toolView: ['file.read', 'file.list', 'file.stat'], readOnlyWorktree: input.handoff.context.readOnlyWorktree };
+  if (input.handoff?.context.readOnlyWorktree) return { toolView: held.toolView.filter(name => ['file.read', 'file.list', 'file.stat'].includes(name) && input.handoff!.contract.constraints.scope.tools.includes(name)), readOnlyWorktree: input.handoff.context.readOnlyWorktree };
   if (!held.delegation) return { toolView: held.toolView };
   if (held.delegation.callClass !== 'write') return { toolView: held.toolView.length ? [...held.toolView, 'consult_agent', 'await_delegations'] : [] };
   const tools = input.handoff?.contract.constraints.scope.tools ?? [];

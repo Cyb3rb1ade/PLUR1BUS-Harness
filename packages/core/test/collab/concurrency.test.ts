@@ -383,3 +383,83 @@ test('a nested reviewer default scope cannot inherit its writer parent write too
   await runWithAgentScope(scope, () => f.call('request_review', { projectId: f.project.id, toAgent: 'a', objective: 'review' }));
   assert.deepEqual(view, ['file.read']);
 });
+
+for (const explicit of [false, true]) test(`card reviewer preserves the inherited read restriction at the actual provider (explicit=${explicit})`, async t => {
+  const views: string[][] = [];
+  const runner = composedAgentRunner({ id: 'card-review-scope', async *stream(request) {
+    const h = JSON.parse(request.peerResults![0]!.text).handoff as Handoff;
+    if (request.messages[0]?.text.startsWith('Acceptance check')) {
+      yield { type: 'delta', text: JSON.stringify({ schema: 'plur1bus.ack/1', inReplyTo: h.id, objective: h.objective, status: 'ok', blockingQuestions: [] }) };
+    } else {
+      views.push([...(request.toolView ?? [])]);
+      assert.equal(request.readOnlyWorktree, '/tmp/review-fixture');
+      assert.deepEqual(h.constraints.scope.tools, ['file.stat']);
+      assert.deepEqual(h.constraints.scope.paths, explicit ? ['src/**'] : ['**']);
+      const report = returnFromText(h, 'review complete', { tokens: 2, toolCalls: 0, durationMs: 1 });
+      report.output = { verdict: 'pass', findings: [] }; report.citations = ['repo:fixture'];
+      yield { type: 'delta', text: JSON.stringify(report) };
+    }
+  } }, alsAgentScopePort(), tempDir('tm1-card-review-'));
+  const f = fixture(t, { runner });
+  const card = f.collab.boardStore.createCard(f.project.id, { title: 'Review', columnId: f.collab.boardStore.columns(f.project.id)[0]!.id }, { kind: 'person', id: owner().userId });
+  f.collab.boardStore.assign(f.project.id, card.id, { kind: 'agent', id: 'lead' }, true, { kind: 'person', id: owner().userId });
+  f.config.review = { start: () => ({}), root: () => '/tmp/review-fixture', finish() {} };
+  const scope = scopeFor('lead', f.project.id);
+  scope.toolView = explicit ? ['file.stat', 'file.read'] : ['file.stat'];
+  scope.delegation = { traceId: f.collab.openChain(owner(), f.project.id, 'lead'), spanId: 'parent', path: ['lead'], callClass: 'write', workBudget: delegationWorkBudget(10000) };
+  const result = await runWithAgentScope(scope, () => f.call('request_review', { projectId: f.project.id, cardId: card.id, toAgent: 'a', objective: 'review', ...(explicit ? { scope: { paths: ['src/**'], tools: ['file.stat'] } } : {}) }));
+  assert.ok(!result.isError, JSON.stringify(result));
+  assert.deepEqual(views, [['file.stat']]);
+});
+
+test('hardware capacity is shared while each project retains its own four writer slots', async t => {
+  const gate = Promise.withResolvers<void>();
+  t.after(() => gate.resolve());
+  const settings = defaults().collaboration.teams.capacity;
+  const f = fixture(t, { capacity: () => ({ cores: 16, availableMemory: 64 * 1024 ** 3, settings }), runner: { async run() { return { text: 'done', inputTokens: 0, outputTokens: 0 }; } } });
+  delete f.request.projectId;
+  const projects = [f.project, ...['B', 'C'].map(name => {
+    const project = f.collab.createProject(owner(), { name, settings: { repeatWindowMs: 0 } });
+    for (const agent of ['lead', 'a', 'b', 'c', 'd']) f.collab.addAgent(owner(), project.id, agent);
+    return project;
+  })];
+  let prepared = 0;
+  f.config.repair = async value => { prepared++; await gate.promise; return { ...(value as Handoff), objective: 'compact' }; };
+  const args = (projectId: string, toAgent: string) => ({ projectId, toAgent, objective: 'x'.repeat(2200), doneWhen: ['done'], wait: false });
+  const ids: string[] = [];
+  for (const project of projects.slice(0, 2)) {
+    for (const agent of ['a', 'b', 'c', 'd']) {
+      const result = await f.call('delegate_task', args(project.id, agent));
+      assert.ok(!result.isError, JSON.stringify(result));
+      ids.push((result.value as { taskId: string }).taskId);
+    }
+    assert.equal((await f.call('delegate_task', args(project.id, 'a'))).isError, true, 'each project has only four slots');
+  }
+  assert.equal((await f.call('delegate_task', args(projects[2]!.id, 'a'))).isError, true, 'hardware has eight shared slots');
+  assert.equal(prepared, 8);
+  gate.resolve();
+  const result = await f.call('await_delegations', { taskIds: ids, timeoutMs: 1000 });
+  assert.ok(!result.isError); assert.equal((result.value as { results: unknown[] }).results.length, 8);
+});
+
+for (const name of ['consult_agent', 'delegate_task', 'request_review']) test(`${name} rechecks card assignment after asynchronous preparation`, async t => {
+  const entered = Promise.withResolvers<void>(), gate = Promise.withResolvers<void>();
+  t.after(() => gate.resolve());
+  let runs = 0;
+  const f = fixture(t, { runner: { async run() { runs++; return { text: 'work after revocation', inputTokens: 1, outputTokens: 1 }; } } });
+  const card = f.collab.boardStore.createCard(f.project.id, { title: 'Assigned work', columnId: f.collab.boardStore.columns(f.project.id)[0]!.id }, { kind: 'person', id: owner().userId });
+  const sender = { kind: 'agent' as const, id: 'lead' }, person = { kind: 'person' as const, id: owner().userId };
+  f.collab.boardStore.assign(f.project.id, card.id, sender, true, person);
+  f.config.repair = async value => { entered.resolve(); await gate.promise; return { ...(value as Handoff), objective: 'compact' }; };
+  f.config.review = { start: () => ({}), root: () => '/tmp/review-fixture', finish() {} };
+  const call = f.call(name, { projectId: f.project.id, cardId: card.id, toAgent: 'a', objective: 'x'.repeat(2200), doneWhen: ['done'], ...(name !== 'request_review' ? { wait: false } : {}) });
+  await entered.promise;
+  f.collab.boardStore.assign(f.project.id, card.id, sender, false, person);
+  gate.resolve();
+  const output = await call;
+  const results = await f.request.delegations!.finish();
+  assert.equal(runs, 0);
+  if (name === 'request_review') { assert.ok(output.isError); assert.match(JSON.stringify(output), /unauthorized/); }
+  else { assert.ok(!output.isError); assert.equal(results[0]!.error!.code, 'unauthorized'); }
+  assert.equal(f.collab.boardStore.comments(f.project.id, card.id, {}).items.length, 0);
+});

@@ -70,11 +70,13 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
     const a = value as Args, who = admitted(ctx, a.projectId);
     const allowedClasses: TaskClass[] = review ? ['review'] : kind === 'consult' ? ['consult'] : ['code-small', 'code-large'];
     if (a.taskClass !== undefined && !allowedClasses.includes(a.taskClass)) throw new CollabError('invalid', 'invalid task class for collaboration tool');
-    if (a.cardId) {
-      if (authorize(who, 'project.write', { kind: 'project', projectId: a.projectId }).effect !== 'allow') throw new CollabError('unauthorized', 'project write required');
+    const checkCard = (principal: Principal): void => {
+      if (!a.cardId) return;
+      if (authorize(principal, 'project.write', { kind: 'project', projectId: a.projectId }).effect !== 'allow') throw new CollabError('unauthorized', 'project write required');
       const card = o.collab.boardStore.getCard(a.projectId, a.cardId);
       if (!card.assignees.some(x => x.kind === 'agent' && x.id === ctx.agentId)) throw new CollabError('unauthorized', 'assigned project agent required');
-    }
+    };
+    checkCard(who);
     if (a.wait === false && (review || kind === 'handoff')) throw new CollabError('invalid', 'nonblocking mode is available only for consult_agent and delegate_task');
     if ((review || kind === 'handoff') && o.collab.isA2aAgent(a.toAgent)) {
       throw new CollabError('unauthorized', 'A2A targets cannot review local worktrees or receive card ownership');
@@ -122,7 +124,7 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
     };
     if (review) { candidate.returnContract.outputSchema = { type: 'object', additionalProperties: false, properties: { verdict: { enum: ['pass', 'changes_requested'] }, findings: { type: 'array', items: { type: 'string' } } }, required: ['verdict', 'findings'] }; candidate.returnContract.citationsRequired = true; }
     const reviewTicket = review && a.cardId ? o.review?.start(a.projectId, a.cardId, ctx.agentId) : undefined;
-    if (reviewTicket && o.review) { authority.readOnlyWorktree = o.review.root(reviewTicket); candidate.constraints.scope = { paths: ['**'], tools: ['file.read', 'file.list', 'file.stat'] }; }
+    if (reviewTicket && o.review) { authority.readOnlyWorktree = o.review.root(reviewTicket); candidate.constraints.scope = { paths: a.scope?.paths ?? ['**'], tools: scopedTools }; }
     const { kind: expectedKind, from, to, task, constraints, authority: expectedAuthority, budget: expectedBudget, returnContract, doneWhen } = candidate;
     authority.expected = structuredClone({ kind: expectedKind, from, to, task, constraints, authority: expectedAuthority, budget: expectedBudget, returnContract, ...(doneWhen ? { doneWhen } : {}) });
     const childId = `dlg_${randomUUID()}`, abort = new AbortController();
@@ -149,9 +151,10 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
       children.cancelUnbound(childId);
     };
     childSignal.throwIfAborted();
-    admitted(ctx, a.projectId);
+    const currentWho = admitted(ctx, a.projectId);
+    checkCard(currentWho);
     const started = o.authority.now();
-    const input = { principal: who, projectId: a.projectId, fromAgent: ctx.agentId, toAgent: a.toAgent, signal: childSignal, ...(writerReservation ? { writerReservation } : {}), onAdmitted: () => { workerStarted = true; }, callClass, taskClass, ...(parent ? { path: parent.path, parentSpanId: parent.spanId } : {}), outbound: { person: who.userId, agent: ctx.agentId, session: req.sessionId, turn: ctx.execution?.turnId || req.turnId || req.sessionId, project: a.projectId, surface: ctx.surface ?? 0, ...(ctx.execution?.recurring ? { recurring: ctx.execution.recurring } : {}), ...(ctx.execution?.taskId ? { task: ctx.execution.taskId } : {}), policy: ctx.execution?.policy ?? (req.headlessJobId ? { headless: { jobId: req.headlessJobId } } : {}) }, traceId: sharedTrace, handoff: { contract: h, context: authority } };
+    const input = { principal: currentWho, projectId: a.projectId, fromAgent: ctx.agentId, toAgent: a.toAgent, signal: childSignal, ...(writerReservation ? { writerReservation } : {}), onAdmitted: () => { workerStarted = true; }, callClass, taskClass, ...(parent ? { path: parent.path, parentSpanId: parent.spanId } : {}), outbound: { person: who.userId, agent: ctx.agentId, session: req.sessionId, turn: ctx.execution?.turnId || req.turnId || req.sessionId, project: a.projectId, surface: ctx.surface ?? 0, ...(ctx.execution?.recurring ? { recurring: ctx.execution.recurring } : {}), ...(ctx.execution?.taskId ? { task: ctx.execution.taskId } : {}), policy: ctx.execution?.policy ?? (req.headlessJobId ? { headless: { jobId: req.headlessJobId } } : {}) }, traceId: sharedTrace, handoff: { contract: h, context: authority } };
     let text: string, partial: boolean, provenance: object, tokens = 0;
     const resultArtifacts: ReturnEnvelope['artifacts'] = [];
     if (kind === 'consult') {
