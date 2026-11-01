@@ -23,5 +23,5 @@ pub mod video;
 
 pub use embedder::{
     LocalMediaEmbedder, MediaEmbedder, MediaEmbedding, MediaError, MediaInput, MediaModality,
-    MediaSegment, VideoFrame,
+    MediaSegment, MediaSettings, VideoFrame,
 };
