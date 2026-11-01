@@ -355,16 +355,16 @@ fn errors_md_lists_each_schema_code_once_in_exact_case_and_the_cli_only_codes_la
         &rpc_rows,
     )
     .unwrap();
-    // The four frontend codes remain an exact inventory, separate from the RPC schema.
+    // The seven frontend codes remain an exact inventory, separate from the RPC schema.
     let cli_only: Vec<&String> = rows
         .iter()
         .map(|(c, _)| c)
         .filter(|c| !schema.contains(*c))
         .collect();
-    let tail: Vec<&String> = rows.iter().rev().take(4).map(|(c, _)| c).rev().collect();
+    let tail: Vec<&String> = rows.iter().rev().take(7).map(|(c, _)| c).rev().collect();
     assert_eq!(
         cli_only, tail,
-        "docs/errors.md: the codes that are not in the schema must be the last four rows"
+        "docs/errors.md: the codes that are not in the schema must be the last seven rows"
     );
     assert_eq!(
         cli_only
@@ -375,7 +375,10 @@ fn errors_md_lists_each_schema_code_once_in_exact_case_and_the_cli_only_codes_la
             "E_IMPORT_FAILED",
             "E_CANCELLED",
             "E_TURN_FAILED",
-            "E_RPC_PROTOCOL"
+            "E_RPC_PROTOCOL",
+            "E_BUSY",
+            "E_IO",
+            "E_TIMEOUT"
         ],
         "the CLI-only inventory must match the documented frontend codes exactly"
     );

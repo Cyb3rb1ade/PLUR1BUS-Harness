@@ -65,6 +65,9 @@ the core sent. The last four are raised by the CLI itself.
 | `E_CANCELLED` | 2 | The user declined a confirmation prompt (`config apply`, `module`, `secret remove`, `memory forget`, `media reindex`, `ext`, `update apply`: `reason=declined`); nothing was changed. `plur1bus login` ended with Ctrl-C reports it with exit 130 (see above). |
 | `E_TURN_FAILED` | 1 | A coding turn or advisory check finished unsuccessfully. Inspect its preceding events before deciding whether to retry. |
 | `E_RPC_PROTOCOL` | 1 | The coding frontend received a malformed response or could not recover a consecutive event stream. Reopen the session and inspect the result before retrying. |
+| `E_BUSY` | 1 | A bounded coding input, event or command queue is full, or its connection is busy. Reopen the session and inspect the recorded state before retrying. |
+| `E_IO` | 1 | Local terminal, input, output or coding event-channel I/O failed. Restore the connection and inspect the session before retrying. |
+| `E_TIMEOUT` | 1 | A coding RPC call or reconnection exceeded its deadline. Its remote result may be uncertain; inspect the session before repeating the operation. |
 
 ## Sign-in reasons (`plur1bus login`)
 
@@ -259,6 +262,7 @@ Sandbox failure uses the existing tool error envelope (`tool-failed`); the host 
 `plur1bus code` emits `code.event/1` JSON lines for RPC results and stream events. A final frontend error uses the
 existing `error/1` document. `E_TURN_FAILED` means a turn or advisory check failed; `E_APPROVAL_REQUIRED` reports a
 missing folder grant or a noninteractive approval refusal. `E_RPC_PROTOCOL` identifies a malformed or unrecoverable
-stream. Existing RPC errors keep their code. Terminal and thread guards finish before the CLI's exiting error path.
+stream. `E_BUSY`, `E_IO` and `E_TIMEOUT` describe bounded frontend queues, local I/O and frontend deadlines; these are
+CLI-only codes. Existing RPC errors keep their code. Terminal and thread guards finish before the CLI's exiting error path.
 Reopen the reported session after a transport error and inspect its events before retrying a task with an uncertain
 result. An unavailable Steering, queue or Rewind capability retains the user's draft.
