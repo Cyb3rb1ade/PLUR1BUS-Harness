@@ -69,7 +69,7 @@ export class TurnRunner {
     const localCommand = rewind !== null || a.text.trim() === '/compact --explain' || /^\/compact --restore event:\d+$/.test(a.text.trim());
     if (!provider && !localCommand) throw new NoProviderError();
     if (a.text.length === 0) throw new SessionError("invalid", "message text is empty", "text-empty");
-    const { turn, message, event } = this.#d.store.beginTurn(a.session.id, a.text, estimateTokens(a.text));
+    const { turn, message, event } = this.#d.store.beginTurn(a.session.id, a.text, estimateTokens(a.text), { harnessCommand: localCommand });
     this.#emit(event, a.session);
     const cancel = new AbortController();
     this.#cancels.set(turn.id, cancel);

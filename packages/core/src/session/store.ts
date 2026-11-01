@@ -509,7 +509,7 @@ export class SessionStore {
   // ---- turns, messages, events ----------------------------------------------------------------------------------
 
   /** Atomically records the user's message, the running turn and `turn.started`. One running turn per session. */
-  beginTurn(sessionId: string, text: string, tokens: number): { turn: TurnRecord; message: MessageRecord; event: EventRecord } {
+  beginTurn(sessionId: string, text: string, tokens: number, options: { harnessCommand?: boolean } = {}): { turn: TurnRecord; message: MessageRecord; event: EventRecord } {
     return this.#tx(() => {
       const s = this.getSession(sessionId);
       if (!s) throw new SessionError("not-found", `session ${sessionId} not found`, "session");
@@ -520,7 +520,8 @@ export class SessionStore {
       this.#run("INSERT INTO turns (id, session_id, seq, state, started_at, incognito) VALUES (?,?,?,?,?,?)", turnId, sessionId, seq, "running", now, s.memoryMode === "incognito" ? 1 : 0);
       this.#run("UPDATE sessions SET turn_count = ?, last_turn_at = ?, updated_at = ? WHERE id = ?", seq, now, now, sessionId);
       const message = this.#insertMessage(sessionId, turnId, "user", text, tokens);
-      const event = this.#insertEvent(sessionId, turnId, "turn.started", { turnId, turnSeq: seq, messageId: message.id });
+      const event = this.#insertEvent(sessionId, turnId, "turn.started", { turnId, turnSeq: seq, messageId: message.id,
+        ...(options.harnessCommand ? { provider: "harness-command" } : {}) });
       return { turn: toTurn(this.#get("SELECT * FROM turns WHERE id = ?", turnId)!), message, event };
     });
   }
@@ -613,7 +614,8 @@ export class SessionStore {
   contextMessages(sessionId: string): MessageRecord[] {
     const rows = this.#all(`SELECT m.* FROM messages m WHERE m.session_id=? AND NOT EXISTS
       (SELECT 1 FROM events e WHERE e.session_id=m.session_id AND e.turn_id=m.turn_id
-        AND e.type='turn.completed' AND json_extract(e.data,'$.provider')='harness-command') ORDER BY m.seq`, sessionId);
+        AND e.type IN ('turn.started','turn.completed','turn.failed')
+        AND json_extract(e.data,'$.provider')='harness-command') ORDER BY m.seq`, sessionId);
     return activePath(rows.map(toMessage), this.rewinds(sessionId));
   }
 
