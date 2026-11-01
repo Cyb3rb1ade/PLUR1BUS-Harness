@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node 24.21, TypeScript, existing dispatcher and approval service; no dependency or RPC change.
 
-**Spec:** Controller F in `/Users/cyberblade/worktrees/reviews/controller-rulings-2026-11-01-pm.md`, with `pr843-rereview-2026-11-01.md`.
+**Spec:** Controller F in the afternoon Controller rulings dated 2026-11-01, supplemented by the #843 re-review from that date.
 
 ## Global constraints
 

@@ -8,6 +8,11 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Added
 
+- **Outbound A2A peer client (RPC 1.12.0).** Owner-managed `a2a.peer.*` methods register, list, trust and remove remote
+  peers; `a2aClient.*` settings control the opt-in client. Explicitly trusted `a2a:<id>` targets support consultation and
+  delegation through the existing permission, egress and budget gates. Collaboration storage advances to schema v5;
+  no downgrade migration is provided. See `docs/handoff/2026-10-31-v1-a2a-peer-cli.md`.
+
 - **A store with data moves to another embedding model end to end (engine pin 9f34008c, contract 1.17.0).**
   `@cyb3rb1ade/plur1bus-memory` is pinned to plugin PR #275, which exposes `admin.reembedding.validate`; `CORE_CONTRACT` is
   1.17.0. `plur1bus memory reembed --run` and `plur1bus config set engine.embedding…` (foreground or `--background`) no longer

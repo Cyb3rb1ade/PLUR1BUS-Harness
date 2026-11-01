@@ -125,7 +125,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "a2a.peers", type: "array", tier: "advanced", help: "Configured external A2A peers." },
   { key: "a2aClient", type: "object", tier: "advanced", help: "Outbound A2A client. Pins live in the private peer registry; no credentials or foreign card text belong in configuration." },
   { key: "a2aClient.enabled", type: "boolean", tier: "advanced", help: "Enable the outbound A2A client. Peer registration and explicit trust use Owner-only RPC." },
-  { key: "a2aClient.timeoutMs", type: "integer", tier: "advanced", help: "Network deadline for an outbound A2A operation, including same-origin redirects." },
+  { key: "a2aClient.timeoutMs", type: "integer", tier: "advanced", help: "Network deadline per outbound A2A HTTP request, including its same-origin redirects." },
   { key: "a2aClient.maxCardBytes", type: "integer", tier: "advanced", help: "Maximum raw UTF-8 bytes of a signed foreign agent card." },
   { key: "a2aClient.maxRequestBytes", type: "integer", tier: "advanced", help: "Maximum raw JSON request bytes sent to a peer." },
   { key: "a2aClient.maxReplyBytes", type: "integer", tier: "advanced", help: "Maximum raw JSON response bytes accepted from a peer." },
