@@ -145,8 +145,9 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Fixed
 
-- **Retired remote trust anchors (SH6).** Persist departing certificate fingerprints across rotations and restarts,
-  and refuse staging a retired fingerprint under either role.
+- **Retired remote trust anchors (SH6).** Retain certificate and SPKI history in a strict private v2 file, clean rejected
+  staging material, and validate activation size/state before changing TLS. Normal restart and activation recovery
+  preserve history; device-side and lost-history limits remain documented.
 
 - **Release-audit exceptions (SH5).** Match advisory, crate and bounded stable-version range together; reject incomplete
   approvals and unknown installed versions, preserving existing expiry dates.
