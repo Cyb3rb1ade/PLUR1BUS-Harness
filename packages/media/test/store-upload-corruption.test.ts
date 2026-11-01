@@ -70,7 +70,7 @@ for (const sweep of ["prune", "recoverStaging"] as const) {
     await withStore(async store => {
       const bad = await store.putUploaded({ kind: "image", mimeType: "image/png", data: PNG });
       const good = await store.putUploaded({ kind: "image", mimeType: "image/png", data: PNG });
-      await fs.writeFile(bad.file, Buffer.alloc(PNG.length, 0));
+      await fs.writeFile(bad.file, Buffer.alloc(3, 0));
       await ageTree(join(store.root, ".uploads", bad.manifest.id), Date.now() - GRACE_MS - 10_000);
       const deleted: string[] = [], corrupted: (string | undefined)[] = [];
       store.addListener({ onDeleteUploaded(id) { deleted.push(id); }, onCorruptUploadRemoved(id) { corrupted.push(id); } });

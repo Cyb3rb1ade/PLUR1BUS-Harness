@@ -34,6 +34,8 @@ export interface OutputStoreListener {
   onDeleteUploaded?(id: string): void | Promise<void>;
   /** Stable corruption event; an unsafe/unrecognized entry name is never exposed as an id. */
   onCorruptUploadRemoved?(id: string | undefined): void;
+  /** A transient storage read failed; no entry identity, path or raw error leaves the store. */
+  onUploadStorageUnavailable?(): void;
 }
 /** Default bound for waiting on a lock held by another put/delete/prune. */
 const LOCK_WAIT_MS = 5_000;
@@ -43,8 +45,10 @@ export const CORRUPT_UPLOAD_GRACE_MS = 60 * 60 * 1000;
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 const MAX_UPLOAD_MANIFEST_BYTES = 4096;
 const hash = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
+/** Only positively observed metadata corruption is eligible for destructive maintenance. */
+class CorruptUploadMetadata extends Error {}
 export class OutputStore {
-  readonly root: string; readonly options: { quotaBytes?: number; retentionMs?: number; embedMetadata?: boolean; maxVideoBytes?: number; videoProcessor?: VideoProcessor; lockWaitMs?: number };
+  readonly root: string; readonly options: { quotaBytes?: number; retentionMs?: number; embedMetadata?: boolean; maxVideoBytes?: number; videoProcessor?: VideoProcessor; lockWaitMs?: number; readUploadManifest?: (path: string) => Promise<string> };
   readonly #listeners = new Set<OutputStoreListener>();
   /** Observe puts and deletes (e.g. media indexing); returns the unsubscribe function. */
   addListener(listener: OutputStoreListener): () => void { this.#listeners.add(listener); return () => { this.#listeners.delete(listener); }; }
@@ -92,13 +96,31 @@ export class OutputStore {
   }
   private async pruneUploads(now: number, expired: boolean): Promise<number> {
     let removed = 0;
-    for (const entry of await this.uploadedEntries()) {
+    let entries: UploadDiskEntry[];
+    try { entries = await this.uploadedEntries(); }
+    catch { this.#notify(listener => listener.onUploadStorageUnavailable?.()); return 0; }
+    for (const entry of entries) {
+      if (entry.unavailable) { this.#notify(listener => listener.onUploadStorageUnavailable?.()); continue; }
+      let id: string | undefined;
+      try { id = safeId(entry.id); } catch { /* invalid entry names are structural corruption, never host owner bindings */ }
       let manifest: UploadedManifest | null = null;
-      try { manifest = (await this.getUploaded(entry.id))?.manifest ?? null; } catch { /* keep unreadable entries private; maintenance repairs only after grace */ }
+      if (id) {
+        try {
+          const root = await this.uploadRoot();
+          if (!root) throw new CorruptUploadMetadata();
+          manifest = await this.readUploadedManifest(id, root);
+          const info = await lstat(join(entry.path, manifest.file.path));
+          if (!info.isFile() || info.size !== manifest.file.bytes) throw new CorruptUploadMetadata();
+        } catch (error) {
+          manifest = null;
+          if (!(error instanceof CorruptUploadMetadata) && (error as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+            this.#notify(listener => listener.onUploadStorageUnavailable?.());
+            continue;
+          }
+        }
+      }
       if (manifest ? !expired || now - manifest.createdAt < (this.options.retentionMs ?? Infinity)
         : now - entry.modifiedAt < CORRUPT_UPLOAD_GRACE_MS) continue;
-      let id: string | undefined;
-      try { id = safeId(entry.id); } catch { /* invalid names have no host owner binding */ }
       if (id) await this.notifyUploadDeletion(id);
       await rm(entry.path, { recursive: true, force: true });
       removed++;
@@ -108,11 +130,15 @@ export class OutputStore {
   }
   private async readUploadedManifest(id: string, root: string): Promise<UploadedManifest> {
     const directory = join(root, safeId(id)), path = join(directory, 'manifest.json');
-    if (!(await lstat(directory)).isDirectory()) throw new MediaError('backend_unavailable');
+    if (!(await lstat(directory)).isDirectory()) throw new CorruptUploadMetadata();
     const info = await lstat(path);
-    if (!info.isFile() || info.size > MAX_UPLOAD_MANIFEST_BYTES) throw new MediaError('backend_unavailable');
-    const raw: unknown = JSON.parse(await readFile(path, 'utf8'));
-    if (!validUploadedManifest(raw, id)) throw new MediaError('backend_unavailable');
+    if (!info.isFile() || info.size > MAX_UPLOAD_MANIFEST_BYTES) throw new CorruptUploadMetadata();
+    const text = await (this.options.readUploadManifest?.(path) ?? readFile(path, 'utf8'));
+    if (Buffer.byteLength(text) > MAX_UPLOAD_MANIFEST_BYTES) throw new CorruptUploadMetadata();
+    let raw: unknown;
+    try { raw = JSON.parse(text); }
+    catch (error) { if (error instanceof SyntaxError) throw new CorruptUploadMetadata(); throw error; }
+    if (!validUploadedManifest(raw, id)) throw new CorruptUploadMetadata();
     return raw;
   }
   private async usedBytes(current: Manifest[]): Promise<number> {
@@ -120,7 +146,10 @@ export class OutputStore {
     for (const m of current) used += m.files.reduce((n, f) => n + f.bytes + (f.poster?.bytes ?? 0), 0)
       + (await lstat(join(this.root, m.id, 'manifest.json'))).size;
     // Account actual owned bytes, including unlisted/corrupt data; never trust declared lengths or hashes here.
-    for (const entry of await this.uploadedEntries()) used += entry.bytes;
+    for (const entry of await this.uploadedEntries()) {
+      if (entry.unavailable) throw new MediaError('backend_unavailable');
+      used += entry.bytes;
+    }
     return used;
   }
   /** Publishes at most 25 MiB of matching supported media, atomically and privately, without transforming any bytes. */
