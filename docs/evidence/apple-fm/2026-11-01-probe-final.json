@@ -2245,8 +2245,11 @@
   "notMeasured": [
     "Model-unavailable error: Apple Intelligence is available; its settings are not changed for a probe.",
     "Licence-unagreed state: no licence command is run and the accepted licence is not altered.",
-    "Exact 4096-token boundary: overflow supplies a lower bound, not an exact window proof.",
-    "Delayed idle unloading and system model-service RSS; ps measures the CLI process only."
+    "Delayed idle unloading and system model-service RSS; ps measures the CLI process only.",
+    "Exact shared context window: at least 5056 server prompt tokens were accepted, refuting 4096 as the hardware window; the 4096 catalog/guard policy stays conservative.",
+    "Streaming overflow was not measured in this original full run; see 2026-11-01-probe-review.json for the additional stream:true experiment.",
+    "Delayed self-exit after parent death and post-start stdin-pipe EOF were not measured in this original full run; see 2026-11-01-probe-review.json.",
+    "Automatic process-group/PID ESRCH checks were not recorded in this original full run; the additional receipt records them."
   ],
   "host": {
     "version": "27.2",
@@ -2397,7 +2400,7 @@
     }
   },
   "window": {
-    "acceptedPromptTokensAtLeast": 4097,
+    "acceptedPromptTokensAtLeast": 5056,
     "firstError": {
       "id": "window-8192",
       "tokenCount": {
@@ -2436,7 +2439,236 @@
       "elapsedMs": 928.666541999999
     },
     "exactWindow": null,
-    "interpretation": "Observed accepted input counts and the first error; hidden chat framing or truncation prevent an exact window claim."
+    "interpretation": "Server prompt counts and standalone CLI counts are different units. An accepted server prompt above 4096 refutes that shared-window claim; the exact window remains unmeasured. The 4096 policy stays conservative.",
+    "acceptedCliTokensAtLeast": 5001,
+    "serverPromptEvidence": [
+      {
+        "source": "usage",
+        "observation": "stream-false",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "usage",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "max-tokens-one",
+        "tokens": 65
+      },
+      {
+        "source": "usage",
+        "observation": "max-completion-tokens-one",
+        "tokens": 65
+      },
+      {
+        "source": "usage",
+        "observation": "latency-1",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-2",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-3",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-4",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-5",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-6",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-7",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-8",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-9",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-10",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-11",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-12",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "window-4096",
+        "tokens": 4152
+      },
+      {
+        "source": "server-log",
+        "line": 13,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 15,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 17,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 19,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 21,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 23,
+        "tokens": 65
+      },
+      {
+        "source": "server-log",
+        "line": 25,
+        "tokens": 65
+      },
+      {
+        "source": "server-log",
+        "line": 27,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 29,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 31,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 33,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 35,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 37,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 39,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 41,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 43,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 45,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 47,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 49,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 52,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 53,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 55,
+        "tokens": 68
+      },
+      {
+        "source": "server-log",
+        "line": 57,
+        "tokens": 117
+      },
+      {
+        "source": "server-log",
+        "line": 59,
+        "tokens": 117
+      },
+      {
+        "source": "server-log",
+        "line": 61,
+        "tokens": 115
+      },
+      {
+        "source": "server-log",
+        "line": 63,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 66,
+        "tokens": 5056
+      },
+      {
+        "source": "server-log",
+        "line": 68,
+        "tokens": 4152
+      }
+    ],
+    "proposed4096Window": "refuted"
   },
   "idleAfterInference": [
     {
@@ -2470,7 +2702,8 @@
   },
   "cleanup": {
     "directServerReaped": true,
-    "temporaryDirectoryRemoved": true
+    "temporaryDirectoryRemoved": true,
+    "automaticPidVisibilityRecorded": false
   },
   "unavailableTransport": {
     "code": "ENOENT",
@@ -2478,7 +2711,8 @@
   },
   "stdinEof": {
     "initialStdin": "closed (/dev/null)",
-    "continuedServing": true
+    "continuedServing": null,
+    "interpretation": "Only stdin closed from startup (/dev/null) was measured; post-start pipe EOF was not measured in this receipt."
   },
   "socketEdges": {
     "relative": {
@@ -2900,6 +3134,16 @@
       ]
     },
     "observed": "answered health after the direct parent was killed and reaped",
-    "cleanup": "Remaining members of the probe-owned process group received SIGKILL."
+    "cleanup": "Remaining members of the probe-owned process group received SIGKILL.",
+    "continuedServing": null,
+    "observedIntervalMs": null,
+    "interpretation": "One immediate health response after the direct parent was killed and reaped; delayed self-exit was not measured in this receipt."
+  },
+  "reviewAnnotation": {
+    "date": "2026-11-01",
+    "derivedFieldsOnly": "Corrected the context bound and overclaimed lifecycle conclusions; original wire events, CLI output, server logs, timings and ids are unchanged.",
+    "acceptedRow": "The legacy observation id overflow is HTTP 200, with 5056 prompt tokens in its server log; it was accepted, not an overflow.",
+    "source": "Collector commit 0dd63d4516d628a9936597f02062872ef0e514e8. Source dirty state was not recorded. Before the reviewed head 7e2d0f8640981f8cfadf59134d14d86fb7ef2c28, two once() waits gained AbortSignal forwarding; no wire payload changed.",
+    "followUpReceipt": "2026-11-01-probe-review.json"
   }
 }

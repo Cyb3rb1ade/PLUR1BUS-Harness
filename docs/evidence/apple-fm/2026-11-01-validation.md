@@ -1,70 +1,58 @@
-# AF0 verification — 2026-11-01
+# AF0 verification — review fixes, 2026-11-01
 
-Platform: macOS 27.2, build 26B123, Apple Silicon. Node 24.21.0, pnpm 10.28.0, Rust 1.95.0.
-macOS commands used `TMPDIR=/private/tmp`. Native builds and tests used two build jobs,
-`CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0` and `CARGO_INCREMENTAL=0`;
-these control build resources and debug information, not assertion or test selection.
+Platform: macOS 27.2 (26B123), arm64; Node 24.21.0 and pnpm 10.28.0.
+Commands used `PATH="$HOME/.node24/bin:$PATH"` and `TMPDIR=/private/tmp`.
+Long-running checks wrote local logs outside the repository.
 
-The [final native report](./2026-11-01-probe-final.md) links the measured JSON and the unchanged
-[original stopped receipt](./2026-11-01-probe.md). Its collector source is identified in the JSON.
-There was no licence command, sudo, PCC completion or change to Apple Intelligence settings.
+The [evidence index](./README.md) identifies the authoritative full run, the unchanged original
+stopped receipt and the [additional native review run](./2026-11-01-probe-review.md).
+Only derived conclusions in the full final receipt were corrected; its wire events, CLI output,
+server logs, timings and observation ids are unchanged.
 
-## Commands
+## Focused verification
 
 | Command | Result |
 | --- | --- |
 | `node scripts/check-toolchain.mjs` | passed |
-| `pnpm test:prep` | passed: frozen dependencies, generation, builds and actual prerequisites |
-| `node --test scripts/test/apple-fm-probe.test.mjs scripts/ci/workflow-contract.test.mjs` | 34 passed, zero failures/skips/TODOs; includes 23 offline AF0 tests |
-| `cargo fmt --all -- --check` | passed |
-| `cargo clippy --workspace --all-targets --locked -- -D warnings` | passed |
-| `cargo build --locked -p plur1bus-remote-fs -p plur1bus --bins --example sftp_test_server` | passed |
-| `cargo test -p plur1bus-sandbox -p plur1bus-tools -p plur1bus --locked` | attempted, exit 101: package plur1bus-sandbox does not exist in this AF0 base; no tests ran under this invocation |
-| `cargo test -p plur1bus --locked` | 2,782 passed, zero failed/filtered, one existing ignored test |
-| `pnpm lint` | exit 0; final script suite: 163 passed, three existing acceptance TODOs |
-| `pnpm --filter @plur1bus/core test` | 11,295 passed, zero failed; 22 existing skips and 12 TODOs |
-| `pnpm --filter @plur1bus/providers test` | 703 passed, zero failed/skipped/TODOs |
+| `node --test scripts/test/apple-fm-probe.test.mjs scripts/test/apple-fm-probe-process.test.mjs scripts/ci/*.test.mjs` | 163 passed, zero failures/skips/TODOs: 43 offline AF0 cases and 120 CI-script contract cases |
+| `pnpm lint` | passed; both AF0 test files are now part of its script-test list |
 | `pnpm docs:check` | passed |
-| `pnpm test` | exit 0; 20,475 tests across 23 package summaries: 20,347 passed, 0 failed, 53 existing skips, 75 TODOs |
+| `git diff --check` | passed |
+| live collector with `--scope follow-up`, two explicit predecessor references and a new output filename | observed; exact source and automatic cleanup in the JSON |
 
-The sandbox and tools crates belong to the separately scoped D123/K work, and neither exists
-in this AF0 checkout. The available Harness crate was tested without filters instead. This is
-not a D123 sandbox/platform acceptance claim.
+The 43 AF0 cases cover availability independent of exit status; server versus CLI token evidence;
+JSON and SSE overflow; partial transport failures; owned subprocess/group cleanup including descendants;
+transient EPERM conservatism; repeated HUP/INT/TERM; both output siblings reserved with `wx`; actual
+cwd/TTY metadata; optional predecessors; bounded I/O; real fake-executable argv/environment checks;
+TCP-listener refusal; live opt-in at the server boundary; post-start pipe EOF; delayed parent-death
+behavior and interrupted lifecycle observation. Tests never invoke the real `fm` executable.
 
-## Red before the fixes
+Test-first failures included the missing server-prompt bound, streamed-overflow attempt, group/PID
+cleanup evidence, signal installation, wx Markdown reservation, partial-response retention and the
+server-executable seam. The parent fixture also checks the actual reduced-environment spawn manifest;
+macOS may synthesize a CoreFoundation encoding variable after exec, so the Node parent reconstructs
+only HOME, LANG and PATH before spawning `fm`.
 
-- Both availability regressions first failed: available `system` with exit 1; cross or unreadable
-  output with exit 0. They now pass, and the live preflight records exit 1 with `system` available.
-- A real Node child creating a Unix socket reproduced the collector's missed `fs.watch` readiness.
-  The regression passes after checking the actual socket and HTTP readiness.
-- The shutdown-log regression first failed; evidence now includes bytes emitted during shutdown.
-- The stdin/tokenizer regression first reported zero input bytes instead of four. The window
-  measurement regression also failed before implementation. Both pass.
-- Earlier guard, response, ownership, response-cap and protocol tests also had red runs before
-  their implementation. No failing assertion was removed to make the collector pass.
+## Additional native measurements
 
-## Existing acceptance gaps
+- A 5,000-word input is accepted with 5056 `usage.prompt_tokens` (CLI count 5001), corroborating the
+  original full run's server log. U5's 4096-token hardware-window proposal is refuted; the 4096
+  catalog/guard policy remains conservative and the exact shared window remains unknown.
+- At 8193 CLI tokens, `stream:false` returns HTTP 500 JSON. `stream:true` returns HTTP 200 SSE: a role
+  chunk, then the transcript-size `server_error` with code `500`, no `[DONE]`, and a clean transport end.
+- stdin remains an open pipe through readiness, then is closed. Three health/PID samples spanning
+  10.00 seconds show continued serving. The value is derived from the samples.
+- After killing and reaping only the direct Node parent, three health/PID samples spanning 10.00
+  seconds show continued serving. Behavior after ten seconds is not established by either experiment.
+- Every launched fm server passed the common TCP-listener check. Three owned process groups and all
+  four recorded PIDs subsequently returned ESRCH; the temporary tree was removed automatically.
 
-No skip, TODO, ignored test, assertion or filter was added to an existing suite. The pre-existing
-ignored Rust test is `whitespace_only_keys_are_refused_before_any_connection` in `coverage_login.rs` (the recorded
-owner question about whitespace-only API keys). The existing lint TODO assertions still expose:
+No licence command, sudo, PCC completion, personal Harness configuration change or global Apple
+Intelligence change was used. Native unavailable-system/downloading/region/disabled errors, an
+unagreed licence, long idle unloading, a forced unloaded-model cold start and model-service RSS remain
+unmeasured. Full protocol, warm latency, CLI RSS and socket-edge experiments were not repeated in this
+focused run; those observations remain in the original full final receipt.
 
-- `KNOWN GAP: production Laya service or module has public backend, bounded abort and role fallback evidence`.
-- `KNOWN GAP: independent labels cover the exact paired fixture hash before calibration admission`.
-- `KNOWN GAP: role comparison uses independently reviewed identical German/English cases`.
-
-Existing Core TODO assertions also report native Windows directory-entry durability, native Kev
-inference and German eligibility, the Engine media contract pin, production media reservations
-and secret leases, and real Harness image/audio indexing. Their source and eligibility are unchanged. The full workspace run also preserves the existing Web and WebMCP TODOs; they do not constitute production acceptance.
-
-AF0 measured the healthy owner's Mac. Native system-unavailable, downloading, disabled and region
-error variants were not induced; exact shared context size and a forced unloaded-model cold start
-remain unproven. The 4,096 catalog/guard policy stays conservative. AF5 still owns its paired German
-gate and the owner decision for confidence without returned probabilities.
-
-## Platforms and CI
-
-The live `/usr/bin/fm` run and local commands above ran on macOS arm64. No local Linux or Windows
-acceptance is claimed. CI now runs the offline probe suite in the Unix unit jobs; its live opt-in
-and CI refusal prevent real `fm` inference there. The existing unit/unit-os workflow contract passes.
-CI is not polled; the Controller owns review and merge.
+SIGKILL of the collector cannot be intercepted and can leave its detached process groups and temporary
+tree. No local Linux or Windows run is claimed. CI runs only the offline cases and was not polled;
+review and merge remain with the Controller.
