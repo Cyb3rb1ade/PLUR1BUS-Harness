@@ -610,6 +610,13 @@ export class SessionStore {
     return this.#all("SELECT * FROM messages WHERE session_id=? AND seq<? AND seq>? ORDER BY seq DESC LIMIT ?", sessionId, o.beforeSeq ?? Number.MAX_SAFE_INTEGER, o.afterSeq ?? 0, limit).map(toMessage).reverse();
   }
 
+  /** Trusted command provenance for retained transcripts, including failed and recovered commands. */
+  harnessCommandTurns(sessionId: string): ReadonlySet<string> {
+    return new Set(this.#all(`SELECT DISTINCT turn_id FROM events WHERE session_id=? AND turn_id IS NOT NULL
+      AND type IN ('turn.started','turn.completed','turn.failed')
+      AND json_extract(data,'$.provider')='harness-command'`, sessionId).map(row => String(row.turn_id)));
+  }
+
   /** Full active history for prompt/compaction readers. No transcript pagination can silently truncate a rewind digest. */
   contextMessages(sessionId: string): MessageRecord[] {
     const rows = this.#all(`SELECT m.* FROM messages m WHERE m.session_id=? AND NOT EXISTS

@@ -6,7 +6,7 @@ import type { Key } from "../../i18n.ts";
 import { applyEvent, addUser, EMPTY_TRANSCRIPT, fromResume, type Transcript } from "./model.ts";
 import type { SessionEvent, SessionRecord, RewindRecord, RewindAction, RewindProposal } from "./rpc-types.ts";
 import { getChatApi as getApi } from "./api.ts";
-import { isAborted, refreshList, submitErrorKey } from "./store.ts";
+import { isAborted, refreshList, submitErrorKey, rewindErrorKey } from "./store.ts";
 
 export type LoadState = { status: "loading" } | { status: "ready"; session: SessionRecord } | { status: "error"; error: unknown };
 
@@ -188,7 +188,7 @@ export class ChatController {
       await this.start(true);
       return true;
     } catch (error) {
-      if (!isAborted(error)) this.notice.value = "chat.rewind.error";
+      if (!isAborted(error)) this.notice.value = rewindErrorKey(error);
       return false;
     } finally { this.sending.value = false; }
   }

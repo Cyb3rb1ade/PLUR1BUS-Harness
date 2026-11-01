@@ -8,6 +8,7 @@ export type Entry = {
   id: string;
   seq?: number;
   rewound?: boolean;
+  command?: boolean;
   role: "user" | "assistant" | "system" | "tool";
   text: string;
   turnId: string | null;
@@ -39,7 +40,8 @@ export function fromResume(r: { messages: readonly SessionMessage[]; runningTurn
   const entries: Entry[] = sorted.map((m) => {
     const turnId = m.turnId ?? null;
     if (m.role === "assistant" && turnId !== null) done.add(turnId);
-    return { id: m.id, seq: m.seq, role: m.role, text: m.text, turnId, ...(m.rewound ? { rewound: true } : {}) };
+    return { id: m.id, seq: m.seq, role: m.role, text: m.text, turnId, ...(m.rewound ? { rewound: true } : {}),
+      ...(m.command ? { command: true } : {}) };
   });
   for (const event of r.modelChanges ?? []) {
     if (event.type !== "session.model.changed") continue;
@@ -112,6 +114,9 @@ export function applyEvent(tr: Transcript, ev: SessionEvent): Applied {
       }
     }
   }
+  if (turnId !== null && ev.data.provider === "harness-command" && ["turn.started", "turn.completed", "turn.failed"].includes(ev.type)) {
+    next = { ...next, entries: next.entries.map(entry => entry.turnId === turnId ? { ...entry, command: true } : entry) };
+  }
   return { tr: next, gap: false };
 }
 
@@ -119,7 +124,8 @@ export function applyEvent(tr: Transcript, ev: SessionEvent): Applied {
  *  already created one, and never revives a turn that has finished. */
 export function addUser(tr: Transcript, m: { id: string; text: string; turnId: string; state: TurnState }): Transcript {
   if (tr.entries.some((e) => e.id === m.id)) return tr;
-  const user: Entry = { id: m.id, role: "user", text: m.text, turnId: m.turnId };
+  const command = tr.entries.some(entry => entry.turnId === m.turnId && entry.command);
+  const user: Entry = { id: m.id, role: "user", text: m.text, turnId: m.turnId, ...(command ? { command: true } : {}) };
   const at = indexOfTurn(tr.entries, m.turnId);
   if (at !== -1) return { ...tr, entries: [...tr.entries.slice(0, at), user, ...tr.entries.slice(at)] };
   const placeholder: Entry[] = m.state === "running" && !tr.done.has(m.turnId) ? [{ id: turnKey(m.turnId), role: "assistant", text: "", turnId: m.turnId, state: "running" }] : [];

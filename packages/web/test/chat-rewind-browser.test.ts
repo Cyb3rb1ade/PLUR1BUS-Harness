@@ -7,6 +7,22 @@ import { browserSkip, setup, teardown } from "./harness.ts";
 before(setup);
 after(teardown);
 
+test("harness commands and their replies offer no rewind target", { skip: browserSkip }, async () => {
+  await withChat({ route: "#/chat/commands", seed: chat => {
+    chat.seed({ id: "commands", messages: [["user", "normal question"], ["assistant", "normal answer"],
+      ["user", "/compact --explain"], ["assistant", '{"compaction":"explained"}'],
+      ["user", "/rewind 999"], ["assistant", "later ordinary reply"]] });
+    for (const message of chat.messages.get("commands")!.slice(2, 5)) message.command = true;
+  } }, async ({ page, chat, problems }) => {
+    await page.getByRole("button", { name: "Rewind to message 2", exact: true }).waitFor();
+    for (const seq of [3, 4, 5]) {
+      assert.equal(await page.getByRole("button", { name: `Rewind to message ${seq}`, exact: true }).count(), 0);
+    }
+    assert.equal(chat.server.rpc.calls.filter(call => call.method === "session.rewind").length, 0);
+    assert.deepEqual(problems, []);
+  });
+});
+
 test("rewind to a message preserves the discarded transcript and undo restores its presentation", { skip: browserSkip }, async () => {
   await withChat({ route: "#/chat/rewind", seed: chat => {
     chat.seed({ id: "rewind", messages: [["user", "kept question"], ["assistant", "kept answer"],

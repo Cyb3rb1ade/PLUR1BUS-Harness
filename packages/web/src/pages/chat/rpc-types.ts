@@ -33,6 +33,7 @@ export type SessionMessage = {
   text: string;
   createdAt: number;
   rewound?: boolean;
+  command?: boolean;
 };
 
 export type SessionEvent = {

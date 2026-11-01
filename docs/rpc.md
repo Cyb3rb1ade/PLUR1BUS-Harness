@@ -36642,6 +36642,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "rewound": {
       "type": "boolean",
       "description": "Retained transcript message excluded from the active context by a rewind or an undone lesson."
+    },
+    "command": {
+      "type": "boolean",
+      "description": "Core-marked harness-command turn; retained for people but not an active rewind target."
     }
   }
 }

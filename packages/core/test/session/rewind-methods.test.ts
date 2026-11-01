@@ -36,6 +36,30 @@ function rig() {
 }
 
 describe("D120 rewind human surfaces", () => {
+  for (const namespace of ["chat", "session"] as const) {
+    it(`${namespace} transcript marks both successful and failed harness-command turns`, async () => {
+      const r = rig();
+      try {
+        const session = r.sessions.store.createSession({ kind: "direct", agentId: "a",
+          owner: namespace === "chat" ? deriveUserPrincipal(person.userId) : userPrincipalHash(caller) });
+        const base = { sessionId: session.id, ...(namespace === "session" ? { caller } : {}) };
+        const normal = await r.invoke(`${namespace}.submit`, { ...base, text: "normal task", wait: true }) as { turnId: string };
+        const compact = await r.invoke(`${namespace}.submit`, { ...base, text: "/compact --explain", wait: true }) as { turnId: string; state: string };
+        const failed = await r.invoke(`${namespace}.submit`, { ...base, text: "/rewind 999 --lesson private", wait: true }) as { turnId: string; state: string };
+        assert.equal(compact.state, "completed"); assert.equal(failed.state, "failed");
+        const wire = await r.invoke(namespace === "chat" ? "chat.get" : "session.resume", base) as {
+          messages: { id: string; text: string; turnId: string; command?: boolean }[];
+        };
+        for (const turnId of [compact.turnId, failed.turnId]) {
+          const rows = wire.messages.filter(message => message.turnId === turnId);
+          assert.ok(rows.length > 0); assert.ok(rows.every(message => message.command === true));
+        }
+        assert.ok(wire.messages.filter(message => message.turnId === normal.turnId).every(message => message.command === undefined));
+        assert.deepEqual(wire.messages.map(message => [message.id, message.text]), r.sessions.store.listMessages(session.id).map(message => [message.id, message.text]));
+      } finally { await r.sessions.close(); }
+    });
+  }
+
   it("chat.submit refuses an agent's rewind before admission even if an approver port would supply a person", async () => {
     const r = rig();
     try {

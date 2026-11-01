@@ -60,7 +60,9 @@ export const toWireMessage = (m: MessageRecord): SessionMessage => ({ id: m.id, 
 /** Retained transcript messages carry visibility metadata; no underlying message is rewritten or omitted here. */
 export function toWireMessages(store: SessionStore, sessionId: string, messages: MessageRecord[]): SessionMessage[] {
   const visible = new Set(activePath(messages, store.rewinds(sessionId)).map(message => message.id));
-  return messages.map(message => ({ ...toWireMessage(message), ...(!visible.has(message.id) ? { rewound: true } : {}) }));
+  const commands = store.harnessCommandTurns(sessionId);
+  return messages.map(message => ({ ...toWireMessage(message), ...(!visible.has(message.id) ? { rewound: true } : {}),
+    ...(message.turnId !== null && commands.has(message.turnId) ? { command: true } : {}) }));
 }
 
 const stopping = (): RpcError => new RpcError("E_CORE_UNAVAILABLE", "core is stopping", { reason: "core-stopping" });

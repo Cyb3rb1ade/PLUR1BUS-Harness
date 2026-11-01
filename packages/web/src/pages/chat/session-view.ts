@@ -121,7 +121,7 @@ export function SessionView({ sessionId }: { sessionId: string }): View {
       onScroll: () => { const el = logEl.current; if (el) stick.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 48; },
     }, tr.entries.length === 0 ? h("p", { class: "chat-empty" }, t("chat.transcript.empty")) : tr.entries.map((e) =>
       h(Message, { key: e.id, e, agent, busy: running || ctl.sending.value,
-        ...(!e.rewound && e.seq !== undefined && e.seq < lastSeq
+        ...(!e.rewound && !e.command && e.seq !== undefined && e.seq < lastSeq
           ? { onRewind: () => { void ctl.rewind({ toSeq: e.seq! }); } } : {}) }))),
     h("div", { class: "sr-only", role: "status" }, status),
     notice ? h("p", { class: "chat-notice", role: "alert" }, t(notice)) : null,
