@@ -719,6 +719,9 @@ digest: the files changed in the hidden range, the last failing check's summary 
 - **User:** `/rewind [<seq> | last] [--lesson "…"]` as a D33-style transcript command (never reaches the model or the
   cached prefix), `chat.rewind { sessionId, toSeq, lesson? }` and `session.rewind`, and "Rewind to here" on a message in the
   web UI. Requires an idle session (`E_CONFLICT turn-running` otherwise). `/rewind --undo <id>` lifts the overlay.
+  **Controller decision 2026-11-01:** in non-direct channel sessions, rewind and undo require the stored session owner
+  or a live Owner/Admin role. Other members receive `E_DENIED` with reason `rewind-not-allowed`. The role comes from the
+  Core's admin store. Ordinary shared-room conversation remains available to linked members.
 - **Agent (Q13, decided 2026-10-31):** after N failed edit-and-test cycles (a cycle = a write through `file.edit`/`file.write` followed by a
   failing `code.check`, `exec.run` test run or gate refusal). Decided 2026-10-31: off by default; on per project for unattended
   D115 cards with N = 3, where the rewind is applied at the turn boundary and audited; in interactive sessions the agent

@@ -745,7 +745,9 @@ export function createCore(o: CoreOptions): Core {
           try { await send({ chatId: msg.chatId, text }); } catch { log.warn("channel.handoff.send.failed", { channel: msg.channel }); } return true;
         },
         ...(o.channels ?? {}),
-        layout: l, config: cs, secrets: secretStore, identity: () => identity, personActive: id => !people.person(id)?.disabled, sessions: () => sessions, agents: registry, permissions: () => permissions,
+        layout: l, config: cs, secrets: secretStore, identity: () => identity, personActive: id => !people.person(id)?.disabled,
+        personRole: id => people.role(id, id === LOCAL_OWNER.userId ? "owner" : "member"),
+        sessions: () => sessions, agents: registry, permissions: () => permissions,
         clock, log: { info: (m, f) => log.info(m, f), warn: (m, f) => { channelToInbox(inboxPort, m, f); log.warn(m, f); }, error: (m, f) => log.error(m, f) },
       });
       permissions = createPermissionRuntime({

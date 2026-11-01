@@ -77,6 +77,7 @@ the `/rewind` transcript command use these reasons:
 | `rewind-stale`, `rewind-project-changed`, `rewind-files-changed` | `E_CONFLICT` | Inspect the current session, card binding and files, then request a new rewind. |
 | `rewind-checkpoint-unavailable`, `rewind-checkpoint` | `E_CONFLICT` | Use conversation-only rewind, or a D115 card with a recorded per-turn checkpoint. |
 | `rewind-person-required`, `rewind-files-not-approved` | `E_DENIED` | A person must request rewind; file restoration needs the exact single-use native approval. |
+| `rewind-not-allowed` | `E_DENIED` | In a non-direct channel, only the session owner or a current Owner/Admin may rewind or undo. |
 | `audit-unavailable` | `E_STORAGE` | Restore the audit writer before retrying. |
 
 Undo lifts a conversation overlay and never restores files or corrects captured

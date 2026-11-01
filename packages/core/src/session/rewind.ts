@@ -238,8 +238,10 @@ function words(text: string): string[] {
 }
 
 /** Return null for ordinary text; malformed /rewind commands are refused before a turn starts. */
+export function isRewindCommand(text: string): boolean { return /^\/rewind(?:\s|$)/.test(text.trim()); }
+
 export function parseRewindCommand(text: string): RewindCommand | null {
-  if (!/^\/rewind(?:\s|$)/.test(text.trim())) return null;
+  if (!isRewindCommand(text)) return null;
   const args = words(text.trim()).slice(1);
   const bad = (): never => { throw new SessionError("invalid", "invalid rewind command", "rewind-command"); };
   if (args[0] === "--undo") {
