@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased — SH5
+
+- Scope release-audit exceptions to advisory, crate and stable-version range together; reject incomplete approvals
+  and unknown installed versions. Migrate existing approvals to exact locked versions without renewing their expiry.
+
 ## Unreleased — SH4
 
 - Verify collaboration replay with fixed W3C trace/span IDs that collide with the generic PII rule. The existing

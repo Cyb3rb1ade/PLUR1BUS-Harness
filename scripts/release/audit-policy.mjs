@@ -8,19 +8,74 @@ const DAY = 86_400_000;
 const severities = new Set(['low', 'moderate', 'high', 'critical', 'unknown', 'info']);
 const idPattern = /^(?:GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}|RUSTSEC-\d{4}-\d{4})$/;
 
+/** Deliberate stable-version subset: no prerelease/build metadata or implicit SemVer ranges. */
+function stableVersion(value) {
+  const match = typeof value === 'string' && /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(value);
+  if (!match) return undefined;
+  const version = match.slice(1).map(Number);
+  return version.every(Number.isSafeInteger) ? version : undefined;
+}
+function compareVersion(left, right) {
+  for (let i = 0; i < 3; i++) if (left[i] !== right[i]) return left[i] < right[i] ? -1 : 1;
+  return 0;
+}
+function nextVersion(version) {
+  const next = [...version];
+  for (let i = 2; i >= 0; i--) if (next[i] < Number.MAX_SAFE_INTEGER) {
+    next[i]++;
+    for (let j = i + 1; j < 3; j++) next[j] = 0;
+    return next;
+  }
+  return undefined;
+}
+function versionRange(text) {
+  const bad = () => { throw new Error('Invalid audit exception version range'); };
+  if (typeof text !== 'string' || text !== text.trim() || /[^0-9.,<>= ]/.test(text)) return bad();
+  if (text.startsWith('=')) {
+    const version = stableVersion(text.slice(1));
+    if (!version) return bad();
+    return { lower: version, upper: version, lowerInclusive: true, upperInclusive: true, canonical: `=${version.join('.')}` };
+  }
+  const parts = text.split(',');
+  const low = parts.length === 2 && /^(>=|>) *(.+)$/.exec(parts[0].trim());
+  const high = parts.length === 2 && /^(<=|<) *(.+)$/.exec(parts[1].trim());
+  const lower = low && stableVersion(low[2]), upper = high && stableVersion(high[2]);
+  if (!lower || !upper) return bad();
+  const lowerInclusive = low[1] === '>=', upperInclusive = high[1] === '<=';
+  const first = lowerInclusive ? lower : nextVersion(lower);
+  if (!first || compareVersion(first, upper) > 0 || (compareVersion(first, upper) === 0 && !upperInclusive)) return bad();
+  const canonical = compareVersion(lower, upper) === 0 ? `=${lower.join('.')}` : `${low[1]}${lower.join('.')}, ${high[1]}${upper.join('.')}`;
+  return { lower, upper, lowerInclusive, upperInclusive, canonical };
+}
+function includesVersion(rangeText, value) {
+  const version = stableVersion(value);
+  if (!version) return false;
+  const range = versionRange(rangeText), lower = compareVersion(version, range.lower), upper = compareVersion(version, range.upper);
+  return (lower > 0 || (lower === 0 && range.lowerInclusive)) && (upper < 0 || (upper === 0 && range.upperInclusive));
+}
+
 export function validateAllowlist(policy, now = new Date()) {
   if (policy?.version !== 1 || !Array.isArray(policy.exceptions) || Object.keys(policy).sort().join() !== 'exceptions,version') throw new Error('Invalid audit allowlist');
   const seen = new Set();
+  const approved = new Map();
   for (const entry of policy.exceptions) {
-    if (Object.keys(entry).sort().join() !== 'advisoryId,created,expires,reason' || !idPattern.test(entry.advisoryId) || typeof entry.reason !== 'string' || !entry.reason.trim() || seen.has(entry.advisoryId)) throw new Error('Invalid or duplicate audit exception');
-    seen.add(entry.advisoryId);
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)
+      || Object.keys(entry).sort().join() !== 'advisoryId,crate,created,expires,reason,versionRange'
+      || !idPattern.test(entry.advisoryId) || typeof entry.crate !== 'string' || !entry.crate || entry.crate !== entry.crate.trim()
+      || typeof entry.reason !== 'string' || !entry.reason.trim()) throw new Error('Invalid audit exception');
+    const range = versionRange(entry.versionRange);
+    const tuple = JSON.stringify([entry.advisoryId, entry.crate, range.canonical]);
+    if (seen.has(tuple)) throw new Error('Duplicate audit exception');
+    seen.add(tuple);
     for (const key of ['created', 'expires']) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(entry[key]) || !Number.isFinite(Date.parse(entry[key])) || new Date(entry[key]).toISOString().slice(0, 10) !== entry[key]) throw new Error('Invalid exception date');
     }
     const start = Date.parse(entry.created), end = Date.parse(entry.expires);
     if (start > now.getTime() || end <= start || end - start > 90 * DAY || end <= now.getTime() || end - now.getTime() > 90 * DAY) throw new Error(`Expired or excessive exception: ${entry.advisoryId}`);
+    const entries = approved.get(entry.advisoryId) ?? [];
+    entries.push({ ...entry, versionRange: range.canonical }); approved.set(entry.advisoryId, entries);
   }
-  return new Map(policy.exceptions.map(entry => [entry.advisoryId, entry]));
+  return approved;
 }
 
 // CVSS is owned by FIRST and used by permission. Base equations/weights:
@@ -45,7 +100,7 @@ export function parsePnpm(raw) {
   if (!report.advisories || typeof report.advisories !== 'object' || Array.isArray(report.advisories) || !report.metadata?.vulnerabilities || report.error) throw new Error('Incomplete pnpm audit report');
   const items = Object.values(report.advisories).map(a => {
     if (!idPattern.test(a.github_advisory_id) || typeof a.module_name !== 'string' || !severities.has(a.severity)) throw new Error('Invalid pnpm advisory');
-    return { id: a.github_advisory_id, package: a.module_name, severity: a.severity, title: a.title };
+    return { id: a.github_advisory_id, package: a.module_name, crate: a.module_name, severity: a.severity, title: a.title };
   });
   const counts = ['info', 'low', 'moderate', 'high', 'critical'].map(s => report.metadata.vulnerabilities[s]);
   if (counts.some(n => !Number.isInteger(n) || n < 0) || counts.reduce((a, b) => a + b, 0) !== items.length) throw new Error('Inconsistent pnpm audit counts');
@@ -65,7 +120,8 @@ export function parseCargo(raw, diagnostics) {
   if (!messages.some(m => m.type === 'summary') || messages.some(m => (m.type === 'diagnostic' && m.fields?.severity === 'error' && !['vulnerability', 'unsound', 'unmaintained', 'notice', 'yanked'].includes(m.fields?.code)) || [m.level, m.fields?.level].some(level => String(level).toLowerCase() === 'error'))) throw new Error('cargo-deny collection failed');
   const finding = (v, informational) => {
     if (!idPattern.test(v.advisory?.id) || typeof v.package?.name !== 'string' || typeof v.package.version !== 'string') throw new Error('Invalid RustSec finding');
-    return { id: v.advisory.id, package: `${v.package.name}@${v.package.version}`, severity: informational ? 'info' : cvssSeverity(v.advisory.cvss), title: v.advisory.title };
+    return { id: v.advisory.id, package: `${v.package.name}@${v.package.version}`, crate: v.package.name, version: v.package.version,
+      severity: informational ? 'info' : cvssSeverity(v.advisory.cvss), title: v.advisory.title };
   };
   return [
     ...report.vulnerabilities.map(v => finding(v, false)),
@@ -77,14 +133,15 @@ export function parseCargo(raw, diagnostics) {
   ];
 }
 
-const key = item => `${item.id}:${item.package}`;
+const key = item => JSON.stringify([item.id, item.crate ?? item.package, item.version ?? null]);
 export function evaluate(production, all, exceptions) {
   const prodKeys = new Set(production.map(key));
   const merged = new Map([...all, ...production].map(item => [key(item), item]));
   return [...merged.values()].map(item => {
     if (!severities.has(item.severity)) throw new Error('Invalid advisory severity');
     const scope = prodKeys.has(key(item)) ? 'production' : 'dev';
-    const exception = scope === 'production' ? exceptions.get(item.id) : undefined;
+    const exception = scope === 'production' ? (exceptions.get(item.id) ?? [])
+      .find(entry => entry.crate === item.crate && includesVersion(entry.versionRange, item.version)) : undefined;
     return { ...item, scope, exception, block: scope === 'production' && ['high', 'critical', 'unknown'].includes(item.severity) && !exception };
   });
 }
