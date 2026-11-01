@@ -201,7 +201,7 @@ async function socketEdgeProbes(directory, signal, env) {
       if (variant === "stale") {
         await withOwnedProcess(process.execPath, ["-e",
           "require('node:net').createServer().listen(process.argv[1],()=>process.stdout.write('ready'))", absoluteSocket],
-        { env }, async ({ child }) => { await once(child.stdout, "data"); });
+        { env }, async ({ child }) => { await once(child.stdout, "data", { signal }); });
         row.staleSocketCreated = (await lstat(absoluteSocket)).isSocket();
       }
       await withFmServer(working, passedSocket, signal, row, async () => {
@@ -223,7 +223,7 @@ async function parentDeathProbe(directory, signal, env) {
     "child.once('spawn',()=>process.stdout.write(String(child.pid)+'\\n'));setInterval(()=>{},1000);";
   const result = {};
   await withOwnedProcess(process.execPath, ["-e", parentSource, socket], { env }, async ({ child, closed }) => {
-    const [bytes] = await once(child.stdout, "data");
+    const [bytes] = await once(child.stdout, "data", { signal });
     result.fmPid = Number(bytes.toString().trim());
     await waitForSocket(socket, child, signal);
     result.before = describeResponse(await socketRequest(socket, { method: "GET", path: "/health", signal }));
