@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { validateAllowlist, cvssSeverity, parsePnpm, parseCargo, evaluate, renderSummary, assertOwnerChange, assertNoPnpmIgnores } from '../audit-policy.mjs';
 
-const id = 'GHSA-aaaa-bbbb-cccc';
+const id = 'RUSTSEC-2026-0001';
+const ghsaId = 'GHSA-aaaa-bbbb-cccc';
 const now = new Date('2026-10-15T12:00:00Z');
 const exception = { advisoryId: id, crate: 'runtime', versionRange: '=1.0.0', reason: 'Owner acceptance with tracked remediation', created: '2026-10-15', expires: '2027-01-13' };
 const policy = entry => ({ version: 1, exceptions: entry ? [entry] : [] });
@@ -43,10 +45,10 @@ test('CVSS base vectors preserve FIRST severity boundaries and unknown vectors f
 });
 
 test('pnpm requires a complete report and canonical advisory IDs', () => {
-  const report = { advisories: { 1: { github_advisory_id: id, module_name: 'runtime', severity: 'high', vulnerable_versions: '<=1.0.0' } }, metadata: { vulnerabilities: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 } } };
+  const report = { advisories: { 1: { github_advisory_id: ghsaId, module_name: 'runtime', severity: 'high', vulnerable_versions: '<=1.0.0' } }, metadata: { vulnerabilities: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 } } };
   const parsed = parsePnpm(JSON.stringify(report));
-  assert.deepEqual(parsed, [{ id, package: 'runtime', crate: 'runtime', severity: 'high', title: undefined }]);
-  assert.equal(evaluate(parsed, [], validateAllowlist(policy(exception), now))[0].block, true, 'a report without an installed version cannot use an exception');
+  assert.deepEqual(parsed, [{ id: ghsaId, package: 'runtime', crate: 'runtime', severity: 'high', title: undefined }]);
+  assert.equal(evaluate(parsed, [], new Map([[ghsaId, [{ ...exception, advisoryId: ghsaId }]]]))[0].block, true, 'a report without an installed version cannot use an exception');
   assert.throws(() => parsePnpm('{}'));
   assert.throws(() => parsePnpm(JSON.stringify({ ...report, advisories: {} })));
   assert.throws(() => parsePnpm(JSON.stringify({ ...report, error: { message: 'network failure' } })));
@@ -162,4 +164,47 @@ test('Cargo package identity reaches exception matching without parsing display 
   const rows = parseCargo(report(['zip', '4.6.1'], ['zip', '4.6.2'], ['other-crate', '4.6.1']), summary);
   const approved = validateAllowlist(policy({ ...exception, advisoryId, crate: 'zip', versionRange: '=4.6.1' }), now);
   assert.deepEqual(evaluate(rows, [], approved).map(row => row.block), [false, true, true]);
+});
+
+
+test('the checked-in audit allowlist has valid format and current expiry dates', () => {
+  const checked = JSON.parse(readFileSync(new URL('../../../audit-allowlist.json', import.meta.url), 'utf8'));
+  assert.doesNotThrow(() => validateAllowlist(checked));
+});
+
+test('exception intervals stay inside one major including an exclusive next-major boundary', () => {
+  for (const range of ['>=1.0.0, <2.0.0', '>1.2.3, <=1.99.99', '>=0.1.0, <1.0.0']) {
+    assert.doesNotThrow(() => validateAllowlist(policy({ ...exception, versionRange: range }), now), range);
+  }
+  for (const range of ['>=0.0.0, <9007199254740991.0.0', '>=1.0.0, <3.0.0',
+    '>=1.0.0, <=2.0.0', '>=1.0.0, <2.0.1', '>0.0.0, <=1.0.0']) {
+    assert.throws(() => validateAllowlist(policy({ ...exception, versionRange: range }), now), /one major/, range);
+  }
+});
+
+test('GHSA exceptions explain the missing installed-version collector', () => {
+  assert.throws(() => validateAllowlist(policy({ ...exception, advisoryId: ghsaId }), now),
+    /GHSA.*installed version.*pnpm/i);
+});
+
+test('unused exception warnings name the exact tuple and do not create a blocking finding', () => {
+  const approved = validateAllowlist({ version: 1, exceptions: [exception,
+    { ...exception, versionRange: '=1.0.1' }, { ...exception, crate: 'unused-crate' }] }, now);
+  const findings = evaluate([finding('high')], [], approved);
+  assert.deepEqual(findings.map(row => row.block), [false]);
+  const summary = renderSummary(findings, [], approved);
+  assert.deepEqual(summary.split('\n').filter(line => line.startsWith('Warning: unused audit exception:')), [
+    `Warning: unused audit exception: ${id}/runtime/=1.0.1`,
+    `Warning: unused audit exception: ${id}/unused-crate/=1.0.0`,
+  ]);
+  assert.match(summary, /0 blocking findings; 0 collection\/policy errors/);
+  assert.doesNotMatch(summary, /BLOCK:/);
+});
+
+
+test('unused interval warnings preserve both comparison operators when rendered', () => {
+  const approved = validateAllowlist(policy({ ...exception, versionRange: '>=1.0.0, <2.0.0' }), now);
+  const summary = renderSummary([], [], approved);
+  assert.ok(summary.includes(`Warning: unused audit exception: ${id}/runtime/&gt;=1.0.0, &lt;2.0.0`),
+    'warning must retain both comparison operators in its rendered version range');
 });
