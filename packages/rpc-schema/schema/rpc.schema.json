@@ -5961,7 +5961,7 @@
             "api",
             "tools"
           ],
-          "description": "Experimental (1.3.0). Whether the child is the core, HTTP API or a module; absent from supervisors before 1.3.0."
+          "description": "Experimental (1.3.0). Whether the child is Core, HTTP API, an installable module, or the native tools service (since 1.15.0 / D120 H1-1); absent from supervisors before 1.3.0."
         }
       }
     },
@@ -27703,7 +27703,7 @@
         "x-stability": "experimental",
         "x-since": "1.15.0",
         "x-server": "tools",
-        "description": "First call on a Core tools connection. The dedicated Core credential establishes the principal; ticketKey is a fresh 32-byte hex HMAC key per Core start (D120 §11.2). Neither credential is returned or logged. Supervisor lifecycle uses the existing module control contract with a separate token.",
+        "description": "First call on a Core tools connection. The dedicated credential and recorded Core PID/instance establish the principal; where available the kernel peer PID must match run/core.pid. The first hello installs a process-wide 32-byte hex HMAC ticketKey for that Core start (D120 §11.2); further connections must present the same key. A new Core identity replaces the key and closes old Core connections. Neither credential is returned or logged. Supervisor lifecycle uses a separate control token.",
         "params": {
           "type": "object",
           "additionalProperties": false,

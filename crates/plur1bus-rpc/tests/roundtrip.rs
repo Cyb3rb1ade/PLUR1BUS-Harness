@@ -1,5 +1,4 @@
-//! Typed RPC fixtures enforce closed params and forward-compatible results, including runtime credentials.
-mod support;
+//! Typed RPC fixtures enforce closed params and forward-compatible results.
 
 use plur1bus_rpc::types;
 use serde::{de::DeserializeOwned, Serialize};
@@ -95,7 +94,6 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
             let path = entry.unwrap().path();
             let name = path.file_stem().unwrap().to_string_lossy().into_owned();
             let fixture: Value = serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
-            let fixture = support::hydrated(&name, &fixture);
             (name, fixture)
         })
         .collect();

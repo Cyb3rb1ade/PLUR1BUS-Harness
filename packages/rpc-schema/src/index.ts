@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -85,8 +84,6 @@ export interface Fixtures {
 export function loadFixtures(root = join(here, "..", "fixtures")): Fixtures {
   const read = (dir: string) => Object.fromEntries(readdirSync(join(root, dir)).filter((f) => f.endsWith(".json")).map((f) => [f.slice(0, -5), JSON.parse(readFileSync(join(root, dir, f), "utf8"))]));
   const methods = read("methods");
-  // Credentials are generated only in memory, never committed as fixture literals (D120).
-  if (methods["tools.hello"]) methods["tools.hello"].params = { token: randomBytes(32).toString("hex"), ticketKey: randomBytes(32).toString("hex") };
   return { methods, errors: read("errors"), notifications: read("notifications") } as Fixtures;
 }
 
