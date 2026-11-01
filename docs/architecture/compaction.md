@@ -164,6 +164,9 @@ The Core computes the list from immutable Git trees; D109 redacts it before
 display. A preview exceeding 200 paths or 4096 characters is refused before
 asking for approval. A file/directory collision that would overwrite a preserved
 path is also refused.
+Checkpoint Git children have a 30-second deadline and a combined 32 MiB output
+limit. Cancellation and timeout send SIGTERM, then SIGKILL after one second if
+needed. Every result waits for `close` before the temporary index is removed.
 The file action is audited separately as `session.rewind.files`. Git restoration
 and the SQLite overlay are separate operations: a later storage failure does not
 roll back an already approved file restoration. Undo is conversation-only and

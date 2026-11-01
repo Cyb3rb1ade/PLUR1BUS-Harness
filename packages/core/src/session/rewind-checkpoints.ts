@@ -1,17 +1,15 @@
 /** D120 Q14: D115 working-tree checkpoints and human-approved tracked-file restore, with a private temporary Git index. */
-import { execFile } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { copyFile, lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { devNull, tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
-import { promisify } from "node:util";
 import type { AuditSink } from "../rbac/audit.ts";
 import type { ApprovalAsk, ApprovalPort } from "../tools/approval.ts";
 import type { RewindFilesPort, RewindServiceDeps } from "./rewind.ts";
 import type { SessionStore } from "./store.ts";
 import { SessionError } from "./types.ts";
+import { checkpointGitProcess } from "./checkpoint-git-process.ts";
 
-const execute = promisify(execFile);
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
 const OID = /^[a-f0-9]{40,64}$/;
 const CHECKPOINT = "refs/plur1bus/checkpoints";
@@ -38,12 +36,11 @@ export function checkpointEnvironment(source: NodeJS.ProcessEnv, index?: string)
 async function git(root: string, args: readonly string[], options: {
   signal: AbortSignal; index?: string; config?: readonly string[]; env?: NodeJS.ProcessEnv;
 }): Promise<string> {
-  const result = await execute("git", ["--no-pager", "--literal-pathspecs", "-c", "core.fsmonitor=false",
+  return checkpointGitProcess(["--no-pager", "--literal-pathspecs", "-c", "core.fsmonitor=false",
     "-c", "commit.gpgSign=false", "-c", "tag.gpgSign=false",
     "-c", `core.hooksPath=${devNull}`, "-c", `core.attributesFile=${devNull}`, ...options.config ?? [],
-    "-C", root, ...args], { encoding: "utf8", maxBuffer: 32 * 1024 * 1024, timeout: 30_000,
-    signal: options.signal, env: { ...checkpointEnvironment(process.env, options.index), ...options.env } });
-  return result.stdout;
+    "-C", root, ...args], { signal: options.signal,
+    env: { ...checkpointEnvironment(process.env, options.index), ...options.env } });
 }
 
 function checkpointRef(sessionId: string, turnId: string): string {
