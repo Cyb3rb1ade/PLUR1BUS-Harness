@@ -2,12 +2,13 @@
 
 **Status:** Decided 2026-11-01 (specification and plan only, no product code). The owner intents of 2026-11-01 are
 binding (§2); the owner decided Q1–Q21 the same day, as recommended except for five amendments (Q3, Q7, Q9, Q11, Q21),
-and added sync at safe points (§16) · **Date:** 2026-11-01 · **Owner:** Christian (Cyb3rb1ade) · **Track:** M5
-collaboration follow-up, beside M5+ (D115) and M6 · **Register entry:** **D124** (decided 2026-11-01, Q1) in the core
-spec's register ([`2026-09-24-m1b-2a-core-daemon-cli-design.md`](2026-09-24-m1b-2a-core-daemon-cli-design.md) §2), not
-entered yet (plan PT-0). D120 is on main; D121 is used by open PR #840, D122 by open PR #845, D123 by open PR #847;
-`D124` appears in no file of main (`27ec7c4f0c`) and in no doc changed by the 40 most recently updated remote refs,
-checked 2026-11-01 · **Amends:** the ADR-003 guardrail defaults (note "Amended by D124, decided 2026-11-01" in
+and added sync at safe points and failure handling by class (§16) · **Date:** 2026-11-01 · **Owner:** Christian
+(Cyb3rb1ade) · **Track:** M5 collaboration follow-up, beside M5+ (D115) and M6 · **Register entry:** **D124** (decided
+2026-11-01, Q1) in the core spec's register
+([`2026-09-24-m1b-2a-core-daemon-cli-design.md`](2026-09-24-m1b-2a-core-daemon-cli-design.md) §2), not entered yet (plan
+PT-0). D120 is on main; D121 is used by open PR #840, D122 by open PR #845, D123 by open PR #847; `D124` appears in no
+file of main (`27ec7c4f0c`) and in no doc changed by the 40 most recently updated remote refs, checked 2026-11-01 ·
+**Amends:** the ADR-003 guardrail defaults (note "Amended by D124, decided 2026-11-01" in
 [ADR-003](../../adr/ADR-003-agent-model-and-collaboration.md)); answers ADR-003 open question 5 and action items 8 and 9
 · **Follows:** D120 path B
 ([`2026-10-30-harness-hygiene-coding-aci-design.md`](2026-10-30-harness-hygiene-coding-aci-design.md) §2 decision 3, the
@@ -110,7 +111,7 @@ Decided by these intents and not reopened here: that limits rise (not by how muc
 is on by default), and that the router learns (not its start mode, Q13).
 
 The owner then decided every question of §16 on 2026-11-01: as recommended, except Q3, Q7, Q9, Q11 and Q21, which the
-owner amended or decided otherwise, and with one addition, sync at safe points (A1).
+owner amended or decided otherwise, and with two additions: sync at safe points (A1) and failure handling by class (A2).
 
 ## 3. Research basis
 
@@ -216,6 +217,7 @@ do not have; both are measured here before they become defaults.
 | TD14 | Workers | Native agents, external ACP CLIs and A2A peers write; an A2A writer works in its own checkout and returns a commit series that the harness applies (merge or `git am`, never a rebase), untrusted until review and gates pass (§6.10; owner, Q11) | A2A peers as helpers only (the earlier recommendation): rejected by the owner |
 | TD15 | Sections and scope | The plan has sections with a budget each; the person approves a scope per package, up to section N, for the whole plan, or `auto`; the orchestrator works autonomously inside it (§6.14; Q7) | One approval for the whole run: no stop between sections; approval per merge: the person becomes the bottleneck (R12) |
 | TD16 | Sync | After each merge into a section branch the plan checker finds the affected running packages; they get a short notice and, at their next safe point, a merge of the section branch; per package `auto`, `notify-only` or `at-review` (§6.15; owner addition) | Retarget only when a dependency merges: late conflicts and stale interfaces |
+| TD17 | Failures | Failure handling by class: `quota` holds (yellow, notified), polls every 10 minutes and hands over to another fitting agent after 60 minutes; `transient` retries within the retry budget; `deterministic` neither retries nor hands over; `permission` waits for the person; `auth` and exhausted retries go to `needs-decision`; a handover stops the old worker and commits its state before the new one starts (§6.11; owner addition A2) | One retry-then-fail rule for everything: a quota outage would fail packages that only need to wait, and a deterministic error would burn retries |
 
 ## 6. Architecture
 
@@ -295,7 +297,7 @@ delegation contracts do today (`service.ts:275`).
 | `team_runs` | `id`, `project_id`, `lead_agent`, `mode` (`team` \| `best-of-n`), `state`, `state_version`, `plan_json`, `plan_hash`, `composition_hash`, `approval_scope`, `approved_by`, `target_branch`, `token_budget`, `wall_budget_ms`, `writers_max`, `route_decision_id`, timestamps | one run; `state`: `proposing → awaiting-team → planning → awaiting-approval → running ⇄ paused → done \| cancelled \| failed` |
 | `team_members` | `run_id`, `member_id`, `kind` (`native` \| `acp` \| `a2a`), `role`, `model`, `peer_id`, `disclosure` (what an external member receives) | the confirmed team (§6.14) |
 | `team_sections` | `id`, `run_id`, `index`, `title`, `goals_json`, `branch`, `auto`, `state` (`open → running → summarising → awaiting-person → merged`, or `auto-merged`), `token_budget`, `wall_budget_ms`, `summary_json`, `merge_sha` | one plan section and its section branch |
-| `team_packages` | `id`, `run_id`, `section_id`, `card_id`, `key`, `task_class`, `state` (§6.5, including `needs-decision`), `writer_member`, `worker_kind` (`native` \| `acp` \| `a2a`), `sync_mode` (`auto` \| `notify-only` \| `at-review`), `base_ref`, `branch`, `merge_position`, `round`, `token_alloc`, `deadline_at`, `last_tree_hash`, `decision_json` | one package, one card, one worktree (the #820 `project_worktrees` row by `card_id`) |
+| `team_packages` | `id`, `run_id`, `section_id`, `card_id`, `key`, `task_class`, `state` (§6.5, including `needs-decision`), `writer_member`, `worker_kind` (`native` \| `acp` \| `a2a`), `sync_mode` (`auto` \| `notify-only` \| `at-review`), `base_ref`, `branch`, `merge_position`, `round`, `token_alloc`, `deadline_at`, `last_tree_hash`, `decision_json`, `writer_epoch`, `hold_reason`, `hold_since`, `next_poll_at`, `handover_at` | one package, one card, one worktree (the #820 `project_worktrees` row by `card_id`) |
 | `team_package_deps` | `package_id`, `depends_on`, `kind` (`code` \| `order`) | `code`: may stack on the dependency's branch; `order`: merge after it |
 | `team_ownership` | `package_id`, `glob`, `mode` (`own` \| `interface` \| `shared`) | what a package may change; `interface` files need lead approval to change, `shared` files (lockfiles) follow §6.9 |
 | `team_rounds` | `package_id`, `round`, `kind` (`review` \| `fix` \| `sync` \| `sync-note` \| `patch` \| `needs-decision`), `agent`, `tree_hash`, `verdict`, `findings_json`, `finding_hashes`, `artifact_hash`, tokens, times | the package history; findings and A2A artifacts are untrusted data |
@@ -318,6 +320,7 @@ planned ─► ready ─► writing ─► checking ─► reviewing ─┬─�
    ▲          │      ▲   │  ▲                │        │
    │          │      │   │  └── fixing ◄─────┴────────┘   (findings, failed checks, merge or sync conflicts)
    │          │      │   └─► syncing ─► back to writing or fixing (safe point, §6.15)
+   │          │      ├── holding (quota, §6.11) ─► resumes, or hands over to another writer
    │          │      └── person decided ◄── needs-decision ◄── open findings · disagreement · unresolvable conflict
    └── blocked (dependency, interface change, worktree, disk floor, scope) · interrupted (restart) · cancelled · failed
 ```
@@ -333,7 +336,9 @@ planned ─► ready ─► writing ─► checking ─► reviewing ─┬─�
   failing names (D120 C4 adds the failing lines).
 - **reviewing**, **fixing**, **needs-decision**: §6.8. **syncing**: §6.15, entered from writing or fixing at a safe
   point, or right before checking with `at-review`. **queued** onward: §6.9.
-- While a package is in `needs-decision`, independent packages continue and the packages that depend on it wait.
+- **holding**: §6.11 (a `quota` failure: no failure and no partial result; poll, then handover).
+- While a package is in `needs-decision` or `holding`, independent packages continue and the packages that depend on it
+  wait.
 
 Hooks at three points give projects their own gates, as R9's hooks do: `package.created` (refuse a package),
 `package.done` (refuse completion), `writer.idle` (send the writer back with feedback). They are commands under a new
@@ -369,6 +374,7 @@ are in `FORBIDDEN_EXACT`); agents reach the same information and decisions only 
 | `team.package.decide { runId, packageId, optionId?, note }` (a `needs-decision`), `team.interface.approve { runId, packageId, files[], treeHash }` (an interface marked `person-review`) | as above | PT-5 |
 | `team.channel.mute { runId, memberId, untilMs }` | as above | PT-5b |
 | `team.merge.order.set { runId, sectionId, order[] }`, `team.merge.confirm { runId, packageId, treeHash, sectionHead }` (a package outside the approved scope), `team.section.merge { runId, sectionId, treeHash, targetHead }` | as above; both merges on a T2 or T3 surface (D109) | PT-6 |
+| `team.package.hold { runId, packageId, until? }` (keep a `quota` hold, cancelling the automatic handover) | `project.write` and project role lead, or owner or admin | PT-4c |
 | `team.route.reset` | owner or admin | PT-12 |
 
 **Every one of these methods goes into `FORBIDDEN_EXACT` in `packages/webmcp/src/provider.ts` (`:52`)** with a
@@ -429,8 +435,9 @@ section summary, section merged, budget warning, capacity warning, message poste
    recommendation through `team_decision_options`, for example: accept the finding and open a follow-up card; another
    worker or model; change the scope. The person decides with the human-only `team.package.decide` (a chosen option or a
    free note). Independent packages continue; dependants wait. A split or a scope change alters the plan hash and needs
-   the person's approval of the changed plan. Other triggers: an unresolvable sync conflict (§6.15) and the failures of
-   §6.11.
+   the person's approval of the changed plan. Other triggers: an unresolvable sync conflict (§6.15) and the failure
+   classes of §6.11 that end there (`transient` after its retries, `auth`, `crash`, a `deterministic` failure the
+   package cannot continue past, a `quota` hold without an eligible handover candidate).
 5. **Ownership and interfaces:** before review, `tools.team.diffcheck` compares the changed files with the package's
    globs. A change outside `owns` is refused back to the writer; a change to an `interface` file pauses the package
    until the lead approves through `team_decide` (and a person through `team.interface.approve`, if the plan marks the
@@ -476,11 +483,12 @@ section summary, section merged, budget warning, capacity warning, message poste
   commit. With scope `package`, each package also gets its own pull request into the section branch, the controller
   workflow one to one. #820's refusal of `push` (`provisioner.ts:11`) stays for every other path.
 - **Back-pressure (Q19).** While 3 items wait for a person (`needs-decision` packages, package merges outside the scope,
-  section merges, scope approvals), no new package starts writing (R12). Packages merged autonomously inside an approved
-  section do not count (owner, Q7). The owner's example from the controller run of 2026-10-31 to 2026-11-01: five pull
-  requests (#835, #843, #838, #840, #841) waited at the same time; branches went stale, RPC minors had to be renumbered
-  across branches, branches were merged again and again, and an unsolicited parallel writer appeared. The fetched
-  history of #843 shows one such re-merge (`111328e2`, "Merge updated budget API base and retain RPC 1.12").
+  section merges, scope approvals, pending worker approvals of class `permission`, §6.11), no new package starts writing
+  (R12). Packages merged autonomously inside an approved section and packages holding on quota do not count (owner, Q7;
+  §6.11). The owner's example from the controller run of 2026-10-31 to 2026-11-01: five pull requests (#835, #843, #838,
+  #840, #841) waited at the same time; branches went stale, RPC minors had to be renumbered across branches, branches
+  were merged again and again, and an unsolicited parallel writer appeared. The fetched history of #843 shows one such
+  re-merge (`111328e2`, "Merge updated budget API base and retain RPC 1.12").
 
 ### 6.10 Workers: native, external ACP, A2A
 
@@ -517,29 +525,102 @@ section summary, section merged, budget warning, capacity warning, message poste
   `AgentScope` (`ADR-003:139`); memory capture follows the 2026-10-29 rule (`ADR-003:165-172`), so each package's
   exchange is captured with origin `collab` and its own trace.
 
-### 6.11 Failure handling
+### 6.11 Failure handling by class (owner addition A2)
 
-| Failure | Detection | Response |
+The response to a failure depends on its class. The TypeScript core classifies every failure of a worker, reviewer or
+the lead and passes the class to `tools.team.next` as an event (`worker.failed { class, retryAfterMs?, resetsAt?,
+provider, credential }`); the transition function decides.
+
+| Class | What falls into it | Behaviour |
 |---|---|---|
-| Writer crash or model error | run rejects | one retry with the profile's fallback model; then `needs-decision` |
-| Writer stalls | no tool call and no tree change for the class's stall time | a D120 H3 steer ("report status"), then restart with a resume brief (§6.12), then `needs-decision` |
-| Package exceeds its allocation or deadline | budget refusal or timer | partial return kept (today's `interrupted` semantics, `ADR-003:159`); `needs-decision` (raise the allocation with `team.package.budget.set`, reassign, cut scope) |
-| Run or section budget exhausted | team or section scope refusal | the run or section pauses (never cancels); the person may raise the budget (`team.budget.set`) |
-| Review does not converge, or agents disagree | round cap, repetition, dispute (§6.8) | `needs-decision` |
-| Checks or CI red | gate result | fix round with failing names |
-| Merge conflict into the section branch | `mergePreview` | fix round for the package |
-| Sync conflict | merge at the safe point (§6.15) | the writer's next task; unresolvable → `needs-decision` |
-| A2A series rejected | base, path, size, gitlink or symlink check (§6.10) | sent back to the peer with the reason; the second rejection → `needs-decision` |
-| Dependency failed or cancelled | state change | dependents `blocked`; a lead turn re-plans (person re-approves a changed plan) |
-| Interface change | `tools.team.diffcheck` | package paused until lead (and person, if marked) approves |
-| Worktree missing or replaced | reconciliation (§6.7) | `blocked`, reason named; no automatic re-creation over existing files |
-| Free disk below the floor | measurement (§6.7) | no new worktree; packages wait (`disk-floor`); inbox entry; cleanup |
-| Writer slots above the computed capacity | admission (§7.3) | allowed; warning in the team view and the log |
-| Channel repetition | brake (§6.16) | message refused or pair paused; the lead is notified |
-| External CLI or A2A peer unavailable | ACP initialise or A2A call fails | reassign to another member if the composition allows, else `needs-decision` |
-| `plur1bus-tools` unavailable | RPC error | runs pause; no transitions until it is back (§6.3) |
-| Lead unavailable | lead turn fails twice | run pauses; the person is notified |
-| Core restart | start-up | §6.12 |
+| `quota` | usage or quota exhausted: "out of usage", a subscription or plan limit, a provider quota, a sustained rate-limit lockout; an `agent`-scoped refusal of the call budget (detection below) | the package **holds**: no failure, no partial result; package, team thread and project pulse yellow; the person is notified; availability is checked every 10 minutes; without new quota after 60 minutes the package is handed over to another agent (below); a person can veto or redirect at any time |
+| `transient` | network errors, `overloaded` (HTTP 5xx), timeouts, short rate limits; every failure the classifier does not know | bounded retry with backoff through the existing per-turn retry budget (`budget/retry.ts:1-11`: `rate_limit` 3 attempts, `overloaded` and `network` 2, `timeout` 1, 400,000 tokens per turn), charged per failure class by the turn loop (`composition/provider.ts:536-540`), with the router's fallback for transient classes (`router/classify.ts:15,30`); retries exhausted on rate limits twice in a row → `quota`; otherwise → `needs-decision` |
+| `deterministic` | data and limit errors the same input repeats: `invalid_request` and `context_length` (`providers/src/errors.ts:10-12`), schema and validation errors after the one repair the retry budget allows (`tool_call_invalid`, `budget/retry.ts:8`), a result a tool cannot page or deliver (`tool-result-too-large`, `tools/dispatcher.ts:279`) | no retry and no handover: a partial result with the reason when the package can continue, otherwise `needs-decision` |
+| `permission` | an approval the worker waits for (D109) | wait for the person: not a failure; counts against the person queue (Q19, §6.9); D109 parks an unanswered request and denies it after 24 hours, never approving it (D109 row), and the worker gets the denial as a tool error |
+| `auth` | credentials rejected or unusable (`auth`, `providers/src/errors.ts:7`) | `needs-decision`: the person fixes the credential or reassigns; never a silent switch to another vendor or account, the router's own rule (`router/classify.ts:18-23`) |
+| `crash` | worker crash, stall or timeout of the delegation | the existing rules: one retry with the profile's fallback model, the D120 H3 steer for a stall, restart with a resume brief (§6.12), reassignment where the composition allows, then `needs-decision` |
+| `budget` | a refusal on the run's own `team`, `section` or `package` scope (§7.3) | the run or section pauses (never cancels); the person may raise the budget (`team.budget.set`) |
+
+**Quota detection.** The classifier maps these signals to `quota`:
+
+1. A provider `rate_limit` that the adapter marks not retryable: `insufficient_quota`
+   (`providers/src/errors.ts:179-181`; `responses/errors.ts:97`), the ChatGPT plan's `usage_limit_reached` with the
+   reset the body reports (`responses/errors.ts:34-39,64,98`), and `subscription_sharing_usage_limit_exceeded`
+   (`router/classify.ts:29`).
+2. The credential pool: a `quota_exhausted` classification (`auth/pool.ts:36-37`), or `all_cooling_down` when every
+   credential of the profile cools down, with its retry time (`auth/pool.ts:86`).
+3. A sustained rate-limit lockout: a `rate_limit` whose `retryAfterMs` reaches the poll interval, or the retry budget's
+   `rate_limit` class exhausted (`RetryBudgetExceededError`, `budget/retry.ts:12-19,41`) twice in a row for the same
+   package. Gemini's `RESOURCE_EXHAUSTED` cannot tell a per-minute limit from an exhausted quota
+   (`gemini/errors.ts:141-147`), so it reaches `quota` only through this rule.
+4. The budget ledger: a call-budget refusal (`budget_exceeded` with `scope` and `resetsAt`, `budget/calls.ts:22-25`) on
+   the `agent` scope is `quota` (another agent may have room); on `user`, `global` or `project` it also holds, but
+   without handover, because every other agent would meet the same limit; on the run's scopes it is `budget`.
+5. Everything else that is not classified: `transient`, with bounded retry, then `needs-decision`.
+
+**Hold, poll and handover.**
+
+- *Hold.* The worker is stopped as in the handover below, its worktree stays, its writer slot stays reserved (judgment:
+  the package keeps its writer), independent packages continue, dependants wait. A hold does not count against the
+  person queue, since the scheduler resolves it itself (judgment). The team view and the inbox entry (kind `team`) show
+  the hold reason, the provider and credential, the next poll time and the handover deadline.
+- *Poll* every `collaboration.teams.quota.pollIntervalMs` (default 600,000 ms, minimum 60,000; `x-restart: live`): first
+  without a call — a known reset time (`retryAfterMs`, `resets_in_seconds`, `resetsAt`) not yet reached, or the
+  credential pool still cooling down, means "not yet"; otherwise one minimal probe request (one output token) on the
+  same provider and credential, admitted against the run budget and counted (judgment, U21). On success the worker
+  resumes with a resume brief.
+- *Handover* after `collaboration.teams.quota.handoverAfterMs` (default 3,600,000 ms; `x-restart: live`) without new
+  quota. Candidates: team members first, then other agents the person allowed in the composition (§6.14), that can take
+  the package's role, satisfy its requirements (model tier at least the contract's `modelTier`, the worker kind's tools
+  for the package's task class, the language toolchain of its checks) and have room: a different provider or credential
+  preferred, the credential pool selecting without cooldown, and a call-budget admission that passes (checked as
+  `checkBeforeCall` followed by `releaseUnused`, the pattern `collab/fanout-eval.ts:25` uses). No eligible candidate →
+  `needs-decision` with options (keep holding until the known reset, a model or provider outside the team, cancel). The
+  handover carries the package state: worktree, committed work, open findings, plan and contract, last partial return.
+- *Veto and redirect.* The person can keep a package holding (`team.package.hold { runId, packageId, until? }`, which
+  cancels the automatic handover) or hand it over now to a chosen member (`team.package.reassign`), at any time; both
+  are human-only and in `FORBIDDEN_EXACT` (§6.6).
+- *Lead and reviewers.* The same rule applies: a reviewer is replaced by a fresh session of another member; the lead's
+  session continues on another agent from its session summary, and while the lead holds, the run pauses.
+
+**Handover never duplicates writes.**
+
+1. Every package has a `writer_epoch`. Handover increments it; any result, tool call or artifact of an older epoch is
+   refused.
+2. The old worker is stopped first: a native turn through its abort signal; an ACP session with `session/cancel` (#820's
+   client, `acp-client.ts:7`), after which the core refuses that session's `fs/*` and `terminal/*` callbacks; an A2A
+   peer is unbound from the package, because #843's client sends no remote `CancelTask` and does not guarantee stopping
+   foreign work (`docs/a2a.md:128` at `2887e8dbd3`), so later artifacts from it are refused by epoch.
+3. Then, if the worktree has uncommitted changes, the core commits them as a work-in-progress commit with a
+   `P1B-Handover: <from> -> <to>` trailer through harness-owned git with hooks off (`collab/verifier.ts:61`); never `git
+   stash`.
+4. Only then does the new worker start, with a resume brief (§6.12) built from that state.
+
+**Per-failure responses.**
+
+| Failure | Class | Response |
+|---|---|---|
+| Writer crash or model error | `crash` (`transient`, `quota`, `auth` or `deterministic` when the provider error says so) | one retry with the profile's fallback model; then `needs-decision` |
+| Writer stalls | `crash` | a D120 H3 steer ("report status"), then restart with a resume brief (§6.12), then `needs-decision` |
+| Usage or quota exhausted | `quota` | hold, poll, handover as above |
+| Package exceeds its allocation or deadline | `budget` | partial return kept (today's `interrupted` semantics, `ADR-003:159`); `needs-decision` (raise the allocation with `team.package.budget.set`, reassign, cut scope) |
+| Run or section budget exhausted | `budget` | the run or section pauses (never cancels); the person may raise the budget (`team.budget.set`) |
+| Review does not converge, or agents disagree | — | `needs-decision` (§6.8) |
+| Checks or CI red | — | fix round with failing names |
+| Merge conflict into the section branch | — | fix round for the package |
+| Sync conflict | — | the writer's next task; unresolvable → `needs-decision` (§6.15) |
+| A2A series rejected | `deterministic` | sent back to the peer with the reason; the second rejection → `needs-decision` |
+| Dependency failed or cancelled | — | dependents `blocked`; a lead turn re-plans (person re-approves a changed plan) |
+| Interface change | — | package paused until lead (and person, if marked) approves |
+| Approval pending | `permission` | wait for the person (D109); counts against the person queue |
+| Worktree missing or replaced | — | `blocked`, reason named; no automatic re-creation over existing files |
+| Free disk below the floor | — | no new worktree; packages wait (`disk-floor`); inbox entry; cleanup (§6.7) |
+| Writer slots above the computed capacity | — | allowed; warning in the team view and the log (§7.3) |
+| Channel repetition | — | message refused or pair paused; the lead is notified (§6.16) |
+| External CLI or A2A peer unavailable | `transient`, then `crash` | bounded retry, then reassignment where the composition allows, else `needs-decision` |
+| `plur1bus-tools` unavailable | — | runs pause; no transitions until it is back (§6.3) |
+| Lead unavailable | as its error | the lead's class decides; a `crash` twice pauses the run and notifies the person |
+| Core restart | — | §6.12; hold deadlines are absolute times and survive the restart |
 
 ### 6.12 Resumability (a requirement)
 
@@ -548,9 +629,9 @@ R9's reference product does not restore teammates on resume. Here a restart must
 1. **State is durable:** runs, members, sections, packages, rounds, queue entries, messages, the event log and the
    action outbox, worktree rows and budget reservations are in SQLite; nothing a run needs lives only in memory (unlike
    `service.ts:95`). The transition function holds nothing.
-2. **Reconcile first:** worktrees (§6.7), interrupted merges in package and integration worktrees (detected by
-   `MERGE_HEAD`, aborted with `git merge --abort`, then re-queued), and expired budget reservations (the call budget's
-   TTL).
+2. **Reconcile first:** hold deadlines (absolute times, so a restart neither shortens nor extends them), worktrees
+   (§6.7), interrupted merges in package and integration worktrees (detected by `MERGE_HEAD`, aborted with `git merge
+   --abort`, then re-queued), and expired budget reservations (the call budget's TTL).
 3. **Replay:** an event that was persisted but not applied is applied again; `tools.team.next` is pure, so the result is
    the same. Actions in the outbox that are not done run again; each checks its own effect first (a merge is done when
    the package head is already an ancestor of the section head; a worker start is done when the package has a live
@@ -576,6 +657,9 @@ R9's reference product does not restore teammates on resume. Here a restart must
   panel; the team channel; the router's explanation; a warning while writer slots exceed the computed capacity.
 - **`needs-decision`:** project, team thread and card pulse yellow until decided; the inbox entry links to the options
   with pros, cons and the lead's recommendation.
+- **Holds:** a holding package pulses yellow too; its lane shows the hold reason, the provider and credential, the next
+  poll time and the handover deadline, with the actions keep holding (`team.package.hold`) and hand over now
+  (`team.package.reassign`).
 - **Steering:** a person can steer the lead or any writer through D120 H3 (`session.submit` with `delivery: "steer"`,
   D120 §9.6) and post in the channel; confirm, approve, extend, pause, resume, cancel, reassign, re-budget, decide,
   reorder and merge are the human-only RPCs of §6.6. The CLI gets `plur1bus project team
@@ -714,6 +798,9 @@ table: it is the section budget split by the plan's estimates (§7.3).
 4. **Review and person capacity.** Reviewer runs count against a reviewer pool (default = the writer slots); items
    waiting for a person are limited to 3 (Q19, §6.9), autonomous merges inside an approved section not counted.
 5. **Channel:** the message bounds of §6.16.
+6. **Provider quota and retries** are not harness limits but failure classes (§6.11): `transient` failures stay inside
+   the existing per-turn retry budget (`budget/retry.ts:5-11`), and a `quota` failure holds and hands over instead of
+   failing.
 
 ### 7.4 Admission
 
@@ -787,10 +874,11 @@ from PT-2's data.
   (estimated from posterior samples), logged for later off-policy evaluation. Older observations decay (half-life 90
   days, judgment) because models change.
 - **Reward:** `r = s − λ_t · tokens / T_ref − λ_w · wall / W_ref`. `s` is an outcome ladder: 1 merged with green gates
-  and no revert within 14 days; 0.7 merged after a `needs-decision`; 0.3 partial; 0 failed or cancelled. `T_ref` and `W_ref`
-  are the rolling medians of the `single` arm for the task class. Defaults λ_t = 0.3, λ_w = 0.2 (Q14, judgment,
-  person-adjustable). A provisional reward is written when the package closes, the final one after the revert window;
-  updates are idempotent per decision id.
+  and no revert within 14 days; 0.7 merged after a `needs-decision`; 0.3 partial; 0 failed or cancelled. `T_ref` and
+  `W_ref` are the rolling medians of the `single` arm for the task class; time a package spends holding on quota (§6.11)
+  is not counted in `wall`, so a provider outage does not teach the bandit that an architecture is slow (judgment).
+  Defaults λ_t = 0.3, λ_w = 0.2 (Q14, judgment, person-adjustable). A provisional reward is written when the package
+  closes, the final one after the revert window; updates are idempotent per decision id.
 - **Signals:** D98 gate results, review findings and their severity, CI results, merges and reverts, tokens and wall time
   from the ledger; for later chat-level arms, the engine's reply outcomes, reading only `outcome`, `feedback` and
   `confidence` and never `userPrompt` or `replyText` (`ledger_types.rs:510-526`).
@@ -808,7 +896,8 @@ from PT-2's data.
 1. **Attempts:** N workers, each in its own card worktree from the same base, with the same contract and no contact with
    each other. Diversity through different models or providers where configured (R8), otherwise seeds.
 2. **Budget:** N × the per-attempt allocation must fit the run budget; N defaults to 3, at most 8 (Q12). Once two
-   candidates pass the tests, the remaining attempts are cancelled with partial results kept.
+   candidates pass the tests, the remaining attempts are cancelled with partial results kept; an attempt that holds on
+   quota (§6.11) is not handed over while other attempts still run, and is cancelled once one of them wins.
 3. **Selection, tests first:** the D98 checks and the task's oracle (the failing tests named in the contract) run in the
    verifier sandbox; failing candidates drop out. One survivor wins.
 4. **Tie-break:** with several survivors, bounded summaries (at most 2,000 tokens each) go into a pairwise tournament:
@@ -872,6 +961,8 @@ Replaces `collab/fanout-eval.ts` and `scripts/m5-fanout-eval.mjs` (ADR-003 actio
 | Prompt injection through code, findings or peer output | all peer and repository content enters as untrusted `tool_result` (`ADR-003:161`); findings cannot widen scope; the target-branch merge needs a person unless `auto` | an injected change that passes review and the person |
 | Autonomous merges hide problems | only inside the scope the person approved; the D98 gate on every exact tree; the section branch is revertible; the target branch is untouched until the person (or an `auto` section) merges after the summary | a problem gates and summary miss; revertible |
 | State-machine bypass | actions come only from `tools.team.next`; the core executes them through the dispatcher, D109 and the call budget as before; the transition function cannot act by itself | a bug in the core's executor |
+| A handover duplicates writes | writer epoch; the old worker stopped first (abort, `session/cancel` with its `fs/*` and `terminal/*` callbacks refused, A2A unbinding); its state committed as a work-in-progress commit, never `git stash`; only then the new worker (§6.11) | an A2A peer that keeps working remotely; its artifacts are refused by epoch |
+| A quota handover moves work to an account the person did not intend | candidates only from the team and the agents the person allowed in the composition (§6.14); an `auth` failure never triggers a switch (`router/classify.ts:18-23`); the person can keep holding or redirect at any time | — |
 | Budget runaway | finite section budgets; per-package allocation; admission before every call, messages included; pause, not overspend | estimate errors within one call |
 | Merge of an unreviewed or changed tree | every merge, autonomous ones included, binds tree hash and target head; the D98 gate runs on the exact tree | — |
 | History damage | merges only, sync and patch application included; no rebase, reset, force or delete by the core (#820 refusal set; D115 §6.6) | — |
@@ -910,6 +1001,7 @@ Replaces `collab/fanout-eval.ts` and `scripts/m5-fanout-eval.mjs` (ADR-003 actio
 | Review loops that never end (R11) | round cap, repetition detector, `needs-decision` |
 | Untrusted A2A series | §12; review and gates before anything reaches the section branch |
 | Disk exhaustion from many worktrees and build artefacts | hard floor; immediate removal of finished worktrees; cleanup of git-ignored build directories |
+| A provider quota or plan limit runs out mid-run | the `quota` class holds instead of failing, polls and hands over to a fitting agent with room; the person can veto or redirect (§6.11) |
 | Overcommitted CPU or memory | computed capacity; a clear warning when it is exceeded; PT-2 measures the slowdown (U16) |
 | Benchmarks that do not reflect team work (R13) | the team tier; tokens and failure modes always reported |
 | A weak lead (R4) | the lead uses the strongest configured tier; the router masks `team` without one |
@@ -932,6 +1024,10 @@ Replaces `collab/fanout-eval.ts` and `scripts/m5-fanout-eval.mjs` (ADR-003 actio
   GiB), the cleanup paths and the pressure threshold (§6.7, §7.3); 2,000 tokens and 20 messages per member per hour, the
   brake after 6 exchanges (§6.16); 16 MiB per A2A artifact (§6.10); 8 sections per plan (§6.4).
 - A2A series as a git bundle (preferred) or an mbox (§6.10).
+- In the failure classes (§6.11): the minimal one-token probe, the writer slot kept during a hold, holds not counted
+  against the person queue, the `agent`-scope mapping of call-budget refusals to `quota`, two exhausted rate-limit retry
+  budgets as a sustained lockout, the `P1B-Handover` trailer and the writer epoch, hold time excluded from the router's
+  reward.
 - The `needs-decision` triggers beyond the owner's (a finding repeated in three rounds, a dispute repeated twice, a
   twice-unresolved sync conflict, a twice-rejected A2A series, §6.8, §6.11, §6.15).
 - Orphaned worktree directories are reported, never deleted (§6.7); the resume brief instead of transcript replay
@@ -940,7 +1036,8 @@ Replaces `collab/fanout-eval.ts` and `scripts/m5-fanout-eval.mjs` (ADR-003 actio
 ## 16. Owner decisions
 
 Every question was decided by the owner on 2026-11-01: as recommended, except where the row says **owner amendment** or
-**owner change**; the owner also added sync at safe points (A1). The options are kept for the record.
+**owner change**; the owner also added sync at safe points (A1) and failure handling by class (A2). The options are kept
+for the record.
 
 | # | Question | Options | Decision (2026-11-01) |
 |---|---|---|---|
@@ -966,6 +1063,7 @@ Every question was decided by the owner on 2026-11-01: as recommended, except wh
 | Q20 | Stored settings of existing projects | drop values equal to the old defaults; keep them | **Drop** (§13 step 2); as recommended |
 | Q21 | Language of the team scheduler and merge queue | (a) TypeScript under ADR-019 (3); (b) Rust in `plur1bus-tools` under ADR-019 (1); (c) added by the owner | **Owner change** (recommended: (a)): **(c) "Rust decides, TypeScript executes"**: the state logic is a pure transition function `tools.team.next` in `plur1bus-tools`; TypeScript keeps storage, turns, D109 approvals, budget and git and executes the actions; the Rust part survives Phase 4 unchanged; about 2–3 agent days more than (a), a judgment (§6.3) |
 | A1 | (owner addition, no question) Sync at safe points | — | After each merge into the section branch, affected running packages get a short notice and, at the next safe point, a merge of the section branch; unresolvable conflicts become `needs-decision`; per package `auto` (default), `notify-only` or `at-review` (§6.15) |
+| A2 | (owner addition, no question) Failure handling by class | — | `quota` (out of usage, plan limit, provider quota, sustained rate-limit lockout): the task holds (no failure, no partial result), package, thread and project pulse yellow, the person is notified; availability polled every 10 minutes; without new quota after 60 minutes, handover to another agent (a different provider or account with quota that fits the package), carrying worktree, committed work, open findings and plan; the person can veto or redirect at any time; both values are settings. `transient`: bounded retry with backoff in the retry budget; `deterministic`: no retry, no handover, partial result or `needs-decision`; `permission`: wait for the person, counts against Q19; `crash`: existing rules. A handover never duplicates writes: the old worker is stopped and its worktree state committed (no `git stash`) before the new worker starts. Quota detection from provider error codes and the budget ledger; unknown errors are transient, then `needs-decision`. The team view shows hold reason, next poll time and handover deadline (§6.11, §6.13) |
 
 No owner question is open. The remaining gates are measurement, code and dependency gates: PT-4b's PR carries the first
 `team` numbers against the PT-2 baseline; PT-12 runs in shadow mode for the first 30 eligible decisions, then explores
@@ -997,3 +1095,5 @@ Q15) after PT-2 and PT-10. The plan's "Gates" list the same.
 | U18 | A2A messages on a running task, for channel delivery to A2A members | PT-8b, against #843's client |
 | U19 | Quality of interface-change summaries for sync before D120 C3 exists (file list plus return summary only) | PT-6b measures how often an affected writer asks for the full diff |
 | U20 | Whether the 20 GiB disk floor and the build-directory cleanup fit typical repositories | PT-4b measures disk per worktree on the team tier |
+| U21 | Whether a one-token probe is metered and answered like a real request by every provider and plan (a plan limit could pass a tiny probe and refuse the real call) | PT-4c tests the probe against recorded quota responses; a failed resume after a successful probe counts as the next poll |
+| U22 | How long an unbound A2A peer keeps working after a handover (no remote `CancelTask` in #843's client) | PT-8b records it against a fake peer; correctness rests on the epoch check, not on the remote stop |

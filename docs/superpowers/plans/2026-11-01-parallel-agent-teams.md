@@ -5,11 +5,12 @@ one step run concurrently, and build a coding team mode that does what the contr
 and goes beyond it where the owner decided: the lead proposes a team and a plan in sections; the person confirms the
 team and approves a scope; inside it one writer per worktree and branch (native, ACP or A2A), a fresh-context reviewer
 per package with capped fix rounds, autonomous merges into a revertible section branch, sync of running packages at safe
-points, a `needs-decision` state that asks the person, a moderated team channel, CI gates and a section merge into the
-target branch that stays the person's unless `auto`, resumable after a restart. Add best-of-N, a router that learns
-between single agent, team and best-of-N as a local contextual bandit, and an evaluation that decides the defaults.
-Specified in [`2026-11-01-parallel-agent-teams-design.md`](../specs/2026-11-01-parallel-agent-teams-design.md), cited as
-"spec §n"; register entry D124, decided 2026-11-01 (Q1).
+points, a `needs-decision` state that asks the person, failure handling by class (quota holds and hands over instead of
+failing), a moderated team channel, CI gates and a section merge into the target branch that stays the person's unless
+`auto`, resumable after a restart. Add best-of-N, a router that learns between single agent, team and best-of-N as a
+local contextual bandit, and an evaluation that decides the defaults. Specified in
+[`2026-11-01-parallel-agent-teams-design.md`](../specs/2026-11-01-parallel-agent-teams-design.md), cited as "spec §n";
+register entry D124, decided 2026-11-01 (Q1).
 
 **Architecture.** "Rust decides, TypeScript executes" (owner, Q21 (c), spec §6.3): the scheduler's state logic is a
 pure, stateless transition function `tools.team.next` in `plur1bus-tools` (Rust, `x-server: "tools"`), beside the plan
@@ -54,21 +55,22 @@ gates ("Gates" below).
 | **PT-2** | Evaluation: team tier (12 decomposable, 6 coupled tasks), arms and budgets of spec §11, MAST tags, local-model concurrency, memory per writer and overcommit slowdown, nightly advisory job, baseline; replaces `fanout-eval.ts` and `eval:m5` | `tests/bench/coding/team/<id>/` (new), `packages/core/src/toolcall/coding-bench.ts` (D120 B1's runner), `packages/core/src/collab/team-eval.ts` (new; `fanout-eval.ts` and its test removed), `scripts/eval/team-eval.ts` (new; `scripts/m5-fanout-eval.mjs` removed), `package.json` (`eval:m5` replaced), `docs/demos/m5.md`, `.github/ci/core-test-timings.json` (the `fanout-eval.test.ts` entry), `.github/workflows/nightly.yml`, `docs/evals/2026-11-baseline-team-eval.md` (new), `docs/turn-eval.md`, `docs/ci.md`, `docs/collaboration.md` | TypeScript and fixtures | Sonnet | 5 (4–6) | D120 B1 runner (or builds it, see PT-2); PT-1 only for the `explore+single` arm |
 | **PT-3a** | Team data model (runs, members, sections, packages, rounds, queue, messages, event log, outbox), plan schema with sections, core RPC for runs, composition, plans, scopes, packages, budgets and sync settings, roles and events | `packages/core/src/collab/{migrations.ts,types.ts}`, `packages/core/src/collab/team/{store.ts,plan.ts}` (new), `packages/core/src/collab/schemas/teamplan.schema.json` (new), `packages/rpc-schema/schema/rpc.schema.json` and fixtures, `packages/core/src/rpc/collab-surface.ts`, `packages/core/src/rbac/{guard.ts,policy.ts}`, `packages/webmcp/src/provider.ts`, `packages/core/test/protocols/exposure-matrix.test.ts`, `docs/errors.md`, generated `docs/rpc.md` | TypeScript and schema | Sonnet | 3.5 | PT-1; PR #820 merged (its `project_worktrees` table) |
 | **PT-3b** | Plan checker and impact analysis in Rust: DAG across sections, ownership disjointness by glob intersection, merge order against dependencies, overlap prediction, diff against ownership, affected running packages after a merge | `crates/plur1bus-tools/src/team/{check,diffcheck,impact}.rs` (new), `tools.team.check`, `tools.team.diffcheck`, `tools.team.impact` in the schema with fixtures, `crates/plur1bus-tools/tests/team_*.rs` | Rust | Claude agent | 2.5 | D120 H1-1; PT-3a (plan schema) |
-| **PT-4a** | Transition function: `tools.team.next { state, event } → { state, actions[] }` with closed `plur1bus.teamstate/1`, event and action schemas; every state of spec §6.5 and §6.14 (scopes, sections, `needs-decision`, sync, back-pressure, capacity and disk facts) | `crates/plur1bus-tools/src/team/{state,event,action,next}.rs` (new), the three schemas in `packages/rpc-schema/schema/rpc.schema.json` with fixtures, `crates/plur1bus-tools/tests/team_next_*.rs` | Rust | Claude agent | 3.5 (3–4) | D120 H1-1; PT-3a |
+| **PT-4a** | Transition function: `tools.team.next { state, event } → { state, actions[] }` with closed `plur1bus.teamstate/1`, event and action schemas; every state of spec §6.5 and §6.14 (scopes, sections, `needs-decision`, sync, back-pressure, capacity and disk facts, holds with poll and handover timers, writer epochs) | `crates/plur1bus-tools/src/team/{state,event,action,next}.rs` (new), the three schemas in `packages/rpc-schema/schema/rpc.schema.json` with fixtures, `crates/plur1bus-tools/tests/team_next_*.rs` | Rust | Claude agent | 4 (3.5–4.5) | D120 H1-1; PT-3a |
 | **PT-4b** | TypeScript shell: event log and outbox around `tools.team.next`, executing actions; admission (spec §7.4) and the call-budget scopes `team`, `section`, `package` (next call-schema version); card worktrees and section integration worktrees; writer briefs; native writers; lead turns (team proposal, plan, section summary); team agent tools; capacity from cores and memory with the warning; the disk floor and cleanup; the local-model semaphore (default 1); pause, cancel, steering hooks; failure handling; resumability and the kill test | `packages/core/src/collab/team/{shell.ts,actions.ts,admission.ts,capacity.ts,brief.ts,resume.ts}` (new), `packages/core/src/tools-service/client.ts` (the D120 H1-1 client), `packages/core/src/budget/calls.ts`, `packages/core/src/tools/collaboration.ts`, `packages/core/src/composition/{index.ts,collaboration.ts}`, `packages/config-schema/schema/config.schema.json`, `packages/log-schema/schema/catalogue.json`, `docs/budgets.md`, `docs/collaboration.md` | TypeScript | Opus or Sonnet | 5.5 (5–6.5) | PT-1, PT-3a, PT-3b, PT-4a (so also D120 H1-1), #820 merged; its PR carries the PT-2 delta |
+| **PT-4c** | Failure handling by class (owner addition A2): the classifier (provider error codes, credential pool, retry budget, call-budget refusals → `quota`, `transient`, `deterministic`, `permission`, `auth`, `crash`, `budget`), quota holds with inbox notification, availability polls (no call while a reset is known; otherwise a one-token probe), handover after the deadline to a fitting candidate with room, the writer epoch, stop-then-commit of the old worker's state (no `git stash`), human-only `team.package.hold`, the two settings | `packages/core/src/collab/team/{failures.ts,handover.ts}` (new), `packages/core/src/collab/team/actions.ts`, `packages/core/src/inbox/producers.ts`, `packages/config-schema/schema/config.schema.json`, `packages/rpc-schema/schema/rpc.schema.json` and fixtures, `packages/core/src/rpc/collab-surface.ts`, `packages/core/src/rbac/policy.ts`, `packages/webmcp/src/provider.ts`, `packages/core/test/protocols/exposure-matrix.test.ts`, `docs/collaboration.md` | TypeScript | Sonnet or Opus | 2.5 (2–3) | PT-4b, PT-5 (`needs-decision`, inbox kind) |
 | **PT-5** | Review loop: D98 checks before review, fresh-context reviewer per round, findings with severity, fix rounds capped at 5, repetition and dispute detection (A2A peers included), ownership and interface checks; `needs-decision`: lead options (2–3, pros, cons, recommendation), inbox entry of kind `team`, human-only `team.package.decide` and `team.interface.approve` | `packages/core/src/collab/team/{review.ts,decision.ts}` (new), `packages/core/src/collab/coding-surface.ts`, `packages/core/src/tools/collaboration.ts`, `packages/core/src/inbox/{store.ts,producers.ts}`, `docs/inbox.md`, `packages/rpc-schema/schema/rpc.schema.json` and fixtures, `packages/core/src/rpc/collab-surface.ts`, `packages/core/src/rbac/policy.ts`, `packages/webmcp/src/provider.ts`, `packages/core/test/protocols/exposure-matrix.test.ts` | TypeScript | Sonnet or Opus | 4.5 | PT-4b |
 | **PT-5b** | Team channel and direct messages for native and ACP members: threads, delivery at round boundaries and with the next ACP prompt, `team_post`/`team_dm`/`team_read`/`team_moderate`, size and rate limits, budget admission, repetition brake, human-only `team.channel.read`, `team.channel.post`, `team.channel.mute` | `packages/core/src/collab/team/channel.ts` (new), `packages/core/src/tools/collaboration.ts`, `packages/core/src/composition/collaboration.ts`, `packages/core/src/external-agents/delegation.ts` (#820), `packages/rpc-schema/schema/rpc.schema.json` and fixtures, `packages/core/src/rpc/collab-surface.ts`, `packages/core/src/rbac/policy.ts`, `packages/webmcp/src/provider.ts`, `packages/core/test/protocols/exposure-matrix.test.ts` | TypeScript | Sonnet | 3.5 (3–4) | PT-4b, PT-8a |
 | **PT-6** | Merge queue, local sink, section branches: autonomous merges into the section branch inside the scope, `team.merge.confirm` outside it, the gate on every exact tree, section summary hand-over, human-only `team.section.merge` and `team.merge.order.set`, `auto` sections; provisioner `mergePreview`/`merge`/`revert` to D115 §6.5 (worktree removal through the existing `remove`); the orphan scan (new in D124) | `packages/core/src/external-agents/provisioner.ts` (#820), `packages/core/src/collab/coding-surface.ts` (provisioner interface), `packages/core/src/collab/team/merge-queue.ts` (new), `packages/rpc-schema/schema/rpc.schema.json` and fixtures, `packages/core/src/rpc/collab-surface.ts`, `packages/core/src/rbac/policy.ts`, `packages/webmcp/src/provider.ts`, `packages/core/test/protocols/exposure-matrix.test.ts` | TypeScript | Opus | 5 | PT-5 |
 | **PT-6b** | Sync at safe points: impact after each merge into a section branch, the short interface notice, safe-point detection, the section-branch merge into the package branch, conflicts as the next task, unresolvable → `needs-decision`, per-package `auto`/`notify-only`/`at-review` | `packages/core/src/collab/team/sync.ts` (new), `packages/core/src/external-agents/provisioner.ts` (#820) | TypeScript | Sonnet | 2.5 | PT-6, PT-3b (impact), PT-5b (direct messages) |
 | **PT-7** | Forge sink: push the run's `p1b/` branches under the per-run grant, one pull request per section into the target branch (plus one per package into the section branch under scope `package`), required checks as the CI gate, merge by the person on the forge or by API after `team.section.merge` | `packages/core/src/collab/team/forge.ts` (new), grant capability rows, `docs/collaboration.md` | TypeScript | Sonnet | 3 | PT-6; the GitHub credential profile (D115 WP4b) |
-| **PT-8a** | External ACP writers (session per package, `cwd` = package worktree, approvals to the team panel, resume through `session/load` where supported, else the resume brief); A2A peers as read helpers and reviewers | `packages/core/src/external-agents/delegation.ts` (#820), `packages/core/src/collab/team/workers.ts` (new) | TypeScript | Sonnet | 2.5 | PT-4b; #820 merged (D123 SB-5 later swaps containment underneath) |
-| **PT-8b** | A2A writers: trust through #843's pinned registry (or D114 pairing once Track F lands), the brief with remote and base, the disclosure confirmed with the team, file artifacts (bundle or mbox) in #843's client, the pre-apply checks, merge or `git am` with hooks off, findings and sync heads back to the peer; A2A members in the team channel | `packages/core/src/a2a/peer-client.ts` (#843), `packages/core/src/collab/team/{workers.ts,a2a-writer.ts (new)}`, `packages/core/src/external-agents/provisioner.ts` (#820), `packages/core/src/collab/team/channel.ts` | TypeScript | Sonnet or Opus | 3.5 (3–4.5) | PT-8a, PT-5, PT-6, PT-5b; #843 merged |
-| **PT-9a** | Web team view: lanes per package (state, round, writer kind, tokens, wall time, findings, disk), sections with branch, budget and summary, merge queue per section with reorder, composition editor, scope approval, yellow pulse for `needs-decision` on project, thread and card with the options, team channel, capacity warning, approvals panel, router explanation; de and en | `packages/web/src/pages/projects/{team-view.ts (new),page.ts,rpc-types.ts}`, i18n catalogues | TypeScript | Sonnet | 4.5 | PT-4b; PT-5, PT-5b and PT-6 for their lanes |
+| **PT-8a** | External ACP writers (session per package, `cwd` = package worktree, approvals to the team panel, resume through `session/load` where supported, else the resume brief); A2A peers as read helpers and reviewers; on handover `session/cancel` and refusal of the old session's `fs/*` and `terminal/*` callbacks | `packages/core/src/external-agents/{delegation.ts,acp-client.ts}` (#820), `packages/core/src/collab/team/workers.ts` (new) | TypeScript | Sonnet | 3 | PT-4b; PT-4c (handover stop); #820 merged (D123 SB-5 later swaps containment underneath) |
+| **PT-8b** | A2A writers: trust through #843's pinned registry (or D114 pairing once Track F lands), the brief with remote and base, the disclosure confirmed with the team, file artifacts (bundle or mbox) in #843's client, the pre-apply checks, merge or `git am` with hooks off, artifacts of an older writer epoch refused after a handover, findings and sync heads back to the peer; A2A members in the team channel | `packages/core/src/a2a/peer-client.ts` (#843), `packages/core/src/collab/team/{workers.ts,a2a-writer.ts (new)}`, `packages/core/src/external-agents/provisioner.ts` (#820), `packages/core/src/collab/team/channel.ts` | TypeScript | Sonnet or Opus | 3.5 (3–4.5) | PT-8a, PT-5, PT-6, PT-5b; #843 merged |
+| **PT-9a** | Web team view: lanes per package (state, round, writer kind, tokens, wall time, findings, disk), sections with branch, budget and summary, merge queue per section with reorder, composition editor, scope approval, yellow pulse for `needs-decision` and quota holds on project, thread and card with the options, the hold reason, next poll time and handover deadline, team channel, capacity warning, approvals panel, router explanation; de and en | `packages/web/src/pages/projects/{team-view.ts (new),page.ts,rpc-types.ts}`, i18n catalogues | TypeScript | Sonnet | 5 | PT-4b; PT-4c, PT-5, PT-5b and PT-6 for their lanes |
 | **PT-9b** | CLI `plur1bus project team status\|confirm\|approve\|decide\|pause\|resume\|cancel\|merge` | `crates/plur1bus/src/commands/{project.rs,project_team.rs (new)}`, `crates/plur1bus/tests/cli_surface.rs` | Rust | Claude agent | 2 | PT-3a; PT-5 (`decide`), PT-6 (`merge`) |
 | **PT-10** | Best-of-N: N attempts in worktrees, tests-first selection, pairwise tournament judge, early stop, optional distill-refine, budget caps, evaluation arm | `packages/core/src/collab/team/best-of-n.ts` (new), `packages/core/src/collab/verifier.ts` (oracle run) | TypeScript | Sonnet or Opus | 3.5 | PT-4b, PT-2 |
 | **PT-11** | Router, heuristic stage: features, rules and hard masks of spec §8.3, overrides, explanation records; human-only `team.route.explain` | `crates/plur1bus-tools/src/router/{features,heuristic,explain}.rs` (new), `packages/core/src/collab/team/route.ts` (new; collects features), `tools.router.decide`/`explain` and `team.route.explain` in `packages/rpc-schema/schema/rpc.schema.json` with fixtures, `packages/core/src/rpc/collab-surface.ts`, `packages/core/src/rbac/policy.ts`, `packages/webmcp/src/provider.ts`, `packages/core/test/protocols/exposure-matrix.test.ts` | Rust and TypeScript | Claude agent | 2.5 | H1-1, PT-2, PT-3b |
 | **PT-12** | Router, contextual bandit: linear Thompson sampling, rewards and delayed updates, propensities, shadow mode for 30 decisions, exploration cap of 10 % until 30 outcomes per arm, decay, store; human-only `team.route.reset` | `crates/plur1bus-tools/src/router/{bandit,reward,store}.rs` (new), `tools.router.outcome`/`reset` and `team.route.reset` in `packages/rpc-schema/schema/rpc.schema.json` with fixtures, `packages/core/src/rpc/collab-surface.ts`, `packages/core/src/rbac/policy.ts`, `packages/webmcp/src/provider.ts`, `packages/core/test/protocols/exposure-matrix.test.ts` | Rust and TypeScript | Claude agent | 3.5 | PT-11; outcome signals from PT-5 and PT-6 |
-| | **Total** | | | | **63.5** | |
+| | **Total** | | | | **67.5** | |
 
 **Follow-ups** (not in the total):
 
@@ -83,7 +85,8 @@ gates ("Gates" below).
                                  └ ─ ─► PT-2 explore+single arm                           │ PT-4a and so PT-4b onward)
  D120 B1 runner (or built by PT-2) ─► PT-2 evaluation + baseline (GATE for PT-4b merge)  ─┘
  #820 merged + PT-3a + PT-3b + PT-4a ─► PT-4b TS shell + writers + capacity + resume
-     ├─► PT-5 review + needs-decision ─► PT-6 merge queue + section branches ─┬─► PT-6b sync at safe points
+     ├─► PT-5 review + needs-decision ─┬─► PT-4c failure classes, quota hold, handover
+     │                                 └─► PT-6 merge queue + section branches ─┬─► PT-6b sync at safe points
      │                                                                        ├─► PT-7 forge sink
      │                                                                        └─► PT-9b CLI
      ├─► PT-8a ACP writers, A2A helpers ─► PT-5b team channel ─► PT-6b
@@ -222,7 +225,7 @@ expansion on generated trees; cycle and section-order detection; impact on fixtu
 interface, overlapping changed file, unaffected); fixtures shared with the TypeScript side. **Acceptance:**
 `cargo test -p plur1bus-tools`; `cargo deny check` clean; no new crate unless it passes `docs/dependency-policy.md`.
 
-## PT-4a — Transition function `tools.team.next` (3.5 agent days, range 3–4; Claude agent, Rust)
+## PT-4a — Transition function `tools.team.next` (4 agent days, range 3.5–4.5; Claude agent, Rust)
 
 **Language:** Rust; the scheduler's state logic is a new component that survives Phase 4 unchanged (owner, Q21 (c);
 ADR-019 (1)).
@@ -235,12 +238,15 @@ ADR-019 (1)).
 - **Logic:** every transition of spec §6.5, §6.8, §6.9, §6.14 and §6.15: admission waits (scope, slots, person queue,
   disk floor) and budget refusals; fix-round cap and `needs-decision` triggers; independent packages continue while
   dependants wait; autonomous merges into the section branch only inside the approved scope; section end and the person
-  queue of 3 (autonomous merges not counted); sync per `auto`, `notify-only`, `at-review`; pause and cancel. Pure: no
-  clock, no I/O.
+  queue of 3 (autonomous merges not counted); sync per `auto`, `notify-only`, `at-review`; the failure classes of spec
+  §6.11 (hold, poll and handover timers from timer events, the person's hold and redirect, the writer epoch); pause and
+  cancel. Pure: no clock, no I/O.
 - **Tests (red first):** property tests over generated event sequences: no package both writing and merged; no merge
   into a section branch outside the approved scope without a person's approval; no section merge into the target branch
   without a person unless `auto`; dependants never start before their dependency is `queued`; a `needs-decision` never
-  resolves without a person-decided event; the same state and event always give the same output; replaying an applied
+  resolves without a person-decided event; a holding package hands over only after the handover deadline and never while
+  the person keeps it holding; no event of an older writer epoch changes a package; the same state and event always give
+  the same output; replaying an applied
   event yields no new action.
 - **Acceptance:** `cargo test -p plur1bus-tools`; the schema fixtures are read by both sides.
 
@@ -276,6 +282,39 @@ ADR-019 (1)).
   `plur1bus-tools` pauses runs and the queued events apply after it returns.
 - **Acceptance:** a three-package, two-section fixture project runs end to end with native writers and fake reviewers up
   to `queued`; the PR carries the `team` arm's first PT-2 numbers.
+
+## PT-4c — Failure handling by class, quota hold and handover (2.5 agent days, range 2–3; Sonnet or Opus, TypeScript)
+
+**Language:** TypeScript; the classifier reads TypeScript provider errors, the credential pool and the call budget, and
+the handover executes through the core's turns, ACP client and harness-owned git (ADR-019 (3)); the decisions are PT-4a's.
+
+- **Classifier** (spec §6.11): `ProviderError` kind, `retryable`, `code` and `retryAfterMs` (`insufficient_quota`,
+  `usage_limit_reached`, `subscription_sharing_usage_limit_exceeded` → `quota`); the credential pool's `quota_exhausted`
+  and `all_cooling_down`; two exhausted `rate_limit` retry budgets in a row (`RetryBudgetExceededError`) → `quota`;
+  call-budget refusals by scope (`agent` → `quota`; `user`, `global`, `project` → hold without handover; run scopes →
+  `budget`); `invalid_request`, `context_length`, `tool_call_invalid` after its repair, `tool-result-too-large` →
+  `deterministic`; `auth` → `needs-decision`; pending approvals → `permission`; unknown → `transient`.
+- **Hold and poll:** the inbox entry (kind `team`, from PT-5) with reason, provider, credential, next poll and handover
+  deadline; polls every `collaboration.teams.quota.pollIntervalMs` (default 10 min, minimum 1 min) without a call while a
+  reset time is known or the pool cools down, otherwise one one-token probe admitted against the run budget (U21).
+- **Handover** after `collaboration.teams.quota.handoverAfterMs` (default 60 min): candidate selection (team members,
+  then agents allowed in the composition; role, model tier, tools and toolchain fit; a different provider or credential
+  preferred; pool selection and call-budget admission checked and released); writer epoch increment; stop the old
+  worker (native abort; ACP and A2A through PT-8a and PT-8b); commit uncommitted changes as a `P1B-Handover` commit with
+  hooks off, never `git stash`; start the new worker with the resume brief. No candidate → `needs-decision`.
+- **RPC:** the human-only `team.package.hold { runId, packageId, until? }` with schema, fixtures, RBAC rule and
+  `FORBIDDEN_EXACT`; redirect uses `team.package.reassign` (PT-3a).
+- **Tests (red first):** each mapping row of spec §6.11 on recorded provider errors (OpenAI `insufficient_quota`, the
+  ChatGPT plan's `usage_limit_reached` with `resets_in_seconds`, Gemini `RESOURCE_EXHAUSTED`, 5xx, 400, 401) and on
+  call-budget refusals per scope; a quota failure produces no partial result and no failure; no probe before a known
+  reset; handover exactly at the deadline on an injected clock, never while held by the person, to a candidate on a
+  different credential; the old worker's late tool call or result is refused by epoch; an uncommitted change survives the
+  handover as a commit and no stash entry exists; a `deterministic` failure is never retried or handed over; a pending
+  approval counts against the person queue and a hold does not; `exposure-matrix.test.ts` green with
+  `team.package.hold`.
+- **Acceptance:** on a fixture run where one provider returns `usage_limit_reached`, the package holds, pulses, polls,
+  and after the (shortened) deadline continues on the second provider from its committed state, with no duplicated
+  commit and no lost change.
 
 ## PT-5 — Review loop and `needs-decision` (4.5 agent days; Sonnet or Opus, TypeScript)
 
@@ -361,15 +400,16 @@ against a fake forge on 127.0.0.1: the grant's branch scope refuses another bran
 `awaiting-person` with the reason; a package PR under scope `package` merges into the section branch only after the
 person. **Acceptance:** the fixture project lands as two section pull requests merged in order.
 
-## PT-8a — External ACP writers and A2A helpers (2.5 agent days; Sonnet, TypeScript)
+## PT-8a — External ACP writers and A2A helpers (3 agent days; Sonnet, TypeScript)
 
 **Language:** TypeScript; it extends #820's ACP client.
 
 One ACP session per package with the package worktree as `cwd`; permission requests to the team's approval panel through
 D109; `session/load` probed per M6 CLI (U1) with the resume brief as fallback; A2A peers as read helpers and reviewers,
-tasks re-read by id after a restart (U2). **Tests:** with the fake ACP agent of #820's suites: a write outside the
-package worktree is refused, an approval reaches the person and never an agent, a restart resumes through the brief.
-**Acceptance:** one fixture package written by each Tier-1 fake CLI profile.
+tasks re-read by id after a restart (U2); for a PT-4c handover, `session/cancel` and the refusal of the old session's
+`fs/*` and `terminal/*` callbacks. **Tests:** with the fake ACP agent of #820's suites: a write outside the package
+worktree is refused, an approval reaches the person and never an agent, a restart resumes through the brief; after a
+handover the old session can write nothing. **Acceptance:** one fixture package written by each Tier-1 fake CLI profile.
 
 ## PT-8b — A2A writers (3.5 agent days, range 3–4.5; Sonnet or Opus, TypeScript)
 
@@ -386,18 +426,19 @@ the reason and nothing is applied; a second rejection ends in `needs-decision`; 
 and review like a local writer's; no credential appears in any brief; an untrusted or revoked peer gets no brief.
 **Acceptance:** one fixture package written by a fake A2A peer reaches the section branch after review.
 
-## PT-9a — Web team view (4.5 agent days; Sonnet, TypeScript)
+## PT-9a — Web team view (5 agent days; Sonnet, TypeScript)
 
 **Language:** TypeScript; the web SPA stays TypeScript (ADR-019 (4)).
 
 The team view of spec §6.13 inside `packages/web/src/pages/projects/`, live through the existing event stream: package
 lanes, sections with branch, budget and summary, the merge queue per section with drag reorder (`team.merge.order.set`),
 the composition editor (`team.composition.confirm`), scope approval (`team.plan.approve`, `team.scope.extend`), the
-yellow pulse on project, team thread and card while a package is in `needs-decision`, with the options and the decide
-action, the team channel, the capacity warning, the approvals panel and the router explanation; de and en strings.
-**Tests:** component tests per lane and section state; the pulse appears and clears with the decision; keyboard reorder;
-i18n completeness. **Acceptance:** the PT-6 fixture run can be composed, approved, followed, decided and merged from the
-web.
+yellow pulse on project, team thread and card while a package is in `needs-decision` or holds on quota, with the options
+and the decide action, or the hold reason, next poll time, handover deadline and the keep-holding and hand-over-now
+actions, the team channel, the capacity warning, the approvals panel and the router explanation; de and en strings.
+**Tests:** component tests per lane and section state; the pulse appears and clears with the decision or the end of a
+hold; the hold lane shows next poll and deadline; keyboard reorder; i18n completeness. **Acceptance:** the PT-6 fixture
+run can be composed, approved, followed, decided and merged from the web.
 
 ## PT-9b — CLI (2 agent days; Claude agent, Rust; after PT-6)
 
@@ -464,7 +505,8 @@ No owner question is open (spec §16). The gates are:
    without an owner decision.
 3. **Code dependencies:** #820 merged before PT-3a (its `project_worktrees` table), PT-4b and PT-8a; #843 merged before
    PT-8b; D120 H1-1 before PT-3b, PT-4a, PT-11 and PT-12, and therefore before PT-4b and everything that depends on it;
-   PT-5 and PT-6 before PT-9b; PT-5b before PT-6b; the GitHub credential profile before PT-7.
+   PT-5 and PT-6 before PT-9b; PT-5 before PT-4c; PT-4c before the handover parts of PT-8a; PT-5b before PT-6b; the
+   GitHub credential profile before PT-7.
 4. **Decided rules applied as gates:** PT-12 runs in shadow mode for the first 30 eligible decisions, then explores at
    most 10 % until each arm has 30 outcomes (Q13); router-initiated teams are switched on per task class only when PT-2
    shows the gain spec §11 names (Q16); PT-13 starts after the PT-2 baseline and PT-10 (Q17); PT-14 after PT-2 and PT-10
@@ -479,28 +521,30 @@ No owner question is open (spec §16). The gates are:
 | PT-1 limits and concurrency | 2.5 |
 | PT-2 evaluation | 5 (4–6) |
 | PT-3a, PT-3b data model, plan checker and impact | 6 |
-| PT-4a, PT-4b transition function and TypeScript shell | 9 (8–10.5) |
+| PT-4a, PT-4b, PT-4c transition function, TypeScript shell, failure classes | 12 (10.5–14) |
 | PT-5, PT-5b review, `needs-decision`, team channel | 8 (7.5–8.5) |
 | PT-6, PT-6b, PT-7 merge queue and section branches, sync, forge sink | 10.5 |
-| PT-8a, PT-8b external ACP and A2A writers | 6 (5.5–7) |
-| PT-9a, PT-9b web and CLI | 6.5 |
+| PT-8a, PT-8b external ACP and A2A writers | 6.5 (6–7.5) |
+| PT-9a, PT-9b web and CLI | 7 |
 | PT-10 best-of-N | 3.5 |
 | PT-11, PT-12 router | 6 |
-| **Total** | **63.5** (range 60.5–67.5 from the packages with their own ranges) |
+| **Total** | **67.5** (range 64–72 from the packages with their own ranges) |
 | Follow-ups PT-13, PT-14 | 5 |
 
-**Change against the plan before the owner decisions (46 agent days):** +17.5. Q21 (c) splits the scheduler into PT-4a
+**Change against the plan before the owner decisions (46 agent days):** +21.5. The decisions on Q1–Q21 and A1 add
+17.5: Q21 (c) splits the scheduler into PT-4a
 and PT-4b, +2.5 against the all-TypeScript PT-4 (the owner's estimate of 2–3, a judgment), and the TypeScript shell
 carries +0.5 for the team proposal, memory-based capacity and the disk floor (Q3, Q7); PT-3a +0.5 and PT-3b +0.5
 (sections, composition, impact); PT-5 +1 (`needs-decision`, Q9); PT-5b +3.5 (team channel, Q11); PT-6 +1 (section
 branches and summaries, Q7); PT-6b +2.5 (sync, owner addition); PT-8b +3.5 (A2A writers, Q11); PT-9a +1.5 and PT-9b
-+0.5 (new surfaces).
++0.5 (new surfaces). **Owner addition A2** (failure handling by class) adds 4: PT-4c 2.5 (new), PT-4a +0.5 (holds,
+timers, epochs), PT-8a +0.5 (ACP stop on handover), PT-9a +0.5 (hold display); 67.5 in all.
 
-The range covers only the packages with their own ranges (PT-2, PT-4a, PT-4b, PT-5b, PT-8b). Rework from the review of
-each implementing pull request (PR review rounds, as in the D120 and D123 plans) is not included; these are not the
-product's package fix rounds of spec §6.8 (capped at 5, Q9). The team mode that reproduces the controller workflow with
-native writers and a local merge needs PT-1, PT-2, PT-3a, PT-3b, PT-4a, PT-4b, PT-5 and PT-6: **32 agent days** (26
-before the owner decisions), plus D120 H1-1 (3 agent days in the D120 plan, not counted here), which PT-3b and PT-4a and
-therefore PT-4b need. Sync (PT-6b, 2.5) sends its notices through the team channel (PT-5b, 3.5), which needs PT-8a (2.5)
-for its ACP members; with these three the path is 40.5. The forge sink, A2A writers, UI, best-of-N and the router add
-the rest.
+The range covers only the packages with their own ranges (PT-2, PT-4a, PT-4b, PT-4c, PT-5b, PT-8b). Rework from the
+review of each implementing pull request (PR review rounds, as in the D120 and D123 plans) is not included; these are
+not the product's package fix rounds of spec §6.8 (capped at 5, Q9). The team mode that reproduces the controller
+workflow with native writers and a local merge needs PT-1, PT-2, PT-3a, PT-3b, PT-4a, PT-4b, PT-4c, PT-5 and PT-6: **35
+agent days** (26 before the owner decisions, 32 before A2), plus D120 H1-1 (3 agent days in the D120 plan, not counted
+here), which PT-3b and PT-4a and therefore PT-4b need. Sync (PT-6b, 2.5) sends its notices through the team channel
+(PT-5b, 3.5), which needs PT-8a (3) for its ACP members; with these three the path is 44. The forge sink, A2A writers,
+UI, best-of-N and the router add the rest.
