@@ -12,7 +12,7 @@ import {
   systemAvailability,
   observeResponse,
 } from "../spikes/apple-fm-probe-lib.mjs";
-import { renderReceipt, runProtocol } from "../spikes/apple-fm-probe.mjs";
+import { renderReceipt, runProtocol, waitForSocket } from "../spikes/apple-fm-probe.mjs";
 
 test("the system check accepts the available line with exit 1 outside Terminal", () => {
   const available = systemAvailability({
@@ -130,6 +130,30 @@ test("process ownership escalates when the child ignores TERM and waits for its 
     });
   assert.equal(child.signalCode, "SIGKILL");
   assert.throws(() => process.kill(child.pid, 0), { code: "ESRCH" });
+});
+
+test("owned process logs include bytes written during graceful shutdown", async () => {
+  let handle;
+  await withOwnedProcess(process.execPath, ["-e",
+    "process.on('SIGTERM',()=>{process.stderr.write('shutdown evidence');process.exit(0)});" +
+      "process.stdout.write('ready');setInterval(()=>{},1000)"], { env: {} }, async owned => {
+    handle = owned;
+    await once(owned.child.stdout, "data");
+  });
+  assert.equal(handle.logs.stderr, "shutdown evidence");
+});
+
+test("socket readiness observes an absolute Unix socket from a real child before teardown", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "af0-ready-"));
+  const socket = join(directory, "fm.sock");
+  try {
+    await withOwnedProcess(process.execPath, ["-e",
+      "require('node:net').createServer().listen(process.argv[1])", socket], { env: {} }, async ({ child }) => {
+      await waitForSocket(socket, child, AbortSignal.timeout(5000));
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("a hung CLI probe is bounded and its child has been reaped before returning", { timeout: 10_000 }, async () => {

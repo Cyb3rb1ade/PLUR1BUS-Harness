@@ -83,12 +83,19 @@ export function latencySummary(values) {
 export async function withOwnedProcess(program, args, { graceMs = 2000, ...options }, use) {
   const child = spawn(program, args, { ...options, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] });
   const closed = new Promise(resolve => child.once("close", (code, signal) => resolve({ code, signal })));
+  const logs = { stdout: "", stderr: "", stdoutBytes: 0, stderrBytes: 0, capturedTailCharacters: 65_536 };
+  for (const stream of ["stdout", "stderr"]) {
+    child[stream].on("data", chunk => {
+      logs[`${stream}Bytes`] += chunk.length;
+      logs[stream] = (logs[stream] + chunk.toString("utf8")).slice(-65_536);
+    });
+  }
   try {
     await new Promise((resolve, reject) => {
       child.once("spawn", resolve);
       child.once("error", reject);
     });
-    return await use({ child, closed });
+    return await use({ child, closed, logs });
   } finally {
     if (child.pid) {
       signalOwnedGroup(child, "SIGTERM");

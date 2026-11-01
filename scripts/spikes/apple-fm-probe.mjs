@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 /** Manual AF0 measurements using synthetic prompts and a private Unix socket, never a TCP listener. */
-import { watch } from "node:fs";
 import { chmod, lstat, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { once } from "node:events";
 import { setTimeout as measurementInterval } from "node:timers/promises";
@@ -88,47 +87,29 @@ export async function runProtocol(socket, record, { signal, warmSamples = 12 } =
   return { latency: latencySummary(latencies), concurrency };
 }
 
-function waitForSocket(socket, child, signal) {
-  return new Promise((resolveReady, reject) => {
-    const watcher = watch(dirname(socket), () => { void inspect(); });
-    const finish = error => {
-      watcher.close();
-      clearTimeout(timer);
-      child.off("exit", onExit);
-      signal.removeEventListener("abort", onAbort);
-      if (error) {
-        reject(error);
-      } else {
-        resolveReady();
+/** Wait for the actual socket within the AF0 cold-start measurement budget. */
+export async function waitForSocket(socket, child, signal) {
+  const deadline = performance.now() + 120_000;
+  while (performance.now() < deadline) {
+    signal.throwIfAborted();
+    if (child.exitCode !== null || child.signalCode !== null) {
+      throw new Error(`fm exited before socket readiness: ${child.exitCode}/${child.signalCode}`);
+    }
+    try {
+      const info = await lstat(socket);
+      if (!info.isSocket()) {
+        throw new Error("fm socket path is not a socket");
       }
-    };
-    const onExit = (code, childSignal) => finish(new Error(`fm exited before socket readiness: ${code}/${childSignal}`));
-    const onAbort = () => finish(signal.reason);
-    const timer = setTimeout(() => finish(new Error("fm socket readiness timeout")), 10_000);
-    child.once("exit", onExit);
-    signal.addEventListener("abort", onAbort, { once: true });
-    async function inspect() {
-      try {
-        const info = await lstat(socket);
-        if (!info.isSocket()) {
-          finish(new Error("fm socket path is not a socket"));
-        } else {
-          finish();
-        }
-      } catch (error) {
-        if (error.code !== "ENOENT") {
-          finish(error);
-        }
+      return;
+    } catch (error) {
+      if (error.code !== "ENOENT") {
+        throw error;
       }
     }
-    if (signal.aborted) {
-      onAbort();
-    } else if (child.exitCode !== null || child.signalCode !== null) {
-      onExit(child.exitCode, child.signalCode);
-    } else {
-      void inspect();
-    }
-  });
+    // The real-child regression showed fs.watch missing Unix-socket creation on this Mac.
+    await measurementInterval(25, undefined, { signal });
+  }
+  throw new Error("fm socket readiness measurement timeout (120 s)");
 }
 
 async function withFmServer(directory, socket, signal, receipt, use) {
@@ -141,24 +122,17 @@ async function withFmServer(directory, socket, signal, receipt, use) {
         program: "/usr/bin/fm", args: ["serve", "--socket", socket],
         environmentKeys: Object.keys(env), LANG: env.LANG, PATH: env.PATH, stdin: "closed (/dev/null)",
       };
-      let stdout = "";
-      let stderr = "";
-      handle.child.stdout.on("data", chunk => { stdout = (stdout + chunk.toString()).slice(-65_536); });
-      handle.child.stderr.on("data", chunk => { stderr = (stderr + chunk.toString()).slice(-65_536); });
-      try {
-        await waitForSocket(resolve(directory, socket), handle.child, signal);
-        return await use(handle);
-      } finally {
-        receipt.serverLogs = {
-          stdout, stderr, capturedTailCharacters: 65_536,
-          syntheticPromptMarkerPresent: stdout.includes(MARKER) || stderr.includes(MARKER),
-        };
-        receipt.serverPid = handle.child.pid;
-      }
+      receipt.serverPid = handle.child.pid;
+      await waitForSocket(resolve(directory, socket), handle.child, signal);
+      return await use(handle);
     });
   } finally {
     if (owned) {
       receipt.serverExit = await owned.closed;
+      receipt.serverLogs = {
+        ...owned.logs,
+        syntheticPromptMarkerPresentInTail: owned.logs.stdout.includes(MARKER) || owned.logs.stderr.includes(MARKER),
+      };
       receipt.cleanup = { directServerReaped: true };
     }
   }
