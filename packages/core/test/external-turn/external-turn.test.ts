@@ -107,6 +107,8 @@ describe("M6A-A1.3: External turns service in core", () => {
         audience: "mcp", tokenId: "tok-1", wait: true });
       assert.doesNotMatch(JSON.stringify(seen?.messages), /DISCARDED_PROTOCOL_HISTORY/);
       assert.match(JSON.stringify(seen?.messages), /Use the known interface/);
+      assert.equal(seen?.messages.find(message => message.text.includes("Use the known interface"))?.role, "user",
+        "a model-derived lesson must remain conversation data in external turns");
     } finally { await rig.service.idle(); rig.store.close(); }
   });
 
