@@ -189,10 +189,97 @@ die 23 echten Transport-Integrationstests, jeweils ohne Fehler und ignorierte Te
 besteht ebenfalls. Der Aufbau der nativen Build-Abhängigkeiten dieses Check-Profils
 ist keine Messung einer vollständigen kalten Produktionsbauzeit.
 
-Weiter offen bleiben Produktions-Binary-Größendifferenz, vollständige kalte
-Buildzeit auf der Controller-Basis, echter Recall und native Ausführung auf den
-übrigen Release-Zielen. Die anfänglichen 11,18 s Harness-Buildzeit und etwa 1,97 MB
-Harness-Binary beantworten die Produktions-Build-/Größenfrage nicht.
+### Ausstehende Controller-Baseline auf macOS
+
+**Ausstehend; MM-1 bleibt Draft.** Der Controller baut das zum Messzeitpunkt aktuelle
+`main` und legt Main-Commit und Ergebnisse unter
+`/Users/cyberblade/worktrees/reviews/mm1-macos-baseline.md` ab. Dieser Pfad bezeichnet
+den vereinbarten künftigen Bericht, keinen bereits vorhandenen Messbeleg.
+
+Gemessen wird die tatsächliche Engine-Binary `plur1bus-engine`, Paket
+`plur1bus-engine`, Cargo-Profil **release** mit Standardfeatures, Ziel
+**aarch64-apple-darwin**, **zwei Build-Jobs**, `CARGO_INCREMENTAL=0`. Es wird weder
+der Paritätsharness noch ein Testprogramm gemessen. Die Bytezahl gilt für die
+unverpackte, nicht nachträglich gestrippte/signierte Cargo-Ausgabe. Zusätzliche
+Compilerflags, Profilüberschreibungen und Compiler-Cache-Wrapper müssen für beide
+Vergleichsstände deaktiviert sein; Rust-, Clang-/SDK- und CMake-Version bleiben gleich.
+Der untenstehende Guard prüft bekannte Umgebungsüberschreibungen. Zusätzlich prüft
+der Controller lokale/übergeordnete und benutzerspezifische Cargo-Konfigurationen
+auf Rustflags, Compiler-/Wrapperwahl und Release-Profiländerungen. Native
+CC/CXX-/CMake-Overrides dürfen den Vergleich ebenfalls nicht verändern. Der
+Verbose-Buildlog belegt die tatsächlichen Rust-Compileraufrufe; Zugangsdaten aus
+Cargo-Konfigurationen gehören nicht in den Bericht.
+
+**Kalt** bedeutet: neues, zuvor nicht vorhandenes Cargo-Target-Verzeichnis, also
+keine kompilierten Rust-/CMake-Artefakte. Cargo-Quellen werden vorher geladen;
+Netzzeit gehört nicht zur Bauzeit. Der Betriebssystem-Dateicache wird nicht geleert.
+**Warm** ist der unmittelbar folgende identische Build ohne Quelländerung im selben
+Target-Verzeichnis; dies ist der Cargo-Cache-/No-op-Lauf, kein kalter Neubau.
+
+Die folgenden Befehle in Bash in einem sauberen, zuvor aktualisierten `main`-Worktree
+auf dem Apple-Silicon-Mac ausführen. Sie verändern weder Branch noch globalen
+Buildcache. `/usr/bin/time -lp` protokolliert je Lauf `real`, `user`, `sys` und RSS;
+Cargo-Fortschritt und Zeitwerte stehen gemeinsam in der jeweiligen `stderr`-Datei.
+Nur Läufe mit Exitcode 0 sind Messwerte.
+
+```bash
+set -euo pipefail
+test "$(uname -sm)" = "Darwin arm64"
+test -z "$(git status --porcelain)"
+test "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/main)"
+for mm1_name in $(compgen -e); do
+  case "$mm1_name" in
+    RUSTC|RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS|RUSTC_WRAPPER|RUSTC_WORKSPACE_WRAPPER|CARGO_BUILD_RUST*|CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS|CARGO_PROFILE_*|CC|CXX|CFLAGS|CXXFLAGS|CC_*|CXX_*|CFLAGS_*|CXXFLAGS_*|CPPFLAGS|LDFLAGS|CMAKE_ARGS|CMAKE_TOOLCHAIN_FILE*|CMAKE_BUILD_PARALLEL_LEVEL)
+      echo "Vor der Messung entfernen: $mm1_name" >&2; exit 1 ;;
+  esac
+done
+
+mm1_target=aarch64-apple-darwin
+mm1_measure_dir="$(mktemp -d "${TMPDIR:-/tmp}/mm1-macos-baseline.XXXXXX")"
+mm1_binary="$mm1_measure_dir/target/$mm1_target/release/plur1bus-engine"
+git rev-parse HEAD > "$mm1_measure_dir/source-commit.txt"
+rustc -Vv > "$mm1_measure_dir/rustc.txt"
+cargo -V > "$mm1_measure_dir/cargo.txt"
+sw_vers > "$mm1_measure_dir/macos.txt"
+xcrun clang --version > "$mm1_measure_dir/clang.txt"
+xcrun --show-sdk-version > "$mm1_measure_dir/sdk.txt"
+cmake --version > "$mm1_measure_dir/cmake.txt"
+sysctl -n hw.model hw.memsize hw.logicalcpu > "$mm1_measure_dir/hardware.txt"
+cargo fetch --locked --target "$mm1_target"
+
+CARGO_TARGET_DIR="$mm1_measure_dir/target" CARGO_INCREMENTAL=0 CARGO_TERM_COLOR=never \
+  /usr/bin/time -lp cargo build --locked --offline --release --verbose --jobs 2 \
+  --target "$mm1_target" -p plur1bus-engine --bin plur1bus-engine \
+  > "$mm1_measure_dir/cold.stdout" 2> "$mm1_measure_dir/cold.stderr"
+stat -f '%z' "$mm1_binary" > "$mm1_measure_dir/binary-bytes.txt"
+shasum -a 256 "$mm1_binary" > "$mm1_measure_dir/binary-sha256.txt"
+file "$mm1_binary" > "$mm1_measure_dir/binary-kind.txt"
+
+CARGO_TARGET_DIR="$mm1_measure_dir/target" CARGO_INCREMENTAL=0 CARGO_TERM_COLOR=never \
+  /usr/bin/time -lp cargo build --locked --offline --release --verbose --jobs 2 \
+  --target "$mm1_target" -p plur1bus-engine --bin plur1bus-engine \
+  > "$mm1_measure_dir/warm.stdout" 2> "$mm1_measure_dir/warm.stderr"
+shasum -a 256 "$mm1_binary" > "$mm1_measure_dir/warm-binary-sha256.txt"
+cmp "$mm1_measure_dir/binary-sha256.txt" "$mm1_measure_dir/warm-binary-sha256.txt"
+if LC_ALL=C grep -Eq 'Compiling[[:space:]]|Running[[:space:]]' "$mm1_measure_dir/warm.stderr"; then
+  echo "Warmer Wiederaufbau; nicht als No-op-Messung ausgeben: $mm1_measure_dir" >&2
+  exit 1
+fi
+echo "Messbelege: $mm1_measure_dir"
+```
+
+In `mm1-macos-baseline.md` gehören mindestens Main-Commit, obiger Build-Befehl,
+Profil/Ziel/Jobs, Toolchain und Hardware, absoluter Binary-Pfad, Bytezahl/SHA-256,
+Exitstatus und kalte/warme `real`-Zeit samt Belegverzeichnis. Der warme Hash muss
+dem kalten entsprechen. Für die spätere MM-1-Gegenmessung denselben Befehl auf dem
+sauberen Kandidaten-Commit mit einem **weiteren neuen** Target-Verzeichnis verwenden;
+dabei ersetzt dessen protokollierter Commit die Main-Prüfung am Anfang. Erst danach
+werden Byte- und Bauzeitdifferenzen berechnet.
+
+Weiter offen bleiben diese Produktions-Binary-/Bauzeitmessung, echter Recall und
+native Ausführung auf den übrigen Release-Zielen. Die anfänglichen 11,18 s
+Harness-Buildzeit und etwa 1,97 MB Harness-Binary beantworten die
+Produktions-Build-/Größenfrage nicht.
 
 Die Rohbelege liegen im Controller-Berichtsverzeichnis `/workspace/reports`:
 `mm1-macos-verification.txt`, `mm1-macos-final-harness`,
