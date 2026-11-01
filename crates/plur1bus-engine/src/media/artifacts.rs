@@ -26,14 +26,16 @@ pub enum MediaGraph {
 }
 
 /// All five supported host targets deliberately select q8 for both encoders (MM-1/E3).
+/// Target set matches `scripts/release/release-native.mjs::TARGETS` and the verified
+/// ONNX Runtime pins in `tests/common/onnx_runtime.rs`; Intel macOS has no pinned runtime.
 pub fn platform_dtypes(
     os: &str,
     architecture: &str,
 ) -> Result<(&'static str, &'static str), MediaError> {
     match (os, architecture) {
-        ("macos", "aarch64" | "x86_64")
+        ("macos", "aarch64")
         | ("linux", "aarch64" | "x86_64")
-        | ("windows", "x86_64") => Ok(("q8", "q8")),
+        | ("windows", "aarch64" | "x86_64") => Ok(("q8", "q8")),
         _ => Err(MediaError::UnsupportedPlatform),
     }
 }
@@ -198,14 +200,19 @@ mod tests {
     fn all_supported_platforms_use_q8_and_unknown_platforms_refuse() {
         for (os, arch) in [
             ("macos", "aarch64"),
-            ("macos", "x86_64"),
             ("linux", "aarch64"),
             ("linux", "x86_64"),
             ("windows", "x86_64"),
+            ("windows", "aarch64"),
         ] {
             assert_eq!(platform_dtypes(os, arch).unwrap(), ("q8", "q8"));
         }
-        assert!(platform_dtypes("windows", "aarch64").is_err());
+        assert!(platform_dtypes("macos", "x86_64").is_err());
+        assert!(platform_dtypes("linux", "riscv64").is_err());
+    }
+    #[test]
+    fn windows_arm64_release_target_selects_q8_for_both_media_graphs() {
+        assert_eq!(platform_dtypes("windows", "aarch64"), Ok(("q8", "q8")));
     }
     fn small_file() -> ArtifactFile {
         ArtifactFile {
