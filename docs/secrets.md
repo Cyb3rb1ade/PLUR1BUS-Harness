@@ -3,6 +3,21 @@
 Owner decisions, 17/18 October 2026: values stay masked in logs; agents may discover permitted secret names and their
 purpose, never values; each secret can carry a description. This phase builds on #574's description metadata.
 
+## Startup redaction
+
+Core reads indexed keyring values and, when file fallback is enabled and usable, encrypted-file values before
+startup logs reach a sink. Both accessible copies of a name are registered without syncing, rotating or deleting
+either copy. Readable initial values stay masked until Core exits, including values subsequently rotated or deleted.
+Later Store reads and writes continue to register values normally. The eight UTF-16-unit masking minimum is unchanged.
+
+Disabled file fallback stays unopened; unavailable backends and unreadable entries cannot supply values to register.
+These conditions do not prevent startup. Read failures produce only fixed backend/phase identifiers and counts,
+without credential values or platform exception text. Empty stores start normally. Metadata-only operations remain
+metadata only, and startup registration returns no credential or lease and records no credential-access audit event.
+
+Focused coverage: run the Core `secrets/config-registration`, `secrets/preload` and `logs/startup-redaction` tests
+with Node source conditions and the gated in-memory/off keyring test seam.
+
 ## Edit a description without rotating
 
 Only an authenticated owner may call `secret.describe`. The RPC takes `{ name, description }` and returns metadata only;

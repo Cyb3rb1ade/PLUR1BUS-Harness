@@ -41,6 +41,8 @@ export function createSecretStore(o: SecretStoreOptions) {
   const leases = createLeaseTable(clock);
   /** Every value this store writes or reads is registered before it is returned, so no log, audit or report redactor misses it. */
   const redaction = o.redaction ?? createSecretRedaction();
+  const startupGroup = Symbol("startup-store");
+  let preload: Promise<void> | undefined;
   const changeListeners = new Set<(name: string) => void>();
   const changed = (name: string): void => {
     for (const listener of [...changeListeners]) {
@@ -204,8 +206,41 @@ export function createSecretStore(o: SecretStoreOptions) {
     }
   }
 
+  /** Startup reads never settle copies or release values; the initial snapshot stays masked until Core exits. */
+  async function preloadValues(): Promise<void> {
+    const values: string[] = [];
+    const failures: { backend: "keyring" | "file"; phase: "probe" | "list" | "read"; count: number }[] = [];
+    const backends: ["keyring" | "file", SecretBackend][] = [["keyring", o.keyring]];
+    if (o.fileFallback()) backends.push(["file", o.file]);
+    for (const [backend, source] of backends) {
+      let available: boolean;
+      try { available = (await source.probe()).available; }
+      catch { failures.push({ backend, phase: "probe", count: 1 }); continue; }
+      if (!available) continue;
+      let entries: SecretMeta[];
+      try { entries = await source.list(); }
+      catch { failures.push({ backend, phase: "list", count: 1 }); continue; }
+      let unreadable = 0;
+      for (const { name } of entries) {
+        try {
+          const value = await source.get(name);
+          if (value !== null) values.push(value);
+        } catch { unreadable++; } // An inaccessible entry must not prevent registration of the others.
+      }
+      if (unreadable) failures.push({ backend, phase: "read", count: unreadable });
+    }
+    // One group retains duplicate backend copies without retiring the logical name's current value.
+    redaction.replaceGroup(startupGroup, values);
+    for (const failure of failures) o.logger?.warn("secret startup values could not all be read", failure);
+  }
+
   return {
     redaction,
+    /** Trusted in-process, idempotent initialization; no plaintext result, migration, audit access or lease. */
+    preloadRedaction(): Promise<void> {
+      preload ??= preloadValues();
+      return preload;
+    },
     /** In-process committed-value notifications contain names only and never delay the secret operation. */
     onChange(listener: (name: string) => void): () => void {
       changeListeners.add(listener);

@@ -5,7 +5,7 @@ import { createFileAuditSink } from "./audit.ts";
 import { createFileBackend } from "./file-backend.ts";
 import { createKeyringBackend, type KeyringEntry, type KeyringLoader, type KeyringModule } from "./keyring-backend.ts";
 import { createSecretStore, type SecretStore, type SecretStoreLogger } from "./store.ts";
-import type { SecretRedaction } from "./redaction.ts";
+import { createSecretRedaction, type SecretRedaction } from "./redaction.ts";
 
 /** An in-process stand-in for the OS keyring, selected only by the test seam below. */
 function memoryKeyringModule(): KeyringModule {
@@ -23,8 +23,8 @@ function memoryKeyringModule(): KeyringModule {
 /**
  * Test seam (ruling R5): `PLUR1BUS_SECRETS_KEYRING=off` makes the keyring unavailable, `=memory` replaces it with an
  * in-process one. Honoured only with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`, so no test run can reach a real keychain and
- * production cannot be switched by an environment variable alone. Absent, the real `@napi-rs/keyring` loads lazily on
- * first use: starting the core never touches the keychain.
+ * production cannot be switched by an environment variable alone. Absent, the real `@napi-rs/keyring` loads on first
+ * use, including Core's startup redaction preload. Constructing the store alone does not touch the keychain.
  */
 export function keyringLoaderFor(env: NodeJS.ProcessEnv): KeyringLoader | undefined {
   const mode = env.PLUR1BUS_SECRETS_KEYRING;
@@ -42,17 +42,17 @@ export function createCoreSecretStore(o: {
   const load = keyringLoaderFor(o.env ?? process.env);
   // One keyring service per home, so two homes of one OS user never see each other's secrets.
   const service = `plur1bus:${createHash("sha256").update(o.layout.home).digest("hex").slice(0, 16)}`;
-  const audit = createFileAuditSink({ file: o.layout.logFile("audit"), secure: o.securePath, ...(o.clock ? { clock: o.clock } : {}) });
+  const redaction = o.redaction ?? createSecretRedaction();
+  const audit = createFileAuditSink({ file: o.layout.logFile("audit"), secure: o.securePath,
+    redactor: redaction.redactor(), ...(o.clock ? { clock: o.clock } : {}) });
   const store = createSecretStore({
     keyring: createKeyringBackend({ service, ...(load ? { load } : {}) }),
     file: createFileBackend({ dir: o.layout.secrets, secure: o.securePath }),
     fileFallback: o.fileFallback,
     audit,
-    ...(o.redaction ? { redaction: o.redaction } : {}),
+    redaction,
     ...(o.clock ? { clock: o.clock } : {}),
     ...(o.logger ? { logger: o.logger } : {}),
   });
-  // Every value the store holds is masked in `reason` and `purpose` of the audit line from then on.
-  store.redaction.subscribe(v => audit.registerSecret(v));
   return store;
 }

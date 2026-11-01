@@ -10,12 +10,16 @@ import { flatTestInternals } from "../../helpers/flat-embedder.ts";
 import { redactProtocolOutput } from "../../../src/secrets/redaction.ts";
 import type { ConfigSource, ConfigSourceOptions } from "../../../src/config-source.ts";
 import type { SecretStoreLogger } from "../../../src/secrets/store.ts";
+import { createFileBackend } from "../../../src/secrets/file-backend.ts";
+import { layout } from "../../../src/paths.ts";
+import { secure } from "../helpers.ts";
 
 const initial = randomUUID();
 const rotated = randomUUID();
 const query = randomUUID();
 const moduleSecret = randomUUID();
 const providerSecret = randomUUID();
+const storeOnly = process.argv.includes("--store-only") ? randomUUID() : undefined;
 const endpoint = `https://relay.example.test/public/path?ordinary=${query}`;
 const configSource = await import("../../../src/config-source.ts");
 let source: ConfigSource;
@@ -23,6 +27,8 @@ mock.module(new URL("../../../src/config-source.ts", import.meta.url).href, { na
   ...configSource,
   async openConfigSource(options: ConfigSourceOptions) {
     options.logger?.warn("queued configuration fixture", { ordinary: initial, endpoint, moduleOrdinary: moduleSecret });
+    if (storeOnly) options.logger?.warn(`queued Store fixture ${storeOnly}`,
+      { ordinary: storeOnly, public: "public startup detail" });
     source = await configSource.openConfigSource(options);
     return source;
   },
@@ -36,13 +42,28 @@ mock.module(new URL("../../../src/secrets/runtime.ts", import.meta.url).href, { 
     const store = runtime.createCoreSecretStore(options);
     registry = store.redaction;
     logger = options.logger!;
+    if (storeOnly) logger.warn("Store construction fixture", { ordinary: storeOnly });
     return store;
+  },
+} });
+const platform = await import("../../../src/platform.ts");
+mock.module(new URL("../../../src/platform.ts", import.meta.url).href, { namedExports: {
+  ...platform,
+  createPlatformCapabilities(options: Parameters<typeof platform.createPlatformCapabilities>[0]) {
+    if (storeOnly) options?.logger?.warn("platform startup fixture", { ordinary: storeOnly });
+    return platform.createPlatformCapabilities(options);
   },
 } });
 const bootstrap = await import("../../../src/logs/bootstrap.ts");
 const { createCore } = await import("../../../src/core.ts");
 const home = mkdtempSync(join(tmpdir(), "p1b-config-registration-"));
 const config = defaults();
+if (storeOnly) {
+  config.secrets.fileFallback.enabled = true;
+  await createFileBackend({ dir: layout(home).secrets, secure }).put("startup.only", storeOnly, new Date());
+}
+const initialStore = storeOnly ? ["store.json", "store.key"].map(name =>
+  readFileSync(join(layout(home).secrets, name))) : [];
 config.agents.main = {};
 config.models.scan.enabled = false;
 config.engine = { neo: { enabled: false }, gc: { enabled: false }, dreaming: { enabled: false },
@@ -68,6 +89,18 @@ const text = (): string => readdirSync(join(home, "logs")).filter((name) => name
   .map((name) => readFileSync(join(home, "logs", name), "utf8")).join("\n");
 try {
   await core.start();
+  if (storeOnly) {
+    assert.ok(text().includes("queued Store fixture"), "the queued startup record was not written");
+    assert.ok(text().includes("platform startup fixture"), "the platform startup record was not written");
+    assert.ok(text().includes("Store construction fixture"), "the Store startup record was not written");
+    assert.ok(!text().includes(storeOnly), "a persisted Store-only value escaped before any Store access");
+    assert.ok(registry!.values().includes(storeOnly), "the initial Store value was not registered at startup");
+    assert.ok(text().includes("public startup detail"), "ordinary startup text was hidden");
+    for (const [index, name] of ["store.json", "store.key"].entries()) {
+      assert.ok(readFileSync(join(layout(home).secrets, name)).equals(initialStore[index]!),
+        "startup modified the persisted credential store");
+    }
+  }
   assert.ok(!text().includes(initial), "a config secret escaped the queued startup log before any store read");
   assert.ok(!text().includes(moduleSecret), "an installed module annotation was ignored before startup logs");
   assert.ok(!text().includes(query), "a URL query value escaped startup logging");

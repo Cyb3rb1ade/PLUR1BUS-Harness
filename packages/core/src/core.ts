@@ -291,13 +291,9 @@ export function createCore(o: CoreOptions): Core {
   let warmup: Warmup | null = null;
   let scanScheduler: ScanScheduler | null = null;
   let discoveryWriter: ReturnType<typeof createWriter> | null = null;
-  let unsubscribeDiscoveryRedaction: (() => void) | null = null;
-  let unsubscribeCoreRedaction: (() => void) | null = null;
   let unsubscribeConfigRedaction: (() => void) | null = null;
   const closeLogRedaction = () => {
     unsubscribeConfigRedaction?.(); unsubscribeConfigRedaction = null;
-    unsubscribeDiscoveryRedaction?.(); unsubscribeDiscoveryRedaction = null;
-    unsubscribeCoreRedaction?.(); unsubscribeCoreRedaction = null;
   };
   let coreWriter: Pick<ReturnType<typeof createWriter>, "updateLevels" | "currentLevels"> | null = null;
   let dreams: Dreams | null = null;
@@ -399,12 +395,12 @@ export function createCore(o: CoreOptions): Core {
     let prepareImportBootstrap: ((signal: AbortSignal) => Promise<void>) | undefined;
     let importTargetPrepared = false;
     for (const d of [l.state, l.run, l.logs, l.agents, l.models, l.journal, l.catalog, l.systemJobs]) mkdirSync(d, { recursive: true, mode: 0o700 });
-    // B7: what the config source logs before the logger exists (it is built from the configuration) is kept and
-    // written once it does.
+    // B7: startup diagnostics stay queued until configuration and readable Store values can mask every sink.
     const early: [Level, string, Record<string, unknown> | undefined][] = [];
     const at = (lvl: Level) => (msg: string, fields?: Record<string, unknown>) => { if (logger) logger[lvl](msg, fields); else early.push([lvl, msg, fields]); };
+    const startupLog = { debug: at("debug"), info: at("info"), warn: at("warn"), error: at("error") };
     let prepareConfigChange: ((previous: HarnessConfig, next: HarnessConfig) => void | Promise<void>) | undefined;
-    const cs = await openConfigSource({ layout: l, supervised: o.supervisorConfig !== undefined, logger: { debug: at("debug"), info: at("info"), warn: at("warn"), error: at("error") }, ...o.supervisorConfig,
+    const cs = await openConfigSource({ layout: l, supervised: o.supervisorConfig !== undefined, logger: startupLog, ...o.supervisorConfig,
       prepareChange: (previous, next) => prepareConfigChange?.(previous, next) });
     activityCapacity = () => cs.current().activity?.maxEntries ?? 1000;
     source = cs;
@@ -439,14 +435,20 @@ export function createCore(o: CoreOptions): Core {
         redaction.replaceGroup(configGroup, values);
       });
     };
-    const createdLog = o.logger ? null : (await import("./logs/bootstrap.ts")).createCoreLog({ dir: l.logs, role: "core", source: { kind: "harness", id: "core", version: "0.1.0" }, levels: { defaultLevel: config.core.logLevel }, maxBytes: config.logs.maxBytes, keep: config.logs.keep, now: clock });
+    const platform = createPlatformCapabilities({ logger: startupLog, runDir: l.run, ...o.securePathOptions });
+    const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath,
+      fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: startupLog, redaction });
+    await secretStore.preloadRedaction();
+    const createdLog = o.logger ? null : (await import("./logs/bootstrap.ts")).createCoreLog({
+      dir: l.logs, role: "core", source: { kind: "harness", id: "core", version: "0.1.0" },
+      levels: { defaultLevel: config.core.logLevel }, maxBytes: config.logs.maxBytes, keep: config.logs.keep,
+      now: clock, redactor: redaction.redactor(),
+    });
     logger = o.logger ? withRedaction(o.logger, redaction.redactor()) : createdLog!;
     if (createdLog) coreWriter = createdLog;
-    if (createdLog) unsubscribeCoreRedaction = redaction.subscribe((value, info) => createdLog.registerSecret(value, info));
     const log = logger;
     for (const [lvl, msg, fields] of early.splice(0)) log[lvl](msg, fields);
     // S11: run/ holds the tokens; on Windows chmod is no permission, so the user-SID ACL goes on through icacls.
-    const platform = createPlatformCapabilities({ logger: log, runDir: l.run, ...o.securePathOptions });
     const runSecured = platform.securePath(l.run, { mode: 0o700 });
     // Audit M3: fail closed, supervised or not. run/ is where the token goes; when its ACL could not be set (icacls
     // blocked or failing on a home outside the user's private profile), the token would inherit whatever the parent
@@ -463,9 +465,7 @@ export function createCore(o: CoreOptions): Core {
     }
     platform.securePath(l.catalog, { mode: 0o700 });
     platform.securePath(l.systemJobs, { mode: 0o700 });
-    // M2: the secret store. Nothing is probed or opened here (the keychain is first touched by a `secret.*` call).
     const egress = createEgress({ config: () => cs.current().egress, now: clock, ...(o.discovery?.resolver ? { resolver: o.discovery.resolver } : {}) });
-    const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath, fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: log, redaction });
     // web.search (D95): the SearXNG sidecar plus the keyed providers (Brave, Tavily, Exa), chosen per agent from `modules.web-search`.
     // The sidecar's destination is configuration (sidecars.searxng) or the address the container layer injected; the keyed
     // providers go through the egress policy and read their key from the secret store per call. The trace carries lengths,
@@ -588,9 +588,10 @@ export function createCore(o: CoreOptions): Core {
         definitions: () => o.composition?.definitions ?? Object.fromEntries(Object.entries(cfg().providers).filter(([, value]) => !!value && typeof value === "object" && "wireFormat" in value)) as Record<string, DiscoveryProviderDefinition>,
         store: createAuthSecretStore(secretStore), egress, now: clock, credentialProvider: definition => turnComposition?.discoveryCredentials(definition), openai: () => turnComposition?.openai.auth,
       } });
-      discoveryWriter = createWriter({ dir: l.logs, role: "core", source: { kind: "harness", id: "discovery", version: "0.1.0" }, levels: { defaultLevel: config.core.logLevel }, now: clock, maxBytes: config.logs.maxBytes, keep: config.logs.keep });
-      unsubscribeDiscoveryRedaction?.();
-      unsubscribeDiscoveryRedaction = secretStore.redaction.subscribe((value, info) => discoveryWriter?.registerSecret(value, info));
+      discoveryWriter = createWriter({ dir: l.logs, role: "core",
+        source: { kind: "harness", id: "discovery", version: "0.1.0" },
+        levels: { defaultLevel: config.core.logLevel }, now: clock, maxBytes: config.logs.maxBytes,
+        keep: config.logs.keep, redactor: redaction.redactor() });
       const discProfiles = o.discovery?.profiles ?? discDefaults.profiles;
       const discCredentials = o.discovery?.credentials ?? discDefaults.credentials;
       const discEvents = o.discovery?.events ?? createD111Events(discoveryWriter);
@@ -711,7 +712,7 @@ export function createCore(o: CoreOptions): Core {
         },
       });
 
-      // D109: who a connection is, where policy lines go, and the permission stores (opened on first use, so the keychain is not touched at start).
+      // D109: who a connection is, where policy lines go, and the permission stores (opened on first use).
       const people = new AdminStore({ path: path.join(l.state, "admin.sqlite"), ownerId: LOCAL_OWNER.userId }); adminPeople = people;
       inbox = openInbox({ stateDir: l.state, clock, retention: { maxAgeDays: o.inbox?.maxAgeDays ?? config.inbox.retention.days, maxEntries: o.inbox?.maxEntries ?? config.inbox.retention.maxEntries }, admins: () => people.users().filter(u => !u.disabled && (u.role === "owner" || u.role === "admin")).map(u => u.id), legacyNotices: () => people.allNotices(),
         onPublished: kind => metrics.inboxPublished(kind), log: (m, f) => log.warn(m, f),

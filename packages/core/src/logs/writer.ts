@@ -1,7 +1,7 @@
 import { KEY_ORDER, LIMITS, attrsSchemaFor, levelAtLeast, lookupEvent, validateRecord, type Level } from "@plur1bus/log-schema";
 import { createHash } from "node:crypto";
 import { serializeError } from "@plur1bus/module-api";
-import { createRedactor } from "./redact.ts";
+import { createRedactor, type Redactor } from "./redact.ts";
 import { LevelPolicy, type LevelSettings, type Source } from "./levels.ts";
 export type { LevelSettings, Source };
 import { currentTrace, newTrace } from "./trace.ts";
@@ -12,7 +12,14 @@ const MAX_PENDING = 256;
 /** Most records written under one acquisition of the role lock (bounds how long other writers wait for it). */
 const MAX_BATCH = 256;
 export interface WriteFields { source?: Source; level?: Level; stream?: "stdout" | "stderr"; bypassRate?: boolean }
-export interface WriterOptions { dir: string; role: string; source: Source; now?: () => number; timers?: boolean; strict?: boolean; maxBytes?: number; keep?: number; retentionDays?: number; redactPii?: boolean; levels?: LevelSettings; /** Test seam: counts or replaces the sink's OS lock acquisition. */ acquireLock?: (lockPath: string) => ExclusiveLock | null }
+export interface WriterOptions {
+  dir: string; role: string; source: Source; now?: () => number; timers?: boolean; strict?: boolean;
+  maxBytes?: number; keep?: number; retentionDays?: number; redactPii?: boolean; levels?: LevelSettings;
+  /** A populated live policy, applied before constructor records; manual writer registrations remain additive. */
+  redactor?: Redactor;
+  /** Test seam: counts or replaces the sink's OS lock acquisition. */
+  acquireLock?: (lockPath: string) => ExclusiveLock | null;
+}
 type RecordValue = Record<string, any>;
 interface Repeat { record: RecordValue; start: number; count: number }
 interface Bucket { tokens: number; at: number; start: number; dropped: number; source: Source }
@@ -29,7 +36,11 @@ export function createWriter(o: WriterOptions) {
   // are the current value of a stored secret; they are never displaced by the bound above (audit secrets #3).
   const secrets = new Set<string>(); const pinned = new Set<string>();
   const masked = (): Set<string> => new Set([...pinned, ...secrets]);
-  let redactor = createRedactor({ pii: o.redactPii ?? false, secrets: masked() });
+  let registeredRedactor = createRedactor({ pii: o.redactPii ?? false, secrets: masked() });
+  const redactor: Redactor = {
+    text: text => registeredRedactor.text(o.redactor ? o.redactor.text(text) : text),
+    value: value => registeredRedactor.value(o.redactor ? o.redactor.value(value) : value),
+  };
   let closed = false; let flushing = false; let lastPrune = now();
   const pending: string[] = []; let lost = 0; let retryAt = 0; const repeats = new Map<string, Repeat>(); const buckets = new Map<string, Bucket>();
   const policy = new LevelPolicy({ now, expired: key => emit("log.level.expired", { source_key: key, from: "trace", to: "debug" }, {}, true) });
@@ -164,7 +175,7 @@ export function createWriter(o: WriterOptions) {
       if (opts?.pinned === true) { secrets.delete(value); pinned.add(value); }
       else { pinned.delete(value); secrets.delete(value); secrets.add(value); }
       if (secrets.size > 256) secrets.delete(secrets.values().next().value!);
-      redactor = createRedactor({ pii: o.redactPii ?? false, secrets: masked() });
+      registeredRedactor = createRedactor({ pii: o.redactPii ?? false, secrets: masked() });
     },
     currentLevels(): LevelSettings {
       return { defaultLevel: levelSettings.defaultLevel ?? "info", levels: { ...levelSettings.levels }, ...(levelSettings.traceUntil !== undefined ? { traceUntil: levelSettings.traceUntil } : {}) };

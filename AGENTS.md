@@ -183,7 +183,7 @@ Env vars that matter when driving the core directly instead of through the CLI:
 - **Update test seams** (all with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`, and only in a build that honours seams: a debug build, or a release build without a baked release key such as the one release-smoke tests; a build with a baked `PLUR1BUS_RELEASE_PUBKEY_STABLE`/`_BETA` ignores them and says so on stderr, `install::pins::trust_seams_allowed`; the same holds for `PLUR1BUS_TEST_NODE_SHA256` and `PLUR1BUS_TEST_CORE_SHA256`): `PLUR1BUS_UPDATE_TARGET_BIN=<path>` — the binary `plur1bus update` swaps instead of `current_exe()` (tests point it at a shell script); `PLUR1BUS_UPDATE_GATE_TIMEOUT_MS=<ms>` — the health gate's budget (default 90 000); `PLUR1BUS_TEST_UPDATE_KILL_AT=<phase>` — the updater exits 137 right after writing that phase (`swapped`, `gated`, …), as a killed process would. `PLUR1BUS_TEST_RELEASE_PUBKEY` signs the local feed.
 - `PLUR1BUS_SECRETS_KEYRING=off|memory` (with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`; refused without it) — M2 secret store: `off` makes the OS keyring
   unavailable, `memory` swaps in an in-process one, so a test can never reach a real keychain. Absent, the real
-  `@napi-rs/keyring` loads lazily on the first `secret.*` call (starting the core never touches the keychain). The
+  `@napi-rs/keyring` loads when first needed, including Core's startup redaction preload of readable stored values. The
   encrypted-file fallback is a config flag, `secrets.fileFallback.enabled` (default `false`), not an env var.
 - `PLUR1BUS_MODULE_API_CURRENT=<n>` (with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`) — overrides the
   supervisor's own module API version (module-guide.md "API-version policy"; `modules::manifest`).

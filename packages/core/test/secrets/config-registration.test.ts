@@ -15,6 +15,16 @@ for (const mode of ["default", "injected"]) test(`Core ${mode} logger registers 
   assert.equal(result.status, 0, result.stderr + result.stdout);
 });
 
+for (const mode of ["default", "injected"]) test(`Core ${mode} logger preloads a persisted Store-only value before startup output`, () => {
+  const result = spawnSync(process.execPath, ["--experimental-test-module-mocks", "--experimental-strip-types",
+    "--conditions=source", fileURLToPath(new URL("./fixtures/config-registration.ts", import.meta.url)),
+    "--store-only", ...(mode === "injected" ? ["--injected"] : [])], {
+    env: { ...process.env, PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_SECRETS_KEYRING: "off" },
+    encoding: "utf8", timeout: 60_000,
+  });
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+});
+
 test("malformed numeric config secrets are masked in log attributes while numeric tool-result failures remain closed", () => {
   const secret = Number.parseInt(randomUUID().slice(0, 8), 16) + 100_000_000;
   const secrets = [String(secret)];
