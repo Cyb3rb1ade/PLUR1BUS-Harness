@@ -54,7 +54,8 @@ Modellvektoren und fremde Bilder werden nicht eingecheckt.
 | MM-1-Lint und Dokumentation | Lint: 163 bestanden, 0 Fehler, 3 bestehende LAYA-TODOs; `pnpm docs:check` bestanden | Lauf im MM-1-Arbeitsbaum; fehlende Cloud-Modellartefakte werden nicht als bestanden gewertet. |
 | Engine-Clippy | **Bestanden:** `--all-targets --features real-models -- -D warnings` | Alle Engine-Testtargets kompiliert; echte Modelle werden dadurch nicht in der Cloud ausgeführt. |
 | Abhängigkeiten / Attribution | Lizenzprüfung 0 Verstöße; Release-Audit 0 blockierende Befunde und 0 Erfassungs-/Policyfehler | Bestehende Owner-Ausnahmen und Warnungen bleiben sichtbar; keine Policyänderung. |
-| Produktions-Binary / Kaltbau / Recall | **Offen** | Vollständige Binary-Größendifferenz, vollständige kalte Buildzeit und echter Recall `<600 ms` sind nicht nachgewiesen. |
+| Produktions-Binary / Bauzeit | **Gemessen:** Baseline `df525459`, Kandidat `7993b634`: jeweils 877168 B; kalt 1283,54/1153,44 s, warm 0,52/0,60 s | Gleiche Basis/Toolchain, jeweils ein Messpaar mit `RUSTC_WRAPPER=""`; aktueller Einstiegspunkt vor RE-08, kein Maß für geladenen Encoder-Code. |
+| Recall / übrige native Ziele | **Offen** | Echter Recall `<600 ms` und native Modellausführung auf den übrigen Release-Zielen sind nicht nachgewiesen. |
 
 ## Finale eingefrorene JPEG-/PNG-Fälle
 
@@ -189,12 +190,45 @@ die 23 echten Transport-Integrationstests, jeweils ohne Fehler und ignorierte Te
 besteht ebenfalls. Der Aufbau der nativen Build-Abhängigkeiten dieses Check-Profils
 ist keine Messung einer vollständigen kalten Produktionsbauzeit.
 
-### Ausstehende Controller-Baseline auf macOS
+### Controller-Baseline und Gegenmessung auf macOS
 
-**Ausstehend; MM-1 bleibt Draft.** Der Controller baut das zum Messzeitpunkt aktuelle
-`main` und legt Main-Commit und Ergebnisse unter
-`/Users/cyberblade/worktrees/reviews/mm1-macos-baseline.md` ab. Dieser Pfad bezeichnet
-den vereinbarten künftigen Bericht, keinen bereits vorhandenen Messbeleg.
+**Baseline und Gegenmessung liegen vor.** Der Controller-Bericht
+`/Users/cyberblade/worktrees/reviews/mm1-macos-baseline.md` misst Main-Commit
+`df5254598fc484870194efb2caa3cedf8f187e09`. Die Gegenmessung verwendet ausschließlich
+Kandidat `7993b634108222bb0c39f604eb620645376232a5`: dessen Merge-Base ist exakt
+`df525459`, ohne Merge eines späteren Main-Stands im Kandidatenbereich. Beide
+sauberen Worktrees und die Toolchain/HW-Angaben wurden geprüft.
+
+| Messung | Main `df525459` | MM-1 `7993b634` | Differenz |
+|---|---:|---:|---:|
+| Produktions-Binary | 877168 B | 877168 B | 0 B (0 %) |
+| Kalt: real | 1283,54 s | 1153,44 s | −130,10 s (−10,136 %) |
+| Kalt: user / sys | 2553,99 / 120,20 s | 2275,59 / 113,45 s | |
+| Kalt: maximaler Build-RSS | 2290909184 B | 2159837184 B | |
+| Warm: real | 0,52 s | 0,60 s | +0,08 s |
+| Warm: user / sys | 0,20 / 0,17 s | 0,18 / 0,16 s | |
+| Warm: maximaler Build-RSS | 181714944 B | 185008128 B | |
+
+Alle vier Builds haben Exitcode 0; beide warmen Läufe haben keine
+`Compiling`-/`Running`-Zeile und denselben Hash wie ihr jeweiliger kalter Lauf.
+Baseline-SHA-256: `5e395a4c0dd3561262590a11f1b9b4a3fe114b325792f1688fd3e0568750d0aa`.
+Kandidaten-SHA-256: `cc5441a53794872ff7ba7b2254da985010cd8961e3b06058ffbe86c8e1cc5e31`.
+Gleiche Bytezahl bedeutet hier keinen gleichen Binary-Hash. Die Bauzeitdifferenz
+stammt aus je einem Lauf; sie belegt keinen kausalen Geschwindigkeitsgewinn durch MM-1.
+
+Beide Messungen: Mac17,9, 48 GiB RAM, 18 logische CPUs, macOS 27.2 (26B123),
+rustc/cargo 1.95.0, LLVM 22.1.2, Apple Clang 21.0.0, SDK 27.2, CMake 4.4.3.
+Der aktuelle `plur1bus-engine`-Einstiegspunkt vor RE-08 bietet nur `--version` und
+den noch nicht implementierten `serve`-Pfad. Die unveränderte Binary-Größe misst
+diesen Einstiegspunkt; sie ist keine Aussage über den Platzbedarf der noch nicht
+angebundenen Medienpipeline oder geladener ORT-/Modelldateien.
+
+Der Gegenmessbericht liegt auf dem Mac unter
+`/Users/cyberblade/worktrees/reviews/mm1-macos-countermeasurement-7993b634.md`.
+Binärdatei und Rohbelege bleiben unter
+`/private/tmp/mm1-macos-counter-7993b634.gg81yk85/` erhalten; die gesicherte Binary
+liegt in `bin/plur1bus-engine`. Das zugehörige Ergebnis liegt im Cloud-Bericht
+`/workspace/reports/mm1-macos-countermeasurement.txt` und in dessen Ergebnis-JSON.
 
 Gemessen wird die tatsächliche Engine-Binary `plur1bus-engine`, Paket
 `plur1bus-engine`, Cargo-Profil **release** mit Standardfeatures, Ziel
@@ -203,6 +237,12 @@ der Paritätsharness noch ein Testprogramm gemessen. Die Bytezahl gilt für die
 unverpackte, nicht nachträglich gestrippte/signierte Cargo-Ausgabe. Zusätzliche
 Compilerflags, Profilüberschreibungen und Compiler-Cache-Wrapper müssen für beide
 Vergleichsstände deaktiviert sein; Rust-, Clang-/SDK- und CMake-Version bleiben gleich.
+Verbindliche, vom Controller dokumentierte Abweichung zum ursprünglichen Protokoll:
+`~/.cargo/config.toml` setzt sccache als `build.rustc-wrapper`. Deshalb deaktivieren
+**beide** gemessenen Stände diesen Wrapper ausdrücklich mit `RUSTC_WRAPPER=""`.
+Die Kandidaten-Logs enthalten 663 direkte rustc-Aufrufe und keinen sccache-Aufruf;
+die globale Cargo-Konfiguration wurde nicht geändert. Die folgenden Befehle bilden
+diese Einstellung ab. Ein späterer Main-/RE-08-Stand braucht eine neue Baseline.
 Der untenstehende Guard prüft bekannte Umgebungsüberschreibungen. Zusätzlich prüft
 der Controller lokale/übergeordnete und benutzerspezifische Cargo-Konfigurationen
 auf Rustflags, Compiler-/Wrapperwahl und Release-Profiländerungen. Native
@@ -229,7 +269,9 @@ test -z "$(git status --porcelain)"
 test "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/main)"
 for mm1_name in $(compgen -e); do
   case "$mm1_name" in
-    RUSTC|RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS|RUSTC_WRAPPER|RUSTC_WORKSPACE_WRAPPER|CARGO_BUILD_RUST*|CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS|CARGO_PROFILE_*|CC|CXX|CFLAGS|CXXFLAGS|CC_*|CXX_*|CFLAGS_*|CXXFLAGS_*|CPPFLAGS|LDFLAGS|CMAKE_ARGS|CMAKE_TOOLCHAIN_FILE*|CMAKE_BUILD_PARALLEL_LEVEL)
+    RUSTC_WRAPPER)
+      test -z "${RUSTC_WRAPPER:-}" || { echo "Nichtleerer Compiler-Wrapper" >&2; exit 1; } ;;
+    RUSTC|RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS|RUSTC_WORKSPACE_WRAPPER|CARGO_BUILD_RUST*|CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS|CARGO_PROFILE_*|CC|CXX|CFLAGS|CXXFLAGS|CC_*|CXX_*|CFLAGS_*|CXXFLAGS_*|CPPFLAGS|LDFLAGS|CMAKE_ARGS|CMAKE_TOOLCHAIN_FILE*|CMAKE_BUILD_PARALLEL_LEVEL)
       echo "Vor der Messung entfernen: $mm1_name" >&2; exit 1 ;;
   esac
 done
@@ -245,9 +287,9 @@ xcrun clang --version > "$mm1_measure_dir/clang.txt"
 xcrun --show-sdk-version > "$mm1_measure_dir/sdk.txt"
 cmake --version > "$mm1_measure_dir/cmake.txt"
 sysctl -n hw.model hw.memsize hw.logicalcpu > "$mm1_measure_dir/hardware.txt"
-cargo fetch --locked --target "$mm1_target"
+RUSTC_WRAPPER="" cargo fetch --locked --target "$mm1_target"
 
-CARGO_TARGET_DIR="$mm1_measure_dir/target" CARGO_INCREMENTAL=0 CARGO_TERM_COLOR=never \
+RUSTC_WRAPPER="" CARGO_TARGET_DIR="$mm1_measure_dir/target" CARGO_INCREMENTAL=0 CARGO_TERM_COLOR=never \
   /usr/bin/time -lp cargo build --locked --offline --release --verbose --jobs 2 \
   --target "$mm1_target" -p plur1bus-engine --bin plur1bus-engine \
   > "$mm1_measure_dir/cold.stdout" 2> "$mm1_measure_dir/cold.stderr"
@@ -255,7 +297,7 @@ stat -f '%z' "$mm1_binary" > "$mm1_measure_dir/binary-bytes.txt"
 shasum -a 256 "$mm1_binary" > "$mm1_measure_dir/binary-sha256.txt"
 file "$mm1_binary" > "$mm1_measure_dir/binary-kind.txt"
 
-CARGO_TARGET_DIR="$mm1_measure_dir/target" CARGO_INCREMENTAL=0 CARGO_TERM_COLOR=never \
+RUSTC_WRAPPER="" CARGO_TARGET_DIR="$mm1_measure_dir/target" CARGO_INCREMENTAL=0 CARGO_TERM_COLOR=never \
   /usr/bin/time -lp cargo build --locked --offline --release --verbose --jobs 2 \
   --target "$mm1_target" -p plur1bus-engine --bin plur1bus-engine \
   > "$mm1_measure_dir/warm.stdout" 2> "$mm1_measure_dir/warm.stderr"
@@ -276,8 +318,8 @@ sauberen Kandidaten-Commit mit einem **weiteren neuen** Target-Verzeichnis verwe
 dabei ersetzt dessen protokollierter Commit die Main-Prüfung am Anfang. Erst danach
 werden Byte- und Bauzeitdifferenzen berechnet.
 
-Weiter offen bleiben diese Produktions-Binary-/Bauzeitmessung, echter Recall und
-native Ausführung auf den übrigen Release-Zielen. Die anfänglichen 11,18 s
+Weiter offen bleiben echter Recall und native Ausführung auf den übrigen
+Release-Zielen. Die anfänglichen 11,18 s
 Harness-Buildzeit und etwa 1,97 MB Harness-Binary beantworten die
 Produktions-Build-/Größenfrage nicht.
 
