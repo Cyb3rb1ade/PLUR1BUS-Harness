@@ -826,6 +826,7 @@ fn uninstall_module(
         err.detail = Some(e.to_string());
         return Err(err);
     }
+    super::config::refresh_log_policy(shared, layout);
     shared
         .log
         .info("module uninstalled", json!({ "module": name }));

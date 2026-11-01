@@ -683,7 +683,7 @@ mod tests {
     }
 
     #[test]
-    fn ordinary_config_values_are_kept_in_the_chain_and_the_audit_log() {
+    fn numeric_config_values_stay_public_while_unclassified_strings_are_private() {
         let dir = tempfile::tempdir().unwrap();
         let layout = Layout::new(dir.path().to_path_buf());
         audit(&layout, "trusted-person", &changed_config_rows(), "rev-1").unwrap();
@@ -692,11 +692,11 @@ mod tests {
         assert_eq!(max["detail"]["oldValue"], 90);
         assert_eq!(max["detail"]["newValue"], 5);
         let endpoint = row(&chain, "endpoint");
-        assert_eq!(endpoint["detail"]["oldValue"], "https://service.invalid/v1");
-        assert_eq!(endpoint["detail"]["newValue"], "https://service.invalid/v2");
+        assert_eq!(endpoint["detail"]["oldValue"], "••••");
+        assert_eq!(endpoint["detail"]["newValue"], "••••");
         let login = row(&chain, "login");
-        assert_eq!(login["detail"]["oldValue"]["user"], "alice");
-        assert_eq!(login["detail"]["newValue"]["user"], "bob");
+        assert_eq!(login["detail"]["oldValue"]["user"], "••••");
+        assert_eq!(login["detail"]["newValue"]["user"], "••••");
         let logged: Vec<Value> = log_lines(&layout)
             .iter()
             .map(|l| serde_json::from_str(l).unwrap())

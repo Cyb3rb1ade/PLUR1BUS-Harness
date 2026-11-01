@@ -85,3 +85,58 @@ fn pasted_reference_values_are_masked_and_warned_without_changing_private_config
         pasted
     );
 }
+
+#[test]
+fn disabled_childless_module_manifest_repair_refreshes_log_policy_without_a_config_edit() {
+    let directory = tempfile::tempdir().unwrap();
+    let home = directory.path();
+    let module_dir = home.join("modules/fixture");
+    fs::create_dir_all(&module_dir).unwrap();
+    let mut config = plur1bus_config::defaults();
+    let secret = format!("runtime-{}", uuid::Uuid::new_v4());
+    config["modules"]["fixture"] =
+        json!({"enabled":false,"reference":"bad name","literal":secret,"label":"public label"});
+    let original = config.to_string();
+    fs::write(home.join("config.json"), &original).unwrap();
+    let manifest_path = module_dir.join("module.json");
+    fs::write(&manifest_path, "invalid manifest").unwrap();
+    let _supervisor = start(home);
+    let mut connection = client(home);
+    let held = connection.call("config.get", json!({}));
+    assert!(
+        held.is_err(),
+        "damaged installed policy must never expose an unclassified public view"
+    );
+    let before = fs::read_to_string(home.join("logs/supervisor.log")).unwrap();
+    assert!(
+        before.contains("supervisor started"),
+        "metadata damage must keep normal log output available"
+    );
+    assert!(!before.contains("configuration sensitivity metadata is unavailable"));
+    assert!(!before.contains(&secret));
+    fs::write(&manifest_path,json!({"name":"fixture","version":"0.1.0","apiVersion":"1","entry":"index.js",
+        "scope":"installation","priority":500,"configSchema":{"type":"object","properties":{
+            "reference":{"type":"string","x-secret-reference":true},"literal":{"type":"string","x-sensitive":true},"label":{"type":"string"}
+        }}}).to_string()).unwrap();
+    common::wait_until("manifest-only disclosure refresh", common::WAIT, || {
+        fs::read_to_string(home.join("logs/supervisor.log"))
+            .is_ok_and(|text| text.contains("modules.fixture.reference"))
+    });
+    let projected = connection.call("config.get", json!({})).unwrap();
+    assert_eq!(
+        projected["value"]["modules"]["fixture"]["label"],
+        "public label"
+    );
+    assert_eq!(
+        projected["value"]["modules"]["fixture"]["reference"],
+        "••••"
+    );
+    assert_eq!(projected["value"]["modules"]["fixture"]["literal"], "••••");
+    assert_eq!(
+        fs::read_to_string(home.join("config.json")).unwrap(),
+        original
+    );
+    let log = fs::read_to_string(home.join("logs/supervisor.log")).unwrap();
+    assert!(!log.contains(&secret));
+    assert!(!log.contains("bad name"));
+}

@@ -1,5 +1,7 @@
 # SH3 Redaction Implementation Plan
 
+> Historical initial design. The [Controller F2 implementation plan](2026-11-01-sh3-controller-f2.md) supersedes its base, matcher, native capture and startup details. F2 authorizes the narrow native sandbox capture fix and requires bounded asynchronous preload.
+
 > **For agentic workers:** Use superpowers:executing-plans for the coupled redactor tasks; the independent startup task may be delegated in an isolated worktree. One fresh whole-branch review at the end.
 
 **Goal:** Close reproduced escaped-value, repeated-derivation, cut-boundary, UTF-16 and startup-registration gaps.

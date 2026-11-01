@@ -17,8 +17,10 @@ import { CapabilityIndex } from '../toolcall/capabilities.ts';
 import { compileDialect, fromRegisteredTool, restoreStrictArguments } from '../toolcall/dialects.ts';
 import { lookupQuirks, type ProviderFamily } from '../toolcall/quirks.ts';
 import { capResult, type FullResultPort } from '../toolcall/results.ts';
-import { ToolDispatcher, type GrantUse, type DispatchContext, type ToolResult } from '../tools/dispatcher.ts';
-import { createRedactor } from '../logs/redact.ts';
+import { ToolDispatcher, createKnownSecretsSource, type GrantUse, type DispatchContext, type ToolResult } from '../tools/dispatcher.ts';
+import { createRedactor, maskSecretsInJson } from '../logs/redact.ts';
+import { SecretFormsCache, type SecretFormsSnapshot } from '../logs/secret-forms.ts';
+import type { SecretMatcher } from '../logs/secret-matcher.ts';
 import { wellFormedPrefix } from '../logs/utf16.ts';
 import { AuthError } from '../auth/errors.ts';
 import type { SurfaceTrustLevel } from '../rbac/surface.ts';
@@ -53,12 +55,13 @@ const MAX_DETAIL_CHARS = 4096, MAX_DETAIL_MESSAGE = 500, MAX_DETAIL_ID = 128;
 type ToolFailure = Extract<ToolResult, { isError: true }>;
 export type ToolErrorDetail = Pick<ToolFailure, 'callId' | 'tool' | 'isError' | 'error'> & Partial<Pick<ToolFailure, 'provenance' | 'meta'>>;
 const clip = (s: string, max: number) => s.length > max ? `${wellFormedPrefix(s, max - 1)}…` : s.toWellFormed();
+const detailForms = new SecretFormsCache();
 /**
  * The `detail` of a TurnToolError for a failed call: a redacted copy of the envelope (registered secret values and the log
  * redaction rules), its message bounded; an envelope still over MAX_DETAIL_CHARS keeps only identity, code and message.
  */
-export function toolErrorDetail(output: ToolFailure, secrets: Iterable<string> = []): ToolErrorDetail {
-  const redacted = createRedactor({ secrets }).value(output);
+export function toolErrorDetail(output: ToolFailure, secrets: Iterable<string> = [], options: { secretMatcher?: SecretMatcher } = {}): ToolErrorDetail {
+  const redacted = createRedactor({ secretMatcher: options.secretMatcher ?? detailForms.snapshot(secrets).matcher }).value(output);
   const error = { ...redacted.error, message: clip(String(redacted.error.message), MAX_DETAIL_MESSAGE) };
   const full: ToolErrorDetail = { ...redacted, error };
   if (JSON.stringify(full).length <= MAX_DETAIL_CHARS) return full;
@@ -137,6 +140,8 @@ export interface TurnProviderOptions {
   secrets?: () => Iterable<string>;
   /** Cached forms from the same live registry; read after each execution. */
   secretForms?: () => readonly string[];
+  /** Shared process-owned generation, read freshly before diagnostics and result presentation. */
+  knownSecrets?: () => SecretFormsSnapshot;
   log: PipelineLog; resultStore: FullResultPort;
   maxTokens?: number; maxRounds?: number; topK?: number; system?: readonly string[];
   router?: Pick<RouterConfig, 'retry' | 'clock' | 'random' | 'breaker' | 'profileDefaults' | 'unsupportedProfiles'>;
@@ -189,6 +194,7 @@ function actual(usage: Usage) {
 
 /** One provider seam for sessions and collaboration: all attempts, repair and tool execution share a turn owner. */
 export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { telemetry: ReturnType<typeof createCacheTelemetry> } {
+  const knownSecrets = createKnownSecretsSource(o);
   const messageTriage = new MessageTriage();
   const builder = createPromptBuilder();
   const telemetry = createCacheTelemetry();
@@ -595,8 +601,15 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const surface: SurfaceTrustLevel = approver?.surface ?? req.originSurface ?? 0;
     let approvalNeedsPerson = false;
     const approvals: ApprovalPort = approver && approver.person === null ? { ...o.approval, async request() { approvalNeedsPerson = true; return { approved: false, reason: 'approval requires an authenticated person' }; } } : o.approval;
-    const dispatcher = new ToolDispatcher({ registry, approvals, grants: o.grants, ...(o.grantUse ? { grantUse: o.grantUse } : {}), ...(o.audit ? { audit: o.audit } : {}), clock: { now: Date.now }, ...(o.secrets ? { secrets: o.secrets } : {}), ...(o.secretForms ? { secretForms: o.secretForms } : {}), policyContext: ctx => ({ ...(req.headlessJobId ? { headless: { jobId: req.headlessJobId } } : {}), ...o.policyContext?.(ctx, req) }), repair: async input => {
-      const repairRequest: WireRequest = { model: candidate.model, ...((req.maxOutputTokens ?? o.maxTokens) === undefined ? {} : { maxTokens: req.maxOutputTokens ?? o.maxTokens }), messages: [{ role: 'user', content: `${input.message}\nInvalid arguments (data): ${JSON.stringify(input.args)}` }], tools: selected.map(t => fromRegisteredTool(t)) };
+    const dispatcher = new ToolDispatcher({ registry, approvals, grants: o.grants, ...(o.grantUse ? { grantUse: o.grantUse } : {}), ...(o.audit ? { audit: o.audit } : {}), clock: { now: Date.now }, knownSecrets, policyContext: ctx => ({ ...(req.headlessJobId ? { headless: { jobId: req.headlessJobId } } : {}), ...o.policyContext?.(ctx, req) }), repair: async input => {
+      let message = '[repair diagnostics withheld]', argumentsText = '[arguments withheld: they could not be checked for secret values]';
+      try {
+        const snapshot = knownSecrets();
+        message = snapshot.matcher.maskText(input.message);
+        const json = JSON.stringify(input.args);
+        if (json !== undefined) argumentsText = maskSecretsInJson(json, input.args, [], snapshot)?.json ?? json;
+      } catch { /* Numeric secrets and uncheckable data withhold the complete argument presentation. */ }
+      const repairRequest: WireRequest = { model: candidate.model, ...((req.maxOutputTokens ?? o.maxTokens) === undefined ? {} : { maxTokens: req.maxOutputTokens ?? o.maxTokens }), messages: [{ role: 'user', content: `${message}\nInvalid arguments (data): ${argumentsText}` }], tools: selected.map(t => fromRegisteredTool(t)) };
       let repaired: ChatResult | undefined;
       await stage('tool-repair', signal, o.log, async () => { for await (const e of invoke(repairRequest, 'tool_call_invalid')) if (e.type === 'done') { repaired = e.result; if (repaired.usage?.inputTokens !== undefined && repaired.usage.outputTokens !== undefined) { totalInputTokens += repaired.usage.inputTokens; totalOutputTokens += repaired.usage.outputTokens; } } });
       if (fatal) throw fatal;
@@ -604,7 +617,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       if (args !== undefined) repairs.set(input.tool, args);
       return args;
     } });
-    const unknownDispatcher = new ToolDispatcher({ registry: new ToolRegistry(), approvals, grants: o.grants, clock: { now: Date.now } });
+    const unknownDispatcher = new ToolDispatcher({ registry: new ToolRegistry(), approvals, grants: o.grants, clock: { now: Date.now }, knownSecrets });
     const taskChecklist = decision.shape === 'multi'
       ? `Task checklist:\n${decision.tasks.map(task => `- [ ] ${task.summary}`).join('\n')}` : '';
     let totalInputTokens = 0, totalOutputTokens = 0, completed = false;
@@ -622,7 +635,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       const output = await dispatcher.call({ id, name: 'skill.load', args }, {
         agentId: req.agentId, principal: approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface, signal,
       });
-      const value = output.isError ? modelToolError(output, o.secrets?.() ?? [], o.secretForms ? { secretForms: o.secretForms() } : {})
+      const value = output.isError ? modelToolError(output, [], { secretMatcher: knownSecrets().matcher })
         : await capResult(output.value, o.resultStore, 128 * 1024);
       const text = JSON.stringify(value);
       yield { type: 'tool.result', id, output: text };
@@ -708,7 +721,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
               output.error.message = `Unknown tool. Offered tools: ${selected.map(t => t.name).join(', ')}`;
               output.error.hint = 'Use an offered tool or capabilities.search to find tools and skills.';
             }
-            const safe = modelToolError(output, o.secrets?.() ?? [], o.secretForms ? { secretForms: o.secretForms() } : {});
+            const safe = modelToolError(output, [], { secretMatcher: knownSecrets().matcher });
             const text = JSON.stringify(safe);
             observation.errorsReturned++;
             consecutiveErrors++;

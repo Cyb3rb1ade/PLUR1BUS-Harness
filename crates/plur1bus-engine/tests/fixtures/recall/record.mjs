@@ -4,6 +4,7 @@
 //     node crates/plur1bus-engine/tests/fixtures/recall/record.mjs
 //
 // Pass --principals to rewrite only golden/principals.json.
+// Pass --stages to record RE-04/T2 stage goldens (scenarios/ and golden/stages/).
 // The engine checkout is the harness pin
 // 9f34008c143c5da87b2194b5a28442b407ff8ba7.
 // This script writes the JSON files next to itself and prints no model data.
@@ -14,10 +15,28 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+if (process.argv.includes("--rerank")) {
+  const { recordRerank } = await import("./record-rerank.mjs");
+  const rootFlag = process.argv.indexOf("--rerank");
+  const pluginRoot = process.argv[rootFlag + 1];
+  if (!pluginRoot || pluginRoot.startsWith("--")) {
+    console.error("record.mjs --rerank <plugin-checkout>  expects v7.18.31");
+    process.exit(1);
+  }
+  await recordRerank(pluginRoot);
+  process.exit(0);
+}
+
 const engineRoot = process.env.PLUR1BUS_ENGINE_SRC;
 if (!engineRoot) {
   console.error("PLUR1BUS_ENGINE_SRC must point at the pinned engine checkout");
   process.exit(1);
+}
+
+if (process.argv.includes("--stages")) {
+  const { recordStages } = await import("./record-stages.mjs");
+  await recordStages(engineRoot);
+  process.exit(0);
 }
 
 const onlyPrincipals = process.argv.includes("--principals");

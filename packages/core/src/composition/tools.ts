@@ -100,14 +100,13 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
   const deny = [...denyEntriesFor(homedir(), process.env, platform), { path: join(o.home, 'run') }, { path: join(o.home, 'state') }, { path: join(o.home, 'config.json') }, { path: join(o.home, 'bin') }, { path: join(o.home, 'runtime') }, { path: join(o.home, 'secrets') }, ...(o.deny ?? [])];
   const fs = o.roots.length ? createFsTools({ roots: o.roots, deny }) : { tools: [] };
   for (const tool of fs.tools) {
-    const run = tool.execute;
     register({ ...tool, capability: tool.effect === 'read' ? 'fs.read' : 'fs.write', risk: 'low', trust: 'first-party', limits: { maxResultBytes: 1024 * 1024 }, classify: async args => {
     const raw = (args as { path: string }).path;
     const access = tool.effect === 'read' ? 'read' : 'write';
     const resolved = await canonicalisePath(raw, { roots: o.roots, deny, access, requireRoot: false, ...(o.roots[0] ? { cwd: o.roots[0].path } : {}) });
     if (!resolved.ok) return { flags: { outsideRoots: true, denyListHit: true }, targets: [raw], access };
     return { flags: { outsideRoots: resolved.rootId === null, denyListHit: false, ...(resolved.systemTree ? { systemTree: true } : {}) }, targets: [resolved.canonical], access };
-  }, execute: async (args, ctx) => unwrap(await run(args, ctx)) });
+  }, execute: async (args, ctx) => { const run = tool.execute; return unwrap(await run(args, ctx)); } });
   }
   const sandboxOptions = { home: o.home, roots: o.roots, deny, audit: o.audit, principal: req.principal!, ...(o.sandbox ? { sandbox: o.sandbox } : {}) };
   const host = { ...(o.host ?? createNodeHostContext()), exec: createSandboxHostExec(sandboxOptions) };
@@ -125,7 +124,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
       }
     }
     const invocationRoots = ctx.classified?.flags?.outsideRoots && ctx.classified.targets?.[0] ? [...o.roots, { id: 'invocation-only', path: ctx.classified.targets[0] }] : o.roots;
-    const tool = createExecTool({ config: { ...o.exec, mode: o.exec?.mode ?? 'deny', roots: invocationRoots, deny }, process: createSandboxProcessPort({ ...sandboxOptions, roots: invocationRoots }), timers: systemTimers, audit: o.audit, policy: { grants: o.grants, clock: { now: Date.now } }, policyContext: { principal: { person: ctx.principal }, subject: { kind: 'agent', agentId: ctx.agentId }, surface: ctx.surface ?? 0, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), overrides: { 'shell.exec': 'allowed' } }, ...(o.output ? { output: o.output } : {}) });
+    const tool = createExecTool({ config: { ...o.exec, mode: o.exec?.mode ?? 'deny', roots: invocationRoots, deny }, process: createSandboxProcessPort({ ...sandboxOptions, roots: invocationRoots }), timers: systemTimers, audit: o.audit, policy: { grants: o.grants, clock: { now: Date.now } }, policyContext: { principal: { person: ctx.principal }, subject: { kind: 'agent', agentId: ctx.agentId }, surface: ctx.surface ?? 0, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), overrides: { 'shell.exec': 'allowed' } }, ...(ctx.knownSecrets ? { knownSecrets: ctx.knownSecrets } : {}), ...(o.output ? { output: o.output } : {}) });
     const run = tool.execute; const value = unwrap(await run(args, ctx)); const result = value as { stdout: string; stderr: string }; return { ...(value as object), stdout: redactText(result.stdout), stderr: redactText(result.stderr), sandboxed: o.sandbox?.required !== false };
   } });
   if (o.media) for (const name of ['image.generate', 'image.edit', 'media.generate', 'media.edit'] as const) {
@@ -173,7 +172,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
     execute: async (args, ctx) => {
       try {
         if (!o.webFetch) throw new WebFailure('egress-denied', 'web fetch egress transport is unavailable');
-        return await o.webFetch.fetch(args as never, { signal: ctx.signal, agentId: ctx.agentId });
+        return await o.webFetch.fetch(args as never, { signal: ctx.signal, agentId: ctx.agentId, ...(ctx.knownSecrets ? { knownSecrets: ctx.knownSecrets } : {}) });
       } catch (e) {
         throw new ToolAdapterError('tool-failed',
           (e instanceof WebFailure ? e : new WebFailure('internal-error', 'unexpected failure')).toResult());

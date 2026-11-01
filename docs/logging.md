@@ -86,8 +86,7 @@ The Rust Supervisor registers root and installed-module configuration values fro
 `x-url-credentials` before its first startup record. It refreshes that registry from the exact running snapshot
 after recovery and before applying accepted live changes or notifying consumers. Module installation and child
 spawns also refresh installed-module annotations against that running snapshot. Structured Supervisor records
-and captured child stdout/stderr share the registry. URL declarations contribute only userinfo and query values;
-their public host and path are never registered as whole URLs. Configuration classification does not guess key names.
+and captured child stdout/stderr share the registry. URL declarations contribute only userinfo passwords, token-like usernames, credential-named query/fragment values and token-like parameter values; ordinary usernames, benign parameters, public hosts and paths are not registered as whole URLs. Argument/environment collections contribute credential assignments and token-like parts rather than whole lists or source paths. Unknown config strings stay private when no typed public declaration applies.
 
 Safe references matched by the schema's `x-secret-reference` form remain readable in configuration views, audit
 changes and log text: their names, providers and source ids describe provisioning, not credential values. The

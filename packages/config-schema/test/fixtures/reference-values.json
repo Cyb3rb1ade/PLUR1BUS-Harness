@@ -74,13 +74,13 @@
     "definition": "backupSecretName",
     "value": "not a name",
     "reference": false,
-    "warning": false
+    "warning": true
   },
   {
     "definition": "backupSecretName",
     "value": 42,
     "reference": false,
-    "warning": false
+    "warning": true
   },
   {
     "definition": "secretEnvironmentName",
@@ -123,7 +123,7 @@
     "definition": "backupEngineSecretReference",
     "value": "${ARBITRARY_ENV}",
     "reference": false,
-    "warning": false
+    "warning": true
   },
   {
     "definition": "backupEngineSecretReference",
@@ -178,12 +178,12 @@
     "definition": "backupSecretName",
     "value": "openai-api-key\n",
     "reference": false,
-    "warning": false
+    "warning": true
   },
   {
     "definition": "secretEnvironmentName",
     "value": "FIXTURE_REFERENCE\n",
     "reference": false,
-    "warning": false
+    "warning": true
   }
 ]

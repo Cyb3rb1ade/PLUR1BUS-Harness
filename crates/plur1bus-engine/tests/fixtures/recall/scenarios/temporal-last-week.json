@@ -1,0 +1,92 @@
+{
+  "now": 1768305600000,
+  "validAt": null,
+  "recallMinScore": 0.15,
+  "topN": 12,
+  "candidateTopK": 40,
+  "candidateHardLimit": 100,
+  "canonicalMinScore": 0.3,
+  "canonicalMaxItems": 5,
+  "deferFinalCap": true,
+  "associativeEnabled": false,
+  "edges": [],
+  "knowledge": null,
+  "queryVector": {
+    "op": "hash",
+    "text": "what happened last week"
+  },
+  "vectorCheck": null,
+  "name": "temporal-last-week",
+  "query": "what happened last week",
+  "context": {
+    "agentId": "a1",
+    "workspaceId": "",
+    "workspaceIdentity": "",
+    "userPrincipal": ""
+  },
+  "rows": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "text": "recent fixture fact inside the last week window",
+      "vector": {
+        "op": "hash",
+        "text": "what happened last week"
+      },
+      "agentId": "a1",
+      "storedBy": "a1",
+      "scope": "agent-private",
+      "ownerUserId": "",
+      "workspaceId": "",
+      "workspaceKey": "",
+      "status": "active",
+      "epistemicStatus": "observed",
+      "memoryStrength": 1.2,
+      "importance": 0.5,
+      "validFrom": 0,
+      "validUntil": 0,
+      "createdAt": 1768219200000
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "text": "older fixture fact outside the last week window",
+      "vector": {
+        "op": "hash",
+        "text": "what happened last week"
+      },
+      "agentId": "a1",
+      "storedBy": "a1",
+      "scope": "agent-private",
+      "ownerUserId": "",
+      "workspaceId": "",
+      "workspaceKey": "",
+      "status": "active",
+      "epistemicStatus": "observed",
+      "memoryStrength": 1.5,
+      "importance": 0.5,
+      "validFrom": 0,
+      "validUntil": 0,
+      "createdAt": 1765713600000
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "text": "second recent fixture fact inside the last week window",
+      "vector": {
+        "op": "hash",
+        "text": "what happened last week"
+      },
+      "agentId": "a1",
+      "storedBy": "a1",
+      "scope": "agent-private",
+      "ownerUserId": "",
+      "workspaceId": "",
+      "workspaceKey": "",
+      "status": "active",
+      "epistemicStatus": "observed",
+      "memoryStrength": 0.8,
+      "importance": 0.5,
+      "validFrom": 0,
+      "validUntil": 0,
+      "createdAt": 1768132800000
+    }
+  ]
+}

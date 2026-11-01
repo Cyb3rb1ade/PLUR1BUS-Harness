@@ -4,6 +4,8 @@
 import { realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { createRedactor } from "../logs/redact.ts";
+import { SecretFormsCache } from "../logs/secret-forms.ts";
+import { createSecretMatcher, type SecretMatcher } from "../logs/secret-matcher.ts";
 import { wellFormedPrefix } from "../logs/utf16.ts";
 import type { InternalToolFailureCategory, ToolFailure } from "../tools/dispatcher.ts";
 
@@ -12,6 +14,17 @@ const MAX_STRING_CHARS = 500;
 const MAX_EXCEPTION_CHARS = 300;
 const MAX_ID_CHARS = 128;
 const SOURCE_CODE = /^[a-z0-9_.-]{1,64}$/;
+const rawSecretForms = new SecretFormsCache();
+let legacyForms: Set<string> | undefined, legacyMatcher: SecretMatcher | undefined;
+function matcherForForms(forms: readonly string[]): SecretMatcher {
+  const members = new Set(forms);
+  if (!legacyForms || members.size !== legacyForms.size || [...members].some(form => !legacyForms!.has(form))) {
+    const matcher = createSecretMatcher([...members]);
+    legacyForms = members;
+    legacyMatcher = matcher;
+  }
+  return legacyMatcher!;
+}
 // A path may arrive with doubled separators (the escaped spelling util.inspect and JSON give), so every separator is a run.
 const NAME = String.raw`[^\\/\r\n"'<>|:;,()[\]{}]+`;
 const USER_HOME = new RegExp(
@@ -42,6 +55,8 @@ const PROCESS_REAL_HOME = (() => {
 export interface ModelToolErrorOptions {
   /** Precomputed forms from the same current secret source. */
   secretForms?: readonly string[];
+  /** Compiled generation from the same current secret source; takes precedence over legacy forms/raw values. */
+  secretMatcher?: SecretMatcher;
   home?: string;
   realHome?: string;
   platform?: NodeJS.Platform;
@@ -108,7 +123,9 @@ export function modelToolError(
   secrets: Iterable<string> = [],
   options: ModelToolErrorOptions = {},
 ): ToolFailure {
-  const redactor = createRedactor(options.secretForms ? { secretForms: options.secretForms } : { secrets });
+  const matcher = options.secretMatcher ?? (options.secretForms
+    ? matcherForForms(options.secretForms) : rawSecretForms.snapshot(secrets).matcher);
+  const redactor = createRedactor({ secretMatcher: matcher });
   const patterns = homePatterns(options);
   const text = (input: string): string => {
     let result = input;

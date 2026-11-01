@@ -4,8 +4,8 @@
 // never a replacement for the writer's own redaction. Pure: no I/O, no clock.
 import { createHash } from "node:crypto";
 import { REDACTION } from "@plur1bus/log-schema";
-import { secretFormsIn } from "./secret-forms.ts";
-import { jsonEscapeView, jsonSecretViews } from "./json-escapes.ts";
+import { secretFormsIn, type SecretFormsSnapshot } from "./secret-forms.ts";
+import { createSecretMatcher, type SecretMatcher } from "./secret-matcher.ts";
 export { secretFormsIn } from "./secret-forms.ts";
 
 interface PatternDef { id: string; pattern: string; flags?: string; leftBoundary?: boolean; valueGroup?: number; replacement?: string; exemptWhenWholeMatchIs?: string }
@@ -170,56 +170,28 @@ export interface RedactOptions {
   /** Forms to mask as they are, in addition to `secrets` (see `secretFormsIn`): for a caller that scanned the text first and keeps
    *  only the forms that occur in it. */
   secretForms?: Iterable<string>;
+  /** Immutable compiled exact-value policy from the live secret-set generation. */
+  secretMatcher?: SecretMatcher;
 }
 
 export interface Redactor {
   text(s: string): string;
   /** Deep copy of a JSON value with every string redacted and every value under a secret-looking key replaced. */
   value<T>(v: T): T;
-}
-
-/** Match original and equivalent escaped spellings before changing either; overlapping secrets conceal their whole source span. */
-function maskForms(input: string, forms: readonly string[]): string {
-  if (!forms.length) return input;
-  const view = jsonEscapeView(input);
-  // One endpoint per source position bounds memory even when hundreds of forms overlap millions of times.
-  let ends: Int32Array | undefined;
-  const collect = (text: string, offset: (at: number) => number): void => {
-    for (const form of forms) {
-      if (!form.length) continue;
-      for (let at = text.indexOf(form); at >= 0; at = text.indexOf(form, at + form.length)) {
-        const start = offset(at), end = offset(at + form.length);
-        ends ??= new Int32Array(input.length);
-        ends[start] = Math.max(ends[start]!, end);
-      }
-    }
-  };
-  collect(input, at => at);
-  if (view) {
-    collect(view.text, at => view.sourceOffset(at));
-    // Replacing an unmatched surrogate preserves UTF-16 offsets, including mixed escaped/raw source spellings.
-    if (!view.text.isWellFormed()) collect(view.text.toWellFormed(), at => view.sourceOffset(at));
-  }
-  if (!ends) return input;
-  const pieces: string[] = []; let last = 0;
-  for (let start = 0; start < ends.length; start++) {
-    if (!ends[start]) continue;
-    let end = ends[start]!;
-    for (let at = start + 1; at < end; at++) end = Math.max(end, ends[at]!);
-    pieces.push(input.slice(last, start), tag("secret")); last = end;
-    start = end - 1; // Adjacent non-overlapping matches keep their separate markers.
-  }
-  pieces.push(input.slice(last));
-  return pieces.join("");
+  /** Internal source-window policy; coordinates precede masking and only exact-value matching reads outside the window. */
+  textWindow?(s: string, sourceBegin: number, sourceEnd: number): string;
+  /** Trusted policy metadata lets output framing combine live and local values before one text preparation. */
+  secretMatcher?(): SecretMatcher;
+  readonly pii?: boolean;
 }
 
 export function createRedactor(o: RedactOptions = {}): Redactor {
-  const derived = secretFormsIn(o.secrets ?? []);
-  const secretForms = o.secretForms === undefined ? derived : [...new Set([...derived, ...o.secretForms])].sort((a, b) => b.length - a.length);
+  const additional = [...secretFormsIn(o.secrets ?? []), ...(o.secretForms ?? [])];
+  const matcher = o.secretMatcher && additional.length === 0 ? o.secretMatcher
+    : createSecretMatcher([...(o.secretMatcher?.forms ?? []), ...additional]);
 
-  const text = (input: string): string => {
-    let s = maskForms(input, secretForms);
-    if (!s.isWellFormed()) s = maskForms(s.toWellFormed(), secretForms);
+  const finishText = (input: string): string => {
+    let s = input;
     if (o.secretsOnly === true) return s.toWellFormed();
     s = s.replace(/\b((?:proxy-)?authorization|(?:set-)?cookie)([ \t]*:[ \t]*)([^\r\n]*)/gi,
       (_m, name: string, sep: string) => `${name}${sep}${tag("key")}`);
@@ -237,6 +209,8 @@ export function createRedactor(o: RedactOptions = {}): Redactor {
     if (o.pii === true) for (const p of PII) s = applyPattern(s, p, "pii");
     return s.toWellFormed();
   };
+  const text = (input: string): string => finishText(matcher.maskText(input));
+  const textWindow = (input: string, begin: number, end: number): string => finishText(matcher.maskTextWindow(input, begin, end));
 
   // A line is JSON-parsed from a file anyone with log access may have written to: nesting is bounded so one record cannot
   // overflow the stack (and fail a whole query); what is deeper is replaced, never passed on unredacted.
@@ -244,7 +218,7 @@ export function createRedactor(o: RedactOptions = {}): Redactor {
     if (typeof v === "string") return text(v);
     // Opaque config slots can hold malformed numeric credentials. Preserve number type in diagnostic attrs;
     // secretsOnly retains the existing fail-closed contract for a ToolResult containing a non-string secret.
-    if (typeof v === "number" && o.secretsOnly !== true && secretForms.some((form) => String(v).includes(form))) return 0;
+    if (typeof v === "number" && o.secretsOnly !== true && matcher.findTextSpans(String(v)).length > 0) return 0;
     if (v !== null && typeof v === "object") {
       if (ancestors.includes(v)) throw new TypeError("circular value"); // the callers turn this into log.redaction.failed
       if (ancestors.length >= MAX_DEPTH) return "[TRUNCATED:depth]";
@@ -271,32 +245,25 @@ export function createRedactor(o: RedactOptions = {}): Redactor {
     return v;
   };
   const value = <T>(v: T): T => walk(v, []) as T;
-  return { text, value };
+  return { text, textWindow, value, secretMatcher: () => matcher, pii: o.pii === true };
 }
-
-/** The JSON text a string holding `form` holds: `JSON.stringify` escapes per character (quote, backslash, control characters), so
- *  a form inside a string value is inside the serialised value with the same escapes. An unmatched surrogate can also sit in half
- *  of a valid pair, whose raw UTF-16 spelling survives JSON serialization; only that additional literal occurrence counts. */
-const occursInJson = (json: string, form: string): boolean => json.includes(JSON.stringify(form).slice(1, -1)) || (!form.isWellFormed() && json.includes(form));
 
 /**
  * Masks the registered secret values in a JSON-serialised value (`json` is `JSON.stringify` of `value`'s source, `value` its parse).
- * The serialised text is scanned first, once per form: with no form in it nothing is masked and `undefined` comes back (no walk, so
- * nothing is copied or cut). With hits, only the forms that occur are walked, in strings and in keys (`secretsOnly`).
+ * The serialised text is scanned with the generation's automaton: with no form in it nothing is masked and `undefined` comes back
+ * (no walk, so nothing is copied or cut). Strings and keys are masked with the same immutable matcher (`secretsOnly`).
  *
  * Throws when a form that occurred is still there after masking: it was not in a string (a numeric secret serialised as a JSON number
  * is the case), the redactor cannot mask it, and the caller must not pass the result on.
  */
-export function maskSecretsInJson(json: string, value: unknown, secrets: Iterable<string>, forms?: readonly string[]): { value: unknown; json: string } | undefined {
-  const candidates = forms ?? secretFormsIn(secrets);
-  if (!candidates.length) return undefined;
-  const views = jsonSecretViews(json);
-  const hits = candidates.filter(f => occursInJson(json, f) || views.some(view => view.includes(f)));
-  if (hits.length === 0) return undefined;
-  const masked = createRedactor({ secretForms: hits, secretsOnly: true }).value(value);
+export function maskSecretsInJson(json: string, value: unknown, secrets: Iterable<string>, source?: SecretFormsSnapshot | readonly string[]): { value: unknown; json: string } | undefined {
+  const matcher = source && !Array.isArray(source) ? (source as SecretFormsSnapshot).matcher
+    : createSecretMatcher((source as readonly string[] | undefined) ?? secretFormsIn(secrets));
+  const before = matcher.scanJson(json);
+  if (!before.found) return undefined;
+  const masked = createRedactor({ secretMatcher: matcher, secretsOnly: true }).value(value);
   const out = JSON.stringify(masked);
-  const checked = jsonSecretViews(out);
-  if (hits.some(f => f.isWellFormed() && (out.includes(JSON.stringify(f).slice(1, -1)) || checked.some(view => view.includes(f)))))
+  if (matcher.hasResidual(before, matcher.scanJson(out)))
     throw new Error("a registered secret value is in the result outside any string");
   return { value: masked, json: out };
 }

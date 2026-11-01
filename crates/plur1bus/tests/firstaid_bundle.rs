@@ -220,8 +220,7 @@ fn schema_secrets_and_endpoint_parts_are_removed_from_every_bundle_text_before_t
     let secret = uuid::Uuid::new_v4().to_string();
     let user = uuid::Uuid::new_v4().to_string();
     let query = uuid::Uuid::new_v4().to_string();
-    let endpoint =
-        format!("https://{user}:{secret}@relay.example.test/public/path?ordinary={query}");
+    let endpoint = format!("https://{user}:{secret}@relay.example.test/public/path?token={query}");
     let configured = serde_json::json!({"schemaVersion":1,
         "engine":{"embedding":{"apiKey":secret}},
         "voice":{"providers":{"elevenlabs":{"baseUrl":endpoint}}},
@@ -242,17 +241,21 @@ fn schema_secrets_and_endpoint_parts_are_removed_from_every_bundle_text_before_t
     let files = unzip(&dest);
     for body in files.values() {
         let text = String::from_utf8_lossy(body);
-        for value in [&secret, &user, &query] {
+        for value in [&secret, &query] {
             assert!(
                 !text.contains(value),
                 "a declared credential escaped the support bundle"
             );
         }
     }
+    assert!(
+        String::from_utf8_lossy(&files["logs/core.out.log"]).contains(&user),
+        "public username was globally masked"
+    );
     let public: Value = serde_json::from_slice(&files["config.json"]).unwrap();
     assert_eq!(
         public["voice"]["providers"]["elevenlabs"]["baseUrl"],
-        "https://••••@relay.example.test/public/path?ordinary=••••"
+        "https://[REDACTED:url]@relay.example.test/public/path?token=[REDACTED:key]"
     );
     assert_eq!(
         public["modelProfiles"]["primary"]["params"]["maxTokens"],
@@ -286,7 +289,7 @@ fn reference_metadata_stays_readable_in_bundle_views_and_texts_while_literals_st
         "engine":{"embedding":{"apiKey":{"source":"store","provider":provider,"id":id}},
             "reranker":{"apiKey":literal}},
         "voice":{"providers":{"elevenlabs":{"apiKeyRef":name,
-            "baseUrl":format!("https://{user}:{literal}@relay.example.test/public?ordinary={query}")}}}
+            "baseUrl":format!("https://{user}:{literal}@relay.example.test/public?token={query}")}}}
     });
     write(&h.home.join("config.json"), &configured.to_string());
     write(&h.home.join("logs/core.out.log"),
@@ -308,9 +311,13 @@ fn reference_metadata_stays_readable_in_bundle_views_and_texts_while_literals_st
         );
     }
     assert!(output.contains("present=true"));
+    assert!(
+        output.contains(&user),
+        "public username was globally masked"
+    );
     for body in files.values() {
         let text = String::from_utf8_lossy(body);
-        for secret in [&literal, &user, &query] {
+        for secret in [&literal, &query] {
             assert!(
                 !text.contains(secret),
                 "a literal or URL credential escaped the bundle"

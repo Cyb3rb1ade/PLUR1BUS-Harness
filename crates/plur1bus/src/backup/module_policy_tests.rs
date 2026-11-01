@@ -95,7 +95,7 @@ fn installed_module_literals_are_removed_and_prefixed_reference_data_round_trips
     );
     assert_eq!(
         archived["modules"]["fixture"]["endpoint"],
-        "https://••••@relay.example.test/module?ordinary=••••&flag#public"
+        "https://REDACTED@relay.example.test/module?ordinary=REDACTED&flag#REDACTED"
     );
     assert_eq!(archived["modules"]["fixture"]["maxTokens"], 4096);
     let manifest = verify(&archive).unwrap();
@@ -374,4 +374,109 @@ fn reference_only_module_slots_preserve_names_and_remove_pasted_keys_with_restor
         fs::read_to_string(layout.home.join("config.json")).unwrap(),
         original
     );
+}
+
+#[test]
+fn uri_credentials_create_restore_and_validate_with_ascii_placeholders_and_reentry_keys() {
+    let directory = tempfile::tempdir().unwrap();
+    let layout = Layout::new(directory.path().join("source"));
+    let snapshot = testkit::staged(&layout, b"database bytes", false);
+    let schema = json!({"type":"object","properties":{
+        "endpoint":{"type":"string","format":"uri","x-url-credentials":true},
+        "reference":{"type":"string","x-secret-reference":true}
+    }});
+    install(&layout, schema.clone());
+    let secret = uuid::Uuid::new_v4().simple().to_string();
+    let uri = format!("https://public-user:{secret}@relay.example.test/public/path?token={secret}&region=us-east-1#password={secret}");
+    let mut config = plur1bus_config::defaults();
+    config["modules"]["fixture"] =
+        json!({"enabled":false,"endpoint":uri,"reference":"curated-key"});
+    config["channels"]["telegram"] = json!({"enabled":true,"tokenSecret":"telegram.bot","mode":"webhook",
+        "webhook":{"url":uri,"secret":secret,"maxBodyBytes":2048}});
+    config["privacy"]["localOnly"] = json!(false);
+    plur1bus_config::validate(&config).unwrap();
+    fs::write(layout.config_path(), config.to_string()).unwrap();
+    let archive = directory.path().join("uri.tar.gz");
+    create(&layout, &archive, &snapshot).unwrap();
+    let archived = config_in(&archive);
+    let expected = "https://REDACTED@relay.example.test/public/path?token=REDACTED&region=REDACTED#password=REDACTED";
+    assert_eq!(archived["modules"]["fixture"]["endpoint"], expected);
+    assert_eq!(archived["channels"]["telegram"]["webhook"]["url"], expected);
+    plur1bus_config::validate(&archived).unwrap();
+    let validator = jsonschema::options()
+        .should_validate_formats(true)
+        .build(&schema)
+        .unwrap();
+    assert!(validator.is_valid(&archived["modules"]["fixture"]));
+    let destination = Layout::new(directory.path().join("restored"));
+    fs::create_dir_all(&destination.home).unwrap();
+    let report = restore(
+        &destination,
+        &archive,
+        &RestoreOpts {
+            dry_run: false,
+            fail_at: None,
+        },
+    )
+    .unwrap();
+    assert!(report
+        .redacted_config_keys
+        .contains(&"modules.fixture.endpoint".to_owned()));
+    assert!(report
+        .redacted_config_keys
+        .contains(&"channels.telegram.webhook.url".to_owned()));
+    assert!(report
+        .redacted_config_keys
+        .contains(&"channels.telegram.webhook.secret".to_owned()));
+    let restored: Value =
+        serde_json::from_slice(&fs::read(destination.config_path()).unwrap()).unwrap();
+    plur1bus_config::validate(&restored).unwrap();
+    assert!(validator.is_valid(&restored["modules"]["fixture"]));
+    assert_eq!(restored["modules"]["fixture"]["reference"], "curated-key");
+    assert_eq!(restored["modules"]["fixture"]["endpoint"], expected);
+    let regenerated = restored["channels"]["telegram"]["webhook"]["secret"]
+        .as_str()
+        .unwrap();
+    assert_ne!(regenerated, secret);
+    assert_ne!(regenerated, PLACEHOLDER);
+    assert_eq!(regenerated.len(), 64);
+}
+
+#[test]
+fn absent_and_schema_less_modules_are_archived_with_private_unknown_strings() {
+    for installed in [false, true] {
+        let directory = tempfile::tempdir().unwrap();
+        let layout = Layout::new(directory.path().join("source"));
+        let snapshot = testkit::staged(&layout, b"database bytes", false);
+        if installed {
+            install(&layout, json!({}));
+            let path = layout.home.join("modules/fixture/module.json");
+            let mut manifest: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+            manifest.as_object_mut().unwrap().remove("configSchema");
+            fs::write(path, manifest.to_string()).unwrap();
+        }
+        let secret = uuid::Uuid::new_v4().to_string();
+        let config = json!({"schemaVersion":1,
+            "providers":{"unlisted":{"apiKey":secret}},"oauth":{"opaque":{"clientSecret":secret}},
+            "engine":{"unknown":secret},"voice":{"local":{"catalogOverride":{"opaque":secret}}},
+            "modules":{"fixture":{"enabled":false,"literal":secret,"nested":[secret,7,true]}}
+        });
+        fs::write(layout.config_path(), config.to_string()).unwrap();
+        let archive = directory.path().join("unknown.tar.gz");
+        create(&layout, &archive, &snapshot).unwrap();
+        let archived = config_in(&archive);
+        assert!(!archived.to_string().contains(&secret));
+        assert_eq!(archived["modules"]["fixture"]["enabled"], false);
+        assert_eq!(
+            archived["modules"]["fixture"]["nested"],
+            json!([PLACEHOLDER, 7, true])
+        );
+        assert_eq!(archived["providers"]["unlisted"]["apiKey"], PLACEHOLDER);
+        assert_eq!(archived["oauth"]["opaque"]["clientSecret"], PLACEHOLDER);
+        assert_eq!(archived["engine"]["unknown"], PLACEHOLDER);
+        assert_eq!(
+            archived["voice"]["local"]["catalogOverride"]["opaque"],
+            PLACEHOLDER
+        );
+    }
 }

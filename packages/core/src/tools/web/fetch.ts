@@ -8,8 +8,10 @@ import { randomBytes } from "node:crypto";
 import { WebFailure, type WebFailureCode } from "./failure.ts";
 import { guardedRequest, DEFAULT_MAX_BYTES, DEFAULT_TIMEOUT_MS, type HttpOptions, type HttpResponse } from "./http.ts";
 import { makeAddressPolicy, systemResolver, type Resolver } from "./guard.ts";
-import { decodeBody, estimateTokens, htmlToMarkdown, splitSections, type PageSignals, type Section } from "./html.ts";
+import { decodeBody, estimateTokens, HtmlParserLimitError, htmlToMarkdown, splitSections, type MetadataField, type PageSignals, type Section } from "./html.ts";
 import { HostPacer, parseRobots, robotsAllows, type Robots } from "./robots.ts";
+import { wellFormedPrefix } from "../../logs/utf16.ts";
+import type { SecretFormsSnapshot } from "../../logs/secret-forms.ts";
 
 export interface WebFetchArgs {
   url: string;
@@ -93,6 +95,7 @@ export interface WebFetchConfig {
 }
 
 export interface WebFetchContext {
+  knownSecrets?: (() => SecretFormsSnapshot) | undefined;
   signal?: AbortSignal | undefined;
   /** Cursors are bound to the agent that obtained them. */
   agentId?: string | undefined;
@@ -183,8 +186,10 @@ const MAX_TOKENS_LIMIT = 100_000;
 /** The table of contents travels with every chunk; a page with thousands of headings must not inflate each result. Ids stay valid beyond the list. */
 const MAX_LISTED_SECTIONS = 200;
 const MAX_SECTION_TITLE = 120;
+const META_LIMITS: Readonly<Record<MetadataField, number>> = { title: 300, lang: 35, publishedAt: 64, canonicalUrl: 2048 };
 const listSections = (all: Section[]): SectionRef[] =>
-  all.slice(0, MAX_LISTED_SECTIONS).map((s) => ({ id: s.id, title: s.title.length > MAX_SECTION_TITLE ? `${s.title.slice(0, MAX_SECTION_TITLE - 1)}…` : s.title, tokens: s.tokens }));
+  all.slice(0, MAX_LISTED_SECTIONS).map((s) => ({ id: s.id, title: s.title, tokens: s.tokens }));
+const clipped = (text: string, limit: number): string => text.length > limit ? `${wellFormedPrefix(text, limit - 1)}…` : text.toWellFormed();
 
 function validate(a: WebFetchArgs): void {
   const bad = (m: string): never => {
@@ -267,6 +272,7 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
   const pacer = cfg.pacer ?? new HostPacer({ now });
   const defaultMaxTokens = cfg.defaultMaxTokens ?? 6000;
   const maxExtractedTokens = cfg.maxExtractedTokens ?? 200_000;
+  const metadataWindows = new WeakMap<WebFetchMeta, Partial<Record<MetadataField, number>>>();
   const robotsCache = new Map<string, { robots: Robots; at: number }>();
 
   const base = (signal?: AbortSignal) => ({ resolver, policy, userAgent, signal, tlsCa: cfg.tlsCa, maxRedirects: cfg.maxRedirects, gate: cfg.gate });
@@ -295,10 +301,50 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
     return robots;
   }
 
-  function present(meta: WebFetchMeta, text: string, offset: number, maxTokens: number, agent: string, requestedUrl: string, fromCache: boolean, docId?: string): WebFetchResult {
-    const { part, next } = chunk(text, offset, maxTokens * 4);
-    const cursor = next === undefined ? undefined : `${docId ?? store.put(agent, { text, meta, requestedUrl })}.${next}`;
-    return { ...meta, markdown: part, ...(cursor ? { cursor } : {}), renderUsed: false, fromCache };
+  function present(meta: WebFetchMeta, text: string, offset: number, maxTokens: number, agent: string, requestedUrl: string, fromCache: boolean, ctx: WebFetchContext, docId?: string): WebFetchResult {
+    const snapshot = ctx.knownSecrets?.();
+    const mask = (value: string): string => snapshot ? snapshot.matcher.maskText(value) : value.toWellFormed();
+    const metadata = (field: MetadataField, value: string): string => {
+      const retained = metadataWindows.get(meta)?.[field];
+      if (retained !== undefined && META_LIMITS[field] + (snapshot?.matcher.maxSourceBytes ?? 0) + 3 > retained) return "[metadata withheld: secret context changed]";
+      return mask(value);
+    };
+    const projection = snapshot?.matcher.projectText(text);
+    const spans = projection?.spans ?? [];
+    const marker = "[REDACTED:secret]", markerLength = marker.length;
+    const sourceToOutput = (at: number): number => {
+      let delta = 0;
+      for (const span of spans) {
+        if (at <= span.start) break;
+        if (at < span.end) return span.start + delta;
+        delta += markerLength - (span.end - span.start);
+      }
+      return at + delta;
+    };
+    const outputToSource = (at: number): number => {
+      let delta = 0;
+      for (const span of spans) {
+        const start = span.start + delta;
+        if (at <= start) break;
+        if (at < start + markerLength) return span.start;
+        delta += markerLength - (span.end - span.start);
+      }
+      return at - delta;
+    };
+    const safe = projection?.text ?? text.toWellFormed(), begin = sourceToOutput(offset);
+    let { part, next } = chunk(safe, begin, maxTokens * 4);
+    // Keep markers whole and cursor coordinates in the stored source, including a secret registered between pages.
+    const cut = begin + part.length, markerStart = safe.lastIndexOf(marker, cut);
+    if (markerStart >= begin && cut > markerStart && cut < markerStart + markerLength) { part = safe.slice(begin, markerStart); next = markerStart; }
+    const cursor = next === undefined ? undefined : `${docId ?? store.put(agent, { text, meta, requestedUrl })}.${outputToSource(next)}`;
+    const shown = { ...meta,
+      ...(meta.title === undefined ? {} : { title: clipped(metadata("title", meta.title), META_LIMITS.title) }),
+      ...(meta.lang === undefined ? {} : { lang: clipped(metadata("lang", meta.lang), META_LIMITS.lang) }),
+      ...(meta.publishedAt === undefined ? {} : { publishedAt: clipped(metadata("publishedAt", meta.publishedAt), META_LIMITS.publishedAt) }),
+      ...(meta.canonicalUrl === undefined ? {} : { canonicalUrl: metadata("canonicalUrl", meta.canonicalUrl) }),
+      sections: meta.sections.map(section => ({ ...section, title: clipped(mask(section.title), MAX_SECTION_TITLE) })),
+    };
+    return { ...shown, markdown: part, ...(cursor ? { cursor } : {}), renderUsed: false, fromCache };
   }
 
   /** One station of a crawl (the page asked for, or a redirect target): robots.txt for its host, then its turn at that host. */
@@ -358,9 +404,11 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
       const entry = m ? store.get(agent, m[1]!) : undefined;
       const offset = m ? Number(m[2]) : -1;
       if (!entry || entry.requestedUrl !== args.url || offset < 0 || offset > entry.text.length) throw new WebFailure("cursor-expired", "the cursor is unknown or has expired");
+      const previous = entry.text.charCodeAt(offset - 1), current = entry.text.charCodeAt(offset);
+      if (previous >= 0xd800 && previous <= 0xdbff && current >= 0xdc00 && current <= 0xdfff) throw new WebFailure("cursor-expired", "the cursor does not start at a source codepoint boundary");
       probe.fromCache = true;
       probe.finalUrl = entry.meta.finalUrl;
-      return present(entry.meta, entry.text, offset, maxTokens, agent, args.url, true, m![1]);
+      return present(entry.meta, entry.text, offset, maxTokens, agent, args.url, true, ctx, m![1]);
     }
 
     const r = await load(args, ctx);
@@ -388,19 +436,37 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
       if (mime === "text/plain" && looksLikeHtml(r.body)) kind = "html"; // an HTML document served as plain text: read it as the page it is
     }
 
-    const text = decodeBody(r.body, r.headers["content-type"]);
+    const mask = (value: string): string => ctx.knownSecrets ? ctx.knownSecrets().matcher.maskText(value) : value.toWellFormed();
+    const text = mask(decodeBody(r.body, r.headers["content-type"]));
     const fetchedAt = new Date(now()).toISOString();
     const meta: Partial<WebFetchMeta> = {};
+    const retainedMetadata: Partial<Record<MetadataField, number>> = {};
     let markdown: string;
     const mode = args.mode ?? "auto";
     if (mode === "raw") markdown = text;
     else if (kind === "html") {
-      const ex = htmlToMarkdown(text, r.url);
+      // Retain bounded sanitized metadata context for a fresh matcher on later cursor reads, before its display caps.
+      const completeMeta: Partial<Record<MetadataField, string>> = {};
+      const prepareMetadata = (value: string, field: MetadataField): string => {
+        const safe = mask(value);
+        const limit = Math.max(maxExtractedTokens * 4, META_LIMITS[field] + (ctx.knownSecrets?.().matcher.maxSourceBytes ?? 0) + 3);
+        if (safe.length > limit) {
+          // Copy a bounded prefix rather than retaining the full HTTP body through a substring's backing allocation.
+          completeMeta[field] = Buffer.from(wellFormedPrefix(safe, limit)).toString("utf8"); retainedMetadata[field] = completeMeta[field]!.length;
+        } else completeMeta[field] = safe;
+        return safe;
+      };
+      let ex: ReturnType<typeof htmlToMarkdown>;
+      try { ex = htmlToMarkdown(text, r.url, prepareMetadata); }
+      catch (error) {
+        if (error instanceof HtmlParserLimitError) throw new WebFailure("too-large", "the HTML document exceeds its parsing limit", { url: r.url });
+        throw error;
+      }
       const wall = wallFailure(ex.signals, r.url, r.status);
       if (wall) throw wall;
       if (ex.markdown.trim() === "" || ex.looksClientRendered) throw new WebFailure("needs-render", "the page has no readable text without running its scripts", { url: r.url, status: r.status });
       markdown = ex.markdown;
-      Object.assign(meta, { title: ex.title, lang: ex.lang, publishedAt: ex.publishedAt, canonicalUrl: ex.canonicalUrl });
+      Object.assign(meta, { title: ex.title, lang: ex.lang, publishedAt: ex.publishedAt, canonicalUrl: ex.canonicalUrl }, completeMeta);
     } else if (kind === "json") {
       try {
         markdown = JSON.stringify(JSON.parse(text), null, 2);
@@ -410,12 +476,13 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
     } else markdown = text;
 
     if (estimateTokens(markdown) > maxExtractedTokens) throw new WebFailure("too-large", `the extracted text exceeds ${maxExtractedTokens} tokens`, { url: r.url });
+    markdown = mask(markdown);
     const sections: Section[] = splitSections(markdown);
     let selected = markdown;
     if (args.section !== undefined) {
-      const want = args.section.toLowerCase();
+      const want = mask(args.section).toLowerCase();
       const hit = sections.find((s) => s.id === args.section) ?? sections.find((s) => s.title.toLowerCase() === want);
-      if (!hit) throw new WebFailure("invalid-arguments", `no section ${JSON.stringify(args.section)}; available: ${sections.map((s) => `${s.id} (${s.title.slice(0, 40)})`).join(", ").slice(0, 600)}`);
+      if (!hit) throw new WebFailure("invalid-arguments", `no section ${JSON.stringify(mask(args.section))}; available: ${wellFormedPrefix(mask(sections.map((s) => `${s.id} (${wellFormedPrefix(mask(s.title), 40)})`).join(", ")), 600)}`);
       selected = hit.text;
     }
     const full: WebFetchMeta = {
@@ -428,7 +495,8 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
       fetchedAt,
       provenance: { source: "web", url: r.url, fetchedAt, trust: "untrusted" },
     };
-    return present(full, selected, 0, maxTokens, agent, args.url, false);
+    if (Object.keys(retainedMetadata).length) metadataWindows.set(full, retainedMetadata);
+    return present(full, selected, 0, maxTokens, agent, args.url, false, ctx);
   }
 
   return {
