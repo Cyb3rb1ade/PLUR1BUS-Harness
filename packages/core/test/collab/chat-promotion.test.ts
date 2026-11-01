@@ -82,3 +82,47 @@ test('incognito preview stays in RAM, explicit promotion leaves the source ephem
   assert.equal(f.store.getSession(source.session.id), null); assert.ok(!readFileSync(f.path).includes(Buffer.from('chosen-message-marker')));
   const result = f.promotion.commit(owner, preview.previewId); assert.equal(f.collab.boardStore.getCard(result.projectId, result.cardId!).description, 'chosen-message-marker'); assert.equal(f.store.getSession(source.session.id), null); assert.equal(f.volatile.getSession(source.session.id)!.kind, 'direct');
 });
+
+function discardedTurn(f: ReturnType<typeof fixture>, sessionId: string) {
+  const turn = f.store.beginTurn(sessionId, 'DISCARDED_ATTEMPT', 2);
+  f.store.completeTurn(turn.turn.id, { text: 'DISCARDED_ANSWER', tokens: 2 });
+  return turn.message.id;
+}
+function hideAttempt(f: ReturnType<typeof fixture>, sessionId: string) {
+  return f.store.rewindPath(sessionId, { toSeq: 2, lesson: 'Lesson from a discarded attempt: SAFE_LESSON', trigger: 'user', actor: owner.userId });
+}
+test('transcript promotion copies only the active conversation and excludes discarded content and its lesson', () => {
+  const f = fixture(), source = f.create(); discardedTurn(f, source.session.id);
+  const original = f.store.listMessages(source.session.id);
+  hideAttempt(f, source.session.id);
+  const preview = f.promotion.preview(owner, { sessionId: source.session.id,
+    target: { kind: 'card', projectId: f.project.id }, selection: { kind: 'transcript' } });
+  assert.doesNotMatch(preview.content, /DISCARDED_|SAFE_LESSON/);
+  assert.match(preview.content, /chosen-message-marker/);
+  const result = f.promotion.commit(owner, preview.previewId);
+  assert.doesNotMatch(f.collab.boardStore.getCard(result.projectId, result.cardId!).description, /DISCARDED_|SAFE_LESSON/);
+  assert.deepEqual(f.store.listMessages(source.session.id).slice(0, original.length), original);
+});
+test('rewind after promotion preview invalidates commit and creates no card', () => {
+  const f = fixture(), source = f.create(); discardedTurn(f, source.session.id);
+  const preview = f.promotion.preview(owner, { sessionId: source.session.id,
+    target: { kind: 'card', projectId: f.project.id }, selection: { kind: 'transcript' } });
+  hideAttempt(f, source.session.id);
+  assert.throws(() => f.promotion.commit(owner, preview.previewId), { name: 'RpcError', error: 'E_CONFLICT' });
+  assert.equal(f.collab.boardStore.cards(f.project.id, {}).cards.length, 0);
+});
+test('undo after promotion preview also invalidates commit', () => {
+  const f = fixture(), source = f.create(); discardedTurn(f, source.session.id);
+  const rewind = hideAttempt(f, source.session.id);
+  const preview = f.promotion.preview(owner, { sessionId: source.session.id,
+    target: { kind: 'card', projectId: f.project.id }, selection: { kind: 'transcript' } });
+  f.store.undoRewind(source.session.id, rewind.id, owner.userId);
+  assert.throws(() => f.promotion.commit(owner, preview.previewId), { name: 'RpcError', error: 'E_CONFLICT' });
+  assert.equal(f.collab.boardStore.cards(f.project.id, {}).cards.length, 0);
+});
+test('selected promotion refuses a discarded message id', () => {
+  const f = fixture(), source = f.create(); const id = discardedTurn(f, source.session.id);
+  hideAttempt(f, source.session.id);
+  assert.throws(() => f.promotion.preview(owner, { sessionId: source.session.id,
+    target: { kind: 'card', projectId: f.project.id }, selection: { kind: 'selected', messageIds: [id] } }), { name: 'RpcError', error: 'E_INVALID_PARAMS' });
+});
