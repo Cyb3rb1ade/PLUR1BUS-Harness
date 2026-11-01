@@ -47,6 +47,22 @@ impl WireError {
         )
     }
 
+    pub(crate) fn engine_busy() -> Self {
+        Self::application(
+            "E_NOT_AVAILABLE",
+            "engine-busy",
+            "engine request capacity is busy",
+        )
+    }
+
+    pub(crate) fn response_too_large() -> Self {
+        Self {
+            reason: "response-too-large",
+            message: "engine response exceeds frame limit",
+            ..Self::invalid_params()
+        }
+    }
+
     pub(crate) fn internal() -> Self {
         Self::application("E_INTERNAL", "internal", "engine operation failed")
     }
@@ -291,6 +307,24 @@ pub(crate) fn dispatch(
     params: &Value,
     cancel: &Cancel,
 ) -> Result<Value, WireError> {
+    // Bound native embedding/rerank allocations independently of the NDJSON input
+    // limit: short texts can produce much larger vector responses.
+    let batch_field = match method {
+        "engine.embedding.embed" => Some("texts"),
+        "engine.embedding.rerank" => Some("docs"),
+        _ => None,
+    };
+    if batch_field
+        .and_then(|field| params.get(field))
+        .and_then(Value::as_array)
+        .is_some_and(|values| values.len() > 128)
+    {
+        return Err(WireError {
+            reason: "embedding-batch-too-large",
+            message: "embedding batch exceeds 128 items",
+            ..WireError::invalid_params()
+        });
+    }
     // Cancel-aware ports own their cancellation result: recall can degrade, and
     // a job registry can record a skipped run. Preserve those native semantics.
     if !matches!(

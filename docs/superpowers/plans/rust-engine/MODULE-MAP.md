@@ -373,7 +373,7 @@ Columns: owner brief · disposition · named in (briefs that cite the file today
 | File | Lines | Disposition | Named in | Purpose | Note |
 |---|---:|---|---|---|---|
 | `lib/platform.js` | 453 | fold | RE-08 | the four platform decisions, in one place. | `rpc/platform.rs`: native callback decisions; infallible IPC callback fails closed on overlong paths |
-| `lib/safe-logging.js` | 421 | fold | RE-08 | Safe error logging helpers. | `rpc/server.rs`/`main.rs` emit fixed body-free categories; four missing semantic redaction classes folded into `packages/log-schema`; deliberate vendor-token length classifications retained |
+| `lib/safe-logging.js` | 421 | fold | RE-08 | Safe error logging helpers. | `rpc/diagnostics.rs` emits registered D111 lifecycle/error records with fixed categories, PID and errno through a bounded nonblocking queue; four missing redaction classes fold into `packages/log-schema`, with deliberate vendor-token length classifications retained |
 | `lib/log-redact.js` | 216 | fold | RE-08 | Content-free descriptors for log lines. Logs may carry ids, lengths, counts | `packages/log-schema/schema/redaction.json`; quoted bearer, folded headers, credential assignments and bot tokens covered by Core/Rust redactor tests |
 | `lib/windows-acl-parse.js` | 119 | fold | RE-08 | Strict, locale-independent parsers for the Windows ACL fast path. | `plur1bus-rpc` `acl.rs` |
 | `lib/metrics-debounce.js` | 88 | fold | RE-08 | In-memory accumulator + debounced flush for metrics writes. | `rpc/server.rs` optional `engine.status.counters` (RPC 1.17.0) |
@@ -381,10 +381,10 @@ Columns: owner brief · disposition · named in (briefs that cite the file today
 | `lib/peercred.js` | 68 | fold | RE-08 | optional Linux SO_PEERCRED (uid of the socket peer). | `plur1bus-rpc` peer credentials |
 | `lib/event-loop-lag-snapshot.js` | 63 | fold | RE-08 | cheap event-loop lag snapshot. | `rpc/server.rs` reports monotonic accept-loop excess as `schedulerLagMs` |
 | `lib/private-fs.js` | 57 | fold | RE-08 | Owner-only file and directory modes for sidecar files that hold message text | `plur1bus-rpc`/supervisor file modes |
-| `lib/process-singleton.js` | 30 | fold | RE-08 | singleton.js (7.12.36) | `rpc/layout.rs`: permanent OS-held process lock before the incarnation-aware `JobLock` |
+| `lib/process-singleton.js` | 30 | fold | RE-08 | singleton.js (7.12.36) | `rpc/layout.rs`: permanent OS-held process lock before the incarnation-aware `JobLock`, immediate proved dead-owner recovery and safe legacy nonce migration |
 | `engine/create-engine.js` | 3991 | port | RE-01, RE-05, plan | the one construction path (spec 3.1, owner decision A). | Deferred from RE-01 to RE-08/T2 runtime composition: construction needs the concrete RE-02…RE-07 implementations, excluded from RE-01. Capture/checkpoint/replay remain RE-05/T1,T6; service implementations retain their owning briefs. RE-01 supplies the types, traits and pure config helpers. The pin adds the validate facade and reembeddingTargetProvider seam. |
-| `engine/lifecycle/close-resources.js` | 129 | port | RE-01, RE-08 | the engine's close path (spec 3.1). | `rpc/server.rs` cancels requests/captures, closes connections, closes the engine with the requested budget and joins workers; `rpc/engine.rs` closes RE-03 resources idempotently. Unbuilt RE-04…RE-07 resources remain explicitly unavailable. |
-| `engine/events.js` | 24 | fold | RE-01 | The single path engine code uses to tell the host something happened | Deferred from RE-01 to RE-08/T2 `HostServices::emit` bridge and engine notifications; preserve best-effort delivery so listener failure never breaks a turn. RE-01 supplies event data shapes and the emit port. |
+| `engine/lifecycle/close-resources.js` | 129 | port | RE-01, RE-08 | the engine's close path (spec 3.1). | `rpc/server.rs` cancels requests/captures and closes connections/engine under one stop deadline, detaching uncooperative callbacks when it expires; `rpc/engine.rs` closes RE-03 resources idempotently. Unbuilt RE-04…RE-07 resources remain explicitly unavailable. |
+| `engine/events.js` | 24 | fold | RE-01 | The single path engine code uses to tell the host something happened | `rpc/host_client.rs` uses a bounded nonblocking event queue over persistent delegated Core RPC; `rpc/server.rs` fans out engine events/capture completion through bounded per-peer notification queues, isolating stalled listeners. RE-01 supplies event data shapes and the emit port. |
 
 ### RE-13
 

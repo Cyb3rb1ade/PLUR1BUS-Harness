@@ -430,6 +430,49 @@ pub mod testkit {
     use super::*;
     use std::sync::atomic::AtomicUsize;
 
+    /// A deterministic fixture callback that deliberately ignores cancellation.
+    #[derive(Default)]
+    pub struct FixtureGate {
+        state: Mutex<(bool, bool)>,
+        changed: std::sync::Condvar,
+    }
+    impl FixtureGate {
+        pub(crate) fn block(&self) {
+            let mut state = self
+                .state
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            state.0 = true;
+            self.changed.notify_all();
+            while !state.1 {
+                state = self
+                    .changed
+                    .wait(state)
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+            }
+        }
+        /// Wait until the callback actually begins; tests do not guess a scheduling delay.
+        pub fn wait_entered(&self, timeout: Duration) -> bool {
+            let state = self
+                .state
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let (state, _) = self
+                .changed
+                .wait_timeout_while(state, timeout, |state| !state.0)
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            state.0
+        }
+        /// Release a blocked fixture callback after its server has returned.
+        pub fn release(&self) {
+            self.state
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .1 = true;
+            self.changed.notify_all();
+        }
+    }
+
     /// A transport fixture returning only the recall/capture values supplied by its test.
     pub struct FixtureEngine {
         inner: ProcessEngine,
@@ -437,6 +480,10 @@ pub mod testkit {
         recall: RecallResult,
         capture: CaptureResult,
         captures: AtomicUsize,
+        pending: AtomicBool,
+        held_captures: Mutex<Vec<mpsc::Sender<CaptureResult>>>,
+        recall_gate: Mutex<Option<Arc<FixtureGate>>>,
+        close_gate: Mutex<Option<Arc<FixtureGate>>>,
     }
 
     impl FixtureEngine {
@@ -452,7 +499,36 @@ pub mod testkit {
                 recall,
                 capture,
                 captures: AtomicUsize::new(0),
+                pending: AtomicBool::new(false),
+                held_captures: Mutex::new(Vec::new()),
+                recall_gate: Mutex::new(None),
+                close_gate: Mutex::new(None),
             })
+        }
+
+        /// Keep capture receipts pending until the engine closes.
+        pub fn hold_captures(&self) {
+            self.pending.store(true, Ordering::Release);
+        }
+
+        /// Install a recall callback that a test can release explicitly.
+        pub fn block_recall(&self) -> Arc<FixtureGate> {
+            let gate = Arc::new(FixtureGate::default());
+            *self
+                .recall_gate
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(gate.clone());
+            gate
+        }
+
+        /// Install a close callback that a test can release explicitly.
+        pub fn block_close(&self) -> Arc<FixtureGate> {
+            let gate = Arc::new(FixtureGate::default());
+            *self
+                .close_gate
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(gate.clone());
+            gate
         }
     }
 
@@ -473,6 +549,18 @@ pub mod testkit {
             })
         }
         fn close(&self, budget: Option<Duration>) -> Result<(), EngineError> {
+            let gate = self
+                .close_gate
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .clone();
+            if let Some(gate) = gate {
+                gate.block();
+            }
+            self.held_captures
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .clear();
             self.inner.close(budget)
         }
         fn status(&self) -> EngineStatus {
@@ -490,6 +578,14 @@ pub mod testkit {
             cancel: &Cancel,
         ) -> Result<RecallResult, EngineError> {
             cancel.check()?;
+            let gate = self
+                .recall_gate
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .clone();
+            if let Some(gate) = gate {
+                gate.block();
+            }
             if self.inner.closed.load(Ordering::Acquire) {
                 return Err(self.inner.unavailable.error());
             }
@@ -505,8 +601,15 @@ pub mod testkit {
                 return Err(self.inner.unavailable.error());
             }
             let (sender, done) = mpsc::channel();
-            // The scripted fixture completes immediately; no persistent memory is claimed.
-            let _ = sender.send(self.capture.clone());
+            // Pending capture tests retain the sender; the default fixture completes immediately.
+            if self.pending.load(Ordering::Acquire) {
+                self.held_captures
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .push(sender);
+            } else {
+                let _ = sender.send(self.capture.clone());
+            }
             let id = self.captures.fetch_add(1, Ordering::Relaxed);
             Ok(CaptureHandle {
                 id: format!("fixture-capture-{id}"),

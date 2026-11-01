@@ -33,6 +33,8 @@ pub enum ConfigLoadError {
     Privacy(&'static str),
     /// A pinned non-commercial model lacks a matching persisted license receipt.
     LicenceRequired,
+    /// The selected conditional-model alias is rejected by Core's license gate.
+    InvalidLicenceModel,
     /// The existing license ledger cannot be read safely.
     LicenceLedger,
 }
@@ -47,6 +49,7 @@ impl fmt::Display for ConfigLoadError {
             Self::Privacy(reason) => write!(formatter, "engine privacy policy refused: {reason}"),
             Self::LicenceRequired => formatter
                 .write_str("selected model revision requires persisted license confirmation"),
+            Self::InvalidLicenceModel => formatter.write_str("selected model alias is unsupported"),
             Self::LicenceLedger => formatter.write_str("model license ledger unavailable"),
         }
     }
@@ -58,6 +61,9 @@ impl std::error::Error for ConfigLoadError {}
 pub fn load(home: &Path) -> Result<(EngineConfig, Duration), ConfigLoadError> {
     let cfg =
         plur1bus_config::read(&home.join("config.json")).map_err(|_| ConfigLoadError::Harness)?;
+    if !valid_harness_structure(&cfg) {
+        return Err(ConfigLoadError::Harness);
+    }
     let config = project(&cfg, home)?;
     check_licences(&config, home)?;
     let config = crate::config::validate(&config).map_err(|_| ConfigLoadError::Engine)?;
@@ -69,6 +75,31 @@ pub fn load(home: &Path) -> Result<(EngineConfig, Duration), ConfigLoadError> {
         })
         .ok_or(ConfigLoadError::Harness)? as u64;
     Ok((config, Duration::from_millis(grace_ms)))
+}
+
+// Match Core's structureErrors before spreading configuration objects. Schema
+// validation alone permits arbitrary engine keys, including parsed __proto__.
+fn valid_harness_structure(value: &Value) -> bool {
+    let mut pending = vec![(value, 0)];
+    while let Some((value, depth)) = pending.pop() {
+        if !(value.is_object() || value.is_array()) {
+            continue;
+        }
+        if depth > 64 {
+            return false;
+        }
+        match value {
+            Value::Object(object) => {
+                if object.contains_key("__proto__") {
+                    return false;
+                }
+                pending.extend(object.values().map(|value| (value, depth + 1)));
+            }
+            Value::Array(array) => pending.extend(array.iter().map(|value| (value, depth + 1))),
+            _ => {}
+        }
+    }
+    true
 }
 
 fn plain(value: Option<&Value>) -> Map<String, Value> {
@@ -502,20 +533,43 @@ fn check_licences(config: &Value, home: &Path) -> Result<(), ConfigLoadError> {
             OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
         )
         .map_err(|_| ConfigLoadError::LicenceLedger)?;
+        // Core SELECTs complete rows and tests only exact string model/license/
+        // revision matches. Unrelated or malformed receipt fields grant nothing;
+        // they do not make an otherwise readable ledger unavailable.
         let mut query = connection
-            .prepare("SELECT model, licence, revision FROM model_licences")
+            .prepare("SELECT * FROM model_licences")
             .map_err(|_| ConfigLoadError::LicenceLedger)?;
-        let rows = query
-            .query_map([], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, String>(2)?,
-                ))
-            })
+        let names = query.column_names();
+        let indices = ["model", "licence", "revision"]
+            .map(|field| names.iter().rposition(|name| *name == field));
+        let mut rows = query
+            .query([])
             .map_err(|_| ConfigLoadError::LicenceLedger)?;
-        rows.collect::<Result<Vec<_>, _>>()
-            .map_err(|_| ConfigLoadError::LicenceLedger)?
+        let mut receipts = Vec::new();
+        while let Some(row) = rows.next().map_err(|_| ConfigLoadError::LicenceLedger)? {
+            let text = |index: Option<usize>| -> Result<Option<String>, ConfigLoadError> {
+                let Some(index) = index else {
+                    return Ok(None);
+                };
+                Ok(
+                    match row
+                        .get_ref(index)
+                        .map_err(|_| ConfigLoadError::LicenceLedger)?
+                    {
+                        rusqlite::types::ValueRef::Text(value) => {
+                            std::str::from_utf8(value).ok().map(str::to_owned)
+                        }
+                        _ => None,
+                    },
+                )
+            };
+            if let (Some(model), Some(licence), Some(revision)) =
+                (text(indices[0])?, text(indices[1])?, text(indices[2])?)
+            {
+                receipts.push((model, licence, revision));
+            }
+        }
+        receipts
     } else {
         Vec::new()
     };
@@ -526,6 +580,11 @@ fn check_licences(config: &Value, home: &Path) -> Result<(), ConfigLoadError> {
                 .and_then(Value::as_str)
                 .filter(|model| NC_MODELS.contains(model))
             {
+                // Core explicitly rejects this obsolete alias rather than asking
+                // the owner to confirm a different model/revision.
+                if model == "jinaai/jina-embeddings-v5-text-nano" {
+                    return Err(ConfigLoadError::InvalidLicenceModel);
+                }
                 let profile = crate::embedding::artifacts::pinned_profile(model, None)
                     .ok_or(ConfigLoadError::LicenceRequired)?;
                 let revision = object
@@ -849,5 +908,196 @@ mod regressions {
             .map(|entry| entry.unwrap().file_name())
             .collect();
         assert_eq!(before, after);
+    }
+}
+
+#[cfg(test)]
+mod parity {
+    // The fixture is computed from Core; this test exercises Rust's real read-only load path.
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    use super::*;
+    use std::{collections::BTreeMap, fs, path::PathBuf, process::Command};
+
+    const VECTORS: &str = include_str!("../../../../tests/engine-parity/config/startup.json");
+    const HOME: &str = "${HOME}";
+
+    fn paths(value: &mut Value, home: &str, normalize: bool) {
+        match value {
+            Value::String(text) => {
+                if normalize && text.starts_with(home) {
+                    *text = format!("{HOME}{}", text[home.len()..].replace('\\', "/"));
+                } else if !normalize {
+                    *text = text.replace(HOME, home);
+                }
+            }
+            Value::Array(items) => {
+                for value in items {
+                    paths(value, home, normalize);
+                }
+            }
+            Value::Object(object) => {
+                for value in object.values_mut() {
+                    paths(value, home, normalize);
+                }
+            }
+            _ => {}
+        }
+    }
+    fn snapshot(root: &Path) -> BTreeMap<PathBuf, Option<Vec<u8>>> {
+        fn walk(root: &Path, path: &Path, result: &mut BTreeMap<PathBuf, Option<Vec<u8>>>) {
+            if !path.exists() {
+                return;
+            }
+            result.insert(path.strip_prefix(root).unwrap().to_path_buf(), None);
+            for entry in fs::read_dir(path).unwrap() {
+                let entry = entry.unwrap();
+                if entry.file_type().unwrap().is_dir() {
+                    walk(root, &entry.path(), result);
+                } else {
+                    result.insert(
+                        entry.path().strip_prefix(root).unwrap().to_path_buf(),
+                        Some(fs::read(entry.path()).unwrap()),
+                    );
+                }
+            }
+        }
+        let mut result = BTreeMap::new();
+        walk(root, root, &mut result);
+        result
+    }
+    fn ledger(home: &Path, spec: &Value) {
+        fs::create_dir_all(home.join("state")).unwrap();
+        let path = home.join("state/model-licences.sqlite");
+        if spec["kind"] == "directory" {
+            fs::create_dir(path).unwrap();
+            return;
+        }
+        if spec["kind"] == "corrupt" {
+            fs::write(path, "fixture-corrupt-ledger").unwrap();
+            return;
+        }
+        let db = Connection::open(path).unwrap();
+        if spec["kind"] == "unrelated-table" {
+            db.execute_batch("CREATE TABLE model_licences(unrelated)")
+                .unwrap();
+        }
+        if spec["kind"] != "rows" {
+            return;
+        }
+        db.execute_batch("CREATE TABLE model_licences(who, at, licence, model, revision, source)")
+            .unwrap();
+        for row in spec
+            .get("rows")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            let values = ["who", "at", "licence", "model", "revision", "source"].map(|field| {
+                match row.get(field) {
+                    Some(Value::String(value)) => Some(rusqlite::types::Value::Text(value.clone())),
+                    Some(Value::Number(value)) => {
+                        Some(rusqlite::types::Value::Real(value.as_f64().unwrap()))
+                    }
+                    None | Some(Value::Null) => Some(rusqlite::types::Value::Null),
+                    _ => None,
+                }
+                .expect("unsupported synthetic receipt value")
+            });
+            db.execute(
+                "INSERT INTO model_licences VALUES(?,?,?,?,?,?)",
+                rusqlite::params_from_iter(values),
+            )
+            .unwrap();
+        }
+    }
+    fn error(error: ConfigLoadError) -> Value {
+        let (code, reason) = match error {
+            ConfigLoadError::Harness | ConfigLoadError::Engine => ("E_CONFIG_INVALID", None),
+            ConfigLoadError::Privacy(reason) => ("E_DENIED", Some(reason)),
+            ConfigLoadError::Provider("engine-adapter-factory-unavailable") => (
+                "E_NOT_AVAILABLE",
+                Some("engine-adapter-factory-unavailable"),
+            ),
+            ConfigLoadError::Provider(reason) => ("E_INVALID_PARAMS", Some(reason)),
+            ConfigLoadError::InvalidLicenceModel => ("E_INVALID_PARAMS", None),
+            ConfigLoadError::LicenceRequired => ("E_DENIED", Some("model-licence-required")),
+            ConfigLoadError::LicenceLedger => ("E_CONFIG_INVALID", Some("licence-ledger")),
+        };
+        json!({"ok":false,"code":code,"reason":reason})
+    }
+
+    #[test]
+    fn core_generated_startup_vectors_match_rust_without_writes() {
+        let fixture: Value = serde_json::from_str(VECTORS).unwrap();
+        assert_eq!(fixture["version"], 1);
+        assert_eq!(fixture["source"], "packages/core/src/engine-config.ts");
+        let mut failures = Vec::new();
+        for vector in fixture["cases"].as_array().unwrap() {
+            let root = tempfile::tempdir().unwrap();
+            let home = root.path().join("home");
+            if vector["configDirectory"] == true {
+                fs::create_dir_all(home.join("config.json")).unwrap();
+            }
+            if let Some(raw) = vector.get("rawConfig").and_then(Value::as_str) {
+                fs::create_dir(&home).unwrap();
+                fs::write(home.join("config.json"), raw).unwrap();
+            } else if let Some(raw) = vector.get("config") {
+                let mut raw = raw.clone();
+                paths(&mut raw, home.to_str().unwrap(), false);
+                fs::create_dir(&home).unwrap();
+                fs::write(home.join("config.json"), serde_json::to_vec(&raw).unwrap()).unwrap();
+            }
+            if let Some(spec) = vector.get("ledger") {
+                ledger(&home, spec);
+            }
+            let before = snapshot(root.path());
+            let actual = match load(&home) {
+                Ok((config, grace)) => {
+                    let mut config = serde_json::to_value(config).unwrap();
+                    paths(&mut config, home.to_str().unwrap(), true);
+                    json!({"ok":true,"config":config,"graceMs":grace.as_millis()})
+                }
+                Err(cause) => error(cause),
+            };
+            assert_eq!(
+                snapshot(root.path()),
+                before,
+                "{}: startup wrote files",
+                vector["name"]
+            );
+            if actual != vector["expected"] {
+                failures.push(format!(
+                    "{}: expected ok={} code={} reason={}; got ok={} code={} reason={}",
+                    vector["name"],
+                    vector["expected"]["ok"],
+                    vector["expected"]["code"],
+                    vector["expected"]["reason"],
+                    actual["ok"],
+                    actual["code"],
+                    actual["reason"]
+                ));
+            }
+        }
+        assert!(
+            failures.is_empty(),
+            "Core/Rust config drift:\n{}",
+            failures.join("\n")
+        );
+    }
+
+    #[test]
+    fn committed_vectors_are_current_core_results() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let output = Command::new("node")
+            .args(["--experimental-strip-types", "--conditions=source"])
+            .arg(root.join("packages/core/test/fixtures/engine-config-vectors.ts"))
+            .arg("--check")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "Core startup vectors stale or generator unavailable:\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 }

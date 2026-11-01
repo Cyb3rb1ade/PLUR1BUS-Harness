@@ -1,6 +1,7 @@
 //! Engine-process composition, authenticated IPC, lifecycle and reverse host services.
 
 pub mod config;
+pub mod diagnostics;
 pub mod engine;
 pub mod host_client;
 pub mod layout;

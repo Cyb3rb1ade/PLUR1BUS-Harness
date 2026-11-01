@@ -1,5 +1,5 @@
 //! Reverse RPC must authenticate the independent engine principal before host access.
-#![cfg(unix)]
+#![cfg(any(unix, windows))]
 // Native OS fixtures intentionally panic on a failed setup/cleanup so a test cannot pass vacuously.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -8,25 +8,41 @@ use plur1bus_engine::contract::{
     LlmPort, Scheme, SecretPort, Target,
 };
 use plur1bus_engine::rpc::host_client::RpcHost;
+use plur1bus_rpc::server_transport::Listener;
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Write};
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-use std::os::unix::net::UnixListener;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
 
 const ENGINE_TOKEN: &str = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 const CORE_TOKEN: &str = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
 const PRIVATE: &str = "test-only-private-secret-body";
 
 type Handler = dyn Fn(&str, &Value) -> Result<Value, &'static str> + Send + Sync;
+type Writer = Arc<Mutex<Box<dyn Write + Send>>>;
+type Closer = Arc<dyn Fn() + Send + Sync>;
 
-/// Each accepted connection must pass the same exact delegation shape as the Core guard.
+#[derive(Clone, Copy)]
+enum Bootstrap {
+    Normal,
+    Hold(&'static str),
+    TrickleAuth,
+}
+
+/// The shared native listener gives this fixture Unix UID and Windows PID/DACL behavior.
 struct FakeCore {
     thread: Option<JoinHandle<()>>,
-    listener: UnixListener,
+    stop: Arc<AtomicBool>,
     requests: Arc<Mutex<Vec<Value>>>,
+    writer: Arc<Mutex<Option<Writer>>>,
+    closers: Arc<Mutex<Vec<Closer>>>,
+    home: PathBuf,
+    accepted: Arc<AtomicUsize>,
 }
 
 impl FakeCore {
@@ -35,12 +51,21 @@ impl FakeCore {
         token: &str,
         handler: impl Fn(&str, &Value) -> Result<Value, &'static str> + Send + Sync + 'static,
     ) -> Self {
+        Self::start_bootstrap(home, token, Bootstrap::Normal, handler)
+    }
+
+    fn start_bootstrap(
+        home: &Path,
+        token: &str,
+        bootstrap: Bootstrap,
+        handler: impl Fn(&str, &Value) -> Result<Value, &'static str> + Send + Sync + 'static,
+    ) -> Self {
         let run = home.join("run");
-        std::fs::create_dir_all(&run).unwrap();
-        std::fs::set_permissions(&run, std::fs::Permissions::from_mode(0o700)).unwrap();
-        let path = run.join("core.sock");
-        let _ = std::fs::remove_file(&path);
-        let listener = UnixListener::bind(&path).unwrap();
+        plur1bus_engine::store::paths::secure_dir(&run).unwrap();
+        let address = plur1bus_engine::rpc::layout::unit_address(home, "core");
+        #[cfg(unix)]
+        let _ = std::fs::remove_file(&address);
+        let listener = Listener::bind(&address).unwrap();
         std::fs::write(run.join("core.token"), token).unwrap();
         std::fs::write(
             run.join("core.pid"),
@@ -48,71 +73,180 @@ impl FakeCore {
         )
         .unwrap();
         for file in [run.join("core.token"), run.join("core.pid")] {
-            std::fs::set_permissions(file, std::fs::Permissions::from_mode(0o600)).unwrap();
+            plur1bus_engine::store::paths::secure_file(&file).unwrap();
         }
-        let worker_listener = listener.try_clone().unwrap();
         let requests = Arc::new(Mutex::new(Vec::new()));
         let recorded = requests.clone();
-        let token = token.to_owned();
         let handler: Arc<Handler> = Arc::new(handler);
+        let stop = Arc::new(AtomicBool::new(false));
+        let stopped = stop.clone();
+        let writer: Arc<Mutex<Option<Writer>>> = Arc::new(Mutex::new(None));
+        let live_writer = writer.clone();
+        let closers: Arc<Mutex<Vec<Closer>>> = Arc::new(Mutex::new(Vec::new()));
+        let active_closers = closers.clone();
+        let accepted = Arc::new(AtomicUsize::new(0));
+        let connections = accepted.clone();
         let thread = thread::spawn(move || {
-            for accepted in worker_listener.incoming() {
-                let stream = accepted.unwrap();
-                let mut reader = BufReader::new(stream);
+            while !stopped.load(Ordering::Acquire) {
+                let connection = match listener.accept_timeout(Duration::from_millis(25)) {
+                    Ok(Some(connection)) => connection,
+                    Ok(None) => continue,
+                    Err(_) if stopped.load(Ordering::Acquire) => break,
+                    Err(_) => {
+                        thread::sleep(Duration::from_millis(2));
+                        continue;
+                    }
+                };
+                connections.fetch_add(1, Ordering::AcqRel);
+                connection.set_read_timeout(None).unwrap();
+                let mut reader = BufReader::new(connection.reader);
+                let output = Arc::new(Mutex::new(connection.writer));
+                {
+                    let mut closers = active_closers.lock().unwrap();
+                    if stopped.load(Ordering::Acquire) {
+                        (connection.closer)();
+                        break;
+                    }
+                    closers.push(connection.closer.clone());
+                }
+                *live_writer.lock().unwrap() = Some(output.clone());
                 let mut authed = false;
                 loop {
                     let mut line = String::new();
-                    if reader.read_line(&mut line).unwrap() == 0 {
-                        break;
+                    match reader.read_line(&mut line) {
+                        Ok(0) | Err(_) => break,
+                        Ok(_) => {}
                     }
                     let request: Value = serde_json::from_str(&line).unwrap();
-                    if request["method"] == "test.stop" {
-                        return;
-                    }
                     recorded.lock().unwrap().push(request.clone());
+                    if matches!(bootstrap, Bootstrap::Hold(method) if request["method"] == method) {
+                        continue;
+                    }
+                    if request["method"] == "core.auth"
+                        && matches!(bootstrap, Bootstrap::TrickleAuth)
+                    {
+                        if output
+                            .lock()
+                            .unwrap()
+                            .write_all(b"{\"jsonrpc\":\"2.0\",\"id\":")
+                            .is_ok()
+                        {
+                            while !stopped.load(Ordering::Acquire) {
+                                if output.lock().unwrap().write_all(b" ").is_err() {
+                                    break;
+                                }
+                                if output.lock().unwrap().flush().is_err() {
+                                    break;
+                                }
+                                thread::sleep(Duration::from_millis(10));
+                            }
+                        }
+                        break;
+                    }
                     let result = if request["method"] == "core.auth" {
                         authed = request["params"]
-                            == json!({"token":token,"engine":{"clientId":"plur1bus-engine","token":ENGINE_TOKEN}});
+                            == json!({"token":ENGINE_TOKEN,"engine":{"clientId":"plur1bus-engine","token":ENGINE_TOKEN}});
                         if authed {
                             Ok(
-                                json!({"contract":"1.17.0","rpc":"1.7.0","instanceId":"fake-core","pid":std::process::id()}),
+                                json!({"contract":"1.17.0","rpc":"1.17.0","instanceId":"fake-core","pid":std::process::id()}),
                             )
                         } else {
                             Err("E_UNAUTHORIZED")
                         }
                     } else if !authed {
                         Err("E_DENIED")
+                    } else if request["method"] == "events.subscribe" {
+                        assert_eq!(request["params"], json!({"names":["egress.changed"]}));
+                        Ok(json!({"subscriptionId":"fake-egress"}))
                     } else {
                         handler(request["method"].as_str().unwrap(), &request["params"])
                     };
+                    if result
+                        .as_ref()
+                        .is_ok_and(|value| value == &json!({"fixtureHold":true}))
+                    {
+                        continue;
+                    }
                     let response = match result {
                         Ok(value) => json!({"jsonrpc":"2.0","id":request["id"],"result":value}),
                         Err(code) => {
                             json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":-32000,"message":PRIVATE,"data":{"error":code,"reason":PRIVATE,"detail":PRIVATE}}})
                         }
                     };
-                    writeln!(reader.get_mut(), "{response}").unwrap();
+                    if writeln!(output.lock().unwrap(), "{response}").is_err() {
+                        break;
+                    }
+                }
+                *live_writer.lock().unwrap() = None;
+                (connection.closer)();
+                if stopped.load(Ordering::Acquire) {
+                    break;
                 }
             }
         });
         Self {
             thread: Some(thread),
-            listener,
+            stop,
             requests,
+            writer,
+            closers,
+            home: home.to_path_buf(),
+            accepted,
         }
+    }
+
+    fn count(&self, method: &str) -> usize {
+        self.requests
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|request| request["method"] == method)
+            .count()
+    }
+
+    fn notify_policy_change(&self) {
+        let writer = self
+            .writer
+            .lock()
+            .unwrap()
+            .clone()
+            .expect("authenticated connection");
+        writeln!(
+            writer.lock().unwrap(),
+            "{}",
+            json!({"jsonrpc":"2.0","method":"egress.changed","params":{}})
+        )
+        .unwrap();
+    }
+
+    fn rotate_token(&self, token: &str) {
+        let path = self.home.join("run/core.token");
+        std::fs::write(&path, token).unwrap();
+        plur1bus_engine::store::paths::secure_file(&path).unwrap();
     }
 }
 
 impl Drop for FakeCore {
     fn drop(&mut self) {
-        let mut stream = std::os::unix::net::UnixStream::connect(
-            self.listener.local_addr().unwrap().as_pathname().unwrap(),
-        )
-        .unwrap();
-        writeln!(stream, "{}", json!({"method":"test.stop"})).unwrap();
-        if let Some(thread) = self.thread.take() {
-            let _ = thread.join();
+        self.stop.store(true, Ordering::Release);
+        for closer in self.closers.lock().unwrap().drain(..) {
+            closer();
         }
+        self.writer.lock().unwrap().take();
+        if let Some(thread) = self.thread.take() {
+            let result = thread.join();
+            if !thread::panicking() {
+                assert!(result.is_ok(), "Fake Core fixture failed");
+            }
+        }
+    }
+}
+
+fn wait_for(mut predicate: impl FnMut() -> bool) {
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while !predicate() {
+        assert!(Instant::now() < deadline, "fixture deadline");
+        thread::sleep(Duration::from_millis(2));
     }
 }
 
@@ -235,17 +369,17 @@ fn attributed_completion_preserves_outer_agent_and_unattributed_trait_fails_clos
 }
 
 #[test]
-fn egress_asks_live_policy_for_every_hop_and_never_echoes_arbitrary_denials() {
+fn egress_caches_each_target_until_an_idle_policy_notification() {
     let home = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
-    let allow = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let allow = Arc::new(AtomicBool::new(true));
     let live = allow.clone();
-    let _core = FakeCore::start(home.path(), CORE_TOKEN, move |method, params| {
+    let core = FakeCore::start(home.path(), CORE_TOKEN, move |method, params| {
         assert_eq!(method, "host.egress.decide");
         assert_eq!(
             params,
             &json!({"scheme":"https","host":"api.example.com","port":443})
         );
-        if live.load(std::sync::atomic::Ordering::Acquire) {
+        if live.load(Ordering::Acquire) {
             Ok(
                 json!({"allowed":true,"host":"api.example.com","port":443,"address":"8.8.8.8","family":4}),
             )
@@ -254,23 +388,35 @@ fn egress_asks_live_policy_for_every_hop_and_never_echoes_arbitrary_denials() {
         }
     });
     let host = host(home.path(), ENGINE_TOKEN);
-    assert!(!host.cache_decisions());
+    let invalidations = Arc::new(AtomicUsize::new(0));
+    let changed = invalidations.clone();
+    host.set_egress_invalidator(Arc::new(move || {
+        changed.fetch_add(1, Ordering::AcqRel);
+    }));
     assert_eq!(
         host.decide(&target()),
         Decision::Allow {
             address_rules: AddressRules::default()
         }
     );
-    allow.store(false, std::sync::atomic::Ordering::Release);
+    allow.store(false, Ordering::Release);
+    assert!(matches!(host.decide(&target()), Decision::Allow { .. }));
+    assert_eq!(core.count("host.egress.decide"), 1);
+    assert_eq!(core.count("events.subscribe"), 1);
+    let before = invalidations.load(Ordering::Acquire);
+    core.notify_policy_change();
+    wait_for(|| invalidations.load(Ordering::Acquire) > before);
     let denied = host.decide(&target());
     assert!(matches!(&denied, Decision::Deny { .. }));
     assert!(!format!("{denied:?}").contains(PRIVATE));
+    assert_eq!(core.count("host.egress.decide"), 2);
+    assert_eq!(core.count("core.auth"), 1);
 }
 
 #[test]
 fn workspace_events_and_journal_use_the_authenticated_host_surface() {
     let home = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
-    let _core = FakeCore::start(home.path(), CORE_TOKEN, |method, params| match method {
+    let core = FakeCore::start(home.path(), CORE_TOKEN, |method, params| match method {
         "host.workspaceDir" => {
             assert_eq!(params["agentId"], "alice");
             Ok(json!({"path":null}))
@@ -288,6 +434,7 @@ fn workspace_events_and_journal_use_the_authenticated_host_surface() {
     let host = host(home.path(), ENGINE_TOKEN);
     assert_eq!(host.workspace_dir(&agent()).unwrap(), None);
     host.emit("recall.completed", json!({"count":2}));
+    wait_for(|| core.count("host.event") == 1);
     assert_eq!(
         serde_json::to_value(host.journal_backlog().unwrap()).unwrap(),
         json!({"entries":3,"oldestAt":1200})
@@ -315,6 +462,7 @@ fn egress_refuses_mismatched_origins_private_pins_and_unknown_denial_text() {
 }
 
 #[test]
+#[cfg(unix)]
 fn linked_identity_files_fail_before_connecting_or_reading_host_secrets() {
     let home = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
     let core = FakeCore::start(home.path(), CORE_TOKEN, |_, _| {
@@ -333,6 +481,7 @@ fn linked_identity_files_fail_before_connecting_or_reading_host_secrets() {
 }
 
 #[test]
+#[cfg(unix)]
 fn public_hardlinked_and_oversize_identity_files_fail_before_authentication() {
     let home = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
     let core = FakeCore::start(home.path(), CORE_TOKEN, |_, _| Ok(json!({"value":null})));
@@ -348,4 +497,424 @@ fn public_hardlinked_and_oversize_identity_files_fail_before_authentication() {
     std::fs::write(&token, "a".repeat(4097)).unwrap();
     assert!(matches!(host.get("present"), Err(HostError::Unavailable)));
     assert!(core.requests.lock().unwrap().is_empty());
+}
+
+#[test]
+fn repeated_host_calls_reuse_one_delegated_handshake() {
+    let home = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let core = FakeCore::start(home.path(), CORE_TOKEN, |_, _| Ok(json!({"path":null})));
+    let host = host(home.path(), ENGINE_TOKEN);
+    for _ in 0..3 {
+        assert_eq!(host.workspace_dir(&agent()).unwrap(), None);
+    }
+    assert_eq!(core.count("core.auth"), 1);
+    assert_eq!(core.accepted.load(Ordering::Acquire), 1);
+    let requests = core.requests.lock().unwrap();
+    let auth = requests
+        .iter()
+        .find(|request| request["method"] == "core.auth")
+        .unwrap();
+    assert_eq!(auth["params"]["token"], ENGINE_TOKEN);
+    assert_ne!(auth["params"]["token"], CORE_TOKEN);
+}
+
+#[test]
+fn notification_during_policy_call_prevents_caching_the_old_generation() {
+    let home = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let (started_tx, started_rx) = std::sync::mpsc::sync_channel(1);
+    let (release_tx, release_rx) = std::sync::mpsc::sync_channel(1);
+    let release_rx = Mutex::new(release_rx);
+    let calls = Arc::new(AtomicUsize::new(0));
+    let gate_calls = calls.clone();
+    let core = FakeCore::start(home.path(), CORE_TOKEN, move |method, _| {
+        assert_eq!(method, "host.egress.decide");
+        if gate_calls.fetch_add(1, Ordering::AcqRel) == 0 {
+            started_tx.send(()).unwrap();
+            release_rx
+                .lock()
+                .unwrap()
+                .recv_timeout(Duration::from_secs(3))
+                .unwrap();
+            Ok(
+                json!({"allowed":true,"host":"api.example.com","port":443,"address":"8.8.8.8","family":4}),
+            )
+        } else {
+            Ok(json!({"allowed":false,"reason":"host-not-allowed","message":PRIVATE}))
+        }
+    });
+    let host = Arc::new(host(home.path(), ENGINE_TOKEN));
+    let invalidations = Arc::new(AtomicUsize::new(0));
+    let changed = invalidations.clone();
+    host.set_egress_invalidator(Arc::new(move || {
+        changed.fetch_add(1, Ordering::AcqRel);
+    }));
+    let request_host = host.clone();
+    let request = thread::spawn(move || request_host.decide(&target()));
+    started_rx.recv_timeout(Duration::from_secs(3)).unwrap();
+    let before = invalidations.load(Ordering::Acquire);
+    core.notify_policy_change();
+    wait_for(|| invalidations.load(Ordering::Acquire) > before);
+    release_tx.send(()).unwrap();
+    assert!(matches!(request.join().unwrap(), Decision::Allow { .. }));
+    assert!(matches!(host.decide(&target()), Decision::Deny { .. }));
+    assert_eq!(calls.load(Ordering::Acquire), 2);
+    assert_eq!(core.count("core.auth"), 1);
+}
+
+#[test]
+fn token_rotation_reauthenticates_and_revokes_cached_decisions() {
+    let home = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let allowed = Arc::new(AtomicBool::new(true));
+    let live = allowed.clone();
+    let core = FakeCore::start(home.path(), CORE_TOKEN, move |_, params| {
+        if live.load(Ordering::Acquire) {
+            Ok(
+                json!({"allowed":true,"host":params["host"],"port":params["port"],"address":"8.8.8.8","family":4}),
+            )
+        } else {
+            Ok(json!({"allowed":false,"reason":"host-not-allowed","message":"revoked"}))
+        }
+    });
+    let host = host(home.path(), ENGINE_TOKEN);
+    assert!(matches!(host.decide(&target()), Decision::Allow { .. }));
+    assert!(matches!(host.decide(&target()), Decision::Allow { .. }));
+    assert_eq!(core.count("host.egress.decide"), 1);
+    allowed.store(false, Ordering::Release);
+    core.rotate_token(&"d".repeat(64));
+    assert!(matches!(host.decide(&target()), Decision::Deny { .. }));
+    assert_eq!(core.count("core.auth"), 2);
+    assert_eq!(core.count("events.subscribe"), 2);
+}
+
+#[test]
+fn idle_eof_invalidates_cached_policy_and_restarted_core_recovers() {
+    let home = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let host = host(home.path(), ENGINE_TOKEN);
+    let invalidations = Arc::new(AtomicUsize::new(0));
+    let changed = invalidations.clone();
+    host.set_egress_invalidator(Arc::new(move || {
+        changed.fetch_add(1, Ordering::AcqRel);
+    }));
+    let before;
+    {
+        let core = FakeCore::start(home.path(), CORE_TOKEN, |_, _| {
+            Ok(
+                json!({"allowed":true,"host":"api.example.com","port":443,"address":"8.8.8.8","family":4}),
+            )
+        });
+        assert!(matches!(host.decide(&target()), Decision::Allow { .. }));
+        assert_eq!(core.count("host.egress.decide"), 1);
+        before = invalidations.load(Ordering::Acquire);
+    }
+    wait_for(|| invalidations.load(Ordering::Acquire) > before);
+    let core = FakeCore::start(home.path(), &"d".repeat(64), |_, _| {
+        Ok(json!({"allowed":false,"reason":"host-not-allowed","message":"revoked"}))
+    });
+    assert!(matches!(host.decide(&target()), Decision::Deny { .. }));
+    assert_eq!(core.count("core.auth"), 1);
+    assert_eq!(core.count("host.egress.decide"), 1);
+}
+
+#[test]
+fn emit_is_prompt_bounded_and_shutdown_interrupts_a_hung_core() {
+    let home = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let core = FakeCore::start(home.path(), CORE_TOKEN, |method, _| match method {
+        "host.workspaceDir" => Ok(json!({"path":null})),
+        "host.event" => Ok(json!({"fixtureHold":true})),
+        _ => panic!("unexpected method"),
+    });
+    let host = Arc::new(host(home.path(), ENGINE_TOKEN));
+    struct StopHost(Arc<RpcHost>);
+    impl Drop for StopHost {
+        fn drop(&mut self) {
+            self.0.shutdown();
+        }
+    }
+    let _stop_host = StopHost(host.clone());
+    assert_eq!(host.workspace_dir(&agent()).unwrap(), None);
+    let (done_tx, done_rx) = std::sync::mpsc::sync_channel(1);
+    let emitting_host = host.clone();
+    let emit_thread = thread::spawn(move || {
+        for _ in 0..1024 {
+            emitting_host.emit("recall.completed", json!({"count":1}));
+        }
+        let _ = done_tx.send(());
+    });
+    wait_for(|| core.count("host.event") >= 1);
+    let prompt = done_rx.recv_timeout(Duration::from_secs(1)).is_ok();
+    let started = Instant::now();
+    host.shutdown();
+    emit_thread.join().unwrap();
+    assert!(prompt, "emit waited for Core");
+    assert!(
+        started.elapsed() < Duration::from_secs(2),
+        "shutdown waited for the call timeout"
+    );
+    assert!(
+        host.dropped_events() > 0,
+        "event queue did not stay bounded"
+    );
+    assert_eq!(host.workspace_dir(&agent()), Err(HostError::Unavailable));
+}
+
+#[test]
+fn caller_cancellation_closes_the_reverse_call_and_reconnects() {
+    let home = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let core = FakeCore::start(home.path(), CORE_TOKEN, |method, _| match method {
+        "host.workspaceDir" => Ok(json!({"path":null})),
+        "host.llm.complete" => Ok(json!({"fixtureHold":true})),
+        _ => panic!("unexpected method"),
+    });
+    let host = Arc::new(host(home.path(), ENGINE_TOKEN));
+    let cancel = Cancel::never();
+    let request_cancel = cancel.clone();
+    let request_host = host.clone();
+    let request =
+        thread::spawn(move || request_host.complete_for(&agent(), &completion(), &request_cancel));
+    wait_for(|| core.count("host.llm.complete") == 1);
+    let started = Instant::now();
+    cancel.cancel();
+    assert!(matches!(
+        request.join().unwrap(),
+        Err(HostError::Cancelled(_))
+    ));
+    assert!(started.elapsed() < Duration::from_secs(1));
+    assert_eq!(host.workspace_dir(&agent()).unwrap(), None);
+    assert_eq!(core.count("core.auth"), 2);
+}
+
+#[test]
+fn concurrent_first_calls_share_the_same_handshake() {
+    let home = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let core = FakeCore::start(home.path(), CORE_TOKEN, |_, _| Ok(json!({"path":null})));
+    let host = Arc::new(host(home.path(), ENGINE_TOKEN));
+    let requests = (0..4)
+        .map(|_| {
+            let host = host.clone();
+            thread::spawn(move || host.workspace_dir(&agent()))
+        })
+        .collect::<Vec<_>>();
+    for request in requests {
+        assert_eq!(request.join().unwrap().unwrap(), None);
+    }
+    assert_eq!(core.count("core.auth"), 1);
+    assert_eq!(core.count("events.subscribe"), 1);
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_pipe_pid_mismatch_is_refused_before_delegation() {
+    let home = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let core = FakeCore::start(home.path(), CORE_TOKEN, |_, _| {
+        panic!("host must not be reached")
+    });
+    let pid = home.path().join("run/core.pid");
+    std::fs::write(
+        &pid,
+        format!("{} fake-core\n", std::process::id().wrapping_add(1)),
+    )
+    .unwrap();
+    plur1bus_engine::store::paths::secure_file(&pid).unwrap();
+    assert!(matches!(
+        host(home.path(), ENGINE_TOKEN).get("present"),
+        Err(HostError::Denied)
+    ));
+    assert_eq!(core.count("core.auth"), 0);
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_public_identity_dacl_is_refused_before_connecting() {
+    let home = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let core = FakeCore::start(home.path(), CORE_TOKEN, |_, _| {
+        panic!("host must not be reached")
+    });
+    let user = plur1bus_rpc::win::user_sid().unwrap();
+    plur1bus_rpc::win::set_path_dacl(
+        &home.path().join("run/core.token"),
+        &format!("D:P(A;;GA;;;{user})(A;;GR;;;WD)"),
+    )
+    .unwrap();
+    assert!(matches!(
+        host(home.path(), ENGINE_TOKEN).get("present"),
+        Err(HostError::Unavailable)
+    ));
+    assert_eq!(core.accepted.load(Ordering::Acquire), 0);
+}
+
+/// A genuine built Core process with piped lifeline and kill+wait cleanup on every path.
+struct RealCore {
+    child: std::process::Child,
+    _logs: tempfile::TempDir,
+}
+
+impl RealCore {
+    fn start(home: &Path) -> Self {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let core_js = root
+            .join("packages/core/dist/core.js")
+            .canonicalize()
+            .expect("built Core is required; run pnpm test:prep");
+        let mut config = plur1bus_config::defaults();
+        config["engine"]["implementation"] = json!("rust");
+        config["agents"]["alice"] = json!({});
+        config["supervisor"]["graceMs"] = json!(1000);
+        config["core"]["shutdownBudgetMs"] = json!(1000);
+        std::fs::write(
+            home.join("config.json"),
+            serde_json::to_vec(&config).unwrap(),
+        )
+        .unwrap();
+        let run = home.join("run");
+        plur1bus_engine::store::paths::secure_dir(&run).unwrap();
+        let token = run.join("engine.token");
+        std::fs::write(&token, ENGINE_TOKEN).unwrap();
+        plur1bus_engine::store::paths::secure_file(&token).unwrap();
+        let logs =
+            tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+        let stdout = logs.path().join("stdout");
+        let stderr = logs.path().join("stderr");
+        let node = std::env::var_os("PLUR1BUS_NODE").unwrap_or_else(|| "node".into());
+        let child = std::process::Command::new(node)
+            .arg(core_js)
+            .arg("--home")
+            .arg(home)
+            .args(["--lifeline", "stdin"])
+            .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
+            .env("PLUR1BUS_SECRETS_KEYRING", "off")
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::fs::File::create(&stdout).unwrap())
+            .stderr(std::fs::File::create(&stderr).unwrap())
+            .spawn()
+            .expect("Node24 and built Core are required; run pnpm test:prep");
+        let mut core = Self { child, _logs: logs };
+        let deadline = Instant::now() + Duration::from_secs(20);
+        loop {
+            let ready = std::fs::read_to_string(&stdout)
+                .unwrap_or_default()
+                .lines()
+                .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+                .any(|line| line["ready"] == true && line["pid"] == core.child.id());
+            if ready {
+                return core;
+            }
+            assert!(
+                core.child.try_wait().unwrap().is_none(),
+                "Core exited before ready: {}",
+                std::fs::read_to_string(&stderr).unwrap_or_default()
+            );
+            assert!(
+                Instant::now() < deadline,
+                "Core readiness deadline: {}",
+                std::fs::read_to_string(&stderr).unwrap_or_default()
+            );
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+}
+
+impl Drop for RealCore {
+    fn drop(&mut self) {
+        self.child.stdin.take();
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+#[test]
+fn genuine_core_accepts_engine_delegation_and_policy_subscription() {
+    let home = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let _core = RealCore::start(home.path());
+    let host = host(home.path(), ENGINE_TOKEN);
+    let expected = home.path().join("agents/alice/workspace");
+    for _ in 0..3 {
+        assert_eq!(
+            host.workspace_dir(&agent()).unwrap(),
+            Some(expected.clone())
+        );
+        assert_eq!(
+            serde_json::to_value(
+                host.journal_backlog()
+                    .expect("actual host handler answered")
+            )
+            .unwrap(),
+            json!({"entries":0,"oldestAt":null})
+        );
+    }
+    // The successful first host call follows a validated subscriptionId response;
+    // the real Core guard only admits the independent engine token in both fields.
+    host.shutdown();
+}
+
+#[test]
+fn shutdown_is_bounded_while_auth_or_subscription_is_unacknowledged() {
+    for method in ["core.auth", "events.subscribe"] {
+        let home =
+            tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+        let core =
+            FakeCore::start_bootstrap(home.path(), CORE_TOKEN, Bootstrap::Hold(method), |_, _| {
+                panic!("host work must wait for subscription acknowledgement")
+            });
+        let host = Arc::new(host(home.path(), ENGINE_TOKEN));
+        let call_host = host.clone();
+        let (done_tx, done_rx) = std::sync::mpsc::sync_channel(1);
+        let request = thread::spawn(move || {
+            let result = call_host.workspace_dir(&agent());
+            let _ = done_tx.send(result);
+        });
+        wait_for(|| core.count(method) == 1);
+        assert_eq!(core.count("host.workspaceDir"), 0);
+        host.shutdown();
+        let completed = done_rx.recv_timeout(Duration::from_secs(2));
+        // Releasing the fixture first also bounds cleanup if the client regresses.
+        drop(core);
+        request.join().unwrap();
+        assert!(matches!(completed, Ok(Err(HostError::Unavailable))));
+    }
+}
+
+#[test]
+fn shutdown_is_bounded_while_core_trickles_an_unfinished_auth_frame() {
+    let home = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let core =
+        FakeCore::start_bootstrap(home.path(), CORE_TOKEN, Bootstrap::TrickleAuth, |_, _| {
+            panic!("auth never completed")
+        });
+    let host = Arc::new(host(home.path(), ENGINE_TOKEN));
+    host.emit("recall.completed", json!({}));
+    wait_for(|| core.count("core.auth") == 1);
+    let stopping_host = host.clone();
+    let (done_tx, done_rx) = std::sync::mpsc::sync_channel(1);
+    let stopping = thread::spawn(move || {
+        stopping_host.shutdown();
+        let _ = done_tx.send(());
+    });
+    let prompt = done_rx.recv_timeout(Duration::from_secs(1)).is_ok();
+    // A broken absolute timeout still cannot leave this test or its thread behind.
+    drop(core);
+    stopping.join().unwrap();
+    assert!(prompt, "partial auth bytes extended the shutdown deadline");
+}
+
+#[test]
+fn policy_cache_distinguishes_targets_and_emit_rejects_oversized_payloads() {
+    let home = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let core = FakeCore::start(home.path(), CORE_TOKEN, |method, params| {
+        assert_eq!(method, "host.egress.decide");
+        Ok(
+            json!({"allowed":true,"host":params["host"],"port":params["port"],"address":"8.8.8.8","family":4}),
+        )
+    });
+    let host = host(home.path(), ENGINE_TOKEN);
+    let mut second = target();
+    second.port = 8443;
+    for destination in [&target(), &second, &target(), &second] {
+        assert!(matches!(host.decide(destination), Decision::Allow { .. }));
+    }
+    assert_eq!(core.count("host.egress.decide"), 2);
+    assert_eq!(core.count("core.auth"), 1);
+    host.emit("recall.completed", json!("x".repeat(65 * 1024)));
+    host.emit(&"x".repeat(257), json!({}));
+    assert_eq!(host.dropped_events(), 2);
+    assert_eq!(core.count("host.event"), 0);
 }

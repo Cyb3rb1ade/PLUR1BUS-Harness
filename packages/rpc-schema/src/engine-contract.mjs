@@ -311,29 +311,37 @@ export function engineRpcSurface() {
   processStatus.title = "EngineProcessStatus";
   processStatus.description = "Engine status with optional process, lifeline and transport health metadata.";
   processStatus["x-since"] = "1.17.0";
-  const counter = { type: "integer", minimum: 0 };
+  processStatus.properties.degraded.description =
+    "Process status reports composition-pending/recall while memory and journal composition is incomplete, and closed/engine after close. While open, embedding and reranker readiness can report model-failed or models-warming as described by EngineStatus; null means no degradation.";
+  const addedProperty = (schema) => ({ ...schema, "x-since": "1.17.0" });
+  const counter = addedProperty({ type: "integer", minimum: 0 });
   Object.assign(processStatus.properties, {
-    rpc: string,
-    instanceId: string,
-    pid: { type: "integer" },
-    process: object(
-      {
-        state: { type: "string", enum: ["ready", "orphaned", "stopping"] },
-        orphanedSince: { type: ["number", "null"] },
-      },
-      ["state", "orphanedSince"],
+    rpc: addedProperty(string),
+    instanceId: addedProperty(string),
+    pid: addedProperty({ type: "integer" }),
+    process: addedProperty(
+      object(
+        {
+          state: addedProperty({ type: "string", enum: ["ready", "orphaned", "stopping"] }),
+          orphanedSince: addedProperty({ type: ["number", "null"] }),
+        },
+        ["state", "orphanedSince"],
+      ),
     ),
-    counters: object(
-      {
-        requests: counter,
-        authFailures: counter,
-        activeConnections: counter,
-        capturesPending: counter,
-        capturesCompleted: counter,
-      },
-      ["requests", "authFailures", "activeConnections", "capturesPending", "capturesCompleted"],
+    counters: addedProperty(
+      object(
+        {
+          requests: counter,
+          authFailures: counter,
+          activeConnections: counter,
+          capturesPending: counter,
+          capturesCompleted: counter,
+          acceptErrors: counter,
+        },
+        ["requests", "authFailures", "activeConnections", "capturesPending", "capturesCompleted"],
+      ),
     ),
-    schedulerLagMs: { type: "number", minimum: 0 },
+    schedulerLagMs: addedProperty({ type: "number", minimum: 0 }),
   });
   definitions.EngineProcessStatus = processStatus;
   return { definitions, methods, notifications, engineEvent };

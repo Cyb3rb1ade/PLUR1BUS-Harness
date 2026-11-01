@@ -1013,6 +1013,18 @@
       "expect": "ok"
     },
     {
+      "name": "example:engine.process.lifecycle",
+      "validator": "diagnostic",
+      "line": "{\"ts\":\"2026-11-01T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"engine\",\"version\":\"0.1.0\"},\"event\":\"engine.process.lifecycle\",\"msg\":\"engine process lifecycle changed\",\"attrs\":{\"state\":\"started\",\"reason\":\"ready\",\"pid\":4242}}",
+      "expect": "ok"
+    },
+    {
+      "name": "example:engine.process.error",
+      "validator": "diagnostic",
+      "line": "{\"ts\":\"2026-11-01T12:00:00.000Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"engine\",\"version\":\"0.1.0\"},\"event\":\"engine.process.error\",\"msg\":\"engine local boundary failed\",\"attrs\":{\"stage\":\"accept\",\"error_kind\":\"resource-limit\",\"os_error\":24,\"pid\":4242}}",
+      "expect": "ok"
+    },
+    {
       "name": "level:unknown-word",
       "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"verbose\",\"source\":{\"kind\":\"provider\",\"id\":\"openai\",\"version\":\"profile@3\"},\"event\":\"provider.request.failed\",\"msg\":\"provider request failed\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"span_id\":\"00f067aa0ba902b7\",\"duration_ms\":1840,\"err\":{\"code\":\"server\",\"reason\":\"http-500\",\"retryable\":false,\"hint\":\"retry after the provider recovers\"},\"attrs\":{\"model\":\"gpt-5.5\",\"capability\":\"chat\",\"provider_request_id\":\"req_example0001\",\"http_status\":429,\"retry_after_s\":12,\"attempt\":1}}",
@@ -14770,6 +14782,193 @@
           "dropped",
           "limitLines",
           "limitBytes"
+        ]
+      }
+    },
+    {
+      "event": "engine.process.lifecycle",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "attrs": "engine_process_lifecycle",
+      "requiredAttrs": [
+        "state",
+        "reason",
+        "pid"
+      ],
+      "streamed": false,
+      "family": false,
+      "activity": false,
+      "stability": "experimental",
+      "attrsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "repeat": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "dedup summary: all occurrences in the window, the first included (§2.9)"
+          },
+          "window_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "dedup or rate-limit window length"
+          },
+          "link_trace_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$",
+            "description": "a foreign trace id that was not adopted (§2.8)"
+          },
+          "foreign_message": {
+            "type": "string",
+            "maxLength": 2048,
+            "description": "untrusted foreign error text, truncated and redacted by the writer"
+          },
+          "untrusted": {
+            "type": "boolean",
+            "description": "true on wrapped third-party output"
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "the value was cut to its limit"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "original size in bytes when truncated"
+          },
+          "state": {
+            "enum": [
+              "started",
+              "orphaned",
+              "adopted",
+              "stopping",
+              "stopped"
+            ]
+          },
+          "reason": {
+            "enum": [
+              "ready",
+              "stdin-closed",
+              "connection-closed",
+              "adopted",
+              "shutdown",
+              "grace-expired",
+              "signal",
+              "transport-fatal",
+              "deadline",
+              "startup-failed"
+            ]
+          },
+          "pid": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "state",
+          "reason",
+          "pid"
+        ]
+      }
+    },
+    {
+      "event": "engine.process.error",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "attrs": "engine_process_error",
+      "requiredAttrs": [
+        "stage",
+        "error_kind",
+        "pid"
+      ],
+      "streamed": false,
+      "family": false,
+      "activity": false,
+      "stability": "experimental",
+      "attrsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "repeat": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "dedup summary: all occurrences in the window, the first included (§2.9)"
+          },
+          "window_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "dedup or rate-limit window length"
+          },
+          "link_trace_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$",
+            "description": "a foreign trace id that was not adopted (§2.8)"
+          },
+          "foreign_message": {
+            "type": "string",
+            "maxLength": 2048,
+            "description": "untrusted foreign error text, truncated and redacted by the writer"
+          },
+          "untrusted": {
+            "type": "boolean",
+            "description": "true on wrapped third-party output"
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "the value was cut to its limit"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "original size in bytes when truncated"
+          },
+          "stage": {
+            "enum": [
+              "startup",
+              "listen",
+              "accept",
+              "spawn",
+              "close",
+              "peer"
+            ]
+          },
+          "error_kind": {
+            "enum": [
+              "resource-limit",
+              "permission",
+              "invalid-input",
+              "connection-closed",
+              "timeout",
+              "interrupted",
+              "not-found",
+              "unsupported",
+              "other"
+            ]
+          },
+          "os_error": {
+            "type": "integer"
+          },
+          "pid": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "stage",
+          "error_kind",
+          "pid"
         ]
       }
     }

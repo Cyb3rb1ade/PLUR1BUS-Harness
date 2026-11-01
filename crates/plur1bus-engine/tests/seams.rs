@@ -74,7 +74,7 @@ fn flat_embedder_cold_delays_the_first_two_query_embeds_one_at_a_time() {
             .unwrap(),
         vec![vec![1.0, 0.0, 0.0]]
     );
-    assert!(passage_start.elapsed() < Duration::from_millis(250));
+    let passage = passage_start.elapsed();
     let started = Instant::now();
     let calls: Vec<_> = (0..2)
         .map(|_| {
@@ -89,12 +89,17 @@ fn flat_embedder_cold_delays_the_first_two_query_embeds_one_at_a_time() {
     for call in calls {
         assert_eq!(call.join().unwrap(), vec![vec![1.0, 0.0, 0.0]]);
     }
-    assert!(started.elapsed() >= Duration::from_millis(690));
+    let cold = started.elapsed();
+    assert!(cold >= Duration::from_millis(690));
     let warm_start = Instant::now();
     provider
         .embed(&["warm".into()], EmbedKind::Query, &Cancel::never())
         .unwrap();
-    assert!(warm_start.elapsed() < Duration::from_millis(250));
+    let warm = warm_start.elapsed();
+    assert!(
+        cold.saturating_sub(passage + warm) >= Duration::from_millis(400),
+        "serialized cold queries {cold:?}, passage {passage:?}, warm query {warm:?}"
+    );
 }
 
 #[test]

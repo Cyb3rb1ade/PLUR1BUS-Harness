@@ -7,9 +7,9 @@ const EXT_METHODS = ["ext.disable", "ext.enable", "ext.inspect", "ext.inspection
 describe("rpc-schema", () => {
   const fx = loadFixtures();
 
-  it("declares rpc 1.17.0 and the closed error enum", () => {
-    assert.equal(RPC_VERSION, "1.17.0");
-    assert.equal((SCHEMA as { title?: string }).title, "PLUR1BUS harness RPC 1.17.0");
+  it("declares the current RPC version and the closed error enum", () => {
+    assert.equal(SCHEMA["x-rpc-version"], RPC_VERSION);
+    assert.equal((SCHEMA as { title?: string }).title, `PLUR1BUS harness RPC ${RPC_VERSION}`);
     assert.deepEqual([...ERROR_CODES], [
       "E_UNAUTHORIZED", "E_RPC_VERSION", "E_NOT_AVAILABLE", "E_CORE_UNAVAILABLE", "E_INVALID_PARAMS",
       "E_AGENT_UNKNOWN", "E_AGENT_EXISTS", "E_AGENT_RIGHTS", "E_AGENT_SECRETS_MISSING", "E_CONFIG_INVALID", "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED",

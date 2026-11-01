@@ -58,7 +58,8 @@
         "authFailures": 0,
         "activeConnections": 1,
         "capturesPending": 0,
-        "capturesCompleted": 2
+        "capturesCompleted": 2,
+        "acceptErrors": 1
       },
       "schedulerLagMs": 0.25
     }

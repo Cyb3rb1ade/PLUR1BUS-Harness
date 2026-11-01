@@ -70,6 +70,7 @@ chrono = "0.4"
 uuid = { version = "1", features = ["v4"] }
 plur1bus-rpc = { path = "../plur1bus-rpc" }
 plur1bus-config = { path = "../plur1bus-config" }
+plur1bus-log-schema = { path = "../plur1bus-log-schema" }
 tokio = { version = "=1.53.3", features = ["rt-multi-thread"] }
 
 [target.'cfg(unix)'.dependencies]

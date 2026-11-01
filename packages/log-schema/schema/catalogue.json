@@ -2010,6 +2010,73 @@
           "description": "Denial reason."
         }
       }
+    },
+    "engine_process_lifecycle": {
+      "description": "Content-free engine process transitions; never memory, method parameters or paths.",
+      "properties": {
+        "state": {
+          "enum": [
+            "started",
+            "orphaned",
+            "adopted",
+            "stopping",
+            "stopped"
+          ]
+        },
+        "reason": {
+          "enum": [
+            "ready",
+            "stdin-closed",
+            "connection-closed",
+            "adopted",
+            "shutdown",
+            "grace-expired",
+            "signal",
+            "transport-fatal",
+            "deadline",
+            "startup-failed"
+          ]
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "engine_process_error": {
+      "description": "Local engine error classes and errno only; no foreign error bodies.",
+      "properties": {
+        "stage": {
+          "enum": [
+            "startup",
+            "listen",
+            "accept",
+            "spawn",
+            "close",
+            "peer"
+          ]
+        },
+        "error_kind": {
+          "enum": [
+            "resource-limit",
+            "permission",
+            "invalid-input",
+            "connection-closed",
+            "timeout",
+            "interrupted",
+            "not-found",
+            "unsupported",
+            "other"
+          ]
+        },
+        "os_error": {
+          "type": "integer"
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
     }
   },
   "events": [
@@ -7826,6 +7893,87 @@
             "dropped": 1,
             "limitLines": 1000,
             "limitBytes": 8388608
+          }
+        }
+      ]
+    },
+    {
+      "event": "engine.process.lifecycle",
+      "note": "RE-08 T2 process diagnostics with fixed categories only.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "engine process lifecycle changed",
+      "attrs": "engine_process_lifecycle",
+      "requiredAttrs": [
+        "state",
+        "reason",
+        "pid"
+      ],
+      "activity": false,
+      "since": "RE-08 T2",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-11-01T12:00:00.000Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "engine",
+            "version": "0.1.0"
+          },
+          "event": "engine.process.lifecycle",
+          "msg": "engine process lifecycle changed",
+          "attrs": {
+            "state": "started",
+            "reason": "ready",
+            "pid": 4242
+          }
+        }
+      ]
+    },
+    {
+      "event": "engine.process.error",
+      "note": "RE-08 T2 process diagnostics with fixed categories only.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "msg": "engine local boundary failed",
+      "attrs": "engine_process_error",
+      "requiredAttrs": [
+        "stage",
+        "error_kind",
+        "pid"
+      ],
+      "activity": false,
+      "since": "RE-08 T2",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-11-01T12:00:00.000Z",
+          "level": "warn",
+          "source": {
+            "kind": "harness",
+            "id": "engine",
+            "version": "0.1.0"
+          },
+          "event": "engine.process.error",
+          "msg": "engine local boundary failed",
+          "attrs": {
+            "stage": "accept",
+            "error_kind": "resource-limit",
+            "os_error": 24,
+            "pid": 4242
           }
         }
       ]

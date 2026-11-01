@@ -56,12 +56,12 @@ pub struct EngineProcess {
 }
 
 impl EngineProcess {
-    pub fn spawn(home: &Path, instance: Option<&str>, stdin_lifeline: bool) -> Self {
-        Self::spawn_configured(home, instance, stdin_lifeline, None)
+    pub fn spawn(home: &Path, instance: Option<&str>) -> Self {
+        Self::spawn_configured(home, instance, true, None, None)
     }
 
     pub fn spawn_with_seam(home: &Path, variant: &str, allow: bool) -> Self {
-        Self::spawn_configured(home, None, false, Some((variant, allow)))
+        Self::spawn_configured(home, None, true, Some((variant, allow)), None)
     }
 
     fn spawn_configured(
@@ -69,6 +69,7 @@ impl EngineProcess {
         instance: Option<&str>,
         stdin_lifeline: bool,
         seam: Option<(&str, bool)>,
+        configure_child: Option<fn(&mut Command)>,
     ) -> Self {
         let logs = tempfile::Builder::new()
             .prefix("pe-log-")
@@ -88,11 +89,8 @@ impl EngineProcess {
             .stderr(Stdio::from(
                 File::create(logs.path().join("stderr")).unwrap(),
             ))
-            .stdin(if stdin_lifeline {
-                Stdio::piped()
-            } else {
-                Stdio::null()
-            });
+            // EOF also reclaims engines when the test runner exits without unwinding.
+            .stdin(Stdio::piped());
         if let Some(instance) = instance {
             command.args(["--instance", instance]);
         }
@@ -105,6 +103,9 @@ impl EngineProcess {
                 command.env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1");
             }
         }
+        if let Some(configure) = configure_child {
+            configure(&mut command);
+        }
         Self {
             child: command.spawn().unwrap(),
             logs,
@@ -113,8 +114,29 @@ impl EngineProcess {
         }
     }
 
-    pub fn start(home: &Path, instance: Option<&str>, stdin_lifeline: bool) -> Self {
-        Self::spawn(home, instance, stdin_lifeline).wait_ready()
+    pub fn start(home: &Path, instance: Option<&str>) -> Self {
+        Self::spawn(home, instance).wait_ready()
+    }
+
+    pub fn start_without_lifeline(home: &Path) -> Self {
+        Self::spawn_configured(home, None, false, None, None).wait_ready()
+    }
+
+    #[cfg(unix)]
+    pub fn start_with_umask_022(home: &Path, instance: Option<&str>) -> Self {
+        fn configure(command: &mut Command) {
+            use std::os::unix::process::CommandExt;
+            // SAFETY: this hook runs only in the forked child, before exec, and
+            // calls only the async-signal-safe umask syscall. The test runner's
+            // process-wide umask is never changed.
+            unsafe {
+                command.pre_exec(|| {
+                    libc::umask(0o022);
+                    Ok(())
+                });
+            }
+        }
+        Self::spawn_configured(home, instance, true, None, Some(configure)).wait_ready()
     }
 
     pub fn start_with_seam(home: &Path, variant: &str) -> Self {
@@ -190,6 +212,11 @@ impl EngineProcess {
         );
     }
 
+    pub fn kill_and_wait(&mut self) -> ExitStatus {
+        self.child.kill().unwrap();
+        self.child.wait().unwrap()
+    }
+
     pub fn assert_running_for(&mut self, duration: Duration) {
         let deadline = Instant::now() + duration;
         while Instant::now() < deadline {
@@ -234,6 +261,11 @@ impl EngineProcess {
             self.log("stdout"),
             self.log("stderr")
         )
+    }
+
+    #[cfg(unix)]
+    pub fn stderr(&self) -> String {
+        self.log("stderr")
     }
 
     fn log(&self, stream: &str) -> String {

@@ -5428,6 +5428,7 @@ dependencies = [
  "log",
  "ort",
  "plur1bus-config",
+ "plur1bus-log-schema",
  "plur1bus-rpc",
  "prettyplease 0.2.37",
  "regex",

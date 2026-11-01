@@ -1,7 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { engineRpcSurface, syncEngineSchema } from "../src/engine-contract.mjs";
-import { SCHEMA, buildCapabilities, loadFixtures, validateNotification, validateParams, validateResult } from "../src/index.ts";
+import { RPC_VERSION, SCHEMA, buildCapabilities, loadFixtures, validateNotification, validateParams, validateResult } from "../src/index.ts";
+import engineMethodVersions from "../fixtures/engine-method-versions.json" with { type: "json" };
 
 const schema = SCHEMA as any;
 describe("RE-08 engine RPC", () => {
@@ -22,7 +23,9 @@ describe("RE-08 engine RPC", () => {
     assert.deepEqual(schema.$defs.notifications["engine.event"]["x-engine-notification"], surface.engineEvent);
   });
   it("adds engine methods with closed params and preserves each method's experimental version", () => {
-    assert.equal(schema["x-rpc-version"], "1.17.0");
+    assert.equal(schema["x-rpc-version"], RPC_VERSION);
+    for (const [name, since] of Object.entries(engineMethodVersions))
+      assert.equal(schema.$defs.methods[name]["x-since"], since, name);
     for (const name of [
       "engine.auth",
       "engine.adopt",
@@ -41,7 +44,6 @@ describe("RE-08 engine RPC", () => {
       if (!name.startsWith("engine.")) continue;
       assert.equal(value["x-server"], "engine", name);
       assert.equal(value["x-stability"], "experimental", name);
-      assert.equal(value["x-since"], name === "engine.adopt" ? "1.17.0" : "1.7.0", name);
       assert.equal(value.params.additionalProperties, false, name);
       assert.equal(validateParams(name, { unexpected: true }).ok, false, name);
     }
@@ -61,7 +63,7 @@ describe("RE-08 engine RPC", () => {
     const counters = { requests: 4, authFailures: 0, activeConnections: 1, capturesPending: 0, capturesCompleted: 2 };
     const operational = {
       ...status,
-      rpc: "1.17.0",
+      rpc: RPC_VERSION,
       instanceId: "engine-process",
       pid: 42,
       process: { state: "ready", orphanedSince: null },
@@ -74,6 +76,10 @@ describe("RE-08 engine RPC", () => {
     ] as const) {
       assert.deepEqual(validateResult(method, wrap(status)), { ok: true }, `${method}: legacy status`);
       assert.deepEqual(validateResult(method, wrap(operational)), { ok: true }, `${method}: process status`);
+      for (const acceptErrors of [0, 2])
+        assert.deepEqual(validateResult(method, wrap({ ...operational, counters: { ...counters, acceptErrors } })), { ok: true });
+      for (const acceptErrors of [-1, 1.5, "1", null])
+        assert.equal(validateResult(method, wrap({ ...operational, counters: { ...counters, acceptErrors } })).ok, false);
       for (const process of [
         { state: "orphaned", orphanedSince: 123 },
         { state: "stopping", orphanedSince: null },
@@ -103,9 +109,23 @@ describe("RE-08 engine RPC", () => {
     const contractStatus = schema.$defs.EngineContractEngineStatusData;
     assert.equal(processStatus["x-since"], "1.17.0");
     assert.deepEqual(processStatus.required, contractStatus.required);
-    for (const [name, value] of Object.entries(contractStatus.properties))
-      assert.deepEqual(processStatus.properties[name], value, name);
+    for (const [name, value] of Object.entries(contractStatus.properties) as [string, Record<string, unknown>][]) {
+      const { description: _processDescription, ...processProperty } = processStatus.properties[name];
+      const { description: _contractDescription, ...contractProperty } = value;
+      assert.deepEqual(processProperty, contractProperty, name);
+    }
     assert.equal(Object.hasOwn(contractStatus.properties, "process"), false);
+  });
+  it("marks each process status addition with its introduction version", () => {
+    for (const path of [
+      "rpc", "instanceId", "pid", "process", "process.state", "process.orphanedSince", "counters",
+      "counters.requests", "counters.authFailures", "counters.activeConnections", "counters.capturesPending",
+      "counters.capturesCompleted", "counters.acceptErrors", "schedulerLagMs",
+    ]) {
+      let definition = schema.$defs.EngineProcessStatus;
+      for (const part of path.split(".")) definition = definition.properties[part];
+      assert.equal(definition?.["x-since"], "1.17.0", path);
+    }
   });
   it("lists engine methods and notifications only in engine capabilities", () => {
     const caps = buildCapabilities([], "engine" as any);

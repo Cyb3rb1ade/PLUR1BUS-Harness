@@ -25938,7 +25938,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
           "type": "null"
         }
       ],
-      "description": "1.8.0: derived from models — embedder failed → {reason:\"model-failed\",capability:\"embedding\"}; embedder loading → {reason:\"models-warming\",capability:\"embedding\"}; reranker failed → model-failed/\"reranker\"; reranker loading → models-warming/\"reranker\"; first match wins; otherwise null."
+      "description": "Process status reports composition-pending/recall while memory and journal composition is incomplete, and closed/engine after close. While open, embedding and reranker readiness can report model-failed or models-warming as described by EngineStatus; null means no degradation."
     },
     "agents": {
       "type": "number"
@@ -25993,13 +25993,16 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "description": "1.8.0"
     },
     "rpc": {
-      "type": "string"
+      "type": "string",
+      "x-since": "1.17.0"
     },
     "instanceId": {
-      "type": "string"
+      "type": "string",
+      "x-since": "1.17.0"
     },
     "pid": {
-      "type": "integer"
+      "type": "integer",
+      "x-since": "1.17.0"
     },
     "process": {
       "type": "object",
@@ -26015,15 +26018,18 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
             "ready",
             "orphaned",
             "stopping"
-          ]
+          ],
+          "x-since": "1.17.0"
         },
         "orphanedSince": {
           "type": [
             "number",
             "null"
-          ]
+          ],
+          "x-since": "1.17.0"
         }
-      }
+      },
+      "x-since": "1.17.0"
     },
     "counters": {
       "type": "object",
@@ -26038,29 +26044,41 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "properties": {
         "requests": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "x-since": "1.17.0"
         },
         "authFailures": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "x-since": "1.17.0"
         },
         "activeConnections": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "x-since": "1.17.0"
         },
         "capturesPending": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "x-since": "1.17.0"
         },
         "capturesCompleted": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "x-since": "1.17.0"
+        },
+        "acceptErrors": {
+          "type": "integer",
+          "minimum": 0,
+          "x-since": "1.17.0"
         }
-      }
+      },
+      "x-since": "1.17.0"
     },
     "schedulerLagMs": {
       "type": "number",
-      "minimum": 0
+      "minimum": 0,
+      "x-since": "1.17.0"
     }
   },
   "required": [

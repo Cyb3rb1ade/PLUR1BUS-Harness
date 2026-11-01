@@ -5,8 +5,123 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use plur1bus_rpc::process::{self, Incarnation, Liveness};
+use serde::Deserialize;
+
 use crate::store::lock::{JobLock, LockBusy, LockGuard};
 use crate::store::paths::{assert_trusted_path, secure_dir, secure_file};
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NonceOwner {
+    nonce: String,
+    pid: u32,
+    host: String,
+    proc_start: Incarnation,
+}
+
+#[cfg(unix)]
+fn read_nonce(path: &Path) -> Result<String, super::server::ServeError> {
+    use super::server::ServeError;
+    use std::io::Read;
+    use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+
+    const MAX_BYTES: u64 = 4096;
+    let parent = path.parent().ok_or(ServeError::Locked)?;
+    assert_trusted_path(path).map_err(|_| ServeError::Locked)?;
+    plur1bus_rpc::trust::verify_run_dir(parent).map_err(|_| ServeError::Locked)?;
+    let directory = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(parent)
+        .map_err(|_| ServeError::Locked)?;
+    let directory_metadata = directory.metadata().map_err(|_| ServeError::Locked)?;
+    // SAFETY: geteuid has no preconditions and cannot fail.
+    let euid = unsafe { libc::geteuid() };
+    if !directory_metadata.is_dir()
+        || directory_metadata.uid() != euid
+        || directory_metadata.mode() & 0o777 != 0o700
+    {
+        return Err(ServeError::Locked);
+    }
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC)
+        .open(path)
+        .map_err(|_| ServeError::Locked)?;
+    let metadata = file.metadata().map_err(|_| ServeError::Locked)?;
+    // A nonce is process metadata, rather than a bearer credential. Older
+    // releases wrote 0644 under umask022; read bits are safe inside private run/.
+    // Foreign writers, aliases and unbounded inputs remain untrusted.
+    if !metadata.is_file()
+        || metadata.uid() != euid
+        || metadata.mode() & 0o022 != 0
+        || metadata.nlink() != 1
+        || metadata.len() > MAX_BYTES
+    {
+        return Err(ServeError::Locked);
+    }
+    let mut bytes = Vec::new();
+    file.take(MAX_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| ServeError::Locked)?;
+    if bytes.len() > MAX_BYTES as usize {
+        return Err(ServeError::Locked);
+    }
+    String::from_utf8(bytes).map_err(|_| ServeError::Locked)
+}
+
+#[cfg(not(unix))]
+fn read_nonce(path: &Path) -> Result<String, super::server::ServeError> {
+    super::host_client::read_identity_file(path).map_err(|_| super::server::ServeError::Locked)
+}
+
+// The job nonce's age is not a process-liveness signal. Only the holder of the
+// permanent OS lock may inspect and recover the previous engine's nonce.
+fn recover_nonce(run: &Path) -> Result<(), super::server::ServeError> {
+    use super::server::ServeError;
+
+    let path = run.join("engine.lock");
+    match fs::symlink_metadata(&path) {
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error.into()),
+        Ok(_) => {}
+    }
+    let original = read_nonce(&path)?;
+    let owner: NonceOwner = serde_json::from_str(&original).map_err(|_| ServeError::Locked)?;
+    if owner.pid == 0
+        || owner.proc_start.mono < 0
+        || owner.proc_start.boot.as_ref().is_some_and(String::is_empty)
+        || uuid::Uuid::parse_str(&owner.nonce).is_err()
+        || owner.host != process::hostname()?
+    {
+        return Err(ServeError::Locked);
+    }
+    let stale = match process::alive(owner.pid) {
+        Liveness::Gone => true,
+        Liveness::OtherUser => false,
+        Liveness::Alive => {
+            let current = process::incarnation_of(owner.pid).map_err(|_| ServeError::Locked)?;
+            // Node's registry uses a 1000 ms tolerance across its process-start clocks.
+            current.mono.abs_diff(owner.proc_start.mono) > 1_000
+                || current
+                    .boot
+                    .as_ref()
+                    .zip(owner.proc_start.boot.as_ref())
+                    .is_some_and(|(current, recorded)| current != recorded)
+        }
+    };
+    if !stale {
+        return Err(ServeError::Locked);
+    }
+    // Recheck the private bounded file before unlinking; a changed owner stays untouched.
+    // The OS lock excludes every other engine start, including recovery attempts.
+    if read_nonce(&path).ok().as_deref() != Some(original.as_str()) {
+        return Err(ServeError::Locked);
+    }
+    fs::remove_file(path)?;
+    Ok(())
+}
 
 /// Address of a role in a canonical Harness home, identical to module-api/paths.ts.
 pub fn unit_address(home: &Path, role: &str) -> String {
@@ -93,6 +208,7 @@ impl EngineLayout {
             fs::TryLockError::Error(error) => super::server::ServeError::Io(error),
         })?;
         secure_file(&path).map_err(io::Error::other)?;
+        recover_nonce(&self.run)?;
         let guard = JobLock::acquire(&self.run, "engine", Duration::from_secs(60)).map_err(
             |e| match e {
                 LockBusy::Held => super::server::ServeError::Locked,
@@ -173,6 +289,203 @@ mod tests {
     // These synthetic fixtures have no external input; failures must stop before starting a server.
     #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
+    use serde_json::{json, Value};
+
+    fn fixture() -> (tempfile::TempDir, EngineLayout) {
+        let root = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+        let layout = EngineLayout::new(root.path(), "test-instance".into()).unwrap();
+        (root, layout)
+    }
+
+    fn own_nonce() -> Value {
+        json!({
+            "nonce":uuid::Uuid::new_v4().to_string(),
+            "pid":std::process::id(),
+            "host":process::hostname().unwrap(),
+            "procStart":process::incarnation().unwrap(),
+            "acquiredAt":"2026-11-01T00:00:00Z"
+        })
+    }
+
+    fn write_nonce(layout: &EngineLayout, nonce: &Value, aged: bool) -> Vec<u8> {
+        let path = layout.run.join("engine.lock");
+        let bytes = serde_json::to_vec(nonce).unwrap();
+        fs::write(&path, &bytes).unwrap();
+        secure_file(&path).unwrap();
+        if aged {
+            fs::OpenOptions::new()
+                .write(true)
+                .open(&path)
+                .unwrap()
+                .set_times(fs::FileTimes::new().set_modified(std::time::UNIX_EPOCH))
+                .unwrap();
+        }
+        bytes
+    }
+
+    #[test]
+    fn a_live_nonce_identity_is_preserved_even_after_the_hard_ceiling() {
+        let (_root, layout) = fixture();
+        let bytes = write_nonce(&layout, &own_nonce(), true);
+        assert!(matches!(
+            layout.acquire(),
+            Err(super::super::server::ServeError::Locked)
+        ));
+        assert_eq!(fs::read(layout.run.join("engine.lock")).unwrap(), bytes);
+    }
+
+    #[test]
+    fn a_fresh_nonce_with_a_reused_pid_is_recovered_by_its_start_identity() {
+        let (_root, layout) = fixture();
+        let mut nonce = own_nonce();
+        nonce["procStart"]["mono"] = json!(nonce["procStart"]["mono"].as_i64().unwrap() + 100_000);
+        let original = write_nonce(&layout, &nonce, false);
+        let guard = layout
+            .acquire()
+            .expect("the prior start identity no longer exists");
+        assert_ne!(fs::read(layout.run.join("engine.lock")).unwrap(), original);
+        drop(guard);
+    }
+
+    #[test]
+    fn an_unprovable_nonce_is_preserved_instead_of_reaped_by_age() {
+        let (_root, layout) = fixture();
+        let mut foreign_host = own_nonce();
+        foreign_host["host"] = json!(format!(
+            "{}-foreign",
+            foreign_host["host"].as_str().unwrap()
+        ));
+        let mut missing_start = own_nonce();
+        missing_start.as_object_mut().unwrap().remove("procStart");
+        let mut invalid_pid = own_nonce();
+        invalid_pid["pid"] = json!(0);
+        for nonce in [
+            foreign_host,
+            missing_start,
+            invalid_pid,
+            json!("corrupt stamp"),
+        ] {
+            let original = write_nonce(&layout, &nonce, true);
+            assert!(matches!(
+                layout.acquire(),
+                Err(super::super::server::ServeError::Locked)
+            ));
+            assert_eq!(fs::read(layout.run.join("engine.lock")).unwrap(), original);
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn readable_legacy_live_and_unprovable_nonces_are_preserved_without_chmod() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let (_root, layout) = fixture();
+        let mut foreign = own_nonce();
+        foreign["host"] = json!(format!("{}-foreign", foreign["host"].as_str().unwrap()));
+        let mut missing_start = own_nonce();
+        missing_start.as_object_mut().unwrap().remove("procStart");
+        for nonce in [own_nonce(), foreign, missing_start, json!("corrupt stamp")] {
+            let original = write_nonce(&layout, &nonce, true);
+            let path = layout.run.join("engine.lock");
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+            assert!(matches!(
+                layout.acquire(),
+                Err(super::super::server::ServeError::Locked)
+            ));
+            assert_eq!(fs::read(&path).unwrap(), original);
+            assert_eq!(
+                fs::metadata(path).unwrap().permissions().mode() & 0o777,
+                0o644
+            );
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_writable_nonce_is_not_recovered_or_chmodded_even_when_its_owner_is_stale() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let (_root, layout) = fixture();
+        let mut nonce = own_nonce();
+        nonce["procStart"]["mono"] = json!(nonce["procStart"]["mono"].as_i64().unwrap() + 100_000);
+        for mode in [0o620, 0o602, 0o666] {
+            let original = write_nonce(&layout, &nonce, true);
+            let path = layout.run.join("engine.lock");
+            fs::set_permissions(&path, fs::Permissions::from_mode(mode)).unwrap();
+            assert!(matches!(
+                layout.acquire(),
+                Err(super::super::server::ServeError::Locked)
+            ));
+            assert_eq!(fs::read(&path).unwrap(), original);
+            assert_eq!(
+                fs::metadata(path).unwrap().permissions().mode() & 0o777,
+                mode
+            );
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_readable_legacy_nonce_requires_a_private_run_directory() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let (_root, layout) = fixture();
+        let mut nonce = own_nonce();
+        nonce["procStart"]["mono"] = json!(nonce["procStart"]["mono"].as_i64().unwrap() + 100_000);
+        let original = write_nonce(&layout, &nonce, true);
+        let path = layout.run.join("engine.lock");
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+        fs::set_permissions(&layout.run, fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(matches!(
+            layout.acquire(),
+            Err(super::super::server::ServeError::Locked)
+        ));
+        assert_eq!(fs::read(path).unwrap(), original);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn oversized_and_hardlinked_legacy_nonces_are_never_removed() {
+        use std::os::unix::fs::PermissionsExt;
+
+        for oversized in [true, false] {
+            let (_root, layout) = fixture();
+            let mut nonce = own_nonce();
+            nonce["procStart"]["mono"] =
+                json!(nonce["procStart"]["mono"].as_i64().unwrap() + 100_000);
+            let mut original = write_nonce(&layout, &nonce, true);
+            let path = layout.run.join("engine.lock");
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+            if oversized {
+                original.resize(4097, b' ');
+                fs::write(&path, &original).unwrap();
+            } else {
+                fs::hard_link(&path, layout.home.join("other-alias")).unwrap();
+            }
+            assert!(matches!(
+                layout.acquire(),
+                Err(super::super::server::ServeError::Locked)
+            ));
+            assert_eq!(fs::read(path).unwrap(), original);
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_symlinked_nonce_is_never_followed_or_removed() {
+        let (_root, layout) = fixture();
+        let other = layout.home.join("other-owner");
+        let original = serde_json::to_vec(&own_nonce()).unwrap();
+        fs::write(&other, &original).unwrap();
+        let path = layout.run.join("engine.lock");
+        std::os::unix::fs::symlink(&other, &path).unwrap();
+        assert!(matches!(
+            layout.acquire(),
+            Err(super::super::server::ServeError::Locked)
+        ));
+        assert!(fs::symlink_metadata(path).unwrap().file_type().is_symlink());
+        assert_eq!(fs::read(other).unwrap(), original);
+    }
 
     #[test]
     fn home_is_lexically_normalized_before_trust_checks_and_address_derivation() {

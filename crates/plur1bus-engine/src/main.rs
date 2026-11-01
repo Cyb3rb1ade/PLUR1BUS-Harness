@@ -1,7 +1,7 @@
 //! The supervised engine process. Lifecycle and transport follow ADR-012 §10.
 use clap::{Parser, Subcommand, ValueEnum};
 use plur1bus_engine::rpc::{
-    config,
+    config, diagnostics,
     engine::ProcessEngine,
     host_client::RpcHost,
     layout::EngineLayout,
@@ -68,19 +68,15 @@ fn run(command: Command) -> Result<(), (u8, String)> {
         RpcHost::new(layout.home.clone(), layout.token().to_owned(), config)
             .with_platform(platform::capabilities()),
     );
-    let engine = Arc::new(ProcessEngine::new(host, seam).map_err(|e| (2, e.to_string()))?);
-    #[cfg(unix)]
-    {
-        // SAFETY: the CLI process has no children yet. A separate group keeps terminal signals out of future children.
-        let result = unsafe { libc::setpgid(0, 0) };
-        if result != 0 {
-            // A session/group leader is already isolated; any other refusal is a startup failure.
-            // SAFETY: getpgrp and getpid have no preconditions and cannot fail.
-            if unsafe { libc::getpgrp() != libc::getpid() } {
-                return Err((2, "engine process group unavailable".into()));
-            }
+    let engine = Arc::new(ProcessEngine::new(host.clone(), seam).map_err(|e| (2, e.to_string()))?);
+    let weak_engine = Arc::downgrade(&engine);
+    host.set_egress_invalidator(Arc::new(move || {
+        if let Some(engine) = weak_engine.upgrade() {
+            engine.invalidate_egress();
         }
-    }
+    }));
+    // The trusted supervisor/spawner owns process-group isolation. A hand start
+    // stays in its terminal's foreground group so Ctrl-C and stdin keep working.
     server::serve(
         engine,
         &layout,
@@ -104,8 +100,12 @@ fn main() -> ExitCode {
     match run(Cli::parse().command) {
         Ok(()) => ExitCode::SUCCESS,
         Err((code, message)) => {
-            // Only fixed, bounded diagnostic categories reach stderr; request data and tokens never do.
-            let _ = writeln!(io::stderr().lock(), "plur1bus-engine: {message}");
+            // An initialized diagnostic writer may be blocked on stderr after
+            // the shutdown deadline. Early startup refusals retain the human
+            // fallback; runtime failures already have structured diagnostics.
+            if !diagnostics::initialized() {
+                let _ = writeln!(io::stderr().lock(), "plur1bus-engine: {message}");
+            }
             ExitCode::from(code)
         }
     }

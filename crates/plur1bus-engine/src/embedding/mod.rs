@@ -204,10 +204,6 @@ pub fn build_embedding(
 
 struct HostGate(Arc<dyn HostServices>);
 impl EgressGate for HostGate {
-    fn cache_decisions(&self) -> bool {
-        self.0.egress().cache_decisions()
-    }
-
     fn decide(&self, target: &Target) -> Decision {
         self.0.egress().decide(target)
     }

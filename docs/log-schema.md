@@ -203,6 +203,8 @@ emitters land in later parts of D111; the names are already reserved.
 | `model.unavailable` | provider | warn / **info** | model_discovery | `provider`, `count`, `models`, `roles` | activity | warn when roles is non-empty, otherwise info; Model discovery event (D112 Task 12). |
 | `model.scan.failed` | provider | error / **warn** | model_discovery | `provider`, `result`, `next_scan_at`, `consecutive_failures`, `err` |  | error for failed:auth and failed:invalid, otherwise warn; Model discovery event (D112 Task 12). |
 | `model.scan.completed` | provider | debug | model_discovery | `provider`, `result`, `duration_ms`, `counts` |  | Model discovery event (D112 Task 12). |
+| `engine.process.lifecycle` | harness | info | engine_process_lifecycle | `state`, `reason`, `pid` | experimental | RE-08 T2 process diagnostics with fixed categories only. |
+| `engine.process.error` | harness | warn | engine_process_error | `stage`, `error_kind`, `pid` | experimental | RE-08 T2 process diagnostics with fixed categories only. |
 
 ### Audit stream
 
@@ -1064,6 +1066,27 @@ Detail for `oauth.denied` audit event: OAuth request denied or rejected.
 |---|---|---|
 | `clientId` | `string` | OAuth client identifier. |
 | `reason` | `string` | Denial reason. |
+
+#### `engine_process_lifecycle`
+
+Content-free engine process transitions; never memory, method parameters or paths.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `state` | `started` \| `orphaned` \| `adopted` \| `stopping` \| `stopped` |  |
+| `reason` | `ready` \| `stdin-closed` \| `connection-closed` \| `adopted` \| `shutdown` \| `grace-expired` \| `signal` \| `transport-fatal` \| `deadline` \| `startup-failed` |  |
+| `pid` | `integer` |  |
+
+#### `engine_process_error`
+
+Local engine error classes and errno only; no foreign error bodies.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `stage` | `startup` \| `listen` \| `accept` \| `spawn` \| `close` \| `peer` |  |
+| `error_kind` | `resource-limit` \| `permission` \| `invalid-input` \| `connection-closed` \| `timeout` \| `interrupted` \| `not-found` \| `unsupported` \| `other` |  |
+| `os_error` | `integer` |  |
+| `pid` | `integer` |  |
 
 ## Redaction data
 
