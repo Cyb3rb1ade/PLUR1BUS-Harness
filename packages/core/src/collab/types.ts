@@ -137,6 +137,8 @@ export interface CollabEvent {
 }
 
 export interface ConsultInput {
+  /** Trusted in-process acknowledgement after service admission; never RPC input. */
+  onAdmitted?: () => void;
   taskClass?: import('./limits.ts').TaskClass;
   callClass?: import('./limits.ts').CallClass;
   outbound?: import("./runner.ts").AgentRunInput["outbound"];
@@ -155,6 +157,10 @@ export interface ConsultInput {
 }
 
 export interface DelegateInput {
+  /** In-process reservation issued by this service; never accepted from the wire. */
+  writerReservation?: import('./service.ts').WriterReservation;
+  /** Trusted in-process acknowledgement after service admission; never RPC input. */
+  onAdmitted?: () => void;
   taskClass?: import('./limits.ts').TaskClass;
   callClass?: import('./limits.ts').CallClass;
   outbound?: import("./runner.ts").AgentRunInput["outbound"];

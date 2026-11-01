@@ -80,7 +80,7 @@ test('a completed parent model turn joins an unbound child before its stream clo
   assert.equal(collab.listTraces(person, project.id)[0]!.spans[0]!.status, 'succeeded');
 });
 
-test('ending a cancelled turn stops unbound children but leaves card-bound children owned by their scheduler', async () => {
+test('ending a cancelled turn stops and collects all children, including card-bound work', async () => {
   const children = new TurnDelegations();
   const unbound = new AbortController(), card = new AbortController();
   const gate = Promise.withResolvers<never>(), cardGate = Promise.withResolvers<never>();
@@ -90,7 +90,9 @@ test('ending a cancelled turn stops unbound children but leaves card-bound child
   void children.start('card', 'project', true, card, () => cardGate.promise);
   const results = await children.finish(true);
   assert.equal(unbound.signal.aborted, true);
-  assert.equal(card.signal.aborted, false);
+  assert.equal(card.signal.aborted, true);
+  assert.equal(results.length, 2);
+  assert.deepEqual(await children.finish(), []);
   assert.equal(results[0]!.error!.code, 'aborted');
   card.abort();
 });

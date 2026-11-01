@@ -501,6 +501,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           const next = await (rendered ? promptContext.run(rendered, () => stream.next()) : stream.next());
           if (next.done) break;
           const e = next.value;
+          if (e.type === 'text_delta' || e.type === 'reasoning_delta' || e.type === 'tool_call_start' || e.type === 'tool_call_delta') req.onProgress?.();
           if (attempt) { attempt.received = true; if (e.type === 'text_delta') attempt.outputChars += e.text.length; }
           if (e.type === 'done') yield { ...e, result: carryThinking(e.result, { ...e.result, toolCalls: e.result.toolCalls.map(t => ({ ...t, name: original.get(t.name) ?? withheld.get(t.name)?.name ?? t.name })) }) };
           else yield e;

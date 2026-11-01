@@ -68,6 +68,7 @@ export function providerRunner(provider: ChatProvider, scope: AgentScopePort): A
       let inputTokens = 0;
       let outputTokens = 0;
       for await (const chunk of provider.stream({
+        onProgress: () => input.onProgress?.({ text, inputTokens, outputTokens }),
         ...(input.workBudget ? { delegationBudget: input.workBudget } : {}),
         ...(input.maxRounds === undefined ? {} : { maxRounds: input.maxRounds }),
         ...delegationToolView(input, held),
@@ -82,6 +83,7 @@ export function providerRunner(provider: ChatProvider, scope: AgentScopePort): A
       })) {
         input.signal.throwIfAborted();
         if (chunk.type === "delta") { text += chunk.text; input.onProgress?.({ text, inputTokens, outputTokens }); }
+        else if (chunk.type === "tool.call" || chunk.type === "tool.result") input.onProgress?.({ text, inputTokens, outputTokens });
         else if (chunk.type === "usage") { inputTokens = chunk.inputTokens; outputTokens = chunk.outputTokens; }
       }
       return { text, inputTokens, outputTokens };

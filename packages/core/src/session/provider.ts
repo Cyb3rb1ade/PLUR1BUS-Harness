@@ -16,6 +16,8 @@ export interface TurnApprover { person: string | null; surface: 0 | 1 | 2 | 3 }
 export interface RecurringOrigin { jobId: string; jobName: string; runAs: string; trigger: "recurring" }
 
 export interface ChatRequest {
+  /** Trusted activity notification; carries no private reasoning or provider content. */
+  onProgress?: () => void;
   /** Trusted turn owner shared through internal request copies; never an RPC parameter. */
   delegations?: import('../collab/delegations.ts').TurnDelegations;
   maxRounds?: number;

@@ -78,7 +78,7 @@ export class TurnDelegations {
         await Promise.race([Promise.allSettled(children.map(child => child.done)), ended.promise]);
       } finally { if (timer) clearTimeout(timer); signal.removeEventListener('abort', abort); }
     }
-    const results = children.flatMap(child => child.result ? [child.result] : []);
+    const results = children.flatMap(child => child.result && !child.reported ? [child.result] : []);
     for (const result of results) this.delivered(result.taskId);
     return {
       results,
@@ -86,10 +86,15 @@ export class TurnDelegations {
     };
   }
 
-  /** Normal completion joins unbound children until their individual deadlines; cancellation stops them first. */
+  /** Handoff stops the sender's unbound work while preserving its returns for the final join. */
+  cancelUnbound(except: string): void {
+    for (const [id, child] of this.#children) if (id !== except && !child.cardBound && !child.result) child.abort.abort(new Error('sender handed off ownership'));
+  }
+
+  /** The starting turn owns every child until collection; cancellation stops them before joining. */
   async finish(cancel = false): Promise<DelegationResult[]> {
     this.#finishing = true;
-    const children = [...this.#children.values()].filter(child => !child.cardBound);
+    const children = [...this.#children.values()];
     if (cancel) for (const child of children) child.abort.abort(new Error('parent turn ended'));
     await Promise.allSettled(children.map(child => child.done));
     this.#closeIfIdle();

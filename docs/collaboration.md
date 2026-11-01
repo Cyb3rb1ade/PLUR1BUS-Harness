@@ -98,6 +98,9 @@ per-delegation class limits are enforced through a trusted per-request round lim
 | `code-small` | 100 | 45 min | 10 min |
 | `code-large` | 200 | 120 min | 15 min |
 
+The per-chain token check is a known soft limit under concurrency: simultaneous starts can each pass before
+settled usage updates the chain total. The atomic Call-Ledger reservation is the hard budget bound.
+
 These are D124's initial values; PT-2 calibrates them. `budget.tokens` is the work allocation, shared by acceptance,
 work, retries and return repair, and checked before each provider call. Standalone tools use
 `collaboration.limits.workTokens` (131,072 by default) unless a smaller `workTokens` argument or project budget applies.
@@ -125,8 +128,12 @@ version 2. This is an idempotent JSON format change, without a SQLite migration 
 ## Nonblocking tools and turn lifetime (D124 PT-1)
 
 `consult_agent` and `delegate_task` accept `wait: false`, `taskClass` and an optional smaller `workTokens` allocation.
-The default remains a blocking call. A nonblocking call reserves its slot and shared trace before any asynchronous
-handoff repair and returns `{ taskId }`. Start several children, then call
+Consults accept only `consult`, reviews only `review`, and delegates/handoffs only `code-small` or `code-large`;
+incompatible overrides are rejected. Reviews accept only read tools and default to the filesystem read list.
+The default remains a blocking call. Before asynchronous handoff repair, a nonblocking writer reserves both its
+project slot and local CPU/RAM capacity in the shared service, across all turns. A full capacity fails the call
+immediately without returning a handle. Admission consumes the reservation once and releases it on every terminal
+path; A2A writers reserve only a project slot. Accepted calls return `{ taskId }`. Start several children, then call
 `await_delegations { taskIds, timeoutMs }`: it returns `{ results, running }`, where each successful result contains
 the child's `plur1bus.return/1` envelope, untrusted-data tag and originating peer provenance. The collection is also an
 untrusted tool-result envelope. Unknown ids, including another turn's ids, are refused. A zero timeout polls;
@@ -135,11 +142,14 @@ The collection uses the registry's 1 MiB hard result ceiling so 32 valid bounded
 tool limits stay unchanged. The provider's usual context cap may return a full-result reference for a large batch.
 Failure entries carry bounded diagnostics derived from typed error codes; full redacted failure details remain in the
 child trace, rather than copying arbitrary provider error bodies into a collection.
-Use nonblocking calls for long work: synchronous tool calls retain the dispatcher's generic five-minute bound.
+Every tool handoff contract uses the smaller of its task-class wall time, the dispatcher's five-minute bound, and
+any requested deadline. Nonblocking starts retain this contract deadline after the starting call returns.
 
-When the model finishes, its unbound children are joined until their own deadlines and previously uncollected results
+When the model finishes, all its children (including card-bound children) are joined until their own deadlines and previously uncollected results
 are emitted through the normal redaction and result-size boundary. User abort or a failed parent turn cancels them,
-preserving progress in the child trace. Card-bound children stay owned by their scheduler. The ordinary tool loop
+preserving progress in the child trace. The starting turn collects each output once and closes its trace after all children settle. A card must belong to
+the authorized project and be assigned to the sending agent before work or review starts. A handoff acknowledgement
+cancels the sender's other unbound children before joining them, preserving their finished or partial results. The ordinary tool loop
 remains sequential: the children perform concurrent work after their nonblocking starts. No unrestricted parallel
 dispatch is introduced. `test/collab/concurrency.test.ts` proves four concurrent runs against a shared barrier without
 sleep-based synchronization; admission tests prove limits 3 and 2 across asynchronous preparation.

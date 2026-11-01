@@ -135,6 +135,7 @@ test('delegate requires real receiver ack before execution; partial output survi
     let stopped = false;
     const f = await fixture(t, { timeoutMs: abort ? 1000 : 20, runner: { async run(input) { input.onProgress?.({ text: 'checked the first file', inputTokens: 1, outputTokens: 2 }); await new Promise<void>(resolve => input.signal.addEventListener('abort', () => { stopped = true; resolve(); }, { once: true })); input.signal.throwIfAborted(); throw new Error('unreachable'); } } });
     const card = f.collab.boardStore.createCard(f.project.id, { title: 'Delegation', columnId: f.collab.boardStore.columns(f.project.id)[0]!.id }, { kind: 'person', id: owner.userId });
+    f.collab.boardStore.assign(f.project.id, card.id, { kind: 'agent', id: 'a1' }, true, { kind: 'person', id: owner.userId });
     const ac = new AbortController();
     const pending = f.call('delegate_task', { toAgent: 'b1', objective: 'long task', cardId: card.id }, ac.signal);
     if (abort) setTimeout(() => ac.abort(), 10);

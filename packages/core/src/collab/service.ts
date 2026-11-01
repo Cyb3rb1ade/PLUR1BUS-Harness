@@ -62,7 +62,12 @@ interface Chain {
   ended: boolean;
 }
 
+export interface WriterReservation { release(): void }
+type WriterIdentity = Pick<DelegateInput, 'principal' | 'projectId' | 'fromAgent' | 'toAgent'>;
+
 export interface Collab {
+  /** Synchronous trusted admission, shared across all turns using this service. */
+  reserveWriter(input: WriterIdentity): WriterReservation;
   /** Create the shared turn trace synchronously, before any worker preparation. */
   openChain(principal: Principal, projectId: string, fromAgent: string, signal?: AbortSignal): string;
   finishChain(principal: Principal, traceId: string): void;
@@ -97,7 +102,8 @@ export function createCollab(o: CollabOptions): Collab {
   const store = new CollabStore({ path: o.path, ...(o.limits ? { limits: o.limits } : {}), ...(o.clock ? { clock: o.clock } : {}), ...(o.newId ? { newId: o.newId } : {}), ...(o.grants ? { grants: o.grants } : {}), ...(o.logWarn ? { logWarn: o.logWarn } : {}) });
   const timers = o.timers ?? { set(callback: () => void, ms: number) { const timer = setTimeout(callback, ms); timer.unref?.(); return () => clearTimeout(timer); } };
   const writers = new Map<string, number>();
-  const localWriters = new Map<string, number>();
+  const reservations = new WeakMap<WriterReservation, { identity: WriterIdentity; local: boolean; running: boolean; released: boolean }>();
+  let localReserved = 0, localRunning = 0;
   const authorize = o.authorize ?? rbacAuthorizePort;
   const budget = o.budget ?? unlimitedBudget();
   const redact = o.redact ?? logsRedactionPort();
@@ -282,16 +288,38 @@ export function createCollab(o: CollabOptions): Collab {
       sameProject, tokensUsed: chain.tokensUsed, nextTokens: i.nextTokens,
     });
     if (decision) refuse(chain, { agentId: i.toAgent, parentSpanId: i.parentSpanId, reason: decision, detail: `guardrail ${decision}` });
-    const capacity = o.capacity ? writerCapacity(limits.writers.perProject, o.capacity(), localWriters.get(project.id) ?? 0) : undefined;
-    if (i.callClass === 'write' && ((writers.get(project.id) ?? 0) >= limits.writers.perProject
-      || (!isA2aAgent(i.toAgent) && capacity && (localWriters.get(project.id) ?? 0) >= capacity.slots))) {
-      refuse(chain, { agentId: i.toAgent, parentSpanId: i.parentSpanId, reason: 'fanout', detail: 'project writer slots full' });
-    }
-    if (i.callClass === 'write' && !isA2aAgent(i.toAgent) && capacity?.exceeded && (localWriters.get(project.id) ?? 0) >= capacity.computed) {
-      o.logWarn?.(`team.capacity.exceeded: project ${project.id}, computed ${capacity.computed}, configured ${capacity.slots}`);
-    }
     const b = budget.check({ tokens: i.nextTokens, projectId: project.id, agentId: i.toAgent, chainId: chain.traceId });
     if (!b.allowed) refuse(chain, { agentId: i.toAgent, parentSpanId: i.parentSpanId, reason: b.reason, detail: `guardrail ${b.reason}` });
+  };
+
+  const reserveWriter = (identity: WriterIdentity): WriterReservation => {
+    requireA2aOwner(identity.principal, identity.toAgent);
+    authz(identity.principal, 'project.write', { kind: 'project', projectId: identity.projectId });
+    const project = liveProject(identity.projectId);
+    authz(identity.principal, 'agent.use', { kind: 'agent', agentId: identity.fromAgent });
+    authz(identity.principal, 'agent.use', { kind: 'agent', agentId: identity.toAgent });
+    assertAgents(project, identity.fromAgent, identity.toAgent);
+    const limits = store.limits(project.id), local = !isA2aAgent(identity.toAgent);
+    const capacity = local && o.capacity ? writerCapacity(limits.writers.perProject, o.capacity(), localRunning) : undefined;
+    if ((writers.get(project.id) ?? 0) >= limits.writers.perProject || (capacity && localReserved >= capacity.slots)) throw new CollabError('guardrail', 'project writer slots full', { guardrail: 'fanout' });
+    if (capacity?.exceeded && localReserved >= capacity.computed) o.logWarn?.(`team.capacity.exceeded: project ${project.id}, computed ${capacity.computed}, configured ${capacity.slots}`);
+    const state = { identity: { ...identity, principal: { ...identity.principal } }, local, running: false, released: false };
+    const reservation: WriterReservation = { release() {
+      if (state.released) return;
+      state.released = true;
+      writers.set(project.id, (writers.get(project.id) ?? 1) - 1);
+      if (local) { localReserved--; if (state.running) localRunning--; }
+    } };
+    reservations.set(reservation, state);
+    writers.set(project.id, (writers.get(project.id) ?? 0) + 1);
+    if (local) localReserved++;
+    return reservation;
+  };
+  const useReservation = (reservation: WriterReservation, input: WriterIdentity): void => {
+    const state = reservations.get(reservation), identity = state?.identity;
+    if (!state || state.released || state.running || identity!.projectId !== input.projectId || identity!.fromAgent !== input.fromAgent || identity!.toAgent !== input.toAgent || identity!.principal.userId !== input.principal.userId || identity!.principal.kind !== input.principal.kind) throw new CollabError('unauthorized', 'writer reservation identity mismatch or already consumed');
+    state.running = true;
+    if (state.local) localRunning++;
   };
 
   const runTarget = async (chain: Chain, project: Project, toAgent: string, question: string, context: string, signal: AbortSignal, principal?: Principal, handoff?: import("./runner.ts").AgentRunInput["handoff"], hop?: { spanId: string; fromAgent: string; path: string[]; callClass: CallClass; taskClass: TaskClass }, outbound?: import("./runner.ts").AgentRunInput["outbound"]): Promise<import("./runner.ts").AgentRunResult> => {
@@ -335,13 +363,17 @@ export function createCollab(o: CollabOptions): Collab {
       if (signal.aborted) return { ...progress, partial: true };
       try {
         return await Promise.race([runner.run({ ...execution, ...(session ? { sessionId: session.id } : {}), agentId: toAgent, question, context, signal, ...(principal ? { principal } : {}), ...origin, ...(outbound ? { outbound } : {}), ...(handoff ? { handoff } : {}), onTranscript: entry => { markProgress(); if (turn && sessions && !signal.aborted && !storeClosed) sessions.appendEvent(turn.id, 'tool.result', { kind: 'tool_result', trust: 'untrusted', provenance: { traceId: chain.traceId, spanId: hop!.spanId, agentId: toAgent }, entry: redact.value(entry) }); }, onProgress: p => { if (!signal.aborted) { markProgress(); progress = { ...p }; } } }), aborted]);
+      } catch (error) {
+        if (signal.aborted) return { ...progress, partial: true };
+        throw error;
       } finally { detach(); }
     });
     try {
       const out = await execute();
       if (turn && sessions) {
         sessions.appendEvent(turn.id, 'tool.result', { kind: 'tool_result', trust: 'untrusted', provenance: { fromAgent: hop!.fromAgent, toAgent, projectId: project.id, traceId: chain.traceId, spanId: hop!.spanId }, result: redact.text(out.text), status: out.partial ? 'partial' : 'done', usage: { inputTokens: out.inputTokens, outputTokens: out.outputTokens } });
-        sessions.completeTurn(turn.id, { text: redact.text(out.text), tokens: out.outputTokens, data: { traceId: chain.traceId, spanId: hop!.spanId, status: out.partial ? 'partial' : 'done' } });
+        if (out.partial) sessions.failTurn(turn.id, redact.text(signal.reason instanceof Error ? signal.reason.message : 'delegation interrupted'), { traceId: chain.traceId, spanId: hop!.spanId, status: 'partial' });
+        else sessions.completeTurn(turn.id, { text: redact.text(out.text), tokens: out.outputTokens, data: { traceId: chain.traceId, spanId: hop!.spanId, status: 'done' } });
       }
       return out;
     } catch (e) {
@@ -353,6 +385,7 @@ export function createCollab(o: CollabOptions): Collab {
   };
 
   const api: Collab = {
+    reserveWriter,
     async shutdown(budgetMs = 5_000) {
       for (const chain of chains.values()) chain.abort.abort(new Error("core stopping"));
       const busy = () => [...chains.values()].filter(chain => chain.inflight.size > 0);
@@ -487,6 +520,7 @@ export function createCollab(o: CollabOptions): Collab {
       chain.inflight.add(local);
       const signal = chainSignal(chain, input.signal ? AbortSignal.any([local.signal, input.signal]) : local.signal);
       if (input.signal?.aborted || chain.abort.signal.aborted) local.abort(new Error("aborted"));
+      input.onAdmitted?.();
       try {
         const out = await runTarget(chain, project, input.toAgent, input.question, input.context, signal, input.principal, input.handoff, { spanId, fromAgent: input.fromAgent, path: childPath, callClass, taskClass }, input.outbound);
         chain.tokensUsed += out.inputTokens + out.outputTokens;
@@ -526,7 +560,8 @@ export function createCollab(o: CollabOptions): Collab {
     delegate(input) {
       const turnKey = JSON.stringify([input.fromAgent, input.handoff?.context.taskId ?? null]);
       const callClass = input.callClass ?? 'write';
-      const localWriter = callClass === 'write' && !isA2aAgent(input.toAgent);
+      let reservation: WriterReservation | undefined;
+      try {
       const taskClass = input.taskClass ?? 'code-small';
       requireA2aOwner(input.principal, input.toAgent);
       if (!input.task.trim()) throw new CollabError("invalid", "task is required", { reason: "task" });
@@ -542,6 +577,11 @@ export function createCollab(o: CollabOptions): Collab {
         guard(chain, project, { fromAgent: input.fromAgent, toAgent: input.toAgent, path, question: input.task, parentSpanId, nextTokens, callClass, consult: false, turnKey });
       } catch (e) {
         throw e;
+      }
+      if (callClass === 'write') {
+        const held = input.writerReservation ?? reserveWriter(input);
+        try { useReservation(held, input); } catch (error) { if (!input.writerReservation) held.release(); throw error; }
+        reservation = held;
       }
       chain.fanout += 1;
       if (callClass !== 'write') chain.readStarts.set(turnKey, (chain.readStarts.get(turnKey) ?? 0) + 1);
@@ -562,11 +602,10 @@ export function createCollab(o: CollabOptions): Collab {
       const local = new AbortController();
       chain.inflight.add(local);
       const signal = chainSignal(chain, input.signal ? AbortSignal.any([local.signal, input.signal]) : local.signal);
-      // Persist setup first, then reserve before callbacks or the first await. Every later failure reaches finally.
-      if (callClass === 'write') writers.set(project.id, (writers.get(project.id) ?? 0) + 1);
-      if (localWriter) localWriters.set(project.id, (localWriters.get(project.id) ?? 0) + 1);
+      // Admission reserved before persistence; setup and execution failures release the same identity-bound slot.
       fire({ type: "delegate.queued", projectId: project.id, traceId: chain.traceId, agentId: input.toAgent, data: { taskId, spanId } });
 
+      input.onAdmitted?.();
       const done = (async (): Promise<DelegateTask> => {
         try {
           signal.throwIfAborted();
@@ -604,13 +643,13 @@ export function createCollab(o: CollabOptions): Collab {
           return finished;
         } finally {
           chain.inflight.delete(local);
-          if (callClass === 'write') writers.set(project.id, Math.max(0, (writers.get(project.id) ?? 0) - 1));
-          if (localWriter) localWriters.set(project.id, Math.max(0, (localWriters.get(project.id) ?? 0) - 1));
+          reservation?.release();
           if (chain.abort.signal.aborted) endChainIfIdle(chain, "cancelled");
         }
       })();
 
       return { task: queued, done };
+      } catch (error) { reservation?.release(); throw error; }
     },
 
     replay(principal, traceId, spanId) {

@@ -124,7 +124,7 @@ test('the composed callee can consult one read helper as the authenticated perso
   assert.equal(f.collab.listTraces(owner(), f.project.id).length, 1);
 });
 
-test('turn cancellation preserves an unbound partial result without cancelling a card-bound sibling', async t => {
+test('turn cancellation collects partial results from both unbound and card-bound children', async t => {
   const started = Promise.withResolvers<void>(), releaseCard = Promise.withResolvers<void>();
   let count = 0, cardSignal: AbortSignal | undefined;
   const f = fixture(t, { runner: { async run(input) {
@@ -138,19 +138,20 @@ test('turn cancellation preserves an unbound partial result without cancelling a
   } } });
   t.after(() => releaseCard.resolve());
   const card = f.collab.boardStore.createCard(f.project.id, { title: 'Owned task', columnId: f.collab.boardStore.columns(f.project.id)[0]!.id }, { kind: 'person', id: owner().userId });
+  f.collab.boardStore.assign(f.project.id, card.id, { kind: 'agent', id: 'lead' }, true, { kind: 'person', id: owner().userId });
   assert.equal((await f.call('consult_agent', { projectId: f.project.id, toAgent: 'a', objective: 'inspect', wait: false })).isError, false);
   const bound = await f.call('delegate_task', { projectId: f.project.id, toAgent: 'b', objective: 'continue', cardId: card.id, wait: false });
   assert.ok(!bound.isError);
   await started.promise;
   const results = await f.request.delegations!.finish(true);
-  assert.equal(results.length, 1);
+  assert.equal(results.length, 2);
   assert.equal(results[0]!.result!.status, 'partial');
   assert.match(results[0]!.result!.summary, /inspected the first file/);
-  assert.equal(cardSignal!.aborted, false);
+  assert.equal(cardSignal!.aborted, true);
   releaseCard.resolve();
   const collected = await f.call('await_delegations', { taskIds: [(bound.value as { taskId: string }).taskId], timeoutMs: 1000 });
   assert.ok(!collected.isError);
-  assert.match(JSON.stringify(collected.value), /complete/);
+  assert.deepEqual((collected.value as { results: unknown[] }).results, []);
 });
 
 test('writer reservations belong to their project, rather than sharing a turn-wide four-writer cap', async t => {
@@ -253,4 +254,132 @@ test('the configured ceiling of 32 helpers can collect bounded returns without t
   assert.ok(!result.isError, JSON.stringify(result));
   assert.equal((result.value as { results: unknown[] }).results.length, 32);
   assert.ok(Buffer.byteLength(JSON.stringify(result.value)) > DEFAULT_MAX_RESULT_BYTES, 'the fixture must exercise the old overflow');
+});
+
+test('review rejects a writing scope before admission and defaults to read tools', async t => {
+  const views: string[][] = [];
+  const f = fixture(t, { runner: { async run(input) {
+    views.push([...alsAgentScopePort().current()!.toolView]);
+    return { text: 'review', inputTokens: 1, outputTokens: 1 };
+  } } });
+  const refused = await f.call('request_review', { projectId: f.project.id, toAgent: 'a', objective: 'review', scope: { paths: [], tools: ['file.write'] } });
+  assert.equal(refused.isError, true);
+  assert.match(JSON.stringify(refused), /unauthorized/);
+  assert.equal(views.length, 0);
+  await f.call('request_review', { projectId: f.project.id, toAgent: 'a', objective: 'review' });
+  assert.deepEqual(views, [['file.read', 'file.list', 'file.stat']]);
+});
+
+for (const [name, taskClass] of [['consult_agent', 'code-large'], ['request_review', 'consult'], ['delegate_task', 'review']]) test(`${name} rejects an incompatible task class at both entry points`, async t => {
+  let runs = 0;
+  const f = fixture(t, { runner: { async run() { runs++; return { text: 'done', inputTokens: 0, outputTokens: 0 }; } } });
+  const args = { projectId: f.project.id, toAgent: 'a', objective: 'inspect', taskClass };
+  assert.equal((await f.call(name!, args)).isError, true);
+  await assert.rejects(f.registry.get(name!)!.execute(args, f.context), /task class/);
+  assert.equal(runs, 0);
+});
+
+test('card validation refuses missing, foreign and unassigned cards before starting work or review', async t => {
+  let runs = 0, reviews = 0;
+  const f = fixture(t, { runner: { async run() { runs++; return { text: 'done', inputTokens: 0, outputTokens: 0 }; } } });
+  f.config.review = { start() { reviews++; return {}; }, root: () => '/tmp', finish() {} };
+  const foreign = f.collab.createProject(owner(), { name: 'Foreign' });
+  const make = (project: string) => f.collab.boardStore.createCard(project, { title: 'Card', columnId: f.collab.boardStore.columns(project)[0]!.id }, { kind: 'person', id: owner().userId });
+  for (const cardId of ['missing', make(foreign.id).id, make(f.project.id).id]) for (const name of ['consult_agent', 'delegate_task', 'request_review']) {
+    const result = await f.call(name, { projectId: f.project.id, toAgent: 'a', objective: 'inspect', cardId, ...(name === 'request_review' ? {} : { wait: false }) });
+    assert.equal(result.isError, true, `${name}: ${JSON.stringify(result)}`);
+  }
+  assert.equal(runs, 0); assert.equal(reviews, 0);
+});
+
+test('service refusal releases the turn and pair start allowances', async t => {
+  const f = fixture(t, { runner: { async run() { return { text: 'done', inputTokens: 1, outputTokens: 1 }; } } }, { maxFanout: 1, maxPairPerTurn: 1 });
+  f.collab.removeAgent(owner(), f.project.id, 'a');
+  assert.equal((await f.call('consult_agent', { projectId: f.project.id, toAgent: 'a', objective: 'inspect' })).isError, true);
+  f.collab.addAgent(owner(), f.project.id, 'a');
+  assert.equal((await f.call('consult_agent', { projectId: f.project.id, toAgent: 'a', objective: 'inspect' })).isError, false);
+});
+
+test('handoff acknowledgement cancels old unbound work and collects its partial output', async t => {
+  const oldStarted = Promise.withResolvers<void>();
+  let oldSignal: AbortSignal | undefined, handoffSignal: AbortSignal | undefined;
+  const f = fixture(t, { runner: { async run(input) {
+    if (input.agentId === 'a') {
+      oldSignal = input.signal;
+      input.onProgress?.({ text: 'old evidence', inputTokens: 1, outputTokens: 1 });
+      oldStarted.resolve();
+      return new Promise(() => {});
+    }
+    handoffSignal = input.signal;
+    await input.handoff!.context.onAccepted?.();
+    return { text: 'ownership accepted', inputTokens: 1, outputTokens: 1 };
+  } } });
+  await f.call('consult_agent', { projectId: f.project.id, toAgent: 'a', objective: 'old work', wait: false });
+  await oldStarted.promise;
+  const result = await f.call('handoff', { projectId: f.project.id, toAgent: 'b', objective: 'take over' });
+  assert.ok(!result.isError, JSON.stringify(result));
+  assert.equal(oldSignal!.aborted, true);
+  assert.equal(handoffSignal!.aborted, false);
+  const collected = await f.request.delegations!.finish();
+  assert.equal(collected.length, 1);
+  assert.match(collected[0]!.result!.summary, /old evidence/);
+});
+
+test('nonblocking writers reserve shared CPU and RAM before asynchronous preparation', async t => {
+  const gate = Promise.withResolvers<void>();
+  const limits = defaults().collaboration;
+  let prepared = 0, runs = 0;
+  const f = fixture(t, { capacity: () => ({ cores: 4, availableMemory: limits.teams.capacity.memoryPerWriter * 2, settings: { ...limits.teams.capacity, coresPerWriter: 2 } }), runner: { async run() { runs++; return { text: 'done', inputTokens: 1, outputTokens: 1 }; } } });
+  t.after(() => gate.resolve());
+  f.config.repair = async value => { prepared++; await gate.promise; return { ...(value as Handoff), objective: 'compact' }; };
+  // A second closure/turn shares only the actual service, never local counters.
+  const anotherRequest = { ...f.request, turnId: 'another-turn' };
+  delete anotherRequest.delegations;
+  const another = collaborationTools(f.config, anotherRequest).find(t => t.name === 'delegate_task')!;
+  const ids: string[] = [];
+  for (const toAgent of ['a', 'b', 'c', 'd']) {
+    const result = await f.call('delegate_task', { projectId: f.project.id, toAgent, objective: 'x'.repeat(2200), doneWhen: ['done'], wait: false });
+    assert.equal(result.isError, ids.length >= 2, JSON.stringify(result));
+    if (!result.isError) ids.push((result.value as { taskId: string }).taskId);
+  }
+  await assert.rejects(another.execute({ projectId: f.project.id, toAgent: 'a', objective: 'other turn', wait: false }, f.context), /slots full/);
+  assert.equal(prepared, 2); assert.equal(runs, 0);
+  gate.resolve();
+  const result = await f.call('await_delegations', { taskIds: ids, timeoutMs: 1000 });
+  assert.ok(!result.isError);
+  assert.equal((result.value as { results: unknown[] }).results.length, 2);
+  assert.equal(runs, 2, 'admitted reservations must not be charged again');
+  assert.equal((await f.call('delegate_task', { projectId: f.project.id, toAgent: 'c', objective: 'slot released' })).isError, false);
+});
+
+test('an admitted worker failure consumes its start allowance', async t => {
+  let runs = 0;
+  const f = fixture(t, { runner: { async run() { runs++; throw new Error('worker failed'); } } }, { maxFanout: 1 });
+  assert.equal((await f.call('consult_agent', { projectId: f.project.id, toAgent: 'a', objective: 'first' })).isError, true);
+  const second = await f.call('consult_agent', { projectId: f.project.id, toAgent: 'b', objective: 'second' });
+  assert.equal(second.isError, true); assert.match(JSON.stringify(second), /fanout/); assert.equal(runs, 1);
+});
+
+test('writer reservations reject another identity and duplicate consumption; release is idempotent', async t => {
+  const gate = Promise.withResolvers<void>();
+  t.after(() => gate.resolve());
+  const f = fixture(t, { runner: { async run() { await gate.promise; return { text: 'done', inputTokens: 0, outputTokens: 0 }; } } });
+  const input = { principal: owner(), projectId: f.project.id, fromAgent: 'lead', toAgent: 'a', task: 'work', acceptanceCriteria: 'done' };
+  const reservation = f.collab.reserveWriter(input);
+  assert.throws(() => f.collab.delegate({ ...input, toAgent: 'b', writerReservation: reservation }), /identity mismatch/);
+  const run = f.collab.delegate({ ...input, writerReservation: reservation });
+  assert.throws(() => f.collab.delegate({ ...input, task: 'duplicate', writerReservation: reservation }), /already consumed/);
+  gate.resolve(); await run.done;
+  reservation.release(); reservation.release();
+  assert.throws(() => f.collab.delegate({ ...input, task: 'released', writerReservation: reservation }), /already consumed/);
+});
+
+test('a nested reviewer default scope cannot inherit its writer parent write tools', async t => {
+  let view: readonly string[] = [];
+  const f = fixture(t, { runner: { async run() { view = alsAgentScopePort().current()!.toolView; return { text: 'review', inputTokens: 1, outputTokens: 1 }; } } });
+  const scope = scopeFor('lead', f.project.id);
+  scope.toolView = ['file.read', 'file.write'];
+  scope.delegation = { traceId: f.collab.openChain(owner(), f.project.id, 'lead'), spanId: 'parent', path: ['lead'], callClass: 'write', workBudget: delegationWorkBudget(10000) };
+  await runWithAgentScope(scope, () => f.call('request_review', { projectId: f.project.id, toAgent: 'a', objective: 'review' }));
+  assert.deepEqual(view, ['file.read']);
 });
