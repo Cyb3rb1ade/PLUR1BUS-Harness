@@ -9,8 +9,30 @@ import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 import {
   captureProcess, describeResponse, latencySummary, requireLiveProbe, socketRequest, withOwnedProcess,
+  systemAvailability,
+  observeResponse,
 } from "../spikes/apple-fm-probe-lib.mjs";
 import { renderReceipt, runProtocol } from "../spikes/apple-fm-probe.mjs";
+
+test("the system check accepts the available line with exit 1 outside Terminal", () => {
+  const available = systemAvailability({
+    code: 1, signal: null,
+    stdout: "  Apple Foundation Models\n  ✓ system (AFM 3 Core Advanced)\n  ✗ pcc (unavailable)\n",
+  });
+  assert.equal(available.state, "available");
+  assert.equal(available.exitCode, 1);
+});
+
+test("the system check refuses a cross or unreadable output even when the command exits zero", () => {
+  for (const [stdout, state] of [
+    ["✗ system (disabled)\n✓ pcc", "unavailable"],
+    ["✓ pcc", "unknown"],
+    ["system: available", "unknown"],
+    ["✓ system (ready)\n✗ system (disabled)", "unknown"],
+  ]) {
+    assert.equal(systemAvailability({ code: 0, stdout, signal: null }).state, state);
+  }
+});
 
 test("the live probe requires explicit opt-in and refuses CI even with opt-in", () => {
   assert.throws(() => requireLiveProbe({}), /PLUR1BUS_APPLE_FM_LIVE/);
@@ -62,6 +84,15 @@ test("JSON errors preserve the exact server shape and non-null log probabilities
   const probabilities = describeResponse({ status: 200, contentType: "application/json", body:
     '{"choices":[{"finish_reason":"stop","logprobs":{"content":[{"token":"a","logprob":-0.2}]}}]}' });
   assert.equal(probabilities.logprobsPresent, true);
+});
+
+test("an unknown server error format is preserved as evidence without claiming a JSON error shape", () => {
+  const result = observeResponse({ status: 400, contentType: "text/plain", body: "synthetic unknown model" });
+  assert.equal(result.status, 400);
+  assert.equal(result.format, "unparsed");
+  assert.equal(result.rawBody, "synthetic unknown model");
+  assert.equal(result.error, null);
+  assert.match(result.analysisError, /content type/);
 });
 
 test("malformed or HTML responses fail analysis instead of looking like an empty successful completion", () => {

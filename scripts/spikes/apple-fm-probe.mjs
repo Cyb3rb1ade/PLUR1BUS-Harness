@@ -3,11 +3,14 @@
 import { watch } from "node:fs";
 import { chmod, lstat, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { once } from "node:events";
+import { setTimeout as measurementInterval } from "node:timers/promises";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { isMainModule } from "../check-toolchain.mjs";
 import {
   captureProcess, describeResponse, latencySummary, requireLiveProbe, socketRequest, withOwnedProcess,
+  systemAvailability,
+  observeResponse,
 } from "./apple-fm-probe-lib.mjs";
 
 const MARKER = "AF0_SYNTHETIC_MARKER";
@@ -19,7 +22,7 @@ export const OVERFLOW_PROMPT = "synthetic ".repeat(5000);
 export async function runProtocol(socket, record, { signal, warmSamples = 12 } = {}) {
   const get = async (id, path) => {
     const raw = await socketRequest(socket, { method: "GET", path, signal });
-    const response = describeResponse(raw);
+    const response = observeResponse(raw);
     await record({ id, elapsedMs: raw.elapsedMs, response });
     return response;
   };
@@ -29,12 +32,12 @@ export async function runProtocol(socket, record, { signal, warmSamples = 12 } =
   const chat = async (id, extra = {}, { mustWork = false } = {}) => {
     const body = { model: "system", messages: [{ role: "user", content: PROMPT }], max_tokens: 32, ...extra };
     const raw = await socketRequest(socket, { method: "POST", path: "/v1/chat/completions", body, signal });
-    const response = describeResponse(raw);
+    const response = observeResponse(raw);
     const request = { ...body, messages: body.messages.map(message => ({
       role: message.role, utf16Units: message.content.length,
     })) };
     await record({ id, request, elapsedMs: raw.elapsedMs, response });
-    if (mustWork && (raw.status !== 200 || response.error)) {
+    if (mustWork && (raw.status !== 200 || response.error || response.analysisError)) {
       throw new Error(`spec-contradiction: previously demonstrated ${id} failed; stop before AF1`);
     }
     return { elapsedMs: raw.elapsedMs, response };
@@ -134,6 +137,10 @@ async function withFmServer(directory, socket, signal, receipt, use) {
   try {
     return await withOwnedProcess("/usr/bin/fm", ["serve", "--socket", socket], { env, cwd: directory }, async handle => {
       owned = handle;
+      receipt.serverInvocation = {
+        program: "/usr/bin/fm", args: ["serve", "--socket", socket],
+        environmentKeys: Object.keys(env), LANG: env.LANG, PATH: env.PATH, stdin: "closed (/dev/null)",
+      };
       let stdout = "";
       let stderr = "";
       handle.child.stdout.on("data", chunk => { stdout = (stdout + chunk.toString()).slice(-65_536); });
@@ -226,6 +233,10 @@ export function renderReceipt(receipt) {
       ? "The server was invoked with `serve --socket` in an owned 0700 temporary directory."
       : "No `fm serve` process was started; no protocol measurements were made.",
     "The probe never runs licence commands or changes Apple Intelligence settings.", "",
+    receipt.priorReceipt
+      ? `Evidence: [this run](./${receipt.receiptFile}) and the unchanged [stopped run](./2026-11-01-probe.md) ` +
+        "([original JSON](./2026-11-01-probe.json)). The controller corrected its exit-code interpretation."
+      : "",
     `Platform: macOS ${receipt.host?.version ?? "unknown"}, build ${receipt.host?.build ?? "unknown"}; ${process.arch}.`,
     `Node: ${process.version}. Source base: ${receipt.sourceHead ?? "unknown"}.`, "",
     "| Observation | HTTP | Format | DONE | Usage | Log probabilities | ms |",
@@ -269,6 +280,7 @@ export async function runLiveProbe(output) {
   process.once("SIGTERM", onSignal);
   const receipt = {
     schema: "plur1bus.apple-fm-probe/1", measuredAt: new Date().toISOString(), status: "running", observations: [],
+    receiptFile: output.split(/[\\/]/).at(-1), priorReceipt: "2026-11-01-probe.json",
     notMeasured: [
       "Model-unavailable error: Apple Intelligence is available; its settings are not changed for a probe.",
       "Licence-unagreed state: no licence command is run and the accepted licence is not altered.",
@@ -297,10 +309,15 @@ export async function runLiveProbe(output) {
     receipt.cliInvocation = {
       program: "/usr/bin/fm", args: ["models"], stdin: "closed", cwd: "isolated worktree",
       environment: { HOME: "<owner-home>", LANG: env.LANG, PATH: env.PATH }, nodeVersion: process.version,
+      context: {
+        executor: "Codex desktop command tool, outside the Terminal app",
+        stdinIsTTY: !!process.stdin.isTTY, stdoutIsTTY: !!process.stdout.isTTY, stderrIsTTY: !!process.stderr.isTTY,
+      },
     };
     receipt.cliModels = await captureProcess("/usr/bin/fm", ["models"], { env });
-    if (receipt.cliModels.code !== 0) {
-      throw new Error(`fm models exited ${receipt.cliModels.code}; stop before serving`);
+    receipt.systemAvailability = systemAvailability(receipt.cliModels);
+    if (receipt.systemAvailability.state !== "available") {
+      throw new Error(`fm models system line is ${receipt.systemAvailability.state}; stop before serving`);
     }
     stage = "token-counts";
     receipt.tokenCounts = {};
@@ -322,11 +339,24 @@ export async function runLiveProbe(output) {
         throw new Error(`spec-contradiction: socket mode ${receipt.socketMode}, expected F8's 755`);
       }
       receipt.idleCliRss = await captureProcess("/bin/ps", ["-p", String(child.pid), "-o", "rss="], { env });
+      receipt.tcpListeners = await captureProcess("/usr/sbin/lsof",
+        ["-nP", "-a", "-p", String(child.pid), "-iTCP", "-sTCP:LISTEN", "-Fpn"], { env });
+      if (receipt.tcpListeners.stdout.trim()) {
+        throw new Error("spec-contradiction: fm serve --socket owns a TCP listener");
+      }
       receipt.summary = await runProtocol(socket, async row => {
         receipt.observations.push(row);
         console.error(`AF0: ${row.id} HTTP ${row.response.status} (${row.elapsedMs.toFixed(1)} ms)`);
         await checkpoint();
       }, { signal });
+      receipt.idleAfterInference = [];
+      const idleStarted = performance.now();
+      for (const atMs of [0, 30_000]) {
+        // A measured idle interval, not a readiness barrier or a claim that model services unload.
+        await measurementInterval(Math.max(0, atMs - (performance.now() - idleStarted)), undefined, { signal });
+        const rss = await captureProcess("/bin/ps", ["-p", String(child.pid), "-o", "rss="], { env });
+        receipt.idleAfterInference.push({ elapsedMs: performance.now() - idleStarted, unit: "KiB (CLI only)", ...rss });
+      }
     });
     receipt.cleanup = { directServerReaped: true };
     stage = "unavailable-transport";

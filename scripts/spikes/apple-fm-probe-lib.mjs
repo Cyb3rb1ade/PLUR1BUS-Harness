@@ -2,6 +2,28 @@
 import { spawn } from "node:child_process";
 import { request } from "node:http";
 
+/** Read the system model line; the context-dependent CLI exit remains an observation. */
+export function systemAvailability({ stdout, code, signal }) {
+  const text = stdout.replace(/\u001b\[[0-9;]*m/g, "");
+  const lines = text.split(/\r?\n/).map(line => /^\s*([✓✔✗✘×])\s+system(?:\s|$)/u.exec(line))
+    .filter(match => match !== null);
+  const state = lines.length !== 1 ? "unknown" : ["✓", "✔"].includes(lines[0][1]) ? "available" : "unavailable";
+  return { state, exitCode: code, signal };
+}
+
+/** Preserve unfamiliar error formats as measured bytes; they are AF0 unknowns, not inferred contracts. */
+export function observeResponse(raw) {
+  try {
+    return describeResponse(raw);
+  } catch (error) {
+    return {
+      status: raw.status, contentType: raw.contentType, format: "unparsed", done: false,
+      eventCount: 0, finishReasons: [], usage: null, error: null, logprobsPresent: false, events: [],
+      rawBody: raw.body, analysisError: error.message,
+    };
+  }
+}
+
 /** Refuse live inference without the manual opt-in, including in CI. */
 export function requireLiveProbe(env = process.env) {
   if (env.CI || env.GITHUB_ACTIONS) {
