@@ -1,5 +1,6 @@
 // PT-2 definitions only. K2 owns model execution and verifier/worktree provisioning.
 import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 
 export type TeamLanguage = 'typescript' | 'python' | 'rust' | 'go';
 export interface TeamPackage {
@@ -105,30 +106,65 @@ export async function loadTeamTasks(root: URL): Promise<TeamTask[]> {
   }));
 }
 
-export type EvaluationArmId = 'single' | 'single-highest-effort' | 'single+review' | 'explore+single';
+export type ArmParameter = null | boolean | number | string | readonly ArmParameter[] | { readonly [key: string]: ArmParameter };
+export interface EvaluationArmSpec { family: string; params: Readonly<Record<string, ArmParameter>> }
+export type EvaluationArmId = string;
 export type FutureArmFamily = 'team' | 'best-of-n';
 export type ArmCapability = 'b1-runner' | 'highest-effort' | 'independent-review' | 'async-consult';
-export interface EvaluationArm {
+export interface EvaluationArm extends EvaluationArmSpec {
   id: EvaluationArmId;
-  family: 'single' | 'explore+single';
-  effort: 'default' | 'highest';
   roles: readonly ('writer' | 'reviewer' | 'read-helper')[];
   requires: readonly ArmCapability[];
 }
 // Later packages supply their own binding; declaring a family never enables execution.
-export type EvaluationArmExtension = { family: 'team'; package: 'PT-4b' } | { family: 'best-of-n'; package: 'PT-10' };
+export type EvaluationArmExtension = EvaluationArmSpec & ({ family: 'team'; package: 'PT-4b' } | { family: 'best-of-n'; package: 'PT-10' });
 export type EvaluationBudget = { regime: 'matched' | 'natural'; capTokens: number };
-const ARMS: readonly EvaluationArm[] = [
-  { id: 'single', family: 'single', effort: 'default', roles: ['writer'], requires: ['b1-runner'] },
-  { id: 'single-highest-effort', family: 'single', effort: 'highest', roles: ['writer'], requires: ['b1-runner', 'highest-effort'] },
-  { id: 'single+review', family: 'single', effort: 'default', roles: ['writer', 'reviewer'], requires: ['b1-runner', 'independent-review'] },
-  { id: 'explore+single', family: 'explore+single', effort: 'default', roles: ['writer', 'read-helper'], requires: ['b1-runner', 'async-consult'] },
+
+/** Exact JSON values: preserve strings and array order, sort object keys, refuse non-data inputs. */
+function armJson(value: unknown, seen = new Set<object>(), depth = 0, visited = { count: 0 }): string {
+  if (++visited.count > 4096) throw new Error('arm parameters exceed node limit');
+  if (depth > 32) throw new Error('arm parameters exceed nesting limit');
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return JSON.stringify(value);
+  if (typeof value === 'number' && Number.isFinite(value)) return JSON.stringify(value);
+  if (!value || typeof value !== 'object') throw new Error('arm parameters require finite JSON data');
+  if (seen.has(value)) throw new Error('arm parameters cannot contain cycles');
+  const array = Array.isArray(value);
+  if (!array && ![null, Object.prototype].includes(Object.getPrototypeOf(value))) throw new Error('arm parameters require plain objects');
+  const keys = Reflect.ownKeys(value);
+  if (array && keys.length !== value.length + 1) throw new Error('arm parameter arrays must be dense');
+  for (const key of keys) {
+    if (array && key === 'length') continue;
+    const property = Object.getOwnPropertyDescriptor(value, key)!;
+    if (typeof key !== 'string' || !property.enumerable || !Object.hasOwn(property, 'value') ||
+        (array && (!/^(0|[1-9][0-9]*)$/.test(key) || Number(key) >= value.length))) throw new Error('arm parameters require JSON data properties');
+  }
+  seen.add(value);
+  try {
+    return array ? `[${Array.from(value, item => armJson(item, seen, depth + 1, visited)).join(',')}]`
+      : `{${(keys as string[]).sort().map(key => `${JSON.stringify(key)}:${armJson((value as Record<string, unknown>)[key], seen, depth + 1, visited)}`).join(',')}}`;
+  } finally { seen.delete(value); }
+}
+/** Portable <=64-character identity. The empty single control retains B1's existing baseline ID. */
+export function canonicalArmId(arm: EvaluationArmSpec): EvaluationArmId {
+  if (!arm || typeof arm.family !== 'string' || !/^[a-z][a-z0-9+-]{0,30}$/.test(arm.family) || !arm.params || typeof arm.params !== 'object' || Array.isArray(arm.params)) throw new Error('invalid evaluation arm definition');
+  const params = armJson(arm.params);
+  if (arm.family === 'single' && params === '{}') return 'single';
+  const descriptor = `{"family":${JSON.stringify(arm.family)},"params":${params}}`;
+  const digest = createHash('sha256').update(descriptor, 'utf8').digest('hex').slice(0, 32);
+  return `${arm.family.replaceAll('+', '-')}-${digest}`;
+}
+const ARMS: readonly Omit<EvaluationArm, 'id'>[] = [
+  { family: 'single', params: {}, roles: ['writer'], requires: ['b1-runner'] },
+  { family: 'single', params: { effort: 'highest' }, roles: ['writer'], requires: ['b1-runner', 'highest-effort'] },
+  { family: 'single', params: { review: true }, roles: ['writer', 'reviewer'], requires: ['b1-runner', 'independent-review'] },
+  { family: 'explore+single', params: {}, roles: ['writer', 'read-helper'], requires: ['b1-runner', 'async-consult'] },
 ];
 export function evaluationArms(): EvaluationArm[] {
-  return ARMS.map(arm => ({ ...arm, roles: [...arm.roles], requires: [...arm.requires] }));
+  return ARMS.map(arm => ({ ...arm, id: canonicalArmId(arm), params: structuredClone(arm.params), roles: [...arm.roles], requires: [...arm.requires] }));
 }
-export function planArm(id: string, budget: EvaluationBudget): { arm: EvaluationArm; budget: EvaluationBudget & { accounting: 'all-model-calls'; pool: 'shared-task' } } {
-  const arm = evaluationArms().find(candidate => candidate.id === id);
+const armId = (arm: EvaluationArmSpec | EvaluationArmId): EvaluationArmId => typeof arm === 'string' ? arm : canonicalArmId(arm);
+export function planArm(definition: EvaluationArmSpec | EvaluationArmId, budget: EvaluationBudget): { arm: EvaluationArm; budget: EvaluationBudget & { accounting: 'all-model-calls'; pool: 'shared-task' } } {
+  const id = armId(definition), arm = evaluationArms().find(candidate => candidate.id === id);
   if (!arm) throw new Error(`evaluation arm unavailable: ${id}`);
   if (!Number.isSafeInteger(budget.capTokens) || budget.capTokens <= 0) throw new Error('evaluation budget requires a positive safe integer token cap');
   if (budget.regime !== 'matched' && budget.regime !== 'natural') throw new Error('invalid evaluation budget regime');
@@ -138,7 +174,8 @@ export function missingArmCapabilities(arm: EvaluationArm, capabilities: Readonl
   return arm.requires.filter(capability => !capabilities.has(capability));
 }
 export type ComparisonBudget = { regime: 'matched'; capTokens: number } | { regime: 'natural'; caps: Partial<Record<EvaluationArmId, number>> };
-export function planComparison(ids: readonly EvaluationArmId[], budget: ComparisonBudget): ReturnType<typeof planArm>[] {
+export function planComparison(definitions: readonly (EvaluationArmSpec | EvaluationArmId)[], budget: ComparisonBudget): ReturnType<typeof planArm>[] {
+  const ids = definitions.map(armId);
   if (!ids.length || new Set(ids).size !== ids.length) throw new Error('comparison requires distinct arms');
   const value = object(budget);
   if (value.regime === 'matched') {

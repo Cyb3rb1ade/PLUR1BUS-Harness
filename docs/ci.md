@@ -518,3 +518,10 @@ standard-library code. Missing tools fail; the fixture suite introduces no platf
 The B1 runtime adapter and nightly team evaluation wait for K2. The existing fan-out replay test and timing weight
 remain until the runtime replacement lands. Local preparation timings for new files are labeled separately from the
 existing Ubuntu Actions source in `.github/ci/core-test-timings.json`.
+
+The team arm model uses `{ family, params }` and a deterministic canonical ID, with roles/capabilities kept as metadata.
+Comparisons and natural-budget keys use that ID; `team` and `best-of-n` remain unbound extension points. K2's B1 loader
+skips `tests/bench/coding/team/`, so this additive corpus does not change its baseline corpus. K2 owns the benchmark
+report schema and runtime environment allowlist; TM2 adopts them from K2's PR rather than defining a parallel report
+or execution profile. Both PRs extend this document: the second package to merge integrates `main` with a merge commit
+and resolves any overlap here. No rebase is used.

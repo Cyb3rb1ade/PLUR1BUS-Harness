@@ -28,8 +28,8 @@ package checkers and end-to-end checker. No upstream benchmark content or third-
 ## Fixture contract
 
 `catalog.json` is the task list. The closed `plur1bus.team-task/1` manifests are validated by
-`packages/core/src/collab/team-eval.ts`. K2's B1 adapter will map this additive team-tier contract to its runner; this
-change supplies no second runner and no model execution.
+`packages/core/src/collab/team-eval.ts`. K2's B1 loader intentionally skips this `team/` directory. Its future team adapter will map this additive contract
+to the runner; this change supplies no second runner and no model execution.
 
 Each manifest declares three uint32 seeds (17, 104729, 8675309), explicit file ownership and package dependencies,
 an integration order and a checker scope per package plus `e2e`. Each package owns one exact seeded source path;
@@ -87,11 +87,26 @@ The private fixture directory must not be granted to a model's tools or copied t
 
 ## Arm definitions and remaining integration
 
-The model defines `single`, the highest-effort `single` control, `single+review`, and `explore+single`. They are planning
-data with explicit capability requirements, not executable bindings. `team` (PT-4b) and `best-of-n` (PT-10) are extension
+Arms are extensible data definitions `{ family, params }`, with separate roles and capability requirements. The initial
+controls are `{ family: 'single', params: {} }`, `single` with `{ effort: 'highest' }`, `single` with `{ review: true }`,
+and `{ family: 'explore+single', params: {} }`. These are planning data, not executable bindings.
+
+`canonicalArmId` derives the ID from the family and parameters only. Object keys are sorted recursively in UTF-16 code-unit order; exact JSON
+strings and array order are preserved, while numeric `-0` serializes as `0`. Unsupported data, cycles and non-finite
+numbers are refused. Serialization is bounded to depth 32 (the parameter object is depth 0) and 4096 visited values. The empty `single`
+control keeps B1's baseline ID `single`; other IDs use the family with `+` replaced by `-`, a hyphen and the first 32
+hex digits of SHA-256 over the UTF-8 canonical JSON `{ "family": ..., "params": ... }` without whitespace. Family labels
+use 1–31 lowercase ASCII letters/digits/`+`/`-`, starting with a letter, so IDs remain portable ASCII strings of at most 64 characters.
+Test vectors pin the initial controls. Future families/parameter combinations get stable identities without extending
+a closed ID enum; they still require an explicit runtime binding. Comparisons accept descriptors or canonical IDs,
+and natural-budget maps use canonical IDs. All roles continue sharing the matched task cap. `team` (PT-4b) and `best-of-n` (PT-10) are extension
 points only. Declaring an arm or satisfying a metadata capability does not execute it or grant any tool authority.
 
-The loader requires an explicit directory `file:` URL, including from a bundled caller. K2's B1 runner must land before
+K2 owns the benchmark report schema and execution-environment allowlist. TM2 adopts those contracts from K2's PR
+when available; the fixture self-test's private checker receipt is not a second live benchmark report. Both packages
+extend `docs/ci.md`; whichever merges second merges `main` and resolves the documentation overlap, without rebasing.
+
+The team loader requires an explicit directory `file:` URL, including from a bundled caller. K2's B1 runner must land before
 the runtime adapter, live baseline, nightly job and the replacement of `fanout-eval.ts`
 and `eval:m5`. The executable `explore+single` binding is the last TM2 commit, after #853 lands on main; first merge main,
 never rebase. Capacity trials declare request concurrency 1/2/4 and writer-capacity multipliers 1/1.5/2. No throughput,

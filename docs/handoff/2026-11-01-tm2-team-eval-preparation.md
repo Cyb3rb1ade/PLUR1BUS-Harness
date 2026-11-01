@@ -14,8 +14,8 @@ This is the task/arm preparation, **not completed PT-2 runtime or measurement ac
   seed-generator code or reference is copied to agent input.
 - Closed manifests and exact seeded ownership templates. The initial corpus owns one source file per work package.
   This fixture validation is separate from TM4's future general plan/glob checker.
-- Arm definitions for `single`, its highest-effort control, `single+review`, and `explore+single`, with explicit
-  capabilities and roles. Matched comparisons own one shared token cap for all model calls; natural comparisons need
+- Extensible `{ family, params }` arm definitions for `single`, its highest-effort control, `single` with independent
+  review, and `explore+single`, with canonical IDs and explicit capabilities/roles. Matched comparisons own one shared token cap for all model calls; natural comparisons need
   explicit per-arm caps. `team`/`best-of-n` are extension types only. No binding invokes a model or grants authority.
 - Local-capacity trial definitions: request concurrency 1/2/4 and writer-capacity multipliers 1/1.5/2.
 - Core CI language prerequisites, plus a fixture/prompt change-classifier regression. New file weights in the Core shard
@@ -27,13 +27,13 @@ third-party libraries were copied. `actions/setup-go` is the only new CI action 
 `b7ad1dad31e06c5925ef5d2fc7ad053ef454303e`, MIT). There are no new product dependencies, Engine pin changes, RPC/config
 schema changes or database migrations.
 
-## Evidence and review fixes
+## Evidence and review fixes from the initial delivery
 
 The first four test-first assertions failed against the empty preparation: no tasks, no arms, no shared budget plans
 and no capacity trials. The initial corpus self-test then caught an incorrect tokenization oracle and two missing
 placeholder definitions; those data errors were corrected.
 
-The final focused group passed 35 tests, zero failures, skips or TODOs. For 54 task/seed variants, all 216 package
+The initial delivery at `63e21a7599` passed 35 focused tests, zero failures, skips or TODOs. For 54 task/seed variants, all 216 package
 and end-to-end scopes fail on start and pass on reference (432 scope outcomes). Additional checks grade each isolated
 package solution, the intermediate coupled reference stages, actual reference diff overlap/disjointness, deterministic
 materialization, candidate-tree cleanliness and negative manifests.
@@ -54,8 +54,8 @@ being misclassified as an unavailable compiler. The fixes now:
 
 Claude Code 2.1.296 (`claude-sonnet-5-5`) reviewed the work in four read-only passes. The initial findings were fixed
 and regression-tested; the last delta review found no actionable defect. The implementation session ran the tests.
-The final small fixes also pin Rust in a private working directory with automatic installation disabled, reject
-non-directory fixture URLs and unknown natural-budget keys, and cover the ownership/language mismatch rules. The last
+Those initial fixes also pin Rust in a private working directory with automatic installation disabled, reject
+non-directory fixture URLs and unknown natural-budget keys, and cover the ownership/language mismatch rules. The initial
 portability pass checked explicit Python UTF-8 mode alongside isolated execution.
 
 The checker helpers are fixture graders, not a second B1 runner: they do not create Git worktrees, drive turns, obtain
@@ -63,7 +63,7 @@ credentials, call models or produce a live-model comparison. The self-test execu
 code. K2 must use its existing verifier sandbox and cleanup policy for model-generated candidates.
 
 Local toolchains: Node 24.21.0, pnpm 10.28.0, Rust 1.95.0, Go 1.27.1, Python 3.13.13. `pnpm test:prep` and TypeScript
-checking passed. All 55 CI classifier/shard tests passed, including the fixture-only prompt case. Every long local check
+checking passed. The initial delivery also passed all 55 CI classifier/shard tests, including the fixture-only prompt case. Every long local check
 writes to a log. Final publication requires the prescribed sequential
 `pnpm lint`, Core test, WebMCP test, `pnpm docs:check`; exact results and the follow-up Claude review are reported in the PR.
 No CI runs/checks were polled and no target-branch merge was performed. Native Windows performance has not been
@@ -86,3 +86,23 @@ measured in this local preparation; its existing test timeouts are unchanged.
 
 TM3 is not started: it requires `project_worktrees` from unmerged #820. TM4/TM5 wait for K1. Review findings for #853
 are a separate handoff; this branch does not preempt them.
+
+
+## Controller alignment: parameterized arms
+
+The arm model no longer enumerates four fixed IDs. `canonicalArmId` derives portable identities from exact JSON
+family/parameter definitions, with recursively sorted object keys (UTF-16 code-unit order) and preserved string/array values. The existing
+empty `single` control retains its baseline ID. Other IDs use a readable family prefix and 128 bits of SHA-256; the
+initial vectors are pinned in `collab/team-eval.test.ts`. Plans accept either the structured descriptor or its ID,
+reject duplicate canonical identities, and require natural caps under canonical keys. Additional metadata supplied
+by a caller cannot override the registered roles or capability requirements. New families do not become executable.
+
+K2's B1 loader skips `tests/bench/coding/team/`. Its report schema and runtime environment allowlist remain authoritative
+and will be adopted from K2's PR; no separate live runner, report schema or execution profile is introduced here.
+Both packages extend `docs/ci.md`; the second to merge integrates `main` with a merge commit and resolves the overlap.
+The runtime/measurement and final async-exploration gates above remain in force.
+
+
+The arm follow-up additionally bounds canonicalization to 4096 visited JSON values and depth 32 (parameter root at depth 0), and documents
+JSON's numeric `-0`/`0` equivalence. Its own unit group and the prescribed full local checks are reported separately
+in #860; the evidence counts above describe the original preparation commit, not this follow-up.
