@@ -25,7 +25,7 @@ use plur1bus_engine::contract::{
 };
 use plur1bus_engine::embedding::{Cancel, EmbeddingProvider};
 use plur1bus_engine::recall::acl::DenialSink;
-use plur1bus_engine::recall::graph::GraphEdge;
+use plur1bus_engine::recall::graph::{traverse, GraphEdge};
 use plur1bus_engine::recall::hash_embed::{
     hash_unit, l2_normalize, to_f32, HashEmbedder, HASH_DIMENSION,
 };
@@ -36,6 +36,40 @@ use plur1bus_engine::recall::stages::{
 use plur1bus_engine::store::{OpenMode, Store};
 use serde_json::{json, Value};
 use support::{memory_row, TestHost};
+
+// The pinned Node readGraph keeps the first Map insertion position even when a
+// stronger duplicate replaces the edge. Its stable strength sort then caps at 8.
+#[test]
+fn graph_neighbor_cap_preserves_first_insertion_order_when_strengths_tie() {
+    for replace_first in [false, true] {
+        let mut edges: Vec<GraphEdge> = ["z", "a", "y", "b", "x", "c", "w", "d", "v", "e"]
+            .into_iter()
+            .enumerate()
+            .map(|(index, target)| GraphEdge {
+                source: "seed".to_owned(),
+                target: target.to_owned(),
+                strength: if replace_first && index == 0 {
+                    0.4
+                } else {
+                    1.0
+                },
+                directed: true,
+                kind: "related".to_owned(),
+            })
+            .collect();
+        if replace_first {
+            edges.push(GraphEdge {
+                strength: 1.0,
+                ..edges[0].clone()
+            });
+        }
+        for _ in 0..32 {
+            let hits = traverse(&[("seed".to_owned(), 1.0)], &edges);
+            let ids: Vec<&str> = hits.iter().map(|hit| hit.memory_id.as_str()).collect();
+            assert_eq!(ids, ["z", "a", "y", "b", "x", "c", "w", "d"]);
+        }
+    }
+}
 
 #[test]
 fn plain_matches_the_node_stage_golden() {

@@ -10,7 +10,15 @@ import { tempDir } from '../helpers/temp-dir.ts';
 import { scriptedAdapter } from '../composition/helpers.ts';
 import type { SessionEvent, SessionEventsResult, SessionSubmitResult } from '@plur1bus/rpc-schema';
 
-test('D103 system: RPC turns refresh skill metadata, retain loaded bodies and apply edits in a new session', async () => {
+test('D103 system: RPC turns refresh skill metadata, retain loaded bodies and apply edits in a new session', async t => {
+  const previous = { allow: process.env.PLUR1BUS_ALLOW_TEST_INTERNALS, keyring: process.env.PLUR1BUS_SECRETS_KEYRING };
+  t.after(() => {
+    for (const [name, value] of [['PLUR1BUS_ALLOW_TEST_INTERNALS', previous.allow], ['PLUR1BUS_SECRETS_KEYRING', previous.keyring]] as const) {
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
+  });
+  process.env.PLUR1BUS_ALLOW_TEST_INTERNALS = '1';
+  process.env.PLUR1BUS_SECRETS_KEYRING = 'memory';
   const home = tempDir('d103-core-'); const cfg = defaults(); cfg.agents.bernd = {};
   cfg.engine = { duplicateThreshold: 1.01, neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false }, merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false }, temporalContext: { enabled: false }, conversationReactivationRecall: { enabled: false } };
   cfg.modelRoles.decision = 'triage';
