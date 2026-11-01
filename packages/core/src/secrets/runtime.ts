@@ -2,10 +2,11 @@ import { createHash } from "node:crypto";
 import type { SecurePath } from "@plur1bus/module-api";
 import type { Layout } from "../paths.ts";
 import { createFileAuditSink } from "./audit.ts";
-import { createFileBackend } from "./file-backend.ts";
 import { createKeyringBackend, type KeyringEntry, type KeyringLoader, type KeyringModule } from "./keyring-backend.ts";
 import { createSecretStore, type SecretStore, type SecretStoreLogger } from "./store.ts";
 import { createSecretRedaction, type SecretRedaction } from "./redaction.ts";
+import { createIsolatedBackend, SECRET_IO_BUDGET_MS, type IsolatedBackendOptions } from "./isolated-backend.ts";
+import type { SecretBackend } from "./types.ts";
 
 /** An in-process stand-in for the OS keyring, selected only by the test seam below. */
 function memoryKeyringModule(): KeyringModule {
@@ -38,6 +39,10 @@ export function keyringLoaderFor(env: NodeJS.ProcessEnv): KeyringLoader | undefi
 export function createCoreSecretStore(o: {
   layout: Layout; securePath: SecurePath; fileFallback: () => boolean; clock?: () => number; logger?: SecretStoreLogger; env?: NodeJS.ProcessEnv;
   redaction?: SecretRedaction;
+  /** Trusted process/clock test ports; never selected through RPC, configuration or an environment module path. */
+  isolation?: Pick<IsolatedBackendOptions, "budgetMs" | "spawn"> & { retryAfterMs?: number };
+  /** Injected backends keep arbitrary loader/securePath closures inside test code. Production always isolates persistent I/O. */
+  backends?: { keyring?: SecretBackend; file?: SecretBackend };
 }): SecretStore {
   const load = keyringLoaderFor(o.env ?? process.env);
   // One keyring service per home, so two homes of one OS user never see each other's secrets.
@@ -45,12 +50,20 @@ export function createCoreSecretStore(o: {
   const redaction = o.redaction ?? createSecretRedaction();
   const audit = createFileAuditSink({ file: o.layout.logFile("audit"), secure: o.securePath,
     redactor: redaction.redactor(), ...(o.clock ? { clock: o.clock } : {}) });
-  const store = createSecretStore({
-    keyring: createKeyringBackend({ service, ...(load ? { load } : {}) }),
-    file: createFileBackend({ dir: o.layout.secrets, secure: o.securePath }),
+  let store: SecretStore | undefined;
+  const io = { ...o.isolation, onUnavailable: () => store?.backendUnavailable() };
+  const keyring = !o.backends?.keyring && !load ? createIsolatedBackend({ kind: "keyring", service }, io) : undefined;
+  const file = !o.backends?.file ? createIsolatedBackend({ kind: "file", dir: o.layout.secrets }, io) : undefined;
+  store = createSecretStore({
+    keyring: o.backends?.keyring ?? keyring?.backend ?? createKeyringBackend({ service, load: load! }),
+    file: o.backends?.file ?? file!.backend,
     fileFallback: o.fileFallback,
     audit,
     redaction,
+    startup: { budgetMs: o.isolation?.budgetMs ?? SECRET_IO_BUDGET_MS,
+      ...(o.isolation?.retryAfterMs !== undefined ? { retryAfterMs: o.isolation.retryAfterMs } : {}),
+      cancel() { keyring?.cancel(); file?.cancel(); },
+      async close() { await Promise.all([keyring?.close(), file?.close()]); } },
     ...(o.clock ? { clock: o.clock } : {}),
     ...(o.logger ? { logger: o.logger } : {}),
   });

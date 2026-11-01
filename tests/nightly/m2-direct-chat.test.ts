@@ -20,7 +20,11 @@ test('M2 Nightly real-model Direct Chat recalls an unpredictable fact in a new s
   let core: ReturnType<typeof createCore> | undefined;
   let client: Awaited<ReturnType<typeof connect>> | undefined;
   let passed = false;
+  // Real models/provider remain live; this scratch-home test never uses the operator's OS keychain.
+  const previousSecretEnv = { allow: process.env.PLUR1BUS_ALLOW_TEST_INTERNALS, keyring: process.env.PLUR1BUS_SECRETS_KEYRING };
   try {
+    process.env.PLUR1BUS_ALLOW_TEST_INTERNALS = '1';
+    process.env.PLUR1BUS_SECRETS_KEYRING = 'memory';
     const url = new URL(baseUrl!);
     assert.ok(['https:', 'http:'].includes(url.protocol));
     assert.equal(url.username + url.password + url.search + url.hash, '');
@@ -67,6 +71,9 @@ test('M2 Nightly real-model Direct Chat recalls an unpredictable fact in a new s
   finally {
     await client?.close().catch(() => {});
     await core?.stop({ budgetMs: 5000 }).catch(() => {});
+    for (const [name, value] of [['PLUR1BUS_ALLOW_TEST_INTERNALS', previousSecretEnv.allow], ['PLUR1BUS_SECRETS_KEYRING', previousSecretEnv.keyring]] as const) {
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
     await rm(home, { recursive: true, force: true });
   }
   assert.ok(passed, 'M2 real-model Direct Chat acceptance failed; provider details withheld');

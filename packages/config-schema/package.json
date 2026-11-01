@@ -3,14 +3,34 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24.16.0 <25 || >=26.1.0" },
-  "exports": { ".": { "source": "./src/index.ts", "types": "./src/index.ts", "default": "./dist/index.js" }, "./schema": "./schema/config.schema.json" },
-  "files": ["dist", "schema"],
+  "engines": {
+    "node": ">=24.16.0 <25 || >=26.1.0"
+  },
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./schema": "./schema/config.schema.json",
+    "./policy": {
+      "source": "./src/policy.ts",
+      "types": "./src/policy.ts",
+      "default": "./dist/policy.js"
+    }
+  },
+  "files": [
+    "dist",
+    "schema"
+  ],
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --packages=external --outfile=dist/index.js",
+    "build": "esbuild src/index.ts src/policy.ts --bundle --platform=node --target=node24 --format=esm --packages=external --outdir=dist",
     "gen": "node --experimental-strip-types src/gen-defaults.mjs",
     "check:fixtures": "node --experimental-strip-types src/gen-defaults.mjs --check",
     "test": "node --experimental-strip-types src/gen-defaults.mjs && node ../../scripts/test-package.mjs"
   },
-  "dependencies": { "ajv": "8.20.0", "ajv-formats": "3.0.1" }
+  "dependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1"
+  }
 }

@@ -89,14 +89,19 @@ Behaviour at the edges (tests in `provider.test.ts`):
   transcript, an offloaded result file or any audit line; a result that holds none of them is returned exactly as the tool
   returned it. A failure message is masked the same way before it is cut to length. Before its first log record, Core
   registers schema-declared literal config secrets, URL credentials and readable values from each enabled, accessible
-  Store backend, including both physical copies of a name. Initial Store values stay pinned until Core exits; later
-  reads, writes and leases register values too. Safe reference names are public metadata. A stored value of 8 or
+  Store backend, including both physical copies of a name. Initial and recovery Store values stay pinned until Core exits; later
+  reads, writes and leases register values too. Persistent backend I/O runs outside the event loop, with one three-second
+  preload deadline and demand-driven recovery after 30 seconds; timed-out startup discards unsafe queued logs. Safe reference names are public metadata. A stored value of 8 or
   more characters masks every matching piece of text in a result, so a low-entropy one (a short word, a path) masks ordinary
   text too. A registered value that comes back as a JSON number cannot be masked, so that result is withheld
   (`tool-result-invalid`); a result over its size limit is refused on its raw size before it is checked. Details and regression tests: [tool-reliability.md](tool-reliability.md#what-the-model-sees-when-a-tool-fails).
 
-The shared registry caches canonical variants once per secret-set membership generation. Reordering, rereading or
-adding another pin for an existing value does not derive them again; a changed set replaces the cache. The dispatcher
+The shared registry caches canonical variants and a compiled matcher once per secret-set membership generation.
+Reordering, rereading or adding another pin for an existing value reuses the immutable snapshot; a changed set replaces it.
+Composition combines registered config, Store and manual values and passes a trusted snapshot callback through the
+provider, dispatcher and native tools. Error details, validation, repair presentation, collaboration previews and agent
+exports reuse that generation. Presentation refreshes after execution, cursor reads and asynchronous export signing;
+new secrets cannot bypass the boundary because an earlier snapshot was retained. The dispatcher
 reads this set after execution, so values learned by the tool itself count. Standalone dispatchers have an equivalent
 local cache. Composition retains the union of its own recent credentials and the shared registry's values.
 

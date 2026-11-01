@@ -31,9 +31,7 @@ Literal ersetzt. Eindeutige Dateipfade behalten ihre normale Syntax und Länge; 
 Datei- oder Exec-Feld bleibt geschützt. Diese Prüfung liest kein Referenzziel.
 Anhand der Schema-Metadaten `x-sensitive` ersetzt `create` dort abgelegte Literalwerte durch Platzhalter. Für
 konfigurierte, installierte Module gilt zusätzlich deren validiertes `configSchema` aus `module.json`, auch bei
-`enabled: false`. Fehlende oder nicht unterstützte Modul-Metadaten verweigern das Backup. Bei
-`x-url-credentials` werden ausschließlich Userinfo und alle Query-Werte maskiert; Host, Pfad, Parameternamen und Fragment
-bleiben erhalten. Die Live-Datei bleibt unverändert. Das Manifest nennt die ersetzten Konfigurationsschlüssel, niemals
+`enabled: false`. Unbekannte String-Werte werden auch ohne installiertes Modul oder ohne Schema ersetzt; öffentliche typisierte Werte bleiben erhalten. Beschädigte oder nicht interpretierbare Metadaten eines installierten, konfigurierten Moduls verweigern das Backup. Bei `x-url-credentials` werden Userinfo sowie alle Query- und Fragment-Werte durch den URI-gültigen Platzhalter `REDACTED` ersetzt; Host, Pfad und Parameternamen bleiben erhalten. Die Live-Datei bleibt unverändert. Das Manifest nennt die ersetzten Konfigurationsschlüssel, niemals
 deren Werte, im bestehenden Feld `secrets.note` als versionierte Zeile
 `plur1bus.backup.config-redactions/1: ["konfigurations.schlüssel"]`.
 
@@ -44,8 +42,7 @@ benötigen weiterhin ihre Secret-Store-Werte oder sonstigen Ziele auf dem Zielsy
 `channels.telegram.webhook.secret` erzeugt Restore wie bisher einen neuen Zufallswert: Der Telegram-Kanal meldet ihn
 beim nächsten Start per `setWebhook` an; der alte Wert wird nicht wiederhergestellt.
 
-**Nicht** geschützt ist die API-Kontendatenbank `state/api/accounts.db`: Sie wird
-mitgesichert, damit Konten nach einem Restore wieder da sind, und enthält Passwort-Hashes (Argon2id), TOTP-Seeds, deren
+**Bekannte Lücke (SH8):** Die API-Kontendatenbank `state/api/accounts.db` liegt derzeit im Standard-Backup. Laut Owner-Entscheid vom **2026-10-21** darf sie nur per Opt-in enthalten sein; die Umsetzung folgt nach diesem Stapel als eigener SH8-PR. Die Datenbank enthält Passwort-Hashes (Argon2id), TOTP-Seeds, deren
 Backup-Code-Hashes und Hashes persönlicher Tokens. Wer das Archiv besitzt, kann Hashes offline angreifen und den zweiten
 Faktor nachbilden. Das Archiv ist weder signiert noch verschlüsselt; bewahre es entsprechend geschützt auf (für eine
 verschlüsselte Variante siehe [portables Backup](../portable-backup.md)). Ein externes Obsidian-Vault ist nicht Teil des

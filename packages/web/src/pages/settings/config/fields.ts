@@ -8,7 +8,7 @@ import { Badge } from "../../../components/card.ts";
 import { t, type Key } from "../../../i18n.ts";
 import { SETTINGS } from "../../../palette/settings-index.ts";
 import { coreDraftValue, coreSliderValue, effective, redact, replacementOnly, restartKind, show, type CoreInfo, type Draft, type Field } from "./model.ts";
-import { configHasPastedKey, configPolicyOf, isConfigReference } from "../../../config-policy.ts";
+import { configReferenceWarning, configPolicyOf, isConfigReference } from "../../../config-policy.ts";
 import { fieldId, humanize } from "./meta.ts";
 
 const HELP = new Map(SETTINGS.filter((s) => s.help).map((s) => [s.key, s.help as string]));
@@ -62,14 +62,14 @@ export function FieldRow({ field: f, draft, error, disabled, highlighted, onChan
   const raw = draft[f.key];
   const policy = configPolicyOf(f.key);
   const replacement = replacementOnly(f) && !f.readOnly;
-  const pastedKey = configHasPastedKey(effective(f), f.key) || configHasPastedKey(raw, f.key);
+  const referenceWarning = configReferenceWarning(raw, f.key) ?? configReferenceWarning(effective(f), f.key);
   const role = f.key.startsWith("modelRoles.") ? f.key.slice(11) : undefined;
   const cores = f.cores;
   const help = role ? t(`settings.roles.${role}` as Key) : cores ? t("settings.cores.hint") : HELP.get(f.key);
   const meta = cores ? t("settings.cores.meta", { total: cores.detected })
     : [defaultText(f), f.min !== undefined ? t("settings.cfg.min", { min: f.min }) : "", f.max !== undefined ? t("settings.cfg.max", { max: f.max }) : ""].filter(Boolean).join(" · ");
   const note = cores ? coreNote(f, cores) : undefined;
-  const described = [`${id}-key`, f.readOnly ? "" : `${id}-meta`, replacement ? `${id}-replace` : "", pastedKey ? `${id}-reference-warning` : "", help ? `${id}-help` : "", note ? `${id}-note` : "", f.kind === "strings" || f.kind === "ints" ? `${id}-list` : "", error ? `${id}-err` : ""].filter(Boolean).join(" ");
+  const described = [`${id}-key`, f.readOnly ? "" : `${id}-meta`, replacement ? `${id}-replace` : "", referenceWarning ? `${id}-reference-warning` : "", help ? `${id}-help` : "", note ? `${id}-note` : "", f.kind === "strings" || f.kind === "ints" ? `${id}-list` : "", error ? `${id}-err` : ""].filter(Boolean).join(" ");
   const common = { id, disabled, "aria-describedby": described, ...(error ? { "aria-invalid": true } : {}) };
   const onInput = (e: Event): void => { onChange(f.key, (e.target as HTMLInputElement).value); };
   let control: View;
@@ -106,7 +106,7 @@ export function FieldRow({ field: f, draft, error, disabled, highlighted, onChan
         effective(f) === undefined ? t("settings.cfg.readonly.unset") : JSON.stringify(redact(effective(f), f.key), null, 2));
       break;
     default:
-      control = h("input", { ...common, type: (policy.sensitive || (policy.referenceSchema !== undefined && !policy.urlCredentials)) && !isConfigReference(raw, f.key) ? "password" : "text", ...(f.kind === "string" ? {} : { inputmode: "numeric" }), ...(replacement ? { placeholder: t("settings.cfg.replace.placeholder") } : {}), autocomplete: "off", spellcheck: false, value: String(raw ?? ""), onInput });
+      control = h("input", { ...common, type: replacement && (policy.sensitive || (policy.referenceSchema !== undefined && !policy.urlCredentials)) && !isConfigReference(raw, f.key) ? "password" : "text", ...(f.kind === "string" ? {} : { inputmode: "numeric" }), ...(replacement ? { placeholder: t("settings.cfg.replace.placeholder") } : {}), autocomplete: "off", spellcheck: false, value: String(raw ?? ""), onInput });
   }
   return h("div", { class: "cfg-field", "data-key": f.key, ...(highlighted ? { "data-focus": "true" } : {}) },
     h("div", { class: "cfg-head" },
@@ -120,7 +120,7 @@ export function FieldRow({ field: f, draft, error, disabled, highlighted, onChan
         : t("settings.cfg.replace.current", { value: show(redact(effective(f), f.key)) || t("settings.cfg.unset") })),
       h("p", {}, t("settings.cfg.replace.hint")),
       h("button", { type: "button", class: "btn", disabled, onClick: () => onChange(f.key, "") }, t("settings.cfg.replace.clear"))) : null,
-    pastedKey ? h("p", { id: `${id}-reference-warning`, class: "field-hint", "data-tone": "warn", role: "status" }, t("settings.cfg.pastedKey")) : null,
+    referenceWarning ? h("p", { id: `${id}-reference-warning`, class: "field-hint", "data-tone": "warn", role: "status" }, t(`settings.cfg.${referenceWarning}`)) : null,
     role ? h("div", {},
       h("p", { class: "field-hint" }, t("settings.roles.testHint")),
       h("button", { type: "button", class: "btn", disabled: disabled || !raw || probe === "running", onClick: () => { void test(); } }, t("settings.roles.test")),

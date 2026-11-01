@@ -1,22 +1,5 @@
 # Changelog
 
-## Unreleased — SH5
-
-- Scope release-audit exceptions to advisory, crate and stable-version range together; reject incomplete approvals
-  and unknown installed versions. Migrate existing approvals to exact locked versions without renewing their expiry.
-
-## Unreleased — SH4
-
-- Verify collaboration replay with fixed W3C trace/span IDs that collide with the generic PII rule. The existing
-  authorized-provenance restoration remains in place; arbitrary content and unauthorized replay stay protected.
-
-## Unreleased — SH3
-
-- Protect registered secrets in JSON-escaped text, share variants across stable secret sets, and preserve complete
-  redaction before Core output caps without leaving broken UTF-16 characters.
-- Preload readable Store values before startup logging, retain the initial snapshot for the Core lifetime, and cover
-  512-secret workloads with bounded event-loop regression tests.
-
 All notable user-visible changes to the PLUR1BUS Harness are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project does not yet follow semantic versioning
 (pre-1.0, milestone-cut releases).
@@ -162,14 +145,28 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Fixed
 
+- **Release-audit exceptions (SH5).** Match advisory, crate and bounded stable-version range together; reject incomplete
+  approvals and unknown installed versions, preserving existing expiry dates.
+
+- **Collaboration replay regression (SH4).** Verify authorized W3C trace/span identity with deterministic replay cases;
+  secret content, PII and access checks remain protected.
+
+- **Secret redaction across encodings and output boundaries (SH3).** Cache compiled matchers with each secret-set
+  generation, cover overlapping and JSON-escaped forms, and mask before native exec, file-window, web-page and
+  diagnostic limits. Output framing carries partial matches across chunks and idle flushes without broken UTF-16.
+  Large escaped results have a deterministic regression budget, including 512 secrets and 170,000 short escaped tokens.
+- **Bounded Secret-Store startup (SH3).** Readable persisted values are protected before startup logs reach a sink.
+  Native backend work runs outside Core's event loop; an unavailable Store leaves Core responsive while secret use
+  fails closed. Startup snapshots remain protected until Core exits.
+
 - **A successful tool result is redacted against the registered secret values before the model, the transcript or a result file
   sees it.** Only a failed call was redacted, so a tool that printed a secret (a shell command echoing a variable, a file read
   of a config, a fetch that reflects a token) put the value into the model context, the session transcript, the offloaded
   `state/tool-results/` file and the capture. The dispatcher now masks the exact value and its base64, hex and URL-encoded
   forms with `[REDACTED:secret]`, once, as the result leaves it; a failed call is masked against the same registry, and a
   failure message is masked before it is cut to 500 characters (a value the cut split used to escape the later redaction).
-  "Registered" means read, written or leased in this core process (the secret store, provider and media credentials): after a
-  restart a stored secret that nothing has used yet is not masked. Values under 8 characters are still not masked (`secret.set`
+  "Registered" includes configured literals and readable Store values loaded at startup, plus values read, written or
+  leased later in this process (the secret store, provider and media credentials). Values under 8 UTF-16 units are still not masked (`secret.set`
   warns about them), and a stored low-entropy value of 8 or more characters (a short word, a path) masks every matching piece of
   text in a result too. A result that holds no registered value comes back exactly as the tool returned it; one over
   `maxResultBytes` is refused on its raw size before it is checked; a registered value that comes back as a JSON number cannot

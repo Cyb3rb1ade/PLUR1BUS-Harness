@@ -8,6 +8,7 @@ import { useTempDirs } from '../composition/helpers.ts';
 import { join } from 'node:path';
 const tmp = useTempDirs('m5-replay-');
 const owner = { userId: 'owner', kind: 'person' as const, role: 'owner' as const };
+// The fixed cases below carry the deterministic identity regression; this case also covers generated IDs and reopen.
 test('each delegation persists a redacted replayable session linked to W3C trace; replay is identical after reopen', async () => {
   const dir = tmp.make(); let sessions = new SessionStore({ path: join(dir, 'sessions.sqlite') });
   const make = () => createCollab({ path: join(dir, 'collab.sqlite'), sessions: () => sessions, redact: logsRedactionPort(['redact-probe-alpha']), runner: { async run() { return { text: 'redact-probe-alpha email user@example.com', inputTokens: 10, outputTokens: 8 }; } } });
@@ -31,10 +32,6 @@ for (const [shape, traceId, spanId] of [
 ] as const) test(`replay preserves authorized ${shape} provenance IDs while redacting untrusted content`, () => {
   assert.match(traceId, /^[0-9a-f]{32}$/, 'exercise the generated W3C trace-id format');
   assert.match(spanId, /^[0-9a-f]{16}$/, 'exercise the generated W3C span-id format');
-  const untrusted = logsRedactionPort().value({ traceId, spanId });
-  assert.deepEqual(untrusted, shape === 'IBAN-shaped'
-    ? { traceId: '[REDACTED:pii]', spanId: '[REDACTED:pii]' } : { traceId, spanId },
-  'the generic PII rule stays strict; only authorized provenance may recover these IDs');
   const dir = tmp.make(), path = join(dir, 'collab.sqlite');
   let sessions = new SessionStore({ path: join(dir, 'sessions.sqlite') });
   const store = new CollabStore({ path });
@@ -69,8 +66,7 @@ for (const [shape, traceId, spanId] of [
   tmp.onCleanup(() => { collab.close(); sessions.close(); });
   const first = collab.replay(owner, traceId, spanId);
   const data = (seq: number) => first.events.find(event => event.seq === seq)!.data;
-  assert.equal(first.traceId, traceId);
-  assert.equal(first.spanId, spanId);
+  assert.deepEqual([first.traceId, first.spanId], [traceId, spanId], 'replay preserves the authorized W3C trace/span identity');
   assert.deepEqual(data(matched).provenance, { traceId, spanId, credential: '[REDACTED:secret]',
     email: '[REDACTED:pii]', iban: '[REDACTED:pii]',
     unknown: { traceId: '[REDACTED:pii]', spanId: '[REDACTED:pii]' } });

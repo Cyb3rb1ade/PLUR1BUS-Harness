@@ -1,5 +1,5 @@
 //! Public views use schema annotations while the runtime configuration remains unchanged.
-use plur1bus_config as cfg;
+use crate as cfg;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
@@ -101,7 +101,7 @@ fn reference_only_text_extraction_registers_invalid_forms_and_preserves_url_comp
             std::slice::from_ref(&pasted)
         );
     }
-    let user = canary();
+    let user = "public-user".to_owned();
     let query = canary();
     let endpoint = format!("https://{user}@relay.example.test/public?ordinary={query}");
     let schema = json!({"type":"string","x-secret-reference":true,"x-url-credentials":true});
@@ -110,7 +110,8 @@ fn reference_only_text_extraction_registers_invalid_forms_and_preserves_url_comp
         "https://••••@relay.example.test/public?ordinary=••••"
     );
     let registered = cfg::secret_text_values_with_schema(&json!(endpoint), &schema);
-    assert!(registered.contains(&user) && registered.contains(&query));
+    assert!(!registered.contains(&user));
+    assert!(registered.contains(&query));
     assert!(!registered.contains(&endpoint));
 }
 
@@ -308,7 +309,7 @@ fn every_endpoint_query_value_and_userinfo_is_hidden_without_hiding_hosts_or_pat
         let endpoint = format!("{prefix}{secret}:{secret}@relay.example.test/path?ordinary={secret}&ordinary={secret}#public");
         let masked = cfg::mask_url_credentials(&endpoint);
         assert!(!masked.contains(&secret));
-        assert!(masked.contains("relay.example.test/path?ordinary=••••&ordinary=••••#public"));
+        assert!(masked.contains("relay.example.test/path?ordinary=••••&ordinary=••••#••••"));
     }
     for public in [
         "https://relay.example.test/default",
@@ -326,7 +327,7 @@ fn endpoint_registration_keeps_literal_normalized_and_decoded_parts_and_never_th
     let secret = canary();
     let raw = format!("{}\t{}", &secret[..18], &secret[18..]);
     let endpoint =
-        format!("  //{raw}:{raw}@relay.example.test/path?ordinary={raw}&encoded=%41%42%43%25");
+        format!("  //{raw}:{raw}@relay.example.test/path?ordinary={raw}&password=%41%42%43%25");
     let schema = json!({"properties":{"endpoint":{"type":"string","x-url-credentials":true}}});
     let values = cfg::secret_values_with_schema(&json!({"endpoint":endpoint}), &schema);
     for expected in [&raw, &secret, &"ABC%".to_string()] {
@@ -494,7 +495,7 @@ fn text_inventory_keeps_literal_and_every_url_component_even_when_values_equal_r
     let value = json!({
         "channels":{"telegram":{"tokenSecret":shared}},
         "engine":{"embedding":{"apiKey":shared}},
-        "voice":{"providers":{"elevenlabs":{"baseUrl":format!("https://{shared}:{shared}@relay.example.test/public?ordinary={query}&decoded=%41%42%43")}}}
+        "voice":{"providers":{"elevenlabs":{"baseUrl":format!("https://{shared}:{shared}@relay.example.test/public?ordinary={query}&password=%41%42%43")}}}
     });
     let registered = cfg::config_text_secret_values(&value);
     for secret in [&shared, &query, &"ABC".to_string()] {
@@ -640,4 +641,174 @@ fn clear_file_paths_preserve_source_formats_while_bare_token_ids_stay_protected(
         assert!(cfg::config_text_secret_values(&configured).contains(&pasted));
         assert_eq!(cfg::config_reference_warnings(&configured).len(), 1);
     }
+}
+
+#[test]
+fn a_sensitive_url_literal_registers_its_whole_value_and_selected_credential_parts() {
+    let password = canary();
+    let query = canary();
+    let fragment = canary();
+    let endpoint = format!("https://public-user:{password}@relay.example.test/public/path?token={query}&region=us-east-1#password={fragment}");
+    let schema = json!({"type":"string","x-sensitive":true});
+    let registered = cfg::secret_text_values_with_schema(&json!(endpoint), &schema);
+    for secret in [&endpoint, &password, &query, &fragment] {
+        assert!(
+            registered.contains(secret),
+            "a sensitive URI credential part escaped registration"
+        );
+    }
+    for public in [
+        "public-user",
+        "relay.example.test",
+        "/public/path",
+        "us-east-1",
+    ] {
+        assert!(
+            !registered.iter().any(|value| value == public),
+            "public URI material entered the global registry"
+        );
+    }
+}
+
+#[test]
+fn inherited_credential_literals_keep_equals_and_the_full_registry_length() {
+    let complex = format!("my={}={}", &canary()[..6], &canary()[..6]);
+    let short = format!("token={}", &canary()[..3]);
+    assert_eq!(
+        short.len(),
+        9,
+        "the credential must survive the eight-byte text matcher minimum"
+    );
+    let schema = json!({"properties":{
+        "args":{"type":"array","items":{"type":"string","x-sensitive":true},"x-text-credentials":"parts"},
+        "env":{"type":"object","x-sensitive":true,"additionalProperties":{"type":"string"},"x-text-credentials":"parts"}
+    }});
+    let configured = json!({"args":["--password",short,format!("--password={short}")],
+        "env":{"PASSWORD":[complex,short]},"unknown":{"password":complex}});
+    assert_eq!(
+        cfg::secret_text_values_with_schema(&configured, &schema),
+        [complex, short]
+    );
+}
+
+#[test]
+fn identifier_url_assignments_extract_components_without_registering_the_whole_uri() {
+    let credential = format!("p{}", &canary()[..7]);
+    let endpoint = format!("https://public-user:{credential}@relay.example.test/path?api_key={credential}&region=us-east-1");
+    let schema = json!({"type":"array","items":{"type":"string","x-sensitive":true},"x-text-credentials":"parts"});
+    let configured = json!([
+        format!("BASE_URL={endpoint}"),
+        format!("BASE.URL={endpoint}"),
+        format!("BASE-URL={endpoint}"),
+        format!("--endpoint={endpoint}")
+    ]);
+    assert_eq!(
+        cfg::secret_text_values_with_schema(&configured, &schema),
+        [credential]
+    );
+}
+
+#[test]
+fn nested_metadata_merges_keep_public_siblings_and_the_original_reference_root() {
+    let secret = canary();
+    let schema = json!({"type":"object","$defs":{"name":{"type":"string","pattern":"^curated[.]reference$"}},
+    "properties":{
+        "nested":{"type":"object","properties":{
+            "ordinary":{"type":"string","x-sensitive":true},"label":{"type":"string"}
+        }},
+        "reference":{"type":"string","x-sensitive":true,"x-secret-reference":{"$ref":"#/$defs/name"}}
+    },"x-value-schema":{"properties":{
+        "nested":{"properties":{"ordinary":{"x-sensitive":false}}},
+        "reference":{"description":"Metadata retains this root's reference declaration."}
+    }}});
+    let configured = json!({"nested":{"ordinary":secret,"label":"public label"},"reference":"curated.reference"});
+    assert_eq!(
+        cfg::redact_with_schema(&configured, &schema),
+        json!({"nested":{"ordinary":"••••","label":"public label"},"reference":"curated.reference"})
+    );
+    assert_eq!(
+        cfg::secret_text_values_with_schema(&configured, &schema),
+        [secret]
+    );
+    assert_eq!(
+        cfg::reference_paths_with_schema(&configured, &schema),
+        ["/reference"]
+    );
+    let (archive, keys) =
+        cfg::placeholder_with_schema(&configured, &schema, "ARCHIVE_MASK").unwrap();
+    assert_eq!(
+        archive,
+        json!({"nested":{"ordinary":"ARCHIVE_MASK","label":"public label"},"reference":"curated.reference"})
+    );
+    assert_eq!(keys, ["nested.ordinary"]);
+}
+
+#[test]
+fn token_shaped_url_usernames_register_raw_and_decoded_forms_without_the_userinfo() {
+    let suffix = canary();
+    let username = format!("ghp_{suffix}");
+    let escaped = format!("%67%68%70%5F{suffix}");
+    let password = canary();
+    let schema = json!({"type":"string","x-url-credentials":true});
+    for (userinfo, raw_username) in [
+        (username.clone(), username.clone()),
+        (format!("{username}:"), username.clone()),
+        (format!("{username}:{password}"), username.clone()),
+        (escaped.clone(), escaped.clone()),
+    ] {
+        let endpoint =
+            format!("https://{userinfo}@relay.example.test/public/path?region=us-east-1");
+        let registered = cfg::secret_text_values_with_schema(&json!(endpoint), &schema);
+        assert!(
+            registered.contains(&raw_username),
+            "literal token username escaped registration"
+        );
+        assert!(
+            registered.contains(&username),
+            "decoded token username escaped registration"
+        );
+        if userinfo != raw_username {
+            assert!(
+                !registered.contains(&userinfo),
+                "whole userinfo entered the global registry"
+            );
+        }
+        if userinfo.ends_with(&password) {
+            assert!(
+                registered.contains(&password),
+                "a password beside a token username lost protection"
+            );
+        }
+        for public in [
+            endpoint.as_str(),
+            "relay.example.test",
+            "/public/path",
+            "us-east-1",
+        ] {
+            assert!(!registered.iter().any(|value| value == public));
+        }
+    }
+    for public_username in ["public-user".to_owned(), "ordinary-user".repeat(12)] {
+        let endpoint = format!("https://{public_username}@relay.example.test/default");
+        assert!(
+            cfg::secret_text_values_with_schema(&json!(endpoint), &schema).is_empty(),
+            "ordinary username was classified using the reference name length bound"
+        );
+    }
+}
+
+#[test]
+fn ordinary_url_usernames_stay_public_when_the_password_is_registered() {
+    let password = canary();
+    let endpoint = format!("https://public-user:{password}@relay.example.test/default");
+    let schema = json!({"type":"string","x-url-credentials":true});
+    assert_eq!(
+        cfg::secret_text_values_with_schema(&json!(endpoint), &schema),
+        [password]
+    );
+    assert!(cfg::secret_text_values_with_schema(
+        &json!("https://relay.example.test/default"),
+        &schema
+    )
+    .is_empty());
 }

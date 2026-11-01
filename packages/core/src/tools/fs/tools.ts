@@ -6,9 +6,9 @@ import { createHash } from "node:crypto";
 import type { Effect } from "../../policy/effects.ts";
 import { FsFailure } from "./failure.ts";
 import { createFsOps } from "./ops.ts";
-import type { FsConfig } from "./ops.ts";
+import type { FsConfig, OpContext } from "./ops.ts";
 
-export interface FsToolContext { agentId?: string | undefined; signal?: AbortSignal | undefined }
+export interface FsToolContext extends OpContext { agentId?: string | undefined }
 export type FsToolOutcome = { isError: false; value: unknown } | ReturnType<FsFailure["toResult"]>;
 
 export interface FsToolSpec {
@@ -127,9 +127,9 @@ function checked(op: keyof typeof TEXT, args: unknown): Record<string, unknown> 
 
 export function createFsTools(cfg: FsConfig): { tools: FsToolSpec[]; index: readonly FsCapabilityEntry[] } {
   const ops = createFsOps(cfg);
-  const spec = (op: keyof typeof TEXT, effect: FsToolSpec["effect"], run: (a: never, ctx: { signal?: AbortSignal | undefined }) => Promise<unknown>): FsToolSpec => ({
+  const spec = (op: keyof typeof TEXT, effect: FsToolSpec["effect"], run: (a: never, ctx: OpContext) => Promise<unknown>): FsToolSpec => ({
     name: `file.${op}`, description: TEXT[op].description, inputSchema: SCHEMAS[op], effect, parallelSafe: effect === "read",
-    execute: (args, ctx) => guarded(() => run(checked(op, args) as never, { signal: ctx.signal })),
+    execute: (args, ctx) => guarded(() => run(checked(op, args) as never, { signal: ctx.signal, ...(ctx.knownSecrets ? { knownSecrets: ctx.knownSecrets } : {}) })),
   });
   const tools: FsToolSpec[] = [
     spec("read", "read", (a, c) => ops.read(a, c)),

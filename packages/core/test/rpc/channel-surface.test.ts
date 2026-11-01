@@ -425,3 +425,27 @@ test('Matrix SAS confirmation requires owner acknowledgement and binds the initi
   assert.deepEqual(calls, [{ actor: 'local-owner', action: 'confirm', flowId: 'flow' }]);
   assert.deepEqual(s.audit.at(-1).detail, { action: 'confirm' });
 });
+
+test("channel fallback diagnostics and structured reads share a membership-cached generation", async t => {
+  const first = randomUUID(), second = randomUUID();
+  const reference = `fixture.reference.${randomUUID().slice(0, 8)}`;
+  const s = setup({ config(config) {
+    config.engine = { merging: { headers: { first, second } } };
+    config.channels.telegram.tokenSecret = reference;
+  } });
+  s.registry.add("telegram", "running", { lastError: `private ${first} ${second}` });
+  s.registry.health.set("telegram", { ok: false, detail: `private ${first}` });
+  const encode = globalThis.encodeURIComponent;
+  let derivations = 0;
+  t.mock.method(globalThis, "encodeURIComponent", (value: string) => {
+    if (value === first || value === second) derivations++;
+    return encode(value);
+  });
+  const read = await s.call("channel.get", { id: "telegram" });
+  assert.ok(!JSON.stringify(read).includes(first)); assert.ok(!JSON.stringify(read).includes(second));
+  assert.equal(read.config.tokenSecret.secret, reference, "valid references remain readable");
+  (s.config().engine as Record<string, unknown>).merging = { headers: { second, first } };
+  const status = await s.call("channel.status");
+  assert.ok(!JSON.stringify(status).includes(second));
+  assert.equal(derivations, 2, "known-value and free-text fallback redactors share forms across read calls");
+});
