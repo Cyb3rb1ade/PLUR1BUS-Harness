@@ -245,7 +245,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -781,7 +783,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -1317,7 +1321,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -1853,7 +1859,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -2389,7 +2397,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -2925,7 +2935,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -3461,7 +3473,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -3997,7 +4011,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -4533,7 +4549,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -5069,7 +5087,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -5605,7 +5625,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -6141,7 +6163,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -6677,7 +6701,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -7213,7 +7239,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -7749,7 +7777,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -8285,7 +8315,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -8821,7 +8853,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -9357,7 +9391,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -9893,7 +9929,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -10429,7 +10467,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -10965,7 +11005,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -11501,7 +11543,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -12037,7 +12081,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -12573,7 +12619,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -13109,7 +13157,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -13645,7 +13695,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -14181,7 +14233,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -14717,7 +14771,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -15253,7 +15309,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -15786,7 +15844,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,
@@ -16319,7 +16379,9 @@
       },
       "session": {
         "rewind": {
-          "autoProjects": []
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
         },
         "compaction": {
           "softRatio": 0.65,

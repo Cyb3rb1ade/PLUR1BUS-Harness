@@ -5530,7 +5530,7 @@
               "type": "object",
               "additionalProperties": false,
               "default": {},
-              "description": "D120 reversible conversation paths. Automatic agent rewind is disabled unless a project is explicitly listed.",
+              "description": "D120 reversible conversation paths. Automatic rewind and file checkpoints each require an explicit project opt-in.",
               "properties": {
                 "autoProjects": {
                   "type": "array",
@@ -5543,6 +5543,39 @@
                   "maxItems": 128,
                   "default": [],
                   "description": "Projects that permit automatic rewind after three failed edit/test cycles on unattended D115 cards. Interactive sessions only propose; no file restore is automatic.",
+                  "x-restart": "live",
+                  "x-tier": "advanced",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true
+                },
+                "fileProjects": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "uniqueItems": true,
+                  "maxItems": 128,
+                  "default": [],
+                  "description": "Projects that permit tracked-file checkpoints and separately approved file rewind on D115 card sessions. Empty disables capture and file restore.",
+                  "x-restart": "live",
+                  "x-tier": "advanced",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true
+                },
+                "checkpointRetentionTurns": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 500,
+                  "default": 50,
+                  "description": "Keep private file-checkpoint refs only within this many recent session turns. Archived sessions and completed cards release their refs earlier.",
                   "x-restart": "live",
                   "x-tier": "advanced",
                   "x-write-roles": [

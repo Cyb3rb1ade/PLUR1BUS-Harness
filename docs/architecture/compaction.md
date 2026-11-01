@@ -139,8 +139,12 @@ origin on a T0 surface as unattended, including one-shot work; the responsible p
 mean a person is present to approve. An agent message does not
 provide human approval; automatic rewind never restores files.
 
-Q14 leaves files unchanged by default. For a bound D115 card, each model turn
-attempts a checkpoint at `refs/plur1bus/checkpoints/<session>/<turn>`. Git uses a
+Q14 leaves files unchanged by default. `session.rewind.fileProjects` is a live,
+audited Owner/Admin list, default `[]`. Only listed projects permit checkpoints
+and file restoration; otherwise `--files` refuses with `rewind-files-disabled`.
+For an opted-in D115 card, each model turn attempts a checkpoint at
+`refs/plur1bus/checkpoints/<session>/<turn>`. The D115 binding is resolved once
+for capture and reused during root validation. Git uses a
 private temporary index, preserving dirty working bytes, staging and HEAD;
 untracked files are excluded. Repository filters, hooks, pagers and signing
 programs are disabled during these harness-owned Git operations. Capture and
@@ -152,6 +156,39 @@ cached normalized blob. Split-index dependencies are copied privately; the real
 index remains unchanged. An unavailable
 checkpoint is logged and `--files` refuses rather than substituting HEAD.
 Incognito sessions create no file checkpoints.
+
+`session.rewind.checkpointRetentionTurns` is a live, audited Owner/Admin setting
+(default 50, range 1–500). Refs older than that many session turns are released.
+Archive cleanup is queued immediately; completed/archived cards are checked by
+an owned ten-second maintenance sweep while checkpoint records exist. Startup
+retries outstanding cleanup. Each removal compares the saved ref and commit ID;
+a changed/unavailable root or ref retains its cleanup intent for a later retry.
+Cleanup never changes working files, staging, messages, events or conversation
+overlays. Releasing refs makes unreferenced objects eligible for ordinary Git
+garbage collection; the harness does not force repository-wide pruning.
+
+Immutable checkpoint intents include project/card/turn and object identities.
+They are recorded before ref publication and outlive explicit transcript erasure
+until the native ref is released. This prevents interrupted publication or an
+immediate archive/delete from orphaning a ref. Core shutdown aborts and drains
+owned checkpoint jobs before closing the session database.
+
+Capture reads all tracked working bytes, so its cost grows with the tracked tree.
+The synthetic probe below ran on macOS arm64, Node 24.21.0 and Git 2.55.0, with
+100 tracked files / 1,740,800 bytes and 20 samples per mode (2026-11-01). It uses
+an in-memory session database and a constant binding resolver; production board
+lookup, persistent-database I/O, providers and B1 acceptance are outside this probe.
+
+| Checkpoints | p50 | p95 | Binding resolutions |
+| --- | ---: | ---: | ---: |
+| Disabled | 0.038 ms | 0.333 ms | 0 |
+| Enabled | 50.418 ms | 61.077 ms | 20 (one per turn) |
+
+Reproduce from the repository root with Node 24:
+
+```sh
+node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning packages/core/bench/rewind-checkpoints.ts
+```
 
 `/rewind ... --files` (or RPC `files: true`) requests a T2, single-use
 `local-destructive` approval through D109. An unattested local connection (T1)

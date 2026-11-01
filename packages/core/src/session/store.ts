@@ -32,7 +32,12 @@ export interface RewindInput {
 
 /** Harness-owned checkpoint identity. A mutable Git ref alone is never proof of its original contents. */
 export interface StoredCheckpoint {
-  sessionId: string; turnId: string; root: string; ref: string; tree: string; commitId: string;
+  sessionId: string; turnId: string; projectId: string; cardId: string; root: string; ref: string; tree: string; commitId: string;
+}
+
+function toCheckpoint(row: Record<string, unknown>): StoredCheckpoint {
+  return { sessionId: String(row.session_id), turnId: String(row.turn_id), projectId: String(row.project_id),
+    cardId: String(row.card_id), root: String(row.root), ref: String(row.ref), tree: String(row.tree), commitId: String(row.commit_id) };
 }
 
 export interface CreateSessionInput {
@@ -482,8 +487,8 @@ export class SessionStore {
     });
   }
 
-  /** The explicit erasure path (stub, no RPC): refuses a session that is not archived, removes everything of it and
-   *  leaves one audit tombstone (ids and counts, never content). */
+  /** Explicit transcript erasure requires an archived session and leaves a content-free audit tombstone.
+   *  Private checkpoint cleanup intents survive until their native refs have actually been released. */
   eraseSession(id: string, o: { actor: string; reason: string }): { tombstoneId: string; messages: number } {
     if (!o.actor || !o.reason) throw new SessionError("invalid", "an erasure needs an actor and a reason", "erasure-audit");
     return this.#tx(() => {
@@ -494,7 +499,7 @@ export class SessionStore {
       const tombstoneId = this.#newId("era");
       this.#run("INSERT INTO erasures (id, session_id, agent_id, owner, kind, message_count, erased_at, actor, reason) VALUES (?,?,?,?,?,?,?,?,?)",
         tombstoneId, id, s.agentId, s.owner, s.kind, messages, this.#clock(), o.actor, o.reason);
-      for (const t of ["path_rewinds", "session_checkpoints", "summaries", "events", "messages", "turns"]) this.#run(`DELETE FROM ${t} WHERE session_id = ?`, id);
+      for (const t of ["path_rewinds", "summaries", "events", "messages", "turns"]) this.#run(`DELETE FROM ${t} WHERE session_id = ?`, id);
       this.#run("DELETE FROM sessions WHERE id = ?", id);
       return { tombstoneId, messages };
     });
@@ -643,15 +648,16 @@ export class SessionStore {
     });
   }
 
-  /** Record the exact root/ref/object identities after a successful native checkpoint; never overwrite a turn's record. */
+  /** Record immutable object/ref intent before publishing the ref, so an interrupted write remains discoverable for cleanup. */
   recordCheckpoint(checkpoint: StoredCheckpoint): void {
     this.#tx(() => {
       const turn = this.getTurn(checkpoint.turnId);
-      if (!turn || turn.sessionId !== checkpoint.sessionId || turn.state !== "running") {
+      const session = this.getSession(checkpoint.sessionId);
+      if (!session || session.archivedAt !== null || !turn || turn.sessionId !== checkpoint.sessionId || turn.state !== "running") {
         throw new SessionError("conflict", "checkpoint turn is not running in the session", "rewind-checkpoint");
       }
-      this.#run(`INSERT INTO session_checkpoints(session_id,turn_id,root,ref,tree,commit_id,created_at)
-        VALUES (?,?,?,?,?,?,?)`, checkpoint.sessionId, checkpoint.turnId, checkpoint.root, checkpoint.ref,
+      this.#run(`INSERT INTO session_checkpoints(session_id,turn_id,turn_seq,project_id,card_id,root,ref,tree,commit_id,created_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?)`, checkpoint.sessionId, checkpoint.turnId, turn.seq, checkpoint.projectId, checkpoint.cardId, checkpoint.root, checkpoint.ref,
         checkpoint.tree, checkpoint.commitId, this.#clock());
     });
   }
@@ -659,8 +665,25 @@ export class SessionStore {
   /** Native restore checks these stored identities before asking a person, and again before restoring files. */
   checkpoint(sessionId: string, turnId: string): StoredCheckpoint | null {
     const row = this.#get("SELECT * FROM session_checkpoints WHERE session_id=? AND turn_id=?", sessionId, turnId);
-    return row ? { sessionId, turnId, root: String(row.root), ref: String(row.ref), tree: String(row.tree),
-      commitId: String(row.commit_id) } : null;
+    return row ? toCheckpoint(row) : null;
+  }
+
+  hasCheckpoints(): boolean { return this.#get("SELECT 1 FROM session_checkpoints LIMIT 1") !== undefined; }
+
+  checkpoints(sessionId?: string): (StoredCheckpoint & { turnSeq: number })[] {
+    const sql = "SELECT c.* FROM session_checkpoints c";
+    const rows = sessionId === undefined ? this.#all(sql) : this.#all(`${sql} WHERE c.session_id=?`, sessionId);
+    return rows.map(row => ({ ...toCheckpoint(row), turnSeq: Number(row.turn_seq) }));
+  }
+
+  latestTurnSeq(sessionId: string): number {
+    return Number(this.#get("SELECT MAX(seq) AS seq FROM turns WHERE session_id=?", sessionId)?.seq ?? 0);
+  }
+
+  /** Private snapshot bookkeeping only; original messages, events and rewind overlays are never deleted here. */
+  forgetCheckpoint(checkpoint: StoredCheckpoint): void {
+    this.#run("DELETE FROM session_checkpoints WHERE session_id=? AND turn_id=? AND commit_id=?",
+      checkpoint.sessionId, checkpoint.turnId, checkpoint.commitId);
   }
 
   /** The newest still-unapplied proposal; one-click confirmation remains a human rewind call. */

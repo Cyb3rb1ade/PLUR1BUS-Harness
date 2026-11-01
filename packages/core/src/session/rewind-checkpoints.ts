@@ -6,9 +6,10 @@ import { basename, join, resolve } from "node:path";
 import type { AuditSink } from "../rbac/audit.ts";
 import type { ApprovalAsk, ApprovalPort } from "../tools/approval.ts";
 import type { RewindFilesPort, RewindServiceDeps } from "./rewind.ts";
-import type { SessionStore } from "./store.ts";
+import type { SessionStore, StoredCheckpoint } from "./store.ts";
 import { SessionError } from "./types.ts";
 import { checkpointGitProcess } from "./checkpoint-git-process.ts";
+import { CheckpointRetention } from "./checkpoint-retention.ts";
 
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
 const OID = /^[a-f0-9]{40,64}$/;
@@ -22,6 +23,10 @@ interface CheckpointDeps {
   now: () => number;
   project: NonNullable<RewindServiceDeps["project"]>;
   approval: ApprovalPort & Required<Pick<ApprovalPort, "begin">>;
+  fileProjects?: () => readonly string[];
+  retentionTurns?: () => number;
+  cardEnded?: (projectId: string, cardId: string) => boolean;
+  onCleanupError?: () => void;
 }
 
 /** Git environment policy, including case-insensitive Windows names; callers add only trusted operation bindings. */
@@ -146,15 +151,46 @@ async function restorePreview(root: string, checkpoint: string, current: string,
 /** Git object/ref writes never stage files, move HEAD or reset the real index. A restore always asks for a once approval. */
 export class RewindCheckpoints implements RewindFilesPort {
   readonly #d: CheckpointDeps;
-  constructor(deps: CheckpointDeps) { this.#d = deps; }
+  readonly #retention: CheckpointRetention;
+  constructor(deps: CheckpointDeps) {
+    this.#d = deps;
+    this.#retention = new CheckpointRetention({ ...deps, remove: (row, signal) => this.#remove(row, signal) });
+  }
 
-  async #bound(sessionId: string, personId: string, signal: AbortSignal) {
+  close(): Promise<void> { return this.#retention.close(); }
+  idle(): Promise<void> { return this.#retention.idle(); }
+
+  async #remove(row: StoredCheckpoint, signal: AbortSignal): Promise<void> {
+    if (row.ref !== checkpointRef(row.sessionId, row.turnId) || !OID.test(row.commitId)) {
+      throw new SessionError("conflict", "checkpoint cleanup identity changed", "rewind-checkpoint");
+    }
+    const root = await realpath(row.root);
+    if (root !== row.root || await realpath((await git(root, ["rev-parse", "--show-toplevel"], { signal })).trim()) !== root) {
+      throw new SessionError("conflict", "checkpoint cleanup root changed", "rewind-checkpoint");
+    }
+    let actual: string;
+    try { actual = (await git(root, ["rev-parse", "--verify", "--quiet", row.ref], { signal })).trim(); }
+    catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === 1) return; // Interrupted ref publication or earlier completed cleanup.
+      throw error;
+    }
+    if (actual !== row.commitId) throw new SessionError("conflict", "checkpoint cleanup ref changed", "rewind-checkpoint");
+    await git(root, ["update-ref", "-d", row.ref, row.commitId], { signal });
+  }
+
+  #projects(): readonly string[] { return this.#d.fileProjects?.() ?? []; }
+
+  async #bound(sessionId: string, personId: string, signal: AbortSignal, cached?: ReturnType<CheckpointDeps["project"]>) {
+    const projects = this.#projects();
+    if (!projects.length) throw new SessionError("conflict", "file checkpoints are disabled for this project", "rewind-files-disabled");
     const session = this.#d.store.getSession(sessionId);
-    const project = session?.kind === "card" && session.memoryMode !== "incognito"
-      ? this.#d.project(sessionId, personId) : null;
+    const project = session?.kind === "card" && session.memoryMode !== "incognito" && session.archivedAt === null
+      ? cached ?? this.#d.project(sessionId, personId) : null;
     if (!session || !project || !personId) {
       throw new SessionError("conflict", "D115 worktree checkpoint unavailable", "rewind-checkpoint-unavailable");
     }
+    if (!projects.includes(project.projectId)) throw new SessionError("conflict", "file checkpoints are disabled for this project", "rewind-files-disabled");
+    if (this.#d.cardEnded?.(project.projectId, project.cardId)) throw new SessionError("conflict", "checkpoint card has ended", "rewind-checkpoint-unavailable");
     const root = await realpath(project.root);
     const top = await realpath((await git(root, ["rev-parse", "--show-toplevel"], { signal })).trim());
     if (top !== root) throw new SessionError("conflict", "checkpoint requires the bound worktree root", "rewind-checkpoint");
@@ -162,11 +198,17 @@ export class RewindCheckpoints implements RewindFilesPort {
   }
 
   /** Before a model turn, snapshot tracked working bytes under the Q14 ref, without touching the real index. */
-  async capture(input: { sessionId: string; turnId: string; personId: string; signal: AbortSignal }): Promise<void> {
+  capture(input: { sessionId: string; turnId: string; personId: string; signal: AbortSignal }): Promise<void> {
+    return this.#retention.run(input.sessionId, input.signal, signal => this.#capture({ ...input, signal }));
+  }
+
+  async #capture(input: Parameters<RewindCheckpoints["capture"]>[0]): Promise<void> {
     const session = this.#d.store.getSession(input.sessionId);
     if (session?.kind !== "card" || session.memoryMode === "incognito"
-      || !this.#d.project(input.sessionId, input.personId)) return;
-    const bound = await this.#bound(input.sessionId, input.personId, input.signal);
+      || session.archivedAt !== null || !this.#projects().length) return;
+    const project = this.#d.project(input.sessionId, input.personId);
+    if (!project || !this.#projects().includes(project.projectId)) return;
+    const bound = await this.#bound(input.sessionId, input.personId, input.signal, project);
     if (this.#d.store.getTurn(input.turnId)?.sessionId !== session.id) {
       throw new SessionError("invalid", "checkpoint turn is not in the session", "rewind-checkpoint");
     }
@@ -179,21 +221,32 @@ export class RewindCheckpoints implements RewindFilesPort {
         GIT_COMMITTER_NAME: "PLUR1BUS", GIT_COMMITTER_EMAIL: "checkpoint@plur1bus.invalid" },
     })).trim();
     if (!OID.test(commit)) throw new SessionError("storage", "invalid checkpoint commit", "rewind-checkpoint");
+    input.signal.throwIfAborted();
+    if (!this.#projects().includes(bound.projectId) || this.#d.cardEnded?.(bound.projectId, bound.cardId)) {
+      throw new SessionError("conflict", "checkpoint project policy changed", "rewind-files-disabled");
+    }
     this.#d.audit.append({ at: this.#d.now(), actor: { user: input.personId, host: "core" },
       action: "session.checkpoint.created", target: session.id, detail: { turnId: input.turnId, ref, tree: snapshot.tree } });
+    input.signal.throwIfAborted();
+    // Persist intent first: cancellation during update-ref cannot leave a private ref undiscoverable by cleanup.
+    this.#d.store.recordCheckpoint({ sessionId: session.id, turnId: input.turnId, root: bound.root,
+      projectId: bound.projectId, cardId: bound.cardId, ref, tree: snapshot.tree, commitId: commit });
     // The all-zero old value makes a turn checkpoint immutable, including across a restart/retry.
     await git(bound.root, ["update-ref", ref, commit, "0".repeat(commit.length)], { signal: input.signal });
-    this.#d.store.recordCheckpoint({ sessionId: session.id, turnId: input.turnId, root: bound.root,
-      ref, tree: snapshot.tree, commitId: commit });
   }
 
   /** Restore tracked working files only after a content-bound, single-use human decision; preserve staging and untracked files. */
-  async restore(input: Parameters<RewindFilesPort["restore"]>[0]): Promise<void> {
+  restore(input: Parameters<RewindFilesPort["restore"]>[0]): Promise<void> {
+    return this.#retention.run(input.sessionId, input.signal, signal => this.#restore({ ...input, signal }));
+  }
+
+  async #restore(input: Parameters<RewindFilesPort["restore"]>[0]): Promise<void> {
     if (!input.approver.person) throw new SessionError("immutable", "file restore requires a person", "rewind-person-required");
     const bound = await this.#bound(input.sessionId, input.approver.person, input.signal);
     const ref = checkpointRef(input.sessionId, input.checkpointTurnId);
     const recorded = this.#d.store.checkpoint(input.sessionId, input.checkpointTurnId);
-    if (!recorded || recorded.root !== bound.root || recorded.ref !== ref) {
+    if (!recorded || recorded.root !== bound.root || recorded.ref !== ref
+      || recorded.projectId !== bound.projectId || recorded.cardId !== bound.cardId) {
       throw new SessionError("conflict", "recorded rewind checkpoint is unavailable", "rewind-checkpoint-unavailable");
     }
     let checkpoint: string;

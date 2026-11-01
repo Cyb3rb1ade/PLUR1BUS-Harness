@@ -309,7 +309,10 @@ the agent trigger as decided in Q13 (project setting, N = 3, unattended D115 car
 here" in the web; the optional `--files` checkpoint restore (Q14) behind an approval. Tests: the hidden range never
 reaches the model, undo restores it, messages and events stay byte-identical, the digest matches, FTS marks hidden
 messages, the cache prefix up to `parent_seq` is unchanged. Docs: `docs/architecture/compaction.md`, `docs/rpc.md`,
-`docs/web-ui.md`. Acceptance: spec §16 H4 row.
+`docs/web-ui.md`. File checkpoints require the live Owner/Admin `session.rewind.fileProjects` opt-in (default `[]`),
+bounded turn retention and cleanup on archive/card completion. Reproduce the native cost probe with
+`packages/core/bench/rewind-checkpoints.ts`. Acceptance: spec §16 H4 row; corpus evidence remains open pending the
+B1 baseline (Controller decision 2026-11-01), and is not established by local regression tests.
 
 ## T1-a — TypeScript architecture test (1 agent day; Sonnet, TypeScript)
 

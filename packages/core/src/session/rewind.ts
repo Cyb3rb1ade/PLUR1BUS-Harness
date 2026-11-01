@@ -21,6 +21,7 @@ const object = (value: unknown): Record<string, unknown> =>
 
 /** File restore is available only through the trusted D115 checkpoint and approval integration. */
 export interface RewindFilesPort {
+  close?(): Promise<void>;
   capture?(input: { sessionId: string; turnId: string; personId: string; signal: AbortSignal }): Promise<void>;
   restore(input: { sessionId: string; parentSeq: number; hiddenFromSeq: number; hiddenToSeq: number;
     checkpointTurnId: string; approver: TurnApprover; signal: AbortSignal; validate(): void }): Promise<void>;

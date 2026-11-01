@@ -463,6 +463,15 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     sessions = openSessionService({ ...maintenance, rewindProject,
       autoRewindProjects: () => d.config().session.rewind.autoProjects,
       rewindFilesFactory: store => new RewindCheckpoints({ store, project: rewindProject, audit: d.audit, now: d.clock,
+        fileProjects: () => d.config().session.rewind.fileProjects,
+        retentionTurns: () => d.config().session.rewind.checkpointRetentionTurns,
+        cardEnded: (projectId, cardId) => {
+          if (!coding) return false;
+          const card = coding.collab.boardStore.getCard(projectId, cardId);
+          return card.archived || coding.collab.boardStore.columns(projectId)
+            .some(column => column.id === card.columnId && column.titleKey === "project.board.done");
+        },
+        onCleanupError: () => d.logger.warn("rewind checkpoint cleanup incomplete"),
         approval: { request: async ask => (await d.permissions.open()).service.request(ask),
           begin: (answer, ask) => d.permissions.current()?.service.begin(answer, ask) ?? false } }),
       ...(d.maintenance ? { maintenance: d.maintenance } : {}), pruneConfidence: () => { const floor = (d.config().decision.confidence as Record<string, number> | undefined)?.pruning; return typeof floor === 'number' && Number.isFinite(floor) ? floor : DEFAULT_PRUNE_CONFIDENCE; }, laya: decisionPruningPort(decisions, (pair, signal) => {

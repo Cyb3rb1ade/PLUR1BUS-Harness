@@ -11,6 +11,9 @@ The browser uses authenticated `POST /api/v1/chats/{sessionId}/rewind`, with
 the authoritative overlay. Actions are disabled while a turn or another write is
 running. Web rewinds change the conversation and leave files as they are; the
 optional D115 `--files` path requires a separate native approval.
+Harness-command messages and their replies carry Core-derived `command: true`
+metadata and offer no rewind target. Error notices distinguish a running turn,
+an unavailable target, stale state and missing authority.
 
 `@plur1bus/web` is the M3 web UI: the shell of [`ui/web-shell.md`](ui/web-shell.md) plus the pages Chat, Memories & Dreams, Models, Usage & Quota,
 Doctor (M3 part 1) and Agents, Settings (general, models, memory, extensions, network, users & roles, secrets, devices), Logs

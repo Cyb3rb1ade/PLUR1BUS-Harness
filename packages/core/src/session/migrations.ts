@@ -167,8 +167,11 @@ export const MIGRATIONS: readonly string[] = [
   );
   CREATE INDEX idx_path_rewinds_session ON path_rewinds(session_id,created_at);
   CREATE TABLE session_checkpoints (
-    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-    turn_id TEXT NOT NULL REFERENCES turns(id),
+    session_id TEXT NOT NULL,
+    turn_id TEXT NOT NULL,
+    turn_seq INTEGER NOT NULL,
+    project_id TEXT NOT NULL,
+    card_id TEXT NOT NULL,
     root TEXT NOT NULL,
     ref TEXT NOT NULL,
     tree TEXT NOT NULL,

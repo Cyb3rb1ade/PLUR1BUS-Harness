@@ -739,6 +739,10 @@ digest: the files changed in the hidden range, the last failing check's summary 
   lesson lists them. Optional for D115 worktrees: a per-turn checkpoint ref (`refs/plur1bus/checkpoints/<session>/<turn>`,
   created with `git stash create` semantics without touching the index) and `/rewind --files`, which restores tracked
   files to the checkpoint behind an approval (effect `local-destructive`).
+  **Controller decision 2026-11-01:** checkpoint capture and file restore require an Owner/Admin project allowlist,
+  `session.rewind.fileProjects`, default empty. Retain at most the configured recent turn window (default 50); release
+  private refs on session archive or card completion. Cleanup compares the recorded object identity and never changes
+  working files or transcript history. The completed-card maintenance check runs every ten seconds while refs exist.
 - **Audit:** `session.rewind { sessionId, rewindId, parentSeq, hiddenFrom, hiddenTo, trigger, actor, hiddenDigest }`
   through the chat surface's audit helper, where `hiddenDigest` is a SHA-256 over the hidden messages' ids and texts, so
   the chain proves what was hidden; `session.rewind.undone` likewise. The hidden branch itself stays in the store.

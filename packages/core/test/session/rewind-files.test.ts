@@ -12,7 +12,9 @@ import { memoryAuditSink } from "../../src/rbac/audit.ts";
 import type { ApprovalAsk, ApprovalPort } from "../../src/tools/approval.ts";
 import { rig as approvalRig, tick } from "../approvals/service-helpers.ts";
 
-function rig(approved: boolean, approval?: ApprovalPort & Required<Pick<ApprovalPort, "begin">>) {
+function rig(approved: boolean, approval?: ApprovalPort & Required<Pick<ApprovalPort, "begin">>, policy: {
+  projects?: () => readonly string[]; retention?: () => number; cardEnded?: () => boolean;
+} = {}) {
   const root = mkdtempSync(join(tmpdir(), "cx-checkpoint-"));
   const git = (...args: string[]) => execFileSync("git", ["-C", root, ...args], { encoding: "utf8" });
   git("init", "-q");
@@ -30,9 +32,12 @@ function rig(approved: boolean, approval?: ApprovalPort & Required<Pick<Approval
   const audit = memoryAuditSink();
   const asks: ApprovalAsk[] = [];
   let begins = 0;
+  let projectLookups = 0;
   let onAsk: (() => void) | undefined;
   const checkpoints = new RewindCheckpoints({ store, audit, now: () => 42,
-    project: () => ({ projectId: "p", cardId: "c", root }), approval: {
+    fileProjects: policy.projects ?? (() => ["p"]), retentionTurns: policy.retention ?? (() => 50),
+    cardEnded: policy.cardEnded ?? (() => false),
+    project: () => { projectLookups++; return { projectId: "p", cardId: "c", root }; }, approval: {
       request: async ask => {
         asks.push(ask);
         const answer = approval ? approval.request(ask) : Promise.resolve({ approved, scope: "once" as const });
@@ -40,9 +45,120 @@ function rig(approved: boolean, approval?: ApprovalPort & Required<Pick<Approval
       },
       begin: (answer, ask) => { begins++; return approval ? approval.begin(answer, ask) : approved; },
     } });
-  return { root, git, store, session, audit, asks, checkpoints, begins: () => begins,
+  return { root, git, store, session, audit, asks, checkpoints, begins: () => begins, projectLookups: () => projectLookups,
     whenAsked(callback: () => void) { onAsk = callback; },
-    close() { store.close(); rmSync(root, { recursive: true, force: true }); } };
+    async close() { await checkpoints.close?.(); store.close(); rmSync(root, { recursive: true, force: true }); } };
+}
+
+test("checkpoint projects default off: no snapshot, no grant request and a typed --files refusal", async () => {
+  const r = rig(true, undefined, { projects: () => [] });
+  try {
+    const index = readFileSync(join(r.root, ".git", "index"));
+    const start = r.store.beginTurn(r.session.id, "edit", 1);
+    await r.checkpoints.capture({ sessionId: r.session.id, turnId: start.turn.id, personId: "owner", signal: new AbortController().signal });
+    assert.equal(r.store.checkpoint(r.session.id, start.turn.id), null);
+    assert.equal(r.projectLookups(), 0, "a disabled checkpoint does not scan boards");
+    assert.equal(r.git("for-each-ref", "--format=%(refname)", "refs/plur1bus/checkpoints").trim(), "");
+    r.store.completeTurn(start.turn.id, { text: "done", tokens: 1 });
+    await assert.rejects(new RewindService({ store: r.store, audit: r.audit, now: () => 42, files: r.checkpoints })
+      .rewind({ sessionId: r.session.id, toSeq: 0, actor: "owner", files: true, approver: { person: "owner", surface: 2 } }),
+    { reason: "rewind-files-disabled" });
+    assert.equal(r.asks.length, 0); assert.deepEqual(readFileSync(join(r.root, ".git", "index")), index);
+  } finally { await r.close(); }
+});
+
+test("checkpoint capture resolves the D115 board binding once per turn", async () => {
+  const r = rig(true);
+  try {
+    const start = r.store.beginTurn(r.session.id, "edit", 1);
+    await r.checkpoints.capture({ sessionId: r.session.id, turnId: start.turn.id, personId: "owner", signal: new AbortController().signal });
+    assert.equal(r.projectLookups(), 1);
+  } finally { await r.close(); }
+});
+
+test("cleanup refuses a private ref whose object identity was changed externally", async () => {
+  const r = rig(true, undefined, { retention: () => 1 });
+  try {
+    const first = r.store.beginTurn(r.session.id, "first", 1);
+    await r.checkpoints.capture({ sessionId: r.session.id, turnId: first.turn.id, personId: "owner", signal: new AbortController().signal });
+    r.store.completeTurn(first.turn.id, { text: "done", tokens: 1 });
+    const recorded = r.store.checkpoint(r.session.id, first.turn.id)!;
+    r.git("update-ref", recorded.ref, "HEAD");
+    const foreign = r.git("rev-parse", recorded.ref);
+    const second = r.store.beginTurn(r.session.id, "second", 1);
+    await r.checkpoints.capture({ sessionId: r.session.id, turnId: second.turn.id, personId: "owner", signal: new AbortController().signal });
+    assert.equal(r.git("rev-parse", recorded.ref), foreign);
+    assert.deepEqual(r.store.checkpoint(r.session.id, first.turn.id), recorded);
+  } finally { await r.close(); }
+});
+
+test("immediate transcript erasure after archive cannot orphan its private checkpoint refs", async () => {
+  const r = rig(true);
+  try {
+    const start = r.store.beginTurn(r.session.id, "edit", 1);
+    await r.checkpoints.capture({ sessionId: r.session.id, turnId: start.turn.id, personId: "owner", signal: new AbortController().signal });
+    r.store.completeTurn(start.turn.id, { text: "done", tokens: 1 });
+    r.store.archiveSession(r.session.id);
+    r.store.eraseSession(r.session.id, { actor: "owner", reason: "explicit deletion" });
+    await r.checkpoints.idle();
+    assert.equal(r.git("for-each-ref", "--format=%(refname)", `refs/plur1bus/checkpoints/${r.session.id}`).trim(), "");
+    assert.equal(r.store.checkpoint(r.session.id, start.turn.id), null);
+  } finally { await r.close(); }
+});
+
+test("an interrupted ref publication keeps discoverable intent that archive cleanup can remove", async () => {
+  const r = rig(true), cancel = new AbortController();
+  try {
+    const record = r.store.recordCheckpoint.bind(r.store);
+    r.store.recordCheckpoint = checkpoint => { record(checkpoint); cancel.abort(); };
+    const start = r.store.beginTurn(r.session.id, "edit", 1);
+    await assert.rejects(r.checkpoints.capture({ sessionId: r.session.id, turnId: start.turn.id, personId: "owner", signal: cancel.signal }),
+      { name: "AbortError" });
+    assert.ok(r.store.checkpoint(r.session.id, start.turn.id));
+    r.store.failTurn(start.turn.id, "cancelled"); r.store.archiveSession(r.session.id);
+    await r.checkpoints.idle();
+    assert.equal(r.store.checkpoint(r.session.id, start.turn.id), null);
+    assert.equal(r.git("for-each-ref", "--format=%(refname)", `refs/plur1bus/checkpoints/${r.session.id}`).trim(), "");
+  } finally { await r.close(); }
+});
+
+test("retention removes refs older than N turns while preserving transcript bytes and the real index", async () => {
+  const r = rig(true, undefined, { retention: () => 2 });
+  try {
+    const index = readFileSync(join(r.root, ".git", "index"));
+    const turns: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const start = r.store.beginTurn(r.session.id, `edit ${i}`, 1); turns.push(start.turn.id);
+      await r.checkpoints.capture({ sessionId: r.session.id, turnId: start.turn.id, personId: "owner", signal: new AbortController().signal });
+      r.store.completeTurn(start.turn.id, { text: "done", tokens: 1 });
+    }
+    const refs = r.git("for-each-ref", "--format=%(refname)", `refs/plur1bus/checkpoints/${r.session.id}`).trim().split("\n");
+    assert.equal(refs.length, 2); assert.ok(refs.every(ref => !ref.endsWith(turns[0]!)));
+    assert.equal(r.store.checkpoint(r.session.id, turns[0]!), null);
+    assert.equal(r.store.listMessages(r.session.id).length, 6);
+    assert.deepEqual(readFileSync(join(r.root, ".git", "index")), index);
+  } finally { await r.close(); }
+});
+
+for (const ending of ["archive", "card-done"] as const) {
+  test(`${ending} releases private checkpoint refs and keeps the transcript`, async t => {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    let ended = false;
+    const r = rig(true, undefined, { cardEnded: () => ended });
+    try {
+      const start = r.store.beginTurn(r.session.id, "edit", 1);
+      await r.checkpoints.capture({ sessionId: r.session.id, turnId: start.turn.id, personId: "owner", signal: new AbortController().signal });
+      r.store.completeTurn(start.turn.id, { text: "done", tokens: 1 });
+      const messages = r.store.listMessages(r.session.id), events = r.store.listEvents(r.session.id);
+      if (ending === "archive") r.store.archiveSession(r.session.id);
+      else { ended = true; t.mock.timers.tick(10_000); }
+      await r.checkpoints.idle?.();
+      assert.equal(r.git("for-each-ref", "--format=%(refname)", `refs/plur1bus/checkpoints/${r.session.id}`).trim(), "");
+      assert.equal(r.store.checkpoint(r.session.id, start.turn.id), null);
+      assert.deepEqual(r.store.listMessages(r.session.id), messages);
+      assert.deepEqual(r.store.listEvents(r.session.id).slice(0, events.length), events);
+    } finally { await r.close(); }
+  });
 }
 
 test("Git routing/config variables are removed with Windows case semantics while ordinary environment survives", () => {
@@ -82,7 +198,7 @@ test("checkpoint and approved restore retain dirty working bytes, staged bytes, 
     assert.equal(r.begins(), 1);
     assert.match(r.git("for-each-ref", "--format=%(refname)", "refs/plur1bus/checkpoints/"),
       new RegExp(`${r.session.id}/${first.turn.id}`));
-  } finally { r.close(); }
+  } finally { await r.close(); }
 });
 
 test("a path is reserved during file approval and a changed worktree refuses the stale restore", async () => {
@@ -103,7 +219,7 @@ test("a path is reserved during file approval and a changed worktree refuses the
     assert.equal(r.begins(), 0);
     assert.deepEqual(r.store.rewinds(r.session.id), []);
     assert.equal(r.store.rewindReserved(r.session.id), false);
-  } finally { r.close(); }
+  } finally { await r.close(); }
 });
 
 test("checkpoint and restore never execute repository clean, smudge or hook programs", async () => {
@@ -129,7 +245,7 @@ test("checkpoint and restore never execute repository clean, smudge or hook prog
       .rewind({ sessionId: r.session.id, toSeq: 0, actor: "owner", files: true, approver: { person: "owner", surface: 3 } });
     assert.equal(existsSync(marker), false);
     assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), "checkpoint working contents\n");
-  } finally { r.close(); }
+  } finally { await r.close(); }
 });
 
 test("refused file approval changes neither tracked files nor the conversation path", async () => {
@@ -146,7 +262,7 @@ test("refused file approval changes neither tracked files nor the conversation p
     assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), "failed edit\n");
     assert.deepEqual(r.store.rewinds(r.session.id), []);
     assert.equal(r.begins(), 0);
-  } finally { r.close(); }
+  } finally { await r.close(); }
 });
 
 test("checkpoint and restore preserve exact CRLF bytes despite repository text/eol attributes", async () => {
@@ -168,7 +284,7 @@ test("checkpoint and restore preserve exact CRLF bytes despite repository text/e
       .rewind({ sessionId: r.session.id, toSeq: 0, actor: "owner", files: true, approver: { person: "owner", surface: 3 } });
     assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), original);
     assert.deepEqual(readFileSync(join(r.root, ".git", "index")), index);
-  } finally { r.close(); }
+  } finally { await r.close(); }
 });
 
 test("included repository filter configuration cannot execute during capture or restore", async () => {
@@ -193,7 +309,7 @@ test("included repository filter configuration cannot execute during capture or 
       .rewind({ sessionId: r.session.id, toSeq: 0, actor: "owner", files: true, approver: { person: "owner", surface: 3 } });
     assert.equal(existsSync(marker), false);
     assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), "checkpoint working contents\n");
-  } finally { r.close(); }
+  } finally { await r.close(); }
 });
 
 test("a split real index keeps its exact bytes while a private checkpoint restores working contents", async () => {
@@ -210,7 +326,7 @@ test("a split real index keeps its exact bytes while a private checkpoint restor
       .rewind({ sessionId: r.session.id, toSeq: 0, actor: "owner", files: true, approver: { person: "owner", surface: 3 } });
     assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), "checkpoint working contents\n");
     assert.deepEqual(readFileSync(join(r.root, ".git", "index")), index);
-  } finally { r.close(); }
+  } finally { await r.close(); }
 });
 
 test("conversation-only rewind never restores files and an unavailable checkpoint refuses --files", async () => {
@@ -224,7 +340,7 @@ test("conversation-only rewind never restores files and an unavailable checkpoin
     await service.rewind({ sessionId: r.session.id, toSeq: 0, actor: "owner", lesson: "Try again." });
     assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), "checkpoint working contents\n");
     assert.equal(r.asks.length, 0);
-  } finally { r.close(); }
+  } finally { await r.close(); }
 });
 
 test("restore refuses a checkpoint path that has become an untracked file", async () => {
@@ -241,7 +357,7 @@ test("restore refuses a checkpoint path that has become an untracked file", asyn
         approver: { person: "owner", surface: 3 } }), /untracked/);
     assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), "now untracked, preserve me\n");
     assert.deepEqual(r.store.rewinds(r.session.id), []);
-  } finally { r.close(); }
+  } finally { await r.close(); }
 });
 
 test("a Git ref changed outside the checkpoint service cannot impersonate the recorded turn checkpoint", async () => {
@@ -257,7 +373,7 @@ test("a Git ref changed outside the checkpoint service cannot impersonate the re
         approver: { person: "owner", surface: 3 } }), /checkpoint.*changed/);
     assert.equal(r.asks.length, 0);
     assert.deepEqual(r.store.rewinds(r.session.id), []);
-  } finally { r.close(); }
+  } finally { await r.close(); }
 });
 
 test("overlay restore preserves files staged after the checkpoint and the real index", async () => {
@@ -277,7 +393,7 @@ test("overlay restore preserves files staged after the checkpoint and the real i
     assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), "checkpoint working contents\n");
     assert.deepEqual(readFileSync(join(r.root, ".git", "index")), index);
     assert.equal(r.git("rev-parse", "HEAD"), head);
-  } finally { r.close(); }
+  } finally { await r.close(); }
 });
 
 test("the approval preview names overwritten and preserved new paths with their counts", async () => {
@@ -298,7 +414,7 @@ test("the approval preview names overwritten and preserved new paths with their 
     });
     assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), "failed edit\n");
     assert.equal(r.begins(), 0);
-  } finally { r.close(); }
+  } finally { await r.close(); }
 });
 
 test("a checkpoint file cannot replace a directory containing a newly tracked path", async () => {
@@ -313,7 +429,7 @@ test("a checkpoint file cannot replace a directory containing a newly tracked pa
       sessionId: r.session.id, toSeq: 0, actor: "owner", files: true, approver: { person: "owner", surface: 3 } }), { reason: "rewind-files-changed" });
     assert.equal(readFileSync(join(r.root, "tracked.txt", "new-child.txt"), "utf8"), "keep child\n");
     assert.equal(r.asks.length, 0);
-  } finally { r.close(); }
+  } finally { await r.close(); }
 });
 
 test("a restore whose complete path preview exceeds the cap asks nobody and changes no working files", async () => {
@@ -332,7 +448,7 @@ test("a restore whose complete path preview exceeds the cap asks nobody and chan
     assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), "failed edit\n");
     assert.ok(names.every(name => existsSync(join(r.root, name))));
     assert.deepEqual(readFileSync(join(r.root, ".git", "index")), index);
-  } finally { r.close(); }
+  } finally { await r.close(); }
 });
 
 test("the real approval service refuses T1 and permits one redacted T2 restore with matching metadata", async () => {
@@ -369,5 +485,5 @@ test("the real approval service refuses T1 and permits one redacted T2 restore w
     const grants = permissions.stores.grants.inspect({ person: "owner" });
     assert.equal(grants.length, 1);
     assert.ok(grants.every(view => view.grant.scope === "once"));
-  } finally { permissions.service.dispose(); await tick(); permissions.stores.close(); r.close(); }
+  } finally { permissions.service.dispose(); await tick(); permissions.stores.close(); await r.close(); }
 });

@@ -121,8 +121,11 @@ export function openSessionService(d: SessionServiceDeps): SessionService {
       maintenanceAbort.abort(Error("session-maintenance-closed"));
       compactor.stop();
       let timer: NodeJS.Timeout | undefined;
-      await Promise.race([runner.idle(), new Promise<void>((res) => { timer = setTimeout(res, budgetMs); timer.unref(); })]);
-      clearTimeout(timer);
+      try {
+        // Abort owned Git/approval work immediately; drain it alongside the runner's existing shutdown budget.
+        await Promise.all([checkpoints?.close?.(),
+          Promise.race([runner.idle(), new Promise<void>((res) => { timer = setTimeout(res, budgetMs); timer.unref(); })])]);
+      } finally { clearTimeout(timer); }
       store.close();
     },
   };
