@@ -162,7 +162,8 @@ sleep-based synchronization; admission tests prove limits 3 and 2 across asynchr
 
 Writer tools are the intersection of the trusted receiving-agent view and the contract's tool names; an empty view or
 contract exposes no writer tools. The future native-writer scheduler supplies that trusted view with the worktree.
-A nested reader inherits its caller's effective tool view and cannot add a tool merely because its effect is `read`.
+A nested reader inherits the read-only subset of its caller's effective tool view, even when that caller is a writer,
+and cannot add a tool merely because its effect is `read`.
 The session stores automatically joined results through an internal completion sink, with matching read-call events;
 ordinary provider-reported results remain ignored when the session owns a dispatcher. Traces close only after the
 turn and its registered children have settled, including preparations and card-bound children.
