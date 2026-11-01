@@ -12,7 +12,7 @@ import {
   systemAvailability,
   observeResponse,
 } from "../spikes/apple-fm-probe-lib.mjs";
-import { renderReceipt, runProtocol, waitForSocket } from "../spikes/apple-fm-probe.mjs";
+import { measureWindow, renderReceipt, runProtocol, waitForSocket } from "../spikes/apple-fm-probe.mjs";
 
 test("the system check accepts the available line with exit 1 outside Terminal", () => {
   const available = systemAvailability({
@@ -169,6 +169,14 @@ test("CLI capture retains a nonzero exit even when stdout looks successful", asy
   assert.equal(result.stdout, "available\n");
 });
 
+test("the tokenizer command receives the bounded synthetic text on stdin", async () => {
+  const result = await captureProcess(process.execPath, ["-e",
+    "let n=0;process.stdin.on('data',x=>n+=x.length);process.stdin.on('end',()=>console.log(n))"], {
+    env: {}, input: "test",
+  });
+  assert.equal(result.stdout, "4\n");
+});
+
 test("a preflight stop receipt never claims the server or protocol measurements ran", () => {
   const rendered = renderReceipt({
     status: "blocked", observations: [], notMeasured: [], cleanup: { temporaryDirectoryRemoved: true },
@@ -192,6 +200,29 @@ async function withSocketServer(handler, use) {
     await rm(directory, { recursive: true, force: true });
   }
 }
+
+test("context probing records an accepted lower bound and the first observed server overflow", async () => {
+  await withSocketServer(async (request, response) => {
+    const chunks = [];
+    for await (const chunk of request) {
+      chunks.push(chunk);
+    }
+    const body = JSON.parse(Buffer.concat(chunks).toString());
+    const overflow = body.messages[0].content.length > 50_000;
+    response.writeHead(overflow ? 400 : 200, { "content-type": "application/json" });
+    response.end(overflow
+      ? '{"error":{"type":"context_overflow","message":"synthetic window limit"}}'
+      : '{"choices":[{"message":{"content":"OK"},"finish_reason":"stop"}]}');
+  }, async socket => {
+    const rows = [];
+    const result = await measureWindow(socket, row => rows.push(row), {
+      counter: async text => ({ tokens: text.length / 10 + 2, utf16Units: text.length }),
+    });
+    assert.equal(result.acceptedPromptTokensAtLeast, 4098);
+    assert.equal(result.firstError.response.error.type, "context_overflow");
+    assert.equal(rows.length, 2);
+  });
+});
 
 test("the probe uses its Unix socket and does not follow a redirect to TCP", async () => {
   let requests = 0;

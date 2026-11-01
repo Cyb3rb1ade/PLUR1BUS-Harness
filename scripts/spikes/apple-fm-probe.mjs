@@ -17,6 +17,31 @@ const PROMPT = `${MARKER}. Reply only OK.`;
 /** Synthetic input deliberately larger than the proposed 4096-token window. */
 export const OVERFLOW_PROMPT = "synthetic ".repeat(5000);
 
+/** Measure accepted tokenizer counts and preserve the first overflow without assuming a fixed window. */
+export async function measureWindow(socket, record, { counter, signal }) {
+  let acceptedPromptTokensAtLeast = 0;
+  let firstError = null;
+  for (const words of [4096, 8192, 16_384, 32_768, 65_536]) {
+    const content = "synthetic ".repeat(words);
+    const count = await counter(content);
+    const row = { id: `window-${words}`, tokenCount: count };
+    const body = { model: "system", messages: [{ role: "user", content }], stream: false, max_tokens: 8 };
+    const raw = await socketRequest(socket, { method: "POST", path: "/v1/chat/completions", body, signal });
+    row.response = observeResponse(raw);
+    row.elapsedMs = raw.elapsedMs;
+    await record(row);
+    if (raw.status !== 200 || row.response.error || row.response.analysisError) {
+      firstError = row;
+      break;
+    }
+    acceptedPromptTokensAtLeast = count.tokens ?? acceptedPromptTokensAtLeast;
+  }
+  return {
+    acceptedPromptTokensAtLeast, firstError, exactWindow: null,
+    interpretation: "Observed accepted input counts and the first error; hidden chat framing or truncation prevent an exact window claim.",
+  };
+}
+
 /** Measure the documented wire features, retaining exact response and error shapes. */
 export async function runProtocol(socket, record, { signal, warmSamples = 12 } = {}) {
   const get = async (id, path) => {
@@ -46,6 +71,11 @@ export async function runProtocol(socket, record, { signal, warmSamples = 12 } =
   await chat("usage", { stream: true, stream_options: { include_usage: true } });
   await chat("usage-disabled", { stream: true, stream_options: { include_usage: false } });
   await chat("completion-token-field", { max_tokens: undefined, max_completion_tokens: 32 });
+  const longAnswer = [{ role: "user", content: "Count from one to one hundred in English words." }];
+  await chat("max-tokens-one", { messages: longAnswer, max_tokens: 1, stream: false });
+  await chat("max-completion-tokens-one", {
+    messages: longAnswer, max_tokens: undefined, max_completion_tokens: 1, stream: false,
+  });
   const latencies = [first.elapsedMs];
   for (let index = 0; index < warmSamples; index++) {
     const result = await chat(`latency-${index + 1}`, { stream: false }, { mustWork: true });
@@ -124,6 +154,24 @@ async function withFmServer(directory, socket, signal, receipt, use) {
       };
       receipt.serverPid = handle.child.pid;
       await waitForSocket(resolve(directory, socket), handle.child, signal);
+      const deadline = performance.now() + 120_000;
+      while (true) {
+        signal.throwIfAborted();
+        if (handle.child.exitCode !== null || handle.child.signalCode !== null || performance.now() >= deadline) {
+          throw new Error("fm exited or exhausted the HTTP readiness measurement budget");
+        }
+        try {
+          receipt.readyHealth = observeResponse(await socketRequest(resolve(directory, socket), {
+            method: "GET", path: "/health", signal,
+          }));
+          break;
+        } catch (error) {
+          if (!["ENOENT", "ECONNREFUSED"].includes(error.code)) {
+            throw error;
+          }
+          await measurementInterval(25, undefined, { signal });
+        }
+      }
       return await use(handle);
     });
   } finally {
@@ -194,7 +242,7 @@ async function parentDeathProbe(directory, signal, env) {
 }
 
 async function countTokens(text, env) {
-  const result = await captureProcess("/usr/bin/fm", ["count-tokens", "--quiet", text], { env });
+  const result = await captureProcess("/usr/bin/fm", ["count-tokens", "--quiet"], { env, input: text });
   const tokens = /^\d+\s*$/.test(result.stdout) ? Number(result.stdout.trim()) : null;
   return { utf16Units: text.length, tokens, heuristicBound: Math.ceil(text.length / 3), ...result };
 }
@@ -323,6 +371,13 @@ export async function runLiveProbe(output) {
         console.error(`AF0: ${row.id} HTTP ${row.response.status} (${row.elapsedMs.toFixed(1)} ms)`);
         await checkpoint();
       }, { signal });
+      stage = "window-measurements";
+      receipt.window = await measureWindow(socket, async row => {
+        receipt.observations.push(row);
+        console.error(`AF0: ${row.id} HTTP ${row.response.status} (${row.elapsedMs.toFixed(1)} ms)`);
+        await checkpoint();
+      }, { signal, counter: text => countTokens(text, env) });
+      stage = "idle-measurements";
       receipt.idleAfterInference = [];
       const idleStarted = performance.now();
       for (const atMs of [0, 30_000]) {

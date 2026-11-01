@@ -80,8 +80,8 @@ export function latencySummary(values) {
 }
 
 /** Own one process group and reap the direct child on every callback exit. */
-export async function withOwnedProcess(program, args, { graceMs = 2000, ...options }, use) {
-  const child = spawn(program, args, { ...options, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] });
+export async function withOwnedProcess(program, args, { graceMs = 2000, stdin = "ignore", ...options }, use) {
+  const child = spawn(program, args, { ...options, detached: process.platform !== "win32", stdio: [stdin, "pipe", "pipe"] });
   const closed = new Promise(resolve => child.once("close", (code, signal) => resolve({ code, signal })));
   const logs = { stdout: "", stderr: "", stdoutBytes: 0, stderrBytes: 0, capturedTailCharacters: 65_536 };
   for (const stream of ["stdout", "stderr"]) {
@@ -177,8 +177,12 @@ export async function socketRequest(socket, { method, path, body, signal, maxByt
 }
 
 /** Run a fixed probe argv with bounded output and duration; reap before returning or rejecting. */
-export async function captureProcess(program, args, { timeoutMs = 5000, ...options } = {}) {
-  return withOwnedProcess(program, args, options, async ({ child, closed }) => {
+export async function captureProcess(program, args, { timeoutMs = 5000, input, ...options } = {}) {
+  if (input !== undefined && (typeof input !== "string" || Buffer.byteLength(input) > 1_048_576)) {
+    throw new Error("invalid CLI input or input limit exceeded");
+  }
+  return withOwnedProcess(program, args, { ...options, stdin: input === undefined ? "ignore" : "pipe" },
+  async ({ child, closed }) => {
     let stdout = "";
     let stderr = "";
     let timer;
@@ -194,6 +198,10 @@ export async function captureProcess(program, args, { timeoutMs = 5000, ...optio
       };
       child.stdout.on("data", chunk => append("stdout", chunk));
       child.stderr.on("data", chunk => append("stderr", chunk));
+      if (input !== undefined) {
+        child.stdin.once("error", reject);
+        child.stdin.end(input);
+      }
       timer = setTimeout(() => reject(new Error("CLI timeout")), timeoutMs);
     });
     try {
