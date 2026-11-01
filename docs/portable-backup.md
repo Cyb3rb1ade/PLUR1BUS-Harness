@@ -4,10 +4,10 @@ The ordinary `plur1bus backup` archive never reads the secret store (keyring, en
 schema-driven disclosure policy preserves secret references and replaces inline `x-sensitive` values with placeholders;
 only references matching both their declared form and the canonical name-safety policy are preserved. Pasted-key
 candidates in reference slots are replaced as literals, including bare token-shaped file/exec ids.
-`x-url-credentials` masks only userinfo and every query value, preserving host/path. A restored Telegram webhook secret
+`x-url-credentials` masks userinfo and every query/fragment value with URI-safe `REDACTED`, preserving host/path. A restored Telegram webhook secret
 gets a fresh random value. The ordinary manifest names replaced config keys in `secrets.note`; ordinary restore reports
 `Re-enter secret` for those keys on stderr, including with `--json`. It does contain the API account database
-`state/api/accounts.db`, with password hashes, TOTP seeds and token hashes, and it is not encrypted. For M8 full-state recovery,
+`state/api/accounts.db`, with password hashes, TOTP seeds and token hashes, and it is not encrypted. **Known gap (SH8):** ordinary archives currently include this database by default; the Owner decision of **2026-10-21** requires explicit opt-in. A separate SH8 PR after this stack implements that boundary. The encrypted portable workflow keeps its documented account recovery behavior. For M8 full-state recovery,
 `scripts/release/portable-backup.mjs` wraps that verified archive and owner-readable vault values in
 one encrypted `.p1backup` file. Release payloads also ship `portable-backup.mjs` beside `core.js`.
 No engine or secret-backend changes are required. Node 24.21 and the candidate CLI are required.

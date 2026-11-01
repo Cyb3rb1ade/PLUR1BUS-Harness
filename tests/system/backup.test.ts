@@ -1,9 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { REAL, cli, home, startCore, stopCore, type RunningCore } from "./helpers.ts";
+import { defaults, validate } from "../../packages/config-schema/src/index.ts";
 
 const QUERIES = ["when is the roadmap review", "quarterly budget draft", "harbour tour"];
 const FACTS = [
@@ -13,6 +15,35 @@ const FACTS = [
 ];
 
 describe("M8 — backup and restore against a real core", () => {
+  it("ordinary URL credential placeholders survive create → restore → TS validation", { timeout: 120_000 }, async () => {
+    const h = home(), archive = join(h, "credential-snapshot.tar.gz");
+    let core: RunningCore | undefined;
+    const canary = randomBytes(32).toString("hex"), reference = "voice-elevenlabs-key";
+    const config = defaults();
+    config.voice.providers.elevenlabs.baseUrl = `https://user:${canary}@provider.example/public/path?token=${canary}#auth=${canary}`;
+    config.voice.providers.elevenlabs.apiKeyRef = reference;
+    writeFileSync(join(h, "config.json"), JSON.stringify(config));
+    assert.ok(validate(config).ok);
+    try {
+      core = await startCore(h);
+      const created = cli(h, ["backup", "create", "--out", archive]);
+      assert.equal(created.schema, "backup.create/1");
+      const raw = gunzipSync(readFileSync(archive));
+      assert.ok(!raw.includes(canary), "a literal URL credential entered the archive");
+      assert.ok(raw.includes(reference), "the reference name must survive byte-for-byte");
+      await stopCore(core); core = undefined;
+      writeFileSync(join(h, "config.json"), JSON.stringify(defaults()));
+      assert.equal(cli(h, ["backup", "restore", "--yes", archive]).applied, true);
+      const restored = JSON.parse(readFileSync(join(h, "config.json"), "utf8"));
+      assert.equal(restored.voice.providers.elevenlabs.baseUrl,
+        "https://REDACTED@provider.example/public/path?token=REDACTED#auth=REDACTED");
+      assert.equal(restored.voice.providers.elevenlabs.apiKeyRef, reference);
+      assert.ok(validate(restored).ok, "the real restored config must satisfy the TS URI validator");
+    } finally {
+      if (core) await stopCore(core);
+      rmSync(h, { recursive: true, force: true });
+    }
+  });
   it("create → restore round trip gives identical recall; corrupt archives and failed restores change nothing", { skip: REAL && "flat embedder only", timeout: 300_000 }, async (t) => {
     const h = home();
     let core: RunningCore | undefined;

@@ -40,11 +40,13 @@ field-name guesses or target reads. Store and environment names follow their dec
 references retain the pinned source contract. Inline literals at `x-sensitive` keys remain masked. A name that looks
 like a pasted key (a known token prefix, excessive length or high entropy) is treated as a literal, masked and registered
 for text redaction. Configuration CLI stderr and Supervisor warnings name the key and say
-`Reference looks like a pasted key; use a secret-store reference name.` without echoing the value. Explicit file paths
+`Reference looks like a pasted key; use a secret-store reference name.` without echoing the value. Short or prefixless values that do not match the declared reference syntax are also masked and warned about. Core consumes these warnings at startup and accepted changes, with bounded paths and guidance; URL userinfo warnings point to the appropriate secret-reference field. Explicit file paths
 retain normal path syntax and length; bare token-shaped file/exec ids are still protected. Actual store values remain
 protected in registry-filtered outputs even when their bytes equal a reference name. Grant views mask such a collision;
 agent exports refuse before signing so the provisioning manifest remains valid. These disclosure checks add no
 authority or backend access.
+
+The global config text registry includes literal secrets and selected URL credentials: userinfo passwords, token-like usernames, credential-named query/fragment values and token-like parameter values. It excludes ordinary usernames, hosts, public paths, benign region/API-version values and valid references. Argument/environment collections contribute credential assignments or token-like parts; ordinary package names, flags and project paths remain readable. Structured views still conceal all query/fragment values and declared sensitive argument/environment strings.
 
 The [lease design options](superpowers/specs/2026-10-18-agent-secret-lease-options.md) are an owner question for a later
 implementation: explicit per-agent/name/purpose grants with expiry and D109 `secrets.use`, policy-approved inheritance

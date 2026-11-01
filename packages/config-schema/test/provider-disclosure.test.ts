@@ -17,7 +17,7 @@ test("runtime provider profiles conceal literal headers and URL parts while reta
     auth_header_scheme: "Authorization: Bearer {token}", policy_status: "allowed",
     policy_source: "fixture", policy_checked: "2026-11-01", secret_ref: reference,
     extra_headers: { "X-Ordinary-Name": header },
-    ...Object.fromEntries(endpoints.map(key => [key, `https://provider.example/v1?ordinary=${query}`])),
+    ...Object.fromEntries(endpoints.map(key => [key, `https://provider.example/v1?token=${query}`])),
   });
   const cfg = defaults();
   cfg.providers.fixture = { wireFormat: "chat_completions", profile, apiKeyRef: reference,
@@ -27,7 +27,7 @@ test("runtime provider profiles conceal literal headers and URL parts while reta
   const serialized = JSON.stringify(projected.providers);
   for (const value of [header, query]) assert.ok(!serialized.includes(value), "provider value leaked");
   assert.ok(serialized.includes(reference), "a valid provisioning reference name was hidden");
-  assert.ok(serialized.includes("https://provider.example/v1?ordinary="));
+  assert.ok(serialized.includes("https://provider.example/v1?token="));
   assert.ok(serialized.includes("Authorization: Bearer {token}"));
   const values = configTextSecretEntries(cfg).map(entry => entry.value);
   for (const value of [header, query]) assert.ok(values.includes(value));
@@ -41,14 +41,14 @@ test("runtime provider profiles conceal literal headers and URL parts while reta
 test("runtime MCP and media declarations protect configured credentials before their consumers start", () => {
   const header = randomUUID(), env = randomUUID(), argument = randomUUID(), reference = randomUUID();
   const user = randomUUID(), password = randomUUID(), query = randomUUID();
-  const endpoint = `https://${user}:${password}@media.example/generate?ordinary=${query}`;
+  const endpoint = `https://${user}:${password}@media.example/generate?token=${query}`;
   const cfg = defaults();
   cfg.providers.media = { adapters: [{ id: "openai", secretRef: reference, baseUrl: endpoint, model: "public" }] };
   cfg.providers.mcp = { servers: [
     { name: "remote", authSecret: reference, transport: {
-      type: "http", url: `https://mcp.example/rpc?ordinary=${query}`, headers: { "X-Ordinary-Name": header },
+      type: "http", url: `https://mcp.example/rpc?token=${query}`, headers: { "X-Ordinary-Name": header },
     } },
-    { name: "local", transport: { type: "stdio", command: "fixture", args: [argument], env: { ORDINARY: env } } },
+    { name: "local", transport: { type: "stdio", command: "fixture", args: ["--api-key", argument], env: { API_TOKEN: env } } },
   ] };
   assert.ok(validate(cfg).ok);
   const serialized = JSON.stringify(redactConfig(cfg));
@@ -58,7 +58,8 @@ test("runtime MCP and media declarations protect configured credentials before t
     assert.ok(serialized.includes(value), "public provider metadata must remain visible");
   assert.ok(serialized.includes(reference));
   const values = configTextSecretEntries(cfg).map(entry => entry.value);
-  for (const value of [header, env, argument, user, password, query]) assert.ok(values.includes(value));
+  for (const value of [header, env, argument, password, query]) assert.ok(values.includes(value));
+  assert.ok(!values.includes(user), "userinfo usernames are public text metadata");
   assert.ok(!values.includes(reference));
   assert.equal(secretReferenceOf("providers.media.adapters.0.secretRef", reference), true);
   assert.equal(secretReferenceOf("providers.mcp.servers.0.authSecret", reference), true);

@@ -427,11 +427,11 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `engine.implementation` | string | `"node"` | core | advanced | false | false |  | Memory engine implementation. Rust is experimental and requires the separately running engine process; unavailable engines leave the Core running and recall reports engine-unavailable. |
 | `engine.schicht15` | object |  | core | advanced | false | false |  | Curated knowledge promotion settings passed to the Engine. |
 | `engine.schicht15.maxPromotionsPerRun` | integer | `0` | core | advanced | false | false |  | Maximum memories promoted by one knowledge-update run; 0 means unlimited. |
-| `engine.schicht15.apiKey` | string\|object |  | core | advanced | true | false |  | Engine secret input: credential string or secret reference; metadata only, validated by the Engine. |
+| `engine.schicht15.apiKey` | string\|object |  | core | advanced | true | false | #/$defs/backupEngineSecretReference | Engine secret input: credential string or secret reference; metadata only, validated by the Engine. |
 | `engine.schicht15.apiKey.source` | string |  | core | advanced | true | false |  |  |
 | `engine.schicht15.apiKey.provider` | string |  | core | advanced | true | false |  |  |
 | `engine.schicht15.apiKey.id` | string |  | core | advanced | true | false |  |  |
-| `engine.schicht15.apiKeyRef` | string |  | core | advanced | true | false |  | Secret-store reference for an Engine credential. |
+| `engine.schicht15.apiKeyRef` | string |  | core | advanced | true | false | #/$defs/backupSecretName | Secret-store reference for an Engine credential. |
 | `engine.schicht15.headers` | object |  | core | advanced | true | false |  | Engine transport headers; string values are sensitive. This metadata does not restrict the existing pass-through values. |
 | `engine.schicht15.headers.*` | string |  | core | advanced | true | false |  |  |
 | `engine.schicht15.baseUrl` | string |  | core | advanced | false | true |  | Engine endpoint URL; retain the host and path, mask userinfo and all query values. |
@@ -447,6 +447,7 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `engine.embedding.fallback.apiKey.provider` | string |  | core | advanced | true | false |  |  |
 | `engine.embedding.fallback.apiKey.id` | string |  | core | advanced | true | false |  |  |
 | `engine.embedding.fallback.baseUrl` | string |  | core | advanced | false | true |  | Engine endpoint URL; retain the host and path, mask userinfo and all query values. |
+| `engine.embedding.fallback.model` | string |  | core | advanced | false | false |  | Public Engine model, workspace or numeric control; not credential material. |
 | `engine.embedding.apiKeyRef` | string |  | core | advanced | true | false | #/$defs/backupSecretName | Secret-store reference for an Engine credential. |
 | `engine.embedding.apiKeyEnv` | string |  | core | advanced | true | false | #/$defs/secretEnvironmentName | Environment reference for an Engine credential. |
 | `engine.embedding.baseUrl` | string |  | core | advanced | false | true |  | Engine endpoint URL; retain the host and path, mask userinfo and all query values. |
@@ -466,6 +467,13 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `engine.embedding.routes[].provider.fallback.apiKey.provider` | string |  | core | advanced | true | false |  |  |
 | `engine.embedding.routes[].provider.fallback.apiKey.id` | string |  | core | advanced | true | false |  |  |
 | `engine.embedding.routes[].provider.fallback.baseUrl` | string |  | core | advanced | false | true |  | Engine endpoint URL; retain the host and path, mask userinfo and all query values. |
+| `engine.embedding.routes[].identity` | object |  | core | advanced | false | false |  |  |
+| `engine.embedding.routes[].identity.model` | string |  | core | advanced | false | false |  | Public Engine model, workspace or numeric control; not credential material. |
+| `engine.embedding.routes[].identity.tokenCap` | integer |  | core | advanced | false | false |  | Public Engine model, workspace or numeric control; not credential material. |
+| `engine.embedding.local` | object |  | core | advanced | false | false |  |  |
+| `engine.embedding.local.maxTokens` | integer |  | core | advanced | false | false |  | Public Engine model, workspace or numeric control; not credential material. |
+| `engine.embedding.local.model` | string |  | core | advanced | false | false |  | Public local embedding model identifier. |
+| `engine.embedding.model` | string |  | core | advanced | false | false |  | Public Engine model, workspace or numeric control; not credential material. |
 | `engine.reranker` | object |  | core | advanced | false | false |  |  |
 | `engine.reranker.apiKey` | string\|object |  | core | advanced | true | false | #/$defs/backupEngineSecretReference | Engine secret input: credential string or secret reference; metadata only, validated by the Engine. |
 | `engine.reranker.apiKey.source` | string |  | core | advanced | true | false |  |  |
@@ -483,6 +491,7 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `engine.merging.headers` | object |  | core | advanced | true | false |  | Engine transport headers; string values are sensitive. This metadata does not restrict the existing pass-through values. |
 | `engine.merging.headers.*` | string |  | core | advanced | true | false |  |  |
 | `engine.merging.baseUrl` | string |  | core | advanced | false | true |  | Engine endpoint URL; retain the host and path, mask userinfo and all query values. |
+| `engine.merging.model` | string |  | core | advanced | false | false |  | Public Engine model, workspace or numeric control; not credential material. |
 | `engine.skillMiner` | object |  | core | advanced | false | false |  |  |
 | `engine.skillMiner.apiKey` | string\|object |  | core | advanced | true | false | #/$defs/backupEngineSecretReference | Engine secret input: credential string or secret reference; metadata only, validated by the Engine. |
 | `engine.skillMiner.apiKey.source` | string |  | core | advanced | true | false |  |  |
@@ -509,10 +518,23 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `engine.emotion.t3.apiKey.id` | string |  | core | advanced | true | false |  |  |
 | `engine.emotion.t3.apiKeyRef` | string |  | core | advanced | true | false | #/$defs/backupSecretName | Secret-store reference for an Engine credential. |
 | `engine.emotion.t3.baseUrl` | string |  | core | advanced | false | true |  | Engine endpoint URL; retain the host and path, mask userinfo and all query values. |
+| `engine.emotion.t3.encodingMaxTokens` | integer |  | core | advanced | false | false |  | Public Engine model, workspace or numeric control; not credential material. |
 | `engine.captureChunkingJev` | object |  | core | advanced | false | false |  |  |
 | `engine.captureChunkingJev.apiKeyEnv` | string |  | core | advanced | true | false | #/$defs/secretEnvironmentName | Environment reference for an Engine credential. |
 | `engine.reminders` | object |  | core | advanced | false | false |  |  |
 | `engine.reminders.webhookUrl` | string |  | core | advanced | true | false |  | Engine reminder webhook; the complete URL is sensitive because its path may carry the credential. |
+| `engine.neo` | object |  | core | advanced | false | false |  |  |
+| `engine.neo.corpusDefaultWorkspaceKey` | string |  | core | advanced | false | false |  | Public Engine model, workspace or numeric control; not credential material. |
+| `engine.neo.workspaces` | array |  | core | advanced | false | false |  |  |
+| `engine.neo.workspaces[]` | object |  | core | advanced | false | false |  |  |
+| `engine.neo.workspaces[].workspaceKey` | string |  | core | advanced | false | false |  | Public Engine model, workspace or numeric control; not credential material. |
+| `engine.neo.workspaces[].legacyKeys` | array |  | core | advanced | false | false |  | Public Engine model, workspace or numeric control; not credential material. |
+| `engine.neo.workspaces[].legacyKeys[]` | string |  | core | advanced | false | false |  |  |
+| `engine.recall` | object |  | core | advanced | false | false |  |  |
+| `engine.recall.adaptiveBudget` | object |  | core | advanced | false | false |  |  |
+| `engine.recall.adaptiveBudget.tokenBudgetPct` | number |  | core | advanced | false | false |  | Public Engine model, workspace or numeric control; not credential material. |
+| `engine.recall.semanticCompression` | object |  | core | advanced | false | false |  |  |
+| `engine.recall.semanticCompression.tokenBudget` | integer |  | core | advanced | false | false |  | Public Engine model, workspace or numeric control; not credential material. |
 | `mcp` | object | `{}` | live | advanced | false | false |  | Installed MCP extension activation and per-agent tool visibility (X2). |
 | `mcp.servers` | object | `{}` | live | advanced | false | false |  | Activation settings keyed by the installed MCP extension name. |
 | `mcp.servers.*` | object |  | live | advanced | false | false |  | Activation and agent selection for one installed MCP extension. |
@@ -541,6 +563,8 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `providers.media.adapters[]` | object |  | live | basic | false | false |  |  |
 | `providers.media.adapters[].secretRef` | string |  | live | basic | true | false | #/$defs/backupSecretName | Media adapter secret-store reference. |
 | `providers.media.adapters[].baseUrl` | string |  | live | basic | false | true |  | Media generation base URL. |
+| `providers.media.adapters[].model` | string |  | live | basic | false | false |  | Public media model identifier. |
+| `providers.media.adapters[].id` | string |  | live | basic | false | false |  | Public media adapter identity. |
 | `providers.mcp` | object |  | live | basic | false | false |  |  |
 | `providers.mcp.servers` | array |  | live | basic | false | false |  |  |
 | `providers.mcp.servers[]` | object |  | live | basic | false | false |  |  |
@@ -553,6 +577,9 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `providers.mcp.servers[].transport.env.*` | string |  | live | basic | true | false |  |  |
 | `providers.mcp.servers[].transport.args` | array |  | live | basic | false | false |  | Explicit child arguments may contain credentials. |
 | `providers.mcp.servers[].transport.args[]` | string |  | live | basic | true | false |  |  |
+| `providers.mcp.servers[].transport.type` | string |  | live | basic | false | false |  | Public MCP transport selector. |
+| `providers.mcp.servers[].transport.command` | string |  | live | basic | false | false |  | Executable path; credential arguments are separate. |
+| `providers.mcp.servers[].name` | string |  | live | basic | false | false |  | Public MCP server name. |
 | `providers.*` | object |  | live | basic | false | false |  |  |
 | `providers.*.apiKeyRef` | string |  | live | basic | true | false | #/$defs/backupSecretName | Legacy provider reference used by agent provisioning and secret_names; auth profiles use profile.secret_ref. |
 | `providers.*.profile` | object |  | live | basic | false | false |  |  |
@@ -567,9 +594,33 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `providers.*.profile.token_endpoint` | string |  | live | basic | false | true |  | Token endpoint URL (legacy spelling). |
 | `providers.*.profile.device_authorization_endpoint` | string |  | live | basic | false | true |  | Device authorization endpoint URL (legacy spelling). |
 | `providers.*.profile.revocation_endpoint` | string |  | live | basic | false | true |  | Credential revocation endpoint URL. |
+| `providers.*.profile.id` | string |  | live | basic | false | false |  | Public provider profile identifier, capability or authentication policy metadata. |
+| `providers.*.profile.display_name` | string |  | live | basic | false | false |  | Public provider profile identifier, capability or authentication policy metadata. |
+| `providers.*.profile.kind` | string |  | live | basic | false | false |  | Public provider profile identifier, capability or authentication policy metadata. |
+| `providers.*.profile.audience` | string |  | live | basic | false | false |  | Public provider profile identifier, capability or authentication policy metadata. |
+| `providers.*.profile.client_registration` | string |  | live | basic | false | false |  | Public provider profile identifier, capability or authentication policy metadata. |
+| `providers.*.profile.client_id` | string |  | live | basic | false | false |  | Public provider profile identifier, capability or authentication policy metadata. |
+| `providers.*.profile.pkce` | string |  | live | basic | false | false |  | Public provider profile identifier, capability or authentication policy metadata. |
+| `providers.*.profile.policy_status` | string |  | live | basic | false | false |  | Public provider profile identifier, capability or authentication policy metadata. |
+| `providers.*.profile.policy_source` | string |  | live | basic | false | false |  | Public provider profile identifier, capability or authentication policy metadata. |
+| `providers.*.profile.policy_checked` | string |  | live | basic | false | false |  | Public provider profile identifier, capability or authentication policy metadata. |
+| `providers.*.profile.auth_header_scheme` | string |  | live | basic | false | false |  | Header template containing {token}; the supplied credential is stored separately. |
+| `providers.*.profile.capabilities` | array |  | live | basic | false | false |  | Public capability or requested scope names. |
+| `providers.*.profile.capabilities[]` | string |  | live | basic | false | false |  |  |
+| `providers.*.profile.scopes` | array |  | live | basic | false | false |  | Public capability or requested scope names. |
+| `providers.*.profile.scopes[]` | string |  | live | basic | false | false |  |  |
+| `providers.*.profile.person_bound` | boolean |  | live | basic | false | false |  |  |
+| `providers.*.profile.redirect` | object |  | live | basic | false | false |  |  |
+| `providers.*.profile.redirect.type` | string |  | live | basic | false | false |  |  |
+| `providers.*.profile.redirect.port` | integer |  | live | basic | false | false |  |  |
+| `providers.*.profile.refresh` | object |  | live | basic | false | false |  |  |
+| `providers.*.profile.refresh.mode` | string |  | live | basic | false | false |  |  |
+| `providers.*.profile.refresh.refresh_skew_seconds` | integer |  | live | basic | false | false |  |  |
 | `providers.*.entries` | array |  | live | basic | false | false |  |  |
 | `providers.*.entries[]` | object |  | live | basic | false | false |  |  |
 | `providers.*.entries[].secretRef` | string |  | live | basic | true | false | #/$defs/backupSecretName | Credential pool secret-store reference. |
+| `providers.*.entries[].id` | string |  | live | basic | false | false |  | Public credential pool entry identity. |
+| `providers.*.wireFormat` | string |  | live | basic | false | false |  | Public provider protocol selector. |
 | `auth` | object | `{}` |  | advanced | false | false |  | Provider sign-in and credential lifecycle (D110): OAuth/PKCE login, federated tokens, refresh and the credential store. |
 | `auth.requireSecondFactor` | string | `"remote"` | core | advanced | false | false |  | Require TOTP or WebAuthn for Owner and Admin on remote listeners by default; always or never are explicit overrides. |
 | `auth.openai` | object | `{}` |  | advanced | false | false |  | Sign in with ChatGPT and the other OpenAI credential routes (D110). |

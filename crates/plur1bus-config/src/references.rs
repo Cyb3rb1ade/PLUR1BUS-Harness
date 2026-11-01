@@ -18,6 +18,7 @@ struct Policy {
     store: jsonschema::Validator,
     environment: jsonschema::Validator,
     prefix: jsonschema::Validator,
+    anchored_prefix: jsonschema::Validator,
     max_name_length: usize,
     entropy_min_length: usize,
     entropy_min_bits: f64,
@@ -56,6 +57,10 @@ fn policy() -> Option<&'static Policy> {
                     &format!("(?i:{})", node.get("tokenPrefixPattern")?.as_str()?),
                     false,
                 )?,
+                anchored_prefix: string_pattern(
+                    &format!("(?i:^(?:{}))", node.get("tokenPrefixPattern")?.as_str()?),
+                    false,
+                )?,
                 max_name_length: size("maxNameLength")?,
                 entropy_min_length: size("entropyMinLength")?,
                 entropy_min_bits: bits("entropyMinBits")?,
@@ -86,9 +91,10 @@ fn entropy(value: &str) -> f64 {
 enum TokenContext {
     Name,
     SourcePath,
+    Text,
 }
 
-fn clear_source_path(value: &str) -> bool {
+pub(crate) fn clear_source_path(value: &str) -> bool {
     let bytes = value.as_bytes();
     value.starts_with(['/', '\\'])
         || ["./", ".\\", "../", "..\\", "~/", "~\\"]
@@ -109,7 +115,7 @@ fn token_like(value: &str, policy: &Policy, context: TokenContext) -> bool {
         return false;
     }
     let size = value.chars().count();
-    if size > policy.max_name_length {
+    if size > policy.max_name_length && !matches!(context, TokenContext::Text) {
         return true;
     }
     let hex = size >= policy.hex_min_length && value.bytes().all(|byte| byte.is_ascii_hexdigit());
@@ -117,6 +123,19 @@ fn token_like(value: &str, policy: &Policy, context: TokenContext) -> bool {
         return true;
     }
     size >= policy.entropy_min_length && entropy(value) >= policy.entropy_min_bits
+}
+
+pub(crate) fn starts_with_credential_prefix(value: &str) -> bool {
+    policy().is_some_and(|policy| {
+        policy
+            .anchored_prefix
+            .is_valid(&Value::String(value.to_owned()))
+    })
+}
+
+/// Global textual tokens use credential shape and entropy; a reference-name size limit is not a secret signal.
+pub(crate) fn looks_like_text_credential(value: &str) -> bool {
+    policy().is_some_and(|policy| token_like(value, policy, TokenContext::Text))
 }
 
 /// Recognize pasted credential shapes without resolving references or returning the configured value.
@@ -270,10 +289,8 @@ impl<'a> Matcher<'a> {
         Some((definition, CacheKey::Local(local)))
     }
 
-    pub(crate) fn matches(&mut self, value: &Value, node: &'a Value) -> bool {
-        let Some((definition, key)) = self.definition(node) else {
-            return false;
-        };
+    fn validator(&mut self, node: &'a Value) -> Option<&(jsonschema::Validator, Value)> {
+        let (definition, key) = self.definition(node)?;
         let root = self.root;
         self.validators
             .entry(key)
@@ -290,14 +307,22 @@ impl<'a> Matcher<'a> {
                     .map(|validator| (validator, effective))
             })
             .as_ref()
-            .is_some_and(|(validator, schema)| {
-                validator.is_valid(value) && reference_safety(value, schema)
-            })
+    }
+
+    pub(crate) fn valid_metadata(&mut self, node: &'a Value) -> bool {
+        self.validator(node).is_some()
+    }
+
+    pub(crate) fn matches(&mut self, value: &Value, node: &'a Value) -> bool {
+        self.validator(node).is_some_and(|(validator, schema)| {
+            validator.is_valid(value) && reference_safety(value, schema)
+        })
     }
 
     pub(crate) fn suspicious(&mut self, value: &Value, node: &'a Value) -> bool {
-        self.definition(node).is_some()
+        Self::declared(node)
+            && !value.is_null()
+            && value.as_str().is_none_or(|text| !text.is_empty())
             && !self.matches(value, node)
-            && looks_like_pasted_key(value)
     }
 }

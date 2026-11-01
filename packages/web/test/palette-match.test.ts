@@ -94,9 +94,9 @@ describe("highlight", () => {
 
 describe("schema-backed configuration disclosure", () => {
   test("explicit sensitive members and their descendants are protected regardless of their names", () => {
-    for (const key of ["voice.providers.elevenlabs.apiKeyRef", "engine.merging.headers.ordinary", "auth.openai.federated.environment.NORMAL", "engine.embedding.apiKey.id"])
+    for (const key of ["voice.providers.elevenlabs.apiKeyRef", "engine.merging.headers.ordinary", "auth.openai.federated.environment.NORMAL", "engine.embedding.apiKey.id", "a.password"])
       assert.equal(isSensitiveKey(key), true, key);
-    for (const key of ["core.logLevel", "logs.keep", "modelProfiles.primary.params.maxTokens", "a.password", "auth.openai.voiceCapacity", "a2aServer.signingKey.kid"])
+    for (const key of ["core.logLevel", "logs.keep", "modelProfiles.primary.params.maxTokens", "auth.openai.voiceCapacity", "a2aServer.signingKey.kid"])
       assert.equal(isSensitiveKey(key), false, key);
   });
   test("classified URLs mask userinfo and every query value", () => {
@@ -104,10 +104,11 @@ describe("schema-backed configuration disclosure", () => {
     assert.equal(maskUrlSecrets("https://user@host/p", true), "https://••••@host/p");
     assert.equal(maskUrlSecrets("https://h/p?a=1&ordinary=2&token=3&b=4", true), "https://h/p?a=••••&ordinary=••••&token=••••&b=••••");
   });
-  test("unclassified values, public hosts, paths and fragments are preserved", () => {
-    for (const value of ["info", "http://localhost:9464/metrics", "https://example.org/a?page=2", "ops@example.org", "debug"])
+  test("URL backstop masks every query and fragment while preserving public hosts and paths", () => {
+    for (const value of ["info", "http://localhost:9464/metrics", "ops@example.org", "debug"])
       assert.equal(maskUrlSecrets(value), value);
-    assert.equal(maskUrlSecrets("https://example.org/public/path#public", true), "https://example.org/public/path#public");
+    assert.equal(maskUrlSecrets("https://example.org/a?page=2"), "https://example.org/a?page=••••");
+    assert.equal(maskUrlSecrets("https://example.org/public/path#public", true), "https://example.org/public/path#••••");
   });
 });
 

@@ -1,3 +1,4 @@
+// Static bundle structure, CSP origin checks and size budgets, including schema text that is not a network URL.
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -47,6 +48,41 @@ test("index.html has no inline script, no inline style, no event-handler attribu
   assert.doesNotMatch(html, /https?:\/\//);
 });
 
+function assertBundleOrigins(text: string): void {
+  for (const match of text.matchAll(/https?:\/\/[^\s"'`\\]+/gi)) {
+    // A schema's host alternation is regex text; WHATWG can interpret its question mark as a query on host "(".
+    if (/^https?:\/\/(?:\(\?:|\([^/?#@]*\|)/i.test(match[0]) && !match[0].includes("@")) continue;
+    let url: URL;
+    try { url = new URL(match[0]); }
+    catch { continue; } // Schema validation patterns can contain an HTTP prefix without identifying a URL.
+    const approved = url.host === "www.w3.org" || url.host === "plur1bus.app" ||
+      url.host === "100.64.0.10:8080" ||
+      (url.host === "github.com" && url.pathname.startsWith("/Cyb3rb1ade/"));
+    assert.ok(approved && !url.username && !url.password, `unexpected URL in bundle: ${match[0]}`);
+  }
+}
+
+test("bundle origin checks ignore schema validation expressions that are not URLs", () => {
+  for (const expression of ["https://[^/?#@]+(?:/[^?#]*", "http://(?:127", "http://(localhost|127"])
+    assert.doesNotThrow(() => assertBundleOrigins(`pattern: "${expression}"`), expression);
+});
+
+test("bundle origin checks reject real foreign URLs and misleading approved-host prefixes", () => {
+  for (const url of [
+    "https://foreign.example/script.js", "http://foreign.example/style.css",
+    "https://foreign.example/path(?:group)", "https://foreign.example/path?pattern=(a|b)",
+    "https://[2001:db8::1]/script.js", "https://(localhost|127)@foreign.example/path",
+    "https://plur1bus.app.evil.example/path", "https://plur1bus.app@foreign.example/path",
+    "https://github.com/Cyb3rb1ade/../another-owner/project", "http://100.64.0.10:8081/api",
+  ]) assert.throws(() => assertBundleOrigins(`endpoint: "${url}"`), /unexpected URL in bundle/, url);
+});
+
+test("bundle origin checks preserve the existing approved origins and repository paths", () => {
+  for (const url of ["http://www.w3.org/2000/svg", "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness",
+    "https://plur1bus.app/docs", "http://100.64.0.10:8080/api/v1"])
+    assert.doesNotThrow(() => assertBundleOrigins(`endpoint: "${url}"`), url);
+});
+
 test("the bundles use no eval, Function constructor, javascript: URL or remote origin", async () => {
   const js = (await Promise.all((await jsFiles()).map(read))).join("\n");
   assert.doesNotMatch(js, /\beval\s*\(/);
@@ -54,15 +90,7 @@ test("the bundles use no eval, Function constructor, javascript: URL or remote o
   assert.doesNotMatch(js, /javascript:/);
   const css = await read("styles.css");
   assert.doesNotMatch(css, /@import|url\(\s*["']?https?:/i);
-  for (const text of [js, css]) {
-    for (const m of text.matchAll(/https?:\/\/[^\s"'`)\\]+/g)) {
-      assert.match(
-        m[0],
-        /^https?:\/\/(?:www\.w3\.org\/|github\.com\/Cyb3rb1ade\/|plur1bus\.app|100\.64\.0\.10:8080)/,
-        `unexpected URL in bundle: ${m[0]}`,
-      );
-    }
-  }
+  for (const text of [js, css]) assertBundleOrigins(text);
 });
 
 // Size budgets (gzip -9). History: ADR-004 asked for a small shipped bundle (25 KiB main.js when there was one page); the

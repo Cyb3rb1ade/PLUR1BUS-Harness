@@ -11,7 +11,7 @@ Public reads and diagnostic exports apply that policy before selecting a key or 
 Valid, safe secret-reference names remain readable in configuration views, provisioning metadata and logs; they
 are not registered as text secrets. Reference subschemas carry `x-secret-reference`. Literals in sensitive fields
 are masked and registered. A reference value that resembles a pasted key is treated as a literal and produces a
-value-free warning. Classification never reads a reference target. See [reference safety](secrets.md#reference-names-and-pasted-keys).
+value-free warning. Invalid reference syntax also warns, including short values. Unknown strings in unclassified open namespaces stay private; typed public values remain readable. URL views mask userinfo and all query/fragment values, while the text registry selects only credential parts. Classification never reads a reference target. See [reference safety](secrets.md#reference-names-and-pasted-keys).
 
 ## Basic settings
 

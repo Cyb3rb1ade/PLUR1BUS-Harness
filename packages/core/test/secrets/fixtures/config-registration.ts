@@ -16,13 +16,22 @@ const rotated = randomUUID();
 const query = randomUUID();
 const moduleSecret = randomUUID();
 const providerSecret = randomUUID();
+const unknownSecret = "sk-" + randomUUID();
+const lateValue = "sk-" + randomUUID();
+const latePlain = `quiet-meadow-${randomUUID().slice(0, 2)}`;
+const benignPath = "/srv/fixture/project";
+const benignRegion = "eu-central-1";
+const moduleReference = "fixture.primary";
 const endpoint = `https://relay.example.test/public/path?ordinary=${query}`;
 const configSource = await import("../../../src/config-source.ts");
 let source: ConfigSource;
 mock.module(new URL("../../../src/config-source.ts", import.meta.url).href, { namedExports: {
   ...configSource,
   async openConfigSource(options: ConfigSourceOptions) {
-    options.logger?.warn("queued configuration fixture", { ordinary: initial, endpoint, moduleOrdinary: moduleSecret });
+    options.logger?.warn("queued configuration fixture", {
+      ordinary: initial, endpoint, moduleOrdinary: moduleSecret, unknown: unknownSecret, moduleReference,
+      path: benignPath, region: benignRegion,
+    });
     source = await configSource.openConfigSource(options);
     return source;
   },
@@ -53,12 +62,17 @@ config.providers.fixture = { wireFormat: "chat_completions", entries: [], profil
   auth_header_scheme: "Authorization: Bearer {token}", policy_status: "allowed", policy_source: "fixture",
   policy_checked: "2026-11-01", extra_headers: { "X-Ordinary-Name": providerSecret },
 } };
-config.modules.fixture = { enabled: false, ordinary: moduleSecret };
+config.modules.fixture = { enabled: false, ordinary: moduleSecret, reference: moduleReference };
+config.modules.late = { enabled: false, ordinary: lateValue, plain: latePlain };
+config.modules.opaque = { enabled: false, unclassified: { ordinary: unknownSecret, path: benignPath, region: benignRegion } };
 mkdirSync(join(home, "modules/fixture"), { recursive: true });
 writeFileSync(join(home, "modules/fixture/index.js"), "export {};\n");
 writeFileSync(join(home, "modules/fixture/module.json"), JSON.stringify({ name: "fixture", version: "0.1.0", apiVersion: "1",
   entry: "index.js", scope: "installation", priority: 500, configSchema: {
-    properties: { ordinary: { type: "string", "x-sensitive": true } },
+    type: "object", $defs: { localReference: { type: "string", enum: [moduleReference] } },
+    properties: { ordinary: { type: "string", "x-sensitive": true }, reference: {
+      type: "string", "x-sensitive": true, "x-secret-reference": { $ref: "#/$defs/localReference" },
+    } },
   } }));
 writeFileSync(join(home, "config.json"), JSON.stringify(config));
 const provided = process.argv.includes("--injected") ? bootstrap.createCoreLog({ dir: join(home, "logs"), role: "core",
@@ -66,22 +80,42 @@ const provided = process.argv.includes("--injected") ? bootstrap.createCoreLog({
 const core = createCore({ home, testInternals: flatTestInternals(), ...(provided ? { logger: provided } : {}) });
 const text = (): string => readdirSync(join(home, "logs")).filter((name) => name.endsWith(".log"))
   .map((name) => readFileSync(join(home, "logs", name), "utf8")).join("\n");
+const until = async (done: () => boolean, message: string): Promise<void> => {
+  const deadline = Date.now() + 5_000;
+  while (!done()) {
+    assert.ok(Date.now() < deadline, message);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+};
+const churnRetired = (): void => { for (let index = 0; index < 300; index++) registry!.register(randomUUID()); };
 try {
   await core.start();
   assert.ok(!text().includes(initial), "a config secret escaped the queued startup log before any store read");
   assert.ok(!text().includes(moduleSecret), "an installed module annotation was ignored before startup logs");
+  assert.ok(!text().includes(unknownSecret), "an unclassified module string escaped the actual startup logger");
+  assert.ok(text().includes(moduleReference), "a module reference was masked by the broad Harness pass");
   assert.ok(!text().includes(query), "a URL query value escaped startup logging");
   assert.ok(text().includes("relay.example.test/public/path"), "a public endpoint host or path was hidden");
   assert.ok(registry!.values().includes(initial));
   assert.ok(!registry!.values().includes(endpoint));
   assert.ok(!registry!.values().includes("relay.example.test"));
-  const stop = source!.onChange(() => logger!.warn("accepted configuration fixture", { ordinary: rotated }));
+  assert.ok(!registry!.values().includes(moduleReference));
+  assert.ok(!registry!.values().includes(benignPath), "an unknown benign path was globally registered");
+  assert.ok(!registry!.values().includes(benignRegion), "an unknown benign region was globally registered");
+  assert.ok(text().includes(benignPath));
+  assert.ok(text().includes(benignRegion));
+  let rotatedApplied = false;
+  const stop = source!.onChange(() => {
+    logger!.warn("accepted configuration fixture", { ordinary: rotated });
+    rotatedApplied = true;
+  });
   config.engine.merging = { headers: { ordinary: rotated } };
   config.providers.fixture = { ...config.providers.fixture as object, profile: {
     ...(config.providers.fixture as { profile: object }).profile, extra_headers: { "X-Ordinary-Name": rotated },
   } };
   writeFileSync(join(home, "config.json"), JSON.stringify(config));
   source!.current();
+  await until(() => rotatedApplied, "live configuration was not accepted");
   assert.ok(!text().includes(rotated), "a listener logged a new secret before registration");
   assert.ok(!redactProtocolOutput(`echo ${rotated} ${query}`, "mcp", registry!).includes(rotated));
   stop();
@@ -109,7 +143,49 @@ try {
   assert.ok(registry!.values().includes(added), "a newly installed module's secret was not registered before its config listener");
   assert.ok(!text().includes(added), "a new module value reached a log before policy loading");
   stopAdded();
-  for (let index = 0; index < 300; index++) registry!.register(randomUUID());
+  const lateDirectory = join(home, "modules", "late");
+  const lateManifest = { name: "late", version: "0.1.0", apiVersion: "1", entry: "index.js",
+    scope: "installation", priority: 500 };
+  let lateRetired = 0;
+  const stopLate = registry!.subscribe((value, info) => { if (value === lateValue && !info.pinned) lateRetired++; });
+  try {
+    // This module was configured disabled before installation and never has a child or a config change.
+    mkdirSync(lateDirectory, { recursive: true });
+    const writeLate = (sensitive: boolean): void => writeFileSync(join(lateDirectory, "module.json"), JSON.stringify({
+      ...lateManifest, configSchema: { type: "object", properties: {
+        ordinary: { type: "string", ...(sensitive ? { "x-sensitive": true } : {}) },
+        plain: { type: "string", ...(sensitive ? { "x-sensitive": true } : {}) },
+      } },
+    }));
+    writeLate(false);
+    await until(() => lateRetired > 0, "preconfigured disabled module installation did not reload its policy");
+    churnRetired();
+    assert.ok(!registry!.values().includes(lateValue), "module fallback values were pinned in the Core build group");
+    writeLate(true);
+    await until(() => registry!.values().includes(lateValue), "manifest update without a config edit did not register its secret");
+    assert.ok(registry!.values().includes(latePlain));
+    logger!.warn("updated disabled module fixture", { ordinary: lateValue });
+    assert.ok(!text().includes(lateValue));
+    const beforeRepair = lateRetired;
+    writeFileSync(join(lateDirectory, "module.json"), "{");
+    await until(() => text().includes("Repair its module.json manifest"), "damaged metadata did not report its private fallback");
+    churnRetired();
+    assert.ok(registry!.values().includes(latePlain), "damaged metadata released a low-entropy sensitive module literal");
+    logger!.warn("logging remains active while metadata is unavailable", { ordinary: lateValue, plain: latePlain });
+    assert.ok(text().includes("logging remains active while metadata is unavailable"));
+    assert.ok(!text().includes(lateValue));
+    assert.ok(!text().includes(latePlain));
+    writeLate(false);
+    await until(() => lateRetired > beforeRepair, "manifest repair without a config edit did not recover the module policy");
+    churnRetired();
+    assert.ok(!registry!.values().includes(lateValue));
+    assert.ok(!registry!.values().includes(latePlain));
+    rmSync(lateDirectory, { recursive: true, force: true });
+    await until(() => registry!.values().includes(lateValue), "uninstall without a config edit did not restore private unknown policy");
+    logger!.warn("uninstalled disabled module fixture", { ordinary: lateValue });
+    assert.ok(!text().includes(lateValue));
+  } finally { stopLate(); }
+  churnRetired();
   logger!.warn("the Engine still holds its build configuration until restart", { ordinary: initial });
   assert.ok(!text().includes(initial), "a running Core build's credential was retired while the Engine still holds it");
   logger!.warn("the provider composition still holds its initial profile", { ordinary: providerSecret });

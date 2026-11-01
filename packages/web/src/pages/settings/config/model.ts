@@ -1,7 +1,7 @@
 // Pure logic of the config sections: which fields a section shows, draft parsing, the change list, restart classes, and the
 // mapping of E_CONFIG_INVALID text onto fields. No DOM, no RPC.
 import type { Key } from "../../../i18n.ts";
-import { configPolicyOf, redactConfigView } from "../../../config-policy.ts";
+import { configNeedsReplacement, redactConfigView } from "../../../config-policy.ts";
 import { sectionOf, type SectionDef } from "../../../settings-sections.ts";
 import { META, type Kind } from "./meta.ts";
 
@@ -42,10 +42,8 @@ export const coreDraftValue = (position: number, detected: number): string => (p
 export type Draft = Record<string, string | boolean>;
 
 /** Replacement controls follow schema metadata; an untouched control never writes the masked public snapshot back. */
-export const replacementOnly = (field: Field): boolean => {
-  const policy = configPolicyOf(field.key);
-  return policy.sensitive || policy.urlCredentials || policy.referenceSchema !== undefined;
-};
+export const replacementOnly = (field: Field): boolean =>
+  configNeedsReplacement(field.value !== undefined ? field.value : field.def, field.key);
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const pathHas = (o: unknown, key: string): unknown => key.split(".").reduce<unknown>((at, seg) => (isObj(at) ? at[seg] : undefined), o);
