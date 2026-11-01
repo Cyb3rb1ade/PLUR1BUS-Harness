@@ -35,7 +35,7 @@ export function composeA2a(d: Pick<CompositionDeps, 'home' | 'config' | 'egress'
       },
     });
     const redactor = d.secrets.redaction?.redactor();
-    const client = new A2aPeerClient({ store, transport, audit: d.audit, now: d.clock, timeoutMs: () => settings().timeoutMs,
+    const client = new A2aPeerClient({ store, transport, audit: d.audit, now: d.clock,
       enabled: () => settings().enabled, maxPeers: () => settings().maxPeers, signal: d.signal,
       ...(redactor ? { redactText: (text: string) => redactor.text(text) } : {}) });
     return { client, methods: a2aPeerMethods(() => client, d.surfaceOf), close() { client.close(); peerBudget!.close(); store.close(); } };

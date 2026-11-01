@@ -15,7 +15,7 @@ import type { AuditSink } from "../rbac/audit.ts";
 
 export interface PeerClientDeps {
   store: A2aPeerStore; transport: Pick<A2aPeerTransport, "request" | "confirmTrust">;
-  audit: AuditSink; now(): number; timeoutMs?(): number;
+  audit: AuditSink; now(): number;
   enabled(): boolean; maxPeers?(): number; signal: AbortSignal;
   redactText?(text: string): string;
 }
@@ -84,7 +84,7 @@ export class A2aPeerClient {
   async #withPeer<T>(peer: StoredA2aPeer, signal: AbortSignal, run: (signal: AbortSignal) => Promise<T>): Promise<T> {
     const controller = new AbortController();
     const active = this.#active.get(peer.id) ?? new Set<AbortController>(); this.#active.set(peer.id, active); active.add(controller);
-    try { return await run(AbortSignal.any([signal, controller.signal, this.#d.signal, AbortSignal.timeout(this.#d.timeoutMs?.() ?? 120_000)])); }
+    try { return await run(AbortSignal.any([signal, controller.signal, this.#d.signal])); }
     catch (e) { throw e instanceof A2aPeerError ? e : new A2aPeerError("request-failed"); }
     finally { active.delete(controller); if (!active.size) this.#active.delete(peer.id); }
   }

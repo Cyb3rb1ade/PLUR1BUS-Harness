@@ -127,6 +127,9 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Fixed
 
+- Outbound A2A approvals use their own wait limit instead of consuming the network timeout. Redirects retain one
+  shared network allowance, and approved traffic obtains a fresh credential lease after the human decision.
+
 - **Outbound A2A review boundaries and trust confirmation (V1).** Foreign peers cannot satisfy independent local
   reviews or receive board-card ownership; local collaboration keeps its discovery and trust behavior. Requests send
   `A2A-Version: 1.0`, require exact host admission, use peer-scoped credentials and opaque operation-local identifiers,
