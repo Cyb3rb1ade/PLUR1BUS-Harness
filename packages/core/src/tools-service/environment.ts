@@ -22,4 +22,3 @@ export function toolsEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
     ),
   );
 }
-
