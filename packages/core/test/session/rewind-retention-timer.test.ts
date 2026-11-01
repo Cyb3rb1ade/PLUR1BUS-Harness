@@ -30,7 +30,7 @@ test("a pending restore cannot block later card-completion maintenance checks", 
     const first = checks; ended = true;
     t.mock.timers.tick(10_000); await nextLoop();
     assert.ok(checks > first, "maintenance keeps checking while the session awaits its approval");
-    await assert.rejects(pending, { kind: "conflict", reason: "rewind-checkpoint-unavailable" });
+    await assert.rejects(pending, { name: "SessionError", code: "conflict", reason: "rewind-checkpoint-unavailable" });
     await retention.idle();
     assert.equal(removed, 1); assert.equal(store.hasCheckpoints(), false);
     assert.equal(store.listMessages(session.id).length, 2);
