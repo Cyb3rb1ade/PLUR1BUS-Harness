@@ -297,6 +297,49 @@ fn check_with_nothing_running_is_read_only_and_exits_0() {
     assert_eq!(checks["core.state"]["status"], "warn", "{v}");
 }
 
+#[cfg(unix)]
+#[test]
+fn ffmpeg_check_probes_files_without_executing_ffmpeg_or_the_package_manager() {
+    use std::os::unix::fs::PermissionsExt;
+    let h = Home::new();
+    let binaries = tempfile::tempdir().unwrap();
+    let marker = binaries.path().join("executed");
+    for name in ["ffmpeg", "fake-package-manager"] {
+        let path = binaries.path().join(name);
+        fs::write(&path, format!("#!/bin/sh\n: > '{}'\n", marker.display())).unwrap();
+        fs::set_permissions(path, fs::Permissions::from_mode(0o700)).unwrap();
+    }
+    let before = snapshot(&h.home);
+    let mut command = check_cmd(&h);
+    command
+        .env("PATH", binaries.path())
+        .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
+        .env("PLUR1BUS_TEST_FFMPEG_MANAGER", "apt")
+        .env(
+            "PLUR1BUS_TEST_FFMPEG_PACKAGE_MANAGER",
+            binaries.path().join("fake-package-manager"),
+        );
+    let output = command.output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let document = json_stdout(&output);
+    assert_eq!(document["schema"], "1staid.check/1");
+    assert_eq!(checks_by_id(&document)["media.ffmpeg"]["status"], "ok");
+    assert!(
+        !marker.exists(),
+        "read-only checks must never execute the detected binaries"
+    );
+    assert_eq!(snapshot(&h.home), before);
+    fs::remove_file(binaries.path().join("ffmpeg")).unwrap();
+    let output = command.output().unwrap();
+    let check = checks_by_id(&json_stdout(&output))["media.ffmpeg"].clone();
+    assert_eq!(check["status"], "warn");
+    assert!(check["hint"]
+        .as_str()
+        .unwrap()
+        .contains("sudo apt install ffmpeg"));
+    assert!(!marker.exists());
+}
+
 /// The document shape (S12): `schema`, `ok`, `checks[]` each with a known `id`/`status`, in the brief's table order.
 #[test]
 fn check_json_validates_the_document_shape() {
@@ -338,6 +381,7 @@ fn check_json_validates_the_document_shape() {
         "models.decision",
         "privacy.local-only",
         "api.supervised",
+        "media.ffmpeg",
     ];
     let ids: Vec<String> = v["checks"]
         .as_array()
@@ -370,7 +414,7 @@ fn check_json_lists_the_installer_ids_after_the_first_seventeen() {
         .iter()
         .map(|c| c["id"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(ids.len(), 30, "{v}");
+    assert_eq!(ids.len(), 31, "{v}");
     assert_eq!(
         &ids[17..20],
         &["runtime.node", "runtime.core", "models.cache"],
@@ -940,7 +984,7 @@ fn check_ids_are_append_only_and_end_with_the_three_extension_rows() {
         .iter()
         .map(|c| c["id"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(ids.len(), 30, "{v}");
+    assert_eq!(ids.len(), 31, "{v}");
     assert_eq!(
         &ids[17..20],
         &["runtime.node", "runtime.core", "models.cache"]
@@ -953,6 +997,7 @@ fn check_ids_are_append_only_and_end_with_the_three_extension_rows() {
     assert_eq!(&ids[27], "models.decision", "{v}");
     assert_eq!(&ids[28], "privacy.local-only", "{v}");
     assert_eq!(&ids[29], "api.supervised", "{v}");
+    assert_eq!(&ids[30], "media.ffmpeg", "{v}");
 }
 
 #[test]

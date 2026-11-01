@@ -20,6 +20,50 @@ use std::time::Duration;
 
 #[cfg(unix)]
 #[test]
+fn setup_without_a_terminal_never_installs_ffmpeg_and_keeps_the_setup_document() {
+    use std::os::unix::fs::PermissionsExt;
+    for extra in [vec![], vec!["--non-interactive"]] {
+        let e = Env::new();
+        let binaries = e.root.join("package-bin");
+        std::fs::create_dir(&binaries).unwrap();
+        let marker = e.root.join("package-manager-called");
+        let manager = binaries.join("fake-package-manager");
+        std::fs::write(&manager, format!("#!/bin/sh\n: > '{}'\n", marker.display())).unwrap();
+        std::fs::set_permissions(&manager, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let core = payload();
+        let mut args = vec![
+            "--json",
+            "setup",
+            "--no-service",
+            "--core-from",
+            core.to_str().unwrap(),
+        ];
+        args.extend(extra);
+        let output = e
+            .cmd(&args)
+            .env("PATH", &binaries)
+            .env("PLUR1BUS_TEST_FFMPEG_MANAGER", "apt")
+            .env("PLUR1BUS_TEST_FFMPEG_PACKAGE_MANAGER", &manager)
+            .output()
+            .unwrap();
+        let document: Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_success(output.status.code().unwrap_or(-1), &document);
+        assert_eq!(document["schema"], "setup/1");
+        assert_eq!(ids(&document), STEP_IDS);
+        let ffmpeg = &step(&document, "config")["detail"]["ffmpeg"];
+        assert_eq!(ffmpeg["available"], false);
+        assert_eq!(ffmpeg["state"], "non-interactive");
+        assert_eq!(
+            ffmpeg["manualCommands"],
+            serde_json::json!(["sudo apt install ffmpeg"])
+        );
+        assert!(!marker.exists());
+        assert!(String::from_utf8_lossy(&output.stderr).contains("Photos continue to work"));
+    }
+}
+
+#[cfg(unix)]
+#[test]
 fn setup_non_interactive_installs_everything_but_the_service() {
     let e = Env::new();
     let (code, v) = e.setup(&["--non-interactive", "--no-service"]);
