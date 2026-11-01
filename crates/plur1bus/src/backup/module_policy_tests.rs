@@ -242,3 +242,107 @@ fn token_looking_reference_names_cannot_survive_an_ordinary_archive() {
         PLACEHOLDER
     );
 }
+
+#[test]
+fn reference_only_module_slots_preserve_names_and_remove_pasted_keys_with_restore_guidance() {
+    let directory = tempfile::tempdir().unwrap();
+    let layout = Layout::new(directory.path().join("source"));
+    let snapshot = testkit::staged(&layout, b"database bytes", false);
+    install(
+        &layout,
+        json!({"type":"object","$defs":{"name":{"type":"string"}},"properties":{
+            "enabled":{"type":"boolean"},
+            "directSafe":{"type":"string","x-secret-reference":true},
+            "directPasted":{"type":"string","x-secret-reference":true},
+            "linkedSafe":{"type":"string","x-secret-reference":{"$ref":"#/$defs/name"}},
+            "linkedPasted":{"type":"string","x-secret-reference":{"$ref":"#/$defs/name"}},
+            "ordinary":{"type":"string","x-sensitive":true}
+        }}),
+    );
+    let name = format!(
+        "service.{}",
+        &uuid::Uuid::new_v4().simple().to_string()[..12]
+    );
+    let pasted = format!("sk-{}", uuid::Uuid::new_v4().simple());
+    let literal = uuid::Uuid::new_v4().to_string();
+    let config = json!({"schemaVersion":1,"modules":{"fixture":{
+        "enabled":false,"directSafe":name,"linkedSafe":name,
+        "directPasted":pasted,"linkedPasted":pasted,"ordinary":literal
+    }}});
+    let original = config.to_string();
+    fs::write(layout.home.join("config.json"), &original).unwrap();
+    let archive = directory.path().join("reference-only.tar.gz");
+    let policy = crate::config_redaction::ConfigDisclosurePolicy::load(&layout, &config).unwrap();
+    let public = policy.project(&config);
+    for key in ["directSafe", "linkedSafe"] {
+        assert_eq!(public["modules"]["fixture"][key], name);
+    }
+    for key in ["directPasted", "linkedPasted", "ordinary"] {
+        assert_eq!(public["modules"]["fixture"][key], "••••");
+    }
+    let registered = policy.secret_values(&config);
+    assert!(registered.contains(&pasted) && registered.contains(&literal));
+    assert!(!registered.contains(&name));
+    let warnings = policy.reference_warnings(&config);
+    assert_eq!(
+        warnings
+            .iter()
+            .map(|warning| warning.key.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "modules.fixture.directPasted",
+            "modules.fixture.linkedPasted"
+        ]
+    );
+    assert!(!format!("{warnings:?}").contains(&pasted));
+    create(&layout, &archive, &snapshot).unwrap();
+    let mut bytes = Vec::new();
+    GzDecoder::new(fs::File::open(&archive).unwrap())
+        .read_to_end(&mut bytes)
+        .unwrap();
+    for secret in [&pasted, &literal] {
+        assert!(
+            !bytes
+                .windows(secret.len())
+                .any(|bytes| bytes == secret.as_bytes()),
+            "the archive exposed a reference-slot literal"
+        );
+    }
+    let archived = config_in(&archive);
+    for key in ["directSafe", "linkedSafe"] {
+        assert_eq!(archived["modules"]["fixture"][key], name);
+    }
+    for key in ["directPasted", "linkedPasted", "ordinary"] {
+        assert_eq!(archived["modules"]["fixture"][key], PLACEHOLDER);
+    }
+    let expected = [
+        "modules.fixture.directPasted",
+        "modules.fixture.linkedPasted",
+        "modules.fixture.ordinary",
+    ];
+    assert_eq!(
+        redacted_config_keys(&verify(&archive).unwrap().secrets.note).unwrap(),
+        expected
+    );
+    let destination = Layout::new(directory.path().join("destination"));
+    fs::create_dir_all(&destination.home).unwrap();
+    let report = restore(
+        &destination,
+        &archive,
+        &RestoreOpts {
+            dry_run: false,
+            fail_at: None,
+        },
+    )
+    .unwrap();
+    assert_eq!(report.redacted_config_keys, expected);
+    let restored: Value =
+        serde_json::from_slice(&fs::read(destination.home.join("config.json")).unwrap()).unwrap();
+    for key in ["directSafe", "linkedSafe"] {
+        assert_eq!(restored["modules"]["fixture"][key], name);
+    }
+    assert_eq!(
+        fs::read_to_string(layout.home.join("config.json")).unwrap(),
+        original
+    );
+}

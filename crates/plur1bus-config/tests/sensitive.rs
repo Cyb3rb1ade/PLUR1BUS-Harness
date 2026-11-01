@@ -10,6 +10,97 @@ fn canary() -> String {
 }
 
 #[test]
+fn reference_only_slots_protect_nonmatching_values_without_changing_the_annotation_inventory() {
+    let name = format!("service.{}", &canary()[..12]);
+    let pasted = format!("sk-{}", &canary()[..24]);
+    let literal = canary();
+    for metadata in [json!(true), json!({"$ref":"#/$defs/name"})] {
+        let schema = json!({"$defs":{"name":{"type":"string"}},"properties":{
+            "candidate":{"type":"string","x-secret-reference":metadata},
+            "ordinary":{"type":"string","x-sensitive":true}
+        }});
+        let safe = json!({"candidate":name,"ordinary":literal});
+        let public = cfg::redact_with_schema(&safe, &schema);
+        assert_eq!(public["candidate"], name);
+        assert_eq!(public["ordinary"], "••••");
+        assert_eq!(
+            cfg::reference_paths_with_schema(&safe, &schema),
+            ["/candidate"]
+        );
+        assert_eq!(
+            cfg::secret_text_values_with_schema(&safe, &schema),
+            std::slice::from_ref(&literal)
+        );
+        assert!(cfg::reference_warnings_with_schema(&safe, &schema).is_empty());
+
+        let unsafe_value = json!({"candidate":pasted,"ordinary":literal});
+        let public = cfg::redact_with_schema(&unsafe_value, &schema);
+        assert_eq!(public["candidate"], "••••");
+        assert_eq!(public["ordinary"], "••••");
+        let registered = cfg::secret_text_values_with_schema(&unsafe_value, &schema);
+        assert!(registered.contains(&pasted) && registered.contains(&literal));
+        assert_eq!(
+            cfg::secret_values_with_schema(&unsafe_value, &schema),
+            std::slice::from_ref(&literal)
+        );
+        let warnings = cfg::reference_warnings_with_schema(&unsafe_value, &schema);
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0].key, "candidate");
+        assert!(!format!("{warnings:?}").contains(&pasted));
+        assert!(cfg::reference_paths_with_schema(&unsafe_value, &schema).is_empty());
+    }
+}
+
+#[test]
+fn reference_only_text_extraction_registers_invalid_forms_and_preserves_url_component_policy() {
+    let pasted = format!("sk-{}", &canary()[..24]);
+    for metadata in [json!(true), json!({"$ref":"#/$defs/name"})] {
+        let schema = json!({"$defs":{"name":{"type":"string"}},"properties":{
+            "candidate":{"type":"string","x-secret-reference":metadata}
+        }});
+        assert_eq!(
+            cfg::secret_text_values_with_schema(&json!({"candidate":pasted}), &schema),
+            std::slice::from_ref(&pasted)
+        );
+    }
+    let user = canary();
+    let query = canary();
+    let endpoint = format!("https://{user}@relay.example.test/public?ordinary={query}");
+    let schema = json!({"type":"string","x-secret-reference":true,"x-url-credentials":true});
+    assert_eq!(
+        cfg::redact_with_schema(&json!(endpoint), &schema),
+        "https://••••@relay.example.test/public?ordinary=••••"
+    );
+    let registered = cfg::secret_text_values_with_schema(&json!(endpoint), &schema);
+    assert!(registered.contains(&user) && registered.contains(&query));
+    assert!(!registered.contains(&endpoint));
+}
+
+#[test]
+fn invalid_reference_only_metadata_is_conservative_and_false_disables_the_reference_slot() {
+    let pasted = format!("sk-{}", &canary()[..24]);
+    for metadata in [
+        json!(null),
+        json!({"$ref":"#/$defs/missing"}),
+        json!({"$ref":42}),
+    ] {
+        let schema = json!({"type":"string","x-secret-reference":metadata});
+        assert_eq!(cfg::redact_with_schema(&json!(pasted), &schema), "••••");
+        assert_eq!(
+            cfg::secret_text_values_with_schema(&json!(pasted), &schema),
+            std::slice::from_ref(&pasted)
+        );
+        assert!(cfg::secret_values_with_schema(&json!(pasted), &schema).is_empty());
+    }
+    let schema = json!({"type":"string","x-secret-reference":false});
+    let name = json!("service.reference");
+    assert_eq!(cfg::redact_with_schema(&name, &schema), name);
+    assert!(cfg::secret_text_values_with_schema(&name, &schema).is_empty());
+    assert!(cfg::reference_paths_with_schema(&name, &schema).is_empty());
+    assert!(cfg::reference_warnings_with_schema(&name, &schema).is_empty());
+}
+
+#[test]
 fn shared_reference_vectors_match_projection_text_registration_and_value_free_warnings() {
     fn render(value: &Value) -> Value {
         if value["kind"] == "alphabet" {

@@ -91,9 +91,12 @@ fn project<'a>(
     inherited: Flags,
     references: &mut Matcher<'a>,
 ) -> Value {
-    let flags = value_flags(schema, inherited);
-    if !flags.url_credentials && references.matches(value, schema) {
-        return value.clone();
+    let mut flags = value_flags(schema, inherited);
+    if !flags.url_credentials {
+        if references.matches(value, schema) {
+            return value.clone();
+        }
+        flags.sensitive |= Matcher::declared(schema);
     }
     match value {
         Value::String(text) if flags.sensitive && !text.is_empty() => Value::String(MASK.into()),
@@ -363,13 +366,12 @@ fn collect<'a>(
     out: &mut BTreeSet<String>,
     references: &mut References<'a>,
 ) {
-    let flags = value_flags(schema, inherited);
-    if references.values == ReferenceValues::Omit
-        && flags.sensitive
-        && !flags.url_credentials
-        && references.matcher.matches(value, schema)
-    {
-        return;
+    let mut flags = value_flags(schema, inherited);
+    if references.values == ReferenceValues::Omit && !flags.url_credentials {
+        if references.matcher.matches(value, schema) {
+            return;
+        }
+        flags.sensitive |= Matcher::declared(schema);
     }
     match value {
         Value::String(text) if flags.sensitive && !text.is_empty() => {

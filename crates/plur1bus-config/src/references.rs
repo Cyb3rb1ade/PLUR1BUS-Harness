@@ -223,6 +223,12 @@ impl<'a> Matcher<'a> {
         }
     }
 
+    /// A reference slot stays protected even when its form is malformed; only explicit false disables it.
+    pub(crate) fn declared(node: &Value) -> bool {
+        super::sensitive::field(node, "x-secret-reference")
+            .is_some_and(|metadata| metadata.as_bool() != Some(false))
+    }
+
     fn definition(&self, node: &'a Value) -> Option<(&'a Value, CacheKey<'a>)> {
         let metadata = super::sensitive::field(node, "x-secret-reference")?;
         if metadata.as_bool() == Some(true) && kind(node).is_some() {

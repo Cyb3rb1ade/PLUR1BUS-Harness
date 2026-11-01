@@ -101,7 +101,10 @@ impl<'a> Projection<'a> {
     fn references(&mut self, node: &'a Value, root: &'a Value) -> Result<(), BackupError> {
         match node {
             Value::Object(fields) => {
-                if let Some(metadata) = fields.get("x-secret-reference") {
+                if let Some(metadata) = fields
+                    .get("x-secret-reference")
+                    .filter(|metadata| metadata.as_bool() != Some(false))
+                {
                     let target = if metadata.as_bool() == Some(true) {
                         node
                     } else {
@@ -163,10 +166,14 @@ impl<'a> Projection<'a> {
     }
 
     fn visit(&mut self, value: &mut Value, schema: &Value, key: &str, inherited: Flags) {
-        let flags = value_flags(schema, inherited);
+        let mut flags = value_flags(schema, inherited);
         let kind = field(schema, "type").and_then(Value::as_str);
-        if flags.sensitive && self.is_reference(value, schema) {
-            return;
+        if !flags.url_credentials {
+            if self.is_reference(value, schema) {
+                return;
+            }
+            flags.sensitive |= field(schema, "x-secret-reference")
+                .is_some_and(|metadata| metadata.as_bool() != Some(false));
         }
         let collection = matches!(kind, Some("array" | "object"));
         if flags.sensitive && !(collection && (value.is_object() || value.is_array())) {
@@ -280,7 +287,7 @@ mod tests {
     #[test]
     fn malformed_reference_metadata_refuses_even_when_no_value_uses_it() {
         for metadata in [
-            json!(false),
+            json!(null),
             json!({"$ref":"#/$defs/missing"}),
             json!({"$ref":42}),
         ] {
@@ -290,6 +297,38 @@ mod tests {
                 "config-policy-invalid"
             );
         }
+    }
+
+    #[test]
+    fn an_explicitly_disabled_reference_marker_is_not_invalid_metadata_or_an_exemption() {
+        let literal = uuid::Uuid::new_v4().to_string();
+        let schema = serde_json::json!({"properties":{
+            "public":{"type":"string","x-secret-reference":false},
+            "ordinary":{"type":"string","x-sensitive":true,"x-secret-reference":false}
+        }});
+        let mut value = serde_json::json!({"public":"service.reference","ordinary":literal});
+        let (keys, changed) = redact(&mut value, &schema).unwrap();
+        assert!(changed);
+        assert_eq!(keys, ["ordinary"]);
+        assert_eq!(value["public"], "service.reference");
+        assert_eq!(value["ordinary"], PLACEHOLDER);
+    }
+
+    #[test]
+    fn a_reference_marker_cannot_broaden_endpoint_credential_masking() {
+        let literal = uuid::Uuid::new_v4().to_string();
+        let schema =
+            serde_json::json!({"type":"string","x-secret-reference":true,"x-url-credentials":true});
+        let mut value = serde_json::json!(format!(
+            "https://{literal}@relay.example.test/public?ordinary={literal}"
+        ));
+        let (keys, changed) = redact(&mut value, &schema).unwrap();
+        assert!(changed);
+        assert_eq!(keys, [""]);
+        assert_eq!(
+            value,
+            "https://••••@relay.example.test/public?ordinary=••••"
+        );
     }
 
     #[test]
