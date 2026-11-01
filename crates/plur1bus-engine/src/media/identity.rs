@@ -67,7 +67,7 @@ impl MediaSpaceIdentity {
             vision_dtype: "q8".into(), audio_dtype: "q8".into(),
             vision_artifacts: graph_files(MediaGraph::Vision)?,
             audio_artifacts: graph_files(MediaGraph::Audio)?,
-            image_preprocessing: "mm1-image-v1:jpeg-png-webp;exif;white-alpha;pil-bicubic-fixed22;hwc16;scale1/255;pool3;pad-minus1".into(),
+            image_preprocessing: "mm1-image-v2:jpeg-zune0.5.15-fused-hv-v1;png-webp;exif;white-alpha;pil-bicubic-fixed22;hwc16;scale1/255;pool3;pad-minus1".into(),
             audio_preprocessing: "mm1-audio-v1:mono16k;windows480000-all-tail;rebalance-tail-min161;left160;hann320;hop160;fft512;htk128;ln-mel+0.001;no-right-pad;mask-stride4".into(),
             tokenization: "mm1-tokens-v1:bos2;boi255999;image258880;video258884;eoi258882;boa256000;audio258881;eoa258883;eos1;pad0;context8192".into(),
             image_soft_tokens: settings.image_soft_tokens, video_soft_tokens: settings.video_soft_tokens, max_video_frames: 32,
@@ -142,6 +142,16 @@ pub(crate) fn test_text_identity() -> VectorSpaceIdentity {
 mod tests {
     #![allow(clippy::unwrap_used)]
     use super::*;
+    #[test]
+    fn jpeg_rounding_profile_cannot_reuse_the_old_media_space() {
+        let identity = MediaSpaceIdentity::new(test_text_identity()).unwrap();
+        assert!(identity
+            .image_preprocessing
+            .contains("jpeg-zune0.5.15-fused-hv-v1"));
+        let mut legacy = identity.clone();
+        legacy.image_preprocessing = "mm1-image-v1:jpeg-png-webp;exif;white-alpha;pil-bicubic-fixed22;hwc16;scale1/255;pool3;pad-minus1".into();
+        assert_ne!(identity.space_id().unwrap(), legacy.space_id().unwrap());
+    }
     #[test]
     fn identity_changes_for_every_pipeline_parameter() {
         let identity = MediaSpaceIdentity::new(test_text_identity()).unwrap();

@@ -13,6 +13,8 @@ mod fft;
 pub mod identity;
 /// Bounded image decoding and patchification for EmbeddingGemma 2.
 pub mod image;
+/// Explicit pinned artifact preparation through the existing guarded transport.
+pub mod prepare;
 mod resize;
 /// Explicit deterministic test boundary; production selects the local encoder.
 pub mod seam;

@@ -19,6 +19,11 @@ path = "tests/embedding_parity.rs"
 required-features = ["real-models"]
 
 [[test]]
+name = "media_model_parity"
+path = "tests/media_model_parity.rs"
+required-features = ["real-models"]
+
+[[test]]
 name = "media_audio_reference"
 path = "tests/media_audio_reference.rs"
 required-features = ["real-models"]
