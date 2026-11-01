@@ -93,7 +93,10 @@ export function buildChatSurface(d: { sessions: () => SessionService | null; age
     },
     async submit(p,a,ctx) {
       const {service,session}=owned(p.sessionId,a,true);record("submit",a,session.id);
-      const h=service.runner.submit({session,caller:{channel:"cli",accountId:"harness-api",userId:a.userId},authenticatedPerson:a.userId,text:p.text,approver:await d.approver(ctx,p)});
+      const human = a.kind === "person";
+      const approver = human ? await d.approver(ctx,p) : { person: null, surface: 0 as const };
+      const h=service.runner.submit({session,caller:{channel:"cli",accountId:"harness-api",userId:a.userId},
+        ...(human ? { authenticatedPerson:a.userId } : {}),text:p.text,approver});
       if(!p.wait)return {sessionId:session.id,turnId:h.turnId,messageId:h.messageId,state:"running"};
       const result=await h.done;return {sessionId:session.id,turnId:h.turnId,messageId:h.messageId,state:result.state,...(result.reply!==undefined?{reply:result.reply}:{}),...(result.error!==undefined?{error:result.error}:{})};
     },

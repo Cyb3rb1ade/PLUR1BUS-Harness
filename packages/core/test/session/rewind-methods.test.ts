@@ -36,6 +36,25 @@ function rig() {
 }
 
 describe("D120 rewind human surfaces", () => {
+  it("chat.submit refuses an agent's rewind before admission even if an approver port would supply a person", async () => {
+    const r = rig();
+    try {
+      const session = r.sessions.store.createSession({ kind: "direct", agentId: "a", owner: deriveUserPrincipal(person.userId) });
+      const start = r.sessions.store.beginTurn(session.id, "original task", 3);
+      r.sessions.store.completeTurn(start.turn.id, { text: "original reply", tokens: 3 });
+      const messages = r.sessions.store.listMessages(session.id), events = r.sessions.store.listEvents(session.id);
+      const agent: Principal = { ...person, kind: "agent", tokenScopes: ["chat:write"] };
+      for (const text of ["/rewind 0", "/rewind 0 --files", "/rewind --undo fake-id"]) {
+        await assert.rejects(r.invoke("chat.submit", { sessionId: session.id, text, wait: true }, agent),
+          { error: "E_DENIED", reason: "rewind-person-required" });
+      }
+      assert.deepEqual(r.sessions.store.listMessages(session.id), messages);
+      assert.deepEqual(r.sessions.store.listEvents(session.id), events);
+      assert.deepEqual(r.sessions.store.rewinds(session.id), []);
+      assert.equal(r.requests.length, 0);
+    } finally { await r.sessions.close(); }
+  });
+
   it("session rewind accepts the authenticated person's canonical card owner and refuses another person", async () => {
     const r = rig();
     try {
