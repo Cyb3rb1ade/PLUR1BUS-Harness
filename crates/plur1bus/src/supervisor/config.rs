@@ -494,6 +494,11 @@ fn set_inner(
                 other => SetError::Invalid(vec![other.to_string()]),
             })?
         };
+        let model_errors =
+            cfg::model_assignment_errors(&running, &plan.after, &layout.catalog_models());
+        if !model_errors.is_empty() {
+            return Err(SetError::Invalid(model_errors));
+        }
         if let Some(policy) = crate::privacy::running_violation(layout, &plan.after) {
             return Err(SetError::LocalOnly(policy));
         }

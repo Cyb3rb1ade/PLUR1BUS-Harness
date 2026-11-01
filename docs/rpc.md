@@ -32251,6 +32251,73 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "type": "string"
       },
       "description": "Deprecated methods/notifications used at least once since start, as `method:<name>`/`notification:<name>`, sorted (ADR-016 §5, S13)."
+    },
+    "providers": {
+      "description": "Optional managed-provider transport counters; never paths, credentials or request content.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "apple-fm": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "transport"
+          ],
+          "properties": {
+            "transport": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "unix"
+              ],
+              "properties": {
+                "unix": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "ok",
+                    "refused"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "refused": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "platform",
+                        "socket-untrusted",
+                        "socket-path-too-long",
+                        "unavailable"
+                      ],
+                      "properties": {
+                        "platform": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "socket-untrusted": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "socket-path-too-long": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "unavailable": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
@@ -36079,7 +36146,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "disabledReason": {
       "enum": [
         "local-only",
-        "unavailable"
+        "unavailable",
+        "context-too-small"
       ]
     },
     "reasoning": {
@@ -36166,6 +36234,11 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
           }
         }
       }
+    },
+    "contextWindow": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Smallest known context window among the profile candidates."
     }
   }
 }
@@ -37267,7 +37340,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "enum": [
         "role_unavailable",
         "shadowed_by_manual",
-        "empty_list"
+        "empty_list",
+        "filtered_by_policy"
       ]
     },
     "role": {
@@ -37278,6 +37352,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "id": {
       "type": "string"
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0
     }
   }
 }

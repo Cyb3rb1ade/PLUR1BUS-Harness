@@ -1,4 +1,5 @@
-import { isLocalEndpoint as sharedLocalEndpoint, localEndpoints, localOnlyFor } from "../privacy/local-only.ts";
+import { MIN_CONTEXT_AGENT_ROLE, APPLE_FM_CONTEXT_WINDOW } from "./context-fit.ts";
+import { isLocalEndpoint as sharedLocalEndpoint, localEndpoints, localOnlyFor, isLocalChatModel } from "../privacy/local-only.ts";
 // The per-chat model and reasoning choice: which configured model profiles a chat may pick, what reasoning levels the
 // profile's primary model offers, and how a chosen level becomes the one parameter each attempt sends.
 // Pure over its ports (no clock, no I/O), so the chat surface, the turn provider and tests share one answer.
@@ -18,7 +19,7 @@ export interface ChatModelSources {
   /** The reasoning descriptor of one candidate, already fitted to the wire its provider speaks. */
   reasoning(provider: string, model: string): ReasoningDescriptor;
   /** Catalog facts, when the model was discovered. */
-  catalog?(provider: string, model: string): { displayName?: string; status?: string } | undefined;
+  catalog?(provider: string, model: string): { displayName?: string; status?: string; contextWindow?: number } | undefined;
   /** The provider's endpoint (base URL), for the local test. */
   endpoint?(provider: string): string | undefined;
   /** The current configuration, for "Nur lokal" (privacy.localOnly, agents.<id>.privacy.localOnly, privacy.localEndpoints). */
@@ -28,7 +29,7 @@ export interface ChatModelSources {
 export interface WireReasoning { kind: ReasoningDescriptor["kind"]; levels: ReasoningLevel[]; default?: ReasoningLevel; source: ReasoningDescriptor["source"]; note?: string; budgetTokens?: Partial<Record<ReasoningLevel, number>> }
 export interface ChatModelOption {
   name: string; displayName: string; provider: string; model: string; local: boolean; selectable: boolean;
-  disabledReason?: "local-only" | "unavailable"; reasoning: WireReasoning;
+  disabledReason?: "local-only" | "unavailable" | "context-too-small"; contextWindow?: number; reasoning: WireReasoning;
 }
 
 // Endpoint classification and override inheritance have one owner (#570 / Phase C).
@@ -44,12 +45,21 @@ const toWire = (d: ReasoningDescriptor): WireReasoning => ({
 /** Every configured profile with candidates, sorted by name; locked ones stay listed (disabled, with the reason). */
 export function chatModelOptions(s: ChatModelSources, agentId: string): ChatModelOption[] {
   const cfg = s.config?.(), localOnly = localOnlyFor(cfg, agentId);
-  return Object.entries(s.profiles()).filter(([, c]) => c.length > 0).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([name, candidates]) => {
+  return Object.entries(s.profiles()).filter(([, c]) => c.length > 0 && c.every(model => model.provider !== "apple-fm" || model.model === "system")).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([name, candidates]) => {
     const primary = candidates[0]!, facts = s.catalog?.(primary.provider, primary.model);
-    const local = candidates.every((c) => isLocalEndpoint(s.endpoint?.(c.provider), cfg));
-    const disabledReason = localOnly && !local ? "local-only" as const : facts?.status === "unavailable" ? "unavailable" as const : undefined;
+    const local = candidates.every(c => isLocalChatModel(c.provider, c.model, s.endpoint?.(c.provider), cfg));
+    const windows = candidates.map(c => c.provider === "apple-fm" && c.model === "system"
+      ? APPLE_FM_CONTEXT_WINDOW : s.catalog?.(c.provider, c.model)?.contextWindow)
+      .filter((value): value is number => Number.isSafeInteger(value) && value! > 0);
+    const contextWindow = windows.length ? Math.min(...windows) : undefined;
+    const small = contextWindow !== undefined && contextWindow < MIN_CONTEXT_AGENT_ROLE;
+    let disabledReason: ChatModelOption["disabledReason"];
+    if (localOnly && !local) disabledReason = "local-only";
+    else if (small) disabledReason = "context-too-small";
+    else if (facts?.status === "unavailable") disabledReason = "unavailable";
     return {
       name, displayName: facts?.displayName ?? primary.model, provider: primary.provider, model: primary.model, local, selectable: disabledReason === undefined,
+      ...(contextWindow !== undefined ? { contextWindow } : {}),
       ...(disabledReason ? { disabledReason } : {}), reasoning: toWire(s.reasoning(primary.provider, primary.model)),
     };
   });

@@ -18,7 +18,8 @@ export type ReasoningLevel = typeof REASONING_LEVELS[number];
 export type ReasoningChoice = ReasoningLevel | "default";
 export interface ChatModelOption {
   name: string; displayName: string; provider: string; model: string; local: boolean; selectable: boolean;
-  disabledReason?: "local-only" | "unavailable";
+  disabledReason?: "local-only" | "unavailable" | "context-too-small";
+  contextWindow?: number;
   reasoning: { kind: "none" | "effort" | "budget" | "toggle"; levels: ReasoningLevel[]; default?: ReasoningLevel; source: "api" | "table" | "unknown"; note?: string; budgetTokens?: Partial<Record<ReasoningLevel, number>> };
 }
 export interface ChatModelState { sessionId: string; profile: string | null; defaultProfile: string | null; reasoning: ReasoningChoice; revision: number; profiles: ChatModelOption[] }

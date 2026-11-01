@@ -7,7 +7,7 @@ import { scanAnthropic } from "./anthropic.ts";
 import { scanGoogle } from "./google.ts";
 import { scanOllama } from "./ollama.ts";
 
-export interface ScanOutput { entries: RawEntry[]; duplicates: number; pages: number }
+export interface ScanOutput { entries: RawEntry[]; duplicates: number; pages: number; filteredByPolicy?: number }
 export type Scanner = (profile: ProfileInfo, client: PinnedClient) => Promise<ScanOutput>;
 
 export const SCANNERS: Readonly<Record<Exclude<DiscoveryKind, "manual">, Scanner>> = Object.freeze({

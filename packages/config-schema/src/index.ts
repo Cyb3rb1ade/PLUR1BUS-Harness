@@ -1,4 +1,6 @@
+export { MIN_CONTEXT_AGENT_ROLE } from "./apple-fm.ts";
 import type { BehaviourSet } from "./behaviour.ts";
+import { appleFmConfigErrors } from "./apple-fm.ts";
 export type { BehaviourSet, BehaviourLayer } from "./behaviour.ts";
 import { privacyAcknowledgmentError, type PrivacyAcknowledgment } from "./privacy.ts";
 export { privacyAcknowledgmentError } from "./privacy.ts";
@@ -31,6 +33,7 @@ export interface McpServerConfig {
 }
 
 export interface HarnessConfig {
+  appleFm: { enabled: boolean };
   import?: { ssh?: { connections?: Record<string, {
     host: string; port: number; user: string; roots: string[]; allowPrivate: boolean;
     hostKey?: { sha256: string; algorithm?: string };
@@ -196,8 +199,10 @@ export function defaults(): HarnessConfig {
   return r.config;
 }
 
-export function validate(value: unknown): { ok: true; config: HarnessConfig } | { ok: false; errors: string[] } {
+export function validate(value: unknown, options: { catalog?: unknown } = {}): { ok: true; config: HarnessConfig } | { ok: false; errors: string[] } {
   const copy = structuredClone(value);
+  const appleErrors = appleFmConfigErrors(copy, options.catalog);
+  if (appleErrors.length) return { ok: false, errors: appleErrors };
   if (validateFn(copy)) {
     const c = (copy as HarnessConfig).session.compaction;
     if (c.softRatio >= c.hardRatio) return { ok: false, errors: ["/session/compaction softRatio must be below hardRatio"] };

@@ -340,6 +340,11 @@ pub(crate) fn apply(
             };
             let plan = cfg::set_many(&loaded.config, &changes)
                 .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), extra.clone()));
+            let model_errors =
+                cfg::model_assignment_errors(&loaded.config, &plan.after, &layout.catalog_models());
+            if !model_errors.is_empty() {
+                out.fail("E_CONFIG_INVALID", &model_errors.join("; "), extra.clone());
+            }
             if let Some(policy) = crate::privacy::running_violation(layout, &plan.after) {
                 out.fail(
                     "E_DENIED",

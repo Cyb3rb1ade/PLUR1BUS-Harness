@@ -14,7 +14,7 @@ interface RoutingOptions {
   decision(): DecisionClient;
   agent(agentId: string): { model?: string; modelPolicy?: ModelRoutingPolicy } | undefined;
   localOnly(agentId: string): boolean;
-  isLocal(provider: string): boolean;
+  isLocal(provider: string, model?: string): boolean;
   /** Metadata only, from a completed owned session turn. Incognito resolves through the volatile store. */
   restore?(request: ChatRequest): ModelRouteChoice | undefined;
 }
@@ -88,7 +88,7 @@ export class SessionModelRouting {
     };
   }
   #eligible(request: ChatRequest, candidate: Candidate): boolean {
-    try { return (!this.#options.localOnly(request.agentId) || this.#options.isLocal(candidate.provider)) && (!request.turnProfile?.allowModel || request.turnProfile.allowModel(candidate.provider, candidate.model)); }
+    try { return (!this.#options.localOnly(request.agentId) || this.#options.isLocal(candidate.provider, candidate.model)) && (!request.turnProfile?.allowModel || request.turnProfile.allowModel(candidate.provider, candidate.model)); }
     catch { return false; }
   }
 }

@@ -1,6 +1,9 @@
 //! The config.json service: the same schema the TypeScript side uses (packages/config-schema), validated with the
 //! `jsonschema` crate. The supervisor owns config.json (2a-H3b, B3–B6) and serves `config.*` from this crate; the CLI
 //! calls it directly only when no supervisor runs.
+mod model_context;
+pub use model_context::assignment_errors as model_assignment_errors;
+
 use serde_json::{Map, Value};
 use std::{fs, io, path::Path};
 
@@ -201,6 +204,10 @@ fn recall_budget_error(v: &Value) -> Option<String> {
 }
 
 pub fn validate(v: &Value) -> Result<(), Vec<String>> {
+    let policy = model_context::errors(v, None);
+    if !policy.is_empty() {
+        return Err(policy);
+    }
     let mut errs: Vec<String> = validator()
         .iter_errors(v)
         .map(|e| {

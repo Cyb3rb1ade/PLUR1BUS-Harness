@@ -59,7 +59,7 @@ export class TurnRunner {
   submit(a: { session: SessionRecord; caller: CallerIdentity; text: string; authenticatedPerson?: string; approver?: TurnApprover; turnProfile?: TurnProfile; recurring?: import("./provider.ts").RecurringOrigin }): TurnHandle {
     const provider = this.#d.provider();
     const localCommand = a.text.trim() === '/compact --explain' || /^\/compact --restore event:\d+$/.test(a.text.trim());
-    if (!provider && !localCommand) throw new NoProviderError();
+    if ((!provider || provider.modelProfiles?.().length === 0) && !localCommand) throw new NoProviderError();
     if (a.text.length === 0) throw new SessionError("invalid", "message text is empty", "text-empty");
     const { turn, message, event } = this.#d.store.beginTurn(a.session.id, a.text, estimateTokens(a.text));
     this.#emit(event, a.session);

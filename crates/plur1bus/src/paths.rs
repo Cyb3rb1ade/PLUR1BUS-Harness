@@ -229,6 +229,19 @@ impl Layout {
     pub fn workspace_dir(&self, id: &str) -> PathBuf {
         self.agent_dir(id).join("workspace")
     }
+    pub fn apple_fm_dir(&self) -> PathBuf {
+        self.run().join("apple-fm")
+    }
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "AF3 consumes the shared socket Layout; AF2 establishes its cross-language contract"
+        )
+    )]
+    pub fn apple_fm_socket(&self) -> PathBuf {
+        self.apple_fm_dir().join("fm.sock")
+    }
     pub fn run(&self) -> PathBuf {
         self.home.join("run")
     }
@@ -669,6 +682,24 @@ mod tests {
             "windows"
         } else {
             "posix"
+        }
+    }
+
+    #[test]
+    fn apple_fm_layout_matches_shared_vectors() {
+        let vectors: Vec<serde_json::Value> =
+            serde_json::from_str(include_str!("../../../tests/fixtures/apple-fm-paths.json"))
+                .unwrap();
+        for vector in vectors {
+            let layout = Layout::new(PathBuf::from(vector["home"].as_str().unwrap()));
+            assert_eq!(
+                layout.apple_fm_dir(),
+                PathBuf::from(vector["directory"].as_str().unwrap())
+            );
+            assert_eq!(
+                layout.apple_fm_socket(),
+                PathBuf::from(vector["socket"].as_str().unwrap())
+            );
         }
     }
 

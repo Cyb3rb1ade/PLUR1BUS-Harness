@@ -1,7 +1,10 @@
 {
   "schema": "plur1bus.model-metadata/1",
-  "revision": "2026-10-03.1",
+  "revision": "2026-11-01.1",
   "vendors": {
+    "apple": [
+      { "pattern": "^system$", "kind": "chat", "contextWindow": 4096, "capabilities": ["tools", "structured_output"] }
+    ],
     "generic": [
       { "pattern": "^example-embed-.+$", "kind": "embedding", "capabilities": [] }
     ],

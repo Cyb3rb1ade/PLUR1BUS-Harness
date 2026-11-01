@@ -1,3 +1,4 @@
+import { APPLE_FM_CONTEXT_WINDOW } from "./context-fit.ts";
 import { runWithAgentScope, scopeFor } from "../agents/scope.ts";
 import { deferMaintenanceStart, type CompositionMaintenance } from "../composition/maintenance.ts";
 // Assembles the session subsystem for the core: store file, crash recovery, compactor with the pre-swap checkpoint,
@@ -84,7 +85,15 @@ export function openSessionService(d: SessionServiceDeps): SessionService {
     ...(d.onTurnTelemetry ? { onTurnTelemetry: d.onTurnTelemetry } : {}),
     notify: (e, s) => d.notify("session.event", { agentId: s.agentId, event: toWireEvent(e) }, { optIn: true }),
   });
-  const methods = buildSessionMethods({ runtimeFor: id => { const r = service.forSession(id); return { store: r.store, runner: r.runner, compactor: r.compactor }; }, ephemeral: () => { const r = service.ephemeral(); return { store: r.store, runner: r.runner, compactor: r.compactor }; }, storeFor: id => service.forSession(id).store, modelProfiles: () => d.provider()?.modelProfiles?.() ?? [], defaultProfile: id => d.provider()?.defaultModelProfile?.(id), store, runner, compactor, agents: d.agents, isStopping: d.isStopping, ...(d.approver ? { approver: d.approver } : {}) });
+  const modelContextWindow = (profile: string): number | undefined => {
+    const windows = (d.provider()?.contextModels?.("", profile) ?? []).flatMap(model => {
+      if (model.provider === "apple-fm" && model.model === "system") return [APPLE_FM_CONTEXT_WINDOW];
+      const window = d.catalog ? catalogWindow(d.catalog, model) : undefined;
+      return window === undefined ? [] : [window];
+    });
+    return windows.length ? Math.min(...windows) : undefined;
+  };
+  const methods = buildSessionMethods({ modelContextWindow, runtimeFor: id => { const r = service.forSession(id); return { store: r.store, runner: r.runner, compactor: r.compactor }; }, ephemeral: () => { const r = service.ephemeral(); return { store: r.store, runner: r.runner, compactor: r.compactor }; }, storeFor: id => service.forSession(id).store, modelProfiles: () => d.provider()?.modelProfiles?.() ?? [], defaultProfile: id => d.provider()?.defaultModelProfile?.(id), store, runner, compactor, agents: d.agents, isStopping: d.isStopping, ...(d.approver ? { approver: d.approver } : {}) });
   let volatile: SessionService | undefined;
   const service: SessionService = {
     ephemeral: () => volatile ??= openSessionService({ ...d, dbPath: ":memory:" }),

@@ -1,3 +1,4 @@
+import { assertRoleContext } from "./context-fit.ts";
 // `session.*` over the core's RPC (M1b-2c). The owner of every session is derived here from the caller identity (never
 // sent, never client-controlled); a session of another owner is E_NOT_FOUND, never E_DENIED (no existence oracle).
 import type {
@@ -17,7 +18,7 @@ import { SessionError, type EventRecord, type MessageRecord, type SessionRecord 
 
 /** The store, runner and compactor that serve one session: the durable ones, or the memory-only set of an incognito session. */
 export interface SessionRuntime { store: SessionStore; runner: TurnRunner; compactor?: import("./compaction.ts").Compactor }
-export interface SessionMethodDeps { /** The runtime holding the given session (the in-memory incognito one for ephemeral sessions, the durable one otherwise). Falls back to `store`/`runner`/`storeFor`. */ runtimeFor?: (sessionId: string) => SessionRuntime; /** The memory-only runtime where an incognito session is created, so nothing of it reaches disk. Absent: everything is durable. */ ephemeral?: () => SessionRuntime; modelProfiles?: () => readonly string[]; defaultProfile?: (agentId: string) => string | undefined; /** Store that holds the given session: the in-memory incognito store for ephemeral sessions, the durable store otherwise. */ storeFor?: (sessionId: string) => SessionStore;  compactor?: import("./compaction.ts").Compactor; store: SessionStore; runner: TurnRunner; agents: AgentRegistry; isStopping: () => boolean; /** Resolves the submitting connection's approver; never refuses (a non-person is refused only when a tool needs approval). */
+export interface SessionMethodDeps { /** The runtime holding the given session (the in-memory incognito one for ephemeral sessions, the durable one otherwise). Falls back to `store`/`runner`/`storeFor`. */ runtimeFor?: (sessionId: string) => SessionRuntime; /** The memory-only runtime where an incognito session is created, so nothing of it reaches disk. Absent: everything is durable. */ ephemeral?: () => SessionRuntime; modelProfiles?: () => readonly string[]; modelContextWindow?: (profile: string) => number | undefined; defaultProfile?: (agentId: string) => string | undefined; /** Store that holds the given session: the in-memory incognito store for ephemeral sessions, the durable store otherwise. */ storeFor?: (sessionId: string) => SessionStore;  compactor?: import("./compaction.ts").Compactor; store: SessionStore; runner: TurnRunner; agents: AgentRegistry; isStopping: () => boolean; /** Resolves the submitting connection's approver; never refuses (a non-person is refused only when a tool needs approval). */
   approver?: (ctx: CallContext, params: unknown) => Promise<import("./provider.ts").TurnApprover> }
 
 /** The session owner: the engine's own user-principal hash of the caller. An identity that would not give the engine a
@@ -77,6 +78,7 @@ export function buildSessionMethods(d: SessionMethodDeps): Record<string, Handle
       const current = store.modelProfile(s.id);
       const profile = p.profile;
       if (!d.modelProfiles?.().includes(profile)) throw new RpcError("E_NOT_AVAILABLE", "model profile is not configured", { reason: "model-profile-unavailable" });
+      assertRoleContext("chat", d.modelContextWindow?.(profile));
       let revision = current.revision;
       if (p.confirmed === true) {
         if (p.expectedRevision === undefined) throw new RpcError("E_INVALID_PARAMS", "model switch confirmation requires the preview revision");

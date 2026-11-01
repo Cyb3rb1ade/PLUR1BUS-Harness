@@ -130,7 +130,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "a2aServer.signingKey", type: "object", tier: "advanced", help: "Private key for signing agent cards." },
   { key: "a2aServer.signingKey.privateKeySecret", type: "string", tier: "advanced", help: "Name of the secret holding the agent card signing private key; never the key itself." },
   { key: "a2aServer.signingKey.kid", type: "string", tier: "advanced", help: "Key identifier for the signing key." },
-  { key: "providers", type: "object", tier: "basic", help: "Reserved namespace for model-provider configuration." },
+  { key: "providers", type: "object", tier: "basic", help: "Reserved namespace for model-provider configuration; apple-fm is synthesized and cannot be declared here (reserved-provider-id)." },
   { key: "auth.requireSecondFactor", type: "string", tier: "advanced", help: "Require TOTP or WebAuthn for Owner and Admin on remote listeners by default; always or never are explicit overrides." },
   { key: "auth.openai.loopbackTimeoutMs", type: "integer", tier: "advanced", help: "Loopback login deadline." },
   { key: "auth.openai.httpTimeoutMs", type: "integer", tier: "advanced", help: "Bounded OpenAI HTTP deadline." },
@@ -513,4 +513,6 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "media.adapters.coreml.computeUnits", type: "string", tier: "advanced", help: "Where inference runs. `auto` lets the helper choose from the model's attention variant (split-einsum: Neural Engine, original: GPU)." },
   { key: "media.adapters.coreml.scheduler", type: "string", tier: "advanced", help: "Diffusion scheduler name understood by the helper; unset uses the helper default." },
   { key: "media.adapters.coreml.timeoutMs", type: "integer", tier: "advanced", help: "Upper bound for one generation in milliseconds." },
+  { key: "appleFm", type: "object", tier: "advanced", help: "Use Apple's on-device model for small decisions and short summaries on supported Macs." },
+  { key: "appleFm.enabled", type: "boolean", tier: "advanced", help: "Enable Apple Foundation Models after Apple Intelligence is ready and the model licence has been accepted." },
 ];
