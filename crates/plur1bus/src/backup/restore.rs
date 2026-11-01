@@ -14,7 +14,7 @@
 //! (`packages/core/src/restore-reapply.ts`).
 use super::archive::{verify, visit};
 use super::create::{ensure_backups_dir, Cleanup};
-use super::manifest::{is_sqlite_name, Kind, Manifest, SQLITE_SIDECARS};
+use super::manifest::{is_sqlite_name, redacted_config_keys, Kind, Manifest, SQLITE_SIDECARS};
 use super::{now_ms, short_id, utc_stamp, BackupError};
 use crate::paths::Layout;
 use serde::Serialize;
@@ -58,6 +58,9 @@ pub struct RestoreReport {
     pub archive_harness: String,
     pub current_harness: String,
     pub store_schema: Option<String>,
+    /// Guidance for CLI stderr only; the JSON result shape remains unchanged (owner SH2 ruling).
+    #[serde(skip)]
+    pub redacted_config_keys: Vec<String>,
 }
 
 fn live(home: &Path, target: &str) -> PathBuf {
@@ -331,6 +334,7 @@ pub fn restore(
         archive_harness: manifest.harness.version.clone(),
         current_harness: env!("CARGO_PKG_VERSION").to_string(),
         store_schema: manifest.engine.store_schema.clone(),
+        redacted_config_keys: redacted_config_keys(&manifest.secrets.note)?,
     };
     if opts.dry_run {
         return Ok(report);

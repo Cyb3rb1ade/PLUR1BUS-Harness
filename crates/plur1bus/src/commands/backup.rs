@@ -119,13 +119,13 @@ fn create_cmd(out: &Out, layout: &Layout, dest: Option<PathBuf>, dry_run: bool) 
     let doc = json!({
         "path": r.path.display().to_string(), "bytes": r.bytes, "files": r.files, "units": r.units, "absent": r.absent,
         "skipped": r.skipped, "createdAtMs": r.created_at_ms, "engine": r.engine,
-        "secrets": { "included": false, "note": SECRETS_NOTE },
+        "secrets": { "included": false, "note": r.secrets_note },
     });
     out.ok("backup.create/1", &doc, || {
         let skipped = if r.skipped.is_empty() { String::new() } else { format!("\n  not archived (symlinks or special files): {}", r.skipped.join(", ")) };
         format!(
-            "wrote {} ({} files, {} bytes)\n  units: {}{skipped}\n  {SECRETS_NOTE}\n  verify it with: plur1bus backup verify {}",
-            r.path.display(), r.files, r.bytes, r.units.join(", "), r.path.display()
+            "wrote {} ({} files, {} bytes)\n  units: {}{skipped}\n  {}\n  verify it with: plur1bus backup verify {}",
+            r.path.display(), r.files, r.bytes, r.units.join(", "), r.secrets_note, r.path.display()
         )
     });
 }
@@ -188,6 +188,12 @@ fn restore_cmd(out: &Out, layout: &Layout, file: &Path, dry_run: bool, yes: bool
             file,
             json!({ "units": r.units.len(), "preRestore": r.pre_restore }),
         );
+    }
+    if !r.redacted_config_keys.is_empty() {
+        crate::output::say_err(&format!(
+            "plur1bus: Re-enter secret for config keys: {} (Telegram webhook secrets are regenerated automatically)",
+            json!(r.redacted_config_keys)
+        ));
     }
     out.ok("backup.restore/1", &r, || describe_restore(&r));
 }
