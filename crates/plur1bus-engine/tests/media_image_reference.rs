@@ -145,3 +145,58 @@ fn generated_hwc_patches_equal_the_pinned_apache_processor_exactly() {
         );
     }
 }
+
+#[test]
+fn frozen_jpeg_decodes_stay_within_two_lsb_and_png_is_exact() {
+    let manifest = std::env::var_os("PLUR1BUS_MEDIA_JPEG_REFERENCE").expect(
+        "PLUR1BUS_MEDIA_JPEG_REFERENCE must name the frozen jpeg-reference.py JSON manifest",
+    );
+    let reference: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(manifest).unwrap()).unwrap();
+    let cases = reference["cases"].as_array().unwrap();
+    assert_eq!(
+        cases.len(),
+        4,
+        "all JPEG420/JPEG444/progressive420/PNG fixtures are required"
+    );
+    assert_eq!(
+        cases
+            .iter()
+            .map(|case| case["name"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        [
+            "jpeg-420",
+            "jpeg-444",
+            "jpeg-progressive-420",
+            "png-lossless"
+        ],
+        "all frozen coding/subsampling variants must be checked individually"
+    );
+    for case in cases {
+        let bytes = std::fs::read(case["encoded"].as_str().unwrap()).unwrap();
+        let expected = std::fs::read(case["decoded"].as_str().unwrap()).unwrap();
+        let actual = plur1bus_engine::media::image::decode_rgb(&bytes, &Cancel::never()).unwrap();
+        assert_eq!(actual.as_raw().len(), expected.len());
+        let deviations: Vec<_> = actual
+            .as_raw()
+            .iter()
+            .zip(&expected)
+            .map(|(&a, &b)| a.abs_diff(b))
+            .collect();
+        let max = deviations.iter().copied().max().unwrap();
+        let mean = deviations.iter().map(|&v| f64::from(v)).sum::<f64>() / deviations.len() as f64;
+        eprintln!(
+            "{} decoder_max_lsb={max} decoder_mean_lsb={mean:.12}",
+            case["name"]
+        );
+        assert!(
+            max <= if case["jpeg"].as_bool().unwrap() {
+                2
+            } else {
+                0
+            },
+            "{}: independent decoder bound",
+            case["name"]
+        );
+    }
+}

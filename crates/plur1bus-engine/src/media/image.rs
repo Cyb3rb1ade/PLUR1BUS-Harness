@@ -68,16 +68,29 @@ pub fn preprocess(
     if bytes.len() > MAX_ENCODED_BYTES {
         return Err(ImageError::EncodedLimit);
     }
-    let decoded = decode(bytes, cancel)?;
-    cancel.check().map_err(ImageError::Cancelled)?;
+    let decoded = decode_rgb(bytes, cancel)?;
     let width = decoded.width() as usize;
     let height = decoded.height() as usize;
-    let rgb = composite_rgb(decoded, cancel)?;
+    let rgb = decoded.into_raw();
     let max_patches = soft_tokens * POOL_SIZE * POOL_SIZE;
     let (out_width, out_height) = target_size(width, height, max_patches);
     let resized = super::resize::bicubic_rgb(&rgb, width, height, out_width, out_height, cancel)?;
     cancel.check().map_err(ImageError::Cancelled)?;
     patchify(&resized, out_width, out_height, max_patches, cancel)
+}
+
+/// Decode bounded JPEG/PNG/WebP bytes to oriented RGB8, compositing alpha over white.
+/// Checks cancellation and the same encoded, pixel and allocation limits as preprocessing.
+pub fn decode_rgb(bytes: &[u8], cancel: &Cancel) -> Result<image::RgbImage, ImageError> {
+    cancel.check().map_err(ImageError::Cancelled)?;
+    if bytes.len() > MAX_ENCODED_BYTES {
+        return Err(ImageError::EncodedLimit);
+    }
+    let decoded = decode(bytes, cancel)?;
+    cancel.check().map_err(ImageError::Cancelled)?;
+    let (width, height) = (decoded.width(), decoded.height());
+    let rgb = composite_rgb(decoded, cancel)?;
+    image::RgbImage::from_raw(width, height, rgb).ok_or(ImageError::InvalidContainer)
 }
 
 fn decode(bytes: &[u8], cancel: &Cancel) -> Result<DynamicImage, ImageError> {
