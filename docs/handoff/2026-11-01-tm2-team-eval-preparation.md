@@ -31,13 +31,15 @@ sessions and are unchanged by this work. Main is integrated by merge, never reba
 | M4 | All twelve previously surviving mutants plus thirty function-scoped rule mutations across all eighteen tasks/four languages lose behavioral cases; NUL and CRLF travel byte-for-byte through stdin; max-size payloads and 128-KiB output use a compact output digest. Frame integrity and malformed predecessor states have dedicated cases. |
 | M5, M6 | 3/4/5-package graphs, shared interfaces, real coupled prefixes, distinct provisional caps and neutral functional instructions. Live difficulty calibration remains a K2 gate. |
 | M7, L6 | Registry and stable IDs; explicit extension errors; complete allocations tied to tasks. |
-| L1 | Expensive language/task proofs are split into separate shardable files; weights use actual Linux measurements, with separate macOS provenance. Native Windows timings remain pending a Windows run. |
+| L1 | Twenty shardable files have actual Linux, macOS and Windows timings, with source revision and toolchain provenance. Shard weights use Linux costs; Windows costs include typed process/live refusal. |
 | L2–L5 | 108 deterministic variants, LF attributes, formatted/documented code, shared manifest parser, cleanup after failed traversal and seeded symbols/logic. |
 | Claude follow-up | Snapshot only public inputs, pin Linux directory handles, ignore root build/Git/cache artifacts, enforce the fixed public contract, preserve live timeout reasons, omit stderr from frames and resolve reserved canonical string IDs consistently. |
 | L7 | K2 #868 revision c25213ee supplies the recorded checker/report/environment contracts; no competing live report or model runner. |
 
 The Linux acceptance runs as an ordinary user in a two-CPU Linux arm64 VM with Node 24.21.0, Rust 1.95.0,
 Go 1.27.1 and Python 3.13.18. macOS uses Node 24.21.0, Rust 1.95.0, Go 1.27.1 and Python 3.13.13.
+Windows x64 (OS 10.0.22621) uses Node 24.21.0 and the same TypeScript 5.9.3. Its source snapshot matches the tested
+commit `590dd196e9`; the archive and returned UTF-8 log are SHA-256 verified. It runs no candidate compiler or runtime.
 These are local test environments, not GitHub runner or model-performance claims. Windows follows the owner's K2/D123 Q6
 ruling: typed `platform-unavailable`, no unisolated fallback, Job Object implementation deferred. Its materialization
 and contract tests continue to run; process/live tests assert the refusal, with no platform skips.
@@ -48,9 +50,25 @@ smoke test, warm-up helper, Engine pin or runtime entry graph. This is separate 
 contract failure, which this round fixes. No warm-up limit is weakened and no CI polling is used.
 
 Long local tests write logs. Publication runs the required checks sequentially: `pnpm lint`, Core tests, WebMCP tests,
-`pnpm docs:check`, then all `node --test scripts/ci/*.test.mjs`. Read-only Claude follow-ups closed the technical findings and then identified missing invalid-input cases and
-ambiguous JSON/VAT/separator wording. Those cases and thirty generic guard mutations now cover all tasks, and the
-prompts specify exact serialization and gross-amount semantics. The PR records the final check and review results. No new product dependencies, RPC/config schema changes, migrations or Engine pin changes are introduced.
+`pnpm docs:check`, then all `node --test scripts/ci/*.test.mjs`. The final source run passed:
+
+| Check | Passed | Existing skips | Existing TODOs | Failures |
+| --- | ---: | ---: | ---: | ---: |
+| Lint, including typecheck | 163 | 0 | 3 | 0 |
+| Core | 11,358 | 22 | 12 | 0 |
+| WebMCP | 931 | 0 | 56 | 0 |
+| CI scripts | 121 | 0 | 0 | 0 |
+| Team tests: Linux / macOS / Windows | 63 / 63 / 63 | 0 | 0 | 0 |
+
+Docs checks also pass. The three-platform measurements cover all twenty team test files. Windows proves typed refusal,
+while Linux additionally executes the four live candidate languages. Test snapshots and the transfer listener were
+removed afterward; test logs remain local. Timing/documentation updates receive their relevant checks again.
+
+Read-only Claude follow-ups closed the technical findings, then identified missing invalid-input cases and ambiguous
+JSON/VAT/separator wording. Those cases and thirty generic guard mutations now cover all tasks, and the prompts specify
+exact serialization and gross-amount semantics. The final delta review closed these findings with no actionable defect;
+Claude did not run tests. No new product dependencies, RPC/config schema changes, migrations or Engine pin changes
+are introduced.
 
 ## Remaining PT-2 gates
 

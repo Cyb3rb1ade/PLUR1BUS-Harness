@@ -525,7 +525,8 @@ K2's loader excludes `tests/bench/coding/team/`. The task/arm package adds no mo
 Task caps remain provisional until the K2 single-arm pilot calibrates difficulty. The runtime adapter and replacement
 of `fanout-eval.ts`/`eval:m5` still wait for K2; executable `explore+single` also waits for #853 on main.
 
-`.github/ci/core-test-timings.json` uses measured Linux grader costs for shard weights and labels separate local macOS
-measurements with their actual toolchains. Native Windows timings require a Windows run; no number is inferred from
-another platform. These measurements do not represent model throughput. Both packages extend this document; the
+`.github/ci/core-test-timings.json` uses measured Linux grader costs for shard weights and records separate local macOS
+and Windows measurements, including source revision and toolchains. The 63 team tests pass on all three platforms.
+Windows timings measure materialization, contracts and typed process/live refusal under D123 Q6, not candidate execution.
+These measurements do not represent model throughput. Both packages extend this document; the
 second merger integrates main with a merge commit and resolves the overlap. No rebase is used.
