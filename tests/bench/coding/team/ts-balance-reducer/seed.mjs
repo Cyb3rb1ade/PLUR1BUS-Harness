@@ -2,26 +2,66 @@
 /** Host-only semantic oracle; no fixture code or expected output is materialized. */
 import { checkedCases, seedValues } from "../_shared/seed.mjs";
 const TEMPLATE = {
-  decode: [
-    ["add=__N__;sub=__N2__", "[[\"add\",__N__],[\"sub\",__N2__]]"],
-    ["", "[]"],
-    ["add=0", "error"],
+  "decode": [
+    [
+      "add=__N__;sub=__N2__",
+      "[[\"add\",__N__],[\"sub\",__N2__]]"
+    ],
+    [
+      "",
+      "[]"
+    ],
+    [
+      "add=0",
+      "error"
+    ]
   ],
-  reduce: [
-    ["[[\"add\",__N__],[\"sub\",__N2__],[\"add\",__N__]]", "{\"balance\":__N2__,\"accepted\":2,\"rejected\":1}"],
-    ["[]", "{\"balance\":0,\"accepted\":0,\"rejected\":0}"],
-    ["[[\"unknown\",1]]", "error"],
+  "reduce": [
+    [
+      "[[\"add\",__N__],[\"sub\",__N2__],[\"add\",__N__]]",
+      "{\"balance\":__N2__,\"accepted\":2,\"rejected\":1}"
+    ],
+    [
+      "[]",
+      "{\"balance\":0,\"accepted\":0,\"rejected\":0}"
+    ],
+    [
+      "[[\"unknown\",1]]",
+      "error"
+    ],
+    [
+      "[[\"mul\",1]]",
+      "error"
+    ]
   ],
-  report: [
-    ["{\"balance\":__N__,\"accepted\":2,\"rejected\":1}", "balance=__N__;accepted=2;rejected=1"],
-    ["{\"balance\":0,\"accepted\":0,\"rejected\":0}", "balance=0;accepted=0;rejected=0"],
-    ["{\"balance\":-1,\"accepted\":0,\"rejected\":0}", "error"],
+  "report": [
+    [
+      "{\"balance\":__N__,\"accepted\":2,\"rejected\":1}",
+      "balance=__N__;accepted=2;rejected=1"
+    ],
+    [
+      "{\"balance\":0,\"accepted\":0,\"rejected\":0}",
+      "balance=0;accepted=0;rejected=0"
+    ],
+    [
+      "{\"balance\":-1,\"accepted\":0,\"rejected\":0}",
+      "error"
+    ]
   ],
-  e2e: [
-    ["add=__N__;sub=__N2__;add=__N__", "balance=__N2__;accepted=2;rejected=1"],
-    ["sub=2", "balance=0;accepted=0;rejected=1"],
-    ["", "balance=0;accepted=0;rejected=0"],
-  ],
+  "e2e": [
+    [
+      "add=__N__;sub=__N2__;add=__N__",
+      "balance=__N2__;accepted=2;rejected=1"
+    ],
+    [
+      "sub=2",
+      "balance=0;accepted=0;rejected=1"
+    ],
+    [
+      "",
+      "balance=0;accepted=0;rejected=0"
+    ]
+  ]
 };
 const PREFIX = {
   17: {

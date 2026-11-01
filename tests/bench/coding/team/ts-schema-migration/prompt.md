@@ -1,4 +1,4 @@
-# Sequential account schema migration
+# account schema migration
 
 Implement the behavior below using the public source interfaces. Input and final output are UTF-8 strings; do not print from a function. Return exactly `error` on malformed input unless a rule says otherwise. Empty collections have the stated empty representation. Use only the language standard library.
 

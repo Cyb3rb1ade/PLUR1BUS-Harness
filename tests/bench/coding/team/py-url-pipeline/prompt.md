@@ -1,4 +1,4 @@
-# Sequential URL normalization
+# URL normalization
 
 Implement the behavior below using the public source interfaces. Input and final output are UTF-8 strings; do not print from a function. Return exactly `error` on malformed input unless a rule says otherwise. Empty collections have the stated empty representation. Use only the language standard library.
 
@@ -8,7 +8,7 @@ The public endpoints and state types are in the source tree. There is no network
 
 ### Split behavior
 
-Parse an HTTP or HTTPS URL without userinfo. Host must use ASCII letters, digits, dots or hyphens. Emit compact JSON keys `scheme,host,port,path,query`, with lowercase scheme/host, integer or null port, nonempty path. Discard fragment.
+Parse an HTTP or HTTPS URL without userinfo. Host must use ASCII letters, digits, dots or hyphens. Emit compact JSON keys `scheme,host,port,path,query`, with lowercase scheme/host, integer or null port, nonempty path. Discard fragment. JSON is compact with keys in the listed order; escape non-ASCII characters as JSON Unicode escapes (Python: `ensure_ascii=True`, the default).
 
 ### Normalize behavior
 

@@ -20,7 +20,7 @@ Choose the longest half-open interval from a comma-separated list. Break equal-l
 
 The generated `instance.json` names this variant. Do not modify it. Hidden checkers and reference solutions are not part of the working tree.
 
-Read the selected interval or none. Emit JSON with start/end (null for none) and minutes, validating all bounds.
+Read the selected interval or none. Emit compact JSON without insignificant whitespace, with keys in the exact order `start,end,minutes`: start/end are null for none, otherwise interval bounds, and minutes is their difference. Validate all bounds.
 
 Validate that JSON slot: minutes equals end minus start and bounds are 0..100. Emit AVAILABLE a..b (n minutes), or FULL for the null slot.
 

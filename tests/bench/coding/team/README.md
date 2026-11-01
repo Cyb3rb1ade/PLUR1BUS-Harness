@@ -114,7 +114,7 @@ node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWa
 
 Linux also requires the same usable bubblewrap/user-namespace setup as the Core CI jobs. Language/task files are split
 for measured shard balance. Tests cover every seed's start/reference grades, partial solutions, ownership, all 108
-deterministic variants, the twelve review mutants, NUL inputs, enum/neighbor compatibility, runtime preflight,
+deterministic variants, the twelve review mutants plus thirty rule-based guard mutations spanning all eighteen tasks and all four languages, NUL inputs, enum/neighbor compatibility, runtime preflight,
 self-deletion, trapping/orphan processes, total deadlines, oracle reading, outside writes, four-language live smoke, ignored root artifacts and readonly-contract tampering. On macOS/Windows the live
 proof asserts refusal; the actual adversarial execution proof runs on Linux. No platform test is skipped.
 

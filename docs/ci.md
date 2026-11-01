@@ -510,7 +510,8 @@ No repository rules, release policy, controller merging or watcher behavior chan
 `collab/team-eval.test.ts` validates the arm registry, canonical identities and allocations tied to all three task limits.
 The split `collab/team-fixture*.test.ts` files grade 18 authored tasks across three seeds, partial implementations and
 ownership boundaries. The common materializer proof hashes all 108 start/reference variants twice. The mutant gate
-kills twelve previously surviving validation mutants; stdin carries NUL cases. No model or network is used.
+kills twelve previously surviving validation mutants; an additional generic guard framework covers thirty mutations
+across all eighteen tasks, four languages and all six coupled tasks; stdin carries NUL cases. No model or network is used.
 
 Linux and macOS authored-fixture tests use Node 24.21, repository Rust, Go 1.27.1 and Python 3.13. Preflight compiles/runs
 known-good code before candidate evaluation. Missing tools fail as infrastructure; candidate self-deletion remains a

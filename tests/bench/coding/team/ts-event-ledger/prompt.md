@@ -8,11 +8,11 @@ The public endpoints and state types are in the source tree. There is no network
 
 ### Group behavior
 
-Parse `id:integer` events separated by semicolons. Sum repeated ids, keep signed amounts, and emit ids in lexical order as `id:total`. Empty input gives empty output. Ids contain ASCII letters, digits and underscore.
+Parse `id:integer` events separated by semicolons. Sum repeated ids, keep signed amounts, and emit semicolon-separated `id:total` rows in lexical id order. Empty input gives empty output. Ids contain ASCII letters, digits and underscore.
 
 ### Aggregate behavior
 
-Read grouped `id:integer` rows. Emit `<row count>,<signed sum>`. Empty input gives `0,0`; reject invalid rows.
+Read grouped `id:integer` rows separated by semicolons. Emit `<row count>,<signed sum>`. Empty input gives `0,0`; reject invalid rows.
 
 ### Render behavior
 

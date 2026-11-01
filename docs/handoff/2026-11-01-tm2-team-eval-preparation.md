@@ -28,7 +28,7 @@ sessions and are unchanged by this work. Main is integrated by merge, never reba
 | H2, M1 | Oracle/seed stay in the host; input-only stdin bridges run in private PID/filesystem namespaces. Linux acceptance proves oracle-path hiding, outside-write denial and all four live language runtimes through explicit readonly SDK roots. The port owns process groups, TERM/KILL escalation, orphan cleanup, output bounds and one overall deadline. CLI termination cleans its snapshot. |
 | M2 | Known-good language compile/run preflight; repository Rust channel; post-preflight errors, executable self-deletion and tampered public metadata remain candidate failures. |
 | M3 | Every TASK.md states runtime, entry points, neighbor files and I/O; TS enum and Python neighbor solutions pass. |
-| M4 | All twelve previously surviving mutants lose behavioral cases; NUL and CRLF travel byte-for-byte through stdin; max-size payloads and 128-KiB output use a compact output digest. Frame integrity and malformed predecessor states have dedicated cases. |
+| M4 | All twelve previously surviving mutants plus thirty function-scoped rule mutations across all eighteen tasks/four languages lose behavioral cases; NUL and CRLF travel byte-for-byte through stdin; max-size payloads and 128-KiB output use a compact output digest. Frame integrity and malformed predecessor states have dedicated cases. |
 | M5, M6 | 3/4/5-package graphs, shared interfaces, real coupled prefixes, distinct provisional caps and neutral functional instructions. Live difficulty calibration remains a K2 gate. |
 | M7, L6 | Registry and stable IDs; explicit extension errors; complete allocations tied to tasks. |
 | L1 | Expensive language/task proofs are split into separate shardable files; weights use actual Linux measurements, with separate macOS provenance. Native Windows timings remain pending a Windows run. |
@@ -48,8 +48,9 @@ smoke test, warm-up helper, Engine pin or runtime entry graph. This is separate 
 contract failure, which this round fixes. No warm-up limit is weakened and no CI polling is used.
 
 Long local tests write logs. Publication runs the required checks sequentially: `pnpm lint`, Core tests, WebMCP tests,
-`pnpm docs:check`, then all `node --test scripts/ci/*.test.mjs`. The PR records the final results and read-only Claude
-review. No new product dependencies, RPC/config schema changes, migrations or Engine pin changes are introduced.
+`pnpm docs:check`, then all `node --test scripts/ci/*.test.mjs`. Read-only Claude follow-ups closed the technical findings and then identified missing invalid-input cases and
+ambiguous JSON/VAT/separator wording. Those cases and thirty generic guard mutations now cover all tasks, and the
+prompts specify exact serialization and gross-amount semantics. The PR records the final check and review results. No new product dependencies, RPC/config schema changes, migrations or Engine pin changes are introduced.
 
 ## Remaining PT-2 gates
 

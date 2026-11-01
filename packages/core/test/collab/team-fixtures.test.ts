@@ -53,7 +53,7 @@ test("manifests alone contain task classes; names, public frame logic and task a
   assert.equal(new Set(TEAM_TASKS[0]!.seeds.map((seed) => seedValues(seed).profile)).size, 3);
   for (const task of TEAM_TASKS) {
     const prompt = await readFile(new URL(`${task.id}/${task.instruction}`, TEAM_ROOT), "utf8");
-    assert.doesNotMatch(prompt, /decomposable|coupled|independently|sequential change|File:|Function:/i);
+    assert.doesNotMatch(prompt, /decomposable|coupled|independently|\bsequential\b|File:|Function:/i);
     assert.ok(task.packages.every((item) => item.symbol.includes("__SEED__")));
     if (task.kind === "coupled") {
       assert.deepEqual(

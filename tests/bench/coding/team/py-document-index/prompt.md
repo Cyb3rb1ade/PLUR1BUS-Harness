@@ -20,7 +20,7 @@ Read `token:positiveCount` entries. Return the most frequent token, breaking tie
 
 The generated `instance.json` names this variant. Do not modify it. Hidden checkers and reference solutions are not part of the working tree.
 
-Read the winning word, or none. Emit a JSON search record {term,bytes}; none gives {term:null,bytes:0}. Reject punctuation and uppercase; Unicode lowercase alphanumerics are allowed.
+Read the winning word, or none. Emit compact JSON without insignificant whitespace, with keys in the exact order `term,bytes` and non-ASCII characters unescaped (Python: `ensure_ascii=False`, `separators=(",", ":")`). The record is `{"term":<word>,"bytes":<UTF-8 byte count>}`; none gives `{"term":null,"bytes":0}`. Reject punctuation and uppercase; Unicode lowercase alphanumerics are allowed.
 
 The string error is a reserved failure value; downstream endpoints propagate it unchanged.
 

@@ -1,4 +1,4 @@
-# Sequential tax and currency formatting
+# tax and currency formatting
 
 Implement the behavior below using the public source interfaces. Input and final output are UTF-8 strings; do not print from a function. Return exactly `error` on malformed input unless a rule says otherwise. Empty collections have the stated empty representation. Use only the language standard library.
 
@@ -12,7 +12,7 @@ Read `<signed euros with exactly two decimal places>@<VAT basis points>`. Rate i
 
 ### Tax behavior
 
-Read `<signed cents>@<basis points>`, rate 0..10000. Apply VAT and round the result to the nearest cent, with halves away from zero. Emit signed integer cents.
+Read `<signed cents>@<basis points>`, rate 0..10000. Compute the gross amount `netCents * (10000 + rate) / 10000` (including VAT), then round it to the nearest cent, with halves away from zero. Emit signed integer cents.
 
 ### Format behavior
 

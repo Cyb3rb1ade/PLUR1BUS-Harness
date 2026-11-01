@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { TEAM_ROOT, TEAM_TASKS, materializer, checker } from "./fixtures/team-support.ts";
@@ -185,19 +185,21 @@ test("a runtime root that exposes the private oracle is refused before creating 
   const root = await mkdtemp(join(tmpdir(), "p1b-team-live-mount-"));
   const taskRoot = fileURLToPath(new URL("ts-calendar/", TEAM_ROOT));
   try {
-    await assert.rejects(
-      createIsolation({
-        mode: "live",
-        root,
-        taskRoot,
-        runtimeRoots: [join(taskRoot, "reference")],
-        signal: AbortSignal.timeout(5000),
-      }),
-      (error: unknown) =>
-        error instanceof IsolationUnavailable &&
-        (error as { code: string }).code ===
-          (process.platform === "linux" ? "oracle-path-exposed" : "platform-unavailable"),
-    );
+    for (const runtimeRoot of [taskRoot, dirname(taskRoot), join(taskRoot, "reference")]) {
+      await assert.rejects(
+        createIsolation({
+          mode: "live",
+          root,
+          taskRoot,
+          runtimeRoots: [runtimeRoot],
+          signal: AbortSignal.timeout(5000),
+        }),
+        (error: unknown) =>
+          error instanceof IsolationUnavailable &&
+          (error as { code: string }).code ===
+            (process.platform === "linux" ? "oracle-path-exposed" : "platform-unavailable"),
+      );
+    }
     await assert.rejects(access(join(root, "command.json")));
   } finally {
     await rm(root, { recursive: true, force: true });

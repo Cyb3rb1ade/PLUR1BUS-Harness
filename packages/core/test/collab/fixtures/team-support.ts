@@ -40,9 +40,11 @@ export async function verifyFixture(
 ) {
   const checks: TeamCheck[] = [];
   const infrastructure: string[] = [];
-  const result = (await checker.verify(fileURLToPath(new URL(`${task.id}/`, TEAM_ROOT)), candidate, seed, "all", {
+  const { scope = "all", ...configuration } = options;
+  if (typeof scope !== "string") throw new Error("invalid fixture checker scope");
+  const result = (await checker.verify(fileURLToPath(new URL(`${task.id}/`, TEAM_ROOT)), candidate, seed, scope, {
     mode: "fixture",
-    ...options,
+    ...configuration,
     onCheck: (check: TeamCheck) => checks.push(check),
     onInfrastructureFailure: (reason: string) => infrastructure.push(reason),
   })) as TeamVerdict;
