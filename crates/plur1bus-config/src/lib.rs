@@ -4,6 +4,12 @@
 use serde_json::{Map, Value};
 use std::{fs, io, path::Path};
 
+mod sensitive;
+pub use sensitive::{
+    config_secret_values, mask_url_credentials, redact_config, redact_with_schema,
+    secret_values_with_schema,
+};
+
 pub const SCHEMA_JSON: &str =
     include_str!("../../../packages/config-schema/schema/config.schema.json");
 pub type Config = Value;

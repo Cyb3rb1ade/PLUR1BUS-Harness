@@ -1,5 +1,6 @@
 // Schema-owned policy lookup and credential extraction; metadata never changes configuration validation.
 import schemaJson from "../schema/config.schema.json" with { type: "json" };
+import { maskUrlCredentials, urlParts } from "./url-credentials.ts";
 
 /** Configuration-member metadata, independent of validation and of credential-looking names. */
 export interface ConfigSchemaNode {
@@ -46,7 +47,7 @@ const annotations = (node: ConfigSchemaNode, inherited: Annotations): Annotation
   urlCredentials: inherited.urlCredentials || node["x-url-credentials"] === true,
 });
 
-function pathAnnotations(key: string, schema: ConfigSchemaNode): Annotations {
+function schemaPath(key: string, schema: ConfigSchemaNode): { node: ConfigSchemaNode; flags: Annotations } {
   let node = valueSchema(schema);
   let flags = annotations(node, { sensitive: false, urlCredentials: false });
   for (const part of key
@@ -59,9 +60,13 @@ function pathAnnotations(key: string, schema: ConfigSchemaNode): Annotations {
     );
     flags = annotations(node, flags);
   }
+  return { node, flags };
+}
+
+function pathAnnotations(key: string, schema: ConfigSchemaNode): Annotations {
+  const { node, flags } = schemaPath(key, schema);
   // A string-list widget must not display sensitive items just because the collection itself is unmarked.
-  const item = schemaObject(node.items);
-  return annotations(item, flags);
+  return annotations(schemaObject(node.items), flags);
 }
 
 /** Resolve whole-value sensitivity through property, map and array-item annotations. */
@@ -70,6 +75,36 @@ export const sensitiveOf = (key: string, schema: ConfigSchemaNode = SCHEMA): boo
 /** Resolve endpoint-component policy without treating the host or path as a secret. */
 export const urlCredentialsOf = (key: string, schema: ConfigSchemaNode = SCHEMA): boolean =>
   pathAnnotations(key, schema).urlCredentials;
+
+/** A public projection may start at a selected subtree while retaining the root policy. */
+export interface ConfigRedactionOptions {
+  schema?: ConfigSchemaNode;
+  key?: string;
+}
+
+/** Mask declared string values without changing JSON types, unknown fields or the running configuration. */
+export function redactConfig(value: unknown, options: ConfigRedactionOptions = {}): unknown {
+  const start = schemaPath(options.key ?? "", options.schema ?? SCHEMA);
+  function project(at: unknown, node: ConfigSchemaNode, inherited: Annotations): unknown {
+    node = valueSchema(node);
+    const flags = annotations(node, inherited);
+    if (typeof at === "string") {
+      if (flags.sensitive) return at === "" ? "" : "••••";
+      return flags.urlCredentials ? maskUrlCredentials(at) : at;
+    }
+    if (Array.isArray(at)) return at.map((child) => project(child, schemaObject(node.items), flags));
+    if (at && typeof at === "object") {
+      return Object.fromEntries(
+        Object.entries(at).map(([name, child]) => [
+          name,
+          project(child, propertySchema(node, name) ?? schemaObject(node.additionalProperties), flags),
+        ]),
+      );
+    }
+    return at;
+  }
+  return project(value, start.node, start.flags);
+}
 
 /** Walk actual values with their property/map/item schemas; unknown members gain no name-based classification. */
 function stringFields(value: unknown, schema: ConfigSchemaNode, consume: (field: StringField) => void): void {
@@ -101,88 +136,6 @@ function stringFields(value: unknown, schema: ConfigSchemaNode, consume: (field:
     }
   }
   visit(value, schema, "", { sensitive: false, urlCredentials: false }, {});
-}
-
-const decode = (text: string): string => {
-  try {
-    return decodeURIComponent(text);
-  } catch {
-    // URL userinfo can retain a literal percent sign beside valid escapes. Decode the valid parts too.
-    return new URLSearchParams(`value=${text.replaceAll("&", "%26").replaceAll("+", "%2B")}`).get("value") ?? text;
-  }
-};
-
-/** Locate userinfo after WHATWG input normalization, including invalid hosts and ports. */
-function userInfoRange(value: string): { start: number; end: number } | undefined {
-  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(value);
-  const special = !scheme || /^(?:https?|ftp|wss?)$/i.test(scheme[1] ?? "");
-  if (!scheme && !/^[\\/]{2}/.test(value)) return;
-  let start = scheme?.[0].length ?? 0;
-  if (special) {
-    while (/[\\/]/.test(value.charAt(start)) && start < value.length) start++;
-  } else if (value.slice(start, start + 2) === "//") start += 2;
-  else return;
-  const rest = value.slice(start);
-  const authority =
-    (special || scheme?.[1]?.toLowerCase() === "file" ? /^[^/\\?#]*/ : /^[^/?#]*/).exec(rest)?.[0] ?? "";
-  const separator = authority.lastIndexOf("@");
-  return separator < 0 ? undefined : { start, end: start + separator };
-}
-
-/** Map a normalized offset back without dropping controls that belong to the literal credential. */
-function literalOffset(value: string, normalizedOffset: number): number {
-  let index = 0;
-  for (let offset = 0; offset < normalizedOffset && index < value.length; index++) {
-    if (!/[\t\n\r]/.test(value.charAt(index))) offset++;
-  }
-  return index;
-}
-
-/** Extract credentials without treating any host or path as a secret, even for a malformed endpoint. */
-function urlParts(value: string): { values: string[]; userInfo: boolean } {
-  const values = new Set<string>();
-  const add = (text: string, query = false): void => {
-    if (text !== "") values.add(text);
-    const plain = decode(query ? text.replaceAll("+", " ") : text);
-    if (plain !== "") values.add(plain);
-  };
-  let userInfo = false;
-  const addUserInfo = (text: string): void => {
-    userInfo = true;
-    const colon = text.indexOf(":");
-    add(text);
-    add(colon < 0 ? text : text.slice(0, colon));
-    if (colon >= 0) add(text.slice(colon + 1));
-  };
-  const literal = value.replace(/^[\u0000-\u0020]+|[\u0000-\u0020]+$/g, "");
-  const normalized = literal.replace(/[\t\n\r]/g, "");
-  const range = userInfoRange(normalized);
-  if (range) {
-    const start = literalOffset(literal, range.start);
-    let end = literalOffset(literal, range.end);
-    while (/[\t\n\r]/.test(literal.charAt(end)) && end < literal.length) end++;
-    addUserInfo(literal.slice(start, end));
-    addUserInfo(normalized.slice(range.start, range.end));
-  }
-  try {
-    const relative = /^[\\/]{2}/.test(normalized);
-    const parsed = new URL(relative ? `https:${normalized}` : normalized);
-    if (parsed.username || parsed.password)
-      addUserInfo(`${parsed.username}${parsed.password ? `:${parsed.password}` : ""}`);
-  } catch {
-    // Literal extraction above also covers incomplete endpoints; validation is unchanged.
-  }
-  for (const text of new Set([value, normalized])) {
-    const fragment = text.indexOf("#");
-    const query = text.indexOf("?");
-    if (query >= 0 && (fragment < 0 || query < fragment)) {
-      for (const parameter of text.slice(query + 1, fragment < 0 ? undefined : fragment).split("&")) {
-        const equal = parameter.indexOf("=");
-        if (equal >= 0) add(parameter.slice(equal + 1), true);
-      }
-    }
-  }
-  return { values: [...values], userInfo };
 }
 
 /** Registry slots for declared sensitive strings; endpoint slots contain only extracted credential parts. */

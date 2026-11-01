@@ -1,4 +1,5 @@
 // Pure matching, ranking and highlighting for the palette. No DOM, no i18n, no signals: unit-tested in test/palette-match.test.ts.
+import { maskUrlCredentials } from "../../../config-schema/src/url-credentials.ts";
 import type { RolePreset } from "../pages/common/load.ts";
 
 export type Group = "nav" | "action" | "log" | "agent" | "session" | "setting";
@@ -53,38 +54,10 @@ export function isSensitiveKey(key: string): boolean {
 }
 
 const MASK = "••••";
-/** Schema-classified endpoints keep their host/path and conceal userinfo and every query value. */
-function maskEndpoint(value: string): string {
-  const normalized = value.replace(/^[\u0000-\u0020]+|[\u0000-\u0020]+$/g, "").replace(/[\t\n\r]/g, "");
-  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(normalized);
-  const special = !scheme || /^(?:https?|ftp|wss?)$/i.test(scheme[1] ?? "");
-  let start = scheme?.[0].length ?? 0;
-  const hasAuthority = special
-    ? Boolean(scheme) || /^[\\/]{2}/.test(normalized)
-    : normalized.slice(start, start + 2) === "//";
-  if (hasAuthority) {
-    if (special) {
-      while (/[\\/]/.test(normalized.charAt(start)) && start < normalized.length) start++;
-    } else start += 2;
-    const rest = normalized.slice(start);
-    const authority =
-      (special || scheme?.[1]?.toLowerCase() === "file" ? /^[^/\\?#]*/ : /^[^/?#]*/).exec(rest)?.[0] ?? "";
-    const separator = authority.lastIndexOf("@");
-    if (separator >= 0) value = `${normalized.slice(0, start)}${MASK}@${rest.slice(separator + 1)}`;
-  }
-  const query = value.indexOf("?");
-  const fragment = value.indexOf("#");
-  if (query < 0 || (fragment >= 0 && fragment < query)) return value;
-  const parameters = value.slice(query + 1, fragment < 0 ? undefined : fragment).split("&").map(parameter => {
-    const equal = parameter.indexOf("=");
-    return equal < 0 ? parameter : `${parameter.slice(0, equal + 1)}${MASK}`;
-  });
-  return `${value.slice(0, query + 1)}${parameters.join("&")}${fragment < 0 ? "" : value.slice(fragment)}`;
-}
 /** A value that is a URL may carry its secret in the text: `scheme://user:password@host` loses the user part, and a query parameter with a
  * sensitive name (`?api_key=…`) loses its value. Schema-classified endpoints mask all query values. */
 export function maskUrlSecrets(value: string, urlCredentials = false): string {
-  if (urlCredentials) return maskEndpoint(value);
+  if (urlCredentials) return maskUrlCredentials(value);
   if (!value.includes("://") && !value.includes("?")) return value;
   return value
     .replace(/([a-z][a-z0-9+.-]{0,31}:\/\/)[^/?#\s@]*@/gi, `$1${MASK}@`)
