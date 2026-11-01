@@ -613,15 +613,27 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       ? `Task checklist:\n${decision.tasks.map(task => `- [ ] ${task.summary}`).join('\n')}` : '';
     let totalInputTokens = 0, totalOutputTokens = 0, completed = false;
     let consecutiveErrors = 0;
-    const joinChildren = async (cancel = false): Promise<ChatChunk[]> => {
-      const chunks: ChatChunk[] = [];
-      for (const child of await req.delegations?.finish(cancel) ?? []) {
-        const value = createRedactor({ secrets: o.secrets?.() ?? [] }).value(child);
-        const capped = await capResult(value, o.resultStore, 32 * 1024), output = JSON.stringify(capped);
-        if (req.onDelegationResult) req.onDelegationResult({ taskId: child.taskId, output });
-        else chunks.push({ type: 'tool.result', id: child.taskId, output });
-      }
-      return chunks;
+    const joinChildren = async function* (cancel = false): AsyncGenerator<ChatChunk> {
+      const receipts = new Map<string, (accepted: boolean) => void>();
+      const children = await req.delegations?.finish(cancel, (id, settle) => receipts.set(id, settle)) ?? [];
+      try {
+        for (const child of children) {
+          const settle = receipts.get(child.taskId)!;
+          let unregister: (() => void) | undefined;
+          try {
+            const value = createRedactor({ secrets: o.secrets?.() ?? [] }).value(child);
+            const capped = await capResult(value, o.resultStore, 32 * 1024), output = JSON.stringify(capped);
+            if (req.onDelegationResult) {
+              unregister = req.onToolResultDelivery?.(child.taskId, settle);
+              req.onDelegationResult({ taskId: child.taskId, output });
+              if (!req.onToolResultDelivery) settle(true);
+            } else {
+              settle(true);
+              yield { type: 'tool.result', id: child.taskId, output };
+            }
+          } finally { settle(false); unregister?.(); }
+        }
+      } finally { for (const settle of receipts.values()) settle(false); }
     };
     try {
     for (const skill of chosenSkills) {
@@ -693,7 +705,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         }
         if (buffered && (done.text || roundText)) yield { type: 'delta', text: done.text || roundText };
         if (!done.toolCalls.length) {
-          for (const chunk of await joinChildren()) yield chunk;
+          for await (const chunk of joinChildren()) yield chunk;
           completed = true; return;
         }
         // Engine maintenance is a background role with no permission to execute model-proposed tools.
@@ -716,7 +728,13 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           signal.throwIfAborted();
           const capabilityId = tool ? toolEntry(tool, JSON.stringify([req.agentId, principal])).id : '';
           if (o.capabilities?.registry.hash(capabilityId)) o.capabilities.registry.record(capabilityId, req.agentId, 'used');
-          const output = await stage('tool-dispatch', new AbortController().signal, o.log, () => (tool ? dispatcher : unknownDispatcher).call({ id: call.id, name: call.name, args, ...(typeof done.reasoning === 'string' && done.reasoning ? { reason: done.reasoning } : {}) }, { ...(req.recurring ? { recurring: req.recurring } : {}), agentId: req.agentId, principal: approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface, signal }));
+          let settleDelivery: ((accepted: boolean) => void) | undefined;
+          let unregisterDelivery: (() => void) | undefined;
+          try {
+          const output = await stage('tool-dispatch', new AbortController().signal, o.log, () => (tool ? dispatcher : unknownDispatcher).call({ id: call.id, name: call.name, args, ...(typeof done.reasoning === 'string' && done.reasoning ? { reason: done.reasoning } : {}) }, { ...(req.recurring ? { recurring: req.recurring } : {}), agentId: req.agentId, principal: approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface, signal, onResultSettled: settle => {
+            settleDelivery = settle;
+            unregisterDelivery = req.onToolResultDelivery?.(call.id, settle);
+          } }));
           try { if (tool) o.onExecution?.({ owner: principal, agentId: req.agentId, sessionId: req.sessionId, turnId, callId: call.id, tool: tool.name, version: toolEntry(tool, JSON.stringify([req.agentId, principal])).version, success: !output.isError && !(output.value && typeof output.value === 'object' && 'isError' in output.value && output.value.isError === true) }); } catch { /* Missing evidence excludes the operation from mining; it never re-runs an effect. */ }
           if (o.capabilities?.registry.hash(capabilityId) && !output.isError) o.capabilities.registry.record(capabilityId, req.agentId, 'succeeded');
           if (fatal) throw fatal;
@@ -729,6 +747,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
             const text = JSON.stringify(safe);
             observation.errorsReturned++;
             consecutiveErrors++;
+            if (!req.onToolResultDelivery) settleDelivery?.(true);
             yield { type: 'tool.result', id: call.id, output: text };
             messages.push({ role: 'tool', toolCallId: call.id, content: text });
             if (approvalNeedsPerson) throw new TurnToolError('approval-requires-person', safe);
@@ -750,17 +769,22 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           if (call.name === 'skill.load' && output.value && typeof output.value === 'object' && 'name' in output.value && typeof output.value.name === 'string') {
             loaded.set(output.value.name, { id: call.id, name: output.value.name, text, turnId });
           }
+          if (!req.onToolResultDelivery) settleDelivery?.(true);
           yield { type: 'tool.result', id: call.id, output: text };
           messages.push({ role: 'tool', toolCallId: call.id, content: text });
           if (call.name === 'handoff' && output.value && typeof output.value === 'object' && (output.value as { ownershipTransferred?: unknown }).ownershipTransferred === true) {
-            for (const chunk of await joinChildren()) yield chunk;
+            for await (const chunk of joinChildren()) yield chunk;
             completed = true; return;
+          }
+          } finally {
+            settleDelivery?.(false);
+            unregisterDelivery?.();
           }
         }
       }
       throw new TurnToolError('turn-round-limit', req.maxRounds ?? o.maxRounds ?? 25);
     } finally {
-      await joinChildren(!completed || signal.aborted);
+      for await (const chunk of joinChildren(!completed || signal.aborted)) yield chunk;
       retryBudget.endTurn(turnId);
       const succeeded = completed && !signal.aborted;
       if (succeeded && !req.role && !req.onTurnTelemetry) {

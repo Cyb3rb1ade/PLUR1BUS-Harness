@@ -11,6 +11,7 @@ export interface DelegationResult {
   error?: { code: string; message: string };
 }
 export interface ChildOutput { result: ReturnEnvelope; provenance?: object; [key: string]: unknown }
+type DeliveryReceipt = (settled: (accepted: boolean) => void) => void;
 interface Child {
   projectId: string;
   cardBound: boolean;
@@ -18,6 +19,7 @@ interface Child {
   done: Promise<ChildOutput>;
   result?: DelegationResult;
   reported?: boolean;
+  claim?: symbol;
 }
 
 /** Turn-local handles are never resolved from model-supplied project or task identities. */
@@ -56,7 +58,24 @@ export class TurnDelegations {
     return [...new Set(taskIds.map(id => this.#child(id).projectId))];
   }
 
-  delivered(taskId: string): void { this.#child(taskId).reported = true; }
+  /** Claim a blocking result now; only its consumer can commit successful delivery. */
+  delivered(taskId: string, receipt?: DeliveryReceipt): void { this.#collect([this.#child(taskId)], receipt); }
+
+  #collect(children: Child[], receipt?: DeliveryReceipt): DelegationResult[] {
+    const claimed = children.filter(child => child.result && !child.reported && !child.claim);
+    if (!claimed.length) return [];
+    const claim = Symbol('delivery');
+    for (const child of claimed) child.claim = claim;
+    const settle = (accepted: boolean) => {
+      for (const child of claimed) {
+        if (child.claim !== claim) continue;
+        if (accepted) child.reported = true;
+        delete child.claim;
+      }
+    };
+    if (receipt) receipt(settle); else settle(true);
+    return claimed.map(child => child.result!);
+  }
 
   #child(id: string): Child {
     const child = this.#children.get(id);
@@ -65,7 +84,7 @@ export class TurnDelegations {
   }
 
   /** A timeout stops waiting, never the child. The caller can poll again using the same ids. */
-  async wait(taskIds: readonly string[], timeoutMs: number, signal: AbortSignal): Promise<{ results: DelegationResult[]; running: string[] }> {
+  async wait(taskIds: readonly string[], timeoutMs: number, signal: AbortSignal, receipt?: DeliveryReceipt): Promise<{ results: DelegationResult[]; running: string[] }> {
     const ids = [...new Set(taskIds)], children = ids.map(id => this.#child(id));
     signal.throwIfAborted();
     if (timeoutMs > 0 && children.some(child => !child.result)) {
@@ -78,8 +97,7 @@ export class TurnDelegations {
         await Promise.race([Promise.allSettled(children.map(child => child.done)), ended.promise]);
       } finally { if (timer) clearTimeout(timer); signal.removeEventListener('abort', abort); }
     }
-    const results = children.flatMap(child => child.result && !child.reported ? [child.result] : []);
-    for (const result of results) this.delivered(result.taskId);
+    const results = this.#collect(children, receipt);
     return {
       results,
       running: ids.filter((_, i) => !children[i]!.result),
@@ -92,14 +110,12 @@ export class TurnDelegations {
   }
 
   /** The starting turn owns every child until collection; cancellation stops them before joining. */
-  async finish(cancel = false): Promise<DelegationResult[]> {
+  async finish(cancel = false, receipt?: (taskId: string, settle: (accepted: boolean) => void) => void): Promise<DelegationResult[]> {
     this.#finishing = true;
     const children = [...this.#children.values()];
     if (cancel) for (const child of children) child.abort.abort(new Error('parent turn ended'));
     await Promise.allSettled(children.map(child => child.done));
     this.#closeIfIdle();
-    const results = children.flatMap(child => child.result && !child.reported ? [child.result] : []);
-    for (const result of results) this.delivered(result.taskId);
-    return results;
+    return children.flatMap(child => this.#collect([child], receipt ? settle => receipt(child.result!.taskId, settle) : undefined));
   }
 }

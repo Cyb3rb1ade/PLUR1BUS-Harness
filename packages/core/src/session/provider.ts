@@ -24,6 +24,8 @@ export interface ChatRequest {
   delegationBudget?: import('../collab/limits.ts').DelegationWorkBudget;
   /** Trusted in-process completion sink; wire adapters never receive it or construct these results from model text. */
   onDelegationResult?: (result: { taskId: string; output: string }) => void;
+  /** Trusted session delivery receipts, committed synchronously at persistence. Returns an unregister callback. */
+  onToolResultDelivery?: (callId: string, settle: (accepted: boolean) => void) => () => void;
   /** Session owner receives the final snapshot before persisting its authoritative outcome. */
   onTurnTelemetry?: (telemetry: import("./turn-telemetry.ts").TurnTelemetry) => void;
   /** Trusted per-turn override for scheduled, headless and delegated work; never an RPC parameter. */

@@ -34,6 +34,8 @@ export interface DispatchContext {
   /** Trust of the surface the call originates from (D109 §5). */
   surface: SurfaceTrust;
   signal: AbortSignal;
+  /** Trusted consumer may defer delivery until persistence; never included in the result envelope. */
+  onResultSettled?: (settle: (accepted: boolean) => void) => void;
 }
 
 export interface Timers { set(fn: () => void, ms: number): () => void }
@@ -150,6 +152,8 @@ export class ToolDispatcher {
 
   async call(req: ToolCallRequest, ctx: DispatchContext): Promise<ToolResult> {
     const started = this.#d.clock.now();
+    const delivery = resultDelivery();
+    let handedOff = false;
     const tool = typeof req.name === "string" ? this.#d.registry.get(req.name) : undefined;
     const fail = (code: ToolErrorCode, message: string, decision: ToolDecisionMeta, extra: Partial<ToolError> = {}, producedByTool = false): ToolResult => ({
       callId: req.id, tool: req.name, isError: true, error: { code, message: this.#clip(message), ...extra },
@@ -259,11 +263,19 @@ export class ToolDispatcher {
       }
 
       // 3. execute under the tool's own hard limits and the caller's abort.
-      const ran = await this.#run(tool, args, ctx, context, classified);
+      const ran = await this.#run(tool, args, ctx, context, delivery.register, classified);
+      const accepted = (result: ToolResult): ToolResult => {
+        const envelope = out(result);
+        if (ctx.onResultSettled) {
+          ctx.onResultSettled(delivery.settle);
+          handedOff = true;
+        } else delivery.settle(true);
+        return envelope;
+      };
       if (ran.kind === "timeout") return out(fail("tool-timeout", `${tool.name} exceeded its ${tool.limits.timeoutMs} ms limit`, via, {}, true));
       if (ran.kind === "aborted") return out(fail("aborted", `${tool.name} was aborted`, via, {}, true));
       if (ran.kind === "failed") {
-        return out(fail("tool-failed", `${tool.name} failed: ${ran.message}`, via, {
+        return accepted(fail("tool-failed", `${tool.name} failed: ${ran.message}`, via, {
           ...(ran.sourceCode ? { sourceCode: ran.sourceCode } : {}),
           ...(ran.typedFailure ? { typedFailure: ran.typedFailure } : {}),
         }, true));
@@ -292,13 +304,13 @@ export class ToolDispatcher {
       // Masking can lengthen a result (the marker is longer than a short value): the limit holds for what is passed on.
       const bytes = Buffer.byteLength(json, "utf8");
       if (bytes > tool.limits.maxResultBytes) return out(fail("tool-result-too-large", tooLargeMessage(bytes), via, {}, true));
-      return out({
+      return accepted({
         callId: req.id, tool: tool.name, isError: false, value,
         provenance: provenance(ctx, tool), meta: { decision: via, durationMs: Math.max(0, this.#d.clock.now() - started), bytes },
       });
     } catch (e) {
       return fail("tool-failed", `internal error: ${this.#errMsg(e)}`, "none", { internalFailure: "internal-error" });
-    }
+    } finally { if (!handedOff) delivery.settle(false); }
   }
 
   async #buildCall(tool: RegisteredTool, args: unknown): Promise<{ call: Call; classified?: ToolClassification }> {
@@ -418,7 +430,7 @@ export class ToolDispatcher {
     return r;
   }
 
-  #run(tool: RegisteredTool, args: unknown, ctx: DispatchContext, policy: Context, classified?: ToolClassification): Promise<
+  #run(tool: RegisteredTool, args: unknown, ctx: DispatchContext, policy: Context, onResultSettled: (callback: (accepted: boolean) => void) => void, classified?: ToolClassification): Promise<
     { kind: "ok"; value: unknown } | { kind: "timeout" } | { kind: "aborted" }
     | { kind: "failed"; message: string; sourceCode?: string; typedFailure?: TypedToolFailure }
   > {
@@ -430,7 +442,7 @@ export class ToolDispatcher {
       const onAbort = (): void => { finish({ kind: "aborted" }); ac.abort(ctx.signal.reason); };
       const cancel = timers.set(() => { finish({ kind: "timeout" }); ac.abort(new Error("timeout")); }, tool.limits.timeoutMs);
       ctx.signal.addEventListener("abort", onAbort, { once: true });
-      Promise.resolve().then(() => tool.execute(args, { signal: ac.signal, agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface, execution: { turnId: ctx.turnId || ctx.sessionId || "", ...(ctx.taskId ? { taskId: ctx.taskId } : {}), ...(ctx.recurring ? { recurring: ctx.recurring } : {}), policy }, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), ...(classified ? { classified } : {}) }))
+      Promise.resolve().then(() => tool.execute(args, { signal: ac.signal, onResultSettled, agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface, execution: { turnId: ctx.turnId || ctx.sessionId || "", ...(ctx.taskId ? { taskId: ctx.taskId } : {}), ...(ctx.recurring ? { recurring: ctx.recurring } : {}), policy }, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), ...(classified ? { classified } : {}) }))
         .then((value) => finish({ kind: "ok", value }), (e: unknown) => {
           const sourceCode = e && typeof e === "object" && "code" in e && typeof e.code === "string"
             && /^[a-z0-9_.-]{1,64}$/.test(e.code) ? e.code : undefined;
@@ -499,4 +511,25 @@ function raceAbort<T>(p: Promise<T>, signal: AbortSignal): Promise<T | "aborted"
     signal.addEventListener("abort", on, { once: true });
     void p.then((v) => { signal.removeEventListener("abort", on); resolve(v); });
   });
+}
+
+
+/** One receipt outcome, including registrations from an uncooperative tool that settles after cancellation. */
+function resultDelivery() {
+  let settled: boolean | undefined;
+  const receipts: ((accepted: boolean) => void)[] = [];
+  const notify = (receipt: (accepted: boolean) => void, accepted: boolean): void => {
+    try { receipt(accepted); } catch { /* Delivery bookkeeping must not replace a dispatcher result. */ }
+  };
+  return {
+    register(receipt: (accepted: boolean) => void): void {
+      if (settled === undefined) receipts.push(receipt);
+      else notify(receipt, settled);
+    },
+    settle(accepted: boolean): void {
+      if (settled !== undefined) return;
+      settled = accepted;
+      for (const receipt of receipts.splice(0)) notify(receipt, accepted);
+    },
+  };
 }

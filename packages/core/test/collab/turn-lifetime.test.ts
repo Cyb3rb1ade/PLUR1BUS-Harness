@@ -133,3 +133,106 @@ test('collected failures retain their typed code without copying or splitting ar
   assert.equal(result.results[0]!.error!.code, 'invalid');
   assert.equal(result.results[0]!.error!.message, 'delegation failed (invalid)');
 });
+
+for (const boundary of ['before-dispatch', 'after-dispatch', 'persist-failed', 'after-persist', 'join-persist-failed'] as const) test(`the session persists a completed child once at ${boundary}`, async () => {
+  const person = owner(), completed = Promise.withResolvers<void>(), accept = Promise.withResolvers<void>();
+  let cancelAfterDispatch = () => {};
+  let children: TurnDelegations | undefined;
+  const collab = createCollab({ path: ':memory:', runner: { async run() { return { text: 'retained evidence TM1_DELIVERY_SECRET', inputTokens: 1, outputTokens: 1 }; } } });
+  tmp.onCleanup(async () => { accept.resolve(); await collab.shutdown(); });
+  const project = collab.createProject(person, { name: 'Acceptance boundary' });
+  for (const agent of ['a1', 'peer']) collab.addAgent(person, project.id, agent);
+  const script = scriptedAdapter([{ calls: [{ id: 'blocking', name: 'consult_agent', args: { projectId: project.id, toAgent: 'peer', objective: 'inspect' } }] }]);
+  const fixture = turnFixture(script.adapter, { topK: 100, onExecution: () => { if (boundary === 'after-dispatch') cancelAfterDispatch(); }, secrets: () => ['TM1_DELIVERY_SECRET'], toolsForTurn: async request => {
+    children = request.delegations;
+    const registry = new ToolRegistry();
+    for (const tool of collaborationTools({ collab, enabled: () => true, principal: () => person, authority: { approvals: { get: () => undefined }, grants: { get: () => undefined }, audit() {}, now: Date.now } }, request)) registry.register({ ...tool, async execute(args, context) {
+      const result = await tool.execute(args, context);
+      completed.resolve();
+      await accept.promise;
+      return result;
+    } });
+    return registry;
+  } }, tmp.make());
+  tmp.onCleanup(fixture.close);
+  const store = new SessionStore({ path: ':memory:' });
+  tmp.onCleanup(() => store.close());
+  const append = store.appendEvent.bind(store);
+  let appendFailed = false;
+  store.appendEvent = (...args) => {
+    if ((boundary === 'persist-failed' || boundary === 'join-persist-failed') && !appendFailed && args[1] === 'tool.result' && String(args[2].output).includes('retained evidence')) {
+      appendFailed = true;
+      throw new Error('storage unavailable once');
+    }
+    return append(...args);
+  };
+  const runner = new TurnRunner({ store, compactor: new Compactor(store), memory: { async recall() { return { text: '', degraded: null }; }, async capture() {}, async checkpoint() {} }, provider: () => fixture.provider, notify: event => {
+    if (boundary === 'after-persist' && event.type === 'tool.result' && String(event.data.output).includes('retained evidence')) cancelAfterDispatch();
+  } });
+  const session = store.createSession({ kind: 'direct', agentId: 'a1', owner: person.userId });
+  const pending = runner.submit({ session, caller: { channel: 'cli', accountId: 'account', userId: person.userId }, text: 'inspect with a peer', approver: { person: person.userId, surface: 1 } }).done;
+  cancelAfterDispatch = () => { runner.cancel(session.id); };
+  await completed.promise;
+  if (boundary === 'before-dispatch' || boundary === 'join-persist-failed') runner.cancel(session.id);
+  accept.resolve();
+  const result = await pending;
+  assert.equal(result.state, 'failed');
+  const events = store.listEvents(session.id);
+  const evidence = events.filter(event => event.type === 'tool.result' && String(event.data.output).includes('retained evidence'));
+  assert.equal(evidence.length, boundary === 'join-persist-failed' ? 0 : 1);
+  if (boundary === 'join-persist-failed') {
+    const retained = await children!.finish();
+    assert.equal(retained.length, 1, 'a failed final persistence must release its claim');
+    assert.match(retained[0]!.result!.summary, /retained evidence/);
+  }
+  else assert.equal(evidence[0]!.data.origin, boundary === 'after-persist' ? undefined : 'harness:collaboration');
+  assert.ok(!JSON.stringify(events).includes('TM1_DELIVERY_SECRET'));
+  assert.ok(events.some(event => event.type === 'turn.failed' && event.data.error === (boundary === 'persist-failed' ? 'storage unavailable once' : 'cancelled')));
+  assert.equal(collab.listTraces(person, project.id)[0]!.spans[0]!.status, 'succeeded');
+});
+
+test('a stale delivery receipt cannot consume a child claimed by a later collector', async () => {
+  const children = new TurnDelegations();
+  await assert.rejects(children.start('failed', 'project', false, new AbortController(), async () => { throw new CollabError('invalid', 'failed'); }));
+  let first!: (accepted: boolean) => void, second!: (accepted: boolean) => void;
+  const signal = new AbortController().signal;
+  assert.equal((await children.wait(['failed'], 0, signal, settle => { first = settle; })).results.length, 1);
+  first(false);
+  assert.equal((await children.wait(['failed'], 0, signal, settle => { second = settle; })).results.length, 1);
+  first(true);
+  second(false);
+  assert.equal((await children.finish()).length, 1);
+  assert.deepEqual(await children.finish(), []);
+});
+
+for (const cancelBeforeEmission of [false, true]) test(`standalone stream delivers a child once across cancellation or generator close, cancel=${cancelBeforeEmission}`, async () => {
+  const person = owner(), abort = new AbortController();
+  const collab = createCollab({ path: ':memory:', runner: { async run() { return { text: 'standalone evidence', inputTokens: 1, outputTokens: 1 }; } } });
+  tmp.onCleanup(() => collab.shutdown());
+  const project = collab.createProject(person, { name: 'Standalone delivery' });
+  for (const agent of ['a1', 'peer']) collab.addAgent(person, project.id, agent);
+  const script = scriptedAdapter([{ calls: [{ id: 'blocking', name: 'consult_agent', args: { projectId: project.id, toAgent: 'peer', objective: 'inspect' } }] }]);
+  const fixture = turnFixture(script.adapter, { topK: 100, onExecution: () => { if (cancelBeforeEmission) abort.abort(); }, toolsForTurn: async request => {
+    const registry = new ToolRegistry();
+    for (const tool of collaborationTools({ collab, enabled: () => true, principal: () => person, authority: { approvals: { get: () => undefined }, grants: { get: () => undefined }, audit() {}, now: Date.now } }, request)) registry.register(tool);
+    return registry;
+  } }, tmp.make());
+  tmp.onCleanup(fixture.close);
+  const evidence: string[] = [];
+  const stream = fixture.provider.stream(turnRequest({ principal: person.userId, approver: { person: person.userId, surface: 1 }, signal: abort.signal }))[Symbol.asyncIterator]();
+  let failure: unknown;
+  try {
+    while (true) {
+      const next = await stream.next();
+      if (next.done) break;
+      if (next.value.type === 'tool.result' && next.value.output.includes('standalone evidence')) {
+        evidence.push(next.value.output);
+        if (!cancelBeforeEmission) break;
+      }
+    }
+  } catch (error) { failure = error; }
+  const closed = await stream.return!();
+  assert.equal(closed.done, true, 'closing after delivery must not yield a duplicate child result');
+  assert.equal(evidence.length, 1);
+  assert.equal(!!failure, cancelBeforeEmission);
+});

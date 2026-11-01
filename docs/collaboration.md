@@ -150,7 +150,10 @@ a handle and are not capped by the dispatcher's call limit.
 
 When the model finishes, all its children (including card-bound children) are joined until their own deadlines and previously uncollected results
 are emitted through the normal redaction and result-size boundary. User abort or a failed parent turn cancels them,
-preserving progress in the child trace. The starting turn collects each output once and closes its trace after all children settle. A card must belong to
+preserving progress in the child trace. The starting turn collects each output once and closes its trace after all children settle.
+Collection claims remain provisional until the dispatcher accepts the result and, for sessions, the transcript
+persists it. Cancellation or a withheld result releases the claim for the final join; competing collectors cannot
+deliver the same claim. Standalone provider streams commit when they emit the result. A card must belong to
 the authorized project and be assigned to the sending agent before work or review starts. A handoff acknowledgement
 cancels the sender's other unbound children before joining them, preserving their finished or partial results. The ordinary tool loop
 remains sequential: the children perform concurrent work after their nonblocking starts. No unrestricted parallel

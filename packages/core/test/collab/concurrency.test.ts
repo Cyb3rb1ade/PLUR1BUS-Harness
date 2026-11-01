@@ -556,3 +556,86 @@ for (const wait of [true, false]) test(`read-only delegate_task scope directs th
   assert.equal(consult.isError, false, JSON.stringify(consult));
   assert.equal(runs, 1);
 });
+
+for (const failed of [false, true]) for (const cancelled of [false, true]) test(`dispatcher acknowledges a completed blocking child only after acceptance: failed=${failed}, cancelled=${cancelled}`, async t => {
+  const completed = Promise.withResolvers<void>(), accept = Promise.withResolvers<void>();
+  t.after(() => accept.resolve());
+  const f = fixture(t, { runner: { async run(input) {
+    input.onProgress?.({ text: 'retained evidence', inputTokens: 1, outputTokens: 1 });
+    if (failed) throw new Error('worker failed');
+    return { text: 'retained evidence', inputTokens: 1, outputTokens: 1 };
+  } } });
+  const registry = new ToolRegistry();
+  for (const tool of f.registry.entries()) registry.register({ ...tool, async execute(args, context) {
+    try { return await tool.execute(args, context); }
+    finally {
+      // Pause at the real tool/dispatcher boundary after the child has settled.
+      completed.resolve();
+      await accept.promise;
+    }
+  } });
+  const abort = new AbortController();
+  const dispatcher = new ToolDispatcher({ registry, approvals: { async request() { throw new Error('unexpected approval'); } }, grants: { list: () => [], get: () => undefined }, clock: { now: Date.now } });
+  const pending = dispatcher.call({ id: 'acceptance-race', name: 'delegate_task', args: { projectId: f.project.id, toAgent: 'a', objective: 'finish work' } }, { ...f.context, signal: abort.signal });
+  await completed.promise;
+  if (cancelled) abort.abort(new Error('cancel before dispatcher acceptance'));
+  accept.resolve();
+  const result = await pending;
+  assert.equal(result.isError, cancelled || failed);
+  if (cancelled) { assert.ok(result.isError); assert.equal(result.error.code, 'aborted'); }
+  const joined = await f.request.delegations!.finish(true);
+  assert.equal(joined.length, cancelled ? 1 : 0);
+  if (cancelled && !failed) assert.match(joined[0]!.result!.summary, /retained evidence/);
+  if (cancelled && failed) assert.equal(joined[0]!.error!.code, 'invalid');
+  assert.deepEqual(await f.request.delegations!.finish(), []);
+  // Cancellation of delivery does not rewrite the completed worker's outcome.
+  assert.equal(f.collab.listTraces(owner(), f.project.id)[0]!.spans[0]!.status, failed ? 'failed' : 'succeeded');
+});
+
+for (const cancelled of [false, true]) test(`collection waits for dispatcher acceptance without losing or duplicating the child, cancelled=${cancelled}`, async t => {
+  const completed = Promise.withResolvers<void>(), accept = Promise.withResolvers<void>();
+  t.after(() => accept.resolve());
+  const f = fixture(t, { runner: { async run() { return { text: 'collected evidence', inputTokens: 1, outputTokens: 1 }; } } });
+  const started = await f.call('consult_agent', { projectId: f.project.id, toAgent: 'a', objective: 'inspect', wait: false });
+  assert.ok(!started.isError);
+  const taskId = (started.value as { taskId: string }).taskId;
+  const registry = new ToolRegistry();
+  for (const tool of f.registry.entries()) registry.register({ ...tool, async execute(args, context) {
+    const result = await tool.execute(args, context);
+    completed.resolve();
+    await accept.promise;
+    return result;
+  } });
+  const abort = new AbortController();
+  const dispatcher = new ToolDispatcher({ registry, approvals: { async request() { throw new Error('unexpected approval'); } }, grants: { list: () => [], get: () => undefined }, clock: { now: Date.now } });
+  const pending = dispatcher.call({ id: 'collect-race', name: 'await_delegations', args: { taskIds: [taskId], timeoutMs: 1000 } }, { ...f.context, signal: abort.signal });
+  await completed.promise;
+  const competing = await f.call('await_delegations', { taskIds: [taskId], timeoutMs: 0 });
+  assert.ok(!competing.isError);
+  assert.deepEqual((competing.value as { results: unknown[] }).results, [], 'an in-flight delivery owns its claim');
+  if (cancelled) abort.abort(new Error('cancel before collection acceptance'));
+  accept.resolve();
+  const output = await pending;
+  assert.equal(output.isError, cancelled);
+  const joined = await f.request.delegations!.finish(true);
+  assert.equal(joined.length, cancelled ? 1 : 0);
+  if (cancelled) assert.match(joined[0]!.result!.summary, /collected evidence/);
+  else assert.match(JSON.stringify(output), /collected evidence/);
+  assert.deepEqual(await f.request.delegations!.finish(), []);
+});
+
+test('a collection withheld by the dispatcher result limit releases its child claims', async t => {
+  const f = fixture(t, { runner: { async run() { return { text: 'bounded evidence', inputTokens: 1, outputTokens: 1 }; } } });
+  const started = await f.call('consult_agent', { projectId: f.project.id, toAgent: 'a', objective: 'inspect', wait: false });
+  assert.ok(!started.isError);
+  const registry = new ToolRegistry();
+  registry.register({ ...f.registry.get('await_delegations')!, limits: { maxResultBytes: 1 } });
+  const dispatcher = new ToolDispatcher({ registry, approvals: { async request() { throw new Error('unexpected approval'); } }, grants: { list: () => [], get: () => undefined }, clock: { now: Date.now } });
+  const output = await dispatcher.call({ id: 'limited', name: 'await_delegations', args: { taskIds: [(started.value as { taskId: string }).taskId], timeoutMs: 1000 } }, f.context);
+  assert.ok(output.isError);
+  assert.equal(output.error.code, 'tool-result-too-large');
+  const joined = await f.request.delegations!.finish();
+  assert.equal(joined.length, 1);
+  assert.match(joined[0]!.result!.summary, /bounded evidence/);
+  assert.deepEqual(await f.request.delegations!.finish(), []);
+});
