@@ -107,9 +107,13 @@ export class Run {
     return new ProviderError("network", `network failure: ${text}`, { cause: safeCause });
   }
 
-  /** Any thrown value → the taxonomy. A `ProviderError` we raised ourselves passes through untouched. */
+  /** Any thrown value → the taxonomy; a known local interruption takes precedence over a transport failure. */
   normalise(e: unknown): ProviderError {
-    if (e instanceof ProviderError) return this.#cause && e.kind === "network" ? this.interruption(e) : e;
+    // D122 AF1: a typed transport abort may be our own deadline, not a caller cancellation.
+    if (e instanceof ProviderError) {
+      if (this.#cause && (e.kind === "network" || e.kind === "aborted")) return this.interruption(e);
+      return e;
+    }
     return this.interruption(e);
   }
 
@@ -215,10 +219,64 @@ export function createChatCompletionsAdapter(config: ChatCompletionsConfig): Cha
     }
   }
 
+  async function* streamResponse(
+    req: ChatRequest, run: Run, res: Response, redact: (s: string) => string,
+  ): AsyncGenerator<ChatStreamEvent, void, void> {
+    const acc = new ChatAccumulator(redact, limits.maxToolArgumentBytes);
+    try {
+      const type = res.headers.get("content-type") ?? "";
+      if (/^application\/(\w+\+)?json\b/i.test(type)) {
+        // A 200 JSON body on a stream request: an error object some servers send in place of an SSE stream, else a server that ignored `stream`.
+        const text = await readText(res.body, run, limits.maxBodyBytes);
+        let json: unknown;
+        try { json = JSON.parse(text); } catch (cause) { throw protocolError("response body is not valid JSON", { cause }); }
+        if (isRecord(json) && json["error"] !== undefined && json["error"] !== null) throw classifyStreamError(json, redact);
+        throw protocolError("expected text/event-stream, got a JSON body");
+      }
+      if (!/^text\/event-stream\b/i.test(type)) throw protocolError(`expected text/event-stream, got "${redact(type.slice(0, 80))}"`);
+      if (!res.body) throw protocolError("response has no body");
+      const parser = new SseParser(limits.maxEventBytes);
+      let done = false;
+      const handle = function* (events: ReturnType<SseParser["push"]>): Generator<ChatStreamEvent> {
+        for (const ev of events) {
+          if (done) return;
+          if (ev.data === "[DONE]") { done = true; return; }
+          if (ev.data === "") continue; // an empty `data:` line is a keep-alive some servers send, not an error
+          let json: unknown;
+          try { json = JSON.parse(ev.data); } catch (cause) { throw protocolError("SSE data is not valid JSON", { cause }); }
+          yield* acc.push(json);
+        }
+      };
+      for await (const c of chunks(res.body, run, limits.maxBodyBytes)) {
+        yield* handle(parser.push(c));
+        if (done) break;
+      }
+      if (!done) {
+        yield* handle(parser.end());
+        // RULING: a stream that ends without [DONE] is truncated unless the adapter was told to accept a finished one.
+        if (!done && !(config.allowMissingDone && acc.finished)) throw protocolError("stream ended without [DONE]");
+      }
+      // RULING: the figure is cumulative and some servers repeat it, so exactly one `usage` follows `finish`, whatever the chunks carried.
+      if (acc.usage !== undefined) yield { type: "usage", usage: acc.usage };
+      yield { type: "done", result: await acc.finish(config.repair, req.tools, run.signal) };
+    } catch (e) {
+      const err = run.normalise(e);
+      if (err.partial === undefined && err.kind !== "auth" && !(err.kind === "invalid_request" && !err.contentFiltered)) err.partial = acc.snapshot();
+      throw err;
+    }
+  }
+
   return {
     async complete(req, opts) {
       const { run, res, redact } = await begin(req, opts, false);
       try {
+        // D122 AF1: fm may stream regardless of the requested mode; reuse all stream limits, repair and errors.
+        if (/^text\/event-stream\b/i.test(res.headers.get("content-type") ?? "")) {
+          for await (const event of streamResponse(req, run, res, redact)) {
+            if (event.type === "done") return event.result;
+          }
+          throw protocolError("stream produced no result");
+        }
         const text = await readText(res.body, run, limits.maxBodyBytes);
         let json: unknown;
         try { json = JSON.parse(text); } catch (cause) { throw protocolError("response body is not valid JSON", { cause }); }
@@ -232,47 +290,8 @@ export function createChatCompletionsAdapter(config: ChatCompletionsConfig): Cha
 
     async *stream(req, opts): AsyncGenerator<ChatStreamEvent, void, void> {
       const { run, res, redact } = await begin(req, opts, true);
-      const acc = new ChatAccumulator(redact, limits.maxToolArgumentBytes);
       try {
-        const type = res.headers.get("content-type") ?? "";
-        if (/^application\/(\w+\+)?json\b/i.test(type)) {
-          // A 200 JSON body on a stream request: an error object some servers send in place of an SSE stream, else a server that ignored `stream`.
-          const text = await readText(res.body, run, limits.maxBodyBytes);
-          let json: unknown;
-          try { json = JSON.parse(text); } catch (cause) { throw protocolError("response body is not valid JSON", { cause }); }
-          if (isRecord(json) && json["error"] !== undefined && json["error"] !== null) throw classifyStreamError(json, redact);
-          throw protocolError("expected text/event-stream, got a JSON body");
-        }
-        if (!/^text\/event-stream\b/i.test(type)) throw protocolError(`expected text/event-stream, got "${redact(type.slice(0, 80))}"`);
-        if (!res.body) throw protocolError("response has no body");
-        const parser = new SseParser(limits.maxEventBytes);
-        let done = false;
-        const handle = function* (events: ReturnType<SseParser["push"]>): Generator<ChatStreamEvent> {
-          for (const ev of events) {
-            if (done) return;
-            if (ev.data === "[DONE]") { done = true; return; }
-            if (ev.data === "") continue; // an empty `data:` line is a keep-alive some servers send, not an error
-            let json: unknown;
-            try { json = JSON.parse(ev.data); } catch (cause) { throw protocolError("SSE data is not valid JSON", { cause }); }
-            yield* acc.push(json);
-          }
-        };
-        for await (const c of chunks(res.body, run, limits.maxBodyBytes)) {
-          yield* handle(parser.push(c));
-          if (done) break;
-        }
-        if (!done) {
-          yield* handle(parser.end());
-          // RULING: a stream that ends without [DONE] is truncated unless the adapter was told to accept a finished one.
-          if (!done && !(config.allowMissingDone && acc.finished)) throw protocolError("stream ended without [DONE]");
-        }
-        // RULING: the figure is cumulative and some servers repeat it, so exactly one `usage` follows `finish`, whatever the chunks carried.
-        if (acc.usage !== undefined) yield { type: "usage", usage: acc.usage };
-        yield { type: "done", result: await acc.finish(config.repair, req.tools, run.signal) };
-      } catch (e) {
-        const err = run.normalise(e);
-        if (err.partial === undefined && err.kind !== "auth" && !(err.kind === "invalid_request" && !err.contentFiltered)) err.partial = acc.snapshot();
-        throw err;
+        yield* streamResponse(req, run, res, redact);
       } finally {
         run.dispose();
       }

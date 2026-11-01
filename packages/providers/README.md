@@ -32,7 +32,8 @@ tools, `toolChoice`, `parallelToolCalls`, `maxTokens`, `temperature`, `topP`, `s
 
 - **Streaming**: an incremental SSE parser (UTF-8 across chunks, CRLF/CR/LF, comments, `[DONE]`) and per-`index`
   assembly of tool-call deltas; usage from the final chunk. The stream and non-stream paths produce the same
-  `ChatResult` for the same turn.
+  `ChatResult` for the same turn. `complete()` still requests `stream: false`, but accepts a `text/event-stream`
+  response through that same parser, including tool repair, partial failures and all streaming limits (D122 AF1).
 - **Cache counts** (chat_completions): `cachedInputTokens` from `prompt_tokens_details.cached_tokens`, else DeepSeek's
   `prompt_cache_hit_tokens`, else Moonshot's legacy top-level `cached_tokens`; `cacheWriteTokens` from
   `prompt_tokens_details.cache_write_tokens` (OpenAI GPT-5.6+, OpenRouter, Moonshot K3), else Alibaba's
@@ -222,8 +223,8 @@ tool-call delta without `index` is refused; …). The PRs that introduced them l
 cd packages/providers && pnpm test      # or: node ../../scripts/test-package.mjs
 ```
 
-Only hand-made fixtures (`test/fixtures/`, `test/contract/fixtures/`, synthetic ids, no keys) and a local stub HTTP server on `127.0.0.1`;
-no live call, no network beyond loopback. Every test has a hard timeout.
+Only hand-made fixtures (`test/fixtures/`, `test/contract/fixtures/`, synthetic ids, no keys), a local stub HTTP server
+on `127.0.0.1`, or a managed Unix socket; no live call or network beyond loopback. Every test has a hard timeout.
 
 ## Router (`src/router/`)
 
@@ -243,6 +244,79 @@ config errors and a default profile; `strategy: "moa"` is validated but not exec
 - Discovery is short and bounded (1.5 s per request, 3 s overall); an unreachable server is `unavailable`, never an exception. `LocalEndpointMonitor` keeps a non-blocking cache; `guardLocalAdapter` makes a known-dead endpoint fail fast so the router falls back.
 - `createLocalChatAdapter(endpoint, createChatCompletionsAdapter)` builds the chat_completions adapter with `NO_AUTH` credentials (no `Authorization` header); credentials or auth headers in the config for a loopback endpoint are refused.
 
-Tests: `pnpm --filter @plur1bus/providers test` (fake loopback servers only). `test/contract/` runs one streaming
+### Managed Apple Foundation Models socket (D122 AF1)
+
+`createUnixFetch(socket, { guard })` uses `node:http` with `socketPath` and `agent: false`. Composition supplies
+`{ id: "apple-fm", path: <Layout socket path> }`; a provider endpoint names only `socket: "managed:apple-fm"`.
+This package does not resolve configuration paths, create directories, start `fm`, inspect licences or implement
+filesystem ownership policy. AF2 supplies that policy through `UnixSocketGuard.verify(socket)`, which returns
+`{ ok: true }` or `{ ok: false, reason: "socket-untrusted" | "socket-path-too-long" | "platform" }`.
+The guard must verify the supplied descriptor's private parent, ownership and socket type without following symlinks
+(design §3.3). Successful checks are cached for at most two seconds per fetch instance; refusals and exceptions are
+never cached. Guard exceptions are reduced to a fixed reason, without their text or cause. `now` and `platform`
+are injectable host facts; their defaults are the monotonic clock and `process.platform`.
+
+```ts
+import {
+  createChatCompletionsAdapter, createLocalChatAdapter, probeUnixEndpoint,
+} from "@plur1bus/providers";
+import type { ManagedUnixSocket, UnixSocketGuard } from "@plur1bus/providers";
+
+async function appleAdapter(socket: ManagedUnixSocket, guard: UnixSocketGuard) {
+  const endpoint = await probeUnixEndpoint(socket, { guard });
+  if (endpoint.state !== "ok") return endpoint;
+  return createLocalChatAdapter(endpoint, createChatCompletionsAdapter, undefined, { unix: { socket, guard } });
+}
+```
+
+The request surface is fixed: `http://apple-fm.invalid`, `GET /health`, `GET /v1/models` and
+`POST /v1/chat/completions`. Only `Accept` and `Content-Type` request headers are accepted. The transport sets
+`Host` and `Content-Length`; callers cannot supply routing or authentication headers. Redirect responses are
+returned without following them. There is no DNS lookup, TCP/proxy fallback, egress-policy call or connection pool.
+Windows is refused before any guard call or connection, with `ProviderError` kind `network`, code `platform` and
+`retryable: false`. Other socket failures are also non-retryable network errors, allowing router fallback.
+
+| Boundary | Limit |
+|---|---|
+| Socket path | Absolute, no NUL, at most 103 UTF-8 bytes; no alternate directory |
+| Request body | 1 MiB, enforced while reading, before guard or connection |
+| Connection establishment | 2 seconds; headers/idle/total use the caller's existing adapter deadlines |
+| Response headers | 16 KiB |
+| Response body | Health 64 KiB; models 1 MiB; chat 16 MiB, including SSE |
+| Probe | One 2-second default deadline across guard, health, models and both bodies |
+
+`probeUnixEndpoint()` requires exactly one Boolean `system.available` entry in `/health` and a `system` entry
+in `/v1/models`. Its result is `state: "ok"` or `"unavailable"`, with a fixed `reason` on failure; a health reason
+is optional and bounded to 200 characters. Only `system` is returned. An unavailable `pcc` does not block `system`,
+and an available `pcc` cannot make `system` available. Caller cancellation throws instead of becoming an observation.
+AF2 owns discovery reconciliation, the catalog and the `filtered_by_policy` warning.
+
+Unix mode in `createLocalChatAdapter()` always supplies `NO_AUTH` and its own transport; credentials, an extra
+`fetch`, a raw profile socket path or another base URL are construction errors. The factory must return a chat
+completions adapter. Both APIs refuse every model id except the exact wire id `system` with
+`invalid_request` / `model_not_allowed`, before guard or I/O. Images and every `reasoning` directive are also refused.
+Tools, forced choice, `parallel_tool_calls` and `json_schema` retain the existing wire encoding.
+
+AF0 observed that `max_tokens` was ineffective, so Unix mode uses `max_completion_tokens`. Usage is requested by
+default and remains absent when unreported. `[DONE]` is required by default; `allowMissingDone: true` tolerates its
+absence only after a finish reason. The native HTTP 500 transcript/context-size error maps to non-retryable
+`invalid_request` / `context_overflow`, as does that same error message in SSE. Other vendors' HTTP 5xx
+classification is unchanged.
+See the [AF0 native receipt](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/blob/7e2d0f8640981f8cfadf59134d14d86fb7ef2c28/docs/evidence/apple-fm/2026-11-01-probe-final.md)
+in independently reviewed PR #865.
+
+One inference may be active per managed adapter. A busy call gets a non-retryable `network` / `unavailable`
+refusal so the router can fall back; there is no hidden waiting queue. Probes can still run during inference.
+Caller abort, an adapter deadline, a mid-stream disconnect and early iteration exit close the owned socket and
+release capacity. The exact context-window guard and eligibility are AF2; sidecar supervision and production
+directory creation are AF3. This library alone does not enable an Apple provider in the product.
+
+Tests use `test/fixtures/fake-fm-serve.ts`: a real Unix socket deliberately mode 0755 under a private 0700 temporary
+directory, synthetic health/models and an always-streaming chat endpoint, tool/schema answers, optional usage/DONE,
+native overflow, hangs and controlled disconnects. Native socket cases run on POSIX; Windows runs the explicit
+platform-refusal tests. No test invokes real `fm`, `sudo` or licence commands. Run `pnpm --filter @plur1bus/providers test`.
+
+Tests: `pnpm --filter @plur1bus/providers test` (synthetic loopback HTTP and managed Unix servers).
+`test/contract/` runs one streaming
 contract (order: content → one `finish` → at most one `usage` → one `done`) over every adapter; its fixtures are
 synthetic reconstructions of the wire formats, not live captures. Docs: `docs/providers.md`.

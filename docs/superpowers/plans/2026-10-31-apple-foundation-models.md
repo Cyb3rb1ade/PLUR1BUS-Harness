@@ -4,7 +4,7 @@
 
 **Architecture.** Provider adapter, transport, discovery, privacy and guard extend existing TypeScript packages (`packages/providers`, `packages/core`, `packages/config-schema`), justified in spec AD10 (D120 path B, existing TypeScript, no new component). The `fm serve` sidecar slot, the doctor rows and the setup notice are supervisor and CLI work, so Rust, in `crates/plur1bus/src/supervisor/` and `crates/plur1bus/src/commands/`, following ADR-012's supervised-child model.
 
-**Status.** Decided 2026-11-01 (owner, "Specs nach Deinen Vorschlägen"); plan only, no product code. Q1–Q10 of spec §8 are decided as recommended, and so is the language split of AD10 (AF1, AF2, AF5 TypeScript; AF3, AF4 Rust); the decisions are the defaults used below. AF4 waits for D119's node bridge, AF5 for AF0 to AF3 and the §7.1 gate result.
+**Status.** Decided 2026-11-01 (owner, "Specs nach Deinen Vorschlägen"); AF1 provider library implemented (PS10, [validation](../../evidence/apple-fm/2026-11-01-af1-validation.md)); AF0 evidence is tracked in PR #865, AF2 to AF5 remain planned. Q1–Q10 of spec §8 are decided as recommended, and so is the language split of AD10 (AF1, AF2, AF5 TypeScript; AF3, AF4 Rust); the decisions are the defaults used below. AF4 waits for D119's node bridge, AF5 for AF0 to AF3 and the §7.1 gate result.
 
 **Constraints.**
 - No `sudo` by the harness or an agent, no password handling, no `fm license` run by any WP or test. The licence is accepted by the person in Terminal; code detects it (`fm license --status`) and shows `sudo fm license` as text.
