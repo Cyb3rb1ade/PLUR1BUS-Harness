@@ -8,6 +8,15 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Added
 
+- **Schema-owned configuration sensitivity (SH1).** Secret strings and references carry boolean `x-sensitive` metadata;
+  endpoint URLs use `x-url-credentials` for userinfo and query values. Coverage checks enforce explicit classifications
+  and public exceptions. Shared helpers extract only credential-bearing URL parts, and TypeScript validation reports
+  value-free userinfo warnings without rejecting or rewriting existing URLs. The complete key reference is generated
+  with both annotations. Supported Engine credentials, headers and URLs have nonvalidating metadata that preserves
+  opaque pass-through validation and the Engine contract. Complete browser policy metadata stays separate from editable
+  settings; it creates no Engine controls or navigation targets. The palette respects both policy flags to protect
+  secret values and endpoint credentials; the complete consumer migration follows in SH2.
+
 - **A store with data moves to another embedding model end to end (engine pin 9f34008c, contract 1.17.0).**
   `@cyb3rb1ade/plur1bus-memory` is pinned to plugin PR #275, which exposes `admin.reembedding.validate`; `CORE_CONTRACT` is
   1.17.0. `plur1bus memory reembed --run` and `plur1bus config set engine.embedding…` (foreground or `--background`) no longer

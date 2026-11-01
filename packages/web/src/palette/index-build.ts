@@ -24,19 +24,20 @@ export function humanize(key: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-const scalar = (v: unknown): string | null =>
-  typeof v === "string" ? maskUrlSecrets(v) : typeof v === "number" || typeof v === "boolean" ? String(v) : null;
+const scalar = (v: unknown, urlCredentials = false): string | null =>
+  typeof v === "string" ? maskUrlSecrets(v, urlCredentials) : typeof v === "number" || typeof v === "boolean" ? String(v) : null;
 
 /** Text values of the catalogued settings from a `config.get` value (the whole configuration). Objects and null are skipped, a list of
  * scalars is joined, and sensitive keys are never read. Anything that is not an object gives {}. */
 export function settingValues(config: unknown, settings: readonly SettingSpec[] = SETTINGS): Record<string, string> {
   const out: Record<string, string> = {};
   if (typeof config !== "object" || config === null) return out;
-  for (const { key } of settings) {
-    if (isSensitiveKey(key)) continue;
+  for (const { key, sensitive, urlCredentials } of settings) {
+    if (sensitive || isSensitiveKey(key)) continue;
     let at: unknown = config;
     for (const seg of key.split(".")) at = typeof at === "object" && at !== null ? (at as Record<string, unknown>)[seg] : undefined;
-    const text = Array.isArray(at) ? (at.every((x) => scalar(x) !== null) && at.length > 0 ? at.map((x) => String(x)).join(", ") : null) : scalar(at);
+    const parts = Array.isArray(at) ? at.map(value => scalar(value, urlCredentials)) : [];
+    const text = Array.isArray(at) ? (parts.length > 0 && parts.every(value => value !== null) ? parts.join(", ") : null) : scalar(at, urlCredentials);
     if (text !== null) out[key] = text;
   }
   return out;
@@ -121,8 +122,8 @@ export function buildIndex({ lang, values, settings = SETTINGS, role }: BuildOpt
   }));
   const actions: Entry[] = ACTIONS.map((a) => ({ id: `action:${a.id}`, group: "action", ...both(a.label), key: a.to, to: a.to, ...(a.roles ? { roles: a.roles } : {}) }));
   const set: Entry[] = settings.map((s) => {
-    const raw = isSensitiveKey(s.key) ? undefined : values?.[s.key];
-    const value = raw === undefined ? undefined : maskUrlSecrets(raw);
+    const raw = s.sensitive || isSensitiveKey(s.key) ? undefined : values?.[s.key];
+    const value = raw === undefined ? undefined : maskUrlSecrets(raw, s.urlCredentials);
     const label = humanize(s.key);
     return {
       id: `setting:${s.key}`, group: "setting", label, labels: [label], key: s.key, to: settingsHref(s.key),

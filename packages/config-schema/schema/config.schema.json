@@ -319,7 +319,8 @@
             "type": "string",
             "maxLength": 2048,
             "format": "uri",
-            "pattern": "^(https?|valkey|redis)://[^/@#]+(?:/[^#]*)?$"
+            "pattern": "^(https?|valkey|redis)://[^/@#]+(?:/[^#]*)?$",
+            "x-url-credentials": true
           },
           "caBundle": {
             "description": "Optional PEM trust bundle for the remote HTTPS host.",
@@ -391,7 +392,7 @@
         ]
       }
     },
-    "remote": {"type": "object", "additionalProperties": false, "default": {}, "description": "Remote listeners: tailnet by default, network requires TLS and an audited notice acknowledgment.", "properties": {"publish": {"type": "string", "enum": ["local", "tailnet", "network"], "default": "tailnet", "x-restart": "core", "x-tier": "advanced", "description": "Exposure mode; tailnet by default, network requires TLS and notice confirmation.", "x-write-roles": ["owner", "admin"], "x-audit": true}, "tls": {"type": "string", "enum": ["self-signed", "company-ca"], "default": "self-signed", "x-restart": "core", "x-tier": "advanced", "description": "TLS material source for the network listener.", "x-write-roles": ["owner", "admin"], "x-audit": true}, "publicOrigin": {"type": "string", "maxLength": 512, "x-restart": "core", "x-tier": "advanced", "description": "Exact HTTPS origin advertised to remote clients and used for Origin and RP validation.", "x-write-roles": ["owner", "admin"], "x-audit": true}, "bind": {"type": "object", "additionalProperties": false, "default": {}, "properties": {"address": {"type": "string", "maxLength": 128, "x-restart": "core", "x-tier": "advanced", "description": "Literal interface IP for the network TLS listener.", "x-write-roles": ["owner", "admin"], "x-audit": true}, "port": {"type": "integer", "minimum": 1024, "maximum": 65535, "x-restart": "core", "x-tier": "advanced", "description": "Network TLS listener port.", "x-write-roles": ["owner", "admin"], "x-audit": true}, "allowPublicInterface": {"type": "boolean", "default": false, "x-restart": "core", "x-tier": "advanced", "description": "Explicit permission to bind an interface with a publicly routable address.", "x-write-roles": ["owner", "admin"], "x-audit": true}}, "x-restart": "core", "x-tier": "advanced", "description": "Network TLS listener address and port.", "x-write-roles": ["owner", "admin"], "x-audit": true}, "allowSubnets": {"type": "array", "default": [], "maxItems": 64, "items": {"type": "string", "maxLength": 64}, "x-restart": "core", "x-tier": "advanced", "description": "Client CIDRs matched against the actual network socket before TLS.", "x-write-roles": ["owner", "admin"], "x-audit": true}, "noticeAck": {"type": "object", "additionalProperties": false, "required": ["by", "at", "version"], "properties": {"by": {"type": "string", "minLength": 1, "maxLength": 128, "x-restart": "core", "x-tier": "advanced", "description": "Authenticated person who confirmed the network security notice.", "x-write-roles": ["owner", "admin"], "x-audit": true}, "at": {"type": "integer", "minimum": 0, "maximum": 8640000000000000, "x-restart": "core", "x-tier": "advanced", "description": "Confirmation time in epoch milliseconds.", "x-write-roles": ["owner", "admin"], "x-audit": true}, "version": {"type": "integer", "const": 1, "x-restart": "core", "x-tier": "advanced", "description": "Security notice text version confirmed by this person.", "x-write-roles": ["owner", "admin"], "x-audit": true}}, "x-restart": "core", "x-tier": "advanced", "description": "Audited identity, time and current version of the explicit security notice confirmation.", "x-write-roles": ["owner", "admin"], "x-audit": true}}, "x-restart": "core", "x-tier": "advanced"},
+    "remote": {"type": "object", "additionalProperties": false, "default": {}, "description": "Remote listeners: tailnet by default, network requires TLS and an audited notice acknowledgment.", "properties": {"publish": {"type": "string", "enum": ["local", "tailnet", "network"], "default": "tailnet", "x-restart": "core", "x-tier": "advanced", "description": "Exposure mode; tailnet by default, network requires TLS and notice confirmation.", "x-write-roles": ["owner", "admin"], "x-audit": true}, "tls": {"type": "string", "enum": ["self-signed", "company-ca"], "default": "self-signed", "x-restart": "core", "x-tier": "advanced", "description": "TLS material source for the network listener.", "x-write-roles": ["owner", "admin"], "x-audit": true}, "publicOrigin": {"type": "string", "maxLength": 512, "x-restart": "core", "x-tier": "advanced", "description": "Exact HTTPS origin advertised to remote clients and used for Origin and RP validation.", "x-write-roles": ["owner", "admin"], "x-audit": true, "x-url-credentials": true}, "bind": {"type": "object", "additionalProperties": false, "default": {}, "properties": {"address": {"type": "string", "maxLength": 128, "x-restart": "core", "x-tier": "advanced", "description": "Literal interface IP for the network TLS listener.", "x-write-roles": ["owner", "admin"], "x-audit": true}, "port": {"type": "integer", "minimum": 1024, "maximum": 65535, "x-restart": "core", "x-tier": "advanced", "description": "Network TLS listener port.", "x-write-roles": ["owner", "admin"], "x-audit": true}, "allowPublicInterface": {"type": "boolean", "default": false, "x-restart": "core", "x-tier": "advanced", "description": "Explicit permission to bind an interface with a publicly routable address.", "x-write-roles": ["owner", "admin"], "x-audit": true}}, "x-restart": "core", "x-tier": "advanced", "description": "Network TLS listener address and port.", "x-write-roles": ["owner", "admin"], "x-audit": true}, "allowSubnets": {"type": "array", "default": [], "maxItems": 64, "items": {"type": "string", "maxLength": 64}, "x-restart": "core", "x-tier": "advanced", "description": "Client CIDRs matched against the actual network socket before TLS.", "x-write-roles": ["owner", "admin"], "x-audit": true}, "noticeAck": {"type": "object", "additionalProperties": false, "required": ["by", "at", "version"], "properties": {"by": {"type": "string", "minLength": 1, "maxLength": 128, "x-restart": "core", "x-tier": "advanced", "description": "Authenticated person who confirmed the network security notice.", "x-write-roles": ["owner", "admin"], "x-audit": true}, "at": {"type": "integer", "minimum": 0, "maximum": 8640000000000000, "x-restart": "core", "x-tier": "advanced", "description": "Confirmation time in epoch milliseconds.", "x-write-roles": ["owner", "admin"], "x-audit": true}, "version": {"type": "integer", "const": 1, "x-restart": "core", "x-tier": "advanced", "description": "Security notice text version confirmed by this person.", "x-write-roles": ["owner", "admin"], "x-audit": true}}, "x-restart": "core", "x-tier": "advanced", "description": "Audited identity, time and current version of the explicit security notice confirmation.", "x-write-roles": ["owner", "admin"], "x-audit": true}}, "x-restart": "core", "x-tier": "advanced"},
     "$schema": { "description": "URI identifying the JSON Schema used to validate this configuration.", "type": "string", "maxLength": 2048, "x-restart": "live", "x-tier": "advanced" },
     "activity": { "type": "object", "additionalProperties": false, "default": {}, "description": "In-process agent activity history; cleared at core restart.", "properties": { "maxEntries": { "type": "integer", "minimum": 200, "maximum": 100000, "default": 1000, "x-tier": "advanced", "x-restart": "core", "description": "Maximum retained agent activity transitions." } } },
     "schemaVersion": { "description": "Configuration format version; this schema supports version 1.", "const": 1, "x-restart": "core", "x-tier": "advanced" },
@@ -574,7 +575,7 @@
       "description": "Settings for the core process, including logging, memory operation budgets, and shutdown.",
       "type": "object", "additionalProperties": false, "default": {},
       "properties": {
-        "webHandoffBaseUrl": {"type": "string", "default": "", "maxLength": 2048, "description": "Explicit Web UI address for external channel continuation links. Empty disables /web links; HTTPS except loopback HTTP. No credentials, query or fragment.", "x-restart": "live", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "pattern": "^(?:$|https://[^/?#@]+(?:/[^?#]*)?|http://(?:127\\.0\\.0\\.1|\\[::1\\]|localhost)(?::[0-9]{1,5})?(?:/[^?#]*)?)$"},
+        "webHandoffBaseUrl": {"type": "string", "default": "", "maxLength": 2048, "description": "Explicit Web UI address for external channel continuation links. Empty disables /web links; HTTPS except loopback HTTP. No credentials, query or fragment.", "x-restart": "live", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "pattern": "^(?:$|https://[^/?#@]+(?:/[^?#]*)?|http://(?:127\\.0\\.0\\.1|\\[::1\\]|localhost)(?::[0-9]{1,5})?(?:/[^?#]*)?)$", "x-url-credentials": true},
         "logLevel": { "description": "Minimum severity written to the core log.", "enum": ["debug", "info", "warn", "error"], "default": "info", "x-restart": "live", "x-tier": "advanced" },
         "recall": {
           "description": "Time and response-size limits for memory recall.",
@@ -1282,7 +1283,7 @@
             "mediaEmbedding": {"description": "Per-agent override of the media index settings; unset keys inherit the installation values.", "type": "object", "additionalProperties": false, "x-restart": "core", "x-tier": "basic", "properties": {
               "enabled": {"description": "Whether the separate media index (image, video, audio) is used.", "type": "boolean", "x-restart": "core", "x-tier": "basic"},
               "provider": {"description": "Embedding provider id for the media index, or \"off\". Chosen independently of the text embedding provider.", "type": "string", "maxLength": 128, "x-restart": "core", "x-tier": "basic"},
-              "privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}},
+              "privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048, "x-url-credentials": true}}},
               "model": {"description": "Model id used for the media index; the same model may serve text and media, the indexes stay separate.", "type": "string", "maxLength": 256, "x-restart": "core", "x-tier": "basic"},
               "dimensions": {"description": "Vector dimensions of the media index; must be supported by the model (EmbeddingGemma: 768, 512, 256 or 128).", "type": "integer", "minimum": 1, "maximum": 16384, "x-restart": "core", "x-tier": "advanced"},
               "modalities": {"description": "Media kinds that are indexed.", "type": "array", "items": {"type": "string", "enum": ["image", "video", "audio"], "description": "One media kind."}, "uniqueItems": true, "minItems": 1, "maxItems": 3, "x-restart": "core", "x-tier": "basic"},
@@ -1298,7 +1299,7 @@
               "caption": {"description": "Captions: one text entry per medium in the text index, written by the prompt, the user or an automatic captioner.", "type": "object", "additionalProperties": false, "properties": {
                 "source": {"description": "Caption order: generation prompt, then user caption or alt text, then automatic captioning; user-only skips automatic captions; off disables captions.", "type": "string", "enum": ["prompt-then-user-then-auto", "user-only", "off"], "x-restart": "core", "x-tier": "advanced"},
                 "provider": {"description": "Caption provider id, or \"off\". Unset means local when the media embedding is local; with a cloud embedding setup asks.", "type": "string", "maxLength": 128, "x-restart": "core", "x-tier": "advanced"},
-                "privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}},
+                "privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048, "x-url-credentials": true}}},
                 "maxChars": {"description": "Maximum caption length in characters.", "type": "integer", "minimum": 20, "maximum": 10000, "x-restart": "core", "x-tier": "advanced"},
                 "perSegment": {"description": "Whether video and audio get one caption per segment instead of one per medium.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"}
               }},
@@ -1406,12 +1407,12 @@
       }
     },
     "memory": {"description": "Memory settings that the harness owns; the media index is separate from the text index.", "type": "object", "additionalProperties": false, "default": {}, "properties": {
-      "embedding": {"description": "Text embedding privacy acknowledgment: a remote engine embedding provider (engine.embedding with a non-loopback endpoint) needs it, bound to provider and endpoint.", "type": "object", "additionalProperties": false, "properties": {"privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}}}},
-      "reranker": {"description": "Reranker privacy acknowledgment: a remote engine reranker (engine.reranker, e.g. Cohere) receives the recalled memory texts and needs it, bound to provider and endpoint.", "type": "object", "additionalProperties": false, "properties": {"privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}}}},
+      "embedding": {"description": "Text embedding privacy acknowledgment: a remote engine embedding provider (engine.embedding with a non-loopback endpoint) needs it, bound to provider and endpoint.", "type": "object", "additionalProperties": false, "properties": {"privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048, "x-url-credentials": true}}}}},
+      "reranker": {"description": "Reranker privacy acknowledgment: a remote engine reranker (engine.reranker, e.g. Cohere) receives the recalled memory texts and needs it, bound to provider and endpoint.", "type": "object", "additionalProperties": false, "properties": {"privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048, "x-url-credentials": true}}}}},
       "mediaEmbedding": {"description": "Media index (image, video, audio) with its own provider, independent of the text embedding. Captions land in the text index.", "type": "object", "additionalProperties": false, "default": {}, "x-restart": "core", "x-tier": "basic", "properties": {
         "enabled": {"description": "Whether the separate media index (image, video, audio) is used.", "type": "boolean", "default": true, "x-restart": "core", "x-tier": "basic"},
         "provider": {"description": "Embedding provider id for the media index, or \"off\". Chosen independently of the text embedding provider.", "type": "string", "maxLength": 128, "default": "local-transformers", "x-restart": "core", "x-tier": "basic"},
-        "privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}},
+        "privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048, "x-url-credentials": true}}},
         "model": {"description": "Model id used for the media index; the same model may serve text and media, the indexes stay separate.", "type": "string", "maxLength": 256, "default": "google/embeddinggemma-2", "x-restart": "core", "x-tier": "basic"},
         "dimensions": {"description": "Vector dimensions of the media index; must be supported by the model (EmbeddingGemma: 768, 512, 256 or 128).", "type": "integer", "minimum": 1, "maximum": 16384, "default": 768, "x-restart": "core", "x-tier": "advanced"},
         "modalities": {"description": "Media kinds that are indexed.", "type": "array", "items": {"type": "string", "enum": ["image", "video", "audio"], "description": "One media kind."}, "uniqueItems": true, "minItems": 1, "maxItems": 3, "default": ["image", "video", "audio"], "x-restart": "core", "x-tier": "basic"},
@@ -1427,7 +1428,7 @@
         "caption": {"description": "Captions: one text entry per medium in the text index, written by the prompt, the user or an automatic captioner.", "type": "object", "additionalProperties": false, "default": {}, "properties": {
           "source": {"description": "Caption order: generation prompt, then user caption or alt text, then automatic captioning; user-only skips automatic captions; off disables captions.", "type": "string", "enum": ["prompt-then-user-then-auto", "user-only", "off"], "default": "prompt-then-user-then-auto", "x-restart": "core", "x-tier": "advanced"},
           "provider": {"description": "Caption provider id, or \"off\". Unset means local when the media embedding is local; with a cloud embedding setup asks.", "type": "string", "maxLength": 128, "x-restart": "core", "x-tier": "advanced"},
-          "privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}},
+          "privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "maxLength": 64, "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048, "x-url-credentials": true}}},
           "maxChars": {"description": "Maximum caption length in characters.", "type": "integer", "minimum": 20, "maximum": 10000, "default": 280, "x-restart": "core", "x-tier": "advanced"},
           "perSegment": {"description": "Whether video and audio get one caption per segment instead of one per medium.", "type": "boolean", "default": false, "x-restart": "core", "x-tier": "advanced"}
         }},
@@ -1437,11 +1438,496 @@
     "engine": {
       "description": "Pass-through to the engine's EngineConfig (57 keys, see docs/config-engine-keys.md). Every key here is class core until the engine declares readAt: live (engine PR E5).",
       "type": "object", "default": {}, "x-restart": "core", "x-tier": "advanced",
+      "x-value-schema": {
+        "type": "object",
+        "properties": {
+          "embedding": {
+            "type": "object",
+            "properties": {
+              "apiKey": {
+                "type": [
+                  "string",
+                  "object"
+                ],
+                "x-sensitive": true,
+                "additionalProperties": false,
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "env",
+                      "store",
+                      "file",
+                      "exec"
+                    ]
+                  },
+                  "provider": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+              },
+              "fallback": {
+                "type": "object",
+                "properties": {
+                  "apiKey": {
+                    "type": [
+                      "string",
+                      "object"
+                    ],
+                    "x-sensitive": true,
+                    "additionalProperties": false,
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "env",
+                          "store",
+                          "file",
+                          "exec"
+                        ]
+                      },
+                      "provider": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "x-url-credentials": true,
+                    "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                  }
+                }
+              },
+              "apiKeyRef": {
+                "type": "string",
+                "x-sensitive": true,
+                "description": "Secret-store reference for an Engine credential."
+              },
+              "apiKeyEnv": {
+                "type": "string",
+                "x-sensitive": true,
+                "description": "Environment reference for an Engine credential."
+              },
+              "baseUrl": {
+                "type": "string",
+                "x-url-credentials": true,
+                "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+              },
+              "routes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "object",
+                      "properties": {
+                        "apiKey": {
+                          "type": [
+                            "string",
+                            "object"
+                          ],
+                          "x-sensitive": true,
+                          "additionalProperties": false,
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "enum": [
+                                "env",
+                                "store",
+                                "file",
+                                "exec"
+                              ]
+                            },
+                            "provider": {
+                              "type": "string"
+                            },
+                            "id": {
+                              "type": "string"
+                            }
+                          },
+                          "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                        },
+                        "apiKeyRef": {
+                          "type": "string",
+                          "x-sensitive": true,
+                          "description": "Secret-store reference for an Engine credential."
+                        },
+                        "apiKeyEnv": {
+                          "type": "string",
+                          "x-sensitive": true,
+                          "description": "Environment reference for an Engine credential."
+                        },
+                        "baseUrl": {
+                          "type": "string",
+                          "x-url-credentials": true,
+                          "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                        },
+                        "fallback": {
+                          "type": "object",
+                          "properties": {
+                            "apiKey": {
+                              "type": [
+                                "string",
+                                "object"
+                              ],
+                              "x-sensitive": true,
+                              "additionalProperties": false,
+                              "properties": {
+                                "source": {
+                                  "type": "string",
+                                  "enum": [
+                                    "env",
+                                    "store",
+                                    "file",
+                                    "exec"
+                                  ]
+                                },
+                                "provider": {
+                                  "type": "string"
+                                },
+                                "id": {
+                                  "type": "string"
+                                }
+                              },
+                              "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                            },
+                            "baseUrl": {
+                              "type": "string",
+                              "x-url-credentials": true,
+                              "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "reranker": {
+            "type": "object",
+            "properties": {
+              "apiKey": {
+                "type": [
+                  "string",
+                  "object"
+                ],
+                "x-sensitive": true,
+                "additionalProperties": false,
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "env",
+                      "store",
+                      "file",
+                      "exec"
+                    ]
+                  },
+                  "provider": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+              },
+              "apiKeyRef": {
+                "type": "string",
+                "x-sensitive": true,
+                "description": "Secret-store reference for an Engine credential."
+              },
+              "apiKeyEnv": {
+                "type": "string",
+                "x-sensitive": true,
+                "description": "Environment reference for an Engine credential."
+              },
+              "baseUrl": {
+                "type": "string",
+                "x-url-credentials": true,
+                "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+              }
+            }
+          },
+          "merging": {
+            "type": "object",
+            "properties": {
+              "apiKey": {
+                "type": [
+                  "string",
+                  "object"
+                ],
+                "x-sensitive": true,
+                "additionalProperties": false,
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "env",
+                      "store",
+                      "file",
+                      "exec"
+                    ]
+                  },
+                  "provider": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+              },
+              "apiKeyRef": {
+                "type": "string",
+                "x-sensitive": true,
+                "description": "Secret-store reference for an Engine credential."
+              },
+              "headers": {
+                "type": "object",
+                "x-sensitive": true,
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Engine transport headers; string values are sensitive. This metadata does not restrict the existing pass-through values."
+              },
+              "baseUrl": {
+                "type": "string",
+                "x-url-credentials": true,
+                "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+              }
+            }
+          },
+          "skillMiner": {
+            "type": "object",
+            "properties": {
+              "apiKey": {
+                "type": [
+                  "string",
+                  "object"
+                ],
+                "x-sensitive": true,
+                "additionalProperties": false,
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "env",
+                      "store",
+                      "file",
+                      "exec"
+                    ]
+                  },
+                  "provider": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+              },
+              "apiKeyRef": {
+                "type": "string",
+                "x-sensitive": true,
+                "description": "Secret-store reference for an Engine credential."
+              },
+              "headers": {
+                "type": "object",
+                "x-sensitive": true,
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Engine transport headers; string values are sensitive. This metadata does not restrict the existing pass-through values."
+              },
+              "baseUrl": {
+                "type": "string",
+                "x-url-credentials": true,
+                "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+              }
+            }
+          },
+          "criticalPush": {
+            "type": "object",
+            "properties": {
+              "apiKey": {
+                "type": [
+                  "string",
+                  "object"
+                ],
+                "x-sensitive": true,
+                "additionalProperties": false,
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "env",
+                      "store",
+                      "file",
+                      "exec"
+                    ]
+                  },
+                  "provider": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+              },
+              "apiKeyRef": {
+                "type": "string",
+                "x-sensitive": true,
+                "description": "Secret-store reference for an Engine credential."
+              },
+              "headers": {
+                "type": "object",
+                "x-sensitive": true,
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Engine transport headers; string values are sensitive. This metadata does not restrict the existing pass-through values."
+              },
+              "baseUrl": {
+                "type": "string",
+                "x-url-credentials": true,
+                "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+              }
+            }
+          },
+          "emotion": {
+            "type": "object",
+            "properties": {
+              "t3": {
+                "type": "object",
+                "properties": {
+                  "apiKey": {
+                    "type": [
+                      "string",
+                      "object"
+                    ],
+                    "x-sensitive": true,
+                    "additionalProperties": false,
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "env",
+                          "store",
+                          "file",
+                          "exec"
+                        ]
+                      },
+                      "provider": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                  },
+                  "apiKeyRef": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "description": "Secret-store reference for an Engine credential."
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "x-url-credentials": true,
+                    "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                  }
+                }
+              }
+            }
+          },
+          "captureChunkingJev": {
+            "type": "object",
+            "properties": {
+              "apiKeyEnv": {
+                "type": "string",
+                "x-sensitive": true,
+                "description": "Environment reference for an Engine credential."
+              }
+            }
+          },
+          "reminders": {
+            "type": "object",
+            "properties": {
+              "webhookUrl": {
+                "type": "string",
+                "x-sensitive": true,
+                "description": "Engine reminder webhook; the complete URL is sensitive because its path may carry the credential."
+              }
+            }
+          }
+        }
+      },
       "properties": {
         "implementation": { "description": "Memory engine implementation. Rust is experimental and requires the separately running engine process; unavailable engines leave the Core running and recall reports engine-unavailable.", "type": "string", "enum": ["node", "rust"], "default": "node", "x-restart": "core", "x-tier": "advanced" },
         "schicht15": {
           "description": "Curated knowledge promotion settings passed to the Engine.",
           "type": "object", "additionalProperties": true, "x-restart": "core", "x-tier": "advanced",
+          "x-value-schema": {
+            "type": "object",
+            "properties": {
+              "apiKey": {
+                "type": [
+                  "string",
+                  "object"
+                ],
+                "x-sensitive": true,
+                "additionalProperties": false,
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "env",
+                      "store",
+                      "file",
+                      "exec"
+                    ]
+                  },
+                  "provider": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+              },
+              "apiKeyRef": {
+                "type": "string",
+                "x-sensitive": true,
+                "description": "Secret-store reference for an Engine credential."
+              },
+              "headers": {
+                "type": "object",
+                "x-sensitive": true,
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Engine transport headers; string values are sensitive. This metadata does not restrict the existing pass-through values."
+              },
+              "baseUrl": {
+                "type": "string",
+                "x-url-credentials": true,
+                "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+              }
+            }
+          },
           "properties": {
             "maxPromotionsPerRun": {
               "description": "Maximum memories promoted by one knowledge-update run; 0 means unlimited.",
@@ -1615,7 +2101,8 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 128,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+              "x-sensitive": true
             },
             "kid": {
               "description": "Key identifier for the signing key.",
@@ -1733,7 +2220,8 @@
                   "description": "File holding the federated token and its expiry, re-read on refresh. Mutually exclusive with command.",
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 4096
+                  "maxLength": 4096,
+                  "x-sensitive": true
                 },
                 "args": {
                   "description": "Arguments passed to command, one array element per argument (no shell interpolation).",
@@ -1741,7 +2229,8 @@
                   "maxItems": 128,
                   "items": {
                     "type": "string",
-                    "maxLength": 4096
+                    "maxLength": 4096,
+                    "x-sensitive": true
                   },
                   "default": []
                 },
@@ -1756,7 +2245,8 @@
                     "type": "string",
                     "maxLength": 32767
                   },
-                  "default": {}
+                  "default": {},
+                  "x-sensitive": true
                 }
               },
               "not": {
@@ -1814,7 +2304,8 @@
                   "maxLength": 128,
                   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                   "x-restart": "live",
-                  "x-tier": "advanced"
+                  "x-tier": "advanced",
+                  "x-sensitive": true
                 }
               },
               "x-restart": "live",
@@ -1848,7 +2339,8 @@
                   "maxLength": 256,
                   "pattern": "^https?://(?:127(?:\\.[0-9]{1,3}){3}|\\[::1\\])(?::[0-9]{1,5})?/v1/systemone$",
                   "x-restart": "live",
-                  "x-tier": "advanced"
+                  "x-tier": "advanced",
+                  "x-url-credentials": true
                 }
               },
               "allOf": [
@@ -2242,7 +2734,8 @@
           "description": "Self-hosted model servers outside loopback that count as local for privacy.localOnly (for example your own Ollama or vLLM server in the home network), as exact origins scheme://host[:port]. LAN addresses are not local unless listed here.",
           "type": "array", "maxItems": 32, "uniqueItems": true, "default": [],
           "items": { "type": "string", "minLength": 8, "maxLength": 256, "pattern": "^https?://[^/?#@\\s]+/?$" },
-          "x-restart": "live", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true
+          "x-restart": "live", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true,
+          "x-url-credentials": true
         }
       }
     },
@@ -2388,7 +2881,8 @@
               "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
               "default": "channels.discord.token",
               "x-restart": "module:discord",
-              "x-tier": "advanced"
+              "x-tier": "advanced",
+              "x-sensitive": true
             },
             "applicationId": {
               "description": "Discord application id (needed to register slash commands). Taken from the gateway READY event when omitted.",
@@ -2514,7 +3008,8 @@
               "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
               "default": "channels.slack.bot-token",
               "x-restart": "module:slack",
-              "x-tier": "advanced"
+              "x-tier": "advanced",
+              "x-sensitive": true
             },
             "appTokenSecret": {
               "description": "Name of the secret holding the Slack app-level token (xapp-…) with the connections:write scope, used for Socket Mode.",
@@ -2522,7 +3017,8 @@
               "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
               "default": "channels.slack.app-token",
               "x-restart": "module:slack",
-              "x-tier": "advanced"
+              "x-tier": "advanced",
+              "x-sensitive": true
             },
             "teamId": {
               "description": "Slack workspace id; events from other workspaces are ignored when set.",
@@ -2604,7 +3100,7 @@
             }
           }
         },
-        "buzz": {"type": "object", "default": {}, "description": "NIP-17 text-only direct messages. Disabled by default.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "additionalProperties": false, "properties": {"enabled": {"type": "boolean", "default": false, "description": "Start Buzz.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true}, "relays": {"type": "array", "default": [], "description": "Permitted wss relays; ws only for literal loopback.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "maxItems": 16, "uniqueItems": true, "items": {"type": "string", "maxLength": 2048}}, "privateKeySecret": {"type": "string", "maxLength": 128, "default": "channels.buzz.private-key", "description": "Name of the secret holding the Buzz private key; never the key itself.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "pattern": "^channels\\.buzz\\.[a-zA-Z0-9._-]+$"}, "senderAllowlist": {"type": "array", "default": [], "description": "Allowed hex or npub sender keys.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "maxItems": 256, "uniqueItems": true, "items": {"type": "string", "maxLength": 128}}, "locale": {"type": "string", "default": "en", "description": "Local command language.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "enum": ["de", "en"]}}},
+        "buzz": {"type": "object", "default": {}, "description": "NIP-17 text-only direct messages. Disabled by default.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "additionalProperties": false, "properties": {"enabled": {"type": "boolean", "default": false, "description": "Start Buzz.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true}, "relays": {"type": "array", "default": [], "description": "Permitted wss relays; ws only for literal loopback.", "x-url-credentials": true, "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "maxItems": 16, "uniqueItems": true, "items": {"type": "string", "maxLength": 2048}}, "privateKeySecret": {"type": "string", "maxLength": 128, "default": "channels.buzz.private-key", "description": "Name of the secret holding the Buzz private key; never the key itself.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "pattern": "^channels\\.buzz\\.[a-zA-Z0-9._-]+$", "x-sensitive": true}, "senderAllowlist": {"type": "array", "default": [], "description": "Allowed hex or npub sender keys.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "maxItems": 256, "uniqueItems": true, "items": {"type": "string", "maxLength": 128}}, "locale": {"type": "string", "default": "en", "description": "Local command language.", "x-restart": "module:buzz", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "enum": ["de", "en"]}}},
         "matrix": {
           "description": "Matrix channel adapter (client-server API, sync loop, reactions as approvals). Rooms with end-to-end encryption are refused in this version.",
           "type": "object",
@@ -2625,7 +3121,8 @@
               "pattern": "^(https://[^\\s/]+|http://(localhost|127\\.[0-9.]+|\\[::1\\])(:[0-9]+)?)(/[^\\s]*)?$",
               "maxLength": 512,
               "x-restart": "module:matrix",
-              "x-tier": "advanced"
+              "x-tier": "advanced",
+              "x-url-credentials": true
             },
             "userId": {
               "description": "Matrix id of the bot account, for example @bot:example.org.",
@@ -2641,7 +3138,8 @@
               "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
               "default": "channels.matrix.access-token",
               "x-restart": "module:matrix",
-              "x-tier": "advanced"
+              "x-tier": "advanced",
+              "x-sensitive": true
             },
             "deviceId": {
               "description": "Device id of the access token, when the homeserver requires it to be stated.",
@@ -2983,7 +3481,8 @@
                   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                   "default": "channels.email.imap-password",
                   "x-restart": "module:email",
-                  "x-tier": "advanced"
+                  "x-tier": "advanced",
+                  "x-sensitive": true
                 },
                 "folder": {
                   "description": "IMAP folder to watch.",
@@ -3057,7 +3556,8 @@
                   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                   "default": "channels.email.smtp-password",
                   "x-restart": "module:email",
-                  "x-tier": "advanced"
+                  "x-tier": "advanced",
+                  "x-sensitive": true
                 }
               }
             },
@@ -3156,7 +3656,8 @@
               "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
               "default": "channels.telegram.botToken",
               "x-restart": "module:telegram",
-              "x-tier": "advanced"
+              "x-tier": "advanced",
+              "x-sensitive": true
             },
             "allowlist": {
               "description": "Decimal chat IDs (users, groups, supergroups) that may talk to the bot. Empty allows nothing, inbound and outbound.",
@@ -3209,7 +3710,8 @@
                   "format": "uri",
                   "pattern": "^https://",
                   "x-restart": "module:telegram",
-                  "x-tier": "advanced"
+                  "x-tier": "advanced",
+                  "x-url-credentials": true
                 },
                 "secret": {
                   "description": "Secret token sent in the X-Telegram-Bot-Api-Secret-Token header (1..256 alphanumeric/dash/underscore chars).",
@@ -3792,9 +4294,9 @@
               "type": "object", "additionalProperties": false, "default": {},
               "properties": {
                 "enabled": { "description": "Whether ElevenLabs may be used. Off until enabled and given an apiKeyRef.", "type": "boolean", "default": false , "x-restart": "live", "x-tier": "advanced" },
-                "apiKeyRef": { "description": "Secret-store reference holding the ElevenLabs API key.", "type": "string", "minLength": 1, "maxLength": 200 , "x-restart": "live", "x-tier": "advanced" },
+                "apiKeyRef": { "description": "Secret-store reference holding the ElevenLabs API key.", "type": "string", "minLength": 1, "maxLength": 200 , "x-restart": "live", "x-tier": "advanced", "x-sensitive": true },
                 "region": { "description": "Data-residency region: default (global), us, eu or in. Ignored when baseUrl is set.", "enum": ["default", "us", "eu", "in"], "default": "default" , "x-restart": "live", "x-tier": "advanced" },
-                "baseUrl": { "description": "Override of the API base URL (https only, or loopback for a local relay).", "type": "string", "maxLength": 300 , "x-restart": "live", "x-tier": "advanced" },
+                "baseUrl": { "description": "Override of the API base URL (https only, or loopback for a local relay).", "type": "string", "maxLength": 300 , "x-restart": "live", "x-tier": "advanced", "x-url-credentials": true },
                 "defaultVoice": { "description": "Voice id used when a request names none.", "type": "string", "maxLength": 200 , "x-restart": "live", "x-tier": "advanced" },
                 "defaultModel": { "description": "Text-to-speech model id used when a request names none; discovery lists the available ones.", "type": "string", "maxLength": 200 , "x-restart": "live", "x-tier": "advanced" },
                 "defaultSttModel": { "description": "Speech-to-text model id used when a request names none.", "type": "string", "maxLength": 200 , "x-restart": "live", "x-tier": "advanced" },
@@ -3806,8 +4308,8 @@
               "type": "object", "additionalProperties": false, "default": {},
               "properties": {
                 "enabled": { "description": "Whether Grok Voice may be used. Off until enabled and given an apiKeyRef.", "type": "boolean", "default": false , "x-restart": "live", "x-tier": "advanced" },
-                "apiKeyRef": { "description": "Secret-store reference holding the xAI API key.", "type": "string", "minLength": 1, "maxLength": 200 , "x-restart": "live", "x-tier": "advanced" },
-                "baseUrl": { "description": "Override of the API base URL (https only, or loopback for a local relay).", "type": "string", "maxLength": 300 , "x-restart": "live", "x-tier": "advanced" },
+                "apiKeyRef": { "description": "Secret-store reference holding the xAI API key.", "type": "string", "minLength": 1, "maxLength": 200 , "x-restart": "live", "x-tier": "advanced", "x-sensitive": true },
+                "baseUrl": { "description": "Override of the API base URL (https only, or loopback for a local relay).", "type": "string", "maxLength": 300 , "x-restart": "live", "x-tier": "advanced", "x-url-credentials": true },
                 "defaultVoice": { "description": "Voice used when a session names none.", "type": "string", "maxLength": 200 , "x-restart": "live", "x-tier": "advanced" },
                 "defaultModel": { "description": "Realtime model id used when a session names none; found by discovery when empty.", "type": "string", "maxLength": 200 , "x-restart": "live", "x-tier": "advanced" }
               }
@@ -3817,8 +4319,8 @@
               "type": "object", "additionalProperties": false, "default": {},
               "properties": {
                 "enabled": { "description": "Whether Gemini Live may be used. Off until enabled and given an apiKeyRef.", "type": "boolean", "default": false , "x-restart": "live", "x-tier": "advanced" },
-                "apiKeyRef": { "description": "Secret-store reference holding the Gemini API key.", "type": "string", "minLength": 1, "maxLength": 200 , "x-restart": "live", "x-tier": "advanced" },
-                "baseUrl": { "description": "Override of the API base URL (https only, or loopback for a local relay).", "type": "string", "maxLength": 300 , "x-restart": "live", "x-tier": "advanced" },
+                "apiKeyRef": { "description": "Secret-store reference holding the Gemini API key.", "type": "string", "minLength": 1, "maxLength": 200 , "x-restart": "live", "x-tier": "advanced", "x-sensitive": true },
+                "baseUrl": { "description": "Override of the API base URL (https only, or loopback for a local relay).", "type": "string", "maxLength": 300 , "x-restart": "live", "x-tier": "advanced", "x-url-credentials": true },
                 "defaultVoice": { "description": "Prebuilt voice name used when a session names none.", "type": "string", "maxLength": 200 , "x-restart": "live", "x-tier": "advanced" },
                 "defaultModel": { "description": "Live model id used when a session names none; native-audio models are found by discovery when empty.", "type": "string", "maxLength": 200 , "x-restart": "live", "x-tier": "advanced" }
               }
@@ -4601,8 +5103,8 @@
               "default": {},
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
-                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced"},
-                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
+                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true},
+                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced", "x-url-credentials": true},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "gpt-image-2.5-sunburst", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
                 "maxConcurrent": {"description": "How many requests this adapter runs at once; further jobs wait.", "type": "integer", "minimum": 1, "maximum": 16, "default": 2, "x-restart": "core", "x-tier": "advanced"}
@@ -4615,8 +5117,8 @@
               "default": {},
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
-                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced"},
-                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
+                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true},
+                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced", "x-url-credentials": true},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "gemini-nano-banana-2.1", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
                 "maxConcurrent": {"description": "How many requests this adapter runs at once; further jobs wait.", "type": "integer", "minimum": 1, "maximum": 16, "default": 2, "x-restart": "core", "x-tier": "advanced"}
@@ -4629,8 +5131,8 @@
               "default": {},
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
-                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced"},
-                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
+                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true},
+                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced", "x-url-credentials": true},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "grok-imagine-image-2.0", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
                 "maxConcurrent": {"description": "How many requests this adapter runs at once; further jobs wait.", "type": "integer", "minimum": 1, "maximum": 16, "default": 2, "x-restart": "core", "x-tier": "advanced"}
@@ -4643,8 +5145,8 @@
               "default": {},
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
-                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced"},
-                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
+                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true},
+                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced", "x-url-credentials": true},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "google/gemini-2.5-flash-image", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
                 "maxConcurrent": {"description": "How many requests this adapter runs at once; further jobs wait.", "type": "integer", "minimum": 1, "maximum": 16, "default": 2, "x-restart": "core", "x-tier": "advanced"}
@@ -4657,8 +5159,8 @@
               "default": {},
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
-                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced"},
-                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
+                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true},
+                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced", "x-url-credentials": true},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "black-forest-labs/flux-schnell", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
                 "maxConcurrent": {"description": "How many requests this adapter runs at once; further jobs wait.", "type": "integer", "minimum": 1, "maximum": 16, "default": 2, "x-restart": "core", "x-tier": "advanced"}
@@ -4671,8 +5173,8 @@
               "default": {},
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
-                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced"},
-                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
+                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true},
+                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced", "x-url-credentials": true},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "fal-ai/flux/schnell", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
                 "maxConcurrent": {"description": "How many requests this adapter runs at once; further jobs wait.", "type": "integer", "minimum": 1, "maximum": 16, "default": 2, "x-restart": "core", "x-tier": "advanced"}
@@ -4685,8 +5187,8 @@
               "default": {},
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
-                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced"},
-                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
+                "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced", "x-sensitive": true},
+                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced", "x-url-credentials": true},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "black-forest-labs/FLUX.2-dev", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
                 "maxConcurrent": {"description": "How many requests this adapter runs at once; further jobs wait.", "type": "integer", "minimum": 1, "maximum": 16, "default": 2, "x-restart": "core", "x-tier": "advanced"}
