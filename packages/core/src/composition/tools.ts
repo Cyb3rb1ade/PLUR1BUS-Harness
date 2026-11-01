@@ -125,7 +125,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
       }
     }
     const invocationRoots = ctx.classified?.flags?.outsideRoots && ctx.classified.targets?.[0] ? [...o.roots, { id: 'invocation-only', path: ctx.classified.targets[0] }] : o.roots;
-    const tool = createExecTool({ config: { ...o.exec, mode: o.exec?.mode ?? 'deny', roots: invocationRoots, deny }, process: createSandboxProcessPort({ ...sandboxOptions, roots: invocationRoots }), timers: systemTimers, audit: o.audit, policy: { grants: o.grants, clock: { now: Date.now } }, policyContext: { principal: { person: ctx.principal }, subject: { kind: 'agent', agentId: ctx.agentId }, surface: ctx.surface ?? 0, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), overrides: { 'shell.exec': 'allowed' } }, ...(o.output ? { output: o.output } : {}) });
+    const tool = createExecTool({ config: { ...o.exec, mode: o.exec?.mode ?? 'deny', roots: invocationRoots, deny }, process: createSandboxProcessPort({ ...sandboxOptions, roots: invocationRoots }), timers: systemTimers, audit: o.audit, policy: { grants: o.grants, clock: { now: Date.now } }, policyContext: { principal: { person: ctx.principal }, subject: { kind: 'agent', agentId: ctx.agentId }, surface: ctx.surface ?? 0, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), overrides: { 'shell.exec': 'allowed' } }, ...(ctx.knownSecrets ? { knownSecrets: ctx.knownSecrets } : {}), ...(o.output ? { output: o.output } : {}) });
     const run = tool.execute; const value = unwrap(await run(args, ctx)); const result = value as { stdout: string; stderr: string }; return { ...(value as object), stdout: redactText(result.stdout), stderr: redactText(result.stderr), sandboxed: o.sandbox?.required !== false };
   } });
   if (o.media) for (const name of ['image.generate', 'image.edit', 'media.generate', 'media.edit'] as const) {
@@ -173,7 +173,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
     execute: async (args, ctx) => {
       try {
         if (!o.webFetch) throw new WebFailure('egress-denied', 'web fetch egress transport is unavailable');
-        return await o.webFetch.fetch(args as never, { signal: ctx.signal, agentId: ctx.agentId });
+        return await o.webFetch.fetch(args as never, { signal: ctx.signal, agentId: ctx.agentId, ...(ctx.knownSecrets ? { knownSecrets: ctx.knownSecrets } : {}) });
       } catch (e) {
         throw new ToolAdapterError('tool-failed',
           (e instanceof WebFailure ? e : new WebFailure('internal-error', 'unexpected failure')).toResult());

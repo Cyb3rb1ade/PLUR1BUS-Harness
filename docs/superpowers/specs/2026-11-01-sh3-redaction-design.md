@@ -1,5 +1,7 @@
 # SH3: escaped values, bounded redaction and startup knowledge
 
+> Historical initial design. The [Controller F2 implementation plan](../plans/2026-11-01-sh3-controller-f2.md) supersedes its base, matcher, native capture and startup details. F2 authorizes the narrow native sandbox capture fix and requires bounded asynchronous preload.
+
 The Owner already authorized SH3 after ready SH2 PR #854. Implement the six supplied requirements with a real failing
 test first; if a requested gap is already closed, retain the proof and explain the no-op in the PR. No new approval
 round is needed for routine implementation choices inside that scope.

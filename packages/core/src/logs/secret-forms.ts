@@ -1,5 +1,10 @@
 // Immutable variants for one current secret set. Configured values and old generations never accumulate in a cache.
 import { REDACTION } from "@plur1bus/log-schema";
+import { createSecretMatcher, type SecretMatcher } from "./secret-matcher.ts";
+
+export interface SecretFormsSnapshot { readonly forms: readonly string[]; readonly matcher: SecretMatcher }
+const EMPTY_FORMS: readonly string[] = Object.freeze([]);
+const EMPTY_SNAPSHOT: SecretFormsSnapshot = Object.freeze({ forms: EMPTY_FORMS, matcher: createSecretMatcher(EMPTY_FORMS) });
 
 const MIN_LENGTH = (REDACTION.rules.find((rule: { id: string }) => rule.id === "secret") as { minLength: number }).minLength;
 
@@ -26,14 +31,19 @@ export function secretFormsIn(values: Iterable<string>): string[] {
 /** One generation, compared by membership rather than mutable iterable identity or ordering. */
 export class SecretFormsCache {
   #values = new Set<string>();
-  #forms: readonly string[] = Object.freeze([]);
+  #snapshot: SecretFormsSnapshot = EMPTY_SNAPSHOT;
 
   forms(values: Iterable<string>): readonly string[] {
+    return this.snapshot(values).forms;
+  }
+
+  snapshot(values: Iterable<string>): SecretFormsSnapshot {
     const next = new Set([...values].filter(value => typeof value === "string" && value.length >= MIN_LENGTH));
-    if (next.size === this.#values.size && [...next].every(value => this.#values.has(value))) return this.#forms;
+    if (next.size === this.#values.size && [...next].every(value => this.#values.has(value))) return this.#snapshot;
     const forms = Object.freeze(secretFormsIn(next)); // Publish neither membership nor variants if derivation fails.
+    const snapshot = Object.freeze({ forms, matcher: createSecretMatcher(forms) });
     this.#values = next;
-    this.#forms = forms;
-    return forms;
+    this.#snapshot = snapshot;
+    return snapshot;
   }
 }

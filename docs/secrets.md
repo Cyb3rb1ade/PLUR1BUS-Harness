@@ -6,17 +6,31 @@ purpose, never values; each secret can carry a description. This phase builds on
 ## Startup redaction
 
 Core reads indexed keyring values and, when file fallback is enabled and usable, encrypted-file values before
-startup logs reach a sink. Both accessible copies of a name are registered without syncing, rotating or deleting
-either copy. Readable initial values stay masked until Core exits, including values subsequently rotated or deleted.
-Later Store reads and writes continue to register values normally. The eight UTF-16-unit masking minimum is unchanged.
+startup logs reach a sink. Persistent backend operations run through private child IPC, so synchronous native calls
+and file permission checks cannot block the Core event loop. Production startup may contact the OS keyring and can
+trigger its platform authorization prompt in that child. One three-second deadline covers helper import, probe,
+listing and all reads. Disabled file fallback stays unopened.
 
-Disabled file fallback stays unopened; unavailable backends and unreadable entries cannot supply values to register.
-These conditions do not prevent startup. Read failures produce only fixed backend/phase identifiers and counts,
-without credential values or platform exception text. Empty stores start normally. Metadata-only operations remain
-metadata only, and startup registration returns no credential or lease and records no credential-access audit event.
+Both readable copies of a name are registered without syncing, rotating or deleting either copy. Initial values stay
+masked until Core exits, including values subsequently rotated or deleted. Later reads, writes and leases register
+values normally. The eight UTF-16-unit masking minimum is unchanged. Preload returns no credential or lease and
+records no credential-access audit event; metadata-only operations remain metadata only.
 
-Focused coverage: run the Core `secrets/config-registration`, `secrets/preload` and `logs/startup-redaction` tests
-with Node source conditions and the gated in-memory/off keyring test seam.
+A successful empty Store starts normally. If no enabled backend is usable, or the bounded attempt times out, secret
+status and use remain unavailable through the existing errors while Core stays responsive. A usable fallback remains
+available; individual list/read failures warn and retain the other readable values. A timeout discards unsafe queued
+startup messages when the logger releases its queue. Diagnostics contain only fixed backend/phase identifiers and
+counts, never values or platform exception text. Stale helper completions cannot publish metadata, values or leases. After a 30-second
+cooldown, the next access attempts a fresh bounded preload and registers its snapshot before availability returns.
+Recovery values join the lifetime redaction pins. Stop, failed composition and ACL refusal close helpers; disconnect
+and kill are immediate, with at most 250 ms of exit waiting.
+
+Core-start tests must avoid the personal keychain. A trusted constructor `testInternals` uses a local memory Store
+when no explicit keyring mode is supplied. Explicit `PLUR1BUS_SECRETS_KEYRING=off|memory` still requires
+`PLUR1BUS_ALLOW_TEST_INTERNALS=1`; an ungated explicit mode remains an error. Production-isolation tests use trusted
+child fixtures rather than the real OS service. The opt-in live nightly sets and restores both flags around its Core
+lifetime while retaining the real provider path. Focused coverage includes `secrets/preload`, `secrets/isolated-backend`,
+`secrets/config-registration`, `logs/startup-redaction` and the Core lifecycle tests.
 
 ## Edit a description without rotating
 

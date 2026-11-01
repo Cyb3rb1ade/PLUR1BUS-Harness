@@ -10,6 +10,9 @@ import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
 import { sandboxSpawn, preparePolicy, detectSandbox, seatbeltProfile, type SandboxPolicy } from '../../../src/tools/sandbox/index.ts';
+import { BoundedCapture } from '../../../src/tools/sandbox/capture.ts';
+import { createSecretRedaction } from '../../../src/secrets/redaction.ts';
+import { randomBytes } from 'node:crypto';
 import { lexicalSpelling, within } from '../../../src/tools/sandbox/policy.ts';
 async function fixture() {
   const dir = await mkdtemp(join(tmpdir(), 'd106-'));
@@ -41,6 +44,16 @@ test('real backend: filesystem, network, environment, output and abort adversari
     const probe = await sandboxSpawn(['/bin/echo', 'ready'], f.policy);
     assert.equal(probe.exitCode, 0, JSON.stringify(probe)); assert.match(probe.stdout, /ready/);
     assert.equal(probe.resources.maxTasks, d.tasks.mechanism === 'namespace-limit' ? 512 : null);
+    // Raw observers see original chunks before sandboxSpawn's separate one MiB result cap.
+    const secret = randomBytes(80).toString('hex'), redaction = createSecretRedaction(); redaction.register(secret);
+    const lead = 'p'.repeat(1024 * 1024 - 24), payload = join(f.root, 'output-boundary.txt');
+    await writeFile(payload, lead + secret + 'z'.repeat(32));
+    const output = new BoundedCapture(2 * 1024 * 1024, () => redaction.snapshot());
+    const boundedSource = await sandboxSpawn(['/bin/cat', payload], { ...f.policy, limits: { ...f.policy.limits, maxOutputBytes: 1024 * 1024 } },
+      { knownSecrets: () => redaction.snapshot(), onStdout: c => output.push(c) });
+    assert.equal(boundedSource.exitCode, 0); assert.equal(boundedSource.stdoutTruncated, true);
+    assert.equal(boundedSource.stdout, lead + '[REDACTED:secret]');
+    assert.equal(output.text(), lead + '[REDACTED:secret]' + 'z'.repeat(32));
     const off = await sandboxSpawn(['/bin/echo', 'off'], { ...f.policy, limits: { ...f.policy.limits, maxTasks: 0 } });
     assert.equal(off.exitCode, 0); assert.equal(off.resources.maxTasks, null);
     await writeFile(join(f.home, 'run', 'core.token'), 'private-fixture');
