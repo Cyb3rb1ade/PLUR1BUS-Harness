@@ -153,6 +153,8 @@ The pinned local EmbeddingGemma 2 q8 vision/audio encoders total **535,699,121 b
 the text model: vision is 195,391,167 bytes and audio is 340,307,954 bytes. These are the Controller-verified graph and
 data files at revision `daa72c51243991dfcaf9f9137d2c573d8f7790c0`. Setup displays this download size separately from
 installation readiness. Time per photo on the current machine has not yet been measured; setup says so explicitly.
+With Controller approval (E1), hardware-specific photo timing is deferred to MM-3b. MM-3a shows the verified
+download size and measurement status.
 
 ## Privacy acknowledgments
 

@@ -84,7 +84,8 @@ platforms currently use q8 encoders.
 Each modality (image, video, audio) can be switched off on its own. The verified local EmbeddingGemma 2 q8 encoder
 package totals 535,699,121 bytes (about 511 MiB), excluding the text
 model. Setup shows this extra download size separately from installation status. Time per photo on your device has not
-yet been measured; setup says so explicitly.
+yet been measured; setup says so explicitly. With Controller approval, measurements of photo processing time on your
+hardware are scheduled for MM-3b. MM-3a shows the verified download size and measurement status.
 
 ## Licences
 
