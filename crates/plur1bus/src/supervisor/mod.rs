@@ -1043,13 +1043,17 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         .map(|s| (s.role.name.clone(), s.role.kind))
         .collect();
     let grace = child::stop_grace(time_scale);
-    let mut stopped_children = 0;
+    let mut stopped_budget_peers = 0;
     for (name, kind) in order {
         if let Some(m) = monitors.get_mut(&name) {
             let (budget, deadline) =
-                child_stop_timing(stop, kind, grace, stopped_children, Instant::now());
+                child_stop_timing(stop, kind, grace, stopped_budget_peers, Instant::now());
             m.stop_until(budget, deadline);
-            stopped_children += 1;
+            // H1-1 preserves Core's nominal allowance when only the fixed tools companion precedes it.
+            // Tools still spends the shared budget and never moves the acceptance-anchored hard deadline.
+            if kind != RoleKind::Tools {
+                stopped_budget_peers += 1;
+            }
         }
     }
     // The last log line comes before the run files go: `daemon stop` returns once `run/supervisor.pid` is gone, and a
@@ -1062,11 +1066,12 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
 }
 
 /// The child's RPC allowance and fixed stop deadline; prior children spend one shared budget (H3B-R25).
+/// The fixed tools companion does not change Core's no-module nominal allowance (H1-1/ADR-012 §10.12).
 fn child_stop_timing(
     stop: StopRequest,
     kind: RoleKind,
     grace: Duration,
-    stopped_children: usize,
+    stopped_budget_peers: usize,
     now: Instant,
 ) -> (Duration, Instant) {
     let budget_end = stop.requested_at + stop.budget;
@@ -1076,7 +1081,7 @@ fn child_stop_timing(
         RoleKind::Core => {
             // ADR-012 §10.12: without an earlier child, Core keeps its full nominal RPC budget. Scheduling or
             // import cleanup never renews the acceptance-anchored hard deadline enforced by stop_until.
-            let allowance = if stopped_children == 0 {
+            let allowance = if stopped_budget_peers == 0 {
                 stop.budget
             } else {
                 left
@@ -1522,7 +1527,7 @@ mod tests {
         };
         let grace = Duration::from_millis(100);
         let now = stop.requested_at + Duration::from_millis(500);
-        for kind in [RoleKind::Api, RoleKind::Module] {
+        for kind in [RoleKind::Api, RoleKind::Tools, RoleKind::Module] {
             assert_eq!(
                 child_stop_timing(stop, kind, grace, 0, now),
                 (Duration::from_millis(1500), stop.requested_at + stop.budget)

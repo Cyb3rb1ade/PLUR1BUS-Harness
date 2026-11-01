@@ -46,3 +46,6 @@ remain labelled as fixtures; they do not claim native installation or cross-plat
 
 Local verification uses `cargo test -p plur1bus-tools --locked`, the tools restart supervisor test,
 and `packages/core/test/tools-service/` (real binary, fake chat provider, no model/network).
+
+On daemon stop, tools shares the existing acceptance-anchored deadline. As a fixed companion it does not
+reduce Core's nominal no-module shutdown allowance; it never extends the shared hard deadline.
