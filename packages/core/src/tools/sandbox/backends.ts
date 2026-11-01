@@ -115,6 +115,10 @@ async function masks(p: PreparedPolicy): Promise<{ path: string; directory: bool
 export async function backendArgv(p: PreparedPolicy, d: SandboxDetection, argv: readonly string[]): Promise<string[]> {
   if (d.backend === 'seatbelt') return ['/usr/bin/sandbox-exec', '-p', seatbeltProfile(p), ...argv];
   if (d.backend !== 'bubblewrap') throw new SandboxFailure(d.reason);
+  const tasksRequired = p.acpScratch !== undefined || p.acpWorktree !== undefined;
+  if (tasksRequired && (d.tasks.mechanism !== 'namespace-limit'
+    || !Number.isSafeInteger(p.limits.maxTasks) || p.limits.maxTasks < 1 || p.limits.maxTasks > 65536))
+    throw new SandboxFailure('ACP requires an enforced positive namespace task limit');
   // Writable mounts could create/rename credential files after the mask scan. Refuse until a dynamic Landlock/seccomp layer exists.
   if (p.writeRoots.length && !p.acpWorktree) throw new SandboxFailure('bubblewrap writable roots require dynamic credential-name enforcement; backend refused');
   const mount = p.acpWorktree ? await validateAcpMount(p.acpWorktree, p.writeRoots.map(r => r.path)) : undefined;
@@ -127,7 +131,7 @@ export async function backendArgv(p: PreparedPolicy, d: SandboxDetection, argv: 
   }
   if (p.acpScratch) args.push('--tmpfs', p.acpScratch);
   for (const m of await masks(p)) args.push(...(m.directory ? ['--tmpfs', m.path] : ['--ro-bind', '/dev/null', m.path]));
-  const step = d.tasks.mechanism === 'namespace-limit' && p.limits.maxTasks > 0 ? tasksStep(p.limitsHelper, p.limits.maxTasks, p.acpScratch !== undefined) : undefined;
+  const step = d.tasks.mechanism === 'namespace-limit' && p.limits.maxTasks > 0 ? tasksStep(p.limitsHelper, p.limits.maxTasks, tasksRequired) : undefined;
   args.push(...(step?.bind ?? []), '--remount-ro', '/', '--chdir', p.cwd, '--', ...(step?.prefix ?? []), ...argv);
   return args;
 }

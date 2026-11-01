@@ -68,6 +68,21 @@ test("ordinary backend callers retain writable-root refusal and approved Git dir
     assert.ok(argv.some((v, i) => v === "--ro-bind" && argv[i + 1] === path && argv[i + 2] === path));
 });
 
+test("an ACP worktree grant requires task enforcement even without scratch", async () => {
+  const f = fixture();
+  const p = await preparePolicy(f.policy);
+  assert.equal(p.acpScratch, undefined);
+  const detection = { backend: "bubblewrap" as const, strength: "partial" as const, available: true,
+    reason: "fixture", tasks: { mechanism: "namespace-limit" as const, reason: "enforced" } };
+  await assert.rejects(backendArgv(p, { ...detection, tasks: { mechanism: "none", reason: "not-enforced" } }, ["/usr/bin/true"]),
+    { code: "sandbox-unavailable" });
+  await assert.rejects(backendArgv({ ...p, limits: { ...p.limits, maxTasks: 0 } }, detection, ["/usr/bin/true"]),
+    { code: "sandbox-unavailable" });
+  const argv = await backendArgv(p, detection, ["/usr/bin/true"]);
+  assert.ok(argv.includes("--tasks-required"));
+  assert.equal(argv.includes("--tasks"), false);
+});
+
 test("host Git ignores a replaced .git pointer and never executes a clean filter", () => {
   const f = fixture();
   const gitDir = execFileSync("git", ["-C", f.worktree, "rev-parse", "--absolute-git-dir"], { encoding: "utf8" }).trim();

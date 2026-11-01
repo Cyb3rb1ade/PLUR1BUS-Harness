@@ -16,8 +16,8 @@ path, directory identity, symlink-free ancestry and absence of existing hardlink
 Git metadata remains read-only. This grant belongs to the external ACP path only.
 The native coding-turn grant route is withdrawn from #820; K2a will address it in a
 separate PR, including trusted card assignment, resource gates and host-tool scope.
-Worktree lookup never creates a root or card checkout; callers explicitly provision
-through the existing fork/bind operations. Ordinary writable Linux tool policies remain refused. No RPC field, migration or credential-bind
+Card checkouts are not provisioned in production until K2a supplies trusted, assignment-checked provisioning; coding completion and review for a card of a bound project refuse with E_CONFLICT, and external ACP delegation is limited to the root checkout.
+Worktree lookup never creates a checkout; production repo binding provisions only the root. Ordinary writable Linux tool policies remain refused. No RPC field, migration or credential-bind
 enablement is added. See the [integration and evidence handoff](../handoffs/2026-11-01-r820-variant-b.md).
 
 ## Amendment 2026-10-29 (owner)

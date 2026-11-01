@@ -74,7 +74,6 @@ test("fork names the branch and worktree, remove keeps the branch, and argv stay
   } finally { store.close(); }
 });
 
-
 test("normal card IDs exclude their prefix, collisions stay distinct and retained branches reprovision", () => {
   const temp = tempDir("q3-reprovision-");
   const home = join(temp, "home");
@@ -122,7 +121,6 @@ test("normal card IDs exclude their prefix, collisions stay distinct and retaine
   } finally { store.close(); }
 });
 
-
 test("host Git selects Git for Windows using the trusted host PATH, with inherited Git config suppressed", () => {
   assert.deepEqual(windowsGitCandidates('relative;.;"C:\\Program Files\\Git\\cmd";;D:\\Tools'),
     ["C:\\Program Files\\Git\\cmd\\git.exe", "D:\\Tools\\git.exe"]);
@@ -131,7 +129,6 @@ test("host Git selects Git for Windows using the trusted host PATH, with inherit
   assert.equal(gitEnv().GIT_CONFIG_NOSYSTEM, "1");
   assert.equal(gitEnv().GIT_CONFIG_COUNT, undefined);
 });
-
 
 test("worktree root lookup never implicitly provisions a root or model-selected card", () => {
   const dir = tempDir("q3-lookup-only-"), repo = join(dir, "repo"), state = join(dir, "state");

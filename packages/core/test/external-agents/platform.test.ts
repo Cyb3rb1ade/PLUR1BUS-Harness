@@ -1,8 +1,9 @@
 import { windowsPnpmRefusal } from "./windows-pnpm-refusal.fixture.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { externalAgentRefusal } from "../../src/external-agents/platform-policy.ts";
 import { containedTerminal } from "../../src/external-agents/containment.ts";
-import { acpPlatformAvailable, LaunchError, launchExternalAgent } from "../../src/external-agents/launcher.ts";
+import { LaunchError, launchExternalAgent } from "../../src/external-agents/launcher.ts";
 
 for (const platform of ["darwin", "win32"] as const) {
   test(`${platform} refuses ACP agents and discovery before validating argv or accessing cwd`, async () => {
@@ -22,21 +23,20 @@ test("a platform override cannot enable ACP on an unsupported host", async () =>
     error.reason === (process.platform === "linux" ? "argv" : "sandbox-unavailable"));
 });
 
-test("the Linux-only availability export and launcher agree for actual hosts and stricter overrides", async t => {
+test("the platform refusal policy and launcher agree for actual hosts and stricter overrides", async t => {
   const original = Object.getOwnPropertyDescriptor(process, "platform")!;
   t.after(() => Object.defineProperty(process, "platform", original));
   for (const host of ["linux", "darwin", "win32", "freebsd"] as const) {
     Object.defineProperty(process, "platform", { ...original, value: host });
     for (const platform of [undefined, "linux", "darwin", "win32", "freebsd"] as const) {
       const available = host === "linux" && (platform === undefined || platform === "linux");
-      assert.equal(acpPlatformAvailable(platform), available, `${host}/${platform}`);
+      assert.equal(externalAgentRefusal(platform) === null, available, `${host}/${platform}`);
       await assert.rejects(launchExternalAgent({ argv: [], cwd: "/missing-acp-cwd", probe: true, ...(platform ? { platform } : {}) }),
         (error: unknown) => error instanceof LaunchError && error.reason === (available ? "argv" : "sandbox-unavailable")
           && error.cause === (host === "darwin" ? "macos-acceptance-pending" : undefined));
     }
   }
 });
-
 
 test("the Windows pnpm callback refuses without a Mac cause or any process creation", async t => {
   const original = Object.getOwnPropertyDescriptor(process, "platform")!;

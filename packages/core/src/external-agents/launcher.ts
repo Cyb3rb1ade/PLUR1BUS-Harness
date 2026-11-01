@@ -18,9 +18,6 @@ export const DEFAULT_MAX_TURNS = 20;
 export const DEFAULT_RUN_TIMEOUT_MS = 600_000;
 export const MAX_RUN_TIMEOUT_MS = 3_600_000;
 export const TRUSTED_PATH = "/usr/bin:/bin:/usr/sbin:/sbin";
-/** Variant B: ACP containment is accepted only on Linux, including discovery probes. */
-export const acpPlatformAvailable = (platform: NodeJS.Platform = process.platform): boolean =>
-  externalAgentRefusal(platform) === null;
 const SHELLS = new Set(["sh", "bash", "zsh", "cmd", "cmd.exe", "powershell", "pwsh"]);
 
 /** A typed refusal before the target starts. */

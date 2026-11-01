@@ -1,8 +1,8 @@
-/** The production composition owns provisioning, the local runner and coding_complete. */
+/** Production root binding and coding completion, with optional test-only card provisioning. */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { defaults } from "@plur1bus/config-schema";
@@ -19,16 +19,24 @@ import { ToolDispatcher } from "../../src/tools/dispatcher.ts";
 import { rig } from "../approvals/service-helpers.ts";
 import { owner } from "../collab/helpers.ts";
 import { GitWorktreeProvisioner } from "../../src/external-agents/provisioner.ts";
+import { RpcError } from "../../src/rpc/errors.ts";
+import { guardMethods } from "../../src/rbac/guard.ts";
+import type { TurnProviderOptions } from "../../src/composition/provider.ts";
 import { limitsHelper } from "../external-agents/fixture.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 
-test("production bind → local coding delegation → coding_complete uses its explicitly provisioned card tree and real verifier", async t => {
-  if (process.platform === "win32") return; // The native coding verifier currently has no Windows backend.
+for (const provisionCard of [false, true]) test(provisionCard
+  ? "production bind → local coding delegation → coding_complete with a test-provisioned card tree and real verifier"
+  : "production bind/createCard/assign refuses completion and review without a card checkout", async t => {
+  if (provisionCard && process.platform === "win32") return; // The native coding verifier currently has no Windows backend.
   const dir = tempDir("q3-composition-"), home = join(dir, "home"), repo = join(dir, "repo");
   const cfg = defaults(); cfg.agents.lead = {}; cfg.agents.coder = {};
+  if (!provisionCard) cfg.collaboration.fanoutEnabled = true;
   const log = { debug() {}, info() {}, warn() {}, error() {}, child() { return log; }, async close() {} } as never;
   for (const id of ["lead", "coder"]) mkdirSync(join(home, "agents", id, "workspace"), { recursive: true });
-  mkdirSync(join(home, "bin"), { recursive: true }); copyFileSync(limitsHelper, join(home, "bin", "plur1bus-sandbox-limits"));
+  if (provisionCard) {
+    mkdirSync(join(home, "bin"), { recursive: true }); copyFileSync(limitsHelper, join(home, "bin", "plur1bus-sandbox-limits"));
+  }
   mkdirSync(repo);
   const git = (...args: string[]) => execFileSync("git", ["-C", repo, ...args], { stdio: "pipe" });
   git("init", "-b", "main");
@@ -40,10 +48,11 @@ test("production bind → local coding delegation → coding_complete uses its e
   const identity = createIdentityService({ dbPath: join(home, "identity.sqlite"), clock: Date.now, audit() {} });
   let projectId = "", cardId = "", seen = "";
   let completion: { verification: { checks: { ok: boolean; evidence: string }[] } } | undefined;
+  let toolsForTurn: TurnProviderOptions["toolsForTurn"];
   const options: NonNullable<CompositionDeps["options"]> = {
     tools: { exec: { mode: "allowlist", allowlist: [{ program: "/usr/bin/touch" }] } },
     providers: { profiles: { default: [{ provider: "fixture", model: "gpt-4.1", adapter: { async *stream() {} } }] } },
-    createTurnProvider: o => ({ id: "fixture", telemetry: {} as never, async *stream(req) {
+    createTurnProvider: o => { toolsForTurn = o.toolsForTurn; return ({ id: "fixture", telemetry: {} as never, async *stream(req) {
       if (req.messages[0]?.text.startsWith("Acceptance check only")) {
         yield { type: "delta", text: JSON.stringify({ schema: "plur1bus.ack/1", inReplyTo: "ho_bridge", objective: "Code", status: "ok", blockingQuestions: [] }) };
         return;
@@ -77,7 +86,7 @@ test("production bind → local coding delegation → coding_complete uses its e
       assert.equal(result.isError, false, JSON.stringify(result));
       completion = result.value as typeof completion;
       yield { type: "delta", text: "Done" };
-    } }),
+    } }); },
   };
   const c = await openTurnComposition({ home, config: () => cfg, engine: {} as never,
     agents: createAgentRegistry({ config: () => cfg }, layout(home), log), logger: log,
@@ -96,6 +105,32 @@ test("production bind → local coding delegation → coding_complete uses its e
     const card = c.collab.boardStore.createCard(projectId, { title: "Code", description: "Verify locally", columnId: c.collab.boardStore.columns(projectId)[0]!.id }, { kind: "person", id: who.userId }); cardId = card.id;
     c.collab.boardStore.assign(projectId, cardId, { kind: "agent", id: "coder" }, true, { kind: "person", id: who.userId });
     assert.equal(c.collab.worktreeStore.liveWorktree(projectId, cardId), null);
+    if (!provisionCard) {
+      const before = c.collab.boardStore.getCard(projectId, cardId);
+      const worktrees = git("worktree", "list", "--porcelain").toString();
+      const checkoutFiles = readdirSync(join(home, "state", "worktrees"), { recursive: true });
+      const req = { sessionId: "missing-card-tree", agentId: "coder", projectId, authenticatedPerson: who.userId,
+        principal: who.userId, summaries: [], memory: "", messages: [], signal: new AbortController().signal };
+      assert.ok(toolsForTurn);
+      const registry = await toolsForTurn(req);
+      const ctx = { agentId: "coder", principal: who.userId, signal: req.signal, surface: 1 as const };
+      const conflict = (message: string) => (error: unknown) => error instanceof RpcError
+        && error.error === "E_CONFLICT" && error.message === message;
+      await assert.rejects(registry.get("coding_complete")!.execute({ projectId, cardId }, ctx), conflict("bound coding worktree unavailable"));
+      const methods = guardMethods({ "task.complete": c.surfaceMethods["task.complete"]! }, { now: Date.now, resolve: () => who });
+      await assert.rejects(methods["task.complete"]!({ projectId, cardId }, { signal: req.signal } as never), conflict("bound coding worktree unavailable"));
+      await assert.rejects(registry.get("request_review")!.execute({ projectId, cardId, toAgent: "lead", objective: "Review" }, ctx), conflict("review worktree unavailable"));
+      assert.equal(c.collab.worktreeStore.liveWorktree(projectId, cardId), null);
+      assert.equal(c.collab.worktreeStore.previousWorktree(projectId, cardId), null);
+      assert.deepEqual(c.collab.worktreeStore.liveWorktree(projectId, null), root);
+      assert.deepEqual(c.collab.boardStore.getCard(projectId, cardId), before);
+      assert.equal(git("worktree", "list", "--porcelain").toString(), worktrees);
+      assert.deepEqual(readdirSync(join(home, "state", "worktrees"), { recursive: true }), checkoutFiles);
+      assert.equal(readFileSync(join(root.path, "notes.md"), "utf8"), "before\n");
+      assert.equal(readFileSync(join(repo, "notes.md"), "utf8"), "before\n");
+      assert.equal(seen, "");
+      return;
+    }
     new GitWorktreeProvisioner(c.collab.worktreeStore, join(home, "state")).fork({ projectId, cardId });
     const done = await c.collab.delegate({ principal: who, projectId, fromAgent: "lead", toAgent: "coder", task: "Code", acceptanceCriteria: "verified",
       handoff: {

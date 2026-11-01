@@ -86,7 +86,7 @@ test("terminal callbacks are refused on Windows and cannot write the shared gitd
   if (process.platform === "win32") return;
   const root = tempDir("m6b-term-");
   const { repo, worktree, home } = gitWorktree(root);
-  const touch = process.platform === "darwin" ? "/usr/bin/touch" : "/usr/bin/touch";
+  const touch = "/usr/bin/touch";
   const inside = await containedTerminal({ argv: [touch, join(worktree, "from-terminal.txt")], worktree, home, ...mountOptions(worktree) });
   if (process.platform === "darwin") assert.deepEqual(inside, { ok: false, reason: "sandbox-unavailable", cause: "macos-acceptance-pending" });
   else {
@@ -99,7 +99,7 @@ test("terminal callbacks are refused on Windows and cannot write the shared gitd
   assert.equal(existsSync(hook), false);
   if (process.platform === "darwin") assert.deepEqual(denied, { ok: false, reason: "sandbox-unavailable", cause: "macos-acceptance-pending" });
   if (denied.ok) assert.notEqual(denied.exitCode, 0);
-  const git = process.platform === "darwin" ? "/usr/bin/git" : "/usr/bin/git";
+  const git = "/usr/bin/git";
   const cfg = await containedTerminal({ argv: [git, "-C", repo, "config", "core.hooksPath", "/tmp/evil"], worktree, home, ...mountOptions(worktree) });
   if (process.platform === "darwin") assert.deepEqual(cfg, { ok: false, reason: "sandbox-unavailable", cause: "macos-acceptance-pending" });
   if (cfg.ok) assert.notEqual(cfg.exitCode, 0, cfg.stderr);

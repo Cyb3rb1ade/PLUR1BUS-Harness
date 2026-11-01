@@ -293,6 +293,57 @@ fn acp_task_mode_refuses_shared_namespace_before_target_exec() {
     assert!(String::from_utf8_lossy(&out.stderr).contains("shared user namespace"));
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn acp_task_mode_refuses_uid_zero_before_target_exec() {
+    let temp = tempfile::tempdir().unwrap();
+    let marker = temp.path().join("target-started");
+    let sandbox = || {
+        let mut command = Command::new("/usr/bin/bwrap");
+        command
+            .args([
+                "--unshare-all",
+                "--die-with-parent",
+                "--cap-drop",
+                "ALL",
+                "--uid",
+                "0",
+                "--gid",
+                "0",
+                "--ro-bind",
+                "/",
+                "/",
+                "--proc",
+                "/proc",
+                "--bind",
+            ])
+            .arg(temp.path())
+            .arg(temp.path())
+            .arg("--");
+        command
+    };
+    // Exercise a real UID0 user namespace, even when the test runner is an ordinary user.
+    let identity = sandbox().args(["/usr/bin/id", "-u"]).output().unwrap();
+    assert!(identity.status.success(), "{identity:?}");
+    assert_eq!(identity.stdout, b"0\n");
+    let out = sandbox()
+        .arg(assert_cmd::cargo::cargo_bin("plur1bus-sandbox-limits"))
+        .args([
+            "--tasks-required",
+            "7",
+            &own_userns(),
+            "--",
+            "/usr/bin/touch",
+        ])
+        .arg(&marker)
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(125), "{out:?}");
+    assert!(String::from_utf8_lossy(&out.stderr)
+        .contains("sandbox-unavailable: UID0 task limit is not supported"));
+    assert!(!marker.exists(), "the refused target must never execute");
+}
+
 #[cfg(target_os = "macos")]
 #[test]
 fn acp_watchdog_counts_same_group_orphans_against_two_tasks() {

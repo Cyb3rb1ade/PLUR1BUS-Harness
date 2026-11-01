@@ -145,7 +145,6 @@ test("a validated read-only external consult refuses before opening a connection
   } finally { sessions.close(); }
 });
 
-
 for (const change of ["regular-during-wait", "regular-before-callback", "absent-leaf", "parent", "absent-parent"] as const)
   test(`allow_once preserves permission-time file binding: ${change}`, async t => {
     await scenario(t, worktree => {

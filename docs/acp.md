@@ -93,8 +93,9 @@ ordinary no-fork callers, denies Apple events and new hard links, and limits fil
 and scratch paths. Native acceptance remains D123 SB-1 (pnpm hardlink/build and RSS `PROC_PIDTASKINFO` ESRCH) and SB-3
 (real Git with relocated-Xcode `libxcrun.dylib`, open/osascript containment). No broad Developer/Xcode read allowance is added.
 
-Root and card checkouts are siblings beneath state/worktrees/<rootId>; local coding and completion use the same provisioned
-checkout. Lookup never auto-forks a root or card: explicit fork/bind operations own provisioning.
+Card checkouts are not provisioned in production until K2a supplies trusted, assignment-checked provisioning; coding completion and review for a card of a bound project refuse with E_CONFLICT, and external ACP delegation is limited to the root checkout.
+Production repo binding provisions the root checkout. Lookup never auto-forks a root or card. Internal provisioner tests
+can explicitly create sibling card checkouts beneath state/worktrees/<rootId>; the coding bridge uses such a test-provisioned tree.
 Ordinary coding turns and host tools receive no ACP grant; native coding execution is separate K2a work. Host verification uses DB-pinned Git metadata, never a writable .git pointer, and disables clean/smudge/process filters.
 Card suffixes use six UUID hex characters after the typed prefix; shortened collisions receive a deterministic alternate.
 Removed worktrees retain their branches, which subsequent provisioning safely reattaches without reset or force. Rebinding

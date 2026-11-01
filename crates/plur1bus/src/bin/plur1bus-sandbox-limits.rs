@@ -58,9 +58,14 @@ fn task_cap(args: &[String]) -> Result<(), String> {
         eprintln!(
             "sandbox launcher: process cap skipped: the sandbox shares the caller's user namespace"
         );
+    } else if args[0] == "--tasks-required"
+        && (unsafe { libc::getuid() } == 0 || unsafe { libc::geteuid() } == 0)
+    {
+        // A successful setrlimit does not prove enforcement for UID0. ACP must refuse before exec.
+        return Err("sandbox-unavailable: UID0 task limit is not supported".into());
     } else if let Err(e) = set_tasks(n) {
         if args[0] == "--tasks-required" {
-            return Err(e);
+            return Err(format!("sandbox-unavailable: {e}"));
         }
         // The cap is best effort: an unavailable kernel facility must not prevent the program from starting.
         eprintln!("sandbox launcher: process cap skipped: {e}");
