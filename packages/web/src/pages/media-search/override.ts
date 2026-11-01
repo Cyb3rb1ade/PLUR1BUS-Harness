@@ -8,11 +8,14 @@ import { PageLoading } from "../../components/page-state.ts";
 import { t, type Key } from "../../i18n.ts";
 import { FailureState, Notice } from "../common/states.ts";
 import { getApi, useLoad } from "../common/load.ts";
-import type { MediaModality } from "./contract.ts";
+import { AUDIO_SEGMENT_MAX_SECONDS, type MediaModality } from "./contract.ts";
 import { ALL_MODALITIES, CAPTION_SOURCES, CLOUD_CAPTION_PROVIDER, MEDIA_PROVIDERS, draftOf, mediaErrorOf, overrideKey, problemText, type MediaDraft } from "./model.ts";
 import "./rpc-types.ts";
 
-export type OverrideFields = { provider: string | null; modalities: MediaModality[] | null; captionProvider: string | null; captionSource: string | null };
+export type OverrideFields = {
+  provider: string | null; modalities: MediaModality[] | null;
+  captionProvider: string | null; captionSource: string | null; audioSegmentSec: number | null;
+};
 type Change = { key: string; value: unknown };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
@@ -22,7 +25,9 @@ export function overrideOf(config: unknown, agentId: string): OverrideFields {
   const m = (isObj(config) && isObj(config.agents) && isObj(config.agents[agentId]) && isObj((config.agents[agentId] as Record<string, unknown>).memory)
     ? (((config.agents[agentId] as Record<string, unknown>).memory as Record<string, unknown>).mediaEmbedding) : undefined) as Record<string, unknown> | undefined;
   const caption = isObj(m?.caption) ? (m?.caption as Record<string, unknown>) : {};
+  const audio = isObj(m?.audio) ? m.audio : {};
   return {
+    audioSegmentSec: typeof audio.segmentSec === "number" ? audio.segmentSec : null,
     provider: typeof m?.provider === "string" ? m.provider : null,
     modalities: Array.isArray(m?.modalities) ? (m.modalities as MediaModality[]) : null,
     captionProvider: typeof caption.provider === "string" ? caption.provider : null,
@@ -38,6 +43,9 @@ export function overrideChanges(agentId: string, before: OverrideFields, after: 
   if (!eq(before.modalities, after.modalities)) out.push({ key: overrideKey(agentId, "modalities"), value: after.modalities });
   if (!eq(before.captionProvider, after.captionProvider)) out.push({ key: overrideKey(agentId, "caption.provider"), value: after.captionProvider });
   if (!eq(before.captionSource, after.captionSource)) out.push({ key: overrideKey(agentId, "caption.source"), value: after.captionSource });
+  if (!eq(before.audioSegmentSec, after.audioSegmentSec)) {
+    out.push({ key: overrideKey(agentId, "audio.segmentSec"), value: after.audioSegmentSec });
+  }
   return out;
 }
 
@@ -95,6 +103,20 @@ function Form({ agentId, canManage, data, reload, msg, setMsg }: { agentId: stri
           h("input", { id, type: "checkbox", checked: current.includes(m), disabled: !canManage, onChange: (e: Event) => { const on = (e.target as HTMLInputElement).checked; set({ modalities: ALL_MODALITIES.filter((x) => (x === m ? on : current.includes(x))) }); } }),
           h("label", { for: id }, t(`mediasearch.setup.modality.${m}` as Key)));
       })),
+    h("label", { class: "field", for: "override-audio-segmentSec" },
+      h("span", { class: "field-label" }, t("mediasearch.override.audioSegmentSec")),
+      h("input", {
+        id: "override-audio-segmentSec", type: "number", min: "1", max: String(AUDIO_SEGMENT_MAX_SECONDS), placeholder: String(inh.audio.segmentSec),
+        value: draft.audioSegmentSec === null ? "" : String(draft.audioSegmentSec), disabled: !canManage,
+        "aria-describedby": "override-audio-inherit",
+        onInput: (e: Event) => {
+          const raw = (e.target as HTMLInputElement).value;
+          const value = Number(raw);
+          if (raw === "") set({ audioSegmentSec: null });
+          else if (Number.isInteger(value) && value >= 1 && value <= AUDIO_SEGMENT_MAX_SECONDS) set({ audioSegmentSec: value });
+        },
+      }),
+      h("span", { class: "field-hint", id: "override-audio-inherit" }, t("mediasearch.override.audioInherit", { seconds: inh.audio.segmentSec }))),
     select("override-caption-provider", "mediasearch.override.caption", draft.captionProvider, [["local", t("mediasearch.setup.caption.local")], [CLOUD_CAPTION_PROVIDER, t("mediasearch.setup.caption.cloud")], ["off", t("mediasearch.setup.caption.off")]], inh.caption.provider, (v) => set({ captionProvider: v })),
     select("override-caption-source", "mediasearch.override.captionSource", draft.captionSource, CAPTION_SOURCES.map((s) => [s, s] as [string, string]), inh.caption.source, (v) => set({ captionSource: v })),
     h("div", { class: "setup-nav" }, h("button", { type: "button", class: "btn btn-primary", disabled: !canManage || busy || changes.length === 0, onClick: () => { void save(); } }, t("mediasearch.override.save"))),

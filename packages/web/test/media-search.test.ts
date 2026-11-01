@@ -1,6 +1,6 @@
 // Media search in the browser, against the mock RPC: the Memory settings panel (edit, save with the exact keys, suggestions,
 // status card with pause, resume and re-index, budget pause, unavailable, E_MEDIA_* on save), the setup step (defaults write
-// nothing, changed modalities and media-off write their keys), the Media view search (text, kinds, find similar, hits with
+// manual backfill, changed modalities and media-off write their keys), the Media view search (text, kinds, find similar, hits with
 // segment and jump, caption edit, empty and unavailable states, E_MEDIA_* on search) and the agent override.
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
@@ -120,10 +120,11 @@ describe("media search: Settings → Memory", opts, () => {
 });
 
 describe("media search: setup step", opts, () => {
-  test("the defaults are preselected and sending the step writes no media key", async () => {
+  test("new setup preselects and explicitly writes manual backfill", async () => {
     await withApp({}, async (app) => {
       seedSetup(app.server.rpc); await open(app, "#/setup");
       await toMemoryStep(app);
+      assert.equal(await app.page.locator(".model-support").count(), 0, "an old model status makes no support claim");
       assert.equal(await app.page.locator("#setup-media-enabled").isChecked(), true);
       assert.equal(await app.page.locator("#setup-media-provider").inputValue(), "egemma2");
       for (const m of ["image", "video", "audio"]) assert.equal(await app.page.locator(`#setup-modality-${m}`).isChecked(), true, m);
@@ -132,8 +133,7 @@ describe("media search: setup step", opts, () => {
       await stepHeading(app.page, "Name & persona").waitFor();
       // The Memory step is the first that writes, so its write is the only config.set so far.
       const memoryWrite = app.server.rpc.calls.filter((c) => c.method === "config.set").map((c) => (c.params as { changes: { key: string; value: unknown }[] }).changes).at(-1) ?? [];
-      assert.deepEqual(memoryWrite, [{ key: "embedding.useClass", value: "general" }, GEMMA_BLOCK]);
-      assert.equal(memoryWrite.some((x) => x.key.startsWith("memory.mediaEmbedding")), false);
+      assert.deepEqual(memoryWrite, [{ key: "embedding.useClass", value: "general" }, GEMMA_BLOCK, { key: "memory.mediaEmbedding.backfill", value: "manual" }]);
     });
   });
 
