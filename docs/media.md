@@ -138,9 +138,12 @@ uploads additionally require the owning person, even when another person has rig
 channel ownership records fail closed. Generated-media ownership rules remain agent-based.
 
 Quota accounting uses actual owned file sizes, including damaged upload directories, and never follows symlinks.
-One damaged upload does not stop unrelated publications. Recovery and pruning remove corrupt uploads after a one-hour
-grace period measured from their newest file/directory modification, emitting `onCorruptUploadRemoved` without raw
-paths or content. Healthy reads continue to verify the stored hash. Uploads currently have no per-file RPC/CLI delete
+One damaged upload does not stop unrelated publications. Recovery and pruning inspect bounded manifests and file
+metadata, without reading or hashing upload payloads under the store lock. Proven manifest/size/missing-file corruption
+can be removed after a one-hour grace period measured from the newest file/directory modification, emitting
+`onCorruptUploadRemoved` without raw paths or content. Transient read errors retain the upload and its owner, emit only
+a content-free `storage-unavailable` warning and are retried on the next sweep. Reads through `getUploaded` still verify
+the payload hash: same-size bit corruption is refused there and remains stored until retention expires. Uploads currently have no per-file RPC/CLI delete
 command; `media.output.delete` and `plur1bus media rm` delete generated outputs. Automatic retention applies to uploads.
 
 Each output directory is published by a single rename after files and manifest
