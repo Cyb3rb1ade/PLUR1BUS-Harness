@@ -232,9 +232,9 @@ flowchart TD
 - **Hardened Archive Intake**:
   - Stream-select named entries required by detected parsers; ignore unrelated files.
   - Enforce a strict 100:1 maximum decompression ratio ceiling (matching `zipaudit`) to neutralize zip-bomb attacks while admitting valid sparse JSON exports.
-  - Enforce a 10 MiB maximum decompressed file size per single entry; 100 MiB total uncompressed bytes per archive. Archives exceeding 100 MiB total uncompressed bytes are refused with typed error `archive-too-large` / `download-too-large` (`E_INVALID_PARAMS`); large account dumps (e.g. multi-gigabyte Takeout) must be unpacked or pre-filtered for selective intake.
+  - Enforce a 10 MiB maximum decompressed file size per single entry; 100 MiB total uncompressed bytes for all extracted allowlisted entries. Archives exceeding limits are refused with typed error `download-too-large` (`E_INVALID_PARAMS`); central directory parsing enables selective intake from multi-gigabyte archives without decompressing non-allowlisted entries.
   - Disallow symlinks, hardlinks, absolute paths, directory traversal (`..`), and nested archives.
-  - Selective extraction supporting `.zip` (standard 32-bit ZIP per `zipaudit`; ZIP64 is refused) and `.tar.gz`. Crate additions (`tar`, `flate2`/`gzip`) are audited under `deny.toml`.
+  - Selective extraction supporting standard 32-bit `.zip` (reusing `zipaudit` from `crates/plur1bus-ext`; ZIP64 is refused) and `.tar.gz`. Dependencies on existing workspace crates (`tar`, `flate2`, `zip`) conform to workspace dependency policy.
   - Implemented in Rust under `plur1bus-tools` by a Claude agent per D120 / ADR-019 (1), called over harness RPC.
 
 ### 3.3 Interactive User Paste Sources (ChatGPT, Grok, Claude Web)
@@ -246,7 +246,7 @@ flowchart TD
 
 | Source | Target Category | Exactly What is READ | Exactly What is NEVER READ (Strictly Banned) |
 |---|---|---|---|
-| **Claude Code** | Global/Project rules, MCP config | `~/.claude/CLAUDE.md`, `<workspace>/CLAUDE.md`, `<workspace>/.claude/CLAUDE.md`. Mixed file `~/.claude.json` / `<workspace>/.mcp.json`: streaming key-allowlist extractor extracts `mcpServers` ONLY. Non-allowlisted keys are never retained or emitted. | `~/.claude/.credentials.json` (banned), all non-allowlisted keys in `~/.claude.json` (`oauth_tokens`, `account`, `session` dropped immediately), `~/.claude/history/`. |
+| **Claude Code** | Global/Project rules, MCP config | `~/.claude/CLAUDE.md`, `<workspace>/CLAUDE.md`, `<workspace>/.claude/CLAUDE.md`. Mixed file `~/.claude.json` / `<workspace>/.mcp.json`: streaming key-allowlist extractor extracts `mcpServers` ONLY. Non-allowlisted keys are never retained or emitted. | `~/.claude/.credentials.json` (banned), all non-allowlisted keys in `~/.claude.json` (everything except `mcpServers` dropped immediately), `~/.claude/history/`. |
 | **OpenAI Codex** | Instructions, skills, MCP config | `~/.codex/config.toml` (only `[developer_instructions]` and `[mcp_servers]`), `<workspace>/AGENTS.md`, `~/.codex/skills/`. | `~/.codex/auth.json` (banned), `~/.codex/sessions/*.json` (sensitive transcripts; dropped), shell hooks in `~/.codex/hooks.json` (skipped). |
 | **Cursor** | Project rules, global rules, MCP | `.cursorrules`, `.cursor/rules/*.mdc`, `.cursor/mcp.json`, `settings.json` (`cursor.general.rulesForAi` [**U**]). User instructions via paste. | `state.vscdb` (SQLite storage with auth tokens/chat history; **NEVER opened, copied, or parsed**), `~/.cursor/extensions/` native binaries. |
 | **Kimi** | Rules, skills, MCP config | `~/.kimi-code/AGENTS.md`, `<workspace>/AGENTS.md`, `~/.kimi-code/skills/`, `~/.kimi-code/mcp.json`. | Shell hooks in `config.toml` `[[hooks]]` (skipped), web session credentials, private API keys. |

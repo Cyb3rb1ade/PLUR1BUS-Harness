@@ -816,11 +816,12 @@ review path mappings and re-embedding/licence requirements, select agents and
 conflict decisions, create an immutable plan, run preflight, explicitly confirm
 downtime, then follow progress/result and any rollback or host follow-ups. Detection
 shows each agent's persona/files, skills, classified plugins, MCP candidates and
-stores. Foreign plugins are display-only and classified into five states
-(`native-equivalent`, `mcp-equivalent`, `port-candidate`, `nonportable`, or `unknown`),
-with declared parts and reasons. Nothing loads or executes them; compatibility is
-provided through the native porting pipeline (Spec J / D121-J1) rather than an execution
-bridge. MCP candidates use the verified extension path, remain disabled after import and never
+stores. Foreign plugins are display-only and classified into three states on main
+(`bridge-possible`, `nonportable`, `unknown`), planned to expand to five states
+(`native-equivalent`, `mcp-equivalent`, `port-candidate`, `nonportable`, or `unknown`)
+under Spec J / P-J4a, with declared parts and reasons. Nothing loads or executes them;
+compatibility is provided through the native porting pipeline (Spec J / D121-J1) rather
+than an execution bridge. MCP candidates use the verified extension path, remain disabled after import and never
 carry source header/env credentials. The original CLI `--json` report shapes and
 business mappings remain unchanged; the GUI/RPC discovery projection is additive.
 
