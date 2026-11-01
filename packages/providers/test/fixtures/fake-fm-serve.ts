@@ -17,6 +17,8 @@ export interface FakeFmRequest {
 /** Boundary variants; no mode invokes a real executable or a model. */
 export interface FakeFmOptions {
   mode?: "text" | "tools" | "schema" | "overflow" | "stream-overflow" | "hang" | "hang-headers";
+  /** Native explicit stream:false is JSON; always-sse is a synthetic tolerance case. */
+  format?: "native" | "always-sse";
   health?: unknown;
   models?: unknown;
   usage?: boolean;
@@ -59,12 +61,46 @@ function delta(response: ServerResponse, value: object, finish: string | null = 
   })}\n\n`);
 }
 
-function completion(response: ServerResponse, options: FakeFmOptions): void {
+function jsonRequested(request: FakeFmRequest, options: FakeFmOptions): boolean {
+  if (options.format === "always-sse") return false;
+  let body: unknown;
+  try {
+    body = JSON.parse(request.body);
+  } catch {
+    return false;
+  }
+  return typeof body === "object" && body !== null && "stream" in body && body.stream === false;
+}
+
+function jsonCompletion(response: ServerResponse, options: FakeFmOptions): void {
+  if (options.mode === "hang") {
+    response.writeHead(200, { "content-type": "application/json" });
+    response.write("{\"synthetic\":\"pending");
+    return;
+  }
+  const message = options.mode === "tools" ? {
+    role: "assistant", content: null,
+    tool_calls: [{
+      id: "weather-1", type: "function", function: { name: "weather", arguments: "{\"city\":\"Bern\"}" },
+    }],
+  } : { role: "assistant", content: options.mode === "schema" ? "{\"category\":\"reminder\"}" : "Hallo" };
+  json(response, 200, {
+    id: "synthetic-fm", model: "system", object: "chat.completion",
+    choices: [{ index: 0, message, finish_reason: options.mode === "tools" ? "tool_calls" : "stop" }],
+    ...(options.usage === false ? {} : { usage: { prompt_tokens: 12, completion_tokens: 3, total_tokens: 15 } }),
+  });
+}
+
+function completion(request: FakeFmRequest, response: ServerResponse, options: FakeFmOptions): void {
   if (options.mode === "overflow") {
     json(response, 500, TRANSCRIPT_OVERFLOW);
     return;
   }
   if (options.mode === "hang-headers") return;
+  if (options.mode !== "stream-overflow" && jsonRequested(request, options)) {
+    jsonCompletion(response, options);
+    return;
+  }
   response.writeHead(200, { "content-type": "text/event-stream; charset=utf-8" });
   if (options.mode === "stream-overflow") {
     // AF0's review follow-up: role chunk, transcript error, clean EOF without finish, usage or DONE.
@@ -122,7 +158,7 @@ export async function startFakeFmServe(options: FakeFmOptions = {}): Promise<Fak
       } else if (request.url === "/v1/models") {
         json(response, 200, options.models ?? MODELS);
       } else if (request.url === "/v1/chat/completions") {
-        completion(response, options);
+        completion(recorded, response, options);
       } else {
         json(response, 404, { error: { message: "synthetic unknown path" } });
       }

@@ -22,10 +22,9 @@ export interface UnixSocketGuard {
     | Promise<{ ok: true } | { ok: false; reason: UnixRefusalReason }>;
 }
 
-/** Host ports; positive filesystem checks are cached for at most two seconds, failures never are. */
+/** Host ports; the core guard is consulted before every connection, without caching trust. */
 export interface UnixFetchOptions {
   guard: UnixSocketGuard;
-  now?: () => number;
   platform?: NodeJS.Platform;
 }
 
@@ -33,7 +32,6 @@ export interface UnixFetchOptions {
 export const APPLE_FM_BASE_URL = "http://apple-fm.invalid/v1";
 const ORIGIN = "http://apple-fm.invalid";
 const MAX_SOCKET_BYTES = 103;
-const GUARD_TTL_MS = 2000;
 const CONNECT_TIMEOUT_MS = 2000;
 const MAX_REQUEST_BYTES = 1024 * 1024;
 const MAX_HEADER_BYTES = 16 * 1024;
@@ -223,17 +221,11 @@ export function createUnixFetch(socket: ManagedUnixSocket, options: UnixFetchOpt
   if (!options?.guard || typeof options.guard.verify !== "function") {
     throw new TypeError("managed Unix socket needs a guard");
   }
-  const now = options.now ?? (() => performance.now());
-  let verifiedAt: number | undefined;
-
   async function verify(signal: AbortSignal): Promise<void> {
-    const current = now();
-    if (verifiedAt !== undefined && current >= verifiedAt && current - verifiedAt < GUARD_TTL_MS) return;
     try {
       const result = await interruptible(Promise.resolve().then(() => options.guard.verify(managed)), signal);
       checkAbort(signal);
       if (result?.ok !== true) throw unavailable(result?.reason ?? "socket-untrusted");
-      verifiedAt = now();
     } catch (error) {
       if (signal.aborted) throw aborted();
       if (error instanceof ProviderError) {

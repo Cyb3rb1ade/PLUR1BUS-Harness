@@ -1,7 +1,9 @@
 /** D122 AF1: local-model policy is enforced before any Unix I/O; the fake server exercises the real wire adapter. */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createChatCompletionsAdapter, createLocalChatAdapter, NO_AUTH, ProviderError } from "../../src/index.ts";
+import {
+  createChatCompletionsAdapter, createLocalChatAdapter, createUnixFetch, NO_AUTH, ProviderError,
+} from "../../src/index.ts";
 import type { ChatRequest, ChatResult, ChatStreamEvent, LocalAdapterEndpoint } from "../../src/index.ts";
 import { startFakeFmServe } from "../fixtures/fake-fm-serve.ts";
 import type { FakeFmOptions, FakeFmServe } from "../fixtures/fake-fm-serve.ts";
@@ -190,7 +192,7 @@ test("Unix adapter maps the native HTTP 500 transcript overflow to a non-retryab
 });
 
 test("Unix adapter honours optional DONE tolerance only after finish", POSIX, async () => {
-  const options = { missingDone: true, missingFinish: false };
+  const options: FakeFmOptions = { format: "always-sse", missingDone: true, missingFinish: false };
   const fm = await startFakeFmServe(options);
   try {
     assert.equal((await adapter(fm, { allowMissingDone: true }).complete(REQUEST)).text, "Hallo");
@@ -242,7 +244,7 @@ test("Unix adapter caps inference concurrency at one and releases capacity after
       error instanceof ProviderError && error.kind === "aborted");
     await fm.waitForRequests(1);
     await assert.rejects(local.complete(REQUEST), (error: unknown) =>
-      error instanceof ProviderError && error.code === "unavailable" && !error.retryable);
+      error instanceof ProviderError && error.code === "busy" && !error.retryable);
     assert.equal(fm.requests.length, 1);
     controller.abort();
     await cancelled;
@@ -304,7 +306,7 @@ test("Unix complete and stream apply the headers and idle deadlines and release 
   }
 });
 
-test("Unix adapter also maps a transcript overflow delivered inside a 200 SSE response", POSIX, async () => {
+test("Unix adapter tolerates a synthetic immediate transcript error inside HTTP 200 SSE", POSIX, async () => {
   const fm = await startFakeFmServe({ handler: (_request, response) => {
     response.writeHead(200, { "content-type": "text/event-stream" });
     const error = {
@@ -339,3 +341,34 @@ test("Unix adapter preserves native overflow after an SSE role chunk without DON
     await fm.close();
   }
 });
+
+for (const mode of ["text", "tools", "schema"] as const) {
+  test(`native JSON and synthetic always-SSE complete preserve ${mode} and usage`, POSIX, async () => {
+    for (const format of ["native", "always-sse"] as const) {
+      const fm = await startFakeFmServe({ mode, format });
+      try {
+        const fetch = createUnixFetch(fm.socket, { guard: { verify: () => ({ ok: true }) } });
+        const response = await fetch("http://apple-fm.invalid/v1/chat/completions", {
+          method: "POST", body: JSON.stringify({ model: "system", stream: false }),
+        });
+        assert.match(response.headers.get("content-type") ?? "",
+          format === "native" ? /^application\/json/ : /^text\/event-stream/);
+        await response.text();
+        const result = await adapter(fm).complete(REQUEST);
+        assert.deepEqual(result.usage, { inputTokens: 12, outputTokens: 3, totalTokens: 15 });
+        if (mode === "tools") {
+          assert.equal(result.toolCalls[0]?.name, "weather");
+          assert.deepEqual(result.toolCalls[0]?.arguments, { city: "Bern" });
+          assert.equal(result.finishReason, "tool_calls");
+        } else assert.equal(result.text, mode === "schema" ? "{\"category\":\"reminder\"}" : "Hallo");
+        const omitted = await fetch("http://apple-fm.invalid/v1/chat/completions", {
+          method: "POST", body: JSON.stringify({ model: "system" }),
+        });
+        assert.match(omitted.headers.get("content-type") ?? "", /^text\/event-stream/);
+        assert.match(await omitted.text(), /\[DONE\]/);
+      } finally {
+        await fm.close();
+      }
+    }
+  });
+}

@@ -229,7 +229,11 @@ export function createChatCompletionsAdapter(config: ChatCompletionsConfig): Cha
         // A 200 JSON body on a stream request: an error object some servers send in place of an SSE stream, else a server that ignored `stream`.
         const text = await readText(res.body, run, limits.maxBodyBytes);
         let json: unknown;
-        try { json = JSON.parse(text); } catch (cause) { throw protocolError("response body is not valid JSON", { cause }); }
+        try {
+          json = JSON.parse(text);
+        } catch {
+          throw protocolError("response body is not valid JSON");
+        }
         if (isRecord(json) && json["error"] !== undefined && json["error"] !== null) throw classifyStreamError(json, redact);
         throw protocolError("expected text/event-stream, got a JSON body");
       }
@@ -243,7 +247,11 @@ export function createChatCompletionsAdapter(config: ChatCompletionsConfig): Cha
           if (ev.data === "[DONE]") { done = true; return; }
           if (ev.data === "") continue; // an empty `data:` line is a keep-alive some servers send, not an error
           let json: unknown;
-          try { json = JSON.parse(ev.data); } catch (cause) { throw protocolError("SSE data is not valid JSON", { cause }); }
+          try {
+            json = JSON.parse(ev.data);
+          } catch {
+            throw protocolError("SSE data is not valid JSON");
+          }
           yield* acc.push(json);
         }
       };
@@ -270,7 +278,7 @@ export function createChatCompletionsAdapter(config: ChatCompletionsConfig): Cha
     async complete(req, opts) {
       const { run, res, redact } = await begin(req, opts, false);
       try {
-        // D122 AF1: fm may stream regardless of the requested mode; reuse all stream limits, repair and errors.
+        // Tolerate an SSE response by Content-Type; native AF0 explicit stream:false returned JSON.
         if (/^text\/event-stream\b/i.test(res.headers.get("content-type") ?? "")) {
           for await (const event of streamResponse(req, run, res, redact)) {
             if (event.type === "done") return event.result;
@@ -279,7 +287,11 @@ export function createChatCompletionsAdapter(config: ChatCompletionsConfig): Cha
         }
         const text = await readText(res.body, run, limits.maxBodyBytes);
         let json: unknown;
-        try { json = JSON.parse(text); } catch (cause) { throw protocolError("response body is not valid JSON", { cause }); }
+        try {
+          json = JSON.parse(text);
+        } catch {
+          throw protocolError("response body is not valid JSON");
+        }
         return await parseCompletion(json, redact, config.repair, req.tools, run.signal);
       } catch (e) {
         throw run.normalise(e);

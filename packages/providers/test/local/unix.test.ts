@@ -1,6 +1,10 @@
 /** D122 AF1: a real Unix boundary proves validation before connection, bounded bodies and owned cancellation. */
 import assert from "node:assert/strict";
-import { stat } from "node:fs/promises";
+import { lstat, rename, stat } from "node:fs/promises";
+import { join } from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import { Socket } from "node:net";
 import { test } from "node:test";
 import * as providers from "../../src/index.ts";
@@ -90,48 +94,113 @@ test("Unix fetch rejects credentials and routing headers in records, tuples and 
   }
 });
 
-test("Unix fetch accepts only a managed id and rejects relative, NUL and oversized UTF-8 socket paths", T, async () => {
-  assert.equal(typeof providers.createUnixFetch, "function");
-  const descriptors = [
+test("Unix descriptors reject wrong ids, relative paths and NUL before returning a fetch or reaching the guard", T, () => {
+  let verifies = 0;
+  const guard = { verify: () => {
+    verifies++;
+    return { ok: true as const };
+  } };
+  for (const descriptor of [
     "/tmp/fm.sock", { id: "other", path: "/tmp/fm.sock" }, { id: "apple-fm", path: "relative.sock" },
-    { id: "apple-fm", path: "/tmp/fm\0.sock" }, { id: "apple-fm", path: `/${"x".repeat(103)}` },
-    { id: "apple-fm", path: `/${"é".repeat(52)}` },
-  ];
-  for (const descriptor of descriptors) {
-    await assert.rejects(async () => {
-      const fetch = providers.createUnixFetch(descriptor as providers.ManagedUnixSocket, { guard: trusted });
-      await fetch(`${ORIGIN}/health`);
+    { id: "apple-fm", path: "/tmp/fm\0.sock" },
+  ]) {
+    assert.throws(() => providers.createUnixFetch(descriptor as providers.ManagedUnixSocket, { guard }), TypeError);
+  }
+  assert.equal(verifies, 0);
+});
+
+test("103 UTF-8 bytes reach the guard while 104 ASCII or multibyte bytes give the short-home hint first", T, async () => {
+  for (const path of [`/${"x".repeat(102)}`, `/${"é".repeat(51)}`, `/${"x".repeat(103)}`, `/${"é".repeat(51)}x`]) {
+    let verifies = 0;
+    const fetch = providers.createUnixFetch({ id: "apple-fm", path }, {
+      platform: "linux", guard: { verify: () => {
+        verifies++;
+        return { ok: false, reason: "socket-untrusted" };
+      } },
     });
+    const tooLong = Buffer.byteLength(path) === 104;
+    await assert.rejects(fetch(`${ORIGIN}/health`), (error: unknown) => {
+      assert.ok(error instanceof providers.ProviderError);
+      assert.equal(error.code, tooLong ? "socket-path-too-long" : "socket-untrusted");
+      assert.equal(error.retryable, false);
+      if (tooLong) assert.match(error.message, /use a shorter PLUR1BUS_HOME/);
+      return true;
+    });
+    assert.equal(verifies, tooLong ? 0 : 1);
   }
 });
 
-test("Unix guard refusal never connects and successful guard results expire after two seconds", POSIX, async () => {
+test("20 KiB response headers are refused even with Node's ambient header limit raised", POSIX, async () => {
+  await promisify(execFile)(process.execPath, [
+    "--max-http-header-size=32768", "--experimental-strip-types", "--conditions=source",
+    fileURLToPath(new URL("../fixtures/unix-header-limit.ts", import.meta.url)),
+  ], { timeout: 10_000 });
+});
+
+test("a stalled Unix connect is destroyed by the two-second transport timer", POSIX, async (context) => {
+  let stalled: Socket | undefined;
+  context.mock.method(Socket.prototype, "connect", function (this: Socket) {
+    stalled = this;
+    Object.defineProperty(this, "connecting", { value: true, writable: true, configurable: true });
+    return this;
+  });
+  const fetch = providers.createUnixFetch({ id: "apple-fm", path: "/synthetic-stalled.sock" }, { guard: trusted });
+  const start = performance.now();
+  await assert.rejects(fetch(`${ORIGIN}/health`, { signal: AbortSignal.timeout(3500) }), (error: unknown) =>
+    error instanceof providers.ProviderError && error.kind === "network" && error.code === "unavailable");
+  assert.ok(performance.now() - start >= 1900, "the connect must remain stalled until its timer expires");
+  assert.ok(performance.now() - start < 3400, "the caller's later abort must not be the shutdown mechanism");
+  assert.equal(stalled?.destroyed, true);
+});
+
+test("Unix guard runs on every connection and refusals never reach the server", POSIX, async () => {
   const fm = await startFakeFmServe();
-  let now = 0;
   let verifies = 0;
   let ok = true;
   try {
     const fetch = providers.createUnixFetch(fm.socket, {
-      now: () => now,
       guard: { verify: () => {
         verifies++;
         return ok ? { ok: true } : { ok: false, reason: "socket-untrusted" };
       } },
     });
     await (await fetch(`${ORIGIN}/health`)).text();
-    now = 1999;
     await (await fetch(`${ORIGIN}/health`)).text();
-    assert.equal(verifies, 1);
+    assert.equal(verifies, 2);
     ok = false;
-    now = 2000;
     for (let attempt = 0; attempt < 2; attempt++) {
       await assert.rejects(fetch(`${ORIGIN}/health`), (error: unknown) =>
         error instanceof providers.ProviderError && error.code === "socket-untrusted" && !error.retryable);
     }
-    assert.equal(verifies, 3, "a refused guard result must not be cached");
+    assert.equal(verifies, 4, "every connection attempt must consult the guard");
     assert.equal(fm.requests.length, 2);
   } finally {
     await fm.close();
+  }
+});
+
+test("replacing a socket immediately after success consults the guard again before connecting", POSIX, async () => {
+  const fm = await startFakeFmServe();
+  const replacement = await startFakeFmServe();
+  let verifies = 0;
+  try {
+    const original = await lstat(fm.socket.path);
+    const fetch = providers.createUnixFetch(fm.socket, { guard: { verify: async socket => {
+      verifies++;
+      const current = await lstat(socket.path);
+      return current.ino === original.ino ? { ok: true } : { ok: false, reason: "socket-untrusted" };
+    } } });
+    await (await fetch(`${ORIGIN}/health`)).text();
+    await rename(fm.socket.path, join(fm.directory, "original.sock"));
+    await rename(replacement.socket.path, fm.socket.path);
+    await assert.rejects(fetch(`${ORIGIN}/health`), (error: unknown) =>
+      error instanceof providers.ProviderError && error.code === "socket-untrusted");
+    assert.equal(verifies, 2);
+    assert.equal(fm.requests.length, 1);
+    assert.equal(replacement.requests.length, 0);
+  } finally {
+    await fm.close();
+    await replacement.close();
   }
 });
 

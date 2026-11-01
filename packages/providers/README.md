@@ -251,10 +251,11 @@ config errors and a default profile; `strategy: "moa"` is validated but not exec
 This package does not resolve configuration paths, create directories, start `fm`, inspect licences or implement
 filesystem ownership policy. AF2 supplies that policy through `UnixSocketGuard.verify(socket)`, which returns
 `{ ok: true }` or `{ ok: false, reason: "socket-untrusted" | "socket-path-too-long" | "platform" }`.
-The guard must verify the supplied descriptor's private parent, ownership and socket type without following symlinks
-(design §3.3). Successful checks are cached for at most two seconds per fetch instance; refusals and exceptions are
-never cached. Guard exceptions are reduced to a fixed reason, without their text or cause. `now` and `platform`
-are injectable host facts; their defaults are the monotonic clock and `process.platform`.
+The guard must verify the supplied descriptor's 0700 user-owned parent, ownership and socket type without following
+symlinks before **every connection** (design §3.3); trust is never cached. Guard exceptions are reduced to a fixed
+reason, without their text or cause. `platform` is injectable and defaults to `process.platform`.
+The pathname check and connect are separate operations; Node exposes no peer-credential check here. The verified
+0700 parent is required to confine a replacement between those operations to the same uid.
 
 ```ts
 import {
@@ -280,7 +281,7 @@ Windows is refused before any guard call or connection, with `ProviderError` kin
 |---|---|
 | Socket path | Absolute, no NUL, at most 103 UTF-8 bytes; no alternate directory |
 | Request body | 1 MiB, enforced while reading, before guard or connection |
-| Connection establishment | 2 seconds; headers/idle/total use the caller's existing adapter deadlines |
+| Connection establishment | 2 seconds; managed adapter header/idle/total defaults are 30/30/120 seconds |
 | Response headers | 16 KiB |
 | Response body | Health 64 KiB; models 1 MiB; chat 16 MiB, including SSE |
 | Probe | One 2-second default deadline across guard, health, models and both bodies |
@@ -303,7 +304,9 @@ default and remains absent when unreported. Successful streams require `[DONE]` 
 errors map to non-retryable `invalid_request` / `context_overflow`: HTTP 500 JSON for the observed non-streaming
 request, or HTTP 200 SSE with an assistant-role chunk, then the same `server_error` and no `[DONE]` for
 `stream:true`. The explicit error takes precedence over missing-DONE validation. Other vendors' HTTP 5xx
-classification is unchanged.
+classification is unchanged. Case, whitespace and punctuation differences are normalized; HTTP 500 SSE is an
+additional synthetic robustness case. A transport reset without the transcript-size error is still an unavailable
+transport: its cause cannot be established as overflow from a disconnect alone.
 See the [corrected AF0 full receipt](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/blob/171e5aceac0f54864c9a3f69b57089336720d658/docs/evidence/apple-fm/2026-11-01-probe-final.md) and
 [additional native streaming/lifecycle receipt](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/blob/171e5aceac0f54864c9a3f69b57089336720d658/docs/evidence/apple-fm/2026-11-01-probe-review.md)
 in independently reviewed PR #865. At least 5056 server prompt tokens were accepted, refuting a 4096-token
@@ -311,14 +314,19 @@ shared hardware window. The exact window remains unknown; AF2's conservative 409
 unchanged. The lifecycle evidence spans ten seconds after parent death and post-start stdin EOF; AF3 still
 owns production lifecycle and orphan cleanup.
 
-One inference may be active per managed adapter. A busy call gets a non-retryable `network` / `unavailable`
-refusal so the router can fall back; there is no hidden waiting queue. Probes can still run during inference.
-Caller abort, an adapter deadline, a mid-stream disconnect and early iteration exit close the owned socket and
-release capacity. The exact context-window guard and eligibility are AF2; sidecar supervision and production
+One inference may be active per managed adapter. A busy call gets a non-retryable `network` / `busy` refusal:
+router fallback is permitted, and it does **not** count against the circuit breaker. There is no hidden waiting queue.
+Probes can still run during inference. The managed defaults are headers 30 seconds, idle 30 seconds and total
+120 seconds; constructor and call overrides retain the ordinary timeout API. Explicitly disabling the total bound
+also disables the abandoned-iterator deadline, so callers doing that must close their iterators.
+Caller abort, the total deadline, a mid-stream disconnect and early iteration exit close the owned socket and release
+capacity. Abort and total expiry release even a generator paused at `yield`; an old iterator's later `return()` cannot
+release a newer call's slot. Parse errors retain no V8 response-text snippets in `cause`. The exact context-window guard and eligibility are AF2; sidecar supervision and production
 directory creation are AF3. This library alone does not enable an Apple provider in the product.
 
 Tests use `test/fixtures/fake-fm-serve.ts`: a real Unix socket deliberately mode 0755 under a private 0700 temporary
-directory, synthetic health/models and JSON/SSE chat responses, tool/schema answers, optional usage/DONE,
+directory, synthetic health/models, native JSON for explicit `stream:false`, SSE when `stream` is omitted or true,
+and a labeled synthetic `format: "always-sse"` tolerance variant, tool/schema answers, optional usage/DONE,
 native JSON overflow and role-then-error SSE overflow without DONE, hangs and controlled disconnects.
 Native socket cases run on POSIX; Windows runs the explicit
 platform-refusal tests. No test invokes real `fm`, `sudo` or licence commands. Run `pnpm --filter @plur1bus/providers test`.

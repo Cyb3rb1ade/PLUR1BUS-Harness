@@ -1,7 +1,8 @@
 /** Local adapter construction: keyless loopback servers and D122's guarded, system-only managed Unix provider. */
 import { ProviderError } from "../errors.ts";
 import { validateRequest } from "../request.ts";
-import type { CallOptions, ChatCompletionsAdapter, ChatRequest } from "../types.ts";
+import { mergeDefined, Run } from "../client.ts";
+import type { CallOptions, ChatCompletionsAdapter, ChatRequest, Timeouts } from "../types.ts";
 import { isLoopbackUrl } from "./loopback.ts";
 import type { ProbeResult } from "./types.ts";
 import { APPLE_FM_BASE_URL, createUnixFetch } from "./unix.ts";
@@ -21,12 +22,14 @@ export interface LocalAdapterConfig {
   credentials: NoAuthCredentials;
   fetch?: typeof fetch;
   maxTokensField?: "max_tokens" | "max_completion_tokens";
+  timeouts?: Partial<Timeouts>;
 }
 
 /** Port for `createChatCompletionsAdapter` (feat/m2-providers-chat-completions). */
 export type ChatAdapterFactory<A, X extends object = object> = (config: LocalAdapterConfig & X) => A;
 
 const FORBIDDEN_LOOPBACK_HEADERS = new Set(["authorization", "proxy-authorization", "cookie"]);
+const APPLE_FM_TIMEOUTS: Timeouts = { headersMs: 30_000, idleMs: 30_000, totalMs: 120_000 };
 
 export interface LocalAdapterOptions {
   /** Explicit opt-in for a non-loopback base URL. Credentials then stay `NO_AUTH` unless `extra.credentials` is given. */
@@ -61,11 +64,14 @@ function checkManagedRequest(request: ChatRequest): void {
 }
 
 function managedError(error: unknown): unknown {
+  const message = error instanceof ProviderError ? (error.providerMessage ?? "")
+    .normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ") : "";
   if (error instanceof ProviderError && (error.kind === "context_length"
-    || ((error.status === 500 || error.status === undefined) && error.providerType === "server_error"
-      && error.providerMessage === "The session's transcript exceeded the model's context size."))) {
-    // AF0: HTTP 500 JSON or the same error inside HTTP 200 SSE. Neither is a retryable outage.
-    // Keep other vendors' 5xx taxonomy unchanged.
+    || ((error.status === 500 || error.status === undefined)
+      && (error.kind === "overloaded" || error.providerType === "server_error")
+      && /\b(?:session|transcript)\b.*\bexceeded\b.*\bcontext\b/u.test(message)))) {
+    // Native AF0: HTTP 500 JSON and role-then-error HTTP 200 SSE without DONE.
+    // HTTP 500 SSE and punctuation/case variants are synthetic robustness cases. A reset alone proves no overflow.
     return new ProviderError("invalid_request", "Apple FM request exceeds the model context window", {
       code: "context_overflow", retryable: false, ...(error.status === undefined ? {} : { status: error.status }),
     });
@@ -73,41 +79,71 @@ function managedError(error: unknown): unknown {
   return error;
 }
 
-function managedAdapter<A>(inner: A): A {
-  const adapter = inner as A & ChatCompletionsAdapter;
-  if (typeof adapter?.complete !== "function" || typeof adapter?.stream !== "function") {
-    throw new TypeError("managed Unix factory must return a chat completions adapter");
-  }
-  let active = false;
-  const acquire = (request: ChatRequest, options: CallOptions | undefined) => {
+/** The outer lifetime distinguishes its deadline from caller abort without discarding received partial results. */
+function managedFailure(error: unknown, run: Run): unknown {
+  const normalized = run.normalise(error);
+  if (normalized !== error && error instanceof ProviderError) normalized.partial = error.partial;
+  return managedError(normalized);
+}
+
+/** An owned lease ends on caller abort or total timeout even while its generator is paused at yield. */
+function managedSlot(defaults: Timeouts) {
+  let active: symbol | undefined;
+  return (request: ChatRequest, options: CallOptions | undefined) => {
     checkManagedRequest(request);
     if (options?.signal?.aborted) throw new ProviderError("aborted", "call aborted by the caller");
     // D122 §3.2 / AF0: no parallel model-execution proof. Busy calls fall back instead of building an unbounded queue.
     if (active) {
-      throw new ProviderError("network", "Apple FM inference is busy", { code: "unavailable", retryable: false });
+      throw new ProviderError("network", "Apple FM inference is busy", { code: "busy", retryable: false });
     }
-    active = true;
+    const timeouts = mergeDefined(defaults, options?.timeouts);
+    const run = new Run(timeouts, options?.signal);
+    const token = Symbol("Apple FM inference");
+    active = token;
+    let disposed = false;
+    const dispose = () => {
+      if (disposed) return;
+      disposed = true;
+      if (active === token) active = undefined;
+      run.signal.removeEventListener("abort", dispose);
+      run.dispose();
+    };
+    run.signal.addEventListener("abort", dispose, { once: true });
+    if (run.signal.aborted) dispose();
+    return { run, options: { ...options, timeouts, signal: run.signal }, dispose };
   };
+}
+
+function managedAdapter<A>(inner: A, defaults: Timeouts): A {
+  const adapter = inner as A & ChatCompletionsAdapter;
+  if (typeof adapter?.complete !== "function" || typeof adapter?.stream !== "function") {
+    throw new TypeError("managed Unix factory must return a chat completions adapter");
+  }
+  const acquire = managedSlot(defaults);
   return {
     ...inner,
     async complete(request: ChatRequest, options?: CallOptions) {
-      acquire(request, options);
+      const lease = acquire(request, options);
       try {
-        return await adapter.complete(request, options);
+        return await adapter.complete(request, lease.options);
       } catch (error) {
-        throw managedError(error);
+        throw managedFailure(error, lease.run);
       } finally {
-        active = false;
+        lease.dispose();
       }
     },
     async *stream(request: ChatRequest, options?: CallOptions) {
-      acquire(request, options);
+      const lease = acquire(request, options);
       try {
-        yield* adapter.stream(request, options);
+        for await (const event of adapter.stream(request, lease.options)) {
+          lease.run.throwIfInterrupted();
+          if (event.type === "done") lease.dispose();
+          yield event;
+        }
       } catch (error) {
-        throw managedError(error);
+        throw managedFailure(error, lease.run);
       } finally {
-        active = false;
+        lease.dispose();
       }
     },
   };
@@ -134,10 +170,11 @@ function createManagedAdapter<A, X extends object>(
   headers.forEach((_value, name) => {
     if (FORBIDDEN_LOOPBACK_HEADERS.has(name)) throw new TypeError("no auth header to a managed Unix model server");
   });
+  const timeouts = mergeDefined(APPLE_FM_TIMEOUTS, config["timeouts"] as Partial<Timeouts> | undefined);
   return managedAdapter(factory({
     ...(extra ?? ({} as X)), baseUrl: APPLE_FM_BASE_URL, credentials: NO_AUTH,
-    fetch: createUnixFetch(unix.socket, unix), maxTokensField: "max_completion_tokens",
-  }));
+    fetch: createUnixFetch(unix.socket, unix), maxTokensField: "max_completion_tokens", timeouts,
+  }), timeouts);
 }
 
 /**

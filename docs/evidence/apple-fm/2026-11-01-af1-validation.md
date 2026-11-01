@@ -7,12 +7,12 @@ Controller ruling: `controller-rulings-2026-11-01-pm.md` §D. Independent branch
 ## Delivered contract
 
 - Managed Unix HTTP transport on one layout-resolved `apple-fm` descriptor, an injected filesystem guard,
-  two-second positive verification cache, fixed origin/endpoints/headers, bounded request/response bodies,
+  verification before every connection without a trust cache, fixed origin/endpoints/headers, bounded request/response bodies,
   no redirects, no DNS/TCP/proxy fallback, and owned abort/cancellation cleanup.
 - Keyless local chat adapter accepting only exact model id `system` before guard or I/O. Image parts and
   reasoning directives are refused. Tools, forced choice, parallel-tool flag and JSON Schema preserve the
   existing chat wire encoding. Inference capacity is one per adapter; busy calls receive a non-retryable
-  availability refusal without a hidden queue. Probes remain independent.
+  `busy` refusal with fallback but no breaker penalty, without a hidden queue. Probes remain independent.
 - `complete()` consumes SSE by response Content-Type through the same parser as `stream()`, preserving
   limits, usage, tool repair, partial results and truncation errors. A transport abort caused by an adapter
   deadline retains the correct timeout classification.
@@ -38,20 +38,20 @@ policy remains conservative. Native lifecycle observations establish only their 
 ## Verification
 
 Host: macOS arm64, Node `v24.21.0`, pnpm `10.28.0`, Cargo `1.95.0`.
-Long-running checks wrote logs outside the repository. The D2 follow-up reruns Providers, lint and documentation checks.
+Long-running checks wrote logs outside the repository. The D3 fix round reruns Providers and the shared lint/documentation pipeline; broader consumer checks are reported in the PR description.
 
 | Command | Result |
 |---|---|
 | `node scripts/check-toolchain.mjs` | Passed |
 | `pnpm test:prep` | Passed; frozen dependencies, generation, builds, private pinned Engine resolution |
 | `pnpm exec tsc -p tsconfig.base.json --noEmit` | Passed on final implementation |
-| `pnpm --filter @plur1bus/providers test` | 753 passed; 0 failed/cancelled/skipped/TODO |
+| `pnpm --filter @plur1bus/providers test` | 775 passed; 0 failed/cancelled/skipped/TODO |
 | `pnpm lint` | Passed |
 | `pnpm docs:check` | Passed |
 | `cargo fmt --all -- --check` | Passed; Rust implementation unchanged |
 | `git diff --check` | Passed |
 
-The 50 AF1 regression cases are included in the full Providers run. Test-first failures included SSE
+The AF1 and review regressions are included in the full Providers run. Test-first failures included SSE
 being parsed as JSON, missing managed transport/adapter/probe behavior, malformed neutral messages,
 private text retained in native/guard construction errors, mutable URL re-interpretation, an invalid HTTP
 status escaping its response event, typed transport aborts masking deadlines, and native overflow inside
@@ -71,6 +71,28 @@ platform requirement; Windows runs the explicit platform-refusal tests, and comm
 remain portable. Windows refusal was also exercised with injected host facts on this Mac. No native
 Windows/Linux run is claimed. Follow-up verification covers the complete Providers package and the shared
 lint/documentation checks. CI was not polled.
+
+## D3 review evidence
+
+- Three concurrent busy refusals plus cancellation and fallback do not open the real router's breaker; the next
+  sequential call succeeds. Normalized context errors in HTTP 500 JSON, synthetic HTTP 500 SSE and HTTP 200 SSE
+  each send one request, never retry, and leave the breaker closed.
+- A dropped/paused stream releases its slot on caller abort and total expiry; closing the old iterator afterward
+  cannot release its successor. Received partial text survives abort normalization. Simulated-clock tests bind default
+  header/idle/total limits to 30/30/120 seconds.
+- 103 UTF-8 bytes reach the guard; 104 ASCII/multibyte bytes give `socket-path-too-long`, the shorter-home hint and
+  zero guard calls. NUL/relative paths fail with TypeError at construction. A real 20 KiB header is refused even
+  when a child Node process raises its ambient header default to 32 KiB. A stalled-connect socket seam demonstrates
+  transport shutdown at two seconds, before the caller's later abort.
+- Five source mutations (remove path length, NUL, absolute-path, header-limit or connect-timer enforcement) each
+  made its focused test fail. Original source was restored after every experiment; the final full suite is unmutated.
+- Replacing the socket immediately after success calls the guard again and is refused before reaching the replacement.
+  The core guard still owns the actual filesystem policy; its explicit §6.2 cases are now in AF2's plan acceptance.
+- Native-format JSON and synthetic always-SSE completion preserve text, usage, tool calls and schema output.
+  Explicit `stream:false` returns JSON in the native fixture; omitted stream returns SSE.
+- All four shared-client JSON/SSE parse paths reject without a private response marker in `util.inspect(error)` or
+  its cause chain. Native stream-overflow is now measured by D2; punctuation/case and HTTP 500 SSE variants remain
+  synthetic. An unexplained disconnect is still not evidence of overflow.
 
 ## Remaining package boundaries
 
