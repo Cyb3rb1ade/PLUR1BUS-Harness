@@ -131,3 +131,27 @@ test("host Git selects Git for Windows using the trusted host PATH, with inherit
   assert.equal(gitEnv().GIT_CONFIG_NOSYSTEM, "1");
   assert.equal(gitEnv().GIT_CONFIG_COUNT, undefined);
 });
+
+
+test("worktree root lookup never implicitly provisions a root or model-selected card", () => {
+  const dir = tempDir("q3-lookup-only-"), repo = join(dir, "repo"), state = join(dir, "state");
+  gitInit(repo); mkdirSync(state);
+  const store = new CollabStore({ path: join(state, "collab.sqlite") });
+  try {
+    const project = store.createProject({ name: "Lookup", owner: "u-owner" });
+    store.setRepo(project.id, { repoPath: repo, baseBranch: "main" });
+    const port = provisionedWorktreePort(store, () => "/fallback");
+    const before = execFileSync("git", ["-C", repo, "worktree", "list", "--porcelain"], { encoding: "utf8" });
+    for (const card of ["", "card_abcdef", "card_unknown"]) assert.equal(port.root("agent", project.id, card), null);
+    assert.equal(store.liveWorktree(project.id, null), null);
+    assert.equal(store.liveWorktree(project.id, "card_abcdef"), null);
+    assert.equal(execFileSync("git", ["-C", repo, "worktree", "list", "--porcelain"], { encoding: "utf8" }), before);
+    assert.equal(existsSync(join(state, "worktrees")), false);
+    const provisioner = new GitWorktreeProvisioner(store, state);
+    const root = provisioner.fork({ projectId: project.id });
+    const card = provisioner.fork({ projectId: project.id, cardId: "card_abcdef" });
+    assert.equal(port.root("agent", project.id, ""), root.path);
+    assert.equal(port.root("agent", project.id, "card_abcdef"), card.path);
+    assert.equal(port.root("agent", project.id, "card_unknown"), null);
+  } finally { store.close(); }
+});

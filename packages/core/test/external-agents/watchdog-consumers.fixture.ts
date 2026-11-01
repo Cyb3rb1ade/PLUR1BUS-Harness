@@ -53,6 +53,8 @@ mock.module(new URL("../../src/external-agents/launcher.ts", import.meta.url).hr
 } });
 const { ExternalDelegationTarget, externalRunLink } = await import("../../src/external-agents/delegation.ts");
 const { discoverConnectors } = await import("../../src/external-agents/discovery.ts");
+// Fully mocked launch and transport results only; exercise platform-neutral native-detail consumers.
+Object.defineProperty(process, "platform", { value: "linux", configurable: true });
 const root = mkdtempSync(join(tmpdir(), "watchdog-consumers-"));
 try {
   assert.deepEqual(CONNECTORS.map(connectorArgv), [null, null, null, null], "real connector argv stays disabled");
@@ -86,7 +88,6 @@ try {
     }
     assert.equal(launchCalls, 0, "the existing connect seam does not enable a real connector");
   } else if (mode === "discovery") {
-    Object.defineProperty(process, "platform", { value: "linux", configurable: true }); // Mocked launch results only; no production process.
     const binDir = join(root, "bin"); mkdirSync(binDir);
     writeFileSync(join(binDir, "agy"), "fixture", { mode: 0o755 });
     for (const trusted of [true, false]) {

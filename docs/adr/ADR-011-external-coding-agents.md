@@ -13,10 +13,11 @@ not approve macOS ACP execution. Generic local tool sandbox behavior is unchange
 Linux permits exactly one writable, provisioned `state/worktrees` checkout through
 the opaque DB-backed `AcpWorktreeMount`. It revalidates the live binding, canonical
 path, directory identity, symlink-free ancestry and absence of existing hardlinks;
-Git metadata remains read-only. Ordinary coding turns now carry the trusted grant
-from `ProjectWorktreePort.mount` through `ChatRequest.codingWorktreeMount` to the
-shared process policy. Read-only review turns do not acquire that grant. Other
-writable Linux roots remain refused. No RPC field, migration or credential-bind
+Git metadata remains read-only. This grant belongs to the external ACP path only.
+The native coding-turn grant route is withdrawn from #820; K2a will address it in a
+separate PR, including trusted card assignment, resource gates and host-tool scope.
+Worktree lookup never creates a root or card checkout; callers explicitly provision
+through the existing fork/bind operations. Ordinary writable Linux tool policies remain refused. No RPC field, migration or credential-bind
 enablement is added. See the [integration and evidence handoff](../handoffs/2026-11-01-r820-variant-b.md).
 
 ## Amendment 2026-10-29 (owner)

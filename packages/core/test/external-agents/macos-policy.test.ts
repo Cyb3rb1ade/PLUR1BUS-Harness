@@ -11,6 +11,8 @@ import { containedTerminal } from "../../src/external-agents/containment.ts";
 import { discoverConnectors } from "../../src/external-agents/discovery.ts";
 import { wireExternalAgents } from "../../src/composition/external-agents.ts";
 import { runWithAgentScope, scopeFor } from "../../src/collab/scope.ts";
+import { ExternalDelegationTarget } from "../../src/external-agents/delegation.ts";
+import { CollabError } from "../../src/collab/errors.ts";
 import { SessionStore } from "../../src/session/store.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 import { mountOptions, provisionFixture } from "./fixture.ts";
@@ -40,6 +42,7 @@ for (const [host, platform] of [["darwin", undefined], ["darwin", "linux"], ["li
     mkdirSync(join(home, ".codex"));
     writeFileSync(join(home, ".codex", "auth.json"), "PRIVATE-CREDENTIAL", { mode: 0 });
     writeFileSync(join(root, "agy"), "PRIVATE-EXECUTABLE", { mode: 0o755 });
+    const refusal = { reason: "sandbox-unavailable", ...(host === "darwin" ? { cause: "macos-acceptance-pending" } : {}) };
     const noProcesses = forbidProcesses(t, host);
     try {
       if (kind === "agent") {
@@ -48,7 +51,7 @@ for (const [host, platform] of [["darwin", undefined], ["darwin", "linux"], ["li
       } else if (kind === "terminal") {
         const events: unknown[] = [];
         assert.deepEqual(await containedTerminal({ ...options, argv: [process.execPath], log: (event, fields) => events.push({ event, fields }) }), { ok: false, ...refusal });
-        assert.deepEqual(events, [{ event: "external.agent.refused", fields: { process: "terminal", ...refusal } }]);
+        assert.deepEqual(events, host === "darwin" ? [{ event: "external.agent.refused", fields: { process: "terminal", ...refusal } }] : []);
       } else {
         const events: unknown[] = [];
         const results = await discoverConnectors({ ...options, pathEnv: root, log: (event, fields) => events.push({ event, fields }) });
@@ -59,7 +62,7 @@ for (const [host, platform] of [["darwin", undefined], ["darwin", "linux"], ["li
         assert.equal((found as { cause?: string }).cause, refusal.cause);
         assert.equal(results.find(row => row.id === "codex")?.login[0]?.exists, true);
         assert.doesNotMatch(JSON.stringify(results), /PRIVATE/);
-        assert.deepEqual(events, [{ event: "external.agent.refused", fields: { process: "discovery", ...refusal } }]);
+        assert.deepEqual(events, host === "darwin" ? [{ event: "external.agent.refused", fields: { process: "discovery", ...refusal } }] : []);
       }
     } finally { noProcesses(); }
   });
@@ -82,5 +85,26 @@ test("the composed Core target logs the bounded macOS refusal cause", async t =>
   const entry = lookupEvent(events[0]!.event);
   assert.ok(entry, "the emitted Core event must have a bounded catalogue schema");
   assert.deepEqual(validateRecord({ ...entry.examples[0], attrs: events[0]!.fields }), { ok: true, entry });
+  noProcesses();
+});
+
+for (const host of ["darwin", "win32"] as const) test(`${host}: delegation rejects before every dependency even with connect installed`, async t => {
+  const sessions = new SessionStore({ path: ":memory:" });
+  t.after(() => sessions.close());
+  const calls: string[] = [], events: unknown[] = [];
+  const unexpected = (name: string): never => { calls.push(name); throw new Error(`unexpected ${name}`); };
+  const target = new ExternalDelegationTarget({ home: "/missing-home",
+    engineOf: () => unexpected("engine"), worktreeOf: () => unexpected("worktree/provisioner"),
+    mountOf: () => unexpected("mount"), sessions: () => { calls.push("sessions"); return sessions; },
+    approvals: async () => unexpected("approvals"), connect: () => unexpected("connect"),
+    log: (event, fields) => events.push({ event, fields }) });
+  const noProcesses = forbidProcesses(t, host);
+  const expected = { reason: "sandbox-unavailable", ...(host === "darwin" ? { cause: "macos-acceptance-pending" } : {}) };
+  // No scope and an already-aborted signal: platform refusal must be the first production step.
+  for (const signal of [AbortSignal.abort(), new AbortController().signal]) await assert.rejects(target.run({ agentId: "worker", question: "Work", context: "", signal }),
+    (error: unknown) => error instanceof CollabError && error.reason === expected.reason && error.cause === expected.cause);
+  assert.deepEqual(calls, []);
+  assert.deepEqual(sessions.listSessions({ owner: "external:worker" }).sessions, []);
+  assert.deepEqual(events, host === "darwin" ? [1, 2].map(() => ({ event: "external.agent.refused", fields: { process: "connector", ...expected } })) : []);
   noProcesses();
 });

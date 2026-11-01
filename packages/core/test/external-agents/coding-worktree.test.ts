@@ -47,13 +47,14 @@ function opened(verifier: VerifierPort) {
   collab.bindRepo(who, project.id, repo, "main");
   const store = new CollabStore({ path: db });
   const fork = store.liveWorktree(project.id, null)!;
-  const port = provisionedWorktreePort(store, () => "/workspace", join(home, "state"));
+  const port = provisionedWorktreePort(store, () => "/workspace");
   const card = collab.boardStore.createCard(project.id, {
     title: "Coding", description: "Implement the change.", columnId: collab.boardStore.columns(project.id)[0]!.id,
   }, { kind: "person", id: who.userId });
   collab.boardStore.assign(project.id, card.id, { kind: "agent", id: "worker" }, true, { kind: "person", id: who.userId });
   const events: object[] = [];
   const gate = new CodingGate({ path: ":memory:", audit: (event) => events.push(event), verifier });
+  new GitWorktreeProvisioner(store, join(home, "state")).fork({ projectId: project.id, cardId: card.id });
   const cardPath = port.root("worker", project.id, card.id)!;
   return { home, collab, store, gate, project, card, fork: { ...fork, path: cardPath }, port, events };
 }

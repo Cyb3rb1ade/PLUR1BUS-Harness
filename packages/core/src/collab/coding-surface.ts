@@ -10,14 +10,9 @@ import { surfaceError } from '../rpc/surface-errors.ts';
 import type { Collab } from './service.ts';
 import type { CodingGate } from './coding-gate.ts';
 import type { ReturnEnvelope } from './handoff.ts';
-import type { AcpWorktreeMount } from '../tools/sandbox/acp-worktree.ts';
 
 /** Shared existing-worktree port. M6 adapters supply their bound checkout here; no second worktree creator exists. */
-export interface ProjectWorktreePort {
-  root(agentId: string, projectId: string, cardId: string): string | null;
-  /** Trusted in-process grant only; fallback workspaces have no writable Linux opt-in. */
-  mount?(agentId: string, projectId: string, cardId: string): AcpWorktreeMount | undefined;
-}
+export interface ProjectWorktreePort { root(agentId: string, projectId: string, cardId: string): string | null }
 
 /**
  * One git implementation, shared with M5+ (subprojects spec §6.5).

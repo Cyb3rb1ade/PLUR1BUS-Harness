@@ -113,7 +113,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
     return { flags: { outsideRoots: resolved.rootId === null, denyListHit: false, ...(resolved.systemTree ? { systemTree: true } : {}) }, targets: [resolved.canonical], access };
   }, execute: async (args, ctx) => unwrap(await run(args, ctx)) });
   }
-  const sandboxOptions = { home: o.home, roots: o.roots, ...(process.platform === 'linux' && req.codingWorktree && !req.readOnlyWorktree && req.codingWorktreeMount ? { acpWorktree: req.codingWorktreeMount } : {}), deny, audit: o.audit, principal: req.principal!, ...(o.sandbox ? { sandbox: o.sandbox } : {}) };
+  const sandboxOptions = { home: o.home, roots: o.roots, deny, audit: o.audit, principal: req.principal!, ...(o.sandbox ? { sandbox: o.sandbox } : {}) };
   const host = { ...(o.host ?? createNodeHostContext()), exec: createSandboxHostExec(sandboxOptions) };
   for (const tool of HOST_TOOLS) {
     const cap = CAPABILITIES.get(tool.capability)!;

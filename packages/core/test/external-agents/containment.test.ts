@@ -42,8 +42,9 @@ test("filesystem writes stay in the worktree", async () => {
   await assert.rejects(containedWrite(box, join(home, "notes.txt"), "x"), (e) => reason(e) === "deny-listed" || reason(e) === "outside-root");
   const target = join(root, "hard-target.txt");
   writeFileSync(target, "a");
-  try { linkSync(target, join(worktree, "hard")); } catch { return; }
+  linkSync(target, join(worktree, "hard"));
   await assert.rejects(containedWrite(box, join(worktree, "hard"), "b"), (e) => reason(e) === "hard-link");
+  assert.equal(readFileSync(target, "utf8"), "a", "a hard-link alias cannot overwrite an ordinary outside file");
   const config = join(home, "config.json");
   writeFileSync(config, "protected");
   linkSync(config, join(worktree, "config-alias"));

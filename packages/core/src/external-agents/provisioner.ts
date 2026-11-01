@@ -7,7 +7,6 @@ import { CollabError } from "../collab/errors.ts";
 import type { CollabStore } from "../collab/store.ts";
 import { git, type GitExec } from "./git.ts";
 import { assertId, cardBranch, hex6, projectKey, rootBranch } from "./names.ts";
-import { AcpWorktreeMount } from "../tools/sandbox/acp-worktree.ts";
 
 const FORBIDDEN = new Set(["--force", "reset", "rebase", "push"]);
 
@@ -95,22 +94,12 @@ export class GitWorktreeProvisioner implements ProjectWorktreeProvisioner {
   }
 }
 
-/** Bound projects use the provisioned checkout. Without a binding, the previous workspace fallback stays. */
-export function provisionedWorktreePort(store: CollabStore, fallback: (agentId: string) => string | null, stateDir?: string): ProjectWorktreePort {
+/** Lookup only: bound projects use an already provisioned checkout. Without a binding, the previous workspace fallback stays. */
+export function provisionedWorktreePort(store: CollabStore, fallback: (agentId: string) => string | null): ProjectWorktreePort {
   return { root(_agentId, projectId, cardId) {
     const project = store.getProject(projectId);
     if (!project?.repo) return fallback(_agentId);
-    if (stateDir) {
-      const provisioner = new GitWorktreeProvisioner(store, stateDir);
-      if (!store.liveWorktree(projectId, null)) provisioner.fork({ projectId });
-      if (cardId && !store.liveWorktree(projectId, cardId)) provisioner.fork({ projectId, cardId });
-    }
     return store.liveWorktree(projectId, cardId || null)?.path ?? null;
-  }, mount(_agentId, projectId, cardId) {
-    const row = store.liveWorktree(projectId, cardId || null);
-    // Legacy rows still support file tools; only fully pinned rows authorize a writable process.
-    if (!stateDir || !store.getProject(projectId)?.repo || !row?.gitDir || !row.commonGitDir || !row.dev || !row.ino) return undefined;
-    return AcpWorktreeMount.fromStore(store, stateDir, projectId, cardId || null);
   } };
 }
 

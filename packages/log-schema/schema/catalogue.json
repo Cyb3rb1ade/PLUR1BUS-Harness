@@ -7978,7 +7978,7 @@
     },
     {
       "event": "sandbox.watchdog.failure",
-      "note": "The supervised ACP connector exited125 with a validated native sampling cause. Detail comes from the target-closed helper fd, never child stderr; transport results and enforcement decisions are unchanged. Example values illustrate the format and are not a diagnosis of a native failure.",
+      "note": "Retained native-watchdog diagnostic: the supervised ACP connector exited125 with a validated native sampling cause. Production macOS ACP cannot reach this event while macos-acceptance-pending applies (D123 SB-1/SB-3); pure consumer tests and native acceptance work retain the format. Detail comes from the target-closed helper fd, never child stderr; transport results and enforcement decisions are unchanged. Example values illustrate the format and are not a diagnosis of a native failure.",
       "kinds": [
         "harness"
       ],

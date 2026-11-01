@@ -54,7 +54,9 @@ On macOS, every external ACP agent, discovery probe and terminal launch refuses 
 `sandbox-unavailable`, cause `macos-acceptance-pending`. Discovery is metadata-only (executable/login existence and mode),
 with no version/initialize execution or credential-content reads. A platform override cannot disguise the real macOS host.
 The bounded Core event `external.agent.refused` and Doctor row `external.agents.sandbox` retain the cause. Ordinary sandboxed
-tools keep their independent policy. Windows remains fail-closed; there is no unsandboxed fallback.
+tools keep their independent policy. Windows remains fail-closed without the Mac acceptance cause; there is no unsandboxed fallback.
+Delegation checks this policy before engine selection, worktree lookup, transcript/turn creation or an injected transport.
+The typed collaboration error keeps both reason and cause; see [errors](errors.md#external-acp-platform-refusals).
 
 On Linux, every agent, discovery probe and terminal uses the shared sandbox and native resource helper. Children get a fresh empty
 HOME/TMPDIR, a fixed system PATH, no inherited credentials and no network. Discovery runs from empty scratch, never the
@@ -92,7 +94,8 @@ and scratch paths. Native acceptance remains D123 SB-1 (pnpm hardlink/build and 
 (real Git with relocated-Xcode `libxcrun.dylib`, open/osascript containment). No broad Developer/Xcode read allowance is added.
 
 Root and card checkouts are siblings beneath state/worktrees/<rootId>; local coding and completion use the same provisioned
-checkout. Host verification uses DB-pinned Git metadata, never a writable .git pointer, and disables clean/smudge/process filters.
+checkout. Lookup never auto-forks a root or card: explicit fork/bind operations own provisioning.
+Ordinary coding turns and host tools receive no ACP grant; native coding execution is separate K2a work. Host verification uses DB-pinned Git metadata, never a writable .git pointer, and disables clean/smudge/process filters.
 Card suffixes use six UUID hex characters after the typed prefix; shortened collisions receive a deterministic alternate.
 Removed worktrees retain their branches, which subsequent provisioning safely reattaches without reset or force. Rebinding
 or unbinding refuses while worktrees are live. agents.<id>.engine is Owner/Admin writable and audited.

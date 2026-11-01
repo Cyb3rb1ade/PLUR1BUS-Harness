@@ -5,7 +5,7 @@ import { acpPlatformAvailable, LaunchError, launchExternalAgent } from "../../sr
 
 for (const platform of ["darwin", "win32"] as const) {
   test(`${platform} refuses ACP agents and discovery before validating argv or accessing cwd`, async () => {
-    const cause = process.platform === "darwin" || platform === "darwin" ? "macos-acceptance-pending" : undefined;
+    const cause = process.platform === "darwin" ? "macos-acceptance-pending" : undefined;
     for (const probe of [false, true]) {
       await assert.rejects(launchExternalAgent({ argv: [], cwd: "/missing-acp-cwd", platform, probe }),
         (error: unknown) => error instanceof LaunchError && error.reason === "sandbox-unavailable" && error.cause === cause);
@@ -31,7 +31,7 @@ test("the Linux-only availability export and launcher agree for actual hosts and
       assert.equal(acpPlatformAvailable(platform), available, `${host}/${platform}`);
       await assert.rejects(launchExternalAgent({ argv: [], cwd: "/missing-acp-cwd", probe: true, ...(platform ? { platform } : {}) }),
         (error: unknown) => error instanceof LaunchError && error.reason === (available ? "argv" : "sandbox-unavailable")
-          && error.cause === (host === "darwin" || platform === "darwin" ? "macos-acceptance-pending" : undefined));
+          && error.cause === (host === "darwin" ? "macos-acceptance-pending" : undefined));
     }
   }
 });

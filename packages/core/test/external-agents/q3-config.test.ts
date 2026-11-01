@@ -50,17 +50,12 @@ test("live tools.sandbox.maxTasks=2 reaches wired ACP terminal containment", asy
     finally { clearInterval(timer); }
   };
   const scenario = async () => {
-    if (process.platform !== "linux") {
-      const terminalId = await create(process.execPath, ["-e", "process.exit(0)"]);
-      await assert.rejects(request("terminal/wait_for_exit", { terminalId }), /sandbox-unavailable/);
-    } else {
-      const terminalId = await create("/usr/bin/cat", ["/proc/self/limits"]);
-      assert.equal((await request("terminal/wait_for_exit", { terminalId })).exitCode, 0);
-      const result = await request("terminal/output", { terminalId });
-      assert.match(String(result.output), /Max processes\s+3\s+3/); // two target tasks plus bwrap's init
-    }
+    const limited = await create("/usr/bin/cat", ["/proc/self/limits"]);
+    assert.equal((await request("terminal/wait_for_exit", { terminalId: limited })).exitCode, 0);
+    const result = await request("terminal/output", { terminalId: limited });
+    assert.match(String(result.output), /Max processes\s+3\s+3/); // two target tasks plus bwrap's init
     config.tools.sandbox.maxTasks = 0;
-    const terminalId = await create(process.platform === "linux" ? "/usr/bin/true" : process.execPath, []);
+    const terminalId = await create("/usr/bin/true", []);
     await assert.rejects(request("terminal/wait_for_exit", { terminalId }), /sandbox-unavailable/);
   };
   const reply = (id: unknown, result: unknown) => input.write(JSON.stringify({ jsonrpc: "2.0", id, result }) + "\n");
@@ -83,12 +78,19 @@ test("live tools.sandbox.maxTasks=2 reaches wired ACP terminal containment", asy
   options, () => ({ store: sessions }), () => collab,
   deps => new ExternalDelegationTarget({ ...deps, limitsHelper, connect: () => ({ input, output, stop() {} }) }));
   try {
-    await runWithAgentScope(scopeFor("worker", project.id), () => options.delegationTargets![0]!.run({ agentId: "worker", principal: who,
+    const run = () => runWithAgentScope(scopeFor("worker", project.id), () => options.delegationTargets![0]!.run({ agentId: "worker", principal: who,
       question: "Check limit", context: "", signal: new AbortController().signal }));
-    if (failure) throw failure;
-    if (process.platform === "darwin") assert.deepEqual(events.filter(row => row.event === "external.agent.refused"), [1, 2].map(() => ({
-      event: "external.agent.refused", fields: { process: "terminal", reason: "sandbox-unavailable", cause: "macos-acceptance-pending" },
-    })));
+    if (process.platform === "linux") {
+      await run();
+      if (failure) throw failure;
+    } else {
+      await assert.rejects(run(), { reason: "sandbox-unavailable", ...(process.platform === "darwin" ? { cause: "macos-acceptance-pending" } : {}) });
+      assert.equal(sequence, 0, "unsupported hosts never enter the injected transport");
+      assert.equal(sessions.listSessions({ owner: who.userId }).sessions.length, 0);
+      assert.deepEqual(events, process.platform === "darwin" ? [{ event: "external.agent.refused", fields: {
+        process: "connector", reason: "sandbox-unavailable", cause: "macos-acceptance-pending",
+      } }] : []);
+    }
   } finally { approvals.service.dispose(); approvals.stores.db.close(); sessions.close(); collab.close(); }
 });
 

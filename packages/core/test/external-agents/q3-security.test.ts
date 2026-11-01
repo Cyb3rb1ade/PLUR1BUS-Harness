@@ -1,10 +1,11 @@
 /** Review reproductions use the real ACP target, D109 approval service and filesystem/terminal sinks. */
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import childProcess, { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
-import { test } from "node:test";
+import { syncBuiltinESMExports } from "node:module";
+import { test, type TestContext } from "node:test";
 import { runWithAgentScope, scopeFor } from "../../src/collab/scope.ts";
 import { targetRunner } from "../../src/collab/target.ts";
 import type { AgentRunInput } from "../../src/collab/runner.ts";
@@ -15,7 +16,7 @@ import { tempDir } from "../helpers/temp-dir.ts";
 import { mountOptions, provisionFixture } from "./fixture.ts";
 
 type Request = (method: string, params: object) => Promise<Record<string, any>>;
-async function scenario(setup: (worktree: string) => { beforePolicy(count: number): void; run(request: Request): Promise<void> }) {
+async function scenario(t: TestContext, setup: (worktree: string) => { beforePolicy(count: number): void; run(request: Request): Promise<void> }) {
   const root = tempDir("q3-approved-target-");
   const home = join(root, "home"), repo = join(root, "repo");
   mkdirSync(repo);
@@ -49,18 +50,26 @@ async function scenario(setup: (worktree: string) => { beforePolicy(count: numbe
       else { const p = pending.get(m.id); pending.delete(m.id); if (m.error) p?.reject(new Error(m.error.data.reason)); else p?.resolve(m.result); }
     }
   });
+  // Mocked transport exercises approval callbacks on every supported filesystem; no native launch is permitted.
+  let spawnAttempts = 0;
+  const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
+  Object.defineProperty(process, "platform", { ...platform, value: "linux" });
+  t.mock.method(childProcess, "spawn", () => { spawnAttempts++; throw new Error("pure callback test must not spawn"); });
+  syncBuiltinESMExports();
+  t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); Object.defineProperty(process, "platform", platform); });
   const target = new ExternalDelegationTarget({ home, worktreeOf: () => worktree, mountOf: () => mount.mount, limitsHelper: mount.limitsHelper,
     engineOf: () => ({ kind: "external", connector: "agy", timeoutMs: 30000, maxTurns: 1 }), sessions: () => sessions,
     approvals: async () => { action.beforePolicy(++calls); return permissions.service; }, connect: () => ({ input, output, stop() {} }) });
   try {
     await runWithAgentScope(scopeFor("worker", "project"), () => target.run({ agentId: "worker", principal: { kind: "person", userId: "owner", role: "owner" }, question: "Code", context: "", signal: new AbortController().signal }));
     if (failure) throw failure;
+    assert.equal(spawnAttempts, 0);
   } finally { sessions.close(); permissions.service.dispose(); permissions.stores.db.close(); }
 }
 
-test("allow_once cannot redirect approved bytes through a symlink swapped during authorization", async () => {
+test("allow_once cannot redirect approved bytes through a symlink swapped during authorization", async t => {
   if (process.platform === "win32") return;
-  await scenario(worktree => {
+  await scenario(t, worktree => {
     const approved = join(worktree, "approved.txt"), victim = join(worktree, "not-approved.txt");
     writeFileSync(approved, "original"); writeFileSync(victim, "victim original");
     return {
@@ -75,9 +84,9 @@ test("allow_once cannot redirect approved bytes through a symlink swapped during
   });
 });
 
-for (const target of ["cwd", "command"]) test(`an approved terminal ${target} cannot be reselected after authorization`, async () => {
+for (const target of ["cwd", "command"]) test(`an approved terminal ${target} cannot be reselected after authorization`, async t => {
   if (process.platform === "win32") return;
-  await scenario(worktree => {
+  await scenario(t, worktree => {
     const a = join(worktree, "approved"), b = join(worktree, "unapproved"), marker = join(b, "marker");
     mkdirSync(b);
     if (target === "cwd") mkdirSync(a); else cpSync("/usr/bin/true", a);
@@ -116,7 +125,8 @@ test("a validated read-only external consult refuses before opening a connection
   };
   try {
     await assert.rejects(runWithAgentScope(scopeFor("reviewer", "project"), () => targetRunner([target]).run({ agentId: "reviewer", principal: { kind: "person", userId: "owner", role: "owner" },
-      question: "Review", context: "", handoff, signal: new AbortController().signal })), /read-only review is unavailable/);
+      question: "Review", context: "", handoff, signal: new AbortController().signal })), { reason: process.platform === "linux" ? "read-only-external-unavailable" : "sandbox-unavailable",
+      ...(process.platform === "darwin" ? { cause: "macos-acceptance-pending" } : {}) });
     assert.equal(connected, 0); assert.equal(trees, 0);
     assert.equal(sessions.listSessions({ owner: "owner" }).sessions.length, 0);
     assert.equal(readFileSync(file, "utf8"), "original");

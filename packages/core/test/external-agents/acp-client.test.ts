@@ -282,8 +282,7 @@ test("delegate_task runs the stub in the worktree, asks a person, and refuses an
       assert.equal(readOrNull(join(fork.path, "note.txt")), null);
       assert.equal(readOrNull(outside), null);
       const transcript = sessionStore.listSessions({ owner: who.userId }).sessions.find(s => s.origin === "acp-agent");
-      assert.ok(transcript);
-      assert.match(JSON.stringify(sessionStore.listEvents(transcript.id)), /sandbox-unavailable/);
+      assert.equal(transcript, undefined, "unsupported hosts refuse before creating an ACP transcript");
     } else {
       const requested = await Promise.race([
         handle.done.then((task) => { throw new Error(task.error ?? task.status); }),

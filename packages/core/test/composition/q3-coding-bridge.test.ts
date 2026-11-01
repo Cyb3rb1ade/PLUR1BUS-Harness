@@ -14,13 +14,15 @@ import { memoryAuditSink } from "../../src/rbac/audit.ts";
 import { createSecretStore } from "../../src/secrets/store.ts";
 import { createMemoryBackend } from "../../src/secrets/memory-backend.ts";
 import { createMemoryAuditSink } from "../../src/secrets/audit.ts";
+import { ToolAdapterError } from "../../src/tools/tool-adapter-error.ts";
 import { ToolDispatcher } from "../../src/tools/dispatcher.ts";
 import { rig } from "../approvals/service-helpers.ts";
 import { owner } from "../collab/helpers.ts";
+import { GitWorktreeProvisioner } from "../../src/external-agents/provisioner.ts";
 import { limitsHelper } from "../external-agents/fixture.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 
-test("production bind → local coding delegation → coding_complete uses its lazy card tree and real verifier", async () => {
+test("production bind → local coding delegation → coding_complete uses its explicitly provisioned card tree and real verifier", async t => {
   if (process.platform === "win32") return; // The native coding verifier currently has no Windows backend.
   const dir = tempDir("q3-composition-"), home = join(dir, "home"), repo = join(dir, "repo");
   const cfg = defaults(); cfg.agents.lead = {}; cfg.agents.coder = {};
@@ -48,34 +50,27 @@ test("production bind → local coding delegation → coding_complete uses its l
       }
       assert.ok(req.codingWorktree, "the production runner must select the provisioned tree");
       seen = req.codingWorktree;
-      assert.equal(Boolean(req.codingWorktreeMount), process.platform === "linux", "only Linux coding turns acquire a writable grant");
       const registry = await o.toolsForTurn!(req);
       const dispatcher = new ToolDispatcher({ registry, approvals: approvals.service, grants: approvals.stores.grants,
         clock: { now: Date.now }, policyContext: () => ({ overrides: { "fs.write": "allowed", "shell.exec": "allowed" } }) });
       const ctx = { agentId: "coder", principal: who.userId, signal: req.signal, surface: 1 as const };
-      if (process.platform === "linux") {
-        const marker = join(seen, "normal-exec-output");
-        const call = { id: "bridge-exec", name: "exec.run", args: { program: "/usr/bin/touch", args: [marker], cwd: seen } };
-        for (const forged of [undefined, JSON.parse(JSON.stringify(req.codingWorktreeMount))]) {
-          const untrusted = { ...req }; delete untrusted.codingWorktreeMount;
-          if (forged) untrusted.codingWorktreeMount = forged;
-          const denied = new ToolDispatcher({ registry: await o.toolsForTurn!(untrusted), approvals: approvals.service,
-            grants: approvals.stores.grants, clock: { now: Date.now }, policyContext: () => ({ overrides: { "shell.exec": "allowed" } }) });
-          assert.equal((await denied.call(call, ctx)).isError, true, "path-only and serialized grants cannot enable a process");
-          assert.equal(existsSync(marker), false);
-        }
-        const executed = await dispatcher.call(call, ctx);
-        assert.equal(executed.isError, false, JSON.stringify(executed));
-        assert.equal((executed.value as { exitCode: number }).exitCode, 0);
-        assert.equal(existsSync(marker), true, "ordinary exec.run uses the Linux writable opt-in");
-      }
-      if (process.platform === "darwin") {
-        const marker = join(seen, "mac-must-not-start");
-        const refused = await dispatcher.call({ id: "bridge-mac-exec", name: "exec.run",
-          args: { program: "/usr/bin/touch", args: [marker], cwd: seen } }, ctx);
-        assert.equal(refused.isError, true, "macOS does not acquire the Linux worktree exception");
-        assert.equal(existsSync(marker), false);
-      }
+      const execTool = registry.get("exec.run")!, execute = execTool.execute;
+      let failure: unknown;
+      // Observe the real adapter failure; the dispatcher intentionally bounds its public envelope.
+      const get = registry.get.bind(registry);
+      t.mock.method(registry, "get", (name: string) => name === "exec.run" ? { ...execTool,
+        execute: async (...args: Parameters<typeof execute>) => {
+          try { return await execute(...args); } catch (error) { failure = error; throw error; }
+        },
+      } : get(name));
+      const marker = join(seen, "native-must-not-start");
+      const refused = await dispatcher.call({ id: "bridge-exec", name: "exec.run",
+        args: { program: "/usr/bin/touch", args: [marker], cwd: seen } }, ctx);
+      assert.equal(refused.isError, true, JSON.stringify(refused));
+      assert.ok(failure instanceof ToolAdapterError);
+      assert.match(JSON.stringify(failure.detail), /spawn-failed/);
+      assert.match(JSON.stringify(failure.detail), /sandbox path is deny-listed/);
+      assert.equal(existsSync(marker), false);
       const written = await dispatcher.call({ id: "bridge-write", name: "file.write", args: { path: "notes.md", content: "local coding turn\n", overwrite: true } }, ctx);
       assert.equal(written.isError, false, JSON.stringify(written));
       const result = await dispatcher.call({ id: "bridge-complete", name: "coding_complete", args: { projectId, cardId } }, ctx);
@@ -101,6 +96,7 @@ test("production bind → local coding delegation → coding_complete uses its l
     const card = c.collab.boardStore.createCard(projectId, { title: "Code", description: "Verify locally", columnId: c.collab.boardStore.columns(projectId)[0]!.id }, { kind: "person", id: who.userId }); cardId = card.id;
     c.collab.boardStore.assign(projectId, cardId, { kind: "agent", id: "coder" }, true, { kind: "person", id: who.userId });
     assert.equal(c.collab.worktreeStore.liveWorktree(projectId, cardId), null);
+    new GitWorktreeProvisioner(c.collab.worktreeStore, join(home, "state")).fork({ projectId, cardId });
     const done = await c.collab.delegate({ principal: who, projectId, fromAgent: "lead", toAgent: "coder", task: "Code", acceptanceCriteria: "verified",
       handoff: {
         contract: { schema: "plur1bus.handoff/1", id: "ho_bridge", kind: "delegate", from: { agent: "lead", session: "session" }, to: { agent: "coder" },

@@ -73,6 +73,11 @@ export class ExternalDelegationTarget implements DelegationTarget {
   }
 
   async run(input: AgentRunInput): Promise<AgentRunResult> {
+    const refusal = externalAgentRefusal();
+    if (refusal) {
+      if (refusal.cause) this.#d.log?.("external.agent.refused", { process: "connector", ...refusal });
+      throw new CollabError("invalid", refusal.reason, refusal);
+    }
     input.signal.throwIfAborted();
     if (input.handoff?.context.readOnlyWorktree)
       throw new CollabError("invalid", "external read-only review is unavailable", { reason: "read-only-external-unavailable" });
@@ -238,7 +243,7 @@ export class ExternalDelegationTarget implements DelegationTarget {
       const reason = e instanceof AcpClientError ? e.reason : e instanceof ContainmentError ? e.reason : e instanceof CollabError ? (e.reason ?? e.message) : e instanceof Error ? e.message : "failed";
       try { store.failTurn(turnId, reason.slice(0, 200)); } catch { /* the turn may already be closed */ }
       if (e instanceof CollabError) throw e;
-      throw new CollabError("invalid", reason, { reason: reason.slice(0, 80) });
+      throw new CollabError("invalid", reason, { reason: reason.slice(0, 80), ...(e instanceof LaunchError && e.cause ? { cause: e.cause } : {}) });
     } finally {
       runAbort.abort();
       client?.close();

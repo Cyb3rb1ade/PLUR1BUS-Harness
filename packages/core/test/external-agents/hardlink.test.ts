@@ -183,7 +183,8 @@ test("a session is not opened when the worktree already contains a hard link", a
   await runWithAgentScope(scopeFor("coder", "prj"), async () => {
     await assert.rejects(
       () => target.run({ agentId: "coder", question: "q", context: "", signal: AbortSignal.timeout(5000) }),
-      (e: unknown) => e instanceof CollabError && e.reason === "hardlink-in-worktree",
+      (e: unknown) => e instanceof CollabError && e.reason === (process.platform === "linux" ? "hardlink-in-worktree" : "sandbox-unavailable")
+        && e.cause === (process.platform === "darwin" ? "macos-acceptance-pending" : undefined),
     );
   });
   assert.equal(started, false);
