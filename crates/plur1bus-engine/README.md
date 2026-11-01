@@ -28,9 +28,13 @@ runtime behavior consumes this module in Phase 1 (RE-R1).
 ### Namespace recall (RE-04/T4)
 
 `recall::namespaces::NamespaceStores` builds ordered private routes over the existing RE-02 store pools.
-`namespaces::recall` settles bounded child workers, routes each store through its matching embedding provider,
-merges/fuses the results, optionally reranks and applies the global tier budget before recording one retrieval line.
-A foreign identity without a provider reports `embedding-unavailable`; it never uses the active vector by dimension.
+`NamespaceStores::open` expects the active embedding identity on every route, including read-only legacy routes.
+`open_with_identity_resolver` accepts a `StoreIdentityResolver` for explicit expectations per namespace and agent.
+A stored identity that differs from its expectation rejects the entire recall before child workers, providers or
+ledger delivery. Once leases succeed, `namespaces::recall` settles every started child, routes each declared space
+through its matching provider, merges/fuses, optionally reranks and applies the global tier budget before one
+retrieval line. Only a declared foreign identity without a provider reports `embedding-unavailable`; it never
+uses the active vector by dimension. Child failures are reported after all started workers have settled.
 `namespace_pipeline::Pipeline` composes the existing ACL-aware stages with scalar entry projection and stage-local
 observations. Prompt assembly, complete trace serialization and phase deadlines remain T5/T6; runtime wiring is RE-08.
 See [Engine stores](../../docs/engine-stores.md) and the

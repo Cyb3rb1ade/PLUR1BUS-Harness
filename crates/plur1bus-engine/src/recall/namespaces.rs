@@ -115,8 +115,8 @@ impl std::fmt::Display for NamespaceError {
 }
 impl std::error::Error for NamespaceError {}
 
-/// Run every namespace concurrently, join every worker, then merge and emit one ledger line.
-/// Required failures are selected in configured order only after all leases have settled.
+/// Acquire required leases and reject lease/identity errors before starting any child worker.
+/// Then settle every started child; select failures in route order before merging or ledger delivery.
 pub fn recall(request: &NamespaceRequest<'_>) -> Result<NamespaceOutput, NamespaceError> {
     let leases = namespace_fanout::lease(request.routes, request.agent_id)?;
     let queries =

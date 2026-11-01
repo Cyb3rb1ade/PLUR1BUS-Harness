@@ -135,6 +135,16 @@ function runtimeSpecs() {
       params: { topN: 1, budget: 3, canonicalEnabled: true, canonicalMaxItems: 2, adaptiveBudget: { enabled } },
       rerank: { 1: 0.7, 2: 0.9, 3: 0.8, 4: 0.6 },
     })),
+    ...[false, true].map((enabled) => ({
+      name: `namespaces-canonical-budget-below-max-items-${enabled ? "enabled" : "disabled"}`,
+      rows: [item("active", 1), item("active", 2), item("legacy", 3), item("legacy", 4)],
+      foreignDimension: WIDTH / 2,
+      foreignAvailable: true,
+      knowledge:
+        "## First canonical\nSynthetic canonical first section.\n## Second canonical\nSynthetic canonical second section.\n",
+      params: { topN: 2, budget: 1, canonicalEnabled: true, canonicalMaxItems: 2, adaptiveBudget: { enabled } },
+      rerank: { 1: 0.7, 2: 0.9, 3: 0.8, 4: 0.6 },
+    })),
     {
       name: "namespaces-fusion-rerank-fallback-disabled",
       foreignDimension: WIDTH / 2,

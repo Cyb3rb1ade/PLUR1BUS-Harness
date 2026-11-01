@@ -275,14 +275,29 @@ RE-D17). A naive port changes results without raising any error, for three reaso
 
 ### T6 — Budgets, timing, degraded, trace, diagnostics (one pull request)
 
+Work package **G3** names this RE-04/T6 task. It owns automatic item-budget resolution as
+well as the time/character budgets; T4 consumes the already resolved item limit.
+
 - [ ] **Step 1: failing tests** `tests/recall_budget.rs`: `an_overrun_of_hard_ms_answers_degraded_timeout_with_the_blocks_on_hand`
   (a stage seam that sleeps past the deadline), `a_caller_cancel_answers_degraded_aborted`, `soft_ms_switches_to_the_fast_path_and_is_traced`,
   `timing_has_one_phase_per_stage_and_namespace_phases_per_table`, `no_reranker_configured_yields_the_reranker_not_configured_diagnostic`,
   `trace_texts_are_capped_at_the_configured_length` (review-focus 5), `trace_never_contains_a_secret_marker`
   (feed `tests/system/redaction-everywhere.test.ts`'s marker strings through a memory and assert absence).
+- [ ] **Step 1a: runtime item-budget oracle** Record the actual pin's exported
+  `resolveRuntimeRecallBudget(query, ceiling, adaptiveBudget)` and add
+  `runtime_item_budget_matches_node_for_defaults_limits_and_project_signals`. Cover absent/disabled/enabled
+  adaptation, bounded/non-finite/fractional ceilings, empty and Unicode prompts, ASCII project-word
+  boundaries and default/clamped `tokenBudgetPct`; compare the resolved item count against Node.
 - [ ] **Step 2: implement** `budget.rs` (`RecallBudget { soft_ms, hard_ms, cap_chars }` from the query's `budget`
   with the config defaults), `timing.rs`, `degraded.rs`, `trace.rs` (port the capped helpers of
   `recall-decision-trace.js`).
+  Port `resolveRuntimeRecallBudget` using T4's `namespace_budget::normalize_bounded_recall_integer`
+  and the existing `resolve_recall_budget`: normalize the ceiling (default 12, range 1–100), return it
+  unless `adaptiveBudget.enabled === true`, then pass UTF-16 prompt length, the pin's case-insensitive
+  ASCII `\b(project|plan|milestone|roadmap|deadline)\b` signal, the ceiling as `maxPromptMemories`, and
+  `tokenBudgetPct` (finite values clamped 0–1, otherwise 0.3). Floor/bound the resolved item count to
+  1–ceiling and supply it to `MergedBudget.limit`. Keep this item policy distinct from soft/hard time
+  and `cap_chars`, and preserve the merged-budget enable/disable switch.
 - [ ] **Step 3: commit** `RE-04/T6: budgets, timing, degraded, trace`.
 
 ## Acceptance

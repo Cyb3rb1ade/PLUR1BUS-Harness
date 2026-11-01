@@ -100,6 +100,14 @@ runtime_case!(
     "namespaces-canonical-exceeds-top-n-budget-disabled"
 );
 runtime_case!(
+    canonical_budget_below_max_items_enabled_matches_node,
+    "namespaces-canonical-budget-below-max-items-enabled"
+);
+runtime_case!(
+    canonical_budget_below_max_items_disabled_matches_node,
+    "namespaces-canonical-budget-below-max-items-disabled"
+);
+runtime_case!(
     nonempty_workspace_key_is_preserved_in_ledger_bytes,
     "namespaces-ledger-workspace-present"
 );

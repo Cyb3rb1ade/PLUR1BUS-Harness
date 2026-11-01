@@ -14,7 +14,7 @@ PLUR1BUS_ENGINE_SRC=/path/to/engine-at-9f34008c \
 reference code. Those expected hashes come from immutable git objects at the commits below;
 a modified or incomplete source tree aborts recording. The regression test also proves refusal
 before an untrusted module can execute. Both complete recording passes must produce identical
-outputs before the twenty-five files in `golden/namespaces/` are written.
+outputs before the twenty-seven files in `golden/namespaces/` are written.
 
 | Reference | Responsibilities |
 |---|---|
@@ -110,7 +110,13 @@ with both disabled and enabled budgets, `rerankerFallbackOnError:false`, and a n
 `workspaceKey`. The exact exported `normalizeBoundedRecallInteger` outputs are recorded too;
 T4 reuses that port for merged-budget normalization. `resolveRuntimeRecallBudget` is not called
 by `runMergedNamespaceRecall`; automatic prompt/project-based resolution is owned by RE-04/T6
-(G3), explicitly listed in MODULE-MAP.
+(work package G3), explicitly defined in the T6 brief and listed in MODULE-MAP.
+
+The separate `namespaces-canonical-budget-below-max-items-enabled`/`-disabled` pair uses
+`topN:2`, `budget:1` and `canonicalMaxItems:2`. The actual pin returns one canonical item with
+the budget enabled and two with it disabled. Removing `canonical.truncate` makes the enabled
+Rust oracle fail while its disabled control still passes. The original canonical-over-topN
+pair remains intact; all twenty-five previous recordings are byte-identical after recapture.
 
 Source integrity is checked before the exact recording Node-version guard. The negative source
 regression therefore rejects an untrusted file for the correct reason on other installed Node

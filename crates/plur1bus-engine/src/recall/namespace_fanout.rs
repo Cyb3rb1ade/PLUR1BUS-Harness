@@ -1,6 +1,5 @@
-//! Lease all private routes and settle bounded batches before returning any failure.
+//! Reject lease/identity errors before workers; settle all started child batches before failure.
 
-use crate::contract::StoreError;
 use crate::store::routes::IdentifiedStore;
 use crate::store::StoreRoutes;
 
@@ -13,30 +12,27 @@ const MAX_NAMESPACE_WORKERS: usize = 8;
 
 pub(crate) struct Lease {
     namespace: Option<String>,
-    store: Result<Option<IdentifiedStore>, StoreError>,
+    store: Option<IdentifiedStore>,
 }
 
 pub(crate) fn lease(routes: &dyn StoreRoutes, agent: &str) -> Result<Vec<Lease>, NamespaceError> {
-    let leases = routes
+    let attempts = routes
         .read_routes()
         .map_err(NamespaceError::Store)?
         .into_iter()
         .map(|route| {
-            let store = route.lease_identified(agent);
-            Lease {
+            route.lease_identified(agent).map(|store| Lease {
                 namespace: route.namespace,
                 store,
-            }
+            })
         })
         .collect::<Vec<_>>();
     // Production initializes all required sources before any child pipeline starts.
     // A known lease/identity error cannot turn into a partial provider invocation.
-    for lease in &leases {
-        if let Err(error) = &lease.store {
-            return Err(NamespaceError::Store(error.clone()));
-        }
-    }
-    Ok(leases)
+    attempts
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(NamespaceError::Store)
 }
 
 pub(crate) fn query_scope(
@@ -47,7 +43,7 @@ pub(crate) fn query_scope(
     let identities = leases
         .iter()
         .filter_map(|lease| {
-            let store = lease.store.as_ref().ok()?.as_ref()?;
+            let store = lease.store.as_ref()?;
             Some((lease.namespace.clone(), store.identity.clone()))
         })
         .collect();
@@ -93,11 +89,7 @@ fn settle_batch(
             .enumerate()
             .map(|(index, lease)| {
                 std::thread::Builder::new().spawn_scoped(scope, move || {
-                    let store = lease
-                        .store
-                        .as_ref()
-                        .map_err(|e| NamespaceError::Store(e.clone()))?;
-                    let Some(store) = store else {
+                    let Some(store) = &lease.store else {
                         return Ok(None);
                     };
                     let canonical = if offset + index == 0 {
