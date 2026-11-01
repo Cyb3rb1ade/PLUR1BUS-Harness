@@ -86,13 +86,15 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
     const limits = o.collab.limits(who, a.projectId);
     const readTools = ['file.read', 'file.list', 'file.stat'];
     const tools = a.scope?.tools ?? [];
-    const readOnly = tools.length > 0 && tools.every(name => (o.toolEffect?.(name) ?? (readTools.includes(name) ? 'read' : undefined)) === 'read');
+    const isReadTool = (name: string) => (o.toolEffect?.(name) ?? (readTools.includes(name) ? 'read' : undefined)) === 'read';
+    const readOnly = tools.length > 0 && tools.every(isReadTool);
     const callClass: CallClass = kind === 'handoff' ? 'write' : review ? 'review' : kind === 'consult' || readOnly ? 'read' : 'write';
     if ((kind === 'consult' || review) && tools.length && !readOnly) throw new CollabError('unauthorized', 'consult and review scope must contain only read tools');
     const nested = currentAgentScope();
     const parent = nested?.delegation;
     if (nested && (!parent || nested.projectId !== a.projectId || callClass === 'write' || parent.path.length > limits.readHelpers.depth)) throw new CollabError('guardrail', 'nested writer or excessive read depth', { guardrail: 'depth' });
-    const scopedTools = [...(a.scope?.tools ?? (callClass === 'write' ? [] : review ? readTools.filter(name => !nested || nested.toolView.includes(name)) : nested?.toolView ?? readTools))];
+    const defaultReadTools = review ? readTools.filter(name => !nested || nested.toolView.includes(name)) : nested?.toolView ?? readTools;
+    const scopedTools = [...(a.scope?.tools ?? (callClass === 'write' ? [] : defaultReadTools.filter(isReadTool)))];
     if (parent && scopedTools.some(name => !nested!.toolView.includes(name))) throw new CollabError('unauthorized', 'nested tool scope cannot widen its caller');
     const requestedDeadline = a.deadline === undefined ? Infinity : Date.parse(a.deadline);
     if (a.deadline !== undefined && !Number.isFinite(requestedDeadline)) throw new CollabError('invalid', 'delegation deadline must be a valid timestamp');

@@ -463,3 +463,25 @@ for (const name of ['consult_agent', 'delegate_task', 'request_review']) test(`$
   else { assert.ok(!output.isError); assert.equal(results[0]!.error!.code, 'unauthorized'); }
   assert.equal(f.collab.boardStore.comments(f.project.id, card.id, {}).items.length, 0);
 });
+
+test('a writer consulting with default scope exposes only read tools to the actual peer provider', async t => {
+  let f: ReturnType<typeof fixture>;
+  const views: (readonly string[])[] = [];
+  const runner = composedAgentRunner({ id: 'writer-consult', async *stream(request) {
+    if (request.messages[0]?.text.startsWith('Acceptance check')) {
+      const h = JSON.parse(request.peerResults![0]!.text).handoff;
+      yield { type: 'delta', text: JSON.stringify({ schema: 'plur1bus.ack/1', inReplyTo: h.id, objective: h.objective, status: 'ok', blockingQuestions: [] }) };
+      return;
+    }
+    if (request.agentId === 'a') {
+      const consult = collaborationTools(f.config, request).find(tool => tool.name === 'consult_agent')!;
+      await consult.execute({ projectId: f.project.id, toAgent: 'b', objective: 'inspect' }, { ...f.context, agentId: 'a', signal: request.signal });
+    } else views.push(request.toolView ?? []);
+    yield { type: 'delta', text: 'inspection complete' };
+  } }, alsAgentScopePort(), tempDir('tm1-writer-consult-'));
+  f = fixture(t, { runner, toolView: () => ['file.read', 'file.write', 'unknown.tool', 'custom.read'] });
+  f.config.toolEffect = name => name === 'custom.read' ? 'read' : undefined;
+  const result = await f.call('delegate_task', { projectId: f.project.id, toAgent: 'a', objective: 'work with advice', scope: { paths: [], tools: ['file.read', 'file.write', 'unknown.tool', 'custom.read'] } });
+  assert.equal(result.isError, false, JSON.stringify(result));
+  assert.deepEqual(views, [['file.read', 'custom.read', 'consult_agent', 'await_delegations']]);
+});
