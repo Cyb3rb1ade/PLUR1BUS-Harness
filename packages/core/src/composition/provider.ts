@@ -211,7 +211,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     budget: { authorize(info, request, context) { const active = routing.getStore(); if (!active) return { ok: false, reason: 'routing context unavailable' }; return active.guard.authorize(info, request, context); } },
     onEvent: event => routing.getStore()?.event(event),
   });
-  async function* run(req: ChatRequest, observation: TurnTelemetry): AsyncGenerator<ChatChunk> {
+  async function* run(req: ChatRequest, observation: TurnTelemetry, deliveries: WeakMap<ChatChunk, (accepted: boolean) => void>): AsyncGenerator<ChatChunk> {
     const signal = req.signal, turnId = req.turnId ?? req.sessionId;
     const principal = await stage('identity', signal, o.log, () => {
       const principal = o.principal?.(req) ?? req.principal;
@@ -628,8 +628,9 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
               req.onDelegationResult({ taskId: child.taskId, output });
               if (!req.onToolResultDelivery) settle(true);
             } else {
-              settle(true);
-              yield { type: 'tool.result', id: child.taskId, output };
+              const chunk: ChatChunk = { type: 'tool.result', id: child.taskId, output };
+              deliveries.set(chunk, settle);
+              yield chunk;
             }
           } finally { settle(false); unregister?.(); }
         }
@@ -747,8 +748,9 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
             const text = JSON.stringify(safe);
             observation.errorsReturned++;
             consecutiveErrors++;
-            if (!req.onToolResultDelivery) settleDelivery?.(true);
-            yield { type: 'tool.result', id: call.id, output: text };
+            const chunk: ChatChunk = { type: 'tool.result', id: call.id, output: text };
+            if (!req.onToolResultDelivery && settleDelivery) deliveries.set(chunk, settleDelivery);
+            yield chunk;
             messages.push({ role: 'tool', toolCallId: call.id, content: text });
             if (approvalNeedsPerson) throw new TurnToolError('approval-requires-person', safe);
             if (output.error.code === 'aborted') throw new TurnToolError('aborted', safe);
@@ -769,8 +771,9 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           if (call.name === 'skill.load' && output.value && typeof output.value === 'object' && 'name' in output.value && typeof output.value.name === 'string') {
             loaded.set(output.value.name, { id: call.id, name: output.value.name, text, turnId });
           }
-          if (!req.onToolResultDelivery) settleDelivery?.(true);
-          yield { type: 'tool.result', id: call.id, output: text };
+          const chunk: ChatChunk = { type: 'tool.result', id: call.id, output: text };
+          if (!req.onToolResultDelivery && settleDelivery) deliveries.set(chunk, settleDelivery);
+          yield chunk;
           messages.push({ role: 'tool', toolCallId: call.id, content: text });
           if (call.name === 'handoff' && output.value && typeof output.value === 'object' && (output.value as { ownershipTransferred?: unknown }).ownershipTransferred === true) {
             for await (const chunk of joinChildren()) yield chunk;
@@ -784,25 +787,32 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       }
       throw new TurnToolError('turn-round-limit', req.maxRounds ?? o.maxRounds ?? 25);
     } finally {
-      for await (const chunk of joinChildren(!completed || signal.aborted)) yield chunk;
-      retryBudget.endTurn(turnId);
-      const succeeded = completed && !signal.aborted;
-      if (succeeded && !req.role && !req.onTurnTelemetry) {
-        skillLoads.set(taskScope, loaded);
-        lastSkillIds.set(taskScope, selectedSkillIds);
-        if (skillLoads.size > 1024) skillLoads.delete(skillLoads.keys().next().value!);
-        if (lastSkillIds.size > 1024) lastSkillIds.delete(lastSkillIds.keys().next().value!);
+      try { for await (const chunk of joinChildren(!completed || signal.aborted)) yield chunk; }
+      finally {
+        retryBudget.endTurn(turnId);
+        const succeeded = completed && !signal.aborted;
+        if (succeeded && !req.role && !req.onTurnTelemetry) {
+          skillLoads.set(taskScope, loaded);
+          lastSkillIds.set(taskScope, selectedSkillIds);
+          if (skillLoads.size > 1024) skillLoads.delete(skillLoads.keys().next().value!);
+          if (lastSkillIds.size > 1024) lastSkillIds.delete(lastSkillIds.keys().next().value!);
+        }
+        selection?.finish(succeeded);
       }
-      selection?.finish(succeeded);
     }
   }
   return { id: 'composition', telemetry, async *stream(req) {
     const trace = currentTrace() ?? newTrace();
     const request = { ...req, delegations: new TurnDelegations() };
     const observation = createTurnTelemetry();
-    const stream = run(request, observation);
+    const deliveries = new WeakMap<ChatChunk, (accepted: boolean) => void>();
+    const settleDelivery = (chunk: ChatChunk, accepted: boolean): void => {
+      deliveries.get(chunk)?.(accepted);
+      deliveries.delete(chunk);
+    };
+    const stream = run(request, observation, deliveries);
     let finished = false, failed = false;
-    try { while (true) { const next = await withTrace(trace, () => turnContext.run(request, () => stream.next())); if (next.done) { finished = true; break; } yield next.value; } }
+    try { while (true) { const next = await withTrace(trace, () => turnContext.run(request, () => stream.next())); if (next.done) { finished = true; break; } settleDelivery(next.value, true); yield next.value; } }
     catch (error) {
       failed = true;
       const code = error instanceof TurnToolError ? error.code : '';
@@ -816,7 +826,13 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         : code.startsWith('tool-') ? 'tool-error' : 'provider-error';
       throw error;
     } finally {
-      await withTrace(trace, () => stream.return(undefined));
+      // Inner finally blocks can yield joined children. Closing callers do not receive those chunks;
+      // release their receipts and finish draining so budgets and selection always close as well.
+      let closing = await withTrace(trace, () => turnContext.run(request, () => stream.return(undefined)));
+      while (!closing.done) {
+        settleDelivery(closing.value, false);
+        closing = await withTrace(trace, () => turnContext.run(request, () => stream.next()));
+      }
       if (!finished && !failed) observation.endReason = request.signal.aborted ? 'aborted' : 'cancelled';
       if (!request.role) {
         try {

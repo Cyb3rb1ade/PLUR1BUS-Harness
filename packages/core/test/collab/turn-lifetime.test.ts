@@ -236,3 +236,35 @@ for (const cancelBeforeEmission of [false, true]) test(`standalone stream delive
   assert.equal(evidence.length, 1);
   assert.equal(!!failure, cancelBeforeEmission);
 });
+
+test('closing a standalone stream after its task handle retains unseen child output and completes cleanup', async () => {
+  const person = owner();
+  let children: TurnDelegations | undefined;
+  const collab = createCollab({ path: ':memory:', runner: { async run() { return { text: 'unseen retained evidence', inputTokens: 1, outputTokens: 1 }; } } });
+  tmp.onCleanup(() => collab.shutdown());
+  const project = collab.createProject(person, { name: 'Close after handle' });
+  for (const agent of ['a1', 'peer']) collab.addAgent(person, project.id, agent);
+  const script = scriptedAdapter([{ calls: [{ id: 'launch', name: 'consult_agent', args: { projectId: project.id, toAgent: 'peer', objective: 'inspect', wait: false } }] }]);
+  const fixture = turnFixture(script.adapter, { topK: 100, toolsForTurn: async request => {
+    children = request.delegations;
+    const registry = new ToolRegistry();
+    for (const tool of collaborationTools({ collab, enabled: () => true, principal: () => person, authority: { approvals: { get: () => undefined }, grants: { get: () => undefined }, audit() {}, now: Date.now } }, request)) registry.register(tool);
+    return registry;
+  } }, tmp.make());
+  tmp.onCleanup(fixture.close);
+  const stream = fixture.provider.stream(turnRequest({ principal: person.userId, approver: { person: person.userId, surface: 1 } }))[Symbol.asyncIterator]();
+  while (true) {
+    const next = await stream.next();
+    assert.equal(next.done, false);
+    if (next.value!.type === 'tool.result') {
+      assert.ok(!next.value!.output.includes('unseen retained evidence'));
+      break;
+    }
+  }
+  const closed = await stream.return!();
+  assert.equal(closed.done, true);
+  const retained = await children!.finish();
+  assert.equal(retained.length, 1);
+  assert.match(retained[0]!.result!.summary, /unseen retained evidence/);
+  assert.deepEqual(await children!.finish(), []);
+});
