@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "easy-ts-tags",
+  "tier": "easy",
+  "language": "typescript",
+  "kind": "repository",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "src/solution.ts",
+  "signature": "export function BENCH_FN(tags: readonly string[]): string[]",
+  "instruction": "Repair {{symbol}} in {{entry}}. Trim each tag, lowercase it using JavaScript toLowerCase, discard empty strings and remove duplicates while retaining the first normalized occurrence. Preserve input order and never mutate the input array.",
+  "network": false,
+  "budgets": {
+    "tokens": 60000,
+    "rounds": 16,
+    "wallMs": 60000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

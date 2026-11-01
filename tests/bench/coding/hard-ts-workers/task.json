@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "hard-ts-workers",
+  "tier": "hard",
+  "language": "typescript",
+  "kind": "repository",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "src/solution.ts",
+  "signature": "export async function BENCH_FN<T, U>(items: readonly T[], limit: number, worker: (item: T, index: number, signal: AbortSignal) => Promise<U>, signal: AbortSignal): Promise<U[]>",
+  "instruction": "Repair {{symbol}} in {{entry}}. Run at most limit workers concurrently and preserve result order. Keep all available worker slots occupied while queued items remain. Refuse a nonpositive/noninteger limit before calling worker. On the first worker failure or abort, launch no further work, wait for every already-started worker to settle, and reject with the original first failure/abort reason. A pre-aborted signal starts no work. Observe every rejection. Empty input succeeds with [] unless already aborted. Do not mutate items.",
+  "network": false,
+  "budgets": {
+    "tokens": 240000,
+    "rounds": 40,
+    "wallMs": 180000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

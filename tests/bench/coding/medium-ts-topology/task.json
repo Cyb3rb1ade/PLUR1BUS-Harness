@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "medium-ts-topology",
+  "tier": "medium",
+  "language": "typescript",
+  "kind": "repository",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "src/solution.ts",
+  "signature": "export function BENCH_FN(nodes: readonly { id: string; needs: readonly string[] }[]): string[]",
+  "instruction": "Repair {{symbol}} in {{entry}}. Return a stable topological order. At each step choose the earliest input node among those whose dependencies are already emitted. Duplicate dependency entries count once. Throw for duplicate node ids, missing dependencies, self-dependencies or cycles. Do not mutate nodes or dependency arrays. Treat all strings, including __proto__, as ordinary ids.",
+  "network": false,
+  "budgets": {
+    "tokens": 120000,
+    "rounds": 24,
+    "wallMs": 120000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

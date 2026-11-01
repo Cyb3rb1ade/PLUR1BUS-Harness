@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "easy-rust-window",
+  "tier": "easy",
+  "language": "rust",
+  "kind": "repository",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "src/solution.rs",
+  "signature": "pub fn BENCH_FN(values: &[i64], width: usize) -> Vec<i128>",
+  "instruction": "Repair the exported function {{symbol}} in {{entry}}. Return the sum of each contiguous window of width elements, in input order. A zero width or a width larger than the input returns an empty vector. Use i128 sums so valid i64 inputs do not overflow. Do not change the input or the public signature.",
+  "network": false,
+  "budgets": {
+    "tokens": 60000,
+    "rounds": 16,
+    "wallMs": 60000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

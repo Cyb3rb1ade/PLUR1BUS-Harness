@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "hard-shell-export",
+  "tier": "hard",
+  "language": "shell",
+  "kind": "terminal",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "task.sh",
+  "signature": "Atomic TSV export CLI",
+  "instruction": "Repair {{entry}}, a POSIX sh script accepting input-file and output-file paths. Input is one unsigned decimal integer (at most nine digits) per nonempty line; blank lines are ignored. Export one TSV row per number: original decimal spelling, tab, value plus {{constant}}, newline. Reject invalid input with exit 2, preserving an existing output byte-for-byte. On success replace output atomically through a same-directory temporary file, preserve existing output mode (new output 0600), and clean all temporary files on error/interruption. Handle spaces and leading dashes in paths. Print no stdout. Reject nonregular or symlink output targets.",
+  "network": false,
+  "budgets": {
+    "tokens": 240000,
+    "rounds": 40,
+    "wallMs": 180000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

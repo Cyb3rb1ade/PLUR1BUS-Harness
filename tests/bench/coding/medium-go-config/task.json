@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "medium-go-config",
+  "tier": "medium",
+  "language": "go",
+  "kind": "terminal",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "main.go",
+  "signature": "Configuration repair CLI",
+  "instruction": "Repair {{entry}}. Read exactly one JSON configuration object. Only port and flags are allowed; absent port defaults to {{constant}}, otherwise it must be an integer from 1 through 65535. Absent flags defaults to []; otherwise flags must be an array of strings. Trim flags, discard empty ones and deduplicate in first-seen order. Emit the normalized {port,flags} as one JSON line only after complete validation. Wrong types, nulls, unknown fields, duplicate object keys or trailing input exit 2 without stdout. No external modules.",
+  "network": false,
+  "budgets": {
+    "tokens": 120000,
+    "rounds": 24,
+    "wallMs": 120000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

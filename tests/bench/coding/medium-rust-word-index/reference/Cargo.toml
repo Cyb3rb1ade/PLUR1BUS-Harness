@@ -1,0 +1,8 @@
+[package]
+name = "coding_task"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "task"
+path = "BENCH_ENTRY"

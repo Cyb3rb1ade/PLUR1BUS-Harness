@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "easy-go-lookup",
+  "tier": "easy",
+  "language": "go",
+  "kind": "repository",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "solution.go",
+  "signature": "func BENCH_FN(root map[string]any, path string) (any, bool)",
+  "instruction": "Repair {{symbol}} in {{entry}}. Follow a nonempty dot-separated path through map[string]any values. Empty components, a missing key or a non-map intermediate value mean (nil,false). A present final key whose value is nil means (nil,true). Never modify the map. Keep package benchmark.",
+  "network": false,
+  "budgets": {
+    "tokens": 60000,
+    "rounds": 16,
+    "wallMs": 60000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

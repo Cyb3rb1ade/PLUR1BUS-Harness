@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "hard-go-ndjson",
+  "tier": "hard",
+  "language": "go",
+  "kind": "repository",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "solution.go",
+  "signature": "type Record struct { Name string `json:\"name\"`; Value int64 `json:\"value\"` }; func BENCH_FN(chunks [][]byte, limit int) ([]Record, error)",
+  "instruction": "Repair {{symbol}} in {{entry}}, package benchmark. Parse a sequence of arbitrary byte chunks as NDJSON records. Records are closed objects with nonempty name string and integer value int64; malformed UTF-8, unknown/duplicate fields, missing fields and multiple JSON values on a line are errors. Support CRLF, a final line without newline and empty lines. limit is a positive maximum line byte length excluding LF and optional final CR. Bound the carried partial line to limit+1 bytes. Return all records only on total success; any error returns nil,error, never a partial prefix. Empty valid input returns a non-nil empty slice.",
+  "network": false,
+  "budgets": {
+    "tokens": 240000,
+    "rounds": 40,
+    "wallMs": 180000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

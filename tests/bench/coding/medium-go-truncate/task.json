@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "medium-go-truncate",
+  "tier": "medium",
+  "language": "go",
+  "kind": "terminal",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "main.go",
+  "signature": "UTF-8 truncation CLI",
+  "instruction": "Repair {{entry}}. Accept exactly one decimal nonnegative byte limit, read stdin, and emit the longest UTF-8-valid prefix whose byte length is at most the limit. Do not add a newline. A limit beyond input length preserves all bytes, and zero emits nothing. Reject malformed limits, extra arguments and invalid UTF-8 input with exit 2 and no stdout. No external modules.",
+  "network": false,
+  "budgets": {
+    "tokens": 120000,
+    "rounds": 24,
+    "wallMs": 120000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

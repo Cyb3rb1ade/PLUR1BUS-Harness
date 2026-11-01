@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "hard-shell-paths",
+  "tier": "hard",
+  "language": "shell",
+  "kind": "terminal",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "task.sh",
+  "signature": "Archive-index normalization CLI",
+  "instruction": "Repair {{entry}}, a POSIX sh script. Read relative archive-index paths, one per stdin line. Reject empty paths/components, absolute paths, backslashes, drive-letter prefixes and any '..' component. Remove '.' components and emit normalized paths in original order, one per line. The result of removing '.' must be nonempty. Validate every path before emitting anything: any invalid line exits 2 with no stdout, including when it follows valid lines. No filesystem extraction or network access; paths contain no tabs/newlines inside a component.",
+  "network": false,
+  "budgets": {
+    "tokens": 240000,
+    "rounds": 40,
+    "wallMs": 180000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

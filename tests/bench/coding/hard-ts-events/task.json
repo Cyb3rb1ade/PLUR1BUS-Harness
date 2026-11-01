@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "hard-ts-events",
+  "tier": "hard",
+  "language": "typescript",
+  "kind": "terminal",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "src/main.ts",
+  "signature": "Event-log fold CLI",
+  "instruction": "Repair {{entry}}. Read one JSON array of closed events {id:string,seq:integer,key:string,op:'put'|'delete',value?:string}. ids and sequence numbers must each be unique, seq must be a nonnegative safe integer, and keys/ids must be nonempty. put requires exactly one string value; delete forbids value. Validate all events, sort by seq, fold into a map and output one JSON object line with surviving keys sorted by Unicode code point order. Treat __proto__/constructor as data. Malformed or unknown fields exit 2 without any stdout.",
+  "network": false,
+  "budgets": {
+    "tokens": 240000,
+    "rounds": 40,
+    "wallMs": 180000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

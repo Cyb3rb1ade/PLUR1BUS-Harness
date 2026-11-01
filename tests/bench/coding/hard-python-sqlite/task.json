@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "hard-python-sqlite",
+  "tier": "hard",
+  "language": "python",
+  "kind": "repository",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "solution.py",
+  "signature": "def BENCH_FN(connection):",
+  "instruction": "Implement {{symbol}} in {{entry}} using sqlite3 only. Given a connection with people(id INTEGER PRIMARY KEY,name TEXT NOT NULL), transactionally add a non-null unique slug column. Derive each slug by ASCII-lowercasing name, replacing each maximal run outside [a-z0-9] by '-', and stripping '-'; use 'person' if empty. In ascending id order resolve collisions using -2, -3, ... against all already-used complete slugs (including natural suffixed names). Preserve ids/names, commit on success, roll back every schema/data change on failure, and make a completed migration idempotent. Refuse a partially migrated/incompatible schema without changing it. The caller has no active transaction. Propagate an exception on failure.",
+  "network": false,
+  "budgets": {
+    "tokens": 240000,
+    "rounds": 40,
+    "wallMs": 180000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

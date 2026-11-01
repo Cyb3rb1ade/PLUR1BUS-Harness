@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "medium-python-log",
+  "tier": "medium",
+  "language": "python",
+  "kind": "terminal",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "aggregate.py",
+  "signature": "NDJSON aggregation CLI",
+  "instruction": "Repair {{entry}}. Read UTF-8 NDJSON; blank lines are ignored. A valid row is a closed object with service (a nonempty string) and latency (a nonnegative finite JSON number, not a boolean). Invalid JSON and invalid rows each increment invalid. Emit one JSON line {invalid:N, services:[{service,count,total,max},...]}, sorted by service, aggregating only valid rows. Ignore no invalid nonblank line and do not stop at the first error. Inputs have finite aggregate totals. No external packages.",
+  "network": false,
+  "budgets": {
+    "tokens": 120000,
+    "rounds": 24,
+    "wallMs": 120000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

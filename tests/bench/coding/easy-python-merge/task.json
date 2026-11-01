@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "easy-python-merge",
+  "tier": "easy",
+  "language": "python",
+  "kind": "repository",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "solution.py",
+  "signature": "def BENCH_FN(records):",
+  "instruction": "Repair {{symbol}} in {{entry}}. Merge a list of dictionaries by their hashable id field. Output one dictionary for each id in first-seen order. Later dictionaries replace only the fields they supply, preserving other earlier fields. Deep-copy nested dictionaries/lists so neither the input nor its descendants are shared with the returned value. Every input dictionary has an id.",
+  "network": false,
+  "budgets": {
+    "tokens": 60000,
+    "rounds": 16,
+    "wallMs": 60000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}
