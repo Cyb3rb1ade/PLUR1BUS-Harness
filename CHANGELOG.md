@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased — SH7
+
+- Refresh the gap inventory against current source markers, distinguish prior fixes from SH closures, and record
+  remaining redaction, release-audit and remote-state coverage boundaries.
+
 ## Unreleased — SH6
 
 - Persist retired remote trust anchors across rotations and restarts, and refuse staging their fingerprints again

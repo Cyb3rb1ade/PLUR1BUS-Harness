@@ -221,7 +221,7 @@ PRNG whose seed is in every failure message. A test marked `KNOWN GAP` is a `tod
 | Codes | 8 characters from 32, exactly 40 bits; an even spread; `node:crypto` only, no `Math.random`. A code that is not a string (number, `null`, object) or longer than 64 characters is `invalid`, never a thrown error. The hour is exact on the injected clock. |
 | Rate limiting | The sliding-window limiter forgets keys once per window and holds at most 100 000. |
 | Devices | `connect` with a missing or wrongly typed challenge, signature or `close` is `denied` and spends no challenge. |
-| Certificates | A certificate whose validity dates cannot be read counts as expired (`daysLeft` -1) and a company-CA upload with such a date is refused, so `remote.cert-expiring` can no longer be silent. DER lengths must be minimal. A company-CA upload has at most 10 certificates, with type-checked fields. |
+| Certificates | A certificate whose validity dates cannot be read counts as expired (`daysLeft` -1) and a company-CA upload with such a date is refused, so `remote.cert-expiring` can no longer be silent. DER lengths must be minimal. A company-CA upload has at most 10 certificates, with type-checked fields. Unknown critical extensions in the leaf certificate are refused at import before storing the key. |
 | Pinning | A connection reported as `authorized` is trusted as the pinned CA only when node's chain ends in that CA. |
 | Trust rollover | Acknowledgements are read with `Object.hasOwn` (a device called `constructor` is not acknowledged); times must be non-negative whole milliseconds. |
 | Exposure | Zone ids need 1-64 printable characters; only `0.0.0.0` is unspecified (`0.0.0.1` is refused as public); configuration deeper than 32 levels is a finding; the security notice's `by` is at most 128 characters without control characters; an unreadable `certNotAfter` raises `remote.tls-not-ready`. |
@@ -245,8 +245,9 @@ discarded to fit that limit.
 - **Revocation across processes is not locked**: instances re-read the file before writing (a revocation always wins), but
   there is no lock file, so two *processes* writing in the same instant could still lose an update; the core keeps one
   owner per file.
-- **An unknown critical extension is imported** (`hardening-certs.test.ts`): RFC 5280 clients must refuse such a certificate, so the
-  import succeeds and the connection fails later.
+- **Prepared material after a refused stage**: the API controller prepares certificate material before the trust
+  state accepts it. If staging is refused, that material can remain staged; the refused anchor is not activated.
+  Cleaning up this material is an API follow-up, separate from the private retirement-history protection.
 
 Observations: `DeviceStore.challenge()` is unauthenticated and 1024 open challenges (30 s each) lock every handshake for 30 s, so the
 transport must rate-limit it; `buildPairingOffer` accepts a signing key of any length, even empty; the per-code proof limit (60 per hour)
