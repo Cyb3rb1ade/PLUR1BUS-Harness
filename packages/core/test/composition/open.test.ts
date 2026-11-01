@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { defaults } from "@plur1bus/config-schema";
 import { openTurnComposition, type CompositionDeps } from "../../src/composition/index.ts";
@@ -51,6 +51,23 @@ async function open(over: Partial<CompositionDeps> = {}, prepare: (home: string)
 }
 
 describe("composition openTurnComposition", () => {
+  it("recovers unpublished upload state without a generation provider", async () => {
+    const stage = ".stage-11111111-1111-1111-1111-111111111111";
+    const { composition: c, home, identity } = await open({}, home => {
+      const outputs = join(home, "media", "outputs");
+      mkdirSync(join(outputs, ".lock"), { recursive: true });
+      mkdirSync(join(outputs, stage));
+      writeFileSync(join(outputs, stage, "partial"), "unpublished");
+    });
+    try {
+      assert.equal(existsSync(join(home, "media", "outputs", ".lock")), false);
+      assert.equal(existsSync(join(home, "media", "outputs", stage)), false);
+    } finally {
+      await c.close();
+      identity.close();
+    }
+  });
+
   it("D105: the bounded decision call is required only when modelRoles.decision is configured; without one the rule triage keeps the tool shortlist", async () => {
     for (const role of [undefined, "triage"]) {
       const seen: { requireTriage?: boolean; classifier: boolean }[] = [];
@@ -81,7 +98,7 @@ describe("composition openTurnComposition", () => {
   it("assembles sessions, collaboration, voice, openai and the media RPC surface", async () => {
     const { composition: c, identity } = await open();
     try {
-      assert.deepEqual(Object.keys(c).sort(), ["budget", "cacheTelemetry", "capabilities", "chatModels", "close", "collab", "discoveryCredentials", "engineComplete", "importSsh", "mining", "openai", "refusedProviders", "sessions", "skillReview", "surfaceMethods", "voice"]);
+      assert.deepEqual(Object.keys(c).sort(), ["budget", "cacheTelemetry", "capabilities", "chatModels", "close", "collab", "discoveryCredentials", "engineComplete", "importSsh", "ingestChannelAttachments", "mining", "openai", "refusedProviders", "sessions", "skillReview", "surfaceMethods", "voice"]);
       assert.equal(c.skillReview.status().state, "engine-unavailable");
       assert.equal(c.mining.status().state, "engine-unavailable");
       assert.ok(c.collab, "collaboration needs the call budget, which opened");

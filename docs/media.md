@@ -123,6 +123,13 @@ that Draw Things stops rendering.
 
 ## Output and metadata
 
+Channel uploads use the additive `putUploaded`, `getUploaded` and `deleteUploaded` APIs. They are stored beneath
+`.uploads/<random UUID>/` with a separate `media.upload/1` manifest; generated `media.output/1` records and APIs retain
+their meaning. Uploads preserve the original bytes, never transcode on ingress, and accept at most 25 MiB per file.
+MIME/container checks, private 0700 directories/0600 files, SHA-256 verification, atomic publication and the shared
+quota/retention also apply to uploads. Display filenames never become paths. The host publishes its owner record before
+calling the background upload hook; raw uploads do not trigger the generated-output `onPut` listener.
+
 Each output directory is published by a single rename after files and manifest
 have been flushed. SHA-256 hashes describe the stored bytes (including embedded
 metadata). The manifest always includes adapter/model, prompt, parameters,

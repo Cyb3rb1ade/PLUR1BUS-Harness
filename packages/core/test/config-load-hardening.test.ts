@@ -120,7 +120,8 @@ describe("config schema bounds", () => {
 
   it("generous but plausible values still load", () => {
     const p = file();
-    writeFileSync(p, JSON.stringify({ schemaVersion: 1, logs: { keep: 100, maxBytes: 1_073_741_824 }, core: { recall: { capChars: 500_000 } }, session: { compaction: { summaryMaxTokens: 200_000, maxMessageTokens: 200_000 } }, memory: { mediaEmbedding: { dimensions: 3072 } }, agents: { bernd: { skills: { pinned: ["a", "b"] } } } }));
+    // Exercise the numeric schema envelope independently of the enabled model's supported dimensions.
+    writeFileSync(p, JSON.stringify({ schemaVersion: 1, logs: { keep: 100, maxBytes: 1_073_741_824 }, core: { recall: { capChars: 500_000 } }, session: { compaction: { summaryMaxTokens: 200_000, maxMessageTokens: 200_000 } }, memory: { mediaEmbedding: { enabled: false, dimensions: 3072 } }, agents: { bernd: { skills: { pinned: ["a", "b"] } } } }));
     const { config } = loadConfig(p);
     assert.equal(config.logs.keep, 100);
     assert.equal(config.session.compaction.summaryMaxTokens, 200_000);

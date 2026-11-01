@@ -75,6 +75,7 @@ import { collabMemory, externalMemory } from '../memory-exposure/index.ts';
 import { createExternalTurnService } from '../external-turn/index.ts';
 import { legacyAdapter } from './legacy.ts';
 import { composeMediaSearch, mediaSearchMethods } from './media-search.ts';
+import { createChannelUploadService } from './channel-uploads.ts';
 import { mediaToInbox } from '../inbox/producers.ts';
 import { isLocalEndpoint, localEndpoints, localOnlyFor, localOnlyShared, LOCAL_ONLY_REASON, LOCAL_ONLY_HINT } from '../privacy/local-only.ts';
 import { subjectForOrigin } from './protocols.ts';
@@ -133,7 +134,7 @@ export interface CompositionDeps {
   /** Per-chat model choice (D112 catalog): reasoning per model before the wire fit, catalog facts and provider endpoints. */
   chatModels?: Pick<ChatModelSources, 'catalog' | 'endpoint'> & { reasoning(provider: string, model: string): ReasoningDescriptor };
 }
-export interface TurnComposition { importSsh: SshImportService; /** The turn provider's prompt-cache telemetry (process-local; null when no turn provider is composed). */ cacheTelemetry: CacheTelemetry | null; engineComplete: (agentId: string, params: import("@cyb3rb1ade/plur1bus-memory/types/engine.js").LlmParams) => Promise<import("@cyb3rb1ade/plur1bus-memory/types/engine.js").LlmResult>;  /** The turn call budget (L8), shared with the re-embedding run; null when its store could not be opened. */ budget: CallBudget | null; skillReview: SkillReview; mining: SkillMining; capabilities: LiveCapabilityIndex; /** Provider definitions refused at composition (`E_CONFIG_INVALID`); they serve no turn. Empty when all were composed. */ refusedProviders: readonly RefusedProvider[]; discoveryCredentials: (definition: ProviderDefinition) => import("../auth/credentials.ts").CredentialsProvider | undefined; voice: VoiceRuntime; openai: OpenAIRuntime; sessions: SessionService; collab: Collab | null; surfaceMethods: Record<string, Handler>; chatModels: ChatModelSources; close(): Promise<void> }
+export interface TurnComposition { /** Trusted channel ingress; stores bytes and enqueues background indexing only. */ ingestChannelAttachments: ReturnType<typeof createChannelUploadService>; importSsh: SshImportService; /** The turn provider's prompt-cache telemetry (process-local; null when no turn provider is composed). */ cacheTelemetry: CacheTelemetry | null; engineComplete: (agentId: string, params: import("@cyb3rb1ade/plur1bus-memory/types/engine.js").LlmParams) => Promise<import("@cyb3rb1ade/plur1bus-memory/types/engine.js").LlmResult>;  /** The turn call budget (L8), shared with the re-embedding run; null when its store could not be opened. */ budget: CallBudget | null; skillReview: SkillReview; mining: SkillMining; capabilities: LiveCapabilityIndex; /** Provider definitions refused at composition (`E_CONFIG_INVALID`); they serve no turn. Empty when all were composed. */ refusedProviders: readonly RefusedProvider[]; discoveryCredentials: (definition: ProviderDefinition) => import("../auth/credentials.ts").CredentialsProvider | undefined; voice: VoiceRuntime; openai: OpenAIRuntime; sessions: SessionService; collab: Collab | null; surfaceMethods: Record<string, Handler>; chatModels: ChatModelSources; close(): Promise<void> }
 /** secret_names backend: the agent's configured secret references, with presence from the store's metadata (never a value). */
 export function secretNamesPort(d: Pick<CompositionDeps, 'config' | 'secrets'>): SecretNamesPort {
   return {
@@ -270,7 +271,14 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
         if (configured) { adapters.push(configured.adapter); mediaLocal.set(configured.adapter.id, configured.local); disposers.push(configured.close); }
       } catch (error) { d.logger.error('media adapter unavailable', { err: error }); }
     }
-    const mediaSurface = createMediaSurface({ home: d.home, adapters, store: media?.store ?? new (await import('../../../media/src/index.ts')).OutputStore(join(d.home,'media','outputs')), budget, signal: d.signal,
+    const mediaStore = media?.store ?? new (await import('../../../media/src/index.ts')).OutputStore(join(d.home, 'media', 'outputs'));
+    if (!media) {
+      // The core owns this home exclusively. Upload-only installations need the same crash recovery as generation.
+      const unwatchRecovery = deferMaintenanceStart(d.maintenance, () => mediaStore.recoverStaging());
+      if (unwatchRecovery) disposers.push(unwatchRecovery);
+      else await mediaStore.recoverStaging();
+    }
+    const mediaSurface = createMediaSurface({ home: d.home, adapters, store: mediaStore, budget, signal: d.signal,
       notify: (method, params, opts) => d.notify(method,params,opts),
       async policy(operation, request, agentId, principal, ctx, adapterId) {
         if (!d.agents.has(agentId)) throw new RpcError('E_AGENT_UNKNOWN','unknown media agent');
@@ -288,7 +296,10 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     disposers.push(() => mediaSurface.close());
     // The media index is shared like the engine: its cloud tiers (media embedding, captioning) are pinned off while the
     // installation or any agent is local-only (the existing privacy-pin refusal, E_MEDIA_PRIVACY reason privacy-pin).
-    const mediaSearch = await composeMediaSearch({ home: d.home, config: d.config, engine: d.engine, hostFetchReady: d.mediaHostFetchReady === true, agents: d.agents, logger: d.logger, store: media?.store ?? null, budget, privacyPinned: () => localOnlyShared(d.config()), ...(d.maintenance ? { maintenance: d.maintenance } : {}), ...(d.inbox ? { emit: (name, payload) => { d.logger.info(name, payload); mediaToInbox(d.inbox!, name, payload); } } : {}) }); disposers.push(() => mediaSearch.close());
+    const mediaSearch = await composeMediaSearch({ home: d.home, config: d.config, engine: d.engine, hostFetchReady: d.mediaHostFetchReady === true, agents: d.agents, logger: d.logger, store: mediaStore, budget, privacyPinned: () => localOnlyShared(d.config()), ...(d.maintenance ? { maintenance: d.maintenance } : {}), ...(d.inbox ? { emit: (name, payload) => { d.logger.info(name, payload); mediaToInbox(d.inbox!, name, payload); } } : {}) }); disposers.push(() => mediaSearch.close());
+    const ingestChannelAttachments = createChannelUploadService({ home: d.home, store: mediaStore, hook: mediaSearch.hook,
+      person: id => d.resolveCollaborationPerson?.(id) ?? null, hasAgent: id => d.agents.has(id), signal: d.signal });
+    disposers.push(mediaStore.addListener({ onDeleteUploaded: id => mediaSearch.hook.onDeleted(id) }));
     const profiles = options.providers?.profiles ?? (d.provider ? { default: [{ provider: 'fixture', model: 'gpt-4.1', adapter: legacyAdapter(d.provider) }] } : auth?.profiles ?? {});
     // privacy.localOnly: a chat/role provider is local when its endpoint is loopback or listed in privacy.localEndpoints.
     // No base_url means the vendor's cloud default; a managed OpenAI login is always cloud. The in-process test provider
@@ -498,7 +509,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     disposers.push(() => extTurns.idle());
     let closed = false;
     const opened = sessions;
-    return { importSsh, cacheTelemetry: provider?.telemetry ?? null, budget, engineComplete, skillReview, mining, capabilities, refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, chatModels, surfaceMethods: { ...extensions.methods, ...sshMethods, ...extTurns.methods, 'decision.status': async () => decisions.status(), 'decision.test': async (p: { agentId: string }, ctx) => {
+    return { ingestChannelAttachments, importSsh, cacheTelemetry: provider?.telemetry ?? null, budget, engineComplete, skillReview, mining, capabilities, refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, chatModels, surfaceMethods: { ...extensions.methods, ...sshMethods, ...extTurns.methods, 'decision.status': async () => decisions.status(), 'decision.test': async (p: { agentId: string }, ctx) => {
       if (!d.agents.has(p.agentId)) throw new RpcError('E_AGENT_UNKNOWN', 'Unknown agent');
       const principal = deriveUserPrincipal(authenticatedPrincipal(ctx).userId);
       const result = await decisions.choice({ useCase: 'routing', state: '2', question: 'Is this integer even or odd?', options: [{ id: 'even', description: 'Divisible by two' }, { id: 'odd', description: 'Not divisible by two' }] }, { agentId: p.agentId, principal, cloudEligible: true, signal: AbortSignal.any([ctx.signal, d.signal]) });
