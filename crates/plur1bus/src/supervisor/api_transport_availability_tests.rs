@@ -4,6 +4,13 @@ use std::io::{BufRead, BufReader, Write};
 use std::os::unix::{fs::PermissionsExt, net::UnixListener};
 
 fn authenticate(second_reply: Option<Value>) -> Result<Value, &'static str> {
+    authenticate_with_first(None, second_reply)
+}
+
+fn authenticate_with_first(
+    first_error: Option<Value>,
+    second_reply: Option<Value>,
+) -> Result<Value, &'static str> {
     let home = tempfile::tempdir().unwrap();
     let layout = Layout::new(home.path().into());
     std::fs::create_dir(layout.run()).unwrap();
@@ -21,9 +28,15 @@ fn authenticate(second_reply: Option<Value>) -> Result<Value, &'static str> {
         let first: Value = serde_json::from_str(&line).unwrap();
         assert_eq!(first["method"], "core.auth");
         assert_eq!(first["params"]["token"], token);
-        writeln!(peer.get_mut(), "{}", json!({"jsonrpc":"2.0","id":first["id"],
-            "result":{"contract":"1.4.1","rpc":"1.12.0","instanceId":"fixture","pid":std::process::id()}})).unwrap();
+        let refused = first_error.is_some();
+        let mut reply = first_error.unwrap_or_else(|| json!({"jsonrpc":"2.0",
+            "result":{"contract":"1.4.1","rpc":"1.12.0","instanceId":"fixture","pid":std::process::id()}}));
+        reply["id"] = first["id"].clone();
+        writeln!(peer.get_mut(), "{reply}").unwrap();
         peer.get_mut().flush().unwrap();
+        if refused {
+            return;
+        }
         line.clear();
         if peer.read_line(&mut line).unwrap() == 0 {
             return;
@@ -44,6 +57,16 @@ fn authenticate(second_reply: Option<Value>) -> Result<Value, &'static str> {
     );
     server.join().unwrap();
     result
+}
+
+#[test]
+fn a_primary_authentication_refusal_is_not_an_offline_core() {
+    let error = json!({"jsonrpc":"2.0","error":{"code":-32000,"message":"bad token",
+        "data":{"error":"E_UNAUTHORIZED","reason":"bad-token"}}});
+    assert_eq!(
+        authenticate_with_first(Some(error), None),
+        Err("api-delegation")
+    );
 }
 
 #[test]

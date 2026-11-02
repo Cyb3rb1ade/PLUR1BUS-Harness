@@ -44,6 +44,17 @@ pub fn allowed(principal: &Value, method: &str) -> bool {
         )
 }
 
+fn auth_failure(error: RpcError) -> &'static str {
+    if matches!(&error, RpcError::Unavailable { .. })
+        || matches!(&error, RpcError::Call { reason, .. }
+            if reason.as_deref() == Some("stopping") && error.code_name() == "E_NOT_AVAILABLE")
+    {
+        "core-unavailable"
+    } else {
+        "api-delegation"
+    }
+}
+
 pub fn principal(layout: &Layout, delegation: &Value) -> Result<Value, &'static str> {
     if delegation["clientId"] != "harness-api" || !delegation["token"].is_string() {
         return Err("api-delegation");
@@ -72,22 +83,13 @@ pub fn principal(layout: &Layout, delegation: &Value) -> Result<Value, &'static 
             expected_server_pid: pid,
         },
     )
-    .map_err(|_| "core-unavailable")?;
+    .map_err(auth_failure)?;
     let hello = core
         .call(
             "core.auth",
             json!({ "token": token.trim(), "api": delegation }),
         )
-        .map_err(|error| {
-            if matches!(&error, RpcError::Unavailable { .. })
-                || matches!(&error, RpcError::Call { reason, .. }
-                    if reason.as_deref() == Some("stopping") && error.code_name() == "E_NOT_AVAILABLE")
-            {
-                "core-unavailable"
-            } else {
-                "api-delegation"
-            }
-        })?;
+        .map_err(auth_failure)?;
     let p = &hello["apiPrincipal"];
     if p["kind"] != "person" {
         return Err("agent-principal");
