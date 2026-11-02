@@ -62,7 +62,7 @@ test("production maintenance logs a stable storage warning and preserves private
     assert.equal(reads, 1, "the metadata read failure must actually be injected");
     assert.deepEqual(await readFile(upload.file), WAV);
     assert.equal(await readFile(owner, "utf8"), ownerText);
-    assert.deepEqual(warnings, [{ message: "media retention skipped", fields: { code: "storage-unavailable" } }]);
+    assert.deepEqual(warnings, [{ message: "media upload storage unavailable", fields: { code: "storage-unavailable" } }]);
     assert.equal(JSON.stringify(warnings).includes("PRIVATE"), false);
     unavailable = false;
     assert.equal(await store.prune(upload.manifest.createdAt + MEDIA_OUTPUT_RETENTION_MS), 1);

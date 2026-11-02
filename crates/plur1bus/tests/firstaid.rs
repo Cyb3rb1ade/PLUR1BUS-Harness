@@ -340,6 +340,29 @@ fn ffmpeg_check_probes_files_without_executing_ffmpeg_or_the_package_manager() {
     assert!(!marker.exists());
 }
 
+#[test]
+fn unavailable_upload_health_is_read_only_and_contains_no_identity_or_content() {
+    let h = Home::new();
+    let root = h.home.join("media/outputs/.upload-index");
+    fs::create_dir_all(&root).unwrap();
+    fs::write(
+        root.join("PRIVATE-UPLOAD-ID.json"),
+        r#"{"schema":"media.upload-index/1","createdAt":123,"bytes":456,"unavailable":true}"#,
+    )
+    .unwrap();
+    let before = snapshot(&h.home);
+    let output = check_cmd(&h).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let check = checks_by_id(&json_stdout(&output))["media.uploads"].clone();
+    assert_eq!(check["status"], "warn");
+    assert!(check["summary"]
+        .as_str()
+        .unwrap()
+        .starts_with("1 upload(s)"));
+    assert!(!check.to_string().contains("PRIVATE"));
+    assert_eq!(snapshot(&h.home), before);
+}
+
 /// The document shape (S12): `schema`, `ok`, `checks[]` each with a known `id`/`status`, in the brief's table order.
 #[test]
 fn check_json_validates_the_document_shape() {
@@ -382,6 +405,7 @@ fn check_json_validates_the_document_shape() {
         "privacy.local-only",
         "api.supervised",
         "media.ffmpeg",
+        "media.uploads",
     ];
     let ids: Vec<String> = v["checks"]
         .as_array()
@@ -414,7 +438,7 @@ fn check_json_lists_the_installer_ids_after_the_first_seventeen() {
         .iter()
         .map(|c| c["id"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(ids.len(), 31, "{v}");
+    assert_eq!(ids.len(), 32, "{v}");
     assert_eq!(
         &ids[17..20],
         &["runtime.node", "runtime.core", "models.cache"],
@@ -984,7 +1008,7 @@ fn check_ids_are_append_only_and_end_with_the_three_extension_rows() {
         .iter()
         .map(|c| c["id"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(ids.len(), 31, "{v}");
+    assert_eq!(ids.len(), 32, "{v}");
     assert_eq!(
         &ids[17..20],
         &["runtime.node", "runtime.core", "models.cache"]
@@ -998,6 +1022,7 @@ fn check_ids_are_append_only_and_end_with_the_three_extension_rows() {
     assert_eq!(&ids[28], "privacy.local-only", "{v}");
     assert_eq!(&ids[29], "api.supervised", "{v}");
     assert_eq!(&ids[30], "media.ffmpeg", "{v}");
+    assert_eq!(&ids[31], "media.uploads", "{v}");
 }
 
 #[test]

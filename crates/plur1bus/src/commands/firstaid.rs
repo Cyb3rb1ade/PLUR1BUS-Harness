@@ -33,7 +33,7 @@ pub(crate) const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 31] = [
+const CHECK_IDS: [&str; 32] = [
     "config.valid",
     "config.store-path",
     "host_mode_coexistence",
@@ -65,6 +65,7 @@ const CHECK_IDS: [&str; 31] = [
     "privacy.local-only",
     "api.supervised",
     "media.ffmpeg",
+    "media.uploads",
 ];
 
 /// The summary of a row [`gather`] never got to before its deadline (`1staid repair` plans nothing for it).
@@ -407,6 +408,10 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
         ffmpeg.available,
         &ffmpeg.manual_commands,
     ));
+    if out_of_budget(deadline, &mut checks) {
+        return checks;
+    }
+    checks.push(super::firstaid_media::check_uploads(layout, deadline));
     checks
 }
 

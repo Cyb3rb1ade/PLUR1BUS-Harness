@@ -138,11 +138,20 @@ uploads additionally require the owning person, even when another person has rig
 channel ownership records fail closed. Generated-media ownership rules remain agent-based.
 
 Quota accounting uses actual owned file sizes, including damaged upload directories, and never follows symlinks.
-One damaged upload does not stop unrelated publications. Recovery and pruning inspect bounded manifests and file
+A private `.upload-index/<id>.json` record stores only the accounted media/manifest bytes, creation time and storage
+availability, outside the payload directory. It is persisted before publication and survives a Core restart. The quota
+continues to cover media and manifests; bounded accounting records, like lock files, are store control metadata.
+An unreadable upload keeps its saved charge (or larger partially observed size), allowing unrelated publications within
+the remaining quota. Older readable uploads acquire records lazily; an unindexed inaccessible legacy upload conservatively
+reserves the 25 MiB admission limit plus the 4096-byte manifest bound until readable. `1staid check` reports `media.uploads`
+without paths, filenames, identities or content; malformed/unreadable diagnostics produce a warning rather than a clean bill of health.
+Recovery and pruning inspect bounded manifests and file
 metadata, without reading or hashing upload payloads under the store lock. Proven manifest/size/missing-file corruption
 can be removed after a one-hour grace period measured from the newest file/directory modification, emitting
 `onCorruptUploadRemoved` without raw paths or content. Transient read errors retain the upload and its owner, emit only
-a content-free `storage-unavailable` warning and are retried on the next sweep. Reads through `getUploaded` still verify
+a content-free `storage-unavailable` warning and are retried on the next sweep. After retention expires, saved creation
+metadata permits removal without reading the inaccessible upload, still awaiting owner cleanup before unlink. If removal
+itself is denied, storage must be repaired and the sweep retried. Reads through `getUploaded` still verify
 the payload hash: same-size bit corruption is refused there and remains stored until retention expires. Uploads currently have no per-file RPC/CLI delete
 command; `media.output.delete` and `plur1bus media rm` delete generated outputs. Automatic retention applies to uploads.
 

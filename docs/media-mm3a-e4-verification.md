@@ -1,37 +1,36 @@
-# MM-3a: E4-Verifikation für PR #866
+# MM-3a: E4 verification for PR #866
 
-Geprüft am 2026-11-01 gegen den Re-Review auf `fc47ccd1`. Dieser Nachweis gilt für
-die drei E4-Fixes, nicht für die spätere Engine-Anbindung oder Medieninferenz.
+Recorded on 2026-11-01 against the re-review of `fc47ccd1`. This historical evidence covers
+the three E4 fixes. It does not establish later Engine integration, media inference or the E5 changes.
 
-## Store und Integrationsprüfungen
+## Store and integration checks
 
-- Prune/Recovery lesen unter der Store-Sperre keine Nutzdaten und berechnen dort keinen Payload-Hash.
-  Die deterministische Read-Spionage bleibt bei null; gleich große Bit-Korruption bleibt gespeichert,
-  und `getUploaded` verweigert sie weiterhin wegen des falschen Hashes.
-- Der Paralleltest füllt eine konfigurierte Quota zu über 99 % mit vier Uploads zu je 4 MiB.
-  Ein zweiter Store lädt während Prune ein Bild hoch, bei 200 ms Sperrfrist. Nur im Test verzögert
-  eine Lesenaht Nutzdatenzugriffe um 300 ms: der alte Scan scheitert, der Metadatenpfad besteht.
-  Das ist ein deterministischer Regressionstest, kein 1-GiB-Durchsatzbenchmark.
-- Eingespeiste EIO/EACCES/EMFILE erhalten Bytes und Owner-Bindungen; Warnungen enthalten nur
-  `storage-unavailable`. Spätere Läufe können belegte Korruption oder regulär abgelaufene Uploads
-  weiterhin entfernen. Die neun neuen Store-Regressionen scheiterten vor dem Fix und bestehen danach.
-- Store-Fokus: 33/33; Media komplett: 465 bestanden, 0 Fehler, 2 bestehende CoreML-Plattform-Skips;
-  Produktionsfabrik: 3/3; Core-Medienintegration: 101/101, jeweils ohne Fehler oder Skips.
-- Globale TypeScript-Prüfung, `pnpm lint` (163 bestanden, 0 Fehler, 3 bestehende TODOs)
-  und `pnpm docs:check` bestanden. Keine neue RPC-/Schema-/Contract-Version.
+- Prune/recovery do not read or hash payload bytes under the store lock. The deterministic read spy stays
+  at zero; same-size bit corruption remains stored, and `getUploaded` still refuses the incorrect hash.
+- The concurrent test fills a configured quota above 99% with four 4 MiB uploads. A second store publishes
+  an image during prune with a 200 ms lock deadline. A test-only seam delays payload reads by 300 ms:
+  the old scan fails and the metadata path passes. This is a deterministic regression test, not a
+  1 GiB throughput benchmark.
+- Injected EIO/EACCES/EMFILE preserve bytes and owner bindings; warnings contain only `storage-unavailable`.
+  Later sweeps can still remove proven corruption or expired uploads. The nine new store regressions
+  failed before the fix and passed afterwards.
+- Author-reported results: store focus 33/33; full Media 465 passed, 0 failed, 2 existing CoreML platform skips;
+  production factory 3/3; Core media integration 101/101, without failures or skips. The later independent
+  re-review ran 97 Core cases across its selected files; it did not independently establish the 101-case count.
+- Global TypeScript checking, `pnpm lint` (163 passed, 0 failed, 3 existing TODOs) and `pnpm docs:check`
+  passed in the author's run. No new RPC/schema/contract version.
 
-## 20 aufeinanderfolgende Browser-Dateiläufe
+## 20 consecutive complete browser-file runs
 
-Der Produktfix hält den Speichern-Knopf nach erfolgreichem `config.set` bis zum akzeptierten
-Reload gesperrt. Der Regressionstest hält `config.get` gezielt zurück und prüft einen weiteren
-Klick ohne zweiten Schreibaufruf, Fehlerbehandlung und einen Refresh mit gleicher Revision.
+The product fix keeps Save disabled after a successful `config.set` until the reload is accepted.
+The regression deliberately holds `config.get` and checks another click without a second write,
+error handling and a refresh with the same revision.
 
-Node 24.21.0; tatsächlicher Browser Chromium 154.0.8037.57 unter Linux.
-Je Lauf ein neuer Node-Prozess mit der vollständigen `media-capabilities.test.ts`, seriell,
-Abbruch beim ersten Fehler, kein Test- oder Prozess-Retry. Die Quellhashes wurden vor jedem Lauf geprüft.
-Der bestehende lokale System-Browser-Override war aktiv; dies ist kein positiver Lauf mit dem
-gepinnten CI-Browser. Dessen vorheriger Download lieferte HTTP 403. Der Required-Browser-Guard
-und der CI-Pin bleiben erhalten.
+Node 24.21.0; actual browser Chromium 154.0.8037.57 on Linux. Each run starts a new Node process
+for the complete `media-capabilities.test.ts`, serially, stopping at the first failure, without
+test or process retries. Source hashes were checked before each run. The existing local system-browser
+override was active; this is not a passing run with the pinned CI browser. Its preceding download
+returned HTTP 403. The required-browser guard and CI pin remain in place.
 
 ```bash
 for mm_run in {01..20}; do
@@ -42,9 +41,9 @@ for mm_run in {01..20}; do
 done
 ```
 
-Zeitraum (UTC): `2026-11-01T19:20:01.674Z` bis `2026-11-01T19:23:46.212Z`.
+Interval (UTC): `2026-11-01T19:20:01.674Z` to `2026-11-01T19:23:46.212Z`.
 
-| Lauf | Bestanden | Fehler / Skips / TODO / Abbruch | Exit |
+| Run | Passed | Failed / skipped / TODO / cancelled | Exit |
 |---:|---:|---:|---:|
 | 01 | 16 | 0 / 0 / 0 / 0 | 0 |
 | 02 | 16 | 0 / 0 / 0 / 0 | 0 |
@@ -67,19 +66,19 @@ Zeitraum (UTC): `2026-11-01T19:20:01.674Z` bis `2026-11-01T19:23:46.212Z`.
 | 19 | 16 | 0 / 0 / 0 / 0 | 0 |
 | 20 | 16 | 0 / 0 / 0 / 0 | 0 |
 
-**Gesamt: 320 bestanden, keine Fehler, Skips, TODOs, Abbrüche oder Retries.**
+**Total: 320 passed; no failures, skips, TODOs, cancellations or retries.**
 
-Quell-SHA-256 der gesamten Serie:
+Source SHA-256 throughout the series:
 
-| Datei | SHA-256 |
+| File | SHA-256 |
 |---|---|
 | `packages/web/src/pages/media-search/override.ts` | `05f11303d5fd04a3fbfb90c7e35714670594b1eafb7031d3534c85344221df6e` |
 | `packages/web/test/media-capabilities.test.ts` | `09e2c5d9b8badc0139406a8458fab1d8e98f4893271394bb893150ded6c6c378` |
 | `packages/web/src/pages/common/load.ts` | `d7d77876679284d979db6eace4f3f95a4220e33e7c980f66a972786e2038dfc8` |
 
-Die 20 Roh-TAP-Logs und `summary.json` liegen unter
-`/workspace/reports/mm866-e4-browser-20/`; Root und eine unabhängige Nachprüfung haben alle
-Roh-Zähler und Quellhashes gelesen und bestätigt. Der deterministische RED-Lauf und die
-anschließenden grünen Fokusläufe sind separat erhalten. Vor der Serie scheiterte ein neu
-erweiterter Fehlerpfadtest an einem mehrdeutigen Retry-Knopf-Selektor; dieser wurde auf den
-betroffenen Fehlerbereich begrenzt. In der aufgezeichneten 20er-Serie trat kein Fehler auf.
+The command, counters and source hashes above are the committed aggregate evidence for the author's
+20-run series in [PR #866](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/866). Raw TAP logs were
+held in the author's workspace and are not included in this repository; this document does not supply
+those raw logs. Before the recorded series, an expanded error-path test failed on an ambiguous Retry
+button selector, which was narrowed to the affected error region. No failure occurred within the
+recorded 20-run series. Acceptance with the pinned required CI browser remains separate.

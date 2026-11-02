@@ -156,7 +156,8 @@ test("failed atomic upload publication cleans private staging and releases its l
     try {
       await assert.rejects(store.putUploaded({ kind: "image", mimeType: "image/png", data: PNG }),
         code("backend_unavailable"));
-      assert.deepEqual(await fs.readdir(root), [".uploads"]);
+      assert.deepEqual((await fs.readdir(root)).sort(), [".upload-index", ".uploads"]);
+      assert.deepEqual(await fs.readdir(join(root, ".upload-index")), [], "failed publication leaves no durable quota entry");
       assert.deepEqual(await fs.readdir(join(root, ".uploads")), []);
     } finally {
       rename.mock.restore();
