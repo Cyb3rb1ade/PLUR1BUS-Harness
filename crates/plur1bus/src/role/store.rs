@@ -5,19 +5,18 @@ use std::io::Read;
 use std::path::Path;
 
 /// Upper bound for the record file; a larger file is treated as corrupt.
-pub const MAX_RECORD_BYTES: u64 = 65_536;
+pub(crate) const MAX_RECORD_BYTES: u64 = 65_536;
 
 // `Valid` carries the record by value on purpose: callers match on it and build it in tests.
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Loaded {
+pub(crate) enum Loaded {
     /// No record: the node is standalone.
     Missing,
+    /// Strictly validated role record.
     Valid(RoleRecord),
     /// Something is there but unusable. `detail` is a short reason, never file contents.
-    Corrupt {
-        detail: String,
-    },
+    Corrupt { detail: String },
 }
 
 fn corrupt(detail: &str) -> Loaded {
@@ -27,22 +26,19 @@ fn corrupt(detail: &str) -> Loaded {
 }
 
 /// Reads and validates the record. Never panics; every doubt is `Corrupt`.
-pub fn load(path: &Path) -> Loaded {
-    let meta = match std::fs::symlink_metadata(path) {
-        Ok(m) => m,
+pub(crate) fn load(path: &Path) -> Loaded {
+    let file = match super::atomic::open_record(path) {
+        Ok(file) => file,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Loaded::Missing,
-        Err(e) => return corrupt(&format!("cannot stat the record ({:?})", e.kind())),
+        Err(e) => return corrupt(&format!("cannot open the record ({:?})", e.kind())),
     };
-    if !meta.file_type().is_file() {
-        return corrupt("the record is not a regular file");
-    }
+    let meta = match file.metadata() {
+        Ok(meta) => meta,
+        Err(e) => return corrupt(&format!("cannot inspect the record ({:?})", e.kind())),
+    };
     if meta.len() > MAX_RECORD_BYTES {
         return corrupt("the record is too large");
     }
-    let file = match std::fs::File::open(path) {
-        Ok(f) => f,
-        Err(e) => return corrupt(&format!("cannot open the record ({:?})", e.kind())),
-    };
     let mut bytes = Vec::new();
     if let Err(e) = file.take(MAX_RECORD_BYTES + 1).read_to_end(&mut bytes) {
         return corrupt(&format!("cannot read the record ({:?})", e.kind()));
@@ -70,15 +66,25 @@ pub fn load(path: &Path) -> Loaded {
     }
 }
 
-/// Validates `rec`, checks it against what is on disk and writes it atomically (0600).
-pub fn save(path: &Path, rec: &RoleRecord) -> Result<(), RoleError> {
+/// Serialize all writers, validate and compare the record, then publish it durably (private 0600/DACL).
+/// Cluster reset requires a stored non-writer; unclustered standalone may bootstrap its first cluster.
+pub(crate) fn save(path: &Path, rec: &RoleRecord) -> Result<(), RoleError> {
     rec.validate()?;
+    let _lock = super::atomic::lock(path).map_err(|e| RoleError::Io {
+        detail: format!("cannot lock the role record ({:?})", e.kind()),
+    })?;
     match load(path) {
         Loaded::Corrupt { detail } => return Err(RoleError::RecordCorrupt { detail }),
         Loaded::Missing => {}
         Loaded::Valid(old) => {
             if old.node_id != rec.node_id {
                 return Err(RoleError::InvalidInput { field: "nodeId" });
+            }
+            if old.cluster_id.is_some()
+                && old.role.writers_allowed()
+                && rec.cluster_id != old.cluster_id
+            {
+                return Err(RoleError::InvalidInput { field: "clusterId" });
             }
             if rec.cluster_id.is_some() && rec.cluster_id == old.cluster_id {
                 if rec.epoch < old.epoch {
@@ -102,7 +108,7 @@ pub fn save(path: &Path, rec: &RoleRecord) -> Result<(), RoleError> {
     if bytes.len() as u64 > MAX_RECORD_BYTES {
         return Err(RoleError::InvalidInput { field: "record" });
     }
-    crate::ext::state::write_private_atomic(path, &bytes).map_err(|e| RoleError::Io {
+    super::atomic::write(path, &bytes).map_err(|e| RoleError::Io {
         detail: format!("cannot write the record ({:?})", e.kind()),
     })
 }
