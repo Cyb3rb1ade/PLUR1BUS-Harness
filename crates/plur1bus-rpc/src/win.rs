@@ -370,6 +370,20 @@ fn dacl_of(h: HANDLE) -> io::Result<Vec<DaclEntry>> {
 /// token/pid files (ruling S11/H3-R17), as opposed to [`dacl_of`], which reads an already-open kernel object such as
 /// a pipe. A NULL DACL (everyone may do anything) is reported as one `GENERIC_ALL` entry for Everyone (`S-1-1-0`).
 pub fn file_dacl_report(path: &std::path::Path) -> io::Result<Vec<DaclEntry>> {
+    file_dacl_report_with_policy(path, false)
+}
+
+/// A complete DACL report for private identity-file checks.
+/// Unlike [`file_dacl_report`], refuses object, callback and other unsupported ACE
+/// types instead of omitting them; a privacy check must account for every grant.
+pub fn file_dacl_report_strict(path: &std::path::Path) -> io::Result<Vec<DaclEntry>> {
+    file_dacl_report_with_policy(path, true)
+}
+
+fn file_dacl_report_with_policy(
+    path: &std::path::Path,
+    strict: bool,
+) -> io::Result<Vec<DaclEntry>> {
     let text = wide(&path.to_string_lossy());
     let mut dacl: *mut ACL = std::ptr::null_mut();
     let mut sd: PSECURITY_DESCRIPTOR = std::ptr::null_mut();
@@ -391,7 +405,12 @@ pub fn file_dacl_report(path: &std::path::Path) -> io::Result<Vec<DaclEntry>> {
         return Err(io::Error::from_raw_os_error(r as i32));
     }
     let _free = Local(sd);
-    dacl_entries_from(dacl)
+    let entries = if strict {
+        aces_from_strict(dacl)?
+    } else {
+        aces_from(dacl)?
+    };
+    Ok(entries.into_iter().map(|(entry, _)| entry).collect())
 }
 
 /// Walks a DACL's ACEs into platform-neutral [`DaclEntry`] values, shared by [`dacl_of`] (an open kernel object) and
@@ -403,6 +422,14 @@ fn dacl_entries_from(dacl: *mut ACL) -> io::Result<Vec<DaclEntry>> {
 /// Each allowed or denied ACE of `dacl` with its flags (`ACE_HEADER.AceFlags`); a NULL DACL as one flagless
 /// `GENERIC_ALL` entry for Everyone.
 fn aces_from(dacl: *mut ACL) -> io::Result<Vec<(DaclEntry, u8)>> {
+    aces_from_with_policy(dacl, false)
+}
+
+fn aces_from_strict(dacl: *mut ACL) -> io::Result<Vec<(DaclEntry, u8)>> {
+    aces_from_with_policy(dacl, true)
+}
+
+fn aces_from_with_policy(dacl: *mut ACL, strict: bool) -> io::Result<Vec<(DaclEntry, u8)>> {
     if dacl.is_null() {
         return Ok(vec![(
             DaclEntry {
@@ -441,7 +468,13 @@ fn aces_from(dacl: *mut ACL) -> io::Result<Vec<(DaclEntry, u8)>> {
         let header = unsafe { &*(ace as *const ACE_HEADER) };
         let kind = u32::from(header.AceType);
         if kind != ACCESS_ALLOWED_ACE_TYPE && kind != ACCESS_DENIED_ACE_TYPE {
-            continue; // object and callback ACEs do not occur on pipes or on run/'s files
+            if strict {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "unsupported identity DACL entry",
+                ));
+            }
+            continue; // Legacy reports expose basic ACEs; strict identity reports refuse omissions.
         }
         // SAFETY: allowed and denied ACEs share the ACCESS_ALLOWED_ACE layout; the SID starts at `SidStart`.
         let a = unsafe { &*(ace as *const ACCESS_ALLOWED_ACE) };
@@ -645,5 +678,48 @@ impl OverlappedPipe {
     pub fn cancel_io(&self) {
         // SAFETY: the handle stays open for the call; a null OVERLAPPED means all of its operations.
         unsafe { CancelIoEx(self.handle(), std::ptr::null()) };
+    }
+}
+
+#[cfg(test)]
+mod strict_dacl_tests {
+    use super::*;
+
+    #[test]
+    fn strict_identity_reports_keep_basic_user_system_and_inheritance_flags() {
+        let user = user_sid().unwrap();
+        for (sddl, expected_flags) in [
+            (user_and_system_sddl(&user), 0),
+            (
+                run_dir_sddl(&user),
+                crate::acl::OBJECT_INHERIT_ACE | crate::acl::CONTAINER_INHERIT_ACE,
+            ),
+        ] {
+            let descriptor = SecurityDescriptor::from_sddl(&sddl).unwrap();
+            let dacl = descriptor.dacl().unwrap();
+            let basic = aces_from(dacl).unwrap();
+            assert_eq!(aces_from_strict(dacl).unwrap(), basic);
+            assert_eq!(basic.len(), 2);
+            assert!(basic.iter().all(|(_, flags)| *flags == expected_flags));
+        }
+    }
+
+    #[test]
+    fn strict_identity_reports_reject_object_allow_entries_omitted_by_legacy_reports() {
+        let user = user_sid().unwrap();
+        // An explicit object GUID keeps Windows from normalizing this object ACE
+        // into a basic allow ACE. It must never disappear from a privacy check.
+        let descriptor = SecurityDescriptor::from_sddl(&format!(
+            "D:P(A;;GA;;;{user})(OA;;GR;11111111-1111-1111-1111-111111111111;;WD)"
+        ))
+        .unwrap();
+        let dacl = descriptor.dacl().unwrap();
+        let legacy = aces_from(dacl).unwrap();
+        assert_eq!(legacy.len(), 1);
+        assert_eq!(legacy[0].0.sid, user);
+        assert_eq!(
+            aces_from_strict(dacl).unwrap_err().kind(),
+            io::ErrorKind::InvalidData
+        );
     }
 }

@@ -37,9 +37,9 @@ describe("rpc-schema stability annotations", () => {
     assert.deepEqual(stableNotifications, ["core.state"]);
   });
 
-  it("every method declares x-server core, supervisor, module or engine; every notification core, supervisor or engine", () => {
+  it("every method declares x-server core, supervisor, module, engine or tools; every notification core, supervisor or engine", () => {
     for (const [name, def] of Object.entries(methods) as [string, { "x-server"?: string }][]) {
-      assert.ok(def["x-server"] === "core" || def["x-server"] === "supervisor" || def["x-server"] === "module" || def["x-server"] === "engine", `${name} x-server`);
+      assert.ok(def["x-server"] === "core" || def["x-server"] === "supervisor" || def["x-server"] === "module" || def["x-server"] === "engine" || def["x-server"] === "tools", `${name} x-server`);
     }
     for (const [name, def] of Object.entries(notifications) as [string, { "x-server"?: string }][]) {
       assert.ok(def["x-server"] === "core" || def["x-server"] === "supervisor" || def["x-server"] === "engine", `${name} x-server`);
@@ -70,22 +70,23 @@ describe("rpc-schema stability annotations", () => {
     assert.deepEqual(Object.keys(supervisor.notifications), ["import.progress", "config.changed", "module.state", "ext.changed"]);
     assert.deepEqual(supervisor.features, ["adoption", "lifelines"]);
     assert.deepEqual([...METHODS_BY_SERVER.supervisor].sort(), supervisorMethods);
-    assert.deepEqual([...METHODS_BY_SERVER.core, ...METHODS_BY_SERVER.supervisor, ...METHODS_BY_SERVER.module, ...METHODS_BY_SERVER.engine].sort(), [...METHODS].sort());
+    assert.deepEqual([...METHODS_BY_SERVER.core, ...METHODS_BY_SERVER.supervisor, ...METHODS_BY_SERVER.module, ...METHODS_BY_SERVER.engine, ...METHODS_BY_SERVER.tools].sort(), [...METHODS].sort());
     assert.deepEqual([...METHODS_BY_SERVER.module].sort(), ["module.adopt", "module.auth", "module.shutdown", "module.status"]);
     assert.deepEqual(validateResult("supervisor.auth", { rpc: "1.2.0", instanceId: "s", pid: 2, capabilities: supervisor }), { ok: true });
   });
 
   it("capability fixtures match buildCapabilities", () => {
-    for (const server of ["core", "supervisor", "module", "engine"] as const) {
+    for (const server of ["core", "supervisor", "module", "engine", "tools"] as const) {
       const fixture = JSON.parse(readFileSync(new URL(`../fixtures/capabilities/${server}.json`, import.meta.url), "utf8"));
       assert.deepEqual(fixture, buildCapabilities([], server), `fixtures/capabilities/${server}.json`);
     }
   });
 
-  it("RPC_VERSION is 1.19.0 and matches the $id", () => {
-    assert.equal(RPC_VERSION, "1.19.0");
-    assert.equal((SCHEMA as { title?: string }).title, "PLUR1BUS harness RPC 1.19.0");
-    assert.equal(schema.$id, "https://plur1bus.dev/schema/rpc/1.19.0/rpc.schema.json");
+  it("RPC_VERSION matches the schema header and $id", () => {
+    assert.match(RPC_VERSION, SEMVER);
+    assert.equal(schema["x-rpc-version"], RPC_VERSION);
+    assert.equal((SCHEMA as { title?: string }).title, `PLUR1BUS harness RPC ${RPC_VERSION}`);
+    assert.equal(schema.$id, `https://plur1bus.dev/schema/rpc/${RPC_VERSION}/rpc.schema.json`);
   });
 
   it("core.status journalReplay (1.3.0) is optional, closed and experimental", () => {

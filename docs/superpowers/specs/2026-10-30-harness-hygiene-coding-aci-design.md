@@ -516,7 +516,7 @@ plur1bus code [PATH] [--agent <id>] [--project <id> --card <id>] [--model <profi
   (x-server core) binds it: with `--project`/`--card`, the root must equal `ProjectWorktreePort.root(agent, project,
   card)` and the session is the card's (kind `card`), so D98 applies in full (`/done` runs `coding_complete`); without a
   card it is a direct session with a worktree binding (`session_worktrees(session_id, root)`, one more session schema
-  migration; owner allocation 2026-11-01 reserves v11 for CLI-1 and v10 for H4; independent branches are ordered at merge), and "done" is the advisory
+  migration; owner allocation 2026-11-01 assigns CLI-1 v11, with H4's rewind overlay in v10), and "done" is the advisory
   `/check` with the same runners (Q24). A folder that is not a granted root
   is offered as a D109 grant request to the person at the terminal (scoped to that folder, never wider than D109's caps;
   Q25); nothing is bound silently.
@@ -684,7 +684,8 @@ Also a change to existing TypeScript (session store, compaction view, chat surfa
 
 Rewind hides a contiguous range of the active path and puts a short lesson after the last kept message. It is an
 overlay, like trimming and pruning: messages and events stay append-only (the v3 ruling "never rewrite transcript
-messages/events"). The owner allocation of 2026-11-01 assigns H4's additive session migration v10 and reserves v11 for CLI-1. The controller orders/renumbers independent branches at merge. H4 adds its overlay table:
+messages/events"). The owner allocation of 2026-11-01 assigns this additive session migration v10, before CLI-1's
+`session_worktrees` in v11. Its overlay table is:
 
 ```sql
 CREATE TABLE path_rewinds (
@@ -718,6 +719,9 @@ digest: the files changed in the hidden range, the last failing check's summary 
 - **User:** `/rewind [<seq> | last] [--lesson "…"]` as a D33-style transcript command (never reaches the model or the
   cached prefix), `chat.rewind { sessionId, toSeq, lesson? }` and `session.rewind`, and "Rewind to here" on a message in the
   web UI. Requires an idle session (`E_CONFLICT turn-running` otherwise). `/rewind --undo <id>` lifts the overlay.
+  **Controller decision 2026-11-01:** in non-direct channel sessions, rewind and undo require the stored session owner
+  or a live Owner/Admin role. Other members receive `E_DENIED` with reason `rewind-not-allowed`. The role comes from the
+  Core's admin store. Ordinary shared-room conversation remains available to linked members.
 - **Agent (Q13, decided 2026-10-31):** after N failed edit-and-test cycles (a cycle = a write through `file.edit`/`file.write` followed by a
   failing `code.check`, `exec.run` test run or gate refusal). Decided 2026-10-31: off by default; on per project for unattended
   D115 cards with N = 3, where the rewind is applied at the turn boundary and audited; in interactive sessions the agent
@@ -735,6 +739,10 @@ digest: the files changed in the hidden range, the last failing check's summary 
   lesson lists them. Optional for D115 worktrees: a per-turn checkpoint ref (`refs/plur1bus/checkpoints/<session>/<turn>`,
   created with `git stash create` semantics without touching the index) and `/rewind --files`, which restores tracked
   files to the checkpoint behind an approval (effect `local-destructive`).
+  **Controller decision 2026-11-01:** checkpoint capture and file restore require an Owner/Admin project allowlist,
+  `session.rewind.fileProjects`, default empty. Retain at most the configured recent turn window (default 50); release
+  private refs on session archive or card completion. Cleanup compares the recorded object identity and never changes
+  working files or transcript history. The completed-card maintenance check runs every ten seconds while refs exist.
 - **Audit:** `session.rewind { sessionId, rewindId, parentSeq, hiddenFrom, hiddenTo, trigger, actor, hiddenDigest }`
   through the chat surface's audit helper, where `hiddenDigest` is a SHA-256 over the hidden messages' ids and texts, so
   the chain proves what was hidden; `session.rewind.undone` likewise. The hidden branch itself stays in the store.

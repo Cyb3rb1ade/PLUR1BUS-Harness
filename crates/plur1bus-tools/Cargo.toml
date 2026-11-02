@@ -1,0 +1,21 @@
+[package]
+name = "plur1bus-tools"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+plur1bus-rpc = { path = "../plur1bus-rpc" }
+serde.workspace = true
+serde_json.workspace = true
+clap.workspace = true
+getrandom = "0.3"
+sha2 = "0.10"
+zeroize = "=1.9.0"
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+tempfile.workspace = true

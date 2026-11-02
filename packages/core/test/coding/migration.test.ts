@@ -1,4 +1,4 @@
-/** CLI-1 is additive on independent main v9; the controller reserves v11 and orders/renumbers migrations at merge. */
+/** CLI-1 appends v11 after the immutable v10 rewind migration; older persisted homes retain every transcript byte. */
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
@@ -7,11 +7,11 @@ import { MIGRATIONS } from "../../src/session/migrations.ts";
 import { SessionStore } from "../../src/session/store.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 
-test("the coding migration adds immutable bindings without rewriting any v9 message or event bytes", () => {
+for (const priorVersion of [9, 10]) test(`the coding migration preserves v${priorVersion} transcript bytes and rewind state`, () => {
   const path = join(tempDir("code-migration-"), "sessions.sqlite");
   const db = new DatabaseSync(path);
-  for (const sql of MIGRATIONS.slice(0, 9)) db.exec(sql);
-  db.exec("PRAGMA user_version=9");
+  for (const sql of MIGRATIONS.slice(0, priorVersion)) db.exec(sql);
+  db.exec(`PRAGMA user_version=${priorVersion}`);
   db.prepare(
     "INSERT INTO sessions(id,kind,agent_id,owner,scope,title,memory_mode,pinned,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
   ).run("s", "direct", "worker", "owner", "user", "Original", "remember", 0, 1, 1);
@@ -31,7 +31,14 @@ test("the coding migration adds immutable bindings without rewriting any v9 mess
     '{  "text" : "untouched\\r\\n"  }',
     1,
   );
+  if (priorVersion === 10) db.prepare(
+    "INSERT INTO path_rewinds(id,session_id,parent_seq,hidden_from_seq,hidden_to_seq,hidden_digest,trigger,actor,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+  ).run("rewind", "s", 0, 1, 1, "a".repeat(64), "user", "owner", 1);
   const snapshot = () => ({
+    ...(priorVersion === 10 ? {
+      rewinds: db.prepare("SELECT * FROM path_rewinds").all(),
+      checkpoints: db.prepare("SELECT * FROM session_checkpoints").all(),
+    } : {}),
     messages: db.prepare("SELECT * FROM messages").all(),
     events: db.prepare("SELECT * FROM events").all(),
   });

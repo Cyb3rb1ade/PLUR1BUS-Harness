@@ -4,9 +4,9 @@ import { computed, effect, signal } from "@preact/signals";
 import type { Api, EventsHandle, EventsStatus, SseEvent } from "../../api/index.ts";
 import type { Key } from "../../i18n.ts";
 import { applyEvent, addUser, EMPTY_TRANSCRIPT, fromResume, type Transcript } from "./model.ts";
-import type { SessionEvent, SessionRecord } from "./rpc-types.ts";
+import type { SessionEvent, SessionRecord, RewindRecord, RewindAction, RewindProposal } from "./rpc-types.ts";
 import { getChatApi as getApi } from "./api.ts";
-import { isAborted, refreshList, submitErrorKey } from "./store.ts";
+import { isAborted, refreshList, submitErrorKey, rewindErrorKey } from "./store.ts";
 
 export type LoadState = { status: "loading" } | { status: "ready"; session: SessionRecord } | { status: "error"; error: unknown };
 
@@ -35,6 +35,8 @@ export class ChatController {
   readonly live = signal<EventsStatus>("connecting");
   readonly notice = signal<Key | null>(null);
   readonly sending = signal(false);
+  readonly rewinds = signal<RewindRecord[]>([]);
+  readonly rewindProposal = signal<RewindProposal>(null);
   readonly #api: Api;
   readonly #ctl = new AbortController();
   readonly #disposers: (() => void)[] = [];
@@ -54,6 +56,8 @@ export class ChatController {
       const r = await this.#api.rpc("session.resume", { sessionId: this.sessionId, limit: 200 }, { write: false, signal: this.#ctl.signal });
       if (gen !== this.#gen) return;
       this.tr.value = fromResume(r);
+      this.rewinds.value = r.rewinds ?? [];
+      this.rewindProposal.value = r.rewindProposal ?? null;
       this.load.value = { status: "ready", session: r.session };
     } catch (error) {
       if (gen === this.#gen && !isAborted(error) && !quiet) this.load.value = { status: "error", error };
@@ -98,10 +102,23 @@ export class ChatController {
     this.tr.value = r.tr;
     this.#afterChange(before, r.tr);
     if (r.gap) void this.catchUp();
+    else if (ev.seq > before.lastSeq && this.#rewindEvent(ev)) {
+      void this.start(true);
+    }
   }
 
   #afterChange(before: Transcript, after: Transcript): void {
     if (before.runningTurnId !== null && after.runningTurnId === null) void refreshList(true);
+    if (before.runningTurnId !== null && after.runningTurnId === null && this.rewindProposal.value) void this.start(true);
+  }
+
+  #rewindEvent(event: SessionEvent): boolean {
+    if (["session.rewind", "session.rewind.undone"].includes(event.type)) return true;
+    if (event.type !== "session.rewind.proposed") return false;
+    const { parentSeq, failedCycles, lastCheckSeq, agentId } = event.data;
+    if (typeof parentSeq === "number" && typeof failedCycles === "number" && typeof lastCheckSeq === "number"
+      && typeof agentId === "string") this.rewindProposal.value = { parentSeq, failedCycles, lastCheckSeq, agentId };
+    return false;
   }
 
   /** Fetches the persisted events after the last one applied (paged), applying them in order. One at a time. */
@@ -109,19 +126,25 @@ export class ChatController {
     if (this.#catching) { this.#again = true; return; }
     this.#catching = true;
     const first = this.tr.value;
+    let pathChanged = false;
     try {
       do {
         this.#again = false;
         for (;;) {
           const after = this.tr.value.lastSeq;
           const r = await this.#api.rpc("session.events", { sessionId: this.sessionId, afterSeq: after, limit: CATCH_UP_PAGE }, { write: false, signal: this.#ctl.signal });
-          for (const ev of r.events) this.tr.value = applyEvent(this.tr.value, ev).tr;
+          for (const ev of r.events) {
+            const before = this.tr.value.lastSeq;
+            this.tr.value = applyEvent(this.tr.value, ev).tr;
+            if (ev.seq > before && this.tr.value.lastSeq === ev.seq) pathChanged = this.#rewindEvent(ev) || pathChanged;
+          }
           if (r.events.length < CATCH_UP_PAGE || this.tr.value.lastSeq === after) break;
         }
       } while (this.#again);
     } catch { /* aborted or transient: the next (re)connect, gap or poll tick tries again */ }
     this.#catching = false;
     this.#afterChange(first, this.tr.value);
+    if (pathChanged) await this.start(true);
   }
 
   /** Submits one message. false: nothing was sent (a hint is in `notice`, the caller keeps the text). */
@@ -153,5 +176,20 @@ export class ChatController {
     } catch (e) {
       if (!isAborted(e)) this.notice.value = "chat.err.cancel";
     }
+  }
+
+  /** Only an explicit person action invokes this write; refresh the server's overlay after apply or undo. */
+  async rewind(action: RewindAction): Promise<boolean> {
+    if (this.sending.value || this.tr.value.runningTurnId !== null) return false;
+    this.sending.value = true;
+    this.notice.value = null;
+    try {
+      await this.#api.rpc("session.rewind", { ...action, sessionId: this.sessionId }, { signal: this.#ctl.signal });
+      await this.start(true);
+      return true;
+    } catch (error) {
+      if (!isAborted(error)) this.notice.value = rewindErrorKey(error);
+      return false;
+    } finally { this.sending.value = false; }
   }
 }

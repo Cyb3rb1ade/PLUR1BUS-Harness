@@ -4,6 +4,23 @@ use serde_json::json;
 use std::path::PathBuf;
 use std::process::Command;
 
+/// Credential-free Windows peer inspection of the same connected handle Node inherited to stdin.
+/// Never opens the pipe by name, reads from it, or writes to it. Unsupported/unknown is a refusal.
+pub(crate) fn pipe_server_pid() {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::System::Console::{GetStdHandle, STD_INPUT_HANDLE};
+        // SAFETY: the process's standard input is an opaque OS handle. The kernel validates it;
+        // pipe_server_pid does not dereference it, consume bytes or mutate the parent's handle.
+        let handle = unsafe { GetStdHandle(STD_INPUT_HANDLE) };
+        if let Some(pid) = plur1bus_rpc::win::pipe_server_pid(handle) {
+            crate::output::say_raw(&pid.to_string());
+            return;
+        }
+    }
+    std::process::exit(2);
+}
+
 /// The Node runtime (HB8): $PLUR1BUS_NODE, then the install manifest's `node.path` (written by setup), then the
 /// first `<home>/runtime/node-*/bin/node` by name (never a staged `*.tmp-*` tree), then `node` on PATH. Shared by
 /// `core run`, `import` and the supervisor.
@@ -144,6 +161,26 @@ pub(crate) fn native_worker_env() -> Vec<(std::ffi::OsString, std::ffi::OsString
     ]
 }
 
+/// Native tools binary installed beside the CLI; explicit overrides also support local development.
+pub(crate) fn locate_tools_bin(layout: &Layout) -> PathBuf {
+    if let Some(path) = std::env::var_os("PLUR1BUS_TOOLS_BIN") {
+        return PathBuf::from(path);
+    }
+    let name = if cfg!(windows) {
+        "plur1bus-tools.exe"
+    } else {
+        "plur1bus-tools"
+    };
+    if let Some(path) = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|dir| dir.join(name)))
+        .filter(|p| p.is_file())
+    {
+        return path;
+    }
+    layout.home.join("runtime/bin").join(name)
+}
+
 /// Locates the Node runtime ([`locate_node`]) and dist/core.js ([`locate_core_js`]) and runs the core in the
 /// foreground.
 pub fn run(out: &Out, layout: &Layout) -> ! {
@@ -163,6 +200,7 @@ pub fn run(out: &Out, layout: &Layout) -> ! {
     cmd.arg(&core_js).arg("--home").arg(&layout.home);
     cmd.envs(attest_env());
     cmd.envs(native_worker_env());
+    cmd.env("PLUR1BUS_TOOLS_BIN", locate_tools_bin(layout));
     if let Some(ti) = std::env::var_os("PLUR1BUS_TEST_INTERNALS") {
         cmd.arg("--test-internals").arg(ti);
     }
@@ -293,6 +331,7 @@ mod tests {
             &layout,
             &InstallManifest {
                 schema_version: 1,
+                tools: None,
                 installed_at: 1,
                 updated_at: 1,
                 channel: "stable".into(),

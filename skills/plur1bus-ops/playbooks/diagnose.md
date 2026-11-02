@@ -43,6 +43,7 @@ The result is `{"schema":"1staid.check/1","ok":<bool>,"checks":[{"id","status","
 | `models.decision` | A decision model role (`modelRoles.decision`) is set | `info` (never `warn` or `fail`): no role is set, so message triage runs on the built-in rules and model-based message triage, tool pre-selection and the model class and effort per task are limited | Optional: `plur1bus config set modelRoles.decision <provider/model> --dry-run --json`, then apply after reviewing the plan (or Settings > Models & providers); no repair step exists or is needed |
 | `privacy.local-only` | Local-only is off or configured model endpoints are local / explicitly listed home servers | `fail` for cloud models under an active switch; `info` lists agent overrides that pin the shared engine | Review Settings > Privacy, migrate engine models explicitly, then restart Core before enabling local-only on a previously remote engine; web tools keep their own egress rules |
 | `api.supervised` | Supervised API is ready on loopback | `fail`: API role is starting/crashed/unresponsive; `info`: supervisor is stopped or predates API supervision | Inspect `logs/api.out.log` and the installed `runtime/api/api.js`; never read `run/api-owner.token` for attach |
+| `tools.service` | Core’s `tools.health` probe reports ready | `fail`: native tools is unavailable; `skip`: Core is unavailable | Inspect `logs/tools.out.log`, the tools slot in `daemon status` and the installed `plur1bus-tools` binary; Core turns continue while tools restarts |
 
 ## 2. Cross-check with process status and logs
 

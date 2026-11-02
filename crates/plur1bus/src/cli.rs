@@ -2025,6 +2025,9 @@ pub enum ExtCmd {
 pub enum CoreCmd {
     /// [experimental] Run the core in the foreground (the supervisor's spawn target)
     Run,
+    /// Inspect the already-connected pipe inherited as stdin, before Node sends any credentials.
+    #[command(name = "__pipe-server-pid", hide = true)]
+    PipeServerPid,
 }
 
 #[cfg(test)]

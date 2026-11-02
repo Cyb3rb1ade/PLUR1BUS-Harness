@@ -5,7 +5,7 @@
 // Already pinned elsewhere (not repeated): the fake-spawn process contract, ownership, the 33rd process, shell gating,
 // dangerous-command refusals, env allowlist by example, atomic create/overwrite/abort/CHANGED, NUL and traversal by example,
 // native argv contracts (processes.coverage, atomic.coverage, files.coverage, hostctl.test, native*.test).
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { chmod, mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, symlink, truncate, writeFile } from 'node:fs/promises';
@@ -297,6 +297,30 @@ describe('search matches the way the documentation says, with or without ripgrep
 });
 
 describe('edit is a literal, unique replacement and keeps everything else', () => {
+  it('edit and append preserve BOM bytes with either UTF-8 decoder BOM behavior', async () => {
+    const Decoder = globalThis.TextDecoder;
+    for (const preserve of [false, true]) {
+      vi.stubGlobal('TextDecoder', class extends Decoder {
+        constructor(...[label, options]: ConstructorParameters<typeof Decoder>) {
+          super(label, { ...options, ignoreBOM: preserve });
+        }
+      });
+      try {
+        const h = make();
+        for (const marks of [1, 2]) {
+          const original = '\uFEFF'.repeat(marks) + 'line €\r\n';
+          for (const op of ['edit', 'append'] as const) {
+            await writeFile(join(root, 'decoder.txt'), original);
+            const args = op === 'edit' ? { oldText: 'line', newText: '\uFEFFLINE' } : { content: 'tail' };
+            expect((await call(h, `fs.${op}`, { path: 'decoder.txt', ...args })).ok).toBe(true);
+            const expected = op === 'edit' ? original.replace('line', '\uFEFFLINE') : original + 'tail';
+            expect(await readFile(join(root, 'decoder.txt')), `preserve=${preserve} marks=${marks} op=${op}`).toEqual(Buffer.from(expected));
+          }
+        }
+      } finally { vi.unstubAllGlobals(); }
+    }
+  });
+
   it('$-patterns in the new text are literal; an overlapping needle is not unique; empty replacement, BOM, CRLF and Unicode are preserved byte for byte', async () => {
     const h = make(); const put = (n: string, c: string | Buffer) => writeFile(join(root, n), c);
     await put('p.txt', 'price: X'); for (const newText of ['$&', '$1', '$$', '$`', "$'", '$<n>', '\\1', '$&$&']) { await call(h, 'fs.write', { path: 'p.txt', content: 'price: X' }); expect((await call(h, 'fs.edit', { path: 'p.txt', oldText: 'X', newText })).ok).toBe(true); expect(await readFile(join(root, 'p.txt'), 'utf8')).toBe(`price: ${newText}`); }

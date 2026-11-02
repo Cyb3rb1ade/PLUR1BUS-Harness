@@ -1,5 +1,6 @@
 //! Every fixture in packages/rpc-schema/fixtures must deserialize into the generated Rust types
 //! and serialize back to the same JSON. This is the Rust half of spec criterion 7.
+
 use plur1bus_rpc::types::{self, ErrorCode};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
@@ -40,6 +41,12 @@ fn pair<P: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize>(name: 
 fn method_fixture(name: &str, f: &Value) {
     use types::*;
     match name {
+        "tools.hello" => pair::<ToolsHelloParams, ToolsHelloResult>(name, f),
+        "tools.health" => pair::<ToolsHealthParams, ToolsHealthResult>(name, f),
+        "a2a.peer.add" => pair::<A2aPeerAddParams, A2aPeerAddResult>(name, f),
+        "a2a.peer.list" => pair::<A2aPeerListParams, A2aPeerListResult>(name, f),
+        "a2a.peer.remove" => pair::<A2aPeerRemoveParams, A2aPeerRemoveResult>(name, f),
+        "a2a.peer.trust" => pair::<A2aPeerTrustParams, A2aPeerTrustResult>(name, f),
         "admin.extensions.auth.cancel" => {
             pair::<AdminExtensionsAuthCancelParams, AdminExtensionsAuthCancelResult>(name, f)
         }
@@ -291,6 +298,7 @@ fn method_fixture(name: &str, f: &Value) {
         "engine.recall" => pair::<EngineRecallParams, EngineRecallResult>(name, f),
         "engine.shutdown" => pair::<EngineShutdownParams, EngineShutdownResult>(name, f),
         "engine.status" => pair::<EngineStatusParams, EngineStatusResult>(name, f),
+        "engine.adopt" => pair::<EngineAdoptParams, EngineAdoptResult>(name, f),
         "engine.open" => pair::<EngineOpenParams, EngineOpenResult>(name, f),
         "engine.auth" => pair::<EngineAuthParams, EngineAuthResult>(name, f),
         "model.memory.status" => pair::<ModelMemoryStatusParams, ModelMemoryStatusResult>(name, f),
@@ -313,6 +321,7 @@ fn method_fixture(name: &str, f: &Value) {
         }
         "chat.archive" => pair::<ChatArchiveParams, ChatArchiveResult>(name, f),
         "chat.cancel" => pair::<ChatCancelParams, ChatCancelResult>(name, f),
+        "chat.rewind" => pair::<ChatRewindParams, ChatRewindResult>(name, f),
         "chat.create" => pair::<ChatCreateParams, ChatCreateResult>(name, f),
         "chat.delete" => pair::<ChatDeleteParams, ChatDeleteResult>(name, f),
         "chat.events" => pair::<ChatEventsParams, ChatEventsResult>(name, f),
@@ -454,6 +463,8 @@ fn method_fixture(name: &str, f: &Value) {
         "project.agent.remove" => {
             pair::<ProjectAgentRemoveParams, ProjectAgentRemoveResult>(name, f)
         }
+        "project.repo.bind" => pair::<ProjectRepoBindParams, ProjectRepoBindResult>(name, f),
+        "project.repo.unbind" => pair::<ProjectRepoUnbindParams, ProjectRepoUnbindResult>(name, f),
         "task.complete" => pair::<TaskCompleteParams, TaskCompleteResult>(name, f),
         "chat.promote.preview" => {
             pair::<ChatPromotePreviewParams, ChatPromotePreviewResult>(name, f)
@@ -648,6 +659,7 @@ fn method_fixture(name: &str, f: &Value) {
         "session.model.get" => pair::<SessionModelGetParams, SessionModelGetResult>(name, f),
         "session.model.set" => pair::<SessionModelSetParams, SessionModelSetResult>(name, f),
         "session.cancel" => pair::<SessionCancelParams, SessionCancelResult>(name, f),
+        "session.rewind" => pair::<SessionRewindParams, SessionRewindResult>(name, f),
         "identity.list" => pair::<IdentityListParams, IdentityListResult>(name, f),
         "identity.human.create" => {
             pair::<IdentityHumanCreateParams, IdentityHumanCreateResult>(name, f)

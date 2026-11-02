@@ -20,6 +20,12 @@ contents:
       mode: 0755
       owner: root
       group: root
+  - src: bin/plur1bus-tools
+    dst: /usr/bin/plur1bus-tools
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
   - src: share/polkit-1/actions/org.plur1bus.approve.policy
     dst: /usr/share/polkit-1/actions/org.plur1bus.approve.policy
     file_info:

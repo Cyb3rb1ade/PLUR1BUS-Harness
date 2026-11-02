@@ -6,7 +6,7 @@
  *   `createLocalChatAdapter`) and `createGeminiAdapter`. All implement the streaming contract in `types.ts`.
  * - Router: `ProviderRouter` (profiles → ordered candidates, fail-closed fallback, per provider+model circuit breaker,
  *   jittered backoff), and `profiles/` which resolves the config's `modelProfiles` into a router.
- * - Local models: discovery, availability, a non-blocking monitor and a guard that fails fast on a dead endpoint.
+ * - Local models: discovery, availability, a monitor/guard, and D122's managed Unix transport for Apple FM.
  * - Prompt-cache profiles: `schema/cache-profiles.json` (RE-D21), validated on load, with the model-id normaliser.
  */
 
@@ -43,7 +43,7 @@ export * from "./router/index.ts";
 // modelProfiles → router
 export * from "./profiles/index.ts";
 
-// Local models (Ollama, LM Studio)
+// Local models (Ollama, LM Studio, managed Apple Foundation Models)
 export * from "./local/index.ts";
 
 // Prompt-cache profiles (RE-D21): the table, its normaliser and the row lookup

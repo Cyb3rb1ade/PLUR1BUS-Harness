@@ -1,0 +1,92 @@
+{
+  "schema": "plur1bus.team-task/1",
+  "id": "py-document-index",
+  "title": "Unicode document index",
+  "kind": "decomposable",
+  "tier": "team",
+  "language": "python",
+  "license": "MIT",
+  "seeds": [
+    17,
+    104729,
+    8675309
+  ],
+  "budgets": {
+    "tokens": 57344,
+    "maxRounds": 54,
+    "wallMs": 810000
+  },
+  "instruction": "prompt.md",
+  "start": "start",
+  "seedGenerator": "seed.mjs",
+  "packages": [
+    {
+      "id": "tokens",
+      "entry": "src/tokens.__SEED__.py",
+      "symbol": "solve__SEED__",
+      "owns": [
+        "src/tokens.__SEED__.py"
+      ],
+      "dependsOn": [],
+      "reference": "reference/tokens",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "tokens"
+      }
+    },
+    {
+      "id": "index",
+      "entry": "src/index.__SEED__.py",
+      "symbol": "solve__SEED__",
+      "owns": [
+        "src/index.__SEED__.py"
+      ],
+      "dependsOn": [],
+      "reference": "reference/index",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "index"
+      }
+    },
+    {
+      "id": "rank",
+      "entry": "src/rank.__SEED__.py",
+      "symbol": "solve__SEED__",
+      "owns": [
+        "src/rank.__SEED__.py"
+      ],
+      "dependsOn": [],
+      "reference": "reference/rank",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "rank"
+      }
+    },
+    {
+      "id": "lookup",
+      "entry": "src/lookup.__SEED__.py",
+      "symbol": "solve__SEED__",
+      "owns": [
+        "src/lookup.__SEED__.py"
+      ],
+      "dependsOn": [],
+      "reference": "reference/lookup",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "lookup"
+      }
+    }
+  ],
+  "endToEnd": {
+    "checker": {
+      "path": "check.mjs",
+      "scope": "e2e"
+    },
+    "order": [
+      "tokens",
+      "index",
+      "rank",
+      "lookup"
+    ]
+  }
+}

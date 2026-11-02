@@ -147,6 +147,12 @@ still not on the record.
 
 ### 3.2 Surface trust, T0 to T3
 
+An approval scope must appear in the persisted request's `grantOptions`, even when
+the capability ceiling or the deciding surface would allow more. An unoffered scope
+is refused with `scope-unavailable` before deciding the request or creating a grant;
+the request and nonce remain usable for an offered choice. An empty list permits
+no approval scope. Denial remains available without granting a scope.
+
 A decision is accepted only from a surface that is trusted for the request (`surfaceMayDecide`): the surface must be at least
 `requiredSurface` for the chosen scope, the scope must be within the ceiling, and a T1 surface may decide only a `low` risk
 `fs.read`, `fs.write` or `clipboard.read`. The required surface is the larger of the capability's minimum and the level of its
