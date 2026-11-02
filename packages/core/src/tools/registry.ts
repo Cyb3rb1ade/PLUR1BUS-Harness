@@ -17,6 +17,8 @@ export interface ToolLimits { timeoutMs: number; maxResultBytes: number }
 export interface ToolRunContext {
   /** Aborted on timeout or when the caller aborts; a well-behaved tool stops. */
   signal: AbortSignal;
+  /** Internal delivery receipt: true commits accepted output/failure; false releases output withheld by the dispatcher. */
+  onResultSettled?: (callback: (accepted: boolean) => void) => void;
   agentId: string;
   principal: string;
   sessionId?: string;
