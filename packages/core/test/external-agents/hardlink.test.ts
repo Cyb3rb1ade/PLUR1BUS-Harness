@@ -108,7 +108,7 @@ test("pnpm installs and builds offline; the next Linux mount refuses its resulti
   const pnpm = onPath("pnpm");
   assert.ok(pnpm, "pnpm is on PATH");
   const version = JSON.parse(readFileSync(new URL("../../../../package.json", import.meta.url), "utf8")).packageManager.split("@")[1];
-  const entry = pnpmEntry(pnpm, version, process.env.PNPM_HOME);
+  const entry = pnpmEntry(pnpm, version, process.env.PNPM_HOME, process.env.npm_execpath);
   assert.ok(entry, "pnpm package can be copied into the worktree");
   const root = tempDir("m6b-hl-pnpm-");
   const { worktree, home } = gitWorktree(root);
