@@ -402,7 +402,6 @@ async function handle(msg) {
 `;
 }
 
-
 test("real connectors remain disabled until credential-bind acceptance", () => {
   for (const connector of CONNECTORS) assert.equal(connectorArgv(connector), null);
 });

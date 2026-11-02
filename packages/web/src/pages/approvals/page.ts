@@ -13,7 +13,7 @@ import * as area from "../../i18n/approvals.ts";
 import { FailureState } from "../common/states.ts";
 import { loadSecurityLimits } from "../settings/security/limits.ts";
 import { currentRole, failureOf, getApi, roleIn, useLoad } from "../common/load.ts";
-import { maskSecrets } from "./mask.ts";
+import { maskSecrets, publicPeerTrustSummary } from "./mask.ts";
 import type { PageProps } from "../registry.ts";
 import { attestationText } from "../../attestation-text.ts";
 import type {
@@ -77,7 +77,9 @@ function ApprovalCard({
   onStale: () => void;
 }): View {
   const confirmation = approval.osConfirmation;
-  const masked = [approval.summary, approval.agentReason, ...(approval.targets ?? [])].some((x) => x !== undefined && maskSecrets(x) !== x);
+  const publicTrust = publicPeerTrustSummary(approval);
+  const masked = [publicTrust ? undefined : approval.summary, approval.agentReason, ...(approval.targets ?? [])]
+    .some((x) => x !== undefined && maskSecrets(x) !== x);
   const options = approval.grantOptions ?? [{ scope: "once", requiredSurface: 1 }];
   const [selectedScope, setSelectedScope] = useState<GrantScopeName>(options[0]?.scope ?? "once");
   const [delegable, setDelegable] = useState(approval.delegable ?? false);
@@ -208,7 +210,7 @@ function ApprovalCard({
           "div",
           null,
           h("span", { class: "approval-field-label" }, t("approvals.card.summary")),
-          h("pre", { class: "approval-summary" }, shown(approval.summary)),
+          h("pre", { class: "approval-summary" }, publicTrust ?? shown(approval.summary)),
         )
       : null,
     // Agent Rationale (unverified) placed LAST among content

@@ -4,6 +4,8 @@ import { join, resolve, sep } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { gitText, sandboxVerifier, type VerifierPort, type VerifierCommand, type CheckKind } from './verifier.ts';
 import { CollabError } from './errors.ts';
+import { CONFIG_SCHEMA } from '@plur1bus/config-schema';
+const LOCAL_AGENT_ID = new RegExp(CONFIG_SCHEMA.properties.agents.propertyNames.pattern);
 const hash = (text: string | Buffer) => createHash('sha256').update(text).digest('hex');
 const KINDS: CheckKind[] = ['format', 'lint', 'typecheck', 'test'];
 export function detectVerifiers(files: Readonly<Record<string, string>>): { toolchain: string; commands: VerifierCommand[]; networkAllowed: boolean } {
@@ -68,15 +70,20 @@ export interface GateResult { ok: boolean; treeHash: string; changedLines: numbe
 export class CodingGate {
   readonly #git: typeof gitText;
   readonly #db: DatabaseSync; readonly #run: VerifierPort; readonly #audit: (event: object) => void;
-  constructor(options: { path: string; verifier?: VerifierPort; audit: (event: object) => void; git?: typeof gitText }) {
+  readonly #isLocalReviewer: (id: string) => boolean;
+  constructor(options: { path: string; verifier?: VerifierPort; audit: (event: object) => void; git?: typeof gitText; isLocalReviewer?: (id: string) => boolean }) {
     this.#git = options.git ?? gitText;
+    this.#isLocalReviewer = id => {
+      try { return LOCAL_AGENT_ID.test(id) && (options.isLocalReviewer?.(id) ?? true); }
+      catch { return false; }
+    };
     this.#db = new DatabaseSync(options.path); if (options.path !== ':memory:' && process.platform !== 'win32') chmodSync(options.path, 0o600); this.#run = options.verifier ?? sandboxVerifier(); this.#audit = options.audit;
     this.#db.exec('CREATE TABLE IF NOT EXISTS coding_reviews(task TEXT, tree_hash TEXT, reviewer TEXT, caller TEXT, PRIMARY KEY(task,tree_hash,reviewer));');
   }
   close() { this.#db.close(); }
   snapshot(root: string) { return worktreeSnapshot(root, this.#git); }
   recordReview(task: string, snapshot: ReturnType<typeof worktreeSnapshot>, reviewer: string, caller: string): void {
-    if (reviewer === caller || this.snapshot(snapshot.root).treeHash !== snapshot.treeHash) throw new CollabError('conflict', 'independent review of current tree required');
+    if (!this.#isLocalReviewer(reviewer) || !this.#isLocalReviewer(caller) || reviewer === caller || this.snapshot(snapshot.root).treeHash !== snapshot.treeHash) throw new CollabError('conflict', 'independent local review of current tree required');
     this.#audit({ kind: 'coding.review', task, treeHash: snapshot.treeHash, reviewer, caller });
     this.#db.prepare('INSERT OR REPLACE INTO coding_reviews VALUES (?,?,?,?)').run(task, snapshot.treeHash, reviewer, caller);
   }
@@ -102,7 +109,8 @@ export class CodingGate {
       checks.push({ kind: command.kind, ok: r.ok, exitCode: r.exitCode, evidence: hash(r.output), ...(r.reason ? { reason: r.reason } : {}) });
     }
     const same = this.snapshot(input.root).treeHash === before.treeHash;
-    const review = before.changedLines < 200 || !!this.#db.prepare('SELECT 1 FROM coding_reviews WHERE task=? AND tree_hash=?').get(input.task, before.treeHash);
+    const reviews = this.#db.prepare('SELECT reviewer,caller FROM coding_reviews WHERE task=? AND tree_hash=?').all(input.task, before.treeHash) as { reviewer: string; caller: string }[];
+    const review = before.changedLines < 200 || reviews.some(row => row.reviewer !== row.caller && this.#isLocalReviewer(row.reviewer) && this.#isLocalReviewer(row.caller));
     const ok = same && review && checks.every(c => c.ok);
     const result: GateResult = { ok, treeHash: before.treeHash, changedLines: before.changedLines, checks, docGaps, ...(!same ? { reason: 'worktree-changed-during-verification' } : !checks.every(c => c.ok) ? { reason: 'verifiers-failed' } : !review ? { reason: 'review-required' } : {}) };
     this.#audit({ kind: 'coding.verified', task: input.task, ...result });

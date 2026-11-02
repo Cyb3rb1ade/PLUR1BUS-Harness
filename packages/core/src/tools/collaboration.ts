@@ -6,6 +6,7 @@ import { prepareHandoff, validateReturn, returnFromText, type Handoff, type Hand
 import type { Principal } from '../rbac/types.ts';
 import { CollabError } from '../collab/errors.ts';
 import { currentAgentScope } from '../collab/scope.ts';
+import { firstPartyDiscovery } from '../toolcall/first-party-metadata.ts';
 
 export interface CollaborationTools {
   collab: Collab;
@@ -38,9 +39,30 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
     if (!membership && who.role !== 'owner' && who.role !== 'admin') throw new CollabError('unauthorized', 'project membership required');
     return { ...who, projectRights: membership ? { [projectId]: membership.role } : {} };
   };
-  const definition = (name: string, description: string, inputSchema: Record<string, unknown>, execute: ToolDef['execute'], read = false): ToolDef => ({ name, description, inputSchema, capability: 'agent.delegate', effect: read ? 'read' : 'local-write', risk: 'low', trust: 'first-party', limits: { timeoutMs: 300000 }, classify: () => ({ flags: { outsideRoots: false, denyListHit: false } }), execute });
+  const definition = (
+    name: string,
+    description: string,
+    inputSchema: Record<string, unknown>,
+    execute: ToolDef["execute"],
+    read = false,
+  ): ToolDef => {
+    const discovery = firstPartyDiscovery(name);
+    return {
+      name, description, ...(discovery ? { discovery } : {}), inputSchema,
+      capability: "agent.delegate", effect: read ? "read" : "local-write", risk: "low", trust: "first-party",
+      limits: { timeoutMs: 300000 },
+      classify: value => ({
+        untrustedResult: typeof (value as Args).toAgent === "string" && o.collab.isA2aAgent((value as Args).toAgent),
+        flags: { outsideRoots: false, denyListHit: false },
+      }),
+      execute,
+    };
+  };
   const run = (kind: 'consult' | 'delegate' | 'handoff', review = false): ToolDef['execute'] => async (value, ctx) => {
     const a = value as Args, who = admitted(ctx, a.projectId);
+    if ((review || kind === 'handoff') && o.collab.isA2aAgent(a.toAgent)) {
+      throw new CollabError('unauthorized', 'A2A targets cannot review local worktrees or receive card ownership');
+    }
     // Nested delegates never become a fresh root chain. Depth defaults to one.
     if (currentAgentScope()) throw new CollabError('guardrail', 'nested fan-out refused', { guardrail: 'depth' });
     if (req.incognito) throw new CollabError('guardrail', 'private incognito chat needs explicit promotion before a durable delegation');
@@ -50,6 +72,7 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
     if (starts >= 3) throw new CollabError('guardrail', 'guardrail fanout', { guardrail: 'fanout' });
     const taskId = req.turnId ?? req.sessionId;
     const authority: HandoffContext = { ...o.authority, person: who.userId, taskId, sessionId: req.sessionId, fromAgent: ctx.agentId, projectId: a.projectId };
+    if (review) authority.purpose = 'independent-review';
     const candidate: Handoff = {
       schema: 'plur1bus.handoff/1', id: `ho_${randomUUID()}`, kind,
       from: { agent: ctx.agentId, session: req.sessionId }, to: { agent: a.toAgent }, task: { id: taskId, project: a.projectId, ...(a.cardId ? { card: a.cardId } : {}) },
@@ -80,7 +103,7 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
     starts++; pairStarts.set(pair, (pairStarts.get(pair) ?? 0) + 1);
     const started = o.authority.now();
     let traceId = traces.get(a.projectId);
-    const input = { principal: who, projectId: a.projectId, fromAgent: ctx.agentId, toAgent: a.toAgent, signal: ctx.signal, ...(traceId ? { traceId } : {}), handoff: { contract: h, context: authority } };
+    const input = { principal: who, projectId: a.projectId, fromAgent: ctx.agentId, toAgent: a.toAgent, signal: ctx.signal, outbound: { person: who.userId, agent: ctx.agentId, session: req.sessionId, turn: ctx.execution?.turnId || req.turnId || req.sessionId, project: a.projectId, surface: ctx.surface ?? 0, ...(ctx.execution?.recurring ? { recurring: ctx.execution.recurring } : {}), ...(ctx.execution?.taskId ? { task: ctx.execution.taskId } : {}), policy: ctx.execution?.policy ?? (req.headlessJobId ? { headless: { jobId: req.headlessJobId } } : {}) }, ...(traceId ? { traceId } : {}), handoff: { contract: h, context: authority } };
     let text: string, partial: boolean, provenance: object, tokens = 0;
     const resultArtifacts: ReturnEnvelope['artifacts'] = [];
     if (kind === 'consult') {
@@ -94,7 +117,7 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
       if (result.artifactPointer) resultArtifacts.push({ ref: result.artifactPointer, kind: 'delegation-result' });
       text = result.result ?? result.error ?? ''; partial = result.status === 'cancelled';
       if (result.status === 'failed') throw new CollabError('invalid', 'delegation failed', { reason: 'run-failed' });
-      provenance = { agentId: a.toAgent, projectId: a.projectId, traceId, spanId: result.spanId, targetKind: result.targetKind ?? 'local' };
+      provenance = { agentId: a.toAgent, projectId: a.projectId, traceId, spanId: result.spanId, targetKind: result.targetKind ?? 'local', ...(result.origin ? { origin: result.origin } : {}) };
       tokens = (result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0);
 
     }

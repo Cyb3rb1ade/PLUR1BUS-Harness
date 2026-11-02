@@ -20,7 +20,7 @@ describe("recordUsage", () => {
     const day = s.periods[0]!;
     assert.equal(day.key, "2026-10-06");
     assert.equal(day.total.events, 1);
-    assert.deepEqual(Object.keys(day.total).sort(), ["cacheReadTokens", "cacheWriteTokens", "events", "images", "inputTokens", "outputTokens", "videoSeconds"]);
+    assert.deepEqual(Object.keys(day.total).sort(), ["cacheReadTokens", "cacheWriteTokens", "countedTokens", "events", "freshInputTokens", "images", "inputTokens", "outputTokens", "videoSeconds"]);
     assert.deepEqual([day.total.images, day.total.videoSeconds], [0, 0], "a token call delivers no media units");
     assert.equal("priceVersion" in s, false);
     assert.deepEqual(day.agents[0]!.models.map((m) => [m.model, m.inputTokens, m.outputTokens, m.cacheReadTokens, m.cacheWriteTokens]), [["m-small", 1000, 200, 500, 100]]);

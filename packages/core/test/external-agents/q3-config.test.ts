@@ -94,7 +94,6 @@ test("live tools.sandbox.maxTasks=2 reaches wired ACP terminal containment", asy
   } finally { approvals.service.dispose(); approvals.stores.db.close(); sessions.close(); collab.close(); }
 });
 
-
 test("configured ACP deadlines above ten minutes are preserved and bounded at one hour", async t => {
   const { readEngine } = await import("../../src/external-agents/engine.ts");
   const { launchExternalAgent } = await import("../../src/external-agents/launcher.ts");

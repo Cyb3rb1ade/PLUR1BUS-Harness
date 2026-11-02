@@ -6,6 +6,7 @@ import type { Page } from "playwright";
 import { browserSkip, openRoute, setup, teardown, withApp, type App } from "./harness.ts";
 import { rpcError } from "./mock-rpc.ts";
 import { sampleApprovals, sampleGrants, seedApprovals, seedJobs } from "./surfaces-fixtures.ts";
+import { randomBytes, randomUUID } from "node:crypto";
 
 before(setup);
 after(teardown);
@@ -38,6 +39,24 @@ async function clickInOneTask(page: Page, names: RegExp[]): Promise<void> {
 }
 
 const secret = (): string => ["sk", "z".repeat(26)].join("-");
+
+test("the normal approval card shows the complete public A2A trust coordinates before approval", opts, async () => {
+  const endpoint = `https://peer.example/${"a".repeat(1800)}/.ssh/token=public-route`;
+  const fingerprint = `sha256:${randomBytes(32).toString("base64url")}`;
+  const revision = randomUUID();
+  const summary = `Endpoint: ${endpoint}\nKey fingerprint: ${fingerprint}\nRevision: ${revision}`;
+  await withApp({}, async app => {
+    seedApprovals(app.server.rpc, [{ ...sampleApprovals[0]!, tool: "peer.a2a_trust", summary, diff: summary }]);
+    await openRoute(app.page, "#/approvals");
+    const shown = app.page.locator(".approval-summary");
+    await shown.waitFor();
+    assert.equal(await shown.textContent(), summary);
+    assert.deepEqual(calls(app, "approval.decide"), []);
+    await approveBtn(app.page).click();
+    await waitFor(app, "approval.decide", 1);
+    assert.equal(calls(app, "approval.decide").length, 1);
+  });
+});
 
 describe("Approvals: no double decisions", opts, () => {
   test("two Approve clicks in one task send one approval.decide", async () => {

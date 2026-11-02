@@ -40,6 +40,10 @@ fn pair<P: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize>(name: 
 fn method_fixture(name: &str, f: &Value) {
     use types::*;
     match name {
+        "a2a.peer.add" => pair::<A2aPeerAddParams, A2aPeerAddResult>(name, f),
+        "a2a.peer.list" => pair::<A2aPeerListParams, A2aPeerListResult>(name, f),
+        "a2a.peer.remove" => pair::<A2aPeerRemoveParams, A2aPeerRemoveResult>(name, f),
+        "a2a.peer.trust" => pair::<A2aPeerTrustParams, A2aPeerTrustResult>(name, f),
         "admin.extensions.auth.cancel" => {
             pair::<AdminExtensionsAuthCancelParams, AdminExtensionsAuthCancelResult>(name, f)
         }
