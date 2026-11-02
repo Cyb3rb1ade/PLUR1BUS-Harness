@@ -52,7 +52,7 @@ jobs:
         with:
           path: ${{ github.workspace }}/.models-cache
           key: models-${{ runner.os }}-intfloat-multilingual-e5-small-woxpas-ai-bge-reranker-v2-m3-onnx-v1
-      - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
+      - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus -p plur1bus-tools
       - name: system test (real models)
         run: node --experimental-strip-types --test --test-timeout=300000 tests/system/two-session-recall.test.ts
         timeout-minutes: 30

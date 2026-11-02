@@ -109,6 +109,24 @@ export class TurnRunner {
     const signal = turnProfile?.signal ? AbortSignal.any([cancelled, turnProfile.signal, ...(this.#d.signal ? [this.#d.signal] : [])]) : this.#d.signal ? AbortSignal.any([this.#d.signal, cancelled]) : cancelled;
     const trace = (r: import("../composition/trace.ts").PipelineRecord) => this.#d.logger?.info("turn.stage", { ...r });
     let telemetry = createTurnTelemetry();
+    const deliveryReceipts = new Map<string, Set<(accepted: boolean) => void>>();
+    const registerDelivery = (id: string, settle: (accepted: boolean) => void): (() => void) => {
+      let receipts = deliveryReceipts.get(id);
+      if (!receipts) { receipts = new Set(); deliveryReceipts.set(id, receipts); }
+      receipts.add(settle);
+      return () => { receipts.delete(settle); if (!receipts.size && deliveryReceipts.get(id) === receipts) deliveryReceipts.delete(id); };
+    };
+    const settleDelivery = (id: string, accepted: boolean): void => {
+      const receipts = deliveryReceipts.get(id);
+      deliveryReceipts.delete(id);
+      for (const settle of receipts ?? []) settle(accepted);
+    };
+    const persistToolResult = (id: string, data: Record<string, unknown>): void => {
+      const event = store.appendEvent(turnId, 'tool.result', data);
+      // Commit before notification or another await: persistence is the session's delivery boundary.
+      settleDelivery(id, true);
+      this.#emit(event, session);
+    };
     try {
       // D33 transcript commands share the admitted session, event stream and cancellation switch.
       // They never enter recall/capture, the model, or the cached prefix.
@@ -163,6 +181,12 @@ export class TurnRunner {
       let reply = ""; let usage: { inputTokens: number; outputTokens: number; model?: string; measurements?: import("./provider.ts").UsageMeasurement[] } | null = null; let index = 0;
       telemetry.rounds = 1;
       for await (const chunk of provider.stream({
+        onToolResultDelivery: registerDelivery,
+        onDelegationResult: result => {
+          // Harness-owned joins have no model tool call. Persist a matching read operation without accepting reported provenance.
+          this.#event(turnId, 'tool.call', { id: result.taskId, name: 'await_delegations', args: { taskIds: [result.taskId], timeoutMs: 0 }, origin: 'harness:collaboration' }, session);
+          persistToolResult(result.taskId, { id: result.taskId, output: result.output, origin: 'harness:collaboration' });
+        },
         onTurnTelemetry: observation => { telemetry = structuredClone(observation); },
         buffered: !!recurring || !['cli', 'web', 'api', 'voice'].includes(caller.channel),
         ...(selectedProfile ? { modelProfile: selectedProfile } : {}), ...(reasoning ? { reasoning } : {}),
@@ -188,7 +212,7 @@ export class TurnRunner {
               && "error" in result && !!result.error && typeof result.error === "object"
               && "code" in result.error && result.error.code === "aborted";
           } catch { /* Only a typed final aborted envelope survives cancellation. */ }
-          if (aborted) this.#event(turnId, "tool.result", { id: chunk.id, output: chunk.output, isError: true }, session);
+          if (aborted) persistToolResult(chunk.id, { id: chunk.id, output: chunk.output, isError: true });
         }
         signal.throwIfAborted();
         if (chunk.type === "delta") { turnProfile?.onDelta?.(chunk.text); reply += chunk.text; this.#event(turnId, "delta", { index: index++, text: chunk.text }, session); }
@@ -202,13 +226,13 @@ export class TurnRunner {
           const tc = this.#d.toolCalls;
           if (tc) {
             // The dispatcher never throws; its error envelopes are results like any other. Only an abort ends the turn.
-            const res = await tc.dispatcher.call({ id: chunk.id, name: chunk.name, args: chunk.args }, { ...tc.context({ session, caller }), signal });
-            this.#event(turnId, "tool.result", { id: chunk.id, output: JSON.stringify(res), isError: res.isError }, session);
+            const res = await tc.dispatcher.call({ id: chunk.id, name: chunk.name, args: chunk.args }, { ...tc.context({ session, caller }), signal, onResultSettled: settle => { registerDelivery(chunk.id, settle); } });
+            persistToolResult(chunk.id, { id: chunk.id, output: JSON.stringify(res), isError: res.isError });
             signal.throwIfAborted();
           }
         }
         // RULING: with a dispatcher the harness executes; a result the provider reports itself is ignored (it could forge provenance).
-        else if (chunk.type === "tool.result") { if (!this.#d.toolCalls) this.#event(turnId, "tool.result", { id: chunk.id, output: chunk.output }, session); }
+        else if (chunk.type === "tool.result") { if (!this.#d.toolCalls) persistToolResult(chunk.id, { id: chunk.id, output: chunk.output }); }
         else usage = { inputTokens: chunk.inputTokens, outputTokens: chunk.outputTokens, ...(chunk.model ? { model: chunk.model } : {}), ...(chunk.measurements ? { measurements: chunk.measurements } : {}) };
       }
 
@@ -249,6 +273,8 @@ export class TurnRunner {
       catch (e2) { this.#d.logger?.warn("session turn could not be marked failed; recovery will at the next start", { sessionId: session.id, turnId, err: e2 }); }
       this.#d.logger?.warn("session turn failed", { sessionId: session.id, turnId, error });
       return { state: "failed", error };
+    } finally {
+      for (const id of deliveryReceipts.keys()) settleDelivery(id, false);
     }
   }
 

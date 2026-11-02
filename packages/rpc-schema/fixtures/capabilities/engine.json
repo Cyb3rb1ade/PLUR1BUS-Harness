@@ -259,6 +259,10 @@
     "engine.agent.close": {
       "stability": "experimental",
       "since": "1.7.0"
+    },
+    "engine.adopt": {
+      "stability": "experimental",
+      "since": "1.17.0"
     }
   },
   "notifications": {

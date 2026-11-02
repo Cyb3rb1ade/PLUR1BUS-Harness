@@ -1,3 +1,8 @@
+import { pinnedGit } from "../external-agents/git.ts";
+import { gitText } from "../collab/verifier.ts";
+import { composeA2a } from "./a2a.ts";
+import { availableParallelism, freemem, totalmem } from 'node:os';
+import { isA2aTarget, targetRunner } from "../collab/target.ts";
 import { createTurnObserver } from './turn-observer.ts';
 import { createMemoryTools } from '../tools/memory.ts';
 import { createWebFetch } from '../tools/web/fetch.ts';
@@ -71,6 +76,7 @@ import { CodingGate } from '../collab/coding-gate.ts';
 import { sandboxVerifier } from '../collab/verifier.ts';
 import { codingMethods, reviewHooks, type CodingCompletion } from '../collab/coding-surface.ts';
 import { composedAgentRunner } from './collaboration.ts';
+import { wireExternalAgents } from './external-agents.ts';
 import { collabMemory, externalMemory } from '../memory-exposure/index.ts';
 import { createExternalTurnService } from '../external-turn/index.ts';
 import { legacyAdapter } from './legacy.ts';
@@ -135,7 +141,7 @@ export interface CompositionDeps {
   /** Per-chat model choice (D112 catalog): reasoning per model before the wire fit, catalog facts and provider endpoints. */
   chatModels?: Pick<ChatModelSources, 'catalog' | 'endpoint'> & { reasoning(provider: string, model: string): ReasoningDescriptor };
 }
-export interface TurnComposition { importSsh: SshImportService; /** The turn provider's prompt-cache telemetry (process-local; null when no turn provider is composed). */ cacheTelemetry: CacheTelemetry | null; engineComplete: (agentId: string, params: import("@cyb3rb1ade/plur1bus-memory/types/engine.js").LlmParams) => Promise<import("@cyb3rb1ade/plur1bus-memory/types/engine.js").LlmResult>;  /** The turn call budget (L8), shared with the re-embedding run; null when its store could not be opened. */ budget: CallBudget | null; skillReview: SkillReview; mining: SkillMining; capabilities: LiveCapabilityIndex; /** Provider definitions refused at composition (`E_CONFIG_INVALID`); they serve no turn. Empty when all were composed. */ refusedProviders: readonly RefusedProvider[]; discoveryCredentials: (definition: ProviderDefinition) => import("../auth/credentials.ts").CredentialsProvider | undefined; voice: VoiceRuntime; openai: OpenAIRuntime; sessions: SessionService; collab: Collab | null; surfaceMethods: Record<string, Handler>; chatModels: ChatModelSources; close(): Promise<void> }
+export interface TurnComposition { a2a?: import("../a2a/peer-client.ts").A2aPeerClient | undefined;  importSsh: SshImportService; /** The turn provider's prompt-cache telemetry (process-local; null when no turn provider is composed). */ cacheTelemetry: CacheTelemetry | null; engineComplete: (agentId: string, params: import("@cyb3rb1ade/plur1bus-memory/types/engine.js").LlmParams) => Promise<import("@cyb3rb1ade/plur1bus-memory/types/engine.js").LlmResult>;  /** The turn call budget (L8), shared with the re-embedding run; null when its store could not be opened. */ budget: CallBudget | null; skillReview: SkillReview; mining: SkillMining; capabilities: LiveCapabilityIndex; /** Provider definitions refused at composition (`E_CONFIG_INVALID`); they serve no turn. Empty when all were composed. */ refusedProviders: readonly RefusedProvider[]; discoveryCredentials: (definition: ProviderDefinition) => import("../auth/credentials.ts").CredentialsProvider | undefined; voice: VoiceRuntime; openai: OpenAIRuntime; sessions: SessionService; collab: Collab | null; surfaceMethods: Record<string, Handler>; chatModels: ChatModelSources; close(): Promise<void> }
 /** secret_names backend: the agent's configured secret references, with presence from the store's metadata (never a value). */
 export function secretNamesPort(d: Pick<CompositionDeps, 'config' | 'secrets'>): SecretNamesPort {
   return {
@@ -235,6 +241,8 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     const audit = createPolicyAudit({ sink: d.audit, clock: { now: d.clock }, ...(d.secrets.redaction ? { redactor: d.secrets.redaction.redactor() } : {}) });
     const execOutput = createWriter({ dir: join(d.home, 'logs'), role: 'core.out', source: { kind: 'harness', id: 'exec', version: '0.1.0' }, now: d.clock });
     disposers.push(d.secrets.redaction?.subscribe((value, info) => execOutput.registerSecret(value, info)) ?? (() => {}), () => execOutput.close());
+    const a2a = budget ? isolated('A2A client', () => composeA2a(d, budget, registerSecret)) : null;
+    if (a2a) disposers.push(() => a2a.close());
     const grants: GrantSource = { maxGrantDays: () => d.config().approvals?.maxGrantDays ?? 90, list: q => d.permissions.current()?.grants.list(q) ?? [], get: id => d.permissions.current()?.grants.get(id) };
     // MCP-stdio stderr is child output like exec's: the same envelope (process.output.line, untrusted, redacted, line-capped), attributed to the harness's MCP client.
     // Registered before the registry so shutdown (reverse order) stops the servers, and flushes their last lines, before this writer closes.
@@ -431,8 +439,18 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       } catch (error) { record(signal.aborted ? 'cancelled' : 'refused'); throw error; }
     };
     voice.setDelegate(provider);
-    collab = budget ? isolated('collaboration', () => createCollab({ path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock, sessions: () => sessions.store, redact: liveLogsRedactionPort(() => registered),
-      runner: provider ? composedAgentRunner(provider, alsAgentScopePort(), d.home, options.delegationTargets, collabMemory({ memory, config: d.config, logger: d.logger })) : { async run() { throw new Error('no-provider'); } }, directory: { get: id => d.agents.has(id) || options.delegationTargets?.some(t => t.accepts(id)) ? { id, state: 'active' } : null },
+    wireExternalAgents(d, options, () => sessions, () => { if (!collab) throw new Error("collaboration unavailable"); return collab.worktreeStore; });
+    const delegationTargets = [...(options.delegationTargets ?? []), ...(a2a ? [a2a.client.target] : [])];
+    collab = budget ? isolated('collaboration', () => createCollab({ home: d.home, provisionWorktrees: true, path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock, limits: () => d.config().collaboration.limits,
+      capacity: () => { const config = d.config(), cores = availableParallelism(); return { cores: config.supervisor.maxCores > 0 ? Math.min(cores, config.supervisor.maxCores) : cores, availableMemory: freemem(), totalMemory: totalmem(), settings: config.collaboration.teams.capacity }; },
+      sessions: () => sessions.store, redact: liveLogsRedactionPort(() => registered),
+      runner: provider ? composedAgentRunner(provider, alsAgentScopePort(), d.home, delegationTargets, collabMemory({ memory, config: d.config, logger: d.logger }), options.projectWorktrees) : targetRunner([...delegationTargets, { kind: 'local', accepts: id => !delegationTargets.some(t => t.accepts(id)), async ack() { throw new Error('no-provider'); }, async run() { throw new Error('no-provider'); } }]),
+      directory: { get: id => {
+        const matches = options.delegationTargets?.filter(target => target.accepts(id)) ?? [];
+        if (matches.length > 1) return null;
+        if (a2a?.client.hasAgent(id) || matches.some(isA2aTarget)) return { id, state: 'active', targetKind: 'external', origin: 'a2a' };
+        return d.agents.has(id) || matches.length === 1 ? { id, state: 'active' } : null;
+      } },
       emit: { emit: event => d.logger.info(event.type, { projectId: event.projectId, traceId: event.traceId }) },
       logWarn: (msg, fields) => d.logger.warn(msg, fields),
       grants: { endTask: (taskId, by) => {
@@ -442,7 +460,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
         return 0;
       } },
       budget: { check(estimate) {
-        const candidate = Object.values(profiles)[0]?.[0]; if (!candidate) return { allowed: false, reason: 'token-budget' };
+        const candidate = a2a?.client.hasAgent(estimate.agentId) ? { model: estimate.agentId, provider: 'a2a' } : Object.values(profiles)[0]?.[0]; if (!candidate) return { allowed: false, reason: 'token-budget' };
         const admission = budget.checkBeforeCall({ principal: 'collab-admission', agent: estimate.agentId, project: estimate.projectId, turn: estimate.chainId, model: candidate.model, provider: candidate.provider, estimatedInputTokens: estimate.tokens, maxOutputTokens: 2000 });
         if (admission.kind === 'refuse') return { allowed: false, reason: 'token-budget' };
         budget.releaseUnused(admission.reservationId); return { allowed: true };
@@ -451,6 +469,13 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     if (collab) {
       disposers.push(() => collab.shutdown());
       const gate = new CodingGate({ path: join(d.home, 'state', 'coding-gate.sqlite'),
+        git: (root, args) => {
+          const row = collab!.worktreeStore.worktreeAt(root);
+          if (!row) return gitText(root, args);
+          if (!row.gitDir) throw new Error('provisioned Git metadata unavailable');
+          return pinnedGit(row.gitDir, root, args);
+        },
+        isLocalReviewer: id => !collab!.isA2aAgent(id) && (d.agents.has(id) || !!options.delegationTargets?.some(target => target.accepts(id))),
         verifier: sandboxVerifier(60000, { limitsHelper: join(d.home, 'bin', 'plur1bus-sandbox-limits'), maxTasks: () => d.config().tools.sandbox.maxTasks }), audit: event => { d.audit.append({ at: d.clock(), actor: { user: 'core', host: 'core' }, action: 'coding.gate', target: 'task', detail: { ...event } }); } });
       disposers.push(() => gate.close());
       coding = { collab, gate, worktrees: options.projectWorktrees ?? { root: agentId => d.agents.workspaceOf(agentId) ?? null } };
@@ -519,7 +544,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     disposers.push(() => extTurns.idle());
     let closed = false;
     const opened = sessions;
-    return { importSsh, cacheTelemetry: provider?.telemetry ?? null, budget, engineComplete, skillReview, mining, capabilities, refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, chatModels, surfaceMethods: { ...extensions.methods, ...sshMethods, ...extTurns.methods, 'decision.status': async () => decisions.status(), 'decision.test': async (p: { agentId: string }, ctx) => {
+    return { a2a: a2a?.client, importSsh, cacheTelemetry: provider?.telemetry ?? null, budget, engineComplete, skillReview, mining, capabilities, refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, chatModels, surfaceMethods: { ...a2a?.methods, ...extensions.methods, ...sshMethods, ...extTurns.methods, 'decision.status': async () => decisions.status(), 'decision.test': async (p: { agentId: string }, ctx) => {
       if (!d.agents.has(p.agentId)) throw new RpcError('E_AGENT_UNKNOWN', 'Unknown agent');
       const principal = deriveUserPrincipal(authenticatedPrincipal(ctx).userId);
       const result = await decisions.choice({ useCase: 'routing', state: '2', question: 'Is this integer even or odd?', options: [{ id: 'even', description: 'Divisible by two' }, { id: 'odd', description: 'Not divisible by two' }] }, { agentId: p.agentId, principal, cloudEligible: true, signal: AbortSignal.any([ctx.signal, d.signal]) });

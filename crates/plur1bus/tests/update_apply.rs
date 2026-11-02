@@ -90,6 +90,7 @@ fn env() -> Env {
         "plur1bus-installed"
     });
     fs::write(&target, fixture_binary(false)).unwrap();
+    fs::write(tools_path(&target), b"old tools").unwrap();
     let h = "a".repeat(64);
     let manifest = json!({
         "schemaVersion": 1, "installedAt": 1, "updatedAt": 1, "channel": "stable", "target": HOST,
@@ -115,10 +116,15 @@ struct Feed {
     path: PathBuf,
     pubkey: String,
     binary: PathBuf,
+    tools: PathBuf,
 }
 
 /// Writes the new binary, a core payload and a signed `stable.json` (0.2.0) into `<root>/feed`.
 fn feed(e: &Env, with_core: bool) -> Feed {
+    feed_options(e, with_core, true)
+}
+
+fn feed_options(e: &Env, with_core: bool, with_tools: bool) -> Feed {
     let dir = e.root.join("feed");
     fs::create_dir_all(&dir).unwrap();
     let script = fixture_binary(true);
@@ -128,8 +134,11 @@ fn feed(e: &Env, with_core: bool) -> Feed {
         "plur1bus-new"
     });
     fs::write(&binary, script).unwrap();
+    let tools = dir.join("tools-new");
+    fs::write(&tools, b"new tools").unwrap();
     let mut native = json!({
         "binary": { HOST: { "url": binary.to_string_lossy(), "sha256": sha(script) } },
+        "tools": { HOST: { "url": tools.to_string_lossy(), "sha256": sha(b"new tools") } },
         "core": { "version": "0.1.0", "contract": "1.9.0", "rpc": "1.3.0",
                   "payload": { HOST: { "url": "https://example.invalid/core.tar.gz", "sha256": "a".repeat(64) } } },
         "node": { "version": "24.21.0" },
@@ -149,6 +158,9 @@ fn feed(e: &Env, with_core: bool) -> Feed {
         b.into_inner().unwrap().finish().unwrap();
         native["core"] = json!({ "version": "0.2.0", "contract": "1.10.0", "rpc": "1.3.0",
             "payload": { HOST: { "url": tar.to_string_lossy(), "sha256": sha(&fs::read(&tar).unwrap()) } } });
+    }
+    if !with_tools {
+        native.as_object_mut().unwrap().remove("tools");
     }
     let doc = json!({
         "version": "0.2.0", "channel": "stable", "kind": "minor", "security": false,
@@ -171,6 +183,7 @@ fn feed(e: &Env, with_core: bool) -> Feed {
         path,
         pubkey: kp.pk.to_base64(),
         binary,
+        tools,
     }
 }
 
@@ -217,11 +230,12 @@ fn update(e: &Env, f: &Feed, extra: &[&str]) -> Command {
     cmd(e, Some(f), &args)
 }
 
-fn snapshot_of(e: &Env) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
+fn snapshot_of(e: &Env) -> (Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>) {
     (
         fs::read(&e.target).unwrap(),
         fs::read(e.home.join("config.json")).unwrap(),
         fs::read(e.home.join("manifest.json")).unwrap(),
+        fs::read(tools_path(&e.target)).unwrap(),
     )
 }
 
@@ -252,6 +266,10 @@ fn happy_path_applies_then_status_and_manual_rollback_work() {
         (Some("update.apply/1"), Some("committed"))
     );
     assert_eq!(fs::read(&e.target).unwrap(), fs::read(&f.binary).unwrap());
+    assert_eq!(
+        fs::read(tools_path(&e.target)).unwrap(),
+        fs::read(&f.tools).unwrap()
+    );
     assert_eq!(manifest_binary_version(&e), "0.2.0");
     assert_eq!(
         fs::read(e.home.join("runtime/core/core.js")).unwrap(),
@@ -479,4 +497,61 @@ fn a_crash_after_the_gate_is_rolled_forward_by_the_next_update() {
     assert_eq!(manifest_binary_version(&e), "0.2.0");
     let (_, st) = run(&mut cmd(&e, None, &["update", "status"]));
     assert_eq!(st["phase"], "committed");
+}
+
+fn tools_path(cli: &Path) -> PathBuf {
+    cli.with_file_name(if cfg!(windows) {
+        "plur1bus-tools.exe"
+    } else {
+        "plur1bus-tools"
+    })
+}
+
+#[test]
+fn tampered_tools_are_refused_before_the_release_pair_changes() {
+    let e = env();
+    let f = feed(&e, false);
+    let before = snapshot_of(&e);
+    fs::write(&f.tools, "tampered tools").unwrap();
+    let (code, doc) = run(&mut update(&e, &f, &[]));
+    assert_eq!(
+        (code, doc["reason"].as_str()),
+        (2, Some("digest-mismatch")),
+        "{doc}"
+    );
+    assert_eq!(snapshot_of(&e), before);
+}
+
+#[test]
+fn recovery_after_kill_between_binary_and_core_swaps_restores_both_binaries() {
+    let e = env();
+    let f = feed(&e, true);
+    let before = snapshot_of(&e);
+    let status = update(&e, &f, &[])
+        .env("PLUR1BUS_TEST_UPDATE_KILL_AT", "tools-swapped")
+        .status()
+        .unwrap();
+    assert_eq!(status.code(), Some(137));
+    assert_eq!(fs::read(tools_path(&e.target)).unwrap(), b"new tools");
+    // --rollback first settles the dead owner's transaction, then reports that no committed update remains.
+    let (_, doc) = run(&mut cmd(&e, None, &["update", "--rollback"]));
+    assert_eq!(doc["reason"], "nothing-to-roll-back", "{doc}");
+    assert_eq!(snapshot_of(&e), before);
+}
+
+#[test]
+fn a_signed_legacy_feed_without_tools_is_readable_but_cannot_apply_a_partial_release() {
+    let e = env();
+    let f = feed_options(&e, false, false);
+    let before = snapshot_of(&e);
+    let (code, doc) = run(&mut cmd(&e, Some(&f), &["update", "--check"]));
+    assert_eq!(code, 0, "{doc}");
+    let (code, doc) = run(&mut update(&e, &f, &[]));
+    assert_eq!(
+        (code, doc["reason"].as_str()),
+        (2, Some("tools-missing")),
+        "{doc}"
+    );
+    assert_eq!(snapshot_of(&e), before);
+    assert!(!e.home.join("update/state.json").exists());
 }

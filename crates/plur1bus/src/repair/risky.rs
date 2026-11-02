@@ -83,6 +83,8 @@ pub fn plan(checks: &[Check], ctx: &Ctx, wanted: &dyn Fn(&str) -> bool) -> Vec<S
         }
     }
     if hung_wanted {
+        let tools = Role::tools();
+        steps.extend(hung_step(&tools, inspect(ctx.layout, &tools)));
         for m in crate::modules::scan(ctx.layout) {
             if !valid_module_name(&m.name) {
                 continue;
@@ -213,6 +215,7 @@ fn describe_unit(role: &Role, pid: u32) -> String {
     match role.kind {
         RoleKind::Core => format!("core (pid {pid})"),
         RoleKind::Api => format!("api (pid {pid})"),
+        RoleKind::Tools => format!("tools (pid {pid})"),
         RoleKind::Module => format!("module {} (pid {pid})", role.name),
     }
 }
@@ -221,6 +224,7 @@ fn unit_json(role: &Role) -> (&'static str, &'static str) {
     match role.kind {
         RoleKind::Core => ("core", "core.lock"),
         RoleKind::Api => ("api", "api.supervised"),
+        RoleKind::Tools => ("tools", "tools.service"),
         RoleKind::Module => ("module", "modules.state"),
     }
 }
@@ -311,6 +315,7 @@ pub fn terminate_hung(ctx: &Ctx, step: &Step) -> Result<Value, String> {
     let role = match d["role"].as_str() {
         Some("module") if valid_module_name(name) => Role::module(name),
         Some("core") => Role::core(),
+        Some("tools") => Role::tools(),
         _ => return Err("the plan names no unit".into()),
     };
     let peer = match inspect(ctx.layout, &role) {
@@ -395,6 +400,9 @@ fn remove_run_files(layout: &Layout, role: &Role, pid: u32) -> Result<Vec<String
         return Ok(Vec::new());
     }
     let mut files = vec![ep.pid.clone(), ep.token.clone()];
+    if role.kind == crate::supervisor::state::RoleKind::Tools {
+        files.push(layout.run().join("tools-core.token"));
+    }
     if cfg!(unix) {
         let socket = std::path::PathBuf::from(&ep.address);
         // Only a socket file inside run/, and only while nothing accepts on it.
@@ -1022,6 +1030,77 @@ mod tests {
                 "checkAfter": null
             })
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_hung_tools_service_is_planned_and_terminated_through_its_pinned_peer() {
+        struct Owned(std::process::Child);
+        impl Drop for Owned {
+            fn drop(&mut self) {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        fs::create_dir_all(layout.home.join("state")).unwrap();
+        fs::create_dir_all(layout.run()).unwrap();
+        let binary = std::env::current_exe()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("plur1bus-tools");
+        assert!(binary.is_file(), "build plur1bus-tools before CLI tests");
+        let mut child = Owned(
+            std::process::Command::new(binary)
+                .args(["serve", "--home"])
+                .arg(&layout.home)
+                .stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .unwrap(),
+        );
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while !layout.run().join("tools-core.token").is_file() {
+            assert!(child.0.try_wait().unwrap().is_none());
+            assert!(
+                std::time::Instant::now() < deadline,
+                "tools did not become ready"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        // SAFETY: stop only the native child this test owns and will kill/reap even if an assertion fails.
+        unsafe {
+            assert_eq!(libc::kill(child.0.id() as i32, libc::SIGSTOP), 0);
+        }
+        let runner = FakeRunner::new(layout.home.clone());
+        let ctx = Ctx::for_host(&layout, &runner);
+        let checks = [Check {
+            id: "supervisor.state",
+            status: Status::Warn,
+            summary: "supervisor is not running".into(),
+            detail: None,
+            hint: None,
+        }];
+        let steps = plan(&checks, &ctx, &|id| id == "unit.terminate-hung");
+        assert_eq!(
+            steps.len(),
+            1,
+            "a hung fixed tools service must be included"
+        );
+        assert_eq!(steps[0].detail.as_ref().unwrap()["role"], "tools");
+        terminate_hung(&ctx, &steps[0]).unwrap();
+        assert!(
+            child.0.try_wait().unwrap().is_some(),
+            "the pinned tools process must be reaped"
+        );
+        assert!(!layout.run().join("tools.pid").exists());
+        assert!(!layout.run().join("tools.token").exists());
+        assert!(!layout.run().join("tools-core.token").exists());
     }
 
     #[test]

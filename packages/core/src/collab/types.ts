@@ -7,11 +7,11 @@ export type SpanStatus = "partial" | "running" | "succeeded" | "failed" | "cance
 export type AgentState = "active" | "paused" | "archived";
 
 export interface CollabSettings {
-  /** Hops after the root agent. ADR-003 default 1 (a consulted agent may not consult further). */
+  /** D124: read-only hops after the root agent (default 2); writers remain at depth 1. */
   maxDepth: number;
-  /** Consult+delegate starts per chain (ADR-003: 3 per turn). */
+  /** D124 read helper starts per calling turn (default 8, ceiling 32). */
   maxFanout: number;
-  /** Starts per (from, to) pair per chain (ADR-003: 2 per pair per turn). */
+  /** D124 consult starts per (from, to) pair per calling turn (default 4). */
   maxPairPerTurn: number;
   maxTurns: number;
   timeoutMs: number;
@@ -23,6 +23,9 @@ export interface CollabSettings {
 }
 
 export interface ProjectMember { userId: string; role: ProjectRole }
+/** Root-project repository binding. M5+ adds remote and commit identity on this object. */
+export interface RepoBinding { repoPath: string; baseBranch: string }
+
 export interface Project {
   id: string;
   name: string;
@@ -33,6 +36,8 @@ export interface Project {
   createdAt: number;
   updatedAt: number;
   archivedAt: number | null;
+  /** Absent until `project.repo.bind`. */
+  repo?: RepoBinding;
 }
 
 export interface Provenance {
@@ -42,6 +47,7 @@ export interface Provenance {
   spanId: string;
   at: number;
   cost: { inputTokens: number; outputTokens: number };
+  origin?: "a2a";
   targetKind: "local" | "external" | "a2a";
 }
 
@@ -55,6 +61,7 @@ export interface ConsultAnswer {
 }
 
 export interface DelegateTask {
+  origin?: "a2a";
   targetKind?: "local" | "external" | "a2a";
   id: string;
   projectId: string;
@@ -85,6 +92,7 @@ export interface DelegateHandle {
 }
 
 export interface CollabSpan {
+  origin?: "a2a";
   targetKind?: "local" | "external" | "a2a";
   sessionId?: string;
   spanId: string;
@@ -134,6 +142,11 @@ export interface CollabEvent {
 }
 
 export interface ConsultInput {
+  /** Trusted in-process acknowledgement after service admission; never RPC input. */
+  onAdmitted?: () => void;
+  taskClass?: import('./limits.ts').TaskClass;
+  callClass?: import('./limits.ts').CallClass;
+  outbound?: import("./runner.ts").AgentRunInput["outbound"];
   handoff?: import("./runner.ts").AgentRunInput["handoff"];
   principal: import("../rbac/types.ts").Principal;
   projectId: string;
@@ -149,6 +162,13 @@ export interface ConsultInput {
 }
 
 export interface DelegateInput {
+  /** In-process reservation issued by this service; never accepted from the wire. */
+  writerReservation?: import('./service.ts').WriterReservation;
+  /** Trusted in-process acknowledgement after service admission; never RPC input. */
+  onAdmitted?: () => void;
+  taskClass?: import('./limits.ts').TaskClass;
+  callClass?: import('./limits.ts').CallClass;
+  outbound?: import("./runner.ts").AgentRunInput["outbound"];
   handoff?: import("./runner.ts").AgentRunInput["handoff"];
   principal: import("../rbac/types.ts").Principal;
   projectId: string;

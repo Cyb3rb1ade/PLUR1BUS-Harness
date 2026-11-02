@@ -10,7 +10,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -156,6 +206,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -548,7 +610,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -694,6 +806,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -1086,7 +1210,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -1232,6 +1406,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -1624,7 +1810,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -1770,6 +2006,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -2162,7 +2410,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -2308,6 +2606,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -2700,7 +3010,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -2846,6 +3206,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -3238,7 +3610,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -3384,6 +3806,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -3776,7 +4210,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -3922,6 +4406,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -4314,7 +4810,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -4460,6 +5006,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -4852,7 +5410,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -4998,6 +5606,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -5390,7 +6010,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -5536,6 +6206,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -5928,7 +6610,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -6074,6 +6806,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -6466,7 +7210,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -6612,6 +7406,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -7004,7 +7810,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -7150,6 +8006,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -7542,7 +8410,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -7688,6 +8606,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -8080,7 +9010,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -8226,6 +9206,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -8618,7 +9610,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -8764,6 +9806,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -9156,7 +10210,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -9302,6 +10406,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -9694,7 +10810,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -9840,6 +11006,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -10232,7 +11410,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -10378,6 +11606,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -10770,7 +12010,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -10916,6 +12206,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -11308,7 +12610,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -11454,6 +12806,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -11846,7 +13210,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -11992,6 +13406,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -12384,7 +13810,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -12530,6 +14006,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -12922,7 +14410,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -13068,6 +14606,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -13460,7 +15010,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -13606,6 +15206,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -13998,7 +15610,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -14144,6 +15806,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -14536,7 +16210,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -14682,6 +16406,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -15074,7 +16810,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -15220,6 +17006,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -15612,7 +17410,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -15755,6 +17603,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,
@@ -16147,7 +18007,57 @@
         }
       },
       "collaboration": {
-        "fanoutEnabled": false
+        "fanoutEnabled": false,
+        "teams": {
+          "enabled": false,
+          "capacity": {
+            "coresPerWriter": 2,
+            "memoryPerWriter": 4294967296
+          },
+          "disk": {
+            "minFreeBytes": 21474836480
+          }
+        },
+        "limits": {
+          "readHelpers": {
+            "perTurn": 8,
+            "depth": 2
+          },
+          "writers": {
+            "perProject": 4
+          },
+          "consults": {
+            "perPairPerTurn": 4
+          },
+          "workTokens": 131072,
+          "taskClasses": {
+            "consult": {
+              "rounds": 25,
+              "wallTimeMs": 300000,
+              "stallTimeMs": 120000
+            },
+            "research": {
+              "rounds": 50,
+              "wallTimeMs": 900000,
+              "stallTimeMs": 300000
+            },
+            "review": {
+              "rounds": 40,
+              "wallTimeMs": 1200000,
+              "stallTimeMs": 300000
+            },
+            "code-small": {
+              "rounds": 100,
+              "wallTimeMs": 2700000,
+              "stallTimeMs": 600000
+            },
+            "code-large": {
+              "rounds": 200,
+              "wallTimeMs": 7200000,
+              "stallTimeMs": 900000
+            }
+          }
+        }
       },
       "approvals": {
         "maxGrantDays": 90,
@@ -16290,6 +18200,18 @@
       },
       "a2a": {
         "peers": []
+      },
+      "a2aClient": {
+        "enabled": false,
+        "timeoutMs": 30000,
+        "maxCardBytes": 131072,
+        "maxRequestBytes": 16384,
+        "maxReplyBytes": 16384,
+        "maxPeers": 64,
+        "peerCalls": 8,
+        "turnCalls": 16,
+        "peerTokens": 65536,
+        "turnTokens": 131072
       },
       "a2aServer": {
         "enabled": false,

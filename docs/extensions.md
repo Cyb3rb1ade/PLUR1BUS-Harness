@@ -24,7 +24,7 @@ Manifest fields that matter to a person: `id` (`<publisher>/<name>`), `name` (th
 
 **Other inputs.** A skill folder with a `SKILL.md`, a `.zip` holding one and an Anthropic `.skill` are normalised in memory into an **unsigned** `.p1x` (id `local/<name>`, publisher `local`, trust `unsigned`) and then go through the same pipeline. The normalised manifest states what a skill without a manifest could do: with no scripts, `network: none`, no filesystem, no processes and no harness access; with scripts, network `any`, process spawning, read-write access to the agent workspace, and still no harness access. A module directory stays `plur1bus module install <dir>` (trust `dev`).
 
-The source importer wraps supported MCP declarations as unsigned packages through this same verifier/installer and leaves them disabled. Credential values are stripped; missing secret slots require manual setup. Unsupported commands/auth/layouts are reported with a manual reason. Foreign plugins are only classified from declarations as `bridge-possible`, `nonportable` or `unknown`; neither a classification nor a source publisher claim grants execution authority.
+The source importer wraps supported MCP declarations as unsigned packages through this same verifier/installer and leaves them disabled. Credential values are stripped; missing secret slots require manual setup. Unsupported commands/auth/layouts are reported with a manual reason. Foreign plugins are currently classified from declarations as `bridge-possible`, `nonportable` or `unknown` (planned to expand to five states with native ports under Spec J / P-J4a); neither a classification nor a source publisher claim grants execution authority.
 
 ## 2. Verification, in order
 

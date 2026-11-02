@@ -261,6 +261,7 @@ impl Layout {
         let file = match endpoint {
             plur1bus_rpc::Endpoint::Core => self.core_pid(),
             plur1bus_rpc::Endpoint::Supervisor => self.supervisor_pid(),
+            plur1bus_rpc::Endpoint::Engine => self.run().join("engine.pid"),
             plur1bus_rpc::Endpoint::Module => return None,
         };
         std::fs::read_to_string(file)
@@ -345,6 +346,11 @@ impl Layout {
                 token: self.core_token(),
                 pid: self.core_pid(),
             },
+            RoleKind::Tools => Endpoints {
+                address: address(&self.home, platform, "tools"),
+                token: self.run().join("tools.token"),
+                pid: self.run().join("tools.pid"),
+            },
             RoleKind::Api | RoleKind::Module => Endpoints {
                 address: module_address(&self.home, platform, &role.name),
                 token: self.run().join(format!("module-{}.token", role.name)),
@@ -405,7 +411,7 @@ pub fn module_address(home: &Path, platform: &str, name: &str) -> String {
 }
 
 /// `\\.\pipe\plur1bus-<first 16 hex of sha256(lower-cased home)>-<role>` on Windows, `<home>/run/<role>.sock` elsewhere.
-fn address(home: &Path, platform: &str, role: &str) -> String {
+pub(crate) fn address(home: &Path, platform: &str, role: &str) -> String {
     if platform == "windows" {
         format!(
             r"\\.\pipe\plur1bus-{}-{role}",

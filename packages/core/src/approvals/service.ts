@@ -12,6 +12,7 @@
 // execution start: it consumes the approval and its once grant atomically; a replay is refused.
 import type { DatabaseSync } from "node:sqlite";
 import { createRedactor, type Redactor } from "../logs/redact.ts";
+import { peerTrustDisplay } from "../a2a/trust-display.ts";
 import {
   CAPABILITIES, GRANT_SCOPES, maxScopeFor, scopeRank, surfaceMayDecide,
   type Context, type GrantOption, type GrantScope, type SurfaceTrust,
@@ -221,14 +222,19 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
     const masked = shown.map((t) => redactor.text(t));
     const flags: Record<string, boolean> = {};
     for (const [k, v] of Object.entries(req.flags)) if (typeof v === "boolean") flags[k] = v;
+    // Only the closed, action-bound public coordinates bypass generic token/path heuristics.
+    // The adapter already refuses coordinates containing its live registered/leased secrets.
+    const publicTrust = peerTrustDisplay(ask, o.secrets ?? []);
     return {
       tool: ask.tool, effect: req.effect, risk: req.risk, reversible: req.reversible, flags,
       requiredSurface: req.requiredSurface, originSurface: req.originSurface, grantOptions: req.grantOptions.map((g) => ({ scope: g.scope, requiredSurface: g.requiredSurface })),
       tainted: req.tainted, taintSuspended: req.taintSuspended, agentId: ask.agentId, callId: ask.callId,
       targets: masked, targetsMasked: masked.some((t, i) => t !== shown[i]) || all.length > shown.length, targetsTotal: all.length,
-      ...(ask.access ? { access: ask.access } : {}), summary, argsBytes: payload.bytes, payloadHash: payload.hash,
+      ...(ask.access ? { access: ask.access } : {}), summary: publicTrust ?? summary,
+      argsBytes: payload.bytes, payloadHash: payload.hash,
       ...(typeof ask.reason === "string" && ask.reason !== "" ? { agentReason: redactor.text(ask.reason).slice(0, MAX_REASON) } : {}),
-      ...(typeof ask.diff === "string" && ask.diff !== "" ? { diff: redactor.text(ask.diff).slice(0, MAX_DIFF) } : {}),
+      ...(publicTrust !== undefined ? { diff: publicTrust }
+        : typeof ask.diff === "string" && ask.diff !== "" ? { diff: redactor.text(ask.diff).slice(0, MAX_DIFF) } : {}),
       ...(ask.taskId !== undefined ? { taskId: ask.taskId } : {}), ...(ask.sessionId !== undefined ? { sessionId: ask.sessionId } : {}),
       ...(ask.projectId !== undefined ? { projectId: ask.projectId } : {}),
     };

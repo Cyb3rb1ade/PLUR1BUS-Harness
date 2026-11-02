@@ -10,6 +10,7 @@ pub mod capabilities;
 pub mod client;
 pub mod error;
 pub mod process;
+pub mod server_transport;
 pub mod transport;
 pub mod trust;
 #[cfg(windows)]
