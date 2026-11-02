@@ -9,14 +9,28 @@ one process under the harness supervisor (plan `docs/superpowers/plans/2026-10-2
 `docs/superpowers/plans/rust-engine/`). It replaces the pinned Node engine package step by step; until Phase 3 the
 Node engine stays the default.
 
-**State: RE-00 skeleton.** The crate declares its dependency set and the lint policy and implements no engine
-behaviour. The modules of plan §2.4 arrive with RE-01 onwards.
+**State: library implementation through RE-04/T5.** Contracts, stores, embeddings, recall stages and
+post-selection rendering are implemented as library boundaries. Namespace fusion (T4, #850) is reviewed
+separately; budget/timing/trace orchestration (T6) and process composition (RE-08) remain separate tasks.
+The executable's `serve` entry remains a placeholder.
+
+`recall::render::assemble_context` forwards the configured recall limit and summary word limit to a
+`SelectedRecallPipeline`, then renders the original six blocks. `inject_budget::plan` produces the
+separate capped host text. Internal `JsString` values retain lone surrogates and count UTF-16 units;
+`tokensEstimate` stays absent. Neo is consumed through `NeoPrelude`; CA5 owns its implementation.
+Session/reminder/Neo maintenance effects are caller-owned intents. Warm recall supplies only a
+read-only pipeline port and persists nothing; optional retrieval-counter maintenance uses `Store::patch`
+for exactly `retrievalCount` and `lastRetrievedAt`.
+
+The [T5 fixtures](tests/fixtures/recall/golden/render/README.md) describe the real Node recorder,
+the 119 cases and the narrowly authorized Semantic Lens ACL parity exception. The Node reference
+is unchanged; default/on/off Lens settings all retain the authorized base and omit foreign user rows.
 
 ## Targets
 
 | Target | Name | What it is |
 |---|---|---|
-| library | `plur1bus_engine` | `CRATE_VERSION`, the `cache_profiles` table reader (RE-14/T1), and the unused `tokens` counting/calibration service (RE-14/T2–T3) |
+| library | `plur1bus_engine` | Contracts, store and provider ports, recall selection/rendering, `cache_profiles`, and `tokens` counting/calibration; production composition remains RE-08 |
 | binary | `plur1bus-engine` | `--version`; the hidden placeholder `serve`, which RE-08 fills (`plur1bus-engine serve --home <dir> ...`). Today `serve` exits 2 with `E_NOT_AVAILABLE reason=not-implemented`; a usage error exits 2 (clap), as `docs/errors.md` says |
 
 ## Build and test

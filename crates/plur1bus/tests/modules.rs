@@ -278,7 +278,7 @@ fn an_installed_module_is_spawned_after_the_core_and_becomes_ready() {
         .iter()
         .map(|c| c["role"].as_str().unwrap())
         .collect();
-    assert_eq!(roles, ["core", "api", "fixture"], "{st}");
+    assert_eq!(roles, ["core", "tools", "api", "fixture"], "{st}");
     let core = child(&st, "core").unwrap();
     let fixture = child(&st, "fixture").unwrap();
     assert_eq!(core["kind"], "core");
@@ -566,9 +566,12 @@ fn invalid_disabled_and_agent_scoped_modules_are_listed_not_spawned() {
             assert_eq!(m["kind"], "module");
         }
     }
-    assert!(!h.log().iter().any(|r| r["msg"]
-        .as_str()
-        .is_some_and(|m| m.ends_with(" spawned") && m != "core spawned" && m != "api spawned")));
+    assert!(!h.log().iter().any(
+        |r| r["msg"].as_str().is_some_and(|m| m.ends_with(" spawned")
+            && m != "core spawned"
+            && m != "tools spawned"
+            && m != "api spawned")
+    ));
     let transitive = h
         .log()
         .into_iter()

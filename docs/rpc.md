@@ -12,7 +12,7 @@ capabilities is a convenience, while every handler enforces the principal at dis
 `engine.event` with its `x-engine-notification` schema; the deprecated Core emitter keeps its existing payload and opt-in rule.
 Design and rationale: `docs/adr/ADR-012-process-model-and-languages.md`.
 
-JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch.
+JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch. D120: tools methods are served by plur1bus-tools and require the Core principal.
 
 ## Local endpoint trust
 
@@ -192,8 +192,14 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `project.member.add`: experimental, since 1.5.0
 - `project.member.remove`: experimental, since 1.5.0
 - `project.member.role`: experimental, since 1.5.0
+- `a2a.peer.add`: experimental, since 1.12.0
+- `a2a.peer.list`: experimental, since 1.12.0
+- `a2a.peer.remove`: experimental, since 1.12.0
+- `a2a.peer.trust`: experimental, since 1.12.0
 - `project.agent.add`: experimental, since 1.5.0
 - `project.agent.remove`: experimental, since 1.5.0
+- `project.repo.bind`: experimental, since 1.14.0
+- `project.repo.unbind`: experimental, since 1.14.0
 - `task.complete`: experimental, since 1.5.0
 - `collab.session.replay`: experimental, since 1.5.0
 - `collab.trace.get`: experimental, since 1.5.0
@@ -487,6 +493,11 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `engine.snapshot.verify`: experimental, since 1.7.0
 - `engine.tombstones.reapply`: experimental, since 1.7.0
 - `engine.agent.close`: experimental, since 1.7.0
+
+### tools server
+
+- `tools.hello`: experimental, since 1.15.0
+- `tools.health`: experimental, since 1.15.0
 
 ## Methods
 
@@ -10618,6 +10629,189 @@ Authenticated project member.role using ADR-007 object rights.
 }
 ```
 
+### `a2a.peer.add`
+
+**Stability:** experimental · since 1.12.0
+
+**Served by:** core
+
+Register a pending Ed25519 peer pin. Owner person only; no network or automatic trust.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/A2APeerId"
+    },
+    "cardUrl": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "kid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "publicKey": {
+      "$ref": "#/$defs/A2APublicKey"
+    },
+    "credentialSecret": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "id",
+    "cardUrl",
+    "kid",
+    "publicKey"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/A2APeer"
+}
+```
+
+### `a2a.peer.list`
+
+**Stability:** experimental · since 1.12.0
+
+**Served by:** core
+
+List outbound peer identities and trust states. Owner person only; no credentials or card text.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "peers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/A2APeer"
+      },
+      "maxItems": 1024
+    }
+  },
+  "required": [
+    "peers"
+  ]
+}
+```
+
+### `a2a.peer.remove`
+
+**Stability:** experimental · since 1.12.0
+
+**Served by:** core
+
+Revoke and remove an outbound peer, aborting its in-flight requests. Owner person only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/A2APeerId"
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/A2APeerId"
+    },
+    "removed": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "removed"
+  ]
+}
+```
+
+### `a2a.peer.trust`
+
+**Stability:** experimental · since 1.12.0
+
+**Served by:** core
+
+Explicitly approve the pending key fingerprint and revision after signature verification through the network.a2a policy gate. Owner person only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/A2APeerId"
+    },
+    "fingerprint": {
+      "$ref": "#/$defs/A2AFingerprint"
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "id",
+    "fingerprint",
+    "revision"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/A2APeer"
+}
+```
+
 ### `project.agent.add`
 
 **Stability:** experimental · since 1.5.0
@@ -10639,7 +10833,7 @@ Authenticated project agent.add using ADR-007 object rights.
       "maxLength": 128
     },
     "agentId": {
-      "$ref": "#/$defs/AgentId"
+      "$ref": "#/$defs/DelegationTargetId"
     }
   },
   "required": [
@@ -10679,12 +10873,96 @@ Authenticated project agent.remove using ADR-007 object rights.
       "maxLength": 128
     },
     "agentId": {
-      "$ref": "#/$defs/AgentId"
+      "$ref": "#/$defs/DelegationTargetId"
     }
   },
   "required": [
     "projectId",
     "agentId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `project.repo.bind`
+
+**Stability:** experimental · since 1.14.0
+
+**Served by:** core
+
+Bind a root project to a git repository. A person who is a project lead. Refuses bare repositories and paths under the harness home.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "baseBranch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "projectId",
+    "repoPath",
+    "baseBranch"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `project.repo.unbind`
+
+**Stability:** experimental · since 1.14.0
+
+**Served by:** core
+
+Remove a root project's repository binding. A person who is a project lead.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "projectId"
   ]
 }
 ```
@@ -24461,6 +24739,93 @@ D109 §9.10: approval-related HMAC-chain entries of the calling person, newest f
 }
 ```
 
+### `tools.hello`
+
+**Stability:** experimental · since 1.15.0
+
+**Served by:** tools
+
+First call on a Core tools connection. The dedicated credential and recorded Core PID/instance establish the principal; where available the kernel peer PID must match run/core.pid. The first hello installs a process-wide 32-byte hex HMAC ticketKey for that Core start (D120 §11.2); further connections must present the same key. A new Core identity replaces the key and closes old Core connections. Neither credential is returned or logged. Supervisor lifecycle uses a separate control token.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "token",
+    "ticketKey"
+  ],
+  "properties": {
+    "token": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "ticketKey": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "rpc",
+    "instanceId",
+    "pid",
+    "capabilities"
+  ],
+  "properties": {
+    "rpc": {
+      "type": "string"
+    },
+    "instanceId": {
+      "type": "string"
+    },
+    "pid": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "capabilities": {
+      "$ref": "#/$defs/Capabilities"
+    }
+  }
+}
+```
+
+### `tools.health`
+
+**Stability:** experimental · since 1.15.0
+
+**Served by:** tools
+
+Core-only tools readiness. A tools failure does not stop Core turns.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/ToolsHealth"
+}
+```
+
 ## Notifications
 
 Core notifications are delivered on the same connection to clients that called `events.subscribe`. Engine transport notifications are delivered on authenticated engine connections.
@@ -31625,6 +31990,141 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `A2APeerId`
+
+```json
+{
+  "type": "string",
+  "pattern": "^[a-z][a-z0-9._-]{0,63}$",
+  "maxLength": 64
+}
+```
+
+### `A2AFingerprint`
+
+```json
+{
+  "type": "string",
+  "pattern": "^sha256:[A-Za-z0-9_-]{43}$",
+  "maxLength": 50
+}
+```
+
+### `A2APublicKey`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kty": {
+      "const": "OKP"
+    },
+    "crv": {
+      "const": "Ed25519"
+    },
+    "x": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43}$",
+      "maxLength": 43
+    }
+  },
+  "required": [
+    "kty",
+    "crv",
+    "x"
+  ]
+}
+```
+
+### `DelegationTargetId`
+
+```json
+{
+  "description": "Local agent id or an explicitly pinned outbound A2A target. Foreign ids never open local agent stores.",
+  "type": "string",
+  "pattern": "^(?:[a-z0-9][a-z0-9_-]{0,63}|a2a:[a-z][a-z0-9._-]{0,63})$",
+  "maxLength": 68
+}
+```
+
+### `A2APeer`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/A2APeerId"
+    },
+    "agentId": {
+      "$ref": "#/$defs/DelegationTargetId"
+    },
+    "cardUrl": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "kid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "fingerprint": {
+      "$ref": "#/$defs/A2AFingerprint"
+    },
+    "state": {
+      "enum": [
+        "pending",
+        "trusted"
+      ]
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "targetKind": {
+      "const": "external"
+    },
+    "origin": {
+      "const": "a2a"
+    },
+    "authenticated": {
+      "type": "boolean"
+    },
+    "createdAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "updatedAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "endpoint": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    }
+  },
+  "required": [
+    "id",
+    "agentId",
+    "cardUrl",
+    "kid",
+    "fingerprint",
+    "state",
+    "revision",
+    "targetKind",
+    "origin",
+    "authenticated",
+    "createdAt",
+    "updatedAt"
+  ]
+}
+```
+
 ### `AgentId`
 
 ```json
@@ -32477,6 +32977,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "type": "string"
       },
       "description": "Deprecated methods/notifications used at least once since start, as `method:<name>`/`notification:<name>`, sorted (ADR-016 §5, S13)."
+    },
+    "tools": {
+      "$ref": "#/$defs/ToolsServiceStatus"
     }
   }
 }
@@ -32903,9 +33406,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "enum": [
         "core",
         "module",
-        "api"
+        "api",
+        "tools"
       ],
-      "description": "Experimental (1.3.0). Whether the child is the core, HTTP API or a module; absent from supervisors before 1.3.0."
+      "description": "Experimental (1.3.0). Whether the child is Core, HTTP API, an installable module, or the native tools service (since 1.15.0 / D120 H1-1); absent from supervisors before 1.3.0."
     }
   }
 }
@@ -39023,6 +39527,72 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "null"
       ],
       "minimum": 0
+    }
+  }
+}
+```
+
+### `ToolsHealth`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "process",
+    "rpc",
+    "instanceId",
+    "pid",
+    "uptimeMs"
+  ],
+  "properties": {
+    "process": {
+      "$ref": "#/$defs/ProcessState"
+    },
+    "rpc": {
+      "type": "string"
+    },
+    "instanceId": {
+      "type": "string"
+    },
+    "pid": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "uptimeMs": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `ToolsServiceStatus`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "ready",
+    "pid",
+    "checkedAt"
+  ],
+  "properties": {
+    "ready": {
+      "type": "boolean"
+    },
+    "pid": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "checkedAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
     }
   }
 }

@@ -71,22 +71,32 @@ struct Env {
     fake: PathBuf,
     events: PathBuf,
     supervisors: Vec<Child>,
+    daemon_start: Option<Child>,
 }
 
 impl Drop for Env {
     fn drop(&mut self) {
         // a stack still running is stopped cleanly; whatever is left is killed (and only what names this home)
+        let pids = self.stack_pids();
         if let Some(mut c) = self.client() {
             let _ = c.call("daemon.stop", json!({ "budgetMs": 500 }));
         }
-        for name in ["core.pid", "supervisor.pid", "module-fixture.pid"] {
-            if let Some(pid) = self.pid(name) {
-                sigkill(pid);
+        for pid in &pids {
+            if !pid_gone(*pid) {
+                sigkill(*pid);
             }
         }
         for c in &mut self.supervisors {
             let _ = c.kill();
             let _ = c.wait();
+        }
+        if let Some(c) = &mut self.daemon_start {
+            let _ = c.kill();
+            let _ = c.wait();
+        }
+        let deadline = Instant::now() + Duration::from_secs(1);
+        while pids.iter().any(|p| !pid_gone(*p)) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
         }
     }
 }
@@ -107,6 +117,7 @@ impl Env {
             user,
             fake,
             supervisors: Vec::new(),
+            daemon_start: None,
         };
         env.install_module();
         std::fs::write(
@@ -188,12 +199,12 @@ impl Env {
     /// launches the unit. Returns the `daemon start` document once the stack is ready.
     fn boot(&mut self) -> Value {
         let before = self.manager_start_calls();
-        let start = self.cli(&["daemon", "start"]).spawn().unwrap();
+        self.daemon_start = Some(self.cli(&["daemon", "start"]).spawn().unwrap());
         wait_until("the manager's start command", || {
             self.manager_start_calls() > before
         });
         self.launch_unit();
-        let out = start.wait_with_output().unwrap();
+        let out = self.wait_start_output();
         assert_eq!(
             out.status.code(),
             Some(0),
@@ -204,6 +215,16 @@ impl Env {
         assert_eq!(d["via"], "service", "{d}");
         self.wait_stack_ready();
         d
+    }
+
+    fn wait_start_output(&mut self) -> Output {
+        // Keep the child in the Drop guard until it exits; its bounded status document fits the pipe.
+        self.daemon_start.as_mut().unwrap().wait().unwrap();
+        self.daemon_start
+            .take()
+            .unwrap()
+            .wait_with_output()
+            .unwrap()
     }
 
     fn client(&self) -> Option<Client> {
@@ -231,10 +252,11 @@ impl Env {
     }
 
     fn wait_stack_ready(&self) {
-        wait_until("core and module ready", || {
+        wait_until("core, tools, API and module ready", || {
             self.status().is_some_and(|s| {
                 let kids = s["children"].as_array().cloned().unwrap_or_default();
-                kids.len() == 3
+                kids.len() == 4
+                    && kids.iter().filter(|c| c["role"] == "tools").count() == 1
                     && kids
                         .iter()
                         .all(|c| c["process"]["state"] == "ready" || c["state"] == "ready")
@@ -262,10 +284,15 @@ impl Env {
 
     /// The pids of every process of the stack, from `run/`.
     fn stack_pids(&self) -> Vec<u32> {
-        let mut pids: Vec<u32> = ["supervisor.pid", "core.pid", "module-fixture.pid"]
-            .iter()
-            .filter_map(|n| self.pid(n))
-            .collect();
+        let mut pids: Vec<u32> = [
+            "supervisor.pid",
+            "core.pid",
+            "tools.pid",
+            "module-fixture.pid",
+        ]
+        .iter()
+        .filter_map(|n| self.pid(n))
+        .collect();
         if let Some(pid) = std::fs::read(self.home.join("run/api.json"))
             .ok()
             .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
@@ -282,8 +309,8 @@ impl Env {
         let pids = self.stack_pids();
         assert_eq!(
             pids.len(),
-            4,
-            "supervisor, core, API and module are up before the reboot"
+            5,
+            "supervisor, core, tools, API and module are up before the reboot"
         );
         // SAFETY: SIGSTOP on the supervisor so no child is respawned while the others are killed.
         unsafe { libc::kill(pids[0] as libc::pid_t, libc::SIGSTOP) };
@@ -328,6 +355,8 @@ fn a_rebooted_stack_replaces_what_the_dead_processes_left_behind() {
         "module-fixture.pid",
         "supervisor.sock",
         "core.sock",
+        "tools.pid",
+        "tools.sock",
         "supervisor.lock",
     ] {
         assert!(run.join(f).exists(), "{f} should be left behind");
@@ -345,6 +374,8 @@ fn a_rebooted_stack_replaces_what_the_dead_processes_left_behind() {
         "supervisor.pid",
         "supervisor.sock",
         "module-fixture.pid",
+        "tools.pid",
+        "tools.sock",
     ] {
         assert!(
             files.contains(&f.to_string()),
@@ -355,13 +386,17 @@ fn a_rebooted_stack_replaces_what_the_dead_processes_left_behind() {
     // the boot after it
     e.boot();
     let new = e.stack_pids();
-    assert_eq!(new.len(), 4);
+    assert_eq!(new.len(), 5);
     for (o, n) in old.iter().zip(&new) {
         assert_ne!(o, n, "a new process, not the old pid");
     }
     let st = e.status().unwrap();
     let kids = st["children"].as_array().unwrap();
-    assert_eq!(kids.len(), 3, "one core, one API and one module: {st}");
+    assert_eq!(
+        kids.len(),
+        4,
+        "one core, one tools, one API and one module: {st}"
+    );
     assert_eq!(st["supervisor"]["pid"].as_u64(), Some(new[0] as u64));
     assert_eq!(e.check_row("run.stale-files")["status"], "ok");
     assert_eq!(e.events("started"), 2, "one core per boot");
@@ -387,6 +422,10 @@ fn a_discarded_run_directory_is_recreated_private() {
         "supervisor.token",
         "core.sock",
         "core.token",
+        "tools.pid",
+        "tools.sock",
+        "tools.token",
+        "tools-core.token",
         "module-fixture.pid",
     ] {
         assert!(e.home.join("run").join(f).exists(), "{f} recreated");
@@ -413,6 +452,8 @@ fn a_repair_clears_the_stale_files_without_starting_anything() {
         .unwrap();
     assert_eq!(out.status.code(), Some(0), "{out:?}");
     assert_eq!(e.check_row("run.stale-files")["status"], "ok");
+    assert!(!e.home.join("run/tools.pid").exists());
+    assert!(!e.home.join("run/tools.sock").exists());
     assert!(e.stack_pids().is_empty() || e.stack_pids().iter().all(|p| pid_gone(*p)));
     assert!(
         e.home.join("run/supervisor.lock").exists(),
@@ -428,9 +469,9 @@ fn a_second_start_after_a_reboot_never_makes_a_second_core() {
 
     // the boot: the unit starts, and at the same moment an impatient `daemon start` and a second launch of the unit
     let first = e.launch_unit();
-    let start = e.cli(&["daemon", "start"]).spawn().unwrap();
+    e.daemon_start = Some(e.cli(&["daemon", "start"]).spawn().unwrap());
     let second = e.launch_unit();
-    let out = start.wait_with_output().unwrap();
+    let out = e.wait_start_output();
     assert_eq!(
         out.status.code(),
         Some(0),
@@ -454,7 +495,7 @@ fn a_second_start_after_a_reboot_never_makes_a_second_core() {
     let _ = (first, second);
 
     let st = e.status().unwrap();
-    assert_eq!(st["children"].as_array().unwrap().len(), 3, "{st}");
+    assert_eq!(st["children"].as_array().unwrap().len(), 4, "{st}");
     assert_eq!(
         e.events("started"),
         2,

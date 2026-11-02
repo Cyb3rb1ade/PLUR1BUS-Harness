@@ -284,3 +284,28 @@ describe("N1 dispatcher diagnostic categories", () => {
     assert.equal(result.error.message, "internal error: /home/alice/internal.txt");
   });
 });
+
+for (const timeout of [false, true]) it(`delivery receipts reject late completion after ${timeout ? 'timeout' : 'caller abort'}`, async () => {
+  const started = Promise.withResolvers<void>(), release = Promise.withResolvers<void>(), late = Promise.withResolvers<void>();
+  const receipts: { phase: string; accepted: boolean }[] = [];
+  const { d, t } = rig([base({ async execute(_args, context) {
+    context.onResultSettled!(accepted => receipts.push({ phase: 'early', accepted }));
+    started.resolve();
+    await release.promise;
+    context.onResultSettled!(accepted => { receipts.push({ phase: 'late', accepted }); late.resolve(); });
+    return 'finished after cancellation';
+  } })]);
+  const abort = new AbortController();
+  const pending = d.call(call('demo.echo', { q: 'work' }), { ...CTX, signal: abort.signal });
+  await started.promise;
+  if (timeout) t.fire(); else abort.abort();
+  const result = await pending;
+  assert.ok(result.isError);
+  assert.equal(result.error.code, timeout ? 'tool-timeout' : 'aborted');
+  assert.deepEqual(receipts, [{ phase: 'early', accepted: false }]);
+  release.resolve();
+  await late.promise;
+  await new Promise<void>(resolve => setImmediate(resolve));
+  assert.deepEqual(receipts, [{ phase: 'early', accepted: false }, { phase: 'late', accepted: false }]);
+  assert.equal(t.count(), 0);
+});

@@ -346,6 +346,11 @@ impl Layout {
                 token: self.core_token(),
                 pid: self.core_pid(),
             },
+            RoleKind::Tools => Endpoints {
+                address: address(&self.home, platform, "tools"),
+                token: self.run().join("tools.token"),
+                pid: self.run().join("tools.pid"),
+            },
             RoleKind::Api | RoleKind::Module => Endpoints {
                 address: module_address(&self.home, platform, &role.name),
                 token: self.run().join(format!("module-{}.token", role.name)),

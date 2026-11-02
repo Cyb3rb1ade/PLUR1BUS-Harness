@@ -1,3 +1,5 @@
+//! Typed RPC fixtures enforce closed params and forward-compatible results.
+
 use plur1bus_rpc::types;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
@@ -91,7 +93,7 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
         .map(|entry| {
             let path = entry.unwrap().path();
             let name = path.file_stem().unwrap().to_string_lossy().into_owned();
-            let fixture = serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
+            let fixture: Value = serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
             (name, fixture)
         })
         .collect();
@@ -104,6 +106,16 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
 
     for (name, fixture) in &fixtures {
         match name.as_str() {
+            "tools.hello" => check_pair::<types::ToolsHelloParams, types::ToolsHelloResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "tools.health" => check_pair::<types::ToolsHealthParams, types::ToolsHealthResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "admin.extensions.auth.cancel" => check_pair::<
                 types::AdminExtensionsAuthCancelParams,
                 types::AdminExtensionsAuthCancelResult,
@@ -983,10 +995,40 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::ProjectMemberRoleParams,
                 types::ProjectMemberRoleResult,
             >(name, fixture, &root_schema),
+            "project.repo.bind" => check_pair::<
+                types::ProjectRepoBindParams,
+                types::ProjectRepoBindResult,
+            >(name, fixture, &root_schema),
+            "project.repo.unbind" => check_pair::<
+                types::ProjectRepoUnbindParams,
+                types::ProjectRepoUnbindResult,
+            >(name, fixture, &root_schema),
             "project.agent.add" => check_pair::<
                 types::ProjectAgentAddParams,
                 types::ProjectAgentAddResult,
             >(name, fixture, &root_schema),
+            "a2a.peer.add" => check_pair::<types::A2aPeerAddParams, types::A2aPeerAddResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "a2a.peer.list" => check_pair::<types::A2aPeerListParams, types::A2aPeerListResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "a2a.peer.remove" => {
+                check_pair::<types::A2aPeerRemoveParams, types::A2aPeerRemoveResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "a2a.peer.trust" => check_pair::<types::A2aPeerTrustParams, types::A2aPeerTrustResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "project.agent.remove" => check_pair::<
                 types::ProjectAgentRemoveParams,
                 types::ProjectAgentRemoveResult,

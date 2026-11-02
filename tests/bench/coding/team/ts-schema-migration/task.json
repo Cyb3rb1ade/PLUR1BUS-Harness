@@ -1,0 +1,82 @@
+{
+  "schema": "plur1bus.team-task/1",
+  "id": "ts-schema-migration",
+  "title": "Sequential account schema migration",
+  "kind": "coupled",
+  "tier": "team",
+  "language": "typescript",
+  "license": "MIT",
+  "seeds": [
+    17,
+    104729,
+    8675309
+  ],
+  "budgets": {
+    "tokens": 73728,
+    "maxRounds": 60,
+    "wallMs": 900000
+  },
+  "instruction": "prompt.md",
+  "start": "start",
+  "seedGenerator": "seed.mjs",
+  "packages": [
+    {
+      "id": "decode",
+      "entry": "src/pipeline.__SEED__.ts",
+      "symbol": "decode__SEED__",
+      "owns": [
+        "src/pipeline.__SEED__.ts"
+      ],
+      "dependsOn": [],
+      "reference": "reference/decode",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "decode"
+      }
+    },
+    {
+      "id": "migrate",
+      "entry": "src/pipeline.__SEED__.ts",
+      "symbol": "migrate__SEED__",
+      "owns": [
+        "src/pipeline.__SEED__.ts"
+      ],
+      "dependsOn": [
+        "decode"
+      ],
+      "reference": "reference/migrate",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "migrate"
+      }
+    },
+    {
+      "id": "project",
+      "entry": "src/pipeline.__SEED__.ts",
+      "symbol": "project__SEED__",
+      "owns": [
+        "src/pipeline.__SEED__.ts"
+      ],
+      "dependsOn": [
+        "decode",
+        "migrate"
+      ],
+      "reference": "reference/project",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "project"
+      }
+    }
+  ],
+  "endToEnd": {
+    "checker": {
+      "path": "check.mjs",
+      "scope": "e2e"
+    },
+    "order": [
+      "decode",
+      "migrate",
+      "project"
+    ]
+  }
+}

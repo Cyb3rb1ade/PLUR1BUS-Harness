@@ -1,5 +1,6 @@
 //! Every fixture in packages/rpc-schema/fixtures must deserialize into the generated Rust types
 //! and serialize back to the same JSON. This is the Rust half of spec criterion 7.
+
 use plur1bus_rpc::types::{self, ErrorCode};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
@@ -40,6 +41,12 @@ fn pair<P: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize>(name: 
 fn method_fixture(name: &str, f: &Value) {
     use types::*;
     match name {
+        "tools.hello" => pair::<ToolsHelloParams, ToolsHelloResult>(name, f),
+        "tools.health" => pair::<ToolsHealthParams, ToolsHealthResult>(name, f),
+        "a2a.peer.add" => pair::<A2aPeerAddParams, A2aPeerAddResult>(name, f),
+        "a2a.peer.list" => pair::<A2aPeerListParams, A2aPeerListResult>(name, f),
+        "a2a.peer.remove" => pair::<A2aPeerRemoveParams, A2aPeerRemoveResult>(name, f),
+        "a2a.peer.trust" => pair::<A2aPeerTrustParams, A2aPeerTrustResult>(name, f),
         "admin.extensions.auth.cancel" => {
             pair::<AdminExtensionsAuthCancelParams, AdminExtensionsAuthCancelResult>(name, f)
         }
@@ -455,6 +462,8 @@ fn method_fixture(name: &str, f: &Value) {
         "project.agent.remove" => {
             pair::<ProjectAgentRemoveParams, ProjectAgentRemoveResult>(name, f)
         }
+        "project.repo.bind" => pair::<ProjectRepoBindParams, ProjectRepoBindResult>(name, f),
+        "project.repo.unbind" => pair::<ProjectRepoUnbindParams, ProjectRepoUnbindResult>(name, f),
         "task.complete" => pair::<TaskCompleteParams, TaskCompleteResult>(name, f),
         "chat.promote.preview" => {
             pair::<ChatPromotePreviewParams, ChatPromotePreviewResult>(name, f)

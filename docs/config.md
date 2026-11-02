@@ -21,6 +21,8 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 |---|---|---|---|---|
 | `import.ssh` | object | `{}` | live | Owner-managed SSH source identity and endpoint configuration. |
 | `collaboration.fanoutEnabled` | boolean | `false` | live | Enable collaboration fan-out only after owner review of the equal-token-budget evaluation. |
+| `collaboration.teams` | object | `{}` | live | D124 capacity facts; team scheduling remains disabled until its scheduler, reviews and merge queue land. |
+| `collaboration.limits` | object | `{}` | live | D124 collaboration limits. Project settings can only narrow these installation limits. |
 | `approvals.maxGrantDays` | integer | `90` | core | Always-grant idle lifetime in days. Explicit shorter expiries still apply. |
 | `approvals.requireOsConfirmation` | boolean | `true` | core | Allow the required OS confirmation for an otherwise untrusted local decision. False disables this lift; it never bypasses surface trust. |
 | `breakglass.reasonMinChars` | integer | `10` | core | Minimum trimmed break-glass reason length. |
@@ -71,6 +73,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `mcp` | object | `{}` | live | Installed MCP extension activation and per-agent tool visibility (X2). |
 | `mcpServer` | object | `{}` | live | Harness MCP server for foreign hosts (M6-A): exposes harness functions, memory and skills behind agent-bound tokens. |
 | `a2a` | object | `{}` | live | A2A configuration, including registered external peers. |
+| `a2aClient` | object | `{}` | live | Outbound A2A client. Pins live in the private peer registry; no credentials or foreign card text belong in configuration. |
 | `a2aServer` | object | `{}` | live | Harness A2A server exposure configuration. |
 | `auth.requireSecondFactor` | string | `"remote"` | core | Require TOTP or WebAuthn for Owner and Admin on remote listeners by default; always or never are explicit overrides. |
 | `auth.openai.loopbackTimeoutMs` | integer | `600000` | core | Loopback login deadline. |

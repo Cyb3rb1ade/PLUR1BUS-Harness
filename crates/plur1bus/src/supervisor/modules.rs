@@ -281,6 +281,9 @@ fn modules_view(shared: &Shared, layout: &Layout) -> ModulesView {
         (stops, overlays)
     };
     for name in &order {
+        if !valid_role_name(name) {
+            continue;
+        }
         let Some(Ok(m)) = installed
             .iter()
             .find(|i| &i.name == name)
@@ -447,9 +450,10 @@ fn sync_slots(shared: &Shared, view: &ModulesView, monitors: &mut Monitors) {
     }
     let rank = |s: &Slot| match s.role.kind {
         RoleKind::Core => 0,
-        RoleKind::Api => 1,
+        RoleKind::Tools => 1,
+        RoleKind::Api => 2,
         RoleKind::Module => {
-            1 + view
+            3 + view
                 .names
                 .iter()
                 .position(|n| *n == s.role.name)
@@ -642,6 +646,11 @@ pub(super) fn run_module_op(
         );
         return;
     }
+    // Fixed process roles share the monitor registry, but never the installable-module control surface.
+    if !valid_role_name(&name) {
+        let _ = done.send(Err(OpError::unknown(&name)));
+        return;
+    }
     let verb_name = match &verb {
         ModuleVerb::Start => "start",
         ModuleVerb::Stop => "stop",
@@ -703,7 +712,11 @@ fn control_module(
     sync_slots(shared, &view, monitors);
     match verb {
         // M3: a module that has a slot can always be stopped, whatever its manifest says now.
-        ModuleVerb::Stop if shared.lock().slot(name).is_some() => {}
+        ModuleVerb::Stop
+            if shared
+                .lock()
+                .slot(name)
+                .is_some_and(|slot| slot.role.kind == RoleKind::Module) => {}
         ModuleVerb::Stop => return Err(OpError::unknown(name)),
         _ => view.runnable(name)?,
     }
@@ -959,10 +972,11 @@ fn crashed(reason: state::CrashReason) -> Health {
     }
 }
 
-/// `$defs/ChildStatus.role`'s pattern, `^[a-z0-9][a-z0-9-]{0,63}$`.
+/// `$defs/ChildStatus.role`'s pattern, excluding fixed process roles from installable module slots.
 fn valid_role_name(name: &str) -> bool {
     let b = name.as_bytes();
-    !b.is_empty()
+    !matches!(name, "core" | "supervisor" | "api" | "tools")
+        && !b.is_empty()
         && b.len() <= 64
         && (b[0].is_ascii_lowercase() || b[0].is_ascii_digit())
         && b.iter()
@@ -972,6 +986,16 @@ fn valid_role_name(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fixed_process_roles_cannot_be_installable_module_slots() {
+        for name in ["core", "supervisor", "api", "tools"] {
+            assert!(!valid_role_name(name), "reserved process role: {name}");
+        }
+        for name in ["fixture", "tools-extra"] {
+            assert!(valid_role_name(name), "ordinary module: {name}");
+        }
+    }
 
     #[test]
     fn module_update_cache_is_optional_and_projects_only_known_fields() {

@@ -33,7 +33,7 @@ pub(crate) const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 30] = [
+const CHECK_IDS: [&str; 31] = [
     "config.valid",
     "config.store-path",
     "host_mode_coexistence",
@@ -64,6 +64,7 @@ const CHECK_IDS: [&str; 30] = [
     "models.decision",
     "privacy.local-only",
     "api.supervised",
+    "tools.service",
 ];
 
 /// The summary of a row [`gather`] never got to before its deadline (`1staid repair` plans nothing for it).
@@ -399,6 +400,7 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
     checks.push(super::model::check_models_decision(layout));
     checks.push(check_local_only(layout));
     checks.push(check_api_supervised(daemon_status));
+    checks.push(check_tools_service(core_status.as_ref()));
     checks
 }
 
@@ -662,7 +664,7 @@ fn check_host_mode_coexistence(env: &crate::coexistence::HostEnvironment) -> Che
 // ---- run.permissions --------------------------------------------------------------------------
 
 /// The token files `run.permissions` covers: the core's, the supervisor's and every module's (`module-*.token`, HB5 d),
-/// the modules' sorted by name.
+/// the tools service's two credentials and the modules' sorted by name.
 fn token_files(run: &Path) -> Vec<String> {
     let mut modules: Vec<String> = std::fs::read_dir(run)
         .map(|d| {
@@ -673,7 +675,12 @@ fn token_files(run: &Path) -> Vec<String> {
         })
         .unwrap_or_default();
     modules.sort();
-    let mut names = vec!["core.token".to_string(), "supervisor.token".to_string()];
+    let mut names = vec![
+        "core.token".to_string(),
+        "supervisor.token".to_string(),
+        "tools.token".to_string(),
+        "tools-core.token".to_string(),
+    ];
     names.extend(modules);
     names
 }
@@ -797,7 +804,7 @@ fn windows_restricted_to_user_and_system(path: &Path) -> io::Result<bool> {
 /// A socket/pipe or pid file with no live peer behind it (Review Focus 3): `run/supervisor.lock` is never checked
 /// here (H3-R9: it is expected to exist and to be held for the supervisor's whole life), and neither are any
 /// `*.tmp` files a crash left behind (also expected, H3-R9) — this only looks at the core's and the supervisor's pid
-/// files and sockets and at each module's (`module-<name>.pid`, `module-<name>.sock`).
+/// files and sockets, the fixed tools service, and each module (`module-<name>.pid`, `module-<name>.sock`).
 fn check_run_stale_files(layout: &Layout, platform: &str) -> Check {
     const ID: &str = "run.stale-files";
     let run = layout.run();
@@ -845,19 +852,22 @@ fn check_run_stale_files(layout: &Layout, platform: &str) -> Check {
         }
     }
 
-    // A module's pid file and (POSIX) socket, `run/module-<name>.{pid,sock}`: stale on the same terms as the core's.
-    let mut module_files: Vec<String> = std::fs::read_dir(&run)
+    // The fixed tools service and module endpoints are stale on the same terms as the core's.
+    let mut endpoint_files: Vec<String> = std::fs::read_dir(&run)
         .map(|d| {
             d.flatten()
                 .map(|e| e.file_name().to_string_lossy().into_owned())
                 .filter(|n| {
-                    n.starts_with("module-") && (n.ends_with(".pid") || n.ends_with(".sock"))
+                    n == "tools.pid"
+                        || n == "tools.sock"
+                        || (n.starts_with("module-")
+                            && (n.ends_with(".pid") || n.ends_with(".sock")))
                 })
                 .collect()
         })
         .unwrap_or_default();
-    module_files.sort();
-    for name in module_files {
+    endpoint_files.sort();
+    for name in endpoint_files {
         let path = run.join(&name);
         let alive = if name.ends_with(".pid") {
             std::fs::read_to_string(&path)
@@ -1812,20 +1822,23 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn run_permissions_covers_module_tokens() {
+    fn run_permissions_covers_module_and_tools_tokens() {
         use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::tempdir().unwrap();
         let layout = Layout::new(dir.path().to_path_buf());
         std::fs::create_dir_all(layout.run()).unwrap();
         std::fs::set_permissions(layout.run(), std::fs::Permissions::from_mode(0o700)).unwrap();
-        let token = layout.run().join("module-fixture.token");
-        std::fs::write(&token, "t").unwrap();
-        std::fs::set_permissions(&token, std::fs::Permissions::from_mode(0o600)).unwrap();
-        assert_eq!(check_run_permissions(&layout).status, Status::Ok);
-        std::fs::set_permissions(&token, std::fs::Permissions::from_mode(0o644)).unwrap();
-        let c = check_run_permissions(&layout);
-        assert_eq!(c.status, Status::Fail, "{c:?}");
-        assert!(c.summary.contains("module-fixture.token"), "{c:?}");
+        for name in ["module-fixture.token", "tools.token", "tools-core.token"] {
+            let token = layout.run().join(name);
+            std::fs::write(&token, "fixture").unwrap();
+            std::fs::set_permissions(&token, std::fs::Permissions::from_mode(0o600)).unwrap();
+            assert_eq!(check_run_permissions(&layout).status, Status::Ok);
+            std::fs::set_permissions(&token, std::fs::Permissions::from_mode(0o644)).unwrap();
+            let c = check_run_permissions(&layout);
+            assert_eq!(c.status, Status::Fail, "{name}: {c:?}");
+            assert!(c.summary.contains(name), "{c:?}");
+            std::fs::set_permissions(&token, std::fs::Permissions::from_mode(0o600)).unwrap();
+        }
     }
 
     #[test]
@@ -2528,9 +2541,47 @@ mod tests {
     }
 }
 
+/// D120: Core's background tools.health probe keeps this diagnostic read-only and within its budget.
+fn check_tools_service(core_status: Option<&Value>) -> Check {
+    let (status, summary) = match core_status {
+        None => (
+            Status::Skip,
+            "Core is unavailable; native tools were not probed",
+        ),
+        Some(value) if value["tools"]["ready"] == true => {
+            (Status::Ok, "Native tools service is ready")
+        }
+        Some(_) => (
+            Status::Fail,
+            "Native tools service is unavailable; Core turns continue in degraded mode",
+        ),
+    };
+    Check {
+        id: "tools.service",
+        status,
+        summary: summary.into(),
+        hint: None,
+        detail: None,
+    }
+}
+
 #[cfg(test)]
 mod api_supervision_tests {
     use super::*;
+    #[test]
+    fn tools_check_uses_core_health_without_connecting_as_a_person() {
+        assert_eq!(check_tools_service(None).status, Status::Skip);
+        assert_eq!(
+            check_tools_service(Some(&json!({"tools":{"ready":true}}))).status,
+            Status::Ok
+        );
+        assert_eq!(
+            check_tools_service(Some(&json!({"tools":{"ready":false}}))).status,
+            Status::Fail
+        );
+        assert_eq!(check_tools_service(Some(&json!({}))).status, Status::Fail);
+    }
+
     #[test]
     fn supervision_check_distinguishes_absent_ready_and_failed_api() {
         assert_eq!(check_api_supervised(None).status, Status::Info);

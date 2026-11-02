@@ -206,6 +206,9 @@ emitters land in later parts of D111; the names are already reserved.
 | `engine.process.lifecycle` | harness | info | engine_process_lifecycle | `state`, `reason`, `pid` | experimental | RE-08 T2 process diagnostics with fixed categories only. |
 | `engine.process.error` | harness | warn | engine_process_error | `stage`, `error_kind`, `pid` | experimental | RE-08 T2 process diagnostics with fixed categories only. |
 
+| `sandbox.watchdog.failure` | harness | info | sandbox_watchdog_failure | `process`, `version`, `cause`, `operation`, `phase`, `sample`, `elapsedMicros`, `pid`, `returned`, `expected`, `errno`, `probeReturned`, `probeErrno`, `ppid`, `pgid`, `status`, `startSeconds`, `startMicros`, `processRssBytes`, `count`, `rssBytes` | experimental | Retained native-watchdog diagnostic: the supervised ACP connector exited125 with a validated native sampling cause. Production macOS ACP cannot reach this event while macos-acceptance-pending applies (D123 SB-1/SB-3); pure consumer tests and native acceptance work retain the format. Detail comes from the target-closed helper fd, never child stderr; transport results and enforcement decisions are unchanged. Example values illustrate the format and are not a diagnosis of a native failure. |
+| `external.agent.refused` | harness | info | external_agent_refused | `process`, `reason`, `cause` | experimental | External ACP launch refused pending macOS acceptance (D123 SB-1/SB-3). Ordinary sandboxed tools retain their independent policy. |
+
 ### Audit stream
 
 An audit entry's attribute group describes the line's `detail`. Groups marked *open* (the pre-D111 HB12 actions) tolerate further keys; every other group is closed. Audit entries have no level or message.
@@ -1087,6 +1090,44 @@ Local engine error classes and errno only; no foreign error bodies.
 | `error_kind` | `resource-limit` \| `permission` \| `invalid-input` \| `connection-closed` \| `timeout` \| `interrupted` \| `not-found` \| `unsupported` \| `other` |  |
 | `os_error` | `integer` |  |
 | `pid` | `integer` |  |
+
+#### `sandbox_watchdog_failure`
+
+Trusted, bounded native watchdog measurement failure after fail-closed exit125. Static labels and safe integers match the dedicated-fd parser; no process names, commands, argv, paths, usernames, contents or credentials.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `process` | `"connector"` | Supervised ACP connector, never a process name or command. |
+| `version` | `1` |  |
+| `cause` | `sample-deadline` \| `identity-unavailable` \| `list-safety-cap` \| `list-unavailable` \| `descendant-safety-cap` \| `task-info-unavailable` \| `aggregate-rss-incomplete` \| `attach-limit` |  |
+| `operation` | `sample` \| `bsd-info` \| `alive` \| `group-size` \| `group-list` \| `group-member` \| `child-size` \| `child-list` \| `child-member` \| `task-info` \| `membership` |  |
+| `phase` | `attach` \| `runtime` |  |
+| `sample` | `integer` |  |
+| `elapsedMicros` | `integer` | Elapsed sample time in microseconds; diagnostic collection can add measurement overhead. |
+| `pid` | `integer` |  |
+| `returned` | `integer` |  |
+| `expected` | `integer` |  |
+| `errno` | `integer` | Captured immediately after libproc. Meaningful with the return value; successful calls may leave stale errno. |
+| `probeReturned` | `integer` |  |
+| `probeErrno` | `integer` | Captured immediately after the PID liveness probe, separately from libproc errno. |
+| `ppid` | `integer` |  |
+| `pgid` | `integer` |  |
+| `status` | `integer` |  |
+| `startSeconds` | `integer` |  |
+| `startMicros` | `integer` |  |
+| `processRssBytes` | `integer` |  |
+| `count` | `integer` |  |
+| `rssBytes` | `integer` |  |
+
+#### `external_agent_refused`
+
+Fixed ACP platform acceptance refusal before process creation. No paths, error text, process output or credentials.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `process` | `connector` \| `terminal` \| `discovery` |  |
+| `reason` | `"sandbox-unavailable"` |  |
+| `cause` | `"macos-acceptance-pending"` |  |
 
 ## Redaction data
 

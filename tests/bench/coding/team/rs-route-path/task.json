@@ -1,0 +1,107 @@
+{
+  "schema": "plur1bus.team-task/1",
+  "id": "rs-route-path",
+  "title": "UTF-8 route canonicalization",
+  "kind": "decomposable",
+  "tier": "team",
+  "language": "rust",
+  "license": "MIT",
+  "seeds": [
+    17,
+    104729,
+    8675309
+  ],
+  "budgets": {
+    "tokens": 65536,
+    "maxRounds": 63,
+    "wallMs": 945000
+  },
+  "instruction": "prompt.md",
+  "start": "start",
+  "seedGenerator": "seed.mjs",
+  "packages": [
+    {
+      "id": "decode",
+      "entry": "src/decode.__SEED__.rs",
+      "symbol": "solve__SEED__",
+      "owns": [
+        "src/decode.__SEED__.rs"
+      ],
+      "dependsOn": [],
+      "reference": "reference/decode",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "decode"
+      }
+    },
+    {
+      "id": "normalize",
+      "entry": "src/normalize.__SEED__.rs",
+      "symbol": "solve__SEED__",
+      "owns": [
+        "src/normalize.__SEED__.rs"
+      ],
+      "dependsOn": [],
+      "reference": "reference/normalize",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "normalize"
+      }
+    },
+    {
+      "id": "encode",
+      "entry": "src/encode.__SEED__.rs",
+      "symbol": "solve__SEED__",
+      "owns": [
+        "src/encode.__SEED__.rs"
+      ],
+      "dependsOn": [],
+      "reference": "reference/encode",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "encode"
+      }
+    },
+    {
+      "id": "segments",
+      "entry": "src/segments.__SEED__.rs",
+      "symbol": "solve__SEED__",
+      "owns": [
+        "src/segments.__SEED__.rs"
+      ],
+      "dependsOn": [],
+      "reference": "reference/segments",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "segments"
+      }
+    },
+    {
+      "id": "etag",
+      "entry": "src/etag.__SEED__.rs",
+      "symbol": "solve__SEED__",
+      "owns": [
+        "src/etag.__SEED__.rs"
+      ],
+      "dependsOn": [],
+      "reference": "reference/etag",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "etag"
+      }
+    }
+  ],
+  "endToEnd": {
+    "checker": {
+      "path": "check.mjs",
+      "scope": "e2e"
+    },
+    "order": [
+      "decode",
+      "normalize",
+      "encode",
+      "segments",
+      "etag"
+    ]
+  }
+}
