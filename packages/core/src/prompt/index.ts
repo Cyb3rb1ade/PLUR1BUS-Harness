@@ -11,4 +11,4 @@ export {
   type ToolDef, type VolatileInput, type ZoneHashes, type ZoneName,
 } from "./types.ts";
 
-export { createCacheTelemetry, stickySessionId, type CacheTelemetry, type ProviderCacheUsage, type CacheUsageRecord, type CacheUsageSummary } from "./telemetry.ts";
+export { createCacheTelemetry, stickySessionId, type CacheTelemetry, type ProviderCacheUsage, type CacheUsageRecord, type CacheUsageSummary, CACHE_MISS_CAUSES, CACHE_SESSION_STATE_LIMIT, type CacheMissCause, type CacheOutcome, type NotCacheableReason, type CacheModelSummary } from "./telemetry.ts";

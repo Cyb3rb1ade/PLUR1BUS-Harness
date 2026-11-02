@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { validateArgs, callWithRepair, type RepairRequest } from "../../src/tools/repair.ts";
+import { validateArgs, type RepairRequest } from "../../src/tools/repair.ts";
+import { callWithRepair } from "./call-with-repair.ts";
 
 const schema = {
   type: "object",

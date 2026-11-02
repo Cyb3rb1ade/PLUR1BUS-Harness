@@ -88,11 +88,36 @@ const sessionTotals = telemetry.summary(agentId, model, sessionId);
 Call `record` once per provider-usage report. The interface does not deduplicate repeated reports.
 `input` means **uncached** input: adapters reporting inclusive input totals must subtract cached
 reads/writes first. Turn records include cacheReadTokens, cacheCreationTokens, inputTokens,
-totalInputTokens, hitRatio, model, breakpointCount and zoneHashes. Totals are token-weighted,
+totalInputTokens, hitRatio, model, breakpointCount and zoneHashes, plus the miss attribution
+below: `outcome` (`hit`, `miss` or `not-cacheable`), `cause` (misses only), `notCacheableReason`
+(not-cacheable only), `toolsAdded` and `toolsRemoved` (only for `tools-changed`), and the per-turn
+counters `hits`, `misses`, `notCacheable` and `missCauses`. The summaries carry the same counters
+as totals. Because the record is passed to `onUsage`, the fields appear in the `provider.cache_usage`
+log line; there is no separate cache-miss event. Totals are token-weighted,
 not an average of per-turn ratios. The B5 fixture demonstrates the measurement contract; it
 is not evidence of ≥0.90 hits on a live provider. Registries/totals are in-memory and a new
 builder/telemetry instance resets warmth history/totals; deterministic hashes and routing IDs
 remain identical across process starts.
+
+### Miss attribution (D120 H2-1)
+
+`record` classifies each turn, in this order. **Not cacheable** (never a miss): the builder reason is
+`empty-prefix`, `unknown-model` or `below-minimum`; else the mechanism is `none` (`no-cache-mechanism`);
+else the mechanism is explicit with no breakpoints (`no-breakpoints`). **Hit**: `cache_read` is at least
+`stableTokensEstimate` (minus 128 tokens for implicit caches, which count in 128-token blocks). Otherwise
+a **miss**, with the first matching cause compared with the session's previous stable state:
+`first-request` (no previous state), `model-changed`, `tools-changed` (with the added and removed tool
+names counted), `system-changed`, `snapshot-changed`, `ttl-expired` (render age at or above the assumed
+TTL), else `provider` (the provider evicted the entry or routed elsewhere).
+
+The previous state (model, tool, system and memory zone hashes, tool names) is kept per sticky session id
+for at most 1024 sessions, least recently recorded first out; an evicted session reads as `first-request`
+again. Invalid usage throws before any counter or state changes.
+
+`sessionModels(agentId, sessionId)` returns the per-model summaries of one harness session. The core method
+`telemetry.cache.summary` (RPC 1.10.0) serves these together with the hit ratio per provider, agent and
+model from the budget ledger over a 24h or 7d window. The ledger cannot mark estimated settlements; they
+count as `uncachedCalls`, and `hitRatioCaching` is the ratio over calls that reported cache activity.
 
 ## Verification and follow-ups
 
@@ -110,5 +135,6 @@ Linux, macOS and Windows; their actual results are reported on the PR.
 
 Follow-ups: map markers to provider `cache_control`/explicit options, pass sticky routing headers,
 normalise actual usage into this interface, integrate host confirmation and scheduler TTL
-projections, publish telemetry in UI/doctor, and verify cache-hit targets against provider
+projections, and verify cache-hit targets against provider
 fixtures/live acceptance. Provider-adapter, scheduler and UI changes are outside this PR's scope.
+UI and doctor rows follow in D120 H2-2; `telemetry.cache.summary` serves the numbers since 1.10.0.

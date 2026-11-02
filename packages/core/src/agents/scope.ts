@@ -6,6 +6,8 @@ export interface AgentScopeValue {
 // One process-wide instance. Worker isolates intentionally begin without a scope.
 const storage = new AsyncLocalStorage<AgentScopeValue>();
 export const currentAgentScope = () => storage.getStore();
+/** Foreign protocol targets execute without authority to any local agent store. */
+export function withoutAgentScope<T>(fn: () => T): T { return storage.exit(fn); }
 export function requireAgentScope(agentId?: string): AgentScopeValue {
   const scope = storage.getStore();
   if (!scope || (agentId !== undefined && scope.agentId !== agentId)) throw new RpcError("E_DENIED", "AgentScope required for agent storage", { reason: "agent-scope-required" });

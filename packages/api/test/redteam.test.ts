@@ -13,11 +13,30 @@ import { METHODS, METHODS_BY_SERVER } from "@plur1bus/rpc-schema";
 import { ROUTES } from "../src/routes.ts";
 import { webEndpoint } from "../src/rpc-route.ts";
 import { ownerTokenVerifier } from "../src/session.ts";
+import { FakeClock } from "../src/clock.ts";
+import { MemoryTokenStore } from "../src/memory-stores.ts";
+import { MemoryOAuthStore } from "../src/oauth/store.ts";
+import { OAuthService } from "../src/oauth/service.ts";
+import { computeCodeChallenge } from "../src/oauth/pkce.ts";
+import { TokenService } from "../src/tokens.ts";
 import { csrfToken, fakeCore, jsonHeaders, login, OWNER_TOKEN, raw, start, type Harness } from "./helpers.ts";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const post = (h: Harness, body: string, headers: Record<string, string> = jsonHeaders(), p = "/api/v1/session") => raw(h, { method: "POST", path: p, headers, body });
 const wide = { auth: { capacity: 1000, refillPerSec: 100 }, read: { capacity: 1000, refillPerSec: 100 }, write: { capacity: 1000, refillPerSec: 100 }, totp: { capacity: 1000, refillPerSec: 100 }, stream: { capacity: 1000, refillPerSec: 100 } };
+
+// Every public route has an explicit anonymous contract; no protocol is exempt from the matrix.
+const PUBLIC_ANONYMOUS_STATUS = new Map<string, number>([
+  ...[...REMOTE_PAIRING_BOOTSTRAP_IDS].map((id) => [id, 400] as const),
+  ["a2a.card.root", 404], ["a2a.card.root.alias", 404],
+  ["a2a.card.agent", 404], ["a2a.card.agent.alias", 404],
+  ["oauth.metadata", 200], ["oauth.protected_resource", 200], ["oauth.protected_resource.path", 200],
+  ["oauth.authorize.get", 401], ["oauth.token", 400], ["oauth.revoke", 400],
+  ["desktop.meta", 200], ["desktop.pair", 400], ["desktop.redeem", 400], ["desktop.ticket", 400],
+  ["desktop.step-up.start", 400], ["desktop.step-up.poll", 400], ["desktop.step-up.cancel", 400],
+  ["invitation.redeem", 400], ["account.bootstrap", 400], ["passkeys.login.options", 400],
+  ["passkeys.login", 400], ["session.create", 400], ["session.totp", 400],
+]);
 
 /** Raw bytes in, everything the server answers out, until it closes or `ms` passes. */
 function socketExchange(port: number, send: (s: ReturnType<typeof connect>) => void, ms = 3000): Promise<string> {
@@ -160,10 +179,12 @@ test("OK-7: the route table is deny-by-default and only explicit status, agent a
     for (const r of ROUTES) {
       for (const headers of [{}, { cookie: "plur1bus_session=forged" }] as Array<Record<string, string>>) {
         const res = await raw(h, { method: r.method, path: r.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat").replace("{resource}", "mcp"), headers: { ...headers, ...(r.requestBody ? jsonHeaders() : {}) } });
-        if (r.auth !== "none") assert.equal(res.status, 401, `${r.id} anonymous`); else if(r.id==="desktop.meta" || r.id === "oauth.metadata" || r.id === "oauth.protected_resource" || r.id === "oauth.protected_resource.path" || r.id === "oauth.revoke"){assert.equal(res.status,200);} else assert.notEqual(res.status, 200);
+        const expected = r.auth === "none" ? PUBLIC_ANONYMOUS_STATUS.get(r.id) : 401;
+        assert.notEqual(expected, undefined, `${r.id} needs an anonymous contract`);
+        assert.equal(res.status, expected, `${r.id} anonymous`);
       }
     }
-    assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id).sort(), [...REMOTE_PAIRING_BOOTSTRAP_IDS, "desktop.meta", "desktop.pair", "desktop.redeem", "desktop.ticket", "desktop.step-up.start", "desktop.step-up.poll", "desktop.step-up.cancel", "invitation.redeem", "account.bootstrap", "passkeys.login.options", "passkeys.login", "session.create", "session.totp", "oauth.metadata", "oauth.protected_resource", "oauth.protected_resource.path", "oauth.authorize.get", "oauth.token", "oauth.revoke", "a2a.card.root", "a2a.card.root.alias", "a2a.card.agent", "a2a.card.agent.alias"].sort());
+    assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id).sort(), [...PUBLIC_ANONYMOUS_STATUS.keys()].sort());
     assert.ok(ROUTES.filter((r) => r.method !== "GET" && r.auth !== "none" && r.transport !== "protocol").every((r) => r.csrf), "every authenticated write needs CSRF");
     for (const r of ROUTES) if (r.auth !== "none" && r.method === "GET") await raw(h, { path: r.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), headers: { cookie } });
     const called = new Set(h.core.calls.map((c) => c.method));
@@ -174,6 +195,83 @@ test("OK-7: the route table is deny-by-default and only explicit status, agent a
       for (const method of ["GET", "POST", "DELETE", "PUT", "PATCH"]) assert.equal((await raw(h, { method, path: p, headers: { cookie, "x-csrf-token": t, ...jsonHeaders() } })).status, 404, `${method} ${p}`);
     }
     assert.ok(![...h.core.calls.map((c) => c.method)].some((m) => m.startsWith("admin.")));
+  } finally { await h.close(); }
+});
+
+test("OAuth public metadata describes only the local issuer and never creates credentials or Core work", async () => {
+  const oauthStore = new MemoryOAuthStore();
+  const h = await start({ rateClasses: wide, oauthStore });
+  try {
+    const issuer = h.url;
+    const cases = [
+      { path: "/.well-known/oauth-authorization-server", expected: { issuer, token_endpoint: `${issuer}/oauth/token`, code_challenge_methods_supported: ["S256"] } },
+      { path: "/.well-known/oauth-protected-resource", expected: { resource: issuer, authorization_servers: [issuer], bearer_methods_supported: ["header"] } },
+      { path: "/.well-known/oauth-protected-resource/mcp", expected: { resource: `${issuer}/mcp`, scopes_supported: ["mcp.read", "mcp.write"] } },
+      { path: "/.well-known/oauth-protected-resource/a2a", expected: { resource: `${issuer}/a2a`, scopes_supported: ["a2a.task"] } },
+    ];
+    for (const item of cases) {
+      for (const cookie of [undefined, "plur1bus_session=forged"]) {
+        const res = await raw(h, { path: item.path, headers: cookie ? { cookie } : {} });
+        assert.equal(res.status, 200, item.path);
+        for (const [key, expected] of Object.entries(item.expected)) assert.deepEqual(res.json[key], expected, `${item.path} ${key}`);
+        assert.equal(res.headers["set-cookie"], undefined);
+        for (const field of ["access_token", "refresh_token", "code"]) assert.equal(res.json[field], undefined);
+      }
+    }
+    assert.deepEqual(await oauthStore.listGrantsByUser(), []);
+    assert.deepEqual(h.core.calls, []);
+  } finally { await h.close(); }
+});
+
+test("OAuth malformed revocation cannot acknowledge a missing token or revoke through repeated parameters", async () => {
+  const clock = new FakeClock();
+  const tokenStore = new MemoryTokenStore();
+  const tokens = new TokenService({ store: tokenStore, clock });
+  const oauthStore = new MemoryOAuthStore();
+  const oauth = new OAuthService({ tokens, store: oauthStore, clock });
+  const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+  const code = oauth.createAuthorizationCode({
+    clientId: "test-client", redirectUri: "https://client.example/callback",
+    codeChallenge: computeCodeChallenge(verifier), codeChallengeMethod: "S256",
+    userId: "member", agentId: "main", audience: "mcp", scopes: ["mcp.read"],
+  });
+  const issued = await oauth.exchangeAuthorizationCode({
+    code, clientId: "test-client", redirectUri: "https://client.example/callback", codeVerifier: verifier,
+  });
+  const h = await start({ clock, rateClasses: wide, tokens: tokenStore, oauthStore, oauthService: oauth });
+  try {
+    const repeatedClient = await raw(h, {
+      method: "POST", path: "/oauth/token", headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams([
+        ["grant_type", "refresh_token"], ["client_id", "test-client"],
+        ["refresh_token", issued.refresh_token!], ["client_id", "test-client"],
+      ]).toString(),
+    });
+    assert.equal(repeatedClient.status, 400, "repeated client identity must not rotate a refresh token");
+    assert.equal(repeatedClient.json.error, "invalid_request");
+    assert.equal((await tokens.authenticate(issued.access_token)).ok, true);
+    const forms = [
+      "", "token=", `token=unknown&token=${encodeURIComponent(issued.access_token)}`,
+      `token=${encodeURIComponent(issued.access_token)}&__proto__=first&__proto__=second`,
+    ];
+    for (const body of forms) {
+      const res = await raw(h, { method: "POST", path: "/oauth/revoke", headers: { "content-type": "application/x-www-form-urlencoded" }, body });
+      assert.equal(res.status, 400, body ? "empty or repeated token" : "missing token");
+      assert.equal(res.json.error, "invalid_request");
+      assert.equal(res.headers["cache-control"], "no-store");
+      assert.equal(res.headers["set-cookie"], undefined);
+      assert.equal((await tokens.authenticate(issued.access_token)).ok, true);
+    }
+    for (const body of [{}, { token: "" }]) {
+      const res = await raw(h, { method: "POST", path: "/oauth/revoke", headers: jsonHeaders(), body: JSON.stringify(body) });
+      assert.equal(res.status, 400);
+      assert.equal(res.json.error, "invalid_request");
+    }
+    const unknown = await raw(h, { method: "POST", path: "/oauth/revoke", headers: { "content-type": "application/x-www-form-urlencoded" }, body: "token=unknown" });
+    assert.equal(unknown.status, 200, "RFC 7009 does not disclose whether a syntactically valid token exists");
+    assert.equal((await tokens.authenticate(issued.access_token)).ok, true);
+    assert.equal(h.audit.events.filter((event) => event.action === "oauth.revoke").length, 0);
+    assert.deepEqual(h.core.calls, []);
   } finally { await h.close(); }
 });
 

@@ -8,6 +8,11 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Added
 
+- **Outbound A2A peer client (RPC 1.12.0).** Owner-managed `a2a.peer.*` methods register, list, trust and remove remote
+  peers; `a2aClient.*` settings control the opt-in client. Explicitly trusted `a2a:<id>` targets support consultation and
+  delegation through the existing permission, egress and budget gates. Collaboration storage advances to schema v5;
+  no downgrade migration is provided. See `docs/handoff/2026-10-31-v1-a2a-peer-cli.md`.
+
 - **A store with data moves to another embedding model end to end (engine pin 9f34008c, contract 1.17.0).**
   `@cyb3rb1ade/plur1bus-memory` is pinned to plugin PR #275, which exposes `admin.reembedding.validate`; `CORE_CONTRACT` is
   1.17.0. `plur1bus memory reembed --run` and `plur1bus config set engine.embedding…` (foreground or `--background`) no longer
@@ -127,6 +132,33 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Fixed
 
+- Outbound A2A approvals use their own wait limit instead of consuming the network timeout. Redirects retain one
+  shared network allowance, and approved traffic obtains a fresh credential lease after the human decision.
+
+- **Outbound A2A review boundaries and trust confirmation (V1).** Foreign peers cannot satisfy independent local
+  reviews or receive board-card ownership; local collaboration keeps its discovery and trust behavior. Requests send
+  `A2A-Version: 1.0`, require exact host admission, use peer-scoped credentials and opaque operation-local identifiers,
+  and show a redacted approval preview. Assignment and execution require an Owner person. Trust requires a fresh
+  confirmation of the complete endpoint and key pin; management writes fail closed when audit cannot record them.
+  Per-call budget rows are compacted after 30 days without resetting replayed turn quotas. Local abort closes the
+  connection but does not promise remote task cancellation. See the [V1 CLI handoff](docs/handoff/2026-10-31-v1-a2a-peer-cli.md).
+
+- **A successful tool result is redacted against the registered secret values before the model, the transcript or a result file
+  sees it.** Only a failed call was redacted, so a tool that printed a secret (a shell command echoing a variable, a file read
+  of a config, a fetch that reflects a token) put the value into the model context, the session transcript, the offloaded
+  `state/tool-results/` file and the capture. The dispatcher now masks the exact value and its base64, hex and URL-encoded
+  forms with `[REDACTED:secret]`, once, as the result leaves it; a failed call is masked against the same registry, and a
+  failure message is masked before it is cut to 500 characters (a value the cut split used to escape the later redaction).
+  "Registered" means read, written or leased in this core process (the secret store, provider and media credentials): after a
+  restart a stored secret that nothing has used yet is not masked. Values under 8 characters are still not masked (`secret.set`
+  warns about them), and a stored low-entropy value of 8 or more characters (a short word, a path) masks every matching piece of
+  text in a result too. A result that holds no registered value comes back exactly as the tool returned it; one over
+  `maxResultBytes` is refused on its raw size before it is checked; a registered value that comes back as a JSON number cannot
+  be masked, so that result is withheld (`tool-result-invalid`); keys that mask to the same text are numbered
+  (`[REDACTED:secret]`, `[REDACTED:secret]#2`). See `docs/composition.md`.
+- **Data written before the fix above may hold raw secret values.** Session transcripts, `state/tool-results/*.json` files and
+  compaction summaries made before it can contain a value a tool printed. Rotate any secret a tool may have echoed, or purge
+  those files.
 - **An agent's first chat turn no longer holds the core for seconds on a slow disk.** The turn writes every tool of the
   agent's capability view into `state/capabilities.sqlite`, one transaction per tool. With the rollback journal each one
   waited for about four fsyncs, which kept the core's event loop busy for 5 to 8 s on the Windows CI runner's system drive

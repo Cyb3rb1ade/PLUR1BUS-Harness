@@ -86,9 +86,11 @@ Failed operations are retained too, since an error may occur after a side effect
 
 ## What the model sees when a tool fails
 
-The dispatcher keeps its diagnostic envelope. Immediately before a failed result is serialized into the model
+The dispatcher keeps its diagnostic envelope (a registered secret value is masked out of its messages, before they are cut to
+length). Immediately before a failed result is serialized into the model
 conversation, `toolcall/model-tool-error.ts` makes a separate sanitized copy. Successful results and the existing
-log/audit output paths are unchanged. There are three cases:
+log/audit output paths do not pass through it (a successful result is redacted against registered secret values in the
+dispatcher instead; see [composition.md](composition.md)). There are three cases:
 
 1. **Internal failures:** the dispatcher marks the category explicitly. The model receives one fixed sentence;
    arbitrary exception text and stacks are omitted.
@@ -304,6 +306,14 @@ pnpm lint
 
 The optional report prefix writes `.json` and `.md` from the test runner. No files
 are written and no networking is performed by the fixture runner itself.
+
+## Single execution path (D120 T1-a)
+
+Two tests keep every tool execution behind `ToolDispatcher`. `packages/core/test/tools/call-paths.test.ts` is a text scan of `packages/core/src` plus end-to-end turns; `packages/core/test/architecture/single-gate.test.ts` is a type-checked scan of `packages/*/src`.
+G1 allows `ToolDef.execute` only inside `ToolDispatcher.#run` and `ToolRegistry.register`. G2 allows `FsToolSpec.execute`, `ExecToolSpec.execute`, `ToolSpec.execute`, `HostTool.run`, `McpToolPort.callTool`, `McpRegistry.callTool`, `McpConnection.callTool`, `Hostctl.invoke` and `runHostTool` only inside a `ToolDef` `execute` body, an `McpToolPort` `callTool` decorator, `McpRegistry.callTool` (for `McpConnection.callTool`), or `runHostTool` and `createHostctl`'s `invoke` (for `HostTool.run`).
+The scan does not see values typed `any` or `unknown` and then cast, reflective access (`Reflect.get`, computed keys that are not string literals), objects whose type is inferred and only structurally compatible with an executor interface, or code outside `packages/*/src` (tests call executors directly on purpose).
+`packages/webmcp` contains browser-side tools of the web page, not core tools; none of its declarations is in the table. The scan complements the dispatcher and does not replace the end-to-end tests.
+A new executor kind is added by putting its declaration in the table in the test.
 
 ## Follow-ups (integration owners)
 

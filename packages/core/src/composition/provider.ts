@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { TurnDelegations } from '../collab/delegations.ts';
 import { createTurnTelemetry, type TurnTelemetry } from '../session/turn-telemetry.ts';
 import type { SessionModelRouting, ModelRoutingEvent } from './model-routing.ts';
 import { carryThinking } from "../../../providers/src/anthropic/thinking.ts";
@@ -131,7 +132,8 @@ export interface TurnProviderOptions {
   billing?: Readonly<Record<string, BillingClass>>;
   /** Profiles whose config explicitly allows a fallback across billing classes. Default: refuse. */
   allowCrossBilling?: (profile: string) => boolean;
-  /** Secret values this process registered (leased credentials); a failed tool's `detail` is redacted against them. */
+  /** Secret values this process registered; a failed tool's `detail` and every successful tool result (before the model, the transcript,
+   *  an offloaded result file, capture or any audit line sees it) are redacted against them. */
   secrets?: () => Iterable<string>;
   log: PipelineLog; resultStore: FullResultPort;
   maxTokens?: number; maxRounds?: number; topK?: number; system?: readonly string[];
@@ -209,7 +211,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     budget: { authorize(info, request, context) { const active = routing.getStore(); if (!active) return { ok: false, reason: 'routing context unavailable' }; return active.guard.authorize(info, request, context); } },
     onEvent: event => routing.getStore()?.event(event),
   });
-  async function* run(req: ChatRequest, observation: TurnTelemetry): AsyncGenerator<ChatChunk> {
+  async function* run(req: ChatRequest, observation: TurnTelemetry, deliveries: WeakMap<ChatChunk, (accepted: boolean) => void>): AsyncGenerator<ChatChunk> {
     const signal = req.signal, turnId = req.turnId ?? req.sessionId;
     const principal = await stage('identity', signal, o.log, () => {
       const principal = o.principal?.(req) ?? req.principal;
@@ -499,6 +501,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           const next = await (rendered ? promptContext.run(rendered, () => stream.next()) : stream.next());
           if (next.done) break;
           const e = next.value;
+          if (e.type === 'text_delta' || e.type === 'reasoning_delta' || e.type === 'tool_call_start' || e.type === 'tool_call_delta') req.onProgress?.();
           if (attempt) { attempt.received = true; if (e.type === 'text_delta') attempt.outputChars += e.text.length; }
           if (e.type === 'done') yield { ...e, result: carryThinking(e.result, { ...e.result, toolCalls: e.result.toolCalls.map(t => ({ ...t, name: original.get(t.name) ?? withheld.get(t.name)?.name ?? t.name })) }) };
           else yield e;
@@ -528,15 +531,19 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
             const directive = req.reasoning !== undefined && req.role !== 'summarize' && o.reasoningFor ? directiveFor(req.reasoning, o.reasoningFor(info.provider, info.model)) : undefined;
             const answer = request.maxTokens ?? o.maxTokens ?? 4096;
             const maximum = directive?.vendorParam === 'thinking.budget_tokens' ? anthropicOutputLimit(answer, directive.value as number) : answer;
-            const admitted = o.budget.checkBeforeCall({ principal, agent: req.agentId, project: req.projectId ?? 'direct', model: info.model, provider: info.provider, turn: turnId, session: req.sessionId, estimatedInputTokens, maxOutputTokens: maximum });
-            if (admitted.kind === 'refuse') throw new CallBudgetExceededError(admitted);
+            const work = req.delegationBudget?.reserve(estimatedInputTokens + maximum);
+            let admitted: ReturnType<typeof o.budget.checkBeforeCall>;
+            try {
+              admitted = o.budget.checkBeforeCall({ principal, agent: req.agentId, project: req.projectId ?? 'direct', model: info.model, provider: info.provider, turn: turnId, session: req.sessionId, estimatedInputTokens, maxOutputTokens: maximum });
+              if (admitted.kind === 'refuse') throw new CallBudgetExceededError(admitted);
+            } catch (error) { work?.release(); throw error; }
             // A retry or fallback inside this router call is charged to the class of the failure that caused it; the first
             // attempt is charged only when the call itself is a retry (a tool-argument repair).
             const retryClass = info.attempt > 1 ? call.lastFailure ?? 'network' : call.firstClass;
             let ticket: number | undefined;
             if (retryClass) {
               try { ticket = retryBudget.consume(turnId, retryClass, admitted.estimatedTokens); }
-              catch (e) { o.budget.releaseUnused(admitted.reservationId); throw e; }
+              catch (e) { o.budget.releaseUnused(admitted.reservationId); work?.release(); throw e; }
             }
             const attempt: AttemptState = { invoked: false, received: false, outputChars: 0 };
             call.current = attempt;
@@ -546,7 +553,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
               if (!counts) {
                 if (nothingBillable(attempt)) {
                   // Nothing billable was sent: the reservation is given back, never left pending.
-                  try { o.budget.releaseUnused(admitted.reservationId); if (ticket !== undefined) retryBudget.settle(ticket, 0); }
+                  try { o.budget.releaseUnused(admitted.reservationId); work?.release(); if (ticket !== undefined) retryBudget.settle(ticket, 0); }
                   catch (e) { fatal = e; throw e; }
                   return;
                 }
@@ -556,6 +563,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
               const settled = counts;
               try { await stage('usage', new AbortController().signal, o.log, () => {
                 o.budget.settle(admitted.reservationId, settled);
+                work?.settle(settled.inputTokens + settled.outputTokens);
                 if (ticket !== undefined) retryBudget.settle(ticket, settled.inputTokens + settled.outputTokens);
                 if (rendered && !estimated) { const cacheRecord = telemetry.record(rendered, { cache_read: settled.cacheReadTokens, cache_creation: settled.cacheWriteTokens, input: Math.max(0, settled.inputTokens - settled.cacheReadTokens - settled.cacheWriteTokens) }); o.onUsage?.(cacheRecord); }
               }); } catch (e) { fatal = e; throw e; }
@@ -591,7 +599,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const surface: SurfaceTrustLevel = approver?.surface ?? req.originSurface ?? 0;
     let approvalNeedsPerson = false;
     const approvals: ApprovalPort = approver && approver.person === null ? { ...o.approval, async request() { approvalNeedsPerson = true; return { approved: false, reason: 'approval requires an authenticated person' }; } } : o.approval;
-    const dispatcher = new ToolDispatcher({ registry, approvals, grants: o.grants, ...(o.grantUse ? { grantUse: o.grantUse } : {}), ...(o.audit ? { audit: o.audit } : {}), clock: { now: Date.now }, policyContext: ctx => ({ ...(req.headlessJobId ? { headless: { jobId: req.headlessJobId } } : {}), ...o.policyContext?.(ctx, req) }), repair: async input => {
+    const dispatcher = new ToolDispatcher({ registry, approvals, grants: o.grants, ...(o.grantUse ? { grantUse: o.grantUse } : {}), ...(o.audit ? { audit: o.audit } : {}), clock: { now: Date.now }, ...(o.secrets ? { secrets: o.secrets } : {}), policyContext: ctx => ({ ...(req.headlessJobId ? { headless: { jobId: req.headlessJobId } } : {}), ...o.policyContext?.(ctx, req) }), repair: async input => {
       const repairRequest: WireRequest = { model: candidate.model, ...((req.maxOutputTokens ?? o.maxTokens) === undefined ? {} : { maxTokens: req.maxOutputTokens ?? o.maxTokens }), messages: [{ role: 'user', content: `${input.message}\nInvalid arguments (data): ${JSON.stringify(input.args)}` }], tools: selected.map(t => fromRegisteredTool(t)) };
       let repaired: ChatResult | undefined;
       await stage('tool-repair', signal, o.log, async () => { for await (const e of invoke(repairRequest, 'tool_call_invalid')) if (e.type === 'done') { repaired = e.result; if (repaired.usage?.inputTokens !== undefined && repaired.usage.outputTokens !== undefined) { totalInputTokens += repaired.usage.inputTokens; totalOutputTokens += repaired.usage.outputTokens; } } });
@@ -605,6 +613,29 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       ? `Task checklist:\n${decision.tasks.map(task => `- [ ] ${task.summary}`).join('\n')}` : '';
     let totalInputTokens = 0, totalOutputTokens = 0, completed = false;
     let consecutiveErrors = 0;
+    const joinChildren = async function* (cancel = false): AsyncGenerator<ChatChunk> {
+      const receipts = new Map<string, (accepted: boolean) => void>();
+      const children = await req.delegations?.finish(cancel, (id, settle) => receipts.set(id, settle)) ?? [];
+      try {
+        for (const child of children) {
+          const settle = receipts.get(child.taskId)!;
+          let unregister: (() => void) | undefined;
+          try {
+            const value = createRedactor({ secrets: o.secrets?.() ?? [] }).value(child);
+            const capped = await capResult(value, o.resultStore, 32 * 1024), output = JSON.stringify(capped);
+            if (req.onDelegationResult) {
+              unregister = req.onToolResultDelivery?.(child.taskId, settle);
+              req.onDelegationResult({ taskId: child.taskId, output });
+              if (!req.onToolResultDelivery) settle(true);
+            } else {
+              const chunk: ChatChunk = { type: 'tool.result', id: child.taskId, output };
+              deliveries.set(chunk, settle);
+              yield chunk;
+            }
+          } finally { settle(false); unregister?.(); }
+        }
+      } finally { for (const settle of receipts.values()) settle(false); }
+    };
     try {
     for (const skill of chosenSkills) {
       if (loaded.has(skill.entry.name) || !selected.some(tool => tool.name === 'skill.load')) continue;
@@ -638,7 +669,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         loaded.set(skill.entry.name, { id, name: skill.entry.name, text, turnId });
       }
     }
-      for (let round = 0; round < (o.maxRounds ?? 25); round++) {
+      for (let round = 0; round < (req.maxRounds ?? o.maxRounds ?? 25); round++) {
         observation.rounds++;
         modelRound = round;
         renderInput = { agentId: req.agentId, sessionId: req.sessionId, model: candidate.model, ...cacheFor(candidate.provider, candidate.model), tools: selected.map(t => ({ ...fromRegisteredTool(t) })), system: [...(o.system ?? [TOOL_USE_INSTRUCTIONS]), ...(skillCatalogue ? [skillCatalogue] : []), ...(req.recurring ? [`Automatically triggered by recurring task ${req.recurring.jobName} (${req.recurring.jobId}); runAs=${req.recurring.runAs}. This is a scheduled task, not a live message.`] : [])], memory: snapshot, conversation: conversationItems(messages.slice(summaryMessages.length)), volatile: { blocks: [...(capabilityHint ? [{ name: 'capability-hint', text: capabilityHint, chars: capabilityHint.length, droppable: false }] : []), ...(taskChecklist ? [{ name: 'task-checklist', text: taskChecklist, chars: taskChecklist.length, droppable: false }] : []), { name: 'recall', text: req.memory, chars: req.memory.length, droppable: false }] } };
@@ -674,7 +705,10 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           continue;
         }
         if (buffered && (done.text || roundText)) yield { type: 'delta', text: done.text || roundText };
-        if (!done.toolCalls.length) { completed = true; return; }
+        if (!done.toolCalls.length) {
+          for await (const chunk of joinChildren()) yield chunk;
+          completed = true; return;
+        }
         // Engine maintenance is a background role with no permission to execute model-proposed tools.
         if (req.role === 'engine') throw new TurnToolError('engine-tools-forbidden', null);
         hasModelToolCall = true;
@@ -695,7 +729,13 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           signal.throwIfAborted();
           const capabilityId = tool ? toolEntry(tool, JSON.stringify([req.agentId, principal])).id : '';
           if (o.capabilities?.registry.hash(capabilityId)) o.capabilities.registry.record(capabilityId, req.agentId, 'used');
-          const output = await stage('tool-dispatch', new AbortController().signal, o.log, () => (tool ? dispatcher : unknownDispatcher).call({ id: call.id, name: call.name, args, ...(typeof done.reasoning === 'string' && done.reasoning ? { reason: done.reasoning } : {}) }, { ...(req.recurring ? { recurring: req.recurring } : {}), agentId: req.agentId, principal: approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface, signal }));
+          let settleDelivery: ((accepted: boolean) => void) | undefined;
+          let unregisterDelivery: (() => void) | undefined;
+          try {
+          const output = await stage('tool-dispatch', new AbortController().signal, o.log, () => (tool ? dispatcher : unknownDispatcher).call({ id: call.id, name: call.name, args, ...(typeof done.reasoning === 'string' && done.reasoning ? { reason: done.reasoning } : {}) }, { ...(req.recurring ? { recurring: req.recurring } : {}), agentId: req.agentId, principal: approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface, signal, onResultSettled: settle => {
+            settleDelivery = settle;
+            unregisterDelivery = req.onToolResultDelivery?.(call.id, settle);
+          } }));
           try { if (tool) o.onExecution?.({ owner: principal, agentId: req.agentId, sessionId: req.sessionId, turnId, callId: call.id, tool: tool.name, version: toolEntry(tool, JSON.stringify([req.agentId, principal])).version, success: !output.isError && !(output.value && typeof output.value === 'object' && 'isError' in output.value && output.value.isError === true) }); } catch { /* Missing evidence excludes the operation from mining; it never re-runs an effect. */ }
           if (o.capabilities?.registry.hash(capabilityId) && !output.isError) o.capabilities.registry.record(capabilityId, req.agentId, 'succeeded');
           if (fatal) throw fatal;
@@ -708,7 +748,9 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
             const text = JSON.stringify(safe);
             observation.errorsReturned++;
             consecutiveErrors++;
-            yield { type: 'tool.result', id: call.id, output: text };
+            const chunk: ChatChunk = { type: 'tool.result', id: call.id, output: text };
+            if (!req.onToolResultDelivery && settleDelivery) deliveries.set(chunk, settleDelivery);
+            yield chunk;
             messages.push({ role: 'tool', toolCallId: call.id, content: text });
             if (approvalNeedsPerson) throw new TurnToolError('approval-requires-person', safe);
             if (output.error.code === 'aborted') throw new TurnToolError('aborted', safe);
@@ -729,31 +771,48 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           if (call.name === 'skill.load' && output.value && typeof output.value === 'object' && 'name' in output.value && typeof output.value.name === 'string') {
             loaded.set(output.value.name, { id: call.id, name: output.value.name, text, turnId });
           }
-          yield { type: 'tool.result', id: call.id, output: text };
+          const chunk: ChatChunk = { type: 'tool.result', id: call.id, output: text };
+          if (!req.onToolResultDelivery && settleDelivery) deliveries.set(chunk, settleDelivery);
+          yield chunk;
           messages.push({ role: 'tool', toolCallId: call.id, content: text });
-          if (call.name === 'handoff' && output.value && typeof output.value === 'object' && (output.value as { ownershipTransferred?: unknown }).ownershipTransferred === true) { completed = true; return; }
+          if (call.name === 'handoff' && output.value && typeof output.value === 'object' && (output.value as { ownershipTransferred?: unknown }).ownershipTransferred === true) {
+            for await (const chunk of joinChildren()) yield chunk;
+            completed = true; return;
+          }
+          } finally {
+            settleDelivery?.(false);
+            unregisterDelivery?.();
+          }
         }
       }
-      throw new TurnToolError('turn-round-limit', o.maxRounds ?? 25);
+      throw new TurnToolError('turn-round-limit', req.maxRounds ?? o.maxRounds ?? 25);
     } finally {
-      retryBudget.endTurn(turnId);
-      const succeeded = completed && !signal.aborted;
-      if (succeeded && !req.role && !req.onTurnTelemetry) {
-        skillLoads.set(taskScope, loaded);
-        lastSkillIds.set(taskScope, selectedSkillIds);
-        if (skillLoads.size > 1024) skillLoads.delete(skillLoads.keys().next().value!);
-        if (lastSkillIds.size > 1024) lastSkillIds.delete(lastSkillIds.keys().next().value!);
+      try { for await (const chunk of joinChildren(!completed || signal.aborted)) yield chunk; }
+      finally {
+        retryBudget.endTurn(turnId);
+        const succeeded = completed && !signal.aborted;
+        if (succeeded && !req.role && !req.onTurnTelemetry) {
+          skillLoads.set(taskScope, loaded);
+          lastSkillIds.set(taskScope, selectedSkillIds);
+          if (skillLoads.size > 1024) skillLoads.delete(skillLoads.keys().next().value!);
+          if (lastSkillIds.size > 1024) lastSkillIds.delete(lastSkillIds.keys().next().value!);
+        }
+        selection?.finish(succeeded);
       }
-      selection?.finish(succeeded);
     }
   }
   return { id: 'composition', telemetry, async *stream(req) {
     const trace = currentTrace() ?? newTrace();
-    const request = { ...req };
+    const request = { ...req, delegations: new TurnDelegations() };
     const observation = createTurnTelemetry();
-    const stream = run(request, observation);
+    const deliveries = new WeakMap<ChatChunk, (accepted: boolean) => void>();
+    const settleDelivery = (chunk: ChatChunk, accepted: boolean): void => {
+      deliveries.get(chunk)?.(accepted);
+      deliveries.delete(chunk);
+    };
+    const stream = run(request, observation, deliveries);
     let finished = false, failed = false;
-    try { while (true) { const next = await withTrace(trace, () => turnContext.run(request, () => stream.next())); if (next.done) { finished = true; break; } yield next.value; } }
+    try { while (true) { const next = await withTrace(trace, () => turnContext.run(request, () => stream.next())); if (next.done) { finished = true; break; } settleDelivery(next.value, true); yield next.value; } }
     catch (error) {
       failed = true;
       const code = error instanceof TurnToolError ? error.code : '';
@@ -767,7 +826,13 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         : code.startsWith('tool-') ? 'tool-error' : 'provider-error';
       throw error;
     } finally {
-      await withTrace(trace, () => stream.return(undefined));
+      // Inner finally blocks can yield joined children. Closing callers do not receive those chunks;
+      // release their receipts and finish draining so budgets and selection always close as well.
+      let closing = await withTrace(trace, () => turnContext.run(request, () => stream.return(undefined)));
+      while (!closing.done) {
+        settleDelivery(closing.value, false);
+        closing = await withTrace(trace, () => turnContext.run(request, () => stream.next()));
+      }
       if (!finished && !failed) observation.endReason = request.signal.aborted ? 'aborted' : 'cancelled';
       if (!request.role) {
         try {

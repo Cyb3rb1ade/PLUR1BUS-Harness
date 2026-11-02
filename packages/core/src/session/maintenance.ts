@@ -21,7 +21,13 @@ export function sessionRoleFactory(create: typeof createTurnProvider, config: Ha
       }
       return current!;
     };
-    return { id: get().id, telemetry: get().telemetry,
+    // A stable facade: the live provider is replaced when the role config changes, so telemetry must follow it.
+    const telemetry: typeof current.telemetry = {
+      record: (prompt, usage) => get().telemetry.record(prompt, usage),
+      summary: (agentId, model, sessionId) => get().telemetry.summary(agentId, model, sessionId),
+      sessionModels: (agentId, sessionId) => get().telemetry.sessionModels(agentId, sessionId),
+    };
+    return { id: get().id, telemetry,
       modelProfiles: () => get().modelProfiles?.() ?? [],
       contextModels: (text, profile) => get().contextModels?.(text, profile) ?? [],
       roleModels: role => get().roleModels?.(role) ?? [],

@@ -10,12 +10,16 @@ import { repairMessage, validateArgs, type RepairHook, type ValidationIssue } fr
 import type { RegisteredTool, ToolClassification, ToolRegistry, ToolTrust } from "./registry.ts";
 import { ToolAdapterError } from "./tool-adapter-error.ts";
 import { FsFailure } from "./fs/failure.ts";
+import { createRedactor, maskSecretsInJson } from "../logs/redact.ts";
 
 /** Arguments are bounded before they are validated or hashed. */
 export const MAX_ARGS_BYTES = 256 * 1024;
 const MAX_MESSAGE = 500;
 
-export interface ToolCallRequest { id: string; name: string; args: unknown; reason?: string; diff?: string }
+export interface ToolCallRequest {
+  id: string; name: string; args: unknown; reason?: string; diff?: string;
+  publicPeerTrust?: ApprovalAsk["publicPeerTrust"];
+}
 
 export interface DispatchContext {
   agentId: string;
@@ -30,6 +34,8 @@ export interface DispatchContext {
   /** Trust of the surface the call originates from (D109 §5). */
   surface: SurfaceTrust;
   signal: AbortSignal;
+  /** Trusted consumer may defer delivery until persistence; never included in the result envelope. */
+  onResultSettled?: (settle: (accepted: boolean) => void) => void;
 }
 
 export interface Timers { set(fn: () => void, ms: number): () => void }
@@ -97,6 +103,16 @@ export interface ToolDispatcherDeps {
   repair?: RepairHook;
   /** Extra policy context per call (tools.deny, overrides, taint, hand-off, subject kind …). Merged over the defaults. */
   policyContext?: (ctx: DispatchContext) => Partial<Context>;
+  /**
+   * The secret values this process holds, read at every call (and again, after the tool ran, for the result). A successful result is
+   * redacted against them (rule `secret` of the log redactor: the exact value and its base64, hex and URL-encoded forms, nothing
+   * shorter than the rule's minimum) before it leaves the dispatcher, so the model, the transcript, an offloaded result file, memory
+   * capture and every log or audit line only ever see the redacted value; so is the text of a failure message, before it is cut to
+   * length. A result is checked as serialised JSON first: one that holds none of them is returned exactly as it is (no walk, no depth
+   * cut), and the walk that masks one that does only looks for the forms that occur (a registered value that comes back as a JSON
+   * number cannot be masked, so that result is withheld). Without it nothing is redacted.
+   */
+  secrets?: () => Iterable<string>;
 }
 
 /** Stable JSON: object keys sorted, so equal arguments hash equal. */
@@ -110,7 +126,6 @@ export function canonicalJson(v: unknown): string {
 }
 
 const clip = (s: string): string => (s.length > MAX_MESSAGE ? `${s.slice(0, MAX_MESSAGE - 1)}…` : s);
-const errMsg = (e: unknown): string => clip(e instanceof Error ? e.message : String(e));
 
 export class ToolDispatcher {
   readonly #taintedTurns = new Set<string>();
@@ -119,14 +134,29 @@ export class ToolDispatcher {
   readonly #d: ToolDispatcherDeps;
   constructor(d: ToolDispatcherDeps) { this.#d = d; }
 
+  /**
+   * A message that leaves the dispatcher: the secret values this process holds are masked out of it BEFORE it is cut to length (a
+   * value the cut splits would no longer be recognised by any later redaction). Never throws: a message that cannot be checked is
+   * replaced.
+   */
+  #clip(message: string): string {
+    let masked = message;
+    try { if (this.#d.secrets) masked = createRedactor({ secrets: this.#d.secrets(), secretsOnly: true }).text(message); }
+    catch { masked = "[message withheld: it could not be checked for secret values]"; }
+    return clip(masked);
+  }
+  #errMsg(e: unknown): string { return this.#clip(e instanceof Error ? e.message : String(e)); }
+
   /** What a provider is told about the registered tools. */
   describe(): ReturnType<ToolRegistry["describe"]> { return this.#d.registry.describe().filter(t => permitsTool(t.name, this.#d.registry.get(t.name)!.capability)); }
 
   async call(req: ToolCallRequest, ctx: DispatchContext): Promise<ToolResult> {
     const started = this.#d.clock.now();
+    const delivery = resultDelivery();
+    let handedOff = false;
     const tool = typeof req.name === "string" ? this.#d.registry.get(req.name) : undefined;
     const fail = (code: ToolErrorCode, message: string, decision: ToolDecisionMeta, extra: Partial<ToolError> = {}, producedByTool = false): ToolResult => ({
-      callId: req.id, tool: req.name, isError: true, error: { code, message: clip(message), ...extra },
+      callId: req.id, tool: req.name, isError: true, error: { code, message: this.#clip(message), ...extra },
       provenance: provenance(ctx, producedByTool && tool ? tool : null),
       meta: { decision, durationMs: Math.max(0, this.#d.clock.now() - started), bytes: 0 },
     });
@@ -168,7 +198,7 @@ export class ToolDispatcher {
         classified = built.classified;
       } catch (e) { // RULING: a tool whose classify() throws is refused, never allowed
         this.#auditSoft("policy.decision", { ...this.#who(ctx, undefined), tool: tool.name, capability: tool.capability, outcome: "never", rule: "classify-failed" });
-        return fail("tool-denied", `the call could not be classified: ${errMsg(e)}`, "deny", {
+        return fail("tool-denied", `the call could not be classified: ${this.#errMsg(e)}`, "deny", {
           internalFailure: "classification-failure",
         });
       }
@@ -233,31 +263,54 @@ export class ToolDispatcher {
       }
 
       // 3. execute under the tool's own hard limits and the caller's abort.
-      const ran = await this.#run(tool, args, ctx, classified);
+      const ran = await this.#run(tool, args, ctx, context, delivery.register, classified);
+      const accepted = (result: ToolResult): ToolResult => {
+        const envelope = out(result);
+        if (ctx.onResultSettled) {
+          ctx.onResultSettled(delivery.settle);
+          handedOff = true;
+        } else delivery.settle(true);
+        return envelope;
+      };
       if (ran.kind === "timeout") return out(fail("tool-timeout", `${tool.name} exceeded its ${tool.limits.timeoutMs} ms limit`, via, {}, true));
       if (ran.kind === "aborted") return out(fail("aborted", `${tool.name} was aborted`, via, {}, true));
       if (ran.kind === "failed") {
-        return out(fail("tool-failed", `${tool.name} failed: ${ran.message}`, via, {
+        return accepted(fail("tool-failed", `${tool.name} failed: ${ran.message}`, via, {
           ...(ran.sourceCode ? { sourceCode: ran.sourceCode } : {}),
           ...(ran.typedFailure ? { typedFailure: ran.typedFailure } : {}),
         }, true));
       }
 
       // Central taint producer: trust comes from registration/classification, never result payload claims.
-      if (tool.trust === 'untrusted' || /^(?:web\.|mcp\.|peer\.)/.test(tool.name) || (tool.capability === 'fs.read' && call.flags?.outsideRoots)) this.#taintedTurns.add(this.#turnKey(ctx));
+      if (tool.trust === 'untrusted' || classified?.untrustedResult === true || /^(?:web\.|mcp\.|peer\.)/.test(tool.name) || (tool.capability === 'fs.read' && call.flags?.outsideRoots)) this.#taintedTurns.add(this.#turnKey(ctx));
       // 4. bounded, serialisable result. RULING: over the limit is an error, never a cut-off JSON value.
       let json: string | undefined;
       try { json = JSON.stringify(ran.value === undefined ? null : ran.value); } catch { json = undefined; }
       if (json === undefined) return out(fail("tool-result-invalid", `${tool.name} returned a value that is not JSON`, via, {}, true));
+      // The raw size first: a result over the limit is refused before it is parsed or checked for secrets (both cost more the larger it
+      // is), and the refusal says nothing but its size.
+      const tooLargeMessage = (n: number): string => `${tool.name} returned ${n} bytes, over its ${tool.limits.maxResultBytes}-byte limit`;
+      const rawBytes = Buffer.byteLength(json, "utf8");
+      if (rawBytes > tool.limits.maxResultBytes) return out(fail("tool-result-too-large", tooLargeMessage(rawBytes), via, {}, true));
+      let value = JSON.parse(json) as unknown;
+      // 4b. The one place a successful result is redacted: every consumer below (the model, the transcript, capResult's offload
+      // file, memory capture, the audit outcome) takes its value and its size from this envelope. The secrets are read here, after the
+      // tool ran, so a value it registered itself counts. A result that holds none of them is passed on as it is. Fail closed: a result
+      // that cannot be checked, or that holds a value the redactor cannot mask (a number), is withheld, never passed on.
+      try {
+        const masked = this.#d.secrets ? maskSecretsInJson(json, value, this.#d.secrets()) : undefined;
+        if (masked) ({ value, json } = masked);
+      } catch { return out(fail("tool-result-invalid", `${tool.name} returned a result that could not be checked for secret values; it was withheld`, via, {}, true)); }
+      // Masking can lengthen a result (the marker is longer than a short value): the limit holds for what is passed on.
       const bytes = Buffer.byteLength(json, "utf8");
-      if (bytes > tool.limits.maxResultBytes) return out(fail("tool-result-too-large", `${tool.name} returned ${bytes} bytes, over its ${tool.limits.maxResultBytes}-byte limit`, via, {}, true));
-      return out({
-        callId: req.id, tool: tool.name, isError: false, value: JSON.parse(json) as unknown,
+      if (bytes > tool.limits.maxResultBytes) return out(fail("tool-result-too-large", tooLargeMessage(bytes), via, {}, true));
+      return accepted({
+        callId: req.id, tool: tool.name, isError: false, value,
         provenance: provenance(ctx, tool), meta: { decision: via, durationMs: Math.max(0, this.#d.clock.now() - started), bytes },
       });
     } catch (e) {
-      return fail("tool-failed", `internal error: ${errMsg(e)}`, "none", { internalFailure: "internal-error" });
-    }
+      return fail("tool-failed", `internal error: ${this.#errMsg(e)}`, "none", { internalFailure: "internal-error" });
+    } finally { if (!handedOff) delivery.settle(false); }
   }
 
   async #buildCall(tool: RegisteredTool, args: unknown): Promise<{ call: Call; classified?: ToolClassification }> {
@@ -304,6 +357,8 @@ export class ToolDispatcher {
   > {
     const request: ApprovalRequest = d.request;
     const ask: ApprovalAsk = {
+      ...(tool.name === "peer.a2a_trust" && tool.trust === "first-party" && req.publicPeerTrust
+        ? { publicPeerTrust: req.publicPeerTrust } : {}),
       ...(ctx.recurring ? { recurring: ctx.recurring } : {}), request, callId: req.id, tool: tool.name, args, agentId: ctx.agentId, principal: ctx.principal,
       ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), park: d.park, signal: ctx.signal,
       subjectKind: context.subject.kind, turnId: ctx.turnId ?? req.id,
@@ -316,10 +371,10 @@ export class ToolDispatcher {
     try {
       pending = this.#d.approvals.request(ask).then((a) => a, (e: unknown) => {
         internalFailure = "approval-port-failure";
-        return { approved: false, reason: `approval failed: ${errMsg(e)}` };
+        return { approved: false, reason: `approval failed: ${this.#errMsg(e)}` };
       });
     } catch (e) {
-      return { portFailure: errMsg(e) };
+      return { portFailure: this.#errMsg(e) };
     }
     const r = await raceAbort(pending, ctx.signal);
     if (r === "aborted") return "aborted";
@@ -330,7 +385,7 @@ export class ToolDispatcher {
         answer: {
           approved: false,
           ...(ctx.recurring && (r as { parked?: unknown } | undefined)?.parked === true ? { parked: true } : {}),
-          ...(typeof reason === "string" ? { reason: clip(reason) } : {}),
+          ...(typeof reason === "string" ? { reason: this.#clip(reason) } : {}),
         },
         ask, ...(internalFailure ? { internalFailure } : {}),
       };
@@ -375,7 +430,7 @@ export class ToolDispatcher {
     return r;
   }
 
-  #run(tool: RegisteredTool, args: unknown, ctx: DispatchContext, classified?: ToolClassification): Promise<
+  #run(tool: RegisteredTool, args: unknown, ctx: DispatchContext, policy: Context, onResultSettled: (callback: (accepted: boolean) => void) => void, classified?: ToolClassification): Promise<
     { kind: "ok"; value: unknown } | { kind: "timeout" } | { kind: "aborted" }
     | { kind: "failed"; message: string; sourceCode?: string; typedFailure?: TypedToolFailure }
   > {
@@ -387,12 +442,12 @@ export class ToolDispatcher {
       const onAbort = (): void => { finish({ kind: "aborted" }); ac.abort(ctx.signal.reason); };
       const cancel = timers.set(() => { finish({ kind: "timeout" }); ac.abort(new Error("timeout")); }, tool.limits.timeoutMs);
       ctx.signal.addEventListener("abort", onAbort, { once: true });
-      Promise.resolve().then(() => tool.execute(args, { signal: ac.signal, agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), ...(classified ? { classified } : {}) }))
+      Promise.resolve().then(() => tool.execute(args, { signal: ac.signal, onResultSettled, agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface, execution: { turnId: ctx.turnId || ctx.sessionId || "", ...(ctx.taskId ? { taskId: ctx.taskId } : {}), ...(ctx.recurring ? { recurring: ctx.recurring } : {}), policy }, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), ...(classified ? { classified } : {}) }))
         .then((value) => finish({ kind: "ok", value }), (e: unknown) => {
           const sourceCode = e && typeof e === "object" && "code" in e && typeof e.code === "string"
             && /^[a-z0-9_.-]{1,64}$/.test(e.code) ? e.code : undefined;
           const typedFailure = typedFailureOf(e);
-          finish({ kind: "failed", message: errMsg(e), ...(sourceCode ? { sourceCode } : {}),
+          finish({ kind: "failed", message: this.#errMsg(e), ...(sourceCode ? { sourceCode } : {}),
             ...(typedFailure ? { typedFailure } : {}) });
         });
     });
@@ -456,4 +511,25 @@ function raceAbort<T>(p: Promise<T>, signal: AbortSignal): Promise<T | "aborted"
     signal.addEventListener("abort", on, { once: true });
     void p.then((v) => { signal.removeEventListener("abort", on); resolve(v); });
   });
+}
+
+
+/** One receipt outcome, including registrations from an uncooperative tool that settles after cancellation. */
+function resultDelivery() {
+  let settled: boolean | undefined;
+  const receipts: ((accepted: boolean) => void)[] = [];
+  const notify = (receipt: (accepted: boolean) => void, accepted: boolean): void => {
+    try { receipt(accepted); } catch { /* Delivery bookkeeping must not replace a dispatcher result. */ }
+  };
+  return {
+    register(receipt: (accepted: boolean) => void): void {
+      if (settled === undefined) receipts.push(receipt);
+      else notify(receipt, settled);
+    },
+    settle(accepted: boolean): void {
+      if (settled !== undefined) return;
+      settled = accepted;
+      for (const receipt of receipts.splice(0)) notify(receipt, accepted);
+    },
+  };
 }

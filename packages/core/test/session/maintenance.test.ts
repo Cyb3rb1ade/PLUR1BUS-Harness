@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import * as fake from '../../src/session/provider.ts';
 import { defaults } from '../../../config-schema/src/index.ts';
 import { sessionMaintenance, sessionRoleFactory } from '../../src/session/maintenance.ts';
 import { createTurnProvider } from '../../src/composition/provider.ts';
@@ -54,4 +55,20 @@ it('live role configuration applies to the next request without replacing an in-
   provider.roleModels?.('summarize');
   assert.ok(seen.length > initial);
   assert.equal(seen.at(-1), 'new-profile');
+});
+it('exposed cache telemetry follows the live provider after a config change', () => {
+  const config = defaults();
+  const { FakeChatProvider } = fake;
+  let n = 0;
+  const create = ((_options: unknown) => {
+    const tag = `p${++n}`;
+    return { ...new FakeChatProvider(), id: 'fixture', telemetry: { record: () => ({ tag }), summary: () => undefined, sessionModels: () => [{ model: tag, summary: {} }] } };
+  }) as unknown as typeof createTurnProvider;
+  const provider = sessionRoleFactory(create, () => config)({ profiles: {}, registry: new ToolRegistry() } as never);
+  const models = () => (provider.telemetry.sessionModels('a', 's') as Array<{ model: string }>)[0]!.model;
+  const first = models();
+  config.modelRoles.summarize = 'changed-profile';
+  const second = models();
+  assert.notEqual(second, first);
+  assert.equal((provider.telemetry.record({} as never, {} as never) as unknown as { tag: string }).tag, second);
 });

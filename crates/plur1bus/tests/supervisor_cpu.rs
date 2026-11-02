@@ -136,6 +136,29 @@ fn a_supervisor_started_on_one_cpu_detects_every_core_and_widens_without_a_limit
     )
     .unwrap();
     let events = dir.path().join("events.jsonl");
+    // A separate unrestricted supervisor observes the same host quota as the narrowed one.
+    let baseline_home = dir.path().join("baseline");
+    std::fs::create_dir_all(&baseline_home).unwrap();
+    std::fs::write(
+        baseline_home.join("config.json"),
+        json!({ "schemaVersion": 1 }).to_string(),
+    )
+    .unwrap();
+    let detected = {
+        let _baseline = start_with_core(
+            &baseline_home,
+            &dir.path().join("baseline-events.jsonl"),
+            "0.2",
+            &[],
+        );
+        let mut client = client(&baseline_home);
+        wait_child(&mut client, "the baseline core", WAIT, |ch| {
+            ch["process"]["state"] == "ready"
+        });
+        let baseline = cpu(&mut client);
+        assert_eq!(baseline["state"], "unlimited", "{baseline}");
+        baseline["detected"].as_u64().unwrap()
+    };
     let first = start[0];
     let sup = start_with_core_using(&home, &events, "0.2", &[], move |cmd| {
         use std::os::unix::process::CommandExt;
@@ -158,14 +181,11 @@ fn a_supervisor_started_on_one_cpu_detects_every_core_and_widens_without_a_limit
     });
     let status = cpu(&mut c);
     assert_eq!(status["state"], "unlimited", "{status}");
-    assert_eq!(
-        status["detected"].as_u64(),
-        Some(start.len() as u64),
-        "{status}"
-    );
+    assert_eq!(status["detected"].as_u64(), Some(detected), "{status}");
     assert_eq!(status["effective"], status["detected"], "{status}");
     for p in [sup.child.id(), core["pid"].as_u64().unwrap() as u32] {
         let t = threads(p);
+        assert!(!t.is_empty(), "process {p} has no threads");
         assert!(t.iter().all(|cpus| *cpus == start), "process {p}: {t:?}");
     }
 }

@@ -17,6 +17,7 @@ import { configuredDefaults } from './toolcall/host-eval-store.ts';
 import { apiAdmission } from "./rpc/api-admission.ts";
 import { apiIdentities } from "./rpc/api-identity.ts";
 import { buildDoctorMethods } from "./doctor-report.ts";
+import { buildTelemetryMethods } from "./rpc/telemetry-surface.ts";
 import { buildVoiceSessionMethods } from "./rpc/voice-session-surface.ts";
 import { createAuthSecretStore } from "./auth/secret-store.ts";
 import { createWriter } from "./logs/writer.ts";
@@ -987,6 +988,8 @@ export function createCore(o: CoreOptions): Core {
           return current?.kind === 'person' && current.userId === id ? people.resolve(current) : null;
         }, clock, audit: rbacAudit, agentId: () => channelAgentId(executionRegistry), baseUrl: () => cfg().core.webHandoffBaseUrl });
       const rawMethods = {
+        ...buildTelemetryMethods({ clock, budget: () => budget, cacheTelemetry: () => turnComposition?.cacheTelemetry ?? null, sessionsAvailable: () => sessions !== null,
+          sessionAgent: (id) => { try { return sessions?.forSession(id).store.getSession(id)?.agentId ?? null; } catch { return null; } } }),
         ...(memorySensitivity ? buildMemorySensitivityMethods({
           service: memorySensitivity,
           isStopping: () => state.state === "stopping" || state.state === "stopped",
@@ -1049,7 +1052,7 @@ export function createCore(o: CoreOptions): Core {
           surface: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }),
         ...buildInboxSurface(() => inbox?.service ?? null),
         ...buildProjectBoardSurface(() => turnComposition?.collab ?? null, event => { void deliverBoardChange(event, () => turnComposition?.collab ?? null, { subscriptions: () => server?.subscriptions() ?? [], resolve: async connectionId => resolvePrincipal({ requestId: "board-event", connectionId, signal: shutdown.signal }, "project.card.list", {}), notify: (m, p, opts) => { if (!shutdown.signal.aborted) server?.notify(m, p, opts); } }).catch(() => { log.debug("project board event withheld"); }); }),
-        ...buildCollabSurface(() => turnComposition?.collab ?? null, id => registry.has(id)),
+        ...buildCollabSurface(() => turnComposition?.collab ?? null, id => registry.has(id) || turnComposition?.a2a?.hasAgent(id) === true),
         ...buildIdentitySurface(() => identity),
         ...(await import("./rpc/device-surface.ts")).createDeviceSurface({ state: l.state, clock, signal: shutdown.signal, revoked: userId => server?.notify("api.account.changed", {userId}, {audience:apiIdentity.services().map(connectionId=>({connectionId}))}), personVersion: id => { const p=people.person(id); return p && !p.disabled ? p.version : null; }, audit: rbacAudit, securePath: p => platform.securePath(p), notifyTrust: (event,owners) => server?.notify("devices.trust.next",event,{audience:owners.map(personId=>({personId}))}) }),
         ...adminSurface,

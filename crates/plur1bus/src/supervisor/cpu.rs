@@ -836,26 +836,66 @@ mod tests {
             return;
         }
         let first = host.cpus[0];
-        let mut tree = std::process::Command::new("/bin/sh")
-            .args(["-c", "/bin/sleep 30 & wait"])
-            .spawn()
-            .unwrap();
-        let mut separate = std::process::Command::new("/bin/sleep")
-            .arg("30")
-            .spawn()
-            .unwrap();
-        let shell = tree.id();
+        // The shell inherits the test's process group: its sleep must be found through PPID traversal.
+        struct ChildGuard {
+            child: std::process::Child,
+            pid_file: Option<std::path::PathBuf>,
+        }
+        impl Drop for ChildGuard {
+            fn drop(&mut self) {
+                if let Some(path) = &self.pid_file {
+                    let pid = std::fs::read_to_string(path)
+                        .ok()
+                        .and_then(|s| s.trim().parse::<u32>().ok());
+                    let parent = pid
+                        .and_then(|p| std::fs::read_to_string(format!("/proc/{p}/stat")).ok())
+                        .and_then(|s| os::stat_fields(&s).map(|(parent, _)| parent));
+                    if parent == Some(self.child.id()) {
+                        // SAFETY: the PID was just verified as a child of this unreaped shell.
+                        unsafe {
+                            libc::kill(pid.unwrap() as i32, libc::SIGTERM);
+                        }
+                    } else {
+                        // The shell's trap also cleans up if readiness was never published.
+                        // SAFETY: this is our own unreaped shell process.
+                        unsafe {
+                            libc::kill(self.child.id() as i32, libc::SIGTERM);
+                        }
+                    }
+                    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(1);
+                    while std::time::Instant::now() < deadline {
+                        if matches!(self.child.try_wait(), Ok(Some(_))) {
+                            return;
+                        }
+                        std::thread::sleep(std::time::Duration::from_millis(10));
+                    }
+                }
+                let _ = self.child.kill();
+                let _ = self.child.wait();
+            }
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let pid_file = dir.path().join("sleep.pid");
+        let tree = ChildGuard {
+            child: std::process::Command::new("/bin/sh")
+                .args(["-c", "trap 'test -n \"$child\" && kill \"$child\" 2>/dev/null || :' EXIT; trap 'exit 1' HUP INT TERM; /bin/sleep 30 & child=$!; printf '%s\\n' \"$child\" > \"$1\"; wait \"$child\"; trap - EXIT", "sh"])
+                .arg(&pid_file).spawn().unwrap(),
+            pid_file: Some(pid_file.clone()),
+        };
+        let separate = ChildGuard {
+            child: std::process::Command::new("/bin/sleep")
+                .arg("30")
+                .spawn()
+                .unwrap(),
+            pid_file: None,
+        };
+        let shell = tree.child.id();
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
         let grandchild = loop {
-            let found = std::fs::read_to_string(format!("/proc/{shell}/task/{shell}/children"))
-                .ok()
-                .and_then(|c| {
-                    c.split_whitespace()
-                        .next()
-                        .and_then(|p| p.parse::<u32>().ok())
-                });
-            if let Some(pid) = found {
-                break pid;
+            if let Ok(contents) = std::fs::read_to_string(&pid_file) {
+                if let Ok(pid) = contents.trim().parse::<u32>() {
+                    break pid;
+                }
             }
             assert!(
                 std::time::Instant::now() < deadline,
@@ -863,20 +903,30 @@ mod tests {
             );
             std::thread::sleep(std::time::Duration::from_millis(10));
         };
-        let outcome = os::bind(&[shell, separate.id()], &[first]);
-        for pid in [shell, grandchild, separate.id()] {
-            for task in std::fs::read_dir(format!("/proc/{pid}/task"))
+        let stat = std::fs::read_to_string(format!("/proc/{grandchild}/stat")).unwrap();
+        let (parent, group) = os::stat_fields(&stat).unwrap();
+        assert_eq!(parent, shell, "sleep is a child of the shell");
+        assert_ne!(
+            group, shell,
+            "sleep is outside the shell's root-led process group"
+        );
+        assert_ne!(
+            group,
+            separate.child.id(),
+            "sleep is outside the separate root's process group"
+        );
+        let outcome = os::bind(&[shell, separate.child.id()], &[first]);
+        for pid in [shell, grandchild, separate.child.id()] {
+            let tasks: Vec<_> = std::fs::read_dir(format!("/proc/{pid}/task"))
                 .unwrap()
-                .flatten()
-            {
+                .collect::<Result<_, _>>()
+                .unwrap();
+            assert!(!tasks.is_empty(), "process {pid} has no threads");
+            for task in tasks {
                 let path = format!("{}/status", task.path().display());
                 assert_eq!(allowed(&path), vec![first], "{path}");
             }
         }
-        let _ = tree.kill();
-        let _ = separate.kill();
-        let _ = tree.wait();
-        let _ = separate.wait();
         assert!(outcome.is_ok(), "{outcome:?}");
     }
 }

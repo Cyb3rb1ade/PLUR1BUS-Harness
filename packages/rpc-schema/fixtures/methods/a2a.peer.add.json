@@ -1,0 +1,26 @@
+{
+  "params": {
+    "id": "peer",
+    "cardUrl": "https://peer.example/card",
+    "kid": "peer-key",
+    "publicKey": {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    }
+  },
+  "result": {
+    "id": "peer",
+    "agentId": "a2a:peer",
+    "cardUrl": "https://peer.example/card",
+    "kid": "peer-key",
+    "fingerprint": "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "state": "pending",
+    "revision": "revision",
+    "targetKind": "external",
+    "origin": "a2a",
+    "authenticated": false,
+    "createdAt": 0,
+    "updatedAt": 0
+  }
+}

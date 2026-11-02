@@ -41,6 +41,7 @@ export function authenticatedPrincipal(ctx: CallContext): Principal {
 }
 
 export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
+  ...Object.fromEntries(["a2a.peer.add", "a2a.peer.list", "a2a.peer.remove", "a2a.peer.trust"].map(method => [method, { ...rule("a2a.peers.manage", system), humanOnly: true }])),
   ...Object.fromEntries(["admin.import.detect", "admin.import.wsl.list", "admin.import.plan", "admin.import.preflight",
     "admin.import.skills", "admin.import.apply", "admin.import.status", "admin.import.abort", "admin.import.runs",
     "admin.import.rollback"].map(method => [method,
@@ -93,6 +94,7 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "jobs.update": { ...rule("agent.list", system), humanOnly: true },
   "jobs.delete": { ...rule("agent.list", system), humanOnly: true },
   "doctor.report": { ...rule("agent.list", system), humanOnly: true },
+  "telemetry.cache.summary": { ...rule("doctor.read", system), humanOnly: true },
   "agent.activity.list": { ...rule("agent.list", system), humanOnly: true },
   "inbox.list": rule("inbox.read", system),
   "inbox.count": rule("inbox.read", system),

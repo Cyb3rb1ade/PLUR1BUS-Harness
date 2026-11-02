@@ -1,0 +1,22 @@
+{
+  "params": { "window": "24h", "sessionId": "s-1" },
+  "result": {
+    "window": "24h",
+    "since": "2026-10-30T12:00:00.000Z",
+    "until": "2026-10-31T12:00:00.000Z",
+    "providers": [
+      { "provider": "anthropic", "agentId": "bernd", "model": "claude-sonnet-5-5", "calls": 4, "uncachedCalls": 1,
+        "inputTokens": 4000, "outputTokens": 400, "cacheReadTokens": 2700, "cacheWriteTokens": 900,
+        "cachingInputTokens": 3000, "hitRatio": 0.675, "hitRatioCaching": 0.9 }
+    ],
+    "session": {
+      "sessionId": "s-1", "agentId": "bernd",
+      "models": [
+        { "model": "claude-sonnet-5-5", "turns": 3, "inputTokens": 150, "cacheReadTokens": 1900, "cacheCreationTokens": 950,
+          "totalInputTokens": 3000, "hitRatio": 0.6333333333333333, "hits": 2, "misses": 1, "notCacheable": 0,
+          "missCauses": { "first-request": 1, "model-changed": 0, "tools-changed": 0, "system-changed": 0,
+            "snapshot-changed": 0, "ttl-expired": 0, "provider": 0 } }
+      ]
+    }
+  }
+}

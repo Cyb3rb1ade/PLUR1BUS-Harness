@@ -68,7 +68,12 @@ export function buildProjectBoardSurface(service: () => Collab | null, changed: 
     "project.card.create": bind("project.card.create", "write", (s, p, a, o) => s.boardStore.createCard(p.projectId, p, a, o)),
     "project.card.update": bind("project.card.update", "write", (s, p, a) => s.boardStore.updateCard(p.projectId, p.cardId, p, a)),
     "project.card.move": bind("project.card.move", "move", (s, p, a, o) => s.boardStore.moveCard(p.projectId, p.cardId, p.columnId, p.position, a, o)),
-    "project.card.assign": bind("project.card.assign", "write", (s, p, a) => s.boardStore.assign(p.projectId, p.cardId, p.assignee, true, a)),
+    "project.card.assign": bind("project.card.assign", "write", (s, p, a) => {
+      if (p.assignee.kind === "agent" && s.isA2aAgent(p.assignee.id)) {
+        throw new RpcError("E_DENIED", "A2A targets cannot own local board cards");
+      }
+      return s.boardStore.assign(p.projectId, p.cardId, p.assignee, true, a);
+    }),
     "project.card.unassign": bind("project.card.unassign", "write", (s, p, a) => s.boardStore.assign(p.projectId, p.cardId, p.assignee, false, a)),
     "project.card.archive": bind("project.card.archive", "write", (s, p, a) => s.boardStore.archiveCard(p.projectId, p.cardId, true, a)),
     "project.card.unarchive": bind("project.card.unarchive", "write", (s, p, a, o) => s.boardStore.archiveCard(p.projectId, p.cardId, false, a, o)),

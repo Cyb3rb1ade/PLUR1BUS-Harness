@@ -1,0 +1,462 @@
+{
+  "schema": "recall-workspace/1",
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "node": "v24.21.0",
+    "unicode": "17.0",
+    "icu": "78.3"
+  },
+  "note": "Directory tokens __DIR_<agent>__ stand for Node realpathSync of a directory created for that agent. Replay creates its own directories and substitutes those realpaths.",
+  "provedUser": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+  "reservedRegisterError": "\"main\" is a reserved name and cannot be registered as a channel",
+  "cases": [
+    {
+      "name": "alpha-without-dir",
+      "ok": true,
+      "context": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "telegram",
+        "accountId": "default",
+        "chatId": "1",
+        "chatKind": "private",
+        "trust": "proved"
+      },
+      "input": {
+        "agentId": "alpha",
+        "workspace": "workspace:v1:main",
+        "user": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "telegram",
+        "accountId": "default",
+        "chat": {
+          "id": "1",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "facts": {}
+      }
+    },
+    {
+      "name": "alpha-with-dir",
+      "ok": true,
+      "context": {
+        "agentId": "alpha",
+        "workspaceId": "workspace-dir:v1:__DIR_alpha__",
+        "workspaceIdentity": "workspace-dir:v1:__DIR_alpha__",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "telegram",
+        "accountId": "default",
+        "chatId": "1",
+        "chatKind": "private",
+        "trust": "proved"
+      },
+      "input": {
+        "agentId": "alpha",
+        "workspace": "workspace-dir:v1:__DIR_alpha__",
+        "user": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "telegram",
+        "accountId": "default",
+        "chat": {
+          "id": "1",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "facts": {
+          "workspaceDir": "__DIR_alpha__"
+        }
+      }
+    },
+    {
+      "name": "beta-without-dir",
+      "ok": true,
+      "context": {
+        "agentId": "beta",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "telegram",
+        "accountId": "default",
+        "chatId": "1",
+        "chatKind": "private",
+        "trust": "proved"
+      },
+      "input": {
+        "agentId": "beta",
+        "workspace": "workspace:v1:main",
+        "user": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "telegram",
+        "accountId": "default",
+        "chat": {
+          "id": "1",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "facts": {}
+      }
+    },
+    {
+      "name": "beta-with-dir",
+      "ok": true,
+      "context": {
+        "agentId": "beta",
+        "workspaceId": "workspace-dir:v1:__DIR_beta__",
+        "workspaceIdentity": "workspace-dir:v1:__DIR_beta__",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "telegram",
+        "accountId": "default",
+        "chatId": "1",
+        "chatKind": "private",
+        "trust": "proved"
+      },
+      "input": {
+        "agentId": "beta",
+        "workspace": "workspace-dir:v1:__DIR_beta__",
+        "user": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "telegram",
+        "accountId": "default",
+        "chat": {
+          "id": "1",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "facts": {
+          "workspaceDir": "__DIR_beta__"
+        }
+      }
+    },
+    {
+      "name": "gamma-without-dir",
+      "ok": true,
+      "context": {
+        "agentId": "gamma",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "telegram",
+        "accountId": "default",
+        "chatId": "1",
+        "chatKind": "private",
+        "trust": "proved"
+      },
+      "input": {
+        "agentId": "gamma",
+        "workspace": "workspace:v1:main",
+        "user": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "telegram",
+        "accountId": "default",
+        "chat": {
+          "id": "1",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "facts": {}
+      }
+    },
+    {
+      "name": "gamma-with-dir",
+      "ok": true,
+      "context": {
+        "agentId": "gamma",
+        "workspaceId": "workspace-dir:v1:__DIR_gamma__",
+        "workspaceIdentity": "workspace-dir:v1:__DIR_gamma__",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "telegram",
+        "accountId": "default",
+        "chatId": "1",
+        "chatKind": "private",
+        "trust": "proved"
+      },
+      "input": {
+        "agentId": "gamma",
+        "workspace": "workspace-dir:v1:__DIR_gamma__",
+        "user": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "telegram",
+        "accountId": "default",
+        "chat": {
+          "id": "1",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "facts": {
+          "workspaceDir": "__DIR_gamma__"
+        }
+      }
+    },
+    {
+      "name": "proved-workspace-conflict",
+      "ok": false,
+      "error": "conflicting workspace identity",
+      "input": {
+        "agentId": "alpha",
+        "workspace": "workspace:v1:other",
+        "user": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "telegram",
+        "accountId": "default",
+        "chat": {
+          "id": "1",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "facts": {
+          "workspaceDir": "__DIR_alpha__"
+        }
+      }
+    },
+    {
+      "name": "inferred-keeps-dir-and-clears-user",
+      "ok": true,
+      "context": {
+        "agentId": "alpha",
+        "workspaceId": "workspace-dir:v1:__DIR_alpha__",
+        "workspaceIdentity": "workspace-dir:v1:__DIR_alpha__",
+        "userPrincipal": "",
+        "channel": "",
+        "accountId": "",
+        "chatId": "",
+        "chatKind": "unknown",
+        "trust": "inferred"
+      },
+      "input": {
+        "agentId": "alpha",
+        "workspace": "workspace:v1:other",
+        "user": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "telegram",
+        "accountId": "default",
+        "chat": {
+          "id": "1",
+          "kind": "direct"
+        },
+        "trust": "inferred",
+        "facts": {
+          "workspaceDir": "__DIR_alpha__"
+        }
+      }
+    },
+    {
+      "name": "proved-without-user",
+      "ok": true,
+      "context": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "",
+        "channel": "telegram",
+        "accountId": "default",
+        "chatId": "1",
+        "chatKind": "private",
+        "trust": "proved"
+      },
+      "input": {
+        "agentId": "alpha",
+        "workspace": "workspace:v1:main",
+        "channel": "telegram",
+        "accountId": "default",
+        "chat": {
+          "id": "1",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "facts": {}
+      }
+    },
+    {
+      "name": "proved-channel-case",
+      "ok": true,
+      "context": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "telegram",
+        "accountId": "default",
+        "chatId": "42",
+        "chatKind": "private",
+        "trust": "proved"
+      },
+      "input": {
+        "agentId": "alpha",
+        "workspace": "workspace:v1:main",
+        "user": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "Telegram",
+        "accountId": " default ",
+        "chat": {
+          "id": " 42 ",
+          "kind": "dm"
+        },
+        "trust": "proved",
+        "facts": {}
+      }
+    },
+    {
+      "name": "proved-unknown-channel-degrades",
+      "ok": true,
+      "context": {
+        "agentId": "alpha",
+        "workspaceId": "",
+        "workspaceIdentity": "",
+        "userPrincipal": "",
+        "channel": "",
+        "accountId": "",
+        "chatId": "",
+        "chatKind": "unknown",
+        "trust": "inferred"
+      },
+      "input": {
+        "agentId": "alpha",
+        "workspace": "workspace:v1:main",
+        "user": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "cli",
+        "accountId": "mac.local",
+        "chat": {
+          "id": "cli:ada",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "facts": {}
+      }
+    },
+    {
+      "name": "proved-registered-cli",
+      "ok": true,
+      "context": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "cli",
+        "accountId": "mac.local",
+        "chatId": "cli:ada",
+        "chatKind": "private",
+        "trust": "proved"
+      },
+      "input": {
+        "agentId": "alpha",
+        "workspace": "workspace:v1:main",
+        "user": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "cli",
+        "accountId": "mac.local",
+        "chat": {
+          "id": "cli:ada",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "facts": {}
+      }
+    },
+    {
+      "name": "dotted-agent-rejected",
+      "ok": false,
+      "error": "Invalid agent ID: \"alpha.beta\"",
+      "input": {
+        "agentId": "alpha.beta",
+        "workspace": "workspace:v1:main",
+        "channel": "telegram",
+        "accountId": "default",
+        "chat": {
+          "id": "1",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "facts": {}
+      }
+    },
+    {
+      "name": "long-agent-rejected",
+      "ok": false,
+      "error": "Invalid agent ID: \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",
+      "input": {
+        "agentId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "workspace": "workspace:v1:main",
+        "channel": "telegram",
+        "accountId": "default",
+        "chat": {
+          "id": "1",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "facts": {}
+      }
+    },
+    {
+      "name": "proved-missing-dir",
+      "ok": false,
+      "error": "ENOENT: no such file or directory, lstat '/private__SCRATCH__/missing-alpha'",
+      "input": {
+        "agentId": "alpha",
+        "workspace": "workspace:v1:main",
+        "user": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "telegram",
+        "accountId": "default",
+        "chat": {
+          "id": "1",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "facts": {
+          "workspaceDir": "__SCRATCH__/missing-alpha"
+        }
+      }
+    },
+    {
+      "name": "inferred-missing-dir",
+      "ok": true,
+      "context": {
+        "agentId": "alpha",
+        "workspaceId": "",
+        "workspaceIdentity": "",
+        "userPrincipal": "",
+        "channel": "",
+        "accountId": "",
+        "chatId": "",
+        "chatKind": "unknown",
+        "trust": "inferred"
+      },
+      "input": {
+        "agentId": "alpha",
+        "workspace": "workspace:v1:main",
+        "user": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "telegram",
+        "accountId": "default",
+        "chat": {
+          "id": "1",
+          "kind": "direct"
+        },
+        "trust": "inferred",
+        "facts": {
+          "workspaceDir": "__SCRATCH__/missing-alpha"
+        }
+      }
+    },
+    {
+      "name": "group-chat-kind",
+      "ok": true,
+      "context": {
+        "agentId": "alpha",
+        "workspaceId": "workspace:v1:main",
+        "workspaceIdentity": "workspace:v1:main",
+        "userPrincipal": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "telegram",
+        "accountId": "default",
+        "chatId": "room",
+        "chatKind": "group",
+        "trust": "proved"
+      },
+      "input": {
+        "agentId": "alpha",
+        "workspace": "workspace:v1:main",
+        "user": "user:v1:68764db1e83ff3a90f12d20516cbfe70e7919a321ff71dd501b15d052e8d1c5b",
+        "channel": "telegram",
+        "accountId": "default",
+        "chat": {
+          "id": "room",
+          "kind": "channel"
+        },
+        "trust": "proved",
+        "facts": {}
+      }
+    }
+  ]
+}
