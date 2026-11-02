@@ -408,8 +408,11 @@ test("Owner SSH setup requires exact endpoint policy consent and independent hos
       .getByLabel("I approve adding the displayed exact host and port to the central egress policy.", { exact: true })
       .check();
     await app.page.getByLabel("SSH port", { exact: true }).fill("22");
+    await app.page.getByText("Approve this exact destination: source.example:22", { exact: true }).waitFor();
     assert.equal(await save.isDisabled(), true);
+    assert.equal(await app.page.getByLabel("I approve adding the displayed exact host and port to the central egress policy.", { exact: true }).isChecked(), false);
     await app.page.getByLabel("SSH port", { exact: true }).fill("2222");
+    await app.page.getByText("Approve this exact destination: source.example:2222", { exact: true }).waitFor();
     await app.page
       .getByLabel("I approve adding the displayed exact host and port to the central egress policy.", { exact: true })
       .check();
