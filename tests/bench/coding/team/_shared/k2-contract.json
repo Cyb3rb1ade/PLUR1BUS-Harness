@@ -1,0 +1,63 @@
+{
+  "source": "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/868",
+  "revision": "c25213eed108170d1a06f8d52ed0fa9d4e8cde56",
+  "benchmarkSchema": "plur1bus.coding-bench/1",
+  "checkFields": [
+    "passed",
+    "unavailable",
+    "reason",
+    "wallMs"
+  ],
+  "reasons": [
+    "passed",
+    "unresolved",
+    "unavailable",
+    "aborted"
+  ],
+  "environment": [
+    "PATH",
+    "HOME",
+    "TMPDIR",
+    "TEMP",
+    "TMP",
+    "CI",
+    "LANG",
+    "LC_ALL",
+    "TZ",
+    "GOROOT",
+    "GOCACHE",
+    "GOMODCACHE",
+    "GOTOOLCHAIN",
+    "GOPROXY",
+    "GOSUMDB",
+    "CGO_ENABLED",
+    "GOMAXPROCS",
+    "CARGO_HOME",
+    "CARGO_NET_OFFLINE",
+    "RUSTUP_HOME",
+    "RUSTUP_TOOLCHAIN",
+    "GIT_AUTHOR_NAME",
+    "GIT_AUTHOR_EMAIL",
+    "GIT_AUTHOR_DATE",
+    "GIT_COMMITTER_NAME",
+    "GIT_COMMITTER_EMAIL",
+    "GIT_COMMITTER_DATE"
+  ],
+  "fixturePlatforms": [
+    "darwin",
+    "linux"
+  ],
+  "livePlatforms": [
+    "linux"
+  ],
+  "reportEnvironmentKeys": [
+    "platform",
+    "node",
+    "rust",
+    "go",
+    "python",
+    "rpc"
+  ],
+  "reportEnvironmentPlatform": "linux",
+  "armParameterMaxBytes": 16384
+}

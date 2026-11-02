@@ -89,6 +89,8 @@ fn setup_non_interactive_installs_everything_but_the_service() {
     assert_eq!(m["target"], target_id());
     assert_eq!(m["channel"], "stable");
     assert_eq!(m["node"]["version"], NODE_VERSION);
+    assert_eq!(m["tools"]["version"], env!("CARGO_PKG_VERSION"));
+    assert_eq!(m["tools"]["sha256"].as_str().unwrap().len(), 64);
     assert_eq!(m["node"]["archiveSha256"], e.node_sha);
     assert_eq!(
         PathBuf::from(m["node"]["path"].as_str().unwrap()),
@@ -601,4 +603,24 @@ fn interactive_defaults_and_noninteractive_install_the_same_payload() {
         doc
     };
     assert_eq!(manifest(&interactive), manifest(&unattended));
+}
+
+#[test]
+fn setup_refuses_an_incomplete_native_installation_before_starting_core() {
+    let e = Env::new();
+    let mut command = e.cmd(&["--json"]);
+    command.env("PLUR1BUS_TOOLS_BIN", e.root.join("missing-tools"));
+    let output = command
+        .args(["setup", "--non-interactive", "--no-service", "--core-from"])
+        .arg(payload())
+        .output()
+        .unwrap();
+    let doc: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(!output.status.success(), "{doc}");
+    assert_eq!(
+        step(&doc, "runtime.core")["reason"],
+        "tools-missing",
+        "{doc}"
+    );
+    assert_eq!(step(&doc, "start")["reason"], "after-failure", "{doc}");
 }

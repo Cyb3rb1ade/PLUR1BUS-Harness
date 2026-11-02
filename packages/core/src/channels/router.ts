@@ -1,5 +1,6 @@
 import { resolveBehaviour, permitsMessage, type ResolvedBehaviour } from "./behaviour.ts";
 import { BehaviourRateGate, channelBehaviour, channelOrigin } from "./behaviour-context.ts";
+import { rewindDeniedReply } from "./rewind.ts";
 import type { Clock } from "./clock.ts";
 import type { ChannelLogger, IdentityPort, InboundMessage, OutboundMessage, SenderRef, SessionPort } from "./types.ts";
 import { supportedUpload } from "../../../media/src/index.ts";
@@ -167,10 +168,12 @@ export class ChannelRouter {
       await this.#reply(send, msg, clipReply(out.text, profile.rateLimits.maxReplyChars));
     } catch (e) {
       this.#d.log.error("channel.session.failed", { channel: msg.channel, error: this.#err(e) });
-      const messages = UPLOAD_FAILURES[this.#d.locale?.(msg) ?? "en"];
+      let locale: "de" | "en" = "en";
+      try { locale = this.#d.locale?.(msg) ?? "en"; } catch { /* Authorization refusals still need a reply. */ }
+      const messages = UPLOAD_FAILURES[locale];
       const reason = e instanceof RpcError ? e.reason : undefined;
-      const text = reason && Object.hasOwn(messages, reason) ? messages[reason as keyof typeof messages] : FAILED_TEXT;
-      await this.#reply(send, msg, clipReply(text, profile.rateLimits.maxReplyChars));
+      const uploadFailure = reason && Object.hasOwn(messages, reason) ? messages[reason as keyof typeof messages] : FAILED_TEXT;
+      await this.#reply(send, msg, clipReply(rewindDeniedReply(e, locale) ?? uploadFailure, profile.rateLimits.maxReplyChars));
     }
   }
 

@@ -34,7 +34,8 @@ async function warmUp(b: Browser): Promise<void> {
   const server = new MockHarnessServer({ distDir: getDistDir() });
   try {
     const baseUrl = await server.start();
-    const context = await b.newContext();
+    // The readiness heading below is English; do not inherit the host's browser locale.
+    const context = await b.newContext({ locale: "en-US" });
     try {
       const page = await context.newPage();
       page.setDefaultTimeout(30_000);

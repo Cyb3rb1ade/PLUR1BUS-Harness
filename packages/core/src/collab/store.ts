@@ -1,41 +1,49 @@
 import { ProjectBoardStore } from "./board.ts";
 import { chmodSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
-import { DEFAULT_COLLAB_SETTINGS } from "./defaults.ts";
 import { CollabError } from "./errors.ts";
 import { newId } from "./ids.ts";
 import { migrate, SCHEMA_VERSION } from "./migrations.ts";
 import type {
-  CollabSettings, CollabSpan, CollabTrace, DelegateTask, Project, ProjectMember, ProjectRole, SpanStatus, TaskStatus,
+  CollabSettings, CollabSpan, CollabTrace, DelegateTask, Project, ProjectMember, ProjectRole, RepoBinding, SpanStatus, TaskStatus,
 } from "./types.ts";
 import { traceparent } from "./ids.ts";
+import { legacyCollabSettings, resolveCollabLimits, type CollabLimits } from './limits.ts';
+import type { CollaborationLimitsConfig } from '@plur1bus/config-schema';
 
 export { SCHEMA_VERSION };
 
 type Row = Record<string, unknown>;
+type StoredSettings = Partial<CollabSettings> & { settingsVersion?: number };
+
+/** Owner ruling 2026-11-01: versionless JSON inherited old defaults; version 2 preserves every explicit value. */
+function normalizedSettings(raw: string): StoredSettings {
+  const settings = JSON.parse(raw) as StoredSettings;
+  if (settings.settingsVersion === 2) return settings;
+  const legacy = { maxDepth: 1, maxFanout: 3, maxPairPerTurn: 2, maxTurns: 25, timeoutMs: 300000, returnTokens: 2000 };
+  for (const key of Object.keys(legacy) as (keyof typeof legacy)[]) if (settings[key] === legacy[key]) delete settings[key];
+  return settings;
+}
+
+export interface WorktreeRow {
+  id: string; projectId: string; rootId: string; cardId: string | null;
+  gitDir: string | null; commonGitDir: string | null; dev: string | null; ino: string | null;
+  branch: string; path: string; baseSha: string; createdAt: number; removedAt: number | null;
+}
+function toWorktree(r: Row): WorktreeRow {
+  return {
+    id: r.id as string, projectId: r.project_id as string, rootId: r.root_id as string,
+    cardId: (r.card_id as string | null) ?? null, branch: r.branch as string, path: r.path as string,
+    dev: (r.device as string | null) ?? null, ino: (r.inode as string | null) ?? null,
+    gitDir: (r.git_dir as string | null) ?? null, commonGitDir: (r.common_git_dir as string | null) ?? null,
+    baseSha: r.base_sha as string, createdAt: r.created_at as number, removedAt: (r.removed_at as number | null) ?? null,
+  };
+}
 
 /** Ends task-scoped grants when a collab task reaches a terminal status (D109 §9.9). */
 export interface TaskGrantEnd { endTask(taskId: string, by?: string): number | void | Promise<number | void> }
 
-export interface StoreOptions { path: string; clock?: () => number; newId?: (prefix: string) => string; grants?: TaskGrantEnd; logWarn?: (msg: string, fields?: { err?: unknown }) => void }
-
-function mergeSettings(raw: unknown): CollabSettings {
-  const o = (raw && typeof raw === "object" ? raw : {}) as Partial<CollabSettings>;
-  return {
-    maxDepth: num(o.maxDepth, DEFAULT_COLLAB_SETTINGS.maxDepth),
-    maxFanout: num(o.maxFanout, DEFAULT_COLLAB_SETTINGS.maxFanout),
-    maxPairPerTurn: num(o.maxPairPerTurn, DEFAULT_COLLAB_SETTINGS.maxPairPerTurn),
-    maxTurns: num(o.maxTurns, DEFAULT_COLLAB_SETTINGS.maxTurns),
-    timeoutMs: num(o.timeoutMs, DEFAULT_COLLAB_SETTINGS.timeoutMs),
-    returnTokens: num(o.returnTokens, DEFAULT_COLLAB_SETTINGS.returnTokens),
-    allowCrossProject: o.allowCrossProject === true,
-    repeatWindowMs: num(o.repeatWindowMs, DEFAULT_COLLAB_SETTINGS.repeatWindowMs),
-    tokenBudget: o.tokenBudget == null ? null : num(o.tokenBudget, 0),
-  };
-}
-function num(v: unknown, d: number): number {
-  return typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : d;
-}
+export interface StoreOptions { path: string; clock?: () => number; newId?: (prefix: string) => string; grants?: TaskGrantEnd; limits?: () => CollaborationLimitsConfig; logWarn?: (msg: string, fields?: { err?: unknown }) => void }
 
 export class CollabStore {
   readonly board: ProjectBoardStore;
@@ -44,12 +52,14 @@ export class CollabStore {
   readonly #newId: (prefix: string) => string;
   readonly #grants: TaskGrantEnd | undefined;
   readonly #logWarn: StoreOptions["logWarn"];
+  readonly #limits: StoreOptions['limits'];
 
   constructor(o: StoreOptions) {
     this.#clock = o.clock ?? Date.now;
     this.#newId = o.newId ?? newId;
     this.#grants = o.grants;
     this.#logWarn = o.logWarn;
+    this.#limits = o.limits;
     this.#db = new DatabaseSync(o.path);
     try {
       this.#db.exec("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");
@@ -84,11 +94,10 @@ export class CollabStore {
     if (!i.owner) throw new CollabError("invalid", "owner is required", { reason: "owner" });
     const now = this.#clock();
     const id = i.id ?? this.#newId("prj");
-    const settings = mergeSettings(i.settings ?? {});
     return this.#tx(() => {
       this.#run(
         "INSERT INTO projects (id, name, owner, settings, created_at, updated_at) VALUES (?,?,?,?,?,?)",
-        id, name, i.owner, JSON.stringify(settings), now, now,
+        id, name, i.owner, JSON.stringify({ ...i.settings, settingsVersion: 2 }), now, now,
       );
       this.#run("INSERT INTO project_members (project_id, user_id, role, added_at) VALUES (?,?,?,?)", id, i.owner, "lead", now);
       return this.#project(id)!;
@@ -101,12 +110,33 @@ export class CollabStore {
       const p = this.#project(id);
       if (!p) throw new CollabError("not-found", "project not found");
       if (p.archivedAt !== null) throw new CollabError("archived", `project ${id} is archived`, { reason: "archived" });
-      this.#run("UPDATE projects SET name = ?, updated_at = ? WHERE id = ?", name.trim(), this.#clock(), id);
+      this.#run("UPDATE projects SET name = ?, updated_at = ?, settings = ? WHERE id = ?", name.trim(), this.#clock(), this.#settingsJson(id), id);
       return this.#project(id)!;
     });
   }
 
   getProject(id: string): Project | null { return this.#project(id); }
+
+  /** Resolve against raw overrides, so a consult default does not cap a code-large delegation at 25 rounds. */
+  limits(id: string): CollabLimits {
+    const row = this.#get('SELECT settings FROM projects WHERE id = ?', id);
+    if (!row) throw new CollabError('not-found', 'project not found');
+    return resolveCollabLimits(this.#limits?.(), normalizedSettings(row.settings as string));
+  }
+
+  /** Store an intentional settings change and the normalization marker atomically; no RPC surface is added. */
+  setSettings(id: string, changes: Partial<CollabSettings>): Project {
+    return this.#tx(() => {
+      this.#live(id);
+      this.#run('UPDATE projects SET settings = ?, updated_at = ? WHERE id = ?', this.#settingsJson(id, changes), this.#clock(), id);
+      return this.#project(id)!;
+    });
+  }
+
+  #settingsJson(id: string, changes: Partial<CollabSettings> = {}): string {
+    const row = this.#get('SELECT settings FROM projects WHERE id = ?', id)!;
+    return JSON.stringify({ ...normalizedSettings(row.settings as string), ...changes, settingsVersion: 2 });
+  }
 
   listProjects(): Project[] {
     return this.#all("SELECT id FROM projects ORDER BY created_at, id").map((r) => this.#project(r.id as string)!);
@@ -118,7 +148,7 @@ export class CollabStore {
       const p = this.#project(id);
       if (!p) throw new CollabError("not-found", `project ${id} not found`, { reason: "project" });
       if (p.archivedAt !== null) return p;
-      this.#run("UPDATE projects SET archived_at = ?, updated_at = ? WHERE id = ?", now, now, id);
+      this.#run("UPDATE projects SET archived_at = ?, updated_at = ?, settings = ? WHERE id = ?", now, now, this.#settingsJson(id), id);
       return this.#project(id)!;
     });
   }
@@ -173,7 +203,7 @@ export class CollabStore {
     });
   }
 
-  #touch(id: string, now: number): void { this.#run("UPDATE projects SET updated_at = ? WHERE id = ?", now, id); }
+  #touch(id: string, now: number): void { this.#run("UPDATE projects SET updated_at = ?, settings = ? WHERE id = ?", now, this.#settingsJson(id), id); }
 
   #live(id: string): Project {
     const p = this.#project(id);
@@ -189,12 +219,72 @@ export class CollabStore {
       .map((m): ProjectMember => ({ userId: m.user_id as string, role: m.role as ProjectRole }));
     const agents = this.#all("SELECT agent_id FROM project_agents WHERE project_id = ? ORDER BY agent_id", id)
       .map((a) => a.agent_id as string);
+    const repoPath = r.repo_path as string | null;
+    const baseBranch = r.base_branch as string | null;
     return {
       id: r.id as string, name: r.name as string, owner: r.owner as string, members, agents,
-      settings: mergeSettings(JSON.parse(r.settings as string)),
+      settings: legacyCollabSettings(resolveCollabLimits(this.#limits?.(), normalizedSettings(r.settings as string))),
       createdAt: r.created_at as number, updatedAt: r.updated_at as number,
       archivedAt: (r.archived_at as number | null) ?? null,
+      ...(repoPath && baseBranch ? { repo: { repoPath, baseBranch } satisfies RepoBinding } : {}),
     };
+  }
+
+  /** Persists a binding already checked by `assertRepoBinding`. */
+  setRepo(id: string, repo: RepoBinding): Project {
+    return this.#tx(() => {
+      this.#live(id);
+      if (this.#get("SELECT 1 FROM project_worktrees WHERE project_id = ? AND removed_at IS NULL", id))
+        throw new CollabError("conflict", "remove live worktrees before rebinding", { reason: "worktree-live" });
+      this.#run("UPDATE projects SET repo_path = ?, base_branch = ?, updated_at = ? WHERE id = ?", repo.repoPath, repo.baseBranch, this.#clock(), id);
+      return this.#project(id)!;
+    });
+  }
+
+  clearRepo(id: string): Project {
+    return this.#tx(() => {
+      this.#live(id);
+      if (this.liveWorktree(id, null) || this.#get("SELECT 1 AS n FROM project_worktrees WHERE project_id = ? AND removed_at IS NULL", id)) {
+        throw new CollabError("conflict", "remove the worktree before unbinding the repository", { reason: "worktree-live" });
+      }
+      this.#run("UPDATE projects SET repo_path = NULL, base_branch = NULL, updated_at = ? WHERE id = ?", this.#clock(), id);
+      return this.#project(id)!;
+    });
+  }
+
+  insertWorktree(i: { projectId: string; rootId: string; cardId: string | null; branch: string; path: string; baseSha: string; gitDir?: string; commonGitDir?: string; dev?: string; ino?: string }): WorktreeRow {
+    const id = this.#newId("wt");
+    const now = this.#clock();
+    this.#run(
+      "INSERT INTO project_worktrees (id, project_id, root_id, card_id, branch, path, base_sha, created_at, git_dir, common_git_dir, device, inode) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+      id, i.projectId, i.rootId, i.cardId, i.branch, i.path, i.baseSha, now, i.gitDir ?? null, i.commonGitDir ?? null, i.dev ?? null, i.ino ?? null,
+    );
+    return this.liveWorktree(i.projectId, i.cardId)!;
+  }
+
+  liveWorktree(projectId: string, cardId: string | null): WorktreeRow | null {
+    const r = cardId
+      ? this.#get("SELECT * FROM project_worktrees WHERE project_id = ? AND card_id = ? AND removed_at IS NULL", projectId, cardId)
+      : this.#get("SELECT * FROM project_worktrees WHERE project_id = ? AND card_id IS NULL AND removed_at IS NULL", projectId);
+    return r ? toWorktree(r) : null;
+  }
+
+  /** Latest provisioner-owned record, including removed checkouts whose Git branch is retained. */
+  previousWorktree(projectId: string, cardId: string | null): WorktreeRow | null {
+    const row = this.#get("SELECT * FROM project_worktrees WHERE project_id = ? AND card_id IS ? ORDER BY rowid DESC LIMIT 1", projectId, cardId);
+    return row ? toWorktree(row) : null;
+  }
+
+  /** Trusted metadata lookup for coding verification; never reads the checkout's .git pointer. */
+  worktreeAt(path: string): WorktreeRow | null {
+    const row = this.#get("SELECT * FROM project_worktrees WHERE path = ? AND removed_at IS NULL", path);
+    return row ? toWorktree(row) : null;
+  }
+
+  markWorktreeRemoved(projectId: string, cardId: string | null): void {
+    const now = this.#clock();
+    if (cardId) this.#run("UPDATE project_worktrees SET removed_at = ? WHERE project_id = ? AND card_id = ? AND removed_at IS NULL", now, projectId, cardId);
+    else this.#run("UPDATE project_worktrees SET removed_at = ? WHERE project_id = ? AND card_id IS NULL AND removed_at IS NULL", now, projectId);
   }
 
   // ---- artifacts -------------------------------------------------------------------------------
@@ -243,12 +333,12 @@ export class CollabStore {
 
   finishSpan(spanId: string, patch: {
     status: SpanStatus; outputPreview?: string; error?: string | null; guardrail?: string | null;
-    inputTokens?: number; outputTokens?: number; targetKind?: import("./types.ts").Provenance["targetKind"];
+    inputTokens?: number; outputTokens?: number; targetKind?: import("./types.ts").Provenance["targetKind"]; origin?: "a2a";
   }): void {
     this.#run(
-      "UPDATE spans SET ended_at=?, status=?, output_preview=?, error=?, guardrail=?, input_tokens=?, output_tokens=?, target_kind=? WHERE span_id=?",
+      "UPDATE spans SET ended_at=?, status=?, output_preview=?, error=?, guardrail=?, input_tokens=?, output_tokens=?, target_kind=?, origin=? WHERE span_id=?",
       this.#clock(), patch.status, patch.outputPreview ?? "", patch.error ?? null, patch.guardrail ?? null,
-      patch.inputTokens ?? 0, patch.outputTokens ?? 0, patch.targetKind ?? null, spanId,
+      patch.inputTokens ?? 0, patch.outputTokens ?? 0, patch.targetKind ?? null, patch.origin ?? null, spanId,
     );
   }
 
@@ -298,15 +388,15 @@ export class CollabStore {
 
   updateTask(id: string, patch: {
     status: TaskStatus; result?: string | null; truncated?: boolean; artifactId?: string | null;
-    error?: string | null; inputTokens?: number; outputTokens?: number; targetKind?: import("./types.ts").Provenance["targetKind"];
+    error?: string | null; inputTokens?: number; outputTokens?: number; targetKind?: import("./types.ts").Provenance["targetKind"]; origin?: "a2a";
   }): DelegateTask {
     const now = this.#clock();
     const started = patch.status === "running" ? now : undefined;
     this.#run(
-      `UPDATE tasks SET status=?, result_capped=?, truncated=?, result_artifact_id=?, error=?, ended_at=?, input_tokens=?, output_tokens=?, target_kind=?
+      `UPDATE tasks SET status=?, result_capped=?, truncated=?, result_artifact_id=?, error=?, ended_at=?, input_tokens=?, output_tokens=?, target_kind=?, origin=?
        ${started !== undefined ? ", started_at=?" : ""} WHERE id=?`,
       patch.status, patch.result ?? null, patch.truncated === true ? 1 : 0, patch.artifactId ?? null, patch.error ?? null,
-      patch.status === "running" ? null : now, patch.inputTokens ?? null, patch.outputTokens ?? null, patch.targetKind ?? null,
+      patch.status === "running" ? null : now, patch.inputTokens ?? null, patch.outputTokens ?? null, patch.targetKind ?? null, patch.origin ?? null,
       ...(started !== undefined ? [started, id] : [id]),
     );
     if (patch.status === "succeeded" || patch.status === "failed" || patch.status === "cancelled") this.#endTaskGrants(id);
@@ -349,6 +439,7 @@ export class CollabStore {
 
 function toSpan(r: Row): CollabSpan {
   return {
+    ...(r.origin === "a2a" ? { origin: "a2a" as const } : {}),
     ...(r.target_kind ? { targetKind: r.target_kind as import("./types.ts").Provenance["targetKind"] } : {}),
     ...(r.session_id ? { sessionId: r.session_id as string } : {}),
     spanId: r.span_id as string, traceId: r.trace_id as string, parentSpanId: (r.parent_span_id as string | null) ?? null,
@@ -363,6 +454,7 @@ function toSpan(r: Row): CollabSpan {
 function toTask(r: Row): DelegateTask {
   const artifactId = (r.result_artifact_id as string | null) ?? null;
   return {
+    ...(r.origin === "a2a" ? { origin: "a2a" as const } : {}),
     ...(r.target_kind ? { targetKind: r.target_kind as import("./types.ts").Provenance["targetKind"] } : {}),
     id: r.id as string, projectId: r.project_id as string, traceId: r.trace_id as string, spanId: r.span_id as string,
     parentTaskId: (r.parent_task_id as string | null) ?? null, fromAgent: r.from_agent as string, toAgent: r.to_agent as string,

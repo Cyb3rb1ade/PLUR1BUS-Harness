@@ -424,6 +424,17 @@ pub(super) fn plan_changes(
         }
     }
 
+    if let Some(t) = install::targets::Target::current() {
+        if let Some(asset) = native.tools.get(t.id()) {
+            if manifest.tools.as_ref().and_then(|u| u.sha256.as_deref())
+                != Some(asset.sha256.as_str())
+            {
+                changes.push(json!({ "unit": "tools", "from": manifest.tools.as_ref().map(|u| &u.version), "to": head.version }));
+                restart_core = true;
+            }
+        }
+    }
+
     let core_changed = native.core.version != manifest.core.version
         || native.core.contract != manifest.core.contract
         || native.core.rpc != manifest.core.rpc;

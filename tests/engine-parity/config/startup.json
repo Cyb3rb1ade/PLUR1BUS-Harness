@@ -1,0 +1,3494 @@
+{
+  "version": 1,
+  "source": "packages/core/src/engine-config.ts",
+  "cases": [
+    {
+      "name": "missing-config",
+      "expected": {
+        "ok": true,
+        "config": {
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "embedding": {
+            "provider": "local-transformers",
+            "local": {
+              "model": "intfloat/multilingual-e5-small",
+              "dimensions": 384,
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "default-config",
+      "config": {
+        "schemaVersion": 1
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "embedding": {
+            "provider": "local-transformers",
+            "local": {
+              "model": "intfloat/multilingual-e5-small",
+              "dimensions": 384,
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "integer-float-grace",
+      "rawConfig": "{\"schemaVersion\":1,\"supervisor\":{\"graceMs\":17000.0}}",
+      "expected": {
+        "ok": true,
+        "config": {
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "embedding": {
+            "provider": "local-transformers",
+            "local": {
+              "model": "intfloat/multilingual-e5-small",
+              "dimensions": 384,
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 17000
+      }
+    },
+    {
+      "name": "host-owned-paths-and-budgets",
+      "config": {
+        "schemaVersion": 1,
+        "core": {
+          "recall": {
+            "softBudgetMs": 123,
+            "hardBudgetMs": 456,
+            "capChars": 1789
+          }
+        },
+        "supervisor": {
+          "graceMs": 17000
+        },
+        "engine": {
+          "implementation": "rust",
+          "baseDbPath": "/ignored",
+          "baseDbPathOverride": "  ",
+          "autoRecall": true,
+          "autoCapture": true,
+          "media": {
+            "enabled": true
+          },
+          "recall": {
+            "softBudgetMs": 999,
+            "globalInjectMaxChars": 999,
+            "fullTextMaxChars": 2000,
+            "decisionTrace": {
+              "enabled": false
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "recall": {
+            "softBudgetMs": 123,
+            "globalInjectMaxChars": 1789,
+            "fullTextMaxChars": 2000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "embedding": {
+            "provider": "local-transformers",
+            "local": {
+              "model": "intfloat/multilingual-e5-small",
+              "dimensions": 384,
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          }
+        },
+        "graceMs": 17000
+      }
+    },
+    {
+      "name": "absolute-database-override",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "baseDbPathOverride": "${HOME}/explicit-db"
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "baseDbPath": "${HOME}/explicit-db",
+          "autoRecall": false,
+          "autoCapture": false,
+          "embedding": {
+            "provider": "local-transformers",
+            "local": {
+              "model": "intfloat/multilingual-e5-small",
+              "dimensions": 384,
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "local-cache-override",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "cacheDir": "${HOME}/explicit-models"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "local": {
+              "model": "intfloat/multilingual-e5-small",
+              "dimensions": 384,
+              "cacheDir": "${HOME}/explicit-models"
+            },
+            "provider": "local-transformers"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "selected-local-model-does-not-inherit-e5-width",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "google/embeddinggemma-2"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "local": {
+              "cacheDir": "${HOME}/models",
+              "model": "google/embeddinggemma-2"
+            },
+            "provider": "local-transformers"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "disabled-reranker-still-host-enabled",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "reranker": {
+            "enabled": false
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "embedding": {
+            "provider": "local-transformers",
+            "local": {
+              "model": "intfloat/multilingual-e5-small",
+              "dimensions": 384,
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "non-object-engine-sections",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": "ignored",
+          "reranker": [],
+          "recall": {
+            "decisionTrace": "ignored"
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "provider": "local-transformers",
+            "local": {
+              "model": "intfloat/multilingual-e5-small",
+              "dimensions": 384,
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "decisionTrace": {
+              "enabled": true
+            },
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "config-path-is-directory",
+      "configDirectory": true,
+      "expected": {
+        "ok": false,
+        "code": "E_CONFIG_INVALID",
+        "reason": null
+      }
+    },
+    {
+      "name": "invalid-json",
+      "rawConfig": "{private-fixture-invalid",
+      "expected": {
+        "ok": false,
+        "code": "E_CONFIG_INVALID",
+        "reason": null
+      }
+    },
+    {
+      "name": "invalid-harness-budget",
+      "config": {
+        "schemaVersion": 1,
+        "core": {
+          "recall": {
+            "softBudgetMs": 700,
+            "hardBudgetMs": 600
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_CONFIG_INVALID",
+        "reason": null
+      }
+    },
+    {
+      "name": "invalid-engine-option",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "recall": {
+            "unknownFixtureKey": true
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_CONFIG_INVALID",
+        "reason": null
+      }
+    },
+    {
+      "name": "memory-embedding-is-privacy-metadata",
+      "config": {
+        "schemaVersion": 1,
+        "memory": {
+          "embedding": {
+            "provider": "remote"
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_CONFIG_INVALID",
+        "reason": null
+      }
+    },
+    {
+      "name": "prototype-key-is-refused",
+      "rawConfig": "{\"schemaVersion\":1,\"engine\":{\"__proto__\":{\"fixture\":true}}}",
+      "expected": {
+        "ok": false,
+        "code": "E_CONFIG_INVALID",
+        "reason": null
+      }
+    },
+    {
+      "name": "openai-default-endpoint",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "openai-secret-reference",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyRef": "models/fixture"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyRef": "models/fixture"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "remote-local-settings-removed",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "local": {
+              "model": "ignored"
+            }
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "missing-privacy-ack",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "embedding": {}
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "privacy-acknowledgment-required"
+      }
+    },
+    {
+      "name": "wrong-provider-privacy-ack",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "different",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "privacy-acknowledgment-mismatch"
+      }
+    },
+    {
+      "name": "wrong-endpoint-privacy-ack",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner",
+              "endpoint": "https://other.invalid/v1"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "privacy-acknowledgment-mismatch"
+      }
+    },
+    {
+      "name": "blank-actor-privacy-ack",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "   "
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "privacy-acknowledgment-invalid"
+      }
+    },
+    {
+      "name": "inline-secret-refused",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "apiKey": "fixture-inline-secret"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_INVALID_PARAMS",
+        "reason": "secret-in-config"
+      }
+    },
+    {
+      "name": "missing-model",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_INVALID_PARAMS",
+        "reason": "engine-provider-config-incomplete"
+      }
+    },
+    {
+      "name": "missing-dimensions",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_INVALID_PARAMS",
+        "reason": "engine-provider-config-incomplete"
+      }
+    },
+    {
+      "name": "fractional-dimensions",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 3.5,
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_INVALID_PARAMS",
+        "reason": "engine-provider-config-incomplete"
+      }
+    },
+    {
+      "name": "missing-key-reference",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_INVALID_PARAMS",
+        "reason": "engine-provider-config-incomplete"
+      }
+    },
+    {
+      "name": "wrong-url-spelling",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "baseURL": "https://fixture.invalid/v1"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_INVALID_PARAMS",
+        "reason": "engine-provider-config-incomplete"
+      }
+    },
+    {
+      "name": "credential-in-url",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "baseUrl": "https://fixture:fixture@example.invalid/v1"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_INVALID_PARAMS",
+        "reason": "secret-in-config"
+      }
+    },
+    {
+      "name": "remote-fallback-refused",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "fallback": {
+              "model": "another-space"
+            }
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_INVALID_PARAMS",
+        "reason": "embedding-fallback-refused"
+      }
+    },
+    {
+      "name": "null-remote-fallback",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "fallback": null
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_CONFIG_INVALID",
+        "reason": null
+      }
+    },
+    {
+      "name": "cloud-refused-by-installation",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        },
+        "privacy": {
+          "localOnly": true
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "local-only"
+      }
+    },
+    {
+      "name": "cloud-refused-by-any-agent",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        },
+        "agents": {
+          "fixture": {
+            "privacy": {
+              "localOnly": true
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "local-only-shared-engine"
+      }
+    },
+    {
+      "name": "agent-cannot-lift-shared-installation-policy",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        },
+        "privacy": {
+          "localOnly": true
+        },
+        "agents": {
+          "fixture": {
+            "privacy": {
+              "localOnly": false
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "local-only"
+      }
+    },
+    {
+      "name": "engine-feature-cloud-refused",
+      "config": {
+        "schemaVersion": 1,
+        "privacy": {
+          "localOnly": true
+        },
+        "engine": {
+          "merging": {
+            "baseUrl": "https://llm.invalid/v1",
+            "model": "fixture"
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "local-only"
+      }
+    },
+    {
+      "name": "engine-feature-key-without-endpoint-refused",
+      "config": {
+        "schemaVersion": 1,
+        "privacy": {
+          "localOnly": true
+        },
+        "engine": {
+          "merging": {
+            "apiKeyEnv": "FIXTURE_KEY",
+            "model": "fixture"
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "local-only"
+      }
+    },
+    {
+      "name": "engine-feature-loopback-allowed",
+      "config": {
+        "schemaVersion": 1,
+        "privacy": {
+          "localOnly": true
+        },
+        "engine": {
+          "merging": {
+            "baseUrl": "http://localhost:8080/v1",
+            "model": "fixture"
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "merging": {
+            "baseUrl": "http://localhost:8080/v1",
+            "model": "fixture"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "embedding": {
+            "provider": "local-transformers",
+            "local": {
+              "model": "intfloat/multilingual-e5-small",
+              "dimensions": 384,
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "invalid-provider-id",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "private provider",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_INVALID_PARAMS",
+        "reason": "engine-provider-invalid"
+      }
+    },
+    {
+      "name": "empty-ledger-with-default-model",
+      "config": {
+        "schemaVersion": 1
+      },
+      "ledger": {
+        "kind": "rows"
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "embedding": {
+            "provider": "local-transformers",
+            "local": {
+              "model": "intfloat/multilingual-e5-small",
+              "dimensions": 384,
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "corrupt-license-ledger",
+      "config": {
+        "schemaVersion": 1
+      },
+      "ledger": {
+        "kind": "corrupt"
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_CONFIG_INVALID",
+        "reason": "licence-ledger"
+      }
+    },
+    {
+      "name": "missing-license-ledger-table",
+      "config": {
+        "schemaVersion": 1
+      },
+      "ledger": {
+        "kind": "missing-table"
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_CONFIG_INVALID",
+        "reason": "licence-ledger"
+      }
+    },
+    {
+      "name": "ledger-path-is-directory",
+      "config": {
+        "schemaVersion": 1
+      },
+      "ledger": {
+        "kind": "directory"
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_CONFIG_INVALID",
+        "reason": "licence-ledger"
+      }
+    },
+    {
+      "name": "ledger-missing-receipt-columns-is-irrelevant-with-default-model",
+      "config": {
+        "schemaVersion": 1
+      },
+      "ledger": {
+        "kind": "unrelated-table"
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "embedding": {
+            "provider": "local-transformers",
+            "local": {
+              "model": "intfloat/multilingual-e5-small",
+              "dimensions": 384,
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "ledger-missing-receipt-columns-does-not-grant-license",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-embeddings-v3"
+            }
+          }
+        },
+        "embedding": {
+          "useClass": "research",
+          "acceptedNcLicence": true
+        }
+      },
+      "ledger": {
+        "kind": "unrelated-table"
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "model-licence-required"
+      }
+    },
+    {
+      "name": "conditional-model-missing-receipt",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-embeddings-v3"
+            }
+          }
+        },
+        "embedding": {
+          "useClass": "research",
+          "acceptedNcLicence": true
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "model-licence-required"
+      }
+    },
+    {
+      "name": "conditional-model-exact-receipt",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-embeddings-v3"
+            }
+          }
+        },
+        "embedding": {
+          "useClass": "research",
+          "acceptedNcLicence": true
+        }
+      },
+      "ledger": {
+        "kind": "rows",
+        "rows": [
+          {
+            "who": "fixture-owner",
+            "at": "2026-10-18T09:00:00Z",
+            "source": "memory",
+            "model": "jinaai/jina-embeddings-v3",
+            "licence": "CC BY-NC-4.0",
+            "revision": "68ed94909d564380f954be27ae2e133214c1adc9"
+          }
+        ]
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "local": {
+              "cacheDir": "${HOME}/models",
+              "model": "jinaai/jina-embeddings-v3"
+            },
+            "provider": "local-transformers"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          },
+          "modelPreparation": {
+            "profile": "jina-v3-multilingual-1024",
+            "acceptNonCommercialLicense": true
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "conditional-model-supported-preparation-width",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-embeddings-v3",
+              "dimensions": 32
+            }
+          }
+        },
+        "embedding": {
+          "useClass": "research",
+          "acceptedNcLicence": true
+        }
+      },
+      "ledger": {
+        "kind": "rows",
+        "rows": [
+          {
+            "who": "fixture-owner",
+            "at": "2026-10-18T09:00:00Z",
+            "source": "memory",
+            "model": "jinaai/jina-embeddings-v3",
+            "licence": "CC BY-NC-4.0",
+            "revision": "68ed94909d564380f954be27ae2e133214c1adc9"
+          }
+        ]
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "local": {
+              "cacheDir": "${HOME}/models",
+              "model": "jinaai/jina-embeddings-v3",
+              "dimensions": 32
+            },
+            "provider": "local-transformers"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          },
+          "modelPreparation": {
+            "profile": "jina-v3-multilingual-32",
+            "acceptNonCommercialLicense": true
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "conditional-model-unlisted-preparation-width",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-embeddings-v3",
+              "dimensions": 33
+            }
+          }
+        },
+        "embedding": {
+          "useClass": "research",
+          "acceptedNcLicence": true
+        }
+      },
+      "ledger": {
+        "kind": "rows",
+        "rows": [
+          {
+            "who": "fixture-owner",
+            "at": "2026-10-18T09:00:00Z",
+            "source": "memory",
+            "model": "jinaai/jina-embeddings-v3",
+            "licence": "CC BY-NC-4.0",
+            "revision": "68ed94909d564380f954be27ae2e133214c1adc9"
+          }
+        ]
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "local": {
+              "cacheDir": "${HOME}/models",
+              "model": "jinaai/jina-embeddings-v3",
+              "dimensions": 33
+            },
+            "provider": "local-transformers"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "conditional-model-wrong-model",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-embeddings-v3"
+            }
+          }
+        },
+        "embedding": {
+          "useClass": "research",
+          "acceptedNcLicence": true
+        }
+      },
+      "ledger": {
+        "kind": "rows",
+        "rows": [
+          {
+            "who": "fixture-owner",
+            "at": "2026-10-18T09:00:00Z",
+            "source": "memory",
+            "model": "fixture-other-model",
+            "licence": "CC BY-NC-4.0",
+            "revision": "68ed94909d564380f954be27ae2e133214c1adc9"
+          }
+        ]
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "model-licence-required"
+      }
+    },
+    {
+      "name": "conditional-model-wrong-license",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-embeddings-v3"
+            }
+          }
+        },
+        "embedding": {
+          "useClass": "research",
+          "acceptedNcLicence": true
+        }
+      },
+      "ledger": {
+        "kind": "rows",
+        "rows": [
+          {
+            "who": "fixture-owner",
+            "at": "2026-10-18T09:00:00Z",
+            "source": "memory",
+            "model": "jinaai/jina-embeddings-v3",
+            "licence": "fixture-other-license",
+            "revision": "68ed94909d564380f954be27ae2e133214c1adc9"
+          }
+        ]
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "model-licence-required"
+      }
+    },
+    {
+      "name": "conditional-model-wrong-revision",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-embeddings-v3"
+            }
+          }
+        },
+        "embedding": {
+          "useClass": "research",
+          "acceptedNcLicence": true
+        }
+      },
+      "ledger": {
+        "kind": "rows",
+        "rows": [
+          {
+            "who": "fixture-owner",
+            "at": "2026-10-18T09:00:00Z",
+            "source": "memory",
+            "model": "jinaai/jina-embeddings-v3",
+            "licence": "CC BY-NC-4.0",
+            "revision": "fixture-other-revision"
+          }
+        ]
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "model-licence-required"
+      }
+    },
+    {
+      "name": "conditional-model-configured-wrong-revision",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-embeddings-v3",
+              "revision": "fixture-other-revision"
+            }
+          }
+        },
+        "embedding": {
+          "useClass": "research",
+          "acceptedNcLicence": true
+        }
+      },
+      "ledger": {
+        "kind": "rows",
+        "rows": [
+          {
+            "who": "fixture-owner",
+            "at": "2026-10-18T09:00:00Z",
+            "source": "memory",
+            "model": "jinaai/jina-embeddings-v3",
+            "licence": "CC BY-NC-4.0",
+            "revision": "68ed94909d564380f954be27ae2e133214c1adc9"
+          }
+        ]
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "model-licence-required"
+      }
+    },
+    {
+      "name": "receipt-time-and-actor-have-no-expiry-rule",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-embeddings-v3"
+            }
+          }
+        },
+        "embedding": {
+          "useClass": "research",
+          "acceptedNcLicence": true
+        }
+      },
+      "ledger": {
+        "kind": "rows",
+        "rows": [
+          {
+            "who": "",
+            "at": "invalid-old-fixture-time",
+            "source": "voice",
+            "model": "jinaai/jina-embeddings-v3",
+            "licence": "CC BY-NC-4.0",
+            "revision": "68ed94909d564380f954be27ae2e133214c1adc9"
+          }
+        ]
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "local": {
+              "cacheDir": "${HOME}/models",
+              "model": "jinaai/jina-embeddings-v3"
+            },
+            "provider": "local-transformers"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          },
+          "modelPreparation": {
+            "profile": "jina-v3-multilingual-1024",
+            "acceptNonCommercialLicense": true
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "irrelevant-null-receipt",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-embeddings-v3"
+            }
+          }
+        },
+        "embedding": {
+          "useClass": "research",
+          "acceptedNcLicence": true
+        }
+      },
+      "ledger": {
+        "kind": "rows",
+        "rows": [
+          {
+            "who": "fixture-owner",
+            "at": "2026-10-18T09:00:00Z",
+            "source": "memory",
+            "model": null,
+            "licence": null,
+            "revision": null
+          },
+          {
+            "who": "fixture-owner",
+            "at": "2026-10-18T09:00:00Z",
+            "source": "memory",
+            "model": "jinaai/jina-embeddings-v3",
+            "licence": "CC BY-NC-4.0",
+            "revision": "68ed94909d564380f954be27ae2e133214c1adc9"
+          }
+        ]
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "local": {
+              "cacheDir": "${HOME}/models",
+              "model": "jinaai/jina-embeddings-v3"
+            },
+            "provider": "local-transformers"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          },
+          "modelPreparation": {
+            "profile": "jina-v3-multilingual-1024",
+            "acceptNonCommercialLicense": true
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "null-receipt-does-not-grant-license",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-embeddings-v3"
+            }
+          }
+        },
+        "embedding": {
+          "useClass": "research",
+          "acceptedNcLicence": true
+        }
+      },
+      "ledger": {
+        "kind": "rows",
+        "rows": [
+          {
+            "who": "fixture-owner",
+            "at": "2026-10-18T09:00:00Z",
+            "source": "memory",
+            "model": "jinaai/jina-embeddings-v3",
+            "licence": "CC BY-NC-4.0",
+            "revision": null
+          }
+        ]
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "model-licence-required"
+      }
+    },
+    {
+      "name": "non-string-receipt-does-not-grant-license",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-embeddings-v3"
+            }
+          }
+        },
+        "embedding": {
+          "useClass": "research",
+          "acceptedNcLicence": true
+        }
+      },
+      "ledger": {
+        "kind": "rows",
+        "rows": [
+          {
+            "who": "fixture-owner",
+            "at": "2026-10-18T09:00:00Z",
+            "source": "memory",
+            "model": "jinaai/jina-embeddings-v3",
+            "licence": "CC BY-NC-4.0",
+            "revision": 123
+          }
+        ]
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "model-licence-required"
+      }
+    },
+    {
+      "name": "conditional-model-alias-refused",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-embeddings-v5-text-nano"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_INVALID_PARAMS",
+        "reason": null
+      }
+    },
+    {
+      "name": "conditional-model-no-automatic-license-acceptance",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-embeddings-v3"
+            }
+          }
+        },
+        "embedding": {
+          "useClass": "general",
+          "acceptedNcLicence": false
+        }
+      },
+      "ledger": {
+        "kind": "rows",
+        "rows": [
+          {
+            "who": "fixture-owner",
+            "at": "2026-10-18T09:00:00Z",
+            "source": "memory",
+            "model": "jinaai/jina-embeddings-v3",
+            "licence": "CC BY-NC-4.0",
+            "revision": "68ed94909d564380f954be27ae2e133214c1adc9"
+          }
+        ]
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "local": {
+              "cacheDir": "${HOME}/models",
+              "model": "jinaai/jina-embeddings-v3"
+            },
+            "provider": "local-transformers"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "commercial-class-no-automatic-license-acceptance",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-embeddings-v3"
+            }
+          }
+        },
+        "embedding": {
+          "useClass": "commercial",
+          "acceptedNcLicence": true
+        }
+      },
+      "ledger": {
+        "kind": "rows",
+        "rows": [
+          {
+            "who": "fixture-owner",
+            "at": "2026-10-18T09:00:00Z",
+            "source": "memory",
+            "model": "jinaai/jina-embeddings-v3",
+            "licence": "CC BY-NC-4.0",
+            "revision": "68ed94909d564380f954be27ae2e133214c1adc9"
+          }
+        ]
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "local": {
+              "cacheDir": "${HOME}/models",
+              "model": "jinaai/jina-embeddings-v3"
+            },
+            "provider": "local-transformers"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "explicit-model-preparation-is-preserved",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-embeddings-v3"
+            }
+          },
+          "modelPreparation": {
+            "profile": "e5-multilingual-384"
+          }
+        },
+        "embedding": {
+          "useClass": "research",
+          "acceptedNcLicence": true
+        }
+      },
+      "ledger": {
+        "kind": "rows",
+        "rows": [
+          {
+            "who": "fixture-owner",
+            "at": "2026-10-18T09:00:00Z",
+            "source": "memory",
+            "model": "jinaai/jina-embeddings-v3",
+            "licence": "CC BY-NC-4.0",
+            "revision": "68ed94909d564380f954be27ae2e133214c1adc9"
+          }
+        ]
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "local": {
+              "cacheDir": "${HOME}/models",
+              "model": "jinaai/jina-embeddings-v3"
+            },
+            "provider": "local-transformers"
+          },
+          "modelPreparation": {
+            "profile": "e5-multilingual-384"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "conditional-license-list:jinaai/jina-embeddings-v3",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-embeddings-v3"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "model-licence-required"
+      }
+    },
+    {
+      "name": "conditional-license-list:jinaai/jina-embeddings-v5-text-nano",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-embeddings-v5-text-nano"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_INVALID_PARAMS",
+        "reason": null
+      }
+    },
+    {
+      "name": "conditional-license-list:jinaai/jina-embeddings-v5-text-nano-retrieval",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-embeddings-v5-text-nano-retrieval"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "model-licence-required"
+      }
+    },
+    {
+      "name": "conditional-license-list:jinaai/jina-reranker-v2-base-multilingual",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "local": {
+              "model": "jinaai/jina-reranker-v2-base-multilingual"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "model-licence-required"
+      }
+    },
+    {
+      "name": "ack-time:2026-01-01T00:00:00Z",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-01-01T00:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "ack-time:2026-01-01T00:00:00z",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-01-01T00:00:00z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "ack-time:2026-01-01t00:00:00Z",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-01-01t00:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "privacy-acknowledgment-invalid"
+      }
+    },
+    {
+      "name": "ack-time:2026-01-01T00:00:00+00",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-01-01T00:00:00+00",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "privacy-acknowledgment-invalid"
+      }
+    },
+    {
+      "name": "ack-time:2026-01-01T00:00:00+0000",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-01-01T00:00:00+0000",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "ack-time:2026-01-01T00:00:00.123456+00:00",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-01-01T00:00:00.123456+00:00",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "ack-time:2026-10-18T23:59:60Z",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T23:59:60Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "privacy-acknowledgment-invalid"
+      }
+    },
+    {
+      "name": "local-endpoint:http://localhost:8080/v1",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "baseUrl": "http://localhost:8080/v1"
+          }
+        },
+        "memory": {
+          "embedding": {}
+        },
+        "privacy": {
+          "localOnly": true
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "baseUrl": "http://localhost:8080/v1"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "local-endpoint:http://127.2.3.4:8080/v1",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "baseUrl": "http://127.2.3.4:8080/v1"
+          }
+        },
+        "memory": {
+          "embedding": {}
+        },
+        "privacy": {
+          "localOnly": true
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "baseUrl": "http://127.2.3.4:8080/v1"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "local-endpoint:http://[::1]:8080/v1",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "baseUrl": "http://[::1]:8080/v1"
+          }
+        },
+        "memory": {
+          "embedding": {}
+        },
+        "privacy": {
+          "localOnly": true
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "baseUrl": "http://[::1]:8080/v1"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "local-endpoint:http://192.168.1.20:8080/v1",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "baseUrl": "http://192.168.1.20:8080/v1"
+          }
+        },
+        "memory": {
+          "embedding": {}
+        },
+        "privacy": {
+          "localOnly": true
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "local-only"
+      }
+    },
+    {
+      "name": "listed-origin:http://192.168.1.20:8080",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "baseUrl": "http://192.168.1.20:8080/v1"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner",
+              "endpoint": "http://192.168.1.20:8080/v1"
+            }
+          }
+        },
+        "privacy": {
+          "localOnly": true,
+          "localEndpoints": [
+            "http://192.168.1.20:8080"
+          ]
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "baseUrl": "http://192.168.1.20:8080/v1"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "reranker": {
+            "enabled": true,
+            "provider": "local-transformers",
+            "local": {
+              "model": "woxpas-ai/bge-reranker-v2-m3-onnx",
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "listed-origin:http://192.168.1.20:8081",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "baseUrl": "http://192.168.1.20:8080/v1"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner",
+              "endpoint": "http://192.168.1.20:8080/v1"
+            }
+          }
+        },
+        "privacy": {
+          "localOnly": true,
+          "localEndpoints": [
+            "http://192.168.1.20:8081"
+          ]
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "local-only"
+      }
+    },
+    {
+      "name": "embedding-provider:openrouter",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openrouter",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "baseUrl": "https://embedding.fixture.invalid/v1"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openrouter",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner",
+              "endpoint": "https://embedding.fixture.invalid/v1"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_CONFIG_INVALID",
+        "reason": null
+      }
+    },
+    {
+      "name": "embedding-provider:cohere",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "cohere",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "baseUrl": "https://embedding.fixture.invalid/v1"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "cohere",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner",
+              "endpoint": "https://embedding.fixture.invalid/v1"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_CONFIG_INVALID",
+        "reason": null
+      }
+    },
+    {
+      "name": "embedding-provider:jina",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "jina",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "baseUrl": "https://embedding.fixture.invalid/v1"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "jina",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner",
+              "endpoint": "https://embedding.fixture.invalid/v1"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_CONFIG_INVALID",
+        "reason": null
+      }
+    },
+    {
+      "name": "embedding-provider:gemini",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "gemini",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "baseUrl": "https://embedding.fixture.invalid/v1"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "gemini",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner",
+              "endpoint": "https://embedding.fixture.invalid/v1"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_CONFIG_INVALID",
+        "reason": null
+      }
+    },
+    {
+      "name": "embedding-provider:tei",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "tei",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY",
+            "baseUrl": "https://embedding.fixture.invalid/v1"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "tei",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner",
+              "endpoint": "https://embedding.fixture.invalid/v1"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_CONFIG_INVALID",
+        "reason": null
+      }
+    },
+    {
+      "name": "reranker-provider:cohere",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "reranker": {
+            "provider": "cohere",
+            "baseUrl": "https://rerank.fixture.invalid/v1",
+            "protocol": "tei",
+            "model": "fixture",
+            "apiKeyRef": "models/fixture"
+          }
+        },
+        "memory": {
+          "reranker": {
+            "privacyAck": {
+              "provider": "cohere",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner",
+              "endpoint": "https://rerank.fixture.invalid/v1"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "reranker": {
+            "provider": "cohere",
+            "baseUrl": "https://rerank.fixture.invalid/v1",
+            "protocol": "tei",
+            "model": "fixture",
+            "apiKeyRef": "models/fixture",
+            "enabled": true,
+            "fallbackProvider": "disabled"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "embedding": {
+            "provider": "local-transformers",
+            "local": {
+              "model": "intfloat/multilingual-e5-small",
+              "dimensions": 384,
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "reranker-provider:jina",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "reranker": {
+            "provider": "jina",
+            "baseUrl": "https://rerank.fixture.invalid/v1",
+            "protocol": "tei",
+            "model": "fixture",
+            "apiKeyRef": "models/fixture"
+          }
+        },
+        "memory": {
+          "reranker": {
+            "privacyAck": {
+              "provider": "jina",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner",
+              "endpoint": "https://rerank.fixture.invalid/v1"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "reranker": {
+            "provider": "jina",
+            "baseUrl": "https://rerank.fixture.invalid/v1",
+            "protocol": "tei",
+            "model": "fixture",
+            "apiKeyRef": "models/fixture",
+            "enabled": true,
+            "fallbackProvider": "disabled"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "embedding": {
+            "provider": "local-transformers",
+            "local": {
+              "model": "intfloat/multilingual-e5-small",
+              "dimensions": 384,
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "reranker-provider:voyage",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "reranker": {
+            "provider": "voyage",
+            "baseUrl": "https://rerank.fixture.invalid/v1",
+            "protocol": "tei",
+            "model": "fixture",
+            "apiKeyRef": "models/fixture"
+          }
+        },
+        "memory": {
+          "reranker": {
+            "privacyAck": {
+              "provider": "voyage",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner",
+              "endpoint": "https://rerank.fixture.invalid/v1"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "reranker": {
+            "provider": "voyage",
+            "baseUrl": "https://rerank.fixture.invalid/v1",
+            "protocol": "tei",
+            "model": "fixture",
+            "apiKeyRef": "models/fixture",
+            "enabled": true,
+            "fallbackProvider": "disabled"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "embedding": {
+            "provider": "local-transformers",
+            "local": {
+              "model": "intfloat/multilingual-e5-small",
+              "dimensions": 384,
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "reranker-provider:remote",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "reranker": {
+            "provider": "remote",
+            "baseUrl": "https://rerank.fixture.invalid/v1",
+            "protocol": "tei",
+            "model": "fixture",
+            "apiKeyRef": "models/fixture"
+          }
+        },
+        "memory": {
+          "reranker": {
+            "privacyAck": {
+              "provider": "remote",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner",
+              "endpoint": "https://rerank.fixture.invalid/v1"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "reranker": {
+            "provider": "remote",
+            "baseUrl": "https://rerank.fixture.invalid/v1",
+            "protocol": "tei",
+            "model": "fixture",
+            "apiKeyRef": "models/fixture",
+            "enabled": true,
+            "fallbackProvider": "disabled"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "embedding": {
+            "provider": "local-transformers",
+            "local": {
+              "model": "intfloat/multilingual-e5-small",
+              "dimensions": 384,
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "reranker-provider:unsupported",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "reranker": {
+            "provider": "unsupported",
+            "baseUrl": "https://rerank.fixture.invalid/v1",
+            "protocol": "tei",
+            "model": "fixture",
+            "apiKeyRef": "models/fixture"
+          }
+        },
+        "memory": {
+          "reranker": {
+            "privacyAck": {
+              "provider": "unsupported",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner",
+              "endpoint": "https://rerank.fixture.invalid/v1"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_NOT_AVAILABLE",
+        "reason": "engine-adapter-factory-unavailable"
+      }
+    },
+    {
+      "name": "reranker-default-jina",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "reranker": {
+            "provider": "jina",
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "reranker": {
+            "privacyAck": {
+              "provider": "jina",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "reranker": {
+            "provider": "jina",
+            "apiKeyEnv": "FIXTURE_KEY",
+            "enabled": true,
+            "fallbackProvider": "disabled"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "embedding": {
+            "provider": "local-transformers",
+            "local": {
+              "model": "intfloat/multilingual-e5-small",
+              "dimensions": 384,
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "reranker-default-voyage",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "reranker": {
+            "provider": "voyage",
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "reranker": {
+            "privacyAck": {
+              "provider": "voyage",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "reranker": {
+            "provider": "voyage",
+            "apiKeyEnv": "FIXTURE_KEY",
+            "enabled": true,
+            "fallbackProvider": "disabled"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "embedding": {
+            "provider": "local-transformers",
+            "local": {
+              "model": "intfloat/multilingual-e5-small",
+              "dimensions": 384,
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "reranker-preset-ack-binds-provider-alone",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "reranker": {
+            "provider": "cohere",
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "reranker": {
+            "privacyAck": {
+              "provider": "cohere",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner",
+              "endpoint": "https://api.cohere.com/v2/rerank"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "privacy-acknowledgment-mismatch"
+      }
+    },
+    {
+      "name": "reranker-default-cohere",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "reranker": {
+            "provider": "cohere",
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "reranker": {
+            "privacyAck": {
+              "provider": "cohere",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "reranker": {
+            "provider": "cohere",
+            "apiKeyEnv": "FIXTURE_KEY",
+            "enabled": true,
+            "fallbackProvider": "disabled"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "embedding": {
+            "provider": "local-transformers",
+            "local": {
+              "model": "intfloat/multilingual-e5-small",
+              "dimensions": 384,
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "reranker-needs-own-ack",
+      "config": {
+        "schemaVersion": 1,
+        "engine": {
+          "embedding": {
+            "provider": "openai",
+            "model": "fixture-model",
+            "dimensions": 8,
+            "apiKeyEnv": "FIXTURE_KEY"
+          },
+          "reranker": {
+            "provider": "cohere",
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "embedding": {
+            "privacyAck": {
+              "provider": "openai",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "privacy-acknowledgment-required"
+      }
+    },
+    {
+      "name": "keyless-local-reranker",
+      "config": {
+        "schemaVersion": 1,
+        "privacy": {
+          "localOnly": true
+        },
+        "engine": {
+          "reranker": {
+            "provider": "remote",
+            "baseUrl": "http://localhost:8080",
+            "protocol": "tei"
+          }
+        }
+      },
+      "expected": {
+        "ok": true,
+        "config": {
+          "reranker": {
+            "provider": "remote",
+            "baseUrl": "http://localhost:8080",
+            "protocol": "tei",
+            "enabled": true,
+            "fallbackProvider": "disabled"
+          },
+          "baseDbPath": "${HOME}/state/lancedb",
+          "autoRecall": false,
+          "autoCapture": false,
+          "embedding": {
+            "provider": "local-transformers",
+            "local": {
+              "model": "intfloat/multilingual-e5-small",
+              "dimensions": 384,
+              "cacheDir": "${HOME}/models"
+            }
+          },
+          "recall": {
+            "softBudgetMs": 400,
+            "globalInjectMaxChars": 17000,
+            "decisionTrace": {
+              "enabled": true
+            }
+          }
+        },
+        "graceMs": 60000
+      }
+    },
+    {
+      "name": "reranker-cloud-local-only",
+      "config": {
+        "schemaVersion": 1,
+        "privacy": {
+          "localOnly": true
+        },
+        "engine": {
+          "reranker": {
+            "provider": "cohere",
+            "apiKeyEnv": "FIXTURE_KEY"
+          }
+        },
+        "memory": {
+          "reranker": {
+            "privacyAck": {
+              "provider": "cohere",
+              "acknowledgedAt": "2026-10-18T09:00:00Z",
+              "by": "fixture-owner"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ok": false,
+        "code": "E_DENIED",
+        "reason": "local-only"
+      }
+    }
+  ]
+}

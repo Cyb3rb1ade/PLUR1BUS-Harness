@@ -23,3 +23,6 @@ crates/plur1bus-engine/tests/fixtures/store-v1/** -text
 crates/plur1bus-engine/tests/fixtures/store-surrogate/** -text
 crates/plur1bus-engine/tests/fixtures/sqlite/** -text
 crates/plur1bus-engine/tests/fixtures/neo-v1/** -text
+
+# Seeded authored fixtures must materialize identical bytes on every host.
+tests/bench/coding/team/** text eol=lf

@@ -233,6 +233,7 @@ struct Ctx {
     profile: &'static str,
     node: Option<NodeUnit>,
     core: Option<CoreUnit>,
+    tools: Option<Unit>,
     modules: Vec<PackageUnit>,
     skills: Vec<PackageUnit>,
 }
@@ -299,6 +300,7 @@ pub fn run_steps(
         profile: PROFILE_FULL,
         node: None,
         core: None,
+        tools: None,
         modules: Vec::new(),
         skills: Vec::new(),
     };
@@ -346,6 +348,7 @@ fn finish(layout: &Layout, o: &SetupOpts, ctx: &Ctx) -> Result<(), StepError> {
     let now = now_ms();
     let m = InstallManifest {
         schema_version: manifest::INSTALL_SCHEMA_VERSION,
+        tools: ctx.tools.clone(),
         installed_at: ctx.prev.as_ref().map(|p| p.installed_at).unwrap_or(now),
         updated_at: now,
         channel: o.channel.clone(),
@@ -622,6 +625,19 @@ fn swap_into_place(staging: &Path, dest: &Path) -> Result<(), StepError> {
 // ---- runtime.core ----------------------------------------------------------------------------------------------
 
 fn step_core(layout: &Layout, o: &SetupOpts, ctx: &mut Ctx) -> Result<StepResult, StepError> {
+    // The installer/archive ships the companion beside this CLI; setup must never start an incomplete runtime.
+    let tools = crate::commands::core::locate_tools_bin(layout);
+    let digest = sha256_file(&tools).map_err(|e| {
+        StepError::new(
+            "tools-missing",
+            format!("native tools companion {}: {e}", tools.display()),
+        )
+        .hint("install plur1bus and plur1bus-tools from the same release")
+    })?;
+    ctx.tools = Some(Unit {
+        version: env!("CARGO_PKG_VERSION").into(),
+        sha256: Some(digest),
+    });
     let src = match &o.core_from {
         Some(p) => CoreSource::Local(std::path::absolute(p).unwrap_or_else(|_| p.clone())),
         None => {
@@ -2010,6 +2026,7 @@ mod tests {
         let h = "a".repeat(64);
         InstallManifest {
             schema_version: 1,
+            tools: None,
             installed_at: 1,
             updated_at: 1,
             channel: "stable".into(),

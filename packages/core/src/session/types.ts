@@ -7,12 +7,22 @@ export const SESSION_ORIGINS = ["mcp", "a2a", "acp-agent"] as const;
 export type SessionOrigin = (typeof SESSION_ORIGINS)[number];
 
 export type MemoryMode = "remember" | "incognito";
+
+/** CLI-1 metadata only. Every access still checks the live root/grant and, for cards, D115 assignment. */
+export interface WorktreeBinding {
+  sessionId: string;
+  root: string;
+  projectId: string | null;
+  cardId: string | null;
+  createdBy: string;
+  createdAt: number;
+}
 export type TurnState = "running" | "completed" | "failed";
 export type MessageRole = "system" | "user" | "assistant" | "tool";
 
 /** The events a turn emits (the submit/event contract, ADR-010 L2). `tool.call`/`tool.result` are placeholders: the
  *  loop persists and relays what a provider reports and executes nothing (tools come with M2). */
-export const EVENT_TYPES = ["turn.started", "delta", "tool.call", "tool.result", "turn.completed", "turn.failed", "session.model.changed", "decision.completed", "model.selected", "compaction.prune", "skills.selected"] as const;
+export const EVENT_TYPES = ["turn.started", "delta", "tool.call", "tool.result", "turn.completed", "turn.failed", "session.model.changed", "decision.completed", "model.selected", "compaction.prune", "skills.selected", "session.rewind", "session.rewind.undone", "session.rewind.proposed"] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
 export interface SessionRecord {
@@ -85,7 +95,22 @@ export interface SummaryRecord {
   createdAt: number;
 }
 
-export interface SearchHit { sessionId: string; messageId: string | null; seq: number | null; snippet: string; rank: number }
+/** D120: the overlay and audit digest persist independently of the immutable transcript. */
+export interface RewindRecord {
+  id: string;
+  sessionId: string;
+  parentSeq: number;
+  hiddenFromSeq: number;
+  hiddenToSeq: number;
+  lessonMessageId: string | null;
+  hiddenDigest: string;
+  trigger: "user" | "agent";
+  actor: string;
+  createdAt: number;
+  undoneAt: number | null;
+}
+
+export interface SearchHit { sessionId: string; messageId: string | null; seq: number | null; snippet: string; rank: number; rewound?: boolean }
 
 export type SessionErrorCode = "invalid" | "not-found" | "conflict" | "immutable" | "storage";
 export class SessionError extends Error {

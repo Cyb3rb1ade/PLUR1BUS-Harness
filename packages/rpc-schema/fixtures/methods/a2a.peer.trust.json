@@ -1,0 +1,22 @@
+{
+  "params": {
+    "id": "peer",
+    "fingerprint": "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "revision": "revision"
+  },
+  "result": {
+    "id": "peer",
+    "agentId": "a2a:peer",
+    "cardUrl": "https://peer.example/card",
+    "kid": "peer-key",
+    "fingerprint": "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "state": "trusted",
+    "revision": "revision",
+    "targetKind": "external",
+    "origin": "a2a",
+    "authenticated": false,
+    "createdAt": 0,
+    "updatedAt": 0,
+    "endpoint": "https://peer.example/a2a"
+  }
+}

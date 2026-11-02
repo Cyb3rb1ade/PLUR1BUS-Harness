@@ -13,17 +13,23 @@ import { ChatController } from "./controller.ts";
 import { type Entry } from "./model.ts";
 import { stateFor, takeDraft } from "./store.ts";
 
-function Message({ e, agent }: { e: Entry; agent: string }): View {
+function Message({ e, agent, onRewind, busy }: {
+  e: Entry; agent: string; onRewind?: () => void; busy: boolean;
+}): View {
   const who = e.role === "user" ? t("chat.role.user") : e.role === "assistant" ? agent : e.role === "tool" ? t("chat.role.tool") : t("chat.role.system");
   const cancelled = e.state === "failed" && e.error === "cancelled";
-  return h("div", { class: "msg", "data-role": e.role },
+  const content = h("div", { class: "msg", "data-role": e.role },
     h("div", { class: "msg-who" }, who,
       e.state === "running" ? h(Badge, { tone: "info" }, t("chat.state.running")) : null,
       e.state === "completed" ? h(Badge, { tone: "ok" }, t("chat.state.completed")) : null,
       e.state === "failed" ? h(Badge, { tone: cancelled ? "neutral" : "err" }, cancelled ? t("chat.state.cancelled") : t("chat.state.failed")) : null),
     h("div", { class: "msg-text" }, e.modelChange ? t("chat.model.changed",{model:e.modelChange.model,reasoning:t(`chat.reasoning.${e.modelChange.reasoning}`)}) : e.text),
     e.outputId ? h(StoredImage, { id: e.outputId, download: true }) : null,
+    onRewind ? h("button", { class: "btn", disabled: busy, onClick: onRewind,
+      "aria-label": t("chat.rewind.target", { seq: e.seq ?? 0 }) }, t("chat.rewind.here")) : null,
     e.state === "failed" && !cancelled && e.error ? h("p", { class: "msg-detail" }, t("chat.failed.detail", { error: e.error })) : null);
+  return e.rewound ? h("details", { class: "msg-rewound" },
+    h("summary", null, t("chat.rewind.discarded")), content) : content;
 }
 
 function LoadFailure({ error, onRetry }: { error: unknown; onRetry: () => void }): View {
@@ -75,6 +81,9 @@ export function SessionView({ sessionId }: { sessionId: string }): View {
   const incognito = session.memoryMode === "incognito";
   const notice = ctl.notice.value;
   const liveState = ctl.live.value;
+  const lastSeq = Math.max(0, ...tr.entries.filter(entry => !entry.rewound).map(entry => entry.seq ?? 0));
+  const activeRewind = ctl.rewinds.value.findLast(rewind => rewind.undoneAt === null);
+  const proposal = ctl.rewindProposal.value;
 
   const submit = async (): Promise<void> => {
     const text = draft.replace(/\s+$/, "");
@@ -98,11 +107,22 @@ export function SessionView({ sessionId }: { sessionId: string }): View {
     promotionOpen ? h(PromotionDialog, { key: sessionId, sessionId, onClose: () => setPromotionOpen(false) }) : null,
     liveState === "unavailable" ? h("p", { class: "chat-note" }, t("chat.live.polling")) : null,
     liveState === "retrying" ? h("p", { class: "chat-note", role: "status" }, t("chat.live.reconnecting")) : null,
+    activeRewind ? h("div", { class: "chat-note" },
+      h("p", null, t("chat.rewind.retained")),
+      h("button", { class: "btn", disabled: running || ctl.sending.value,
+        onClick: () => { void ctl.rewind({ undo: activeRewind.id }); } }, t("chat.rewind.undo"))) : null,
+    proposal ? h("div", { class: "chat-note", role: "status" },
+      h("p", null, t("chat.rewind.proposal", { cycles: proposal.failedCycles })),
+      h("button", { class: "btn", disabled: running || ctl.sending.value,
+        onClick: () => { void ctl.rewind({ toSeq: proposal.parentSeq }); } }, t("chat.rewind.confirm"))) : null,
     h("div", {
       class: "chat-log", role: "log", "aria-live": "polite", "aria-relevant": "additions", "aria-busy": String(running),
       "aria-label": t("chat.transcript.label", { agent }), tabIndex: 0, ref: logEl,
       onScroll: () => { const el = logEl.current; if (el) stick.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 48; },
-    }, tr.entries.length === 0 ? h("p", { class: "chat-empty" }, t("chat.transcript.empty")) : tr.entries.map((e) => h(Message, { key: e.id, e, agent }))),
+    }, tr.entries.length === 0 ? h("p", { class: "chat-empty" }, t("chat.transcript.empty")) : tr.entries.map((e) =>
+      h(Message, { key: e.id, e, agent, busy: running || ctl.sending.value,
+        ...(!e.rewound && !e.command && e.seq !== undefined && e.seq < lastSeq
+          ? { onRewind: () => { void ctl.rewind({ toSeq: e.seq! }); } } : {}) }))),
     h("div", { class: "sr-only", role: "status" }, status),
     notice ? h("p", { class: "chat-notice", role: "alert" }, t(notice)) : null,
     h(Composer, {

@@ -55,7 +55,9 @@ languages can never drift on what a manifest may contain (ruling H3B-R11).
 
 ### 2.1 Reserved names and the entry-path rule
 
-`name` may not be `"core"` or `"supervisor"` (the two names the harness itself reserves), nor any of
+The fixed native companion is described in [Native tools service](tools-service.md); it is not an installable module.
+
+`name` may not be `"core"`, `"supervisor"`, `"api"` or `"tools"` (the fixed process roles), nor any of
 the Windows reserved device names — case-insensitively, and this schema check runs on every
 platform, not only Windows, so a manifest that would break on a Windows install is rejected
 everywhere: `con`, `prn`, `aux`, `nul`, `com1`–`com9`, `lpt1`–`lpt9` (`com10` and above are fine —
@@ -341,7 +343,7 @@ unchanged:
 - **`Symlink(path)`**: the source itself, or anything inside its tree, is a symlink.
 - **`SpecialFile(path)`**: the source tree contains something that is neither a regular file, a
   directory, nor (already excluded above) a symlink — a FIFO, a device node, a Windows junction.
-- **`Reserved`**: the manifest's raw `name` is `"core"`, `"supervisor"`, or one of the Windows
+- **`Reserved`**: the manifest's raw `name` is `"core"`, `"supervisor"`, `"api"`, `"tools"`, or one of the Windows
   reserved device names (§2.1) — checked before schema validation, so the *reason* reported is
   specific even though the schema would refuse it too.
 - **`EntryOutside`**: the manifest's raw `entry` is absolute, uses a drive letter, a backslash, or a

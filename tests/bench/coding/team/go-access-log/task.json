@@ -1,0 +1,92 @@
+{
+  "schema": "plur1bus.team-task/1",
+  "id": "go-access-log",
+  "title": "HTTP log normalization and error report",
+  "kind": "decomposable",
+  "tier": "team",
+  "language": "go",
+  "license": "MIT",
+  "seeds": [
+    17,
+    104729,
+    8675309
+  ],
+  "budgets": {
+    "tokens": 57344,
+    "maxRounds": 54,
+    "wallMs": 810000
+  },
+  "instruction": "prompt.md",
+  "start": "start",
+  "seedGenerator": "seed.mjs",
+  "packages": [
+    {
+      "id": "parse",
+      "entry": "src/parse__SEED__/solution__SEED__.go",
+      "symbol": "Solve__SEED__",
+      "owns": [
+        "src/parse__SEED__/solution__SEED__.go"
+      ],
+      "dependsOn": [],
+      "reference": "reference/parse",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "parse"
+      }
+    },
+    {
+      "id": "families",
+      "entry": "src/families__SEED__/solution__SEED__.go",
+      "symbol": "Solve__SEED__",
+      "owns": [
+        "src/families__SEED__/solution__SEED__.go"
+      ],
+      "dependsOn": [],
+      "reference": "reference/families",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "families"
+      }
+    },
+    {
+      "id": "report",
+      "entry": "src/report__SEED__/solution__SEED__.go",
+      "symbol": "Solve__SEED__",
+      "owns": [
+        "src/report__SEED__/solution__SEED__.go"
+      ],
+      "dependsOn": [],
+      "reference": "reference/report",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "report"
+      }
+    },
+    {
+      "id": "rates",
+      "entry": "src/rates__SEED__/solution__SEED__.go",
+      "symbol": "Solve__SEED__",
+      "owns": [
+        "src/rates__SEED__/solution__SEED__.go"
+      ],
+      "dependsOn": [],
+      "reference": "reference/rates",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "rates"
+      }
+    }
+  ],
+  "endToEnd": {
+    "checker": {
+      "path": "check.mjs",
+      "scope": "e2e"
+    },
+    "order": [
+      "parse",
+      "families",
+      "report",
+      "rates"
+    ]
+  }
+}

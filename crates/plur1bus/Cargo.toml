@@ -20,6 +20,8 @@ regex = "1"
 clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+reedline = { version = "=0.52.1", default-features = false, features = ["external_printer"] }
+crossterm = "=0.29.0"
 gethostname = "0.5"
 whoami = "1.5"
 uuid = { version = "1", features = ["v4"] }
@@ -57,3 +59,6 @@ proptest = "1"
 roxmltree = "0.21"
 minisign = "0.10.0"
 plur1bus-ext = { path = "../plur1bus-ext", features = ["testkit"] }
+
+[build-dependencies]
+cc = "=1.5.1"

@@ -1,3 +1,4 @@
+import { ToolsClient } from "./tools-service/client.ts";
 import { ChannelHandoff } from "./channel-handoff/service.ts";
 import { handoffMethods } from "./channel-handoff/rpc.ts";
 import { DeliveryTargets } from "./delivery/service.ts";
@@ -312,6 +313,7 @@ export function createCore(o: CoreOptions): Core {
   let delivery: DeliveryTargets | null = null;
   let handoff: ChannelHandoff | null = null;
   let userJobsTimer: ReturnType<typeof setInterval> | null = null;
+  let toolsService: ToolsClient | null = null;
   let sessions: SessionService | null = null;
   let turnComposition: TurnComposition | null = null;
   let extensionSpawnSecrets: Awaited<ReturnType<typeof startExtensionSpawnSecrets>> | null = null;
@@ -379,6 +381,7 @@ export function createCore(o: CoreOptions): Core {
         ...(sharedMemory ? { sharedMemory } : {}),
         ...(storeSchema ? { storeSchema } : {}),
       },
+      ...(toolsService ? { tools: toolsService.snapshot() } : {}),
       agents: (agents?.list() ?? []).map((agentId) => ({ agentId, activity: activity.get(agentId) })),
       // E4: the engine reads the journal through the host capability; the replay's count when it reports none.
       journalBacklog: es?.journal ? es.journal.entries : journalBacklog,
@@ -425,6 +428,7 @@ export function createCore(o: CoreOptions): Core {
       log.error(msg, { run: l.run, supervised });
       throw new Error(msg);
     }
+    toolsService = new ToolsClient({ home: l.home, supervised: o.lifeline !== undefined || o.supervisorConfig !== undefined, orphanGraceMs: config.supervisor.graceMs });
     platform.securePath(l.catalog, { mode: 0o700 });
     platform.securePath(l.systemJobs, { mode: 0o700 });
     // M2: the secret store. Nothing is probed or opened here (the keychain is first touched by a `secret.*` call).
@@ -748,7 +752,9 @@ export function createCore(o: CoreOptions): Core {
         ...(o.channels ?? {}),
         ingestAttachments: input => turnComposition?.ingestChannelAttachments(input)
           ?? Promise.reject(new RpcError("E_NOT_AVAILABLE", "channel upload storage is unavailable")),
-        layout: l, config: cs, secrets: secretStore, identity: () => identity, personActive: id => !people.person(id)?.disabled, sessions: () => sessions, agents: registry, permissions: () => permissions,
+        layout: l, config: cs, secrets: secretStore, identity: () => identity, personActive: id => !people.person(id)?.disabled,
+        personRole: id => people.role(id, id === LOCAL_OWNER.userId ? "owner" : "member"),
+        sessions: () => sessions, agents: registry, permissions: () => permissions,
         clock, log: { info: (m, f) => log.info(m, f), warn: (m, f) => { channelToInbox(inboxPort, m, f); log.warn(m, f); }, error: (m, f) => log.error(m, f) },
       });
       permissions = createPermissionRuntime({
@@ -1055,7 +1061,7 @@ export function createCore(o: CoreOptions): Core {
           surface: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }),
         ...buildInboxSurface(() => inbox?.service ?? null),
         ...buildProjectBoardSurface(() => turnComposition?.collab ?? null, event => { void deliverBoardChange(event, () => turnComposition?.collab ?? null, { subscriptions: () => server?.subscriptions() ?? [], resolve: async connectionId => resolvePrincipal({ requestId: "board-event", connectionId, signal: shutdown.signal }, "project.card.list", {}), notify: (m, p, opts) => { if (!shutdown.signal.aborted) server?.notify(m, p, opts); } }).catch(() => { log.debug("project board event withheld"); }); }),
-        ...buildCollabSurface(() => turnComposition?.collab ?? null, id => registry.has(id)),
+        ...buildCollabSurface(() => turnComposition?.collab ?? null, id => registry.has(id) || turnComposition?.a2a?.hasAgent(id) === true),
         ...buildIdentitySurface(() => identity),
         ...(await import("./rpc/device-surface.ts")).createDeviceSurface({ state: l.state, clock, signal: shutdown.signal, revoked: userId => server?.notify("api.account.changed", {userId}, {audience:apiIdentity.services().map(connectionId=>({connectionId}))}), personVersion: id => { const p=people.person(id); return p && !p.disabled ? p.version : null; }, audit: rbacAudit, securePath: p => platform.securePath(p), notifyTrust: (event,owners) => server?.notify("devices.trust.next",event,{audience:owners.map(personId=>({personId}))}) }),
         ...adminSurface,
@@ -1098,7 +1104,7 @@ export function createCore(o: CoreOptions): Core {
       // The other caller-taking memory ops (forget, correct, share, state, propose, proposals.*) act as the principal derived from `caller`: bind it to the authenticated person like memory.list/show and session.*.
       Object.assign(rawMethods, memoryCallerAccess({ methods: rawMethods, ownership, resolve: resolvePrincipal }));
       let initialDoctorCheck: (() => Promise<unknown>) | undefined;
-      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, sandboxRequired: () => cfg().tools.sandbox.required, sandboxMaxTasks: () => cfg().tools.sandbox.maxTasks, toolEvalDefaults: () => configuredDefaults(cfg()), redactor: secretStore.redaction.redactor({ pii: true }), capabilityStatus: () => turnComposition?.capabilities.status(), turnTelemetry: () => metrics.turnTelemetrySummary(), miningStatus: () => turnComposition?.mining.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; }, coreChecks: () => [localOnlyCheck(cfg()), ...emailAuthChecks(cfg())] }));
+      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, sandboxRequired: () => cfg().tools.sandbox.required, sandboxMaxTasks: () => cfg().tools.sandbox.maxTasks, toolEvalDefaults: () => configuredDefaults(cfg()), redactor: secretStore.redaction.redactor({ pii: true }), capabilityStatus: () => turnComposition?.capabilities.status(), turnTelemetry: () => metrics.turnTelemetrySummary(), miningStatus: () => turnComposition?.mining.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; }, coreChecks: () => [localOnlyCheck(cfg()), ...emailAuthChecks(cfg()), { id: "tools.service", status: toolsService?.snapshot().ready ? "ok" as const : "fail" as const, summary: toolsService?.snapshot().ready ? "Native tools service is ready." : "Native tools service is unavailable; Core turns continue." }] }));
       Object.assign(rawMethods, attachUserJobMethods({ ...rawMethods }, userJobs, resolvePrincipal));
       // events.subscribe is handled in the shared transport; this guard still supplies its admission/audit.
       rawMethods["events.subscribe"] = async () => ({});
@@ -1128,7 +1134,7 @@ export function createCore(o: CoreOptions): Core {
         engineToken: () => { try { return readRunToken(l.home, engineRunFiles(l.home).token); } catch { return undefined; } },
         canReadAgent: async (ctx, agentId) => authorize(await resolvePrincipal(ctx, "events.subscribe", { agentId }), "agent.read", { kind: "agent", agentId }, { now: clock() }).effect === "allow",
         address, token, apiToken, authorizeClient: hostClients.authorize, apiPrincipalOf: apiIdentity.forwarded, onApiAuthenticated: apiIdentity.authenticated, apiPersonOfConnection: async (connectionId, p) => { const who = apiIdentity.resolve({ requestId: "audience", connectionId, signal: shutdown.signal }); return who?.kind === "person" && who.userId === p.userId ? who.userId : null; }, personOfConnection: async connectionId => { const p = await resolvePrincipal({ requestId: "audience", connectionId, signal: shutdown.signal }, "events.subscribe", {}); return p?.kind === "person" ? p.userId : null; }, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
-        onConnectionClosed: (id) => { apiIdentity.closed(id); orphans?.connectionClosed(id); void turnComposition?.voice.v3.connectionClosed(id); },
+        onConnectionClosed: (id) => { turnComposition?.codeSessions?.connectionClosed(id); apiIdentity.closed(id); orphans?.connectionClosed(id); void turnComposition?.voice.v3.connectionClosed(id); },
         onCall: (method, result) => metrics.rpcCall(method, result),
       });
 
@@ -1147,6 +1153,7 @@ export function createCore(o: CoreOptions): Core {
       platform.securePath(engineModelsPath);
       writeFileSync(l.corePid, `${process.pid} ${instanceId}\n`, { mode: 0o600 }); // S6
       platform.securePath(l.coreToken); platform.securePath(l.corePid);
+      toolsService.start();
       extensionSpawnSecrets = await startExtensionSpawnSecrets({ home: l.home, token, store: secretStore,
         definition: name => installedExtensionSecretDefinition(l.home, name) });
       await importComposition?.listen(token);
@@ -1296,6 +1303,7 @@ export function createCore(o: CoreOptions): Core {
       await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null; handoff?.close(); handoff = null;
       await step(log, "permissions close", async () => { permissionNotifier?.close(); await permissions?.close(); }); permissions = null; permissionNotifier = null;
       await step(log, "budget close", () => { budget?.close(); budget = null; });
+      await step(log, "tools close", async () => { await toolsService?.close(); });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
       await step(log, "metrics close", async () => { await metricsHttp?.close(); }); metricsHttp = null;
       await step(log, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; hostClients?.close(); hostClients = null; agentLifecycle?.close(); agentLifecycle = null; memorySensitivity?.close(); memorySensitivity = null; });
@@ -1383,6 +1391,7 @@ export function createCore(o: CoreOptions): Core {
       await step(logger, "sessions close", async () => { await turnComposition?.close(); turnComposition = null; sessions = null; }, errors);
       // A re-embedding run in flight ends at its next batch boundary (aborted, resumable) before the engine closes under it.
       await step(logger, "re-embedding run", async () => { await reembed?.stop(Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }, errors);
+      await step(logger, "tools close", async () => { await toolsService?.close(); }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
       await step(logger, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; hostClients?.close(); hostClients = null; agentLifecycle?.close(); agentLifecycle = null; memorySensitivity?.close(); memorySensitivity = null; }, errors);
       await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null; handoff?.close(); handoff = null;

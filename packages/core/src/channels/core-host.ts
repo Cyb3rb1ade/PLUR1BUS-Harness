@@ -12,7 +12,7 @@ import type { SecretStore } from "../secrets/store.ts";
 import type { SessionService } from "../session/service.ts";
 import { DEFAULT_BINDINGS } from "./bindings.ts";
 import { systemClock, type Clock } from "./clock.ts";
-import { createSwitchboard, type ChannelBinding, type ConfigPort, type SecretsPort, type Switchboard } from "./switchboard.ts";
+import { createSwitchboard, type ChannelBinding, type ConfigPort, type SecretsPort, type Switchboard, type SwitchboardOptions } from "./switchboard.ts";
 import type { ChannelLogger } from "./types.ts";
 
 export interface CoreHostDeps {
@@ -26,6 +26,7 @@ export interface CoreHostDeps {
   identity: () => IdentityService | null;
   /** False for a disabled person (the admin store is the authority); see `SwitchboardOptions.personActive`. */
   personActive?: (humanId: string) => boolean;
+  personRole?: SwitchboardOptions["personRole"];
   sessions: () => SessionService | null;
   agents: AgentRegistry;
   permissions: () => PermissionRuntime | null;
@@ -71,6 +72,7 @@ export function openChannelSwitchboard(d: CoreHostDeps): Switchboard {
     secrets: channelSecrets(d.secrets),
     identity: d.identity,
     ...(d.personActive ? { personActive: d.personActive } : {}),
+    ...(d.personRole ? { personRole: d.personRole } : {}),
     turns: () => {
       const s = d.sessions();
       return s ? { store: s.store, runner: s.runner, agentId: () => channelAgentId(d.agents) } : null;

@@ -1,0 +1,26 @@
+{
+  "params": {
+    "token": "0000000000000000000000000000000000000000000000000000000000000000",
+    "ticketKey": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "result": {
+    "rpc": "1.15.0",
+    "instanceId": "tools-fixture",
+    "pid": 4321,
+    "capabilities": {
+      "methods": {
+        "tools.hello": {
+          "stability": "experimental",
+          "since": "1.15.0"
+        },
+        "tools.health": {
+          "stability": "experimental",
+          "since": "1.15.0"
+        }
+      },
+      "notifications": {},
+      "extensionPoints": {},
+      "features": []
+    }
+  }
+}

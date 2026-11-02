@@ -18,6 +18,17 @@ matrix, not a claim of fresh live-provider verification.
 | R7: TTL | Injected `now()` measures time since the previous render for this agent/model/session. Each row's `warmMs` gives the predicted window: Anthropic 5m (1h when selected), OpenAI 30m. Google and every row without a documented TTL are unknown (`null`) unless configured; unknown TTL, reversed clock, expired entries or changed content predict cold. `cacheTtlMs` overrides provider-class durations. The previous request's selected TTL governs expiry, so generation time counts. Existing `chooseCacheTtl()` recommends 1h for ≥3 projected reads; stable 1h markers precede trailing 5m markers. | `rulings.test.ts`, `cache-layout.test.ts` (fake clock, exact expiry, generation time, overrides, model/session isolation) |
 | R8: usage | `CacheTelemetry.record(render, usage)` returns a detached per-turn record. `createCacheTelemetry()` keeps weighted totals per agent/model and per session. `hitRatio = cache_read / (cache_read + cache_creation + input)`, zero when total is zero. Invalid counts/overflow are rejected atomically. | `telemetry.test.ts`: synthetic 20-turn B5 script, every turn ≥3 has ≥0.90 read share, isolation and zero/invalid usage |
 
+## Rewind and the conversation prefix (RPC 1.18.0)
+
+D120 CX1 stores rewind as a session overlay. The kept messages through `parentSeq`
+retain their original bytes and order. A bounded harness lesson continues from
+that parent; discarded messages, their tool results and overlapping summaries
+are excluded before prompt rendering. Stable tools, system instructions and the
+frozen memory snapshot are unchanged. `/rewind` is a local transcript command and
+never enters a model request. Undo restores the original messages and tool view
+while hiding the obsolete lesson. See
+[Rewind with a lesson](architecture/compaction.md#rewind-with-a-lesson-d120-cx1).
+
 ## Metadata contract
 
 `zones` lists all five zones as `{zone, byteOffset, tokenEstimate, hash}` including empty zones.
@@ -118,6 +129,14 @@ again. Invalid usage throws before any counter or state changes.
 `telemetry.cache.summary` (introduced in RPC 1.10.0; current contract 1.20.0) serves these together with the hit ratio per provider, agent and
 model from the budget ledger over a 24h or 7d window. The ledger cannot mark estimated settlements; they
 count as `uncachedCalls`, and `hitRatioCaching` is the ratio over calls that reported cache activity.
+
+## Coding profile
+
+Sessions opened by `plur1bus code`, D115 project-card sessions and agents with `agents.<id>.coding` select the coding
+profile. A constant operating section joins zone 2. Roots, branches and session IDs stay out of that section; persona,
+SOUL and the frozen snapshot follow the existing rules. Registered coding tools are pre-admitted and remain frozen for
+the turn. Normal and background-role clients retain their original profile. Cache summaries merge both foreground
+profiles with token-weighted hit ratios and retain their per-model observations.
 
 ## Verification and follow-ups
 

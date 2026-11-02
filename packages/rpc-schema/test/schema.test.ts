@@ -7,9 +7,9 @@ const EXT_METHODS = ["ext.disable", "ext.enable", "ext.inspect", "ext.inspection
 describe("rpc-schema", () => {
   const fx = loadFixtures();
 
-  it("declares rpc 1.20.0 and the closed error enum", () => {
-    assert.equal(RPC_VERSION, "1.20.0");
-    assert.equal((SCHEMA as { title?: string }).title, "PLUR1BUS harness RPC 1.20.0");
+  it("declares the current RPC version and the closed error enum", () => {
+    assert.equal(SCHEMA["x-rpc-version"], RPC_VERSION);
+    assert.equal((SCHEMA as { title?: string }).title, `PLUR1BUS harness RPC ${RPC_VERSION}`);
     assert.deepEqual([...ERROR_CODES], [
       "E_UNAUTHORIZED", "E_RPC_VERSION", "E_NOT_AVAILABLE", "E_CORE_UNAVAILABLE", "E_INVALID_PARAMS",
       "E_AGENT_UNKNOWN", "E_AGENT_EXISTS", "E_AGENT_RIGHTS", "E_AGENT_SECRETS_MISSING", "E_CONFIG_INVALID", "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED",
@@ -31,8 +31,7 @@ describe("rpc-schema", () => {
   });
 
   it("advertises the current RPC version in status and process handshake fixtures", () => {
-    // core.auth is the historical 1.0 baseline fixture; these fixtures describe current process status.
-    for (const name of ["core.status", "module.auth", "supervisor.auth"]) {
+    for (const name of ["core.auth", "core.status", "engine.auth", "module.auth", "supervisor.auth"]) {
       const result = fx.methods[name]?.result;
       assert.ok(result && typeof result === "object" && "rpc" in result, name);
       assert.equal(result.rpc, RPC_VERSION, name);

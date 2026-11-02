@@ -1,16 +1,7 @@
 import type { CollabSettings } from "./types.ts";
+import { legacyCollabSettings, resolveCollabLimits } from './limits.ts';
 
 /** ADR-003 §Collaboration guardrail table, ADR-010 §4 subagent return cap. */
-export const DEFAULT_COLLAB_SETTINGS: CollabSettings = {
-  maxDepth: 1,
-  maxFanout: 3,
-  maxPairPerTurn: 2,
-  maxTurns: 25,
-  timeoutMs: 5 * 60 * 1000,
-  returnTokens: 2000,
-  allowCrossProject: false,
-  repeatWindowMs: 30_000,
-  tokenBudget: null,
-};
+export const DEFAULT_COLLAB_SETTINGS: CollabSettings = legacyCollabSettings(resolveCollabLimits());
 
 export const SPAN_PREVIEW_CHARS = 256;

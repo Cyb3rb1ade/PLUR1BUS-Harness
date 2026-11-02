@@ -138,7 +138,7 @@ fn firstaid_check_includes_models_roles_at_end() {
         .unwrap();
     let ids: Vec<_> = checks[dreams..]
         .iter()
-        .take(6)
+        .take(8)
         .map(|check| check["id"].as_str().unwrap())
         .collect();
     assert_eq!(
@@ -149,7 +149,9 @@ fn firstaid_check_includes_models_roles_at_end() {
             "models.decision",
             "privacy.local-only",
             "api.supervised",
-            "media.ffmpeg"
+            "tools.service",
+            "media.ffmpeg",
+            "media.uploads"
         ]
     );
     assert_eq!(checks[dreams]["status"], "skip");
