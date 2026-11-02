@@ -18,7 +18,7 @@ export const en = {
   "mediasearch.capabilities.role.vision": "Vision",
   "mediasearch.capabilities.role.audio": "Audio",
   "mediasearch.capabilities.state.ready": "Ready",
-  "mediasearch.capabilities.state.not-installed": "Not installed",
+  "mediasearch.capabilities.state.notInstalled": "Not installed",
   "mediasearch.capabilities.state.unavailable": "Unavailable",
 
   "mediasearch.search.title": "Search media",
@@ -192,7 +192,7 @@ export const de: Record<keyof typeof en, string> = {
   "mediasearch.capabilities.role.vision": "Bild",
   "mediasearch.capabilities.role.audio": "Audio",
   "mediasearch.capabilities.state.ready": "Bereit",
-  "mediasearch.capabilities.state.not-installed": "Nicht installiert",
+  "mediasearch.capabilities.state.notInstalled": "Nicht installiert",
   "mediasearch.capabilities.state.unavailable": "Nicht verfügbar",
 
   "mediasearch.search.title": "Medien durchsuchen",

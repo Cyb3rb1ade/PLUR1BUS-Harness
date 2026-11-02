@@ -10,6 +10,11 @@ type Props = {
   encoders?: readonly MediaEncoderStatus[] | undefined;
 };
 const MODALITIES = ["text", "image", "audio", "video"] as const;
+const ENCODER_STATE_KEYS = {
+  ready: "mediasearch.capabilities.state.ready",
+  "not-installed": "mediasearch.capabilities.state.notInstalled",
+  unavailable: "mediasearch.capabilities.state.unavailable",
+} as const satisfies Record<MediaEncoderStatus["state"], Key>;
 
 /** Display only the model named by the status response, never a locally inferred capability of a pending choice. */
 export function ModelCapabilities({ model, capabilities, encoders }: Props): View {
@@ -25,7 +30,7 @@ export function ModelCapabilities({ model, capabilities, encoders }: Props): Vie
       state: encoders?.length ? t("mediasearch.capabilities.reported") : t("mediasearch.capabilities.unknown"),
     })),
     encoders?.length ? h("ul", { class: "plain-list" }, encoders.map((encoder) => h("li", { key: encoder.role },
-      `${t(`mediasearch.capabilities.role.${encoder.role}` as Key)} · ${encoder.dtype}: ${t(`mediasearch.capabilities.state.${encoder.state}` as Key)}`,
+      `${t(`mediasearch.capabilities.role.${encoder.role}` as Key)} · ${encoder.dtype}: ${t(ENCODER_STATE_KEYS[encoder.state])}`,
       h("p", { class: "field-hint" }, t("mediasearch.capabilities.download", {
         size: encoder.downloadBytes === undefined
           ? t("mediasearch.capabilities.unknown")
