@@ -19,6 +19,7 @@ export class CheckpointRetention {
   readonly #jobs = new Set<Promise<unknown>>();
   readonly #queues = new Map<string, Promise<unknown>>();
   readonly #active = new Map<string, AbortController>();
+  readonly #warned = new Set<string>();
   readonly #unarchive: () => void;
   #timer: ReturnType<typeof setTimeout> | undefined;
   #sweeping: Promise<void> | undefined;
@@ -33,7 +34,16 @@ export class CheckpointRetention {
     if (deps.store.hasCheckpoints()) void this.sweep().catch(() => this.#warn());
   }
 
-  #warn(): void { if (!this.#closed) { try { this.#d.onCleanupError?.(); } catch {} } }
+  #key(checkpoint: StoredCheckpoint): string { return `${checkpoint.sessionId}:${checkpoint.turnId}:${checkpoint.commitId}`; }
+  #warn(checkpoint?: StoredCheckpoint): void {
+    if (this.#closed) return;
+    if (checkpoint) {
+      const key = this.#key(checkpoint);
+      if (this.#warned.has(key)) return;
+      this.#warned.add(key);
+    }
+    try { this.#d.onCleanupError?.(); } catch {}
+  }
 
   #track<T>(job: Promise<T>): Promise<T> {
     this.#jobs.add(job);
@@ -65,7 +75,7 @@ export class CheckpointRetention {
 
   #ended(checkpoint: StoredCheckpoint): boolean {
     try { return this.#d.cardEnded?.(checkpoint.projectId, checkpoint.cardId) === true; }
-    catch { this.#warn(); return false; }
+    catch { this.#warn(checkpoint); return false; }
   }
 
   async #prune(sessionId: string, signal: AbortSignal): Promise<void> {
@@ -87,7 +97,8 @@ export class CheckpointRetention {
           target: sessionId, detail: { turnId: checkpoint.turnId, projectId: checkpoint.projectId, cardId: checkpoint.cardId, reason } });
         await this.#d.remove(checkpoint, signal);
         this.#d.store.forgetCheckpoint(checkpoint);
-      } catch (error) { signal.throwIfAborted(); this.#warn(); }
+        this.#warned.delete(this.#key(checkpoint));
+      } catch (error) { signal.throwIfAborted(); this.#warn(checkpoint); }
     }
   }
 
@@ -135,5 +146,6 @@ export class CheckpointRetention {
     this.#closed = true;
     this.#unarchive(); clearTimeout(this.#timer); this.#stop.abort(Error("checkpoint-lifecycle-closed"));
     await this.idle();
+    this.#warned.clear();
   }
 }

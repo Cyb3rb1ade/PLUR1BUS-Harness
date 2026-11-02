@@ -32,12 +32,14 @@ export interface RewindInput {
 
 /** Harness-owned checkpoint identity. A mutable Git ref alone is never proof of its original contents. */
 export interface StoredCheckpoint {
-  sessionId: string; turnId: string; projectId: string; cardId: string; root: string; ref: string; tree: string; commitId: string;
+  sessionId: string; turnId: string; projectId: string; cardId: string; root: string; commonGitDir: string;
+  ref: string; tree: string; commitId: string;
 }
 
 function toCheckpoint(row: Record<string, unknown>): StoredCheckpoint {
   return { sessionId: String(row.session_id), turnId: String(row.turn_id), projectId: String(row.project_id),
-    cardId: String(row.card_id), root: String(row.root), ref: String(row.ref), tree: String(row.tree), commitId: String(row.commit_id) };
+    cardId: String(row.card_id), root: String(row.root), commonGitDir: String(row.common_git_dir),
+    ref: String(row.ref), tree: String(row.tree), commitId: String(row.commit_id) };
 }
 
 export interface CreateSessionInput {
@@ -657,8 +659,9 @@ export class SessionStore {
       if (!session || session.archivedAt !== null || !turn || turn.sessionId !== checkpoint.sessionId || turn.state !== "running") {
         throw new SessionError("conflict", "checkpoint turn is not running in the session", "rewind-checkpoint");
       }
-      this.#run(`INSERT INTO session_checkpoints(session_id,turn_id,turn_seq,project_id,card_id,root,ref,tree,commit_id,created_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?)`, checkpoint.sessionId, checkpoint.turnId, turn.seq, checkpoint.projectId, checkpoint.cardId, checkpoint.root, checkpoint.ref,
+      this.#run(`INSERT INTO session_checkpoints(session_id,turn_id,turn_seq,project_id,card_id,root,common_git_dir,ref,tree,commit_id,created_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?)`, checkpoint.sessionId, checkpoint.turnId, turn.seq, checkpoint.projectId, checkpoint.cardId,
+        checkpoint.root, checkpoint.commonGitDir, checkpoint.ref,
         checkpoint.tree, checkpoint.commitId, this.#clock());
     });
   }

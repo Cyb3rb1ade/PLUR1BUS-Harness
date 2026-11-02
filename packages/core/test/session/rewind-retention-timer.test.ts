@@ -10,7 +10,7 @@ test("a pending restore cannot block later card-completion maintenance checks", 
   const store = new SessionStore({ path: ":memory:" }), cancel = new AbortController();
   const session = store.createSession({ kind: "card", agentId: "a", owner: "owner" });
   const turn = store.beginTurn(session.id, "edit", 1);
-  store.recordCheckpoint({ sessionId: session.id, turnId: turn.turn.id, projectId: "p", cardId: "c", root: "/fixture",
+  store.recordCheckpoint({ sessionId: session.id, turnId: turn.turn.id, projectId: "p", cardId: "c", root: "/fixture", commonGitDir: "/fixture/.git",
     ref: "refs/plur1bus/checkpoints/fixture", tree: "a".repeat(40), commitId: "b".repeat(40) });
   store.completeTurn(turn.turn.id, { text: "done", tokens: 1 });
   let ended = false, checks = 0, removed = 0, enter!: () => void;

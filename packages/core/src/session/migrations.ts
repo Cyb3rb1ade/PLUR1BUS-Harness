@@ -173,6 +173,7 @@ export const MIGRATIONS: readonly string[] = [
     project_id TEXT NOT NULL,
     card_id TEXT NOT NULL,
     root TEXT NOT NULL,
+    common_git_dir TEXT NOT NULL,
     ref TEXT NOT NULL,
     tree TEXT NOT NULL,
     commit_id TEXT NOT NULL,

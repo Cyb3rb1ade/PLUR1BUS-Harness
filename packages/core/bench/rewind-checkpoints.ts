@@ -1,7 +1,7 @@
 /** Synthetic native-checkpoint cost probe; no provider, network or B1 acceptance claim. Run with the source condition. */
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { devNull, tmpdir } from "node:os";
+import { cpus, devNull, release, tmpdir, totalmem } from "node:os";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { memoryAuditSink } from "../src/rbac/audit.ts";
@@ -33,11 +33,15 @@ try {
       samples.push(performance.now() - at);
       store.completeTurn(start.turn.id, { text: "done", tokens: 1 });
     }
+    const rawSamplesMs = [...samples];
     samples.sort((a, b) => a - b);
-    results.push({ enabled: mode, samples: samples.length, p50Ms: samples[9]!, p95Ms: samples[18]!, bindingLookups: lookups - before });
+    results.push({ enabled: mode, samples: samples.length, rawSamplesMs, warmups: 0, outliersDiscarded: 0,
+      p50Ms: samples[9]!, p95Ms: samples[18]!, bindingLookups: lookups - before });
   }
   process.stdout.write(JSON.stringify({ node: process.version, platform: process.platform, arch: process.arch,
     git: git("--version").trim(), trackedFiles: 100, trackedBytes: 100 * 1024 * "fixture contents\n".length,
+    hardware: { os: release(), cpu: cpus()[0]?.model ?? "unknown", logicalCpus: cpus().length, memoryBytes: totalmem() },
+    methodology: "20 samples per mode, no discarded warmups or outliers, nearest-rank percentiles; OS caches uncontrolled",
     bindingResolver: "constant fixture, not a production board scan", results }, null, 2) + "\n");
   store.archiveSession(session.id); await checkpoints.idle();
 } finally {

@@ -58,6 +58,20 @@ function checkpointRef(sessionId: string, turnId: string): string {
   return `${CHECKPOINT}/${sessionId}/${turnId}`;
 }
 
+function gitExit(error: unknown): number | undefined {
+  const cause = error instanceof SessionError ? error.cause : error;
+  return cause && typeof cause === "object" && "code" in cause && typeof cause.code === "number" ? cause.code : undefined;
+}
+
+function missingPath(error: unknown): boolean {
+  return error !== null && typeof error === "object" && "code" in error
+    && (error.code === "ENOENT" || error.code === "ENOTDIR");
+}
+
+async function commonGitDirectory(root: string, signal: AbortSignal): Promise<string> {
+  return realpath(resolve(root, (await git(root, ["rev-parse", "--git-common-dir"], { signal })).trim()));
+}
+
 async function indexPath(root: string, signal: AbortSignal): Promise<string> {
   const path = resolve(root, (await git(root, ["rev-parse", "--git-path", "index"], { signal })).trim());
   if ((await lstat(path)).isSymbolicLink()) throw new SessionError("conflict", "checkpoint index must not be a link", "rewind-checkpoint");
@@ -171,19 +185,45 @@ export class RewindCheckpoints implements RewindFilesPort {
     if (row.ref !== checkpointRef(row.sessionId, row.turnId) || !OID.test(row.commitId)) {
       throw new SessionError("conflict", "checkpoint cleanup identity changed", "rewind-checkpoint");
     }
-    const root = await realpath(row.root);
-    if (root !== row.root || await realpath((await git(root, ["rev-parse", "--show-toplevel"], { signal })).trim()) !== root) {
-      throw new SessionError("conflict", "checkpoint cleanup root changed", "rewind-checkpoint");
+    let result = "present";
+    try {
+      const root = await realpath(row.root);
+      if (root !== row.root) throw new SessionError("conflict", "checkpoint cleanup root changed", "rewind-checkpoint");
+      try {
+        const top = await realpath((await git(root, ["rev-parse", "--show-toplevel"], { signal })).trim());
+        if (top !== root || await commonGitDirectory(root, signal) !== row.commonGitDir) {
+          throw new SessionError("conflict", "checkpoint cleanup repository changed", "rewind-checkpoint");
+        }
+      } catch (error) {
+        if (gitExit(error) !== 128) throw error;
+        result = "root-not-repository";
+      }
+    } catch (error) {
+      if (!missingPath(error)) throw error;
+      result = "root-missing";
     }
-    let actual: string;
-    try { actual = (await git(root, ["rev-parse", "--verify", "--quiet", row.ref], { signal })).trim(); }
+    const auditMissing = () => this.#d.audit.append({ at: this.#d.now(), actor: { user: "core", host: "core" },
+      action: "session.checkpoint.pruning", target: row.sessionId,
+      detail: { turnId: row.turnId, projectId: row.projectId, cardId: row.cardId, result } });
+    let common: string;
+    try { common = await realpath(row.commonGitDir); }
     catch (error) {
-      const cause = error instanceof SessionError ? error.cause : error;
-      if (cause && typeof cause === "object" && "code" in cause && cause.code === 1) return; // Interrupted ref publication or earlier completed cleanup.
+      if (result !== "present" && missingPath(error)) { auditMissing(); return; }
       throw error;
     }
-    if (actual !== row.commitId) throw new SessionError("conflict", "checkpoint cleanup ref changed", "rewind-checkpoint");
-    await git(root, ["update-ref", "-d", row.ref, row.commitId], { signal });
+    if (common !== row.commonGitDir) throw new SessionError("conflict", "checkpoint cleanup Git directory changed", "rewind-checkpoint");
+    const options = { signal, env: { GIT_DIR: common } };
+    const verified = await realpath(resolve(common, (await git(common, ["rev-parse", "--git-common-dir"], options)).trim()));
+    if (verified !== common) throw new SessionError("conflict", "checkpoint common directory changed", "rewind-checkpoint");
+    let actual: string | undefined;
+    try { actual = (await git(common, ["rev-parse", "--verify", "--quiet", row.ref], options)).trim(); }
+    catch (error) { if (gitExit(error) !== 1) throw error; } // Interrupted ref publication or earlier completed cleanup.
+    if (actual !== undefined && actual !== row.commitId) {
+      throw new SessionError("conflict", "checkpoint cleanup ref changed", "rewind-checkpoint");
+    }
+    if (result !== "present") auditMissing();
+    if (actual !== undefined) await git(common, ["update-ref", "-d", row.ref, row.commitId], options);
+    if (result !== "present") await git(common, ["worktree", "prune", "--expire", "now"], options);
   }
 
   #projects(): readonly string[] { return this.#d.fileProjects?.() ?? []; }
@@ -221,6 +261,7 @@ export class RewindCheckpoints implements RewindFilesPort {
       throw new SessionError("invalid", "checkpoint turn is not in the session", "rewind-checkpoint");
     }
     const ref = checkpointRef(session.id, input.turnId);
+    const commonGitDir = await commonGitDirectory(bound.root, input.signal);
     const snapshot = await workingTree(bound.root, input.signal);
     const head = (await git(bound.root, ["rev-parse", "--verify", "HEAD"], { signal: input.signal })).trim();
     if (!OID.test(head)) throw new SessionError("conflict", "checkpoint requires a committed worktree", "rewind-checkpoint");
@@ -237,7 +278,7 @@ export class RewindCheckpoints implements RewindFilesPort {
       action: "session.checkpoint.created", target: session.id, detail: { turnId: input.turnId, ref, tree: snapshot.tree } });
     input.signal.throwIfAborted();
     // Persist intent first: cancellation during update-ref cannot leave a private ref undiscoverable by cleanup.
-    this.#d.store.recordCheckpoint({ sessionId: session.id, turnId: input.turnId, root: bound.root,
+    this.#d.store.recordCheckpoint({ sessionId: session.id, turnId: input.turnId, root: bound.root, commonGitDir,
       projectId: bound.projectId, cardId: bound.cardId, ref, tree: snapshot.tree, commitId: commit });
     // The all-zero old value makes a turn checkpoint immutable, including across a restart/retry.
     await git(bound.root, ["update-ref", ref, commit, "0".repeat(commit.length)], { signal: input.signal });

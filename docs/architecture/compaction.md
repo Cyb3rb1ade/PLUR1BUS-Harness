@@ -173,13 +173,19 @@ later attempt's different file state.
 (default 50, range 1–500). Refs older than that many session turns are released.
 Archive cleanup is queued immediately; completed/archived cards are checked by
 an owned ten-second maintenance sweep while checkpoint records exist. Startup
-retries outstanding cleanup. Each removal compares the saved ref and commit ID;
-a changed/unavailable root or ref retains its cleanup intent for a later retry.
+retries outstanding cleanup. Capture persists the canonical common Git directory,
+so an absent checkout or one that is no longer a repository reaches an audited
+terminal state (`root-missing` or `root-not-repository`). Cleanup releases the owned
+ref through that common directory and prunes stale linked-worktree registrations.
+If the common directory is also gone, its intent can be forgotten after the audit.
+Each removal still compares the saved ref and commit ID. Changed roots, directories
+or refs fail closed and retain their intent for retry, with at most one warning per
+intent. The timer stops after the last intent is removed.
 Cleanup never changes working files, staging, messages, events or conversation
 overlays. Releasing refs makes unreferenced objects eligible for ordinary Git
-garbage collection; the harness does not force repository-wide pruning.
+garbage collection; the harness does not run object pruning or `git gc`.
 
-Immutable checkpoint intents include project/card/turn and object identities.
+Immutable checkpoint intents include project/card/turn, common-directory and object identities.
 They are recorded before ref publication and outlive explicit transcript erasure
 until the native ref is released. This prevents interrupted publication or an
 immediate archive/delete from orphaning a ref. Core shutdown aborts and drains
@@ -187,14 +193,17 @@ owned checkpoint jobs before closing the session database.
 
 Capture reads all tracked working bytes, so its cost grows with the tracked tree.
 The synthetic probe below ran on macOS arm64, Node 24.21.0 and Git 2.55.0, with
-100 tracked files / 1,740,800 bytes and 20 samples per mode (2026-11-01). It uses
+100 tracked files / 1,740,800 bytes and 20 samples per mode (2026-11-02). It uses
 an in-memory session database and a constant binding resolver; production board
 lookup, persistent-database I/O, providers and B1 acceptance are outside this probe.
 
 | Checkpoints | p50 | p95 | Binding resolutions |
 | --- | ---: | ---: | ---: |
-| Disabled | 0.038 ms | 0.333 ms | 0 |
-| Enabled | 50.418 ms | 61.077 ms | 20 (one per turn) |
+| Disabled | 0.038 ms | 0.330 ms | 0 |
+| Enabled | 68.595 ms | 82.410 ms | 20 (one per turn) |
+
+The probe discards no warmups or outliers and uses nearest-rank percentiles.
+[Raw samples and measured hardware](../evidence/pr870-rereview-checkpoints-2026-11-02.json) are retained.
 
 Reproduce from the repository root with Node 24:
 
