@@ -268,7 +268,7 @@ pub fn placeholder_with_schema(
             _ => true,
         }
     }
-    let resolved = super::resolution::policy_schema(schema);
+    let resolved = super::resolution::policy_schema(schema, value);
     let schema = resolved.as_ref();
     let mut projection = Projection {
         output: Output::Archive(placeholder),
@@ -289,7 +289,7 @@ pub fn redact_config(value: &Value) -> Value {
 
 /// Apply an explicit configuration schema, for example an installed module's own declarations.
 pub fn redact_with_schema(value: &Value, schema: &Value) -> Value {
-    let resolved = super::resolution::policy_schema(schema);
+    let resolved = super::resolution::policy_schema(schema, value);
     let schema = resolved.as_ref();
     Projection {
         output: Output::Display,
@@ -336,7 +336,7 @@ pub fn reference_paths_with_schema(value: &Value, schema: &Value) -> Vec<String>
             _ => {}
         }
     }
-    let resolved = super::resolution::policy_schema(schema);
+    let resolved = super::resolution::policy_schema(schema, value);
     let schema = resolved.as_ref();
     let mut paths = Vec::new();
     visit(
@@ -814,7 +814,7 @@ pub fn secret_text_values_with_schema(value: &Value, schema: &Value) -> Vec<Stri
 }
 
 fn extract(value: &Value, schema: &Value, reference_values: ReferenceValues) -> Vec<String> {
-    let resolved = super::resolution::policy_schema(schema);
+    let resolved = super::resolution::policy_schema(schema, value);
     let schema = resolved.as_ref();
     let mut values = BTreeSet::new();
     let mut references = References {
@@ -899,7 +899,7 @@ pub fn reference_warnings_with_schema(
             _ => {}
         }
     }
-    let resolved = super::resolution::policy_schema(schema);
+    let resolved = super::resolution::policy_schema(schema, value);
     let schema = resolved.as_ref();
     let mut warnings = Vec::new();
     visit(value, schema, "", &mut Matcher::new(schema), &mut warnings);
