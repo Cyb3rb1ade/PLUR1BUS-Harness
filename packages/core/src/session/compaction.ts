@@ -124,7 +124,17 @@ export class Compactor {
     const summaries = this.#applied(sessionId);
     const covered = (seq: number) => summaries.some(summary => seq >= summary.fromSeq && seq <= summary.toSeq);
     let clipped = 0;
-    const source = this.#store.contextMessages(sessionId);
+    const pairs = this.#hooks.pruner?.view(sessionId) ?? [];
+    let afterSeq = 0;
+    // Rewind may leave gaps; only a continuously covered prefix can be omitted from the database read.
+    // Explicitly restored tool references still need their original turn anchors, even inside a summary.
+    if (!pairs.some(pair => pair.restored)) {
+      for (const summary of [...summaries].sort((a, b) => a.fromSeq - b.fromSeq)) {
+        if (summary.fromSeq > afterSeq + 1) break;
+        afterSeq = Math.max(afterSeq, summary.toSeq);
+      }
+    }
+    const source = this.#store.contextMessages(sessionId, { afterSeq });
     const lessons = new Set(this.#store.rewinds(sessionId).map(rewind => rewind.lessonMessageId));
     const messages: ContextView["messages"] = source.filter(message => !covered(message.seq)).map((m) => {
       const t = truncateWithPointer(m.text, cfg.maxMessageTokens, `full text is message ${m.id} in the session transcript`);
@@ -132,7 +142,6 @@ export class Compactor {
       // Providers hoist system messages. A distilled lesson stays after the kept conversation, below system rank.
       return { id: m.id, role: lessons.has(m.id) ? "user" : m.role, text: t.text, seq: m.seq, turnId: m.turnId };
     });
-    const pairs = this.#hooks.pruner?.view(sessionId) ?? [];
     for (const pair of pairs) {
       const first = source.find(m => m.turnId === pair.turnId);
       if (!first || (covered(first.seq) && !pair.restored)) continue;

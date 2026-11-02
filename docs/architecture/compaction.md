@@ -107,6 +107,11 @@ Undo exposes the original tool-visibility overlays and summaries again. FTS keep
 all original text and marks hidden hits `rewound`; transcript APIs carry the same
 flag. `chat.export` separates `messages` from `discarded`.
 
+Context reads determine command turns once and filter messages in one pass; they do not
+perform a correlated event lookup for each message. Ordinary compaction reads start after
+the continuously summarized prefix. Gaps left by rewind remain visible, and explicitly
+restored tool references retain their original turn anchors even inside a summarized range.
+
 The stored harness note renders at conversation rank after the kept prefix. This
 keeps provider system blocks stable, including on providers that hoist system messages.
 Human corrective notes are limited to 1567 UTF-16 code units and preserved verbatim.

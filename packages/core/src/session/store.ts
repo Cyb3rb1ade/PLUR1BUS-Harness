@@ -622,13 +622,14 @@ export class SessionStore {
       AND json_extract(data,'$.provider')='harness-command'`, sessionId).map(row => String(row.turn_id)));
   }
 
-  /** Full active history for prompt/compaction readers. No transcript pagination can silently truncate a rewind digest. */
-  contextMessages(sessionId: string): MessageRecord[] {
-    const rows = this.#all(`SELECT m.* FROM messages m WHERE m.session_id=? AND NOT EXISTS
-      (SELECT 1 FROM events e WHERE e.session_id=m.session_id AND e.turn_id=m.turn_id
-        AND e.type IN ('turn.started','turn.completed','turn.failed')
-        AND json_extract(e.data,'$.provider')='harness-command') ORDER BY m.seq`, sessionId);
-    return activePath(rows.map(toMessage), this.rewinds(sessionId));
+  /** Active history after an optional exclusive boundary; no pagination can truncate a rewind digest. */
+  contextMessages(sessionId: string, options: { afterSeq?: number } = {}): MessageRecord[] {
+    // M6: scan command provenance once, never once per message on every session's prompt path.
+    const commands = this.harnessCommandTurns(sessionId);
+    const rows = this.#all("SELECT * FROM messages WHERE session_id=? AND seq>? ORDER BY seq",
+      sessionId, options.afterSeq ?? 0);
+    const messages = rows.map(toMessage).filter(message => message.turnId === null || !commands.has(message.turnId));
+    return activePath(messages, this.rewinds(sessionId));
   }
 
   /** Overlay metadata for transcript readers, ordered by the append-only lesson sequence. */
