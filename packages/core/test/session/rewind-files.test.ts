@@ -8,6 +8,9 @@ import { test } from "node:test";
 import { SessionStore } from "../../src/session/store.ts";
 import { checkpointEnvironment, RewindCheckpoints } from "../../src/session/rewind-checkpoints.ts";
 import { RewindService } from "../../src/session/rewind.ts";
+import { Compactor } from "../../src/session/compaction.ts";
+import { TurnRunner } from "../../src/session/turn-loop.ts";
+import { FakeChatProvider } from "../../src/session/provider.ts";
 import { memoryAuditSink } from "../../src/rbac/audit.ts";
 import type { ApprovalAsk, ApprovalPort } from "../../src/tools/approval.ts";
 import { rig as approvalRig, tick } from "../approvals/service-helpers.ts";
@@ -49,6 +52,54 @@ function rig(approved: boolean, approval?: ApprovalPort & Required<Pick<Approval
     whenAsked(callback: () => void) { onAsk = callback; },
     async close() { await checkpoints.close?.(); store.close(); rmSync(root, { recursive: true, force: true }); } };
 }
+
+function runnerForFiles(r: ReturnType<typeof rig>) {
+  let modelCalls = 0;
+  const rewind = new RewindService({ store: r.store, audit: r.audit, now: () => 42, files: r.checkpoints });
+  const runner = new TurnRunner({ store: r.store, compactor: new Compactor(r.store), checkpoints: r.checkpoints, rewind,
+    memory: { recall: async () => ({ text: "", degraded: null }), capture: async () => {}, checkpoint: async () => {} },
+    provider: () => new FakeChatProvider({ onRequest: () => {
+      modelCalls++;
+      writeFileSync(join(r.root, "tracked.txt"), modelCalls === 1 ? "target bytes\n" : `failed attempt ${modelCalls}\n`);
+    } }) });
+  const submit = (text: string) => runner.submit({ session: r.session,
+    caller: { channel: "cli", accountId: "local", userId: "owner" }, text, authenticatedPerson: "owner",
+    approver: { person: "owner", surface: 2 } }).done;
+  return { runner, submit, modelCalls: () => modelCalls };
+}
+
+test("command turns between the target and an attempt never become file-checkpoint candidates", async () => {
+  const r = rig(true), h = runnerForFiles(r);
+  try {
+    assert.equal((await h.submit("kept task")).state, "completed");
+    assert.equal((await h.submit("/compact --explain")).state, "completed");
+    const command = r.store.listTurns(r.session.id).at(-1)!;
+    assert.ok(!r.store.checkpoints(r.session.id).some(row => row.turnId === command.id));
+    assert.equal((await h.submit("failed attempt")).state, "completed");
+    const result = await h.submit('/rewind 2 --files --lesson "Keep the target state."');
+    assert.equal(result.state, "completed", JSON.stringify(result));
+    assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), "target bytes\n");
+    assert.equal(r.asks.length, 1);
+    assert.equal(h.modelCalls(), 2, "commands never ask a model or capture their own checkpoint");
+  } finally { await h.runner.idle(); await r.close(); }
+});
+
+test("a second rewind to the same target uses the older discarded attempt's original file checkpoint", async () => {
+  const r = rig(true), h = runnerForFiles(r);
+  try {
+    await h.submit("kept task");
+    await h.submit("first failed attempt");
+    assert.equal((await h.submit('/rewind 2 --lesson "First lesson."')).state, "completed");
+    assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), "failed attempt 2\n");
+    await h.submit("second failed attempt");
+    const result = await h.submit('/rewind 2 --files --lesson "Second lesson."');
+    assert.equal(result.state, "completed", JSON.stringify(result));
+    assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), "target bytes\n");
+    assert.equal(r.store.rewinds(r.session.id).length, 2);
+    assert.equal(r.asks.length, 1);
+    assert.equal(h.modelCalls(), 3);
+  } finally { await h.runner.idle(); await r.close(); }
+});
 
 test("an unstaged deletion can be captured and restored without changing the real index or HEAD", async () => {
   const r = rig(true);

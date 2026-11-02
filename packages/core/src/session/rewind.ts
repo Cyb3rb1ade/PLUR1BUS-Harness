@@ -164,7 +164,10 @@ export class RewindService {
         if (!this.#d.files || !input.approver?.person) {
           throw new SessionError("conflict", "approved D115 file checkpoint restore is unavailable", "rewind-checkpoint-unavailable");
         }
-        const checkpointTurnId = plan.messages.find(message => message.turnId !== null)?.turnId;
+        const commands = store.harnessCommandTurns(input.sessionId);
+        // The oldest discarded ordinary turn, including a hidden earlier attempt, captured the target's file state.
+        // Commands never capture files; a missing checkpoint for that ordinary turn must still refuse the restore.
+        const checkpointTurnId = plan.messages.find(message => message.turnId !== null && !commands.has(message.turnId))?.turnId;
         if (!checkpointTurnId) throw new SessionError("conflict", "rewind checkpoint is unavailable", "rewind-checkpoint-unavailable");
         reservation = store.reserveRewind(input.sessionId, input.commandTurnId);
         await this.#d.files.restore({ sessionId: input.sessionId, parentSeq: plan.parentSeq,

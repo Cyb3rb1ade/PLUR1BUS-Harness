@@ -164,6 +164,11 @@ Git failures use the typed `rewind-checkpoint` storage reason without exposing s
 checkpoint is logged and `--files` refuses rather than substituting HEAD.
 Incognito sessions create no file checkpoints.
 
+File rewind selects the first ordinary discarded turn, skipping harness-command turns.
+An already hidden older attempt remains eligible: its checkpoint is the file state at
+the target. If that checkpoint is unavailable, restore refuses rather than selecting a
+later attempt's different file state.
+
 `session.rewind.checkpointRetentionTurns` is a live, audited Owner/Admin setting
 (default 50, range 1–500). Refs older than that many session turns are released.
 Archive cleanup is queued immediately; completed/archived cards are checked by
