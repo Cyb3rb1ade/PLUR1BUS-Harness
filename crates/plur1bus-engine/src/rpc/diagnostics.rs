@@ -66,6 +66,8 @@ pub enum Reason {
     StampAgeRule,
     /// Another process holds the primary OS lock for this home.
     ProcessLockHeld,
+    /// A live listener already owns the configured local endpoint.
+    EndpointLive,
 }
 
 impl Reason {
@@ -84,6 +86,7 @@ impl Reason {
             Self::StampOwnerLive => "stamp-owner-live",
             Self::StampAgeRule => "stamp-age-rule",
             Self::ProcessLockHeld => "process-lock-held",
+            Self::EndpointLive => "endpoint-live",
         }
     }
 }
@@ -375,6 +378,7 @@ mod tests {
             (Lifecycle::Stopped, Reason::StampOwnerLive),
             (Lifecycle::Stopped, Reason::StampAgeRule),
             (Lifecycle::Stopped, Reason::ProcessLockHeld),
+            (Lifecycle::Stopped, Reason::EndpointLive),
         ] {
             let line = lifecycle_line(state, reason).expect("registered lifecycle record");
             assert!(plur1bus_log_schema::validate_line(&line).is_ok());

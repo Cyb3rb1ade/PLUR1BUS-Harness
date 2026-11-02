@@ -1074,7 +1074,7 @@ Content-free engine process transitions; never memory, method parameters or path
 | Attribute | Type | Meaning |
 |---|---|---|
 | `state` | `started` \| `orphaned` \| `adopted` \| `stopping` \| `stopped` |  |
-| `reason` | `ready` \| `stdin-closed` \| `connection-closed` \| `adopted` \| `shutdown` \| `grace-expired` \| `signal` \| `transport-fatal` \| `deadline` \| `startup-failed` \| `stamp-owner-live` \| `stamp-age-rule` \| `process-lock-held` |  |
+| `reason` | `ready` \| `stdin-closed` \| `connection-closed` \| `adopted` \| `shutdown` \| `grace-expired` \| `signal` \| `transport-fatal` \| `deadline` \| `startup-failed` \| `stamp-owner-live` \| `stamp-age-rule` \| `process-lock-held` \| `endpoint-live` |  |
 | `pid` | `integer` |  |
 
 #### `engine_process_error`

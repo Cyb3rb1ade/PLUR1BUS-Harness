@@ -52,6 +52,34 @@ mod imp {
     use std::os::unix::net::{SocketAddr, UnixStream};
     use std::time::Instant;
     pub struct S(UnixStream);
+
+    fn timeout_result(
+        result: io::Result<()>,
+        _fd: std::os::fd::RawFd,
+        _duration: Option<Duration>,
+    ) -> io::Result<()> {
+        #[cfg(target_vendor = "apple")]
+        if _duration.is_some_and(|duration| !duration.is_zero())
+            && result
+                .as_ref()
+                .is_err_and(|error| error.raw_os_error() == Some(libc::EINVAL))
+        {
+            // Darwin refuses SO_RCVTIMEO/SO_SNDTIMEO after peer close. A positively
+            // hung-up stream cannot block: drain its buffered reply, then observe EOF.
+            // Do not hide other errors or the invalid zero-duration API input.
+            let mut event = libc::pollfd {
+                fd: _fd,
+                events: libc::POLLIN,
+                revents: 0,
+            };
+            // SAFETY: event is one initialized pollfd for this live stream; timeout is zero.
+            if unsafe { libc::poll(&mut event, 1, 0) } > 0 && event.revents & libc::POLLHUP != 0 {
+                return Ok(());
+            }
+        }
+        result
+    }
+
     impl Read for S {
         fn read(&mut self, b: &mut [u8]) -> io::Result<usize> {
             self.0.read(b)
@@ -67,13 +95,13 @@ mod imp {
     }
     impl Stream for S {
         fn set_read_timeout(&self, d: Option<Duration>) -> io::Result<()> {
-            self.0.set_read_timeout(d)
+            timeout_result(self.0.set_read_timeout(d), self.0.as_raw_fd(), d)
         }
         fn try_clone_stream(&self) -> io::Result<Box<dyn Stream>> {
             Ok(Box::new(S(self.0.try_clone()?)))
         }
         fn set_write_timeout(&self, d: Option<Duration>) -> io::Result<()> {
-            self.0.set_write_timeout(d)
+            timeout_result(self.0.set_write_timeout(d), self.0.as_raw_fd(), d)
         }
         fn shutdown(&self) -> io::Result<()> {
             self.0.shutdown(std::net::Shutdown::Both)

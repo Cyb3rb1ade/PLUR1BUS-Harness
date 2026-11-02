@@ -14,6 +14,7 @@ test("engine lifecycle diagnostics have closed, content-free state and reason ca
     ["adopted", "adopted"], ["stopping", "shutdown"], ["stopping", "grace-expired"],
     ["stopping", "signal"], ["stopping", "transport-fatal"], ["stopped", "deadline"],
     ["stopped", "shutdown"],
+    ["stopped", "endpoint-live"],
   ]) assert.ok(validateRecord(record("engine.process.lifecycle", "info", { state, reason, pid: 42 })).ok);
   assert.equal(validateRecord(record("engine.process.lifecycle", "info", {
     state: "started", reason: "private-memory-content", pid: 42,

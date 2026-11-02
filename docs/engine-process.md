@@ -24,7 +24,11 @@ owner exits 3 without changing the first process's files. After a crash, a priva
 or whose start identity is demonstrably different is recovered immediately. A different boot ID is checked before
 probing the recorded PID, and a PID unavailable to this user is orphaned in a private home. Only a positively live
 local owner with the same incarnation stays protected regardless of nonce age. Foreign-host, malformed and incomplete
-stamps use the existing bounded `JobLock` age rule. Startup diagnostics distinguish a live owner from that age rule.
+stamps use the existing bounded `JobLock` age rule: malformed, empty or invalid-PID stamps become stale after
+60 seconds; a valid foreign-host stamp can remain protected up to the 600-second hard ceiling. Exit 3 with
+`stamp-age-rule` therefore means a finite wait; retry startup with backoff rather than deleting the stamp.
+Startup diagnostics distinguish a live owner, the age rule, an OS-held process lock, and an already live
+endpoint (`endpoint-live`). The live endpoint is preserved when startup refuses it.
 New nonce files are created with mode `0600`; legacy owner-only nonce metadata
 with read bits (for example `0644`) is accepted only inside the owned `0700` run directory, with no links or foreign
 write bits. Bearer-token readers stay strict. Successful shutdown removes only that start's run files.

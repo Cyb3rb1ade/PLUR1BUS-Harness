@@ -366,7 +366,7 @@ impl EngineLayout {
         if fs::symlink_metadata(&self.address).is_ok() {
             assert_trusted_path(Path::new(&self.address)).map_err(io::Error::other)?;
             match std::os::unix::net::UnixStream::connect(&self.address) {
-                Ok(_) => return Err(super::server::ServeError::Locked),
+                Ok(_) => return Err(locked(super::diagnostics::Reason::EndpointLive)),
                 Err(e)
                     if matches!(
                         e.kind(),

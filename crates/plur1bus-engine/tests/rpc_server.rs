@@ -369,6 +369,51 @@ fn startup_refusals_distinguish_a_live_owner_from_the_stamp_age_rule() {
 }
 
 #[cfg(unix)]
+#[test]
+fn startup_refuses_a_live_endpoint_with_a_content_free_reason() {
+    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::net::{UnixListener, UnixStream};
+
+    let _serial = process_test();
+    let home = home();
+    let run = home.path().join("run");
+    plur1bus_engine::store::paths::secure_dir(&run).unwrap();
+    let endpoint = run.join("engine.sock");
+    let _listener = UnixListener::bind(&endpoint).unwrap();
+    fs::set_permissions(&endpoint, fs::Permissions::from_mode(0o600)).unwrap();
+    let mut engine = EngineProcess::spawn(home.path(), None);
+    assert_eq!(
+        engine.wait_for_exit().code(),
+        Some(3),
+        "{}",
+        engine.diagnostics()
+    );
+    let stderr = engine.stderr();
+    assert!(!stderr.contains(&home.path().to_string_lossy().to_string()));
+    let records: Vec<Value> = stderr
+        .lines()
+        .map(|line| {
+            plur1bus_log_schema::validate_line(line).unwrap();
+            serde_json::from_str(line).unwrap()
+        })
+        .collect();
+    assert!(
+        records
+            .iter()
+            .any(|record| record["event"] == "engine.process.lifecycle"
+                && record["attrs"]["state"] == "stopped"
+                && record["attrs"]["reason"] == "endpoint-live"),
+        "{stderr}"
+    );
+    assert!(
+        UnixStream::connect(&endpoint).is_ok(),
+        "the foreign endpoint must remain live"
+    );
+    assert!(!run.join("engine.pid").exists());
+    assert!(!run.join("engine.token").exists());
+}
+
+#[cfg(unix)]
 fn nonce_for_pid(pid: u32) -> Value {
     json!({
         "nonce":uuid::Uuid::new_v4().to_string(),

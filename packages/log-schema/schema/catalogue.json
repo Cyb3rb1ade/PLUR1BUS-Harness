@@ -2037,7 +2037,8 @@
             "startup-failed",
             "stamp-owner-live",
             "stamp-age-rule",
-            "process-lock-held"
+            "process-lock-held",
+            "endpoint-live"
           ]
         },
         "pid": {
