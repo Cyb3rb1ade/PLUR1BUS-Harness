@@ -155,6 +155,9 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
     for (const h of hs) { try { h(); } catch { /* a close handler never breaks the others */ } }
   });
   sock.on("error", (e) => { const err = e as NodeJS.ErrnoException; lastSocketError = { code: err.code, message: err.message }; });
+  // B5: inheriting this socket as a PID helper's stdio pauses it permanently in Node. The helper has exited,
+  // its OS result passed the guard above, and our RPC reader is installed before reception resumes.
+  if (platform === "win32" && opts.serverPidOf) sock.resume();
 
   function call<T = unknown>(method: string, params: object = {}, timeoutMs = callTimeoutMs): Promise<T> {
     if (closed) return Promise.reject(new RpcCallError(-32000, "E_CORE_UNAVAILABLE", "connection closed", "closed"));

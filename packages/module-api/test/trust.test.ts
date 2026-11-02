@@ -1,5 +1,6 @@
 import { describe, it, after } from "node:test";
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { createServer, type Server, type Socket } from "node:net";
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -29,7 +30,7 @@ async function fakeCore(runDir: string, hello: unknown = { contract: "1.4.1", rp
       seen.bytes += chunk.length;
       for (const m of dec.decode(chunk).values as any[]) {
         seen.methods.push(m.method);
-        sock.write(encodeLine({ jsonrpc: "2.0", id: m.id, result: m.method === "core.auth" ? hello : {} }));
+        sock.write(encodeLine({ jsonrpc: "2.0", id: m.id, result: m.method === "core.auth" || m.method === "tools.hello" ? hello : {} }));
       }
     });
     sock.on("error", () => {});
@@ -205,6 +206,53 @@ describe("client connect refuses an untrusted endpoint and sends nothing", () =>
 });
 
 describe("tools Windows handshake keeps both credentials behind the OS PID check (B4 L3)", () => {
+  for (const actual of [4242, 999]) {
+    it(`a PID helper inheriting the connected socket ${actual === 4242 ? "permits hello and subsequent calls" : "still refuses a foreign PID without sending bytes"}`, T, async t => {
+      const core = await fakeCore(join(home(), "run"));
+      let inherited = false;
+      let client: Awaited<ReturnType<typeof connect>> | undefined;
+      try {
+        const pending = connect({ address: core.address, platform: "win32", endpoint: "tools", token: TOKEN,
+          ticketKey: "0".repeat(64), expectedServerPid: 4242, handshakeTimeoutMs: 1000,
+          serverPidOf: async socket => {
+            const child = spawn(process.execPath, ["-e", "process.stdout.write(process.argv[1])", String(actual)],
+              { stdio: [socket, "pipe", "ignore"], windowsHide: true });
+            let output = "";
+            child.stdout?.setEncoding("utf8");
+            child.stdout?.on("data", (chunk: string) => { output += chunk; });
+            let failure: Error | undefined;
+            child.once("error", error => { failure = error; });
+            const closed = new Promise<number | null>(resolve => child.once("close", resolve));
+            const kill = () => { child.kill("SIGKILL"); };
+            const timer = setTimeout(kill, 1000);
+            t.signal.addEventListener("abort", kill, { once: true });
+            let code;
+            try { code = await closed; }
+            finally {
+              clearTimeout(timer);
+              t.signal.removeEventListener("abort", kill);
+              if (child.exitCode === null && child.signalCode === null) { kill(); await closed; }
+            }
+            if (failure || code !== 0) throw failure ?? new Error(`PID helper exited ${code}`);
+            assert.equal(socket.isPaused(), true, "Node leaves an inherited stdio stream explicitly paused after child close");
+            assert.equal(core.seen.bytes, 0, "neither token nor ticket key precedes the completed PID lookup");
+            inherited = true;
+            return Number(output);
+          } });
+        if (actual === 4242) {
+          client = await pending;
+          assert.equal(client.hello.pid, 4242);
+          assert.deepEqual(await client.call("probe", {}), {});
+          assert.deepEqual(core.seen.methods, ["tools.hello", "probe"]);
+        } else {
+          await assert.rejects(pending, (error: unknown) => error instanceof RpcCallError && error.reason === "pipe-server-mismatch");
+          assert.equal(core.seen.bytes, 0);
+        }
+        assert.equal(inherited, true, "the real child/stdio inheritance path must run");
+      } finally { await client?.close(); await core.close(); }
+    });
+  }
+
   it("refuses tools without a native lookup before connecting", T, async () => {
     const core = await fakeCore(join(home(), "run"));
     try {

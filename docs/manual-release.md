@@ -66,6 +66,11 @@ Desktop releases exclude v1-compatible updater artifacts because the plugin's `z
 
 ## 4. Checks before publishing
 
+- [ ] **First `native.tools` release:** state in the release notes that older CLIs reject the new feed with
+      `release-malformed`, including `update --check`. Users must stop the old daemon and reinstall once with the
+      current one-line installer (or the archive containing both binaries plus `setup`), using the same home/options.
+      Existing configuration, memory and user data remain; subsequent releases use normal `update`. See
+      [the transition instructions](updates.md#first-release-with-native-tools-upgrading-an-older-cli).
 - [ ] `sha256sum -c SHA256SUMS` passes, and `release-native.json`'s hashes match it.
 - [ ] macOS: `codesign --verify --strict --verbose=2 plur1bus-darwin-arm64` and
       `spctl --assess --type execute -vv plur1bus-darwin-arm64` (after downloading it through a browser, so it carries

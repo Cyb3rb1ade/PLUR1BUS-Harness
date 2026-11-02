@@ -97,7 +97,8 @@ try {
   $feedFile = Join-Path $stage 'feed.json'
   try { Get-Resource $feedUrl $feedFile } catch { Fail "could not read the release feed ${feedUrl}: $($_.Exception.Message)" }
   try { $feed = Get-Content -LiteralPath $feedFile -Raw | ConvertFrom-Json } catch { Fail "the release feed is not valid JSON: $($_.Exception.Message)" }
-  foreach ($kind in @('binary', 'tools')) {
+  # Match install.sh: both downloads verify first, then place tools before the CLI.
+  foreach ($kind in @('tools', 'binary')) {
     $asset = $null
     if ($feed.PSObject.Properties['native'] -and $feed.native.PSObject.Properties[$kind] -and $feed.native.$kind.PSObject.Properties[$target]) {
       $asset = $feed.native.$kind.$target
@@ -116,10 +117,14 @@ try {
     $backup = Join-Path $stage "$name.old"
     $existed = Test-Path -LiteralPath $to
     if ($existed) { [System.IO.File]::Copy($to, $backup, $false) }
-    $pair += @{ staged = $tmp; dest = $to; backup = $backup; existed = $existed }
+    $pair += @{ staged = $tmp; dest = $to; backup = $backup; existed = $existed; moved = $false }
   }
   $swapping = $true
-  foreach ($file in $pair) { Move-Item -LiteralPath $file.staged -Destination $file.dest -Force }
+  foreach ($file in $pair) {
+    try { Move-Item -LiteralPath $file.staged -Destination $file.dest -Force }
+    catch { Fail "could not install $([IO.Path]::GetFileName($file.dest)): $($_.Exception.Message)" }
+    $file.moved = $true
+  }
   $ok = $true
   [Console]::Error.WriteLine("plur1bus install: installed CLI and native tools in $binDir")
   $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
@@ -130,12 +135,22 @@ try {
   [Console]::Error.WriteLine("plur1bus install: $($_.Exception.Message)")
 } finally {
   if ($swapping -and -not $ok) {
-    foreach ($file in $pair) {
-      if ($file.existed) { [System.IO.File]::Copy($file.backup, $file.dest, $true) }
-      else { Remove-Item -LiteralPath $file.dest -Force -ErrorAction SilentlyContinue }
+    for ($i = $pair.Count - 1; $i -ge 0; $i--) {
+      $file = $pair[$i]
+      # A failed rename leaves its destination alone, possibly locked; do not overwrite it during rollback.
+      if (-not $file.moved) { continue }
+      try {
+        if ($file.existed) { [System.IO.File]::Copy($file.backup, $file.dest, $true) }
+        else { Remove-Item -LiteralPath $file.dest -Force -ErrorAction Stop }
+      } catch {
+        [Console]::Error.WriteLine("plur1bus install: rollback failed for $([IO.Path]::GetFileName($file.dest)): $($_.Exception.Message)")
+      }
     }
   }
-  if ($stage -and (Test-Path -LiteralPath $stage)) { Remove-Item -LiteralPath $stage -Recurse -Force }
+  # Neither a failed restore nor a cleanup error may mask the primary failure or skip the remaining cleanup.
+  try {
+    if ($stage -and (Test-Path -LiteralPath $stage)) { Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction Stop }
+  } catch { [Console]::Error.WriteLine("plur1bus install: could not remove staging: $($_.Exception.Message)") }
   if (-not $ok) {
     for ($i = $created.Count - 1; $i -ge 0; $i--) { Remove-Item -LiteralPath $created[$i] -Force -ErrorAction SilentlyContinue }
   }

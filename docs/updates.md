@@ -25,6 +25,19 @@ clean up) from the first step to the last. A second `update` or `update --rollba
 `update-in-progress`; a second `setup` fails its `state-root` step; a `daemon start` leaves an interrupted update to the
 run that holds the lock. The container updater has its own `container.lock`.
 
+## First release with native tools: upgrading an older CLI
+
+CLIs released before `native.tools` was added reject the first feed containing it with `release-malformed`,
+including `update --check`. Their closed release schema does not recognise this field, so they cannot reach that
+release through `plur1bus update`. Install that release once with the current one-line installer instead
+([manual release checklist](manual-release.md#5-smoke-test-on-each-os-a-fresh-user-account-or-vm)), or use its archive
+containing both `plur1bus` and `plur1bus-tools` and rerun `setup`.
+
+Stop the existing daemon with `plur1bus daemon stop` before replacing the binaries, especially on Windows where
+running images are locked. Reuse the same home and any existing setup options, including `--home` when the home was
+selected explicitly. This reinstalls the runtime; existing configuration, memory and other user data remain in that
+home. Once the CLI understands `native.tools`, subsequent releases use the normal signed update/rollback path.
+
 ## The plan
 
 `update --plan` (and every normal `update`, before it asks) prints, from the signed release manifest:

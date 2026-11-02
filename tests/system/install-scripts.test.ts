@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const TARGETS = ["linux-x64", "linux-arm64", "darwin-arm64", "win-x64", "win-arm64"];
@@ -110,7 +110,7 @@ const ARCH_SHIM = [
 
 /** Runs the platform's installer against the fixture. `extraPath` goes first on PATH (shims). `hostArch` (Windows
  *  only) runs install.ps1 as if PROCESSOR_ARCHITECTURE were that value (see ARCH_SHIM). */
-function run(shell: string, f: Fixture, args: string[], env: NodeJS.ProcessEnv = {}, extraPath?: string, hostArch?: string) {
+function run(shell: string, f: Fixture, args: string[], env: NodeJS.ProcessEnv = {}, extraPath?: string, hostArch?: string, psWrapper?: string) {
   const base: NodeJS.ProcessEnv = { ...process.env, PLUR1BUS_INSTALL_FEED: f.feed, PLUR1BUS_CHANNEL: "stable" };
   if (WIN) {
     // Only LOCALAPPDATA moves into the temp home; PowerShell itself also writes caches below it
@@ -123,6 +123,7 @@ function run(shell: string, f: Fixture, args: string[], env: NodeJS.ProcessEnv =
       writeFileSync(file, ARCH_SHIM);
       fileArgs = [hostArch, INSTALL_PS1, ...args];
     }
+    if (psWrapper !== undefined) { file = psWrapper; fileArgs = [INSTALL_PS1, ...args]; }
     const r = spawnSync(shell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", file, ...fileArgs], { encoding: "utf8", env: { ...base, ...env }, timeout: 60_000 });
     return { status: r.status, stdout: r.stdout, stderr: r.stderr };
   }
@@ -240,6 +241,78 @@ describe(`one-line installer (${NAME}, ${shell})`, () => {
         assert.equal(readFileSync(bin, "utf8"), "previous CLI");
         assert.equal(readFileSync(companion, "utf8"), "previous tools");
         assert.deepEqual(ours(f).sort(), [bin, companion].sort());
+      } finally { rmSync(f.root, { recursive: true, force: true }); }
+    });
+  }
+
+  for (const { existing, blockRestore } of [
+    { existing: false, blockRestore: false }, { existing: true, blockRestore: false },
+    ...(WIN ? [{ existing: true, blockRestore: true }] : []),
+  ]) {
+    it(`${NAME} ${blockRestore ? "reports a locked restore and still cleans staging" : `rolls back the first placement when the second rename fails (${existing ? "existing pair" : "fresh installation"})`}`, () => {
+      const f = fixture();
+      const bin = installed(f);
+      const companion = bin.replace(/plur1bus(\.exe)?$/, "plur1bus-tools$1");
+      const moves = join(f.root, "moves.log");
+      try {
+        if (existing) {
+          mkdirSync(dirname(bin), { recursive: true });
+          writeFileSync(bin, "previous CLI", { mode: 0o755 });
+          writeFileSync(companion, "previous tools", { mode: 0o755 });
+        }
+        let result;
+        if (WIN) {
+          const quote = (s: string) => `'${s.replace(/'/g, "''")}'`;
+          const wrapper = join(f.root, "swap-failure.ps1");
+          writeFileSync(wrapper, [
+            "$ErrorActionPreference = 'Stop'",
+            `$moveLog = ${quote(moves)}`,
+            `$failCliRename = $${existing ? "false" : "true"}`,
+            `$lockPlacedTools = $${blockRestore ? "true" : "false"}`,
+            "$global:installerSwapLock = $null",
+            "function Move-Item {",
+            "  [CmdletBinding()] param([string]$LiteralPath, [string]$Destination, [switch]$Force)",
+            "  $leaf = [IO.Path]::GetFileName($Destination)",
+            "  [IO.File]::AppendAllText($moveLog, $leaf + [Environment]::NewLine)",
+            "  if ($failCliRename -and $leaf -eq 'plur1bus.exe') { throw [IO.IOException]::new('injected second rename failure') }",
+            "  Microsoft.PowerShell.Management\\Move-Item @PSBoundParameters",
+            "  if ($lockPlacedTools -and $leaf -eq 'plur1bus-tools.exe') { $global:installerSwapLock = [IO.File]::Open($Destination, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read) }",
+            "}",
+            `$held = ${existing ? `[IO.File]::Open(${quote(bin)}, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)` : "$null"}`,
+            "$installer = $args[0]",
+            "$rest = @($args | Select-Object -Skip 1)",
+            "try { & $installer @rest; $result = $LASTEXITCODE } finally { if ($held) { $held.Dispose() }; if ($global:installerSwapLock) { $global:installerSwapLock.Dispose() } }",
+            "exit $result",
+          ].join("\r\n"));
+          result = run(shell, f, FLAGS, {}, undefined, undefined, wrapper);
+        } else {
+          const shim = join(f.root, "shim");
+          mkdirSync(shim);
+          // Only the staged CLI placement fails; rollback moves use the .old source and delegate normally.
+          writeFileSync(join(shim, "mv"), [
+            "#!/bin/sh",
+            'for source in "$@"; do case "$source" in */.plur1bus-install.tmp-*/plur1bus-tools) printf "plur1bus-tools\\n" >> "$PLUR1BUS_TEST_MOVE_LOG" ;; */.plur1bus-install.tmp-*/plur1bus) printf "plur1bus\\n" >> "$PLUR1BUS_TEST_MOVE_LOG"; exit 1 ;; esac; done',
+            'exec /bin/mv "$@"',
+            "",
+          ].join("\n"));
+          chmodSync(join(shim, "mv"), 0o755);
+          result = run(shell, f, FLAGS, { PLUR1BUS_TEST_MOVE_LOG: moves, PLUR1BUS_ALLOW_TEST_INTERNALS: "1" }, shim);
+        }
+        assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+        assert.doesNotMatch(result.stdout, /fake-plur1bus/, "setup must not start after a partial placement");
+        assert.deepEqual(readFileSync(moves, "utf8").trim().split(/\r?\n/), WIN ? ["plur1bus-tools.exe", "plur1bus.exe"] : ["plur1bus-tools", "plur1bus"],
+          "the tools placement must succeed before the injected CLI rename failure");
+        if (existing) {
+          assert.equal(readFileSync(bin, "utf8"), "previous CLI");
+          if (blockRestore) {
+            assert.deepEqual(readFileSync(companion), f.tools, "a locked destination cannot be falsely reported as restored");
+            assert.match(result.stderr, /could not install plur1bus\.exe/);
+            assert.match(result.stderr, /rollback failed for plur1bus-tools\.exe/);
+          } else { assert.equal(readFileSync(companion, "utf8"), "previous tools"); }
+          assert.deepEqual(ours(f).sort(), [bin, companion].sort());
+        } else { assert.deepEqual(ours(f), []); }
+        const leftovers = existsSync(dirname(bin)) ? readdirSync(dirname(bin)).filter(name => name.startsWith(".plur1bus-install.tmp-")) : [];
+        assert.deepEqual(leftovers, [], "rollback must remove staging even when the destination is locked");
       } finally { rmSync(f.root, { recursive: true, force: true }); }
     });
   }
