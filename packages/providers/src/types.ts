@@ -193,7 +193,7 @@ export interface Limits {
 }
 
 export interface ChatCompletionsAdapter {
-  /** Non-stream path (`stream:false`). */
+  /** Requests stream:false; accepts either JSON or SSE according to the response Content-Type (D122 AF1). */
   complete(request: ChatRequest, options?: CallOptions): Promise<ChatResult>;
   /** Stream path; the last event is `done`. Stopping iteration early cancels the request. */
   stream(request: ChatRequest, options?: CallOptions): AsyncGenerator<ChatStreamEvent, void, void>;
