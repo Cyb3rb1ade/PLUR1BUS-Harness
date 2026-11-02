@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SessionStore } from "../../src/session/store.ts";
@@ -48,6 +48,23 @@ async function rig(t: TestContext, verifier: VerifierPort) {
   const git = (...args: string[]) => execFileSync("git", ["-C", root, ...args], { encoding: "utf8" });
   return { root, store, coding, actions, params, git };
 }
+
+test("worktree diff includes an unstaged tracked deletion without touching the real index or HEAD", async t => {
+  const r = await rig(t, { async run() { throw Error("diff must not run checks"); } });
+  const path = join(r.root, "tracked file.txt");
+  writeFileSync(path, "original line\n");
+  r.git("add", ".");
+  r.git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.test", "commit", "-qm", "fixture");
+  const index = readFileSync(join(r.root, ".git", "index"));
+  const head = r.git("rev-parse", "HEAD");
+  unlinkSync(path);
+  const result = await r.actions.diff(r.params, who);
+  assert.match(result.diff, /deleted file mode/);
+  assert.match(result.diff, /-original line/);
+  assert.deepEqual(readFileSync(join(r.root, ".git", "index")), index);
+  assert.equal(r.git("rev-parse", "HEAD"), head);
+  assert.equal(existsSync(path), false);
+});
 
 test("advisory checks use the same four verifier kinds, need no independent review and preserve transcript rows", async (t) => {
   const calls: string[] = [];

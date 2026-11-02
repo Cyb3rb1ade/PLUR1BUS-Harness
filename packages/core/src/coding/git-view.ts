@@ -101,6 +101,8 @@ export function workingDiff(root: string): string {
     if (head) writeFileSync(join(metadata, "HEAD"), head + "\n");
     const base = head ?? gitLine(git(["hash-object", "-w", "-t", "tree", "--stdin"]));
     if (!hasIndex) git(["read-tree", "--empty"]);
+    // Renormalization stats every indexed path; reconcile deletions in the private index before it runs.
+    git(["add", "--update", "--"]);
     git(["add", "--renormalize", "--update", "--"]);
     return git(["diff", "--cached", "--no-ext-diff", "--no-textconv", "--no-color", "--binary", base, "--"]);
   } finally {
