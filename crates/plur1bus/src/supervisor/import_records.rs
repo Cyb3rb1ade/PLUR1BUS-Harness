@@ -190,7 +190,9 @@ pub fn directory(layout: &Layout, names: &[&str]) -> Result<PathBuf, ExtError> {
             return Err(unavailable());
         }
         path.push(name);
-        let mut builder = fs::DirBuilder::new();
+        let builder = fs::DirBuilder::new();
+        #[cfg(unix)]
+        let mut builder = builder;
         #[cfg(unix)]
         {
             use std::os::unix::fs::DirBuilderExt;

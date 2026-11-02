@@ -1,8 +1,12 @@
 //! The supervisor trusts only the API delegation credential, and asks the core for current roles on every request.
 use crate::paths::{core_address, Layout};
-use plur1bus_rpc::{Client, ConnectOptions, Endpoint};
+use plur1bus_rpc::{Client, ConnectOptions, Endpoint, RpcError};
 use serde_json::{json, Value};
 use std::time::Duration;
+
+#[cfg(all(test, unix))]
+#[path = "api_transport_availability_tests.rs"]
+mod availability_tests;
 
 /// Browser delegation remains restricted to current human owners/admins and admitted methods.
 pub fn allowed(principal: &Value, method: &str) -> bool {
@@ -40,6 +44,17 @@ pub fn allowed(principal: &Value, method: &str) -> bool {
         )
 }
 
+fn auth_failure(error: RpcError) -> &'static str {
+    if matches!(&error, RpcError::Unavailable { .. })
+        || matches!(&error, RpcError::Call { reason, .. }
+            if reason.as_deref() == Some("stopping") && error.code_name() == "E_NOT_AVAILABLE")
+    {
+        "core-unavailable"
+    } else {
+        "api-delegation"
+    }
+}
+
 pub fn principal(layout: &Layout, delegation: &Value) -> Result<Value, &'static str> {
     if delegation["clientId"] != "harness-api" || !delegation["token"].is_string() {
         return Err("api-delegation");
@@ -68,13 +83,13 @@ pub fn principal(layout: &Layout, delegation: &Value) -> Result<Value, &'static 
             expected_server_pid: pid,
         },
     )
-    .map_err(|_| "core-unavailable")?;
+    .map_err(auth_failure)?;
     let hello = core
         .call(
             "core.auth",
             json!({ "token": token.trim(), "api": delegation }),
         )
-        .map_err(|_| "api-delegation")?;
+        .map_err(auth_failure)?;
     let p = &hello["apiPrincipal"];
     if p["kind"] != "person" {
         return Err("agent-principal");

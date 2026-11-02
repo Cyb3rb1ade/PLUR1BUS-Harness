@@ -9,6 +9,7 @@ import { connect } from "../src/client.ts";
 import { createRpcServer } from "../src/rpc-server.ts";
 import { apiPrincipal, apiTransport, type ApiDelegation } from "../src/api-principal.ts";
 import { createLogger } from "../src/logger.ts";
+import { RpcError } from "../src/rpc-error.ts";
 import { guardMethods } from "../../core/src/rbac/guard.ts";
 import { rpcAddress, selfServer } from "./helpers/endpoint.ts";
 
@@ -56,6 +57,31 @@ test("a delegated handshake has its own short deadline despite a long method bud
   const started = Date.now();
   await assert.rejects(connect({ address, token, ...selfServer, handshakeTimeoutMs: 30, callTimeoutMs: 300_000, api: { clientId: "harness-api", token: apiToken, principal: { userId: "alice", role: "member", kind: "person" } } }), e => (e as any).reason === "call-timeout");
   assert.ok(Date.now() - started < 1000);
+});
+
+test("a stopping identity resolver reports fixed unavailability only after valid API authentication", async t => {
+  const dir = mkdtempSync(join(tmpdir(), "api-stopping-")), address = rpcAddress(dir);
+  const token = randomBytes(32).toString("hex"), apiToken = randomBytes(32).toString("hex");
+  const marker = randomBytes(32).toString("hex");
+  let failure: Error = new RpcError("E_NOT_AVAILABLE", marker, { reason: "stopping", detail: marker });
+  const logger = createLogger({ file: join(dir, "test.log"), role: "core", level: "error" });
+  const server = createRpcServer({ address, token, apiToken, logger, methods: {},
+    hello: () => ({ rpc: "1.12.0", instanceId: "test", pid: process.pid }),
+    apiPrincipalOf: () => { throw failure; } });
+  await server.listen();
+  t.after(async () => { await server.close(); await logger.close(); rmSync(dir, { recursive: true, force: true }); });
+  const api = { clientId: "harness-api" as const, token: apiToken,
+    principal: { userId: "alice", kind: "person" as const, role: "owner" as const } };
+  await assert.rejects(connect({ address, token, ...selfServer, api }), e => {
+    const error = e as RpcError;
+    return error.error === "E_NOT_AVAILABLE" && error.reason === "stopping"
+      && !error.message.includes(marker) && error.detail === undefined;
+  });
+  await assert.rejects(connect({ address, token, ...selfServer, api: { ...api, token } }),
+    e => (e as RpcError).error === "E_UNAUTHORIZED");
+  failure = new Error(marker);
+  await assert.rejects(connect({ address, token, ...selfServer, api }),
+    e => (e as RpcError).error === "E_UNAUTHORIZED" && (e as RpcError).reason === "no-principal");
 });
 
 test("API authority-change notifications reach only the credential-authenticated service connection", async t => {
