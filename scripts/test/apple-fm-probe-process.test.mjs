@@ -208,3 +208,26 @@ test("a delayed exit after parent death is measured as not continuedServing", PO
     assert.equal(result.cleanup.group.code, "ESRCH");
   });
 });
+
+
+test("parent-death HTTP readiness waits through a visible stale inode until listen", POSIX, async () => {
+  await withFake("delayed-listen", async ({ directory, program }) => {
+    const socket = join(directory, "orphan.sock");
+    await lib.withOwnedProcess(process.execPath, ["-e",
+      "require('node:net').createServer().listen(process.argv[1],()=>console.log('bound'));", socket],
+    { env: {}, cwd: directory }, async ({ child, closed }) => {
+      await once(child.stdout, "data");
+      child.kill("SIGKILL");
+      await closed;
+    });
+    await assert.rejects(lib.socketRequest(socket, { method: "GET", path: "/health" }), { code: "ECONNREFUSED" });
+    const result = await probe.parentDeathProbe(directory, AbortSignal.timeout(5000), {
+      program, inspectTcp: noTcp, durationMs: 40,
+    });
+    assert.equal(result.before.status, 200);
+    assert.equal(result.continuedServing, true);
+    assert.equal(result.observations.length, 3);
+    assert.equal(result.cleanup.group.code, "ESRCH");
+    assert.ok(result.cleanup.pids.every(item => item.code === "ESRCH"));
+  });
+});

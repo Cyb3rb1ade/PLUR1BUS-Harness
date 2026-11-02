@@ -38,3 +38,7 @@ PLUR1BUS_APPLE_FM_LIVE=1 node scripts/spikes/apple-fm-probe.mjs \
 Both output siblings are reserved with `wx`; existing evidence is never overwritten. Live execution
 refuses CI. Repeated HUP/INT/TERM trigger owned group teardown and automatic PID/group ESRCH checks.
 SIGKILL of the collector cannot be intercepted and can leave detached groups and its temporary tree.
+
+[Offline D4 verification](./2026-11-02-d4-validation.md) covers the readiness race and future receipt
+collection/rendering corrections, including 50 process-suite runs under CPU load. It does not replace
+or remeasure any native receipt above.

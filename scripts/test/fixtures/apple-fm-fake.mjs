@@ -1,6 +1,7 @@
+import { setTimeout as delay } from "node:timers/promises";
 /** AF0 offline executable body. Tests prepend the absolute Node shebang because the server environment is reduced. */
 import { createServer } from "node:http";
-import { readFile } from "node:fs/promises";
+import { readFile, unlink } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 
 const args = process.argv.slice(2);
@@ -34,5 +35,9 @@ if (mode === "exit-when-orphaned") {
   setInterval(() => {
     if (process.ppid !== parent) stop();
   }, 5).unref();
+}
+if (mode === "delayed-listen") {
+  await delay(150);
+  await unlink(socket);
 }
 server.listen(socket);

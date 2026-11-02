@@ -34,6 +34,24 @@ export async function waitForSocket(socket, child, signal) {
   throw new Error("fm socket readiness measurement timeout (120 s)");
 }
 
+/** Socket presence precedes listen(); retry only the transient bind/listen errors within the readiness budget. */
+async function waitForHealth(socket, child, signal) {
+  await waitForSocket(socket, child, signal);
+  const deadline = performance.now() + 120_000;
+  while (true) {
+    signal.throwIfAborted();
+    if (child.exitCode !== null || child.signalCode !== null || performance.now() >= deadline) {
+      throw new Error("fm exited or exhausted the HTTP readiness measurement budget");
+    }
+    try {
+      return await socketRequest(socket, { method: "GET", path: "/health", signal });
+    } catch (error) {
+      if (!["ENOENT", "ECONNREFUSED"].includes(error.code)) throw error;
+      await measurementInterval(25, undefined, { signal });
+    }
+  }
+}
+
 async function inspectTcpListeners(pid, env) {
   return captureProcess("/usr/sbin/lsof",
     ["-nP", "-a", "-p", String(pid), "-iTCP", "-sTCP:LISTEN", "-Fpn"], { env });
@@ -64,25 +82,7 @@ export async function withFmServer(directory, socket, signal, receipt, use,
         stdin: stdin === "pipe" ? "open pipe" : "closed (/dev/null)",
       };
       receipt.serverPid = handle.child.pid;
-      await waitForSocket(resolve(directory, socket), handle.child, signal);
-      const deadline = performance.now() + 120_000;
-      while (true) {
-        signal.throwIfAborted();
-        if (handle.child.exitCode !== null || handle.child.signalCode !== null || performance.now() >= deadline) {
-          throw new Error("fm exited or exhausted the HTTP readiness measurement budget");
-        }
-        try {
-          receipt.readyHealth = observeResponse(await socketRequest(resolve(directory, socket), {
-            method: "GET", path: "/health", signal,
-          }));
-          break;
-        } catch (error) {
-          if (!["ENOENT", "ECONNREFUSED"].includes(error.code)) {
-            throw error;
-          }
-          await measurementInterval(25, undefined, { signal });
-        }
-      }
+      receipt.readyHealth = observeResponse(await waitForHealth(resolve(directory, socket), handle.child, signal));
       receipt.tcpListeners = await verifyNoTcp(handle.child.pid, env, inspectTcp);
       return await use(handle);
     });
@@ -217,8 +217,7 @@ export async function parentDeathProbe(directory, signal,
         environmentKeys: result.spawnManifest.environmentKeys,
         LANG: env.LANG, PATH: env.PATH, stdin: "closed (/dev/null)",
       };
-      await waitForSocket(socket, child, signal);
-      result.before = describeResponse(await socketRequest(socket, { method: "GET", path: "/health", signal }));
+      result.before = describeResponse(await waitForHealth(socket, child, signal));
       result.tcpListeners = await verifyNoTcp(result.fmPid, env, inspectTcp);
       child.kill("SIGKILL");
       result.parentExit = await closed;

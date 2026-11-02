@@ -74,7 +74,7 @@ export async function measureWindow(socket, record,
 }
 
 /** Measure the documented wire features, retaining exact response and error shapes. */
-export async function runProtocol(socket, record, { signal, warmSamples = 12 } = {}) {
+export async function runProtocol(socket, record, { signal, warmSamples = 12, accepted5kTokenCount } = {}) {
   const get = async (id, path) => {
     const raw = await socketRequest(socket, { method: "GET", path, signal });
     const response = observeResponse(raw);
@@ -84,14 +84,14 @@ export async function runProtocol(socket, record, { signal, warmSamples = 12 } =
   await get("health", "/health");
   await get("models", "/v1/models");
 
-  const chat = async (id, extra = {}, { mustWork = false } = {}) => {
+  const chat = async (id, extra = {}, { mustWork = false, tokenCount } = {}) => {
     const body = { model: "system", messages: [{ role: "user", content: PROMPT }], max_tokens: 32, ...extra };
     const raw = await socketRequest(socket, { method: "POST", path: "/v1/chat/completions", body, signal });
     const response = observeResponse(raw);
     const request = { ...body, messages: body.messages.map(message => ({
       role: message.role, utf16Units: message.content.length,
     })) };
-    await record({ id, request, elapsedMs: raw.elapsedMs, response });
+    await record({ id, request, ...(tokenCount === undefined ? {} : { tokenCount }), elapsedMs: raw.elapsedMs, response });
     if (mustWork && (raw.status !== 200 || response.error || response.analysisError)) {
       throw new Error(`spec-contradiction: previously demonstrated ${id} failed; stop before AF1`);
     }
@@ -147,7 +147,7 @@ export async function runProtocol(socket, record, { signal, warmSamples = 12 } =
   await chat("accepted-5k", {
     messages: [{ role: "user", content: ACCEPTED_5K_PROMPT }], max_tokens: undefined, max_completion_tokens: 8,
     stream: true, stream_options: { include_usage: true },
-  });
+  }, { tokenCount: accepted5kTokenCount });
   return { latency: latencySummary(latencies), concurrency };
 }
 
@@ -183,8 +183,8 @@ export function renderReceipt(receipt) {
       ? "The server was invoked with `serve --socket` in an owned 0700 temporary directory."
       : "No `fm serve` process was started; no protocol measurements were made.",
     "The probe never runs licence commands or changes Apple Intelligence settings.", "",
-    `Platform: macOS ${receipt.host?.version ?? "unknown"}, build ${receipt.host?.build ?? "unknown"}; ${process.arch}.`,
-    `Node: ${process.version}. Collector commit: ${receipt.sourceHead ?? "unknown"}; `
+    `Platform: macOS ${receipt.host?.version ?? "unknown"}, build ${receipt.host?.build ?? "unknown"}; ${receipt.host?.arch ?? "architecture not recorded"}.`,
+    `Node: ${receipt.cliInvocation?.nodeVersion ?? "not recorded"}. Collector commit: ${receipt.sourceHead ?? "unknown"}; `
       + `source tree dirty before receipt creation: ${receipt.sourceDirtyBeforeReceipt ?? "unknown"}.`,
     "Source-file SHA-256 values and measured cwd/TTY facts are in the JSON; TTY facts alone do not identify an executor.", ""];
   for (const name of receipt.priorReceipts ?? []) {
@@ -302,7 +302,7 @@ async function collectLiveProbe(output, { scope = "full", priorReceipts = [] } =
     if (Buffer.byteLength(socket) > 103) throw new Error("AF0 socket path exceeds 103 bytes; choose a shorter TMPDIR");
     const version = await captureProcess("/usr/bin/sw_vers", ["-productVersion"], { env });
     const build = await captureProcess("/usr/bin/sw_vers", ["-buildVersion"], { env });
-    receipt.host = { version: version.stdout.trim(), build: build.stdout.trim() };
+    receipt.host = { version: version.stdout.trim(), build: build.stdout.trim(), arch: process.arch };
     if (Number(receipt.host.version.split(".")[0]) < 27) throw new Error("AF0 requires macOS 27 or newer");
     receipt.cliInvocation = {
       program: "/usr/bin/fm", args: ["models"], stdin: "closed", cwd: process.cwd(),
@@ -332,7 +332,7 @@ async function collectLiveProbe(output, { scope = "full", priorReceipts = [] } =
       if (receipt.socketMode !== "755") throw new Error(`spec-contradiction: socket mode ${receipt.socketMode}, expected F8's 755`);
       if (scope === "full") {
         receipt.idleCliRss = await captureProcess("/bin/ps", ["-p", String(child.pid), "-o", "rss="], { env });
-        receipt.summary = await runProtocol(socket, record, { signal });
+        receipt.summary = await runProtocol(socket, record, { signal, accepted5kTokenCount: receipt.tokenCounts.accepted5k });
       }
       stage = "window-measurements";
       receipt.window = await measureWindow(socket, record, {

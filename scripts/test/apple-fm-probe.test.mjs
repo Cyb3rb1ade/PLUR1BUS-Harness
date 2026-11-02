@@ -415,7 +415,10 @@ test("the protocol probe records synthetic local calls, errors and usage without
     response.end('data: {"choices":[{"delta":{"content":"{\\"category\\":\\"reminder\\"}"},"finish_reason":"stop"}],"usage":{"total_tokens":20}}\n\ndata: [DONE]\n\n');
   }, async socket => {
     const observations = [];
-    const summary = await runProtocol(socket, row => observations.push(row), { warmSamples: 2 });
+    const summary = await runProtocol(socket, row => observations.push(row), {
+      warmSamples: 2, accepted5kTokenCount: { tokens: 5001 },
+    });
+    assert.equal(probeLib.contextEvidence(observations).acceptedCliTokensAtLeast, 5001);
     assert.deepEqual([...models].sort(), ["af0-model-does-not-exist", "system"]);
     assert.equal(observations.find(row => row.id === "stream-false").response.format, "sse");
     assert.equal(observations.find(row => row.id === "unknown-model").response.status, 400);
@@ -430,4 +433,15 @@ test("the protocol probe records synthetic local calls, errors and usage without
     assert.equal(summary.latency.warm.n, 2);
     assert.equal(summary.concurrency.results.length, 2);
   });
+});
+
+
+test("receipt architecture comes from the recorded host, never the renderer", () => {
+  const recorded = renderReceipt({ status: "recorded", host: { version: "fixture", build: "fixture", arch: "measured-arch" }, cliInvocation: { nodeVersion: "measured-node" },
+    observations: [], notMeasured: [] });
+  assert.equal(recorded.split("\n").find(line => line.startsWith("Platform:")),
+    "Platform: macOS fixture, build fixture; measured-arch.");
+  assert.match(recorded, /Node: measured-node\. Collector commit:/);
+  const legacy = renderReceipt({ status: "recorded", host: {}, observations: [], notMeasured: [] });
+  assert.match(legacy.split("\n").find(line => line.startsWith("Platform:")), /architecture not recorded/);
 });
