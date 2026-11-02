@@ -50,7 +50,8 @@ recommendation. If a decision changes, the briefs named in the last column chang
 | RE-D11 recall score | decided 2026-10-24: at parity in Phase 1; cosine score and calibrated thresholds in RE-10 T7 | RE-02 (metric default), RE-04, RE-10 |
 | RE-D12 hybrid retrieval | decided 2026-10-24: at parity in Phase 1; full-text index and rank fusion in RE-10 T8 | RE-02, RE-04, RE-10 |
 | RE-D13 job partitions | decided 2026-10-24: at parity in Phase 1; the agent partition reads its scoped rows in RE-10 T9 | RE-06, RE-10 |
-| RE-D14 tantivy patch | decided 2026-10-24: the root `[patch.crates-io]` replaces `tantivy 0.24.2` with the fork `Cyb3rb1ade/tantivy`, branch `plur1bus/0.24.2-lru-0.18.2`, commit `038215a5` pinned by `rev` (`lru = "0.18.2"`, nothing else), until the Lance pin moves past tantivy; `deny.toml` `[sources]` allows that one git source | RE-00, RE-02 (the Lance pin), RE-11 |
+| RE-D14 tantivy patch | decided 2026-10-24: `[patch.crates-io]` replaced `tantivy 0.24.2` with `Cyb3rb1ade/tantivy` rev `038215a5` (`lru = "0.18.2"`); closed 2026-10-31 by RE-D30 (#841) | RE-00, RE-02 (the Lance pin), RE-11 |
+| RE-D30 zstd forks | decided 2026-10-31: minimal forks of `tantivy` (rev `0c34640d`), `arrow-rs` (rev `cfe57eff`) and `lance` (rev `7dfd9ede`) bump zstd to 0.14.3 to eliminate all zstd advisories without audit exceptions; exit when upstream releases adopt zstd >= 0.14.3 | RE-00, RE-02, RE-11 |
 | RE-D15 lexical analyzer | assumed (a), open: our own DE/EN analyzer from adopted parts; its terms in the derived table `_lexical` (memories first, then `_lexical`; a content-hash diff at open); a pass-through Lance BM25 index; Lance's language-neutral built-in profile only as the fallback | RE-02 (round trip with `_lexical`), RE-10 |
 | RE-D16 legacy text helpers | assumed, open: ported as they are in Phase 1, moved onto the analyzer in RE-10 T10 | RE-04, RE-05, RE-06, RE-10 |
 | RE-D17 JS string behaviours | assumed, open: a slice cut inside a surrogate pair stays a `JsString`, written as Node writes it per target (the JSON escape in JSON text and JSON-built hashes, U+FFFD at UTF-8 boundaries); Node-written JSON read with a tolerant reader; the collator locale recorded from Node 24.21 under the CI locale | RE-02, RE-03, RE-04, RE-05, RE-06 |
@@ -118,7 +119,7 @@ Kept by the controller. A row changes when a task's PR opens or merges.
 | RE-01 | merged 2026-10-27 (T1–T4 in one PR); the A1 members carry `x-since: a1-pending` until the engine numbers them | [#793](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/793) |
 | RE-02 | merged 2026-10-28 (T1–T7 in one PR, with the Windows root follow-up and the review fixes) | [#795](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/795) |
 | RE-03 | in review: T0–T6 with T3b and T3c in one PR (package K); e5, EmbeddingGemma 2 and BGE goldens committed, jina parity live only | [#809](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/809) |
-| RE-04 | T0 merged 2026-10-27; T1 onwards waits for RE-03 | [#792](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/792) |
+| RE-04 | T0–T3 merged; T4 ready for owner re-review, T5 implemented independently on main (G2), T6 pending | [#792](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/792), [#848](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/848), [#850](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/850) |
 | RE-05 | not started | — |
 | RE-06 | not started (go/no-go pending) | — |
 | RE-07 | not started | — |

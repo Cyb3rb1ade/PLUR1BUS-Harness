@@ -40,7 +40,11 @@ Provider adapters report `inputTokens` as the whole prompt, cache reads and writ
 
 RPC `budget.status`, `budget.set` (experimental, since 1.5.0; `budget.set` is never a WebMCP tool). CLI `plur1bus budget status [--agent ID]`, `plur1bus budget set (--global|--agent ID) --period day|month [--metric tokens|images|video-seconds] [--soft V] [--hard V] [--clear-soft] [--clear-hard] [--timezone ZONE]`; values are whole counts in the metric (tokens by default).
 
-The cache-read weight has no RPC or CLI surface yet. `budget.set` `cacheReadWeight`, `plur1bus budget set --cache-read-weight` and the split per period in `budget.status` (fresh input, cache reads, cache writes, output, the sum counted at the active weight) need an RPC schema change; until then the weight stays at 1 unless set through the library ([follow-up](../../../../docs/budgets.md#follow-ups-and-verification-boundaries)).
+Since RPC 1.11.0, `budget.set` accepts optional `cacheReadWeight` in [0, 1], rounded to millionths; explicit zero is valid and omission preserves the current weight. Both `budget.set` and `budget.status` return the active `cacheReadWeight`. A combined limit/time-zone/weight change commits together or leaves all settings unchanged. The existing human-only `settings.write` authorization still applies.
+
+Every period, agent and model total retains raw `inputTokens` (including cache reads/writes), `cacheReadTokens`, `cacheWriteTokens` and `outputTokens`. The additive `freshInputTokens` sums `max(0, input - cacheRead - cacheWrite)` per event; `countedTokens` applies the existing cache-read weighting to input plus output and rounds up once per aggregate. Raw provider counts are preserved even if inconsistent. Older producers may omit the new fields; a client must not interpret an absent field as zero.
+
+The Rust CLI flag and split human-readable display remain a separate implementation. See the [Rust CLI handoff](../../../../docs/handoff/2026-10-31-r2b-rust-cli.md).
 
 ## Tests
 
