@@ -109,10 +109,14 @@ fn sqlite_cache_fixtures_work_with_a_symlinked_system_temp_root() {
             .env("TMPDIR", &alias)
             .output()
             .unwrap();
-        if !output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if !output.status.success()
+            || !stdout.contains("running 1 test")
+            || !stdout.contains("1 passed")
+        {
             failures.push(format!(
                 "{test}:\n{}\n{}",
-                String::from_utf8_lossy(&output.stdout),
+                stdout,
                 String::from_utf8_lossy(&output.stderr)
             ));
         }
