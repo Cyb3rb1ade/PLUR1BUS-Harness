@@ -13,6 +13,7 @@ import {join} from 'node:path';
 import {spawn} from 'node:child_process';
 const lines=createInterface({input:process.stdin});
 const iterator=lines[Symbol.asyncIterator]();
+writeFileSync(new URL('worker-ready',import.meta.url),'ready');
 const first=await iterator.next();
 const job=JSON.parse(first.value), scenario=JSON.parse(readFileSync(join(job.home,'scenario.json'))).scenario;
 const out=value=>process.stdout.write(JSON.stringify({v:1,runId:job.runId,...value})+'\n');
@@ -129,6 +130,19 @@ impl Fixture {
         )
     }
 
+    fn prepare(&self) -> StartedWorker {
+        let worker = start_worker((&self.node, &self.entry)).expect("authored worker must start");
+        let until = Instant::now() + Duration::from_secs(10);
+        while !self.layout.home.join("worker-ready").is_file() {
+            assert!(
+                Instant::now() < until,
+                "authored Node fixture must reach its stdin barrier"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        worker
+    }
+
     fn result(&self, value: &Value) {
         records::write(&self.layout, &self.layout.home.join("result.json"), value).unwrap();
     }
@@ -200,8 +214,17 @@ fn malformed_raw_oversized_and_unknown_controls_never_forward_worker_body_or_log
 #[test]
 fn a_total_deadline_kills_the_real_worker_and_its_descendant() {
     let fixture = Fixture::new("stall");
+    let worker = fixture.prepare();
     let started = Instant::now();
-    assert!(fixture.run(Duration::from_millis(800)).is_err());
+    assert!(execute_started(
+        &fixture.shared,
+        &fixture.layout,
+        &fixture.job,
+        None,
+        worker,
+        started + Duration::from_millis(800)
+    )
+    .is_err());
     assert!(started.elapsed() < Duration::from_secs(3));
     let pid = fs::read_to_string(fixture.layout.home.join("descendant.pid"))
         .unwrap()
@@ -498,8 +521,16 @@ fn a_descendant_holding_stdout_after_parent_exit_cannot_extend_the_total_deadlin
     let mut expected = success();
     expected["report"] = fixture.checkpoint("committed");
     fixture.result(&expected);
+    let worker = fixture.prepare();
     let started = Instant::now();
-    let result = fixture.run(Duration::from_millis(400));
+    let result = execute_started(
+        &fixture.shared,
+        &fixture.layout,
+        &fixture.job,
+        None,
+        worker,
+        started + Duration::from_millis(400),
+    );
     assert!(
         started.elapsed() < Duration::from_millis(900),
         "stdout draining extended the caller's total deadline"

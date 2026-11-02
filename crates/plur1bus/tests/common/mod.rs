@@ -133,8 +133,8 @@ thread_local! {
 const TAIL_LINES: usize = 25;
 
 /// For a failure message: the last lines of every module's own log and captured output (`logs/module-*`) and of
-/// `logs/supervisor.log`, in the home this test thread last started a supervisor with a core in. A module that never
-/// becomes ready leaves its reason there (CI runs cannot be inspected after the temp home is gone).
+/// the Core's structured log and `logs/supervisor.log`, in the home this test thread last started a supervisor with
+/// a core in. A module that never becomes ready leaves its reason there (CI temp homes are gone after the run).
 pub fn log_tails() -> String {
     let Some(home) = LOG_HOME.with(|h| h.borrow().clone()) else {
         return String::new();
@@ -149,6 +149,7 @@ pub fn log_tails() -> String {
         })
         .unwrap_or_default();
     names.sort();
+    names.push("core.log".into());
     names.push("supervisor.log".into());
     let mut out = String::new();
     for name in names {
@@ -203,7 +204,8 @@ pub fn wait_child(
         }
         assert!(
             Instant::now() < deadline,
-            "timed out waiting for {what}; last: {child}"
+            "timed out waiting for {what}; last: {child}{}",
+            log_tails()
         );
         std::thread::sleep(Duration::from_millis(20));
     }

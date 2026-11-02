@@ -9,7 +9,7 @@ use crate::paths::Layout;
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 use std::io::{BufRead, BufReader, Read, Write};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 use zeroize::Zeroizing;
@@ -310,6 +310,27 @@ fn execute(
     if Instant::now() >= deadline {
         return Err(failed());
     }
+    let worker = start_worker(program)?;
+    execute_started(shared, layout, job, secrets, worker, deadline)
+}
+
+struct StartedWorker {
+    child: Child,
+    tree: crate::ext::worker::ProcessTree,
+    input: Input,
+    output: mpsc::Receiver<Result<Value, ()>>,
+}
+
+impl Drop for StartedWorker {
+    fn drop(&mut self) {
+        // Preparation can fail before the protocol loop owns teardown; cleanup remains idempotent afterward.
+        self.input.close();
+        self.tree.kill();
+        let _ = self.child.wait();
+    }
+}
+
+fn start_worker(program: (&std::path::Path, &std::path::Path)) -> Result<StartedWorker, ExtError> {
     let (node, entry) = program;
     if !entry.is_file() {
         return Err(failed());
@@ -365,13 +386,35 @@ fn execute(
             return Err(failed());
         }
     };
-    let mut input = input_pipe(child.stdin.take().ok_or_else(failed)?);
+    let input = input_pipe(child.stdin.take().ok_or_else(failed)?);
     let output = output_pipe(child.stdout.take().ok_or_else(failed)?);
     if let Some(mut stderr) = child.stderr.take() {
         std::thread::spawn(move || {
             let _ = std::io::copy(&mut stderr, &mut std::io::sink());
         });
     }
+    Ok(StartedWorker {
+        child,
+        tree,
+        input,
+        output,
+    })
+}
+
+fn execute_started(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    job: &Job,
+    secrets: Option<Zeroizing<Vec<u8>>>,
+    mut worker: StartedWorker,
+    deadline: Instant,
+) -> Result<Value, ExtError> {
+    let StartedWorker {
+        child,
+        tree,
+        input,
+        output,
+    } = &mut worker;
     let operation = (|| {
         input.json(&initial(job, layout))?;
         if let Some(frame) = secrets {
@@ -401,7 +444,7 @@ fn execute(
                 // Drain final protocol lines already read when the process exited.
                 let finish_by = Instant::now() + Duration::from_secs(1);
                 drain_output(
-                    &output,
+                    output,
                     || {
                         deadline
                             .min(stopping_deadline(shared).unwrap_or(deadline))
@@ -413,7 +456,7 @@ fn execute(
                             return Err(failed());
                         }
                         if let Some(result) =
-                            control(shared, layout, job, value, &input, &mut seen, deadline)?
+                            control(shared, layout, job, value, input, &mut seen, deadline)?
                         {
                             answer = Some(result);
                         }
@@ -437,7 +480,7 @@ fn execute(
                         layout,
                         job,
                         value.map_err(|_| failed())?,
-                        &input,
+                        input,
                         &mut seen,
                         deadline,
                     )? {

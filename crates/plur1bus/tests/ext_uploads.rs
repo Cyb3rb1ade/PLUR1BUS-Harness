@@ -153,7 +153,8 @@ fn real_core_delegation_binds_one_use_uploads_and_inspections_to_the_current_per
     let _supervisor = common::start_with_core(
         &home,
         &dir.path().join("events.jsonl"),
-        "0.2",
+        // A real Core keeps the production readiness window; only synthetic children use accelerated timers.
+        "1",
         &[
             ("PLUR1BUS_CORE_JS", core_js.to_str().unwrap()),
             ("PLUR1BUS_TEST_INTERNALS", "flat-embedder"),
@@ -458,7 +459,8 @@ fn real_core_delegation_binds_one_use_uploads_and_inspections_to_the_current_per
             .filter(|reply| reply.get("result").is_some())
             .count(),
         1,
-        "concurrent requests must atomically consume exactly one inspection"
+        "concurrent requests must atomically consume exactly one inspection; first={first}; second={second}{}",
+        common::log_tails()
     );
     let refused = if first.get("error").is_some() {
         first
