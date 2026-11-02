@@ -161,7 +161,7 @@ fn for_every_permutation_the_merged_order_restricted_to_reranked_ids_equals_it()
 fn namespace_config_routes_and_refusals_match_node() {
     let golden = load("namespaces-two-tables");
     for case in golden["routing"].as_array().unwrap() {
-        let scratch = tempfile::tempdir().unwrap();
+        let scratch = support::canonical_tempdir();
         let root = scratch.path().join("stores");
         let base = case["leaf"]
             .as_str()
@@ -258,7 +258,7 @@ fn namespace_merge_default_canonical_cap_uses_the_global_limit() {
 fn assert_runtime(name: &str) {
     let golden = load(name);
     let runtime = &golden["runtime"];
-    let scratch = tempfile::tempdir().unwrap();
+    let scratch = support::canonical_tempdir();
     let base = scratch.path().join("stores");
     fs::create_dir_all(&base).unwrap();
     let embedder = HashEmbedder::new();

@@ -31,7 +31,7 @@ use support::{memory_row, TestHost};
 #[test]
 fn canonical_recall_rebuilds_heading_only_caches_from_before_t4() {
     for complete_first in [false, true] {
-        let root = tempfile::tempdir().unwrap();
+        let root = support::canonical_tempdir();
         let memory = root.path().join("memory");
         let cache = root.path().join(".adaptive-learning");
         std::fs::create_dir_all(&memory).unwrap();
@@ -91,7 +91,7 @@ fn recall_namespaces_share_query_failures_and_settle_without_retrying() {
 }
 
 fn assert_request_query_calls(fail: bool) {
-    let root = tempfile::tempdir().unwrap();
+    let root = support::canonical_tempdir();
     let base = root.path().join("stores");
     let embedder = CountQueries {
         flat: Flat::new(),
@@ -158,7 +158,7 @@ fn assert_request_query_calls(fail: bool) {
 
 #[test]
 fn recall_namespace_denials_reach_the_caller_before_any_reranker() {
-    let root = tempfile::tempdir().unwrap();
+    let root = support::canonical_tempdir();
     let host = TestHost::new(root.path().to_owned());
     let context = context(&host);
     let embedder = Flat::new();
@@ -213,7 +213,7 @@ fn recall_namespace_denials_reach_the_caller_before_any_reranker() {
 #[test]
 fn recall_namespace_finalisation_keeps_workspace_and_user_ownership_bindings() {
     for scope in ["workspace", "user"] {
-        let root = tempfile::tempdir().unwrap();
+        let root = support::canonical_tempdir();
         let host = TestHost::new(root.path().to_owned());
         let context = context(&host);
         let embedder = Flat::new();
@@ -248,7 +248,7 @@ fn recall_namespace_finalisation_keeps_workspace_and_user_ownership_bindings() {
 
 #[test]
 fn recall_namespaces_read_canonical_knowledge_only_in_the_first_table() {
-    let root = tempfile::tempdir().unwrap();
+    let root = support::canonical_tempdir();
     let base = root.path().join("stores");
     let workspace = root.path().join("workspace");
     std::fs::create_dir_all(workspace.join("memory")).unwrap();
@@ -309,7 +309,7 @@ fn recall_namespaces_read_canonical_knowledge_only_in_the_first_table() {
 
 #[test]
 fn recall_namespace_child_caps_are_deferred_to_the_global_merge() {
-    let root = tempfile::tempdir().unwrap();
+    let root = support::canonical_tempdir();
     let host = TestHost::new(root.path().to_owned());
     let context = context(&host);
     let embedder = Flat::new();

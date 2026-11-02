@@ -2,7 +2,8 @@
 //!
 //! T1 wires request ACL. T2 runs stages through graph hydration. T3 adds the
 //! post-hydration budget, optional prefilter, rerank, dedupe and final ACL.
-//! T4 adds the namespace routes, per-table composition and global merge.
+//! T4 adds namespace routes, per-table composition and global merge.
+//! T5 renders six blocks and additive boosters; T6 orchestration remains separate.
 
 /// Row visibility and denial reporting for recall.
 pub mod acl;
@@ -50,3 +51,53 @@ pub mod score;
 pub mod stages;
 /// CreatedAt parser and the safe temporal filter.
 pub mod temporal;
+
+/// Lossless prompt blocks and serialized results.
+pub mod blocks;
+/// Confidence and contradiction helpers.
+pub mod boosters;
+/// Record-boundary and host aggregate injection caps.
+pub mod inject_budget;
+/// Authorized injected-behavior conflict policy through CA5 ports.
+pub mod injected_conflicts;
+/// Canonical-request-bound Semantic Lens hydration.
+pub mod lens;
+/// Minimal presentation and authorized two-field counter maintenance.
+pub mod maintenance;
+mod memory_constants;
+/// Relevant-memory formatting.
+pub mod memory_context;
+mod memory_record;
+/// Prompt attribute and evidence escaping.
+pub mod memory_sanitize;
+mod memory_trace;
+/// CA5 prelude interface, without a Neo implementation.
+pub mod neo_prelude;
+/// Pattern scoring, taste and formatting.
+pub mod patterns;
+/// Observation-time provenance and operational guards.
+pub mod provenance;
+/// Additive CRR selection and session triggers.
+pub mod reactivation;
+mod reactivation_acl;
+mod reactivation_index;
+mod reactivation_memory;
+mod reactivation_select;
+/// Pure six-block rendering after selected recall.
+pub mod render;
+mod render_access;
+mod render_boosters;
+mod render_compression;
+mod render_date;
+mod render_projection;
+mod render_value;
+/// Pure mood style text.
+pub mod style;
+mod style_constants;
+/// Stable system supplement.
+pub mod system_supplement;
+mod temporal_constants;
+/// Localized activity, temporal and reminder blocks.
+pub mod time_context;
+/// Read-only warm orchestration.
+pub mod warm;

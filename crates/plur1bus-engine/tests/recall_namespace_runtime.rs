@@ -231,7 +231,7 @@ struct Ranking<'a> {
 }
 
 fn capture(fixture: &Value, ranking: Option<Ranking<'_>>) -> Result<Capture, NamespaceError> {
-    let root = tempfile::tempdir().unwrap();
+    let root = support::canonical_tempdir();
     let base = root.path().join("stores");
     let workspace = root.path().join("workspace");
     prepare_knowledge(fixture, &workspace);

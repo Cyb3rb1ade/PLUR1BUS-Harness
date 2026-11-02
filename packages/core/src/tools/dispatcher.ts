@@ -16,7 +16,10 @@ import { createRedactor, maskSecretsInJson } from "../logs/redact.ts";
 export const MAX_ARGS_BYTES = 256 * 1024;
 const MAX_MESSAGE = 500;
 
-export interface ToolCallRequest { id: string; name: string; args: unknown; reason?: string; diff?: string }
+export interface ToolCallRequest {
+  id: string; name: string; args: unknown; reason?: string; diff?: string;
+  publicPeerTrust?: ApprovalAsk["publicPeerTrust"];
+}
 
 export interface DispatchContext {
   agentId: string;
@@ -256,7 +259,7 @@ export class ToolDispatcher {
       }
 
       // 3. execute under the tool's own hard limits and the caller's abort.
-      const ran = await this.#run(tool, args, ctx, classified);
+      const ran = await this.#run(tool, args, ctx, context, classified);
       if (ran.kind === "timeout") return out(fail("tool-timeout", `${tool.name} exceeded its ${tool.limits.timeoutMs} ms limit`, via, {}, true));
       if (ran.kind === "aborted") return out(fail("aborted", `${tool.name} was aborted`, via, {}, true));
       if (ran.kind === "failed") {
@@ -267,7 +270,7 @@ export class ToolDispatcher {
       }
 
       // Central taint producer: trust comes from registration/classification, never result payload claims.
-      if (tool.trust === 'untrusted' || /^(?:web\.|mcp\.|peer\.)/.test(tool.name) || (tool.capability === 'fs.read' && call.flags?.outsideRoots)) this.#taintedTurns.add(this.#turnKey(ctx));
+      if (tool.trust === 'untrusted' || classified?.untrustedResult === true || /^(?:web\.|mcp\.|peer\.)/.test(tool.name) || (tool.capability === 'fs.read' && call.flags?.outsideRoots)) this.#taintedTurns.add(this.#turnKey(ctx));
       // 4. bounded, serialisable result. RULING: over the limit is an error, never a cut-off JSON value.
       let json: string | undefined;
       try { json = JSON.stringify(ran.value === undefined ? null : ran.value); } catch { json = undefined; }
@@ -342,6 +345,8 @@ export class ToolDispatcher {
   > {
     const request: ApprovalRequest = d.request;
     const ask: ApprovalAsk = {
+      ...(tool.name === "peer.a2a_trust" && tool.trust === "first-party" && req.publicPeerTrust
+        ? { publicPeerTrust: req.publicPeerTrust } : {}),
       ...(ctx.recurring ? { recurring: ctx.recurring } : {}), request, callId: req.id, tool: tool.name, args, agentId: ctx.agentId, principal: ctx.principal,
       ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), park: d.park, signal: ctx.signal,
       subjectKind: context.subject.kind, turnId: ctx.turnId ?? req.id,
@@ -413,7 +418,7 @@ export class ToolDispatcher {
     return r;
   }
 
-  #run(tool: RegisteredTool, args: unknown, ctx: DispatchContext, classified?: ToolClassification): Promise<
+  #run(tool: RegisteredTool, args: unknown, ctx: DispatchContext, policy: Context, classified?: ToolClassification): Promise<
     { kind: "ok"; value: unknown } | { kind: "timeout" } | { kind: "aborted" }
     | { kind: "failed"; message: string; sourceCode?: string; typedFailure?: TypedToolFailure }
   > {
@@ -425,7 +430,7 @@ export class ToolDispatcher {
       const onAbort = (): void => { finish({ kind: "aborted" }); ac.abort(ctx.signal.reason); };
       const cancel = timers.set(() => { finish({ kind: "timeout" }); ac.abort(new Error("timeout")); }, tool.limits.timeoutMs);
       ctx.signal.addEventListener("abort", onAbort, { once: true });
-      Promise.resolve().then(() => tool.execute(args, { signal: ac.signal, agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), ...(classified ? { classified } : {}) }))
+      Promise.resolve().then(() => tool.execute(args, { signal: ac.signal, agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface, execution: { turnId: ctx.turnId || ctx.sessionId || "", ...(ctx.taskId ? { taskId: ctx.taskId } : {}), ...(ctx.recurring ? { recurring: ctx.recurring } : {}), policy }, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), ...(classified ? { classified } : {}) }))
         .then((value) => finish({ kind: "ok", value }), (e: unknown) => {
           const sourceCode = e && typeof e === "object" && "code" in e && typeof e.code === "string"
             && /^[a-z0-9_.-]{1,64}$/.test(e.code) ? e.code : undefined;

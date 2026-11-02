@@ -31,7 +31,7 @@ use support::{memory_row, TestHost};
 
 #[test]
 fn recorder_refuses_an_unpinned_source_before_import() {
-    let root = tempfile::tempdir().unwrap();
+    let root = support::canonical_tempdir();
     let module = root.path().join("engine/recall/namespace-recall.js");
     std::fs::create_dir_all(module.parent().unwrap()).unwrap();
     std::fs::write(module, "throw new Error('untrusted module executed');\n").unwrap();
@@ -164,7 +164,7 @@ fn fixture_with_routes(
     fault: ReadFault,
     configured_legacy: bool,
 ) -> Result<(NamespaceOutput, String), NamespaceError> {
-    let root = tempfile::tempdir().unwrap();
+    let root = support::canonical_tempdir();
     let base = root.path().join("stores");
     let embedder = Flat(HashEmbedder::new());
     let store = Store::create(
@@ -409,7 +409,7 @@ impl StoreIdentityResolver for ReviewIdentities {
 #[test]
 fn expected_identity_is_resolved_for_each_agent_on_a_legacy_route() {
     use plur1bus_engine::store::StoreRoutes;
-    let root = tempfile::tempdir().unwrap();
+    let root = support::canonical_tempdir();
     let active = HashEmbedder::new().identity().clone();
     let mut legacy = active.clone();
     legacy.model = "synthetic-old-profile".into();
