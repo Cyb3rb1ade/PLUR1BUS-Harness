@@ -62,6 +62,11 @@ fn serve(response: &'static [u8]) -> (String, std::thread::JoinHandle<()>) {
     });
     (url, thread)
 }
+// Strict cache traversal rejects macOS temporary-directory aliases; fixtures use the physical parent.
+fn temporary_directory() -> tempfile::TempDir {
+    tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap()
+}
+
 fn directory(path: &Path) -> Directory {
     Directory::open(
         path,
@@ -73,7 +78,7 @@ fn directory(path: &Path) -> Directory {
 
 #[test]
 fn verifies_before_publication_and_reuses_without_a_second_request() {
-    let cache = tempfile::tempdir().unwrap();
+    let cache = temporary_directory();
     let root = directory(cache.path());
     let (url, server) =
         serve(b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\nConnection: close\r\n\r\nabc");
@@ -101,7 +106,7 @@ fn wrong_hash_oversized_and_truncated_bodies_never_publish() {
         b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\nabcd".as_slice(),
         b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\nConnection: close\r\n\r\nab".as_slice(),
     ] {
-        let cache = tempfile::tempdir().unwrap();
+        let cache = temporary_directory();
         let root = directory(cache.path());
         let (url, server) = serve(response);
         assert!(prepare_one(
@@ -147,7 +152,7 @@ fn production_urls_are_immutable_and_include_exact_original_text_files() {
 
 #[test]
 fn redirect_hops_remain_subject_to_the_existing_egress_gate() {
-    let cache = tempfile::tempdir().unwrap();
+    let cache = temporary_directory();
     let root = directory(cache.path());
     let (url,server)=serve(b"HTTP/1.1 302 Found\r\nLocation: http://denied.invalid/artifact\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
     assert_eq!(
@@ -172,7 +177,7 @@ fn redirect_hops_remain_subject_to_the_existing_egress_gate() {
 
 #[test]
 fn caller_cancellation_interrupts_a_stalled_body_and_leaves_no_staging_files() {
-    let cache = tempfile::tempdir().unwrap();
+    let cache = temporary_directory();
     let root = directory(cache.path());
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     listener.set_nonblocking(true).unwrap();
@@ -238,7 +243,7 @@ fn caller_cancellation_interrupts_a_stalled_body_and_leaves_no_staging_files() {
 
 #[test]
 fn corrupt_existing_files_refuse_instead_of_overwriting_or_fetching() {
-    let cache = tempfile::tempdir().unwrap();
+    let cache = temporary_directory();
     let root = directory(cache.path());
     std::fs::create_dir(cache.path().join("onnx")).unwrap();
     std::fs::write(cache.path().join("onnx/tiny.onnx"), b"bad").unwrap();
@@ -263,7 +268,7 @@ fn corrupt_existing_files_refuse_instead_of_overwriting_or_fetching() {
 
 #[test]
 fn aborted_staging_and_cancelled_hashing_are_bounded_and_cleaned() {
-    let cache = tempfile::tempdir().unwrap();
+    let cache = temporary_directory();
     let root = directory(cache.path());
     let cancel = Cancel::never();
     {
@@ -305,8 +310,8 @@ fn aborted_staging_and_cancelled_hashing_are_bounded_and_cleaned() {
 #[cfg(unix)]
 #[test]
 fn symlinked_cache_directories_and_files_cannot_escape_the_cache() {
-    let cache = tempfile::tempdir().unwrap();
-    let outside = tempfile::tempdir().unwrap();
+    let cache = temporary_directory();
+    let outside = temporary_directory();
     let root = directory(cache.path());
     std::os::unix::fs::symlink(outside.path(), cache.path().join("onnx")).unwrap();
     assert_eq!(
@@ -344,7 +349,7 @@ fn symlinked_cache_directories_and_files_cannot_escape_the_cache() {
 
 #[test]
 fn public_preparation_checks_cancellation_before_cache_or_network_access() {
-    let cache = tempfile::tempdir().unwrap();
+    let cache = temporary_directory();
     let destination = cache.path().join("must-not-exist");
     let cancel = Cancel::never();
     cancel.cancel();
@@ -358,7 +363,7 @@ fn public_preparation_checks_cancellation_before_cache_or_network_access() {
 #[test]
 fn preparation_admission_wait_obeys_the_same_absolute_deadline() {
     let _held = PREPARATION.lock().unwrap();
-    let cache = tempfile::tempdir().unwrap();
+    let cache = temporary_directory();
     let destination = cache.path().join("must-not-exist");
     let started = Instant::now();
     let cancel = Cancel::with_deadline(started + Duration::from_millis(20));
@@ -373,10 +378,10 @@ fn preparation_admission_wait_obeys_the_same_absolute_deadline() {
 #[cfg(unix)]
 #[test]
 fn retained_directory_descriptors_survive_parent_replacement_without_escaping() {
-    let cache = tempfile::tempdir().unwrap();
+    let cache = temporary_directory();
     let original = cache.path().join("original");
     let moved = cache.path().join("moved");
-    let outside = tempfile::tempdir().unwrap();
+    let outside = temporary_directory();
     let root = directory(&original);
     std::fs::rename(&original, &moved).unwrap();
     std::os::unix::fs::symlink(outside.path(), &original).unwrap();
@@ -416,14 +421,15 @@ fn a_fifo_at_an_artifact_name_is_refused_before_network_or_blocking_read() {
         ));
         return;
     }
-    let cache = tempfile::tempdir().unwrap();
+    let cache = temporary_directory();
     std::fs::create_dir(cache.path().join("onnx")).unwrap();
     let name = c_string(cache.path().join("onnx/tiny.onnx").as_os_str()).unwrap();
     // SAFETY: a valid terminated path, with private owner-only mode, inside our temporary cache.
     assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
     let mut child=std::process::Command::new(std::env::current_exe().unwrap()).arg("--exact")
         .arg("media::prepare::tests::a_fifo_at_an_artifact_name_is_refused_before_network_or_blocking_read")
-        .env(CHILD,cache.path()).spawn().unwrap();
+        .env(CHILD,cache.path())
+        .stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped()).spawn().unwrap();
     let deadline = Instant::now() + Duration::from_millis(500);
     let status = loop {
         if let Some(status) = child.try_wait().unwrap() {
@@ -437,7 +443,18 @@ fn a_fifo_at_an_artifact_name_is_refused_before_network_or_blocking_read() {
         std::thread::sleep(Duration::from_millis(5));
     };
     assert!(
-        status.is_some_and(|status| status.success()),
+        status.is_some(),
         "FIFO regression process exceeded the bounded test budget"
+    );
+    let output = child.wait_with_output().unwrap();
+    assert!(
+        output.status.success(),
+        "FIFO regression child failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("running 1 test") && stdout.contains("1 passed; 0 failed"),
+        "FIFO regression must actually execute its child test: {stdout}"
     );
 }

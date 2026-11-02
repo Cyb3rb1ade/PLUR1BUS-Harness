@@ -1,142 +1,140 @@
-# MM-1: Verifikation und Abnahmegrenzen
+# MM-1: verification and acceptance boundaries
 
-Stand: 2026-11-01. Der finale Mac-Modelltest für `f2bddf31` besteht. Im vollständigen
-Engine-Crate bestehen alle 111 Bibliotheks- und 23 Transport-Integrationstests,
-darunter 56 Medientests. Clippy für alle Engine-Targets einschließlich `real-models`
-besteht mit `-D warnings`. Dieser Bericht ist ein Prüfstand
-für den PR, keine pauschale Freigabe aller Plattformen und Betriebsfälle.
+Updated 2026-11-02. MM-1 adds local image, audio and video embedding to the Rust
+library, producing normalized native 768-dimensional segment vectors. Defaults
+are 140 image and 70 video soft tokens, audio windows of at most 30 seconds, and
+at most 32 evenly selected video frames grouped in batches of 2–4. The text
+contract, RPC surface and Store-v1 remain unchanged.
 
-MM-1 ergänzt die Rust-Bibliothek um lokale Bild-, Audio- und Video-Embeddings mit
-nativen, normalisierten 768-dimensionalen Segmentvektoren. Standardbudgets sind
-140 Bild- und 70 Video-Soft-Tokens, Audiofenster höchstens 30 Sekunden und Video
-höchstens 32 gleichmäßig gewählte Frames in Gruppen von 2–4. Textvertrag, RPC und
-Store-v1 erhalten durch diesen Schritt keine neue Schnittstelle.
+This report distinguishes independent Controller runs from earlier author
+measurements. Passing a library or model test does not establish production
+wiring, all-platform acceptance, photographic retrieval quality or an encoder
+footprint in the release executable.
 
-## Nachweisumfang
+## Independent Controller verification, 2026-11-02
 
-Der finale Mac-Lauf verwendet alle tatsächlichen Media-, K-Transport-, gemeinsamen
-ORT-Session- und vendorten Decoderquellen. Die 71 Quelldatei-Hashes stimmen mit
-`f2bddf31` überein. Der Repository-Testkörper
-[`media_model_parity.rs`](../crates/plur1bus-engine/tests/media_model_parity.rs)
-bleibt bytegleich; der minimale Harness ergänzt nur einen Crate-Alias und Adapter
-für die umgebenden generierten Vertrags-/Embedding-Typen. Er kompiliert weder Lance
-noch den vollständigen Engine-Crate und ist kein vollständiger Engine-Prozesstest.
-Die separate Cloud-Prüfung kompiliert das tatsächliche Engine-Crate und führt seine
-Bibliotheks- und Transporttests aus.
+The reviewed feature head was `0e7b37aed79fe77c5dc436fe0245da6e39fd3a8c`.
+The Controller corrected test fixtures to use the physical macOS temporary parent;
+production no-follow cache traversal was not relaxed. Before this correction,
+nine preparation tests failed with `UnsafePath`. After correction:
 
-Modellrevision ist `daa72c51243991dfcaf9f9137d2c573d8f7790c0`, ORT ist 1.30.0,
-Referenzen sind Transformers.js 4.3.1 und Pillow 12.3.0. Größen und SHA-256 der
-Modellartefakte und der vorhandenen ORT-Bibliothek werden vor dem Laden geprüft.
-Der Mac-Modelllauf nutzt den vorbereiteten Cache offline. Die Profilwahl setzt auf
-Linux x86_64/arm64, macOS arm64 und Windows x86_64/arm64 Q8 ein; native Modellnachweise
-liegen hier für macOS arm64 vor. Testmedien sind selbst erzeugt; Modellgewichte,
-Modellvektoren und fremde Bilder werden nicht eingecheckt.
+| Check | Result and scope |
+|---|---|
+| Actual Engine library | **110 passed, 0 failed, 0 ignored** on macOS arm64. The Linux-only priority test accounts for the author's 111-test Linux total. |
+| FIFO child-test execution | Exact child filter must execute and pass one test; a deliberately nonexistent filter fails the parent assertion. |
+| Actual Engine native model integration | **1 passed, 0 failed, 0 ignored**, 21.06 s; the repository `media_model_parity` target linked the actual Engine crate, without contract adapters. |
+| Engine Clippy | `--all-targets --features real-models -- -D warnings` passed. |
+| Repository checks | Formatting, lint (163 passed, 3 existing LAYA TODOs), and `pnpm docs:check` passed. |
+| Vendor provenance | All 39 upstream files compared against the original cached package; exactly four declared HV sampler changes. Source verifier and 11 attribution tests passed. |
 
-## Prüfmatrix
+The native model test used the existing offline cache. No weights or ORT library
+were downloaded. All nine pinned artifact sizes/hashes and the ORT library
+size/hash were checked before loading. Revision:
+`daa72c51243991dfcaf9f9137d2c573d8f7790c0`; ORT 1.30.0;
+Transformers.js 4.3.1; Pillow 12.3.0; Node 24.21.0.
 
-| Bereich | Ergebnis | Aussagegrenze |
-|---|---|---|
-| Vollständiges Engine-Crate | **111/111 Bibliotheks- und 23/23 Transporttests bestanden**, 0 Fehler/ignoriert; darin 56 Medientests | Produktkompilierung und tatsächliche Crate-Grenzen geprüft; nativer Modelltest bleibt der separate Mac-Harness-Lauf. |
-| Finaler Mac-Repository-Modelltest | **1/1 bestanden**, 0 Fehler/ignoriert, 22,63 s; Stand `f2bddf31` | Tatsächlicher Testkörper und Produktquellen im beschriebenen Harness mit Vertragsadaptern. |
-| Bildvorverarbeitung | Exakte Pillow-RGB-Resize-Parität über 48 erzeugte Fälle; Apache-Patchlayout, Skalierung und Positionen exakt | Diese Fälle prüfen den Resampler; JPEG-Decoderabweichungen werden separat bewertet. |
-| Audio-Vorverarbeitung | Python-Log-Mel-Toleranz `1e-5`, Masken-/Patchlayout geprüft; eigene 512-Punkt-FFT | Mono, 16 kHz; Dekodierung/Resampling angelieferter Audiodateien ist nicht Teil dieses Bibliotheksschritts. |
-| Gleiche Modell-Eingabetensoren | Bild-/Audio-Features und finale Vektoren jeweils Kosinus `>=0.9999` | Kein Ersatz für den JPEG-End-to-End-Vergleich. |
-| Gleiche Pillow-dekodierte Pixel | Gesamter Resize-/Skalierungs-/Encoderpfad für alle vier finalen Fälle `>=0.9999999999999984` | Erfüllt die unveränderte Schwelle `0.9999`. |
-| Native Eingaben | Dynamische Bildformen `[B,P,768]` / `[B,P,2]`, Audio `float[B,T,128]` und **bool**-Maske im echten ORT geprüft | Native Modellnachweise auf macOS arm64; weitere Zielplattformen sind damit nicht ausgeführt. |
-| Native Audio-Parität | Feature-Kosinus `0.999999999996068`, final `0.999999999999084` | Finaler Mac-Test mit echter bool-Maske; Schwelle jeweils `0.9999`. |
-| Abbruch | 25-ms-Deadline beendet echten Vision-Lauf nach 33,96 ms; anschließender Lauf erfolgreich | Messstand `7674627e`; natives Modellladen ist nur vor/nach dem Aufruf abbrechbar. |
-| Text während nativer Vision | Starke Überlappungsprüfung: p95 **63,05 ms**, Maximum 64,45 ms, 30 Aufrufe | Kurze echte 13-Token-Abfrage, warme Sessions; kein allgemeiner Worst-Case- oder Recall-Nachweis. |
-| Ressourcen | Audio-Mehrverbrauch **969,64 MB**, Video kumulativ **1,614 GB**, jeweils unter 2 GiB | Frühere native Messstände und identische Video-Testframes; Details unten. |
-| E3-Budgets | 280/140/70: jeweils 20/20 Treffer auf Rang 1, MRR 1 | 20 einfache eigene synthetische Szenen; Deckeneffekt, keine fotografische Qualitätsabnahme. |
-| Bildgrenzen und P1-Regressionen | 64 MiB kodierte/native Decoder-Ausgabe, 40 Mio. Pixel, Container-/Metadaten-/innere WebP-Dimensionen vor Decoder geprüft | Decoderinterne Bibliotheksgrenzen sind teilweise Best-Effort; zusätzliche explizite Prüfungen bleiben aktiv. |
-| Laufzeit-Review | FIFO-/Symlink-Verweigerung, Initialisierung vor Prioritätsabsenkung und budgetabhängige Identität korrigiert; Review geschlossen | Windows-Datei-/Schedulingpfade quellengeprüft, nicht nativ ausgeführt. |
-| Explizite Modellvorbereitung über K | 12 Vorbereitungstests, 2 Grenzwerttests und 23 bestehende Transporttests bestanden; unabhängiges Review ohne bestätigten Befund | Quellcode-Harness/Loopback, kein echter HF-Download; automatischer Core-Aufruf bleibt MM-3b. |
-| MM-1-Lint und Dokumentation | Lint: 163 bestanden, 0 Fehler, 3 bestehende LAYA-TODOs; `pnpm docs:check` bestanden | Lauf im MM-1-Arbeitsbaum; fehlende Cloud-Modellartefakte werden nicht als bestanden gewertet. |
-| Engine-Clippy | **Bestanden:** `--all-targets --features real-models -- -D warnings` | Alle Engine-Testtargets kompiliert; echte Modelle werden dadurch nicht in der Cloud ausgeführt. |
-| Abhängigkeiten / Attribution | Lizenzprüfung 0 Verstöße; Release-Audit 0 blockierende Befunde und 0 Erfassungs-/Policyfehler | Bestehende Owner-Ausnahmen und Warnungen bleiben sichtbar; keine Policyänderung. |
-| Produktions-Binary / Bauzeit | **Gemessen:** Baseline `df525459`, Kandidat `7993b634`: jeweils 877168 B; kalt 1283,54/1153,44 s, warm 0,52/0,60 s | Gleiche Basis/Toolchain, jeweils ein Messpaar mit `RUSTC_WRAPPER=""`; aktueller Einstiegspunkt vor RE-08, kein Maß für geladenen Encoder-Code. |
-| Recall / übrige native Ziele | **Offen** | Echter Recall `<600 ms` und native Modellausführung auf den übrigen Release-Zielen sind nicht nachgewiesen. |
+The Controller regenerated synthetic references with the unchanged reference
+script, checked all four encoded hashes against the previously frozen manifest,
+then reran with `--reuse`. This did not replace the frozen test cases. An earlier
+attempt correctly failed before model loading because that selected cache lacked
+the Fusion graph; missing prerequisites are not counted as successful tests.
 
-## Finale eingefrorene JPEG-/PNG-Fälle
+## Frozen JPEG and PNG cases
 
-Alle vier eigenen 320×240-Fälle wurden vor der Messung eingefroren: derselbe
-RGB-Verlauf, JPEG-Qualität 85 mit 4:2:0, 4:4:4 und progressivem 4:2:0 sowie PNG.
-Der finale Lauf verwendet dieselben ursprünglichen Bytes über `--reuse`; vorhandene
-Pillow-Decode-/Resize-Referenzen müssen bytegleich bleiben. Die unabhängige
-Pixelprüfung erfolgt **vor** jedem Kosinusvergleich. Kein Mittelwert ersetzt einen
-fehlgeschlagenen Einzelfall.
+The four synthetic 320×240 cases share one RGB gradient: quality-85 JPEG with
+4:2:0, 4:4:4 and progressive 4:2:0 sampling, plus lossless PNG. Pixel comparison
+runs before embedding comparison. Every case must meet its own threshold; an
+average cannot hide a failed case.
 
-| Fall | Max. RGB-Kanalabweichung | Mittlere absolute Abweichung | Finaler End-to-End-Kosinus | Vorgabe |
+| Case | Maximum RGB difference | Mean absolute difference | Independent end-to-end cosine | Required |
 |---|---:|---:|---:|---|
-| JPEG 4:2:0 | 2 LSB | 0.006532118056 LSB | 0.999865899927659 | `max<=2`, Kosinus `>=0.9997` |
-| JPEG 4:4:4 | 2 LSB | 0.010373263889 LSB | 0.999890726595500 | `max<=2`, Kosinus `>=0.9997` |
-| JPEG progressiv 4:2:0 | 2 LSB | 0.006532118056 LSB | 0.999865899927659 | `max<=2`, Kosinus `>=0.9997` |
-| PNG verlustfrei | 0 LSB | 0 | 1.000000000000002 | `max=0`, Kosinus `>=0.9999` |
+| JPEG 4:2:0 | 2 LSB | 0.006532118056 LSB | 0.999865899927659 | Maximum 2 LSB; cosine >=0.9997 |
+| JPEG 4:4:4 | 2 LSB | 0.010373263889 LSB | 0.999890726595500 | Maximum 2 LSB; cosine >=0.9997 |
+| Progressive JPEG 4:2:0 | 2 LSB | 0.006532118056 LSB | 0.999865899927659 | Maximum 2 LSB; cosine >=0.9997 |
+| Lossless PNG | 0 LSB | 0 | 1.000000000000002 | Exact pixels; cosine >=0.9999 |
 
-Der PNG-Wert knapp über 1 entsteht durch Gleitkomma-Rundung. Kodierte SHA-256:
+Cosines slightly above 1 reflect floating-point rounding. Encoded SHA-256:
 
-| Fall | SHA-256 |
+| Case | SHA-256 |
 |---|---|
 | JPEG 4:2:0 | `275600883a904440cb349a22492ed0801b4c8eced541928a0ca9aa07e124e2f9` |
 | JPEG 4:4:4 | `94982dba5134512b938ac274cddf6b8a8fe10319ac8f4ae4e65ad4290be6a843` |
-| JPEG progressiv 4:2:0 | `ba122821ce273585dc73c84edbf6acad1dcf77343cb3aa2450b4bef2202c4901` |
-| PNG verlustfrei | `b770835aabb13db72fb346d1d4cc6f467952acb93c5894becaf3f9568693ccaf` |
+| Progressive JPEG 4:2:0 | `ba122821ce273585dc73c84edbf6acad1dcf77343cb3aa2450b4bef2202c4901` |
+| Lossless PNG | `b770835aabb13db72fb346d1d4cc6f467952acb93c5894becaf3f9568693ccaf` |
 
-Der Controller hat `0.9997` pro JPEG ausdrücklich als End-to-End-Schwelle festgelegt:
-Pillow/libjpeg-turbo und Rust können beim Dekodieren anders runden. Der erste eigene
-JPEG-Nachweis lag bei 2 LSB und `0.9998677548178285`. Für gleiche dekodierte Pixel,
-gleiche Modell-Eingaben und PNG bleibt die strengere Schwelle `0.9999` bestehen.
-Die später eingefrorenen 4:2:0-Fälle scheiterten mit dem ursprünglichen Decoder bei
-4 LSB und `0.9996163998778644`; sie wurden unverändert zur Regression übernommen.
+The existing acceptance protocol uses >=0.9997 for each JPEG because native and
+Pillow/libjpeg-turbo decoding can round differently. Identical decoded pixels,
+identical model tensors and PNG retain >=0.9999. This Controller run did not
+change either threshold. Its identical-input/image and identical-decoded-pixel
+comparisons were approximately 1; the lowest decoded-pixel cosine was
+0.999999999999998. Audio feature/final cosines were 0.999999999996068 and
+0.999999999999084, respectively.
 
-Ursache war zweimaliges Runden der vertikalen/horizontalen Chroma-Interpolation.
-Der freigegebene lokale `zune-jpeg`-Patch kombiniert die Gewichte und rundet einmal
-mit alternierenden Biaswerten 8/7. Nur vier HV-Samplerdateien unterscheiden sich vom
-verifizierten veröffentlichten Paket; IDCT und Farbumrechnung bleiben gleich.
-Die Bildidentität erfasst dies als `mm1-image-v2` mit `zune0.5.15-fused-hv-v1`.
-[Provenienz und lokale Quellprüfung](../vendor/zune-jpeg/PLUR1BUS-PATCH.md) sind enthalten.
+The unpatched decoder failed the frozen 4:2:0 regression at 4 LSB and
+0.9996163998778644. The local `zune-jpeg` patch combines vertical/horizontal
+chroma interpolation and rounds once with alternating 8/7 biases. Only four
+scalar/AVX2/NEON/portable-SIMD HV sampler files differ from the published package;
+IDCT and color conversion remain unchanged. Image identity records
+`mm1-image-v2` and `zune0.5.15-fused-hv-v1`.
+[Patch provenance and source verification](../vendor/zune-jpeg/PLUR1BUS-PATCH.md)
+are included.
 
-Die 2-LSB-Aussage gilt für die angegebenen Referenzfälle. Zusätzliche kleine,
-hochfrequente 32×24-Bilder hatten bereits vorher höhere Randabweichungen:
-RGB maximal 9 LSB, YCCK maximal 5 LSB. Der Patch senkt dort den mittleren Fehler,
-belegt aber keine universelle JPEG-Äquivalenz. Grayscale, CMYK/YCCK und
-EXIF-Ausrichtung bleiben unterstützt. Der geprüfte alternative Decoder wurde nach
-einem fehlgeschlagenen Einzelfall-Kosinus nicht übernommen.
+The 2-LSB limit describes these frozen cases. Earlier small high-frequency 32×24
+cases had larger boundary differences (up to 9 LSB RGB and 5 LSB YCCK). The patch
+reduces their mean error without establishing universal JPEG equivalence.
+Grayscale, CMYK/YCCK and EXIF orientation remain supported. An alternative decoder
+was rejected after failing an individual cosine case.
 
-## Latenz, Speicher und Budgetvergleich
+## Earlier author measurements
 
-Die starke Überlappungsprüfung startet echte native Vision-Arbeit 50 ms vor der
-Textmessung und erfasst den aktiven Zustand vor/nach jedem Textaufruf. Zwei native
-Vision-Läufe dauern 1289,99/1099,09 ms. Text-p95 beträgt 63,05 ms; zusätzlicher
-RSS 504102912 B. Die frühere breitere Provider-Messung bleibt getrennt sichtbar:
-Text-p95 149,73 ms, Maximum 180,26 ms, kaltes Foto 2379 ms, zwei Video-Frames 1104 ms.
-Die stärkere warme Messung ersetzt diese knappe breitere Messung nicht.
+These results are retained as historical evidence, not represented as fresh
+Controller runs. The final earlier macOS harness used the actual media,
+K-transport, ORT-session and vendor sources at `f2bddf31`, checking 71 source
+hashes. Its unchanged repository test body used a crate alias and generated-type
+adapters; it did not compile Lance or the complete Engine crate. A separate Linux
+run passed 111 library and 23 transport integration tests, including 56 media
+tests. The independent Controller model run above now also covers the actual
+Engine crate on macOS.
 
-| Last, Stand `7674627e` | Dauer | Mehr-RSS gegenüber geladenem Text |
-|---|---:|---:|
-| 30 s Audio, 480000 Samples, ein Segment | 2504,79 ms | 969637888 B, etwa 969,64 MB |
-| 32 Video-Frames, nach Audio im selben Prozess | 13818,99 ms | 1613807616 B, etwa 1,614 GB |
+| Area | Reported result | Boundary |
+|---|---|---|
+| Image preprocessing | Exact Pillow RGB resize over 48 synthetic cases; patch layout, scale and positions checked | Resampler evidence; JPEG differences evaluated separately. |
+| Audio preprocessing | Python log-Mel tolerance 1e-5; masks/patch layout and own 512-point FFT checked | Mono 16 kHz; decoding/resampling supplied audio files is outside this library step. |
+| Native input types | Image `[B,P,768]` / `[B,P,2]`; audio float `[B,T,128]` plus bool mask | Native model evidence on macOS arm64 only. |
+| Cancellation | 25-ms deadline returned from real vision after 33.96 ms; subsequent run succeeded | `7674627e`; native model loading is cancellable before/after the call. |
+| Text during native vision | p95 63.05 ms; maximum 64.45 ms across 30 calls | Warm 13-token query and measured overlap, not general recall latency. |
+| Audio resources | 30 s / 480000 samples: 2504.79 ms; additional RSS 969637888 B | `7674627e`. |
+| Video resources | 32 repeated synthetic frames after audio: 13818.99 ms; cumulative additional RSS 1613807616 B | Maximum tensor/count path; below 2 GiB in that run. |
+| E3 budgets | At 280/140/70 soft tokens, 20/20 corresponding queries ranked first; MRR 1 | Simple named synthetic scenes, ceiling effect; photographic quality remains open. |
+| Preparation | 12 preparation and 2 boundary tests plus 23 transport tests | Loopback/synthetic files; not a live HF download or MM-3b automatic Core invocation. |
 
-Text-Baseline war 262307840 B; die kumulative Spitze lag bei 1876115456 B.
-Die 32 Frames wiederholen dasselbe eigene Bild und prüfen den maximalen
-Tensor-/Anzahlpfad. Ressourcen-, Abbruch- und Überlappungsmessungen stammen vom
-Stand `7674627e`; die Erstaufruf-/Budgetpfade wurden auf `60ba2460` nachgeprüft.
-Eine vollständige Wiederholung aller Ressourcenmessungen auf `f2bddf31` liegt nicht vor.
+The strong overlap test started native vision 50 ms before text timing and checked
+active work before/after each text call. Vision runs took 1289.99/1099.09 ms;
+additional RSS was 504102912 B. A broader earlier provider measurement reported
+text p95 149.73 ms, maximum 180.26 ms, cold image 2379 ms and two frames 1104 ms;
+the short warm overlap measurement does not replace that broader result.
 
-E3 nutzt auf `60ba2460` echte q8-Textabfragen und 20 unabhängig benannte eigene
-synthetische Szenen. Alle 20 zugehörigen Abfragen erreichen bei 280, 140 und 70
-Soft-Tokens jeweils Rang 1; Top-1 20/20, MRR 1. Gesamtlaufzeiten für je 20 Bilder:
-70040,99 / 20591,26 / 9237,37 ms. Mehr-RSS 1026506752 B. Dieser Deckeneffekt
-belegt auf diesen einfachen Szenen keinen Rangverlust; für schwierigere oder
-fotografische Inhalte fehlt ein entsprechender Qualitätsnachweis.
+Text RSS baseline was 262307840 B and cumulative peak 1876115456 B. Resource,
+cancellation and overlap measurements used `7674627e`; first-call/budget paths
+were rechecked at `60ba2460`. The complete resource matrix was not repeated at
+`f2bddf31`. E3 used real q8 text and 20 independently named synthetic scenes at
+`60ba2460`; total image times at 280/140/70 were 70040.99/20591.26/9237.37 ms,
+with additional RSS 1026506752 B.
 
-## Abhängigkeiten, Lizenzen und Attribution
+Explicit limits remain: 64 MiB encoded/native decoder output, 40 million pixels,
+and container/metadata/inner-WebP dimensions checked before decoding. Internal
+library limits can be best effort; explicit outer checks remain active. FIFO and
+symlink refusal, initialization before lowering priority, and budget-dependent
+identity were reviewed. Windows file/scheduling paths were source-reviewed,
+without a native run. Initial full-crate linking failed at a 32-GB filesystem
+limit before tests ran; reduced test debug information enabled the subsequent
+unchanged assertions and dependency set.
 
-Neu gegenüber der Basis ist die folgende Bilddecoder-Closure. Angegeben sind die
-veröffentlichten Versionen, Veröffentlichungstage und Lizenzalternativen. Alle
-Versionen sind nicht zurückgezogen und älter als die geforderten 14 Tage.
+## Dependencies, licensing and attribution
 
-| Crate | Version | Veröffentlicht | Lizenz (`OR`) |
+The added image decoder closure was recorded by the author as follows:
+
+| Crate | Version | Publication date | License alternatives |
 |---|---|---|---|
 | image | 0.25.10 | 2026-03-10 | MIT / Apache-2.0 |
 | byteorder-lite | 0.1.0 | 2024-04-07 | Unlicense / MIT |
@@ -150,141 +148,88 @@ Versionen sind nicht zurückgezogen und älter als die geforderten 14 Tage.
 | zune-core | 0.5.3 | 2026-08-07 | MIT / Apache-2.0 / Zlib |
 | zune-jpeg | 0.5.15 | 2026-03-26 | MIT / Apache-2.0 / Zlib |
 
-`image` bleibt exakt auf 0.25.10 mit deaktivierten Standardfeatures und ausschließlich
-JPEG/PNG/WebP festgelegt. Die vollständige 29-Paket-Closure wurde lizenzgeprüft;
-alle verfügbaren Lizenzalternativen sind zulässig, die jüngste Version ist 44 Tage
-alt. Audio-FFT und Pillow-Resampler liegen im eigenen Quellbaum; Modellvorbereitung
-verwendet den bestehenden K-Transport.
+`image` is exactly pinned with default features disabled and only JPEG/PNG/WebP.
+The author's 29-package closure audit found no license violations; its newest
+release was 44 days old and no version was yanked at that check. These are dated
+audit results. Audio FFT and Pillow-compatible resampling are local sources;
+preparation reuses K transport.
 
-Der vendorte `zune-jpeg`-Quellstand ist das bestehende Paket 0.5.15: 39 ursprüngliche
-Dateien, davon vier deklarierte Änderungen; ursprüngliche MIT-, Apache- und
-Zlib-Lizenztexte sowie Copyrightvermerke bleiben erhalten. Der Pfadpatch ist kein
-Workspace-Mitglied. Neun geerbte Leerraumstellen bleiben zur bytegenauen Provenienz
-unverändert. Unabhängiges Review und positive/negative Quellbelegprüfung sind erfolgt.
+The vendored package preserves all original MIT, Apache and Zlib texts and
+copyrights. It is not a workspace member. Nine inherited whitespace locations
+are retained for exact provenance. Commit `27e88836` preserved the baseline's
+199 native NPM inventory rows and 196 native NPM notice references/hashes;
+these counts are not total license-text counts. Three vendor license texts are
+additive, including the regression for vendored `source:null` packages.
 
-`audit-deps`: 0 Lizenzverstöße, keine unvollständige Erfassung. Der rohe `cargo deny`
-meldet weiterhin das bestehende `paste`-Wartungsadvisory `RUSTSEC-2024-0436`.
-Die unveränderte Owner-Ausnahme gilt bis 2027-01-30; der maßgebliche
-`scripts/release/audit-policy.mjs`-Lauf meldet **0 blockierende Befunde und
-0 Erfassungs-/Policyfehler**. `deny.toml` und Allowlist wurden nicht angepasst.
+The earlier release audit reported no blocking findings and no collection/policy
+errors. Raw `cargo deny` still reported the existing `paste` maintenance advisory
+`RUSTSEC-2024-0436`; the existing Owner exception expires 2027-01-30. Neither
+`deny.toml` nor the allowlist was changed. This document does not claim a fresh
+registry/advisory audit from the Controller's provenance comparison.
 
-Commit `27e88836` erhält bei der Attribution alle **199 nativen NPM-Inventarzeilen**
-und **196 nativen NPM-Notice-Verweise/Hashes** der Basis `df525459`. Dies sind keine
-Gesamtzahlen aller Lizenztextblöcke. Die drei vendorten Lizenztexte werden zusätzlich
-erfasst; die Regression für vendorte `source:null`-Pakete besteht.
+## Release footprint: measurement and remaining acceptance
 
-## Reproduktion und offene Restprüfungen
+Baseline `df5254598fc484870194efb2caa3cedf8f187e09` and candidate
+`7993b634108222bb0c39f604eb620645376232a5` have that exact merge base, with no later
+main merged into the candidate range. The previous Controller checked clean
+worktrees and matching hardware/toolchain.
 
-Die [Reproduktionsanleitung](../scripts/media/README.md) nennt Cache-, ORT-, Node-
-und Python-Voraussetzungen sowie den unveränderten `real-models`-Test. Fehlende
-Voraussetzungen führen zum Fehler. `PLUR1BUS_MEDIA_PARITY_FIXTURES` verwendet die
-ursprünglichen eingefrorenen Bytes erneut.
-
-Die vollständige Engine-Kompilierung erreichte zunächst den Testlinker, der am
-32-GB-Dateisystemlimit mit einem Linker-Busfehler scheiterte; dabei liefen keine
-Tests. Der erneute Lauf reduzierte ausschließlich Debugdaten des Engine-Testpakets
-(`debug=0`, `strip=debuginfo`), bei unveränderten Produktabhängigkeiten und
-Assertions. Damit bestehen alle 111 Bibliothekstests einschließlich der 56 Medientests sowie
-die 23 echten Transport-Integrationstests, jeweils ohne Fehler und ignorierte Tests.
-`cargo clippy --locked -p plur1bus-engine --all-targets --features real-models -- -D warnings`
-besteht ebenfalls. Der Aufbau der nativen Build-Abhängigkeiten dieses Check-Profils
-ist keine Messung einer vollständigen kalten Produktionsbauzeit.
-
-### Controller-Baseline und Gegenmessung auf macOS
-
-**Baseline und Gegenmessung liegen vor.** Der Controller-Bericht
-`/Users/cyberblade/worktrees/reviews/mm1-macos-baseline.md` misst Main-Commit
-`df5254598fc484870194efb2caa3cedf8f187e09`. Die Gegenmessung verwendet ausschließlich
-Kandidat `7993b634108222bb0c39f604eb620645376232a5`: dessen Merge-Base ist exakt
-`df525459`, ohne Merge eines späteren Main-Stands im Kandidatenbereich. Beide
-sauberen Worktrees und die Toolchain/HW-Angaben wurden geprüft.
-
-| Messung | Main `df525459` | MM-1 `7993b634` | Differenz |
+| Measurement | Baseline | Candidate | Difference |
 |---|---:|---:|---:|
-| Produktions-Binary | 877168 B | 877168 B | 0 B (0 %) |
-| Kalt: real | 1283,54 s | 1153,44 s | −130,10 s (−10,136 %) |
-| Kalt: user / sys | 2553,99 / 120,20 s | 2275,59 / 113,45 s | |
-| Kalt: maximaler Build-RSS | 2290909184 B | 2159837184 B | |
-| Warm: real | 0,52 s | 0,60 s | +0,08 s |
-| Warm: user / sys | 0,20 / 0,17 s | 0,18 / 0,16 s | |
-| Warm: maximaler Build-RSS | 181714944 B | 185008128 B | |
+| Release executable | 877168 B | 877168 B | 0 B |
+| Cold real time | 1283.54 s | 1153.44 s | -130.10 s |
+| Cold user / sys | 2553.99 / 120.20 s | 2275.59 / 113.45 s | |
+| Cold maximum build RSS | 2290909184 B | 2159837184 B | |
+| Warm real time | 0.52 s | 0.60 s | +0.08 s |
+| Warm user / sys | 0.20 / 0.17 s | 0.18 / 0.16 s | |
+| Warm maximum build RSS | 181714944 B | 185008128 B | |
 
-Alle vier Builds haben Exitcode 0; beide warmen Läufe haben keine
-`Compiling`-/`Running`-Zeile und denselben Hash wie ihr jeweiliger kalter Lauf.
-Baseline-SHA-256: `5e395a4c0dd3561262590a11f1b9b4a3fe114b325792f1688fd3e0568750d0aa`.
-Kandidaten-SHA-256: `cc5441a53794872ff7ba7b2254da985010cd8961e3b06058ffbe86c8e1cc5e31`.
-Gleiche Bytezahl bedeutet hier keinen gleichen Binary-Hash. Die Bauzeitdifferenz
-stammt aus je einem Lauf; sie belegt keinen kausalen Geschwindigkeitsgewinn durch MM-1.
+Each build exited 0. Each warm run had no compiling/running line and retained its
+cold binary hash. Baseline SHA-256:
+`5e395a4c0dd3561262590a11f1b9b4a3fe114b325792f1688fd3e0568750d0aa`;
+candidate SHA-256:
+`cc5441a53794872ff7ba7b2254da985010cd8961e3b06058ffbe86c8e1cc5e31`.
+Equal size does not imply identical bytes. One cold/warm pair does not establish
+a causal build-speed improvement.
 
-Beide Messungen: Mac17,9, 48 GiB RAM, 18 logische CPUs, macOS 27.2 (26B123),
+The machine was Mac17,9, 48 GiB RAM, 18 logical CPUs, macOS 27.2 (26B123),
 rustc/cargo 1.95.0, LLVM 22.1.2, Apple Clang 21.0.0, SDK 27.2, CMake 4.4.3.
-Der aktuelle `plur1bus-engine`-Einstiegspunkt vor RE-08 bietet nur `--version` und
-den noch nicht implementierten `serve`-Pfad. Die unveränderte Binary-Größe misst
-diesen Einstiegspunkt; sie ist keine Aussage über den Platzbedarf der noch nicht
-angebundenen Medienpipeline oder geladener ORT-/Modelldateien.
+The measured default-feature release target was `aarch64-apple-darwin`, package
+and binary `plur1bus-engine`, two jobs, `CARGO_INCREMENTAL=0`, unpackaged and
+without post-build stripping/signing. Both measurements explicitly disabled the
+configured sccache wrapper with `RUSTC_WRAPPER=""`; the candidate log recorded
+663 direct rustc invocations and no sccache invocation. Global configuration was
+unchanged.
 
-**MM-1 wird als Library kompiliert, erreicht die gemessene ausführbare Datei aber
-nicht als Medienpipeline.** `crates/plur1bus-engine/src/lib.rs` bindet `pub mod media`
-ohne `cfg` ein. Es gibt kein Media-Feature-Flag: `real-models = []` schaltet
-Modelltests frei (Integrationstest-Targets und das lokale ORT-Testmodul), keine
-Produktionsmodule. Der gemessene Release-Build verwendet es nicht. Die
-aufgezeichnete rustc-Ausführung baut die Library ohne
-Feature-`cfg`. Ihr Release-Archiv enthält 110 definierte Media-Symbole, darunter
-`LocalMediaEmbedder::new`/`embed`, `decode_rgb`/`preprocess` und
-`prepare_media_artifacts`.
+**These binaries do not exercise the media pipeline.** At that baseline the
+entry point references only library `CRATE_VERSION`, offers `--version`, and
+retains an unimplemented `serve` path. The release library defines 110 media
+symbols; neither executable's 1886-symbol inventory includes media symbols.
+The library includes `pub mod media` without a feature gate. `real-models = []`
+only enables test targets; it does not wire production media. No particular LTO
+mode is assumed as an explanation.
 
-`src/main.rs` referenziert aus der Library ausschließlich die Konstante
-`CRATE_VERSION`; kein ausführbarer Pfad ruft Media-Code auf. Die erhaltenen
-Baseline- und Kandidaten-Binaries haben jeweils 1886 Symbole in `nm`, darunter
-keine Media-Symbole; beide enthalten weiterhin den `serve`-Stubtext. Die
-Kompilierung der Library bedeutet deshalb noch keine Einbindung ihrer
-unreferenzierten Medienimplementierung in diese ausführbare Datei. Ein bestimmter
-LTO-Modus ist nicht belegt und wird als Erklärung nicht vorausgesetzt.
+**The zero-byte delta is not encoder-footprint acceptance.** After RE-08 wires
+production media, acceptance needs a new matching baseline and the actual
+production entry point. Measure binary and packaged runtime bytes separately
+from model-cache bytes; exercise a real encode and record loaded ORT/model
+memory against the same text-only process baseline. Keep input cases, profiles,
+compiler flags, toolchain and hardware fixed. Include cold and warm timings and
+resource peaks, without inferring runtime cost from an unused library archive.
+Recall below 600 ms and native execution on other release targets remain open.
 
-Die **0 B Größenänderung belegen keinen MM-1-Laufzeit-Footprint**. Eine solche
-Messung benötigt den produktiv angebundenen Media-Pfad nach RE-08 und eine dazu
-passende neue Baseline; das Aktivieren von `real-models` stellt diese Anbindung
-nicht her. Die oben genannten unterschiedlichen SHA-256 wurden erneut an beiden
-erhaltenen Binaries geprüft; aus der identischen Länge folgt keine Bytegleichheit.
+### Reproducing the historical executable measurement
 
-Der Gegenmessbericht liegt auf dem Mac unter
-`/Users/cyberblade/worktrees/reviews/mm1-macos-countermeasurement-7993b634.md`.
-Binärdatei und Rohbelege bleiben unter
-`/private/tmp/mm1-macos-counter-7993b634.gg81yk85/` erhalten; die gesicherte Binary
-liegt in `bin/plur1bus-engine`. Das zugehörige Ergebnis liegt im Cloud-Bericht
-`/workspace/reports/mm1-macos-countermeasurement.txt` und in dessen Ergebnis-JSON.
+Cold means a new Cargo target with no compiled Rust/CMake artifacts; source
+fetching happens first and network time is excluded. OS file caches are not
+flushed. Warm means an immediate identical no-op build in that target. Review
+local, parent and user Cargo configuration for flags, wrappers and profile
+changes as well as the environment guard below. Record real compiler invocations
+without copying credentials from configuration.
 
-Gemessen wird die tatsächliche Engine-Binary `plur1bus-engine`, Paket
-`plur1bus-engine`, Cargo-Profil **release** mit Standardfeatures, Ziel
-**aarch64-apple-darwin**, **zwei Build-Jobs**, `CARGO_INCREMENTAL=0`. Es wird weder
-der Paritätsharness noch ein Testprogramm gemessen. Die Bytezahl gilt für die
-unverpackte, nicht nachträglich gestrippte/signierte Cargo-Ausgabe. Zusätzliche
-Compilerflags, Profilüberschreibungen und Compiler-Cache-Wrapper müssen für beide
-Vergleichsstände deaktiviert sein; Rust-, Clang-/SDK- und CMake-Version bleiben gleich.
-Verbindliche, vom Controller dokumentierte Abweichung zum ursprünglichen Protokoll:
-`~/.cargo/config.toml` setzt sccache als `build.rustc-wrapper`. Deshalb deaktivieren
-**beide** gemessenen Stände diesen Wrapper ausdrücklich mit `RUSTC_WRAPPER=""`.
-Die Kandidaten-Logs enthalten 663 direkte rustc-Aufrufe und keinen sccache-Aufruf;
-die globale Cargo-Konfiguration wurde nicht geändert. Die folgenden Befehle bilden
-diese Einstellung ab. Ein späterer Main-/RE-08-Stand braucht eine neue Baseline.
-Der untenstehende Guard prüft bekannte Umgebungsüberschreibungen. Zusätzlich prüft
-der Controller lokale/übergeordnete und benutzerspezifische Cargo-Konfigurationen
-auf Rustflags, Compiler-/Wrapperwahl und Release-Profiländerungen. Native
-CC/CXX-/CMake-Overrides dürfen den Vergleich ebenfalls nicht verändern. Der
-Verbose-Buildlog belegt die tatsächlichen Rust-Compileraufrufe; Zugangsdaten aus
-Cargo-Konfigurationen gehören nicht in den Bericht.
-
-**Kalt** bedeutet: neues, zuvor nicht vorhandenes Cargo-Target-Verzeichnis, also
-keine kompilierten Rust-/CMake-Artefakte. Cargo-Quellen werden vorher geladen;
-Netzzeit gehört nicht zur Bauzeit. Der Betriebssystem-Dateicache wird nicht geleert.
-**Warm** ist der unmittelbar folgende identische Build ohne Quelländerung im selben
-Target-Verzeichnis; dies ist der Cargo-Cache-/No-op-Lauf, kein kalter Neubau.
-
-Die folgenden Befehle in Bash in einem sauberen, zuvor aktualisierten `main`-Worktree
-auf dem Apple-Silicon-Mac ausführen. Sie verändern weder Branch noch globalen
-Buildcache. `/usr/bin/time -lp` protokolliert je Lauf `real`, `user`, `sys` und RSS;
-Cargo-Fortschritt und Zeitwerte stehen gemeinsam in der jeweiligen `stderr`-Datei.
-Nur Läufe mit Exitcode 0 sind Messwerte.
+Run in Bash in a clean, updated baseline worktree on the Apple-Silicon Mac.
+For the candidate use another new target and replace the main-equality check
+with the recorded candidate commit check. Only exit-zero runs are measurements.
 
 ```bash
 set -euo pipefail
@@ -294,9 +239,9 @@ test "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/main)"
 for mm1_name in $(compgen -e); do
   case "$mm1_name" in
     RUSTC_WRAPPER)
-      test -z "${RUSTC_WRAPPER:-}" || { echo "Nichtleerer Compiler-Wrapper" >&2; exit 1; } ;;
+      test -z "${RUSTC_WRAPPER:-}" || { echo "Nonempty compiler wrapper" >&2; exit 1; } ;;
     RUSTC|RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS|RUSTC_WORKSPACE_WRAPPER|CARGO_BUILD_RUST*|CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS|CARGO_PROFILE_*|CC|CXX|CFLAGS|CXXFLAGS|CC_*|CXX_*|CFLAGS_*|CXXFLAGS_*|CPPFLAGS|LDFLAGS|CMAKE_ARGS|CMAKE_TOOLCHAIN_FILE*|CMAKE_BUILD_PARALLEL_LEVEL)
-      echo "Vor der Messung entfernen: $mm1_name" >&2; exit 1 ;;
+      echo "Remove before measuring: $mm1_name" >&2; exit 1 ;;
   esac
 done
 
@@ -328,33 +273,28 @@ RUSTC_WRAPPER="" CARGO_TARGET_DIR="$mm1_measure_dir/target" CARGO_INCREMENTAL=0 
 shasum -a 256 "$mm1_binary" > "$mm1_measure_dir/warm-binary-sha256.txt"
 cmp "$mm1_measure_dir/binary-sha256.txt" "$mm1_measure_dir/warm-binary-sha256.txt"
 if LC_ALL=C grep -Eq 'Compiling[[:space:]]|Running[[:space:]]' "$mm1_measure_dir/warm.stderr"; then
-  echo "Warmer Wiederaufbau; nicht als No-op-Messung ausgeben: $mm1_measure_dir" >&2
+  echo "Warm rebuild; do not report as a no-op measurement: $mm1_measure_dir" >&2
   exit 1
 fi
-echo "Messbelege: $mm1_measure_dir"
+echo "Measurement evidence: $mm1_measure_dir"
 ```
 
-In `mm1-macos-baseline.md` gehören mindestens Main-Commit, obiger Build-Befehl,
-Profil/Ziel/Jobs, Toolchain und Hardware, absoluter Binary-Pfad, Bytezahl/SHA-256,
-Exitstatus und kalte/warme `real`-Zeit samt Belegverzeichnis. Der warme Hash muss
-dem kalten entsprechen. Für die spätere MM-1-Gegenmessung denselben Befehl auf dem
-sauberen Kandidaten-Commit mit einem **weiteren neuen** Target-Verzeichnis verwenden;
-dabei ersetzt dessen protokollierter Commit die Main-Prüfung am Anfang. Erst danach
-werden Byte- und Bauzeitdifferenzen berechnet.
+Retain the commit, exact command/profile/target/jobs, hardware/toolchain, binary
+path/bytes/SHA-256, exit status, cold/warm real times and raw evidence directory.
+The warm hash must equal the cold hash. Source or RE-08 baseline changes require
+a fresh pair. Initial 11.18-s / approximately 1.97-MB harness measurements do not
+answer the production binary/build-size question.
 
-Weiter offen bleiben echter Recall und native Ausführung auf den übrigen
-Release-Zielen. Die anfänglichen 11,18 s
-Harness-Buildzeit und etwa 1,97 MB Harness-Binary beantworten die
-Produktions-Build-/Größenfrage nicht.
+## Reproduction and outstanding checks
 
-Die Rohbelege liegen im Controller-Berichtsverzeichnis `/workspace/reports`:
-`mm1-macos-verification.txt`, `mm1-macos-final-harness`,
-`mm1-jpeg-decoder-diagnosis.txt`, `mm1-jpeg-vendor-review.txt`,
-`mm1-prepare-report.txt`, `mm1-prepare-review.txt`, `mm1-runtime-report.txt`,
-`mm1-runtime-review.txt`, `mm1-image-license-closure.log`,
-`mm1-jpeg-vendor-audit-deps.json`, `mm1-release-audit-policy.log`,
-`mm1-vendor-native-preservation.log` und
-`mm1-engine-media-bounded-debug-final.log`, `mm1-engine-all-unit-final.log`,
-`mm1-engine-transport-final.log`, `mm1-engine-final-clippy.log` und
-`mm1-docs-final.log`. Die offenen Prüfungen sind vom
-Controller vor einer vollständigen Abnahme nachzutragen.
+The [media reproduction guide](../scripts/media/README.md) describes cache, ORT,
+Node and Python prerequisites and the unchanged `real-models` target. Missing
+prerequisites fail. `PLUR1BUS_MEDIA_PARITY_FIXTURES` reuses frozen encoded bytes.
+Use a physical cache/temporary parent on macOS; do not weaken no-follow traversal.
+
+Raw historical and Controller logs are retained outside the source tree in the
+review archive. They are evidence artifacts, not repository dependencies.
+Remaining acceptance includes the linked production-media footprint after
+RE-08, real recall latency, native model execution on other release targets,
+and harder photographic retrieval cases. No model weights, model vectors or
+third-party images are committed.
