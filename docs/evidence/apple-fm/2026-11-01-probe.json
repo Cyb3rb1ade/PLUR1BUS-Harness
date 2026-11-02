@@ -1,0 +1,66 @@
+{
+  "schema": "plur1bus.apple-fm-probe/1",
+  "measuredAt": "2026-11-01T09:03:06.380Z",
+  "status": "blocked",
+  "observations": [],
+  "notMeasured": [
+    "No fm serve process was started. Stream false, usage, stream_options, DONE and protocol error shapes were not measured.",
+    "Token counts, context window, latency p95, RSS, concurrency, tools and log probabilities were not measured.",
+    "Socket mode, relative/stale/near-limit paths, parent death and stdin EOF were not measured.",
+    "Apple Intelligence and licence settings were not changed; unavailable and unagreed states were not induced."
+  ],
+  "host": {
+    "version": "27.2",
+    "build": "26B123"
+  },
+  "sourceHead": "752a184329904ea4e3eaa2acdd1f4c085d5e7860",
+  "cliModels": {
+    "code": 1,
+    "signal": null,
+    "stdout": "  Apple Foundation Models\n  ✓ system (AFM 3 Core Advanced)\n  ✗ pcc                           (Private Cloud Compute is not available in this context. Please use the Terminal app.)\n",
+    "stderr": ""
+  },
+  "failure": {
+    "stage": "preflight",
+    "name": "Error",
+    "message": "fm models exited 1; stop before serving"
+  },
+  "cleanup": {
+    "temporaryDirectoryRemoved": true
+  },
+  "cliInvocation": {
+    "program": "/usr/bin/fm",
+    "args": [
+      "models"
+    ],
+    "stdin": "closed",
+    "cwd": "isolated worktree",
+    "environment": {
+      "HOME": "<owner-home>",
+      "LANG": "en_US.UTF-8",
+      "PATH": "/usr/bin:/bin"
+    },
+    "nodeVersion": "v24.21.0"
+  },
+  "annotation": {
+    "provenance": "Invocation metadata transcribed from the collector source after the run; captured CLI output and exit are unchanged.",
+    "specification": "D122 design F4 records exit 0 for fm models despite PCC being unavailable. The reduced-environment AF0 call returned exit 1 with system available.",
+    "baseline": "Earlier preflight in the inherited shell environment returned exit 0 with the same displayed model availability. No native retry was made after the reduced-environment stop.",
+    "sourceHeadMeaning": "Repository base commit. The AF0 collector was uncommitted at measurement time."
+  },
+  "verification": {
+    "platform": "macOS 27.2 arm64, build 26B123; Node v24.21.0, pnpm 10.28.0, Rust 1.95.0",
+    "offline": {
+      "command": "node --test scripts/test/apple-fm-probe.test.mjs",
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0
+    },
+    "preparation": {
+      "command": "pnpm test:prep",
+      "exitCode": 0
+    },
+    "redBeforeFix": "The initial guard/analysis/process tests had 7 failures; later socket, protocol, CLI and stop-receipt tests also failed before their implementation.",
+    "acceptance": "Not accepted: AF0 stopped before serving. No native Linux/Windows or full workspace acceptance claimed."
+  }
+}
