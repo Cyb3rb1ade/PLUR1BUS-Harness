@@ -73,7 +73,8 @@ test("the reserved top-level team corpus cannot alter B1 tasks, limits or finger
     const directory = join(temporary, "coding");
     await cp(root, directory, { recursive: true });
     const before = await loadCodingCorpus(directory);
-    await mkdir(join(directory, "team"));
+    // The integrated TM2 corpus may already be present in this private copy.
+    await mkdir(join(directory, "team"), { recursive: true });
     await writeFile(join(directory, "team", "task.json"), "invalid independent team metadata");
     await writeFile(join(directory, "team", "large.bin"), Buffer.alloc(1_048_577));
     const after = await loadCodingCorpus(directory);

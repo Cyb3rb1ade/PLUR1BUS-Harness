@@ -2,6 +2,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { defineCodingArm, parseCodingArmDefinition } from "../../src/toolcall/coding-bench-arms.ts";
+import { canonicalArmId, createEvaluationArmRegistry } from "../../src/collab/team-eval.ts";
+
+test("the actual TM2 registry definitions round-trip through the K2 report validator with identical identities", () => {
+  const registry = createEvaluationArmRegistry();
+  registry.registerArm({ family: "team", params: { stages: ["writer", "reviewer"], nested: { count: 2, review: true } },
+    roles: ["writer", "reviewer"], requires: ["b1-runner"] });
+  for (const { id, family, params } of registry.list()) {
+    const descriptor = JSON.parse(JSON.stringify({ id, family, params }));
+    assert.deepEqual(parseCodingArmDefinition(descriptor), { id, family, params });
+    assert.equal(defineCodingArm({ family, params }).id, id);
+    assert.equal(canonicalArmId({ family, params }), id);
+  }
+});
 
 test("canonical arms preserve the single control and distinguish parameterized families", () => {
   assert.deepEqual(defineCodingArm({ family: "single", params: {} }), {

@@ -1,6 +1,7 @@
 /** PT-2 data contracts only. K2 owns model execution and verifier/worktree provisioning. */
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
+import type { CodingArmParameter, CodingArmSpec } from "../toolcall/coding-bench-arms.ts";
 
 /** Languages supported by the original MIT team corpus. */
 export type TeamLanguage = "typescript" | "python" | "rust" | "go";
@@ -188,18 +189,9 @@ export async function loadTeamTasks(root: URL): Promise<TeamTask[]> {
 }
 
 /** Bounded finite JSON data used for portable arm identities. */
-export type ArmParameter =
-  | null
-  | boolean
-  | number
-  | string
-  | readonly ArmParameter[]
-  | { readonly [key: string]: ArmParameter };
+export type ArmParameter = CodingArmParameter;
 /** An arm identity is a family plus canonicalizable JSON parameters. */
-export interface EvaluationArmSpec {
-  family: string;
-  params: Readonly<Record<string, ArmParameter>>;
-}
+export type EvaluationArmSpec = CodingArmSpec;
 /** Portable canonical key used by budget maps and the K2 adapter. */
 export type EvaluationArmId = string;
 /** Runtime bindings own capabilities; metadata never grants authority. */
