@@ -4795,6 +4795,116 @@
         }
       }
     },
+    "A2APeerId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{0,63}$",
+      "maxLength": 64
+    },
+    "A2AFingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[A-Za-z0-9_-]{43}$",
+      "maxLength": 50
+    },
+    "A2APublicKey": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kty": {
+          "const": "OKP"
+        },
+        "crv": {
+          "const": "Ed25519"
+        },
+        "x": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "maxLength": 43
+        }
+      },
+      "required": [
+        "kty",
+        "crv",
+        "x"
+      ]
+    },
+    "DelegationTargetId": {
+      "description": "Local agent id or an explicitly pinned outbound A2A target. Foreign ids never open local agent stores.",
+      "type": "string",
+      "pattern": "^(?:[a-z0-9][a-z0-9_-]{0,63}|a2a:[a-z][a-z0-9._-]{0,63})$",
+      "maxLength": 68
+    },
+    "A2APeer": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/A2APeerId"
+        },
+        "agentId": {
+          "$ref": "#/$defs/DelegationTargetId"
+        },
+        "cardUrl": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "kid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "fingerprint": {
+          "$ref": "#/$defs/A2AFingerprint"
+        },
+        "state": {
+          "enum": [
+            "pending",
+            "trusted"
+          ]
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "targetKind": {
+          "const": "external"
+        },
+        "origin": {
+          "const": "a2a"
+        },
+        "authenticated": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "updatedAt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endpoint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "id",
+        "agentId",
+        "cardUrl",
+        "kid",
+        "fingerprint",
+        "state",
+        "revision",
+        "targetKind",
+        "origin",
+        "authenticated",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
     "AgentId": {
       "type": "string",
       "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
@@ -16391,6 +16501,141 @@
           "additionalProperties": true
         }
       },
+      "a2a.peer.add": {
+        "description": "Register a pending Ed25519 peer pin. Owner person only; no network or automatic trust.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.12.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/A2APeerId"
+            },
+            "cardUrl": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "kid": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "publicKey": {
+              "$ref": "#/$defs/A2APublicKey"
+            },
+            "credentialSecret": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "id",
+            "cardUrl",
+            "kid",
+            "publicKey"
+          ]
+        },
+        "result": {
+          "$ref": "#/$defs/A2APeer"
+        }
+      },
+      "a2a.peer.list": {
+        "description": "List outbound peer identities and trust states. Owner person only; no credentials or card text.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.12.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {},
+          "required": []
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "peers": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/A2APeer"
+              },
+              "maxItems": 1024
+            }
+          },
+          "required": [
+            "peers"
+          ]
+        }
+      },
+      "a2a.peer.remove": {
+        "description": "Revoke and remove an outbound peer, aborting its in-flight requests. Owner person only.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.12.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/A2APeerId"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/A2APeerId"
+            },
+            "removed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "id",
+            "removed"
+          ]
+        }
+      },
+      "a2a.peer.trust": {
+        "description": "Explicitly approve the pending key fingerprint and revision after signature verification through the network.a2a policy gate. Owner person only.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.12.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/A2APeerId"
+            },
+            "fingerprint": {
+              "$ref": "#/$defs/A2AFingerprint"
+            },
+            "revision": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "id",
+            "fingerprint",
+            "revision"
+          ]
+        },
+        "result": {
+          "$ref": "#/$defs/A2APeer"
+        }
+      },
       "project.agent.add": {
         "description": "Authenticated project agent.add using ADR-007 object rights.",
         "x-server": "core",
@@ -16406,7 +16651,7 @@
               "maxLength": 128
             },
             "agentId": {
-              "$ref": "#/$defs/AgentId"
+              "$ref": "#/$defs/DelegationTargetId"
             }
           },
           "required": [
@@ -16434,7 +16679,7 @@
               "maxLength": 128
             },
             "agentId": {
-              "$ref": "#/$defs/AgentId"
+              "$ref": "#/$defs/DelegationTargetId"
             }
           },
           "required": [
@@ -16446,6 +16691,38 @@
           "type": "object",
           "additionalProperties": true
         }
+      },
+      "project.repo.bind": {
+        "description": "Bind a root project to a git repository. A person who is a project lead. Refuses bare repositories and paths under the harness home.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.14.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projectId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "repoPath": { "type": "string", "minLength": 1, "maxLength": 4096 },
+            "baseBranch": { "type": "string", "minLength": 1, "maxLength": 128 }
+          },
+          "required": ["projectId", "repoPath", "baseBranch"]
+        },
+        "result": { "type": "object", "additionalProperties": true }
+      },
+      "project.repo.unbind": {
+        "description": "Remove a root project's repository binding. A person who is a project lead.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.14.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projectId": { "type": "string", "minLength": 1, "maxLength": 128 }
+          },
+          "required": ["projectId"]
+        },
+        "result": { "type": "object", "additionalProperties": true }
       },
       "task.complete": {
         "description": "Complete an assigned coding card after sandboxed verifiers and exact-tree review. Human project leads may override with an audited note.",

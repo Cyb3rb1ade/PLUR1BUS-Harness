@@ -13,6 +13,17 @@ import type { ReturnEnvelope } from './handoff.ts';
 
 /** Shared existing-worktree port. M6 adapters supply their bound checkout here; no second worktree creator exists. */
 export interface ProjectWorktreePort { root(agentId: string, projectId: string, cardId: string): string | null }
+
+/**
+ * One git implementation, shared with M5+ (subprojects spec §6.5).
+ * `mergePreview`, `merge` and `revert` are added on this interface by M5+ WP4. This package implements fork, remove and status.
+ * Card worktrees are the documented variant `p1b/<rootKey>/c-<6 hex>` under `<state>/worktrees/<rootId>/cards/`.
+ */
+export interface ProjectWorktreeProvisioner {
+  fork(input: { projectId: string; cardId?: string }): { baseSha: string; branch: string; path: string };
+  remove(input: { projectId: string; cardId?: string }): void;
+  status(input: { projectId: string; cardId?: string }): { branch: string; path: string; baseSha: string; removed: boolean } | null;
+}
 export interface CodingCompletion { collab: Collab; gate: CodingGate; worktrees: ProjectWorktreePort }
 const taskKey = (projectId: string, cardId: string) => `${projectId}/${cardId}`;
 function admitted(o: CodingCompletion, person: Principal, projectId: string, cardId: string) {
@@ -54,6 +65,7 @@ export function codingMethods(o: CodingCompletion): Record<string, Handler> {
 export function reviewHooks(o: CodingCompletion) {
   return {
     start(projectId: string, cardId: string, from: string) {
+      if (o.collab.isA2aAgent(from)) throw new RpcError('E_DENIED', 'a local coding agent is required');
       const project = o.collab.boardProject(projectId), card = o.collab.boardStore.getCard(projectId, cardId);
       if (!project?.agents.includes(from) || !card.assignees.some(a => a.kind === 'agent' && a.id === from)) throw new RpcError('E_DENIED', 'assigned review caller required');
       const root = o.worktrees.root(from, projectId, cardId); if (!root) throw new RpcError('E_CONFLICT', 'review worktree unavailable');
@@ -63,7 +75,7 @@ export function reviewHooks(o: CodingCompletion) {
     finish(ticket: unknown, to: string, result: ReturnEnvelope) {
       const r = ticket as { projectId: string; task: string; snapshot: ReturnType<CodingGate['snapshot']>; from: string };
       if (result.status !== 'done' || !result.output || typeof result.output !== 'object' || (result.output as { verdict?: string }).verdict !== 'pass') return;
-      if (!o.collab.boardProject(r.projectId)?.agents.includes(to)) throw new RpcError('E_DENIED', 'reviewer project assignment required');
+      if (o.collab.isA2aAgent(to) || !o.collab.boardProject(r.projectId)?.agents.includes(to)) throw new RpcError('E_DENIED', 'local reviewer project assignment required');
       o.gate.recordReview(r.task, r.snapshot, to, r.from);
     },
   };

@@ -7,6 +7,42 @@ import { BINDING as binding } from '../approvals/helpers.ts';
 export function handoff(): Handoff {
   return { schema: 'plur1bus.handoff/1', id: 'ho_one', kind: 'delegate', from: { agent: 'bernd', session: 's1' }, to: { agent: 'forge' }, task: { id: 't1', project: 'p1' }, objective: 'Verify the scheduler order', doneWhen: ['scheduler test passes'], constraints: { must: [], mustNot: ['push'], scope: { paths: ['src/**'], tools: ['code.read'] } }, authority: { mayDecide: ['test names'], mustAsk: ['changes outside scope'], approvalsHeld: [] }, budget: { tokens: 500, toolCalls: 3, deadline: '2026-10-07T12:00:00Z', modelTier: 'standard' }, returnContract: { format: 'plur1bus.return/1', maxTokens: 2000, outputSchema: { type: 'string' }, citationsRequired: true } };
 }
+
+test("the target port refuses both A2A representations for review and ownership before ack or execution", async t => {
+  const { targetRunner } = await import("../../src/collab/target.ts");
+  const { ctx } = await fixture(t);
+  for (const target of [{ kind: "external", origin: "a2a" }, { kind: "a2a" }] as const) {
+    for (const operation of ["review", "handoff"] as const) {
+      let calls = 0;
+      const h = handoff();
+      if (operation === "handoff") {
+        h.kind = "handoff";
+        h.state = { done: [], current: "Work", next: ["Continue"] };
+      }
+      const runner = targetRunner([{
+        ...target, accepts: () => true,
+        async ack() { calls++; return { schema: "plur1bus.ack/1", inReplyTo: h.id, objective: h.objective, status: "ok", blockingQuestions: [] }; },
+        async run() { calls++; return { text: "Untrusted pass", inputTokens: 0, outputTokens: 0 }; },
+      }]);
+      await assert.rejects(runner.run({
+        agentId: "forge", question: "Review", context: "", signal: new AbortController().signal,
+        handoff: { contract: h, context: { ...ctx, ...(operation === "review" ? { purpose: "independent-review" as const } : {}) } },
+      }), /A2A/);
+      assert.equal(calls, 0);
+    }
+  }
+  const h = handoff();
+  const acp = targetRunner([{
+    kind: "external", accepts: () => true,
+    async ack() { return { schema: "plur1bus.ack/1", inReplyTo: h.id, objective: h.objective, status: "ok", blockingQuestions: [] }; },
+    async run() { return { text: "Local ACP output", inputTokens: 0, outputTokens: 0 }; },
+  }]);
+  const result = await acp.run({
+    agentId: "forge", question: "Review", context: "", signal: new AbortController().signal,
+    handoff: { contract: h, context: { ...ctx, purpose: "independent-review" } },
+  });
+  assert.equal(result.text, "Local ACP output");
+});
 async function fixture(t: import('node:test').TestContext) {
   const r = await rig(); t.after(() => { r.service.dispose(); r.stores.db.close(); });
   const audit: unknown[] = [];
