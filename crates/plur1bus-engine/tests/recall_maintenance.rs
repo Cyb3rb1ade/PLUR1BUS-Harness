@@ -18,7 +18,8 @@ use std::path::Path;
 fn store() -> (tempfile::TempDir, Store, String) {
     let directory = tempfile::tempdir().unwrap();
     let identity = serde_json::from_str(include_str!("fixtures/store-v1/identity.json")).unwrap();
-    let store = Store::create(&directory.path().join("fixture"), &identity, 384).unwrap();
+    let root = directory.path().canonicalize().unwrap();
+    let store = Store::create(&root.join("fixture"), &identity, 384).unwrap();
     let id = "00000000-0000-4000-8000-000000000001";
     let mut row = support::memory_row(id, "fixture", "agent-private");
     row.vector = vec![0.0; 384];
@@ -111,8 +112,8 @@ impl WarmRecall for NativeWarm {
 fn warm_vector_search_changes_no_row_file_or_ledger_bytes() {
     let (directory, store, id) = store();
     let before_row = serde_json::to_value(store.get(&id).unwrap().unwrap()).unwrap();
-    let readonly =
-        Store::open(&directory.path().join("fixture"), OpenMode::ReadOnly, None).unwrap();
+    let root = directory.path().canonicalize().unwrap();
+    let readonly = Store::open(&root.join("fixture"), OpenMode::ReadOnly, None).unwrap();
     std::fs::write(
         directory.path().join("retrieval-ledger.jsonl"),
         b"{\"fixture\":true}\n",
