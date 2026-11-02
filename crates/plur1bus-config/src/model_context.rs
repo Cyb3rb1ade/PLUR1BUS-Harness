@@ -27,10 +27,15 @@ fn context_window(reference: &str, catalog: Option<&Value>) -> Option<u64> {
     }
     catalog?["models"].as_array()?.iter().find_map(|model| {
         let name = format!("{}/{}", model["provider"].as_str()?, model["id"].as_str()?);
+        // JSON Schema/TypeScript integers include integral decimal/exponent encodings.
+        // Match Number.isSafeInteger rather than serde_json's lexical integer variant.
         (name == reference)
-            .then(|| model["contextWindow"].as_u64())
+            .then(|| model["contextWindow"].as_f64())
             .flatten()
-            .filter(|window| *window > 0)
+            .filter(|window| {
+                *window > 0.0 && *window <= 9_007_199_254_740_991.0 && window.fract() == 0.0
+            })
+            .map(|window| window as u64)
     })
 }
 

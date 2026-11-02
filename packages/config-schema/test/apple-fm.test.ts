@@ -48,6 +48,15 @@ test("known catalog windows fence all agent assignments, including profile fallb
   assert.equal(validate({ schemaVersion: 1, modelRoles: { decision: "fixture/small" } }, { catalog }).ok, true);
 });
 
+test("integral decimal and exponent catalog windows retain the same agent-role floor", () => {
+  for (const number of ["8192", "8192.0", "8.192e3"]) {
+    const catalog = JSON.parse(`{"models":[{"provider":"fixture","id":"small","contextWindow":${number}}]}`);
+    const result = validate({ schemaVersion: 1, modelRoles: { chat: "fixture/small" } }, { catalog });
+    assert.equal(result.ok, false, number);
+    if (!result.ok) assert.match(result.errors.join(" "), /8192.*16384/);
+  }
+});
+
 test("pcc and unknown Apple ids cannot enter roles or profiles", () => {
   for (const model of ["apple-fm/pcc", "apple-fm/unknown"]) {
     for (const config of [{ modelRoles: { decision: model } },

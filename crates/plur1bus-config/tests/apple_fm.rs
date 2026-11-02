@@ -47,6 +47,30 @@ fn agent_roles_and_unknown_apple_models_are_refused_offline() {
 }
 
 #[test]
+fn integral_decimal_and_exponent_catalog_windows_keep_the_typescript_role_floor() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("models.json");
+    let before = defaults();
+    let after = set(&before, "modelRoles.chat", json!("fixture/small"))
+        .unwrap()
+        .after;
+    for number in ["8192", "8192.0", "8.192e3"] {
+        std::fs::write(
+            &path,
+            format!(
+                r#"{{"models":[{{"provider":"fixture","id":"small","contextWindow":{number}}}]}}"#
+            ),
+        )
+        .unwrap();
+        let errors = model_assignment_errors(&before, &after, &path);
+        assert!(
+            errors.join(" ").contains("8192 is below the 16384"),
+            "{number}: {errors:?}"
+        );
+    }
+}
+
+#[test]
 fn known_catalog_windows_are_checked_before_config_transactions_write() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("models.json");
