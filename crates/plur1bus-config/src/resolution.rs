@@ -1,7 +1,7 @@
 //! Local structural policy references. Each pass retains its own schema root and never retrieves resources.
 use serde_json::{json, Value};
 use std::borrow::Cow;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 fn children(node: &Value) -> impl Iterator<Item = &Value> {
     node.get("properties")
@@ -153,7 +153,7 @@ fn flatten_metadata(mut node: Value, remaining: &mut usize) -> Value {
     node
 }
 
-fn resolve(
+fn resolve_head(
     node: &Value,
     root: &Value,
     visited: &mut BTreeSet<String>,
@@ -173,7 +173,7 @@ fn resolve(
     if node.get("$dynamicRef").is_some() || node.get("$recursiveRef").is_some() {
         return json!({"x-sensitive":true});
     }
-    let mut output = if let Some(reference) = node.get("$ref") {
+    if let Some(reference) = node.get("$ref") {
         let Some(reference) = reference.as_str() else {
             return json!({"x-sensitive":true});
         };
@@ -190,37 +190,77 @@ fn resolve(
         if !visited.insert(reference.to_owned()) {
             return json!({"x-sensitive":true});
         }
-        let resolved = resolve(target, root, visited, depth + 1, remaining);
+        let resolved = resolve_head(target, root, visited, depth + 1, remaining);
         visited.remove(reference);
         merge(resolved, node)
     } else {
         node.clone()
-    };
-    if let Some(properties) = output.get_mut("properties").and_then(Value::as_object_mut) {
-        for child in properties.values_mut() {
-            *child = resolve(child, root, visited, depth + 1, remaining);
+    }
+}
+
+// Only reference chains at the same value position are cycles. Structural recursion
+// follows the finite configured values, so absent branches cannot exhaust the budget
+// or incorrectly make a public sibling sensitive. Array/map items share the union of
+// present member shapes rather than selecting only the first item.
+fn resolve(
+    node: &Value,
+    root: &Value,
+    values: &[&Value],
+    depth: usize,
+    remaining: &mut usize,
+) -> Value {
+    let mut output = resolve_head(node, root, &mut BTreeSet::new(), depth, remaining);
+    if values.is_empty() {
+        return output;
+    }
+    // Partition present members once; scanning every value for every optional
+    // schema property would multiply wide arrays by the schema's property count.
+    let mut named: BTreeMap<&str, Vec<&Value>> = BTreeMap::new();
+    let mut items = Vec::new();
+    let mut additional = Vec::new();
+    for value in values {
+        if let Some(fields) = value.as_object() {
+            for (name, child) in fields {
+                if output
+                    .get("properties")
+                    .and_then(|fields| fields.get(name))
+                    .is_some()
+                {
+                    named.entry(name).or_default().push(child);
+                } else {
+                    additional.push(child);
+                }
+                if !name.is_empty() && name.bytes().all(|byte| byte.is_ascii_digit()) {
+                    items.push(child);
+                }
+            }
+        } else if let Some(values) = value.as_array() {
+            items.extend(values);
+            additional.extend(values);
         }
     }
-    for name in ["items", "additionalProperties"] {
-        if let Some(child) = output.get_mut(name) {
-            if child.is_object() {
-                *child = resolve(child, root, visited, depth + 1, remaining);
-            }
+    if let Some(properties) = output.get_mut("properties").and_then(Value::as_object_mut) {
+        for (name, child) in properties {
+            let members = named.remove(name.as_str()).unwrap_or_default();
+            *child = resolve(child, root, &members, depth + 1, remaining);
         }
+    }
+    if let Some(child) = output.get_mut("items").filter(|child| child.is_object()) {
+        *child = resolve(child, root, &items, depth + 1, remaining);
+    }
+    if let Some(child) = output
+        .get_mut("additionalProperties")
+        .filter(|child| child.is_object())
+    {
+        *child = resolve(child, root, &additional, depth + 1, remaining);
     }
     output
 }
 
 /// Prepare local references and metadata overlays once, retaining root definitions for reference validation.
-pub(crate) fn policy_schema(schema: &Value) -> Cow<'_, Value> {
+pub(crate) fn policy_schema<'a>(schema: &'a Value, value: &Value) -> Cow<'a, Value> {
     if needs_preparation(schema, 0) {
-        Cow::Owned(resolve(
-            schema,
-            schema,
-            &mut BTreeSet::new(),
-            0,
-            &mut 10_000,
-        ))
+        Cow::Owned(resolve(schema, schema, &[value], 0, &mut 10_000))
     } else {
         Cow::Borrowed(schema)
     }
