@@ -6,7 +6,7 @@ Regenerate on each native packaging target; optional native npm packages differ 
 
 ```
 pnpm-lock.yaml: 471d3d315117acd3828b639197273237b79a68569399b5d0801165b93f3ed9bc
-Cargo.lock: d9c83d8d2096feb25dbfc866bbe4155aa4fe7c0664638dc51fec95fefdb610ca
+Cargo.lock: f264353a7c9336320ad09e90e9a831aae66c358c69d582973a26d82b39a03a11
 apps/desktop/Cargo.lock: 4cdbccd46633f97f15769f2578970f071267646a0f3a5f8a76d2ec86061313c2
 ```
 
@@ -1133,9 +1133,9 @@ apps/desktop/Cargo.lock: 4cdbccd46633f97f15769f2578970f071267646a0f3a5f8a76d2ec8
 | cargo | zip | 9.0.5 | MIT | Mathijs van de Nes <git@mathijs.vd-nes.nl>, Marli Frost <marli@frost.red>, Ryan Levick <ryan.levick@gmail.com>, Chris Hennick <hennickc@amazon.com> |
 | cargo | zlib-rs | 0.6.8 | Zlib |  |
 | cargo | zmij | 1.0.23 | MIT | David Tolnay <dtolnay@gmail.com> |
-| cargo | zstd-safe | 7.3.0 | BSD-3-Clause | Alexandre Bury <alexandre.bury@gmail.com> |
+| cargo | zstd-safe | 8.2.0 | BSD-3-Clause | Alexandre Bury <alexandre.bury@gmail.com> |
 | cargo | zstd-sys | 2.1.2+zstd.1.5.7 | BSD-3-Clause | Alexandre Bury <alexandre.bury@gmail.com> |
-| cargo | zstd | 0.13.3 | MIT | Alexandre Bury <alexandre.bury@gmail.com> |
+| cargo | zstd | 0.14.3 | BSD-3-Clause | Alexandre Bury <alexandre.bury@gmail.com> |
 | cargo | zvariant | 5.15.0 | MIT | Zeeshan Ali Khan <zeeshanak@gnome.org> |
 | cargo | zvariant_derive | 5.15.0 | MIT | Zeeshan Ali Khan <zeeshanak@gnome.org> |
 | cargo | zvariant_utils | 4.2.0 | MIT | Zeeshan Ali Khan <zeeshanak@gnome.org>, turbocooler <turbocooler@cocaine.ninja> |
