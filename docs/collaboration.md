@@ -240,6 +240,9 @@ with no engine recall/capture path. Peer contracts and returns are explicit
 untrusted `tool_result` envelopes. A successful `handoff` stops the sender loop.
 
 Contract-driven calls race abort against the target and retain streamed progress.
+For an outbound A2A target, the project's collaboration `timeoutMs` setting bounds the enclosing chain, including approval waiting and network work.
+The separate `a2aClient.timeoutMs` budget applies per HTTP request, sharing its allowance across that request's redirects
+and excluding human approval waits; it cannot extend the enclosing collaboration timeout.
 Timeout/abort produces a `plur1bus.return/1` partial body; a supplied card receives
 that body as a comment and the trace span has status `partial`. On a user abort
 the ordinary dispatcher still returns its abort indication promptly; the durable

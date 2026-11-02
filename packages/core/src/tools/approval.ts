@@ -1,7 +1,16 @@
 // The approval seam. The dispatcher depends on this port only; `approvals/service.ts` implements it.
 import type { ApprovalRequest, GrantScope, SubjectKind } from "../policy/index.ts";
 
+/** Adapter-authored public trust coordinates; never a model argument or an RPC property. */
+export interface PublicPeerTrust {
+  endpoint: string;
+  fingerprint: string;
+  revision: string;
+}
+
 export interface ApprovalAsk {
+  /** Validated against the action arguments; public pins must remain visible after generic redaction. */
+  publicPeerTrust?: PublicPeerTrust;
   recurring?: { jobId: string; jobName: string };
   request: ApprovalRequest;
   callId: string;
