@@ -53,10 +53,11 @@ function rig(approved: boolean, approval?: ApprovalPort & Required<Pick<Approval
     async close() { await checkpoints.close?.(); store.close(); rmSync(root, { recursive: true, force: true }); } };
 }
 
-function runnerForFiles(r: ReturnType<typeof rig>) {
+function runnerForFiles(r: ReturnType<typeof rig>, warn: (message: string) => void = () => {}) {
   let modelCalls = 0;
   const rewind = new RewindService({ store: r.store, audit: r.audit, now: () => 42, files: r.checkpoints });
   const runner = new TurnRunner({ store: r.store, compactor: new Compactor(r.store), checkpoints: r.checkpoints, rewind,
+    logger: { info: () => {}, warn },
     memory: { recall: async () => ({ text: "", degraded: null }), capture: async () => {}, checkpoint: async () => {} },
     provider: () => new FakeChatProvider({ onRequest: () => {
       modelCalls++;
@@ -67,6 +68,19 @@ function runnerForFiles(r: ReturnType<typeof rig>) {
     approver: { person: "owner", surface: 2 } }).done;
   return { runner, submit, modelCalls: () => modelCalls };
 }
+
+test("a project allowlist containing only another project skips capture without a turn warning", async () => {
+  const r = rig(true, undefined, { projects: () => ["another-project"] });
+  const warnings: string[] = [], h = runnerForFiles(r, message => { warnings.push(message); });
+  try {
+    assert.equal((await h.submit("ordinary task in an opted-out project")).state, "completed");
+    assert.deepEqual(warnings, []);
+    assert.deepEqual(r.store.checkpoints(r.session.id), []);
+    assert.equal(r.git("for-each-ref", "--format=%(refname)", "refs/plur1bus/checkpoints").trim(), "");
+    assert.equal(r.asks.length, 0);
+    assert.equal(h.modelCalls(), 1);
+  } finally { await h.runner.idle(); await r.close(); }
+});
 
 test("the restore's independent scope guard rejects a fake port that returns always", async () => {
   const r = rig(true, { request: async () => ({ approved: true, scope: "always" }), begin: () => true });

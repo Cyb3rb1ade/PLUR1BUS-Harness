@@ -120,6 +120,19 @@ test('undo after promotion preview also invalidates commit', () => {
   assert.throws(() => f.promotion.commit(owner, preview.previewId), { name: 'RpcError', error: 'E_CONFLICT' });
   assert.equal(f.collab.boardStore.cards(f.project.id, {}).cards.length, 0);
 });
+
+test('rewind then undo after preview invalidates commit even when the active content is identical', () => {
+  const f = fixture(), source = f.create(); discardedTurn(f, source.session.id);
+  const before = f.store.contextMessages(source.session.id).filter(message => message.role !== 'system');
+  const preview = f.promotion.preview(owner, { sessionId: source.session.id,
+    target: { kind: 'card', projectId: f.project.id }, selection: { kind: 'transcript' } });
+  const rewind = hideAttempt(f, source.session.id);
+  f.store.undoRewind(source.session.id, rewind.id, owner.userId);
+  assert.deepEqual(f.store.contextMessages(source.session.id).filter(message => message.role !== 'system'), before);
+  assert.throws(() => f.promotion.commit(owner, preview.previewId), { name: 'RpcError', error: 'E_CONFLICT' });
+  assert.equal(f.collab.boardStore.cards(f.project.id, {}).cards.length, 0);
+  assert.equal(f.promotion.links(owner, source.session.id).links.length, 0);
+});
 test('selected promotion refuses a discarded message id', () => {
   const f = fixture(), source = f.create(); const id = discardedTurn(f, source.session.id);
   hideAttempt(f, source.session.id);
