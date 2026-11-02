@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, createHash } from "node:crypto";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { FakeClock } from "../src/clock.ts";
 import { DEFAULT_SESSION_LIMITS, SessionStore } from "../src/session.ts";
 import { computeCodeChallenge, verifyPkce } from "../src/oauth/pkce.ts";
@@ -867,10 +870,14 @@ test("M6A-B2: unauthenticated GET /oauth/authorize never fetches client metadata
   }
 });
 
-test("M6A-B3: FileOAuthStore throws on persist write errors", async () => {
+test("M6A-B3: FileOAuthStore throws on persist write errors", async (t) => {
   const { FileOAuthStore } = await import("../src/oauth/store.ts");
-  // Non-writable path
-  const store = new FileOAuthStore("/non_existent_root_dir/not_possible/store.json");
+  const directory = mkdtempSync(join(tmpdir(), "oauth-write-error-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  // A file cannot become a parent directory, even for a privileged Windows runner.
+  const blockedParent = join(directory, "file-as-parent");
+  writeFileSync(blockedParent, "occupied");
+  const store = new FileOAuthStore(join(blockedParent, "store.json"));
   const grant = {
     id: "g-fail",
     familyId: "fam-fail",
@@ -886,6 +893,9 @@ test("M6A-B3: FileOAuthStore throws on persist write errors", async () => {
     async () => store.saveGrant(grant),
     (err: Error) => !!err,
   );
+  const writablePath = join(directory, "writable-store.json");
+  await new FileOAuthStore(writablePath).saveGrant(grant);
+  assert.deepEqual(await new FileOAuthStore(writablePath).getGrant(grant.id), grant);
 });
 
 test("M6A-B6: OAuth limits scopes to protocol fixed set, intersects with user rights, and rejects bound tokens on non-protocol routes", async (t) => {

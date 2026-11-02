@@ -53,6 +53,7 @@ Every route is **deny by default**: a route that is not `public` answers 401 wit
 | `POST` | `/api/v1/chats/{sessionId}/messages` | `chats.submit` | session or token | `chat:write` | yes | expensive | experimental · 1.0.0 |
 | `GET` | `/api/v1/chats/{sessionId}/events` | `chats.events` | session or token | `chat:read` | no | read | experimental · 1.0.0 |
 | `POST` | `/api/v1/chats/{sessionId}/cancel` | `chats.cancel` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/chats/{sessionId}/rewind` | `chats.rewind` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
 | `POST` | `/api/v1/chats/{sessionId}/archive` | `chats.archive` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
 | `POST` | `/api/v1/chats/{sessionId}/restore` | `chats.restore` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
 | `POST` | `/api/v1/chats/{sessionId}/fork` | `chats.fork` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |

@@ -11,7 +11,8 @@ import { t, formatNumber, type Key } from "../../i18n.ts";
 import { FailureState, Notice } from "../common/states.ts";
 import { currentRole, failureOf, getApi, useLoad } from "../common/load.ts";
 import type { MediaIndexStatus } from "../../../../rpc-schema/generated/types.ts";
-import type { MediaModality } from "./contract.ts";
+import { AUDIO_SEGMENT_MAX_SECONDS, type MediaModality } from "./contract.ts";
+import { ModelCapabilities } from "./capabilities.ts";
 import { ALL_MODALITIES, CAPTION_SOURCES, CLOUD_CAPTION_PROVIDER, MEDIA_PROVIDERS, SUGGESTIONS, backfillView, canManageIndex, changesOf, draftOf, mediaErrorOf, problemText, providerById, toSetup, validateMedia, type ConfigChange, type MediaDraft } from "./model.ts";
 import { choiceById } from "../setup/licences.ts";
 import "./rpc-types.ts";
@@ -107,7 +108,9 @@ function Panel({ loaded, canManage, reload, message, setMessage }: { loaded: Loa
             numberField("cfg-memory-mediaEmbedding-video-maxFrames", "mediasearch.settings.maxFrames", draft.video.maxFrames, 1, canManage, (v) => set((d) => ({ ...d, video: { ...d.video, maxFrames: v } }))),
             h("div", { class: "setup-opt" }, h("input", { id: "cfg-memory-mediaEmbedding-video-sceneDetect", type: "checkbox", checked: draft.video.sceneDetect, disabled: !canManage, onChange: (e: Event) => { const on = (e.target as HTMLInputElement).checked; set((d) => ({ ...d, video: { ...d.video, sceneDetect: on } })); } }), h("label", { for: "cfg-memory-mediaEmbedding-video-sceneDetect" }, t("mediasearch.settings.sceneDetect")))),
           h("fieldset", { class: "setup-opts" }, h("legend", {}, t("mediasearch.settings.audio")),
-            numberField("cfg-memory-mediaEmbedding-audio-segmentSec", "mediasearch.settings.segmentSec", draft.audio.segmentSec, 1, canManage, (v) => set((d) => ({ ...d, audio: { ...d.audio, segmentSec: v } }))),
+            numberField("cfg-memory-mediaEmbedding-audio-segmentSec", "mediasearch.settings.segmentSec",
+              draft.audio.segmentSec, 1, canManage,
+              (v) => set((d) => ({ ...d, audio: { ...d.audio, segmentSec: v } })), AUDIO_SEGMENT_MAX_SECONDS),
             numberField("cfg-memory-mediaEmbedding-audio-maxSeconds", "mediasearch.settings.maxSeconds", draft.audio.maxSeconds, 1, canManage, (v) => set((d) => ({ ...d, audio: { ...d.audio, maxSeconds: v } })))),
           h("fieldset", { class: "setup-opts" }, h("legend", {}, t("mediasearch.settings.caption")),
             CAPTION_CHOICES.map((c) => {
@@ -133,10 +136,19 @@ function Panel({ loaded, canManage, reload, message, setMessage }: { loaded: Loa
   );
 }
 
-function numberField(id: string, label: Key, value: number, min: number, enabled: boolean, onChange: (v: number) => void): View {
+function numberField(
+  id: string, label: Key, value: number, min: number, enabled: boolean, onChange: (v: number) => void, max?: number,
+): View {
   return h("label", { class: "field", for: id },
     h("span", { class: "field-label" }, t(label)),
-    h("input", { id, type: "number", min: String(min), value: String(value), disabled: !enabled, onInput: (e: Event) => { const v = Math.floor(Number((e.target as HTMLInputElement).value)); if (Number.isFinite(v) && v >= min) onChange(v); } }));
+    h("input", {
+      id, type: "number", min: String(min), ...(max === undefined ? {} : { max: String(max) }),
+      value: String(value), disabled: !enabled,
+      onInput: (e: Event) => {
+        const v = Math.floor(Number((e.target as HTMLInputElement).value));
+        if (Number.isFinite(v) && v >= min && (max === undefined || v <= max)) onChange(v);
+      },
+    }));
 }
 
 /** Index status: provider, model, variant, dimension, item counts, backfill progress and its actions. */
@@ -160,6 +172,7 @@ export function StatusCard({ status, canManage, reload }: { status: MediaIndexSt
       h("dt", {}, t("mediasearch.status.model")), h("dd", {}, status.model),
       h("dt", {}, t("mediasearch.status.variant")), h("dd", {}, status.variant ?? "—"),
       h("dt", {}, t("mediasearch.status.dim")), h("dd", {}, String(status.dim))),
+    h(ModelCapabilities, { model: status.model, capabilities: status.capabilities, encoders: status.encoders }),
     h("p", {}, t("mediasearch.status.counts")),
     h("ul", { class: "plain-list" },
       h("li", {}, `${t("mediasearch.status.indexed")}: ${formatNumber(status.counts.indexed)}`),

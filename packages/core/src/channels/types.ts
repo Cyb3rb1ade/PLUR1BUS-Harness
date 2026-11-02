@@ -14,6 +14,20 @@ export interface InboundMessage {
   addressed?: boolean;
   text: string;
   messageId?: string;
+  /** Transport-decoded bytes; ownership and authorization are derived by the host. */
+  readonly attachments?: readonly ChannelAttachment[];
+}
+
+/** An additive common shape; existing adapter-specific attachment kinds remain compatible. */
+export interface ChannelAttachment {
+  kind: "photo" | "document" | "voice" | "audio" | "video" | "image" | "file";
+  data: Uint8Array;
+  mimeType: string;
+  filename?: string;
+  /** Optional transport declaration; authoritative size always comes from data.byteLength. */
+  sizeBytes?: number;
+  /** Informational transport identifiers, never an ownership or authorization claim. */
+  provenance?: { messageId?: string; attachmentId?: string };
 }
 
 export interface OutboundMessage {

@@ -33,6 +33,9 @@ fn main() {
         Cmd::Core {
             sub: cli::CoreCmd::Run,
         } => commands::core::run(&out, &layout),
+        Cmd::Core {
+            sub: cli::CoreCmd::PipeServerPid,
+        } => commands::core::pipe_server_pid(),
         Cmd::Supervise { no_core } => {
             supervisor::run(&layout, supervisor::SuperviseOpts { no_core })
         }

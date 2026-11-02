@@ -23,6 +23,15 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+/// Companion installed beside the update target (including an operator-selected test target).
+pub fn tools_binary(target_bin: &Path) -> PathBuf {
+    target_bin.with_file_name(if cfg!(windows) {
+        "plur1bus-tools.exe"
+    } else {
+        "plur1bus-tools"
+    })
+}
+
 const BINARY_MAX_BYTES: u64 = 512 << 20;
 const CORE_MAX_BYTES: u64 = 1 << 30;
 const DOWNLOAD_DEADLINE: Duration = Duration::from_secs(15 * 60);
@@ -103,6 +112,8 @@ pub struct Plan {
     pub to: String,
     pub channel: String,
     pub binary: Asset,
+    /// Native companion, from the same signed release.
+    pub tools: Asset,
     /// The core payload and its release unit, when the core changes.
     pub core: Option<(Asset, manifest::ReleaseCore)>,
     /// What the new version means for installed add-ons.
@@ -168,26 +179,28 @@ fn download(layout: &Layout, plan: &Plan) -> Result<(), UpdateError> {
         state::remove_dir(&staging);
         UpdateError::new(e.reason(), format!("download failed: {e}"))
     };
-    let bin = staging.join("plur1bus");
-    fetch::fetch_verified(
-        &plan.binary.url,
-        &bin,
-        &plan.binary.sha256,
-        plan.binary
-            .size
-            .map_or(BINARY_MAX_BYTES, |s| s.min(BINARY_MAX_BYTES)),
-        DOWNLOAD_DEADLINE,
-    )
-    .map_err(fail)?;
-    size_matches(&bin, plan.binary.size).map_err(|m| {
-        state::remove_dir(&staging);
-        UpdateError::new("size-mismatch", m)
-    })?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&bin, fs::Permissions::from_mode(0o755))
-            .map_err(|e| UpdateError::new("io", format!("{}: {e}", bin.display())))?;
+    for (name, asset) in [("plur1bus", &plan.binary), ("plur1bus-tools", &plan.tools)] {
+        let bin = staging.join(name);
+        fetch::fetch_verified(
+            &asset.url,
+            &bin,
+            &asset.sha256,
+            asset
+                .size
+                .map_or(BINARY_MAX_BYTES, |s| s.min(BINARY_MAX_BYTES)),
+            DOWNLOAD_DEADLINE,
+        )
+        .map_err(fail)?;
+        size_matches(&bin, asset.size).map_err(|m| {
+            state::remove_dir(&staging);
+            UpdateError::new("size-mismatch", m)
+        })?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&bin, fs::Permissions::from_mode(0o755))
+                .map_err(|e| UpdateError::new("io", format!("{}: {e}", bin.display())))?;
+        }
     }
     if let Some((asset, _)) = &plan.core {
         let tar = staging.join("core.tar.gz");
@@ -240,6 +253,7 @@ fn fresh_state(plan: &Plan, target_bin: &Path, trigger: &str) -> State {
         core_swapped: false,
         release: Target {
             binary_sha256: plan.binary.sha256.to_ascii_lowercase(),
+            tools_sha256: Some(plan.tools.sha256.to_ascii_lowercase()),
             core: plan.core.as_ref().map(|(a, c)| CoreTarget {
                 version: c.version.clone(),
                 contract: c.contract.clone(),
@@ -380,6 +394,16 @@ fn swap(layout: &Layout, plan: &Plan, target_bin: &Path, st: &mut State) -> Resu
     let staging = state::staging_dir(layout);
     snapshot::put_file(&staging.join("plur1bus"), target_bin)
         .map_err(|e| format!("{}: {e}", target_bin.display()))?;
+    // No service starts between these renames. Phase::Swapping is durable and recovery restores both on a crash.
+    let tools = tools_binary(target_bin);
+    snapshot::put_file(&staging.join("plur1bus-tools"), &tools)
+        .map_err(|e| format!("{}: {e}", tools.display()))?;
+    if pins::trust_seams_allowed()
+        && std::env::var("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() == Ok("1")
+        && std::env::var("PLUR1BUS_TEST_UPDATE_KILL_AT").as_deref() == Ok("tools-swapped")
+    {
+        std::process::exit(137);
+    }
     if plan.core.is_some() {
         snapshot::core_in(layout)?;
         let core = layout.runtime().join("core");
@@ -396,6 +420,12 @@ fn commit(layout: &Layout, host: &dyn Host, st: &mut State) -> Result<(), String
     let mut m = manifest::read(layout)?.ok_or("no install manifest to update")?;
     m.binary.version = st.to.clone();
     m.binary.sha256 = Some(st.release.binary_sha256.clone());
+    if let Some(sha256) = &st.release.tools_sha256 {
+        m.tools = Some(manifest::Unit {
+            version: st.to.clone(),
+            sha256: Some(sha256.clone()),
+        });
+    }
     if let Some(c) = &st.release.core {
         m.core = CoreUnit {
             version: c.version.clone(),

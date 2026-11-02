@@ -79,7 +79,37 @@ pub fn core_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String
         env: crate::commands::core::attest_env()
             .into_iter()
             .chain(crate::commands::core::native_worker_env())
+            .chain([(
+                "PLUR1BUS_TOOLS_BIN".into(),
+                crate::commands::core::locate_tools_bin(layout).into_os_string(),
+            )])
             .collect(),
+        cwd: None,
+    })
+}
+
+/// D120 tools process, started after Core and independently monitored with the existing module lifecycle.
+pub fn tools_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String> {
+    let program = crate::commands::core::locate_tools_bin(layout);
+    if !program.is_file() {
+        return Err(
+            "plur1bus-tools is missing; install the native tools binary or set PLUR1BUS_TOOLS_BIN"
+                .into(),
+        );
+    }
+    Ok(ChildSpec {
+        role: "tools".into(),
+        program,
+        args: vec![
+            "serve".into(),
+            "--home".into(),
+            layout.home.clone().into(),
+            "--lifeline".into(),
+            "stdin".into(),
+            "--instance".into(),
+            instance_id.into(),
+        ],
+        env: Vec::new(),
         cwd: None,
     })
 }
@@ -217,6 +247,9 @@ pub fn spec_for(layout: &Layout, role: &Role, instance_id: &str) -> Result<Child
         RoleKind::Core => {
             core_spec(layout, instance_id).map_err(|e| (CrashReason::ConfigInvalid, e))
         }
+        RoleKind::Tools => {
+            tools_spec(layout, instance_id).map_err(|e| (CrashReason::ConfigInvalid, e))
+        }
         RoleKind::Api => api_spec(layout, instance_id).map_err(|e| (CrashReason::ConfigInvalid, e)),
         RoleKind::Module => module_plan(layout, role, instance_id).map(|p| p.spec),
     }
@@ -314,7 +347,7 @@ pub fn ready_timeout(kind: RoleKind, scale: f64, core_floor: bool) -> Duration {
     match kind {
         RoleKind::Core if core_floor => scaled.max(CORE_READY_FLOOR),
         RoleKind::Core => scaled,
-        RoleKind::Module | RoleKind::Api => scaled.max(MODULE_READY_FLOOR),
+        RoleKind::Tools | RoleKind::Module | RoleKind::Api => scaled.max(MODULE_READY_FLOOR),
     }
 }
 
@@ -580,7 +613,7 @@ impl Monitor {
         };
         // `logs/core.out.log`; a module's is `logs/module-<name>.out.log`, beside the `module-<name>.log` it writes.
         let out_path = match role.kind {
-            RoleKind::Core | RoleKind::Api => layout.out_log(&role.name),
+            RoleKind::Core | RoleKind::Api | RoleKind::Tools => layout.out_log(&role.name),
             RoleKind::Module => layout.out_log(&format!("module-{}", role.name)),
         };
         let out = match RotatingFile::open(&out_path, max_bytes, keep) {
@@ -721,11 +754,35 @@ impl Monitor {
             spec.program.clone()
         };
         let mut cmd = Command::new(&program);
+        cmd.args(&spec.args);
+        if self.ctx.role.kind == RoleKind::Tools {
+            // D120 §5: never inherit provider credentials, loader injection or extension leases.
+            cmd.arg("--grace-ms")
+                .arg(self.shared.lock().config.grace_ms.to_string());
+            cmd.env_clear();
+            for name in [
+                "PATH",
+                "HOME",
+                "USERPROFILE",
+                "SystemRoot",
+                "SYSTEMROOT",
+                "WINDIR",
+                "TEMP",
+                "TMP",
+                "TMPDIR",
+                "LANG",
+                "LC_ALL",
+                "CI",
+            ] {
+                if let Some(value) = std::env::var_os(name) {
+                    cmd.env(name, value);
+                }
+            }
+        }
         if let Some(dir) = &spec.cwd {
             cmd.current_dir(dir);
         }
-        cmd.args(&spec.args)
-            .envs(spec.env.iter().map(|(k, v)| (k, v)))
+        cmd.envs(spec.env.iter().map(|(k, v)| (k, v)))
             .env_remove(RUN_ACL_ENV)
             .envs(child_env(self.shared.lock().run_acl_inherited))
             .stdin(Stdio::piped())
@@ -1268,7 +1325,7 @@ fn wait_ready(shared: &Shared, ctx: &Ctx, gen: &Gen) {
     };
     // B12: a module must say it is the module the manifest describes; one that does not is killed, and the exit is
     // fatal `manifest-invalid` (a retry would report the same identity).
-    if ctx.role.kind == RoleKind::Module {
+    if ctx.role.kind == RoleKind::Module || ctx.role.kind == RoleKind::Tools {
         let api = shared
             .lock()
             .slot(&ctx.role.name)
@@ -1835,7 +1892,10 @@ mod tests {
             spec.env,
             vec![(
                 OsString::from("P1X_DATA"),
-                home.join("data/ext/fixture").into_os_string()
+                home.join("data")
+                    .join("ext")
+                    .join("fixture")
+                    .into_os_string()
             )],
             "cached module specs hold only canonical, nonsecret data metadata"
         );

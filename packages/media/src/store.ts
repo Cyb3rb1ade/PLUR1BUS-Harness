@@ -1,31 +1,66 @@
+/** Private atomic generated outputs and raw uploads, with separate manifests and shared quota/retention. */
 import { createReadStream } from 'node:fs';
 import { processVideo, videoFormat, type VideoProcessor, type VideoInfo } from './video.ts';
-import { mkdir, readdir, readFile, rename, rm, open } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, readdir, readFile, rename, rm, open, lstat } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { safeId } from './files.ts';
+import { uploadMediaType } from './upload-types.ts';
 import { embedImage } from './adapters/_shared/metadata.ts';
-import { sniffFormat } from './adapters/_shared/images.ts';
+import { assertDimensions, sniffFormat } from './adapters/_shared/images.ts';
 import { MediaError, failure, metadataEnabled, validateRequest } from './types.ts';
 import type { ImageRequest, ImageResult } from './types.ts';
+import { uploadDiskEntries, type UploadDiskEntry } from './upload-state.ts';
+import { UploadIndex, type UploadIndexRecord } from './upload-index.ts';
 export interface Manifest {
   schema: 'media.output/1'; id: string; createdAt: number; prompt: string; kind?: 'image' | 'video'; parameters: Omit<ImageRequest, 'referenceImages' | 'mask' | 'referenceVideo'>;
   referenceHashes: string[]; maskHash?: string; metadata: Omit<ImageResult['metadata'], 'seed'> & { seed: number | null; origin: string }; partial: boolean;
   files: { path: string; sha256: string; bytes: number; format: string; durationSeconds?: number; width?: number; height?: number; fps?: number; audio?: boolean; poster?: { path: string; sha256: string; bytes: number } }[];
 }
-/** Additive observer hooks: called after a manifest is published or an output is deleted; failures never reach the store. */
-export interface OutputStoreListener { onPut?(manifest: Manifest): void; onDelete?(id: string): void }
+/** Raw, unchanged channel media; identity and authorization are owned by the authenticated host (MM-3a). */
+export interface UploadedManifest {
+  schema: 'media.upload/1'; id: string; createdAt: number; kind: 'image' | 'audio' | 'video'; mimeType: string;
+  filename?: string; file: { path: string; sha256: string; bytes: number; format: string };
+}
+/** A published upload and its trusted absolute file path; remote filenames are display metadata only. */
+export interface UploadedMedia { manifest: UploadedManifest; file: string }
+/** Untrusted bytes and an optional display name; provenance and owners must be supplied by the host separately. */
+export interface UploadRequest {
+  kind: UploadedManifest['kind']; mimeType: string; data: Uint8Array; filename?: string;
+}
+/** Additive observer hooks: upload publication is explicitly owned by the host, after it publishes the owner binding. */
+export interface OutputStoreListener {
+  onPut?(manifest: Manifest): void; onDelete?(id: string): void;
+  /** Awaited before unlink; cleanup must be idempotent and may be retried after any failure. */
+  onDeleteUploaded?(id: string): void | Promise<void>;
+  /** Stable corruption event; an unsafe/unrecognized entry name is never exposed as an id. */
+  onCorruptUploadRemoved?(id: string | undefined): void;
+  /** A storage read failed; no entry identity, path or raw error leaves the store. */
+  onUploadStorageUnavailable?(): void;
+}
 /** Default bound for waiting on a lock held by another put/delete/prune. */
 const LOCK_WAIT_MS = 5_000;
+/** A recent partial/corrupt upload is retained for one hour before maintenance removes it. */
+export const CORRUPT_UPLOAD_GRACE_MS = 60 * 60 * 1000;
+// MM-3a keeps channel uploads bounded independently of generation/video processing settings.
+const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+const MAX_UPLOAD_MANIFEST_BYTES = 4096;
 const hash = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
+/** Only positively observed metadata corruption is eligible for destructive maintenance. */
+class CorruptUploadMetadata extends Error {}
 export class OutputStore {
-  readonly root: string; readonly options: { quotaBytes?: number; retentionMs?: number; embedMetadata?: boolean; maxVideoBytes?: number; videoProcessor?: VideoProcessor; lockWaitMs?: number };
+  readonly root: string; readonly options: { quotaBytes?: number; retentionMs?: number; embedMetadata?: boolean; maxVideoBytes?: number; videoProcessor?: VideoProcessor; lockWaitMs?: number; readUploadManifest?: (path: string) => Promise<string> };
   readonly #listeners = new Set<OutputStoreListener>();
+  readonly #uploadIndex: UploadIndex;
   /** Observe puts and deletes (e.g. media indexing); returns the unsubscribe function. */
   addListener(listener: OutputStoreListener): () => void { this.#listeners.add(listener); return () => { this.#listeners.delete(listener); }; }
   #notify(call: (l: OutputStoreListener) => void): void { for (const l of this.#listeners) { try { call(l); } catch { /* observers must not fail the store */ } } }
+  private async notifyUploadDeletion(id: string): Promise<void> {
+    const results = await Promise.allSettled([...this.#listeners].map(listener => Promise.resolve().then(() => listener.onDeleteUploaded?.(id))));
+    if (results.some(result => result.status === 'rejected')) throw new MediaError('backend_unavailable');
+  }
   constructor(root: string, options: OutputStore['options'] = {}) {
-    this.root = root; this.options = options;
+    this.root = root; this.options = options; this.#uploadIndex = new UploadIndex(root);
     if ([options.quotaBytes, options.retentionMs, options.maxVideoBytes, options.lockWaitMs].some(v => v !== undefined && (!Number.isFinite(v) || v < 0))) throw new MediaError('unsupported_parameter');
   }
   private async locked<T>(fn: () => Promise<T>): Promise<T> {
@@ -49,6 +84,172 @@ export class OutputStore {
     for (const e of entries) if (e.isDirectory() && !e.name.startsWith('.')) out.push(JSON.parse(await readFile(join(this.root, e.name, 'manifest.json'), 'utf8')) as Manifest);
     return out;
   }
+  private async uploadRoot(create = false): Promise<string | null> {
+    const root = join(this.root, '.uploads');
+    if (create) await mkdir(root, { recursive: true, mode: 0o700 });
+    try {
+      if (!(await lstat(root)).isDirectory()) throw new MediaError('backend_unavailable');
+      return root;
+    } catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null; throw e; }
+  }
+  private async uploadedEntries(): Promise<UploadDiskEntry[]> {
+    const root = await this.uploadRoot();
+    return root ? uploadDiskEntries(root) : [];
+  }
+  private async uploadAccounting(entry: UploadDiskEntry, unavailable: boolean | undefined, manifest?: UploadedManifest | null): Promise<UploadIndexRecord> {
+    let saved: UploadIndexRecord | null = null;
+    let id: string;
+    try { id = safeId(entry.id); } catch {
+      this.#notify(listener => listener.onUploadStorageUnavailable?.());
+      return { schema: 'media.upload-index/1', createdAt: entry.modifiedAt || Date.now(),
+        bytes: Math.max(entry.bytes, unavailable ? MAX_UPLOAD_BYTES + MAX_UPLOAD_MANIFEST_BYTES : 0), unavailable: unavailable ?? false };
+    }
+    try { saved = await this.#uploadIndex.read(id); }
+    catch { this.#notify(listener => listener.onUploadStorageUnavailable?.()); }
+    // Lazy migration of older readable uploads needs metadata only, never the payload hash.
+    if (!saved && manifest === undefined) {
+      try {
+        const root = await this.uploadRoot();
+        if (root) manifest = await this.readUploadedManifest(id, root);
+      } catch { /* An inaccessible legacy entry reserves the maximum admitted size until it can be inspected. */ }
+    }
+    const record: UploadIndexRecord = { schema: 'media.upload-index/1',
+      createdAt: saved?.createdAt ?? manifest?.createdAt ?? (entry.modifiedAt || Date.now()),
+      bytes: unavailable ? Math.max(entry.bytes, saved?.bytes ?? (manifest
+        ? manifest.file.bytes + Buffer.byteLength(JSON.stringify(manifest)) : MAX_UPLOAD_BYTES + MAX_UPLOAD_MANIFEST_BYTES)) : entry.bytes,
+      unavailable: unavailable ?? saved?.unavailable ?? false };
+    if (!saved || saved.bytes !== record.bytes || saved.unavailable !== record.unavailable)
+      await this.#uploadIndex.write(id, record);
+    return record;
+  }
+  private async pruneUploads(now: number, expired: boolean): Promise<number> {
+    let removed = 0;
+    let entries: UploadDiskEntry[];
+    try { entries = await this.uploadedEntries(); }
+    catch { this.#notify(listener => listener.onUploadStorageUnavailable?.()); return 0; }
+    for (const entry of entries) {
+      let unavailable = entry.unavailable === true;
+      let id: string | undefined;
+      try { id = safeId(entry.id); } catch { /* invalid entry names are structural corruption, never host owner bindings */ }
+      let manifest: UploadedManifest | null = null;
+      if (id && !unavailable) {
+        try {
+          const root = await this.uploadRoot();
+          if (!root) throw new CorruptUploadMetadata();
+          manifest = await this.readUploadedManifest(id, root);
+          const info = await lstat(join(entry.path, manifest.file.path));
+          if (!info.isFile() || info.size !== manifest.file.bytes) throw new CorruptUploadMetadata();
+        } catch (error) {
+          manifest = null;
+          if (!(error instanceof CorruptUploadMetadata) && (error as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+            this.#notify(listener => listener.onUploadStorageUnavailable?.());
+            unavailable = true;
+          }
+        }
+      }
+      if (unavailable && entry.unavailable) this.#notify(listener => listener.onUploadStorageUnavailable?.());
+      const accounting = await this.uploadAccounting(entry, unavailable, manifest);
+      if (unavailable ? !expired || now - accounting.createdAt < (this.options.retentionMs ?? Infinity)
+        : manifest ? !expired || now - manifest.createdAt < (this.options.retentionMs ?? Infinity)
+        : now - entry.modifiedAt < CORRUPT_UPLOAD_GRACE_MS) continue;
+      if (id) await this.notifyUploadDeletion(id);
+      await rm(entry.path, { recursive: true, force: true });
+      if (id) await this.#uploadIndex.remove(id);
+      removed++;
+      if (!manifest && !unavailable) this.#notify(listener => listener.onCorruptUploadRemoved?.(id));
+    }
+    // Under the store lock (or exclusive startup recovery), no publication can be between index and rename.
+    const present = new Set(entries.map(entry => entry.id));
+    for (const id of await this.#uploadIndex.ids()) if (!present.has(id)) {
+      try { await lstat(join(this.root, '.uploads', id)); }
+      catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') await this.#uploadIndex.remove(id);
+        else this.#notify(listener => listener.onUploadStorageUnavailable?.());
+      }
+    }
+    return removed;
+  }
+  private async readUploadedManifest(id: string, root: string): Promise<UploadedManifest> {
+    const directory = join(root, safeId(id)), path = join(directory, 'manifest.json');
+    if (!(await lstat(directory)).isDirectory()) throw new CorruptUploadMetadata();
+    const info = await lstat(path);
+    if (!info.isFile() || info.size > MAX_UPLOAD_MANIFEST_BYTES) throw new CorruptUploadMetadata();
+    const text = await (this.options.readUploadManifest?.(path) ?? readFile(path, 'utf8'));
+    if (Buffer.byteLength(text) > MAX_UPLOAD_MANIFEST_BYTES) throw new CorruptUploadMetadata();
+    let raw: unknown;
+    try { raw = JSON.parse(text); }
+    catch (error) { if (error instanceof SyntaxError) throw new CorruptUploadMetadata(); throw error; }
+    if (!validUploadedManifest(raw, id)) throw new CorruptUploadMetadata();
+    return raw;
+  }
+  private async usedBytes(current: Manifest[]): Promise<number> {
+    let used = 0;
+    for (const m of current) used += m.files.reduce((n, f) => n + f.bytes + (f.poster?.bytes ?? 0), 0)
+      + (await lstat(join(this.root, m.id, 'manifest.json'))).size;
+    // Count actual owned bytes when readable; an inaccessible tree keeps its durable charge across restarts.
+    for (const entry of await this.uploadedEntries()) {
+      if (entry.unavailable) this.#notify(listener => listener.onUploadStorageUnavailable?.());
+      used += (await this.uploadAccounting(entry, entry.unavailable ? true : undefined)).bytes;
+    }
+    return used;
+  }
+  /** Publishes at most 25 MiB of matching supported media, atomically and privately, without transforming any bytes. */
+  async putUploaded(request: UploadRequest): Promise<UploadedMedia> {
+    if (!(request.data instanceof Uint8Array) || !request.data.byteLength) throw new MediaError('unsupported_parameter');
+    if (request.data.byteLength > MAX_UPLOAD_BYTES) throw new MediaError('too_large');
+    // Copy before awaiting the lock: a caller must not mutate the validated bytes while publication waits.
+    const data = Buffer.from(request.data), format = uploadFormat(request.kind, request.mimeType, data);
+    const filename = displayFilename(request.filename);
+    const manifest: UploadedManifest = { schema: 'media.upload/1', id: randomUUID(), createdAt: Date.now(),
+      kind: request.kind, mimeType: request.mimeType, ...(filename ? { filename } : {}),
+      file: { path: `0.${format}`, sha256: hash(data), bytes: data.length, format } };
+    return this.locked(async () => {
+      const used = await this.usedBytes(await this.manifests()), json = JSON.stringify(manifest);
+      if (used + data.length + Buffer.byteLength(json) > (this.options.quotaBytes ?? Infinity)) throw new MediaError('quota');
+      const root = (await this.uploadRoot(true))!, stage = join(this.root, `.stage-${randomUUID()}`);
+      await mkdir(stage, { mode: 0o700 });
+      let published = false;
+      try {
+        const file = await open(join(stage, manifest.file.path), 'wx', 0o600);
+        try { await file.writeFile(data); await file.sync(); } finally { await file.close(); }
+        const metadata = await open(join(stage, 'manifest.json'), 'wx', 0o600);
+        try { await metadata.writeFile(json); await metadata.sync(); } finally { await metadata.close(); }
+        await this.#uploadIndex.write(manifest.id, { schema: 'media.upload-index/1', createdAt: manifest.createdAt,
+          bytes: data.length + Buffer.byteLength(json), unavailable: false });
+        await rename(stage, join(root, manifest.id));
+        published = true;
+        return { manifest, file: resolve(root, manifest.id, manifest.file.path) };
+      } finally {
+        await rm(stage, { recursive: true, force: true });
+        if (!published) await this.#uploadIndex.remove(manifest.id);
+      }
+    });
+  }
+  /** Reads only the upload namespace and verifies its bounded manifest, private file identity, size and SHA-256. */
+  async getUploaded(id: string): Promise<UploadedMedia | null> {
+    safeId(id);
+    try {
+      const root = await this.uploadRoot();
+      if (!root) return null;
+      try { await lstat(join(root, id)); }
+      catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null; throw e; }
+      const manifest = await this.readUploadedManifest(id, root), file = resolve(root, id, manifest.file.path);
+      const info = await lstat(file);
+      if (!info.isFile() || info.size !== manifest.file.bytes || hash(await readFile(file)) !== manifest.file.sha256)
+        throw new MediaError('backend_unavailable');
+      return { manifest, file };
+    } catch (e) { throw failure(e); }
+  }
+  /** Deletes one upload without touching generated outputs; the host observes the distinct upload deletion hook. */
+  async deleteUploaded(id: string): Promise<void> {
+    safeId(id);
+    await this.locked(async () => {
+      const root = await this.uploadRoot();
+      await this.notifyUploadDeletion(id);
+      if (root) await rm(join(root, id), { recursive: true, force: true });
+      await this.#uploadIndex.remove(id);
+    });
+  }
   async delete(id: string): Promise<void> {
     safeId(id);
     await this.locked(async () => { await rm(join(this.root, id), { recursive: true, force: true }); });
@@ -58,15 +259,17 @@ export class OutputStore {
     try { return JSON.parse(await readFile(join(this.root, safeId(id), 'manifest.json'), 'utf8')) as Manifest; }
     catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null; throw e; }
   }
-  /** Requires exclusive host ownership after the previous process exited. Discards unpublished staging only. */
+  /** Requires exclusive host ownership after the previous process exited. Repairs staging and stale corrupt uploads. */
   async recoverStaging(): Promise<void> {
     await mkdir(this.root, { recursive: true, mode: 0o700 });
     for (const name of await readdir(this.root)) if (name === '.lock' || /^\.stage-[a-f0-9-]+$/.test(name)) await rm(join(this.root, name), { recursive: true, force: true });
+    try { await this.pruneUploads(Date.now(), false); } catch (error) { throw failure(error); }
   }
   async prune(now = Date.now()): Promise<number> {
     return this.locked(async () => {
       let removed = 0;
       for (const m of await this.manifests()) if (now - m.createdAt >= (this.options.retentionMs ?? Infinity)) { await rm(join(this.root, safeId(m.id)), { recursive: true }); removed++; this.#notify(l => l.onDelete?.(m.id)); }
+      removed += await this.pruneUploads(now, true);
       return removed;
     });
   }
@@ -87,8 +290,7 @@ export class OutputStore {
       const current = await this.manifests();
       if (current.some(m => m.id === id)) throw new MediaError('unsupported_parameter');
       const json = JSON.stringify(manifest);
-      let used = 0;
-      for (const m of current) { used += m.files.reduce((n, f) => n + f.bytes, 0) + Buffer.byteLength(await readFile(join(this.root, m.id, 'manifest.json'), 'utf8')); }
+      const used = await this.usedBytes(current);
       if (used + files.reduce((n, f) => n + f.length, 0) + Buffer.byteLength(json) > (this.options.quotaBytes ?? Infinity)) throw new MediaError('quota');
       const stage = join(this.root, `.stage-${randomUUID()}`); await mkdir(stage, { mode: 0o700 });
       try {
@@ -111,8 +313,7 @@ export class OutputStore {
     const published = await this.locked(async () => {
       const current = await this.manifests();
       if (current.some(m => m.id === id)) throw new MediaError('unsupported_parameter');
-      let used = 0;
-      for (const m of current) used += m.files.reduce((n,f) => n + f.bytes + (f.poster?.bytes ?? 0),0) + Buffer.byteLength(await readFile(join(this.root,m.id,'manifest.json')));
+      const used = await this.usedBytes(current);
       const quota = this.options.quotaBytes ?? Infinity;
       const limit = Math.min(this.options.maxVideoBytes ?? 512 * 1024 * 1024, quota - used);
       const stage = join(this.root, `.stage-${randomUUID()}`); await mkdir(stage,{mode:0o700});
@@ -158,3 +359,60 @@ export class OutputStore {
 }
 
 async function writePrivate(path: string): Promise<void> { const file = await open(path,'wx',0o600); await file.close(); }
+
+function displayFilename(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string') throw new MediaError('unsupported_parameter');
+  return value.slice(0, 160).replace(/[/\\\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, '_').trim();
+}
+function uploadFormat(kind: UploadRequest['kind'], mimeType: string, bytes: Buffer): string {
+  const type = uploadMediaType(mimeType);
+  if (!type || type[0] !== kind || !matchesUploadMagic(type[1], bytes)) throw new MediaError('unsupported_parameter');
+  if (type[1] === 'png' || type[1] === 'jpeg' || type[1] === 'webp') assertDimensions(bytes, type[1]);
+  return type[1];
+}
+// These are container/header checks, never decoders: ingress neither generates nor transcodes user media (MM-3a).
+function matchesUploadMagic(format: string, bytes: Buffer): boolean {
+  if (['png', 'jpeg', 'webp'].includes(format)) return sniffFormat(bytes) === format;
+  if (format === 'gif') return bytes.length >= 13 && ['GIF87a', 'GIF89a'].includes(bytes.toString('ascii', 0, 6));
+  if (format === 'wav') return bytes.length >= 44 && bytes.toString('ascii', 0, 4) === 'RIFF'
+    && bytes.toString('ascii', 8, 12) === 'WAVE' && bytes.readUInt32LE(4) + 8 <= bytes.length;
+  if (format === 'flac') return bytes.length >= 42 && bytes.toString('ascii', 0, 4) === 'fLaC';
+  if (format === 'aac') return bytes.length >= 7 && bytes[0] === 0xff && (bytes[1]! & 0xf6) === 0xf0;
+  if (format === 'mp3') {
+    let offset = 0;
+    if (bytes.length >= 10 && bytes.toString('ascii', 0, 3) === 'ID3') {
+      if (bytes.subarray(6, 10).some(b => b > 127)) return false;
+      offset = 10 + bytes.subarray(6, 10).reduce((n, b) => n * 128 + b, 0);
+    }
+    return bytes.length >= offset + 4 && bytes[offset] === 0xff && (bytes[offset + 1]! & 0xe0) === 0xe0
+      && (bytes[offset + 1]! & 6) !== 0 && (bytes[offset + 2]! & 0xf0) !== 0
+      && (bytes[offset + 2]! & 0xf0) !== 0xf0 && (bytes[offset + 2]! & 0x0c) !== 0x0c;
+  }
+  if (format === 'ogg' || format === 'ogv') {
+    if (bytes.length < 28 || bytes.toString('ascii', 0, 4) !== 'OggS' || bytes[4] !== 0) return false;
+    const start = 27 + bytes[26]!, packet = bytes.subarray(start, start + 8).toString('latin1');
+    return format === 'ogv' ? packet.startsWith('\x80theora')
+      : packet.startsWith('OpusHead') || packet.startsWith('\x01vorbis') || packet.startsWith('\x7fFLAC');
+  }
+  if (format === 'webm') return bytes.length >= 12 && bytes.readUInt32BE(0) === 0x1a45dfa3
+    && bytes.subarray(4, 4096).includes(Buffer.from([0x42, 0x82, 0x84, 0x77, 0x65, 0x62, 0x6d]));
+  if (bytes.length < 16 || bytes.toString('ascii', 4, 8) !== 'ftyp'
+    || bytes.readUInt32BE(0) < 16 || bytes.readUInt32BE(0) > bytes.length) return false;
+  const brand = bytes.toString('ascii', 8, 12);
+  if (format === 'mov') return brand === 'qt  ';
+  if (format === 'm4a') return ['M4A ', 'M4B ', 'M4P '].includes(brand);
+  return ['isom', 'iso2', 'iso4', 'iso5', 'iso6', 'mp41', 'mp42', 'avc1', 'M4V ', 'dash'].includes(brand);
+}
+function validUploadedManifest(value: unknown, id: string): value is UploadedManifest {
+  if (!value || typeof value !== 'object') return false;
+  const m = value as Record<string, unknown>, file = m.file;
+  if (!file || typeof file !== 'object') return false;
+  const f = file as Record<string, unknown>;
+  const type = typeof m.mimeType === 'string' ? uploadMediaType(m.mimeType) : undefined;
+  return m.schema === 'media.upload/1' && m.id === id && typeof m.createdAt === 'number'
+    && Number.isFinite(m.createdAt) && m.createdAt >= 0 && !!type && type[0] === m.kind && type[1] === f.format
+    && f.path === `0.${type[1]}` && typeof f.bytes === 'number' && Number.isInteger(f.bytes)
+    && f.bytes > 0 && f.bytes <= MAX_UPLOAD_BYTES && typeof f.sha256 === 'string' && /^[a-f0-9]{64}$/.test(f.sha256)
+    && (m.filename === undefined || (typeof m.filename === 'string' && displayFilename(m.filename) === m.filename));
+}

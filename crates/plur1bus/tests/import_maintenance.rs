@@ -108,7 +108,8 @@ fn real_stack(mode: &str) {
     let _supervisor = common::start_with_core(
         &home,
         &directory.join("events.jsonl"),
-        "0.2",
+        // A real Core keeps the production readiness window; only synthetic children use accelerated timers.
+        "1",
         &[
             ("PLUR1BUS_CORE_JS", core_entry.to_str().unwrap()),
             ("PLUR1BUS_TEST_INTERNALS", "flat-embedder"),

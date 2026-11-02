@@ -1,11 +1,16 @@
 use crate::error::RpcError;
 use crate::transport::{connect as transport_connect, Stream};
-use crate::types::{CoreAuthResult, ErrorCode, ModuleAuthResult, SupervisorAuthResult};
+use crate::types::{
+    CoreAuthResult, EngineAuthResult, ErrorCode, ModuleAuthResult, SupervisorAuthResult,
+};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::io::{BufRead, BufReader, Read, Write};
-use std::time::Duration;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{mpsc, Arc, Mutex, MutexGuard, TryLockError};
+use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
 
 /// The server a client talks to; it picks the handshake method (ruling S2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -18,6 +23,8 @@ pub enum Endpoint {
     /// A module process: `module.auth` (B9). Its address and run files are per module
     /// (`Layout::endpoints` in the CLI crate), so this variant carries no name.
     Module,
+    /// The memory engine process: `engine.auth`.
+    Engine,
 }
 impl Endpoint {
     /// The first call on a connection to this endpoint.
@@ -26,6 +33,7 @@ impl Endpoint {
             Endpoint::Core => "core.auth",
             Endpoint::Supervisor => "supervisor.auth",
             Endpoint::Module => "module.auth",
+            Endpoint::Engine => "engine.auth",
         }
     }
 }
@@ -34,7 +42,7 @@ impl Endpoint {
 pub struct ConnectOptions {
     /// Bounds the socket connect and the whole handshake.
     pub connect_timeout: Duration,
-    /// Read deadline for every call after the handshake.
+    /// Whole-call deadline after the handshake, including writes and skipped notifications.
     pub call_timeout: Duration,
     /// Which server `address` belongs to (default: the core).
     pub endpoint: Endpoint,
@@ -78,6 +86,7 @@ pub struct Client {
     hello: Value,
     endpoint: Endpoint,
     poisoned: bool,
+    call_timeout: Duration,
 }
 
 /// Maximum bytes in one NDJSON line, newline not counted (same cap as packages/module-api/src/framing.ts).
@@ -86,12 +95,27 @@ const MAX_NOTIFICATION_BYTES: usize = 2 * MAX_LINE;
 const MAX_NOTIFICATIONS: usize = 256;
 
 impl Client {
+    /// Connects with token auth; engine connections also identify as `harness-core`.
     pub fn connect(address: &str, token: &str, opts: ConnectOptions) -> Result<Client, RpcError> {
+        Self::connect_with_auth(address, default_auth_params(token, opts.endpoint), opts)
+    }
+
+    /// Connects with the endpoint's complete authentication params, including an engine client id or delegation.
+    /// Address and kernel peer checks run before any of these params are sent, just as in [`Client::connect`].
+    pub fn connect_with_auth(
+        address: &str,
+        params: Value,
+        mut opts: ConnectOptions,
+    ) -> Result<Client, RpcError> {
+        let start = Instant::now();
         // Audit M2: a unix socket must sit in a real `run/` directory of ours (not a symlink, no group/other write) and
         // belong to us, or nothing is connected and no token is sent.
         crate::trust::verify_address(address)?;
-        let stream = transport_connect(address, opts.connect_timeout)?;
-        Self::handshake(stream, token, opts)
+        let remaining = call_remaining(start, opts.connect_timeout).map_err(handshake_error)?;
+        let stream = transport_connect(address, remaining)?;
+        opts.connect_timeout =
+            call_remaining(start, opts.connect_timeout).map_err(handshake_error)?;
+        Self::handshake_with_auth(stream, params, opts)
     }
 
     /// Authenticates on a stream that is already connected ([`crate::transport::connect`]): the handshake of
@@ -102,6 +126,16 @@ impl Client {
         token: &str,
         opts: ConnectOptions,
     ) -> Result<Client, RpcError> {
+        Self::handshake_with_auth(stream, default_auth_params(token, opts.endpoint), opts)
+    }
+
+    /// Authenticates an already-connected stream with complete params after verifying the kernel peer identity.
+    pub fn handshake_with_auth(
+        stream: Box<dyn Stream>,
+        params: Value,
+        opts: ConnectOptions,
+    ) -> Result<Client, RpcError> {
+        let start = Instant::now();
         let mut client = Client {
             reader: BufReader::new(stream),
             line_buffer: Vec::new(),
@@ -111,6 +145,7 @@ impl Client {
             hello: Value::Null,
             endpoint: opts.endpoint,
             poisoned: false,
+            call_timeout: opts.connect_timeout,
         };
         if cfg!(windows) {
             check_server_pid(opts.expected_server_pid, client.peer_pid())?;
@@ -124,19 +159,9 @@ impl Client {
         }
         let method = opts.endpoint.auth_method();
         // The handshake runs under the connect timeout: a server that owns the socket but never answers must fail fast.
-        client
-            .reader
-            .get_ref()
-            .set_read_timeout(Some(opts.connect_timeout))?;
-        let raw = match client.call(method, json!({ "token": token })) {
-            Err(RpcError::Unavailable { reason, detail }) if reason == "call-timeout" => {
-                return Err(RpcError::Unavailable {
-                    reason: "handshake-timeout".into(),
-                    detail,
-                })
-            }
-            other => other?,
-        };
+        client.call_timeout =
+            call_remaining(start, opts.connect_timeout).map_err(handshake_error)?;
+        let raw = client.call(method, params).map_err(handshake_error)?;
         // Check the major before parsing the rest: a MAJOR-2 hello may have a shape this client cannot read.
         let rpc = raw["rpc"]
             .as_str()
@@ -155,17 +180,20 @@ impl Client {
                 serde_json::from_value::<SupervisorAuthResult>(raw.clone()).map(drop)
             }
             Endpoint::Module => serde_json::from_value::<ModuleAuthResult>(raw.clone()).map(drop),
+            Endpoint::Engine => serde_json::from_value::<EngineAuthResult>(raw.clone()).map(drop),
         };
         shape.map_err(|e| RpcError::Protocol(format!("{method} result: {e}")))?;
+        call_remaining(start, opts.connect_timeout).map_err(handshake_error)?;
         client
             .reader
             .get_ref()
             .set_read_timeout(Some(opts.call_timeout))?;
         client.hello = raw;
+        client.call_timeout = opts.call_timeout;
         Ok(client)
     }
 
-    /// The handshake result exactly as the server sent it (`core.auth`, `supervisor.auth` or `module.auth`).
+    /// The handshake result exactly as the server sent it (`core.auth`, `supervisor.auth`, `module.auth` or `engine.auth`).
     pub fn hello(&self) -> &Value {
         &self.hello
     }
@@ -235,8 +263,9 @@ impl Client {
         if let Some(value) = self.take_notification()? {
             return Ok(Some(value));
         }
+        let start = Instant::now();
         loop {
-            match self.read_line() {
+            match self.read_line(start) {
                 Ok(Line::Data(bytes)) if bytes.is_empty() => continue,
                 Ok(Line::Data(bytes)) => return notification(&bytes).map(Some),
                 Ok(Line::TooLong) => {
@@ -280,8 +309,9 @@ impl Client {
     }
 
     pub fn call(&mut self, method: &str, params: Value) -> Result<Value, RpcError> {
+        let start = Instant::now();
         self.start_call(method, params)?;
-        match self.poll_call()? {
+        match self.poll_call_at(start)? {
             Some(value) => Ok(value),
             None => {
                 self.poisoned = true; // A blocking call abandons its pending reply at the first idle deadline.
@@ -307,15 +337,35 @@ impl Client {
                 "a call is already in flight on this connection".into(),
             ));
         }
+        let start = Instant::now();
         let id = self.next_id;
         self.next_id += 1;
         // `Value`'s Display is infallible (a `Value` always serialises).
-        let line =
-            json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params }).to_string();
+        let line = format!(
+            "{}\n",
+            json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params })
+        );
         let written: Result<(), RpcError> = (|| {
             let w = self.reader.get_mut();
-            w.write_all(line.as_bytes())?;
-            w.write_all(b"\n")?;
+            let mut bytes = line.as_bytes();
+            while !bytes.is_empty() {
+                let remaining = call_remaining(start, self.call_timeout)?;
+                match w.set_write_timeout(Some(remaining)) {
+                    Ok(()) => {}
+                    // Custom streams predate optional write deadlines; preserve their behavior.
+                    Err(error) if error.kind() == std::io::ErrorKind::Unsupported => {}
+                    Err(error) => return Err(error.into()),
+                }
+                match w.write(bytes) {
+                    Ok(0) => {
+                        return Err(background_unavailable("io", "RPC write made no progress"))
+                    }
+                    Ok(written) => bytes = &bytes[written..],
+                    Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+                    Err(error) => return Err(error.into()),
+                }
+            }
+            call_remaining(start, self.call_timeout)?;
             w.flush()?;
             Ok(())
         })();
@@ -329,6 +379,10 @@ impl Client {
 
     /// `None` preserves the pending request and partial frame at an idle deadline; terminal results end the request.
     pub fn poll_call(&mut self) -> Result<Option<Value>, RpcError> {
+        self.poll_call_at(Instant::now())
+    }
+
+    fn poll_call_at(&mut self, start: Instant) -> Result<Option<Value>, RpcError> {
         if self.poisoned {
             return Err(RpcError::Unavailable {
                 reason: "poisoned".into(),
@@ -339,7 +393,7 @@ impl Client {
             .pending_call
             .clone()
             .ok_or_else(|| RpcError::Protocol("no call is in flight".into()))?;
-        let result = self.poll_response(id, &method);
+        let result = self.poll_response(id, &method, start);
         if !matches!(&result, Ok(None)) {
             self.pending_call = None;
         }
@@ -349,9 +403,14 @@ impl Client {
         result
     }
 
-    fn poll_response(&mut self, id: u64, method: &str) -> Result<Option<Value>, RpcError> {
+    fn poll_response(
+        &mut self,
+        id: u64,
+        method: &str,
+        start: Instant,
+    ) -> Result<Option<Value>, RpcError> {
         loop {
-            let line = match self.read_line() {
+            let line = match self.read_line(start) {
                 Err(RpcError::Unavailable { reason, .. }) if reason == "call-timeout" => {
                     return Ok(None)
                 }
@@ -409,23 +468,34 @@ impl Client {
     }
 
     /// Reads one line with at most `MAX_LINE + 1` bytes buffered, so an endless line cannot exhaust memory.
-    fn read_line(&mut self) -> Result<Line, RpcError> {
-        let remaining = MAX_LINE + 1 - self.line_buffer.len();
-        let n = (&mut self.reader)
-            .take(remaining as u64)
-            .read_until(b'\n', &mut self.line_buffer)?;
-        if n == 0 {
-            return Ok(Line::Closed);
+    fn read_line(&mut self, start: Instant) -> Result<Line, RpcError> {
+        loop {
+            let remaining = call_remaining(start, self.call_timeout)?;
+            self.reader.get_ref().set_read_timeout(Some(remaining))?;
+            let available = match self.reader.fill_buf() {
+                Ok(available) => available,
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(error) => return Err(error.into()),
+            };
+            if available.is_empty() {
+                return Ok(Line::Closed);
+            }
+            let limit = available.len().min(MAX_LINE + 1 - self.line_buffer.len());
+            let length = available[..limit]
+                .iter()
+                .position(|byte| *byte == b'\n')
+                .map_or(limit, |index| index + 1);
+            self.line_buffer.extend_from_slice(&available[..length]);
+            self.reader.consume(length);
+            if self.line_buffer.last() == Some(&b'\n') {
+                let mut buf = std::mem::take(&mut self.line_buffer);
+                buf.pop();
+                return Ok(Line::Data(buf));
+            }
+            if self.line_buffer.len() > MAX_LINE {
+                return Ok(Line::TooLong);
+            }
         }
-        if self.line_buffer.last() == Some(&b'\n') {
-            let mut buf = std::mem::take(&mut self.line_buffer);
-            buf.pop();
-            return Ok(Line::Data(buf));
-        }
-        if self.line_buffer.len() > MAX_LINE {
-            return Ok(Line::TooLong);
-        }
-        Ok(Line::Closed) // EOF in the middle of a line
     }
 
     pub fn call_typed<P: Serialize, R: DeserializeOwned>(
@@ -450,6 +520,410 @@ fn notification(bytes: &[u8]) -> Result<Value, RpcError> {
         ));
     }
     Ok(value)
+}
+
+/// Events from a persistent authenticated connection.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ClientEvent {
+    Notification { method: String, params: Value },
+    Closed,
+}
+
+const READ_TICK: Duration = Duration::from_millis(50);
+const CALL_TICK: Duration = Duration::from_millis(10);
+const MAX_PENDING_CALLS: usize = 64;
+type PendingResponse = mpsc::SyncSender<Result<Value, RpcError>>;
+
+/// A single authenticated connection with continuous notification delivery and concurrent calls.
+///
+/// The callback runs on the reader thread: it must return promptly and must not make a blocking call on
+/// this client. Cancellation or a call deadline closes the connection, so the server also sees EOF.
+/// Drop aborts I/O and joins the reader, waiting at most 250 ms for a callback that does not return.
+/// On Windows a single stalled pipe write fails after at most 50 ms, because reads and writes share
+/// the existing overlapped I/O deadline; its unknown transferred-byte count requires closing the pipe.
+pub struct BackgroundClient {
+    shared: Arc<BackgroundShared>,
+    writer: Mutex<Box<dyn Stream>>,
+    next_id: AtomicU64,
+    reader: Option<JoinHandle<()>>,
+    reader_done: Mutex<mpsc::Receiver<()>>,
+}
+
+struct BackgroundShared {
+    closed: AtomicBool,
+    pending: Mutex<HashMap<u64, PendingResponse>>,
+    interrupt: Mutex<Box<dyn Stream>>,
+}
+
+#[derive(Clone, Copy)]
+enum BackgroundFailure {
+    Closed,
+    Io,
+    LineTooLong,
+    InvalidFrame,
+}
+
+impl BackgroundFailure {
+    fn error(self) -> RpcError {
+        match self {
+            Self::Closed => background_unavailable("closed", "RPC connection closed"),
+            Self::Io => background_unavailable("io", "RPC connection I/O failed"),
+            Self::LineTooLong => RpcError::Protocol("line too long".into()),
+            Self::InvalidFrame => RpcError::Protocol("invalid RPC response".into()),
+        }
+    }
+}
+
+fn background_unavailable(reason: &str, detail: &str) -> RpcError {
+    RpcError::Unavailable {
+        reason: reason.into(),
+        detail: detail.into(),
+    }
+}
+
+fn background_lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+impl BackgroundShared {
+    fn finish(&self, failure: BackgroundFailure) {
+        if self.closed.swap(true, Ordering::AcqRel) {
+            return;
+        }
+        // This handle never holds the writer lock, so shutdown can interrupt a blocked writer.
+        let _ = background_lock(&self.interrupt).shutdown();
+        for (_, sender) in background_lock(&self.pending).drain() {
+            let _ = sender.try_send(Err(failure.error()));
+        }
+    }
+}
+
+// A caller unwinding or abandoning its response cannot consume a pending slot forever.
+struct PendingCall<'a> {
+    shared: &'a BackgroundShared,
+    id: u64,
+}
+impl Drop for PendingCall<'_> {
+    fn drop(&mut self) {
+        background_lock(&self.shared.pending).remove(&self.id);
+    }
+}
+
+impl BackgroundClient {
+    pub fn connect_with_auth(
+        address: &str,
+        params: Value,
+        opts: ConnectOptions,
+        on_event: Arc<dyn Fn(ClientEvent) + Send + Sync>,
+    ) -> Result<Self, RpcError> {
+        // Promote the authenticated reader itself: a hello and notification may share a buffered read.
+        // Client retains all address/UID/pipe-PID verification before credentials are written.
+        let client = Client::connect_with_auth(address, params, opts)?;
+        client.reader.get_ref().set_read_timeout(Some(READ_TICK))?;
+        let writer = client.reader.get_ref().try_clone_stream()?;
+        writer.set_write_timeout(Some(READ_TICK))?;
+        let interrupt = client.reader.get_ref().try_clone_stream()?;
+        let shared = Arc::new(BackgroundShared {
+            closed: AtomicBool::new(false),
+            pending: Mutex::new(HashMap::new()),
+            interrupt: Mutex::new(interrupt),
+        });
+        let state = shared.clone();
+        let (done_tx, done_rx) = mpsc::sync_channel(1);
+        let reader = thread::Builder::new()
+            .name("rpc-reader".into())
+            .spawn(move || {
+                let failure = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    background_read_loop(client.reader, &state, &on_event)
+                }))
+                .unwrap_or(BackgroundFailure::Io);
+                state.finish(failure);
+                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    on_event(ClientEvent::Closed);
+                }));
+                let _ = done_tx.send(());
+            })
+            .map_err(|_| {
+                shared.finish(BackgroundFailure::Io);
+                background_unavailable("io", "RPC reader could not start")
+            })?;
+        Ok(Self {
+            shared,
+            writer: Mutex::new(writer),
+            next_id: AtomicU64::new(client.next_id),
+            reader: Some(reader),
+            reader_done: Mutex::new(done_rx),
+        })
+    }
+
+    pub fn is_closed(&self) -> bool {
+        self.shared.closed.load(Ordering::Acquire)
+    }
+
+    /// Signals closure and interrupts I/O without waiting for the reader or callback.
+    pub fn close(&self) {
+        self.shared.finish(BackgroundFailure::Closed);
+    }
+
+    pub fn call(
+        &self,
+        method: &str,
+        params: Value,
+        timeout: Duration,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<Value, RpcError> {
+        let start = Instant::now();
+        self.check_call_budget(start, timeout, cancelled)?;
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
+        let mut frame = json!({"jsonrpc":"2.0", "id":id, "method":method, "params":params})
+            .to_string()
+            .into_bytes();
+        if frame.len() > MAX_LINE {
+            return Err(RpcError::Protocol("line too long".into()));
+        }
+        frame.push(b'\n');
+        let (sender, receiver) = mpsc::sync_channel(1);
+        {
+            let mut pending = background_lock(&self.shared.pending);
+            if self.is_closed() {
+                return Err(BackgroundFailure::Closed.error());
+            }
+            if pending.len() >= MAX_PENDING_CALLS {
+                return Err(background_unavailable("busy", "too many pending RPC calls"));
+            }
+            pending.insert(id, sender);
+        }
+        let _pending = PendingCall {
+            shared: &self.shared,
+            id,
+        };
+        self.write_frame(&frame, start, timeout, cancelled)?;
+        loop {
+            let remaining = self.check_call_budget(start, timeout, cancelled)?;
+            match receiver.recv_timeout(remaining.min(CALL_TICK)) {
+                Ok(result) => return result,
+                Err(mpsc::RecvTimeoutError::Timeout) => {}
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    return Err(BackgroundFailure::Closed.error());
+                }
+            }
+        }
+    }
+
+    fn check_call_budget(
+        &self,
+        start: Instant,
+        timeout: Duration,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<Duration, RpcError> {
+        let reason = if cancelled() {
+            Some(("cancelled", "RPC call cancelled"))
+        } else if start.elapsed() >= timeout {
+            Some(("call-timeout", "RPC call deadline exceeded"))
+        } else {
+            None
+        };
+        if let Some((reason, detail)) = reason {
+            self.close();
+            return Err(background_unavailable(reason, detail));
+        }
+        Ok(timeout
+            .saturating_sub(start.elapsed())
+            .max(Duration::from_micros(1)))
+    }
+
+    fn write_frame(
+        &self,
+        mut frame: &[u8],
+        start: Instant,
+        timeout: Duration,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<(), RpcError> {
+        let mut writer = loop {
+            self.check_call_budget(start, timeout, cancelled)?;
+            if self.is_closed() {
+                return Err(BackgroundFailure::Closed.error());
+            }
+            match self.writer.try_lock() {
+                Ok(writer) => break writer,
+                Err(TryLockError::Poisoned(_)) => {
+                    self.shared.finish(BackgroundFailure::Io);
+                    return Err(BackgroundFailure::Io.error());
+                }
+                Err(TryLockError::WouldBlock) => thread::park_timeout(Duration::from_millis(1)),
+            }
+        };
+        while !frame.is_empty() {
+            let remaining = self.check_call_budget(start, timeout, cancelled)?;
+            if self.is_closed() {
+                return Err(BackgroundFailure::Closed.error());
+            }
+            if writer
+                .set_write_timeout(Some(remaining.min(READ_TICK)))
+                .is_err()
+            {
+                self.shared.finish(BackgroundFailure::Io);
+                return Err(BackgroundFailure::Io.error());
+            }
+            match writer.write(&frame[..frame.len().min(16 * 1024)]) {
+                Ok(0) => {
+                    self.shared.finish(BackgroundFailure::Io);
+                    return Err(BackgroundFailure::Io.error());
+                }
+                Ok(written) => frame = &frame[written..],
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+                // Unix write errors report no transferred bytes, so a short timeout is a polling tick.
+                #[cfg(unix)]
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                    ) => {}
+                Err(_) => {
+                    self.shared.finish(BackgroundFailure::Io);
+                    return Err(BackgroundFailure::Io.error());
+                }
+            }
+        }
+        // Windows shares its read/write timeout; a short call must not leave the idle reader
+        // polling at a sub-millisecond deadline after its request has been sent.
+        // A completed response followed by EOF may already have revoked the Windows pipe: retain
+        // that queued response even if this best-effort timeout restoration can no longer apply.
+        let _ = writer.set_write_timeout(Some(READ_TICK));
+        Ok(())
+    }
+}
+
+impl Drop for BackgroundClient {
+    fn drop(&mut self) {
+        self.close();
+        if let Some(reader) = self.reader.take() {
+            let start = Instant::now();
+            if reader.thread().id() == thread::current().id() {
+                return;
+            }
+            let _ = background_lock(&self.reader_done).recv_timeout(Duration::from_millis(250));
+            // The callback's captured values are dropped after the completion signal too. Only join
+            // a fully finished thread, so even a user-defined destructor cannot make Drop unbounded.
+            while !reader.is_finished() && start.elapsed() < Duration::from_millis(250) {
+                thread::park_timeout(Duration::from_millis(1));
+            }
+            if reader.is_finished() {
+                let _ = reader.join();
+            }
+            // A user callback can block indefinitely; I/O is already aborted and Drop remains bounded.
+        }
+    }
+}
+
+fn background_read_loop(
+    mut reader: BufReader<Box<dyn Stream>>,
+    shared: &BackgroundShared,
+    on_event: &Arc<dyn Fn(ClientEvent) + Send + Sync>,
+) -> BackgroundFailure {
+    let mut partial = Vec::new();
+    while !shared.closed.load(Ordering::Acquire) {
+        // read_until appends bytes even on a timeout; keep them for the next read tick.
+        let limit = MAX_LINE + 1 - partial.len();
+        let read = (&mut reader)
+            .take(limit as u64)
+            .read_until(b'\n', &mut partial);
+        if partial.last() == Some(&b'\n') {
+            partial.pop();
+            if !partial.is_empty() && background_dispatch(&partial, shared, on_event).is_err() {
+                return BackgroundFailure::InvalidFrame;
+            }
+            partial.clear();
+        } else if partial.len() > MAX_LINE {
+            return BackgroundFailure::LineTooLong;
+        }
+        match read {
+            Ok(0) => return BackgroundFailure::Closed,
+            Ok(_) => {}
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                ) => {}
+            Err(_) => return BackgroundFailure::Io,
+        }
+    }
+    BackgroundFailure::Closed
+}
+
+fn background_dispatch(
+    frame: &[u8],
+    shared: &BackgroundShared,
+    on_event: &Arc<dyn Fn(ClientEvent) + Send + Sync>,
+) -> Result<(), ()> {
+    let message: Value = serde_json::from_slice(frame).map_err(|_| ())?;
+    let Some(id) = message.get("id") else {
+        if let Some(method) = message.get("method").and_then(Value::as_str) {
+            on_event(ClientEvent::Notification {
+                method: method.into(),
+                params: message.get("params").cloned().unwrap_or(Value::Null),
+            });
+        }
+        return Ok(());
+    };
+    let sender = {
+        let mut pending = background_lock(&shared.pending);
+        if id.is_null() {
+            // A null-id error is only attributable when exactly one call is pending.
+            if pending.len() != 1 || message.get("error").is_none() {
+                return Err(());
+            }
+            pending.drain().next().map(|(_, sender)| sender)
+        } else {
+            pending.remove(&id.as_u64().ok_or(())?)
+        }
+    };
+    if let Some(sender) = sender {
+        let response = if let Some(error) = message.get("error") {
+            Err(call_error(error))
+        } else {
+            message
+                .get("result")
+                .cloned()
+                .ok_or_else(|| RpcError::Protocol("response has neither result nor error".into()))
+        };
+        let _ = sender.try_send(response);
+    }
+    Ok(())
+}
+
+fn call_remaining(start: Instant, timeout: Duration) -> Result<Duration, RpcError> {
+    let remaining = timeout.saturating_sub(start.elapsed());
+    if remaining.is_zero() {
+        Err(background_unavailable(
+            "call-timeout",
+            "RPC call deadline exceeded",
+        ))
+    } else {
+        Ok(remaining)
+    }
+}
+
+fn handshake_error(error: RpcError) -> RpcError {
+    match error {
+        RpcError::Unavailable { reason, detail } if reason == "call-timeout" => {
+            RpcError::Unavailable {
+                reason: "handshake-timeout".into(),
+                detail,
+            }
+        }
+        other => other,
+    }
+}
+
+fn default_auth_params(token: &str, endpoint: Endpoint) -> Value {
+    if endpoint == Endpoint::Engine {
+        json!({ "token": token, "clientId": "harness-core" })
+    } else {
+        json!({ "token": token })
+    }
 }
 
 enum Line {
@@ -512,6 +986,58 @@ fn call_error(err: &Value) -> RpcError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A hostile endpoint must never observe any byte of a delegated credential.
+    #[test]
+    fn explicit_auth_params_are_not_written_before_kernel_peer_verification() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+        struct Untrusted(Arc<AtomicUsize>);
+        impl Read for Untrusted {
+            fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
+                Ok(0)
+            }
+        }
+        impl Write for Untrusted {
+            fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+                self.0.fetch_add(bytes.len(), Ordering::SeqCst);
+                Ok(bytes.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        impl Stream for Untrusted {
+            fn set_read_timeout(&self, _: Option<Duration>) -> std::io::Result<()> {
+                Ok(())
+            }
+            fn peer_pid(&self) -> Option<u32> {
+                Some(42)
+            }
+            #[cfg(unix)]
+            fn peer_uid(&self) -> Option<u32> {
+                // SAFETY: geteuid has no preconditions and cannot fail.
+                Some(unsafe { libc::geteuid() }.wrapping_add(1))
+            }
+        }
+        let writes = Arc::new(AtomicUsize::new(0));
+        let result = Client::handshake_with_auth(
+            Box::new(Untrusted(writes.clone())),
+            json!({"token": "core-secret", "engine": {"token": "engine-secret", "clientId": "memory-engine"}}),
+            ConnectOptions {
+                expected_server_pid: Some(1),
+                ..Default::default()
+            },
+        );
+        assert!(matches!(
+            result,
+            Err(RpcError::Call {
+                error: ErrorCode::EUnauthorized,
+                ..
+            })
+        ));
+        assert_eq!(writes.load(Ordering::SeqCst), 0);
+    }
 
     fn reason(r: Result<(), RpcError>) -> Option<String> {
         match r {

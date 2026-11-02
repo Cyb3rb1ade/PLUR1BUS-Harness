@@ -41,6 +41,7 @@ export function authenticatedPrincipal(ctx: CallContext): Principal {
 }
 
 export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
+  ...Object.fromEntries(["a2a.peer.add", "a2a.peer.list", "a2a.peer.remove", "a2a.peer.trust"].map(method => [method, { ...rule("a2a.peers.manage", system), humanOnly: true }])),
   ...Object.fromEntries(["admin.import.detect", "admin.import.wsl.list", "admin.import.plan", "admin.import.preflight",
     "admin.import.skills", "admin.import.apply", "admin.import.status", "admin.import.abort", "admin.import.runs",
     "admin.import.rollback"].map(method => [method,
@@ -82,6 +83,7 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "chat.archive": rule("chat:write", system),
   "chat.restore": rule("chat:write", system),
   "chat.cancel": rule("chat:write", system),
+  "chat.rewind": { ...rule("chat:write", system), humanOnly: true },
   "chat.fork": rule("chat:write", system),
   "chat.delete": rule("chat:delete", system),
   "chat.export": rule("chat:read", system),
@@ -145,6 +147,8 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "project.member.role": rule("project.surface.write", system),
   "project.agent.add": rule("project.surface.write", system),
   "project.agent.remove": rule("project.surface.write", system),
+  "project.repo.bind": { ...rule("project.surface.write", system), humanOnly: true },
+  "project.repo.unbind": { ...rule("project.surface.write", system), humanOnly: true },
   "task.complete": { ...rule("project.surface.write", system), humanOnly: true },
   "collab.session.replay": rule("project.surface.read", system),
   "collab.trace.get": rule("project.surface.read", system),
@@ -209,6 +213,7 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "session.submit": rule("admin.sessions.write", system),
   "session.model.set": { ...rule("admin.sessions.write", system), humanOnly: true },
   "session.cancel": rule("admin.sessions.write", system),
+  "session.rewind": { ...rule("admin.sessions.write", system), humanOnly: true },
   "session.archive": rule("admin.sessions.write", system),
   "session.list": rule("admin.sessions.read", system),
   "admin.api.device.pair": { ...rule("admin.pairing.read", system), apiServiceOnly: true },

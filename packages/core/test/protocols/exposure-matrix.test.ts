@@ -22,6 +22,12 @@ describe("M6A-A1.7: Protocol Exposure Matrix Test", () => {
     }
   });
   describe("forbidden categories: webmcp & external protocol gates", () => {
+    it("forbids human rewind and undo even when a caller opts into experimental methods", () => {
+      for (const method of ["chat.rewind", "session.rewind"]) {
+        assert.equal(RPC_RULES[method]?.humanOnly, true, method);
+        assert.equal(isForbiddenMethod(method), true, method);
+      }
+    });
     it("forbids all admin.* methods", () => {
       const adminMethods = allRpcMethods.filter((m) => m.startsWith("admin."));
       assert.ok(adminMethods.length >= 10, "expected multiple admin methods");

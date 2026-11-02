@@ -494,6 +494,8 @@ fn set_inner(
                 other => SetError::Invalid(vec![other.to_string()]),
             })?
         };
+        // MM-3a also fences raw supervisor and null-removal writes, without narrowing legacy file loads.
+        cfg::validate_media_mutation(&plan.after, &changes).map_err(SetError::Invalid)?;
         if let Some(policy) = crate::privacy::running_violation(layout, &plan.after) {
             return Err(SetError::LocalOnly(policy));
         }

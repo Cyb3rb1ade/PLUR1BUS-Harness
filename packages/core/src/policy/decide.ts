@@ -321,7 +321,7 @@ export function decide(call: Call, ctx: Context, deps: Deps): Decision {
   const effect = call.effect === undefined ? def.intrinsicEffect : isEffect(call.effect) ? maxEffect(call.effect, def.intrinsicEffect) : "money";
   const batch = isBatch(flags, call.targets);
   const tainted = ctx.taint?.tainted === true;
-  const taintSuspends = tainted && ctx.taint?.readPrivate === true && (def.taintSensitive || effect === "external");
+  const taintSuspends = tainted && ctx.taint?.readPrivate === true && (def.taintSensitive || effect === "external" || effect === "network.a2a");
 
   // (5/6) class from roots and defaults, then the person's per-agent move, then the floors no override lowers.
   let cls: PolicyClass = flags.outsideRoots ? def.base.outside : def.base.inside;
@@ -335,7 +335,7 @@ export function decide(call: Call, ctx: Context, deps: Deps): Decision {
   }
   const floored =
     flags.privileged === true || flags.irreversible === true || batch ||
-    effect === "money" || effect === "external" || effect === "local-destructive" ||
+    effect === "money" || effect === "external" || effect === "network.a2a" || effect === "local-destructive" ||
     (flags.outsideRoots && effectRank(effect) >= effectRank("local-write"));
   if (floored) cls = stricterClass(cls, "approval");
 

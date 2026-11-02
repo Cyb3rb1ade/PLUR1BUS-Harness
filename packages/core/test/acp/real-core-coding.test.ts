@@ -32,6 +32,14 @@ interface Message {
 test("real Core retains an active coding turn across a mode switch and produces an exact new-file diff", {
   timeout: 60_000,
 }, async t => {
+  const previous = { allow: process.env.PLUR1BUS_ALLOW_TEST_INTERNALS, keyring: process.env.PLUR1BUS_SECRETS_KEYRING };
+  process.env.PLUR1BUS_ALLOW_TEST_INTERNALS = "1";
+  process.env.PLUR1BUS_SECRETS_KEYRING = "memory";
+  t.after(() => {
+    for (const [key, value] of [["PLUR1BUS_ALLOW_TEST_INTERNALS", previous.allow], ["PLUR1BUS_SECRETS_KEYRING", previous.keyring]]) {
+      if (value === undefined) delete process.env[key!]; else process.env[key!] = value;
+    }
+  });
   const directory = await realTempDir("acp-real-coding-");
   const home = join(directory, "home");
   const root = join(directory, "repo");
@@ -126,8 +134,9 @@ test("real Core retains an active coding turn across a mode switch and produces 
   });
   served = new AcpServer({ backend, input, output }).run();
   await request(1, "initialize", { protocolVersion: 1 });
-  const session = (await request(2, "session/new", { cwd: root })).result;
-  assert.ok(session?.sessionId);
+  const created = await request(2, "session/new", { cwd: root });
+  const session = created.result;
+  assert.ok(session?.sessionId, JSON.stringify(created));
   assert.equal(session.modes?.currentModeId, "coding");
   const stored = await client.call<{ session: { kind: string } }>("session.get", {
     caller: { channel: "cli", accountId: "fixture", userId: "owner" }, sessionId: session.sessionId,

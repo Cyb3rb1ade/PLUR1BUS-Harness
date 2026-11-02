@@ -11,8 +11,9 @@ import { AcpPermissions } from "./permissions.ts";
 import { isAcpMode, modeState } from "./modes.ts";
 import { AcpFailure } from "./failure.ts";
 import { acpText, type AcpLanguage } from "./text.ts";
+import { ACP_PROTOCOL_VERSION } from "./protocol.ts";
 
-export const ACP_PROTOCOL_VERSION = 1;
+export { ACP_PROTOCOL_VERSION };
 /** `session.submit`'s text limit (rpc.schema.json): a longer prompt is refused here instead of by the core. */
 export const MAX_PROMPT_CHARS = 200_000;
 const MAX_RAW_FILE_INPUT_BYTES = 128 * 1024;

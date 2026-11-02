@@ -23,7 +23,7 @@ test("HTTP owner creates once through durable saga and persists model-specific l
   return await (await fetch(url+"/rpc",{method:"POST",headers:{cookie,"content-type":"application/json","x-csrf-token":csrf.token},body:JSON.stringify({jsonrpc:"2.0",id:++id,method,params})})).json() as any;
  };
  // A fresh store (no agent table yet) can still take another embedding model; the pre-check of config.set says so.
- assert.deepEqual((await rpc("model.memory.status",{})).result,{embedding:{provider:"local-transformers",model:"intfloat/multilingual-e5-small",dimensions:384,configured:false},reranker:{provider:"local-transformers",model:"woxpas-ai/bge-reranker-v2-m3-onnx"},embeddingSwitch:"allowed"});
+ assert.deepEqual((await rpc("model.memory.status",{})).result,{embedding:{provider:"local-transformers",model:"intfloat/multilingual-e5-small",dimensions:384,configured:false},reranker:{provider:"local-transformers",model:"woxpas-ai/bge-reranker-v2-m3-onnx"},embeddingSwitch:"allowed",capabilities:{text:true,image:false,audio:false,video:false},encoders:[]});
  const gemma=[{key:"engine.embedding",value:{provider:"local-transformers",local:{model:"google/embeddinggemma-2",dimensions:768}}}];
  assert.deepEqual((await rpc("model.licence.check",{changes:gemma})).result,{ok:true});
  const unpinned=await rpc("model.licence.check",{changes:[{key:"engine.embedding.local",value:{model:"onnx-community/embeddinggemma-2-ONNX"}}]});assert.equal(unpinned.error.data.reason,"embedding-model-unavailable");

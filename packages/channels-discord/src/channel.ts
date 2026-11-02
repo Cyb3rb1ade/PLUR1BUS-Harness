@@ -626,7 +626,7 @@ export class DiscordChannel implements Channel {
       }
     }
     if (!this.#host) return;
-    if (!message.text || message.attachments?.length) {
+    if (!message.text && !message.attachments?.length) {
       this.#log("warn", "channel.discord.framework-rich-turn-gap", {});
       return;
     }

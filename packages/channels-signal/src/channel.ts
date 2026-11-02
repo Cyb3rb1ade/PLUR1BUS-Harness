@@ -741,9 +741,9 @@ export class SignalChannel implements Channel {
       }
     }
     if (!this.#host) return;
-    // Framework v1 is text-only: rich turns stay on onMessage and are never silently claimed as core support.
-    if (!message.text || message.attachments?.length || message.reaction || message.command) {
-      if (message.attachments?.length || message.reaction) this.#log("warn", "channel.signal.framework-rich-turn-gap", {});
+    // Reactions and commands retain their dedicated rich transport semantics.
+    if ((!message.text && !message.attachments?.length) || message.reaction || message.command) {
+      if (message.reaction) this.#log("warn", "channel.signal.framework-rich-turn-gap", {});
       return;
     }
     try {
