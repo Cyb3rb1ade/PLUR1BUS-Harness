@@ -694,7 +694,7 @@ export function createCore(o: CoreOptions): Core {
           ...(p.tokenId !== undefined ? { tokenId: p.tokenId } : {}),
           ...(p.binding !== undefined ? { binding: p.binding } : {}),
         };
-      });
+      }, () => state.state === "stopping" || state.state === "stopped");
       const resolvePrincipal: PrincipalResolver = async (ctx, method, params) => {
         const forwarded = apiPrincipal(ctx);
         if (forwarded && people.person(forwarded.userId)?.disabled) throw new RpcError("E_DENIED", "person is disabled", { reason: "person-disabled" });
