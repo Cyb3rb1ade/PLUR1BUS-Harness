@@ -32,3 +32,17 @@ test("action-setup's regular self-update shim resolves the requested package, no
   const entry = installed(join(home, ".tools", "pnpm", "10.28.0", "node_modules", "pnpm"), "10.28.0");
   assert.equal(pnpmEntry(bin, "10.28.0", home), entry);
 });
+
+test("pnpm 11's self-update store uses the invoking script while still requiring the pinned package version", () => {
+  const root = tempDir("pnpm-entry-store-");
+  const home = join(root, "setup-pnpm", "node_modules", ".bin");
+  const bin = join(home, "bin", "pnpm");
+  mkdirSync(dirname(bin), { recursive: true });
+  writeFileSync(bin, "#!/bin/sh\n# regular pnpm 11 command shim\n");
+  const bootstrap = installed(join(root, "setup-pnpm", "node_modules", "pnpm"), "11.25.0");
+  const entry = installed(join(home, "store", "v11", "links", "@", "pnpm", "10.28.0", "fixture", "node_modules", "pnpm"), "10.28.0");
+  assert.equal(pnpmEntry(bin, "10.28.0", home), null);
+  assert.equal(pnpmEntry(bin, "10.28.0", home, bootstrap), null);
+  assert.equal(pnpmEntry(bin, "10.28.0", home, entry), entry);
+  assert.equal(pnpmEntry(bin, "10.27.0", home, entry), null);
+});
