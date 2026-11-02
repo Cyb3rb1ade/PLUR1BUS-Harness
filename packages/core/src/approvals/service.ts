@@ -378,6 +378,7 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
       const def = CAPABILITIES.get(r.capability);
       if (!(GRANT_SCOPES as readonly string[]).includes(scope)) return refuse("scope-unavailable");
       if (!def || !d || typeof d.risk !== "string" || d.flags === undefined) return refuse("surface-untrusted"); // fail closed: no detail, no approval
+      if (!Array.isArray(d.grantOptions) || !d.grantOptions.some(option => option.scope === scope)) return refuse("scope-unavailable");
       if (input.surface !== 1 && input.surface !== 2 && input.surface !== 3) return refuse("surface-untrusted");
       if (scopeRank(scope) > scopeRank(maxScopeFor(def, d.flags as never))) return refuse("scope-unavailable");
       if (!surfaceMayDecide({ capability: r.capability, risk: d.risk as never, flags: d.flags as never }, input.surface, scope)) return refuse("surface-untrusted");

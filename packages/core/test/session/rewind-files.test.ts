@@ -68,6 +68,24 @@ function runnerForFiles(r: ReturnType<typeof rig>) {
   return { runner, submit, modelCalls: () => modelCalls };
 }
 
+test("the restore's independent scope guard rejects a fake port that returns always", async () => {
+  const r = rig(true, { request: async () => ({ approved: true, scope: "always" }), begin: () => true });
+  try {
+    const first = r.store.beginTurn(r.session.id, "edit", 1);
+    await r.checkpoints.capture({ sessionId: r.session.id, turnId: first.turn.id, personId: "owner",
+      signal: new AbortController().signal });
+    r.store.completeTurn(first.turn.id, { text: "failed", tokens: 1 });
+    writeFileSync(join(r.root, "tracked.txt"), "failed edit\n");
+    await assert.rejects(new RewindService({ store: r.store, audit: r.audit, now: () => 42, files: r.checkpoints }).rewind({
+      sessionId: r.session.id, toSeq: 0, actor: "owner", files: true, approver: { person: "owner", surface: 2 } }),
+    { name: "SessionError", reason: "rewind-files-not-approved" });
+    assert.equal(r.asks.length, 1);
+    assert.equal(r.begins(), 0);
+    assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), "failed edit\n");
+    assert.deepEqual(r.store.rewinds(r.session.id), []);
+  } finally { await r.close(); }
+});
+
 test("command turns between the target and an attempt never become file-checkpoint candidates", async () => {
   const r = rig(true), h = runnerForFiles(r);
   try {
@@ -560,6 +578,10 @@ test("the real approval service refuses T1 and permits one redacted T2 restore w
       requestId = request.id;
       const untrusted = permissions.service.decideForSession({ requestId, person: "owner", surface: 1, decision: "approve", scope: "once" });
       assert.equal(untrusted.ok, false);
+      assert.equal(permissions.service.get(requestId, "owner")?.status, "pending");
+      assert.deepEqual(permissions.service.decideForSession({ requestId, person: "owner", surface: 2,
+        decision: "approve", scope: "always" }), { ok: false, reason: "scope-unavailable" });
+      assert.equal(permissions.stores.grants.inspect({ person: "owner" }).length, 0);
       assert.equal(permissions.service.get(requestId, "owner")?.status, "pending");
       assert.equal(permissions.stores.grants.inspect({ person: "owner" }).length, 0);
       assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), "failed edit\n");
