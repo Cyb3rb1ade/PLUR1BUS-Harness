@@ -23,6 +23,9 @@ pub struct InstallManifest {
     pub channel: String,
     pub target: String,
     pub binary: Unit,
+    /// Native tools companion; absent only in pre-D120 installations.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tools: Option<Unit>,
     pub node: NodeUnit,
     pub core: CoreUnit,
     pub modules: Vec<PackageUnit>,
@@ -219,6 +222,9 @@ pub struct ReleaseModule {
 pub struct ReleaseNative {
     /// Target id → `plur1bus` binary.
     pub binary: BTreeMap<String, ReleaseAsset>,
+    /// Required by current installers/updaters; old feeds remain readable for diagnostics.
+    #[serde(default)]
+    pub tools: BTreeMap<String, ReleaseAsset>,
     pub core: ReleaseCore,
     pub node: ReleaseNode,
     pub modules: Vec<ReleaseModule>,
@@ -269,6 +275,7 @@ mod tests {
         let h = "a".repeat(64);
         InstallManifest {
             schema_version: 1,
+            tools: None,
             installed_at: 1_790_000_000_000,
             updated_at: 1_790_000_000_001,
             channel: "stable".into(),

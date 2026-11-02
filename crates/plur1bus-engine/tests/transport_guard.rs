@@ -66,6 +66,18 @@ fn local_lookup() -> Box<dyn Resolver> {
 fn deadline() -> Instant {
     Instant::now() + Duration::from_secs(2)
 }
+/// Deadline for tests whose subject is a stage that must still be *blocked* when the deadline expires.
+/// Everything before that stage (URL parsing, the egress-gate thread, the resolver thread, TCP connect,
+/// the stub's accept loop) runs under the same absolute deadline. The budget therefore has to dwarf any
+/// plausible setup latency; the tests then wait on a signal that the stage was reached instead of racing
+/// a few milliseconds against the scheduler.
+const STAGE_BUDGET: Duration = Duration::from_millis(1_000);
+/// Upper bound for waiting on something that has no timing property of its own: a call that is still
+/// held after this long is a hung caller, not a slow machine.
+const HANG_BOUND: Duration = Duration::from_secs(10);
+fn stage_deadline() -> Instant {
+    Instant::now() + STAGE_BUDGET
+}
 
 #[test]
 fn a_denied_target_is_never_connected() {
@@ -110,7 +122,7 @@ fn a_redirect_to_the_same_host_on_a_port_the_gate_denies_is_refused() {
 
 #[test]
 fn dns_rebinding_is_refused() {
-    struct Rebinding(AtomicUsize);
+    struct Rebinding(Arc<AtomicUsize>);
     impl Resolver for Rebinding {
         fn resolve(
             &self,
@@ -130,13 +142,18 @@ fn dns_rebinding_is_refused() {
     let stub = Stub::new(200, "", "no", Duration::ZERO);
     let mut gate = Gate::local();
     gate.rules.allow_loopback = false;
-    let client = GuardedClient::new(&gate, Box::new(Rebinding(AtomicUsize::new(0))));
+    let lookups = Arc::new(AtomicUsize::new(0));
+    let client = GuardedClient::new(&gate, Box::new(Rebinding(lookups.clone())));
     assert_eq!(
-        client.request(
-            HttpRequest::get(stub.url("/")),
-            Instant::now() + Duration::from_millis(30)
-        ),
+        client.request(HttpRequest::get(stub.url("/")), stage_deadline()),
         Err(TransportError::Timeout)
+    );
+    // The first answer must have been requested (and held past the deadline); otherwise the call
+    // expired before the resolver stage and the second request below would take the first branch.
+    assert_eq!(
+        lookups.load(Ordering::SeqCst),
+        1,
+        "the first call expired before it reached the resolver"
     );
     assert_eq!(
         client.request(HttpRequest::get(stub.url("/")), deadline()),
@@ -418,19 +435,25 @@ fn the_owned_gate_cannot_hold_the_caller_past_the_deadline() {
         local_lookup(),
     );
     let (returned, receive) = mpsc::channel();
+    let expires = stage_deadline();
     let worker = std::thread::spawn(move || {
         returned
-            .send(client.request(
-                HttpRequest::get("http://provider.test:1/"),
-                Instant::now() + Duration::from_millis(30),
-            ))
+            .send(client.request(HttpRequest::get("http://provider.test:1/"), expires))
             .unwrap()
     });
-    observe.recv_timeout(Duration::from_secs(1)).unwrap();
-    let result = receive.recv_timeout(Duration::from_millis(200));
+    observe
+        .recv_timeout(HANG_BOUND)
+        .expect("the call expired before it reached the blocked stage");
+    // The stage stays blocked until released below, so only the deadline can end the call.
+    let result = receive.recv_timeout(HANG_BOUND);
+    let returned_at = Instant::now();
     release.send(()).unwrap();
     worker.join().unwrap();
-    assert_eq!(result.unwrap(), Err(TransportError::Timeout));
+    assert_eq!(
+        result.expect("the blocked stage held the caller past its deadline"),
+        Err(TransportError::Timeout)
+    );
+    assert!(returned_at >= expires, "the call ended before its deadline");
 }
 
 #[test]
@@ -457,19 +480,25 @@ fn a_resolver_cannot_hold_the_caller_past_the_deadline() {
         }),
     );
     let (returned, receive) = mpsc::channel();
+    let expires = stage_deadline();
     let worker = std::thread::spawn(move || {
         returned
-            .send(client.request(
-                HttpRequest::get("http://provider.test:1/"),
-                Instant::now() + Duration::from_millis(30),
-            ))
+            .send(client.request(HttpRequest::get("http://provider.test:1/"), expires))
             .unwrap()
     });
-    observe.recv_timeout(Duration::from_secs(1)).unwrap();
-    let result = receive.recv_timeout(Duration::from_millis(200));
+    observe
+        .recv_timeout(HANG_BOUND)
+        .expect("the call expired before it reached the blocked stage");
+    // The stage stays blocked until released below, so only the deadline can end the call.
+    let result = receive.recv_timeout(HANG_BOUND);
+    let returned_at = Instant::now();
     release.send(()).unwrap();
     worker.join().unwrap();
-    assert_eq!(result.unwrap(), Err(TransportError::Timeout));
+    assert_eq!(
+        result.expect("the blocked stage held the caller past its deadline"),
+        Err(TransportError::Timeout)
+    );
+    assert!(returned_at >= expires, "the call ended before its deadline");
 }
 
 #[test]
@@ -515,14 +544,20 @@ fn enabling_runtime_trace_never_logs_a_transmitted_credential() {
 
 #[test]
 fn rejected_credentials_are_invalidated_when_headers_arrive_before_the_body() {
-    let stub =
-        Stub::dynamic_body(|_| (401, String::new(), "{}".into(), Duration::from_millis(200)));
+    let stub = Stub::dynamic_body(|_| {
+        (
+            401,
+            String::new(),
+            "{}".into(),
+            Duration::from_millis(1_000),
+        )
+    });
     let rejected = Arc::new(std::sync::atomic::AtomicU64::new(0));
     let mut request = HttpRequest::get(stub.url("/"));
     request.auth_rejection_counter = Some(rejected.clone());
     let client = GuardedClient::new_owned(Arc::new(Gate::local()), local_lookup());
     let worker = std::thread::spawn(move || client.request(request, deadline()));
-    let until = Instant::now() + Duration::from_millis(100);
+    let until = Instant::now() + HANG_BOUND;
     while rejected.load(Ordering::Acquire) == 0 && Instant::now() < until {
         std::thread::sleep(Duration::from_millis(1));
     }
@@ -536,7 +571,7 @@ fn rejected_credentials_are_invalidated_when_headers_arrive_before_the_body() {
     );
 }
 
-fn assert_pending_socket_is_closed(send_headers: bool, explicit_cancel: bool) {
+fn assert_caller_cancel_closes_pending_socket(send_headers: bool) {
     use plur1bus_engine::contract::{Cancel, CancelReason, Cancelled};
     use std::sync::mpsc;
     let peer = http_stub::StalledPeer::new(send_headers);
@@ -546,12 +581,7 @@ fn assert_pending_socket_is_closed(send_headers: bool, explicit_cancel: bool) {
     request.body = b"request-body-is-complete-before-cancel".to_vec();
     let cancel = Cancel::never();
     let caller = cancel.clone();
-    let expires = Instant::now()
-        + if explicit_cancel {
-            Duration::from_secs(2)
-        } else {
-            Duration::from_millis(150)
-        };
+    let expires = deadline();
     let (returned, receive) = mpsc::channel();
     let worker = std::thread::spawn(move || {
         returned
@@ -562,12 +592,8 @@ fn assert_pending_socket_is_closed(send_headers: bool, explicit_cancel: bool) {
     assert!(
         peer.stub.requests.lock().unwrap()[0].ends_with("request-body-is-complete-before-cancel")
     );
-    let response_by = if explicit_cancel {
-        caller.cancel();
-        Instant::now() + Duration::from_millis(250)
-    } else {
-        expires + Duration::from_millis(250)
-    };
+    caller.cancel();
+    let response_by = Instant::now() + Duration::from_millis(250);
     let result = receive.recv_timeout(response_by.saturating_duration_since(Instant::now()));
     let disconnected = peer
         .closed
@@ -577,13 +603,9 @@ fn assert_pending_socket_is_closed(send_headers: bool, explicit_cancel: bool) {
     worker.join().unwrap();
     assert_eq!(
         result.unwrap(),
-        Err(if explicit_cancel {
-            TransportError::Cancelled(Cancelled {
-                reason: CancelReason::Caller,
-            })
-        } else {
-            TransportError::Timeout
-        })
+        Err(TransportError::Cancelled(Cancelled {
+            reason: CancelReason::Caller,
+        }))
     );
     assert_eq!(
         disconnected.unwrap(),
@@ -592,24 +614,68 @@ fn assert_pending_socket_is_closed(send_headers: bool, explicit_cancel: bool) {
     );
 }
 
-#[test]
-fn caller_cancel_closes_a_socket_waiting_for_response_headers() {
-    assert_pending_socket_is_closed(false, true);
-}
-
-#[test]
-fn caller_cancel_closes_a_socket_waiting_for_the_response_body() {
-    assert_pending_socket_is_closed(true, true);
+/// End-to-end counterpart of the `transport::cancel` unit tests: the absolute deadline (not a caller cancel)
+/// ends a call whose request is complete and whose response is still pending, and the peer sees the
+/// connection close. The deadline is armed with a budget that dwarfs setup; `peer.ready` proves the pending
+/// state was reached before it could expire.
+fn assert_absolute_deadline_closes_pending_socket(send_headers: bool) {
+    use std::sync::mpsc;
+    let peer = http_stub::StalledPeer::new(send_headers);
+    let client = GuardedClient::new_owned(Arc::new(Gate::local()), local_lookup());
+    let mut request = HttpRequest::get(peer.stub.url("/deadline"));
+    request.method = "POST".into();
+    request.body = b"request-body-is-complete-before-deadline".to_vec();
+    let expires = stage_deadline();
+    let (returned, receive) = mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        returned.send(client.request(request, expires)).unwrap();
+    });
+    peer.ready
+        .recv_timeout(HANG_BOUND)
+        .expect("the request did not reach the stalled peer before its deadline");
+    assert!(
+        peer.stub.requests.lock().unwrap()[0].ends_with("request-body-is-complete-before-deadline")
+    );
+    // The peer never answers: only the absolute deadline can end this call and close its socket.
+    let result = receive.recv_timeout(HANG_BOUND);
+    let returned_at = Instant::now();
+    let disconnected = peer.closed.recv_timeout(HANG_BOUND);
+    drop(peer);
+    worker.join().unwrap();
+    assert_eq!(
+        result.expect("the stalled peer held the caller past its deadline"),
+        Err(TransportError::Timeout)
+    );
+    assert!(returned_at >= expires, "the call ended before its deadline");
+    assert!(
+        returned_at <= expires + Duration::from_secs(1),
+        "the call outlived its deadline by more than a second"
+    );
+    assert_eq!(
+        disconnected.expect("the peer never observed the socket closing"),
+        Ok(()),
+        "the real peer must observe EOF/reset when the deadline expires"
+    );
 }
 
 #[test]
 fn an_absolute_deadline_closes_a_socket_waiting_for_response_headers() {
-    assert_pending_socket_is_closed(false, false);
+    assert_absolute_deadline_closes_pending_socket(false);
 }
 
 #[test]
 fn an_absolute_deadline_closes_a_socket_waiting_for_the_response_body() {
-    assert_pending_socket_is_closed(true, false);
+    assert_absolute_deadline_closes_pending_socket(true);
+}
+
+#[test]
+fn caller_cancel_closes_a_socket_waiting_for_response_headers() {
+    assert_caller_cancel_closes_pending_socket(false);
+}
+
+#[test]
+fn caller_cancel_closes_a_socket_waiting_for_the_response_body() {
+    assert_caller_cancel_closes_pending_socket(true);
 }
 
 #[test]
@@ -774,7 +840,7 @@ fn cancellation_and_deadline_close_a_socket_during_the_rustls_handshake() {
             + if explicit_cancel {
                 Duration::from_secs(2)
             } else {
-                Duration::from_millis(150)
+                STAGE_BUDGET
             };
         let (returned, receive) = mpsc::channel();
         let worker = std::thread::spawn(move || {

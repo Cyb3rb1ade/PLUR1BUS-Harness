@@ -1,0 +1,981 @@
+{
+  "schema": "plur1bus.apple-fm-probe/1",
+  "measuredAt": "2026-11-01T17:30:34.986Z",
+  "status": "observed",
+  "scope": "follow-up",
+  "observations": [
+    {
+      "id": "window-5000",
+      "tokenCount": {
+        "utf16Units": 50000,
+        "tokens": 5001,
+        "heuristicBound": 16667,
+        "code": 0,
+        "signal": null,
+        "stdout": "5001\n",
+        "stderr": ""
+      },
+      "words": 5000,
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": {
+          "total_tokens": 5072,
+          "prompt_tokens": 5056,
+          "completion_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "completion_tokens": 16,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "model": "system",
+            "usage": {
+              "total_tokens": 5072,
+              "prompt_tokens": 5056,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "completion_tokens": 16,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              }
+            },
+            "id": "chatcmpl-871101C1-BCF4-4BFE-9F63-22D78CA6B581",
+            "object": "chat.completion",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "Who is this model built for? Apple",
+                  "refusal": null
+                },
+                "finish_reason": "stop"
+              }
+            ],
+            "created": 1793554241
+          }
+        ]
+      },
+      "elapsedMs": 5050.163959,
+      "request": {
+        "model": "system",
+        "stream": false,
+        "words": 5000,
+        "max_completion_tokens": 8
+      }
+    },
+    {
+      "id": "window-8192",
+      "tokenCount": {
+        "utf16Units": 81920,
+        "tokens": 8193,
+        "heuristicBound": 27307,
+        "code": 0,
+        "signal": null,
+        "stdout": "8193\n",
+        "stderr": ""
+      },
+      "words": 8192,
+      "response": {
+        "status": 500,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [],
+        "usage": null,
+        "error": {
+          "type": "server_error",
+          "message": "The session's transcript exceeded the model's context size.",
+          "code": "500"
+        },
+        "logprobsPresent": false,
+        "events": [
+          {
+            "error": {
+              "type": "server_error",
+              "message": "The session's transcript exceeded the model's context size.",
+              "code": "500"
+            }
+          }
+        ]
+      },
+      "elapsedMs": 1018.8812500000004,
+      "request": {
+        "model": "system",
+        "stream": false,
+        "words": 8192,
+        "max_completion_tokens": 8
+      }
+    },
+    {
+      "id": "window-8192-stream",
+      "tokenCount": {
+        "utf16Units": 81920,
+        "tokens": 8193,
+        "heuristicBound": 27307,
+        "code": 0,
+        "signal": null,
+        "stdout": "8193\n",
+        "stderr": ""
+      },
+      "request": {
+        "model": "system",
+        "stream": true,
+        "words": 8192,
+        "max_completion_tokens": 8
+      },
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream",
+        "format": "sse",
+        "done": false,
+        "eventCount": 2,
+        "finishReasons": [],
+        "usage": null,
+        "error": {
+          "type": "server_error",
+          "message": "The session's transcript exceeded the model's context size.",
+          "code": "500"
+        },
+        "logprobsPresent": false,
+        "events": [
+          {
+            "model": "system",
+            "id": "chatcmpl-CF136F74-AAF0-42F8-8278-91F3F0679C53",
+            "object": "chat.completion.chunk",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "role": "assistant"
+                }
+              }
+            ],
+            "created": 1793554242
+          },
+          {
+            "error": {
+              "type": "server_error",
+              "message": "The session's transcript exceeded the model's context size.",
+              "code": "500"
+            }
+          }
+        ]
+      },
+      "elapsedMs": 1010.8329159999994
+    }
+  ],
+  "receiptFile": "2026-11-01-probe-review.json",
+  "priorReceipts": [
+    "2026-11-01-probe-final.json",
+    "2026-11-01-probe.json"
+  ],
+  "sourceHead": "6572e0da2e3b4977897126355a8401833895c019",
+  "sourceDirtyBeforeReceipt": false,
+  "sourceFiles": {
+    "apple-fm-probe.mjs": "d3f7dea7c92276c69125c92f56b7df37a74aba1aa1344aa44068c914a9e0866d",
+    "apple-fm-probe-lib.mjs": "e020f4f795b26f805c1eb866c8777835c30264df60956061a80b036d82005aba",
+    "apple-fm-probe-server.mjs": "7164c8109609b365f6fb8086968191a11b8fe9e3fcaa828bc15d137187211bba"
+  },
+  "runtimeContext": {
+    "cwd": "$HOME/.codex/worktrees/ps9-af0-apple-fm/PLUR1BUS-Harness",
+    "pid": 37105,
+    "parentPid": 37509,
+    "stdinIsTTY": false,
+    "stdoutIsTTY": false,
+    "stderrIsTTY": false
+  },
+  "host": {
+    "version": "27.2",
+    "build": "26B123"
+  },
+  "cliInvocation": {
+    "program": "/usr/bin/fm",
+    "args": [
+      "models"
+    ],
+    "stdin": "closed",
+    "cwd": "$HOME/.codex/worktrees/ps9-af0-apple-fm/PLUR1BUS-Harness",
+    "environment": {
+      "HOME": "$HOME",
+      "LANG": "en_US.UTF-8",
+      "PATH": "/usr/bin:/bin"
+    },
+    "nodeVersion": "v24.21.0",
+    "context": {
+      "cwd": "$HOME/.codex/worktrees/ps9-af0-apple-fm/PLUR1BUS-Harness",
+      "pid": 37105,
+      "parentPid": 37509,
+      "stdinIsTTY": false,
+      "stdoutIsTTY": false,
+      "stderrIsTTY": false
+    }
+  },
+  "cliModels": {
+    "code": 1,
+    "signal": null,
+    "stdout": "  Apple Foundation Models\n  ✓ system (AFM 3 Core Advanced)\n  ✗ pcc                           (Private Cloud Compute is not available in this context. Please use the Terminal app.)\n",
+    "stderr": ""
+  },
+  "systemAvailability": {
+    "state": "available",
+    "exitCode": 1,
+    "signal": null
+  },
+  "serverInvocation": {
+    "program": "/usr/bin/fm",
+    "args": [
+      "serve",
+      "--socket",
+      "<probe-directory>/fm.sock"
+    ],
+    "environmentKeys": [
+      "HOME",
+      "LANG",
+      "PATH"
+    ],
+    "LANG": "en_US.UTF-8",
+    "PATH": "/usr/bin:/bin",
+    "stdin": "closed (/dev/null)"
+  },
+  "serverPid": 37138,
+  "readyHealth": {
+    "status": 200,
+    "contentType": "application/json",
+    "format": "json",
+    "done": false,
+    "eventCount": 1,
+    "finishReasons": [],
+    "usage": null,
+    "error": null,
+    "logprobsPresent": false,
+    "events": [
+      {
+        "models": [
+          {
+            "name": "system",
+            "available": true
+          },
+          {
+            "name": "pcc",
+            "available": false,
+            "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app."
+          }
+        ],
+        "status": "fm serve is running"
+      }
+    ]
+  },
+  "tcpListeners": {
+    "code": 1,
+    "signal": null,
+    "stdout": "",
+    "stderr": "",
+    "checkedPid": 37138
+  },
+  "socketReadyMs": 79.71441599999997,
+  "socketMode": "755",
+  "directoryMode": "700",
+  "notMeasured": [
+    "Unavailable-system HTTP error and downloading/region/disabled variants were not induced by changing settings.",
+    "Licence-unagreed state was not induced; no licence command runs in this collector.",
+    "Exact shared context window remains unmeasured; accepted server prompt counts can refute 4096 without fixing its size.",
+    "Long idle unloading, a forced unloaded-model cold start and system model-service RSS remain unmeasured.",
+    "Full protocol, warm latency, CLI RSS and socket-edge probes were not repeated in this focused run.",
+    "Parent death: behavior beyond the observed 10.00-second interval is unmeasured.",
+    "Post-start stdin-pipe EOF: behavior beyond the observed 10.00-second interval is unmeasured."
+  ],
+  "window": {
+    "acceptedPromptTokensAtLeast": 5056,
+    "acceptedCliTokensAtLeast": 5001,
+    "serverPromptEvidence": [
+      {
+        "source": "usage",
+        "observation": "window-5000",
+        "tokens": 5056
+      },
+      {
+        "source": "server-log",
+        "line": 11,
+        "tokens": 5056
+      }
+    ],
+    "proposed4096Window": "refuted",
+    "interpretation": "Server prompt counts and standalone CLI counts are different units. An accepted server prompt above 4096 refutes that shared-window claim; the exact window remains unmeasured. The 4096 policy stays conservative.",
+    "firstError": {
+      "id": "window-8192",
+      "tokenCount": {
+        "utf16Units": 81920,
+        "tokens": 8193,
+        "heuristicBound": 27307,
+        "code": 0,
+        "signal": null,
+        "stdout": "8193\n",
+        "stderr": ""
+      },
+      "words": 8192,
+      "response": {
+        "status": 500,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [],
+        "usage": null,
+        "error": {
+          "type": "server_error",
+          "message": "The session's transcript exceeded the model's context size.",
+          "code": "500"
+        },
+        "logprobsPresent": false,
+        "events": [
+          {
+            "error": {
+              "type": "server_error",
+              "message": "The session's transcript exceeded the model's context size.",
+              "code": "500"
+            }
+          }
+        ]
+      },
+      "elapsedMs": 1018.8812500000004,
+      "request": {
+        "model": "system",
+        "stream": false,
+        "words": 8192,
+        "max_completion_tokens": 8
+      }
+    },
+    "streamingAttempt": {
+      "id": "window-8192-stream",
+      "tokenCount": {
+        "utf16Units": 81920,
+        "tokens": 8193,
+        "heuristicBound": 27307,
+        "code": 0,
+        "signal": null,
+        "stdout": "8193\n",
+        "stderr": ""
+      },
+      "request": {
+        "model": "system",
+        "stream": true,
+        "words": 8192,
+        "max_completion_tokens": 8
+      },
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream",
+        "format": "sse",
+        "done": false,
+        "eventCount": 2,
+        "finishReasons": [],
+        "usage": null,
+        "error": {
+          "type": "server_error",
+          "message": "The session's transcript exceeded the model's context size.",
+          "code": "500"
+        },
+        "logprobsPresent": false,
+        "events": [
+          {
+            "model": "system",
+            "id": "chatcmpl-CF136F74-AAF0-42F8-8278-91F3F0679C53",
+            "object": "chat.completion.chunk",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "role": "assistant"
+                }
+              }
+            ],
+            "created": 1793554242
+          },
+          {
+            "error": {
+              "type": "server_error",
+              "message": "The session's transcript exceeded the model's context size.",
+              "code": "500"
+            }
+          }
+        ]
+      },
+      "elapsedMs": 1010.8329159999994
+    },
+    "exactWindow": null
+  },
+  "serverExit": {
+    "code": 0,
+    "signal": null
+  },
+  "serverLogs": {
+    "stdout": "\u001b[38;2;130;215;90mF\u001b[38;2;125;211;95mo\u001b[38;2;121;207;100mu\u001b[38;2;117;203;105mn\u001b[38;2;112;199;110md\u001b[38;2;108;195;116ma\u001b[38;2;104;191;121mt\u001b[38;2;99;187;126mi\u001b[38;2;95;184;131mo\u001b[38;2;91;180;137mn\u001b[38;2;86;176;142m \u001b[38;2;82;172;147mM\u001b[38;2;78;168;152mo\u001b[38;2;73;164;157md\u001b[38;2;69;160;163me\u001b[38;2;65;157;168ml\u001b[38;2;60;153;173ms\u001b[38;2;56;149;178m \u001b[38;2;52;145;184mS\u001b[38;2;47;141;189me\u001b[38;2;43;137;194mr\u001b[38;2;39;133;199mv\u001b[38;2;35;130;205me\u001b[0m\n\u001b[38;2;153;153;153m  socket \u001b[0m\u001b[38;2;55;195;160m<probe-directory>/fm.sock\u001b[0m\n\n  · \u001b[38;2;35;130;205mPOST\u001b[0m /v1/chat/completions\n  · \u001b[38;2;35;130;205mGET \u001b[0m /v1/models\n  · \u001b[38;2;35;130;205mGET \u001b[0m /health\n\n  · listening on \u001b[38;2;78;186;101m<probe-directory>/fm.sock\u001b[0m  \u001b[38;2;153;153;153m(press Ctrl+C to stop)\u001b[0m\n\u001b[38;2;153;153;153m18:30:35\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[GET] \u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/health\u001b[0m\u001b[2m · \u001b[0m200\n\u001b[38;2;153;153;153m18:30:36\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m18:30:41\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 5056→16 tokens · 5.0s\n\u001b[38;2;153;153;153m18:30:41\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m18:30:42\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;107;128mERROR 500 The session's transcript exceeded the model's context size.\u001b[0m\n\u001b[38;2;153;153;153m18:30:42\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m18:30:43\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;107;128mSTREAM ERROR 500 Content contains 8248 tokens, which exceeds the maximum allowed context size of 8192.\u001b[0m\n\n\u001b[38;2;153;153;153m  · shutting down\u001b[0m\n",
+    "stderr": "",
+    "stdoutBytes": 1887,
+    "stderrBytes": 0,
+    "capturedTailCharacters": 65536,
+    "syntheticPromptMarkerPresentInTail": false
+  },
+  "cleanup": {
+    "servers": [
+      {
+        "name": "main",
+        "pid": 37138,
+        "directChildReaped": true,
+        "signals": [
+          {
+            "signal": "SIGTERM",
+            "code": "sent"
+          }
+        ],
+        "pids": [
+          {
+            "pid": 37138,
+            "exists": false,
+            "code": "ESRCH"
+          }
+        ],
+        "group": {
+          "groupId": 37138,
+          "exists": false,
+          "code": "ESRCH",
+          "waitedMs": 0.006790999999793712
+        },
+        "exit": {
+          "code": 0,
+          "signal": null
+        },
+        "directServerReaped": true
+      },
+      {
+        "name": "stdin-eof",
+        "pid": 37404,
+        "directChildReaped": true,
+        "signals": [
+          {
+            "signal": "SIGTERM",
+            "code": "sent"
+          }
+        ],
+        "pids": [
+          {
+            "pid": 37404,
+            "exists": false,
+            "code": "ESRCH"
+          }
+        ],
+        "group": {
+          "groupId": 37404,
+          "exists": false,
+          "code": "ESRCH",
+          "waitedMs": 0.004415999999764608
+        },
+        "exit": {
+          "code": 0,
+          "signal": null
+        },
+        "directServerReaped": true
+      },
+      {
+        "name": "parent-death",
+        "pid": 37815,
+        "directChildReaped": true,
+        "signals": [
+          {
+            "signal": "SIGTERM",
+            "code": "sent"
+          }
+        ],
+        "pids": [
+          {
+            "pid": 37812,
+            "exists": false,
+            "code": "ESRCH"
+          },
+          {
+            "pid": 37815,
+            "exists": false,
+            "code": "ESRCH"
+          }
+        ],
+        "group": {
+          "groupId": 37812,
+          "exists": false,
+          "code": "ESRCH",
+          "waitedMs": 0.004333000000769971
+        },
+        "exit": {
+          "code": null,
+          "signal": "SIGKILL"
+        }
+      }
+    ],
+    "allGroupsGone": true,
+    "allPidsGone": true,
+    "temporaryDirectoryRemoved": true
+  },
+  "unavailableTransport": {
+    "code": "ENOENT",
+    "serverErrorShape": null
+  },
+  "stdinEof": {
+    "initialStdin": "open pipe",
+    "serverInvocation": {
+      "program": "/usr/bin/fm",
+      "args": [
+        "serve",
+        "--socket",
+        "<probe-directory>/stdin-eof.sock"
+      ],
+      "environmentKeys": [
+        "HOME",
+        "LANG",
+        "PATH"
+      ],
+      "LANG": "en_US.UTF-8",
+      "PATH": "/usr/bin:/bin",
+      "stdin": "open pipe"
+    },
+    "serverPid": 37404,
+    "readyHealth": {
+      "status": 200,
+      "contentType": "application/json",
+      "format": "json",
+      "done": false,
+      "eventCount": 1,
+      "finishReasons": [],
+      "usage": null,
+      "error": null,
+      "logprobsPresent": false,
+      "events": [
+        {
+          "models": [
+            {
+              "name": "system",
+              "available": true
+            },
+            {
+              "name": "pcc",
+              "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app.",
+              "available": false
+            }
+          ],
+          "status": "fm serve is running"
+        }
+      ]
+    },
+    "tcpListeners": {
+      "code": 1,
+      "signal": null,
+      "stdout": "",
+      "stderr": "",
+      "checkedPid": 37404
+    },
+    "before": {
+      "status": 200,
+      "contentType": "application/json",
+      "format": "json",
+      "done": false,
+      "eventCount": 1,
+      "finishReasons": [],
+      "usage": null,
+      "error": null,
+      "logprobsPresent": false,
+      "events": [
+        {
+          "models": [
+            {
+              "name": "system",
+              "available": true
+            },
+            {
+              "name": "pcc",
+              "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app.",
+              "available": false
+            }
+          ],
+          "status": "fm serve is running"
+        }
+      ]
+    },
+    "pipeOpenAfterReady": true,
+    "stdinCloseEvent": "finish",
+    "observations": [
+      {
+        "elapsedMs": 0.010874999999941792,
+        "process": {
+          "pid": 37404,
+          "exists": true,
+          "code": null
+        },
+        "response": {
+          "status": 200,
+          "contentType": "application/json",
+          "format": "json",
+          "done": false,
+          "eventCount": 1,
+          "finishReasons": [],
+          "usage": null,
+          "error": null,
+          "logprobsPresent": false,
+          "events": [
+            {
+              "models": [
+                {
+                  "available": true,
+                  "name": "system"
+                },
+                {
+                  "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app.",
+                  "available": false,
+                  "name": "pcc"
+                }
+              ],
+              "status": "fm serve is running"
+            }
+          ]
+        }
+      },
+      {
+        "elapsedMs": 5001.1638330000005,
+        "process": {
+          "pid": 37404,
+          "exists": true,
+          "code": null
+        },
+        "response": {
+          "status": 200,
+          "contentType": "application/json",
+          "format": "json",
+          "done": false,
+          "eventCount": 1,
+          "finishReasons": [],
+          "usage": null,
+          "error": null,
+          "logprobsPresent": false,
+          "events": [
+            {
+              "models": [
+                {
+                  "available": true,
+                  "name": "system"
+                },
+                {
+                  "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app.",
+                  "available": false,
+                  "name": "pcc"
+                }
+              ],
+              "status": "fm serve is running"
+            }
+          ]
+        }
+      },
+      {
+        "elapsedMs": 10001.209917,
+        "process": {
+          "pid": 37404,
+          "exists": true,
+          "code": null
+        },
+        "response": {
+          "status": 200,
+          "contentType": "application/json",
+          "format": "json",
+          "done": false,
+          "eventCount": 1,
+          "finishReasons": [],
+          "usage": null,
+          "error": null,
+          "logprobsPresent": false,
+          "events": [
+            {
+              "models": [
+                {
+                  "available": true,
+                  "name": "system"
+                },
+                {
+                  "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app.",
+                  "available": false,
+                  "name": "pcc"
+                }
+              ],
+              "status": "fm serve is running"
+            }
+          ]
+        }
+      }
+    ],
+    "observationComplete": true,
+    "continuedServing": true,
+    "observedForMs": 10002.539166999999,
+    "serverExit": {
+      "code": 0,
+      "signal": null
+    },
+    "serverLogs": {
+      "stdout": "\u001b[38;2;130;215;90mF\u001b[38;2;125;211;95mo\u001b[38;2;121;207;100mu\u001b[38;2;117;203;105mn\u001b[38;2;112;199;110md\u001b[38;2;108;195;116ma\u001b[38;2;104;191;121mt\u001b[38;2;99;187;126mi\u001b[38;2;95;184;131mo\u001b[38;2;91;180;137mn\u001b[38;2;86;176;142m \u001b[38;2;82;172;147mM\u001b[38;2;78;168;152mo\u001b[38;2;73;164;157md\u001b[38;2;69;160;163me\u001b[38;2;65;157;168ml\u001b[38;2;60;153;173ms\u001b[38;2;56;149;178m \u001b[38;2;52;145;184mS\u001b[38;2;47;141;189me\u001b[38;2;43;137;194mr\u001b[38;2;39;133;199mv\u001b[38;2;35;130;205me\u001b[0m\n\u001b[38;2;153;153;153m  socket \u001b[0m\u001b[38;2;55;195;160m<probe-directory>/stdin-eof.sock\u001b[0m\n\n  · \u001b[38;2;35;130;205mPOST\u001b[0m /v1/chat/completions\n  · \u001b[38;2;35;130;205mGET \u001b[0m /v1/models\n  · \u001b[38;2;35;130;205mGET \u001b[0m /health\n\n  · listening on \u001b[38;2;78;186;101m<probe-directory>/stdin-eof.sock\u001b[0m  \u001b[38;2;153;153;153m(press Ctrl+C to stop)\u001b[0m\n\u001b[38;2;153;153;153m18:30:43\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[GET] \u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/health\u001b[0m\u001b[2m · \u001b[0m200\n\u001b[38;2;153;153;153m18:30:43\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[GET] \u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/health\u001b[0m\u001b[2m · \u001b[0m200\n\u001b[38;2;153;153;153m18:30:48\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[GET] \u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/health\u001b[0m\u001b[2m · \u001b[0m200\n\u001b[38;2;153;153;153m18:30:53\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[GET] \u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/health\u001b[0m\u001b[2m · \u001b[0m200\n\n\u001b[38;2;153;153;153m  · shutting down\u001b[0m\n",
+      "stderr": "",
+      "stdoutBytes": 1363,
+      "stderrBytes": 0,
+      "capturedTailCharacters": 65536,
+      "syntheticPromptMarkerPresentInTail": false
+    },
+    "cleanup": {
+      "directChildReaped": true,
+      "signals": [
+        {
+          "signal": "SIGTERM",
+          "code": "sent"
+        }
+      ],
+      "pids": [
+        {
+          "pid": 37404,
+          "exists": false,
+          "code": "ESRCH"
+        }
+      ],
+      "group": {
+        "groupId": 37404,
+        "exists": false,
+        "code": "ESRCH",
+        "waitedMs": 0.004415999999764608
+      },
+      "exit": {
+        "code": 0,
+        "signal": null
+      },
+      "directServerReaped": true
+    }
+  },
+  "parentDeath": {
+    "parentPid": 37812,
+    "spawnManifest": {
+      "pid": 37815,
+      "program": "/usr/bin/fm",
+      "args": [
+        "serve",
+        "--socket",
+        "<probe-directory>/orphan.sock"
+      ],
+      "environmentKeys": [
+        "HOME",
+        "LANG",
+        "PATH"
+      ]
+    },
+    "fmPid": 37815,
+    "serverInvocation": {
+      "program": "/usr/bin/fm",
+      "args": [
+        "serve",
+        "--socket",
+        "<probe-directory>/orphan.sock"
+      ],
+      "environmentKeys": [
+        "HOME",
+        "LANG",
+        "PATH"
+      ],
+      "LANG": "en_US.UTF-8",
+      "PATH": "/usr/bin:/bin",
+      "stdin": "closed (/dev/null)"
+    },
+    "before": {
+      "status": 200,
+      "contentType": "application/json",
+      "format": "json",
+      "done": false,
+      "eventCount": 1,
+      "finishReasons": [],
+      "usage": null,
+      "error": null,
+      "logprobsPresent": false,
+      "events": [
+        {
+          "models": [
+            {
+              "available": true,
+              "name": "system"
+            },
+            {
+              "available": false,
+              "name": "pcc",
+              "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app."
+            }
+          ],
+          "status": "fm serve is running"
+        }
+      ]
+    },
+    "tcpListeners": {
+      "code": 1,
+      "signal": null,
+      "stdout": "",
+      "stderr": "",
+      "checkedPid": 37815
+    },
+    "parentExit": {
+      "code": null,
+      "signal": "SIGKILL"
+    },
+    "observations": [
+      {
+        "elapsedMs": 0.0071250000000873115,
+        "process": {
+          "pid": 37815,
+          "exists": true,
+          "code": null
+        },
+        "response": {
+          "status": 200,
+          "contentType": "application/json",
+          "format": "json",
+          "done": false,
+          "eventCount": 1,
+          "finishReasons": [],
+          "usage": null,
+          "error": null,
+          "logprobsPresent": false,
+          "events": [
+            {
+              "models": [
+                {
+                  "name": "system",
+                  "available": true
+                },
+                {
+                  "name": "pcc",
+                  "available": false,
+                  "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app."
+                }
+              ],
+              "status": "fm serve is running"
+            }
+          ]
+        }
+      },
+      {
+        "elapsedMs": 5000.308041,
+        "process": {
+          "pid": 37815,
+          "exists": true,
+          "code": null
+        },
+        "response": {
+          "status": 200,
+          "contentType": "application/json",
+          "format": "json",
+          "done": false,
+          "eventCount": 1,
+          "finishReasons": [],
+          "usage": null,
+          "error": null,
+          "logprobsPresent": false,
+          "events": [
+            {
+              "models": [
+                {
+                  "available": true,
+                  "name": "system"
+                },
+                {
+                  "available": false,
+                  "name": "pcc",
+                  "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app."
+                }
+              ],
+              "status": "fm serve is running"
+            }
+          ]
+        }
+      },
+      {
+        "elapsedMs": 10000.855749999999,
+        "process": {
+          "pid": 37815,
+          "exists": true,
+          "code": null
+        },
+        "response": {
+          "status": 200,
+          "contentType": "application/json",
+          "format": "json",
+          "done": false,
+          "eventCount": 1,
+          "finishReasons": [],
+          "usage": null,
+          "error": null,
+          "logprobsPresent": false,
+          "events": [
+            {
+              "models": [
+                {
+                  "available": true,
+                  "name": "system"
+                },
+                {
+                  "available": false,
+                  "name": "pcc",
+                  "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app."
+                }
+              ],
+              "status": "fm serve is running"
+            }
+          ]
+        }
+      }
+    ],
+    "observationComplete": true,
+    "continuedServing": true,
+    "observedForMs": 10001.949832999999,
+    "cleanup": {
+      "directChildReaped": true,
+      "signals": [
+        {
+          "signal": "SIGTERM",
+          "code": "sent"
+        }
+      ],
+      "pids": [
+        {
+          "pid": 37812,
+          "exists": false,
+          "code": "ESRCH"
+        },
+        {
+          "pid": 37815,
+          "exists": false,
+          "code": "ESRCH"
+        }
+      ],
+      "group": {
+        "groupId": 37812,
+        "exists": false,
+        "code": "ESRCH",
+        "waitedMs": 0.004333000000769971
+      },
+      "exit": {
+        "code": null,
+        "signal": "SIGKILL"
+      }
+    }
+  }
+}

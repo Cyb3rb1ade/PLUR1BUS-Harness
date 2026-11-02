@@ -42,7 +42,7 @@ export interface Hello { contract?: string; rpc: string; instanceId: string; pid
 export interface CoreClient {
   readonly hello: Hello;
   /** Calls a schema-validated RPC method and resolves to its result. */
-  call<T = unknown>(method: string, params?: object): Promise<T>;
+  call<T = unknown>(method: string, params?: object, timeoutMs?: number): Promise<T>;
   /** Registers a notification listener and returns a function that removes it. */
   onNotification(handler: (method: string, params: unknown, delivery?: { audience: readonly AudienceTarget[] | null; connectionId: string }) => void): () => void;
   /** Called once when the connection ends (the peer closed it, an error, or close()). */
@@ -61,7 +61,9 @@ export interface ConnectOptions {
   clientId?: string;
   /** Cancels endpoint connection, handshake and pending calls, and closes the transport. */
   signal?: AbortSignal;
-  address: string; token: string; endpoint?: "core" | "supervisor" | "module" | "engine"; connectTimeoutMs?: number; callTimeoutMs?: number;
+  address: string; token: string; endpoint?: "core" | "supervisor" | "module" | "engine" | "tools";
+  /** Per-Core-start dispatcher MAC key, sent only to tools.hello. */
+  ticketKey?: string; connectTimeoutMs?: number; callTimeoutMs?: number;
   /** Separate bounded handshake for clients with long-running method calls. Defaults to callTimeoutMs. */
   handshakeTimeoutMs?: number;
   /** The pid that must serve `address`: the one in `run/core.pid` (core) or `run/supervisor.pid` (supervisor). On Windows,
@@ -72,8 +74,9 @@ export interface ConnectOptions {
   /** The pid the OS names as the server of a connected pipe (`GetNamedPipeServerProcessId`). Node has no API for it, so
    *  by default there is none and the client falls back to comparing `hello.pid` with `expectedServerPid` after the
    *  handshake (which cannot keep the token from a squatter that answers); a host with a native lookup passes it here,
-   *  and then a mismatch is refused before `core.auth` is sent. Also the test seam. */
-  serverPidOf?: (sock: Socket) => number | undefined;
+   *  and then a mismatch is refused before authentication is sent. Required for `tools`, whose key must never
+   *  reach an unverified pipe. Async lookups are awaited on the same socket. Also the test seam. */
+  serverPidOf?: (sock: Socket) => number | undefined | Promise<number | undefined>;
   /** Default `process.platform`; the Windows paths are testable on any host through it. */
   platform?: NodeJS.Platform;
   /** Test seam for the POSIX `run/` checks (uid, lstat). */
@@ -98,6 +101,10 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
   if (platform === "win32" && opts.expectedServerPid === undefined) {
     throw untrusted("server-pid-unknown", "the pipe's expected server pid is unknown (run/*.pid is missing); nothing was sent", "the recorded pid file is missing or unreadable");
   }
+  // A tools handshake carries a Core-lifetime MAC key. A claimed hello.pid cannot protect either credential.
+  if (platform === "win32" && opts.endpoint === "tools" && !opts.serverPidOf) {
+    throw untrusted("server-pid-unavailable", "tools requires a native pipe server PID check; nothing was sent");
+  }
   const mismatch = (actual: number | undefined, late: boolean) => untrusted(
     "pipe-server-mismatch", "the pipe is not served by the expected process",
     `${actual === undefined ? "the OS does not name the server" : `served by pid ${actual}`}, expected pid ${opts.expectedServerPid}${late ? " (found after the token was sent)" : ""}`,
@@ -116,8 +123,8 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
 
   if (platform === "win32" && opts.serverPidOf) {
     let actual: number | undefined;
-    try { actual = opts.serverPidOf(sock); } catch { actual = undefined; }
-    if (actual !== opts.expectedServerPid) { sock.destroy(); throw mismatch(actual, false); }
+    try { actual = await opts.serverPidOf(sock); } catch { actual = undefined; }
+    if (sock.destroyed || opts.signal?.aborted || actual !== opts.expectedServerPid) { sock.destroy(); throw mismatch(actual, false); }
   }
 
   const pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: NodeJS.Timeout }>();
@@ -148,6 +155,9 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
     for (const h of hs) { try { h(); } catch { /* a close handler never breaks the others */ } }
   });
   sock.on("error", (e) => { const err = e as NodeJS.ErrnoException; lastSocketError = { code: err.code, message: err.message }; });
+  // B5: inheriting this socket as a PID helper's stdio pauses it permanently in Node. The helper has exited,
+  // its OS result passed the guard above, and our RPC reader is installed before reception resumes.
+  if (platform === "win32" && opts.serverPidOf) sock.resume();
 
   function call<T = unknown>(method: string, params: object = {}, timeoutMs = callTimeoutMs): Promise<T> {
     if (closed) return Promise.reject(new RpcCallError(-32000, "E_CORE_UNAVAILABLE", "connection closed", "closed"));
@@ -161,7 +171,7 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
 
   let hello: Hello;
   try {
-    hello = await call<Hello>(`${opts.endpoint ?? "core"}.auth`, { token: opts.token, ...(opts.endpoint === "engine" ? { clientId: opts.clientId ?? "harness-core" } : {}), ...(opts.engine ? { engine: opts.engine } : {}) }, opts.handshakeTimeoutMs ?? callTimeoutMs);
+    hello = await call<Hello>(opts.endpoint === "tools" ? "tools.hello" : `${opts.endpoint ?? "core"}.auth`, { token: opts.token, ...(opts.endpoint === "tools" ? { ticketKey: opts.ticketKey } : {}), ...(opts.endpoint === "engine" ? { clientId: opts.clientId ?? "harness-core" } : {}), ...(opts.engine ? { engine: opts.engine } : {}) }, opts.handshakeTimeoutMs ?? callTimeoutMs);
     const major = Number(hello.rpc.split(".")[0]);
     if (major !== SUPPORTED_RPC_MAJOR) { sock.destroy(); throw new RpcCallError(-32000, "E_RPC_VERSION", `server rpc ${hello.rpc}, client supports ${SUPPORTED_RPC_MAJOR}.x`, "major-mismatch"); }
     // Without a native pid lookup the best a Node client can do on Windows: the server must at least claim the recorded pid.

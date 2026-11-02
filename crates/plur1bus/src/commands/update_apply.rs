@@ -127,13 +127,13 @@ fn prepare(layout: &Layout, args: &UpdateArgs, feed: &Feed) -> Result<Option<Pre
     let unsupported: Vec<&str> = changes
         .iter()
         .filter_map(|c| c["unit"].as_str())
-        .filter(|u| *u != "binary" && *u != "core")
+        .filter(|u| *u != "binary" && *u != "tools" && *u != "core")
         .collect();
     if !unsupported.is_empty() {
         let mut r = no(
             "unit-unsupported",
             format!(
-                "this release also changes {}: `update` replaces the binary and the core only, run `plur1bus setup` for the rest",
+                "this release also changes {}: `update` replaces the CLI, tools and the core only, run `plur1bus setup` for the rest",
                 unsupported.join(", ")
             ),
         );
@@ -146,12 +146,23 @@ fn prepare(layout: &Layout, args: &UpdateArgs, feed: &Feed) -> Result<Option<Pre
             format!("the release has no binary for {}", t.id()),
         ));
     };
+    let Some(tools) = native.tools.get(t.id()) else {
+        return Err(no(
+            "tools-missing",
+            format!("the signed release has no tools companion for {}", t.id()),
+        ));
+    };
+    let tools_url = resolve(feed, &tools.url)?;
     let offline = feed.bundle.is_some();
     let binary_url = resolve(feed, &binary.url)?;
     let mut downloads = vec![(
         "plur1bus".to_string(),
         size_of(binary.size, &binary_url, offline),
     )];
+    downloads.push((
+        "plur1bus-tools".to_string(),
+        size_of(tools.size, &tools_url, offline),
+    ));
     let core = if changes.iter().any(|c| c["unit"] == "core") {
         let Some(p) = native.core.payload.get(t.id()) else {
             return Err(no(
@@ -203,6 +214,11 @@ fn prepare(layout: &Layout, args: &UpdateArgs, feed: &Feed) -> Result<Option<Pre
                 url: binary_url,
                 sha256: binary.sha256.clone(),
                 size: binary.size,
+            },
+            tools: Asset {
+                url: tools_url,
+                sha256: tools.sha256.clone(),
+                size: tools.size,
             },
             core,
             addons: addon_plan,

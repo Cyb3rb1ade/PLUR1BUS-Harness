@@ -110,7 +110,7 @@ fn pid_file_instance(ep: &Endpoints) -> Option<String> {
 pub(crate) fn rpc_endpoint(role: &Role) -> Endpoint {
     match role.kind {
         RoleKind::Core => Endpoint::Core,
-        RoleKind::Api | RoleKind::Module => Endpoint::Module,
+        RoleKind::Api | RoleKind::Tools | RoleKind::Module => Endpoint::Module,
     }
 }
 
@@ -127,9 +127,14 @@ fn child_options(role: &Role, timeout: Duration) -> ConnectOptions {
 /// B12: why a module's `module.auth` hello does not identify the module `role` names with manifest `apiVersion`
 /// `api_version` (`None` when it does, and always for the core).
 pub fn identity_mismatch(hello: &Value, role: &Role, api_version: Option<&str>) -> Option<String> {
-    if role.kind != RoleKind::Module {
+    if role.kind != RoleKind::Module && role.kind != RoleKind::Tools {
         return None;
     }
+    let api_version = if role.kind == RoleKind::Tools {
+        Some("1")
+    } else {
+        api_version
+    };
     let name = hello["module"]["name"].as_str();
     let api = hello["module"]["apiVersion"].as_str();
     (name != Some(role.name.as_str()) || api != api_version).then(|| {

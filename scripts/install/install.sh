@@ -3,8 +3,8 @@
 #
 #   curl -fsSL https://<release host>/install.sh | sh -s -- [setup flags]
 #
-# Reads the release feed ({channel}.json), takes native.binary[<target>], downloads the binary, verifies its SHA-256
-# BEFORE anything runs, installs it to ~/.local/bin/plur1bus and runs `plur1bus setup "$@"`. setup then verifies the
+# Reads the release feed ({channel}.json), takes native.binary/tools[<target>], downloads both binaries, verifies both SHA-256 hashes
+# BEFORE anything runs, installs both beside each other in ~/.local/bin and runs `plur1bus setup "$@"`. setup then verifies the
 # Node runtime and the core payload against the hashes baked into the binary. A checksum mismatch, an unknown target
 # or a feed without that target exit 1 with nothing installed. Never uses sudo; never writes outside $HOME.
 #
@@ -74,14 +74,14 @@ sha256_of() {
   fi
 }
 
-# asset_field <feed text on one line> <target> <url|sha256>: the field of native.binary[<target>]. The binary map's
+# asset_field <feed text on one line> <binary|tools> <target> <url|sha256>: the field of native.binary[<target>]. The binary map's
 # assets are flat objects, so the map is `"binary":{ "<t>":{...}, ... }` with no deeper nesting.
 asset_field() {
   printf '%s' "$1" |
     sed -e 's/.*"native"[[:space:]]*:[[:space:]]*{//' |
-    sed -n -e 's/.*"binary"[[:space:]]*:[[:space:]]*{\(\([[:space:]]*"[^"]*"[[:space:]]*:[[:space:]]*{[^{}]*}[[:space:]]*,\{0,1\}\)*\)}.*/\1/p' |
-    sed -n -e "s/.*\"$2\"[[:space:]]*:[[:space:]]*{\([^{}]*\)}.*/\1/p" |
-    sed -n -e "s/.*\"$3\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p"
+    sed -n -e 's/.*"'$2'"[[:space:]]*:[[:space:]]*{\(\([[:space:]]*"[^"]*"[[:space:]]*:[[:space:]]*{[^{}]*}[[:space:]]*,\{0,1\}\)*\)}.*/\1/p' |
+    sed -n -e "s/.*\"$3\"[[:space:]]*:[[:space:]]*{\([^{}]*\)}.*/\1/p" |
+    sed -n -e "s/.*\"$4\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p"
 }
 
 main() {
@@ -103,39 +103,55 @@ main() {
     mkdir -p "$bindir"
     created_bindir=1
   fi
-  tmp="$bindir/plur1bus.tmp-$$"
-  feed="$bindir/plur1bus-feed.tmp-$$"
+  stage="$bindir/.plur1bus-install.tmp-$$"
+  (umask 077; mkdir "$stage") || die "could not create private installation staging"
+  feed="$stage/feed.json"
+  swapping=
+  committed=
   cleanup() {
-    rm -f "$tmp" "$feed"
+    if [ -n "$swapping" ] && [ -z "$committed" ]; then
+      for name in plur1bus plur1bus-tools; do
+        if [ -f "$stage/$name.old" ]; then
+          mv -f "$stage/$name.old" "$bindir/$name" || return 1
+        elif [ -f "$stage/$name.absent" ]; then
+          rm -f "$bindir/$name"
+        fi
+      done
+    fi
+    rm -rf "$stage"
     if [ -n "$created_bindir" ] && [ ! -e "$bindir/plur1bus" ]; then rmdir "$bindir" 2>/dev/null || true; fi
   }
   trap cleanup EXIT
   trap 'exit 1' HUP INT TERM
 
   fetch "$feed_url" "$feed" || die "could not read the release feed $feed_url"
-  # One line, JSON-escaped slashes undone.
   text=$(tr -d '\r\n' <"$feed" | sed -e 's#\\/#/#g')
-  url=$(asset_field "$text" "$target" url)
-  want=$(asset_field "$text" "$target" sha256 | tr 'A-F' 'a-f')
-  [ -n "$url" ] || die "the release feed has no binary for $target"
-  printf '%s' "$want" | grep -Eq '^[0-9a-f]{64}$' || die "the release feed has no valid sha256 for $target"
-
-  printf 'plur1bus install: downloading %s (%s)\n' "$url" "$target" >&2
-  fetch "$url" "$tmp" || die "could not download $url"
-  got=$(sha256_of "$tmp")
-  if [ "$got" != "$want" ]; then
-    die "checksum mismatch for $url: expected $want, got $got (nothing installed)"
-  fi
-  chmod 755 "$tmp"
-  mv -f "$tmp" "$bindir/plur1bus"
-  printf 'plur1bus install: installed %s (sha256 %s)\n' "$bindir/plur1bus" "$got" >&2
+  # Verify the complete release before replacing either installed file or executing setup.
+  for kind in binary tools; do
+    case "$kind" in binary) name=plur1bus ;; tools) name=plur1bus-tools ;; esac
+    url=$(asset_field "$text" "$kind" "$target" url)
+    want=$(asset_field "$text" "$kind" "$target" sha256 | tr 'A-F' 'a-f')
+    [ -n "$url" ] || die "the release feed has no $kind binary for $target"
+    printf '%s' "$want" | grep -Eq '^[0-9a-f]{64}$' || die "the release feed has no valid sha256 for $kind/$target"
+    printf 'plur1bus install: downloading %s (%s)\n' "$url" "$target" >&2
+    fetch "$url" "$stage/$name" || die "could not download $url"
+    got=$(sha256_of "$stage/$name")
+    [ "$got" = "$want" ] || die "checksum mismatch for $url: expected $want, got $got (nothing installed)"
+    chmod 755 "$stage/$name"
+    if [ -e "$bindir/$name" ]; then cp -p "$bindir/$name" "$stage/$name.old"; else : >"$stage/$name.absent"; fi
+  done
+  swapping=1
+  mv -f "$stage/plur1bus-tools" "$bindir/plur1bus-tools"
+  mv -f "$stage/plur1bus" "$bindir/plur1bus"
+  committed=1
+  printf 'plur1bus install: installed CLI and native tools in %s\n' "$bindir" >&2
   case ":$PATH:" in
     *":$bindir:"*) ;;
     *) printf 'plur1bus install: add %s to your PATH\n' "$bindir" >&2 ;;
   esac
 
   # exec skips the EXIT trap: clean up now.
-  rm -f "$feed"
+  cleanup
   trap - EXIT
   # Piped into sh, stdin is the script itself: give setup the terminal for its questions when there is one.
   if [ ! -t 0 ] && (: </dev/tty) 2>/dev/null; then

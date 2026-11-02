@@ -137,14 +137,19 @@ const exists = async (path) => {
   }
 };
 const coreMissing = async () => !(await exists(join(home, "run", "api-delegation.token")));
-const request = (path, options = {}) =>
-  fetch(url + path, {
-    ...options,
-    headers: { connection: "close", ...options.headers },
-    signal: options.signal
-      ? AbortSignal.any([options.signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))])
-      : AbortSignal.timeout(Math.max(1, Math.min(5000, deadline - Date.now()))),
-  });
+const request = async (path, options = {}) => {
+  try {
+    return await fetch(url + path, {
+      ...options,
+      headers: { connection: "close", ...options.headers },
+      signal: options.signal
+        ? AbortSignal.any([options.signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))])
+        : AbortSignal.timeout(Math.max(1, Math.min(5000, deadline - Date.now()))),
+    });
+  } catch (error) {
+    throw new Error(`native maintenance HTTP request failed at ${path}`, { cause: error });
+  }
+};
 async function login() {
   const response = await request("/api/v1/session", {
     method: "POST",
@@ -238,6 +243,10 @@ async function rpcResponse(cookie, method, params = {}, suppliedCsrf) {
     method: "POST",
     headers: { cookie, "content-type": "application/json", ...(token ? { "x-csrf-token": token } : {}) },
     body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method, params }),
+    // Native import copies and Windows ACL checks can exceed a short HTTP call; retain the fixture's absolute budget.
+    ...(method.startsWith("admin.import.")
+      ? { signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())) }
+      : {}),
   });
   const body = await response.json();
   return { status: response.status, body };
