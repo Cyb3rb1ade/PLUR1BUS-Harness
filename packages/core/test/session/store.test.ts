@@ -29,6 +29,7 @@ describe("session store", () => {
     const file = new SessionStore({ path }); const f = file.createSession({ kind: "direct", agentId: "bernd", owner: ALICE }); file.close();
     const raw = new DatabaseSync(path);
     assert.throws(() => raw.prepare("UPDATE sessions SET owner = 'x' WHERE id = ?").run(f.id), /I1/);
+    assert.throws(() => raw.prepare("UPDATE sessions SET origin = 'acp-agent' WHERE id = ?").run(f.id), /I1/);
     raw.close();
   });
 

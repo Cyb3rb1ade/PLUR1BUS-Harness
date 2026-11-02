@@ -1,0 +1,77 @@
+{
+  "schema": "plur1bus.team-task/1",
+  "id": "ts-release-notes",
+  "title": "Semantic release notes",
+  "kind": "decomposable",
+  "tier": "team",
+  "language": "typescript",
+  "license": "MIT",
+  "seeds": [
+    17,
+    104729,
+    8675309
+  ],
+  "budgets": {
+    "tokens": 49152,
+    "maxRounds": 45,
+    "wallMs": 675000
+  },
+  "instruction": "prompt.md",
+  "start": "start",
+  "seedGenerator": "seed.mjs",
+  "packages": [
+    {
+      "id": "versions",
+      "entry": "src/versions.__SEED__.ts",
+      "symbol": "solve__SEED__",
+      "owns": [
+        "src/versions.__SEED__.ts"
+      ],
+      "dependsOn": [],
+      "reference": "reference/versions",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "versions"
+      }
+    },
+    {
+      "id": "latest",
+      "entry": "src/latest.__SEED__.ts",
+      "symbol": "solve__SEED__",
+      "owns": [
+        "src/latest.__SEED__.ts"
+      ],
+      "dependsOn": [],
+      "reference": "reference/latest",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "latest"
+      }
+    },
+    {
+      "id": "notes",
+      "entry": "src/notes.__SEED__.ts",
+      "symbol": "solve__SEED__",
+      "owns": [
+        "src/notes.__SEED__.ts"
+      ],
+      "dependsOn": [],
+      "reference": "reference/notes",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "notes"
+      }
+    }
+  ],
+  "endToEnd": {
+    "checker": {
+      "path": "check.mjs",
+      "scope": "e2e"
+    },
+    "order": [
+      "versions",
+      "latest",
+      "notes"
+    ]
+  }
+}

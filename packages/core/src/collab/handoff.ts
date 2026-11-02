@@ -25,6 +25,8 @@ export interface Handoff {
   triedAndFailed?: { approach: string; why: string }[];
 }
 export interface HandoffContext {
+  /** Trusted tool intent, including reviews without a board card; never a wire/model property. */
+  purpose?: "independent-review";
   /** From authenticated dispatch context, never copied from model arguments. */
   person: string; taskId: string; sessionId: string; fromAgent: string; projectId: string;
   approvals: Pick<ApprovalStore, 'get'>; grants: Pick<GrantStore, 'get'>;

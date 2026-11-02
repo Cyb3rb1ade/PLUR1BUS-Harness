@@ -5,6 +5,7 @@
 //
 // Pass --principals to rewrite only golden/principals.json.
 // Pass --stages to record RE-04/T2 stage goldens (scenarios/ and golden/stages/).
+// Pass --render to record the eleven RE-04/T5 context/booster goldens.
 // The engine checkout is the harness pin
 // 9f34008c143c5da87b2194b5a28442b407ff8ba7.
 // This script writes the JSON files next to itself and prints no model data.
@@ -36,6 +37,12 @@ if (!engineRoot) {
 if (process.argv.includes("--stages")) {
   const { recordStages } = await import("./record-stages.mjs");
   await recordStages(engineRoot);
+  process.exit(0);
+}
+
+if (process.argv.includes("--render")) {
+  const { recordRender } = await import("./record-render.mjs");
+  await recordRender(engineRoot);
   process.exit(0);
 }
 

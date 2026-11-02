@@ -116,6 +116,7 @@ not lost: `plur1bus media job <id>` shows it.
 | `release-key-expired` | The release is signed by a rotated key whose expiry has passed. |
 | `key-list-invalid` | A key list is not signed by a trusted key, is for another channel, or is malformed. |
 | `release-unreachable`, `download-too-large`, `digest-mismatch`, `size-mismatch`, `io` | Fetching or verifying a file failed (a declared `size` must match exactly). |
+| `tools-missing` | Setup or the signed release lacks the required native tools companion. Install the CLI and `plur1bus-tools` from the same release; update applies neither binary without the matching target asset. |
 | `release-malformed`, `min-from-version`, `no-native-release`, `target-unsupported`, `unit-unsupported` | The release cannot be applied to this install (`unit-unsupported`: it also changes the Node runtime or modules, run `plur1bus setup`). |
 | `downgrade-refused` | The release is older than the installed version; `--allow-downgrade` overrides. |
 | `release-replay` | The release is older than the newest one this install accepted on the channel; `--allow-downgrade` overrides. |
@@ -255,3 +256,21 @@ Sandbox failure uses the existing tool error envelope (`tool-failed`); the host 
 ### Native tools service (D120 H1-1)
 
 The internal tools connection uses existing error codes: `E_DENIED` with `tools-core-only` for a caller without the Core principal, `tools-identity-change` for reauthentication on an established connection, `E_UNAUTHORIZED` with `tools-credential` for an invalid service credential, `E_INVALID_PARAMS` with `tools-params` for a closed-parameter refusal, and `E_NOT_AVAILABLE` with `tools-unavailable` at the Core client boundary. Supervisor adoption retains `adopt-nonce`. No registered provider secrets enter this process.
+
+### External ACP platform refusals
+
+On an actual macOS host, external delegation, agent/probe launch, terminal callbacks
+and installed-connector discovery refuse with `reason: sandbox-unavailable` and
+`cause: macos-acceptance-pending`. Delegation throws `CollabError` with code `invalid`
+and retains both typed fields before engine selection (including `connector-unavailable`),
+worktree provisioning, transcript/turn creation or any connection/process. Windows
+also refuses with `sandbox-unavailable`, without the Mac acceptance cause. Restrictive
+platform overrides cannot enable ACP or change which host has pending Mac acceptance.
+
+The bounded Core event `external.agent.refused` carries process, reason and cause;
+Doctor reports the independent `external.agents.sandbox` row. These are ACP diagnostics,
+not new RPC error codes or native watchdog causes. Ordinary sandboxed tools retain
+their separate policy. Linux ACP still requires the accepted namespace task limit
+and a positive safe-integer `tools.sandbox.maxTasks`; zero refuses ACP launch.
+Native Mac acceptance remains pending D123 SB-1 (pnpm/RSS) and SB-3 (Git/libxcrun,
+open/osascript); see [ACP containment](acp.md#external-process-containment-820-q3).

@@ -301,6 +301,7 @@ mod tests {
         let h = "b".repeat(64);
         InstallManifest {
             schema_version: 1,
+            tools: None,
             installed_at: 1_790_000_000_000,
             updated_at: 1_790_000_000_001,
             channel: "stable".into(),

@@ -10,6 +10,8 @@ stdin lifeline, private output log and adoption. A tools crash does not restart 
 continues under its new lifeline. `PLUR1BUS_TOOLS_BIN` overrides the native binary path. Otherwise
 the resolver checks beside the CLI or under `<home>/runtime/bin/`. Standalone startup waits until Core owns its lock
 and has published its private `run/core.pid`; repeated startup failures use a bounded exponential backoff.
+Standalone child stderr is written as bounded records in private `logs/tools.out.log`, rotating at 1 MiB
+with three retained generations.
 
 For development, build `cargo build --locked -p plur1bus-tools` and set `PLUR1BUS_TOOLS_BIN` to its
 absolute executable path. The binary also accepts `serve --home <absolute-path>` independently, after Core or the
@@ -24,6 +26,14 @@ are owner-private (0700 directories, 0600 files and sockets; owner-and-SYSTEM AC
 it checks Home and the shared `state/` without changing their permissions or ACLs. A symlinked Home is supported.
 An existing untrusted `run/` is refused rather than repaired. A live endpoint is never removed to force a bind.
 The supervisor and tools service use the shared `plur1bus-rpc::server_transport` implementation.
+The tools accept loop counts failures, backs off from 25 to 250 ms, and exits after sixteen consecutive
+accept errors; a successful accept resets the consecutive count. Shutdown removes its run files so the
+supervisor can restart it.
+
+On Windows, Core checks the OS-reported server PID before sending either credential. It passes the already-connected
+pipe as inherited stdin to the native CLI's private `core __pipe-server-pid` helper, which calls
+`GetNamedPipeServerProcessId` without reading or writing the pipe. Missing helper, unknown PID and mismatch
+fail closed. The pipe is never reopened by name for this check.
 
 Two credentials establish distinct connection identities:
 
@@ -55,7 +65,13 @@ are ignored and the work connection stays usable. Imports leave this independent
 when Core is unavailable; `doctor.report` overlays current readiness. Coding behavior is unchanged,
 so the owner's D123-Q11 exemption allows this skeleton ahead of the B1 live-baseline gate.
 
-The release archive and container carry `plur1bus-tools` beside `plur1bus`. Desktop packaging stages
+The signed native feed carries `native.tools` as a second URL/SHA-256 map alongside `native.binary` for all five targets.
+Both one-line installers verify the complete pair before replacement or setup. Setup refuses a missing companion
+and records its version/hash in the install manifest. Update stages and verifies both binaries, snapshots both, and
+replaces both while the daemon is stopped. The persisted swap phase restores the pair after a crash or failed gate;
+manual rollback restores both too, including removal of the companion when reverting a pre-tools installation.
+Old feeds remain readable for diagnostics, but update apply refuses a target without its tools asset.
+The release archive and container also carry `plur1bus-tools` beside `plur1bus`. Desktop packaging stages
 it beside the host CLI and includes its hash in the signed resource payload. Inert packaging fixtures
 remain labelled as fixtures; they do not claim native installation or cross-platform runtime evidence.
 

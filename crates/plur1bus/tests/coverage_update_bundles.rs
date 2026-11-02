@@ -78,11 +78,12 @@ esac\n# {}\n",
     )
 }
 
-/// A signed bundle of version 0.2.0: the manifest, its minisign signature, and the one artefact it names.
+/// A signed bundle of version 0.2.0: the manifest, its minisign signature, and the two artefacts it names.
 fn bundle_files(e: &Env, key: &minisign::KeyPair) -> Vec<(String, Vec<u8>)> {
     let script = new_script(&e.root, "0.2.0");
     let native = json!({
         "binary": { HOST: { "url": "https://example.invalid/dl/plur1bus-new", "sha256": sha(script.as_bytes()) } },
+        "tools": { HOST: { "url": "https://example.invalid/dl/plur1bus-tools-new", "sha256": sha(b"native tools fixture") } },
         "core": { "version": "0.1.0", "contract": "1.9.0", "rpc": "1.3.0",
                   "payload": { HOST: { "url": "https://example.invalid/core.tar.gz", "sha256": "a".repeat(64) } } },
         "node": { "version": "24.21.0" },
@@ -101,6 +102,10 @@ fn bundle_files(e: &Env, key: &minisign::KeyPair) -> Vec<(String, Vec<u8>)> {
         ("manifest.json".into(), m),
         ("manifest.json.minisig".into(), sig.into_bytes()),
         ("artefacts/plur1bus-new".into(), script.into_bytes()),
+        (
+            "artefacts/plur1bus-tools-new".into(),
+            b"native tools fixture".to_vec(),
+        ),
     ]
 }
 

@@ -1892,7 +1892,10 @@ mod tests {
             spec.env,
             vec![(
                 OsString::from("P1X_DATA"),
-                home.join("data/ext/fixture").into_os_string()
+                home.join("data")
+                    .join("ext")
+                    .join("fixture")
+                    .into_os_string()
             )],
             "cached module specs hold only canonical, nonsecret data metadata"
         );

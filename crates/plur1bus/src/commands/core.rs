@@ -4,6 +4,23 @@ use serde_json::json;
 use std::path::PathBuf;
 use std::process::Command;
 
+/// Credential-free Windows peer inspection of the same connected handle Node inherited to stdin.
+/// Never opens the pipe by name, reads from it, or writes to it. Unsupported/unknown is a refusal.
+pub(crate) fn pipe_server_pid() {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::System::Console::{GetStdHandle, STD_INPUT_HANDLE};
+        // SAFETY: the process's standard input is an opaque OS handle. The kernel validates it;
+        // pipe_server_pid does not dereference it, consume bytes or mutate the parent's handle.
+        let handle = unsafe { GetStdHandle(STD_INPUT_HANDLE) };
+        if let Some(pid) = plur1bus_rpc::win::pipe_server_pid(handle) {
+            crate::output::say_raw(&pid.to_string());
+            return;
+        }
+    }
+    std::process::exit(2);
+}
+
 /// The Node runtime (HB8): $PLUR1BUS_NODE, then the install manifest's `node.path` (written by setup), then the
 /// first `<home>/runtime/node-*/bin/node` by name (never a staged `*.tmp-*` tree), then `node` on PATH. Shared by
 /// `core run`, `import` and the supervisor.
@@ -314,6 +331,7 @@ mod tests {
             &layout,
             &InstallManifest {
                 schema_version: 1,
+                tools: None,
                 installed_at: 1,
                 updated_at: 1,
                 channel: "stable".into(),

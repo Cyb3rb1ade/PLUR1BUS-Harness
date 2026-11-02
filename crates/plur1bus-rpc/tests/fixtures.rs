@@ -43,6 +43,10 @@ fn method_fixture(name: &str, f: &Value) {
     match name {
         "tools.hello" => pair::<ToolsHelloParams, ToolsHelloResult>(name, f),
         "tools.health" => pair::<ToolsHealthParams, ToolsHealthResult>(name, f),
+        "a2a.peer.add" => pair::<A2aPeerAddParams, A2aPeerAddResult>(name, f),
+        "a2a.peer.list" => pair::<A2aPeerListParams, A2aPeerListResult>(name, f),
+        "a2a.peer.remove" => pair::<A2aPeerRemoveParams, A2aPeerRemoveResult>(name, f),
+        "a2a.peer.trust" => pair::<A2aPeerTrustParams, A2aPeerTrustResult>(name, f),
         "admin.extensions.auth.cancel" => {
             pair::<AdminExtensionsAuthCancelParams, AdminExtensionsAuthCancelResult>(name, f)
         }
@@ -457,6 +461,8 @@ fn method_fixture(name: &str, f: &Value) {
         "project.agent.remove" => {
             pair::<ProjectAgentRemoveParams, ProjectAgentRemoveResult>(name, f)
         }
+        "project.repo.bind" => pair::<ProjectRepoBindParams, ProjectRepoBindResult>(name, f),
+        "project.repo.unbind" => pair::<ProjectRepoUnbindParams, ProjectRepoUnbindResult>(name, f),
         "task.complete" => pair::<TaskCompleteParams, TaskCompleteResult>(name, f),
         "chat.promote.preview" => {
             pair::<ChatPromotePreviewParams, ChatPromotePreviewResult>(name, f)

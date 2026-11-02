@@ -18,6 +18,20 @@ const jobBlocks = yaml => Object.fromEntries(yaml.slice(yaml.indexOf('\njobs:\n'
 // A job's block also carries the comment lines written above the next job; they are not steps.
 const stepsOf = block => block.slice(block.indexOf('\n    steps:\n')).replace(/(?:^  #.*\n)+$/m, '');
 
+test('every job running Core builds the native sandbox launcher before its assertions', () => {
+  const jobs = jobBlocks(workflow());
+  for (const name of ['unit', 'unit-os', 'core-unit-shard', 'core-unit-shard-windows']) {
+    const block = jobs[name];
+    const build = block.indexOf('cargo build --locked -p plur1bus --bin plur1bus-sandbox-limits');
+    const tests = block.indexOf(name.startsWith('core-unit') ? '      - name: measured Core shard' : '      - name: unit tests with file timings');
+    assert.ok(build >= 0 && build < tests, `${name}: native launcher must exist before Core starts`);
+    const toolchain = block.indexOf('uses: dtolnay/rust-toolchain@');
+    assert.ok(toolchain >= 0 && toolchain < build, name);
+    const step = block.slice(0, build).split(/(?=^      - )/m).at(-1);
+    assert.doesNotMatch(step, /outputs\.rust/, `${name}: a TS-only change still needs the launcher`);
+  }
+});
+
 test('every workflow job is either in the gate or deliberately ungated, and job conditions match the skip policy', () => {
   const jobs = jobBlocks(workflow());
   const gated = Object.keys(selections({})).sort();
@@ -64,7 +78,21 @@ test('unit-os preserves every unit step while Ubuntu and Windows run Core only i
     '            pnpm test\n' +
     '          fi\n';
   assert.ok(stepsOf(jobs.unit).includes(coreSplit));
-  assert.equal(stepsOf(jobs['unit-os']), stepsOf(jobs.unit).replace(coreSplit, osSplit));
+  const rustToolchain =
+    '      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)\n' +
+    '        with: { toolchain: "1.95", components: "clippy, rustfmt" }\n';
+  const macToolchains =
+    '      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0\n' +
+    "        if: matrix.os == 'macos-15'\n" +
+    '        with: { go-version: "1.27.1", cache: false }\n' +
+    '      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0\n' +
+    "        if: matrix.os == 'macos-15'\n" +
+    '        with: { python-version: "3.13" }\n';
+  assert.ok(stepsOf(jobs.unit).includes(rustToolchain));
+  const expected = stepsOf(jobs.unit)
+    .replace(coreSplit, osSplit)
+    .replace(rustToolchain, rustToolchain + macToolchains);
+  assert.equal(stepsOf(jobs['unit-os']), expected);
   assert.match(jobs['core-unit-shard'], /pnpm --filter @plur1bus\/core test/);
   assert.match(jobs['core-unit'], /core-unit-shard/);
   const field = (block, re) => re.exec(block)[0];
@@ -109,6 +137,18 @@ test('unit checks continue after earlier failures, stop on cancellation and time
     for (const phase of [library, build, run]) {
       assert.doesNotMatch(phase, /--(?:exclude|skip|features|no-default-features|target-dir|release)\b/);
     }
+  }
+});
+
+test("Windows unit builds omit debug information without changing assertions or timeout budgets", () => {
+  const mode = "${{ matrix.os == 'windows-2025' && '0' || '2' }}";
+  for (const name of ["unit", "unit-os"]) {
+    const job = jobBlocks(workflow())[name];
+    for (const profile of ["DEV", "TEST"]) {
+      assert.ok(job.includes(`      CARGO_PROFILE_${profile}_DEBUG: ${mode}\n`));
+    }
+    assert.doesNotMatch(job, /CARGO_PROFILE_(?:DEV|TEST)_(?:DEBUG_ASSERTIONS|OVERFLOW_CHECKS):/);
+    assert.match(job, /timeout-minutes: \$\{\{ matrix\.os == 'windows-2025' && 90 \|\| 65 \}\}/);
   }
 });
 
@@ -295,4 +335,24 @@ test("Core shards prepare the pinned Rust toolchain and protected cache before n
     );
     assert.match(block.slice(cache, build), /cache-on-failure: false/);
   }
+});
+
+test('native installation and served-stack acceptance carry the required CLI and tools release pair', () => {
+  const jobs = jobBlocks(workflow());
+  const build = jobs['web-browser-build'];
+  assert.match(build, /path: \|\n\s+target\/debug\/plur1bus\n\s+target\/debug\/plur1bus-tools/);
+  assert.match(jobs['web-browser-shard'], /chmod \+x.*plur1bus-tools/);
+  for (const workflowName of ['release-smoke.yml', 'hermes-host.yml', 'nightly.yml']) {
+    const text = readFileSync(new URL(`../../.github/workflows/${workflowName}`, import.meta.url), 'utf8');
+    const commands = text.split('\n').filter(line => /cargo build --release -p plur1bus(?: |$)/.test(line));
+    assert.ok(commands.length > 0, workflowName);
+    for (const command of commands) assert.match(command, /-p plur1bus-tools(?: |$)/, workflowName);
+  }
+  const release = readFileSync(new URL('../../.github/workflows/harness-release.yml', import.meta.url), 'utf8');
+  for (const command of release.split('\n').filter(line => /cargo (?:zigbuild|build) --locked --release -p plur1bus(?: |$)/.test(line))) {
+    assert.match(command, /-p plur1bus-tools(?: |$)/);
+  }
+  assert.match(release, /cp "target\/\$TRIPLE\/release\/plur1bus-tools\$ext" "out\/plur1bus-tools-\$TARGET\$ext"/);
+  assert.match(release, /for binary in out\/plur1bus-darwin-arm64 out\/plur1bus-tools-darwin-arm64; do/);
+  assert.match(release, /name: signed-darwin-arm64\n\s+path: \|\n\s+out\/plur1bus-darwin-arm64\n\s+out\/plur1bus-tools-darwin-arm64/);
 });

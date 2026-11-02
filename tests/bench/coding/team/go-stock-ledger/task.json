@@ -1,0 +1,82 @@
+{
+  "schema": "plur1bus.team-task/1",
+  "id": "go-stock-ledger",
+  "title": "Sequential stock reservation ledger",
+  "kind": "coupled",
+  "tier": "team",
+  "language": "go",
+  "license": "MIT",
+  "seeds": [
+    17,
+    104729,
+    8675309
+  ],
+  "budgets": {
+    "tokens": 77824,
+    "maxRounds": 63,
+    "wallMs": 945000
+  },
+  "instruction": "prompt.md",
+  "start": "start",
+  "seedGenerator": "seed.mjs",
+  "packages": [
+    {
+      "id": "decode",
+      "entry": "src/pipeline__SEED__/solution__SEED__.go",
+      "symbol": "Decode__SEED__",
+      "owns": [
+        "src/pipeline__SEED__/solution__SEED__.go"
+      ],
+      "dependsOn": [],
+      "reference": "reference/decode",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "decode"
+      }
+    },
+    {
+      "id": "apply",
+      "entry": "src/pipeline__SEED__/solution__SEED__.go",
+      "symbol": "Apply__SEED__",
+      "owns": [
+        "src/pipeline__SEED__/solution__SEED__.go"
+      ],
+      "dependsOn": [
+        "decode"
+      ],
+      "reference": "reference/apply",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "apply"
+      }
+    },
+    {
+      "id": "render",
+      "entry": "src/pipeline__SEED__/solution__SEED__.go",
+      "symbol": "Render__SEED__",
+      "owns": [
+        "src/pipeline__SEED__/solution__SEED__.go"
+      ],
+      "dependsOn": [
+        "decode",
+        "apply"
+      ],
+      "reference": "reference/render",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "render"
+      }
+    }
+  ],
+  "endToEnd": {
+    "checker": {
+      "path": "check.mjs",
+      "scope": "e2e"
+    },
+    "order": [
+      "decode",
+      "apply",
+      "render"
+    ]
+  }
+}

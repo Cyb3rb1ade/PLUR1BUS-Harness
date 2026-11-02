@@ -1,0 +1,82 @@
+{
+  "schema": "plur1bus.team-task/1",
+  "id": "ts-balance-reducer",
+  "title": "Sequential balance event reducer",
+  "kind": "coupled",
+  "tier": "team",
+  "language": "typescript",
+  "license": "MIT",
+  "seeds": [
+    17,
+    104729,
+    8675309
+  ],
+  "budgets": {
+    "tokens": 69632,
+    "maxRounds": 57,
+    "wallMs": 855000
+  },
+  "instruction": "prompt.md",
+  "start": "start",
+  "seedGenerator": "seed.mjs",
+  "packages": [
+    {
+      "id": "decode",
+      "entry": "src/pipeline.__SEED__.ts",
+      "symbol": "decode__SEED__",
+      "owns": [
+        "src/pipeline.__SEED__.ts"
+      ],
+      "dependsOn": [],
+      "reference": "reference/decode",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "decode"
+      }
+    },
+    {
+      "id": "reduce",
+      "entry": "src/pipeline.__SEED__.ts",
+      "symbol": "reduce__SEED__",
+      "owns": [
+        "src/pipeline.__SEED__.ts"
+      ],
+      "dependsOn": [
+        "decode"
+      ],
+      "reference": "reference/reduce",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "reduce"
+      }
+    },
+    {
+      "id": "report",
+      "entry": "src/pipeline.__SEED__.ts",
+      "symbol": "report__SEED__",
+      "owns": [
+        "src/pipeline.__SEED__.ts"
+      ],
+      "dependsOn": [
+        "decode",
+        "reduce"
+      ],
+      "reference": "reference/report",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "report"
+      }
+    }
+  ],
+  "endToEnd": {
+    "checker": {
+      "path": "check.mjs",
+      "scope": "e2e"
+    },
+    "order": [
+      "decode",
+      "reduce",
+      "report"
+    ]
+  }
+}

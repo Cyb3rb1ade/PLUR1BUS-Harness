@@ -19,6 +19,33 @@ use zeroize::Zeroizing;
 
 const AUTH_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_CONNECTIONS: usize = 128;
+const MAX_ACCEPT_ERRORS: u32 = 16;
+
+#[derive(Default)]
+struct AcceptErrors {
+    total: u64,
+    consecutive: u32,
+}
+
+impl AcceptErrors {
+    fn failed(&mut self) -> io::Result<Duration> {
+        self.total += 1;
+        self.consecutive += 1;
+        // Fixed fields only: raw OS errors and endpoint paths never become RPC output.
+        let _ = writeln!(
+            io::stderr().lock(),
+            "tools accept failed: total={} consecutive={}",
+            self.total,
+            self.consecutive
+        );
+        if self.consecutive >= MAX_ACCEPT_ERRORS {
+            return Err(io::Error::other("tools accept error limit reached"));
+        }
+        Ok(Duration::from_millis(
+            (25_u64 << (self.consecutive - 1).min(4)).min(250),
+        ))
+    }
+}
 
 /// An RPC refusal with the existing harness error vocabulary; never carries caller payloads.
 #[derive(Debug, Clone)]
@@ -422,16 +449,38 @@ impl Service {
             .listener
             .take()
             .ok_or_else(|| io::Error::other("tools listener missing"))?;
+        self.serve_accept(stdin_lifeline, orphan_grace, move |timeout| {
+            listener.accept_timeout(timeout)
+        })
+    }
+
+    fn serve_accept(
+        self,
+        stdin_lifeline: bool,
+        orphan_grace: Duration,
+        mut accept: impl FnMut(Duration) -> io::Result<Option<Accepted>> + Send + 'static,
+    ) -> io::Result<()> {
         let runtime = self.runtime.clone();
         let acceptor = std::thread::Builder::new()
             .name("tools-accept".into())
             .spawn(move || {
+                let mut errors = AcceptErrors::default();
                 while !runtime.stopping.load(Ordering::SeqCst) {
-                    let connection = match listener.accept_timeout(Duration::from_millis(25)) {
-                        Ok(Some(connection)) => connection,
+                    let connection = match accept(Duration::from_millis(25)) {
+                        Ok(Some(connection)) => {
+                            errors.consecutive = 0;
+                            connection
+                        }
                         Ok(None) => continue,
                         Err(_) => {
-                            std::thread::sleep(Duration::from_millis(25));
+                            let delay = match errors.failed() {
+                                Ok(delay) => delay,
+                                Err(error) => {
+                                    runtime.stopping.store(true, Ordering::SeqCst);
+                                    return Err(error);
+                                }
+                            };
+                            std::thread::sleep(delay);
                             continue;
                         }
                     };
@@ -452,6 +501,7 @@ impl Service {
                         runtime.connections.fetch_sub(1, Ordering::SeqCst);
                     }
                 }
+                Ok(())
             })?;
         if stdin_lifeline {
             let state = self.runtime.clone();
@@ -473,8 +523,9 @@ impl Service {
             std::thread::sleep(Duration::from_millis(20));
         }
         self.runtime.stopping.store(true, Ordering::SeqCst);
-        let _ = acceptor.join();
-        Ok(())
+        acceptor
+            .join()
+            .map_err(|_| io::Error::other("tools acceptor failed"))?
     }
 }
 
@@ -840,5 +891,81 @@ mod panic_boundary_tests {
                 std::thread::sleep(Duration::from_millis(1));
             }
         }
+    }
+    #[test]
+    fn accept_errors_back_off_count_and_reset_only_after_a_connection() {
+        let mut errors = AcceptErrors::default();
+        assert_eq!(errors.failed().unwrap(), Duration::from_millis(25));
+        assert_eq!(errors.failed().unwrap(), Duration::from_millis(50));
+        errors.consecutive = 0;
+        assert_eq!(errors.failed().unwrap(), Duration::from_millis(25));
+        assert_eq!(errors.total, 3);
+        for _ in 1..MAX_ACCEPT_ERRORS - 1 {
+            let wait = errors.failed().unwrap();
+            assert!((Duration::from_millis(25)..=Duration::from_millis(250)).contains(&wait));
+        }
+        assert!(errors.failed().is_err());
+        assert_eq!(errors.consecutive, MAX_ACCEPT_ERRORS);
+    }
+
+    #[test]
+    fn persistent_accept_failure_stops_the_service_and_removes_its_run_files() {
+        let home = tempfile::tempdir().unwrap();
+        fs::create_dir(home.path().join("state")).unwrap();
+        let service =
+            Service::bind(home.path(), &uuid::Uuid::new_v4().to_string(), Vec::new()).unwrap();
+        let runtime = service.runtime.clone();
+        let attempts = Arc::new(AtomicUsize::new(0));
+        let seen = attempts.clone();
+        let started = Instant::now();
+        let result = service.serve_accept(false, Duration::from_secs(60), move |_| {
+            seen.fetch_add(1, Ordering::SeqCst);
+            Err(io::Error::other("synthetic accept resource exhaustion"))
+        });
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("accept error limit"));
+        assert_eq!(attempts.load(Ordering::SeqCst), MAX_ACCEPT_ERRORS as usize);
+        assert!(started.elapsed() >= Duration::from_millis(25));
+        assert!(runtime.stopping.load(Ordering::SeqCst));
+        for name in ["tools.pid", "tools.token", "tools-core.token", "tools.sock"] {
+            assert!(!home.path().join("run").join(name).exists());
+        }
+        let replacement =
+            Service::bind(home.path(), &uuid::Uuid::new_v4().to_string(), Vec::new()).unwrap();
+        drop(replacement);
+    }
+
+    #[test]
+    fn one_successful_accept_resets_the_fatal_error_budget_but_an_idle_timeout_does_not() {
+        let home = tempfile::tempdir().unwrap();
+        fs::create_dir(home.path().join("state")).unwrap();
+        let service =
+            Service::bind(home.path(), &uuid::Uuid::new_v4().to_string(), Vec::new()).unwrap();
+        let attempts = Arc::new(AtomicUsize::new(0));
+        let seen = attempts.clone();
+        let result = service.serve_accept(false, Duration::from_secs(60), move |_| {
+            let attempt = seen.fetch_add(1, Ordering::SeqCst) + 1;
+            if attempt == MAX_ACCEPT_ERRORS as usize {
+                return Ok(Some(Accepted {
+                    peer_pid: None,
+                    reader: Box::new(io::empty()),
+                    writer: Box::new(io::sink()),
+                    closer: Arc::new(|| {}),
+                    drain: Box::new(|| {}),
+                    read_timeout: Box::new(|_| Ok(())),
+                }));
+            }
+            if attempt == MAX_ACCEPT_ERRORS as usize + 2 {
+                return Ok(None);
+            }
+            Err(io::Error::other("synthetic transient accept failure"))
+        });
+        assert!(result.is_err());
+        assert_eq!(
+            attempts.load(Ordering::SeqCst),
+            2 * MAX_ACCEPT_ERRORS as usize + 1
+        );
     }
 }

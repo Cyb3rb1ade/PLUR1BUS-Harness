@@ -11,6 +11,7 @@ import {
   RpcCallError,
   unitAddress,
   type CoreClient,
+  type HarnessLogger,
 } from "@plur1bus/module-api";
 import {
   validateResult,
@@ -19,6 +20,9 @@ import {
 } from "@plur1bus/rpc-schema";
 import { helperPinned } from "../attestation/helper.ts";
 import { RpcError } from "../rpc/errors.ts";
+import { toolsPipeServerPid } from "./pipe-peer.ts";
+import { toolsEnvironment } from "./environment.ts";
+import { openToolsLog } from "./stderr-log.ts";
 
 /** Local lifecycle options; no registered secret values are accepted. */
 export interface ToolsClientOptions {
@@ -26,6 +30,8 @@ export interface ToolsClientOptions {
   supervised: boolean;
   orphanGraceMs?: number;
   binary?: string;
+  /** Native CLI for the credential-free Windows pipe peer lookup. The CLI normally sets PLUR1BUS_NATIVE_BIN. */
+  nativeBinary?: string;
   pollIntervalMs?: number;
 }
 
@@ -39,28 +45,7 @@ interface ToolsChannel {
   connecting: Promise<CoreClient> | undefined;
 }
 
-/** Minimal OS environment, including Windows loader basics; excludes all provider and application credentials. */
-export function toolsEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const allowed = [
-    "PATH",
-    "HOME",
-    "USERPROFILE",
-    "SystemRoot",
-    "SYSTEMROOT",
-    "WINDIR",
-    "TEMP",
-    "TMP",
-    "TMPDIR",
-    "LANG",
-    "LC_ALL",
-    "CI",
-  ];
-  return Object.fromEntries(
-    allowed.flatMap((name) =>
-      env[name] === undefined ? [] : [[name, env[name]]],
-    ),
-  );
-}
+export { toolsEnvironment } from "./environment.ts";
 
 function binaryPath(options: ToolsClientOptions): string {
   if (options.binary !== undefined) return options.binary;
@@ -69,6 +54,11 @@ function binaryPath(options: ToolsClientOptions): string {
   return process.env.PLUR1BUS_NATIVE_BIN
     ? join(dirname(process.env.PLUR1BUS_NATIVE_BIN), name)
     : join(options.home, "runtime", "bin", name);
+}
+
+function nativeCliPath(options: ToolsClientOptions): string {
+  // Direct Core embeddings may supply only the tools path; the shipped release pair keeps its CLI beside it.
+  return options.nativeBinary ?? process.env.PLUR1BUS_NATIVE_BIN ?? join(dirname(binaryPath(options)), "plur1bus.exe");
 }
 
 function recordedServerPid(home: string): { expectedServerPid?: number } {
@@ -90,6 +80,7 @@ export class ToolsClient {
     connecting: undefined,
   };
   private child: ChildProcess | undefined;
+  private stderrLog: HarnessLogger | undefined;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private cached: ToolsServiceStatus = {
     ready: false,
@@ -212,6 +203,9 @@ export class ToolsClient {
           ticketKey: this.key.toString("hex"),
           signal: this.abort.signal,
           ...recordedServerPid(this.options.home),
+          ...(process.platform === "win32"
+            ? { serverPidOf: (socket) => toolsPipeServerPid(socket, nativeCliPath(this.options)) }
+            : {}),
           connectTimeoutMs: 300,
           callTimeoutMs: 1000,
           handshakeTimeoutMs: 1000,
@@ -245,6 +239,7 @@ export class ToolsClient {
     if (this.child || Date.now() < this.nextSpawnAt) return;
     const binary = binaryPath(this.options);
     if (!isAbsolute(binary) || !helperPinned(binary)) throw unavailable();
+    this.stderrLog ??= openToolsLog(this.options.home);
     const child = spawn(
       binary,
       [
@@ -257,11 +252,15 @@ export class ToolsClient {
         String(this.options.orphanGraceMs ?? 10_000),
       ],
       {
-        stdio: ["pipe", "ignore", "ignore"],
+        stdio: ["pipe", "ignore", "pipe"],
         windowsHide: true,
         env: toolsEnvironment(process.env),
       },
     );
+    child.stderr?.on("data", (chunk: Buffer) => {
+      // Bound every record; JSON quoting prevents child output from forging a log record.
+      this.stderrLog?.error(chunk.subarray(0, 8192).toString("utf8"), { source: "tools-stderr" });
+    });
     child.stdin?.on("error", () => {
       /* A crashed child can close its lifeline before shutdown finishes. */
     });
@@ -284,7 +283,7 @@ export class ToolsClient {
 
   /** Close transport, erase the key, and stop/reap a standalone child unless a supervisor adopted it. */
   close(): Promise<void> {
-    this.closing ??= this.stop();
+    this.closing ??= this.stop().finally(async () => { await this.stderrLog?.close(); });
     return this.closing;
   }
 
@@ -330,6 +329,9 @@ export class ToolsClient {
       endpoint: "module",
       token: readRunToken(this.options.home, join(run, "tools.token")),
       ...recordedServerPid(this.options.home),
+      ...(process.platform === "win32"
+        ? { serverPidOf: (socket) => toolsPipeServerPid(socket, nativeCliPath(this.options)) }
+        : {}),
       connectTimeoutMs: 300,
       callTimeoutMs: 300,
     });
