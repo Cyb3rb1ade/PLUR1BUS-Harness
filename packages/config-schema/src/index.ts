@@ -30,12 +30,28 @@ export interface McpServerConfig {
   agents: "all" | string[];
 }
 
+/** D124 classes govern work rounds and deadlines independently of the bounded return summary. */
+export type CollaborationTaskClass = 'consult' | 'research' | 'review' | 'code-small' | 'code-large';
+export interface CollaborationLimitsConfig {
+  readHelpers: { perTurn: number; depth: number };
+  writers: { perProject: number };
+  consults: { perPairPerTurn: number };
+  workTokens: number;
+  taskClasses: Record<CollaborationTaskClass, { rounds: number; wallTimeMs: number; stallTimeMs: number }>;
+}
+export interface CollaborationTeamsConfig {
+  enabled: boolean;
+  capacity: { coresPerWriter: number; memoryPerWriter: number; maxWriters?: number };
+  disk: { minFreeBytes: number };
+}
+
 export interface HarnessConfig {
+  a2aClient?: { enabled: boolean; timeoutMs: number; maxCardBytes: number; maxRequestBytes: number; maxReplyBytes: number; maxPeers: number; peerCalls: number; turnCalls: number; peerTokens: number; turnTokens: number };
   import?: { ssh?: { connections?: Record<string, {
     host: string; port: number; user: string; roots: string[]; allowPrivate: boolean;
     hostKey?: { sha256: string; algorithm?: string };
   }> } };
-  collaboration: { fanoutEnabled: boolean };
+  collaboration: { fanoutEnabled: boolean; limits: CollaborationLimitsConfig; teams: CollaborationTeamsConfig };
   remote?: {publish:"local"|"tailnet"|"network";tls:"self-signed"|"company-ca";publicOrigin?:string;bind:{address?:string;port?:number;allowPublicInterface?:boolean};allowSubnets:string[];noticeAck?:{by:string;at:number;version:1}};
   approvals?: { maxGrantDays: number; requireOsConfirmation: boolean };
   breakglass?: { reasonMinChars: number; reasonMaxChars: number; maxWindowMinutes: number };

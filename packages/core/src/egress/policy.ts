@@ -89,7 +89,7 @@ export function compileEgressPolicy(cfg: EgressConfig): EgressPolicy {
 }
 
 /** `host` is a URL hostname (lowercase, brackets on IPv6). */
-export function hostAllowed(p: EgressPolicy, host: string, opts: { explicitOnly?: boolean } = {}): boolean {
+export function hostAllowed(p: EgressPolicy, host: string, opts: { explicitOnly?: boolean; exactOnly?: boolean } = {}): boolean {
   let h = host.toLowerCase();
   if (h.endsWith(".")) h = h.slice(0, -1);
   const lit = parseAddress(h);
@@ -97,5 +97,6 @@ export function hostAllowed(p: EgressPolicy, host: string, opts: { explicitOnly?
     const addr = formatAddress(canonical(lit));
     return p.hostRules.some((r) => r.kind === "ip" && r.address === addr);
   }
-  return p.hostRules.some((r) => (r.kind === "any-name" ? opts.explicitOnly !== true : r.kind === "exact" ? r.host === h : r.kind === "suffix" ? h.endsWith(`.${r.suffix}`) : false));
+  return p.hostRules.some((r) => opts.exactOnly ? r.kind === "exact" && r.host === h
+    : (r.kind === "any-name" ? opts.explicitOnly !== true : r.kind === "exact" ? r.host === h : r.kind === "suffix" ? h.endsWith(`.${r.suffix}`) : false));
 }

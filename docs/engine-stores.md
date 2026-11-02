@@ -291,6 +291,35 @@ incorrect: both existing lock layouts are implemented without replacement or mig
 `checkpoint-store.js` is an in-memory checkpoint map. `store::checkpoint` preserves its timestamp and digest behavior;
 it introduces no persisted checkpoint file. Existing file-based hook/re-embedding states use `StateFile` as above.
 
+## Recall rendering and maintenance (RE-04/T5)
+
+T5 receives already selected rows through `SelectedRecallPipeline`; it does not depend on the
+separate T4 branch. `assemble_context` forwards `recall.maxPromptMemories` (default 12, bounded
+1–100) and numeric `summaryMaxWords` (default 150, including decimal/exponent encodings). Rendering returns the original `neo`, `start`,
+`memories`, `time`, `temporal` and `reminder` blocks with UTF-16 `chars`. The inner memories cap
+runs before the aggregate host plan; callers join using `inject_budget::plan` so the original
+block array is not capped twice. `tokensEstimate` is absent, matching Node.
+
+The renderer writes no store, session, reminder, Neo or ledger files. `RenderEffects` carries
+caller-owned presentation intents; CA5 supplies `NeoPrelude`, and RE-08 supplies the selected
+pipeline and maintenance composition. `maintenance::record_retrieval` checks the canonical
+request and patches only `retrievalCount` and `lastRetrievedAt`. Its warm mode returns before
+opening a row. `WarmRecall` exposes only existing read-only leases and forwards memory-only
+embedding/no-ledger/no-summary/no-emotion flags. Tests also run a native read-only vector query
+and compare every database file, row and existing ledger byte. RE-08 must honor these flags for
+every embedding identity; T5 does not wire the persistent provider service itself.
+
+Semantic Lens hydration checks each raw row with the same T1 `check_access` as CRR hydration,
+before quotas or projection. Rejected rows generate no prompt text, ledger data, log or counter.
+This is the sole controller-authorized exception to the Node pin, documented in the
+[stop report](superpowers/plans/rust-engine/RE-04-T5-semantic-lens-acl-stop.md) and marked only
+on the four affected runtime cases in the [T5 fixture README](../crates/plur1bus-engine/tests/fixtures/recall/golden/render/README.md).
+Node itself is unchanged. Full trace normalization, timing, deadlines and degraded orchestration
+remain RE-04/T6; durable reminder/session workflows remain with their owning RE-05/RE-06/RE-07 tasks.
+
+The [T5 review rulings](superpowers/plans/rust-engine/RE-04-T5-review-rulings.md) record
+the single fix pass, remaining owning-task boundaries and the protected T0 zero-word follow-up.
+
 ## Fixtures and upgrades
 
 Run from the repository root with Node 24.21, pnpm 10 and Rust 1.95 available:

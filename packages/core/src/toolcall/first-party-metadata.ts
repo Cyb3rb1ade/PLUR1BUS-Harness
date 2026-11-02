@@ -30,6 +30,8 @@ const EXPLICIT: Readonly<Record<string, Discovery>> = {
     "Transform supplied visual media with the configured editing backend."),
   consult_agent: metadata("project.delegate", "Ask an authorized project peer for advice.",
     "Get focused advice from a peer while retaining ownership of the current task."),
+  await_delegations: metadata("project.delegate", "Collect finished results from delegations started by this turn.",
+    "Use after nonblocking consult_agent or delegate_task starts.", "Does not start or approve work."),
   delegate_task: metadata("project.delegate", "Delegate an authorized project task through the shared target port.",
     "Assign a bounded independent task to another available agent."),
   request_review: metadata("code.review", "Request independent project peer review with evidence.",
