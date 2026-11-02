@@ -2,6 +2,7 @@ import type { ChatProvider } from "../session/provider.ts";
 import { FakeChatProvider } from "../session/provider.ts";
 import { estimateTokens, truncateWithPointer } from "../session/compaction.ts";
 import type { Principal } from "../rbac/types.ts";
+import { withoutAgentScope } from "../agents/scope.ts";
 import { DEFAULT_COLLAB_SETTINGS, SPAN_PREVIEW_CHARS } from "./defaults.ts";
 import { CollabError, type GuardrailReason } from "./errors.ts";
 import { evaluateGuardrails } from "./guardrails.ts";
@@ -56,6 +57,8 @@ interface Chain {
 export interface Collab {
   readonly boardStore: import("./board.ts").ProjectBoardStore;
   boardProject(id: string): Project | null;
+  /** Authoritative target metadata; names in the reserved A2A namespace remain foreign after revocation. */
+  isA2aAgent(id: string): boolean;
   close(): void;
   /** Aborts every chain, waits up to `budgetMs` (default 5 s) for in-flight runs, then abandons the rest (`chain.abandoned`). */
   shutdown(budgetMs?: number): Promise<void>;
@@ -86,6 +89,15 @@ export function createCollab(o: CollabOptions): Collab {
   const emit = o.emit ?? noopEmitter();
   const scope = o.scope ?? alsAgentScopePort();
   const directory = o.directory ?? activeDirectory();
+  const isA2aAgent = (id: string): boolean => {
+    const target = directory.get(id);
+    return id.startsWith("a2a:") || target?.origin === "a2a" || target?.targetKind === "a2a";
+  };
+  const requireA2aOwner = (principal: Principal, id: string): void => {
+    if (isA2aAgent(id) && (principal.kind !== "person" || principal.role !== "owner")) {
+      throw new CollabError("unauthorized", "A2A assignment and execution require an Owner person");
+    }
+  };
   const artifacts: ArtifactPort = o.artifacts ?? {
     put: (a) => store.putArtifact(a.projectId, a.body, a.contentType ?? "text/plain"),
     get: (id) => store.getArtifact(id),
@@ -262,23 +274,25 @@ export function createCollab(o: CollabOptions): Collab {
     if (!b.allowed) refuse(chain, { agentId: i.toAgent, parentSpanId: i.parentSpanId, reason: b.reason, detail: `guardrail ${b.reason}` });
   };
 
-  const runTarget = async (chain: Chain, project: Project, toAgent: string, question: string, context: string, signal: AbortSignal, principal?: Principal, handoff?: import("./runner.ts").AgentRunInput["handoff"], hop?: { spanId: string; fromAgent: string }): Promise<import("./runner.ts").AgentRunResult> => {
+  const runTarget = async (chain: Chain, project: Project, toAgent: string, question: string, context: string, signal: AbortSignal, principal?: Principal, handoff?: import("./runner.ts").AgentRunInput["handoff"], hop?: { spanId: string; fromAgent: string }, outbound?: import("./runner.ts").AgentRunInput["outbound"]): Promise<import("./runner.ts").AgentRunResult> => {
     if (handoff) {
       const remaining = Math.max(1, Math.min(300000, Date.parse(handoff.contract.budget.deadline) - store.now()));
       signal = AbortSignal.any([signal, AbortSignal.timeout(remaining)]);
     }
     const sc = scopeFor(toAgent, project.id);
-    const sessions = o.sessions?.();
+    const external = directory.get(toAgent)?.targetKind === "external";
+    const sessions = external ? undefined : o.sessions?.();
     const session = sessions && hop ? sessions.createSession({ kind: 'project', agentId: toAgent, owner: `collab-project:${project.id}`, scope: project.id, title: `Delegation ${hop.fromAgent} → ${toAgent}` }) : null;
     const turn = session && sessions ? sessions.beginTurn(session.id, redact.text(question), estimateTokens(question)).turn : null;
     if (session && hop) store.bindSession(hop.spanId, session.id);
     if (turn && sessions && handoff) sessions.appendEvent(turn.id, 'tool.result', { kind: 'tool_result', trust: 'untrusted', provenance: { traceId: chain.traceId, fromAgent: hop!.fromAgent }, handoff: redact.value(handoff.contract) });
-    const execute = () => scope.run(sc, async () => {
-      if (!scope.current() || scope.current()!.agentId !== toAgent) {
+    const runScoped = <T>(run: () => Promise<T>): Promise<T> => external ? withoutAgentScope(run) : scope.run(sc, run);
+    const execute = () => runScoped(async () => {
+      if (!external && (!scope.current() || scope.current()!.agentId !== toAgent)) {
         throw new CollabError("no-scope", "AgentScope is required; unscoped access is refused");
       }
       const origin = hop ? { origin: { fromAgent: hop.fromAgent, traceId: chain.traceId, spanId: hop.spanId } } : {};
-      if (!handoff) return runner.run({ ...(session ? { sessionId: session.id } : {}), agentId: toAgent, question, context, signal, ...(principal ? { principal } : {}), ...origin });
+      if (!handoff) return runner.run({ ...(session ? { sessionId: session.id } : {}), agentId: toAgent, question, context, signal, ...(principal ? { principal } : {}), ...origin, ...(outbound ? { outbound } : {}) });
       let progress = { text: "", inputTokens: 0, outputTokens: 0 };
       let detach = () => {};
       const aborted = new Promise<import("./runner.ts").AgentRunResult>(resolve => {
@@ -288,7 +302,7 @@ export function createCollab(o: CollabOptions): Collab {
       });
       if (signal.aborted) return { ...progress, partial: true };
       try {
-        return await Promise.race([runner.run({ ...(session ? { sessionId: session.id } : {}), agentId: toAgent, question, context, signal, ...(principal ? { principal } : {}), ...origin, ...(handoff ? { handoff } : {}), onTranscript: entry => { if (turn && sessions && !signal.aborted && !storeClosed) sessions.appendEvent(turn.id, 'tool.result', { kind: 'tool_result', trust: 'untrusted', provenance: { traceId: chain.traceId, spanId: hop!.spanId, agentId: toAgent }, entry: redact.value(entry) }); }, onProgress: p => { if (!signal.aborted) progress = { ...p }; } }), aborted]);
+        return await Promise.race([runner.run({ ...(session ? { sessionId: session.id } : {}), agentId: toAgent, question, context, signal, ...(principal ? { principal } : {}), ...origin, ...(outbound ? { outbound } : {}), ...(handoff ? { handoff } : {}), onTranscript: entry => { if (turn && sessions && !signal.aborted && !storeClosed) sessions.appendEvent(turn.id, 'tool.result', { kind: 'tool_result', trust: 'untrusted', provenance: { traceId: chain.traceId, spanId: hop!.spanId, agentId: toAgent }, entry: redact.value(entry) }); }, onProgress: p => { if (!signal.aborted) progress = { ...p }; } }), aborted]);
       } finally { detach(); }
     });
     try {
@@ -332,6 +346,7 @@ export function createCollab(o: CollabOptions): Collab {
 
     boardStore: store.board,
     boardProject: id => store.getProject(id),
+    isA2aAgent,
     createProject(principal, input) {
       const id = store.id("prj");
       authz(principal, "project.write", { kind: "project", projectId: id });
@@ -376,6 +391,7 @@ export function createCollab(o: CollabOptions): Collab {
     },
 
     addAgent(principal, projectId, agentId) {
+      requireA2aOwner(principal, agentId);
       authz(principal, "project.write", { kind: "project", projectId });
       const p = store.addAgent(projectId, agentId);
       fire({ type: "project.agent.added", projectId, data: { agentId } });
@@ -390,6 +406,7 @@ export function createCollab(o: CollabOptions): Collab {
     },
 
     async consult(input) {
+      requireA2aOwner(input.principal, input.toAgent);
       if (!input.question.trim()) throw new CollabError("invalid", "question is required", { reason: "question" });
       authz(input.principal, "project.write", { kind: "project", projectId: input.projectId });
       const project = liveProject(input.projectId);
@@ -417,11 +434,11 @@ export function createCollab(o: CollabOptions): Collab {
       const signal = chainSignal(chain, local.signal);
       if (input.signal?.aborted || chain.abort.signal.aborted) local.abort(new Error("aborted"));
       try {
-        const out = await runTarget(chain, project, input.toAgent, input.question, input.context, signal, input.principal, input.handoff, { spanId, fromAgent: input.fromAgent });
+        const out = await runTarget(chain, project, input.toAgent, input.question, input.context, signal, input.principal, input.handoff, { spanId, fromAgent: input.fromAgent }, input.outbound);
         chain.tokensUsed += out.inputTokens + out.outputTokens;
         budget.record({ tokens: out.inputTokens + out.outputTokens, projectId: project.id, agentId: input.toAgent, chainId: chain.traceId });
         store.finishSpan(spanId, {
-          status: out.partial ? "partial" : "succeeded", outputPreview: preview(out.text), inputTokens: out.inputTokens, outputTokens: out.outputTokens, ...(out.targetKind ? { targetKind: out.targetKind } : {}),
+          status: out.partial ? "partial" : "succeeded", outputPreview: preview(out.text), inputTokens: out.inputTokens, outputTokens: out.outputTokens, ...(out.targetKind ? { targetKind: out.targetKind } : {}), ...(out.origin ? { origin: out.origin } : {}),
         });
         fire({ type: "consult.finished", projectId: project.id, traceId: chain.traceId, agentId: input.toAgent, data: { spanId, status: "succeeded" } });
         return {
@@ -429,7 +446,7 @@ export function createCollab(o: CollabOptions): Collab {
           text: out.text,
           provenance: {
             agentId: input.toAgent, projectId: project.id, traceId: chain.traceId, spanId,
-            at: store.now(), cost: { inputTokens: out.inputTokens, outputTokens: out.outputTokens }, targetKind: out.targetKind ?? "local",
+            at: store.now(), cost: { inputTokens: out.inputTokens, outputTokens: out.outputTokens }, targetKind: out.targetKind ?? "local", ...(out.origin ? { origin: out.origin } : {}),
           },
           path: childPath,
           traceId: chain.traceId,
@@ -453,6 +470,7 @@ export function createCollab(o: CollabOptions): Collab {
     },
 
     delegate(input) {
+      requireA2aOwner(input.principal, input.toAgent);
       if (!input.task.trim()) throw new CollabError("invalid", "task is required", { reason: "task" });
       authz(input.principal, "project.write", { kind: "project", projectId: input.projectId });
       const project = liveProject(input.projectId);
@@ -490,7 +508,7 @@ export function createCollab(o: CollabOptions): Collab {
         fire({ type: "delegate.started", projectId: project.id, traceId: chain.traceId, agentId: input.toAgent, data: { taskId, spanId } });
         try {
           const prompt = `${input.task}\n\nAcceptance criteria:\n${input.acceptanceCriteria}`;
-          const out = await runTarget(chain, project, input.toAgent, prompt, "", signal, input.principal, input.handoff, { spanId, fromAgent: input.fromAgent });
+          const out = await runTarget(chain, project, input.toAgent, prompt, "", signal, input.principal, input.handoff, { spanId, fromAgent: input.fromAgent }, input.outbound);
           chain.tokensUsed += out.inputTokens + out.outputTokens;
           budget.record({ tokens: out.inputTokens + out.outputTokens, projectId: project.id, agentId: input.toAgent, chainId: chain.traceId });
           const art = artifacts.put({ projectId: project.id, body: out.text, contentType: "text/plain" });
@@ -498,10 +516,10 @@ export function createCollab(o: CollabOptions): Collab {
           const result = cap.text;
           const finished = store.updateTask(taskId, {
             status: out.partial ? "cancelled" : "succeeded", error: out.partial ? "partial" : null, result, truncated: cap.truncated, artifactId: art.id,
-            inputTokens: out.inputTokens, outputTokens: out.outputTokens, ...(out.targetKind ? { targetKind: out.targetKind } : {}),
+            inputTokens: out.inputTokens, outputTokens: out.outputTokens, ...(out.targetKind ? { targetKind: out.targetKind } : {}), ...(out.origin ? { origin: out.origin } : {}),
           });
           store.finishSpan(spanId, {
-            status: out.partial ? "partial" : "succeeded", outputPreview: preview(result), inputTokens: out.inputTokens, outputTokens: out.outputTokens, ...(out.targetKind ? { targetKind: out.targetKind } : {}),
+            status: out.partial ? "partial" : "succeeded", outputPreview: preview(result), inputTokens: out.inputTokens, outputTokens: out.outputTokens, ...(out.targetKind ? { targetKind: out.targetKind } : {}), ...(out.origin ? { origin: out.origin } : {}),
           });
           fire({ type: "delegate.finished", projectId: project.id, traceId: chain.traceId, agentId: input.toAgent, data: { taskId, status: out.partial ? "partial" : "succeeded", truncated: cap.truncated } });
           return finished;

@@ -122,6 +122,7 @@ export const MIGRATIONS: readonly string[] = [
   `,
   `ALTER TABLE spans ADD COLUMN session_id TEXT;`,
   `ALTER TABLE spans ADD COLUMN target_kind TEXT; ALTER TABLE tasks ADD COLUMN target_kind TEXT;`,
+  `ALTER TABLE spans ADD COLUMN origin TEXT; ALTER TABLE tasks ADD COLUMN origin TEXT;`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

@@ -25,6 +25,7 @@ const catalogue = (area: string): ActionSpec[] => [
 ];
 
 export const POLICY: readonly ActionSpec[] = Object.freeze([
+  humanOnly(spec("a2a.peers.manage", "system", { owner: A })),
   spec("chat:read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A }),
   spec("chat:write", "system", { owner: A, admin: A, operator: A, member: A }),
   spec("chat:delete", "system", { owner: A, admin: A, operator: A, member: A }),

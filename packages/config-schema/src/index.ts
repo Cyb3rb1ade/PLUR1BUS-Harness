@@ -31,6 +31,7 @@ export interface McpServerConfig {
 }
 
 export interface HarnessConfig {
+  a2aClient?: { enabled: boolean; timeoutMs: number; maxCardBytes: number; maxRequestBytes: number; maxReplyBytes: number; maxPeers: number; peerCalls: number; turnCalls: number; peerTokens: number; turnTokens: number };
   import?: { ssh?: { connections?: Record<string, {
     host: string; port: number; user: string; roots: string[]; allowPrivate: boolean;
     hostKey?: { sha256: string; algorithm?: string };

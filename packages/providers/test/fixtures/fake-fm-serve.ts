@@ -17,7 +17,8 @@ export interface FakeFmRequest {
 /** Boundary variants; no mode invokes a real executable or a model. */
 export interface FakeFmOptions {
   mode?: "text" | "tools" | "schema" | "overflow" | "stream-overflow" | "hang" | "hang-headers";
-  /** Native explicit stream:false is JSON; always-sse is a synthetic tolerance case. */
+  /** Measured text stream:false is JSON; tools/schema JSON shapes are synthetic (AF0 measured them only as SSE).
+   * always-sse is a synthetic tolerance case; the native tool/schema JSON shape remains open (L7). */
   format?: "native" | "always-sse";
   health?: unknown;
   models?: unknown;
