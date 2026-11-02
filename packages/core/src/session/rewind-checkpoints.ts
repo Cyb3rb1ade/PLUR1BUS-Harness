@@ -41,11 +41,16 @@ export function checkpointEnvironment(source: NodeJS.ProcessEnv, index?: string)
 async function git(root: string, args: readonly string[], options: {
   signal: AbortSignal; index?: string; config?: readonly string[]; env?: NodeJS.ProcessEnv;
 }): Promise<string> {
-  return checkpointGitProcess(["--no-pager", "--literal-pathspecs", "-c", "core.fsmonitor=false",
-    "-c", "commit.gpgSign=false", "-c", "tag.gpgSign=false",
-    "-c", `core.hooksPath=${devNull}`, "-c", `core.attributesFile=${devNull}`, ...options.config ?? [],
-    "-C", root, ...args], { signal: options.signal,
-    env: { ...checkpointEnvironment(process.env, options.index), ...options.env } });
+  try {
+    return await checkpointGitProcess(["--no-pager", "--literal-pathspecs", "-c", "core.fsmonitor=false",
+      "-c", "commit.gpgSign=false", "-c", "tag.gpgSign=false",
+      "-c", `core.hooksPath=${devNull}`, "-c", `core.attributesFile=${devNull}`, ...options.config ?? [],
+      "-C", root, ...args], { signal: options.signal,
+      env: { ...checkpointEnvironment(process.env, options.index), ...options.env } });
+  } catch (error) {
+    if (options.signal.aborted) throw error;
+    throw Object.assign(new SessionError("storage", "checkpoint Git failed", "rewind-checkpoint"), { cause: error });
+  }
 }
 
 function checkpointRef(sessionId: string, turnId: string): string {
@@ -92,6 +97,8 @@ async function workingIndex<T>(root: string, signal: AbortSignal,
 
 async function workingTree(root: string, signal: AbortSignal): Promise<{ tree: string; indexHash: string }> {
   return workingIndex(root, signal, async (options, indexHash) => {
+    // Remove unstaged deletions from the private index first: --renormalize alone tries to stat them and fails.
+    await git(root, ["add", "--update", "--", "."], options);
     // Re-read all tracked contents: a normal index may cache an EOL-normalized blob for an otherwise unchanged file.
     await git(root, ["add", "--renormalize", "--update", "--", "."], options);
     const tree = (await git(root, ["write-tree"], options)).trim();
@@ -171,7 +178,8 @@ export class RewindCheckpoints implements RewindFilesPort {
     let actual: string;
     try { actual = (await git(root, ["rev-parse", "--verify", "--quiet", row.ref], { signal })).trim(); }
     catch (error) {
-      if (error && typeof error === "object" && "code" in error && error.code === 1) return; // Interrupted ref publication or earlier completed cleanup.
+      const cause = error instanceof SessionError ? error.cause : error;
+      if (cause && typeof cause === "object" && "code" in cause && cause.code === 1) return; // Interrupted ref publication or earlier completed cleanup.
       throw error;
     }
     if (actual !== row.commitId) throw new SessionError("conflict", "checkpoint cleanup ref changed", "rewind-checkpoint");

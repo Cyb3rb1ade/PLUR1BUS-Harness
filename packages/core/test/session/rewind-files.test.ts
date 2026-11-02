@@ -50,6 +50,49 @@ function rig(approved: boolean, approval?: ApprovalPort & Required<Pick<Approval
     async close() { await checkpoints.close?.(); store.close(); rmSync(root, { recursive: true, force: true }); } };
 }
 
+test("an unstaged deletion can be captured and restored without changing the real index or HEAD", async () => {
+  const r = rig(true);
+  try {
+    const name = "gone file ü.txt";
+    writeFileSync(join(r.root, name), "original bytes\r\n");
+    r.git("add", name);
+    r.git("commit", "-qm", "tracked deletion fixture");
+    const index = readFileSync(join(r.root, ".git", "index"));
+    const head = r.git("rev-parse", "HEAD");
+    const first = r.store.beginTurn(r.session.id, "first edit", 1);
+    await r.checkpoints.capture({ sessionId: r.session.id, turnId: first.turn.id, personId: "owner",
+      signal: new AbortController().signal });
+    rmSync(join(r.root, name));
+    r.store.completeTurn(first.turn.id, { text: "removed a file", tokens: 1 });
+    const second = r.store.beginTurn(r.session.id, "continue the failed attempt", 1);
+    await r.checkpoints.capture({ sessionId: r.session.id, turnId: second.turn.id, personId: "owner",
+      signal: new AbortController().signal });
+    r.store.completeTurn(second.turn.id, { text: "still missing", tokens: 1 });
+    assert.equal(r.store.checkpoints(r.session.id).length, 2);
+    assert.deepEqual(readFileSync(join(r.root, ".git", "index")), index);
+    const service = new RewindService({ store: r.store, audit: r.audit, now: () => 42, files: r.checkpoints });
+    await service.rewind({ sessionId: r.session.id, toSeq: 0, lesson: "Keep the required file.", actor: "owner",
+      files: true, approver: { person: "owner", surface: 2 } });
+    assert.equal(r.asks.length, 1);
+    assert.match(r.asks[0]!.diff ?? "", /gone file ü\.txt/);
+    assert.deepEqual(readFileSync(join(r.root, name)), Buffer.from("original bytes\r\n"));
+    assert.deepEqual(readFileSync(join(r.root, ".git", "index")), index);
+    assert.equal(r.git("rev-parse", "HEAD"), head);
+  } finally { await r.close(); }
+});
+
+test("a failed checkpoint Git operation has the typed storage reason without exposing stderr", async () => {
+  const r = rig(true);
+  try {
+    const first = r.store.beginTurn(r.session.id, "edit", 1);
+    rmSync(join(r.root, ".git"), { recursive: true, force: true });
+    await assert.rejects(r.checkpoints.capture({ sessionId: r.session.id, turnId: first.turn.id, personId: "owner",
+      signal: new AbortController().signal }), { name: "SessionError", code: "storage", reason: "rewind-checkpoint",
+      message: "checkpoint Git failed" });
+    assert.equal(r.asks.length, 0);
+  } finally { await r.close(); }
+});
+
 test("checkpoint projects default off: no snapshot, no grant request and a typed --files refusal", async () => {
   const r = rig(true, undefined, { projects: () => [] });
   try {

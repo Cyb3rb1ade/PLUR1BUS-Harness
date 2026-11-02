@@ -158,7 +158,9 @@ Its highest-precedence attributes disable filters, text/EOL normalization,
 encoding conversion and ident expansion, including drivers from included or
 worktree configuration. Capture re-reads tracked contents rather than reusing a
 cached normalized blob. Split-index dependencies are copied privately; the real
-index remains unchanged. An unavailable
+index remains unchanged. Unstaged deletions are removed from the private index before
+renormalization, so they can be captured and recreated on every supported Git version.
+Git failures use the typed `rewind-checkpoint` storage reason without exposing stderr. An unavailable
 checkpoint is logged and `--files` refuses rather than substituting HEAD.
 Incognito sessions create no file checkpoints.
 
