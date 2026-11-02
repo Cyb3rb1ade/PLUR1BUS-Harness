@@ -13,7 +13,7 @@ import { ServerCallContext, validateVersion } from "@a2a-js/sdk/server";
 import { createPolicyAudit } from "../../src/policy/audit.ts";
 import { grant, MemoryGrants } from "../policy/helpers.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
-import type { ApprovalAsk } from "../../src/tools/approval.ts";
+import type { ApprovalAnswer, ApprovalAsk } from "../../src/tools/approval.ts";
 
 const execution: A2aExecution = { person: "owner", agent: "main", session: "session", turn: "turn", project: "project", surface: 3, policy: {} };
 
@@ -45,7 +45,9 @@ it("negotiates A2A 1.0 through the SDK server version check on every HTTP reques
     await f.close();
   }
 });
-async function fixture(handler: RequestListener, options: Pick<PeerTransportDeps, "credential"> = {}) {
+async function fixture(handler: RequestListener, options: Pick<PeerTransportDeps, "credential"> & {
+  now?(): number; approve?(ask: ApprovalAsk): Promise<ApprovalAnswer>;
+} = {}) {
   const server = createServer(handler);
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
   const address = server.address(); assert.ok(address && typeof address === "object");
@@ -65,13 +67,87 @@ async function fixture(handler: RequestListener, options: Pick<PeerTransportDeps
   let localOnly = false, current = true;
   let pin = "127.0.0.1";
   const settings = { enabled: true, timeoutMs: 2000, maxCardBytes: 1024, maxRequestBytes: 1024, maxReplyBytes: 1024, peerCalls: 8, turnCalls: 16, peerTokens: 10000, turnTokens: 20000 };
-  const transport = new A2aPeerTransport({ ...options, settings: () => settings, localOnly: () => localOnly, now: Date.now, peerBudget, budget, audit,
+  const transport = new A2aPeerTransport({ ...(options.credential ? { credential: options.credential } : {}),
+    settings: () => settings, localOnly: () => localOnly, now: options.now ?? Date.now, peerBudget, budget, audit,
     egress: { async decide(raw) { urls.push(raw); return { allowed: true, host: "unresolvable.invalid", port: address.port, address: pin, family: 4 }; } },
-    dispatch: { grants, grantUse: { markUsed() {}, consumeOnce() { return true; } }, audit: createPolicyAudit({ sink: audit, clock: { now: Date.now } }), approvals: { async request(ask) { asks.push(ask.args); approvalDetails.push(ask); return { approved: true }; } } },
+    dispatch: { grants, grantUse: { markUsed() {}, consumeOnce() { return true; } }, audit: createPolicyAudit({ sink: audit, clock: { now: Date.now } }), approvals: { async request(ask) { asks.push(ask.args); approvalDetails.push(ask); return options.approve ? options.approve(ask) : { approved: true }; } } },
   });
   const request = (overrides: Partial<Parameters<A2aPeerTransport['request']>[1]> = {}) => transport.request(peer, { url, method: "GET", purpose: "card", execution, signal: new AbortController().signal, current: () => current, ...overrides });
   return { transport, peer, settings, request, audit, grants, asks, approvalDetails, urls, setPin: (v: string) => { pin = v; }, localOnly: () => { localOnly = true; }, revoke: () => { current = false; }, async close() { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); peerBudget.close(); budget.close(); store.close(); } };
 }
+
+it("excludes each approval wait from the network deadline, including a redirect", async () => {
+  let now = Date.now(), approvals = 0, requests = 0;
+  const f = await fixture((req, res) => {
+    assert.equal(approvals, ++requests, "a request needs its own completed approval");
+    if (req.url === "/card") { res.writeHead(302, { location: "/redirected" }); res.end(); }
+    else { res.setHeader("content-type", "application/json"); res.end("{}"); }
+  }, { now: () => now, async approve() { now += 60_000; approvals++; return { approved: true }; } });
+  try {
+    const reply = await f.request();
+    assert.equal(reply.status, 200);
+    assert.equal(approvals, 2);
+    assert.equal(requests, 2);
+  } finally { await f.close(); }
+});
+
+it("does not reset an exhausted network allowance at a redirect", async () => {
+  let now = Date.now(), requests = 0;
+  const f = await fixture((_req, res) => {
+    requests++; now += 2000;
+    res.writeHead(302, { location: "/redirected" }); res.end();
+  }, { now: () => now });
+  try {
+    await assert.rejects(f.request(), { code: "request-failed" });
+    assert.equal(requests, 1);
+    assert.equal(f.asks.length, 1, "an exhausted allowance cannot ask for another hop");
+  } finally { await f.close(); }
+});
+
+it("automatically times out an approved stalled request and closes its socket", { timeout: 5000 }, async t => {
+  let arrived!: () => void, disconnected!: () => void;
+  const arrival = new Promise<void>(resolve => { arrived = resolve; });
+  const closed = new Promise<void>(resolve => { disconnected = resolve; });
+  const f = await fixture((_req, res) => { res.once("close", disconnected); arrived(); });
+  t.after(() => f.close());
+  f.settings.timeoutMs = 1000;
+  const timedOut = assert.rejects(f.request(), error => {
+    assert.ok(error instanceof Error);
+    assert.ok(["request-failed", "aborted"].includes((error as { code?: string }).code ?? ""));
+    return true;
+  });
+  await arrival;
+  await timedOut;
+  await closed;
+  assert.equal(f.urls.length, 1);
+  assert.equal(f.asks.length, 1);
+});
+
+it("releases the preview lease before human waiting and leases afresh for traffic", async () => {
+  const preview = randomBytes(24).toString("base64url"), network = randomBytes(24).toString("base64url");
+  const active = new Set<string>(), released: string[] = [];
+  let leases = 0, hits = 0;
+  const f = await fixture((req, res) => {
+    hits++; assert.equal(req.headers.authorization, `Bearer ${network}`);
+    res.setHeader("content-type", "application/json"); res.end("{}");
+  }, {
+    async credential() {
+      const value = ++leases === 1 ? preview : network;
+      active.add(value);
+      return { value, release() { assert.ok(active.delete(value)); released.push(value); } };
+    },
+    async approve() { assert.equal(active.size, 0, "no lease survives the approval wait"); return { approved: true }; },
+  });
+  try {
+    await f.request();
+    assert.equal(hits, 1);
+    assert.equal(leases, 2);
+    assert.deepEqual(released, [preview, network]);
+    assert.equal(active.size, 0);
+    assert.ok(!JSON.stringify([f.approvalDetails, f.audit.events]).includes(preview));
+    assert.ok(!JSON.stringify([f.approvalDetails, f.audit.events]).includes(network));
+  } finally { await f.close(); }
+});
 
 it("shows a bounded decoded and redacted approval preview with recurring-job context", async () => {
   const value = randomBytes(32).toString("base64url");
@@ -94,7 +170,7 @@ it("shows a bounded decoded and redacted approval preview with recurring-job con
       assert.ok(!JSON.stringify(f.audit.events).includes(secret));
     }
     assert.ok(!JSON.stringify(f.audit.events).includes(objective));
-    assert.equal(released, 1);
+    assert.equal(released, 2, "preview and network leases are both released");
   } finally { await f.close(); }
 });
 
@@ -225,7 +301,7 @@ it("never includes a leased bearer or outgoing message in approval arguments, au
     await assert.rejects(f.request({ method: "POST", body: JSON.stringify({ question: marker }), purpose: "message" }), error => {
       assert.ok(error instanceof Error); assert.equal(error.message, "A2A peer request failed"); return true;
     });
-    assert.equal(hits, 1); assert.equal(released, 1);
+    assert.equal(hits, 1); assert.equal(released, 2, "preview and network leases are both released");
     assert.ok(!JSON.stringify([f.asks, f.audit.events]).includes(marker));
   } finally { await f.close(); }
 });

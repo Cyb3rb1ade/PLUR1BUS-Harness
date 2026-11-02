@@ -1,0 +1,235 @@
+# Profile Import and Foreign Plugin Compatibility Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans for the assigned worker lane; the parent coordinates the native supervisor, schema, remote-fs and UI lanes. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Implement profile import from new AI coding and chat tools into PLUR1BUS Core, Rust CLI (`crates/plur1bus`, planned source arguments for `plur1bus import [OPTIONS] <SOURCE_TYPE>`: `claude`, `cursor`, `codex`, `kimi`, `agy`, `gemini`), and Web UI (`ImportWizard`), and establish read-only foreign plugin manifest discovery and a native port pipeline per Owner Decisions D121 and D9.
+
+**Architecture:** Profile import extends `admin.import.*` and the existing `SourceReader`, ledger, and rollback facilities without writing to source hosts. Archive intake uses a hardened Rust extractor in `plur1bus-tools`. Foreign plugin compatibility strictly avoids emulation shims and execution bridges, upholding Decision D9 (*"Modules that would only work as an emulation are rewritten"*). Compatibility is achieved by extending the existing foreign plugin classifier in `packages/core/src/import/plugin-classification.ts` during OpenClaw/Hermes imports (5-way classification, local demand derived idempotently strictly from apply reports in `<home>/imports/*/report.json` without telemetry, exported via `plur1bus import export-demand`) and a 6-stage native port pipeline (license check requiring upstream attribution for permissive code and restricting copyleft to standalone add-ons, target form [Skill, MCP, `plur1bus-tools` module for official ports], behavior-derived blackbox tests, D109 capability declarations, human review per ext §11.3 `REVIEW.md` in catalogue repository `Cyb3rb1ade/plur1bus-extensions` [Standard PR review; Owner as required reviewer restricted to `extensions-release` GitHub Environment], signed catalog distribution via X4/X5 vs. sandboxed local ports from `plur1bus code`). All new Rust components are implemented by Claude agents per D120 / ADR-019 (1); TypeScript core extensions are justified under ADR-019 (3); the Web UI SPA is justified under ADR-019 (4).
+
+**Tech Stack:** Existing Node 24/Rust 1.95 workspace, existing Engine ports, `admin.import.*` RPC, `@plur1bus/remote-fs`, `crates/plur1bus-tools`, `crates/plur1bus`, React / Tailwind Web UI.
+
+**Spec & Register:** [`docs/superpowers/specs/2026-10-27-profile-import-and-plugin-compat-design.md`](../specs/2026-10-27-profile-import-and-plugin-compat-design.md), [`docs/research/2026-10-27-profile-and-extension-sources.md`](../../research/2026-10-27-profile-and-extension-sources.md), [`docs/import.md`](../../import.md), ADR-003, ADR-005, ADR-010, ADR-011, ADR-019 / D120, D121.
+
+---
+
+## 1. Global Constraints & Core Principles
+
+1. **D120 / ADR-019 Compliance:** Every NEW component is implemented in Rust, called by the TypeScript Core over RPC. All Rust packages are assigned to Claude agents, never Codex. TypeScript work packages (P-J2b, P-J2c, P-J2d, P-J2e, P-J4a) are justified under ADR-019 (3) as direct extensions of the existing TypeScript importer under `packages/core/src/import/` (with P-J4a split: TS Core agy / Rust CLI Claude Agent). The Web UI SPA (P-J3) is justified under ADR-019 (4).
+2. **Decision D9 and Owner Decision D121-J1:** Decision D9 ([`docs/superpowers/specs/2026-09-24-m1b-2a-core-daemon-cli-design.md`](../specs/2026-09-24-m1b-2a-core-daemon-cli-design.md#2-owner-decisions-carried-in-2026-09-24), line 23) states verbatim: *"No OpenClaw idiom crosses the engine boundary into the harness. Where the engine offers only an OpenClaw-shaped path, the engine gets a real API and the adapter becomes its consumer. Modules that would only work as an emulation are rewritten"* and quotes the owner: *"nicht so wirken, als hätten wir … eine OpenClaw-Emulationsschicht gebaut … Wenn wir dann ein Modul neu schreiben müssen, dann müssen wir ein Modul neu schreiben."* In accordance with Owner Decision D121-J1 (decided 2026-10-31), no compatibility shims or execution bridges are built. Foreign plugin compatibility is achieved exclusively via native ports and read-only manifest discovery during import. `packages/core` remains 100% clean of OpenClaw idioms under `HYG-001`.
+3. **Read-Only Source Host Access:** In accordance with `docs/import.md` §1, source filesystem access is strictly read-only (`O_NOFOLLOW` / `ReadonlyFs`). The importer never modifies, disables, or writes to source installations. Post-import actions are emitted solely as recommendations in the report for the human operator.
+4. **No Secret Migration & Strict Key Allowlisting (ADR-005, ADR-011):** Zero credential or token migration for the new sources. Credential files (`~/.codex/auth.json`, `~/.claude/.credentials.json`, Cursor `state.vscdb`) are prohibited from being opened or read. Automated spike-11 tests assert that no code path opens or reads credential files. Mixed file `~/.claude.json` is read strictly via a streaming key-allowlist extractor for `mcpServers` only; non-allowlisted keys are never retained or emitted. The desktop helper `host.importSnapshot` (D2, already on main per `apps/desktop/snapshot/import-snapshot.ts` and `docs/import.md` §12.3; extended under P-J2e) applies a producer-side key allowlist running the same extractors on the host and emits only extracted fields, excluding files matching credential patterns before transmission. Existing `createSnapshot` in `packages/core/src/import/snapshot.ts` already enforces credential deny-lists (`omittedCredentials`); P-J2e adds host-side key allowlisting for mixed files before transmission. Imported MCP servers reuse `import.mcp-candidate/1` (slot names preserved, env/args scrubbed, disabled by default).
+5. **D116 Confidentiality & User Scope:** All imported memories receive default confidentiality `vertraulich`, never `teilbar`. User-scoped memory cards require an authenticated, proven human principal (`trust: "proved"`); unauthenticated CLI invocations fail with `unresolved-user-scope` (no automatic fallback to agent-private scope per ADR-007 Q4).
+6. **Deterministic Conflict Detection & Zone 2 Safety:** Conflict detection for skills, MCP entries, and memory cards uses deterministic normalized SHA-256 hash matching (`matched-existing` -> skip) and normalized token overlap / Jaccard similarity (conflict reason `entry-conflict`; no `RULE_CONFLICT` error code exists). Reporting actions record `conflict-skip`, `rename`, `replace`, `created`, or `matched-existing` (matching `LedgerAction` in `packages/core/src/import/ledger.ts:20-35`). No cloud LLM inference is used for conflict detection. Strategy options: `--conflict skip | rename | replace` (default `skip`). In v1 under D121-J3 Option A:
+   - `--conflict` applies strictly to skills, MCP entries, and memory cards.
+   - Persona definitions and operating instructions are presented in preview and report as `instructions-not-imported` per Paket O with read-only copy-out.
+   - The importer never automatically writes, renames, replaces, or concatenates into Zone 2 files (`SOUL.md` and `AGENTS.md` are never written automatically in v1; `IDENTITY.md` is only updated with verified facts explicitly confirmed by the operator in preview).
+   - Input payload bounds: 512 KiB total input (`MAX_INPUT_BYTES`) and 4 000 characters per entry text (`MAX_ENTRY_CHARS`).
+7. **Hardened Selective Archive Intake:** Archive intake in `plur1bus-tools` uses `zipaudit::audit_zip` (using `crates/plur1bus-ext/src/zipaudit.rs`) to inspect `.zip` archive payloads upfront against custom `Limits`: 10 MiB per-entry limit (`entry_bytes: 10 * 1024 * 1024`), 100 MiB total uncompressed bytes (`package_bytes: 100 * 1024 * 1024`), a 100:1 decompression ratio ceiling (`max_ratio: 100`, matching `zipaudit` default), and max 20,000 entries (`max_entries: 20_000`, matching `zipaudit` default). Note that `Limits::default()` on main specifies 256 MiB / 128 MiB; 100 MiB and 10 MiB are custom `Limits` specified for profile intake. Archives exceeding caps are refused with the typed error reason `download-too-large` (`E_INVALID_PARAMS`); operators must pre-filter or unpack extensive dumps prior to intake. Paths with directory traversal (`..`), symlinks, or hardlinks are refused with typed error `archive-unsafe-entry`, and ZIP64 archives are refused with `archive-unsupported`. Selective extraction of allowlisted entries occurs strictly after upfront audit passes. For `.tar.gz`, intake is planned as a bounded streaming auditor in P-J2a enforcing the same caps on the sequential stream. Workspace dependencies reuse `tar`, `flate2`, and `zip`, and add a crate dependency on `plur1bus-ext` under workspace dependency policy.
+8. **Plugin Manifest Discovery during Import:** Reuses and extends `packages/core/src/import/plugin-classification.ts` during OpenClaw/Hermes imports, scanning manifests only (`openclaw.plugin.json`, `package.json`, `plugin.yaml`) and executing zero foreign code. Maps discovered plugins to 5 discrete categories planned under Spec J / P-J4a (`ImportDetection.classification` in `packages/rpc-schema/schema/rpc.schema.json`, expanding 3 states on main): 1. Unknown declaration (`unknown`, reason `incomplete-declaration`), 2. Non-portable with reason (`nonportable`), 3. Native equivalent available (`native-equivalent`), 4. Known MCP server available (`mcp-equivalent`), 5. Candidate for port (`port-candidate`; retiring `declared-bridge-parts` in favor of `declared-port-parts`). Foreign plugins are matched strictly by declared tool ID per A13, never by normalized plugin name. Unified catalog files reside in `packages/core/src/import/` (`native-equivalents.json` and `mcp-catalog.json`). Displays findings in preview and apply report (via an additive, versioned `plugins` field in `report.json`). Local demand counter is derived idempotently strictly from apply reports (`<home>/imports/*/report.json`) without external telemetry.
+9. **Native Port Pipeline:** 6-stage structured procedure: 1. License audit (permissive code requires upstream attribution in file header, `NOTICE`, or `THIRD_PARTY.md`; copyleft permitted only as standalone `.p1x` add-on in its own repository and barred from `plur1bus-tools`/harness binaries; unlicensed strictly prohibited), 2. Target form selection (Skill, MCP config, `plur1bus-tools` module for official ports), 3. Behavior-derived blackbox tests, 4. D109 capability declarations, 5. Human review per ext §11.3 `REVIEW.md` in catalogue repository `Cyb3rb1ade/plur1bus-extensions` (Standard PR review; Owner as required reviewer restricted to `extensions-release` GitHub Environment), 6. Signed catalog distribution via X4/X5 vs. sandboxed local ports from `plur1bus code` (tier `local`, D109 `ask` floor without bypass [`ceiling: once`], egress `none` default, `sandboxSpawn`, noting D106 Egress dependency).
+10. **Milestone Scoping:** Milestones M7b (12–18 ad), M7c (3–5 ad), and X3b (10–16 ad) sit outside the v0.1.0 total.
+
+---
+
+## 2. Work Packages and Execution Matrix
+
+| Package ID | Scope & Deliverables | Language | Executor | Estimate | Dependencies |
+|---|---|---|---|---|---|
+| **P-J1** | Research inventory, design specification, and implementation plan (D121). | Markdown | agy | 2 ad | None (Completed in PR #840) |
+| **P-J2a** | Rust archive intake & security audit in `plur1bus-tools`: upfront audit via `zipaudit::audit_zip` for `.zip`, planned bounded streaming auditor for `.tar.gz`, stream-select allowlisted entries, custom `Limits` (100 MiB package cap, 10 MiB entry cap, 100:1 ratio, 20,000 max entries), anti-zip-slip, symlink/hardlink ban. Called over harness RPC. | Rust | Claude Agent | 2–3 ad | P-J1, D120 H1 (`crates/plur1bus-tools`), `crates/plur1bus-ext` dependency (for `zipaudit` and `refusal`), verify dependency on existing workspace crates (`tar`, `flate2`, `zip`) |
+| **P-J2b** | Core profile parsers & mapping for new sources in `packages/core/src/import/profile/`: strict field-allowlists, `~/.claude.json` streaming extractor, `secret-file-names` protection, `import.mcp-candidate/1` integration, spike-11 credential ban test. Justified under ADR-019 (3). | TypeScript | agy / Codex / Claude | 4–6 ad | P-J1, #838 (`parse.ts` bounds, `parseMemoryExport`) |
+| **P-J2c** | Conflict detection engine (SHA-256 + token overlap / Jaccard similarity for skills/MCP/memory, options `skip` / `rename` / `replace`, conflict reason `entry-conflict`), `admin.import.*` RPC extensions (next free RPC minor version), and Rust CLI `plur1bus import [OPTIONS] <SOURCE_TYPE>` in `crates/plur1bus`. Justified under ADR-019 (3). | TypeScript + Rust | Claude Agent (Rust CLI) / agy (TS Core) | 3–4 ad | P-J2b |
+| **P-J2d** | Leak-sweep, redactor patterns (`sk-ant-`, JWT, OAuth refresh tokens), and offline test fixtures (synthetic non-Jina identities). Justified under ADR-019 (3). | TypeScript | agy | 1–2 ad | P-J2b |
+| **P-J2e** | Host-side allowlist snapshot producer in `apps/desktop/snapshot/` and `createSnapshot`. Extends `host.importSnapshot` (D2) with key allowlists for mixed files on host. Justified under ADR-019 (3). | TypeScript | agy / Codex | 2–3 ad | P-J2b |
+| **P-J3** | Web UI `ImportWizard` extension (M7c): add tiles for new tools, component checklist, side-by-side conflict resolution screen (skills/MCP/memory), read-only copy-out for persona/instructions, 5-state UI i18n labels, archive dropzone, report & rollback. Justified under ADR-019 (4). | TypeScript / React | agy / Codex | 3–5 ad | P-J2c |
+| **P-J4a** | Plugin manifest discovery in import: extend `packages/core/src/import/plugin-classification.ts` during OpenClaw/Hermes detect step; 5-way classification (`unknown`, `nonportable`, `native-equivalent`, `mcp-equivalent`, `port-candidate`) by declared tool ID per A13; preview and additive apply report integration; local demand derived strictly from apply reports; export command `plur1bus import export-demand`. Reuses `yaml-lite.ts`. Justified under ADR-019 (3). | TypeScript + Rust | Claude Agent (Rust CLI) / agy (TS Core) | 3–5 ad | M7 on main |
+| **P-J4b** | Port pipeline tooling & validation in `plur1bus-tools`: license auditor (attribution check for permissive, copyleft add-on segregation, unlicensed ban), target form selector (Skill, MCP, module), D109 capability validator, behavior test suite runner. Justified under ADR-019 (1). | Rust | Claude Agent | 2–3 ad | P-J4a, D120 H1 (`crates/plur1bus-tools`) |
+| **P-J4c** | Initial native ports: First wave of native ports based on Owner production setups (active plugin list) and public registries (Skills, MCP configs, or `plur1bus-tools` modules; cites D121-J7 decided 2026-11-01), behavior-derived tests, D109 declarations, human review per ext §11.3 `REVIEW.md` in catalogue repository `Cyb3rb1ade/plur1bus-extensions` (Standard PR review; Owner as required reviewer restricted to `extensions-release` GitHub Environment). | TypeScript / Rust | agy (TS) / Claude Agent (Rust) | 3–5 ad | P-J4b, X4/X5 (signed catalogue `extensions.plur1bus.app`) |
+| **P-J4d** | Integration in `plur1bus code`: Operator workflow for local unsigned ports (tier `local` in `trust.rs` symbol `Tier`, `ext-state.schema.json`, RPC), restricted to Skill or MCP server forms, D109 `ask` approval floor without grant bypass (`ceiling: once`), egress `none` default, sandboxed execution via `sandboxSpawn`, gated by D120 and D106 tool sandbox (noting D106 Egress dependency). | Rust / TypeScript | Claude Agent (Rust) / agy (TS) | 2–3 ad | P-J4c, D120 (`plur1bus code`), D106 tool sandbox, D106 Egress, MCP `sandboxSpawn` |
+
+---
+
+## 3. Detailed Work Package Specifications
+
+### P-J1: Specification and Plan (Spec J)
+- **Files:** `docs/superpowers/specs/2026-10-27-profile-import-and-plugin-compat-design.md`, `docs/research/2026-10-27-profile-and-extension-sources.md`, `docs/superpowers/plans/2026-10-31-profile-import-and-plugin-compat.md`, `docs/import.md`, `docs/milestones.md`, `docs/superpowers/specs/2026-09-27-extensions-ecosystem-design.md`.
+- **Tasks:**
+  - [x] Survey eleven external ecosystems with verified path facts, formats, and access methods.
+  - [x] Design mapping from external concepts to PLUR1BUS Zone 1, Zone 2, and Zone 3 structures.
+  - [x] Formulate D121 Owner Decision Table with binding owner decisions (D121-J1 to D121-J7).
+  - [x] Validate with `check-doc-links.mjs`, `lint-hygiene.mjs`, and `pnpm docs:check`.
+
+### P-J2a: Rust Archive Intake & Security Audit (`plur1bus-tools`)
+- **Assignee:** Claude Agent (Rust component per ADR-019 / D120).
+- **Scope:** Provide safe selective archive inspection and extraction for standard 32-bit `.zip` (ZIP64 is refused) and `.tar.gz` export packages, invoked over harness RPC through `plur1bus-tools` with JSON Schema types. Depends on D120 H1 (`crates/plur1bus-tools`).
+- **Constraints:**
+  - Upfront audit via `zipaudit::audit_zip` (using `crates/plur1bus-ext/src/zipaudit.rs`): parses central directory and hashes `.zip` archives upfront, enforcing custom `Limits`: 10 MiB decompressed size per single entry (`entry_bytes: 10 * 1024 * 1024`), 100 MiB total uncompressed bytes (`package_bytes: 100 * 1024 * 1024`), a 100:1 decompression ratio ceiling (`max_ratio: 100`, matching `zipaudit` default), and max 20,000 entries (`max_entries: 20_000`, matching `zipaudit` default). Note that `Limits::default()` on main specifies 256 MiB / 128 MiB; 100 MiB and 10 MiB are custom `Limits` specified for profile intake.
+  - Typed refusal reasons conform to `crates/plur1bus-ext/src/refusal.rs`: `download-too-large` (`E_INVALID_PARAMS`) for size/entry/ratio caps; `archive-unsafe-entry` for directory traversal (`..`), symlinks, hardlinks, or absolute target paths; `archive-unsupported` for ZIP64.
+  - Operators must pre-filter or unpack extensive dumps exceeding 100 MiB uncompressed payload prior to intake.
+  - Selective extraction: stream-selects allowlisted filenames required by detected parsers only after the archive passes audit. For `.tar.gz`, intake is planned as a bounded streaming auditor in P-J2a that enforces the same ratio, entry size, and total byte caps on the sequential stream, rejecting symlinks and hardlinks with `archive-unsafe-entry`.
+  - Workspace dependencies: adds `crates/plur1bus-ext` as crate dependency of `plur1bus-tools` for `zipaudit` and `refusal`; existing workspace crates (`tar`, `flate2`, `zip`) are reused under workspace dependency policy.
+- **Tasks:**
+  - [ ] Implement `ArchiveAuditor` in `crates/plur1bus-tools/src/archive.rs` using `zipaudit::audit_zip` for `.zip` and planned bounded streaming auditor for `.tar.gz`.
+  - [ ] Add `crates/plur1bus-ext` as dependency of `crates/plur1bus-tools` for `zipaudit` and `refusal`.
+  - [ ] Verify `plur1bus-tools` dependency on existing workspace crates (`tar`, `flate2`, `zip`) under dependency policy.
+  - [ ] Expose harness RPC interface with JSON Schema types for Core integration (ADR-019 (1)).
+  - [ ] Add unit tests for zip bomb, traversal attacks, symlinks/hardlinks, and corrupted headers validating typed refusal reasons (`download-too-large`, `archive-unsafe-entry`, `archive-unsupported`).
+
+### P-J2b: Core Profile Parsers & Mapping (`packages/core/src/import/profile/`)
+- **Scope:** Parsers for the new sources: Claude Code, OpenAI Codex, Cursor, Kimi, AGY/Gemini via direct file intake; Grok via user paste / prompt export; Grokbot dropped/unsupported. Depends on #838 (`packages/core/src/import/prompt/parse.ts` bounds and `parseMemoryExport`). Justified under ADR-019 (3) as a direct extension of the existing TypeScript importer under `packages/core/src/import/`.
+- **Constraints:**
+  - Strict key-allowlist parsers: parse only documented configuration and rule keys; discard all unrecognized fields.
+  - Credential file ban: never attempt to open or read `auth.json`, `.credentials.json`, private keys, or session tokens per `docs/import.md` §12.3. Cursor `state.vscdb` is strictly prohibited from being opened or read (Cursor user rules come in via paste/file drop).
+  - Mixed file handling: `~/.claude.json` is read strictly through a streaming key-allowlist extractor for `mcpServers` only; all other non-allowlisted keys are immediately dropped.
+  - Producer-side snapshot allowlist: `host.importSnapshot` (D2, already on main; extended in P-J2e) runs the same extractors on the host and transmits only extracted fields, excluding files matching credential patterns before archive creation (D90/D2).
+  - Read-only filesystem operations using `SourceReader` and `O_NOFOLLOW`.
+  - MCP server configs map to `import.mcp-candidate/1` (disabled by default, slot names kept, arguments and env values scrubbed).
+  - Default confidentiality level `vertraulich` for all imported memory cards.
+  - User-scoped memories require an authenticated proved human principal; unauthenticated CLI calls fail with `unresolved-user-scope` (no fallback to agent-private scope per ADR-007 Q4).
+  - In v1, instructions and personas are presented in preview and report as `instructions-not-imported` per Paket O with read-only copy-out.
+  - Zone 2 protection: mapper writes only verified `IDENTITY.md` facts (defined as operator-confirmed in preview; unreviewed statements go to user-scope memory in Zone 3) when targeting an existing agent, `USER.md` (under proved human principal), memory cards, skills, and MCP configurations. Never writes to `SOUL.md` or `AGENTS.md` automatically in v1, and never updates `IDENTITY.md` without operator preview.
+- **Tasks:**
+  - [ ] Implement source detectors and parsers in `packages/core/src/import/profile/`.
+  - [ ] Implement streaming key-allowlist parser for `~/.claude.json`.
+  - [ ] Write spike-11 test asserting that no code path attempts to read credential files.
+  - [ ] Add mixed-file sentinel test proving non-`mcpServers` fields never leak into logs, reports, or output.
+  - [ ] Implement mapping to `IDENTITY.md` (preview-gated), `USER.md`, memory cards, skills, and MCP configs, with read-only copy-out presentation for persona and instructions.
+
+### P-J2c: Conflict Engine, RPC & Rust CLI
+- **Scope:** Conflict detection for skills, MCP entries, and memory cards; `admin.import.*` RPC methods; and planned `plur1bus import [OPTIONS] <SOURCE_TYPE>` CLI additions. Justified under ADR-019 (3) as an extension of the existing TypeScript import pipeline.
+- **Constraints:**
+  - Deterministic conflict detection: exact normalized SHA-256 match -> `matched-existing` (skip); normalized token overlap / Jaccard similarity -> conflict reason `entry-conflict`.
+  - Distinction between detection reason `entry-conflict` in preview/plan and ledger actions: `conflict-skip`, `rename`, `replace`, `created`, `matched-existing` (matching `LedgerAction` in `packages/core/src/import/ledger.ts:20-35`).
+  - Zero cloud model dependencies for conflict detection; optional local engine embedding if available. Semantic opposition sharing no tokens is surfaced via side-by-side operator review.
+  - Extend `admin.import.*` namespace (detect, plan, apply, rollback) with the next free RPC minor version at implementation time.
+  - Rust CLI in `crates/plur1bus` (`src/cli.rs`, `src/commands/import.rs`) uses required positional `<SOURCE_TYPE>` grammar (`plur1bus import [OPTIONS] <SOURCE_TYPE>`). Planned new source arguments: `claude`, `cursor`, `codex`, `kimi`, `agy`, `gemini`. Planned flags: `--workspace`, `--archive`, `--agent` (for profile sources). Planned command: `plur1bus import export-demand [OUTPUT_PATH]`. Supported flags: `--apply`, `--rollback <REPORT>`, and `--conflict` (options: `skip`, `rename`, `replace`; default `skip`; dry-run is default without `--apply`). Report rollback targets `<home>/imports/<runId>/report.json`; `--rollback-run <RUN_ID>` is exclusive to `ssh` on main. Note: `plur1bus memory import-text` from #838 handles raw prompt imports.
+  - Semantics: `--conflict` applies to skills, MCP entries, and memory cards. `skip` drops incoming entry; `rename` writes disambiguated identifier (`<id>-<sourceType>` per `skills-import.ts:22`); `replace` overwrites existing component only upon explicit confirmation. Persona and instructions are never written to Zone 2.
+  - Exit codes pass through `ImportError.exit` (`packages/core/src/import/types.ts:19-22`, `source-reader.ts:148-151`): `0` success; `1` unhandled error; `2` `source-unreadable`, `E_INVALID_PARAMS`, missing source, or invalid flag combinations; `3` `file-too-large` (shares code 3 with daemon RPC error `E_LOCKED` mapped by `crates/plur1bus/src/output.rs:131`).
+- **Tasks:**
+  - [ ] Implement conflict detection in TypeScript core (ADR-019 (3) extension).
+  - [ ] Use conflict reason `entry-conflict` in import preview and record `conflict-skip`, `rename`, `replace`, `created`, or `matched-existing` in ledger and reports.
+  - [ ] Extend `admin.import.*` RPC schemas and handler methods.
+  - [ ] Implement planned sources for `plur1bus import [OPTIONS] <SOURCE_TYPE>` CLI subcommand in `crates/plur1bus`.
+
+### P-J2d: Leak-Sweep, Redactor & Parity Fixtures
+- **Scope:** Secrets redaction and test fixtures for all supported sources. Justified under ADR-019 (3).
+- **Constraints:**
+  - Extend redactor patterns for `sk-ant-`, JWT, OAuth refresh tokens, and private key blocks in `packages/core/src/logs/redact.ts` (ported from Rust `redact.rs`).
+  - Ensure synthetic, non-Jina embedding identities are used for all fixtures.
+- **Tasks:**
+  - [ ] Update `secret-file-names.ts` and port redactor regexes to `packages/core/src/logs/redact.ts`.
+  - [ ] Commit synthetic test fixtures for supported sources.
+  - [ ] Run automated leak-sweep verification across test outputs and reports.
+
+### P-J2e: Host-Side Allowlist Snapshot Producer (`apps/desktop/snapshot/`)
+- **Assignee:** agy / Codex (TypeScript component per ADR-019 (3)).
+- **Scope:** Extend `host.importSnapshot` (already on main per `apps/desktop/snapshot/import-snapshot.ts` and `docs/import.md` §12.3) with key-allowlist extractors running directly on the host, emitting only extracted fields (`mcpServers` for `~/.claude.json`, allowlisted sections for `config.toml`, `.cursorrules`, etc.). Existing `createSnapshot` in `packages/core/src/import/snapshot.ts` already enforces credential deny-lists (`omittedCredentials`); P-J2e adds host-side key allowlisting for mixed files before transmission. Depends on P-J2b.
+- **Tasks:**
+  - [ ] Implement host-side key-allowlist extractor in `apps/desktop/snapshot/` and hook into `createSnapshot`.
+  - [ ] Add unit tests asserting non-allowlisted keys and credential files are excluded prior to bundle transmission.
+
+### P-J3: Web UI ImportWizard Extension (M7c)
+- **Scope:** Extend `ImportWizard` ([`docs/web-ui.md`](../../web-ui.md) F37) to support profile import. Justified under ADR-019 (4).
+- **Tasks:**
+  - [ ] Add source selection tiles for the new tools alongside existing OpenClaw/Hermes/Paket O tiles (conversational prompt import delegates to Paket O's dedicated wizard flow via `memory.importText`).
+  - [ ] Add granular component selection checklist (Persona/Identity, Instructions, User Facts, Skills, MCP Servers). Foreign plugin discovery belongs to OpenClaw/Hermes imports per D121-J5.
+  - [ ] Add side-by-side conflict resolution screen for skills, MCP entries, and memory cards (Skip, Rename, Replace).
+  - [ ] Present imported persona and instructions read-only with copy-out buttons (`instructions-not-imported`).
+  - [ ] Add archive drag-and-drop dropzone with client-side format validation.
+  - [ ] Implement execution progress, download report (`report.json`), and one-click rollback.
+  - [ ] Add bilingual (DE/EN) UI labels for the five foreign plugin states in `packages/web/src/i18n/imports.ts` (validated via `scripts/check-i18n.mjs`).
+  - [ ] Validate bilingual DE/EN accessibility with axe-core.
+
+### P-J4a: Foreign Plugin Manifest Discovery in Import
+- **Scope:** Read-only scanning and 5-way classification of OpenClaw and Hermes plugin manifests during import by extending `packages/core/src/import/plugin-classification.ts`. Justified under ADR-019 (3).
+- **Constraints:**
+  - Scans manifests only (`openclaw.plugin.json`, `package.json`, `plugin.yaml`) during existing OpenClaw/Hermes detect step (D121-J5); zero foreign code execution.
+  - Manifest parsing reuses safe bounded `JSON.parse` for json manifests and reuses `packages/core/src/import/yaml-lite.ts` (`readYaml`) on main for Hermes `plugin.yaml`, avoiding new npm dependencies. Manifest files are read via `SourceReader`.
+  - Classifies into 5 discrete categories planned under Spec J / P-J4a (`ImportDetection.classification` in `packages/rpc-schema/schema/rpc.schema.json`, expanding 3 states on main): 1. Unknown declaration (`unknown`, reason `incomplete-declaration`), 2. Non-portable with reason (`nonportable`), 3. Native equivalent available (`native-equivalent`), 4. Known MCP server available (`mcp-equivalent`), 5. Candidate for port (`port-candidate`; retiring `declared-bridge-parts` in favor of `declared-port-parts`).
+  - Tool ID mapping & A13 extension: A13 on main classifies solely by part kinds (`memory`, `channel`, `provider`, `context-engine`) and `ForeignPluginEvidence` has no tool identifier field. P-J4a delivers the manifest reader, mapping table (`openclaw.plugin.json`, `package.json`, `plugin.yaml` -> key -> tool ID), and test fixtures (positive fixture with declared tools, incomplete fixture, unparseable fixture). Hermes manifest on main (`hosts/hermes/plur1bus/plugin.yaml`) declares only `hooks`; without declared `tools`, Hermes plugins evaluate to `unknown`. Manifests without declared tool IDs classify as `unknown` (`incomplete-declaration`).
+  - Behavior change: Evaluating `unknown` before `nonportable` is a deliberate behavior change against main (`plugin-classification.ts`), requiring updating `plugin-classification.test.ts`.
+  - Foreign plugins are matched strictly by declared tool ID per A13, never by normalized plugin name. Unified catalog files reside in `packages/core/src/import/` (`native-equivalents.json` and `mcp-catalog.json`).
+  - Displays classification in preview and adds an additive, versioned `plugins` field (version 1) to apply `report.json`. Detect and dry-run remain strictly read-only and write zero reports or state files.
+  - Derives local demand counter idempotently strictly across apply reports (`<home>/imports/*/report.json`), excluding runs marked as rolled back (`rolled-back/status.json`), without external telemetry.
+- **Tasks:**
+  - [ ] Implement manifest reader via `SourceReader` for `openclaw.plugin.json`, `package.json`, and `plugin.yaml` with manifest-to-tool-ID mapping table and test fixtures (positive fixture with declared tools, incomplete fixture, unparseable fixture).
+  - [ ] Extend `classifyForeignPlugin` and `discoverForeignPlugins` in `packages/core/src/import/plugin-classification.ts` with the 5 discrete categories, tool ID extraction, and precedence order (`unknown` before `nonportable`), updating unit test `plugin-classification.test.ts`.
+  - [ ] Update `ImportDetection.classification` in `packages/rpc-schema/schema/rpc.schema.json` at the next free minor RPC version at implementation time.
+  - [ ] Define catalog of native equivalents and MCP servers in `packages/core/src/import/native-equivalents.json` and `packages/core/src/import/mcp-catalog.json`.
+  - [ ] Integrate discovery findings into `admin.import.plan` and add additive `plugins` field to apply `report.json`.
+  - [ ] Implement idempotent demand derivation across apply reports (`<home>/imports/*/report.json`) excluding rolled-back runs, without external telemetry.
+  - [ ] Implement manual demand export CLI command `plur1bus import export-demand [OUTPUT_PATH]` in `crates/plur1bus`.
+
+### P-J4b: Port Pipeline Tooling & Validation (`plur1bus-tools`)
+- **Assignee:** Claude Agent (Rust component per ADR-019 / D120).
+- **Scope:** Tooling for the 6-stage native port pipeline.
+- **Constraints:**
+  - License auditor: verifies permissive license (MIT, Apache, BSD) and mandates upstream attribution (in source header, `NOTICE`, or `THIRD_PARTY.md`); handles copyleft (GPL, AGPL) strictly as standalone `.p1x` add-on in its own repository referenced via digest in catalogue, and refuses copyleft targeting `plur1bus-tools` or harness crates; strictly prohibits unlicensed/proprietary code.
+  - Target form selector: evaluates functional contract for Skill vs. MCP config vs. `plur1bus-tools` module (official ports only).
+  - D109 capability validator and blackbox behavior-derived test harness generator.
+- **Tasks:**
+  - [ ] Implement license check utility in `crates/plur1bus-tools/src/port/license.rs` with attribution checks and copyleft harness-exclusion rules.
+  - [ ] Implement behavior-derived test harness generator.
+  - [ ] Add verification tests asserting rejection of missing attribution, rejection of copyleft in `plur1bus-tools`, and rejection of unlicensed code.
+
+### P-J4c: Initial Native Ports
+- **Scope:** Author initial wave of native ports based on Owner production setups (supplied directly as active plugin list) and public registry counts (cites D121-J7 decided 2026-11-01).
+- **Constraints:**
+  - Native implementations satisfying blackbox behavior-derived tests.
+  - Explicit D109 capability declarations; mandatory human review per ext §11.3 `REVIEW.md` in catalogue repository `Cyb3rb1ade/plur1bus-extensions` (Standard PR review; Owner as required reviewer restricted to `extensions-release` GitHub Environment).
+  - Catalogue packages depend on milestones X4/X5 (signed catalogue `extensions.plur1bus.app`).
+  - Task mapping: Rust components assigned to Claude agents; TypeScript components assigned to agy.
+- **Tasks:**
+  - [ ] Select top demand candidates from Owner production setups (active plugin list) and public registry statistics.
+  - [ ] Author behavior test fixtures and native implementations (Skills / MCP configs / `plur1bus-tools` modules).
+  - [ ] Conduct human review per ext §11.3 `REVIEW.md` in `Cyb3rb1ade/plur1bus-extensions` and prepare signed catalog packages (via X4/X5).
+
+### P-J4d: Integration in `plur1bus code`
+- **Scope:** Workflow allowing local users to generate native ports using `plur1bus code`, gated by milestone D120 and D106 tool sandbox (noting D106 Egress dependency).
+- **Constraints:**
+  - Restricted strictly to Skill or standalone MCP server forms (never a module in `plur1bus-tools`).
+  - Marked with trust tier `local`, remain unsigned, run strictly within the tool sandbox with MCP launched via `sandboxSpawn`, network egress is `none` by default (opt-in via D109, noting D106 Egress dependency), and require D109 operator approval on every invocation (`ask` floor with `ceiling: once`; cannot be bypassed or lowered by `always` grants, and enable-time consent is insufficient). Refused if `tools.sandbox.required=false`.
+- **Tasks:**
+  - [ ] Add `Tier::Local` to symbol `Tier` in `crates/plur1bus-ext/src/trust.rs`.
+  - [ ] Update `crates/plur1bus/schema/ext-state.schema.json` to include `local` tier.
+  - [ ] Update RPC schema for `Tier` enum and regenerate schema bindings.
+  - [ ] Implement port generation prompts and workflow in `plur1bus code`.
+  - [ ] Integrate with `sandboxSpawn` for MCP stdio launches, set network egress `none` default (noting D106 Egress dependency), and enforce D109 `ask` approval floor (`ceiling: once`) without grant bypass.
+
+---
+
+## 4. Verification Gates and Acceptance Criteria
+
+1. **Documentation Hygiene:**
+   - `node scripts/check-doc-links.mjs`: Zero broken links or missing anchors.
+   - `node scripts/lint-hygiene.mjs`: Clean (`hygiene ok`). Zero OpenClaw idioms in `packages/core`.
+   - `pnpm docs:check`: Up to date and clean.
+2. **Credential Safety Gate:**
+   - Automated spike-11 test asserting that attempting to import a mock directory containing `auth.json` or `.credentials.json` never opens or reads those files.
+   - Mixed-file test for `~/.claude.json`: seed sentinel secrets into non-allowlisted keys and assert they never appear in any output, report, or log.
+   - Assert `state.vscdb` is never opened, read, or parsed.
+   - Producer-side snapshot allowlist test verifying `host.importSnapshot` excludes credential filenames before archiving.
+3. **Deterministic Conflict Gate & Zone 2 Safety:**
+   - Conflict tests verifying that identical components skip (`matched-existing`), clashing skills/MCP/memory trigger typed reason `entry-conflict` (recording `conflict-skip`, `rename`, `replace`, `created`, or `matched-existing` in the ledger), and no external network/LLM calls are made during conflict resolution.
+   - Test verifying that v1 import never modifies `SOUL.md` or `AGENTS.md` automatically (presented read-only with copy-out text in report and preview), and that `IDENTITY.md` is never updated without operator preview.
+   - Test verifying that imported memories receive default confidentiality level `vertraulich`, never `teilbar`.
+4. **Archive Safety Gate:**
+   - Fuzz/unit tests for archive intake: For `.zip` archives, upfront audit via `zipaudit::audit_zip` with custom `Limits` (100 MiB package bytes, 10 MiB entry bytes, 100:1 ratio, 20,000 max entries) rejects zip-slip paths and symlinks with `archive-unsafe-entry`, caps violations with `download-too-large` (`E_INVALID_PARAMS`), and ZIP64 with `archive-unsupported`. For `.tar.gz` archives, bounded streaming auditor tests enforce the same ratio, entry size, and total byte caps, rejecting symlinks and hardlinks with `archive-unsafe-entry`.
+5. **Plugin Discovery & Port Pipeline Gate:**
+   - Test asserting that plugin manifests are discovered and categorized into the 5 discrete categories (`unknown`, `nonportable`, `native-equivalent`, `mcp-equivalent`, `port-candidate`) by declared tool ID per A13 without executing foreign runtimes or installing dependencies.
+   - Test asserting that local demand counts are derived idempotently strictly from apply reports (`<home>/imports/*/report.json`), excluding rolled-back runs, without network calls or telemetry, and that `plur1bus import export-demand` exports demand without telemetry.
+   - Test asserting that the port pipeline rejects missing attribution for permissive code, rejects copyleft ports targeting `plur1bus-tools`, and rejects unlicensed or proprietary code.
+6. **Read-Only Source & Scope Gate:**
+   - Test asserting that source filesystem access is strictly read-only (`O_NOFOLLOW`) and never modifies source directories.
+   - Test asserting that unauthenticated CLI imports produce `rejected/unresolved-user-scope` without automatic fallback to agent-private scope.
+7. **Local Tier & Sandbox Gate:**
+   - Test asserting that local ports are marked trust tier `local`, require D109 operator approval on every invocation (`ask` floor with `ceiling: once`; cannot be bypassed by `always` grants), network egress is `none` by default, launch MCP processes via `sandboxSpawn`, and are refused when the tool sandbox is disabled.
+
+---
+
+## 5. Follow-ups
+
+1. **CLI Documentation and Flag Conflicts:** Formalize CLI documentation regeneration (`pnpm docs:gen`) and flag conflict matrix for the `plur1bus import export-demand` CLI command.
+2. **D109 Tier Floors and Sandbox Egress:** Fine-specify D109 tier floors (`ceiling: once` for `local`), D106 Egress helper packaging, and re-estimate P-J4d during milestone kickoff.
+3. **MCP Catalog Lifecycle Rules:** Define formal lifecycle, periodic verification, and removal rules for archived or deprecated upstream servers in `packages/core/src/import/mcp-catalog.json`.
+4. **Bilingual Localization and UI Sync:** Complete bilingual localization strings for all classification reasons in `packages/web/src/i18n/imports.ts` (de/en) and synchronize UI presentation between P-J3 and P-J4a.

@@ -1879,7 +1879,7 @@
           "minimum": 100,
           "maximum": 120000,
           "default": 30000,
-          "description": "Network deadline for an outbound A2A operation, including same-origin redirects.",
+          "description": "Network deadline per outbound A2A HTTP request, including its same-origin redirects.",
           "x-restart": "live",
           "x-tier": "advanced",
           "x-write-roles": [

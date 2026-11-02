@@ -32,7 +32,8 @@ import type { ApprovalView } from "../../src/approvals/service.ts";
 const owner: Principal = { kind: "person", role: "owner", userId: "owner" };
 const CARD = "FOREIGN-CARD-TEXT-99112233", TOKEN = "FOREIGN-BEARER-99112233", ANSWER = "FOREIGN-ANSWER-99112233";
 
-async function fixture(options: { echo?: boolean; token?: string; structured?: boolean; wrongBinding?: boolean; endpointPath?: string } = {}) {
+async function fixture(options: { echo?: boolean; token?: string; structured?: boolean; wrongBinding?: boolean;
+  endpointPath?: string; approvalDelayMs?: number; timeoutMs?: number } = {}) {
   const token = options.token ?? TOKEN;
   const home = tempDir("a2a-integration-");
   const keys = generateKeyPairSync("ed25519");
@@ -75,15 +76,23 @@ async function fixture(options: { echo?: boolean; token?: string; structured?: b
   const signed = await generateAgentCardSignature(keys.privateKey, { alg: "EdDSA", typ: "JWT", kid: "peer-key" })(AgentCard.fromJSON({ name: CARD, description: CARD, version: "1", supportedInterfaces: [{ protocolBinding: "JSONRPC", protocolVersion: "1.0", url: endpoint }], capabilities: { streaming: false }, defaultInputModes: ["text/plain"], defaultOutputModes: ["text/plain"], skills: [{ id: "chat", name: "Chat", description: "Chat" }] }));
   card = AgentCard.toJSON(signed) as Record<string, unknown>;
   const config = defaults(); config.a2aClient!.enabled = true; config.privacy.localOnly = true;
+  if (options.timeoutMs !== undefined) config.a2aClient!.timeoutMs = options.timeoutMs;
   config.egress = { allowHosts: ["127.0.0.1"], allowPorts: [address.port], allowLoopback: true };
   const audit = memoryAuditSink();
   const policyAudit = createPolicyAudit({ sink: audit, clock: { now: Date.now } });
   const approvalViews: ApprovalView[] = [];
+  const pendingDecisions = new Set<ReturnType<typeof setTimeout>>();
   const permissions = createPermissionRuntime({ dbPath: join(home, "approvals.sqlite"), keys: staticKeySource(randomBytes(32)), clock: { now: Date.now }, audit: policyAudit, events: { emit(name, payload) {
     if (name === "approval.requested" && "approval" in payload) {
       approvalViews.push(payload.approval);
-      const decision = permissions.current()!.service.decideForSession({ requestId: payload.approval.id, person: owner.userId, surface: 3, decision: "approve" });
-      assert.equal(decision.ok, true);
+      const approve = () => {
+        const decision = permissions.current()!.service.decideForSession({ requestId: payload.approval.id, person: owner.userId, surface: 3, decision: "approve" });
+        assert.equal(decision.ok, true);
+      };
+      if (options.approvalDelayMs) {
+        const timer = setTimeout(() => { pendingDecisions.delete(timer); approve(); }, options.approvalDelayMs);
+        pendingDecisions.add(timer);
+      } else approve();
     }
   } } });
   const budget = createCallBudget({ path: join(home, "state", "budget.sqlite"), clock: { now: Date.now } });
@@ -107,8 +116,19 @@ async function fixture(options: { echo?: boolean; token?: string; structured?: b
     const dispatcher = new ToolDispatcher({ registry, approvals: opened.service, grants: opened.grants, grantUse: opened.grants, audit: policyAudit, clock: { now: Date.now }, policyContext: ctx => ({ ...opened.service.policyContext()(ctx), ...(options.headless ? { headless: { jobId: "job" } } : {}) }) });
     return dispatcher.call({ id: `tool-${sequence}`, name, args: { projectId: project.id, toAgent: "a2a:peer", objective: "Review a stable sort", doneWhen: ["Advice returned"] } }, { agentId: "main", principal: owner.userId, sessionId: req.sessionId, turnId, surface: 3, signal: req.signal });
   }
-  return { home, added, endpoint, approvalViews, composed, collab, project, audit, calls, wireErrors, wireHandoffs, config, secrets, invoke, tool, principal: (p: Principal) => { principal = p; }, tamper: () => { tamper = true; }, badReply: () => { badReply = true; }, trust: () => invoke("a2a.peer.trust", { id: added.id, fingerprint: added.fingerprint, revision: added.revision }), async close() { await collab.shutdown(); composed.close(); budget.close(); await permissions.close(); server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); } };
+  return { home, added, endpoint, approvalViews, composed, collab, project, audit, calls, wireErrors, wireHandoffs, config, secrets, invoke, tool, principal: (p: Principal) => { principal = p; }, tamper: () => { tamper = true; }, badReply: () => { badReply = true; }, trust: () => invoke("a2a.peer.trust", { id: added.id, fingerprint: added.fingerprint, revision: added.revision }), async close() { for (const timer of pendingDecisions) clearTimeout(timer); await collab.shutdown(); composed.close(); budget.close(); await permissions.close(); server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); } };
 }
+
+it("trust allows both real human approvals to outlast the network timeout", { timeout: 10_000 }, async () => {
+  const f = await fixture({ timeoutMs: 500, approvalDelayMs: 1000 });
+  try {
+    const peer = await f.trust() as A2aPeer;
+    assert.equal(peer.state, "trusted");
+    assert.equal(f.approvalViews.length, 2);
+    assert.deepEqual(f.calls, ["card"]);
+    assert.deepEqual(f.wireErrors, []);
+  } finally { await f.close(); }
+});
 
 it("shows the complete public pin and endpoint through the real approval-service redactor", async () => {
   const f = await fixture({ endpointPath: "/.ssh/rpc" });
@@ -185,7 +205,8 @@ it("uses real signed discovery, explicit TOFU and D104 ack through consult_agent
     assert.equal(existsSync(join(f.home, "agents", "a2a:peer")), false);
     assert.equal(f.audit.events.filter(e => e.action === "a2a.call").length, f.calls.length);
     for (const marker of [CARD, TOKEN, ANSWER]) assert.ok(!JSON.stringify(f.audit.events).includes(marker), marker);
-    assert.equal(f.secrets.leases.length, f.calls.length); assert.equal(f.secrets.revoked.length, f.calls.length);
+    assert.equal(f.secrets.leases.length, 2 * f.calls.length, "each approval preview and request gets a distinct lease");
+    assert.equal(f.secrets.revoked.length, f.secrets.leases.length, "every preview and network lease is revoked");
     assert.deepEqual(f.wireErrors, []);
   } finally { await f.close(); }
 });
