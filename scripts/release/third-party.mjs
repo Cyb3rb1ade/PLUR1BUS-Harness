@@ -2,9 +2,9 @@
 // packaging runner as well as the macOS source-drift gate; never infer missing metadata.
 // --reuse-npm retains hash-verified native npm evidence only when its lockfile is unchanged.
 import { spawnSync } from 'node:child_process';
-import { readFileSync, readdirSync, existsSync, writeFileSync, realpathSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, writeFileSync, realpathSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join, dirname, resolve } from 'node:path';
+import { join, dirname, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const locks = ['pnpm-lock.yaml', 'Cargo.lock', 'apps/desktop/Cargo.lock'];
@@ -23,8 +23,36 @@ function run(cmd, args, cwd = root) {
   if (r.error || r.status !== 0) throw new Error(`cannot collect ${cmd} attribution metadata`);
   return JSON.parse(r.stdout);
 }
+function checkoutRoot(dir) {
+  let curr = resolve(dir);
+  while (true) {
+    if (existsSync(join(curr, '.cargo-ok'))) return realpathSync(curr);
+    const parent = dirname(curr);
+    if (parent === curr) return null;
+    curr = parent;
+  }
+}
+
 function notices(dir) {
-  return readdirSync(dir, { withFileTypes: true }).filter(d => d.isFile() && /^(licen[cs]e|notice|copying|copyright)(?:[._-].*)?$/i.test(d.name)).sort((a, b) => order(a.name, b.name)).map(d => ({ name: d.name, text: readFileSync(join(dir, d.name), 'utf8').replace(/\r\n/g, '\n') }));
+  return readdirSync(dir, { withFileTypes: true })
+    .filter(d => {
+      if (!/^(licen[cs]e|notice|copying|copyright)(?:[._-].*)?$/i.test(d.name)) return false;
+      if (d.isFile()) return true;
+      if (d.isSymbolicLink()) {
+        const full = join(dir, d.name);
+        const resolved = realpathSync(full);
+        const root = checkoutRoot(dir);
+        if (!root) throw new Error(`symlink notice ${full} outside cargo checkout root`);
+        const rel = relative(root, resolved);
+        if (rel.startsWith('..') || isAbsolute(rel)) {
+          throw new Error(`symlink notice ${full} resolves outside checkout root: ${resolved}`);
+        }
+        return statSync(resolved).isFile();
+      }
+      return false;
+    })
+    .sort((a, b) => order(a.name, b.name))
+    .map(d => ({ name: d.name, text: readFileSync(join(dir, d.name), 'utf8').replace(/\r\n/g, '\n') }));
 }
 function baselineRows(index) {
   const parts = index.split(tableHeader);

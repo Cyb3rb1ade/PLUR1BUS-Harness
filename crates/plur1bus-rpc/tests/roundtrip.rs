@@ -982,6 +982,28 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::ProjectAgentAddParams,
                 types::ProjectAgentAddResult,
             >(name, fixture, &root_schema),
+            "a2a.peer.add" => check_pair::<types::A2aPeerAddParams, types::A2aPeerAddResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "a2a.peer.list" => check_pair::<types::A2aPeerListParams, types::A2aPeerListResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "a2a.peer.remove" => {
+                check_pair::<types::A2aPeerRemoveParams, types::A2aPeerRemoveResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "a2a.peer.trust" => check_pair::<types::A2aPeerTrustParams, types::A2aPeerTrustResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "project.agent.remove" => check_pair::<
                 types::ProjectAgentRemoveParams,
                 types::ProjectAgentRemoveResult,

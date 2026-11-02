@@ -74,8 +74,10 @@ Brave, Tavily and Exa sit next to SearXNG (`tools/web/search-providers.ts`, `sea
 
 ## Repair hook and capability index
 
-`callWithRepair(tool, args, { repair })` validates against the tool's schema, does not execute an invalid call, offers
-**one** repair round through the hook, and otherwise returns `tool-call-invalid` (D97). `WEB_CAPABILITIES` holds the two
+`ToolDispatcher.call` (`tools/dispatcher.ts`, using `validateArgs` and `repairMessage` from `tools/repair.ts`) validates
+the arguments, refuses to run an invalid call, and offers one repair round; a call that is still invalid is
+`tool-call-invalid` (D97). `packages/core/test/tools/call-with-repair.ts` is the test helper for that sequence.
+`WEB_CAPABILITIES` holds the two
 D103 index rows (`kind: tool`, `sideEffects: external`, `effect: external` for D109, categories `web.browse` /
 `web.research`, a content-hash `version`).
 

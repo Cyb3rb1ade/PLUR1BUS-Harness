@@ -8,6 +8,7 @@ import { createCore } from "../../src/core.ts";
 import type { Principal } from "../../src/rbac/types.ts";
 import { connect } from "../helpers/connect.ts";
 import { flatTestInternals } from "../helpers/flat-embedder.ts";
+import { until } from "../helpers/until.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 import type { SshKeyStatus } from "../../src/import/ssh-service.ts";
 
@@ -86,10 +87,14 @@ it("actual Core SSH probing obeys live central host and TCP-port configuration b
       { error: "E_DENIED", reason: "ssh-egress-denied" });
     config.egress.allowHosts = ["127.0.0.1"];
     await writeFile(join(home, "config.json"), JSON.stringify(config));
+    await until(() => core.currentConfig()?.egress.allowHosts.includes("127.0.0.1") === true,
+      "the live Core accepts the exact SSH host");
     await assert.rejects(client.call("admin.import.ssh.hostKey.probe", { id: "source" }),
       { error: "E_DENIED", reason: "ssh-egress-denied" });
     config.egress.allowPorts = [2222];
     await writeFile(join(home, "config.json"), JSON.stringify(config));
+    await until(() => core.currentConfig()?.egress.allowPorts.includes(2222) === true,
+      "the live Core accepts the exact SSH TCP port");
     await assert.rejects(client.call("admin.import.ssh.hostKey.probe", { id: "source" }),
       { error: "E_NOT_AVAILABLE", reason: "ssh-worker-unavailable" });
   } finally {

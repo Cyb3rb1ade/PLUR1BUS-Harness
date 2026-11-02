@@ -1,0 +1,20 @@
+{
+  "id": "G-RERANK-7",
+  "recordedFrom": {
+    "tag": "v7.18.31",
+    "commit": "6419a60e79975d0b5244798c1fdbbd7997a712ce",
+    "node": "v24.21.0",
+    "unicode": "17.0",
+    "icu": "78.3"
+  },
+  "runs": [
+    {
+      "name": "section-failure-skips-cache-on-plugin-line",
+      "kind": "knowledge",
+      "phase1": "pin writes the cache; this golden is the plugin line and is not a Rust assertion",
+      "embedsFirstCall": 2,
+      "cacheWritten": false,
+      "embedsSecondCall": 2
+    }
+  ]
+}

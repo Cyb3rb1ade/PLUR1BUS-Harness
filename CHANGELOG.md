@@ -25,6 +25,10 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
   opaque pass-through validation and the Engine contract. Complete browser policy metadata stays separate from editable
   settings; it creates no Engine controls or navigation targets. The palette respects both policy flags to protect
   secret values and endpoint credentials; the complete consumer migration follows in SH2.
+- **Outbound A2A peer client (RPC 1.12.0).** Owner-managed `a2a.peer.*` methods register, list, trust and remove remote
+  peers; `a2aClient.*` settings control the opt-in client. Explicitly trusted `a2a:<id>` targets support consultation and
+  delegation through the existing permission, egress and budget gates. Collaboration storage advances to schema v5;
+  no downgrade migration is provided. See `docs/handoff/2026-10-31-v1-a2a-peer-cli.md`.
 
 - **A store with data moves to another embedding model end to end (engine pin 9f34008c, contract 1.17.0).**
   `@cyb3rb1ade/plur1bus-memory` is pinned to plugin PR #275, which exposes `admin.reembedding.validate`; `CORE_CONTRACT` is
@@ -155,6 +159,17 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 - **Bounded Secret-Store startup (SH3).** Readable persisted values are protected before startup logs reach a sink.
   Native backend work runs outside Core's event loop; an unavailable Store leaves Core responsive while secret use
   fails closed. Startup snapshots remain protected until Core exits.
+
+- Outbound A2A approvals use their own wait limit instead of consuming the network timeout. Redirects retain one
+  shared network allowance, and approved traffic obtains a fresh credential lease after the human decision.
+
+- **Outbound A2A review boundaries and trust confirmation (V1).** Foreign peers cannot satisfy independent local
+  reviews or receive board-card ownership; local collaboration keeps its discovery and trust behavior. Requests send
+  `A2A-Version: 1.0`, require exact host admission, use peer-scoped credentials and opaque operation-local identifiers,
+  and show a redacted approval preview. Assignment and execution require an Owner person. Trust requires a fresh
+  confirmation of the complete endpoint and key pin; management writes fail closed when audit cannot record them.
+  Per-call budget rows are compacted after 30 days without resetting replayed turn quotas. Local abort closes the
+  connection but does not promise remote task cancellation. See the [V1 CLI handoff](docs/handoff/2026-10-31-v1-a2a-peer-cli.md).
 
 - **A successful tool result is redacted against the registered secret values before the model, the transcript or a result file
   sees it.** Only a failed call was redacted, so a tool that printed a secret (a shell command echoing a variable, a file read

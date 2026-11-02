@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { REDACTION } from "@plur1bus/log-schema";
 import { secretFormsIn, type SecretFormsSnapshot } from "./secret-forms.ts";
 import { createSecretMatcher, type SecretMatcher } from "./secret-matcher.ts";
-export { secretFormsIn } from "./secret-forms.ts";
+export { secretFormsIn, secretFormsOf } from "./secret-forms.ts";
 
 interface PatternDef { id: string; pattern: string; flags?: string; leftBoundary?: boolean; valueGroup?: number; replacement?: string; exemptWhenWholeMatchIs?: string }
 interface Compiled { id: string; re: RegExp; leftBoundary: boolean; valueGroup?: number; replacement?: string; exempt?: RegExp }
