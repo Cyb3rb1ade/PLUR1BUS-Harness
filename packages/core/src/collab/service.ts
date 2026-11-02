@@ -17,6 +17,9 @@ import { providerRunner, type AgentRunner } from "./runner.ts";
 import { alsAgentScopePort, scopeFor } from "./scope.ts";
 import { dirname, join, sep } from "node:path";
 import { CollabStore, type TaskGrantEnd } from "./store.ts";
+import { delegationWorkBudget, type CallClass, type TaskClass, type CollabLimits } from './limits.ts';
+import type { CollaborationLimitsConfig } from '@plur1bus/config-schema';
+import { writerCapacity, type CapacityFacts } from './capacity.ts';
 import type {
   CollabEvent, CollabSettings, CollabTrace, ConsultAnswer, ConsultInput, DelegateHandle, DelegateInput,
   DelegateTask, Project, ProjectRole, RepoBinding, SpanStatus,
@@ -25,6 +28,11 @@ import { assertRepoBinding } from "../external-agents/binding.ts";
 import type { GitExec } from "../external-agents/git.ts";
 
 export interface CollabOptions {
+  /** Trusted receiving-agent view. Missing means no writer tools; contracts may only narrow it. */
+  toolView?: (agentId: string) => readonly string[];
+  limits?: () => CollaborationLimitsConfig;
+  capacity?: () => CapacityFacts;
+  timers?: { set(callback: () => void, ms: number): () => void };
   sessions?: () => import("../session/store.ts").SessionStore;
   path: string;
   clock?: () => number;
@@ -54,16 +62,25 @@ interface Chain {
   rootSpanId: string;
   startedAt: number;
   fanout: number;
+  readStarts: Map<string, number>;
   pairCounts: Map<string, number>;
   tokensUsed: number;
   abort: AbortController;
-  timeout: ReturnType<typeof setTimeout> | undefined;
   inflight: Set<AbortController>;
   ended: boolean;
 }
 
+export interface WriterReservation { release(): void }
+type WriterIdentity = Pick<DelegateInput, 'principal' | 'projectId' | 'fromAgent' | 'toAgent' | 'traceId' | 'parentSpanId'>;
+
 export interface Collab {
   readonly worktreeStore: CollabStore;
+  /** Synchronous trusted admission, shared across all turns using this service. */
+  reserveWriter(input: WriterIdentity): WriterReservation;
+  /** Create the shared turn trace synchronously, before any worker preparation. */
+  openChain(principal: Principal, projectId: string, fromAgent: string, signal?: AbortSignal): string;
+  finishChain(principal: Principal, traceId: string): void;
+  limits(principal: Principal, projectId: string): CollabLimits;
   readonly boardStore: import("./board.ts").ProjectBoardStore;
   boardProject(id: string): Project | null;
   /** Authoritative target metadata; names in the reserved A2A namespace remain foreign after revocation. */
@@ -94,9 +111,13 @@ export interface Collab {
 }
 
 export function createCollab(o: CollabOptions): Collab {
-  const store = new CollabStore({ path: o.path, ...(o.clock ? { clock: o.clock } : {}), ...(o.newId ? { newId: o.newId } : {}), ...(o.grants ? { grants: o.grants } : {}), ...(o.logWarn ? { logWarn: o.logWarn } : {}) });
+  const store = new CollabStore({ path: o.path, ...(o.limits ? { limits: o.limits } : {}), ...(o.clock ? { clock: o.clock } : {}), ...(o.newId ? { newId: o.newId } : {}), ...(o.grants ? { grants: o.grants } : {}), ...(o.logWarn ? { logWarn: o.logWarn } : {}) });
   const marker = `${sep}state${sep}collab.sqlite`;
   const harnessHome = o.home ?? (o.path.endsWith(marker) ? dirname(dirname(o.path)) : undefined);
+  const timers = o.timers ?? { set(callback: () => void, ms: number) { const timer = setTimeout(callback, ms); timer.unref?.(); return () => clearTimeout(timer); } };
+  const writers = new Map<string, number>();
+  const reservations = new WeakMap<WriterReservation, { identity: WriterIdentity; local: boolean; running: boolean; released: boolean }>();
+  let localReserved = 0, localRunning = 0;
   const authorize = o.authorize ?? rbacAuthorizePort;
   const budget = o.budget ?? unlimitedBudget();
   const redact = o.redact ?? logsRedactionPort();
@@ -218,14 +239,8 @@ export function createCollab(o: CollabOptions): Collab {
     }
     const chain: Chain = {
       traceId, projectId: project.id, rootAgent, rootSpanId, startedAt: store.now(),
-      fanout: 0, pairCounts: new Map(), tokensUsed: 0, abort, timeout: undefined, inflight: new Set(), ended: false,
+      fanout: 0, readStarts: new Map(), pairCounts: new Map(), tokensUsed: 0, abort, inflight: new Set(), ended: false,
     };
-    const remain = project.settings.timeoutMs;
-    if (remain > 0 && Number.isFinite(remain)) {
-      // Node fires a timer beyond 2^31-1 ms after 1 ms; a huge configured timeout must mean "very long", not "at once".
-      chain.timeout = setTimeout(() => abort.abort(new Error("timeout")), Math.min(remain, 2_147_483_647));
-      chain.timeout.unref?.();
-    }
     chains.set(traceId, chain);
     return chain;
   };
@@ -242,7 +257,7 @@ export function createCollab(o: CollabOptions): Collab {
     if (existing) {
       // A trace belongs to one project: another project's live chain is reported as missing, never joined.
       if (existing.projectId !== project.id) throw new CollabError("not-found", `trace ${traceId} not found`, { reason: "trace" });
-      attachSignal(existing, extra); return existing;
+      return existing;
     }
     const persisted = store.getTrace(traceId);
     if (!persisted || persisted.projectId !== project.id) throw new CollabError("not-found", `trace ${traceId} not found`, { reason: "trace" });
@@ -250,8 +265,9 @@ export function createCollab(o: CollabOptions): Collab {
     const revived: Chain = {
       traceId, projectId: project.id, rootAgent: persisted.rootAgent, rootSpanId: persisted.rootSpanId,
       startedAt: persisted.createdAt, fanout: persisted.spans.filter((s) => s.kind !== "guardrail").length,
+      readStarts: new Map([[JSON.stringify([persisted.rootAgent, null]), persisted.spans.filter(s => s.kind !== 'guardrail').length]]),
       pairCounts: new Map(), tokensUsed: persisted.spans.reduce((n, s) => n + s.inputTokens + s.outputTokens, 0),
-      abort, timeout: undefined, inflight: new Set(), ended: persisted.endedAt !== null,
+      abort, inflight: new Set(), ended: persisted.endedAt !== null,
     };
     chains.set(traceId, revived);
     attachSignal(revived, extra);
@@ -261,7 +277,6 @@ export function createCollab(o: CollabOptions): Collab {
   const endChainIfIdle = (chain: Chain, status: SpanStatus): void => {
     if (storeClosed || chain.inflight.size > 0 || chain.ended) return;
     chain.ended = true;
-    if (chain.timeout) clearTimeout(chain.timeout);
     store.finishTrace(chain.traceId, status);
   };
 
@@ -280,13 +295,16 @@ export function createCollab(o: CollabOptions): Collab {
   };
 
   const guard = (chain: Chain, project: Project, i: {
-    fromAgent: string; toAgent: string; path: string[]; question: string; parentSpanId: string | null; nextTokens: number;
+    fromAgent: string; toAgent: string; path: string[]; question: string; parentSpanId: string | null; nextTokens: number; turnKey: string;
+    callClass: CallClass; consult: boolean;
   }): void => {
+    const limits = store.limits(project.id);
     const { sameProject } = assertAgents(project, i.fromAgent, i.toAgent);
-    const pk = pairKey(i.fromAgent, i.toAgent);
+    const pk = pairKey(i.turnKey, i.toAgent);
     const decision = evaluateGuardrails({
-      settings: project.settings, fromAgent: i.fromAgent, toAgent: i.toAgent, path: i.path,
-      fanout: chain.fanout, pairCount: chain.pairCounts.get(pk) ?? 0, now: store.now(), chainStartedAt: chain.startedAt,
+      settings: { ...project.settings, maxDepth: limits.readHelpers.depth, maxFanout: limits.readHelpers.perTurn, maxPairPerTurn: limits.consults.perPairPerTurn }, fromAgent: i.fromAgent, toAgent: i.toAgent, path: i.path,
+      callClass: i.callClass, consult: i.consult,
+      fanout: chain.readStarts.get(i.turnKey) ?? 0, pairCount: chain.pairCounts.get(pk) ?? 0, now: store.now(), chainStartedAt: chain.startedAt,
       lastRepeatAt: store.lastRepeat(repeatKey(i.fromAgent, i.toAgent, i.question)),
       sameProject, tokensUsed: chain.tokensUsed, nextTokens: i.nextTokens,
     });
@@ -295,12 +313,62 @@ export function createCollab(o: CollabOptions): Collab {
     if (!b.allowed) refuse(chain, { agentId: i.toAgent, parentSpanId: i.parentSpanId, reason: b.reason, detail: `guardrail ${b.reason}` });
   };
 
-  const runTarget = async (chain: Chain, project: Project, toAgent: string, question: string, context: string, signal: AbortSignal, principal?: Principal, handoff?: import("./runner.ts").AgentRunInput["handoff"], hop?: { spanId: string; fromAgent: string }, outbound?: import("./runner.ts").AgentRunInput["outbound"]): Promise<import("./runner.ts").AgentRunResult> => {
-    if (handoff) {
-      const remaining = Math.max(1, Math.min(300000, Date.parse(handoff.contract.budget.deadline) - store.now()));
-      signal = AbortSignal.any([signal, AbortSignal.timeout(remaining)]);
+  const reserveWriter = (identity: WriterIdentity): WriterReservation => {
+    requireA2aOwner(identity.principal, identity.toAgent);
+    authz(identity.principal, 'project.write', { kind: 'project', projectId: identity.projectId });
+    const project = liveProject(identity.projectId);
+    authz(identity.principal, 'agent.use', { kind: 'agent', agentId: identity.fromAgent });
+    authz(identity.principal, 'agent.use', { kind: 'agent', agentId: identity.toAgent });
+    assertAgents(project, identity.fromAgent, identity.toAgent);
+    const limits = store.limits(project.id), local = !isA2aAgent(identity.toAgent);
+    const capacity = local && o.capacity ? writerCapacity(limits.writers.perProject, o.capacity(), localRunning) : undefined;
+    if ((writers.get(project.id) ?? 0) >= limits.writers.perProject || (capacity && localReserved >= capacity.slots)) {
+      const chain = getChain(identity.traceId, project, identity.fromAgent);
+      refuse(chain, { agentId: identity.toAgent, parentSpanId: identity.parentSpanId ?? null, reason: 'fanout', detail: 'project writer slots full' });
     }
+    if (capacity?.exceeded && localReserved >= capacity.computed) o.logWarn?.(`team.capacity.exceeded: project ${project.id}, computed ${capacity.computed}, configured ${capacity.slots}`);
+    const state = { identity: { ...identity, principal: { ...identity.principal } }, local, running: false, released: false };
+    const reservation: WriterReservation = { release() {
+      if (state.released) return;
+      state.released = true;
+      writers.set(project.id, (writers.get(project.id) ?? 1) - 1);
+      if (local) { localReserved--; if (state.running) localRunning--; }
+    } };
+    reservations.set(reservation, state);
+    writers.set(project.id, (writers.get(project.id) ?? 0) + 1);
+    if (local) localReserved++;
+    return reservation;
+  };
+  const useReservation = (reservation: WriterReservation, input: WriterIdentity): void => {
+    const state = reservations.get(reservation), identity = state?.identity;
+    if (!state || state.released || state.running || identity!.projectId !== input.projectId || identity!.fromAgent !== input.fromAgent || identity!.toAgent !== input.toAgent || identity!.principal.userId !== input.principal.userId || identity!.principal.kind !== input.principal.kind) throw new CollabError('unauthorized', 'writer reservation identity mismatch or already consumed');
+    state.running = true;
+    if (state.local) localRunning++;
+  };
+
+  const runTarget = async (chain: Chain, project: Project, toAgent: string, question: string, context: string, signal: AbortSignal, principal?: Principal, handoff?: import("./runner.ts").AgentRunInput["handoff"], hop?: { spanId: string; fromAgent: string; path: string[]; callClass: CallClass; taskClass: TaskClass }, outbound?: import("./runner.ts").AgentRunInput["outbound"]): Promise<import("./runner.ts").AgentRunResult> => {
+    const limits = store.limits(project.id), taskLimits = limits.taskClasses[hop?.taskClass ?? 'consult'];
+    const deadline = new AbortController();
+    const remaining = Math.max(0, Math.min(taskLimits.wallTimeMs, handoff ? Date.parse(handoff.contract.budget.deadline) - store.now() : Infinity));
+    const stopDeadline = timers.set(() => deadline.abort(new Error('delegation deadline')), remaining);
+    signal = AbortSignal.any([signal, deadline.signal]);
+    const parent = scope.current()?.delegation;
+    let finished = false;
+    let stopStall = () => {};
+    const markProgress = () => {
+      if (signal.aborted || finished) return;
+      stopStall();
+      stopStall = timers.set(() => deadline.abort(new Error('delegation stalled')), taskLimits.stallTimeMs);
+      parent?.onProgress?.();
+    };
+    markProgress();
+    const clearTimers = () => { finished = true; stopDeadline(); stopStall(); };
+    signal.addEventListener('abort', clearTimers, { once: true });
+    const workBudget = delegationWorkBudget(Math.min(handoff?.contract.budget.tokens ?? limits.workTokens, limits.workTokens), parent?.workBudget);
     const sc = scopeFor(toAgent, project.id);
+    if (hop?.callClass === 'write') sc.toolView = (o.toolView?.(toAgent) ?? []).filter(name => handoff?.contract.constraints.scope.tools.includes(name));
+    if (hop) sc.delegation = { traceId: chain.traceId, spanId: hop.spanId, path: hop.path, callClass: hop.callClass, workBudget, onProgress: markProgress };
+    if (hop?.callClass !== 'write') sc.toolView = handoff ? handoff.contract.constraints.scope.tools : ['file.read', 'file.list', 'file.stat'];
     const external = directory.get(toAgent)?.targetKind === "external";
     const sessions = external ? undefined : o.sessions?.();
     const session = sessions && hop ? sessions.createSession({ kind: 'project', agentId: toAgent, owner: `collab-project:${project.id}`, scope: project.id, title: `Delegation ${hop.fromAgent} → ${toAgent}` }) : null;
@@ -313,7 +381,8 @@ export function createCollab(o: CollabOptions): Collab {
         throw new CollabError("no-scope", "AgentScope is required; unscoped access is refused");
       }
       const origin = hop ? { origin: { fromAgent: hop.fromAgent, traceId: chain.traceId, spanId: hop.spanId } } : {};
-      if (!handoff) return runner.run({ ...(session ? { sessionId: session.id } : {}), agentId: toAgent, question, context, signal, ...(principal ? { principal } : {}), ...origin, ...(outbound ? { outbound } : {}) });
+      const execution = { maxRounds: taskLimits.rounds, workBudget, returnTokens: limits.returnTokens };
+      if (!handoff) return runner.run({ ...execution, ...(session ? { sessionId: session.id } : {}), agentId: toAgent, question, context, signal, onProgress: markProgress, ...(principal ? { principal } : {}), ...origin, ...(outbound ? { outbound } : {}) });
       let progress = { text: "", inputTokens: 0, outputTokens: 0 };
       let detach = () => {};
       const aborted = new Promise<import("./runner.ts").AgentRunResult>(resolve => {
@@ -323,24 +392,31 @@ export function createCollab(o: CollabOptions): Collab {
       });
       if (signal.aborted) return { ...progress, partial: true };
       try {
-        return await Promise.race([runner.run({ ...(session ? { sessionId: session.id } : {}), agentId: toAgent, question, context, signal, ...(principal ? { principal } : {}), ...origin, ...(outbound ? { outbound } : {}), ...(handoff ? { handoff } : {}), onTranscript: entry => { if (turn && sessions && !signal.aborted && !storeClosed) sessions.appendEvent(turn.id, 'tool.result', { kind: 'tool_result', trust: 'untrusted', provenance: { traceId: chain.traceId, spanId: hop!.spanId, agentId: toAgent }, entry: redact.value(entry) }); }, onProgress: p => { if (!signal.aborted) progress = { ...p }; } }), aborted]);
+        return await Promise.race([runner.run({ ...execution, ...(session ? { sessionId: session.id } : {}), agentId: toAgent, question, context, signal, ...(principal ? { principal } : {}), ...origin, ...(outbound ? { outbound } : {}), ...(handoff ? { handoff } : {}), onTranscript: entry => { markProgress(); if (turn && sessions && !signal.aborted && !storeClosed) sessions.appendEvent(turn.id, 'tool.result', { kind: 'tool_result', trust: 'untrusted', provenance: { traceId: chain.traceId, spanId: hop!.spanId, agentId: toAgent }, entry: redact.value(entry) }); }, onProgress: p => { if (!signal.aborted) { markProgress(); progress = { ...p }; } } }), aborted]);
+      } catch (error) {
+        if (signal.aborted) return { ...progress, partial: true };
+        throw error;
       } finally { detach(); }
     });
     try {
       const out = await execute();
       if (turn && sessions) {
         sessions.appendEvent(turn.id, 'tool.result', { kind: 'tool_result', trust: 'untrusted', provenance: { fromAgent: hop!.fromAgent, toAgent, projectId: project.id, traceId: chain.traceId, spanId: hop!.spanId }, result: redact.text(out.text), status: out.partial ? 'partial' : 'done', usage: { inputTokens: out.inputTokens, outputTokens: out.outputTokens } });
-        sessions.completeTurn(turn.id, { text: redact.text(out.text), tokens: out.outputTokens, data: { traceId: chain.traceId, spanId: hop!.spanId, status: out.partial ? 'partial' : 'done' } });
+        if (out.partial) sessions.failTurn(turn.id, redact.text(signal.reason instanceof Error ? signal.reason.message : 'delegation interrupted'), { traceId: chain.traceId, spanId: hop!.spanId, status: 'partial' });
+        else sessions.completeTurn(turn.id, { text: redact.text(out.text), tokens: out.outputTokens, data: { traceId: chain.traceId, spanId: hop!.spanId, status: 'done' } });
       }
       return out;
     } catch (e) {
       if (turn && sessions) sessions.failTurn(turn.id, redact.text(e instanceof Error ? e.message : String(e)), { traceId: chain.traceId, spanId: hop!.spanId });
       throw e;
+    } finally {
+      clearTimers(); signal.removeEventListener('abort', clearTimers);
     }
   };
 
   const api: Collab = {
     worktreeStore: store,
+    reserveWriter,
     async shutdown(budgetMs = 5_000) {
       for (const chain of chains.values()) chain.abort.abort(new Error("core stopping"));
       const busy = () => [...chains.values()].filter(chain => chain.inflight.size > 0);
@@ -361,12 +437,29 @@ export function createCollab(o: CollabOptions): Collab {
     },
     close() {
       if (storeClosed) return;
-      for (const c of chains.values()) { if (c.timeout) clearTimeout(c.timeout); }
+      for (const c of chains.values()) c.abort.abort(new Error('core closed'));
       storeClosed = true;
       store.close();
     },
 
     boardStore: store.board,
+    openChain(principal, projectId, fromAgent, signal) {
+      authz(principal, 'project.write', { kind: 'project', projectId });
+      authz(principal, 'agent.use', { kind: 'agent', agentId: fromAgent });
+      const project = liveProject(projectId);
+      if (!project.agents.includes(fromAgent)) throw new CollabError('unauthorized', 'project agent assignment required');
+      return beginChain(project, fromAgent, signal).traceId;
+    },
+    limits(principal, projectId) { api.getProject(principal, projectId); return store.limits(projectId); },
+    finishChain(principal, traceId) {
+      if (storeClosed) return;
+      const trace = api.getTrace(principal, traceId), chain = chains.get(traceId);
+      if (!chain || chain.inflight.size || chain.ended) return;
+      const status = trace.spans.some(span => span.status === 'failed' || span.status === 'refused') ? 'failed'
+        : trace.spans.some(span => span.status === 'partial') ? 'partial'
+        : trace.spans.some(span => span.status === 'cancelled') ? 'cancelled' : 'succeeded';
+      endChainIfIdle(chain, status);
+    },
     boardProject: id => store.getProject(id),
     isA2aAgent,
     createProject(principal, input) {
@@ -442,6 +535,9 @@ export function createCollab(o: CollabOptions): Collab {
     },
 
     async consult(input) {
+      const turnKey = JSON.stringify([input.fromAgent, input.handoff?.context.taskId ?? null]);
+      const callClass = input.callClass ?? 'read';
+      const taskClass = input.taskClass ?? 'consult';
       requireA2aOwner(input.principal, input.toAgent);
       if (!input.question.trim()) throw new CollabError("invalid", "question is required", { reason: "question" });
       authz(input.principal, "project.write", { kind: "project", projectId: input.projectId });
@@ -453,13 +549,13 @@ export function createCollab(o: CollabOptions): Collab {
       const parentSpanId = input.parentSpanId ?? null;
       const nextTokens = estimateTokens(input.question) + estimateTokens(input.context);
       try {
-        guard(chain, project, { fromAgent: input.fromAgent, toAgent: input.toAgent, path, question: input.question, parentSpanId, nextTokens });
+        guard(chain, project, { fromAgent: input.fromAgent, toAgent: input.toAgent, path, question: input.question, parentSpanId, nextTokens, callClass, consult: true, turnKey });
       } catch (e) {
-        endChainIfIdle(chain, "failed");
         throw e;
       }
       chain.fanout += 1;
-      chain.pairCounts.set(pairKey(input.fromAgent, input.toAgent), (chain.pairCounts.get(pairKey(input.fromAgent, input.toAgent)) ?? 0) + 1);
+      chain.readStarts.set(turnKey, (chain.readStarts.get(turnKey) ?? 0) + 1);
+      chain.pairCounts.set(pairKey(turnKey, input.toAgent), (chain.pairCounts.get(pairKey(turnKey, input.toAgent)) ?? 0) + 1);
       store.rememberRepeat(repeatKey(input.fromAgent, input.toAgent, input.question), store.now());
       const spanId = chain.fanout === 1 ? chain.rootSpanId : newSpanId();
       const childPath = [...path, input.toAgent];
@@ -467,10 +563,11 @@ export function createCollab(o: CollabOptions): Collab {
       fire({ type: "consult.started", projectId: project.id, traceId: chain.traceId, agentId: input.toAgent, data: { fromAgent: input.fromAgent, spanId } });
       const local = new AbortController();
       chain.inflight.add(local);
-      const signal = chainSignal(chain, local.signal);
+      const signal = chainSignal(chain, input.signal ? AbortSignal.any([local.signal, input.signal]) : local.signal);
       if (input.signal?.aborted || chain.abort.signal.aborted) local.abort(new Error("aborted"));
+      input.onAdmitted?.();
       try {
-        const out = await runTarget(chain, project, input.toAgent, input.question, input.context, signal, input.principal, input.handoff, { spanId, fromAgent: input.fromAgent }, input.outbound);
+        const out = await runTarget(chain, project, input.toAgent, input.question, input.context, signal, input.principal, input.handoff, { spanId, fromAgent: input.fromAgent, path: childPath, callClass, taskClass }, input.outbound);
         chain.tokensUsed += out.inputTokens + out.outputTokens;
         budget.record({ tokens: out.inputTokens + out.outputTokens, projectId: project.id, agentId: input.toAgent, chainId: chain.traceId });
         store.finishSpan(spanId, {
@@ -494,7 +591,7 @@ export function createCollab(o: CollabOptions): Collab {
         store.finishSpan(spanId, { status: aborted ? "cancelled" : "failed", error: msg, outputPreview: "" });
         fire({ type: "consult.finished", projectId: project.id, traceId: chain.traceId, agentId: input.toAgent, data: { spanId, status: aborted ? "cancelled" : "failed" } });
         if (aborted) {
-          cancelChainInner(chain);
+          if (chain.abort.signal.aborted) cancelChainInner(chain);
           throw new CollabError("aborted", "consult aborted", { reason: "aborted" });
         }
         if (e instanceof CollabError) throw e;
@@ -506,6 +603,11 @@ export function createCollab(o: CollabOptions): Collab {
     },
 
     delegate(input) {
+      const turnKey = JSON.stringify([input.fromAgent, input.handoff?.context.taskId ?? null]);
+      const callClass = input.callClass ?? 'write';
+      let reservation: WriterReservation | undefined;
+      try {
+      const taskClass = input.taskClass ?? 'code-small';
       requireA2aOwner(input.principal, input.toAgent);
       if (!input.task.trim()) throw new CollabError("invalid", "task is required", { reason: "task" });
       authz(input.principal, "project.write", { kind: "project", projectId: input.projectId });
@@ -517,34 +619,46 @@ export function createCollab(o: CollabOptions): Collab {
       const parentSpanId = input.parentSpanId ?? null;
       const nextTokens = estimateTokens(input.task) + estimateTokens(input.acceptanceCriteria);
       try {
-        guard(chain, project, { fromAgent: input.fromAgent, toAgent: input.toAgent, path, question: input.task, parentSpanId, nextTokens });
+        guard(chain, project, { fromAgent: input.fromAgent, toAgent: input.toAgent, path, question: input.task, parentSpanId, nextTokens, callClass, consult: false, turnKey });
       } catch (e) {
-        endChainIfIdle(chain, "failed");
         throw e;
       }
+      if (callClass === 'write') {
+        const held = input.writerReservation ?? reserveWriter({ ...input, traceId: chain.traceId });
+        try { useReservation(held, input); } catch (error) { if (!input.writerReservation) held.release(); throw error; }
+        reservation = held;
+      }
       chain.fanout += 1;
-      chain.pairCounts.set(pairKey(input.fromAgent, input.toAgent), (chain.pairCounts.get(pairKey(input.fromAgent, input.toAgent)) ?? 0) + 1);
+      if (callClass !== 'write') chain.readStarts.set(turnKey, (chain.readStarts.get(turnKey) ?? 0) + 1);
       store.rememberRepeat(repeatKey(input.fromAgent, input.toAgent, input.task), store.now());
       const spanId = chain.fanout === 1 ? chain.rootSpanId : newSpanId();
       const taskId = store.id("tsk");
       const childPath = [...path, input.toAgent];
       store.insertSpan({ spanId, traceId: chain.traceId, parentSpanId, agentId: input.toAgent, kind: "delegate", inputPreview: preview(input.task) });
-      const queued = store.insertTask({
+      let queued: DelegateTask;
+      try { queued = store.insertTask({
         id: taskId, projectId: project.id, traceId: chain.traceId, spanId, parentTaskId: input.parentTaskId ?? null,
         fromAgent: input.fromAgent, toAgent: input.toAgent, kind: "delegate", status: "queued",
         task: input.task, acceptance: input.acceptanceCriteria, path: childPath,
-      });
-      fire({ type: "delegate.queued", projectId: project.id, traceId: chain.traceId, agentId: input.toAgent, data: { taskId, spanId } });
+      }); } catch (error) {
+        try { store.finishSpan(spanId, { status: 'failed', error: 'run-failed' }); } catch { /* preserve the original storage failure */ }
+        throw error;
+      }
       const local = new AbortController();
       chain.inflight.add(local);
-      const signal = chainSignal(chain, local.signal);
+      const signal = chainSignal(chain, input.signal ? AbortSignal.any([local.signal, input.signal]) : local.signal);
+      // Admission reserved before persistence; setup and execution failures release the same identity-bound slot.
+      fire({ type: "delegate.queued", projectId: project.id, traceId: chain.traceId, agentId: input.toAgent, data: { taskId, spanId } });
 
+      input.onAdmitted?.();
       const done = (async (): Promise<DelegateTask> => {
-        store.updateTask(taskId, { status: "running" });
-        fire({ type: "delegate.started", projectId: project.id, traceId: chain.traceId, agentId: input.toAgent, data: { taskId, spanId } });
         try {
+          signal.throwIfAborted();
+          store.updateTask(taskId, { status: "running" });
+          fire({ type: "delegate.started", projectId: project.id, traceId: chain.traceId, agentId: input.toAgent, data: { taskId, spanId } });
+          signal.throwIfAborted();
           const prompt = `${input.task}\n\nAcceptance criteria:\n${input.acceptanceCriteria}`;
-          const out = await runTarget(chain, project, input.toAgent, prompt, "", signal, input.principal, input.handoff, { spanId, fromAgent: input.fromAgent }, input.outbound);
+          const out = await runTarget(chain, project, input.toAgent, prompt, "", signal, input.principal, input.handoff, { spanId, fromAgent: input.fromAgent, path: childPath, callClass, taskClass }, input.outbound);
           chain.tokensUsed += out.inputTokens + out.outputTokens;
           budget.record({ tokens: out.inputTokens + out.outputTokens, projectId: project.id, agentId: input.toAgent, chainId: chain.traceId });
           const art = artifacts.put({ projectId: project.id, body: out.text, contentType: "text/plain" });
@@ -570,15 +684,17 @@ export function createCollab(o: CollabOptions): Collab {
             projectId: project.id, traceId: chain.traceId, agentId: input.toAgent,
             data: { taskId, status: aborted ? "cancelled" : "failed" },
           });
-          if (aborted) cancelChainInner(chain);
+          if (chain.abort.signal.aborted) cancelChainInner(chain);
           return finished;
         } finally {
           chain.inflight.delete(local);
+          reservation?.release();
           if (chain.abort.signal.aborted) endChainIfIdle(chain, "cancelled");
         }
       })();
 
       return { task: queued, done };
+      } catch (error) { reservation?.release(); throw error; }
     },
 
     replay(principal, traceId, spanId) {

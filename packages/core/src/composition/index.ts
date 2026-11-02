@@ -1,6 +1,7 @@
 import { pinnedGit } from "../external-agents/git.ts";
 import { gitText } from "../collab/verifier.ts";
 import { composeA2a } from "./a2a.ts";
+import { availableParallelism, freemem, totalmem } from 'node:os';
 import { isA2aTarget, targetRunner } from "../collab/target.ts";
 import { createTurnObserver } from './turn-observer.ts';
 import { createMemoryTools } from '../tools/memory.ts';
@@ -438,7 +439,9 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     voice.setDelegate(provider);
     wireExternalAgents(d, options, () => sessions, () => { if (!collab) throw new Error("collaboration unavailable"); return collab.worktreeStore; });
     const delegationTargets = [...(options.delegationTargets ?? []), ...(a2a ? [a2a.client.target] : [])];
-    collab = budget ? isolated('collaboration', () => createCollab({ home: d.home, provisionWorktrees: true, path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock, sessions: () => sessions.store, redact: liveLogsRedactionPort(() => registered),
+    collab = budget ? isolated('collaboration', () => createCollab({ home: d.home, provisionWorktrees: true, path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock, limits: () => d.config().collaboration.limits,
+      capacity: () => { const config = d.config(), cores = availableParallelism(); return { cores: config.supervisor.maxCores > 0 ? Math.min(cores, config.supervisor.maxCores) : cores, availableMemory: freemem(), totalMemory: totalmem(), settings: config.collaboration.teams.capacity }; },
+      sessions: () => sessions.store, redact: liveLogsRedactionPort(() => registered),
       runner: provider ? composedAgentRunner(provider, alsAgentScopePort(), d.home, delegationTargets, collabMemory({ memory, config: d.config, logger: d.logger }), options.projectWorktrees) : targetRunner([...delegationTargets, { kind: 'local', accepts: id => !delegationTargets.some(t => t.accepts(id)), async ack() { throw new Error('no-provider'); }, async run() { throw new Error('no-provider'); } }]),
       directory: { get: id => {
         const matches = options.delegationTargets?.filter(target => target.accepts(id)) ?? [];

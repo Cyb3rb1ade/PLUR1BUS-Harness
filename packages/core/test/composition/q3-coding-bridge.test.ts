@@ -25,6 +25,38 @@ import type { TurnProviderOptions } from "../../src/composition/provider.ts";
 import { limitsHelper } from "../external-agents/fixture.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 
+test("composed ACP targets remain external after the A2A target list is assembled", async () => {
+  const home = join(tempDir("q3-target-routing-"), "home");
+  const cfg = defaults();
+  cfg.agents.lead = {};
+  // An invalid external record must fail closed rather than run a local model.
+  cfg.agents.worker = { engine: { kind: "external", connector: "agy", maxTurns: 0 } };
+  for (const id of ["lead", "worker"]) mkdirSync(join(home, "agents", id, "workspace"), { recursive: true });
+  const log = { debug() {}, info() {}, warn() {}, error() {}, child() { return log; }, async close() {} } as never;
+  const approvals = await rig(), who = owner();
+  const identity = createIdentityService({ dbPath: join(home, "identity.sqlite"), clock: Date.now, audit() {} });
+  let localCalls = 0;
+  const c = await openTurnComposition({ home, config: () => cfg, engine: {} as never,
+    agents: createAgentRegistry({ config: () => cfg }, layout(home), log), logger: log,
+    secrets: createSecretStore({ keyring: createMemoryBackend(), file: createMemoryBackend(), fileFallback: () => false, audit: createMemoryAuditSink() }),
+    egress: { decide: async () => ({ allowed: false }) } as never,
+    permissions: { current: () => ({ ...approvals.stores, service: approvals.service }), open: async () => ({ ...approvals.stores, service: approvals.service }) } as never,
+    resolveCollaborationPerson: id => id === who.userId ? who : null,
+    audit: memoryAuditSink(), identity, clock: Date.now, signal: new AbortController().signal,
+    isStopping: () => false, notify() {}, options: {
+      providers: { profiles: { default: [{ provider: "fixture", model: "gpt-4.1", adapter: { async *stream() {} } }] } },
+      createTurnProvider: () => ({ id: "fixture", telemetry: {} as never, async *stream() { localCalls++; yield { type: "delta", text: "unexpected local fallback" }; } }),
+    } });
+  try {
+    assert.ok(c.collab);
+    const project = c.collab.createProject(who, { name: "Routing" });
+    for (const id of ["lead", "worker"]) c.collab.addAgent(who, project.id, id);
+    await assert.rejects(c.collab.consult({ principal: who, projectId: project.id, fromAgent: "lead", toAgent: "worker", question: "Check routing", context: "" }),
+      { reason: process.platform === "linux" ? "connector-unavailable" : "sandbox-unavailable" });
+    assert.equal(localCalls, 0, "an external record must never fall through to the local provider");
+  } finally { await c.close(); identity.close(); approvals.service.dispose(); approvals.stores.db.close(); }
+});
+
 for (const provisionCard of [false, true]) test(provisionCard
   ? "production bind → local coding delegation → coding_complete with a test-provisioned card tree and real verifier"
   : "production bind/createCard/assign refuses completion and review without a card checkout", async t => {

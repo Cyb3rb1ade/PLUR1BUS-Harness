@@ -1,7 +1,6 @@
 import { ProjectBoardStore } from "./board.ts";
 import { chmodSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
-import { DEFAULT_COLLAB_SETTINGS } from "./defaults.ts";
 import { CollabError } from "./errors.ts";
 import { newId } from "./ids.ts";
 import { migrate, SCHEMA_VERSION } from "./migrations.ts";
@@ -9,10 +8,22 @@ import type {
   CollabSettings, CollabSpan, CollabTrace, DelegateTask, Project, ProjectMember, ProjectRole, RepoBinding, SpanStatus, TaskStatus,
 } from "./types.ts";
 import { traceparent } from "./ids.ts";
+import { legacyCollabSettings, resolveCollabLimits, type CollabLimits } from './limits.ts';
+import type { CollaborationLimitsConfig } from '@plur1bus/config-schema';
 
 export { SCHEMA_VERSION };
 
 type Row = Record<string, unknown>;
+type StoredSettings = Partial<CollabSettings> & { settingsVersion?: number };
+
+/** Owner ruling 2026-11-01: versionless JSON inherited old defaults; version 2 preserves every explicit value. */
+function normalizedSettings(raw: string): StoredSettings {
+  const settings = JSON.parse(raw) as StoredSettings;
+  if (settings.settingsVersion === 2) return settings;
+  const legacy = { maxDepth: 1, maxFanout: 3, maxPairPerTurn: 2, maxTurns: 25, timeoutMs: 300000, returnTokens: 2000 };
+  for (const key of Object.keys(legacy) as (keyof typeof legacy)[]) if (settings[key] === legacy[key]) delete settings[key];
+  return settings;
+}
 
 export interface WorktreeRow {
   id: string; projectId: string; rootId: string; cardId: string | null;
@@ -32,25 +43,7 @@ function toWorktree(r: Row): WorktreeRow {
 /** Ends task-scoped grants when a collab task reaches a terminal status (D109 §9.9). */
 export interface TaskGrantEnd { endTask(taskId: string, by?: string): number | void | Promise<number | void> }
 
-export interface StoreOptions { path: string; clock?: () => number; newId?: (prefix: string) => string; grants?: TaskGrantEnd; logWarn?: (msg: string, fields?: { err?: unknown }) => void }
-
-function mergeSettings(raw: unknown): CollabSettings {
-  const o = (raw && typeof raw === "object" ? raw : {}) as Partial<CollabSettings>;
-  return {
-    maxDepth: num(o.maxDepth, DEFAULT_COLLAB_SETTINGS.maxDepth),
-    maxFanout: num(o.maxFanout, DEFAULT_COLLAB_SETTINGS.maxFanout),
-    maxPairPerTurn: num(o.maxPairPerTurn, DEFAULT_COLLAB_SETTINGS.maxPairPerTurn),
-    maxTurns: num(o.maxTurns, DEFAULT_COLLAB_SETTINGS.maxTurns),
-    timeoutMs: num(o.timeoutMs, DEFAULT_COLLAB_SETTINGS.timeoutMs),
-    returnTokens: num(o.returnTokens, DEFAULT_COLLAB_SETTINGS.returnTokens),
-    allowCrossProject: o.allowCrossProject === true,
-    repeatWindowMs: num(o.repeatWindowMs, DEFAULT_COLLAB_SETTINGS.repeatWindowMs),
-    tokenBudget: o.tokenBudget == null ? null : num(o.tokenBudget, 0),
-  };
-}
-function num(v: unknown, d: number): number {
-  return typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : d;
-}
+export interface StoreOptions { path: string; clock?: () => number; newId?: (prefix: string) => string; grants?: TaskGrantEnd; limits?: () => CollaborationLimitsConfig; logWarn?: (msg: string, fields?: { err?: unknown }) => void }
 
 export class CollabStore {
   readonly board: ProjectBoardStore;
@@ -59,12 +52,14 @@ export class CollabStore {
   readonly #newId: (prefix: string) => string;
   readonly #grants: TaskGrantEnd | undefined;
   readonly #logWarn: StoreOptions["logWarn"];
+  readonly #limits: StoreOptions['limits'];
 
   constructor(o: StoreOptions) {
     this.#clock = o.clock ?? Date.now;
     this.#newId = o.newId ?? newId;
     this.#grants = o.grants;
     this.#logWarn = o.logWarn;
+    this.#limits = o.limits;
     this.#db = new DatabaseSync(o.path);
     try {
       this.#db.exec("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");
@@ -99,11 +94,10 @@ export class CollabStore {
     if (!i.owner) throw new CollabError("invalid", "owner is required", { reason: "owner" });
     const now = this.#clock();
     const id = i.id ?? this.#newId("prj");
-    const settings = mergeSettings(i.settings ?? {});
     return this.#tx(() => {
       this.#run(
         "INSERT INTO projects (id, name, owner, settings, created_at, updated_at) VALUES (?,?,?,?,?,?)",
-        id, name, i.owner, JSON.stringify(settings), now, now,
+        id, name, i.owner, JSON.stringify({ ...i.settings, settingsVersion: 2 }), now, now,
       );
       this.#run("INSERT INTO project_members (project_id, user_id, role, added_at) VALUES (?,?,?,?)", id, i.owner, "lead", now);
       return this.#project(id)!;
@@ -116,12 +110,33 @@ export class CollabStore {
       const p = this.#project(id);
       if (!p) throw new CollabError("not-found", "project not found");
       if (p.archivedAt !== null) throw new CollabError("archived", `project ${id} is archived`, { reason: "archived" });
-      this.#run("UPDATE projects SET name = ?, updated_at = ? WHERE id = ?", name.trim(), this.#clock(), id);
+      this.#run("UPDATE projects SET name = ?, updated_at = ?, settings = ? WHERE id = ?", name.trim(), this.#clock(), this.#settingsJson(id), id);
       return this.#project(id)!;
     });
   }
 
   getProject(id: string): Project | null { return this.#project(id); }
+
+  /** Resolve against raw overrides, so a consult default does not cap a code-large delegation at 25 rounds. */
+  limits(id: string): CollabLimits {
+    const row = this.#get('SELECT settings FROM projects WHERE id = ?', id);
+    if (!row) throw new CollabError('not-found', 'project not found');
+    return resolveCollabLimits(this.#limits?.(), normalizedSettings(row.settings as string));
+  }
+
+  /** Store an intentional settings change and the normalization marker atomically; no RPC surface is added. */
+  setSettings(id: string, changes: Partial<CollabSettings>): Project {
+    return this.#tx(() => {
+      this.#live(id);
+      this.#run('UPDATE projects SET settings = ?, updated_at = ? WHERE id = ?', this.#settingsJson(id, changes), this.#clock(), id);
+      return this.#project(id)!;
+    });
+  }
+
+  #settingsJson(id: string, changes: Partial<CollabSettings> = {}): string {
+    const row = this.#get('SELECT settings FROM projects WHERE id = ?', id)!;
+    return JSON.stringify({ ...normalizedSettings(row.settings as string), ...changes, settingsVersion: 2 });
+  }
 
   listProjects(): Project[] {
     return this.#all("SELECT id FROM projects ORDER BY created_at, id").map((r) => this.#project(r.id as string)!);
@@ -133,7 +148,7 @@ export class CollabStore {
       const p = this.#project(id);
       if (!p) throw new CollabError("not-found", `project ${id} not found`, { reason: "project" });
       if (p.archivedAt !== null) return p;
-      this.#run("UPDATE projects SET archived_at = ?, updated_at = ? WHERE id = ?", now, now, id);
+      this.#run("UPDATE projects SET archived_at = ?, updated_at = ?, settings = ? WHERE id = ?", now, now, this.#settingsJson(id), id);
       return this.#project(id)!;
     });
   }
@@ -188,7 +203,7 @@ export class CollabStore {
     });
   }
 
-  #touch(id: string, now: number): void { this.#run("UPDATE projects SET updated_at = ? WHERE id = ?", now, id); }
+  #touch(id: string, now: number): void { this.#run("UPDATE projects SET updated_at = ?, settings = ? WHERE id = ?", now, this.#settingsJson(id), id); }
 
   #live(id: string): Project {
     const p = this.#project(id);
@@ -208,7 +223,7 @@ export class CollabStore {
     const baseBranch = r.base_branch as string | null;
     return {
       id: r.id as string, name: r.name as string, owner: r.owner as string, members, agents,
-      settings: mergeSettings(JSON.parse(r.settings as string)),
+      settings: legacyCollabSettings(resolveCollabLimits(this.#limits?.(), normalizedSettings(r.settings as string))),
       createdAt: r.created_at as number, updatedAt: r.updated_at as number,
       archivedAt: (r.archived_at as number | null) ?? null,
       ...(repoPath && baseBranch ? { repo: { repoPath, baseBranch } satisfies RepoBinding } : {}),
