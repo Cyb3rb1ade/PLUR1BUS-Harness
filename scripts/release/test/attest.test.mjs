@@ -55,7 +55,10 @@ test('helper preparation hashes after signing, and missing signer pins warn with
 
 test('release build without hash pin warns, debug builds do not; changing pins invalidates Cargo build', () => fixture(async d => {
   const executable = join(d, 'build-script');
-  execFileSync('rustc', [join(root, 'crates/plur1bus/build.rs'), '-o', executable]);
+  const source = join(d, 'build-script.rs');
+  // Compile the actual platform-independent build metadata; Cargo supplies cc for the native watchdog shim.
+  writeFileSync(source, `#[path = ${JSON.stringify(join(root, 'crates/plur1bus/build/attest_pins.rs'))}]\nmod attest_pins;\nfn main() { attest_pins::emit(); }\n`);
+  execFileSync('rustc', [source, '-o', executable]);
   const env = { ...process.env, PROFILE: 'release' }; delete env.PLUR1BUS_ATTEST_SHA256;
   const run = extra => spawnSync(executable, [], { env: { ...env, ...extra }, encoding: 'utf8' });
   const missing = run({}); assert.equal(missing.status, 0); assert.match(missing.stdout, /cargo:warning=.*PLUR1BUS_ATTEST_SHA256/);
