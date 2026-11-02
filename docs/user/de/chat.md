@@ -66,7 +66,7 @@ plur1bus session archive <id>
 
 ## Weiter
 
-- Coding CLI: `plur1bus code` — see the English version of this page for the guide.
+- Coding CLI: `plur1bus code`, with `--tui` for the fullscreen view — see the English version of this page for the guide.
 - Chat-Modelle und Denkaufwand: [chat-modelle.md](chat-modelle.md)
 - Lange Gespräche und Zusammenfassungen: [lange-gespraeche.md](lange-gespraeche.md)
 - Agenten verwalten: [agenten.md](agenten.md)
