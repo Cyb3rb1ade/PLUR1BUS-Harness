@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import http from "node:http";
 import https from "node:https";
+import { A2A_PROTOCOL_VERSION } from "@a2a-js/sdk";
 import type { CallBudget } from "../budget/calls.ts";
 import type { PeerCallBudget, PeerBudgetLimits } from "../budget/peer.ts";
 import type { Egress } from "../egress/index.ts";
@@ -10,12 +11,16 @@ import { ToolDispatcher, type ToolDispatcherDeps } from "./dispatcher.ts";
 import { ToolRegistry } from "./registry.ts";
 import { canonical, inCidr, parseAddress, parseCidr } from "./web/ip.ts";
 import type { StoredA2aPeer } from "../a2a/peer-store.ts";
-import { peerUrl } from "../a2a/peer-store.ts";
+import { peerCredentialName, peerUrl } from "../a2a/peer-store.ts";
 import { A2aPeerError } from "../a2a/peer-error.ts";
+import { peerApprovalPreview } from "../a2a/approval-preview.ts";
+import { peerTrustDisplay } from "../a2a/trust-display.ts";
+import type { ApprovalAnswer, ApprovalAsk } from "./approval.ts";
 
 export interface A2aExecution {
   person: string; agent: string; session: string; turn: string; project: string;
   surface: SurfaceTrust; task?: string; policy: Partial<Context>;
+  recurring?: ApprovalAsk["recurring"];
 }
 export interface A2aTransportSettings extends PeerBudgetLimits {
   enabled: boolean; timeoutMs: number; maxCardBytes: number; maxRequestBytes: number; maxReplyBytes: number;
@@ -47,40 +52,122 @@ export class A2aPeerTransport {
   readonly #d: PeerTransportDeps;
   constructor(d: PeerTransportDeps) { this.#d = d; }
 
+  /** TOFU always needs a fresh human answer bound to the verified endpoint and current pin. */
+  async confirmTrust(peer: StoredA2aPeer, endpoint: string, execution: A2aExecution, signal: AbortSignal,
+    current: () => boolean, credentials: Iterable<string> = []): Promise<void> {
+    const d = this.#d;
+    const canonicalEndpoint = peerUrl(endpoint).toString();
+    if (peerUrl(canonicalEndpoint).origin !== peerUrl(peer.cardUrl).origin) throw new A2aPeerError("card-signature");
+    const args = { peer: peer.id, endpointHash: hash(canonicalEndpoint), fingerprint: peer.fingerprint,
+      revision: peer.revision };
+    const publicPeerTrust = { endpoint: canonicalEndpoint, fingerprint: peer.fingerprint, revision: peer.revision };
+    try {
+      peerTrustDisplay({ tool: "peer.a2a_trust", args, publicPeerTrust },
+        [...(d.dispatch.secrets?.() ?? []), ...credentials]);
+    } catch { throw new A2aPeerError("approval-required"); }
+    const registry = new ToolRegistry();
+    registry.register({
+      name: "peer.a2a_trust", description: "Confirm the verified A2A endpoint and key pin",
+      capability: "network.a2a", effect: "network.a2a", risk: "medium", trust: "first-party",
+      inputSchema: { type: "object", additionalProperties: false, properties: {
+        peer: { type: "string" }, endpointHash: { type: "string" }, fingerprint: { type: "string" }, revision: { type: "string" },
+      }, required: ["peer", "endpointHash", "fingerprint", "revision"] },
+      classify: () => ({ targets: [`a2a:${peer.id}`], flags: { outsideRoots: true, denyListHit: false } }),
+      execute: async () => {
+        if (signal.aborted || !current()) throw new A2aPeerError("peer-revoked");
+        if (!d.settings().enabled) throw new A2aPeerError("unavailable");
+        return { confirmed: true };
+      },
+    });
+    await d.beforeDispatch?.();
+    // A standing network grant permits traffic, never a new trust anchor/endpoint.
+    const dispatcher = new ToolDispatcher({ ...d.dispatch, grants: { list: () => [], get: () => undefined },
+      registry, clock: { now: d.now },
+      approvals: {
+        ...(d.dispatch.approvals.begin ? {
+          begin: (answer: ApprovalAnswer, ask: ApprovalAsk) => d.dispatch.approvals.begin!(answer, ask),
+        } : {}),
+        request: async ask => {
+          peerTrustDisplay(ask, [...(d.dispatch.secrets?.() ?? []), ...credentials]);
+          return d.dispatch.approvals.request(ask);
+        },
+      },
+      policyContext: ctx => ({ ...execution.policy, ...(d.dispatch.policyContext?.(ctx) ?? {}) }),
+    });
+    const result = await dispatcher.call({ id: randomUUID(), name: "peer.a2a_trust",
+      args, publicPeerTrust,
+      reason: `Trust A2A peer ${peer.id} with the displayed endpoint and key fingerprint?`,
+      diff: `Endpoint: ${canonicalEndpoint}\nKey fingerprint: ${peer.fingerprint}\nRevision: ${peer.revision}`,
+    }, { agentId: execution.agent, principal: execution.person, sessionId: execution.session, turnId: execution.turn,
+      surface: execution.surface, signal });
+    if (result.isError) {
+      if (result.error.sourceCode === "peer-revoked") throw new A2aPeerError("peer-revoked");
+      throw new A2aPeerError(signal.aborted ? "aborted" : "approval-required");
+    }
+  }
+
   async request(peer: StoredA2aPeer, o: { url: string; method: "GET" | "POST"; body?: string; purpose: "card" | "message"; execution: A2aExecution; signal: AbortSignal; current(): boolean; captureCredential?(value: string): void }): Promise<PeerHttpResult> {
+    if (peer.credentialSecret) peerCredentialName(peer.credentialSecret, peer.id);
     const d = this.#d;
     let url = peerUrl(o.url);
     const origin = peerUrl(peer.cardUrl).origin;
     if (url.origin !== origin) throw new A2aPeerError("egress-denied");
     const inputBytes = Buffer.byteLength(o.body ?? "");
     if (inputBytes > d.settings().maxRequestBytes) throw new A2aPeerError("too-large");
-    let deadline: number | undefined;
+    let remainingNetworkMs = d.settings().timeoutMs;
+    const requestSignal = o.signal;
     for (let hop = 0; hop <= 3; hop++) {
-      if (o.signal.aborted) throw new A2aPeerError("aborted");
+      if (requestSignal.aborted) throw new A2aPeerError("aborted");
+      if (remainingNetworkMs <= 0) throw new A2aPeerError("request-failed");
       const settings = d.settings();
       if (!settings.enabled) throw new A2aPeerError("unavailable");
       const maxBytes = o.purpose === "card" ? settings.maxCardBytes : settings.maxReplyBytes;
       const thisUrl = url.toString();
+      let lease: { value: string; release(): void } | undefined;
+      let pendingLease: Promise<void> | undefined;
+      let closed = false;
+      const releaseCredential = (): void => {
+        const acquired = lease;
+        lease = undefined;
+        pendingLease = undefined;
+        try { acquired?.release(); } catch { /* A release failure never exposes credential data. */ }
+      };
+      const prepareCredential = async (): Promise<void> => {
+        if (!peer.credentialSecret) return;
+        pendingLease ??= (async () => {
+          if (!d.credential) throw new A2aPeerError("unavailable");
+          const acquired = await d.credential(peer.credentialSecret!, peer.id);
+          if (closed || requestSignal.aborted) {
+            acquired.release();
+            throw new A2aPeerError("aborted");
+          }
+          lease = acquired;
+          if (!lease.value || lease.value.length > 4096 || !/^[A-Za-z0-9._~+/-]+=*$/.test(lease.value)) {
+            throw new A2aPeerError("unavailable");
+          }
+          o.captureCredential?.(lease.value);
+        })();
+        await pendingLease;
+      };
       const registry = new ToolRegistry();
       registry.register({
         name: "peer.a2a_http", description: "Contact an explicitly registered A2A peer", capability: "network.a2a", effect: "network.a2a", risk: "medium", trust: "untrusted",
         inputSchema: { type: "object", additionalProperties: false, properties: { peer: { type: "string" }, method: { enum: ["GET", "POST"] }, urlHash: { type: "string" }, payloadHash: { type: "string" }, payloadBytes: { type: "integer" }, revision: { type: "string" } }, required: ["peer", "method", "urlHash", "payloadHash", "payloadBytes", "revision"] },
-        limits: { timeoutMs: settings.timeoutMs, maxResultBytes: 1024 * 1024 },
+        limits: { timeoutMs: Math.max(1, Math.floor(remainingNetworkMs)), maxResultBytes: 1024 * 1024 },
         classify: () => ({ targets: [`a2a:${peer.id}`], flags: { outsideRoots: true, denyListHit: false } }),
         execute: async (_args, ctx): Promise<PeerHttpResult> => {
           if (!o.current()) throw new A2aPeerError("peer-revoked");
           if (!d.settings().enabled) throw new A2aPeerError("unavailable");
-          deadline ??= d.now() + settings.timeoutMs;
-          const remaining = Math.floor(deadline - d.now());
+          const networkStarted = d.now();
+          const remaining = Math.floor(remainingNetworkMs);
           if (remaining <= 0) throw new A2aPeerError("request-failed");
-          const signal = AbortSignal.any([ctx.signal, o.signal, AbortSignal.timeout(remaining)]);
+          const signal = AbortSignal.any([ctx.signal, requestSignal, AbortSignal.timeout(remaining)]);
           // Discovery has no message tokens; every HTTP hop still consumes a call.
           const capacity = o.purpose === "card" ? 0 : inputBytes + maxBytes;
           const identity = { person: o.execution.person, agent: o.execution.agent, session: o.execution.session, turn: o.execution.turn, peer: peer.id };
           const allowance = d.peerBudget.reserve(identity, capacity, settings);
           if (allowance.kind !== "allow") throw new A2aPeerError("budget-exceeded");
           let reservation: string | undefined, written = false, finished = false;
-          let lease: { value: string; release(): void } | undefined;
           try {
             const budget = d.budget.checkBeforeCall({ principal: identity.person, agent: identity.agent, project: o.execution.project, session: identity.session, turn: identity.turn, model: `a2a:${peer.id}`, provider: "a2a", estimatedInputTokens: o.purpose === "card" ? 0 : inputBytes, maxOutputTokens: o.purpose === "card" ? 0 : maxBytes });
             if (budget.kind !== "allow") throw new A2aPeerError("budget-exceeded");
@@ -88,12 +175,7 @@ export class A2aPeerTransport {
             const pin = await d.egress.decide(thisUrl, { purpose: "a2a" });
             if (!pin.allowed) throw new A2aPeerError("egress-denied");
             if (d.localOnly(identity.agent) && !localA2aAddress(pin.address)) throw new A2aPeerError("local-only");
-            if (peer.credentialSecret) {
-              if (!d.credential) throw new A2aPeerError("unavailable");
-              lease = await d.credential(peer.credentialSecret, peer.id);
-              if (!lease.value || lease.value.length > 4096 || !/^[A-Za-z0-9._~+/-]+=*$/.test(lease.value)) throw new A2aPeerError("unavailable");
-              o.captureCredential?.(lease.value);
-            }
+            await prepareCredential();
             if (!o.current() || !d.settings().enabled) throw new A2aPeerError("peer-revoked");
             if (signal.aborted) throw new A2aPeerError("aborted");
             d.audit.append({ at: d.now(), actor: { user: identity.person, host: "core" }, action: "a2a.call", target: `a2a:${peer.id}`, detail: { origin: "a2a", kind: o.purpose, method: o.method, inputBytes } });
@@ -114,14 +196,45 @@ export class A2aPeerTransport {
               if (reservation) d.budget.releaseUnused(reservation);
             }
             throw error instanceof A2aPeerError ? error : new A2aPeerError(signal.aborted ? "aborted" : "request-failed");
-          } finally { try { lease?.release(); } catch { /* no peer data in diagnostics */ } }
+          } finally {
+            // Redirects share one network allowance; each separate approval wait is outside it.
+            remainingNetworkMs = Math.max(0, remainingNetworkMs - Math.max(0, d.now() - networkStarted));
+          }
         },
       });
       await d.beforeDispatch?.();
-      const dispatcher = new ToolDispatcher({ ...d.dispatch, registry, clock: { now: d.now }, policyContext: ctx => ({ ...o.execution.policy, ...(d.dispatch.policyContext?.(ctx) ?? {}) }) });
-      const reply = await dispatcher.call({ id: randomUUID(), name: "peer.a2a_http", args: { peer: peer.id, method: o.method, urlHash: hash(thisUrl), payloadHash: hash(o.body ?? ""), payloadBytes: inputBytes, revision: peer.revision } }, {
-        agentId: o.execution.agent, principal: o.execution.person, sessionId: o.execution.session, turnId: o.execution.turn, ...(o.execution.task ? { taskId: o.execution.task } : {}), surface: o.execution.surface, signal: o.signal,
+      const dispatcher = new ToolDispatcher({ ...d.dispatch, registry, clock: { now: d.now },
+        approvals: {
+          ...(d.dispatch.approvals.begin ? {
+            begin: (answer: ApprovalAnswer, ask: ApprovalAsk) => d.dispatch.approvals.begin!(answer, ask),
+          } : {}),
+          request: async ask => {
+          // A local lease makes even the first credential use safe to preview. No network runs before the answer.
+          try {
+            await prepareCredential();
+            if (requestSignal.aborted) throw new A2aPeerError("aborted");
+            const secrets = [...(d.dispatch.secrets?.() ?? []), ...(lease ? [lease.value] : [])];
+            ask.reason = `${o.method} A2A peer ${peer.id}: ${peerApprovalPreview(o.body ?? "Agent card discovery", secrets)}`;
+          } finally {
+            // Human waiting may outlast a lease. Approved traffic obtains a fresh lease below.
+            releaseCredential();
+          }
+          return d.dispatch.approvals.request(ask);
+        } },
+        policyContext: ctx => ({ ...o.execution.policy, ...(d.dispatch.policyContext?.(ctx) ?? {}) }),
       });
+      let reply;
+      try {
+        reply = await dispatcher.call({ id: randomUUID(), name: "peer.a2a_http", args: { peer: peer.id, method: o.method, urlHash: hash(thisUrl), payloadHash: hash(o.body ?? ""), payloadBytes: inputBytes, revision: peer.revision } }, {
+          agentId: o.execution.agent, principal: o.execution.person, sessionId: o.execution.session,
+          turnId: o.execution.turn, ...(o.execution.task ? { taskId: o.execution.task } : {}),
+          ...(o.execution.recurring ? { recurring: o.execution.recurring } : {}),
+          surface: o.execution.surface, signal: requestSignal,
+        });
+      } finally {
+        closed = true;
+        releaseCredential();
+      }
       if (reply.isError) {
         const code = reply.error.sourceCode;
         if (code && ["peer-revoked", "egress-denied", "local-only", "budget-exceeded", "too-large", "aborted", "unavailable"].includes(code)) throw new A2aPeerError(code as import('../a2a/peer-error.ts').A2aPeerFailure);
@@ -146,7 +259,7 @@ function pinnedRequest(url: URL, pin: { address: string; family: 4 | 6 }, o: { m
     const request = (url.protocol === "https:" ? https : http).request({
       hostname: url.hostname.replace(/^\[|\]$/g, ""), port: url.port || (url.protocol === "https:" ? 443 : 80), path: url.pathname, method: o.method, agent: false, signal: o.signal,
       maxHeaderSize: 16 * 1024,
-      headers: { accept: "application/json", "accept-encoding": "identity", ...(o.body !== undefined ? { "content-type": "application/json", "content-length": Buffer.byteLength(o.body) } : {}), ...(o.token ? { authorization: `Bearer ${o.token}` } : {}) },
+      headers: { accept: "application/json", "accept-encoding": "identity", "a2a-version": A2A_PROTOCOL_VERSION, ...(o.body !== undefined ? { "content-type": "application/json", "content-length": Buffer.byteLength(o.body) } : {}), ...(o.token ? { authorization: `Bearer ${o.token}` } : {}) },
       lookup: ((_host: string, options: { all?: boolean }, callback: (...args: unknown[]) => void) => options.all ? callback(null, [{ address: pin.address, family: pin.family }]) : callback(null, pin.address, pin.family)) as never,
     }, response => {
       const chunks: Buffer[] = []; let size = 0;

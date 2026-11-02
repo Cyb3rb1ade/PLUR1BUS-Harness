@@ -118,9 +118,296 @@
     },
     "collaboration": {
       "description": "Agent collaboration and owner-controlled fan-out.",
-      "type": "object", "additionalProperties": false,
+      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "fanoutEnabled": { "type": "boolean", "default": false, "x-restart": "live", "x-tier": "advanced", "description": "Enable collaboration fan-out only after owner review of the equal-token-budget evaluation." }
+        "fanoutEnabled": {
+          "type": "boolean",
+          "default": false,
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "description": "Enable collaboration fan-out only after owner review of the equal-token-budget evaluation."
+        },
+        "teams": {
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "description": "D124 capacity facts; team scheduling remains disabled until its scheduler, reviews and merge queue land.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable coding teams when team scheduling, review and merge support is installed; off by default."
+            },
+            "capacity": {
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "coresPerWriter": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "default": 2,
+                  "description": "Allowed CPU cores estimated per local writer.",
+                  "maximum": 9007199254740991
+                },
+                "memoryPerWriter": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "default": 4294967296,
+                  "description": "Available memory in bytes estimated per local writer.",
+                  "maximum": 9007199254740991
+                },
+                "maxWriters": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Explicit soft-capacity override. Exceeding measured CPU or memory capacity emits a warning. The numeric bound preserves JSON safe integers, without an operational writer ceiling.",
+                  "maximum": 9007199254740991
+                }
+              },
+              "description": "Soft writer capacity from CPU cores and available memory, with an explicit overcommit override."
+            },
+            "disk": {
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "minFreeBytes": {
+                  "type": "integer",
+                  "minimum": 1073741824,
+                  "default": 21474836480,
+                  "description": "Hard floor before creating a worktree. Cannot be disabled; the provisioner-backed team scheduler enforces it.",
+                  "maximum": 9007199254740991
+                }
+              },
+              "description": "Required free disk space before creating an additional worktree."
+            }
+          }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "description": "D124 collaboration limits. Project settings can only narrow these installation limits.",
+          "properties": {
+            "readHelpers": {
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "perTurn": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 32,
+                  "default": 8,
+                  "description": "Read helper starts per calling turn."
+                },
+                "depth": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2,
+                  "default": 2,
+                  "description": "Maximum read-only delegation depth."
+                }
+              },
+              "description": "Read-only helper starts and nesting depth."
+            },
+            "writers": {
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "perProject": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "default": 4,
+                  "description": "Concurrent writers per project. Hardware capacity is a soft bound; there is no fixed writer ceiling. The numeric bound preserves JSON safe integers.",
+                  "maximum": 9007199254740991
+                }
+              },
+              "description": "Project-wide concurrent writer limit, independent of read helper starts."
+            },
+            "consults": {
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "perPairPerTurn": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "default": 4,
+                  "description": "Consult starts per agent pair per calling turn.",
+                  "maximum": 9007199254740991
+                }
+              },
+              "description": "Consult-only pair allowance; package delegations have no pair cap."
+            },
+            "workTokens": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 131072,
+              "description": "Standalone delegation work allocation when no smaller explicit allocation is supplied. Includes acceptance and return repair; independent of the 2000-token return cap.",
+              "maximum": 9007199254740991
+            },
+            "taskClasses": {
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "consult": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "rounds": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "default": 25,
+                      "description": "Maximum model rounds for this delegation.",
+                      "maximum": 9007199254740991
+                    },
+                    "wallTimeMs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647,
+                      "default": 300000,
+                      "description": "Maximum elapsed milliseconds for the delegation."
+                    },
+                    "stallTimeMs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647,
+                      "default": 120000,
+                      "description": "Maximum milliseconds without progress before cancelling the delegation."
+                    }
+                  },
+                  "description": "Advice and short read-only helper work."
+                },
+                "research": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "rounds": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "default": 50,
+                      "description": "Maximum model rounds for this delegation.",
+                      "maximum": 9007199254740991
+                    },
+                    "wallTimeMs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647,
+                      "default": 900000,
+                      "description": "Maximum elapsed milliseconds for the delegation."
+                    },
+                    "stallTimeMs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647,
+                      "default": 300000,
+                      "description": "Maximum milliseconds without progress before cancelling the delegation."
+                    }
+                  },
+                  "description": "Exploration, research and explanations."
+                },
+                "review": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "rounds": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "default": 40,
+                      "description": "Maximum model rounds for this delegation.",
+                      "maximum": 9007199254740991
+                    },
+                    "wallTimeMs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647,
+                      "default": 1200000,
+                      "description": "Maximum elapsed milliseconds for the delegation."
+                    },
+                    "stallTimeMs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647,
+                      "default": 300000,
+                      "description": "Maximum milliseconds without progress before cancelling the delegation."
+                    }
+                  },
+                  "description": "Independent read-only review."
+                },
+                "code-small": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "rounds": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "default": 100,
+                      "description": "Maximum model rounds for this delegation.",
+                      "maximum": 9007199254740991
+                    },
+                    "wallTimeMs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647,
+                      "default": 2700000,
+                      "description": "Maximum elapsed milliseconds for the delegation."
+                    },
+                    "stallTimeMs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647,
+                      "default": 600000,
+                      "description": "Maximum milliseconds without progress before cancelling the delegation."
+                    }
+                  },
+                  "description": "Coding packages of roughly fewer than 200 changed lines."
+                },
+                "code-large": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "rounds": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "default": 200,
+                      "description": "Maximum model rounds for this delegation.",
+                      "maximum": 9007199254740991
+                    },
+                    "wallTimeMs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647,
+                      "default": 7200000,
+                      "description": "Maximum elapsed milliseconds for the delegation."
+                    },
+                    "stallTimeMs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647,
+                      "default": 900000,
+                      "description": "Maximum milliseconds without progress before cancelling the delegation."
+                    }
+                  },
+                  "description": "Larger coding packages."
+                }
+              },
+              "description": "Round, elapsed-time and inactivity limits for each delegation task class."
+            }
+          }
+        }
       },
       "default": {}
     },
@@ -1592,7 +1879,7 @@
           "minimum": 100,
           "maximum": 120000,
           "default": 30000,
-          "description": "Network deadline for an outbound A2A operation, including same-origin redirects.",
+          "description": "Network deadline per outbound A2A HTTP request, including its same-origin redirects.",
           "x-restart": "live",
           "x-tier": "advanced",
           "x-write-roles": [

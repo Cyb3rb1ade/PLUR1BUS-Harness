@@ -21,6 +21,13 @@ export function peerId(id: unknown): string {
   if (typeof id !== "string" || !/^[a-z][a-z0-9._-]{0,63}$/.test(id)) throw new A2aPeerError("invalid-peer");
   return id;
 }
+/** A peer credential names one slot under a2a/<that-peer-id>/; provider and other-peer slots are never leased. */
+export function peerCredentialName(raw: unknown, id: string): string {
+  const match = typeof raw === "string" && raw.length <= 128
+    ? /^a2a\/([a-z][a-z0-9._-]{0,63})\/[A-Za-z0-9][A-Za-z0-9._@-]*$/.exec(raw) : null;
+  if (!match || match[1] !== peerId(id)) throw new A2aPeerError("invalid-peer");
+  return raw as string;
+}
 export function peerUrl(raw: unknown): URL {
   try {
     if (typeof raw !== "string" || raw.length > 2048) throw new Error();
@@ -74,10 +81,16 @@ export class A2aPeerStore {
     try { return fn(); }
     catch (error) { throw error instanceof A2aPeerError ? error : new A2aPeerError("unavailable"); }
   }
-  #write<T>(fn: () => T): T {
+  #write<T>(fn: () => T, beforeCommit?: (result: T) => void): T {
     return this.#run(() => {
       this.#db.exec("BEGIN IMMEDIATE");
-      try { const result = fn(); this.#db.exec("COMMIT"); return result; }
+      try {
+        const result = fn();
+        // Recording the management decision is a precondition of committing it.
+        beforeCommit?.(result);
+        this.#db.exec("COMMIT");
+        return result;
+      }
       catch (error) { this.#db.exec("ROLLBACK"); throw error; }
     });
   }
@@ -92,10 +105,10 @@ export class A2aPeerStore {
   list(): A2aPeer[] {
     return this.#run(() => (this.#db.prepare("SELECT * FROM peers ORDER BY id").all() as unknown as PeerRow[]).map(r => publicView(fromRow(r))));
   }
-  add(input: AddA2aPeer, maxPeers = this.#maxPeers): A2aPeer {
+  add(input: AddA2aPeer, maxPeers = this.#maxPeers, beforeCommit?: (peer: A2aPeer) => void): A2aPeer {
     const id = peerId(input.id), cardUrl = peerUrl(input.cardUrl).toString(), fingerprint = peerKeyFingerprint(input.publicKey);
     if (typeof input.kid !== "string" || !input.kid || input.kid.length > 128 || /[\u0000-\u001f\u007f]/.test(input.kid)) throw new A2aPeerError("invalid-peer");
-    if (input.credentialSecret !== undefined && !/^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/.test(input.credentialSecret)) throw new A2aPeerError("invalid-peer");
+    if (input.credentialSecret !== undefined) peerCredentialName(input.credentialSecret, id);
     const key: PeerPublicKey = { kty: "OKP", crv: "Ed25519", x: (input.publicKey as PeerPublicKey).x };
     return this.#write(() => {
       if (this.get(id)) throw new A2aPeerError("peer-exists");
@@ -104,9 +117,9 @@ export class A2aPeerStore {
       this.#db.prepare("INSERT INTO peers VALUES (?,?,?,?,?,?,'pending',?,NULL,?,?)")
         .run(id, cardUrl, input.kid, fingerprint, JSON.stringify(key), input.credentialSecret ?? null, randomUUID(), now, now);
       return publicView(this.get(id)!);
-    });
+    }, beforeCommit);
   }
-  trust(id: string, fingerprint: string, revision: string, endpoint: string): A2aPeer {
+  trust(id: string, fingerprint: string, revision: string, endpoint: string, beforeCommit?: (peer: A2aPeer) => void): A2aPeer {
     return this.#write(() => {
       const peer = this.get(id);
       if (!peer || peer.revision !== revision) throw new A2aPeerError("peer-revoked");
@@ -117,11 +130,11 @@ export class A2aPeerStore {
       this.#db.prepare("UPDATE peers SET state='trusted', endpoint=?, revision=?, updated_at=? WHERE id=?")
         .run(url.toString(), randomUUID(), this.#now(), id);
       return publicView(this.get(id)!);
-    });
+    }, beforeCommit);
   }
-  remove(id: string): boolean {
+  remove(id: string, beforeCommit?: (removed: boolean) => void): boolean {
     peerId(id);
-    return this.#write(() => Number(this.#db.prepare("DELETE FROM peers WHERE id=?").run(id).changes) > 0);
+    return this.#write(() => Number(this.#db.prepare("DELETE FROM peers WHERE id=?").run(id).changes) > 0, beforeCommit);
   }
   close(): void { if (!this.#closed) { this.#closed = true; this.#db.close(); } }
 }

@@ -47,7 +47,7 @@ export interface EventEmitter {
   emit(e: CollabEvent): void;
 }
 
-export interface AgentInfo { id: string; state: AgentState; projectIds?: readonly string[]; targetKind?: "external" }
+export interface AgentInfo { id: string; state: AgentState; projectIds?: readonly string[]; targetKind?: "external" | "a2a"; origin?: "a2a" }
 export interface AgentDirectoryPort {
   get(agentId: string): AgentInfo | null;
 }

@@ -1,7 +1,7 @@
 // Cargo-only dependency changes retain verified npm attribution from its native baseline.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -156,5 +156,83 @@ test("native generation still collects npm metadata and uses the current platfor
     assert.match(output["THIRD_PARTY.md"], new RegExp(`installed on ${process.platform}-${process.arch}`));
     assert.ok(output["THIRD_PARTY.md"].includes("| npm | fresh-npm | 3.0.0 | MIT | Fresh author |"));
     assert.deepEqual(calls.map(({ command }) => command), ["pnpm", "cargo", "cargo"]);
+  });
+});
+
+test("git-sourced Apache-2.0 crate with symlinked NOTICE and LICENSE within checkout root appears in notices", () => {
+  fixture(({ directory, calls }) => {
+    const gitRepoDir = join(directory, "git-repo");
+    mkdirSync(gitRepoDir);
+    writeFileSync(join(gitRepoDir, ".cargo-ok"), "ok\n");
+    const rootNotice = "Apache Software Foundation NOTICE\n";
+    const rootLicense = "Apache-2.0 LICENSE\n";
+    writeFileSync(join(gitRepoDir, "NOTICE.txt"), rootNotice);
+    writeFileSync(join(gitRepoDir, "LICENSE.txt"), rootLicense);
+
+    const subCrateDir = join(gitRepoDir, "sub-crate");
+    mkdirSync(subCrateDir);
+    writeFileSync(join(subCrateDir, "Cargo.toml"), "[package]\nname='git-crate'\n");
+    symlinkSync("../NOTICE.txt", join(subCrateDir, "NOTICE.txt"));
+    symlinkSync("../LICENSE.txt", join(subCrateDir, "LICENSE.txt"));
+
+    const collect = (command) => {
+      calls.push({ command });
+      if (command === "cargo") {
+        return {
+          packages: [
+            {
+              name: "git-crate",
+              version: "1.0.0",
+              source: "git+https://github.com/example/repo?rev=123456#123456",
+              license: "Apache-2.0",
+              manifest_path: join(subCrateDir, "Cargo.toml"),
+              authors: ["Apache Arrow Team"],
+            },
+          ],
+        };
+      }
+      return {};
+    };
+
+    const notices = generateNotices({ directory, collect, reuseNpm: true })["THIRD_PARTY-LICENSES.txt"];
+    assert.ok(notices.includes(`SHA256 ${sha(rootNotice)}\ncargo:git-crate@1.0.0/NOTICE.txt\n\n${rootNotice}`));
+    assert.ok(notices.includes("cargo:git-crate@1.0.0/LICENSE.txt"));
+  });
+});
+
+test("git-sourced crate with symlink escaping checkout root is refused", () => {
+  fixture(({ directory }) => {
+    const gitRepoDir = join(directory, "git-escape-repo");
+    mkdirSync(gitRepoDir);
+    writeFileSync(join(gitRepoDir, ".cargo-ok"), "ok\n");
+    const subCrateDir = join(gitRepoDir, "sub-crate");
+    mkdirSync(subCrateDir);
+    writeFileSync(join(subCrateDir, "Cargo.toml"), "[package]\nname='escape-crate'\n");
+    const outsideFile = join(directory, "outside-secret.txt");
+    writeFileSync(outsideFile, "secret\n");
+    symlinkSync(outsideFile, join(subCrateDir, "NOTICE.txt"));
+
+    const collect = (command) => {
+      if (command === "cargo") {
+        return {
+          packages: [
+            {
+              name: "escape-crate",
+              version: "1.0.0",
+              source: "git+https://github.com/example/repo?rev=123456#123456",
+              license: "Apache-2.0",
+              manifest_path: join(subCrateDir, "Cargo.toml"),
+              authors: [],
+            },
+          ],
+        };
+      }
+      return {};
+    };
+
+    assert.throws(
+      () => generateNotices({ directory, collect, reuseNpm: true }),
+      /outside checkout root/i
+    );
   });
 });

@@ -9,6 +9,7 @@ export interface PeerBudgetLimits { peerCalls: number; turnCalls: number; peerTo
 export type PeerBudgetDecision = { kind: "allow"; id: string } | { kind: "refuse" };
 const invalid = (): never => { throw new Error("invalid peer budget input"); };
 const count = (n: number): boolean => Number.isSafeInteger(n) && n >= 0;
+const CALL_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 export class PeerCallBudget {
   readonly #db: DatabaseSync;
@@ -23,14 +24,36 @@ export class PeerCallBudget {
       session TEXT NOT NULL, turn TEXT NOT NULL, peer TEXT NOT NULL,
       tokens INTEGER NOT NULL CHECK(tokens >= 0), capacity INTEGER NOT NULL CHECK(capacity >= tokens),
       state TEXT NOT NULL CHECK(state IN ('reserved','spent','cancelled')), ts INTEGER NOT NULL
-    ); CREATE INDEX IF NOT EXISTS a2a_peer_call_turn ON a2a_peer_call(person,session,turn);`);
+    ); CREATE INDEX IF NOT EXISTS a2a_peer_call_turn ON a2a_peer_call(person,session,turn);
+    CREATE INDEX IF NOT EXISTS a2a_peer_call_ts ON a2a_peer_call(ts);
+    CREATE TABLE IF NOT EXISTS a2a_peer_turn_total (
+      person TEXT NOT NULL, session TEXT NOT NULL, turn TEXT NOT NULL, peer TEXT NOT NULL,
+      calls INTEGER NOT NULL CHECK(calls >= 0), tokens INTEGER NOT NULL CHECK(tokens >= 0),
+      PRIMARY KEY(person,session,turn,peer)
+    );`);
+    transaction(this.#db, () => this.#compact());
+  }
+  /** Drop per-call metadata after 30 days; durable totals keep a replay from resetting a turn's ceilings. */
+  #compact(): void {
+    const cutoff = this.#now() - CALL_RETENTION_MS;
+    this.#db.prepare(`INSERT INTO a2a_peer_turn_total(person,session,turn,peer,calls,tokens)
+      SELECT person,session,turn,peer,COUNT(*),SUM(tokens) FROM a2a_peer_call
+      WHERE ts<? AND state<>'cancelled' GROUP BY person,session,turn,peer
+      ON CONFLICT(person,session,turn,peer) DO UPDATE SET
+        calls=calls+excluded.calls,tokens=tokens+excluded.tokens`).run(cutoff);
+    // An orphan reservation retains its entire bound. No successful wire call can be refunded by aging out.
+    this.#db.prepare("DELETE FROM a2a_peer_call WHERE ts<?").run(cutoff);
   }
   reserve(who: PeerBudgetIdentity, tokens: number, limits: PeerBudgetLimits): PeerBudgetDecision {
     if (Object.values(who).length !== 5 || Object.values(who).some(v => typeof v !== "string" || !v || v.length > 512) || !count(tokens) || [limits.peerCalls, limits.turnCalls, limits.peerTokens, limits.turnTokens].some(v => !count(v))) return invalid();
     return transaction(this.#db, () => {
-      const rows = this.#db.prepare(`SELECT peer, COUNT(*) AS calls, SUM(tokens) AS tokens FROM a2a_peer_call
-        WHERE person=? AND session=? AND turn=? AND state<>'cancelled' GROUP BY peer`)
-        .all(who.person, who.session, who.turn) as Array<{ peer: string; calls: number; tokens: number }>;
+      this.#compact();
+      const rows = this.#db.prepare(`SELECT peer,SUM(calls) AS calls,SUM(tokens) AS tokens FROM (
+        SELECT peer,COUNT(*) AS calls,SUM(tokens) AS tokens FROM a2a_peer_call
+        WHERE person=? AND session=? AND turn=? AND state<>'cancelled' GROUP BY peer
+        UNION ALL SELECT peer,calls,tokens FROM a2a_peer_turn_total WHERE person=? AND session=? AND turn=?
+      ) GROUP BY peer`).all(who.person, who.session, who.turn, who.person, who.session, who.turn) as
+        Array<{ peer: string; calls: number; tokens: number }>;
       const peer = rows.find(r => r.peer === who.peer);
       if ((peer?.calls ?? 0) >= limits.peerCalls || rows.reduce((n, r) => n + r.calls, 0) >= limits.turnCalls ||
         (peer?.tokens ?? 0) + tokens > limits.peerTokens || rows.reduce((n, r) => n + r.tokens, 0) + tokens > limits.turnTokens) return { kind: "refuse" };

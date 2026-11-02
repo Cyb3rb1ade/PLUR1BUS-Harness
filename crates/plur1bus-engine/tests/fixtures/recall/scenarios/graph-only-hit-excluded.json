@@ -1,0 +1,87 @@
+{
+  "now": 1768305600000,
+  "validAt": null,
+  "recallMinScore": 0.15,
+  "topN": 1,
+  "candidateTopK": 1,
+  "candidateHardLimit": 100,
+  "canonicalMinScore": 0.3,
+  "canonicalMaxItems": 5,
+  "deferFinalCap": true,
+  "associativeEnabled": true,
+  "edges": [
+    {
+      "source": "00000000-0000-4000-8000-000000000008",
+      "target": "00000000-0000-4000-8000-000000000009",
+      "strength": 0.9,
+      "directed": false,
+      "type": "related"
+    }
+  ],
+  "knowledge": null,
+  "queryVector": {
+    "op": "hash",
+    "text": "durable archive policy number forty two for the fixture recall"
+  },
+  "vectorCheck": [
+    {
+      "vector": {
+        "op": "basis",
+        "index": 0
+      },
+      "max": 0.25
+    }
+  ],
+  "name": "graph-only-hit-excluded",
+  "query": "durable archive policy number forty two for the fixture recall",
+  "context": {
+    "agentId": "a1",
+    "workspaceId": "",
+    "workspaceIdentity": "",
+    "userPrincipal": ""
+  },
+  "rows": [
+    {
+      "id": "00000000-0000-4000-8000-000000000008",
+      "text": "durable archive policy number forty two for the fixture recall",
+      "vector": {
+        "op": "hash",
+        "text": "durable archive policy number forty two for the fixture recall"
+      },
+      "agentId": "a1",
+      "storedBy": "a1",
+      "scope": "agent-private",
+      "ownerUserId": "",
+      "workspaceId": "",
+      "workspaceKey": "",
+      "status": "active",
+      "epistemicStatus": "observed",
+      "memoryStrength": 1,
+      "importance": 0.5,
+      "validFrom": 0,
+      "validUntil": 0,
+      "createdAt": 1768219200000
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000009",
+      "text": "orthogonal graph endpoint excluded after hydration",
+      "vector": {
+        "op": "basis",
+        "index": 0
+      },
+      "agentId": "a1",
+      "storedBy": "a1",
+      "scope": "agent-private",
+      "ownerUserId": "",
+      "workspaceId": "",
+      "workspaceKey": "",
+      "status": "active",
+      "epistemicStatus": "observed",
+      "memoryStrength": 1,
+      "importance": 0.5,
+      "validFrom": 0,
+      "validUntil": 0,
+      "createdAt": 1768219200000
+    }
+  ]
+}

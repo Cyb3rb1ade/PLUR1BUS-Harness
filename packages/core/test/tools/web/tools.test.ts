@@ -4,7 +4,8 @@ import { createHash } from "node:crypto";
 import { createWebTools, WEB_CAPABILITIES } from "../../../src/tools/web/tools.ts";
 import { createWebFetch } from "../../../src/tools/web/fetch.ts";
 import { createWebSearch } from "../../../src/tools/web/search.ts";
-import { callWithRepair, validateArgs } from "../../../src/tools/repair.ts";
+import { validateArgs } from "../../../src/tools/repair.ts";
+import { callWithRepair } from "../call-with-repair.ts";
 import { startStub } from "./helpers.ts";
 
 const stubSearch = createWebSearch({ providers: [{ id: "p", search: async () => [{ title: "R", url: "https://r.example/", snippet: "s" }] }] });

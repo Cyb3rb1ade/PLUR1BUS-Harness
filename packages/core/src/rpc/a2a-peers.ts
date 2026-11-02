@@ -28,7 +28,7 @@ export function a2aPeerMethods(service: () => A2aPeerClient | null, surfaceOf?: 
     "a2a.peer.remove": bind((s, p, who) => ({ id: p.id, removed: s.remove(who, p.id) })),
     "a2a.peer.trust": bind((s, p, who, ctx) => {
       const turn = `a2a-trust:${randomUUID()}`;
-      return s.trust(who, p, { person: who.userId, agent: "a2a-owner", session: ctx.connectionId, turn, project: "a2a-peers", surface: surfaceOf?.(who, ctx) ?? 0, policy: {} }, ctx.signal);
+      return s.trust(who, p, { person: who.userId, agent: "system:a2a-owner", session: ctx.connectionId, turn, project: "a2a-peers", surface: surfaceOf?.(who, ctx) ?? 0, policy: {} }, ctx.signal);
     }),
   };
 }
