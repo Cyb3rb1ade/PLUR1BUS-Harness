@@ -302,7 +302,8 @@ mod tty {
                         &mut slave,
                         std::ptr::null_mut(),
                         std::ptr::null_mut(),
-                        &mut size,
+                        // libc declares this input as const on Linux and mutable on macOS.
+                        &raw mut size,
                     )
                 },
                 0,
