@@ -1343,6 +1343,320 @@
         "/public/path",
         "us-east-1"
       ]
+    },
+    {
+      "name": "typed recursive public objects preserve finite values and protect unknown strings",
+      "schema": {
+        "type": "object",
+        "$defs": {
+          "tree": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "next": {
+                "$ref": "#/$defs/tree"
+              },
+              "children": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/tree"
+                }
+              },
+              "named": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/$defs/tree"
+                }
+              }
+            }
+          }
+        },
+        "properties": {
+          "tree": {
+            "$ref": "#/$defs/tree"
+          }
+        }
+      },
+      "value": {
+        "tree": {
+          "name": "public-root",
+          "next": {
+            "name": "public-leaf",
+            "next": {
+              "name": "public-tip",
+              "opaque": "$CANARY"
+            }
+          }
+        }
+      },
+      "expectedDisplay": {
+        "tree": {
+          "name": "public-root",
+          "next": {
+            "name": "public-leaf",
+            "next": {
+              "name": "public-tip",
+              "opaque": "••••"
+            }
+          }
+        }
+      },
+      "expectedBackup": {
+        "tree": {
+          "name": "public-root",
+          "next": {
+            "name": "public-leaf",
+            "next": {
+              "name": "public-tip",
+              "opaque": "$ARCHIVE_MASK"
+            }
+          }
+        }
+      },
+      "registered": [
+        "$CANARY"
+      ],
+      "notRegistered": [
+        "public-root",
+        "public-leaf",
+        "public-tip"
+      ]
+    },
+    {
+      "name": "typed recursive array and map items preserve heterogeneous finite branches",
+      "schema": {
+        "type": "object",
+        "$defs": {
+          "tree": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "next": {
+                "$ref": "#/$defs/tree"
+              },
+              "children": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/tree"
+                }
+              },
+              "named": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/$defs/tree"
+                }
+              }
+            }
+          }
+        },
+        "properties": {
+          "tree": {
+            "$ref": "#/$defs/tree"
+          }
+        }
+      },
+      "value": {
+        "tree": {
+          "name": "public-root",
+          "children": [
+            {
+              "name": "public-first",
+              "next": {
+                "name": "public-deep"
+              }
+            },
+            {
+              "name": "public-second",
+              "children": [
+                {
+                  "name": "public-last"
+                }
+              ]
+            }
+          ],
+          "named": {
+            "one": {
+              "name": "public-map",
+              "next": {
+                "name": "public-map-deep"
+              }
+            }
+          }
+        }
+      },
+      "expectedDisplay": {
+        "tree": {
+          "name": "public-root",
+          "children": [
+            {
+              "name": "public-first",
+              "next": {
+                "name": "public-deep"
+              }
+            },
+            {
+              "name": "public-second",
+              "children": [
+                {
+                  "name": "public-last"
+                }
+              ]
+            }
+          ],
+          "named": {
+            "one": {
+              "name": "public-map",
+              "next": {
+                "name": "public-map-deep"
+              }
+            }
+          }
+        }
+      },
+      "expectedBackup": {
+        "tree": {
+          "name": "public-root",
+          "children": [
+            {
+              "name": "public-first",
+              "next": {
+                "name": "public-deep"
+              }
+            },
+            {
+              "name": "public-second",
+              "children": [
+                {
+                  "name": "public-last"
+                }
+              ]
+            }
+          ],
+          "named": {
+            "one": {
+              "name": "public-map",
+              "next": {
+                "name": "public-map-deep"
+              }
+            }
+          }
+        }
+      },
+      "registered": [],
+      "notRegistered": [
+        "public-root",
+        "public-first",
+        "public-deep",
+        "public-second",
+        "public-last",
+        "public-map",
+        "public-map-deep"
+      ]
+    },
+    {
+      "name": "typed root recursion retains each finite object and array member",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "child": {
+            "$ref": "#"
+          },
+          "peers": {
+            "type": "array",
+            "items": {
+              "$ref": "#"
+            }
+          }
+        }
+      },
+      "value": {
+        "label": "public-root-ref",
+        "child": {
+          "label": "public-child-ref"
+        },
+        "peers": [
+          {
+            "label": "public-peer-ref",
+            "child": {
+              "label": "public-nested-ref"
+            }
+          }
+        ]
+      },
+      "expectedDisplay": {
+        "label": "public-root-ref",
+        "child": {
+          "label": "public-child-ref"
+        },
+        "peers": [
+          {
+            "label": "public-peer-ref",
+            "child": {
+              "label": "public-nested-ref"
+            }
+          }
+        ]
+      },
+      "expectedBackup": {
+        "label": "public-root-ref",
+        "child": {
+          "label": "public-child-ref"
+        },
+        "peers": [
+          {
+            "label": "public-peer-ref",
+            "child": {
+              "label": "public-nested-ref"
+            }
+          }
+        ]
+      },
+      "registered": [],
+      "notRegistered": [
+        "public-root-ref",
+        "public-child-ref",
+        "public-peer-ref",
+        "public-nested-ref"
+      ]
+    },
+    {
+      "name": "a cyclic declaration cannot be made public by a typed sibling",
+      "schema": {
+        "type": "object",
+        "$defs": {
+          "loop": {
+            "$ref": "#/$defs/loop"
+          }
+        },
+        "properties": {
+          "opaque": {
+            "$ref": "#/$defs/loop",
+            "type": "string"
+          }
+        }
+      },
+      "value": {
+        "opaque": "private-cycle-text"
+      },
+      "expectedDisplay": {
+        "opaque": "••••"
+      },
+      "expectedBackup": {
+        "opaque": "$ARCHIVE_MASK"
+      },
+      "registered": [
+        "private-cycle-text"
+      ],
+      "notRegistered": []
     }
   ]
 }
