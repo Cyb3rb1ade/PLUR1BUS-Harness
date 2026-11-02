@@ -251,23 +251,9 @@ pub fn client(home: &Path) -> Client {
 pub trait ReadWrite: Read + Write + Send {}
 impl<T: Read + Write + Send> ReadWrite for T {}
 
-/// A raw connection to the supervisor.
-#[cfg(unix)]
+/// Uses the RPC transport's bounded busy-pipe retry and identification-only Windows security context.
 pub fn raw(home: &Path) -> Box<dyn ReadWrite> {
-    Box::new(std::os::unix::net::UnixStream::connect(address(home)).unwrap())
-}
-#[cfg(windows)]
-pub fn raw(home: &Path) -> Box<dyn ReadWrite> {
-    use std::os::windows::fs::OpenOptionsExt;
-    const SECURITY_IDENTIFICATION: u32 = 0x0001_0000;
-    Box::new(
-        std::fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .security_qos_flags(SECURITY_IDENTIFICATION)
-            .open(address(home))
-            .unwrap(),
-    )
+    Box::new(plur1bus_rpc::transport::connect(&address(home), WAIT).unwrap())
 }
 
 /// Writes `supervisor.auth` (id 1) and `config.watch` (id 2) on a raw connection.
@@ -281,8 +267,8 @@ pub fn send_watch(conn: &mut dyn ReadWrite, home: &Path) {
     conn.flush().unwrap();
 }
 
-/// A `config.watch` connection. Everything is written before the reader thread starts (a synchronous Windows pipe
-/// handle serialises reads and writes), so the thread only reads; every line it reads goes to `rx`.
+/// A `config.watch` connection. Both requests are written before the reader thread starts, so it only reads;
+/// every line it reads goes to `rx`.
 pub struct Watch {
     rx: mpsc::Receiver<Value>,
     /// The `config.watch` result.

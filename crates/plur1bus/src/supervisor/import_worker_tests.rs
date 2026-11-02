@@ -499,9 +499,63 @@ fn a_descendant_holding_stdout_after_parent_exit_cannot_extend_the_total_deadlin
     expected["report"] = fixture.checkpoint("committed");
     fixture.result(&expected);
     let started = Instant::now();
-    assert!(fixture.run(Duration::from_millis(400)).is_err());
+    let result = fixture.run(Duration::from_millis(400));
     assert!(
         started.elapsed() < Duration::from_millis(900),
         "stdout draining extended the caller's total deadline"
     );
+    // Windows may close the inherited pipe before the descendant exits. A fully proved result is valid then.
+    if let Ok(answer) = result {
+        assert_eq!(answer, expected);
+    }
+    let pid: u32 = fs::read_to_string(fixture.layout.home.join("descendant.pid"))
+        .unwrap()
+        .parse()
+        .unwrap();
+    let until = Instant::now() + Duration::from_secs(2);
+    while running(pid) && Instant::now() < until {
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert!(!running(pid), "owned stdout descendant survived teardown");
+}
+
+#[test]
+fn an_expired_total_deadline_refuses_buffered_stdout_even_when_eof_is_ready() {
+    let (sender, output) = mpsc::sync_channel(1);
+    sender.send(Ok(json!({"type":"result"}))).unwrap();
+    drop(sender);
+    let deadline = Instant::now();
+    let mut received = false;
+    assert!(drain_output(
+        &output,
+        || deadline,
+        |_| {
+            received = true;
+            Ok(())
+        }
+    )
+    .is_err());
+    assert!(
+        !received,
+        "an expired caller must not process queued stdout"
+    );
+}
+
+#[test]
+fn prepared_stdout_drains_to_eof_within_the_callers_existing_budget() {
+    let (sender, output) = mpsc::sync_channel(1);
+    sender.send(Ok(json!({"type":"result"}))).unwrap();
+    drop(sender);
+    let deadline = Instant::now() + Duration::from_secs(1);
+    let mut received = Vec::new();
+    drain_output(
+        &output,
+        || deadline,
+        |value| {
+            received.push(value);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(received, vec![json!({"type":"result"})]);
 }

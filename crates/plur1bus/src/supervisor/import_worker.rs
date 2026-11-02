@@ -102,6 +102,25 @@ fn output_pipe(pipe: std::process::ChildStdout) -> mpsc::Receiver<Result<Value, 
     receiver
 }
 
+/// EOF and already-buffered frames do not grant a new budget after the caller's deadline.
+fn drain_output(
+    output: &mpsc::Receiver<Result<Value, ()>>,
+    mut deadline: impl FnMut() -> Instant,
+    mut receive: impl FnMut(Value) -> Result<(), ExtError>,
+) -> Result<(), ExtError> {
+    loop {
+        let left = deadline()
+            .checked_duration_since(Instant::now())
+            .filter(|left| !left.is_zero())
+            .ok_or_else(failed)?;
+        match output.recv_timeout(left.min(Duration::from_millis(50))) {
+            Ok(value) => receive(value.map_err(|_| failed())?)?,
+            Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+        }
+    }
+}
+
 fn initial(job: &Job, layout: &Layout) -> Value {
     let mut value = json!({"v":1,"runId":job.run_id,"mode":job.mode,"home":layout.home,
         "plan":{"id":job.plan_id,"sha256":job.plan_sha256},"ownerId":job.owner_id,"attempt":job.attempt});
@@ -381,36 +400,26 @@ fn execute(
             if let Some(status) = child.try_wait().map_err(|_| failed())? {
                 // Drain final protocol lines already read when the process exited.
                 let finish_by = Instant::now() + Duration::from_secs(1);
-                loop {
-                    let drain_deadline = deadline
-                        .min(stopping_deadline(shared).unwrap_or(deadline))
-                        .min(abort_at.unwrap_or(deadline))
-                        .min(finish_by);
-                    let left = drain_deadline
-                        .checked_duration_since(Instant::now())
-                        .filter(|left| !left.is_zero())
-                        .ok_or_else(failed)?;
-                    match output.recv_timeout(left.min(Duration::from_millis(50))) {
-                        Ok(value) => {
-                            if answer.is_some() {
-                                return Err(failed());
-                            }
-                            if let Some(result) = control(
-                                shared,
-                                layout,
-                                job,
-                                value.map_err(|_| failed())?,
-                                &input,
-                                &mut seen,
-                                deadline,
-                            )? {
-                                answer = Some(result);
-                            }
+                drain_output(
+                    &output,
+                    || {
+                        deadline
+                            .min(stopping_deadline(shared).unwrap_or(deadline))
+                            .min(abort_at.unwrap_or(deadline))
+                            .min(finish_by)
+                    },
+                    |value| {
+                        if answer.is_some() {
+                            return Err(failed());
                         }
-                        Err(mpsc::RecvTimeoutError::Disconnected) => break,
-                        Err(mpsc::RecvTimeoutError::Timeout) => continue,
-                    }
-                }
+                        if let Some(result) =
+                            control(shared, layout, job, value, &input, &mut seen, deadline)?
+                        {
+                            answer = Some(result);
+                        }
+                        Ok(())
+                    },
+                )?;
                 let answer = answer.ok_or_else(failed)?;
                 if status.success() != (answer["ok"] == true) {
                     return Err(failed());

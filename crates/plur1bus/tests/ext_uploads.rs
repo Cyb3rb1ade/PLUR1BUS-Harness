@@ -160,9 +160,13 @@ fn real_core_delegation_binds_one_use_uploads_and_inspections_to_the_current_per
             ("PLUR1BUS_TEST_EXT_WORKER_ARGS", "inspect:--sleep-ms 400"),
         ],
     );
-    common::wait_until("real Core", Duration::from_secs(30), || {
-        home.join("run/api-delegation.token").is_file()
-    });
+    let mut supervisor = common::client(&home);
+    common::wait_child(
+        &mut supervisor,
+        "real Core",
+        Duration::from_secs(30),
+        |child| child["process"]["state"] == "ready",
+    );
     let address = if cfg!(windows) {
         let address = common::address(&home);
         format!("{}-core", address.strip_suffix("-supervisor").unwrap())
