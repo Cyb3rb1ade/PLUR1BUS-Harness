@@ -2,8 +2,12 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 /** Locate the pinned package behind a symlink or pnpm/action-setup self-update shim. */
-export function pnpmEntry(bin: string, version: string, pnpmHome?: string): string | null {
+export function pnpmEntry(bin: string, version: string, pnpmHome?: string, npmExecPath?: string): string | null {
   const roots = new Set<string>();
+  if (npmExecPath) {
+    try { roots.add(dirname(dirname(realpathSync(npmExecPath)))); }
+    catch { /* A stale invoking path must not hide a valid installed package. */ }
+  }
   let dir = dirname(realpathSync(bin));
   for (let i = 0; i < 5; i++) {
     roots.add(dir);
