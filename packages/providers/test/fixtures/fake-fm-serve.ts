@@ -19,7 +19,8 @@ export interface FakeFmOptions {
   /** Caller-owned private directory for Layout integration tests; close never removes that directory. */
   directory?: string;
   mode?: "text" | "tools" | "schema" | "overflow" | "stream-overflow" | "hang" | "hang-headers";
-  /** Native explicit stream:false is JSON; always-sse is a synthetic tolerance case. */
+  /** Measured text stream:false is JSON; tools/schema JSON shapes are synthetic (AF0 measured them only as SSE).
+   * always-sse is a synthetic tolerance case; the native tool/schema JSON shape remains open (L7). */
   format?: "native" | "always-sse";
   health?: unknown;
   models?: unknown;

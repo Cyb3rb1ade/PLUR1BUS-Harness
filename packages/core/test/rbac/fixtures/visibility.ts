@@ -51,6 +51,8 @@ const owner = cells("yes", "none", "none", "none", "none"); // ADR-007 role tabl
 const ownerAdmin = cells("yes", "yes", "none", "none", "none");
 
 export const ENTRIES: readonly Entry[] = [
+  // V1 owner ruling: outbound peer pins are Owner-only, including inventory reads.
+  { action: "a2a.peers.manage", page: "Models, Providers & logins, Channels, Plugins, MCP/ACP/A2A", verb: "write", cells: owner },
   // M v2: both extension and import actions belong to human Owner/Admin only.
   { action: "extensions.read", page: "Models, Providers & logins, Channels, Plugins, MCP/ACP/A2A", verb: "read", cells: ownerAdmin },
   { action: "extensions.manage", page: "Models, Providers & logins, Channels, Plugins, MCP/ACP/A2A", verb: "write", cells: ownerAdmin },

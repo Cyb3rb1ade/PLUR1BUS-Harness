@@ -307,8 +307,8 @@ request, or HTTP 200 SSE with an assistant-role chunk, then the same `server_err
 classification is unchanged. Case, whitespace and punctuation differences are normalized; HTTP 500 SSE is an
 additional synthetic robustness case. A transport reset without the transcript-size error is still an unavailable
 transport: its cause cannot be established as overflow from a disconnect alone.
-See the [corrected AF0 full receipt](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/blob/171e5aceac0f54864c9a3f69b57089336720d658/docs/evidence/apple-fm/2026-11-01-probe-final.md) and
-[additional native streaming/lifecycle receipt](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/blob/171e5aceac0f54864c9a3f69b57089336720d658/docs/evidence/apple-fm/2026-11-01-probe-review.md)
+See the [corrected AF0 full receipt](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/blob/28bb322072663e205e34d89356401f9943ca4f62/docs/evidence/apple-fm/2026-11-01-probe-final.md) and
+[additional native streaming/lifecycle receipt](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/blob/28bb322072663e205e34d89356401f9943ca4f62/docs/evidence/apple-fm/2026-11-01-probe-review.md)
 in independently reviewed PR #865. At least 5056 server prompt tokens were accepted, refuting a 4096-token
 shared hardware window. The exact window remains unknown; AF2's conservative 4096 catalog/guard policy is
 unchanged. The lifecycle evidence spans ten seconds after parent death and post-start stdin EOF; AF3 still
@@ -325,8 +325,10 @@ release a newer call's slot. Parse errors retain no V8 response-text snippets in
 directory creation are AF3. This library alone does not enable an Apple provider in the product.
 
 Tests use `test/fixtures/fake-fm-serve.ts`: a real Unix socket deliberately mode 0755 under a private 0700 temporary
-directory, synthetic health/models, native JSON for explicit `stream:false`, SSE when `stream` is omitted or true,
-and a labeled synthetic `format: "always-sse"` tolerance variant, tool/schema answers, optional usage/DONE,
+directory, synthetic health/models, measured-format text JSON for explicit `stream:false`, SSE when `stream` is omitted or true,
+and a labeled synthetic `format: "always-sse"` tolerance variant. Tool/schema JSON responses for
+`stream:false` are synthetic contract shapes: AF0 measured those modes only as SSE; native JSON
+characterization remains open (L7). The fake also covers optional usage/DONE,
 native JSON overflow and role-then-error SSE overflow without DONE, hangs and controlled disconnects.
 Native socket cases run on POSIX; Windows runs the explicit
 platform-refusal tests. No test invokes real `fm`, `sudo` or licence commands. Run `pnpm --filter @plur1bus/providers test`.

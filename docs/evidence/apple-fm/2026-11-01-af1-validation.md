@@ -27,9 +27,9 @@ Controller ruling: `controller-rulings-2026-11-01-pm.md` §D. Independent branch
 Public contracts, limits, composition example and follow-up ownership are documented in the
 [Providers README](../../../packages/providers/README.md). Design:
 [D122](../../superpowers/specs/2026-10-31-apple-foundation-models-design.md).
-The AF0 inputs are the [corrected full receipt](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/blob/171e5aceac0f54864c9a3f69b57089336720d658/docs/evidence/apple-fm/2026-11-01-probe-final.md) and
-[additional native review run](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/blob/171e5aceac0f54864c9a3f69b57089336720d658/docs/evidence/apple-fm/2026-11-01-probe-review.md),
-both fixed to the pushed AF0 review head. Streaming overflow is HTTP 200 SSE with an assistant-role chunk,
+The AF0 inputs are the [corrected full receipt](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/blob/28bb322072663e205e34d89356401f9943ca4f62/docs/evidence/apple-fm/2026-11-01-probe-final.md) and
+[additional native review run](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/blob/28bb322072663e205e34d89356401f9943ca4f62/docs/evidence/apple-fm/2026-11-01-probe-review.md),
+both fixed to the merged AF0 main commit. Streaming overflow is HTTP 200 SSE with an assistant-role chunk,
 then the transcript-size error and no `[DONE]`; non-streaming overflow is HTTP 500 JSON. The reusable fake
 now exposes that role-then-error case, and both adapter APIs preserve `context_overflow` and release capacity.
 The accepted 5056 server-prompt-token lower bound refutes 4096 as the hardware window; the 4096 catalog/guard
@@ -88,11 +88,18 @@ lint/documentation checks. CI was not polled.
   made its focused test fail. Original source was restored after every experiment; the final full suite is unmutated.
 - Replacing the socket immediately after success calls the guard again and is refused before reaching the replacement.
   The core guard still owns the actual filesystem policy; its explicit §6.2 cases are now in AF2's plan acceptance.
-- Native-format JSON and synthetic always-SSE completion preserve text, usage, tool calls and schema output.
-  Explicit `stream:false` returns JSON in the native fixture; omitted stream returns SSE.
+- The measured-format text JSON and synthetic always-SSE completion preserve text and usage.
+  The JSON tool-call and schema shapes for explicit `stream:false` are synthetic contract cases: AF0 measured
+  those modes only as SSE. The real `stream:false` tool/schema response shape remains open for a later AF0 probe.
 - All four shared-client JSON/SSE parse paths reject without a private response marker in `util.inspect(error)` or
   its cause chain. Native stream-overflow is now measured by D2; punctuation/case and HTTP 500 SSE variants remain
   synthetic. An unexplained disconnect is still not evidence of overflow.
+
+## Open native characterization (L7)
+
+AF0 has not measured tool-call or schema responses with explicit `stream:false`. Their JSON fixtures
+use the general Chat Completions contract and establish adapter behavior only; a later native probe must
+record both modes before their exact response shapes can be described as measured.
 
 ## Remaining package boundaries
 

@@ -343,7 +343,7 @@ test("Unix adapter preserves native overflow after an SSE role chunk without DON
 });
 
 for (const mode of ["text", "tools", "schema"] as const) {
-  test(`native JSON and synthetic always-SSE complete preserve ${mode} and usage`, POSIX, async () => {
+  test(`${mode === "text" ? "measured-format text" : "synthetic " + mode} JSON and synthetic always-SSE complete preserve ${mode} and usage`, POSIX, async () => {
     for (const format of ["native", "always-sse"] as const) {
       const fm = await startFakeFmServe({ mode, format });
       try {
