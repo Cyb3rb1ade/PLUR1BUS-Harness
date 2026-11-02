@@ -6,7 +6,7 @@ import { after } from "node:test";
 import { CollabStore } from "../../src/collab/store.ts";
 import { GitWorktreeProvisioner } from "../../src/external-agents/provisioner.ts";
 import { AcpWorktreeMount } from "../../src/tools/sandbox/acp-worktree.ts";
-export const limitsHelper = join(process.env.CARGO_TARGET_DIR ?? fileURLToPath(new URL("../../../../target", import.meta.url)), "debug", "plur1bus-sandbox-limits");
+export const limitsHelper = join(process.env.CARGO_TARGET_DIR ?? fileURLToPath(new URL("../../../../target", import.meta.url)), "debug", process.platform === "win32" ? "plur1bus-sandbox-limits.exe" : "plur1bus-sandbox-limits");
 const stores = new Map<string, { store: CollabStore; projectId: string; home: string }>();
 after(() => { for (const { store } of stores.values()) store.close(); stores.clear(); });
 

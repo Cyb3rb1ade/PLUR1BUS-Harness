@@ -1,8 +1,9 @@
 import { windowsPnpmRefusal } from "./windows-pnpm-refusal.fixture.ts";
 import { provisionFixture, mountOptions } from "./fixture.ts";
+import { pnpmEntry } from "./pnpm-entry.fixture.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { cpSync, existsSync, linkSync, mkdirSync, readFileSync, realpathSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, linkSync, mkdirSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { delimiter, dirname, join } from "node:path";
 import { test } from "node:test";
 import { CollabError } from "../../src/collab/errors.ts";
@@ -106,7 +107,8 @@ test("Windows terminal stays refused", async () => {
 test("pnpm installs and builds offline; the next Linux mount refuses its resulting hardlinks", { todo: process.platform === "darwin" ? "pnpm hardlink / RSS PROC_PIDTASKINFO ESRCH: macos-acceptance-pending — D123 SB-1" : false }, process.platform === "win32" ? windowsPnpmRefusal : async () => {
   const pnpm = onPath("pnpm");
   assert.ok(pnpm, "pnpm is on PATH");
-  const entry = pnpmEntry(pnpm);
+  const version = JSON.parse(readFileSync(new URL("../../../../package.json", import.meta.url), "utf8")).packageManager.split("@")[1];
+  const entry = pnpmEntry(pnpm, version, process.env.PNPM_HOME);
   assert.ok(entry, "pnpm package can be copied into the worktree");
   const root = tempDir("m6b-hl-pnpm-");
   const { worktree, home } = gitWorktree(root);
@@ -148,24 +150,6 @@ child.on("exit", (code) => {
   );
   assert.equal(spawnSync(process.execPath, ["-e", "process.exit(require(process.argv[1]) === 1 ? 0 : 2)", installed]).status, 0);
 });
-
-function pnpmEntry(bin: string): string | null {
-  let dir = dirname(realpathSync(bin));
-  for (let i = 0; i < 5; i++) {
-    const manifest = join(dir, "package.json");
-    if (existsSync(manifest)) {
-      try {
-        const name = JSON.parse(readFileSync(manifest, "utf8")).name;
-        const found = join(dir, "bin", "pnpm.cjs");
-        if (name === "pnpm" && existsSync(found)) return found;
-      } catch { /* keep walking */ }
-    }
-    const parent = dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return null;
-}
 
 test("a session is not opened when the worktree already contains a hard link", async () => {
   const root = tempDir("m6b-hl-ses-");
