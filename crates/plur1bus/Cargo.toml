@@ -26,7 +26,7 @@ serde.workspace = true
 serde_json.workspace = true
 reedline = { version = "=0.52.1", default-features = false, features = ["external_printer"] }
 crossterm = "=0.29.0"
-ratatui = { version = "=0.30.2", default-features = false, features = ["crossterm_0_29", "layout-cache"], optional = true }
+ratatui = { version = "=0.30.2", default-features = false, features = ["crossterm_0_29", "layout-cache", "unstable-rendered-line-info"], optional = true }
 gethostname = "0.5"
 whoami = "1.5"
 uuid = { version = "1", features = ["v4"] }

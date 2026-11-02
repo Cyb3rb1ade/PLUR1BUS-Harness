@@ -11,6 +11,12 @@ use std::time::{Duration, Instant};
 
 pub(super) enum Event {
     Input(String, AcceptKey),
+    #[cfg(feature = "tui")]
+    FrontendInput {
+        line: String,
+        key: AcceptKey,
+        question: Option<String>,
+    },
     Interrupt,
     Eof,
     Frame(Value),
@@ -26,6 +32,10 @@ impl Event {
     fn bytes(&self) -> usize {
         128 + match self {
             Self::Input(s, _) | Self::Notice(s) => s.len(),
+            #[cfg(feature = "tui")]
+            Self::FrontendInput { line, question, .. } => {
+                line.len() + question.as_ref().map_or(0, String::len)
+            }
             Self::Frame(v) => v.to_string().len(),
             Self::Reply { result: Ok(v), .. } => v.to_string().len(),
             Self::Reply { result: Err(e), .. } | Self::Failed(e) => e.message.len(),
@@ -61,6 +71,16 @@ pub(super) struct Bus {
     stop: Arc<AtomicBool>,
 }
 impl Bus {
+    /// A terminal producer can stop without stopping the reader needed for final cancellation.
+    #[cfg(feature = "tui")]
+    pub fn with_stop(&self, stop: Arc<AtomicBool>) -> Self {
+        Self {
+            sender: self.sender.clone(),
+            used: self.used.clone(),
+            stop,
+        }
+    }
+
     pub fn channel(stop: Arc<AtomicBool>) -> (Self, Receiver<Envelope>) {
         let (sender, receiver) = mpsc::sync_channel(64);
         (
@@ -162,6 +182,33 @@ pub(super) enum Sequence {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "tui")]
+    #[test]
+    fn a_full_terminal_queue_can_stop_its_producer_without_stopping_the_reader() {
+        let global = Arc::new(AtomicBool::new(false));
+        let local = Arc::new(AtomicBool::new(false));
+        let (bus, rx) = Bus::channel(global.clone());
+        let terminal = bus.with_stop(local.clone());
+        for _ in 0..64 {
+            assert!(terminal.send(Event::Notice("frame".into())));
+        }
+        let (done, result) = mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            let sent = terminal.send(Event::Notice("blocked input".into()));
+            let _ = done.send(sent);
+        });
+        local.store(true, Ordering::Release);
+        let outcome = result.recv_timeout(Duration::from_secs(1));
+        // Release either implementation on failure so the regression itself never leaves a blocked thread.
+        if outcome.is_err() {
+            global.store(true, Ordering::Release);
+        }
+        thread.join().expect("terminal producer");
+        assert!(!outcome.expect("local stop releases producer"));
+        assert!(!global.load(Ordering::Acquire));
+        drop(rx.recv().expect("one queued frame"));
+        assert!(bus.send(Event::Notice("reader still active".into())));
+    }
     #[test]
     fn replay_overlap_is_deduplicated_and_a_gap_cannot_advance_the_cursor() {
         let cursor = Cursor(7);

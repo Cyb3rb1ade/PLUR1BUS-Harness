@@ -70,14 +70,46 @@ impl Interrupts {
     }
 }
 
-const MAX_INPUT_BYTES: usize = 800_000;
-#[derive(Default)]
+/// Both native editors enforce the same RPC-safe prompt byte limit.
+pub(super) const MAX_INPUT_BYTES: usize = 800_000;
+/// JSON Schema counts Unicode code points; the byte ceiling alone is insufficient for ASCII pastes.
+pub(super) const MAX_INPUT_CHARS: usize = 200_000;
+
+/// Fullscreen is explicit and requires an interactive supported terminal and the compiled feature.
+pub(super) fn fullscreen_enabled(requested: bool, interactive: bool, term: Option<&str>) -> bool {
+    requested && interactive && term != Some("dumb") && cfg!(feature = "tui")
+}
+
+/// A stale dialog answer is discarded; a draft overtaken by a new question is restored for the person.
+#[cfg(feature = "tui")]
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum InputDisposition {
+    Deliver,
+    RestoreDraft,
+    DiscardAnswer,
+}
+
+/// Bind input to what was painted; a withdrawn or replacement question cannot inherit an old answer.
+#[cfg(feature = "tui")]
+pub(super) fn classify_input(displayed: Option<&str>, current: Option<&str>) -> InputDisposition {
+    if displayed == current {
+        InputDisposition::Deliver
+    } else if displayed.is_some() {
+        InputDisposition::DiscardAnswer
+    } else {
+        InputDisposition::RestoreDraft
+    }
+}
+#[derive(Default, Clone)]
 pub(super) struct PromptState {
     pub header: String,
     pub status: String,
     pub partial: String,
     pub question: String,
     pub queue: String,
+    pub question_id: Option<String>,
+    pub question_context: String,
+    pub busy: bool,
 }
 struct CodePrompt(Arc<Mutex<PromptState>>);
 impl Prompt for CodePrompt {
@@ -152,6 +184,8 @@ pub(super) struct Frontend {
     thread: Option<JoinHandle<()>>,
     interactive: bool,
     pipe_next: Option<SyncSender<()>>,
+    #[cfg(feature = "tui")]
+    tui: Option<super::tui::Handle>,
 }
 impl Frontend {
     pub fn start(
@@ -160,6 +194,8 @@ impl Frontend {
         color: bool,
         bus: Bus,
         stop: Arc<AtomicBool>,
+        fullscreen: bool,
+        lang: super::lang::Language,
     ) -> Result<Self, CodeError> {
         let state = Arc::new(Mutex::new(PromptState::default()));
         let break_signal = Arc::new(AtomicBool::new(false));
@@ -173,7 +209,16 @@ impl Frontend {
             thread: None,
             interactive,
             pipe_next: None,
+            #[cfg(feature = "tui")]
+            tui: None,
         };
+        #[cfg(feature = "tui")]
+        if fullscreen {
+            frontend.tui = Some(super::tui::Handle::start(state, bus, stop, color, lang)?);
+            return Ok(frontend);
+        }
+        #[cfg(not(feature = "tui"))]
+        let _ = (fullscreen, lang);
         if interactive {
             let printer = ExternalPrinter::<String>::new(32);
             frontend.printer = Some(printer.sender());
@@ -228,7 +273,7 @@ impl Frontend {
                             Ok(_) => match String::from_utf8(bytes) {
                                 Ok(line) => {
                                     let line = line.trim_end_matches(['\r', '\n']);
-                                    if line.chars().count() > 200_000 {
+                                    if line.chars().count() > MAX_INPUT_CHARS {
                                         bus.send(Event::Failed(CodeError::new(
                                             "E_INVALID_PARAMS",
                                             "input line exceeds 200000 Unicode characters",
@@ -278,6 +323,11 @@ impl Frontend {
         if text.is_empty() {
             return Ok(());
         }
+        #[cfg(feature = "tui")]
+        if let Some(tui) = &self.tui {
+            tui.append(text);
+            return Ok(());
+        }
         if let Some(printer) = &self.printer {
             let deadline = Instant::now() + Duration::from_secs(5);
             let mut text = text.trim_end_matches('\n').to_string();
@@ -309,6 +359,10 @@ impl Frontend {
         Ok(())
     }
     pub fn restore(&self, text: &str) -> Result<(), CodeError> {
+        #[cfg(feature = "tui")]
+        if let Some(tui) = &self.tui {
+            return tui.restore(text);
+        }
         if let Some(controls) = &self.controls {
             controls
                 .try_send(EditorCommand::Restore(text.into()))
@@ -322,11 +376,86 @@ impl Frontend {
             let _ = next.try_send(());
         }
     }
+
+    /// The renderer choice does not change the shared runtime's transport or permission path.
+    pub fn is_tui(&self) -> bool {
+        #[cfg(feature = "tui")]
+        {
+            self.tui.is_some()
+        }
+        #[cfg(not(feature = "tui"))]
+        {
+            false
+        }
+    }
+
+    /// Release fullscreen immediately before cancellation/reconnection can wait on the core.
+    pub fn leave_tui(&mut self) {
+        #[cfg(feature = "tui")]
+        drop(self.tui.take());
+    }
+
+    /// Atomically replace the displayed question and its identity, with a bounded redacted context.
+    pub fn question(&self, id: Option<String>, mut context: String, text: String) {
+        if context.len() > 32 * 1024 {
+            let mut end = 32 * 1024 - 3;
+            while !context.is_char_boundary(end) {
+                end -= 1;
+            }
+            context.truncate(end);
+            context.push('…');
+        }
+        self.update(|state| {
+            state.question_id = id;
+            state.question_context = context;
+            state.question = text;
+        });
+    }
+
+    #[cfg(feature = "tui")]
+    pub fn question_id(&self) -> Option<String> {
+        self.state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .question_id
+            .clone()
+    }
+
+    /// Observe only events already admitted by the shared session/high-water filter.
+    pub fn observe(&self, kind: &str, data: &serde_json::Value) {
+        #[cfg(feature = "tui")]
+        if let Some(tui) = &self.tui {
+            tui.observe(kind, data);
+        }
+        #[cfg(not(feature = "tui"))]
+        let _ = (kind, data);
+    }
+
+    /// Display read-only core status without creating another RPC client.
+    pub fn metadata(&self, method: &str, value: &serde_json::Value, session: &str, agent: &str) {
+        #[cfg(feature = "tui")]
+        if let Some(tui) = &self.tui {
+            tui.metadata(method, value, session, agent);
+        }
+        #[cfg(not(feature = "tui"))]
+        let _ = (method, value, session, agent);
+    }
+
+    /// Retain a bounded page from the existing bound diff operation.
+    pub fn diff(&self, patch: &str, append: bool) {
+        #[cfg(feature = "tui")]
+        if let Some(tui) = &self.tui {
+            tui.diff(patch, append);
+        }
+        #[cfg(not(feature = "tui"))]
+        let _ = (patch, append);
+    }
 }
 impl Drop for Frontend {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
         self.break_signal.store(true, Ordering::Release);
+        self.leave_tui();
         if self.interactive {
             if let Some(thread) = self.thread.take() {
                 let _ = thread.join();
@@ -360,7 +489,7 @@ fn read_terminal(
     while !stop.load(Ordering::Acquire) {
         match editor.read_line(&prompt) {
             Ok(Signal::Success(line)) => {
-                if line.chars().count() > 200_000 {
+                if line.chars().count() > MAX_INPUT_CHARS {
                     if !bus.send(Event::Notice("input-too-long".into())) {
                         break;
                     }
@@ -372,7 +501,7 @@ fn read_terminal(
             }
             Ok(Signal::HostCommand(command)) if command == "queue" => {
                 let line = editor.current_buffer_contents().to_string();
-                if line.chars().count() > 200_000 {
+                if line.chars().count() > MAX_INPUT_CHARS {
                     bus.send(Event::Notice("input-too-long".into()));
                     continue;
                 }
@@ -423,6 +552,44 @@ fn read_terminal(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn fullscreen_requires_explicit_opt_in_a_tty_and_a_supported_terminal() {
+        assert!(!fullscreen_enabled(false, true, Some("xterm-256color")));
+        assert!(!fullscreen_enabled(true, false, Some("xterm-256color")));
+        assert!(!fullscreen_enabled(true, true, Some("dumb")));
+        assert_eq!(
+            fullscreen_enabled(true, true, Some("xterm-256color")),
+            cfg!(feature = "tui")
+        );
+        assert_eq!(fullscreen_enabled(true, true, None), cfg!(feature = "tui"));
+    }
+
+    #[cfg(feature = "tui")]
+    #[test]
+    fn a_displayed_answer_never_targets_a_replacement_or_withdrawn_question() {
+        assert_eq!(
+            classify_input(Some("approval:one"), Some("approval:two")),
+            InputDisposition::DiscardAnswer
+        );
+        assert_eq!(
+            classify_input(Some("approval:one"), None),
+            InputDisposition::DiscardAnswer
+        );
+        assert_eq!(
+            classify_input(Some("model:revision-1"), Some("model:revision-2")),
+            InputDisposition::DiscardAnswer
+        );
+        assert_eq!(
+            classify_input(None, Some("approval:one")),
+            InputDisposition::RestoreDraft
+        );
+        assert_eq!(
+            classify_input(Some("approval:one"), Some("approval:one")),
+            InputDisposition::Deliver
+        );
+        assert_eq!(classify_input(None, None), InputDisposition::Deliver);
+    }
+
     #[test]
     fn enter_steers_only_while_busy_and_alt_enter_explicitly_queues() {
         assert_eq!(delivery(AcceptKey::Enter, false), Delivery::Submit);

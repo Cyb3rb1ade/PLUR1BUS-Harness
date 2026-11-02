@@ -7,7 +7,7 @@ impl Runtime {
             self.frontend.next_line();
             return Ok(());
         }
-        if line.chars().count() > 200_000 {
+        if line.chars().count() > input::MAX_INPUT_CHARS {
             return Err(CodeError::new(
                 "E_INVALID_PARAMS",
                 "input exceeds 200000 Unicode characters",
@@ -20,13 +20,13 @@ impl Runtime {
             match line.trim().to_ascii_lowercase().as_str() {
                 "y" | "j" => {
                     if let Some(params) = self.model_question.take() {
-                        self.frontend.update(|state| state.question.clear());
+                        self.frontend.question(None, String::new(), String::new());
                         self.start(Kind::ModelApply, "session.model.set", params)?;
                     }
                 }
                 "n" => {
                     self.model_question = None;
-                    self.frontend.update(|state| state.question.clear());
+                    self.frontend.question(None, String::new(), String::new());
                 }
                 "?" => self.note(crate::commands::session::model_switch_warning(self.lang.0))?,
                 _ => {
@@ -51,8 +51,16 @@ impl Runtime {
                 if let Some(answer) = approve::answer(&line, record, self.interactive) {
                     match answer {
                         approve::Answer::Details => {
-                            self.frontend
-                                .print(&approve::details(record, self.color, self.lang))?;
+                            let details = approve::details(record, self.color, self.lang);
+                            if self.frontend.is_tui() {
+                                self.frontend.question(
+                                    Some(format!("approval:{id}")),
+                                    details,
+                                    approve::question(record, self.lang),
+                                );
+                            } else {
+                                self.frontend.print(&details)?;
+                            }
                             return Ok(());
                         }
                         approve::Answer::Once => {
@@ -168,6 +176,10 @@ impl Runtime {
     pub(super) fn result(&mut self, operation: Operation, result: Value) -> Result<(), CodeError> {
         self.emit(operation.method, result.clone())?;
         match operation.kind {
+            Kind::Status(method) => {
+                self.frontend
+                    .metadata(method, &result, &self.session, &self.agent)
+            }
             Kind::Submit | Kind::Transcript => {
                 if result["state"] == "queued" {
                     self.start(Kind::QueueList(None), "session.queue.list", self.params())?;
@@ -184,7 +196,12 @@ impl Runtime {
                 }
             }
             Kind::Diff => {
-                if self.interactive {
+                if self.frontend.is_tui() {
+                    self.frontend.diff(
+                        result["diff"].as_str().unwrap_or(""),
+                        operation.params["offset"].as_u64().unwrap_or(0) > 0,
+                    );
+                } else if self.interactive {
                     self.frontend.print(&render::diff(
                         result["diff"].as_str().unwrap_or(""),
                         self.color,
@@ -237,6 +254,8 @@ impl Runtime {
                 }
             }
             Kind::ModelGet(reasoning) => {
+                self.frontend
+                    .metadata("session.model.get", &result, &self.session, &self.agent);
                 if let Some(reasoning) = reasoning {
                     let profile = result["profile"]
                         .as_str()
@@ -286,13 +305,21 @@ impl Runtime {
                 if self.auto_model {
                     self.start(Kind::ModelApply, "session.model.set", confirmed)?;
                 } else if self.interactive {
+                    let identity = format!("model:{}", serde_json::to_string(&confirmed)?);
+                    let context = format!(
+                        "{}: {}\n{}",
+                        self.lang.text("Model profile", "Modellprofil"),
+                        render::safe(confirmed["profile"].as_str().unwrap_or("?"), false),
+                        crate::commands::session::model_switch_warning(self.lang.0)
+                    );
                     self.model_question = Some(confirmed);
-                    self.frontend.update(|state| {
-                        state.question = self
-                            .lang
+                    self.frontend.question(
+                        Some(identity),
+                        context,
+                        self.lang
                             .text("Switch model? [y/n]", "Modell wechseln? [y/n]")
-                            .into()
-                    });
+                            .into(),
+                    );
                 } else {
                     return Err(CodeError::new(
                         "E_APPROVAL_REQUIRED",
@@ -301,11 +328,12 @@ impl Runtime {
                 }
             }
             Kind::ModelApply => {
-                self.frontend.update(|state| state.question.clear());
+                self.frontend.question(None, String::new(), String::new());
                 self.note(
                     self.lang
                         .text("Model choice updated.", "Modellauswahl aktualisiert."),
                 )?;
+                self.refresh_status();
             }
             Kind::QueueList(remove) => {
                 self.queue_items = result["items"]

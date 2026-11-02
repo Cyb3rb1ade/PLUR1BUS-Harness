@@ -2,9 +2,12 @@
 
 Native macOS arm64 verification, base CX4 `0ed1814433216331fd6b7c28b4c1b3d1948e56ab`.
 The new renderer uses exact `ratatui = 0.30.2` with default features disabled and
-`crossterm_0_29` plus `layout-cache`; the existing exact `crossterm = 0.29.0` is shared
+`crossterm_0_29`, `layout-cache` and `unstable-rendered-line-info`; the existing exact `crossterm = 0.29.0` is shared
 with reedline. The default-on Cargo feature `tui` owns the optional ratatui dependency.
 The line editor remains available. No npm or Engine dependency or pin changes.
+The rendered-line API supplies the actual wrapped height for viewport scrolling. Its
+upstream unstable API is contained by the exact 0.30.2 pin; enabling it changes no package
+or lockfile version. The same licence/security checks and native compile were repeated.
 
 ## Lockfile and compatibility
 
