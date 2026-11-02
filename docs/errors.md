@@ -79,7 +79,7 @@ the `/rewind` transcript command use these reasons:
 | `rewind-files-disabled` | `E_CONFLICT` | Use conversation-only rewind, or ask an Owner/Admin to opt the project into `session.rewind.fileProjects`. |
 | `rewind-files-preview-limit` | `E_CONFLICT` | The complete restore preview exceeds its cap; inspect the files and use conversation-only rewind. |
 | `rewind-person-required`, `rewind-files-not-approved` | `E_DENIED` | A person must request rewind; file restoration needs the exact single-use native approval. |
-| `rewind-not-allowed` | `E_DENIED` | In a non-direct channel, only the session owner or a current Owner/Admin may rewind or undo. |
+| `rewind-not-allowed` | `E_DENIED` | In a non-direct channel, only the session owner or a current Owner/Admin may rewind or undo. The channel explains this refusal in its configured de/en locale (English by default), without naming the owner or exposing internal error text. |
 | `audit-unavailable` | `E_STORAGE` | Restore the audit writer before retrying. |
 
 Undo lifts a conversation overlay and never restores files or corrects captured

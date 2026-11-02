@@ -211,7 +211,11 @@ class Host implements Switchboard {
 
   constructor(o: SwitchboardOptions) {
     this.#o = o;
-    const router = new ChannelRouter({ identity: this.#identityPort(), sessions: this.#sessionPort(), clock: o.clock, log: o.log, behaviour: (msg) => this.behaviour(msg), ...(o.command ? { command: o.command } : {}), ...(o.observed ? { observed: o.observed } : {}) });
+    const locale = (msg: InboundMessage): "de" | "en" => {
+      const channel = (o.config.current().channels as unknown as Record<string, { locale?: unknown }>)[msg.channel];
+      return channel?.locale === "de" ? "de" : "en";
+    };
+    const router = new ChannelRouter({ identity: this.#identityPort(), sessions: this.#sessionPort(), clock: o.clock, log: o.log, locale, behaviour: (msg) => this.behaviour(msg), ...(o.command ? { command: o.command } : {}), ...(o.observed ? { observed: o.observed } : {}) });
     this.#registry = new ChannelRegistry({ clock: o.clock, router, log: o.log, redact: (t) => this.#redact(t), ...o.registry });
     for (const b of o.bindings) this.#bindings.set(b.id, b);
     const r = this.#registry;

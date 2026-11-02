@@ -2,6 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ChannelRouter, PAIRED_TEXT, type InboundMessage, type OutboundMessage } from "../../src/channels/index.ts";
 import { FakeClock, FakeIdentity, FakeSessions, silentLog, flush } from "./helpers.ts";
+import { RpcError } from "../../src/rpc/errors.ts";
+import { FAILED_TEXT } from "../../src/channels/router.ts";
 
 function setup() {
   const clock = new FakeClock();
@@ -13,6 +15,20 @@ function setup() {
   const msg = (o: Partial<InboundMessage> = {}): InboundMessage => ({ channel: "lb", chatId: "c1", chatKind: "direct", senderId: "alice", text: "hi", ...o });
   return { clock, identity, sessions, sent, router, send, msg };
 }
+
+test("other errors and untrusted lookalikes keep the generic reply without echoing error details", async () => {
+  for (const error of [new Error("rewind-not-allowed PRIVATE_ERROR"),
+    new RpcError("E_DENIED", "PRIVATE_ERROR", { reason: "another-denial" }),
+    new RpcError("E_INTERNAL", "PRIVATE_ERROR", { reason: "rewind-not-allowed" }),
+    { error: "E_DENIED", reason: "rewind-not-allowed", message: "PRIVATE_ERROR" }]) {
+    const r = setup();
+    r.identity.link("lb", "alice", "u1");
+    r.sessions.submit = async () => { throw error; };
+    await r.router.handle(r.msg(), r.send);
+    assert.equal(r.sent.at(-1)?.text, FAILED_TEXT);
+    assert.doesNotMatch(JSON.stringify(r.sent), /PRIVATE_ERROR/);
+  }
+});
 
 test("a linked sender's message is submitted to the chat's session and answered", async () => {
   const t = setup();

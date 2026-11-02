@@ -11,7 +11,7 @@ import type { SwitchboardOptions } from "../../src/channels/switchboard.ts";
 import { requireRewindSender } from "../../src/channels/rewind.ts";
 import { makeRig } from "./switchboard-rig.ts";
 
-async function room() {
+async function room(locale: "de" | "en" = "en") {
   let turns: ReturnType<SwitchboardOptions["turns"]> = null;
   const roles = new Map<string, Role>();
   let roleFailure = false;
@@ -21,7 +21,7 @@ async function room() {
   const runner = new TurnRunner({ store: r.store, compactor: new Compactor(r.store, defaultCompaction(8192), { beforeSwap: async () => {} }),
     provider: () => r.provider, rewind, memory: { recall: async () => ({ text: "", degraded: null }), capture: async () => {}, checkpoint: async () => {} } });
   turns = { store: r.store, runner, agentId: () => "main" };
-  r.secrets.put("channels.discord.token", "unit-test-token-0123456789"); r.config.set("discord", { enabled: true });
+  r.secrets.put("channels.discord.token", "unit-test-token-0123456789"); r.config.set("discord", { enabled: true, locale });
   await r.switchboard.start(); await r.clock.advance(0);
   const owner = r.link("discord", "bot", "sender-a").humanId, other = r.link("discord", "bot", "sender-b").humanId;
   roles.set(owner, "member"); roles.set(other, "member");
@@ -46,6 +46,22 @@ test("a second room member can converse but cannot rewind the owner's conversati
     assert.equal(r.provider.requests.length, 3);
   } finally { await r.closeRoom(); }
 });
+
+for (const locale of ["de", "en"] as const) {
+  test(`a denied room member receives the specific rewind explanation in ${locale}`, { timeout: 10_000 }, async () => {
+    const r = await room(locale);
+    try {
+      const before = r.store.listMessages(r.session.id), events = r.store.listEvents(r.session.id);
+      await r.send("sender-b", "/rewind 0");
+      assert.equal(r.adapter().sent.at(-1)?.text, locale === "de"
+        ? "Nur die Person, der dieses Gespräch gehört, oder Owner/Admin darf hier zurückspulen."
+        : "Only the owner of this conversation or an Owner/Admin can rewind it.");
+      assert.deepEqual(r.store.listMessages(r.session.id), before);
+      assert.deepEqual(r.store.listEvents(r.session.id), events);
+      assert.equal(r.provider.requests.length, 2);
+    } finally { await r.closeRoom(); }
+  });
+}
 
 test("room undo requires the session owner or a live Owner/Admin role, including after demotion", { timeout: 10_000 }, async () => {
   const r = await room();
