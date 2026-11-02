@@ -8,14 +8,15 @@ const EMPTY_SNAPSHOT: SecretFormsSnapshot = Object.freeze({ forms: EMPTY_FORMS, 
 
 const MIN_LENGTH = (REDACTION.rules.find((rule: { id: string }) => rule.id === "secret") as { minLength: number }).minLength;
 
-function variants(value: string): string[] {
+/** Operation-scoped credentials include short values; only the shared set applies MIN_LENGTH. */
+export function secretFormsOf(value: string): string[] {
   const bytes = Buffer.from(value);
   // UTF-8 output replaces unmatched surrogates. Protect that representation without rejecting the original stored string.
   const utf8 = value.toWellFormed();
   const base64 = bytes.toString("base64"), url = bytes.toString("base64url"), hex = bytes.toString("hex");
   const json = JSON.stringify(value).slice(1, -1);
-  return [value, utf8, base64, base64.replace(/=+$/, ""), url, url + "=".repeat((4 - url.length % 4) % 4),
-    hex, hex.toUpperCase(), encodeURIComponent(utf8), json, json.replaceAll("/", "\\/")];
+  return [...new Set([value, utf8, base64, base64.replace(/=+$/, ""), url, url + "=".repeat((4 - url.length % 4) % 4),
+    hex, hex.toUpperCase(), encodeURIComponent(utf8), json, json.replaceAll("/", "\\/")])];
 }
 
 /** Exact registered values and canonical encodings, longest first; equivalent mixed JSON escapes are recognized separately. */
@@ -23,7 +24,7 @@ export function secretFormsIn(values: Iterable<string>): string[] {
   const forms = new Set<string>();
   for (const value of new Set(values)) {
     if (typeof value !== "string" || value.length < MIN_LENGTH) continue;
-    for (const form of variants(value)) forms.add(form);
+    for (const form of secretFormsOf(value)) forms.add(form);
   }
   return [...forms].sort((a, b) => b.length - a.length);
 }

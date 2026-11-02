@@ -18,7 +18,7 @@ describe("project store", () => {
     assert.equal(p.owner, "u-owner");
     assert.deepEqual(p.members, [{ userId: "u-owner", role: "lead" }]);
     assert.equal(p.archivedAt, null);
-    assert.equal(p.settings.maxDepth, 1);
+    assert.equal(p.settings.maxDepth, 2);
     s.addMember(p.id, "u-mem", "member");
     s.addAgent(p.id, "bernd");
     const got = s.getProject(p.id)!;

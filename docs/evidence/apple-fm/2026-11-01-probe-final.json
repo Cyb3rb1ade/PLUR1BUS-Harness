@@ -1,0 +1,3149 @@
+{
+  "schema": "plur1bus.apple-fm-probe/1",
+  "measuredAt": "2026-11-01T09:22:52.023Z",
+  "status": "observed",
+  "observations": [
+    {
+      "id": "health",
+      "elapsedMs": 2.134749999999997,
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "models": [
+              {
+                "available": true,
+                "name": "system"
+              },
+              {
+                "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app.",
+                "available": false,
+                "name": "pcc"
+              }
+            ],
+            "status": "fm serve is running"
+          }
+        ]
+      }
+    },
+    {
+      "id": "models",
+      "elapsedMs": 0.46612500000003365,
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "data": [
+              {
+                "id": "system",
+                "created": 1793524972,
+                "owned_by": "Apple",
+                "object": "model"
+              },
+              {
+                "id": "pcc",
+                "created": 1793524972,
+                "owned_by": "Apple",
+                "object": "model"
+              }
+            ],
+            "object": "list"
+          }
+        ]
+      }
+    },
+    {
+      "id": "stream-omitted",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_tokens": 32
+      },
+      "elapsedMs": 279.71670800000004,
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream",
+        "format": "sse",
+        "done": true,
+        "eventCount": 3,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524972,
+            "model": "system",
+            "id": "chatcmpl-7530053F-3958-41C1-872A-AC4EFF4B2DC3",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "role": "assistant"
+                }
+              }
+            ],
+            "object": "chat.completion.chunk"
+          },
+          {
+            "created": 1793524972,
+            "model": "system",
+            "id": "chatcmpl-7530053F-3958-41C1-872A-AC4EFF4B2DC3",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "content": "OK"
+                }
+              }
+            ],
+            "object": "chat.completion.chunk"
+          },
+          {
+            "created": 1793524972,
+            "model": "system",
+            "id": "chatcmpl-7530053F-3958-41C1-872A-AC4EFF4B2DC3",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {},
+                "finish_reason": "stop"
+              }
+            ],
+            "object": "chat.completion.chunk"
+          }
+        ]
+      }
+    },
+    {
+      "id": "stream-false",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_tokens": 32,
+        "stream": false
+      },
+      "elapsedMs": 208.44516599999997,
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": {
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens": 3,
+          "prompt_tokens": 69,
+          "completion_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 72
+        },
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524972,
+            "usage": {
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens": 3,
+              "prompt_tokens": 69,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "total_tokens": 72
+            },
+            "model": "system",
+            "id": "chatcmpl-F19E7836-459D-49CE-A948-2A91B18BBA1A",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "OK",
+                  "refusal": null
+                },
+                "finish_reason": "stop"
+              }
+            ],
+            "object": "chat.completion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "usage",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_tokens": 32,
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        }
+      },
+      "elapsedMs": 218.1065000000001,
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream",
+        "format": "sse",
+        "done": true,
+        "eventCount": 4,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": {
+          "completion_tokens": 3,
+          "total_tokens": 72,
+          "prompt_tokens": 69,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0
+          }
+        },
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524972,
+            "model": "system",
+            "id": "chatcmpl-98896A94-DDA5-4521-AF04-B432957B07D7",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "role": "assistant"
+                }
+              }
+            ],
+            "object": "chat.completion.chunk"
+          },
+          {
+            "created": 1793524973,
+            "model": "system",
+            "id": "chatcmpl-98896A94-DDA5-4521-AF04-B432957B07D7",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "content": "OK"
+                }
+              }
+            ],
+            "object": "chat.completion.chunk"
+          },
+          {
+            "id": "chatcmpl-98896A94-DDA5-4521-AF04-B432957B07D7",
+            "created": 1793524973,
+            "model": "system",
+            "object": "chat.completion.chunk",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {},
+                "finish_reason": "stop"
+              }
+            ]
+          },
+          {
+            "id": "chatcmpl-98896A94-DDA5-4521-AF04-B432957B07D7",
+            "created": 1793524973,
+            "model": "system",
+            "object": "chat.completion.chunk",
+            "choices": [],
+            "usage": {
+              "completion_tokens": 3,
+              "total_tokens": 72,
+              "prompt_tokens": 69,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "usage-disabled",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_tokens": 32,
+        "stream": true,
+        "stream_options": {
+          "include_usage": false
+        }
+      },
+      "elapsedMs": 205.93491599999993,
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream",
+        "format": "sse",
+        "done": true,
+        "eventCount": 3,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524973,
+            "model": "system",
+            "id": "chatcmpl-66E26424-C7E3-46C8-B486-3B5584093411",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "role": "assistant"
+                }
+              }
+            ],
+            "object": "chat.completion.chunk"
+          },
+          {
+            "created": 1793524973,
+            "model": "system",
+            "id": "chatcmpl-66E26424-C7E3-46C8-B486-3B5584093411",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "content": "OK"
+                }
+              }
+            ],
+            "object": "chat.completion.chunk"
+          },
+          {
+            "object": "chat.completion.chunk",
+            "id": "chatcmpl-66E26424-C7E3-46C8-B486-3B5584093411",
+            "created": 1793524973,
+            "model": "system",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {},
+                "finish_reason": "stop"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "completion-token-field",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_completion_tokens": 32
+      },
+      "elapsedMs": 209.9078330000002,
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream",
+        "format": "sse",
+        "done": true,
+        "eventCount": 3,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524973,
+            "model": "system",
+            "id": "chatcmpl-5945BEE6-0590-4B3E-9B02-186DB0793DA7",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "role": "assistant"
+                }
+              }
+            ],
+            "object": "chat.completion.chunk"
+          },
+          {
+            "created": 1793524973,
+            "model": "system",
+            "id": "chatcmpl-5945BEE6-0590-4B3E-9B02-186DB0793DA7",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "content": "OK"
+                }
+              }
+            ],
+            "object": "chat.completion.chunk"
+          },
+          {
+            "created": 1793524973,
+            "model": "system",
+            "id": "chatcmpl-5945BEE6-0590-4B3E-9B02-186DB0793DA7",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {},
+                "finish_reason": "stop"
+              }
+            ],
+            "object": "chat.completion.chunk"
+          }
+        ]
+      }
+    },
+    {
+      "id": "max-tokens-one",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 47
+          }
+        ],
+        "max_tokens": 1,
+        "stream": false
+      },
+      "elapsedMs": 5927.893334,
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": {
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens": 351,
+          "prompt_tokens": 65,
+          "completion_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 416
+        },
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524979,
+            "usage": {
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens": 351,
+              "prompt_tokens": 65,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "total_tokens": 416
+            },
+            "model": "system",
+            "id": "chatcmpl-3257FC48-CD42-4A65-A6A3-6A6A27189FE5",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "refusal": null,
+                  "role": "assistant",
+                  "content": "one, two, three, four, five, six, seven, eight, nine, ten, eleven, twelve, thirteen, fourteen, fifteen, sixteen, seventeen, eighteen, nineteen, twenty, twenty-one, twenty-two, twenty-three, twenty-four, twenty-five, twenty-six, twenty-seven, twenty-eight, twenty-nine, thirty, thirty-one, thirty-two, thirty-three, thirty-four, thirty-five, thirty-six, thirty-seven, thirty-eight, thirty-nine, forty, forty-one, forty-two, forty-three, forty-four, forty-five, forty-six, forty-seven, forty-eight, forty-nine, fifty, fifty-one, fifty-two, fifty-three, fifty-four, fifty-five, fifty-six, fifty-seven, fifty-eight, fifty-nine, sixty, sixty-one, sixty-two, sixty-three, sixty-four, sixty-five, sixty-six, sixty-seven, sixty-eight, sixty-nine, seventy, seventy-one, seventy-two, seventy-three, seventy-four, seventy-five, seventy-six, seventy-seven, seventy-eight, seventy-nine, eighty, eighty-one, eighty-two, eighty-three, eighty-four, eighty-five, eighty-six, eighty-seven, eighty-eight, eighty-nine, ninety, ninety-one, ninety-two, ninety-three, ninety-four, ninety-five, ninety-six, ninety-seven, ninety-eight, ninety-nine, one hundred."
+                },
+                "finish_reason": "stop"
+              }
+            ],
+            "object": "chat.completion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "max-completion-tokens-one",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 47
+          }
+        ],
+        "max_completion_tokens": 1,
+        "stream": false
+      },
+      "elapsedMs": 208.2393750000001,
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": {
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens": 2,
+          "prompt_tokens": 65,
+          "completion_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 67
+        },
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524979,
+            "usage": {
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens": 2,
+              "prompt_tokens": 65,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "total_tokens": 67
+            },
+            "model": "system",
+            "id": "chatcmpl-16E5036E-0B03-4931-ADBA-2BBA3D42B80B",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "one",
+                  "refusal": null
+                },
+                "finish_reason": "stop"
+              }
+            ],
+            "object": "chat.completion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "latency-1",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_tokens": 32,
+        "stream": false
+      },
+      "elapsedMs": 240.29262500000004,
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": {
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens": 3,
+          "prompt_tokens": 69,
+          "completion_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 72
+        },
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524980,
+            "usage": {
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens": 3,
+              "prompt_tokens": 69,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "total_tokens": 72
+            },
+            "model": "system",
+            "id": "chatcmpl-ED12C36D-5C40-4F32-B0AD-69D710CE15C2",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "OK",
+                  "refusal": null
+                },
+                "finish_reason": "stop"
+              }
+            ],
+            "object": "chat.completion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "latency-2",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_tokens": 32,
+        "stream": false
+      },
+      "elapsedMs": 231.33158299999923,
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": {
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens": 3,
+          "prompt_tokens": 69,
+          "completion_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 72
+        },
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524980,
+            "usage": {
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens": 3,
+              "prompt_tokens": 69,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "total_tokens": 72
+            },
+            "model": "system",
+            "id": "chatcmpl-294F3220-B112-434F-8AC3-7AA1FD8E5856",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "OK",
+                  "refusal": null
+                },
+                "finish_reason": "stop"
+              }
+            ],
+            "object": "chat.completion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "latency-3",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_tokens": 32,
+        "stream": false
+      },
+      "elapsedMs": 234.88287499999933,
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": {
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens": 3,
+          "prompt_tokens": 69,
+          "completion_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 72
+        },
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524980,
+            "usage": {
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens": 3,
+              "prompt_tokens": 69,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "total_tokens": 72
+            },
+            "model": "system",
+            "id": "chatcmpl-29AA1F29-3863-4AD5-B4C5-945C57CCB08C",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "OK",
+                  "refusal": null
+                },
+                "finish_reason": "stop"
+              }
+            ],
+            "object": "chat.completion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "latency-4",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_tokens": 32,
+        "stream": false
+      },
+      "elapsedMs": 226.29599999999846,
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": {
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens": 3,
+          "prompt_tokens": 69,
+          "completion_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 72
+        },
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524980,
+            "usage": {
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens": 3,
+              "prompt_tokens": 69,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "total_tokens": 72
+            },
+            "model": "system",
+            "id": "chatcmpl-5D8A7B07-6BA7-4F2F-8F26-D267F695FEA6",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "OK",
+                  "refusal": null
+                },
+                "finish_reason": "stop"
+              }
+            ],
+            "object": "chat.completion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "latency-5",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_tokens": 32,
+        "stream": false
+      },
+      "elapsedMs": 228.45737499999996,
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": {
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens": 3,
+          "prompt_tokens": 69,
+          "completion_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 72
+        },
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524980,
+            "usage": {
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens": 3,
+              "prompt_tokens": 69,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "total_tokens": 72
+            },
+            "model": "system",
+            "id": "chatcmpl-CE91612F-839D-45F6-A093-FB4937E3599C",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "OK",
+                  "refusal": null
+                },
+                "finish_reason": "stop"
+              }
+            ],
+            "object": "chat.completion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "latency-6",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_tokens": 32,
+        "stream": false
+      },
+      "elapsedMs": 226.4810409999991,
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": {
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens": 3,
+          "prompt_tokens": 69,
+          "completion_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 72
+        },
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524981,
+            "usage": {
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens": 3,
+              "prompt_tokens": 69,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "total_tokens": 72
+            },
+            "model": "system",
+            "id": "chatcmpl-7F0800AC-F101-43A6-B11A-2A9BBBF73D2B",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "OK",
+                  "refusal": null
+                },
+                "finish_reason": "stop"
+              }
+            ],
+            "object": "chat.completion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "latency-7",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_tokens": 32,
+        "stream": false
+      },
+      "elapsedMs": 227.84704199999942,
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": {
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens": 3,
+          "prompt_tokens": 69,
+          "completion_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 72
+        },
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524981,
+            "usage": {
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens": 3,
+              "prompt_tokens": 69,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "total_tokens": 72
+            },
+            "model": "system",
+            "id": "chatcmpl-9868017E-52E1-4F87-9FD9-65F104AA266A",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "OK",
+                  "refusal": null
+                },
+                "finish_reason": "stop"
+              }
+            ],
+            "object": "chat.completion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "latency-8",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_tokens": 32,
+        "stream": false
+      },
+      "elapsedMs": 223.28050000000076,
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": {
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens": 3,
+          "prompt_tokens": 69,
+          "completion_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 72
+        },
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524981,
+            "usage": {
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens": 3,
+              "prompt_tokens": 69,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "total_tokens": 72
+            },
+            "model": "system",
+            "id": "chatcmpl-3C4245AB-7A6E-4FAC-A07F-4F440AD7F6BC",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "OK",
+                  "refusal": null
+                },
+                "finish_reason": "stop"
+              }
+            ],
+            "object": "chat.completion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "latency-9",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_tokens": 32,
+        "stream": false
+      },
+      "elapsedMs": 224.2868750000016,
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": {
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens": 3,
+          "prompt_tokens": 69,
+          "completion_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 72
+        },
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524981,
+            "usage": {
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens": 3,
+              "prompt_tokens": 69,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "total_tokens": 72
+            },
+            "model": "system",
+            "id": "chatcmpl-07455254-BBD3-4F1D-9E68-59296D60EC4C",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "OK",
+                  "refusal": null
+                },
+                "finish_reason": "stop"
+              }
+            ],
+            "object": "chat.completion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "latency-10",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_tokens": 32,
+        "stream": false
+      },
+      "elapsedMs": 226.47779100000116,
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": {
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens": 3,
+          "prompt_tokens": 69,
+          "completion_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 72
+        },
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524982,
+            "usage": {
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens": 3,
+              "prompt_tokens": 69,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "total_tokens": 72
+            },
+            "model": "system",
+            "id": "chatcmpl-34DE57F8-3CAC-49F8-B057-2126F966E110",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "OK",
+                  "refusal": null
+                },
+                "finish_reason": "stop"
+              }
+            ],
+            "object": "chat.completion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "latency-11",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_tokens": 32,
+        "stream": false
+      },
+      "elapsedMs": 226.0799160000006,
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": {
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens": 3,
+          "prompt_tokens": 69,
+          "completion_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 72
+        },
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524982,
+            "usage": {
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens": 3,
+              "prompt_tokens": 69,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "total_tokens": 72
+            },
+            "model": "system",
+            "id": "chatcmpl-CC7181C9-F96B-4F48-9CEF-3A0B94DDE925",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "OK",
+                  "refusal": null
+                },
+                "finish_reason": "stop"
+              }
+            ],
+            "object": "chat.completion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "latency-12",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_tokens": 32,
+        "stream": false
+      },
+      "elapsedMs": 227.07300000000032,
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": {
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens": 3,
+          "prompt_tokens": 69,
+          "completion_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 72
+        },
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524982,
+            "usage": {
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens": 3,
+              "prompt_tokens": 69,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "total_tokens": 72
+            },
+            "model": "system",
+            "id": "chatcmpl-A14FA337-72B7-40AC-9EAD-8E1396AB3D37",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "OK",
+                  "refusal": null
+                },
+                "finish_reason": "stop"
+              }
+            ],
+            "object": "chat.completion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "concurrency-2",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_tokens": 32
+      },
+      "elapsedMs": 283.4240000000009,
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream",
+        "format": "sse",
+        "done": true,
+        "eventCount": 3,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "object": "chat.completion.chunk",
+            "id": "chatcmpl-2B22431F-432D-4726-9725-83291F6AA88E",
+            "created": 1793524982,
+            "model": "system",
+            "choices": [
+              {
+                "delta": {
+                  "role": "assistant"
+                },
+                "index": 0
+              }
+            ]
+          },
+          {
+            "object": "chat.completion.chunk",
+            "id": "chatcmpl-2B22431F-432D-4726-9725-83291F6AA88E",
+            "created": 1793524982,
+            "model": "system",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "content": "OK"
+                }
+              }
+            ]
+          },
+          {
+            "object": "chat.completion.chunk",
+            "id": "chatcmpl-2B22431F-432D-4726-9725-83291F6AA88E",
+            "created": 1793524982,
+            "model": "system",
+            "choices": [
+              {
+                "index": 0,
+                "finish_reason": "stop",
+                "delta": {}
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "concurrency-1",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_tokens": 32
+      },
+      "elapsedMs": 362.2094589999997,
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream",
+        "format": "sse",
+        "done": true,
+        "eventCount": 3,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "object": "chat.completion.chunk",
+            "id": "chatcmpl-6270F26F-C47A-4705-9AA5-7CAB38DA37C7",
+            "created": 1793524982,
+            "model": "system",
+            "choices": [
+              {
+                "delta": {
+                  "role": "assistant"
+                },
+                "index": 0
+              }
+            ]
+          },
+          {
+            "created": 1793524982,
+            "id": "chatcmpl-6270F26F-C47A-4705-9AA5-7CAB38DA37C7",
+            "model": "system",
+            "object": "chat.completion.chunk",
+            "choices": [
+              {
+                "delta": {
+                  "content": "OK"
+                },
+                "index": 0
+              }
+            ]
+          },
+          {
+            "id": "chatcmpl-6270F26F-C47A-4705-9AA5-7CAB38DA37C7",
+            "created": 1793524982,
+            "model": "system",
+            "object": "chat.completion.chunk",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {},
+                "finish_reason": "stop"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "json-schema",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 64
+          }
+        ],
+        "max_tokens": 32,
+        "response_format": {
+          "type": "json_schema",
+          "json_schema": {
+            "name": "af0_classification",
+            "strict": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "reminder",
+                    "other"
+                  ]
+                }
+              },
+              "required": [
+                "category"
+              ],
+              "additionalProperties": false
+            }
+          }
+        }
+      },
+      "elapsedMs": 364.75625000000036,
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream",
+        "format": "sse",
+        "done": true,
+        "eventCount": 3,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524982,
+            "model": "system",
+            "id": "chatcmpl-B567C561-5419-4B5D-B912-48EB7BA28786",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "role": "assistant"
+                }
+              }
+            ],
+            "object": "chat.completion.chunk"
+          },
+          {
+            "created": 1793524983,
+            "model": "system",
+            "id": "chatcmpl-B567C561-5419-4B5D-B912-48EB7BA28786",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "content": "{\"category\": \"reminder\"}"
+                }
+              }
+            ],
+            "object": "chat.completion.chunk"
+          },
+          {
+            "created": 1793524983,
+            "model": "system",
+            "id": "chatcmpl-B567C561-5419-4B5D-B912-48EB7BA28786",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {},
+                "finish_reason": "stop"
+              }
+            ],
+            "object": "chat.completion.chunk"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tools",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 45
+          }
+        ],
+        "max_tokens": 32,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "af0_weather",
+              "description": "Get the synthetic weather for a city.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "city": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "city"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        ]
+      },
+      "elapsedMs": 519.8933749999997,
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream",
+        "format": "sse",
+        "done": true,
+        "eventCount": 3,
+        "finishReasons": [
+          "tool_calls"
+        ],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524983,
+            "model": "system",
+            "id": "chatcmpl-668CB2EA-CACA-477E-82FD-F8B19D3FCAD8",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "role": "assistant"
+                }
+              }
+            ],
+            "object": "chat.completion.chunk"
+          },
+          {
+            "created": 1793524983,
+            "model": "system",
+            "id": "chatcmpl-668CB2EA-CACA-477E-82FD-F8B19D3FCAD8",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "tool_calls": [
+                    {
+                      "id": "5661015F-8726-4B09-9B5A-4A2CC724D756",
+                      "index": 0,
+                      "type": "function",
+                      "function": {
+                        "name": "af0_weather",
+                        "arguments": "{\"city\": \"Berlin\"}"
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            "object": "chat.completion.chunk"
+          },
+          {
+            "created": 1793524983,
+            "model": "system",
+            "id": "chatcmpl-668CB2EA-CACA-477E-82FD-F8B19D3FCAD8",
+            "choices": [
+              {
+                "finish_reason": "tool_calls",
+                "index": 0,
+                "delta": {}
+              }
+            ],
+            "object": "chat.completion.chunk"
+          }
+        ]
+      }
+    },
+    {
+      "id": "forced-tool",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 45
+          }
+        ],
+        "max_tokens": 32,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "af0_weather",
+              "description": "Get the synthetic weather for a city.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "city": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "city"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        ],
+        "tool_choice": {
+          "type": "function",
+          "function": {
+            "name": "af0_weather"
+          }
+        }
+      },
+      "elapsedMs": 480.78700000000026,
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream",
+        "format": "sse",
+        "done": true,
+        "eventCount": 3,
+        "finishReasons": [
+          "tool_calls"
+        ],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524983,
+            "model": "system",
+            "id": "chatcmpl-F688164E-B78C-43BC-A4A0-E8C6F1C6F556",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "role": "assistant"
+                }
+              }
+            ],
+            "object": "chat.completion.chunk"
+          },
+          {
+            "created": 1793524984,
+            "model": "system",
+            "id": "chatcmpl-F688164E-B78C-43BC-A4A0-E8C6F1C6F556",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "tool_calls": [
+                    {
+                      "id": "25DCAA1B-A510-4CF1-AC7A-1BEA3533AE7A",
+                      "index": 0,
+                      "type": "function",
+                      "function": {
+                        "name": "af0_weather",
+                        "arguments": "{\"city\": \"Berlin\"}"
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            "object": "chat.completion.chunk"
+          },
+          {
+            "created": 1793524984,
+            "model": "system",
+            "id": "chatcmpl-F688164E-B78C-43BC-A4A0-E8C6F1C6F556",
+            "choices": [
+              {
+                "finish_reason": "tool_calls",
+                "index": 0,
+                "delta": {}
+              }
+            ],
+            "object": "chat.completion.chunk"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parallel-tools",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 38
+          }
+        ],
+        "max_tokens": 32,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "af0_weather",
+              "description": "Get the synthetic weather for a city.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "city": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "city"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        ],
+        "parallel_tool_calls": true
+      },
+      "elapsedMs": 817.4078750000008,
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream",
+        "format": "sse",
+        "done": true,
+        "eventCount": 3,
+        "finishReasons": [
+          "tool_calls"
+        ],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524984,
+            "model": "system",
+            "id": "chatcmpl-63B1956E-294B-4FC3-AEBB-575A1ACC9C94",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "role": "assistant"
+                }
+              }
+            ],
+            "object": "chat.completion.chunk"
+          },
+          {
+            "created": 1793524985,
+            "model": "system",
+            "id": "chatcmpl-63B1956E-294B-4FC3-AEBB-575A1ACC9C94",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "tool_calls": [
+                    {
+                      "id": "C7CAB78C-0938-44F8-B177-47330A560B71",
+                      "index": 0,
+                      "type": "function",
+                      "function": {
+                        "name": "af0_weather",
+                        "arguments": "{\"city\": \"Berlin\"}"
+                      }
+                    },
+                    {
+                      "id": "2D99FDAF-8931-4274-A311-D6C63A8474BD",
+                      "index": 1,
+                      "type": "function",
+                      "function": {
+                        "name": "af0_weather",
+                        "arguments": "{\"city\": \"Warsaw\"}"
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            "object": "chat.completion.chunk"
+          },
+          {
+            "created": 1793524985,
+            "model": "system",
+            "id": "chatcmpl-63B1956E-294B-4FC3-AEBB-575A1ACC9C94",
+            "choices": [
+              {
+                "finish_reason": "tool_calls",
+                "index": 0,
+                "delta": {}
+              }
+            ],
+            "object": "chat.completion.chunk"
+          }
+        ]
+      }
+    },
+    {
+      "id": "logprobs",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_tokens": 32,
+        "logprobs": true,
+        "top_logprobs": 2
+      },
+      "elapsedMs": 224.6876659999998,
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream",
+        "format": "sse",
+        "done": true,
+        "eventCount": 3,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524985,
+            "model": "system",
+            "id": "chatcmpl-6EF65374-9735-493D-85E0-1CF833BFC626",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "role": "assistant"
+                }
+              }
+            ],
+            "object": "chat.completion.chunk"
+          },
+          {
+            "created": 1793524985,
+            "model": "system",
+            "id": "chatcmpl-6EF65374-9735-493D-85E0-1CF833BFC626",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "content": "OK"
+                }
+              }
+            ],
+            "object": "chat.completion.chunk"
+          },
+          {
+            "object": "chat.completion.chunk",
+            "id": "chatcmpl-6EF65374-9735-493D-85E0-1CF833BFC626",
+            "created": 1793524985,
+            "model": "system",
+            "choices": [
+              {
+                "finish_reason": "stop",
+                "index": 0,
+                "delta": {}
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "unknown-model",
+      "request": {
+        "model": "af0-model-does-not-exist",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 36
+          }
+        ],
+        "max_tokens": 32
+      },
+      "elapsedMs": 0.6525000000001455,
+      "response": {
+        "status": 400,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [],
+        "usage": null,
+        "error": {
+          "type": "invalid_request_error",
+          "message": "Unknown model 'af0-model-does-not-exist'. Available models: system, pcc. Start fm serve with --model-provider to reach other models.",
+          "code": "400"
+        },
+        "logprobsPresent": false,
+        "events": [
+          {
+            "error": {
+              "type": "invalid_request_error",
+              "message": "Unknown model 'af0-model-does-not-exist'. Available models: system, pcc. Start fm serve with --model-provider to reach other models.",
+              "code": "400"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "overflow",
+      "request": {
+        "model": "system",
+        "messages": [
+          {
+            "role": "user",
+            "utf16Units": 50000
+          }
+        ],
+        "max_tokens": 8
+      },
+      "elapsedMs": 4799.568165999999,
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream",
+        "format": "sse",
+        "done": true,
+        "eventCount": 3,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524985,
+            "model": "system",
+            "id": "chatcmpl-4760C485-F18A-4DE3-8697-A12951D6E752",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "role": "assistant"
+                }
+              }
+            ],
+            "object": "chat.completion.chunk"
+          },
+          {
+            "id": "chatcmpl-4760C485-F18A-4DE3-8697-A12951D6E752",
+            "created": 1793524990,
+            "model": "system",
+            "object": "chat.completion.chunk",
+            "choices": [
+              {
+                "delta": {
+                  "content": "I am a foundation model created by Apple Inc."
+                },
+                "index": 0
+              }
+            ]
+          },
+          {
+            "created": 1793524990,
+            "model": "system",
+            "id": "chatcmpl-4760C485-F18A-4DE3-8697-A12951D6E752",
+            "choices": [
+              {
+                "index": 0,
+                "delta": {},
+                "finish_reason": "stop"
+              }
+            ],
+            "object": "chat.completion.chunk"
+          }
+        ]
+      }
+    },
+    {
+      "id": "window-4096",
+      "tokenCount": {
+        "utf16Units": 40960,
+        "tokens": 4097,
+        "heuristicBound": 13654,
+        "code": 0,
+        "signal": null,
+        "stdout": "4097\n",
+        "stderr": ""
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [
+          "stop"
+        ],
+        "usage": {
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens": 11,
+          "prompt_tokens": 4152,
+          "completion_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 4163
+        },
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "created": 1793524993,
+            "usage": {
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens": 11,
+              "prompt_tokens": 4152,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              },
+              "total_tokens": 4163
+            },
+            "model": "system",
+            "id": "chatcmpl-A553C93E-061D-4244-8287-C4874763E81C",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "I am a foundation model created by Apple Inc.",
+                  "refusal": null
+                },
+                "finish_reason": "stop"
+              }
+            ],
+            "object": "chat.completion"
+          }
+        ]
+      },
+      "elapsedMs": 3337.6776659999996
+    },
+    {
+      "id": "window-8192",
+      "tokenCount": {
+        "utf16Units": 81920,
+        "tokens": 8193,
+        "heuristicBound": 27307,
+        "code": 0,
+        "signal": null,
+        "stdout": "8193\n",
+        "stderr": ""
+      },
+      "response": {
+        "status": 500,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [],
+        "usage": null,
+        "error": {
+          "type": "server_error",
+          "message": "The session's transcript exceeded the model's context size.",
+          "code": "500"
+        },
+        "logprobsPresent": false,
+        "events": [
+          {
+            "error": {
+              "type": "server_error",
+              "message": "The session's transcript exceeded the model's context size.",
+              "code": "500"
+            }
+          }
+        ]
+      },
+      "elapsedMs": 928.666541999999
+    }
+  ],
+  "receiptFile": "2026-11-01-probe-final.json",
+  "priorReceipt": "2026-11-01-probe.json",
+  "notMeasured": [
+    "Model-unavailable error: Apple Intelligence is available; its settings are not changed for a probe.",
+    "Licence-unagreed state: no licence command is run and the accepted licence is not altered.",
+    "Delayed idle unloading and system model-service RSS; ps measures the CLI process only.",
+    "Exact shared context window: at least 5056 server prompt tokens were accepted, refuting 4096 as the hardware window; the 4096 catalog/guard policy stays conservative.",
+    "Streaming overflow was not measured in this original full run; see 2026-11-01-probe-review.json for the additional stream:true experiment.",
+    "Delayed self-exit after parent death and post-start stdin-pipe EOF were not measured in this original full run; see 2026-11-01-probe-review.json.",
+    "Automatic process-group/PID ESRCH checks were not recorded in this original full run; the additional receipt records them."
+  ],
+  "host": {
+    "version": "27.2",
+    "build": "26B123"
+  },
+  "sourceHead": "0dd63d4516d628a9936597f02062872ef0e514e8",
+  "cliInvocation": {
+    "program": "/usr/bin/fm",
+    "args": [
+      "models"
+    ],
+    "stdin": "closed",
+    "cwd": "isolated worktree",
+    "environment": {
+      "HOME": "<owner-home>",
+      "LANG": "en_US.UTF-8",
+      "PATH": "/usr/bin:/bin"
+    },
+    "nodeVersion": "v24.21.0",
+    "context": {
+      "executor": "Codex desktop command tool, outside the Terminal app",
+      "stdinIsTTY": false,
+      "stdoutIsTTY": false,
+      "stderrIsTTY": false
+    }
+  },
+  "cliModels": {
+    "code": 1,
+    "signal": null,
+    "stdout": "  Apple Foundation Models\n  ✓ system (AFM 3 Core Advanced)\n  ✗ pcc                           (Private Cloud Compute is not available in this context. Please use the Terminal app.)\n",
+    "stderr": ""
+  },
+  "systemAvailability": {
+    "state": "available",
+    "exitCode": 1,
+    "signal": null
+  },
+  "tokenCounts": {
+    "de": {
+      "utf16Units": 77,
+      "tokens": 20,
+      "heuristicBound": 26,
+      "code": 0,
+      "signal": null,
+      "stdout": "20\n",
+      "stderr": ""
+    },
+    "en": {
+      "utf16Units": 75,
+      "tokens": 15,
+      "heuristicBound": 25,
+      "code": 0,
+      "signal": null,
+      "stdout": "15\n",
+      "stderr": ""
+    },
+    "overflow": {
+      "utf16Units": 50000,
+      "tokens": 5001,
+      "heuristicBound": 16667,
+      "code": 0,
+      "signal": null,
+      "stdout": "5001\n",
+      "stderr": ""
+    }
+  },
+  "serverInvocation": {
+    "program": "/usr/bin/fm",
+    "args": [
+      "serve",
+      "--socket",
+      "<probe-directory>/fm.sock"
+    ],
+    "environmentKeys": [
+      "HOME",
+      "LANG",
+      "PATH"
+    ],
+    "LANG": "en_US.UTF-8",
+    "PATH": "/usr/bin:/bin",
+    "stdin": "closed (/dev/null)"
+  },
+  "serverPid": 2740,
+  "readyHealth": {
+    "status": 200,
+    "contentType": "application/json",
+    "format": "json",
+    "done": false,
+    "eventCount": 1,
+    "finishReasons": [],
+    "usage": null,
+    "error": null,
+    "logprobsPresent": false,
+    "events": [
+      {
+        "models": [
+          {
+            "name": "system",
+            "available": true
+          },
+          {
+            "name": "pcc",
+            "available": false,
+            "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app."
+          }
+        ],
+        "status": "fm serve is running"
+      }
+    ]
+  },
+  "socketReadyMs": 34.061041999999986,
+  "socketMode": "755",
+  "directoryMode": "700",
+  "idleCliRss": {
+    "code": 0,
+    "signal": null,
+    "stdout": "  7536\n",
+    "stderr": ""
+  },
+  "tcpListeners": {
+    "code": 1,
+    "signal": null,
+    "stdout": "",
+    "stderr": ""
+  },
+  "summary": {
+    "latency": {
+      "firstInferenceMs": 279.71670800000004,
+      "warm": {
+        "n": 12,
+        "p50": 226.4810409999991,
+        "p95": 240.29262500000004
+      }
+    },
+    "concurrency": {
+      "elapsedMs": 362.8155000000006,
+      "results": [
+        {
+          "elapsedMs": 362.2094589999997,
+          "status": 200
+        },
+        {
+          "elapsedMs": 283.4240000000009,
+          "status": 200
+        }
+      ],
+      "interpretation": "Two overlapping requests; elapsed times alone do not prove parallel model execution."
+    }
+  },
+  "window": {
+    "acceptedPromptTokensAtLeast": 5056,
+    "firstError": {
+      "id": "window-8192",
+      "tokenCount": {
+        "utf16Units": 81920,
+        "tokens": 8193,
+        "heuristicBound": 27307,
+        "code": 0,
+        "signal": null,
+        "stdout": "8193\n",
+        "stderr": ""
+      },
+      "response": {
+        "status": 500,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [],
+        "usage": null,
+        "error": {
+          "type": "server_error",
+          "message": "The session's transcript exceeded the model's context size.",
+          "code": "500"
+        },
+        "logprobsPresent": false,
+        "events": [
+          {
+            "error": {
+              "type": "server_error",
+              "message": "The session's transcript exceeded the model's context size.",
+              "code": "500"
+            }
+          }
+        ]
+      },
+      "elapsedMs": 928.666541999999
+    },
+    "exactWindow": null,
+    "interpretation": "Server prompt counts and standalone CLI counts are different units. An accepted server prompt above 4096 refutes that shared-window claim; the exact window remains unmeasured. The 4096 policy stays conservative.",
+    "acceptedCliTokensAtLeast": 5001,
+    "serverPromptEvidence": [
+      {
+        "source": "usage",
+        "observation": "stream-false",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "usage",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "max-tokens-one",
+        "tokens": 65
+      },
+      {
+        "source": "usage",
+        "observation": "max-completion-tokens-one",
+        "tokens": 65
+      },
+      {
+        "source": "usage",
+        "observation": "latency-1",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-2",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-3",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-4",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-5",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-6",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-7",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-8",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-9",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-10",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-11",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "latency-12",
+        "tokens": 69
+      },
+      {
+        "source": "usage",
+        "observation": "window-4096",
+        "tokens": 4152
+      },
+      {
+        "source": "server-log",
+        "line": 13,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 15,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 17,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 19,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 21,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 23,
+        "tokens": 65
+      },
+      {
+        "source": "server-log",
+        "line": 25,
+        "tokens": 65
+      },
+      {
+        "source": "server-log",
+        "line": 27,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 29,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 31,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 33,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 35,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 37,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 39,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 41,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 43,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 45,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 47,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 49,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 52,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 53,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 55,
+        "tokens": 68
+      },
+      {
+        "source": "server-log",
+        "line": 57,
+        "tokens": 117
+      },
+      {
+        "source": "server-log",
+        "line": 59,
+        "tokens": 117
+      },
+      {
+        "source": "server-log",
+        "line": 61,
+        "tokens": 115
+      },
+      {
+        "source": "server-log",
+        "line": 63,
+        "tokens": 69
+      },
+      {
+        "source": "server-log",
+        "line": 66,
+        "tokens": 5056
+      },
+      {
+        "source": "server-log",
+        "line": 68,
+        "tokens": 4152
+      }
+    ],
+    "proposed4096Window": "refuted"
+  },
+  "idleAfterInference": [
+    {
+      "elapsedMs": 3.3346249999995052,
+      "unit": "KiB (CLI only)",
+      "code": 0,
+      "signal": null,
+      "stdout": " 19792\n",
+      "stderr": ""
+    },
+    {
+      "elapsedMs": 30005.691915999996,
+      "unit": "KiB (CLI only)",
+      "code": 0,
+      "signal": null,
+      "stdout": " 19408\n",
+      "stderr": ""
+    }
+  ],
+  "serverExit": {
+    "code": 0,
+    "signal": null
+  },
+  "serverLogs": {
+    "stdout": "\u001b[38;2;130;215;90mF\u001b[38;2;125;211;95mo\u001b[38;2;121;207;100mu\u001b[38;2;117;203;105mn\u001b[38;2;112;199;110md\u001b[38;2;108;195;116ma\u001b[38;2;104;191;121mt\u001b[38;2;99;187;126mi\u001b[38;2;95;184;131mo\u001b[38;2;91;180;137mn\u001b[38;2;86;176;142m \u001b[38;2;82;172;147mM\u001b[38;2;78;168;152mo\u001b[38;2;73;164;157md\u001b[38;2;69;160;163me\u001b[38;2;65;157;168ml\u001b[38;2;60;153;173ms\u001b[38;2;56;149;178m \u001b[38;2;52;145;184mS\u001b[38;2;47;141;189me\u001b[38;2;43;137;194mr\u001b[38;2;39;133;199mv\u001b[38;2;35;130;205me\u001b[0m\n\u001b[38;2;153;153;153m  socket \u001b[0m\u001b[38;2;55;195;160m<probe-directory>/fm.sock\u001b[0m\n\n  · \u001b[38;2;35;130;205mPOST\u001b[0m /v1/chat/completions\n  · \u001b[38;2;35;130;205mGET \u001b[0m /v1/models\n  · \u001b[38;2;35;130;205mGET \u001b[0m /health\n\n  · listening on \u001b[38;2;78;186;101m<probe-directory>/fm.sock\u001b[0m  \u001b[38;2;153;153;153m(press Ctrl+C to stop)\u001b[0m\n\u001b[38;2;153;153;153m10:22:52\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[GET] \u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/health\u001b[0m\u001b[2m · \u001b[0m200\n\u001b[38;2;153;153;153m10:22:52\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[GET] \u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/health\u001b[0m\u001b[2m · \u001b[0m200\n\u001b[38;2;153;153;153m10:22:52\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[GET] \u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/models\u001b[0m\u001b[2m · \u001b[0m200\n\u001b[38;2;153;153;153m10:22:52\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:22:52\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 69→3 tokens · 279ms\n\u001b[38;2;153;153;153m10:22:52\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:22:52\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 69→3 tokens · 208ms\n\u001b[38;2;153;153;153m10:22:52\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:22:53\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 69→3 tokens · 218ms\n\u001b[38;2;153;153;153m10:22:53\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:22:53\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 69→3 tokens · 205ms\n\u001b[38;2;153;153;153m10:22:53\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:22:53\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 69→3 tokens · 209ms\n\u001b[38;2;153;153;153m10:22:53\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:22:59\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 65→351 tokens · 5.9s\n\u001b[38;2;153;153;153m10:22:59\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:22:59\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 65→2 tokens · 208ms\n\u001b[38;2;153;153;153m10:22:59\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:00\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 69→3 tokens · 240ms\n\u001b[38;2;153;153;153m10:23:00\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:00\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 69→3 tokens · 231ms\n\u001b[38;2;153;153;153m10:23:00\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:00\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 69→3 tokens · 235ms\n\u001b[38;2;153;153;153m10:23:00\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:00\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 69→3 tokens · 226ms\n\u001b[38;2;153;153;153m10:23:00\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:00\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 69→3 tokens · 228ms\n\u001b[38;2;153;153;153m10:23:00\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:01\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 69→3 tokens · 226ms\n\u001b[38;2;153;153;153m10:23:01\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:01\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 69→3 tokens · 227ms\n\u001b[38;2;153;153;153m10:23:01\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:01\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 69→3 tokens · 223ms\n\u001b[38;2;153;153;153m10:23:01\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:01\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 69→3 tokens · 224ms\n\u001b[38;2;153;153;153m10:23:01\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:02\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 69→3 tokens · 226ms\n\u001b[38;2;153;153;153m10:23:02\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:02\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 69→3 tokens · 226ms\n\u001b[38;2;153;153;153m10:23:02\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:02\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 69→3 tokens · 227ms\n\u001b[38;2;153;153;153m10:23:02\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:02\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:02\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 69→3 tokens · 283ms\n\u001b[38;2;153;153;153m10:23:02\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 69→3 tokens · 362ms\n\u001b[38;2;153;153;153m10:23:02\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:03\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 68→13 tokens · 364ms\n\u001b[38;2;153;153;153m10:23:03\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:03\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 117→27 tokens · 519ms\n\u001b[38;2;153;153;153m10:23:03\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:04\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 117→27 tokens · 480ms\n\u001b[38;2;153;153;153m10:23:04\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:05\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 115→45 tokens · 817ms\n\u001b[38;2;153;153;153m10:23:05\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:05\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 69→3 tokens · 224ms\n\u001b[38;2;153;153;153m10:23:05\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0maf0-model-does-not-exist\n\u001b[38;2;153;153;153m10:23:05\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:10\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 5056→11 tokens · 4.8s\n\u001b[38;2;153;153;153m10:23:10\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:13\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0m200\u001b[2m · \u001b[0msystem · 4152→11 tokens · 3.3s\n\u001b[38;2;153;153;153m10:23:13\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;193;7m[POST]\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/v1/chat/completions\u001b[0m\u001b[2m · \u001b[0msystem\n\u001b[38;2;153;153;153m10:23:14\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;255;107;128mERROR 500 The session's transcript exceeded the model's context size.\u001b[0m\n\n\u001b[38;2;153;153;153m  · shutting down\u001b[0m\n",
+    "stderr": "",
+    "stdoutBytes": 10917,
+    "stderrBytes": 0,
+    "capturedTailCharacters": 65536,
+    "syntheticPromptMarkerPresentInTail": false
+  },
+  "cleanup": {
+    "directServerReaped": true,
+    "temporaryDirectoryRemoved": true,
+    "automaticPidVisibilityRecorded": false
+  },
+  "unavailableTransport": {
+    "code": "ENOENT",
+    "serverErrorShape": null
+  },
+  "stdinEof": {
+    "initialStdin": "closed (/dev/null)",
+    "continuedServing": null,
+    "interpretation": "Only stdin closed from startup (/dev/null) was measured; post-start pipe EOF was not measured in this receipt."
+  },
+  "socketEdges": {
+    "relative": {
+      "pathBytes": 40,
+      "serverInvocation": {
+        "program": "/usr/bin/fm",
+        "args": [
+          "serve",
+          "--socket",
+          "fm.sock"
+        ],
+        "environmentKeys": [
+          "HOME",
+          "LANG",
+          "PATH"
+        ],
+        "LANG": "en_US.UTF-8",
+        "PATH": "/usr/bin:/bin",
+        "stdin": "closed (/dev/null)"
+      },
+      "serverPid": 4062,
+      "readyHealth": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "status": "fm serve is running",
+            "models": [
+              {
+                "name": "system",
+                "available": true
+              },
+              {
+                "name": "pcc",
+                "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app.",
+                "available": false
+              }
+            ]
+          }
+        ]
+      },
+      "health": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "status": "fm serve is running",
+            "models": [
+              {
+                "name": "system",
+                "available": true
+              },
+              {
+                "available": false,
+                "name": "pcc",
+                "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app."
+              }
+            ]
+          }
+        ]
+      },
+      "serverExit": {
+        "code": 0,
+        "signal": null
+      },
+      "serverLogs": {
+        "stdout": "\u001b[38;2;130;215;90mF\u001b[38;2;125;211;95mo\u001b[38;2;121;207;100mu\u001b[38;2;117;203;105mn\u001b[38;2;112;199;110md\u001b[38;2;108;195;116ma\u001b[38;2;104;191;121mt\u001b[38;2;99;187;126mi\u001b[38;2;95;184;131mo\u001b[38;2;91;180;137mn\u001b[38;2;86;176;142m \u001b[38;2;82;172;147mM\u001b[38;2;78;168;152mo\u001b[38;2;73;164;157md\u001b[38;2;69;160;163me\u001b[38;2;65;157;168ml\u001b[38;2;60;153;173ms\u001b[38;2;56;149;178m \u001b[38;2;52;145;184mS\u001b[38;2;47;141;189me\u001b[38;2;43;137;194mr\u001b[38;2;39;133;199mv\u001b[38;2;35;130;205me\u001b[0m\n\u001b[38;2;153;153;153m  socket \u001b[0m\u001b[38;2;55;195;160mfm.sock\u001b[0m\n\n  · \u001b[38;2;35;130;205mPOST\u001b[0m /v1/chat/completions\n  · \u001b[38;2;35;130;205mGET \u001b[0m /v1/models\n  · \u001b[38;2;35;130;205mGET \u001b[0m /health\n\n  · listening on \u001b[38;2;78;186;101mfm.sock\u001b[0m  \u001b[38;2;153;153;153m(press Ctrl+C to stop)\u001b[0m\n\u001b[38;2;153;153;153m10:23:44\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[GET] \u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/health\u001b[0m\u001b[2m · \u001b[0m200\n\u001b[38;2;153;153;153m10:23:44\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[GET] \u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/health\u001b[0m\u001b[2m · \u001b[0m200\n\n\u001b[38;2;153;153;153m  · shutting down\u001b[0m\n",
+        "stderr": "",
+        "stdoutBytes": 1043,
+        "stderrBytes": 0,
+        "capturedTailCharacters": 65536,
+        "syntheticPromptMarkerPresentInTail": false
+      },
+      "cleanup": {
+        "directServerReaped": true
+      }
+    },
+    "stale": {
+      "pathBytes": 37,
+      "staleSocketCreated": true,
+      "serverInvocation": {
+        "program": "/usr/bin/fm",
+        "args": [
+          "serve",
+          "--socket",
+          "<probe-directory>/stale/fm.sock"
+        ],
+        "environmentKeys": [
+          "HOME",
+          "LANG",
+          "PATH"
+        ],
+        "LANG": "en_US.UTF-8",
+        "PATH": "/usr/bin:/bin",
+        "stdin": "closed (/dev/null)"
+      },
+      "serverPid": 4064,
+      "readyHealth": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "models": [
+              {
+                "available": true,
+                "name": "system"
+              },
+              {
+                "available": false,
+                "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app.",
+                "name": "pcc"
+              }
+            ],
+            "status": "fm serve is running"
+          }
+        ]
+      },
+      "health": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "status": "fm serve is running",
+            "models": [
+              {
+                "available": true,
+                "name": "system"
+              },
+              {
+                "available": false,
+                "name": "pcc",
+                "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app."
+              }
+            ]
+          }
+        ]
+      },
+      "serverExit": {
+        "code": 0,
+        "signal": null
+      },
+      "serverLogs": {
+        "stdout": "\u001b[38;2;130;215;90mF\u001b[38;2;125;211;95mo\u001b[38;2;121;207;100mu\u001b[38;2;117;203;105mn\u001b[38;2;112;199;110md\u001b[38;2;108;195;116ma\u001b[38;2;104;191;121mt\u001b[38;2;99;187;126mi\u001b[38;2;95;184;131mo\u001b[38;2;91;180;137mn\u001b[38;2;86;176;142m \u001b[38;2;82;172;147mM\u001b[38;2;78;168;152mo\u001b[38;2;73;164;157md\u001b[38;2;69;160;163me\u001b[38;2;65;157;168ml\u001b[38;2;60;153;173ms\u001b[38;2;56;149;178m \u001b[38;2;52;145;184mS\u001b[38;2;47;141;189me\u001b[38;2;43;137;194mr\u001b[38;2;39;133;199mv\u001b[38;2;35;130;205me\u001b[0m\n\u001b[38;2;153;153;153m  socket \u001b[0m\u001b[38;2;55;195;160m<probe-directory>/stale/fm.sock\u001b[0m\n\n  · \u001b[38;2;35;130;205mPOST\u001b[0m /v1/chat/completions\n  · \u001b[38;2;35;130;205mGET \u001b[0m /v1/models\n  · \u001b[38;2;35;130;205mGET \u001b[0m /health\n\n  · listening on \u001b[38;2;78;186;101m<probe-directory>/stale/fm.sock\u001b[0m  \u001b[38;2;153;153;153m(press Ctrl+C to stop)\u001b[0m\n\u001b[38;2;153;153;153m10:23:44\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[GET] \u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/health\u001b[0m\u001b[2m · \u001b[0m200\n\u001b[38;2;153;153;153m10:23:44\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[GET] \u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/health\u001b[0m\u001b[2m · \u001b[0m200\n\n\u001b[38;2;153;153;153m  · shutting down\u001b[0m\n",
+        "stderr": "",
+        "stdoutBytes": 1103,
+        "stderrBytes": 0,
+        "capturedTailCharacters": 65536,
+        "syntheticPromptMarkerPresentInTail": false
+      },
+      "cleanup": {
+        "directServerReaped": true
+      }
+    },
+    "path-103": {
+      "pathBytes": 103,
+      "serverInvocation": {
+        "program": "/usr/bin/fm",
+        "args": [
+          "serve",
+          "--socket",
+          "<probe-directory>/path-103/ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss"
+        ],
+        "environmentKeys": [
+          "HOME",
+          "LANG",
+          "PATH"
+        ],
+        "LANG": "en_US.UTF-8",
+        "PATH": "/usr/bin:/bin",
+        "stdin": "closed (/dev/null)"
+      },
+      "serverPid": 4065,
+      "readyHealth": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "status": "fm serve is running",
+            "models": [
+              {
+                "available": true,
+                "name": "system"
+              },
+              {
+                "available": false,
+                "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app.",
+                "name": "pcc"
+              }
+            ]
+          }
+        ]
+      },
+      "health": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "status": "fm serve is running",
+            "models": [
+              {
+                "name": "system",
+                "available": true
+              },
+              {
+                "name": "pcc",
+                "available": false,
+                "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app."
+              }
+            ]
+          }
+        ]
+      },
+      "serverExit": {
+        "code": 0,
+        "signal": null
+      },
+      "serverLogs": {
+        "stdout": "\u001b[38;2;130;215;90mF\u001b[38;2;125;211;95mo\u001b[38;2;121;207;100mu\u001b[38;2;117;203;105mn\u001b[38;2;112;199;110md\u001b[38;2;108;195;116ma\u001b[38;2;104;191;121mt\u001b[38;2;99;187;126mi\u001b[38;2;95;184;131mo\u001b[38;2;91;180;137mn\u001b[38;2;86;176;142m \u001b[38;2;82;172;147mM\u001b[38;2;78;168;152mo\u001b[38;2;73;164;157md\u001b[38;2;69;160;163me\u001b[38;2;65;157;168ml\u001b[38;2;60;153;173ms\u001b[38;2;56;149;178m \u001b[38;2;52;145;184mS\u001b[38;2;47;141;189me\u001b[38;2;43;137;194mr\u001b[38;2;39;133;199mv\u001b[38;2;35;130;205me\u001b[0m\n\u001b[38;2;153;153;153m  socket \u001b[0m\u001b[38;2;55;195;160m<probe-directory>/path-103/ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss\u001b[0m\n\n  · \u001b[38;2;35;130;205mPOST\u001b[0m /v1/chat/completions\n  · \u001b[38;2;35;130;205mGET \u001b[0m /v1/models\n  · \u001b[38;2;35;130;205mGET \u001b[0m /health\n\n  · listening on \u001b[38;2;78;186;101m<probe-directory>/path-103/ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss\u001b[0m  \u001b[38;2;153;153;153m(press Ctrl+C to stop)\u001b[0m\n\u001b[38;2;153;153;153m10:23:44\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[GET] \u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/health\u001b[0m\u001b[2m · \u001b[0m200\n\u001b[38;2;153;153;153m10:23:44\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[GET] \u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/health\u001b[0m\u001b[2m · \u001b[0m200\n\n\u001b[38;2;153;153;153m  · shutting down\u001b[0m\n",
+        "stderr": "",
+        "stdoutBytes": 1235,
+        "stderrBytes": 0,
+        "capturedTailCharacters": 65536,
+        "syntheticPromptMarkerPresentInTail": false
+      },
+      "cleanup": {
+        "directServerReaped": true
+      }
+    },
+    "path-104": {
+      "pathBytes": 104,
+      "serverInvocation": {
+        "program": "/usr/bin/fm",
+        "args": [
+          "serve",
+          "--socket",
+          "<probe-directory>/path-104/sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss"
+        ],
+        "environmentKeys": [
+          "HOME",
+          "LANG",
+          "PATH"
+        ],
+        "LANG": "en_US.UTF-8",
+        "PATH": "/usr/bin:/bin",
+        "stdin": "closed (/dev/null)"
+      },
+      "serverPid": 4066,
+      "readyHealth": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "status": "fm serve is running",
+            "models": [
+              {
+                "available": true,
+                "name": "system"
+              },
+              {
+                "available": false,
+                "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app.",
+                "name": "pcc"
+              }
+            ]
+          }
+        ]
+      },
+      "health": {
+        "status": 200,
+        "contentType": "application/json",
+        "format": "json",
+        "done": false,
+        "eventCount": 1,
+        "finishReasons": [],
+        "usage": null,
+        "error": null,
+        "logprobsPresent": false,
+        "events": [
+          {
+            "status": "fm serve is running",
+            "models": [
+              {
+                "name": "system",
+                "available": true
+              },
+              {
+                "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app.",
+                "name": "pcc",
+                "available": false
+              }
+            ]
+          }
+        ]
+      },
+      "serverExit": {
+        "code": 0,
+        "signal": null
+      },
+      "serverLogs": {
+        "stdout": "\u001b[38;2;130;215;90mF\u001b[38;2;125;211;95mo\u001b[38;2;121;207;100mu\u001b[38;2;117;203;105mn\u001b[38;2;112;199;110md\u001b[38;2;108;195;116ma\u001b[38;2;104;191;121mt\u001b[38;2;99;187;126mi\u001b[38;2;95;184;131mo\u001b[38;2;91;180;137mn\u001b[38;2;86;176;142m \u001b[38;2;82;172;147mM\u001b[38;2;78;168;152mo\u001b[38;2;73;164;157md\u001b[38;2;69;160;163me\u001b[38;2;65;157;168ml\u001b[38;2;60;153;173ms\u001b[38;2;56;149;178m \u001b[38;2;52;145;184mS\u001b[38;2;47;141;189me\u001b[38;2;43;137;194mr\u001b[38;2;39;133;199mv\u001b[38;2;35;130;205me\u001b[0m\n\u001b[38;2;153;153;153m  socket \u001b[0m\u001b[38;2;55;195;160m<probe-directory>/path-104/sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss\u001b[0m\n\n  · \u001b[38;2;35;130;205mPOST\u001b[0m /v1/chat/completions\n  · \u001b[38;2;35;130;205mGET \u001b[0m /v1/models\n  · \u001b[38;2;35;130;205mGET \u001b[0m /health\n\n  · listening on \u001b[38;2;78;186;101m<probe-directory>/path-104/sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss\u001b[0m  \u001b[38;2;153;153;153m(press Ctrl+C to stop)\u001b[0m\n\u001b[38;2;153;153;153m10:23:44\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[GET] \u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/health\u001b[0m\u001b[2m · \u001b[0m200\n\u001b[38;2;153;153;153m10:23:44\u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;78;186;101m[GET] \u001b[0m\u001b[2m · \u001b[0m\u001b[38;2;153;153;153m/health\u001b[0m\u001b[2m · \u001b[0m200\n\n\u001b[38;2;153;153;153m  · shutting down\u001b[0m\n",
+        "stderr": "",
+        "stdoutBytes": 1237,
+        "stderrBytes": 0,
+        "capturedTailCharacters": 65536,
+        "syntheticPromptMarkerPresentInTail": false
+      },
+      "cleanup": {
+        "directServerReaped": true
+      }
+    }
+  },
+  "parentDeath": {
+    "fmPid": 4068,
+    "before": {
+      "status": 200,
+      "contentType": "application/json",
+      "format": "json",
+      "done": false,
+      "eventCount": 1,
+      "finishReasons": [],
+      "usage": null,
+      "error": null,
+      "logprobsPresent": false,
+      "events": [
+        {
+          "models": [
+            {
+              "name": "system",
+              "available": true
+            },
+            {
+              "name": "pcc",
+              "available": false,
+              "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app."
+            }
+          ],
+          "status": "fm serve is running"
+        }
+      ]
+    },
+    "parentExit": {
+      "code": null,
+      "signal": "SIGKILL"
+    },
+    "after": {
+      "status": 200,
+      "contentType": "application/json",
+      "format": "json",
+      "done": false,
+      "eventCount": 1,
+      "finishReasons": [],
+      "usage": null,
+      "error": null,
+      "logprobsPresent": false,
+      "events": [
+        {
+          "status": "fm serve is running",
+          "models": [
+            {
+              "name": "system",
+              "available": true
+            },
+            {
+              "name": "pcc",
+              "available": false,
+              "reason": "Private Cloud Compute is not available in this context. Please use the Terminal app."
+            }
+          ]
+        }
+      ]
+    },
+    "observed": "answered health after the direct parent was killed and reaped",
+    "cleanup": "Remaining members of the probe-owned process group received SIGKILL.",
+    "continuedServing": null,
+    "observedIntervalMs": null,
+    "interpretation": "One immediate health response after the direct parent was killed and reaped; delayed self-exit was not measured in this receipt."
+  },
+  "reviewAnnotation": {
+    "date": "2026-11-01",
+    "derivedFieldsOnly": "Corrected the context bound and overclaimed lifecycle conclusions; original wire events, CLI output, server logs, timings and ids are unchanged.",
+    "acceptedRow": "The legacy observation id overflow is HTTP 200, with 5056 prompt tokens in its server log; it was accepted, not an overflow.",
+    "source": "Collector commit 0dd63d4516d628a9936597f02062872ef0e514e8. Source dirty state was not recorded. Before the reviewed head 7e2d0f8640981f8cfadf59134d14d86fb7ef2c28, two once() waits gained AbortSignal forwarding; no wire payload changed.",
+    "followUpReceipt": "2026-11-01-probe-review.json"
+  }
+}

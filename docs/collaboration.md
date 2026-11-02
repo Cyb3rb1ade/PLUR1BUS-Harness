@@ -33,7 +33,8 @@ Workflow roles from ADR-003 (`worker` / `reviewer`), the task board, note board,
 
 Peer output is **data**, not instructions: the answer is a structured block with source, not system or assistant text. The collaboration library itself reads no memory; the composed runner gives the callee its memory as described in [Memory of the asked agent](#memory-of-the-asked-agent) (owner decision 2026-10-29, ADR-003). Without a memory port, the runner still uses the session `ChatProvider` seam with empty `memory` / `summaries`.
 
-All agent runs go through the deterministic `FakeChatProvider` from `packages/core/src/session/provider.ts` until a follow-up wires real adapters. No network, no live models.
+Production composition sends delegated turns through the same provider, tool and budget pipeline as ordinary turns.
+The standalone library defaults to `FakeChatProvider`; tests inject runners and never need a live model.
 
 ## Memory of the asked agent
 
@@ -74,18 +75,98 @@ The channels `a2a`, `mcp` and `acp` are not implemented; `packages/core/src/memo
 
 | Guard | Default | Refusal |
 |---|---|---|
-| Depth | **1** (a consulted agent may not consult further) | `guardrail` / `depth` |
+| Depth | Read-only helpers **2**; writers **1** | `guardrail` / `depth` |
 | Cycle / self-call | Blocked | `cycle` / `self-call` |
-| Fan-out | 3 starts per chain | `fanout` |
-| Per pair | 2 starts per `(from, to)` per chain | `pair-limit` |
-| Time | 5 minutes from chain start | `timeout` |
+| Fan-out | 8 read helper starts per calling turn, configurable up to 32 | `fanout` |
+| Writers | 4 concurrent writers per project, configurable; CPU/RAM soft capacity in production | `fanout` while slots are full; the team scheduler later queues packages |
+| Per pair | 4 consult starts per `(from, to)` per calling turn; package delegation has no pair cap | `pair-limit` |
+| Time | Individual wall and stall deadlines from the task class | Partial result on timeout |
 | Token budget | Optional per-project cap in tokens, checked **before** every hop via a budget port (no money dimension since 2026-10-19) | `token-budget` |
 | Repeat | Same from/to/question inside 30 s | `repeat` |
 | Project boundary | Both agents must belong to the project unless `allowCrossProject` | `project-boundary` |
 | Inactive target | Directory state must be `active` | `agent-inactive` |
 | User abort | `AbortSignal` cancels the chain and every queued/running child task | `aborted` |
 
-Turn cap (25) is stored on settings for the follow-up that counts provider turns.
+`collab/limits.ts` resolves every consumer from `collaboration.limits`, with narrowing project overrides. The
+per-delegation class limits are enforced through a trusted per-request round limit in the provider:
+
+| Task class | Rounds | Wall time | Stall time |
+|---|---|---|---|
+| `consult` | 25 | 5 min | 2 min |
+| `research` | 50 | 15 min | 5 min |
+| `review` | 40 | 20 min | 5 min |
+| `code-small` | 100 | 45 min | 10 min |
+| `code-large` | 200 | 120 min | 15 min |
+
+The per-chain token check is a known soft limit under concurrency: simultaneous starts can each pass before
+settled usage updates the chain total. The atomic Call-Ledger reservation is the hard budget bound.
+
+These are D124's initial values; PT-2 calibrates them. `budget.tokens` is the work allocation, shared by acceptance,
+work, retries and return repair, and checked before each provider call. Standalone tools use
+`collaboration.limits.workTokens` (131,072 by default) unless a smaller `workTokens` argument or project budget applies.
+This configurable initial allocation is independent of `returnContract.maxTokens`, which stays at most 2,000. No
+allocation is a per-call output cap. Team packages will supply their section's allocation through the scheduler.
+
+Production writer capacity is the smaller of allowed CPU cores divided by `coresPerWriter` (2) and available RAM
+divided by `memoryPerWriter` (4 GiB), rounded down with a minimum of one. The default project writer limit also applies.
+An explicit `collaboration.teams.capacity.maxWriters` or a changed per-project writer count may overcommit the hardware;
+to overcommit at the default writer count of 4, explicitly set `collaboration.teams.capacity.maxWriters` to 4.
+`team.capacity.exceeded` warns when a start exceeds measured capacity. Already running writers' memory reservations
+are added back before comparing the slot count, bounded by physical RAM, so they are not counted twice. The free-memory
+estimate is conservative on macOS because reclaimable memory is not reported by `os.freemem()`; explicit capacity
+overrides remain available and PT-2 measures the local slowdown. A2A writers consume project slots, without
+consuming local CPU/RAM slots. There is no fixed writer ceiling. The future provisioner-backed team scheduler enforces
+`collaboration.teams.disk.minFreeBytes` before creating worktrees (20 GiB default, minimum 1 GiB); these tools do not
+create worktrees. `collaboration.teams.enabled` remains false until the scheduler, review loop and merge queue land.
+
+Existing versionless project-settings JSON is normalized when read: the old exact defaults `maxDepth: 1`,
+`maxFanout: 3`, `maxPairPerTurn: 2`, `maxTurns: 25`, `timeoutMs: 300000`, `returnTokens: 2000` are treated as absent;
+non-default values remain. A subsequent project save stores normalized overrides with `settingsVersion: 2`.
+Version-2 settings are never normalized again, so an intentionally saved fan-out of 3 stays 3. New projects start at
+version 2. This is an idempotent JSON format change, without a SQLite migration or a new RPC version.
+
+## Nonblocking tools and turn lifetime (D124 PT-1)
+
+`consult_agent` and `delegate_task` accept `wait: false`, `taskClass` and an optional smaller `workTokens` allocation.
+A read-only tool scope must use `consult_agent`; `delegate_task` refuses it and names the correct tool.
+Consults accept only `consult`, reviews only `review`, and delegates/handoffs only `code-small` or `code-large`;
+incompatible overrides are rejected. Reviews accept only read tools and default to the filesystem read list.
+The default remains a blocking call. Before asynchronous handoff repair, a nonblocking writer reserves both its
+project slot and local CPU/RAM capacity in the shared service, across all turns. A full capacity fails the call
+immediately without returning a handle. Admission consumes the reservation once and releases it on every terminal
+path; A2A writers reserve only a project slot. Accepted calls return `{ taskId }`. Start several children, then call
+`await_delegations { taskIds, timeoutMs }`: it returns `{ results, running }`, where each successful result contains
+the child's `plur1bus.return/1` envelope, untrusted-data tag and originating peer provenance. The collection is also an
+untrusted tool-result envelope. Unknown ids, including another turn's ids, are refused. A zero timeout polls;
+timeouts up to 150,000 ms wait without cancelling unfinished children. A failed child has a typed `error` entry.
+The collection uses the registry's 1 MiB hard result ceiling so 32 valid bounded envelopes fit; ordinary single-result
+tool limits stay unchanged. The provider's usual context cap may return a full-result reference for a large batch.
+Failure entries carry bounded diagnostics derived from typed error codes; full redacted failure details remain in the
+child trace, rather than copying arbitrary provider error bodies into a collection.
+Every tool handoff contract uses the smaller of its task-class wall time and any requested deadline. Blocking
+calls are additionally bounded one second below the dispatcher's five-minute limit, leaving time to deliver a
+partial result before dispatcher cancellation. Nonblocking starts retain their task deadline after returning
+a handle and are not capped by the dispatcher's call limit.
+
+When the model finishes, all its children (including card-bound children) are joined until their own deadlines and previously uncollected results
+are emitted through the normal redaction and result-size boundary. User abort or a failed parent turn cancels them,
+preserving progress in the child trace. The starting turn collects each output once and closes its trace after all children settle.
+Collection claims remain provisional until the dispatcher accepts the result and, for sessions, the transcript
+persists it. Cancellation or a withheld result releases the claim for the final join; competing collectors cannot
+deliver the same claim. Standalone provider streams commit when they emit the result. A card must belong to
+the authorized project and be assigned to the sending agent before work or review starts. A handoff acknowledgement
+cancels the sender's other unbound children before joining them, preserving their finished or partial results. The ordinary tool loop
+remains sequential: the children perform concurrent work after their nonblocking starts. No unrestricted parallel
+dispatch is introduced. `test/collab/concurrency.test.ts` proves four concurrent runs against a shared barrier without
+sleep-based synchronization; admission tests prove limits 3 and 2 across asynchronous preparation.
+
+Writer tools are the intersection of the trusted receiving-agent view and the contract's tool names; an empty view or
+contract exposes no writer tools. The future native-writer scheduler supplies that trusted view with the worktree.
+A nested reader inherits the read-only subset of its caller's effective tool view, even when that caller is a writer,
+and cannot add a tool merely because its effect is `read`.
+The session stores automatically joined results through an internal completion sink, with matching read-call events;
+ordinary provider-reported results remain ignored when the session owns a dispatcher. Traces close only after the
+turn and its registered children have settled, including preparations and card-bound children.
 
 ## Rights
 
@@ -132,7 +213,8 @@ Store: `node:sqlite`, `PRAGMA user_version` migrations, archive-first. Path `:me
 
 **ADR-003 Q4** (external coding agent store): **stateless**. Results land only in the caller-visible artifact + trace. No PLUR1BUS store of the callee’s own. Store opt-in waits for M6 / ADR-011. This slice only addresses **local** agents in a project (`targetKind: "local"`).
 
-**ADR-003 Q5** (depth 1 vs two-level chain): **depth 1** as shipped default (Goose / ADR-003 table / M5 acceptance). `settings.maxDepth` is configurable so a two-hop chain can be enabled per project after an owner decision; the code already refuses the extra hop.
+**ADR-003 Q5** is superseded by D124 Q2 (2026-11-01): read-only depth 2, writer depth 1. A project can narrow the
+read-only depth. Tool effect metadata, rather than a peer's claim, determines whether a requested tool scope is read-only.
 
 ## Follow-ups
 
@@ -217,7 +299,7 @@ and normal dispatcher. No existing runner is silently opted into delegation.
 
 ## M5 agent tools (phase 2)
 
-`composition/tools.ts` appends the six tools through `collaborationTools`, each
+`composition/tools.ts` appends the seven tools through `collaborationTools`, each
 registered with the existing `agent.delegate` capability and dispatched by D109.
 Live authenticated people and current stored project/agent membership are
 required. `collaboration.fanoutEnabled` defaults to **false** (`live`, advanced);
@@ -240,6 +322,9 @@ with no engine recall/capture path. Peer contracts and returns are explicit
 untrusted `tool_result` envelopes. A successful `handoff` stops the sender loop.
 
 Contract-driven calls race abort against the target and retain streamed progress.
+For an outbound A2A target, the project's collaboration `timeoutMs` setting bounds the enclosing chain, including approval waiting and network work.
+The separate `a2aClient.timeoutMs` budget applies per HTTP request, sharing its allowance across that request's redirects
+and excluding human approval waits; it cannot extend the enclosing collaboration timeout.
 Timeout/abort produces a `plur1bus.return/1` partial body; a supplied card receives
 that body as a comment and the trace span has status `partial`. On a user abort
 the ordinary dispatcher still returns its abort indication promptly; the durable

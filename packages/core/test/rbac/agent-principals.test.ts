@@ -55,7 +55,7 @@ describe("grant.* / approval.* policy actions (D6)", () => {
 
   it("no role entry of an agent-capable action leaks: humanOnly is the only way these actions are reached", () => {
     const humanOnly = POLICY.filter((s) => s.humanOnly).map((s) => s.action).sort();
-    assert.deepEqual(humanOnly, [...ACTIONS,"extensions.read","extensions.manage","imports.read","imports.manage","inbox.read","inbox.write","project.board.write","project.board.manage","device.list","device.revoke","device.rename","remote.device.write","admin.agent.operate","admin.agent.manage","admin.agent.delete","admin.agent.rights","admin.users.read","admin.users.write","admin.breakglass.read","admin.breakglass.write","admin.sessions.read","admin.sessions.write","admin.sessions.transcript","admin.pairing.read","admin.notices.read","admin.memory.read","media.read","media.write","project.create","project.surface.read","project.surface.write","identity.self.read","identity.self.write","auth.credentials.read","auth.credentials.write","channel.read","channel.write","media.index.operate","media.caption.write"].sort());
+    assert.deepEqual(humanOnly, [...ACTIONS,"a2a.peers.manage","extensions.read","extensions.manage","imports.read","imports.manage","inbox.read","inbox.write","project.board.write","project.board.manage","device.list","device.revoke","device.rename","remote.device.write","admin.agent.operate","admin.agent.manage","admin.agent.delete","admin.agent.rights","admin.users.read","admin.users.write","admin.breakglass.read","admin.breakglass.write","admin.sessions.read","admin.sessions.write","admin.sessions.transcript","admin.pairing.read","admin.notices.read","admin.memory.read","media.read","media.write","project.create","project.surface.read","project.surface.write","identity.self.read","identity.self.write","auth.credentials.read","auth.credentials.write","channel.read","channel.write","media.index.operate","media.caption.write"].sort());
   });
 
   it("persons get exactly the roles written down, nothing else", () => {
@@ -213,6 +213,7 @@ describe("budget.set human-only RPC boundary",()=>{
     assert.deepEqual(Object.entries(RPC_RULES).filter(([,r])=>r.humanOnly).map(([m])=>m).sort(),[
       "ext.list","ext.show","ext.watch","ext.inspection.get","ext.inspect","ext.install","ext.uninstall","ext.restore","ext.enable","ext.disable",
       "admin.extensions.setup.get","admin.extensions.setup.set","admin.extensions.runtime.status","admin.extensions.runtime.hold","admin.extensions.runtime.release","admin.extensions.auth.start","admin.extensions.auth.status","admin.extensions.auth.submit","admin.extensions.auth.cancel",
+      "a2a.peer.add","a2a.peer.list","a2a.peer.remove","a2a.peer.trust",
       "admin.import.detect","admin.import.wsl.list","admin.import.plan","admin.import.preflight","admin.import.skills","admin.import.apply","admin.import.status","admin.import.abort","admin.import.runs","admin.import.rollback",
       "admin.import.ssh.key.status","admin.import.ssh.key.generate","admin.import.ssh.key.rotate","admin.import.ssh.key.delete","admin.import.ssh.connections.list","admin.import.ssh.connections.set","admin.import.ssh.connections.delete","admin.import.ssh.hostKey.probe","admin.import.ssh.hostKey.trust",
       "admin.engine.test","secret.describe","secret.grants.list","decision.status","decision.test",

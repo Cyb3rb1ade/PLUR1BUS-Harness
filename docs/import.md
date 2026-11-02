@@ -2,6 +2,8 @@
 
 **Status:** source-format reference with implemented offline importers and M v2 supervised maintenance · **Started:** 2026-09-22 · **Depends on:** ADR-003 (agent model), ADR-007 (users/roles/identity).
 
+> **Amendment 2026-10-31 / Profile Import & Foreign Plugins:** Scope is extended by [Profile import and plugin compatibility spec](superpowers/specs/2026-10-27-profile-import-and-plugin-compat-design.md). Profile import covers global/project instructions, personas, user facts, and memories across new external AI coding and chat tools (CLI, desktop, IDE; legacy OpenClaw/Hermes installations remain handled by `import openclaw|hermes`). In accordance with Owner Decision D121-J1 (2026-10-31), foreign plugin compatibility is realized via read-only manifest discovery and native ports rather than emulation shims or bridges, strictly upholding Decision D9.
+
 > **Amendment 2026-10-28 / M v2:** §10–§12 retain the offline importer and source-format history. [§13](#13-supervised-import-and-remote-sources-m-v2) is the current human API/GUI maintenance contract, including SSH, preflight, private source secrets and full cold rollback. The historical M7 placeholder below no longer describes the full importer. Browser/axe acceptance is tracked separately in [the UI validation status](web-ui.md#m-v2-extensionimport-validation-status).
 
 > **Amendment 2026-09-27 (owner, pulled forward):** two pieces of this importer ship ahead of M7 — the read-only **detect** step (`plur1bus import <openclaw|hermes> --detect`, §8) and the **skills import** (`plur1bus import <openclaw|hermes> --skills`, dry-run by default, `--apply` to write, `--rollback <report>`, §9). Everything else (stores, memory cards, soul, cron, channels, secrets, sessions, the wizard) stays in **M7** (`docs/milestones.md`). This resolves the old mismatch between the CLI stub ("M1b-3") and the milestone plan ("M7"): the stub label is gone, `plur1bus import` without `--detect`/`--skills`/`--rollback` answers `E_NOT_AVAILABLE` with `milestone: "M7"`. The reranker is now part of the detected configuration (§2.3.2).
@@ -673,6 +675,23 @@ Rollback takes the same lock, verifies the snapshot hashes and the ledger, then 
 
 Per run: `<home>/imports/<runId>/report.json` (apply only), `ledger.jsonl` (one line per mutation with its idempotency key) and the human rendering printed to the terminal. None of them contains secret values, token strings, memory or message content, or plain channel ids (counts and 8-hex fingerprints instead). §11 names the tests that enforce this.
 
+Under P-J4a, apply `report.json` receives an additive, versioned `plugins` field for discovered foreign plugins:
+```json
+"plugins": {
+  "version": 1,
+  "detected": [
+    {
+      "source": "openclaw",
+      "id": "example-plugin",
+      "classification": "native-equivalent",
+      "reason": "native-equivalent-available",
+      "equivalent": "fs.read"
+    }
+  ]
+}
+```
+Local demand counting across apply reports (`plur1bus import export-demand`) aggregates these entries idempotently across `<home>/imports/*/report.json`. Runs containing `<home>/imports/<runId>/rolled-back/status.json` or marked with status `rolled-back` in the ledger are strictly excluded from demand counting.
+
 ### 10.6 Identity backfill (CLI)
 
 ```bash
@@ -814,11 +833,15 @@ review path mappings and re-embedding/licence requirements, select agents and
 conflict decisions, create an immutable plan, run preflight, explicitly confirm
 downtime, then follow progress/result and any rollback or host follow-ups. Detection
 shows each agent's persona/files, skills, classified plugins, MCP candidates and
-stores. Foreign plugins are display-only: `bridge-possible`, `nonportable` or
-`unknown`, with declared parts and reasons. Nothing loads or executes them. MCP
-candidates use the verified extension path, remain disabled after import and never
+stores. Foreign plugins are display-only and classified into three states on main
+(`bridge-possible`, `nonportable`, `unknown`), planned to expand to five states
+(`native-equivalent`, `mcp-equivalent`, `port-candidate`, `nonportable`, or `unknown`)
+under Spec J / P-J4a, with declared parts and reasons. Nothing loads or executes them;
+compatibility is provided through the native porting pipeline (Spec J / D121-J1) rather
+than an execution bridge. MCP candidates use the verified extension path, remain disabled after import and never
 carry source header/env credentials. The original CLI `--json` report shapes and
-business mappings remain unchanged; the GUI/RPC discovery projection is additive.
+business mappings remain unchanged, except for an additive, versioned `plugins` field in apply
+`report.json` planned under P-J4a for discovered plugin classifications; the GUI/RPC discovery projection is additive.
 
 Only human Owner/Admin can read or start imports. Source-secret migration is
 Owner-only. Free paths are allowed for Owner/Admin over verified loopback/Desktop;
@@ -939,8 +962,10 @@ Live source/detect and actual SFTP/worker tests cover both source families, priv
 sealing, limits, source hashes, host-key-before-lease, cold rollback and bounded
 metadata. HTTP/native lifecycle and browser/axe evidence are separate: see
 [the UI validation status](web-ui.md#m-v2-extensionimport-validation-status).
-The UV runtime producer and foreign-plugin execution bridge remain outside the
-completed paths; source detection does not promise either can run.
+The UV runtime producer remains outside the completed paths; no foreign-plugin
+execution bridge is built (D121-J1), and foreign plugin compatibility is achieved
+through native ports rather than bridge execution. Source detection does not promise
+either can run.
 
 ## Canonical curated agent knowledge (A2, 2026-10-20)
 
