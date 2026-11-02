@@ -84,15 +84,18 @@ function modeled(node: ConfigSchemaNode): boolean {
 function resolvedSchema(node: ConfigSchemaNode, root: ConfigSchemaNode, seen = new Set<string>()): ConfigSchemaNode {
   node = valueSchema(node);
   const reference = node.$ref;
-  if (typeof reference !== "string" || !reference.startsWith("#/") || seen.has(reference)) return node;
+  if (reference === undefined) return node;
+  const unavailable = (): ConfigSchemaNode => ({ ...node, "x-sensitive": true });
+  if (typeof reference !== "string" || (reference !== "#" && !reference.startsWith("#/")) || seen.has(reference))
+    return unavailable();
   let target: unknown = root;
-  for (const raw of reference.slice(2).split("/")) {
-    if (/~[^01]|~$/.test(raw)) return node;
+  for (const raw of reference === "#" ? [] : reference.slice(2).split("/")) {
+    if (/~[^01]|~$/.test(raw)) return unavailable();
     const name = raw.replaceAll("~1", "/").replaceAll("~0", "~");
-    if (!target || typeof target !== "object" || !Object.hasOwn(target, name)) return node;
+    if (!target || typeof target !== "object" || !Object.hasOwn(target, name)) return unavailable();
     target = (target as Record<string, unknown>)[name];
   }
-  if (!target || typeof target !== "object" || Array.isArray(target)) return node;
+  if (!target || typeof target !== "object" || Array.isArray(target)) return unavailable();
   seen.add(reference);
   const base = resolvedSchema(target as ConfigSchemaNode, root, seen);
   // JSON Schema siblings cannot cancel a privacy requirement inherited from the target.
