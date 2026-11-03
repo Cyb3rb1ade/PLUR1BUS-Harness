@@ -19,7 +19,7 @@ const caller = { channel: "cli", accountId: "host", userId: "owner" } as const;
 const connection = { connectionId: "calls", surface: 3 as const };
 
 function rig(t: TestContext, granted = true) {
-  const directory = mkdtempSync(join(tmpdir(), "code-session-"));
+  const directory = realpathSync.native(mkdtempSync(join(tmpdir(), "code-session-")));
   const root = join(directory, "repo"),
     home = join(directory, "home");
   mkdirSync(root);
