@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, lstat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runOwnedChild, removeExitedProfile } from './owned-process.mjs';
+import { runOwnedChild, removeExitedProfile, ownedProfileFailureMessage } from './owned-process.mjs';
 
 test('process closes before its owned profile is removed', async () => {
   const root = await mkdtemp(join(tmpdir(), 'owned-process-test-'));
@@ -43,4 +43,27 @@ test('bounded child timeout waits for process close and reports its signal', asy
   assert.equal(result.timedOut, true);
   assert.notEqual(result.status, 0);
   assert.equal(result.signal, 'SIGKILL');
+});
+
+test('native fixtures preserve the actual bounded cleanup category', async () => {
+  let failure;
+  try {
+    await removeExitedProfile('synthetic', {
+      rm: async () => { throw Object.assign(new Error('private path'), { code: 'EPERM' }); },
+      delay: async () => {}, lstat: async () => assert.fail('delete did not succeed'),
+    });
+  } catch (error) { failure = error; }
+  assert.equal(ownedProfileFailureMessage(failure), 'OWNED_PROFILE_DELETE_FAILED code=EPERM retries=10');
+});
+
+test('native cleanup diagnostics reject arbitrary text and unbounded categories', () => {
+  for (const value of [
+    new Error('private path'),
+    new Error('OWNED_PROFILE_DELETE_FAILED code=EPERM retries=10\nprivate path'),
+    new Error('OWNED_PROFILE_DELETE_FAILED code=EPERM retries=11'),
+    new Error('OWNED_PROFILE_DELETE_FAILED code=ENOENT retries=0'),
+    null, 'OWNED_PROFILE_RETAINED exists=true',
+  ]) assert.equal(ownedProfileFailureMessage(value), undefined);
+  assert.equal(ownedProfileFailureMessage(new Error('OWNED_PROFILE_VERIFY_FAILED code=OTHER')), 'OWNED_PROFILE_VERIFY_FAILED code=OTHER');
+  assert.equal(ownedProfileFailureMessage(new Error('OWNED_PROFILE_RETAINED exists=true')), 'OWNED_PROFILE_RETAINED exists=true');
 });
