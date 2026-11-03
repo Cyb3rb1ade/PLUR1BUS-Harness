@@ -136,6 +136,31 @@ Env vars that matter when driving the core directly instead of through the CLI:
   `stall` exercise the fatal-handler and signal paths); refused without it. Also gates the supervisor-only test
   seams below. `PLUR1BUS_TEST_INTERNALS=<variant>` is its environment counterpart: `plur1bus core run` and the
   supervisor pass it on as `--test-internals <variant>`.
+- `PLUR1BUS_TEST_WATCHDOG_TRACE=1` — opt-in bounded macOS native-helper measurement trace, requiring
+  `PLUR1BUS_ALLOW_TEST_INTERNALS=1` (otherwise refused before target start). The original `--watch-tree`
+  fixture and assertions stay unchanged. The helper keeps at most the last 128 numeric observations in memory
+  and emits them only after sampling/enforcement ends. With no independent companion, there is no trace I/O during
+  the 40 ms timed scan.
+  Records contain static operation/category labels, PID/PPID/PGID/status/start identity, libproc return sizes,
+  immediately captured errno, count/RSS and timings, never names, commands, argv, paths or environment values.
+  Errno after successful calls can be stale and must not be interpreted as a failed call. Trace collection has
+  measurement overhead; a diagnostic pass that cannot establish the cause is not permission to guess a fix.
+  Permanent bounded error detail does not require this seam: production `--watch-tree-report` sends it on
+  dedicated fd 3, which is closed in the target before exec. Core validates that separate channel; child stderr
+  is never parsed as trusted diagnostic data. No trace or source artifacts should remain on a diagnostic host.
+- `PLUR1BUS_TEST_WATCHDOG_OBSERVER=<executable>` — optional independent macOS diagnostic companion, requiring
+  both watchdog trace gates above. Only the controlled #820 harness supplies the SDK-built companion. During a
+  timed scan the helper sends bounded, nonblocking numeric PID notifications; it does not wait or print there.
+  Outside that scan it waits at most 1500 ms per handshake, including while the leader's original exec gate is held
+  and before killing the target group. The original sample error and exit decision are preserved first. This delays
+  diagnostic cleanup and can change process scheduling; a passing diagnostic test alone does not prove a correction.
+  The companion/control use a separate process group and the target closes both observer descriptors before exec.
+  `PLUR1BUS_TEST_WATCHDOG_DIAGNOSTIC_SINK` must name `820-independent.jsonl` directly under the harness's fresh
+  `TMPDIR`; the companion creates it exclusively, without following a final symlink, mode 0600, and writes at most
+  2 MiB of safe numeric/fixed-label records plus the explicitly bounded ps fields. This test-only sink preserves
+  evidence when the unchanged test suppresses successful child stderr. No production fd-3 detail schema is widened.
+  Overflow, transport loss, handshake failure or missing completion means incomplete evidence, never permission
+  to infer a cause or retry. Cleanup must verify owned PID/birth identities and remove the complete diagnostic Temp.
 - `PLUR1BUS_TEST_DISCOVERY_PROFILES=<json>` — JSON string specifying provider profiles for discovery system tests; requires `PLUR1BUS_ALLOW_TEST_INTERNALS=1` (D112).
 - `PLUR1BUS_TEST_CHAT_PROVIDER=fake` — the deterministic chat provider (`packages/core/src/session/provider.ts`), registered as the local `fixture` provider for `session.submit`/`plur1bus chat`; requires `PLUR1BUS_ALLOW_TEST_INTERNALS=1`, refused otherwise (M1b-2c). Without it a core uses the providers configured under `modelProfiles` (`packages/providers`) and answers `E_NOT_AVAILABLE reason=no-provider` when there is none. `tests/system/turn-pipeline.test.ts` and `model-switch.test.ts` instead start `tests/system/fixtures/turn-core.mjs` with `PLUR1BUS_TEST_TURN_WIRE=chat_completions|anthropic_messages|codex_responses|gemini`, a real core composition against a synthetic provider wire (needs `PLUR1BUS_ALLOW_TEST_INTERNALS=1` too).
 - `PLUR1BUS_SUPERVISOR_TIME_SCALE=<float>` — multiplies every supervisor duration (backoff, health
