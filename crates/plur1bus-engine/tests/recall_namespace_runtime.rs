@@ -417,7 +417,10 @@ fn prepare_knowledge(fixture: &Value, workspace: &Path) {
     fs::create_dir_all(file.parent().unwrap()).unwrap();
     fs::write(&file, content).unwrap();
     let now = UNIX_EPOCH + Duration::from_millis(fixture["now"].as_u64().unwrap());
-    File::open(file)
+    // Windows SetFileTime requires write-attributes access; retain the fixture bytes without truncation.
+    File::options()
+        .write(true)
+        .open(file)
         .unwrap()
         .set_times(FileTimes::new().set_modified(now))
         .unwrap();
