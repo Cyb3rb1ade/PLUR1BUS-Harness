@@ -2,6 +2,13 @@ import { spawn } from 'node:child_process';
 import { rm, lstat } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 
+// Only the helper's fixed categories may cross a native fixture's diagnostic boundary.
+export function ownedProfileFailureMessage(error) {
+  const message = error instanceof Error ? error.message : '';
+  return /^OWNED_PROFILE_(?:DELETE_FAILED code=(?:EBUSY|EPERM|ENOTEMPTY|EACCES|OTHER) retries=(?:10|[0-9])|VERIFY_FAILED code=OTHER|RETAINED exists=true)$/.test(message)
+    ? message : undefined;
+}
+
 // 'close' follows process exit and pipe closure. Never delete a child's profile
 // from the 'exit' event while inherited handles can still be draining.
 export function runOwnedChild(command, args, options, timeout) {
