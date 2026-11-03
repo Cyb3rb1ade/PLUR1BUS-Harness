@@ -11,7 +11,8 @@ import { SessionStore } from "../../src/session/store.ts";
 
 test("restart releases checkpoint refs even when their transcript was erased while cleanup was stopped", async () => {
   const root = mkdtempSync(join(tmpdir(), "cx-checkpoint-restart-")), db = join(root, "sessions.sqlite");
-  const git = (...args: string[]) => execFileSync("git", ["-c", `core.hooksPath=${devNull}`, "-C", root, ...args],
+  const nullDevice = process.platform === "win32" ? "NUL" : devNull;
+  const git = (...args: string[]) => execFileSync("git", ["-c", `core.hooksPath=${nullDevice}`, "-C", root, ...args],
     { encoding: "utf8", env: checkpointEnvironment(process.env) });
   let store: SessionStore | undefined, checkpoints: RewindCheckpoints | undefined;
   try {
