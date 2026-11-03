@@ -969,14 +969,9 @@ mod tests {
             subscribers: Default::default(),
             out_logs: Mutex::new(Vec::new()),
         });
-        std::fs::create_dir_all(layout.run().join("inspect")).unwrap();
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            for path in [layout.run(), layout.run().join("inspect")] {
-                std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700)).unwrap();
-            }
-        }
+        // Inspection ownership checks require private Windows DACLs as well as Unix modes.
+        super::super::import_records::directory(&layout, &["run", "inspect"]).unwrap();
+        extension_uploads::check_inspection(&layout, "a", Caller::LocalOwner).unwrap();
         relock(&shared.maintenance).preparing = true;
         // These calls deliberately bypass server pre-dispatch, like an already admitted concurrent RPC.
         let results = [
