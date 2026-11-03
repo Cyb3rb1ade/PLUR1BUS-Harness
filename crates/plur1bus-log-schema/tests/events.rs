@@ -732,18 +732,11 @@ fn the_config_properties_that_only_name_a_secret_say_so_and_the_one_that_holds_a
     );
 }
 
-/// Config values audited by the shared writer carry an explicit sensitivity annotation. Secret references remain
-/// references; the webhook credential stored as a value must be x-sensitive in the source schema.
+/// Both inline credentials and secret-store references carry the same explicit sensitivity annotation.
 #[test]
 fn every_config_property_that_holds_a_secret_value_is_marked_x_sensitive() {
     let unmarked: Vec<String> = credential_named_config_properties()
         .into_iter()
-        .filter(|(_, n)| {
-            !n["description"]
-                .as_str()
-                .unwrap_or("")
-                .starts_with("Name of the secret")
-        })
         .filter(|(_, n)| n["x-sensitive"] != json!(true))
         .map(|(p, _)| p)
         .collect();

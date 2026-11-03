@@ -122,14 +122,17 @@ fn section_errors(name: &str, m: &Manifest, section: &Value) -> Vec<String> {
         return Vec::new();
     };
     match jsonschema::options().build(schema) {
-        Err(e) => vec![format!(
-            "modules.{name}: the module's configSchema is not a valid schema: {e}"
+        Err(_) => vec![format!(
+            "modules.{name}: the module's configSchema is not a valid schema; repair its manifest"
         )],
         Ok(v) => v
             .iter_errors(section)
             .map(|e| {
                 let path = e.instance_path.to_string().replace('/', ".");
-                format!("modules.{name}{path}: {e}")
+                format!(
+                    "modules.{name}{path}: {}",
+                    plur1bus_config::validation_constraint(&e)
+                )
             })
             .collect(),
     }

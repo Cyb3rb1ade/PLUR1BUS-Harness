@@ -9,6 +9,7 @@ import type { WebFetch } from "./fetch.ts";
 import type { WebSearch } from "./search.ts";
 
 export interface ToolContext {
+  knownSecrets?: (() => import("../../logs/secret-forms.ts").SecretFormsSnapshot) | undefined;
   agentId?: string | undefined;
   signal?: AbortSignal | undefined;
 }
@@ -135,7 +136,7 @@ export function createWebTools(deps: { fetch: WebFetch; search: WebSearch }): { 
       inputSchema: WEB_FETCH_SCHEMA,
       effect: "external",
       parallelSafe: true,
-      execute: (args, ctx) => guarded(() => deps.fetch.fetch(args as never, { agentId: ctx.agentId, signal: ctx.signal })),
+      execute: (args, ctx) => guarded(() => deps.fetch.fetch(args as never, { agentId: ctx.agentId, signal: ctx.signal, ...(ctx.knownSecrets ? { knownSecrets: ctx.knownSecrets } : {}) })),
     },
     {
       name: "web.search",

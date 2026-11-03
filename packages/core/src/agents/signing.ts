@@ -24,12 +24,12 @@ export function agentExportSigner(store: SecretStore) {
   };
 }
 
-/** Exact secret canaries for export redaction, never returned to the RPC caller. All leases are revoked immediately. */
+/** Store values and already registered config canaries protect exports; leases are revoked, values never reach the caller. */
 export async function exportSecretCanaries(store: SecretStore): Promise<string[]> {
-  const values: string[] = [];
+  const values = [...store.redaction.values()];
   for (const meta of await store.list({ kind: "owner", id: "core" })) {
     const lease = await store.lease({ kind: "core" }, meta.name, { purpose: "export-redaction", profileId: "core", ttlMs: 5000 });
     try { values.push(lease.value); } finally { store.revokeLease({ kind: "core" }, lease.leaseId); }
   }
-  return values;
+  return [...new Set([...values, ...store.redaction.values()])];
 }
