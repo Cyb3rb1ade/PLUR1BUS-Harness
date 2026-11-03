@@ -28,6 +28,7 @@ use std::{
 
 #[derive(Clone)]
 enum Kind {
+    Status(&'static str),
     Submit,
     Transcript,
     Check,
@@ -58,6 +59,7 @@ struct Runtime {
     home: std::path::PathBuf,
     caller: CallerIdentity,
     session: String,
+    agent: String,
     opened: Value,
     open_params: Value,
     lang: Language,
@@ -100,6 +102,17 @@ pub(super) fn run(out: &Out, layout: &Layout, args: CodeArgs) -> Result<(), Code
             true,
         );
     let lang = Language::environment();
+    let fullscreen =
+        input::fullscreen_enabled(args.tui, interactive, std::env::var("TERM").ok().as_deref());
+    if args.tui && !fullscreen {
+        eprintln!(
+            "{}",
+            lang.text(
+                "Fullscreen display unavailable here; using line mode.",
+                "Vollbildanzeige hier nicht verfügbar; verwende den Zeilenmodus."
+            )
+        );
+    }
     let bound = binding::open(out, layout, &args, interactive, lang)?;
     let initial_seq = bound.opened["lastEventSeq"].as_u64().unwrap_or(0);
     let running = bound.opened["runningTurnId"].as_str().map(str::to_string);
@@ -112,6 +125,8 @@ pub(super) fn run(out: &Out, layout: &Layout, args: CodeArgs) -> Result<(), Code
         color,
         bus.clone(),
         stop.clone(),
+        fullscreen,
+        lang,
     )?;
     frontend.update(|state| {
         state.header = format!(
@@ -145,11 +160,12 @@ pub(super) fn run(out: &Out, layout: &Layout, args: CodeArgs) -> Result<(), Code
         home: layout.home.clone(),
         caller: bound.caller,
         session: bound.session,
+        agent: bound.agent,
         opened: bound.opened,
         open_params: bound.params,
         lang,
         interactive,
-        color,
+        color: color && !fullscreen,
         auto_model: args.yes,
         initial_turn: running.clone(),
         running,
@@ -174,6 +190,7 @@ pub(super) fn run(out: &Out, layout: &Layout, args: CodeArgs) -> Result<(), Code
         began: Instant::now(),
     };
     runtime.emit("code.session.open", runtime.opened.clone())?;
+    runtime.refresh_status();
     let outcome = runtime.run_loop();
     // Stop native input before a final cancel/reconnect; every path (including unwind) retains the restoration guards.
     runtime.stop.store(true, Ordering::Release);
@@ -196,7 +213,18 @@ impl Runtime {
                 break;
             }
             if self.operation.is_none() {
-                if let Some(operation) = self.deferred.pop_front() {
+                let status_waits = self
+                    .deferred
+                    .front()
+                    .is_some_and(|op| matches!(op.kind, Kind::Status(_)))
+                    && (self.pending_line.is_some()
+                        || self.model_question.is_some()
+                        || !self.approval_order.is_empty());
+                if let Some(operation) = if status_waits {
+                    None
+                } else {
+                    self.deferred.pop_front()
+                } {
                     self.begin(operation)?;
                 }
             }
@@ -235,7 +263,22 @@ impl Runtime {
                         if broken {
                             return Err(error);
                         }
-                        self.command_error(error)?;
+                        if let Some(method) = operation.as_ref().and_then(|op| {
+                            if let Kind::Status(method) = op.kind {
+                                Some(method)
+                            } else {
+                                None
+                            }
+                        }) {
+                            self.frontend.metadata(
+                                method,
+                                &Value::Null,
+                                &self.session,
+                                &self.agent,
+                            );
+                        } else {
+                            self.command_error(error)?;
+                        }
                         if operation
                             .is_some_and(|op| matches!(op.kind, Kind::Submit | Kind::Transcript))
                             && self.running.is_none()
@@ -260,6 +303,12 @@ impl Runtime {
                             }
                         }
                     }
+                    #[cfg(feature = "tui")]
+                    Event::FrontendInput {
+                        line,
+                        key,
+                        question,
+                    } => self.frontend_input(line, key, question)?,
                     Event::Interrupt => {
                         if self.interrupt()? {
                             self.cancel_for_exit();
@@ -269,7 +318,12 @@ impl Runtime {
                     Event::Eof => {
                         if !self.interactive {
                             self.eof = true;
-                        } else if self.running.is_none() && self.operation.is_none() {
+                        } else if self.running.is_none()
+                            && self
+                                .operation
+                                .as_ref()
+                                .is_none_or(|op| matches!(op.kind, Kind::Status(_)))
+                        {
                             break;
                         } else {
                             self.note(self.lang.text(
@@ -329,6 +383,47 @@ impl Runtime {
         } else {
             Ok(())
         }
+    }
+    #[cfg(feature = "tui")]
+    fn frontend_input(
+        &mut self,
+        line: String,
+        key: AcceptKey,
+        question: Option<String>,
+    ) -> Result<(), CodeError> {
+        let current = self.frontend.question_id();
+        match input::classify_input(question.as_deref(), current.as_deref()) {
+            input::InputDisposition::Deliver => {
+                let status_pending = self
+                    .operation
+                    .as_ref()
+                    .is_some_and(|op| matches!(op.kind, Kind::Status(_)));
+                if question.is_none()
+                    && self.running.is_none()
+                    && status_pending
+                    && self.pending_line.is_none()
+                {
+                    self.pending_line = Some((line, key));
+                } else if let Err(error) = self.handle_input(line.clone(), key) {
+                    self.command_error(error)?;
+                    if question.is_none() {
+                        self.frontend.restore(&line)?;
+                    }
+                }
+            }
+            input::InputDisposition::RestoreDraft => {
+                self.frontend.restore(&line)?;
+                self.note(self.lang.text(
+                    "A question arrived; your draft is preserved.",
+                    "Eine Frage ist eingetroffen; der Entwurf bleibt erhalten.",
+                ))?;
+            }
+            input::InputDisposition::DiscardAnswer => self.note(self.lang.text(
+                "The displayed question changed; review the current request.",
+                "Die angezeigte Frage hat sich geändert; prüfe die aktuelle Anfrage.",
+            ))?,
+        }
+        Ok(())
     }
     fn client(&mut self) -> Result<&mut Client, CodeError> {
         self.client
@@ -411,7 +506,17 @@ impl Runtime {
     }
     fn status(&self) {
         let status = if let Some(op) = &self.operation {
-            op.method
+            if self.frontend.is_tui() {
+                match op.kind {
+                    Kind::Status(_) => self.lang.text("loading status", "Status wird geladen"),
+                    Kind::Check => self.lang.text("checking", "prüfe"),
+                    Kind::Diff => self.lang.text("reading diff", "lese Diff"),
+                    Kind::Submit | Kind::Transcript => self.lang.text("sending", "sende"),
+                    _ => self.lang.text("working", "arbeite"),
+                }
+            } else {
+                op.method
+            }
         } else if self.running.is_some() {
             if self.feature("session.queue.list") {
                 self.lang.text(
@@ -425,15 +530,63 @@ impl Runtime {
         } else {
             self.lang.text("idle", "bereit")
         };
-        self.frontend.update(|state| state.status = status.into());
+        self.frontend.update(|state| {
+            state.status = status.into();
+            state.busy = self.running.is_some()
+                || self
+                    .operation
+                    .as_ref()
+                    .is_some_and(|op| !matches!(op.kind, Kind::Status(_)));
+        });
+    }
+
+    fn refresh_status(&mut self) {
+        if !self.frontend.is_tui() {
+            return;
+        }
+        for method in [
+            "session.model.get",
+            "telemetry.cache.summary",
+            "budget.status",
+        ] {
+            if !self.feature(method)
+                || self
+                    .operation
+                    .as_ref()
+                    .is_some_and(|op| matches!(op.kind,Kind::Status(m) if m==method))
+                || self
+                    .deferred
+                    .iter()
+                    .any(|op| matches!(op.kind,Kind::Status(m) if m==method))
+            {
+                continue;
+            }
+            let params = match method {
+                "session.model.get" => self.params(),
+                "telemetry.cache.summary" => {
+                    json!({"window":"24h","agentId":self.agent,"sessionId":self.session})
+                }
+                _ => json!({"agentId":self.agent}),
+            };
+            self.deferred.push_back(Operation {
+                kind: Kind::Status(method),
+                method,
+                params,
+                started: Instant::now(),
+            });
+        }
     }
     fn interrupt(&mut self) -> Result<bool, CodeError> {
-        let busy = self.running.is_some() || self.operation.is_some();
+        let busy = self.running.is_some()
+            || self
+                .operation
+                .as_ref()
+                .is_some_and(|op| !matches!(op.kind, Kind::Status(_)));
         match self.interrupts.press(self.began.elapsed(), busy) {
             Interrupt::Exit => return Ok(true),
             Interrupt::Clear => {
                 self.model_question = None;
-                self.frontend.update(|state| state.question.clear());
+                self.frontend.question(None, String::new(), String::new());
             }
             Interrupt::Cancel => {
                 self.model_question = None;
@@ -465,6 +618,7 @@ impl Runtime {
         Ok(false)
     }
     fn cancel_for_exit(&mut self) {
+        self.frontend.leave_tui();
         let model_busy = self.running.is_some()
             || self
                 .operation
@@ -472,6 +626,30 @@ impl Runtime {
                 .is_some_and(|op| matches!(op.kind, Kind::Submit | Kind::Transcript));
         if !model_busy && self.operation.is_none() {
             return;
+        }
+        if model_busy
+            && self
+                .reader
+                .command("exit-cancel", "session.cancel", self.params())
+                .is_ok()
+        {
+            let deadline = Instant::now() + Duration::from_secs(2);
+            while Instant::now() < deadline {
+                match self
+                    .receiver
+                    .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+                {
+                    Ok(envelope) => {
+                        if matches!(envelope.into_event(),Event::Reply{operation,..} if operation=="exit-cancel")
+                        {
+                            drop(self.client.take());
+                            self.operation = None;
+                            return;
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
         }
         // Drop before reconnecting: the frontend never holds more than its two RPC connections.
         drop(self.client.take());

@@ -95,6 +95,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libsecret-1-dev patchelf xvfb openbox dbus-x11
       - run: pnpm install --frozen-lockfile
       - run: pnpm gen
+      - name: Build actual Web assets for Desktop API fixtures
+        run: pnpm --filter "@plur1bus/web..." build
       - name: Isolate UI test browser storage
         run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/plur1bus-playwright" >> "$GITHUB_ENV"
       - name: Lifecycle report path (runner.temp is not available in job-level env)
@@ -107,8 +109,6 @@ jobs:
         run: node apps/desktop/scripts/ui-browser.mjs install
       - name: Verify pinned UI browser
         run: node apps/desktop/scripts/ui-browser.mjs verify
-      - name: Build web runtime for actual desktop API fixtures
-        run: pnpm --filter "@plur1bus/web..." build
       - run: pnpm --filter @plur1bus/desktop-ui build
       - run: pnpm --filter @plur1bus/desktop-ui test
       - run: cargo fmt --all -- --check

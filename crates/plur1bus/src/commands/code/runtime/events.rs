@@ -20,6 +20,8 @@ impl Runtime {
                 self.frontend.print(&render::json_event(&frame)?)?;
             }
             let data = &event["data"];
+            self.frontend
+                .observe(event["type"].as_str().unwrap_or(""), data);
             match event["type"].as_str().unwrap_or("") {
                 "turn.started" => {
                     if let Some(turn) = turn {
@@ -56,7 +58,7 @@ impl Runtime {
                 "tool.result" => {
                     let call = data["id"].as_str().unwrap_or("?");
                     let info = self.tools.remove(call).unwrap_or(Value::Null);
-                    if self.interactive {
+                    if self.interactive && !self.frontend.is_tui() {
                         let output = data["output"].as_str().unwrap_or("");
                         self.frontend.print(&tool_line(&info, output))?;
                         self.frontend
@@ -92,6 +94,12 @@ impl Runtime {
                         .text("Model selection changed.", "Modellauswahl geändert."),
                 )?,
                 _ => {}
+            }
+            if matches!(
+                event["type"].as_str(),
+                Some("turn.completed" | "turn.failed" | "session.model.changed" | "model.selected")
+            ) {
+                self.refresh_status();
             }
             return Ok(());
         }
@@ -178,7 +186,13 @@ impl Runtime {
         let question = record
             .map(|record| approve::question(record, self.lang))
             .unwrap_or_default();
-        self.frontend.update(|state| state.question = question);
+        let identity = record
+            .and_then(|record| record["id"].as_str())
+            .map(|id| format!("approval:{id}"));
+        let context = record
+            .map(|record| approve::preview(record, false, self.lang))
+            .unwrap_or_default();
+        self.frontend.question(identity, context, question);
         Ok(())
     }
     pub(super) fn reader_reply(

@@ -200,6 +200,37 @@ fn native_json_runs_two_coding_fixtures_through_the_real_dispatcher_and_two_conn
 }
 
 #[test]
+fn a_fullscreen_request_with_piped_json_keeps_the_line_protocol_and_two_connections() {
+    let (_temp, home, root) = workspace();
+    let mut core = CoreFixture::start(&home, &root, "tasks");
+    let output = Command::cargo_bin("plur1bus")
+        .expect("binary")
+        .arg("--home")
+        .arg(&home)
+        .args(["--json", "code"])
+        .arg(&root)
+        .arg("--tui")
+        .env("LC_ALL", "en_US.UTF-8")
+        .write_stdin("repair calculation\n")
+        .timeout(Duration::from_secs(45))
+        .output()
+        .expect("piped CLI");
+    assert!(output.status.success(), "{output:?}");
+    assert!(!output.stdout.contains(&0x1b));
+    assert!(!output.stderr.contains(&0x1b));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("using line mode"));
+    let docs = documents(&output.stdout);
+    assert!(!docs.is_empty());
+    assert!(docs.iter().all(|doc| doc["schema"] == "code.event/1"));
+    assert!(docs.iter().any(|doc| {
+        doc["method"] == "session.event" && doc["params"]["event"]["type"] == "turn.completed"
+    }));
+    let stats = core.stats();
+    assert_eq!(stats["connections"], 2);
+    assert_eq!(stats["bindings"], 1);
+}
+
+#[test]
 fn incognito_keeps_the_worktree_binding_and_transcript_out_of_the_persistent_session_store() {
     let (_temp, home, root) = workspace();
     let mut core = CoreFixture::start(&home, &root, "tasks");
@@ -359,14 +390,27 @@ mod tty {
             }
         }
         fn launch(&self, home: &Path, root: &Path) -> Child {
+            self.launch_frontend(home, root, false)
+        }
+        fn launch_frontend(&self, home: &Path, root: &Path, fullscreen: bool) -> Child {
+            self.launch_with_term(home, root, fullscreen, "xterm-256color")
+        }
+        fn launch_with_term(
+            &self,
+            home: &Path,
+            root: &Path,
+            fullscreen: bool,
+            term: &str,
+        ) -> Child {
             let slave = self.slave.as_ref().expect("slave");
-            std::process::Command::new(assert_cmd::cargo::cargo_bin("plur1bus"))
-                .arg("--home")
-                .arg(home)
-                .arg("code")
-                .arg(root)
+            let mut command = std::process::Command::new(assert_cmd::cargo::cargo_bin("plur1bus"));
+            command.arg("--home").arg(home).arg("code").arg(root);
+            if fullscreen {
+                command.arg("--tui");
+            }
+            command
                 .env("LC_ALL", "en_US.UTF-8")
-                .env("TERM", "xterm-256color")
+                .env("TERM", term)
                 .env("NO_COLOR", "1")
                 .stdin(slave.try_clone().expect("stdin"))
                 .stdout(slave.try_clone().expect("stdout"))
@@ -479,6 +523,83 @@ mod tty {
             "execution requires the scripted physical y\n{}",
             String::from_utf8_lossy(&terminal.transcript)
         );
+    }
+
+    #[test]
+    fn a_dumb_terminal_uses_line_input_and_never_enters_the_fullscreen_view() {
+        let (_temp, home, root) = workspace();
+        let mut core = CoreFixture::start(&home, &root, "tasks");
+        let mut terminal = Terminal::new();
+        let mut process = Process(terminal.launch_with_term(&home, &root, true, "dumb"));
+        terminal.until("using line mode");
+        terminal.until("[idle]");
+        terminal.send(b"\x04");
+        assert!(process.wait().success());
+        terminal.restored();
+        assert!(!String::from_utf8_lossy(&terminal.transcript).contains("\x1b[?1049h"));
+        let stats = core.stats();
+        assert_eq!(stats["bindings"], 1);
+        assert!(stats["connections"].as_u64().expect("connection count") <= 2);
+    }
+
+    #[cfg(feature = "tui")]
+    #[test]
+    fn fullscreen_sigterm_uses_the_shared_core_and_restores_before_exit_without_approval() {
+        let (_temp, home, root) = workspace();
+        let mut core = CoreFixture::start(&home, &root, "approval");
+        let mut terminal = Terminal::new();
+        let mut process = Process(terminal.launch_frontend(&home, &root, true));
+        terminal.until("\x1b[?1049h");
+        terminal.until("Transcript");
+        terminal.send(b"run the fixture command\r");
+        terminal.until("Approval");
+        // SAFETY: this live unreaped disposable Child owns the positive process id; no other process is signalled.
+        assert_eq!(
+            unsafe { libc::kill(process.0.id() as libc::pid_t, libc::SIGTERM) },
+            0
+        );
+        assert!(!process.wait().success());
+        terminal.until("\x1b[?1049l");
+        terminal.restored();
+        assert!(!root.join("must-not-run").exists());
+        let stats = core.stats();
+        assert_eq!(stats["bindings"], 1);
+        assert!(stats["connections"].as_u64().expect("connection count") <= 2);
+    }
+
+    #[cfg(feature = "tui")]
+    #[test]
+    fn fullscreen_human_confirmation_runs_once_then_idle_eof_restores_the_terminal() {
+        let (_temp, home, root) = workspace();
+        let mut core = CoreFixture::start(&home, &root, "attested");
+        let mut terminal = Terminal::new();
+        let mut process = Process(terminal.launch_frontend(&home, &root, true));
+        terminal.until("\x1b[?1049h");
+        terminal.until("Transcript");
+        terminal.send(b"run the fixture command\r");
+        terminal.until("[y]");
+        assert!(!root.join("must-not-run").exists());
+        terminal.send(b"y\r");
+        let deadline = Instant::now() + Duration::from_secs(20);
+        loop {
+            let stats = core.stats();
+            if root.join("must-not-run").is_file() && stats["running"] == 0 {
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "explicit human confirmation must complete the turn: {stats}"
+            );
+            thread::sleep(Duration::from_millis(10));
+        }
+        terminal.until("idle");
+        terminal.send(b"\x04");
+        assert!(process.wait().success());
+        terminal.until("\x1b[?1049l");
+        terminal.restored();
+        let stats = core.stats();
+        assert_eq!(stats["bindings"], 1);
+        assert!(stats["connections"].as_u64().expect("connection count") <= 2);
     }
     #[test]
     fn a_real_tty_gets_one_core_folder_request_and_the_t1_os_confirmation_path() {

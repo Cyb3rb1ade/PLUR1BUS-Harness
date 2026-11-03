@@ -3,6 +3,9 @@ import { execFileSync } from "node:child_process";
 import { devNull } from "node:os";
 import { RpcError } from "../rpc/errors.ts";
 
+// Git for Windows reads NUL; Node's device-namespace spelling is not a Git config path.
+const GIT_NULL_DEVICE = process.platform === "win32" ? "NUL" : devNull;
+
 /** Bounded read-only Git command, using the D98 hardening plus a clean Git environment. */
 export function codingGit(
   root: string,
@@ -11,7 +14,7 @@ export function codingGit(
   environment: NodeJS.ProcessEnv = {},
 ): string {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.toUpperCase().startsWith("GIT_")));
-  Object.assign(env, { GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: devNull, GIT_OPTIONAL_LOCKS: "0" }, environment);
+  Object.assign(env, { GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: GIT_NULL_DEVICE, GIT_OPTIONAL_LOCKS: "0" }, environment);
   try {
     return execFileSync(
       "git",
@@ -20,11 +23,11 @@ export function codingGit(
         "-c",
         "core.fsmonitor=false",
         "-c",
-        `core.hooksPath=${devNull}`,
+        `core.hooksPath=${GIT_NULL_DEVICE}`,
         "-c",
         `diff.external=`,
         "-c",
-        `core.attributesFile=${devNull}`,
+        `core.attributesFile=${GIT_NULL_DEVICE}`,
         "-c",
         "core.quotePath=false",
         ...args,
