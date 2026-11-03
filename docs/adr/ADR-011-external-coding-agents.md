@@ -1,6 +1,32 @@
 # ADR-011: External coding agents
 
-**Status:** Accepted (2026-09-22; amended 2026-10-07: implemented as `agent-bridge` connectors, connector catalogue) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D5, D6, D11; `docs/phase0/auftrag-original-2026-09-21.md` §7, §8, §10, §11, §12 (M6), §13 Q3; `docs/phase0/research/protocols-channels-coding-clis.md` (Coding CLIs, ACP ecosystem, minimum-viable adapter strategy); `docs/phase0/research/providers-chat-auth-caching.md` (subscription-login policy); `docs/phase0/research/hermes-learnings-and-import.md` A2, A12; `docs/phase0/research/harness-engineering-state-of-the-art.md` §5; local repos `agent-client-protocol@bba7ddf`, `buzz@77729ab`; ADR-003, ADR-005, ADR-008
+**Status:** Accepted (2026-09-22; amended 2026-10-07: implemented as `agent-bridge` connectors, connector catalogue; amended 2026-10-29: own ACP client, no SDK) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D5, D6, D11; `docs/phase0/auftrag-original-2026-09-21.md` §7, §8, §10, §11, §12 (M6), §13 Q3; `docs/phase0/research/protocols-channels-coding-clis.md` (Coding CLIs, ACP ecosystem, minimum-viable adapter strategy); `docs/phase0/research/providers-chat-auth-caching.md` (subscription-login policy); `docs/phase0/research/hermes-learnings-and-import.md` A2, A12; `docs/phase0/research/harness-engineering-state-of-the-art.md` §5; local repos `agent-client-protocol@bba7ddf`, `buzz@77729ab`; ADR-003, ADR-005, ADR-008
+
+## Amendment 2026-11-01: Variant B (owner)
+
+ACP process containment is enabled only on Linux. macOS and Windows refuse ACP
+agents, terminal callbacks and connector probes with `sandbox-unavailable` before
+launch; macOS additionally carries the typed cause `macos-acceptance-pending`. Discovery can report installed executable/login-file metadata but leaves
+the protocol `unprobed`. Earlier Seatbelt observations below are historical and do
+not approve macOS ACP execution. Generic local tool sandbox behavior is unchanged.
+
+Linux permits exactly one writable, provisioned `state/worktrees` checkout through
+the opaque DB-backed `AcpWorktreeMount`. It revalidates the live binding, canonical
+path, directory identity, symlink-free ancestry and absence of existing hardlinks;
+Git metadata remains read-only. This grant belongs to the external ACP path only.
+The native coding-turn grant route is withdrawn from #820; K2a will address it in a
+separate PR, including trusted card assignment, resource gates and host-tool scope.
+Card checkouts are not provisioned in production until K2a supplies trusted, assignment-checked provisioning; coding completion and review for a card of a bound project refuse with E_CONFLICT, and external ACP delegation is limited to the root checkout.
+Worktree lookup never creates a checkout; production repo binding provisions only the root. Ordinary writable Linux tool policies remain refused. No RPC field, migration or credential-bind
+enablement is added. See the [integration and evidence handoff](../handoffs/2026-11-01-r820-variant-b.md).
+
+## Amendment 2026-10-29 (owner)
+
+The ACP client is hand-written in `packages/core/src/external-agents/acp-client.ts`. There is no `@agentclientprotocol/sdk`. Protocol version is 1. The client speaks `initialize`, `session/new`, `session/prompt` and `session/cancel`. Agent requests for `session/request_permission`, `fs/read_text_file`, `fs/write_text_file` and `terminal/*` go through D109 (subject `acp-agent`) and the worktree sandbox. `mcpServers` stays empty until package P.
+
+Tier 1 is what this slice builds, and CI runs it against a stub. Tiers 2 and 3 are not built. The nightly matrix against the real CLIs (Claude Code ACP adapter, `codex-acp`, Goose, agy) is a follow-up, not part of this acceptance. One git implementation provisions worktrees (`fork`, `remove`, `status`). `mergePreview`, `merge` and `revert` stay with M5+.
+
+Hard links are an attack on a path-checked sandbox. The Seatbelt profile denies `file-link` outright, because a source-only filter could not be shown on this Mac. Existing links (`nlink > 1`) refuse the session and `terminal/create`. Details and the residual (a process outside the sandbox) are in `docs/research/2026-10-29-m6b-external-agent-spike.md`.
 
 ## Context
 
@@ -259,3 +285,9 @@ Owner request of 2026-10-07: the bridge covers the systems below. Source and evi
 * Cursor and Kiro: no explicit harness clause found.
 
 **Not connectors.** The Grok bot (Grok in Telegram or @grok on X) and Amazon Bedrock have no local drive or attach surface; they are **provider profiles** (xAI API; Bedrock Converse or its OpenAI-compatible endpoint). Bedrock Agents and Bedrock AgentCore are remote managed runtimes reachable only through the AWS API; they would need a separate remote-API engine adapter, out of scope for T1–T3.
+
+## 2026-11-01 implementation policy: macOS acceptance pending
+
+External ACP agent launches, terminal callbacks and executable discovery probes fail closed on macOS with typed `sandbox-unavailable`, cause `macos-acceptance-pending`, before process creation. Discovery retains only executable/login metadata; credential contents remain unread. A platform override cannot disguise a macOS host. Linux retains bubblewrap and the Rust resource helper; Windows remains refused. This ACP policy is independent of ordinary sandboxed tools and does not widen Developer/Xcode read roots. Core logs the fixed cause in `external.agent.refused`; Doctor exposes it in `external.agents.sandbox`.
+
+Native acceptance remains D123 **SB-1** (pnpm hardlink/build and RSS `PROC_PIDTASKINFO` ESRCH) and **SB-3** (real Git with relocated-Xcode `libxcrun.dylib`, and open/osascript containment). The [spike record](../research/2026-10-29-m6b-external-agent-spike.md#current-acceptance-policy-2026-11-01) distinguishes historical observations from those pending criteria. The existing Rust helper is unchanged; this policy does not claim a native watchdog correction.

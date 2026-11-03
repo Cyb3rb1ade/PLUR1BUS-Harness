@@ -257,6 +257,8 @@ interface ProjectWorktreeProvisioner {
 }
 ```
 
+M6 (2026-10-29) implements this once, in `packages/core/src/external-agents/provisioner.ts`: `fork`, `remove` and `status` only. There is no second git implementation. `mergePreview`, `merge` and `revert` are not in that class yet; M5+ adds them on this same interface. Card worktrees are the documented `c-<hex>` variant. The M6 method shape takes `{ projectId, cardId? }` and derives the branch and path itself, so a later M5+ change extends the call rather than replacing the class.
+
 ### 6.6 Merge back
 
 1. Child state `completed` (return accepted, §9.3).
