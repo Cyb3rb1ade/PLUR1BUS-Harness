@@ -80,6 +80,44 @@ keys; eviction emits its pending summary. Fatal records are never deduplicated; 
 here. After dedup, a source receives a token bucket of 100 records/second, burst 500. Excess records
 produce `log.suppressed` with a drop count. Reader timestamps/cursors are unaffected.
 
+## Supervisor configuration values (SH2)
+
+The Rust Supervisor registers root and installed-module configuration values from `x-sensitive` and
+`x-url-credentials` before its first startup record. It refreshes that registry from the exact running snapshot
+after recovery and before applying accepted live changes or notifying consumers. Module installation and child
+spawns also refresh installed-module annotations against that running snapshot. Structured Supervisor records
+and captured child stdout/stderr share the registry. URL declarations contribute only userinfo passwords, token-like usernames, credential-named query/fragment values and token-like parameter values; ordinary usernames, benign parameters, public hosts and paths are not registered as whole URLs. Argument/environment collections contribute credential assignments and token-like parts rather than whole lists or source paths. Unknown config strings stay private when no typed public declaration applies.
+
+Safe references matched by the schema's `x-secret-reference` form remain readable in configuration views, audit
+changes and log text: their names, providers and source ids describe provisioning, not credential values. The
+reference policy in the configuration schema rejects pasted-key shapes, including known token prefixes, excessive
+name length and high entropy. Such inputs are masked and registered as literals. Source paths with an explicit path
+prefix retain ordinary path syntax and length; bare token-shaped file or exec ids receive the same protection as
+names. The CLI's configuration commands and the Supervisor warn with the key and value-free guidance. Reference
+classification never reads a target or a secret backend. A string also configured as an inline literal remains
+registered even if it equals a readable reference name; actual secret-store values remain protected independently.
+
+This unstructured value matching retains the existing eight-byte minimum, including for values inside structured
+Supervisor log fields. It covers raw, base64, base64url, percent, hex and JSON-escaped forms. Short bare credentials
+are outside this registry's guarantee; schema-projected public configuration masks declared literals at every length.
+The Rust output pump adds no generic URL, token-pattern or key-name backstop. Core's contextual redactor remains separate.
+
+Current values remain pinned; the registry keeps the newest 256 retired values. Each spawned generation also retains
+its initial matcher until its output streams close, protecting shutdown output after later rotations evict an old value.
+The pump processes 8 KiB reads with at most a 64 KiB match suffix and three additional UTF-8 boundary bytes, so an
+unbroken line cannot grow its buffer without limit. It preserves public bytes, including UTF-8 split across reads.
+
+An unreadable configuration, unavailable module sensitivity metadata, poisoned registry or matcher-capacity failure
+withholds the payload and writes a value-free reason. A malformed startup configuration cannot run; its first valid
+running snapshot restores logging. Other failures require repair and a Supervisor restart because a later snapshot
+cannot reconstruct unclassified historical values. Matcher limits are 64 KiB per encoded candidate, 2 MiB of literal
+candidates and 131,072 byte-transition states. These limits fail closed. The streaming matcher retains only a suffix
+that can still become a known value, so small public writes flush without waiting for another read or EOF.
+
+Validation: `cargo test -p plur1bus --test supervisor_log_redaction` exercises real Supervisor startup, accepted
+changes and both child streams; `cargo test -p plur1bus --bin plur1bus supervisor::log_redaction::tests` covers
+encoding, lifetime, bounded-buffer, UTF-8 and rotation behavior.
+
 ## Rotation and retention
 
 Rotation occurs before a line crosses `maxBytes` (default 20 MiB) or on a UTC-day transition.

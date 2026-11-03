@@ -1,10 +1,24 @@
 # Portable encrypted backup / portables verschlüsseltes Backup
 
-The ordinary `plur1bus backup` archive never reads the secret store (keyring, encrypted fallback file, `run/`) and replaces a
-webhook secret kept in `config.json` by a placeholder (a restore draws a fresh one). It does contain the API account database
-`state/api/accounts.db`, with password hashes, TOTP seeds and token hashes, and it is not encrypted. For M8 full-state recovery,
-`scripts/release/portable-backup.mjs` wraps that verified archive and owner-readable vault values in
-one encrypted `.p1backup` file. Release payloads also ship `portable-backup.mjs` beside `core.js`.
+The ordinary `plur1bus backup` archive never reads the secret store (keyring, encrypted fallback file, `run/`). Its
+schema-driven disclosure policy preserves secret references and replaces inline `x-sensitive` values with placeholders;
+only references matching both their declared form and the canonical name-safety policy are preserved. Pasted-key
+candidates in reference slots are replaced as literals, including bare token-shaped file/exec ids.
+`x-url-credentials` masks userinfo and every query/fragment value with URI-safe `REDACTED`, preserving host/path. A restored Telegram webhook secret
+gets a fresh random value. The ordinary manifest names replaced config keys in `secrets.note`; ordinary restore reports
+`Re-enter secret` for those keys on stderr, including with `--json`.
+
+Ordinary archives exclude the API account database `state/api/accounts.db` by default. Explicitly select
+`plur1bus backup create --include-api-accounts` to include it when present. That ordinary archive contains password
+hashes, TOTP seeds and token hashes and is neither signed nor encrypted. Core still makes consistent SQLite copies
+in private snapshot staging, including the account database; the option controls which copies enter the archive,
+and staging is removed afterward. Restoring an archive without the account unit preserves the destination account
+database and its sidecars. Selecting inclusion when the source database does not exist also leaves the destination
+accounts unchanged.
+
+For M8 full-state recovery, `scripts/release/portable-backup.mjs` explicitly includes API accounts in its forward
+archive and its pre-restore rollback archive. It wraps the verified archive and owner-readable vault values in one
+encrypted `.p1backup` file. Release payloads also ship `portable-backup.mjs` beside `core.js`.
 No engine or secret-backend changes are required. Node 24.21 and the candidate CLI are required.
 
 ```sh
@@ -20,9 +34,19 @@ node scripts/release/portable-backup.mjs restore --dry-run \
 ```
 
 Remove `--dry-run` to restore. **The target must already be installed and running**, including a usable
-secret backend. Stores/config/users/API accounts/sessions/dream ledger come from the ordinary archive;
+secret backend. Stores/config/users/API accounts/sessions/dream ledger come from the account-inclusive archive;
 vault values are reinserted through owner-only `secret set` using stdin. Target-only secrets are removed,
 so the vault has the backed-up names and values. Existing owner authorization remains mandatory.
+
+The encrypted wrapper keeps this boundary: it encrypts the already-redacted ordinary archive and the separately read
+vault; it does not read an original config copy or recover removed inline literals, command arguments, header values or
+URL credentials. Secret-store references regain their backed-up values through vault restoration. Environment/file/exec
+references still require their external targets on the destination. Re-enter redacted inline and URL credentials before
+using affected connections after either ordinary or portable restore. The portable script suppresses child-process
+output, including the ordinary restore notice; its existing plan remains units and vault names only. Encryption does
+not turn this into a verbatim backup of inline config credentials, and it does not change webhook regeneration.
+The encrypted rollback artifact explicitly includes accounts and applies the same config-redaction policy, so a
+portable rollback also requires re-entry of redacted inline and URL credentials; backed-up vault values and reference data are restored by the existing workflow.
 
 Passphrase input is a regular non-symlink file, 0600 on POSIX, at least 16 bytes; exact bytes count,
 including a trailing newline. Keep it separately from the archive. On Windows use a private user/SYSTEM
@@ -32,8 +56,8 @@ nonce, scrypt N=32768/r=8/p=1, and authenticated format headers. State bytes str
 vault (up to 16 MiB) is held in memory. This is not a new backup retention or scheduling service.
 
 The complete ciphertext must authenticate before the target home is changed. A restore first creates
-an encrypted `<file>.rollback-<random>` backup of the target; failures attempt to restore its ordinary
-state and vault. Keep that recovery artifact, including after success, until recovery is accepted.
+an encrypted `<file>.rollback-<random>` backup of the target, explicitly including its API accounts; failures attempt
+to restore that prior account database, ordinary state and vault. Keep that recovery artifact, including after success, until recovery is accepted.
 A failed rollback requires recovery from that artifact; the CLI deliberately suppresses raw child output.
 An interrupted process during a portable restore still needs operator recovery from that artifact;
 portable orchestration is not a crash-atomic transaction over the OS keyring and all databases.

@@ -36,8 +36,8 @@ export function createSandboxProcessPort(o: SandboxPortsOptions): ProcessPort {
     const ac = new AbortController();
     const stdout: ((c: Uint8Array) => void)[] = [], stderr: ((c: Uint8Array) => void)[] = [];
     const done = Promise.resolve().then(async () => {
-      const r = await sandboxSpawn([await executable(spec.program), ...spec.args], sandboxPolicy(o, spec), { signal: ac.signal });
-      for (const cb of stdout) cb(Buffer.from(r.stdout)); for (const cb of stderr) cb(Buffer.from(r.stderr));
+      const r = await sandboxSpawn([await executable(spec.program), ...spec.args], sandboxPolicy(o, spec), { signal: ac.signal,
+        onStdout: c => { for (const cb of stdout) cb(c); }, onStderr: c => { for (const cb of stderr) cb(c); } });
       return { code: r.exitCode, signal: r.signal };
     });
     // The existing exec runner attaches wait in the same tick.

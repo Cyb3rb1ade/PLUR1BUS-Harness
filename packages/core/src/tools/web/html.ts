@@ -1,9 +1,10 @@
 // HTML → readable Markdown for web.fetch (D94 step 3), dependency-free. Not a full HTML5 parser: a forgiving
-// tokenizer with a handful of implied-end-tag rules, a node and depth cap (hostile or enormous documents degrade,
-// they do not hang or overflow the stack), main-content selection, boilerplate removal, and a Markdown renderer for
+// tokenizer with a handful of implied-end-tag rules, a node refusal and depth cap (hostile or enormous documents
+// cannot hang or overflow the stack), main-content selection, boilerplate removal, and a Markdown renderer for
 // the structures that matter (headings, lists, tables, code, links as absolute URLs, image alt text).
 //
 // Output is DATA. Nothing here interprets page text; tags that appear as text (`&lt;script&gt;`) stay text.
+import { wellFormedPrefix } from "../../logs/utf16.ts";
 
 export interface Extracted {
   markdown: string;
@@ -35,6 +36,8 @@ export interface Section {
 
 const MAX_NODES = 300_000;
 const MAX_DEPTH = 200;
+/** An unfinished source document cannot safely be presented as a successful partial extraction. */
+export class HtmlParserLimitError extends Error {}
 
 export const estimateTokens = (s: string): number => Math.ceil(s.length / 4);
 
@@ -210,6 +213,7 @@ function parseTree(html: string): El {
     }
     if (!VOID.has(tag) && stack.length < MAX_DEPTH) stack.push(el);
   }
+  if (i < n && nodes >= MAX_NODES) throw new HtmlParserLimitError("the HTML parser node limit was exceeded");
   return root;
 }
 
@@ -502,9 +506,10 @@ function findAll(root: El, pred: (el: El) => boolean): El[] {
 
 /** Page-supplied metadata is returned with every chunk, so it is bounded however large the page makes it. */
 const META_MAX = { title: 300, lang: 35, publishedAt: 64, canonicalUrl: 2048 } as const;
-const clip = (s: string, max: number): string => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
+const clip = (s: string, max: number): string => (s.length > max ? `${wellFormedPrefix(s, max - 1)}…` : s.toWellFormed());
+export type MetadataField = keyof typeof META_MAX;
 
-export function htmlToMarkdown(html: string, baseUrl: string): Extracted {
+export function htmlToMarkdown(html: string, baseUrl: string, maskMetadata: (text: string, field: MetadataField) => string = text => text): Extracted {
   let base: URL | null = null;
   try {
     base = new URL(baseUrl);
@@ -520,25 +525,25 @@ export function htmlToMarkdown(html: string, baseUrl: string): Extracted {
       case "title":
         if (meta.title === undefined) {
           const t = collapse(textOf(el)).trim();
-          if (t !== "") meta.title = clip(t, META_MAX.title);
+          if (t !== "") meta.title = clip(maskMetadata(t, "title"), META_MAX.title);
         }
         break;
       case "html":
-        if (el.attrs.lang && meta.lang === undefined) meta.lang = clip(el.attrs.lang.trim(), META_MAX.lang);
+        if (el.attrs.lang && meta.lang === undefined) meta.lang = clip(maskMetadata(el.attrs.lang.trim(), "lang"), META_MAX.lang);
         break;
       case "link":
         if (/(^|\s)canonical(\s|$)/i.test(el.attrs.rel ?? "") && meta.canonicalUrl === undefined) {
           const u = absUrl(el.attrs.href, { base, keepHeader: false }, ["http:", "https:"]);
-          if (u && u.length <= META_MAX.canonicalUrl) meta.canonicalUrl = u;
+          if (u && u.length <= META_MAX.canonicalUrl) meta.canonicalUrl = maskMetadata(u, "canonicalUrl");
         }
         break;
       case "meta": {
         const key = (el.attrs.property ?? el.attrs.name ?? el.attrs.itemprop ?? "").toLowerCase();
-        if (meta.publishedAt === undefined && (key === "article:published_time" || key === "date" || key === "datepublished" || key === "og:published_time") && el.attrs.content) meta.publishedAt = clip(el.attrs.content.trim(), META_MAX.publishedAt);
+        if (meta.publishedAt === undefined && (key === "article:published_time" || key === "date" || key === "datepublished" || key === "og:published_time") && el.attrs.content) meta.publishedAt = clip(maskMetadata(el.attrs.content.trim(), "publishedAt"), META_MAX.publishedAt);
         break;
       }
       case "time":
-        if (meta.publishedAt === undefined && el.attrs.datetime) meta.publishedAt = clip(el.attrs.datetime.trim(), META_MAX.publishedAt);
+        if (meta.publishedAt === undefined && el.attrs.datetime) meta.publishedAt = clip(maskMetadata(el.attrs.datetime.trim(), "publishedAt"), META_MAX.publishedAt);
         break;
       case "script":
         scripts++;

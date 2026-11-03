@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { defaults, type HarnessConfig } from "@plur1bus/config-schema";
+import { defaults, validate, type HarnessConfig } from "@plur1bus/config-schema";
 import { buildChannelSurface, looksLikeSecretValue, looksLikeToken, scrub, TEST_MESSAGE, type ChannelRegistryView, type ChannelSurfaceDeps } from "../../src/rpc/channel-surface.ts";
 import { guardMethods, RPC_RULES, type PrincipalResolver } from "../../src/rbac/guard.ts";
 import { RpcError } from "../../src/rpc/errors.ts";
@@ -10,6 +11,7 @@ import type { ChannelStatus } from "../../src/channels/registry.ts";
 import type { ChannelManifest } from "../../src/channels/manifest.ts";
 import type { ChannelHealth, OutboundMessage } from "../../src/channels/types.ts";
 import type { IdentityService } from "../../src/identity/service.ts";
+import { createSecretRedaction } from "../../src/secrets/redaction.ts";
 
 const schema = JSON.parse(readFileSync(new URL("../../../rpc-schema/schema/rpc.schema.json", import.meta.url), "utf8"));
 const METHODS = ["channel.crypto", "channel.list", "channel.get", "channel.enable", "channel.disable", "channel.set", "channel.test", "channel.status"];
@@ -44,7 +46,7 @@ class FakeRegistry implements ChannelRegistryView {
   }
 }
 
-function setup(o: { stored?: string[]; writable?: boolean; registry?: boolean; links?: { id: string; channel: string; userId: string; revokedAt: number | null }[]; config?: (c: any) => void } = {}) {
+function setup(o: { stored?: string[]; writable?: boolean; registry?: boolean; links?: { id: string; channel: string; userId: string; revokedAt: number | null }[]; config?: (c: any) => void; knownValueRedactor?: ChannelSurfaceDeps["knownValueRedactor"] } = {}) {
   let config = defaults() as HarnessConfig;
   if (o.config) o.config(config);
   const registry = new FakeRegistry();
@@ -69,6 +71,7 @@ function setup(o: { stored?: string[]; writable?: boolean; registry?: boolean; l
     secrets: { list: async () => state.stored.map((name) => ({ name })) },
     registry: () => (o.registry === false ? null : registry),
     audit: { append: (e: unknown) => { audit.push(e); } } as never,
+    ...(o.knownValueRedactor ? { knownValueRedactor: o.knownValueRedactor } : {}),
   };
   const raw = buildChannelSurface(deps);
   const resolve = (p: Parameters<PrincipalResolver>[0] extends never ? never : any = OWNER): PrincipalResolver => () => p;
@@ -132,6 +135,47 @@ test("get: secrets are names with a presence flag, restart class, link help; unk
   assert.deepEqual(email.secrets.map((x: any) => x.key).sort(), ["imap.passwordSecret", "smtp.passwordSecret"]);
   assert.deepEqual(await s.refusal("channel.get", { id: "nosuch" }), { error: "E_NOT_FOUND", reason: "unknown-channel", message: "unknown channel", detail: undefined });
   assert.equal((await s.refusal("channel.get", { id: "../x" })).reason, "invalid-id");
+});
+
+test("channel reference metadata preserves valid names that resemble denied file paths", async () => {
+  const name = "service/.ssh/item";
+  const known = createSecretRedaction();
+  const s = setup({ config: config => { config.channels.discord.tokenSecret = name; },
+    knownValueRedactor: known.redactor({ secretsOnly: true }) });
+  const result = await s.call("channel.get", { id: "discord" });
+  assert.equal(result.config.tokenSecret.secret, name);
+  assert.equal(result.secrets[0].name, name);
+  assert.ok(result.missing.includes(`secret:${name}`));
+  const replacement = "service/.ssh/changed";
+  const updated = await s.call("channel.set", { id: "discord", key: "tokenSecret", value: replacement });
+  assert.equal(updated.secret.name, replacement);
+  known.register(replacement, "independently-stored-value");
+  assert.ok(!JSON.stringify(await s.call("channel.get", { id: "discord" })).includes(replacement));
+});
+
+test("channel configuration outputs mask declared literals, references and URL parts without changing response shapes", async () => {
+  const secret = randomUUID();
+  const reference = `channels.${randomUUID()}.reference`;
+  const s = setup({ stored: [reference], config: (config) => {
+    config.channels.discord.tokenSecret = reference;
+    config.channels.telegram.webhook = { secret, url: "https://relay.example.test/telegram" };
+    config.channels.matrix.homeserverUrl = `https://${secret}@relay.example.test/public/path?ordinary=${secret}`;
+    config.channels.buzz.relays = [`wss://relay.example.test/relay?ordinary=${secret}`];
+  } });
+  const checked = validate(s.config());
+  assert.ok(checked.ok, checked.ok ? undefined : checked.errors.join("; "));
+  for (const id of ["telegram", "matrix", "buzz", "discord"]) {
+    const result = await s.call("channel.get", { id });
+    const text = JSON.stringify(result);
+    assert.ok(!text.includes(secret), `${id}: a declared credential escaped the channel view`);
+    if (id === "discord") assert.ok(text.includes(reference), "reference names are provisioning metadata");
+  }
+  const discord = await s.call("channel.get", { id: "discord" });
+  assert.deepEqual(discord.config.tokenSecret, { secret: reference, present: true });
+  assert.deepEqual(discord.secrets, [{ key: "tokenSecret", name: reference, present: true }]);
+  assert.deepEqual(discord.missing, []);
+  const matrix = await s.call("channel.get", { id: "matrix" });
+  assert.equal(matrix.config.homeserverUrl, "https://••••@relay.example.test/public/path?ordinary=••••");
 });
 
 test("get: a running channel is probed; a failing probe and a last error (scrubbed) are reported; the manifest's link help wins", async () => {
@@ -380,4 +424,28 @@ test('Matrix SAS confirmation requires owner acknowledgement and binds the initi
   await s.call('channel.crypto', { id: 'matrix', action: 'confirm', flowId: 'flow', confirmed: true });
   assert.deepEqual(calls, [{ actor: 'local-owner', action: 'confirm', flowId: 'flow' }]);
   assert.deepEqual(s.audit.at(-1).detail, { action: 'confirm' });
+});
+
+test("channel fallback diagnostics and structured reads share a membership-cached generation", async t => {
+  const first = randomUUID(), second = randomUUID();
+  const reference = `fixture.reference.${randomUUID().slice(0, 8)}`;
+  const s = setup({ config(config) {
+    config.engine = { merging: { headers: { first, second } } };
+    config.channels.telegram.tokenSecret = reference;
+  } });
+  s.registry.add("telegram", "running", { lastError: `private ${first} ${second}` });
+  s.registry.health.set("telegram", { ok: false, detail: `private ${first}` });
+  const encode = globalThis.encodeURIComponent;
+  let derivations = 0;
+  t.mock.method(globalThis, "encodeURIComponent", (value: string) => {
+    if (value === first || value === second) derivations++;
+    return encode(value);
+  });
+  const read = await s.call("channel.get", { id: "telegram" });
+  assert.ok(!JSON.stringify(read).includes(first)); assert.ok(!JSON.stringify(read).includes(second));
+  assert.equal(read.config.tokenSecret.secret, reference, "valid references remain readable");
+  (s.config().engine as Record<string, unknown>).merging = { headers: { second, first } };
+  const status = await s.call("channel.status");
+  assert.ok(!JSON.stringify(status).includes(second));
+  assert.equal(derivations, 2, "known-value and free-text fallback redactors share forms across read calls");
 });

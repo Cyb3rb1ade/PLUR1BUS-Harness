@@ -21,16 +21,45 @@ sich ein anderer, noch nicht vorhandener Zielpfad wählen.
 Das Archiv enthält den Memory-Store und SQLite-Datenbanken (durch den Core konsistent kopiert) sowie Konfiguration,
 Agents, Skills, Module, Extensions, Katalog, Capture-Journal und Systemjob-Ledger. Der Secret-Store wird nie gelesen:
 Laufzeittokens (`run/`), API-Schlüssel im Schlüsselbund und die verschlüsselte Fallback-Datei sind nicht enthalten.
-Ein Webhook-Secret, das in `config.json` selbst steht (`channels.telegram.webhook.secret`), wird im Archiv durch einen
-Platzhalter ersetzt; die Live-Datei bleibt unverändert. Beim Restore erzeugt `backup restore` dafür einen neuen
-Zufallswert, der Telegram-Kanal meldet ihn beim nächsten Start per `setWebhook` an; der alte Wert wird nicht wiederhergestellt
-(die Konfiguration bleibt gültig). **Nicht** geschützt ist die API-Kontendatenbank `state/api/accounts.db`: Sie wird
-mitgesichert, damit Konten nach einem Restore wieder da sind, und enthält Passwort-Hashes (Argon2id), TOTP-Seeds, deren
-Backup-Code-Hashes und Hashes persönlicher Tokens. Wer das Archiv besitzt, kann Hashes offline angreifen und den zweiten
-Faktor nachbilden. Das Archiv ist weder signiert noch verschlüsselt; bewahre es entsprechend geschützt auf (für eine
-verschlüsselte Variante siehe [portables Backup](../portable-backup.md)). Ein externes Obsidian-Vault ist nicht Teil des
-Backups. Ist `config.json` kein gültiges JSON, bricht `create` mit `config-unreadable` ab, statt die Datei ungeprüft zu
-archivieren; `plur1bus 1staid repair` stellt sie wieder her.
+Secret-Referenzen in `config.json` bleiben unverändert: Namen im Secret-Store, Umgebungs- oder Dateireferenzen und die
+vom gepinnten Engine-Vertrag unterstützten strukturierten Referenzen sind keine Secret-Werte. Sie werden beim Restore
+bytegleich erhalten; ihr Ziel wird weder gelesen noch mitgesichert. Ein gewöhnlicher String in einem Engine-`apiKey`-Feld
+ist dagegen ein Literal; nur die vom gepinnten Resolver ausdrücklich unterstützten `${ENV_NAME}`-Formen sind Referenzen.
+Die deklarierte Referenzform und die kanonische Namensrichtlinie entscheiden gemeinsam: Ein eingefügter Schlüssel
+(bekannter Token-Präfix, überlanger oder hochentropischer Name) bleibt kein lesbarer Referenzname, sondern wird wie ein
+Literal ersetzt. Eindeutige Dateipfade behalten ihre normale Syntax und Länge; ein bloßer schlüsselartiger String im
+Datei- oder Exec-Feld bleibt geschützt. Diese Prüfung liest kein Referenzziel.
+Anhand der Schema-Metadaten `x-sensitive` ersetzt `create` dort abgelegte Literalwerte durch Platzhalter. Für
+konfigurierte, installierte Module gilt zusätzlich deren validiertes `configSchema` aus `module.json`, auch bei
+`enabled: false`. Unbekannte String-Werte werden auch ohne installiertes Modul oder ohne Schema ersetzt; öffentliche typisierte Werte bleiben erhalten. Beschädigte oder nicht interpretierbare Metadaten eines installierten, konfigurierten Moduls verweigern das Backup. Bei `x-url-credentials` werden Userinfo sowie alle Query- und Fragment-Werte durch den URI-gültigen Platzhalter `REDACTED` ersetzt; Host, Pfad und Parameternamen bleiben erhalten. Die Live-Datei bleibt unverändert. Das Manifest nennt die ersetzten Konfigurationsschlüssel, niemals
+deren Werte, im bestehenden Feld `secrets.note` als versionierte Zeile
+`plur1bus.backup.config-redactions/1: ["konfigurations.schlüssel"]`.
+
+`backup restore` meldet diese Schlüssel ausdrücklich als **„Secret neu eintragen“** (in der englischen CLI:
+`Re-enter secret`), auch beim Probelauf und mit `--json` auf stderr; die JSON-Ergebnisstruktur bleibt unverändert.
+Trage fehlende Literalwerte und URL-Zugangsdaten vor der Nutzung der betroffenen Verbindung erneut ein. Referenzen
+benötigen weiterhin ihre Secret-Store-Werte oder sonstigen Ziele auf dem Zielsystem. Für den ersetzten Wert
+`channels.telegram.webhook.secret` erzeugt Restore wie bisher einen neuen Zufallswert: Der Telegram-Kanal meldet ihn
+beim nächsten Start per `setWebhook` an; der alte Wert wird nicht wiederhergestellt.
+
+Die API-Kontendatenbank `state/api/accounts.db` ist standardmäßig **nicht im Archiv**. Mit
+`backup create --include-api-accounts` nimmst du sie ausdrücklich auf, sofern sie vorhanden ist. Sie enthält
+Passwort-Hashes (Argon2id), TOTP-Seeds, Backup-Code-Hashes und Hashes persönlicher Tokens. Wer ein solches Archiv
+besitzt, kann Hashes offline angreifen und den zweiten Faktor nachbilden. Auch mit Opt-in ist das gewöhnliche Archiv
+weder signiert noch verschlüsselt; bewahre es entsprechend geschützt auf. Das
+[portable verschlüsselte Backup](../portable-backup.md) wählt die Kontendatenbank für Sicherung und Rückrollen
+jeweils ausdrücklich aus.
+
+Der Core kopiert SQLite-Datenbanken weiterhin konsistent in einen privaten Snapshot-Bereich, einschließlich der
+Kontendatenbank. Die Auswahl entscheidet erst, welche dieser Kopien ins Archiv gelangen; der Snapshot-Bereich wird
+danach entfernt. Ein Restore ohne Konteneinheit lässt die vorhandene Kontendatenbank des Ziels samt
+`-wal`-, `-shm`- und `-journal`-Dateien unverändert. Fehlt die Kontendatenbank in der Quelle, gilt das auch bei gewähltem
+Opt-in. Lege den Engine-Store getrennt von diesem Kontenpfad ab: `create` verweigert überlappende Pfade,
+auch über Symlinks oder Junctions.
+
+Ein externes Obsidian-Vault ist nicht Teil des
+Backups. Ist `config.json` kein gültiges JSON oder enthält es wiederholte Objektschlüssel, bricht `create` mit
+`config-unreadable` ab, statt die Datei ungeprüft zu archivieren; `plur1bus 1staid repair` stellt sie wieder her.
 
 Dateirechte: Das Manifest hält die Rechte der Quelldateien fest (ein ausführbares Skill-Skript bleibt für den Besitzer
 ausführbar). Beim Restore bleiben nur die Rechte des Besitzers erhalten, nichts wird breiter; `<home>/backups/` und
@@ -57,6 +86,12 @@ Systemdienst-Registrierung steuert `daemon` den Supervisor.
 
    ```sh
    plur1bus backup create --out "/pfad/zum/ziel/backup.tar.gz"
+   ```
+
+   Wenn API-Konten mitgesichert werden sollen, verwende das Opt-in:
+
+   ```sh
+   plur1bus backup create --include-api-accounts --out "/pfad/zum/ziel/backup-mit-konten.tar.gz"
    ```
 
    Unter PowerShell beispielsweise:
@@ -163,7 +198,8 @@ Nach einer Wiederherstellung sind Dienstbereitschaft, Archivprüfung und Audit-I
 | Meldung oder Grund | Bedeutung und nächster Schritt |
 |---|---|
 | `create` erreicht den Core nicht (`E_CORE_UNAVAILABLE`) | `create` benötigt den laufenden Core. `plur1bus daemon status` prüfen und den Supervisor bei Bedarf mit `plur1bus daemon start` starten. |
-| `create` meldet `config-unreadable` | `config.json` ist kein gültiges JSON und kann nicht auf Secret-Werte geprüft werden; das Archiv wird nicht geschrieben. Datei korrigieren oder `plur1bus 1staid repair` ausführen und `create` wiederholen. |
+| `create` meldet `config-unreadable` | `config.json` ist kein gültiges JSON mit eindeutigen Objektschlüsseln und kann nicht auf Secret-Werte geprüft werden; das Archiv wird nicht geschrieben. Datei korrigieren oder `plur1bus 1staid repair` ausführen und `create` wiederholen. |
+| `create` meldet `config-policy-invalid` | Die eingebetteten oder installierten Modul-Metadaten für die Offenlegung sind ungültig, nicht verfügbar oder nicht unterstützt. Das betroffene `module.json` reparieren beziehungsweise eine intakte Version installieren und `create` wiederholen. |
 | Ziel existiert bereits (`exists`) | Das Ziel wird nicht überschrieben. Einen anderen Pfad mit `--out <FILE>` wählen. |
 | Restore meldet `E_LOCKED` / `core-running` | Ein Supervisor oder Core antwortet noch oder der Core-Lock ist belegt. `plur1bus daemon stop` ausführen und sicherstellen, dass kein Prozess für dieses Home mehr läuft. |
 | `verify` meldet `archive-corrupt`, `truncated`, `manifest-invalid`, `unsupported-format`, `unexpected-entry`, `checksum-mismatch` oder `missing-entry` | Das Archiv ist beschädigt, unvollständig oder wird nicht unterstützt. Nicht wiederherstellen; eine intakte Kopie verwenden. |

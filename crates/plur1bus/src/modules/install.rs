@@ -452,6 +452,30 @@ mod tests {
     }
 
     #[test]
+    fn unsupported_privacy_metadata_is_refused_before_install_or_update() {
+        let tmp = tempfile::tempdir().unwrap();
+        let layout = Layout::new(tmp.path().join("home"));
+        let src = module_dir(tmp.path(), &manifest("mod-a", "index.js"));
+        install(&layout, &src).unwrap();
+        for schema in [
+            serde_json::json!({"allOf":[{"properties":{"key":{"x-sensitive":true}}}]}),
+            serde_json::json!({"properties":{"key":{"x-sensitive":"yes"}}}),
+            serde_json::json!({"properties":{"key":{"x-unknown-members":"maybe"}}}),
+        ] {
+            let mut value: Value = serde_json::from_str(&manifest("mod-a", "index.js")).unwrap();
+            value["configSchema"] = schema;
+            fs::write(src.join("module.json"), value.to_string()).unwrap();
+            assert!(
+                install(&layout, &src).is_err(),
+                "unsupported privacy schema was installed"
+            );
+            let installed =
+                fs::read_to_string(layout.home.join("modules/mod-a/module.json")).unwrap();
+            assert!(!installed.contains("configSchema"));
+        }
+    }
+
+    #[test]
     fn install_copies_the_tree_and_a_reinstall_replaces_it() {
         let tmp = tempfile::tempdir().unwrap();
         let layout = Layout::new(tmp.path().join("h"));

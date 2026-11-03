@@ -4,6 +4,9 @@
 // never a replacement for the writer's own redaction. Pure: no I/O, no clock.
 import { createHash } from "node:crypto";
 import { REDACTION } from "@plur1bus/log-schema";
+import { secretFormsIn, type SecretFormsSnapshot } from "./secret-forms.ts";
+import { createSecretMatcher, type SecretMatcher } from "./secret-matcher.ts";
+export { secretFormsIn, secretFormsOf } from "./secret-forms.ts";
 
 interface PatternDef { id: string; pattern: string; flags?: string; leftBoundary?: boolean; valueGroup?: number; replacement?: string; exemptWhenWholeMatchIs?: string }
 interface Compiled { id: string; re: RegExp; leftBoundary: boolean; valueGroup?: number; replacement?: string; exempt?: RegExp }
@@ -167,44 +170,29 @@ export interface RedactOptions {
   /** Forms to mask as they are, in addition to `secrets` (see `secretFormsIn`): for a caller that scanned the text first and keeps
    *  only the forms that occur in it. */
   secretForms?: Iterable<string>;
+  /** Immutable compiled exact-value policy from the live secret-set generation. */
+  secretMatcher?: SecretMatcher;
 }
 
 export interface Redactor {
   text(s: string): string;
   /** Deep copy of a JSON value with every string redacted and every value under a secret-looking key replaced. */
   value<T>(v: T): T;
-}
-
-/** Rule `secret` forms of one registered value (same set as the Rust first-aid redactor): raw, base64 and base64url each with and
- *  without padding, hex in lower and upper case, and URL-encoded. The length check happens before this derivation. Duplicates
- *  (no padding needed, an ASCII value with nothing to encode) are dropped. */
-export function secretFormsOf(s: string): string[] {
-  const buf = Buffer.from(s);
-  const std = buf.toString("base64"); const url = buf.toString("base64url");
-  const hex = buf.toString("hex");
-  return [...new Set([s, std, std.replace(/=+$/, ""), url, url + "=".repeat((4 - (url.length % 4)) % 4), hex, hex.toUpperCase(), encodeURIComponent(s)])];
-}
-
-/** Rule `secret` forms of every eligible registered value (the minimum length is checked on the value), each form once however
- *  many values share it and however often a value is listed, longest first so that a longer form is masked before a shorter one
- *  it contains. */
-export function secretFormsIn(secrets: Iterable<string>): string[] {
-  const forms = new Set<string>();
-  for (const s of new Set(secrets)) {
-    if (typeof s !== "string" || s.length < (rule("secret").minLength as number)) continue;
-    for (const f of secretFormsOf(s)) forms.add(f);
-  }
-  return [...forms].sort((a, b) => b.length - a.length);
+  /** Internal source-window policy; coordinates precede masking and only exact-value matching reads outside the window. */
+  textWindow?(s: string, sourceBegin: number, sourceEnd: number): string;
+  /** Trusted policy metadata lets output framing combine live and local values before one text preparation. */
+  secretMatcher?(): SecretMatcher;
+  readonly pii?: boolean;
 }
 
 export function createRedactor(o: RedactOptions = {}): Redactor {
-  const derived = secretFormsIn(o.secrets ?? []);
-  const secretForms = o.secretForms === undefined ? derived : [...new Set([...derived, ...o.secretForms])].sort((a, b) => b.length - a.length);
+  const additional = [...secretFormsIn(o.secrets ?? []), ...(o.secretForms ?? [])];
+  const matcher = o.secretMatcher && additional.length === 0 ? o.secretMatcher
+    : createSecretMatcher([...(o.secretMatcher?.forms ?? []), ...additional]);
 
-  const text = (input: string): string => {
+  const finishText = (input: string): string => {
     let s = input;
-    for (const f of secretForms) if (f.length > 0) s = s.split(f).join(tag("secret"));
-    if (o.secretsOnly === true) return s;
+    if (o.secretsOnly === true) return s.toWellFormed();
     s = s.replace(/\b((?:proxy-)?authorization|(?:set-)?cookie)([ \t]*:[ \t]*)([^\r\n]*)/gi,
       (_m, name: string, sep: string) => `${name}${sep}${tag("key")}`);
     // Header values can contain spaces and semicolon-separated cookies: redact the whole line.
@@ -219,13 +207,18 @@ export function createRedactor(o: RedactOptions = {}): Redactor {
       return cls ? `<deny:${cls}>/…#${sha6(segs.join("/"))}` : tok;
     });
     if (o.pii === true) for (const p of PII) s = applyPattern(s, p, "pii");
-    return s;
+    return s.toWellFormed();
   };
+  const text = (input: string): string => finishText(matcher.maskText(input));
+  const textWindow = (input: string, begin: number, end: number): string => finishText(matcher.maskTextWindow(input, begin, end));
 
   // A line is JSON-parsed from a file anyone with log access may have written to: nesting is bounded so one record cannot
   // overflow the stack (and fail a whole query); what is deeper is replaced, never passed on unredacted.
   const walk = (v: unknown, ancestors: object[]): unknown => {
     if (typeof v === "string") return text(v);
+    // Opaque config slots can hold malformed numeric credentials. Preserve number type in diagnostic attrs;
+    // secretsOnly retains the existing fail-closed contract for a ToolResult containing a non-string secret.
+    if (typeof v === "number" && o.secretsOnly !== true && matcher.findTextSpans(String(v)).length > 0) return 0;
     if (v !== null && typeof v === "object") {
       if (ancestors.includes(v)) throw new TypeError("circular value"); // the callers turn this into log.redaction.failed
       if (ancestors.length >= MAX_DEPTH) return "[TRUNCATED:depth]";
@@ -252,27 +245,25 @@ export function createRedactor(o: RedactOptions = {}): Redactor {
     return v;
   };
   const value = <T>(v: T): T => walk(v, []) as T;
-  return { text, value };
+  return { text, textWindow, value, secretMatcher: () => matcher, pii: o.pii === true };
 }
-
-/** The JSON text a string holding `form` holds: `JSON.stringify` escapes per character (quote, backslash, control characters), so
- *  a form inside a string value is inside the serialised value with the same escapes. A form with an unpaired surrogate has no such
- *  text (it can sit in half of a pair), so it is always taken to occur. */
-const occursInJson = (json: string, form: string): boolean => !form.isWellFormed() || json.includes(JSON.stringify(form).slice(1, -1));
 
 /**
  * Masks the registered secret values in a JSON-serialised value (`json` is `JSON.stringify` of `value`'s source, `value` its parse).
- * The serialised text is scanned first, once per form: with no form in it nothing is masked and `undefined` comes back (no walk, so
- * nothing is copied or cut). With hits, only the forms that occur are walked, in strings and in keys (`secretsOnly`).
+ * The serialised text is scanned with the generation's automaton: with no form in it nothing is masked and `undefined` comes back
+ * (no walk, so nothing is copied or cut). Strings and keys are masked with the same immutable matcher (`secretsOnly`).
  *
  * Throws when a form that occurred is still there after masking: it was not in a string (a numeric secret serialised as a JSON number
  * is the case), the redactor cannot mask it, and the caller must not pass the result on.
  */
-export function maskSecretsInJson(json: string, value: unknown, secrets: Iterable<string>): { value: unknown; json: string } | undefined {
-  const hits = secretFormsIn(secrets).filter((f) => occursInJson(json, f));
-  if (hits.length === 0) return undefined;
-  const masked = createRedactor({ secretForms: hits, secretsOnly: true }).value(value);
+export function maskSecretsInJson(json: string, value: unknown, secrets: Iterable<string>, source?: SecretFormsSnapshot | readonly string[]): { value: unknown; json: string } | undefined {
+  const matcher = source && !Array.isArray(source) ? (source as SecretFormsSnapshot).matcher
+    : createSecretMatcher((source as readonly string[] | undefined) ?? secretFormsIn(secrets));
+  const before = matcher.scanJson(json);
+  if (!before.found) return undefined;
+  const masked = createRedactor({ secretMatcher: matcher, secretsOnly: true }).value(value);
   const out = JSON.stringify(masked);
-  if (hits.some((f) => f.isWellFormed() && out.includes(JSON.stringify(f).slice(1, -1)))) throw new Error("a registered secret value is in the result outside any string");
+  if (matcher.hasResidual(before, matcher.scanJson(out)))
+    throw new Error("a registered secret value is in the result outside any string");
   return { value: masked, json: out };
 }

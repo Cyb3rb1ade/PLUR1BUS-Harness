@@ -26,6 +26,55 @@ unit vectors return 2 and opposite unit vectors return 4. Phase 1 retains the No
 The store does not build a lexical index; RE-10 owns the derived `_lexical` table and its index. A round trip checks
 that an additional derived table does not alter the Node reader's `memories` or identity view.
 
+`store::routes::StoreRoutes` supplies an ordered read plan without fetching memory rows.
+Each `StoreRoute` retains its namespace label, shared `Arc<StorePool>`, missing-table policy
+and trusted directory pins. `lease(agent_id)` returns `Option<Arc<Store>>`: a missing read-only
+legacy table returns `None` without creating files; path replacements and other failures remain
+errors. Holding the `Arc` prevents pool eviction while a child runs. `recall::namespaces::NamespaceStores`
+builds these private routes from the namespace configuration and exposes the active writer
+separately through `write_store`. Read ordering is configuration ordering, never worker completion
+ordering; fan-out uses at most eight workers per request and settles all children before selecting
+its first required error. Shared/optional sources and strict single-source timeout policy remain
+T6/RE-07 work; with T4's private routes the first route is the first private canonical source.
+
+Every T4 route resolves an expected identity for its namespace and agent through
+`store::routes::StoreIdentityResolver`. `NamespaceStores::open` uses the active identity as the
+production fallback for **all** routes, including read-only legacy routes;
+`open_with_identity_resolver` accepts configured per-route/per-agent expectations. A stored
+mismatch refuses the complete recall before any provider call, merge or ledger write. This is
+the pin's `identityForStore`/`MemoryDB.init` policy, not a writer-only rule. The later facade
+reports `degraded:error` without a memories block; it does not fuse the remaining active hits.
+The low-level RE-02 read-only inspection API still exposes mismatch metadata; T4 applies the
+stricter production policy at its lease boundary.
+
+Tables without persisted identity metadata inherit their route expectation in the request's
+identity accounting and provider selection, without stamping a read-only table. When explicit
+routes correctly declare different spaces, T4 selects each matching provider, coalesces each
+original query, merges/fuses the results and optionally reranks globally. Only a declared,
+matching space whose provider is unavailable or returns an invalid query vector degrades with
+`embedding-unavailable`. The existing RE-03 provider API is unchanged; RE-08 connects configuration
+to the resolver port for all routes, while T4 already enforces its policy.
+
+After multi-identity fusion, the existing CP-5.5 provider opt-in also applies: a successful
+response with no valid indices and `empty_result_is_valid() == true` selects no memories and
+writes an empty selection without degradation, whether fallback is enabled or disabled. The
+older identity wrapper lacks that check; this deliberately carries the required CP-5 contract
+into the fused path. Provider errors and undeclared empty responses retain fallback/error behavior.
+
+RE-04/T4 namespace recalls apply the global tier budget after merge/rerank and append a single
+retrieval record from the final selection, through
+`store::ledger::JsonlLedger<RetrievalLedgerLine>`. The persisted shape matches Node's
+`lib/memory-dynamics.js::createRetrievalLedgerEntry`: `id` (UUID), `agentId` and `workspaceKey`
+(nullable strings), `queryHash` (SHA-256 of the UTF-8 query, or null for an empty query),
+`resultsCount`, ordered `selectedIds` (null for an absent id), and `timestamp` (epoch milliseconds).
+The typed record serializes those fields in Node order; tests compare the persisted JSONL text
+with actual Node output after replacing only its generated UUID. Neither the query
+text nor memory text enters this line. Canonical sections do not count toward `resultsCount`.
+Child pipelines do not write ledger entries; a required table failure writes none. An absent
+read-only legacy table is skipped without creating its directory. As in Node, a failed ledger
+delivery does not replace successful recall results; `NamespaceOutput.ledger_error` retains
+the bounded delivery diagnostic for the runtime caller.
+
 All store paths reject symlinks, including Windows junctions. `TrustedDirectory` holds the namespace directory
 handle for the lifetime of the Lance connection. Unix namespace children use descriptor-relative `openat` with
 `O_NOFOLLOW`; Lance receives a verified `/proc/self/fd` or `/dev/fd` alias where available. On hosts without a working

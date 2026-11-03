@@ -1,6 +1,7 @@
 import { authorize as rbacAuthorize } from "../rbac/authorize.ts";
 import type { Principal, Resource } from "../rbac/types.ts";
 import { createRedactor } from "../logs/redact.ts";
+import { SecretFormsCache, type SecretFormsSnapshot } from "../logs/secret-forms.ts";
 import type { GuardrailReason as GR } from "./errors.ts";
 import type { AgentState, CollabEvent } from "./types.ts";
 import type { AgentScopeValue } from "./scope.ts";
@@ -77,8 +78,16 @@ export function activeDirectory(): AgentDirectoryPort {
 export type { GR as GuardrailReason };
 
 /** Credentials can be registered after startup; trace redaction must follow the live broker set. */
-export function liveLogsRedactionPort(secrets: () => Iterable<string>): RedactionPort {
-  let key = '', cached = logsRedactionPort();
-  const current = () => { const values = [...secrets()], next = JSON.stringify(values); if (next !== key) { key = next; cached = logsRedactionPort(values); } return cached; };
+export function liveLogsRedactionPort(secrets: () => Iterable<string>, knownSecrets?: () => SecretFormsSnapshot): RedactionPort {
+  const forms = new SecretFormsCache();
+  let snapshot: SecretFormsSnapshot | undefined, cached: RedactionPort | undefined;
+  const current = (): RedactionPort => {
+    const next = knownSecrets?.() ?? forms.snapshot(secrets());
+    if (!cached || next !== snapshot) {
+      snapshot = next;
+      cached = createRedactor({ pii: true, secretMatcher: next.matcher });
+    }
+    return cached;
+  };
   return { text: s => current().text(s), value: v => current().value(v) };
 }

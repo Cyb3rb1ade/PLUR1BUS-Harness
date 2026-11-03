@@ -3,6 +3,7 @@ mod backup;
 mod cli;
 mod coexistence;
 mod commands;
+mod config_redaction;
 mod container;
 #[path = "commands/container.rs"]
 mod container_commands;
@@ -17,6 +18,7 @@ mod paths;
 mod privacy;
 mod proc;
 mod repair;
+mod role;
 mod service;
 mod supervisor;
 mod update;
