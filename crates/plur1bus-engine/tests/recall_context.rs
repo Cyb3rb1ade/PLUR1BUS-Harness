@@ -103,6 +103,49 @@ fn canonicalize_matches_node_realpath() {
     assert_eq!(context.workspace_key, context.workspace_id);
 }
 
+#[cfg(windows)]
+#[test]
+fn windows_workspace_alias_spelling_and_junctions_match_classic_node_realpath() {
+    let scratch = tempfile::tempdir().unwrap();
+    let directory = scratch.path().join("Mixed Folder");
+    fs::create_dir(&directory).unwrap();
+    let junction = scratch.path().join("junction");
+    let created = std::process::Command::new("node")
+        .args(["--input-type=module", "-e", "import fs from 'node:fs'; fs.symlinkSync(process.argv[1], process.argv[2], 'junction');"])
+        .arg(&directory).arg(&junction).output().unwrap();
+    assert!(
+        created.status.success(),
+        "private junction fixture: {}",
+        String::from_utf8_lossy(&created.stderr)
+    );
+    let vocabulary = RouteVocabulary::seeded();
+    for input in [
+        directory.clone(),
+        PathBuf::from(directory.to_string_lossy().to_uppercase()),
+        junction,
+    ] {
+        let expected = node_realpath(&input);
+        let host = TestHost::new(scratch.path().to_owned());
+        host.set_workspace("alpha", input);
+        let principal = principal_of(&serde_json::json!({
+            "agentId":"alpha", "workspace":format!("workspace-dir:v1:{expected}"),
+            "channel":"telegram", "accountId":"default", "chat":{"id":"1","kind":"direct"}, "trust":"proved"
+        }));
+        let context =
+            RequestContext::build_with(&principal, &agent_of(), &host, &vocabulary).unwrap();
+        assert_eq!(context.workspace_id, format!("workspace-dir:v1:{expected}"));
+        let changed = principal_of(&serde_json::json!({
+            "agentId":"alpha", "workspace":format!("workspace-dir:v1:{}", expected.to_lowercase()),
+            "channel":"telegram", "accountId":"default", "chat":{"id":"1","kind":"direct"}, "trust":"proved"
+        }));
+        assert_build_error(
+            "case-mismatched-workspace-claim",
+            RequestContext::build_with(&changed, &agent_of(), &host, &vocabulary),
+            "conflicting workspace identity",
+        );
+    }
+}
+
 #[test]
 fn auto_recall_skip_matches_the_node_engine() {
     let recorded = golden("auto-recall.json");

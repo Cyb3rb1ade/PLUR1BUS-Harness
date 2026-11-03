@@ -3,6 +3,8 @@
 // round are step 1 of ToolDispatcher.call.
 import { repairMessage, validateArgs, type RepairHook, type ToolCallInvalid, type ValidationIssue } from "../../src/tools/repair.ts";
 
+import type { SecretFormsSnapshot } from "../../src/logs/secret-forms.ts";
+
 export interface Callable<C = unknown, R = unknown> {
   name: string;
   inputSchema: Record<string, unknown>;
@@ -28,10 +30,10 @@ function invalid(tool: string, issues: ValidationIssue[]): ToolCallInvalid {
 export async function callWithRepair<C, R>(
   tool: Callable<C, R>,
   args: unknown,
-  opts: { repair?: RepairHook; ctx?: C } = {},
+  opts: { repair?: RepairHook; ctx?: C; knownSecrets?: () => SecretFormsSnapshot } = {},
 ): Promise<{ repairRounds: 0 | 1; result: R | ToolCallInvalid }> {
   const ctx = (opts.ctx ?? {}) as C;
-  let issues = validateArgs(tool.inputSchema, args);
+  let issues = validateArgs(tool.inputSchema, args, opts.knownSecrets);
   if (issues.length === 0) return { repairRounds: 0, result: await tool.execute(args, ctx) };
   if (!opts.repair) return { repairRounds: 0, result: invalid(tool.name, issues) };
   let fixed: unknown;
@@ -41,7 +43,7 @@ export async function callWithRepair<C, R>(
     return { repairRounds: 1, result: invalid(tool.name, issues) };
   }
   if (fixed === undefined) return { repairRounds: 1, result: invalid(tool.name, issues) };
-  issues = validateArgs(tool.inputSchema, fixed);
+  issues = validateArgs(tool.inputSchema, fixed, opts.knownSecrets);
   if (issues.length > 0) return { repairRounds: 1, result: invalid(tool.name, issues) };
   return { repairRounds: 1, result: await tool.execute(fixed, ctx) };
 }

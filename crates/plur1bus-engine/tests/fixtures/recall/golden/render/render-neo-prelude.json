@@ -1,0 +1,413 @@
+{
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "sources": {
+      "engine/recall/assemble-prompt-context.js": "f2e1e0d671bdd28a4b66c8d57625984494f841aea74b33202dc0efc00aa09896",
+      "engine/recall/warm-recall-path.js": "9fc9202dcacbc2d11b4cbd31b9a865f4263549fe63492fa1d8be7af86a5484eb",
+      "engine/recall/recall-params.js": "5e83cea3774e3cc96d7479712406b322707a9ff72c3f805f0c850140d8987613",
+      "engine/recall/recall-result.js": "69711ede93db1312ca84838c6e1fb8b44d2bdc117fc7ecf5929be2398d09ac4d",
+      "engine/recall/minimal-maintenance.js": "344b9d553e8b469b0bb3c58bb282028a1c95f86d715a4fc50c1e6f61c4379b29",
+      "engine/recall/neo-prelude.js": "3d92a9167a8e243155140b276147167ca7bd58f995b25371fc90803ae0e7df52",
+      "engine/recall/namespace-recall.js": "637899ffb1d94bfff7a23ab306f2ade4c025dce16d2690f7bb74d6955acb9a71",
+      "engine/recall/system-supplement.js": "c45f13dd48aafb404da64eca0f385af95d016836a2996da5a0ea7ff11ccf18aa",
+      "lib/relevant-memory-context.js": "021cb6e3e568915dbd12602f77ba924ac8c6f1cbc43fcb93cd8697156dca4c66",
+      "lib/inject-budget.js": "5897fe0a629543e60997e4749f4692c841a8f21a66526c618d7ff3fc1f52d945",
+      "lib/memory-context-sanitize.js": "476528aa230fcda996245aa22efee376153ea4bc9a6287ce77da62c1a54e2377",
+      "lib/prompt-memory-fields.js": "f20716b535734930677a4657ee62c01247679aa2ba2f0f6a3d7a6de62396bbda",
+      "lib/temporal-provenance.js": "b15da5a91b134fddd99a8ff2448999b9b9e8da3f069b05dd73a2c1ae3a89cc60",
+      "lib/temporal-context.js": "083204d594414fd6bac9a8cd7985cbdcf832f030c4723fe409a33f62e2c264a7",
+      "lib/session-time.js": "1b3f047ea1d41ea996641c4a125dedf66dc505a96416bcf85739340958d57756",
+      "lib/reminder-nudge.js": "f76afdf6f201c1da05951b84962ae91f610ffcb2f9d58d1e47a185e4b43d7471",
+      "lib/reminder-store.js": "f65932c13add26c2ae102704a964e87d2a8112cad2ec932712a37bfc1f227cea",
+      "lib/reminder-pending.js": "457994cb4448e4ddf393eee8af0833b5171902d3c0cded039e6937f0ce13273c",
+      "lib/mood-style-directive.js": "59cb14f22124b304015ff2ec4d19b0aab2318e1db32d4ac55ada261ae255116c",
+      "lib/conversation-reactivation-recall.js": "a4275c386dff74ddbb155388b506fc2f9085ed8120789d5dc0f8553d0db97afe",
+      "lib/recall-confidence-framing.js": "3e5bd09b5313d21ee40bf86a3c2aabac616806f4a73bd97db21759639c17824e",
+      "lib/memory-text-contradiction.js": "48b73e4ca22ed8a42e775892534534894cbaf36e2426fdaa18ad22848122d4c3",
+      "lib/contradiction-disclosure.js": "3592a6afe2184a1f66dd1059238980baaed533b134ee55c0d5f93529a3d266ff",
+      "lib/continuity-gate.js": "74b57c98d4631c9d6d34ecc2c744b02f2f430584e270671f60b3ecadc2de84b6",
+      "lib/pattern-surface.js": "e65b2ec958b0564f44ae374579ee59f52f2c9b5be50e3a95e9bb33527b276b8b",
+      "lib/drop-injected-conflicts.js": "3be72f5badcffcbd5fc82c248ee8b8d26793a1003e871ba2b9022d9aa16dcb7f",
+      "lib/semantic-lens-index.js": "9b2c59c7f594012dc602472099c80f735601c7ed6e8c989fa125c225cfc64aab",
+      "lib/recall-decision-trace.js": "cee6208fa0a91654adae11ccd17c3b44e86c84fdf9b30c1addfa1d299c96711d",
+      "lib/text-utils.js": "e5b1c6bc77dc8af1cfa5028d3cb22eca0bba549dbb7901da74f57b9f8ad98e29",
+      "lib/neo-arch.js": "ec2aec625522af631d8764298f4a21ea51e6d437d7b73e495c4b7fe95b8c813f",
+      "lib/i18n.js": "f9846591fc0bb8ec21b66c6ec178c1d9be4ef6619d8d7e6fb09ed9923e81e148",
+      "lib/i18n-dictionary.js": "830eaa06fa58847cc0ed813fe4b1797c481c7a68b4dbd9ffbde26f89e7e7fed5",
+      "lib/memory-graph.js": "6e801999c3873fb210f9602c4c67d80d5d87e643f775064d415428fc7d797bac",
+      "lib/acl-middleware.js": "28a8db1d9c2f1dafba03a6097bb8ef27785b53c1fb83b2913b6ea1245e55f2ba",
+      "lib/epistemic-status.js": "552a71f9616c8caa2151b54feadd3e6ab19a470218022027425b11ccaf967fec",
+      "lib/contradiction-detector.js": "480a9fcf96bcaf1baf416da12cac81d560fceec37e5f8b64a4206375bee85f17",
+      "lib/setup/feature-profiles.js": "f15dd589740bf58490abdd9c148f36922a27544c55a88e5f6e36b71c7416d00c",
+      "engine/create-engine.js": "616601790f1859fee2a61494bfd2ed8cd82874bdc759c37b8e5295c183028ed6",
+      "lib/interpretation-overlay.js": "3b540dc7832ee1e4c43c92699bd9d6abbda89525646fb3eb563cc64835b7215d"
+    },
+    "node": "v24.21.0",
+    "unicode": "17.0",
+    "timezone": "UTC"
+  },
+  "cases": [
+    {
+      "input": {
+        "variant": "enabled",
+        "rows": [
+          {
+            "entry": {
+              "id": "00000000-0000-4000-8000-000000000001",
+              "text": "Dashboard architecture notes: quote <section> & verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. ",
+              "summary": "Dashboard architecture notes <summary> & decisions",
+              "category": "project",
+              "origin": "dm",
+              "memoryStrength": 1,
+              "createdAt": 1768302000000,
+              "epistemicStatus": "user_asserted",
+              "status": "active",
+              "scope": "agent-private",
+              "agentId": "render-fixture",
+              "storedBy": "render-fixture"
+            },
+            "score": 0.9,
+            "source": "vector",
+            "depth": 0
+          }
+        ],
+        "neo": true,
+        "neoAlreadyInjected": false
+      },
+      "result": {
+        "blocks": [
+          {
+            "name": "neo",
+            "text": "<plur1bus-recall untrusted=\"true\" mode=\"historical-evidence-only\" idempotency-key=\"fixture-turn\">\nRecall safety: facts are memory-derived, may be stale, verify before acting.\n  <memory-record lane=\"architecture_decisions\" category=\"architecture_decision\" trust=\"user_asserted\" status=\"active\" epistemic=\"untrusted\" id=\"00000000-0000-4000-8000-000000000041\" score=\"0.99\"><quoted-evidence>Dashboard architecture decisions use explicit fixture boundaries</quoted-evidence></memory-record>\n</plur1bus-recall>",
+            "droppable": true,
+            "chars": 504
+          },
+          {
+            "name": "start",
+            "text": "",
+            "droppable": true,
+            "chars": 0
+          },
+          {
+            "name": "memories",
+            "text": "Du darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\n\n<relevant-memories untrusted=\"true\" mode=\"historical-evidence-only\">\nRecall safety: facts are memory-derived, may be stale, verify before acting.\n  <memory-record category=\"project\" source=\"memory\" id=\"00000000-0000-4000-8000-000000000001\" epistemic=\"untrusted\" created-at=\"2026-01-13T11:00:00.000Z\" age=\"1h ago\" freshness=\"recent\"><quoted-evidence>Dashboard architecture notes: quote &lt;section&gt; &amp; verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. </quoted-evidence></memory-record>\n</relevant-memories>",
+            "droppable": true,
+            "chars": 1386
+          },
+          {
+            "name": "time",
+            "text": "<time-context>\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\n</time-context>",
+            "droppable": false,
+            "chars": 115
+          },
+          {
+            "name": "temporal",
+            "text": "",
+            "droppable": false,
+            "chars": 0
+          },
+          {
+            "name": "reminder",
+            "text": "",
+            "droppable": false,
+            "chars": 0
+          }
+        ],
+        "capChars": 17000,
+        "degraded": null,
+        "deferrals": []
+      },
+      "rawLine": "{\"blocks\":[{\"name\":\"neo\",\"text\":\"<plur1bus-recall untrusted=\\\"true\\\" mode=\\\"historical-evidence-only\\\" idempotency-key=\\\"fixture-turn\\\">\\nRecall safety: facts are memory-derived, may be stale, verify before acting.\\n  <memory-record lane=\\\"architecture_decisions\\\" category=\\\"architecture_decision\\\" trust=\\\"user_asserted\\\" status=\\\"active\\\" epistemic=\\\"untrusted\\\" id=\\\"00000000-0000-4000-8000-000000000041\\\" score=\\\"0.99\\\"><quoted-evidence>Dashboard architecture decisions use explicit fixture boundaries</quoted-evidence></memory-record>\\n</plur1bus-recall>\",\"droppable\":true,\"chars\":504},{\"name\":\"start\",\"text\":\"\",\"droppable\":true,\"chars\":0},{\"name\":\"memories\",\"text\":\"Du darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\\n\\n<relevant-memories untrusted=\\\"true\\\" mode=\\\"historical-evidence-only\\\">\\nRecall safety: facts are memory-derived, may be stale, verify before acting.\\n  <memory-record category=\\\"project\\\" source=\\\"memory\\\" id=\\\"00000000-0000-4000-8000-000000000001\\\" epistemic=\\\"untrusted\\\" created-at=\\\"2026-01-13T11:00:00.000Z\\\" age=\\\"1h ago\\\" freshness=\\\"recent\\\"><quoted-evidence>Dashboard architecture notes: quote &lt;section&gt; &amp; verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. </quoted-evidence></memory-record>\\n</relevant-memories>\",\"droppable\":true,\"chars\":1386},{\"name\":\"time\",\"text\":\"<time-context>\\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\\n</time-context>\",\"droppable\":false,\"chars\":115},{\"name\":\"temporal\",\"text\":\"\",\"droppable\":false,\"chars\":0},{\"name\":\"reminder\",\"text\":\"\",\"droppable\":false,\"chars\":0}],\"capChars\":17000,\"degraded\":null,\"deferrals\":[]}",
+      "blockTexts": [
+        "<plur1bus-recall untrusted=\"true\" mode=\"historical-evidence-only\" idempotency-key=\"fixture-turn\">\nRecall safety: facts are memory-derived, may be stale, verify before acting.\n  <memory-record lane=\"architecture_decisions\" category=\"architecture_decision\" trust=\"user_asserted\" status=\"active\" epistemic=\"untrusted\" id=\"00000000-0000-4000-8000-000000000041\" score=\"0.99\"><quoted-evidence>Dashboard architecture decisions use explicit fixture boundaries</quoted-evidence></memory-record>\n</plur1bus-recall>",
+        "",
+        "Du darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\n\n<relevant-memories untrusted=\"true\" mode=\"historical-evidence-only\">\nRecall safety: facts are memory-derived, may be stale, verify before acting.\n  <memory-record category=\"project\" source=\"memory\" id=\"00000000-0000-4000-8000-000000000001\" epistemic=\"untrusted\" created-at=\"2026-01-13T11:00:00.000Z\" age=\"1h ago\" freshness=\"recent\"><quoted-evidence>Dashboard architecture notes: quote &lt;section&gt; &amp; verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. </quoted-evidence></memory-record>\n</relevant-memories>",
+        "<time-context>\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\n</time-context>",
+        "",
+        ""
+      ],
+      "joined": {
+        "text": "<plur1bus-recall untrusted=\"true\" mode=\"historical-evidence-only\" idempotency-key=\"fixture-turn\">\nRecall safety: facts are memory-derived, may be stale, verify before acting.\n  <memory-record lane=\"architecture_decisions\" category=\"architecture_decision\" trust=\"user_asserted\" status=\"active\" epistemic=\"untrusted\" id=\"00000000-0000-4000-8000-000000000041\" score=\"0.99\"><quoted-evidence>Dashboard architecture decisions use explicit fixture boundaries</quoted-evidence></memory-record>\n</plur1bus-recall>\n\nDu darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\n\n<relevant-memories untrusted=\"true\" mode=\"historical-evidence-only\">\nRecall safety: facts are memory-derived, may be stale, verify before acting.\n  <memory-record category=\"project\" source=\"memory\" id=\"00000000-0000-4000-8000-000000000001\" epistemic=\"untrusted\" created-at=\"2026-01-13T11:00:00.000Z\" age=\"1h ago\" freshness=\"recent\"><quoted-evidence>Dashboard architecture notes: quote &lt;section&gt; &amp; verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. </quoted-evidence></memory-record>\n</relevant-memories>\n\n<time-context>\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\n</time-context>",
+        "deferrals": []
+      },
+      "joinedLine": "{\"text\":\"<plur1bus-recall untrusted=\\\"true\\\" mode=\\\"historical-evidence-only\\\" idempotency-key=\\\"fixture-turn\\\">\\nRecall safety: facts are memory-derived, may be stale, verify before acting.\\n  <memory-record lane=\\\"architecture_decisions\\\" category=\\\"architecture_decision\\\" trust=\\\"user_asserted\\\" status=\\\"active\\\" epistemic=\\\"untrusted\\\" id=\\\"00000000-0000-4000-8000-000000000041\\\" score=\\\"0.99\\\"><quoted-evidence>Dashboard architecture decisions use explicit fixture boundaries</quoted-evidence></memory-record>\\n</plur1bus-recall>\\n\\nDu darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\\n\\n<relevant-memories untrusted=\\\"true\\\" mode=\\\"historical-evidence-only\\\">\\nRecall safety: facts are memory-derived, may be stale, verify before acting.\\n  <memory-record category=\\\"project\\\" source=\\\"memory\\\" id=\\\"00000000-0000-4000-8000-000000000001\\\" epistemic=\\\"untrusted\\\" created-at=\\\"2026-01-13T11:00:00.000Z\\\" age=\\\"1h ago\\\" freshness=\\\"recent\\\"><quoted-evidence>Dashboard architecture notes: quote &lt;section&gt; &amp; verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. </quoted-evidence></memory-record>\\n</relevant-memories>\\n\\n<time-context>\\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\\n</time-context>\",\"deferrals\":[]}",
+      "calls": {
+        "leases": [
+          "write",
+          "read"
+        ],
+        "embeds": [
+          {
+            "persist": null,
+            "agentId": "render-fixture"
+          },
+          {
+            "persist": null,
+            "agentId": "render-fixture"
+          }
+        ],
+        "pipelines": [
+          {
+            "topN": 12,
+            "summaryMaxWords": 150,
+            "readOnly": false,
+            "hasRetrievalLogger": true,
+            "hasQuerySummarizer": false,
+            "hasEmotionalState": true
+          }
+        ],
+        "writes": [],
+        "llm": 0,
+        "neo": [
+          "warm",
+          "record-hook"
+        ]
+      },
+      "dependencies": {
+        "neoPrelude": "<plur1bus-recall untrusted=\"true\" mode=\"historical-evidence-only\" idempotency-key=\"fixture-turn\">\nRecall safety: facts are memory-derived, may be stale, verify before acting.\n  <memory-record lane=\"architecture_decisions\" category=\"architecture_decision\" trust=\"user_asserted\" status=\"active\" epistemic=\"untrusted\" id=\"00000000-0000-4000-8000-000000000041\" score=\"0.99\"><quoted-evidence>Dashboard architecture decisions use explicit fixture boundaries</quoted-evidence></memory-record>\n</plur1bus-recall>",
+        "reactivationIndex": null,
+        "reactivationIndexLine": "null",
+        "lastUserTurnAt": null,
+        "lastCrrAt": null
+      }
+    },
+    {
+      "input": {
+        "variant": "disabled",
+        "rows": [
+          {
+            "entry": {
+              "id": "00000000-0000-4000-8000-000000000001",
+              "text": "Dashboard architecture notes: quote <section> & verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. ",
+              "summary": "Dashboard architecture notes <summary> & decisions",
+              "category": "project",
+              "origin": "dm",
+              "memoryStrength": 1,
+              "createdAt": 1768302000000,
+              "epistemicStatus": "user_asserted",
+              "status": "active",
+              "scope": "agent-private",
+              "agentId": "render-fixture",
+              "storedBy": "render-fixture"
+            },
+            "score": 0.9,
+            "source": "vector",
+            "depth": 0
+          }
+        ],
+        "neo": false,
+        "neoAlreadyInjected": false
+      },
+      "result": {
+        "blocks": [
+          {
+            "name": "neo",
+            "text": "",
+            "droppable": true,
+            "chars": 0
+          },
+          {
+            "name": "start",
+            "text": "",
+            "droppable": true,
+            "chars": 0
+          },
+          {
+            "name": "memories",
+            "text": "Du darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\n\n<relevant-memories untrusted=\"true\" mode=\"historical-evidence-only\">\nRecall safety: facts are memory-derived, may be stale, verify before acting.\n  <memory-record category=\"project\" source=\"memory\" id=\"00000000-0000-4000-8000-000000000001\" epistemic=\"untrusted\" created-at=\"2026-01-13T11:00:00.000Z\" age=\"1h ago\" freshness=\"recent\"><quoted-evidence>Dashboard architecture notes: quote &lt;section&gt; &amp; verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. </quoted-evidence></memory-record>\n</relevant-memories>",
+            "droppable": true,
+            "chars": 1386
+          },
+          {
+            "name": "time",
+            "text": "<time-context>\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\n</time-context>",
+            "droppable": false,
+            "chars": 115
+          },
+          {
+            "name": "temporal",
+            "text": "",
+            "droppable": false,
+            "chars": 0
+          },
+          {
+            "name": "reminder",
+            "text": "",
+            "droppable": false,
+            "chars": 0
+          }
+        ],
+        "capChars": 17000,
+        "degraded": null,
+        "deferrals": []
+      },
+      "rawLine": "{\"blocks\":[{\"name\":\"neo\",\"text\":\"\",\"droppable\":true,\"chars\":0},{\"name\":\"start\",\"text\":\"\",\"droppable\":true,\"chars\":0},{\"name\":\"memories\",\"text\":\"Du darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\\n\\n<relevant-memories untrusted=\\\"true\\\" mode=\\\"historical-evidence-only\\\">\\nRecall safety: facts are memory-derived, may be stale, verify before acting.\\n  <memory-record category=\\\"project\\\" source=\\\"memory\\\" id=\\\"00000000-0000-4000-8000-000000000001\\\" epistemic=\\\"untrusted\\\" created-at=\\\"2026-01-13T11:00:00.000Z\\\" age=\\\"1h ago\\\" freshness=\\\"recent\\\"><quoted-evidence>Dashboard architecture notes: quote &lt;section&gt; &amp; verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. </quoted-evidence></memory-record>\\n</relevant-memories>\",\"droppable\":true,\"chars\":1386},{\"name\":\"time\",\"text\":\"<time-context>\\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\\n</time-context>\",\"droppable\":false,\"chars\":115},{\"name\":\"temporal\",\"text\":\"\",\"droppable\":false,\"chars\":0},{\"name\":\"reminder\",\"text\":\"\",\"droppable\":false,\"chars\":0}],\"capChars\":17000,\"degraded\":null,\"deferrals\":[]}",
+      "blockTexts": [
+        "",
+        "",
+        "Du darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\n\n<relevant-memories untrusted=\"true\" mode=\"historical-evidence-only\">\nRecall safety: facts are memory-derived, may be stale, verify before acting.\n  <memory-record category=\"project\" source=\"memory\" id=\"00000000-0000-4000-8000-000000000001\" epistemic=\"untrusted\" created-at=\"2026-01-13T11:00:00.000Z\" age=\"1h ago\" freshness=\"recent\"><quoted-evidence>Dashboard architecture notes: quote &lt;section&gt; &amp; verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. </quoted-evidence></memory-record>\n</relevant-memories>",
+        "<time-context>\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\n</time-context>",
+        "",
+        ""
+      ],
+      "joined": {
+        "text": "Du darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\n\n<relevant-memories untrusted=\"true\" mode=\"historical-evidence-only\">\nRecall safety: facts are memory-derived, may be stale, verify before acting.\n  <memory-record category=\"project\" source=\"memory\" id=\"00000000-0000-4000-8000-000000000001\" epistemic=\"untrusted\" created-at=\"2026-01-13T11:00:00.000Z\" age=\"1h ago\" freshness=\"recent\"><quoted-evidence>Dashboard architecture notes: quote &lt;section&gt; &amp; verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. </quoted-evidence></memory-record>\n</relevant-memories>\n\n<time-context>\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\n</time-context>",
+        "deferrals": []
+      },
+      "joinedLine": "{\"text\":\"Du darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\\n\\n<relevant-memories untrusted=\\\"true\\\" mode=\\\"historical-evidence-only\\\">\\nRecall safety: facts are memory-derived, may be stale, verify before acting.\\n  <memory-record category=\\\"project\\\" source=\\\"memory\\\" id=\\\"00000000-0000-4000-8000-000000000001\\\" epistemic=\\\"untrusted\\\" created-at=\\\"2026-01-13T11:00:00.000Z\\\" age=\\\"1h ago\\\" freshness=\\\"recent\\\"><quoted-evidence>Dashboard architecture notes: quote &lt;section&gt; &amp; verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. </quoted-evidence></memory-record>\\n</relevant-memories>\\n\\n<time-context>\\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\\n</time-context>\",\"deferrals\":[]}",
+      "calls": {
+        "leases": [
+          "write",
+          "read"
+        ],
+        "embeds": [
+          {
+            "persist": null,
+            "agentId": "render-fixture"
+          }
+        ],
+        "pipelines": [
+          {
+            "topN": 12,
+            "summaryMaxWords": 150,
+            "readOnly": false,
+            "hasRetrievalLogger": true,
+            "hasQuerySummarizer": false,
+            "hasEmotionalState": true
+          }
+        ],
+        "writes": [],
+        "llm": 0,
+        "neo": []
+      },
+      "dependencies": {
+        "neoPrelude": "",
+        "reactivationIndex": null,
+        "reactivationIndexLine": "null",
+        "lastUserTurnAt": null,
+        "lastCrrAt": null
+      }
+    },
+    {
+      "input": {
+        "variant": "already-injected",
+        "rows": [
+          {
+            "entry": {
+              "id": "00000000-0000-4000-8000-000000000001",
+              "text": "Dashboard architecture notes: quote <section> & verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. ",
+              "summary": "Dashboard architecture notes <summary> & decisions",
+              "category": "project",
+              "origin": "dm",
+              "memoryStrength": 1,
+              "createdAt": 1768302000000,
+              "epistemicStatus": "user_asserted",
+              "status": "active",
+              "scope": "agent-private",
+              "agentId": "render-fixture",
+              "storedBy": "render-fixture"
+            },
+            "score": 0.9,
+            "source": "vector",
+            "depth": 0
+          }
+        ],
+        "neo": true,
+        "neoAlreadyInjected": true
+      },
+      "result": {
+        "blocks": [
+          {
+            "name": "neo",
+            "text": "",
+            "droppable": true,
+            "chars": 0
+          },
+          {
+            "name": "start",
+            "text": "",
+            "droppable": true,
+            "chars": 0
+          },
+          {
+            "name": "memories",
+            "text": "Du darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\n\n<relevant-memories untrusted=\"true\" mode=\"historical-evidence-only\">\nRecall safety: facts are memory-derived, may be stale, verify before acting.\n  <memory-record category=\"project\" source=\"memory\" id=\"00000000-0000-4000-8000-000000000001\" epistemic=\"untrusted\" created-at=\"2026-01-13T11:00:00.000Z\" age=\"1h ago\" freshness=\"recent\"><quoted-evidence>Dashboard architecture notes: quote &lt;section&gt; &amp; verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. </quoted-evidence></memory-record>\n</relevant-memories>",
+            "droppable": true,
+            "chars": 1386
+          },
+          {
+            "name": "time",
+            "text": "<time-context>\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\n</time-context>",
+            "droppable": false,
+            "chars": 115
+          },
+          {
+            "name": "temporal",
+            "text": "",
+            "droppable": false,
+            "chars": 0
+          },
+          {
+            "name": "reminder",
+            "text": "",
+            "droppable": false,
+            "chars": 0
+          }
+        ],
+        "capChars": 17000,
+        "degraded": null,
+        "deferrals": []
+      },
+      "rawLine": "{\"blocks\":[{\"name\":\"neo\",\"text\":\"\",\"droppable\":true,\"chars\":0},{\"name\":\"start\",\"text\":\"\",\"droppable\":true,\"chars\":0},{\"name\":\"memories\",\"text\":\"Du darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\\n\\n<relevant-memories untrusted=\\\"true\\\" mode=\\\"historical-evidence-only\\\">\\nRecall safety: facts are memory-derived, may be stale, verify before acting.\\n  <memory-record category=\\\"project\\\" source=\\\"memory\\\" id=\\\"00000000-0000-4000-8000-000000000001\\\" epistemic=\\\"untrusted\\\" created-at=\\\"2026-01-13T11:00:00.000Z\\\" age=\\\"1h ago\\\" freshness=\\\"recent\\\"><quoted-evidence>Dashboard architecture notes: quote &lt;section&gt; &amp; verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. </quoted-evidence></memory-record>\\n</relevant-memories>\",\"droppable\":true,\"chars\":1386},{\"name\":\"time\",\"text\":\"<time-context>\\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\\n</time-context>\",\"droppable\":false,\"chars\":115},{\"name\":\"temporal\",\"text\":\"\",\"droppable\":false,\"chars\":0},{\"name\":\"reminder\",\"text\":\"\",\"droppable\":false,\"chars\":0}],\"capChars\":17000,\"degraded\":null,\"deferrals\":[]}",
+      "blockTexts": [
+        "",
+        "",
+        "Du darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\n\n<relevant-memories untrusted=\"true\" mode=\"historical-evidence-only\">\nRecall safety: facts are memory-derived, may be stale, verify before acting.\n  <memory-record category=\"project\" source=\"memory\" id=\"00000000-0000-4000-8000-000000000001\" epistemic=\"untrusted\" created-at=\"2026-01-13T11:00:00.000Z\" age=\"1h ago\" freshness=\"recent\"><quoted-evidence>Dashboard architecture notes: quote &lt;section&gt; &amp; verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. </quoted-evidence></memory-record>\n</relevant-memories>",
+        "<time-context>\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\n</time-context>",
+        "",
+        ""
+      ],
+      "joined": {
+        "text": "Du darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\n\n<relevant-memories untrusted=\"true\" mode=\"historical-evidence-only\">\nRecall safety: facts are memory-derived, may be stale, verify before acting.\n  <memory-record category=\"project\" source=\"memory\" id=\"00000000-0000-4000-8000-000000000001\" epistemic=\"untrusted\" created-at=\"2026-01-13T11:00:00.000Z\" age=\"1h ago\" freshness=\"recent\"><quoted-evidence>Dashboard architecture notes: quote &lt;section&gt; &amp; verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. </quoted-evidence></memory-record>\n</relevant-memories>\n\n<time-context>\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\n</time-context>",
+        "deferrals": []
+      },
+      "joinedLine": "{\"text\":\"Du darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\\n\\n<relevant-memories untrusted=\\\"true\\\" mode=\\\"historical-evidence-only\\\">\\nRecall safety: facts are memory-derived, may be stale, verify before acting.\\n  <memory-record category=\\\"project\\\" source=\\\"memory\\\" id=\\\"00000000-0000-4000-8000-000000000001\\\" epistemic=\\\"untrusted\\\" created-at=\\\"2026-01-13T11:00:00.000Z\\\" age=\\\"1h ago\\\" freshness=\\\"recent\\\"><quoted-evidence>Dashboard architecture notes: quote &lt;section&gt; &amp; verify 👩🏽‍💻. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. Detail sentence. </quoted-evidence></memory-record>\\n</relevant-memories>\\n\\n<time-context>\\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\\n</time-context>\",\"deferrals\":[]}",
+      "calls": {
+        "leases": [
+          "write",
+          "read"
+        ],
+        "embeds": [
+          {
+            "persist": null,
+            "agentId": "render-fixture"
+          }
+        ],
+        "pipelines": [
+          {
+            "topN": 12,
+            "summaryMaxWords": 150,
+            "readOnly": false,
+            "hasRetrievalLogger": true,
+            "hasQuerySummarizer": false,
+            "hasEmotionalState": true
+          }
+        ],
+        "writes": [],
+        "llm": 0,
+        "neo": [
+          "warm",
+          "record-hook"
+        ]
+      },
+      "dependencies": {
+        "neoPrelude": "",
+        "reactivationIndex": null,
+        "reactivationIndexLine": "null",
+        "lastUserTurnAt": null,
+        "lastCrrAt": null
+      }
+    }
+  ]
+}

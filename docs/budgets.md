@@ -87,9 +87,9 @@ where `w` is the cache-read weight, a budget setting beside the time zone in the
 - **Reservations stay unweighted.** The reads are not known before the call, so admission reserves the estimated input plus maximum output, as before; settlement replaces the estimate with the actual use, which counts with the weight from then on. `estimatedTokens`, `check` estimates and the `reserve`/`settle` events stay unweighted.
 - **Arithmetic.** An event takes off at most its own input, even when a provider reports more cache reads than prompt tokens. The weighted share of a period's reads is rounded up to a whole token once per sum, in integer millionths (0.07 × 100 reads counts 7, not 8 from the binary 7.000000000000001).
 - **Fail closed.** A stored weight that cannot be parsed reads as 1.
-- **Load.** At weight 1 the reads are not summed at all, so admission does the work it did before. Below 1, global and agent limits sum the reads in the same pass over the ledger, while a user, project, turn or session limit looks up one usage event per settled call of its period, so its check grows with the number of those calls. No production path sets those four scopes today.
+- **Load.** At weight 1 the reads are not summed at all, so admission does the work it did before. Below 1, global and agent limits sum the reads in the same pass over the ledger, while a user, project, turn or session limit looks up one usage event per settled call of its period, so its check grows with the number of those calls. User, project, turn and session limits remain internal call-port settings; RPC `budget.set` exposes global and agent limits.
 
-The weight has no RPC or CLI surface yet; see [follow-up 6](#follow-ups-and-verification-boundaries).
+`budget.set` accepts `cacheReadWeight`, and both `budget.set` and `budget.status` return the active weight (RPC 1.11.0). CLI integration is tracked in [follow-up 6](#follow-ups-and-verification-boundaries).
 
 ## Periods and warnings
 
