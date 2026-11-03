@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import { execFile } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { backendArgv, INNER_LAUNCHER, outerUserNamespace } from '../../../src/tools/sandbox/backends.ts';
+import { SandboxFailure } from '../../../src/tools/sandbox/types.ts';
 import { bombTasks } from './bomb-tasks.ts';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises';
@@ -177,5 +178,22 @@ test('real backend: fork bombs stay inside their own caps while the user keeps s
     const deadline = Date.now() + 3000;
     while (bombTasks().size && Date.now() < deadline) await delay(50);
     assert.equal(bombTasks().size, 0, 'all bomb tasks were reaped');
+  } finally { await f.close(); }
+});
+
+test('ACP backend refuses a missing or invalid required task step before target argv', async () => {
+  const f = await fixture(); try {
+    const p = await preparePolicy({ ...f.policy, writeRoots: [], limitsHelper: process.execPath });
+    const detection = { backend: 'bubblewrap' as const, strength: 'partial' as const, available: true,
+      reason: 'fixture', tasks: { mechanism: 'namespace-limit' as const, reason: 'enforced' } };
+    for (const maxTasks of [0, -1, 0.5, 65537, Number.NaN, Number.POSITIVE_INFINITY]) {
+      await assert.rejects(backendArgv({ ...p, acpScratch: f.dir, limits: { ...p.limits, maxTasks } }, detection, ['/bin/true']),
+        (error: unknown) => error instanceof SandboxFailure && error.code === 'sandbox-unavailable' && /task limit/.test(error.message));
+    }
+    await assert.rejects(backendArgv({ ...p, acpScratch: f.dir }, { ...detection, tasks: { mechanism: 'none', reason: 'not-enforced' } }, ['/bin/true']),
+      (error: unknown) => error instanceof SandboxFailure && error.code === 'sandbox-unavailable' && /task limit/.test(error.message));
+    const required = await backendArgv({ ...p, acpScratch: f.dir }, detection, ['/bin/true']);
+    assert.deepEqual(required.slice(required.indexOf('--') + 1),
+      [INNER_LAUNCHER, '--tasks-required', '513', outerUserNamespace(), '--', '/bin/true']);
   } finally { await f.close(); }
 });

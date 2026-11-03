@@ -5388,6 +5388,7 @@ name = "plur1bus"
 version = "0.1.0"
 dependencies = [
  "assert_cmd",
+ "cc",
  "clap",
  "clap-markdown",
  "clap_complete",
