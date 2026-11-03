@@ -306,6 +306,36 @@ for (const lang of ["en", "de"] as const)
     });
   }
 
+test("loading SSH key metadata preserves the active connection field and its entered value", { skip: browserSkip }, async () => {
+  await withApp({}, async (app) => {
+    seed(app.server);
+    let release!: () => void;
+    const ready = new Promise<void>((resolve) => { release = resolve; });
+    app.server.rpc.handle("admin.import.ssh.connections.list", () => ({ connections: [] }), { write: false });
+    app.server.rpc.handle("admin.import.ssh.key.status", async () => {
+      await ready;
+      return { configured: true, publicKey: "ssh-ed25519 PUBLIC-FIXTURE", fingerprint: `SHA256:${"K".repeat(43)}`, instructions: "PUBLIC-FIXTURE-INSTRUCTIONS" };
+    }, { write: false });
+    app.server.rpc.handle("config.get", () => ({ revision: "r1", value: { allowHosts: [], allowPorts: [443], allowLoopback: false } }), { write: false });
+    try {
+      await openRoute(app.page, "#/import");
+      await app.page.getByLabel("Source location").selectOption("ssh");
+      await app.page.getByRole("button", { name: "Configure SSH access", exact: true }).click();
+      const account = app.page.getByLabel("SSH account", { exact: true });
+      await account.fill("reader");
+      const original = await account.elementHandle();
+      assert.ok(original);
+      assert.equal(await account.inputValue(), "reader");
+      release();
+      await app.page.getByText("PUBLIC-FIXTURE-INSTRUCTIONS", { exact: true }).waitFor();
+      assert.equal(await original.evaluate((node) => node.isConnected && node === document.activeElement), true, "loading key metadata must retain the focused connection control");
+      assert.equal(await account.inputValue(), "reader");
+    } finally {
+      release();
+    }
+  });
+});
+
 test("Owner SSH setup requires exact endpoint policy consent and independent host-key verification; Admin invokes no Owner setup methods", { skip: browserSkip }, async () => {
   await withApp({}, async (app) => {
     seed(app.server);
