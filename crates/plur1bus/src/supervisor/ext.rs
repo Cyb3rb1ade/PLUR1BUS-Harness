@@ -964,7 +964,7 @@ mod tests {
             maintenance: Default::default(),
             state: Mutex::new(crate::supervisor::test_state()),
             wake: std::sync::Condvar::new(),
-            log: crate::supervisor::Log::open(&layout.logs().join("supervisor.log"), 1 << 20, 3),
+            log: crate::supervisor::Log::open(&layout, 1 << 20, 3),
             config: Mutex::new(super::super::config::initial(&layout)),
             subscribers: Default::default(),
             out_logs: Mutex::new(Vec::new()),

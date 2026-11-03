@@ -1,5 +1,6 @@
 // Pure logic of the config sections, and a drift check of the static field metadata against the config schema.
 import assert from "node:assert/strict";
+import { randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { SETTINGS } from "../src/palette/settings-index.ts";
@@ -25,11 +26,11 @@ describe("field metadata", () => {
 });
 
 describe("buildFields", () => {
-  test("every config section has fields, secrets sections none, and no sensitive key appears", () => {
+  test("every config section has fields and unknown public names are not hidden by a heuristic", () => {
     for (const s of SECTIONS.filter((x) => x.kind === "config")) assert.ok(buildFields({}, s).length > 0, s.id);
     assert.deepEqual(buildFields({}, { id: "x", kind: "config", label: "settings.title", keys: ["nothing."] }), []);
-    const f = buildFields({ models: { scan: { apiKey: "x" } } }, sectionById("models")!);
-    assert.ok(!f.some((x) => /key/i.test(x.key)));
+    const fields = buildFields({ core: { futureTokenCount: 7 } }, sectionById("general")!);
+    assert.equal(fields.find((field) => field.key === "core.futureTokenCount")?.value, 7);
   });
   test("restart class comes from the lookup, then the metadata", () => {
     const f = buildFields({}, sectionById("general")!, { "core.logLevel": "module:x" });
@@ -82,26 +83,69 @@ describe("integers without an upper bound", () => {
   });
 });
 
-describe("secrets under names the key heuristic does not know", () => {
-  test("redact masks authorization headers, cookies, passphrases and credentials inside URLs", () => {
+describe("schema-declared secrets", () => {
+  test("reference names stay readable in current and review projections while pasted keys stay masked", () => {
+    const name = `providers.openai.${randomUUID().slice(0, 8)}`;
+    const reference = { source: "env", provider: "default", id: "OPENAI_API_KEY" };
+    assert.equal(redact(name, "voice.providers.elevenlabs.apiKeyRef"), name);
+    assert.deepEqual(redact(reference, "engine.embedding.apiKey"), reference);
+    assert.equal(redact("${OPENAI_API_KEY}", "engine.embedding.apiKey"), "${OPENAI_API_KEY}");
+    assert.equal(redact("./credentials/federated-token.json", "auth.openai.federated.file"), "./credentials/federated-token.json");
+    assert.equal(redact(reference.id, "engine.embedding.apiKey.id"), "••••", "a scalar alone cannot establish a valid object-form reference");
+    assert.equal(redact(name, "engine.merging.headers.ordinary"), "••••", "a literal field is protected even when its value resembles a name");
+    assert.equal(redact(name, "auth.openai.federated.environment.ORDINARY"), "••••");
+
+    for (const literal of [
+      `sk-${randomBytes(24).toString("base64url")}`,
+      `ghp_${randomBytes(24).toString("base64url")}`,
+      `xoxb-${randomBytes(24).toString("base64url")}`,
+      randomBytes(64).toString("base64url"),
+      randomBytes(24).toString("hex"),
+      `long.${randomUUID()}.${"name".repeat(30)}`,
+    ]) {
+      assert.equal(redact(literal, "voice.providers.elevenlabs.apiKeyRef"), "••••");
+      const projected = redact({ ...reference, id: literal }, "engine.embedding.apiKey");
+      assert.ok(!JSON.stringify(projected).includes(literal), "a token-looking reference identifier is a protected literal");
+    }
+  });
+  test("reference policies retain names through arrays, subtree views and literal dotted map keys", () => {
+    const name = `providers.openai.${randomUUID().slice(0, 8)}`;
+    const literal = `sk-${randomBytes(24).toString("base64url")}`;
+    const routes = [
+      { provider: { apiKeyRef: name } },
+      { provider: { apiKeyRef: literal } },
+    ];
+    assert.deepEqual(redact(routes, "engine.embedding.routes"), [
+      { provider: { apiKeyRef: name } },
+      { provider: { apiKeyRef: "••••" } },
+    ]);
+    assert.equal(redact(name, "engine.embedding.routes[].provider.apiKeyRef"), name);
+    assert.deepEqual(redact({ providers: { "openai.compatible": { profile: { secret_ref: name, extra_headers: { "x.api.key": literal } } } } }),
+      { providers: { "openai.compatible": { profile: { secret_ref: name, extra_headers: { "x.api.key": "••••" } } } } });
+  });
+  test("redact masks whole header maps and URL parts while retaining public endpoint material", () => {
+    const secret = randomUUID();
     const out = redact({
-      providers: { a: { headers: { Authorization: "Bearer swordfish", Cookie: "sid=swordfish", "X-Api-Passphrase": "swordfish" }, baseUrl: "https://ann:swordfish@llm.example.com/v1", note: "plain" } },
-      list: ["Bearer swordfish", "https://llm.example.com/v1"],
+      engine: { merging: { headers: { ordinary: secret }, baseUrl: `https://${secret}@llm.example.com/v1?ordinary=${secret}`, model: "public-model" } },
     });
     const text = JSON.stringify(out);
-    assert.ok(!text.includes("swordfish"), text);
-    assert.match(text, /"note":"plain"/);
-    assert.match(text, /https:\/\/llm\.example\.com\/v1/);
+    assert.ok(!text.includes(secret), text);
+    assert.match(text, /"model":"public-model"/);
+    assert.match(text, /llm\.example\.com\/v1\?ordinary=••••/);
   });
-  test("buildFields keeps such keys out of the editable fields", () => {
-    const fields = buildFields({ extensions: { registry: { authorization: "Bearer swordfish", cookie: "x", endpoint: "https://r.example.com" } } }, sectionById("extensions")!);
-    assert.deepEqual(fields.filter((f) => f.key.startsWith("extensions.registry")).map((f) => f.key), ["extensions.registry.endpoint"]);
+  test("endpoint controls retain an empty replacement draft rather than the masked current value", () => {
+    const fields = buildFields({ core: { webHandoffBaseUrl: "https://relay.example.test/public" } }, sectionById("general")!);
+    const field = fields.find((field) => field.key === "core.webHandoffBaseUrl");
+    assert.ok(field);
+    assert.equal(Object.hasOwn(initialDraft(fields), field.key), false);
   });
 });
 
 describe("helpers", () => {
   test("redact masks sensitive keys at depth", () => {
-    assert.deepEqual(redact({ a: { apiKey: "s", b: [{ token: "t", ok: 1 }] } }), { a: { apiKey: "••••", b: [{ token: "••••", ok: 1 }] } });
+    const secret = randomUUID();
+    assert.deepEqual(redact({ engine: { embedding: { apiKey: { source: "env", id: secret } } }, auth: { openai: { federated: { args: [secret] } } } }),
+      { engine: { embedding: { apiKey: { source: "••••", id: "••••" } } }, auth: { openai: { federated: { args: ["••••"] } } } });
   });
   test("mapInvalid assigns segments by dotted key or JSON pointer", () => {
     const r = mapInvalid("/core/logLevel must be one of; metrics.port too low; something else", ["core.logLevel", "metrics.port"]);

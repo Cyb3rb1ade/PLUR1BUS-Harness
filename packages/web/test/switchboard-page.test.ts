@@ -2,6 +2,7 @@
 // field edit with schema validation & secret rejection, health test & send-owner,
 // link-help, role visibility, axe, German.
 import assert from "node:assert/strict";
+import { randomBytes, randomUUID } from "node:crypto";
 import { after, before, describe, test } from "node:test";
 import { expectAxeClean } from "./axe.ts";
 import { browserSkip, openRoute, setup, teardown, withApp, type App } from "./harness.ts";
@@ -92,6 +93,77 @@ describe("switchboard: states", opts, () => {
 });
 
 describe("switchboard: channel details and actions", opts, () => {
+  for (const field of ["webhook", "homeserverUrl"]) test(`masked channel field ${field} requires an explicit replacement`, async () => {
+    await withApp({}, async app => {
+      const webhook = field === "webhook";
+      const id = webhook ? "telegram" : "matrix";
+      const current = webhook ? { url: "https://callback.example/public?ordinary=••••", secret: "••••", maxBodyBytes: 1024 }
+        : "https://matrix.example/public?ordinary=••••";
+      seedSwitchboard(app.server.rpc, [sampleChannel({ id, displayName: id, secrets: [], config: { [field]: current } })]);
+      await open(app);
+      await app.page.getByRole("button", { name: new RegExp(id, "i") }).click();
+      await app.page.getByRole("row", { name: new RegExp(field) })
+        .getByRole("button", { name: /Edit setting|Edit key/i }).click();
+      const dialog = app.page.getByRole("dialog");
+      const input = dialog.getByLabel(/Value/i);
+      const save = dialog.getByRole("button", { name: /Save/i });
+      if (!await save.isDisabled()) {
+        await save.click();
+        await dialog.waitFor({ state: "detached" });
+      }
+      assert.equal(calls(app, "channel.set").length, 0, "an untouched masked field was submitted");
+      assert.equal(await input.inputValue(), "", "a masked snapshot must never prefill a replacement draft");
+      assert.equal(await save.isDisabled(), true);
+      const endpoint = `https://replacement.example/public?ordinary=${randomUUID()}`;
+      const replacement = webhook ? { url: endpoint, secret: randomUUID(), maxBodyBytes: 2048 } : endpoint;
+      await input.fill(typeof replacement === "string" ? replacement : JSON.stringify(replacement));
+      await save.click();
+      await dialog.waitFor({ state: "detached" });
+      assert.deepEqual(calls(app, "channel.set").map(call => call.params), [{ id, key: field, value: replacement }]);
+    });
+  });
+
+  for (const kind of ["name", "literal"] as const) {
+    test(`reference ${kind} displays safely and supports an explicit replacement without prefilling`, async () => {
+      await withApp({}, async (app) => {
+        const name = `channels.discord.${randomUUID().slice(0, 8)}`;
+        const literal = `sk-${randomBytes(24).toString("base64url")}`;
+        const current = kind === "name" ? name : literal;
+        const state = seedSwitchboard(app.server.rpc, [sampleChannel({
+          secrets: [{ key: "tokenSecret", name: current, present: true }],
+          config: { enabled: true, tokenSecret: current },
+        })]);
+        await open(app);
+        await app.page.getByRole("button", { name: /Discord/i }).click();
+        const row = app.page.getByRole("row", { name: /tokenSecret/i });
+        await row.waitFor();
+        assert.ok(!(await app.page.content()).includes(literal));
+        if (kind === "name") assert.ok((await row.innerText()).includes(name));
+        else {
+          assert.match(await row.innerText(), /••••/);
+          assert.match(await row.innerText(), /looks like a pasted key/i);
+        }
+        await row.getByRole("button", { name: /Edit setting|Edit key/i }).click();
+        const dialog = app.page.getByRole("dialog");
+        const input = dialog.getByLabel(/Value/i);
+        assert.equal(await input.inputValue(), "");
+        assert.ok(!(await dialog.innerText()).includes(literal));
+        if (kind === "name") assert.ok((await dialog.innerText()).includes(name), "the safe current name remains visible beside the replacement field");
+        else {
+          assert.match(await dialog.innerText(), /••••/);
+          assert.match(await dialog.innerText(), /looks like a pasted key/i);
+        }
+        const replacement = `${name}.replacement`;
+        await input.fill(replacement);
+        assert.equal(await input.getAttribute("type"), "text", "safe replacement names stay readable");
+        await dialog.getByRole("button", { name: /^Save$/i }).click();
+        await dialog.waitFor({ state: "detached" });
+        assert.deepEqual(calls(app, "channel.set").map((call) => call.params), [{ id: "discord", key: "tokenSecret", value: replacement }]);
+        assert.equal(state.channels[0]!.config.tokenSecret, replacement);
+      });
+    });
+  }
+
   test("selecting channel displays detail, secrets as names only, and linkHelp", async () => {
     await withApp({}, async (app) => {
       seedSwitchboard(app.server.rpc);
@@ -155,7 +227,11 @@ describe("switchboard: channel details and actions", opts, () => {
       await app.page.getByRole("row", { name: /tokenSecret/i }).getByRole("button", { name: /Edit setting|Edit key/i }).click();
       const dlgSecret = app.page.getByRole("dialog");
       const secretInput = dlgSecret.getByLabel(/Value/i);
-      await secretInput.fill("sk-live-raw-token-value");
+      const literal = `sk-${randomBytes(24).toString("base64url")}`;
+      await secretInput.fill(literal);
+      assert.equal(await secretInput.getAttribute("type"), "password");
+      assert.match(await dlgSecret.innerText(), /looks like a pasted key/i);
+      assert.ok(!(await dlgSecret.innerText()).includes(literal));
       await dlgSecret.getByRole("button", { name: /Save/i }).click();
 
       // Check rejection message with link to secrets page
