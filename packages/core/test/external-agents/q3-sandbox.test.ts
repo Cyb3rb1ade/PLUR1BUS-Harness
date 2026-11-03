@@ -1,7 +1,7 @@
 /** Q3 opt-in, metadata and real sandbox regressions. No unavailable-backend skips. */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { linkSync, mkdirSync, readFileSync, renameSync, symlinkSync, unlinkSync, writeFileSync, existsSync } from "node:fs";
+import { linkSync, mkdirSync, readFileSync, realpathSync, renameSync, symlinkSync, unlinkSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { test } from "node:test";
@@ -40,13 +40,13 @@ test("the ACP opt-in rejects forged, multiple, mismatched, symlinked and hard-li
   unlinkSync(join(f.worktree, "alias"));
   const moved = f.worktree + "-moved";
   renameSync(f.worktree, moved);
-  symlinkSync(moved, f.worktree);
+  symlinkSync(moved, f.worktree, process.platform === "win32" ? "junction" : "dir");
   await assert.rejects(preparePolicy(f.policy), /symlinked|identity changed/);
   unlinkSync(f.worktree);
   renameSync(moved, f.worktree);
   const parent = dirname(f.worktree), movedParent = parent + "-moved";
   renameSync(parent, movedParent);
-  symlinkSync(movedParent, parent);
+  symlinkSync(movedParent, parent, process.platform === "win32" ? "junction" : "dir");
   await assert.rejects(preparePolicy(f.policy), /symlinked/);
   unlinkSync(parent);
   renameSync(movedParent, parent);
@@ -63,7 +63,7 @@ test("ordinary backend callers retain writable-root refusal and approved Git dir
   const argv = await backendArgv(p, detection, ["/usr/bin/true"]);
   assert.equal(argv.filter(v => v === "--bind").length, 1);
   assert.ok(argv.includes("--cap-drop"));
-  const gitDir = execFileSync("git", ["-C", f.worktree, "rev-parse", "--absolute-git-dir"], { encoding: "utf8" }).trim();
+  const gitDir = realpathSync.native(execFileSync("git", ["-C", f.worktree, "rev-parse", "--absolute-git-dir"], { encoding: "utf8" }).trim());
   for (const path of [gitDir, join(f.repo, ".git")])
     assert.ok(argv.some((v, i) => v === "--ro-bind" && argv[i + 1] === path && argv[i + 2] === path));
 });
@@ -92,6 +92,8 @@ test("host Git ignores a replaced .git pointer and never executes a clean filter
   writeFileSync(join(f.worktree, "file.txt"), "safe");
   pinnedGit(gitDir, f.worktree, ["add", "file.txt", ".gitattributes"]);
   writeFileSync(join(f.worktree, "file.txt"), "changed tracked file");
+  // Replace the entry: Windows can refuse opening Git's existing pointer for overwrite.
+  unlinkSync(join(f.worktree, ".git"));
   writeFileSync(join(f.worktree, ".git"), "gitdir: /nonexistent-attacker-metadata\n");
   assert.match(pinnedGit(gitDir, f.worktree, ["status", "--porcelain"]), /file.txt/);
   pinnedGit(gitDir, f.worktree, ["diff", "HEAD"]);
