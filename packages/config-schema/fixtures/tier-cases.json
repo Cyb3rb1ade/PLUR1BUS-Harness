@@ -2462,6 +2462,51 @@
                 "x-restart": "live",
                 "x-tier": "basic"
               },
+              "engine": {
+                "x-write-roles": [
+                  "owner",
+                  "admin"
+                ],
+                "x-audit": true,
+                "description": "External ACP agent (ADR-003 Q4). Stateless: the connector keeps no harness session. Real CLIs stay out of CI.",
+                "type": "object",
+                "additionalProperties": false,
+                "x-restart": "live",
+                "x-tier": "advanced",
+                "required": [
+                  "kind",
+                  "connector"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "external",
+                    "description": "External coding agent. The harness remains the only git writer."
+                  },
+                  "connector": {
+                    "enum": [
+                      "claude-code",
+                      "codex",
+                      "goose",
+                      "agy"
+                    ],
+                    "description": "Connector id. goose is gated; agy is best-effort."
+                  },
+                  "maxTurns": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200,
+                    "default": 20,
+                    "description": "Maximum ACP prompts for one delegation."
+                  },
+                  "timeoutMs": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 3600000,
+                    "default": 600000,
+                    "description": "Kills the connector process group after this many milliseconds."
+                  }
+                }
+              },
               "channels": {
                 "description": "Channel names selected for this agent. Does not enable installation channels.",
                 "type": "array",
