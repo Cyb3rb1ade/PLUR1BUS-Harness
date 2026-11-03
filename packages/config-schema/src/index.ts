@@ -9,12 +9,18 @@ import schemaJson from "../schema/config.schema.json" with { type: "json" };
 
 export const CONFIG_SCHEMA = schemaJson as Record<string, any>;
 export const SCHEMA_VERSION = 1 as const;
+/** Fixed MM-3a local support catalog, shared with Rust config ownership through the schema. */
+export const MEDIA_MODEL_CATALOG = schemaJson["x-media-models"];
 
 export interface MediaEmbeddingConfig {
   enabled: boolean; provider: string; privacyAck?: PrivacyAcknowledgment; model: string; dimensions: number;
   modalities: ("image" | "video" | "audio")[];
-  video: { segmentSec: number; maxFrames: number; sceneDetect: boolean };
+  image: { softTokens: number };
+  video: { segmentSec: number; maxFrames: number; sceneDetect: boolean; softTokens: number };
   audio: { segmentSec: number; maxSeconds: number };
+  dtypes: Record<"linux-x64" | "linux-arm64" | "darwin-arm64" | "win32-x64" | "win32-arm64", {
+    text: "q8"; vision: "q8"; audio: "q8";
+  }>;
   caption: { source: "prompt-then-user-then-auto" | "user-only" | "off"; provider?: string; privacyAck?: PrivacyAcknowledgment; maxChars: number; perSegment: boolean };
   backfill: "auto" | "manual";
 }
@@ -30,12 +36,28 @@ export interface McpServerConfig {
   agents: "all" | string[];
 }
 
+/** D124 classes govern work rounds and deadlines independently of the bounded return summary. */
+export type CollaborationTaskClass = 'consult' | 'research' | 'review' | 'code-small' | 'code-large';
+export interface CollaborationLimitsConfig {
+  readHelpers: { perTurn: number; depth: number };
+  writers: { perProject: number };
+  consults: { perPairPerTurn: number };
+  workTokens: number;
+  taskClasses: Record<CollaborationTaskClass, { rounds: number; wallTimeMs: number; stallTimeMs: number }>;
+}
+export interface CollaborationTeamsConfig {
+  enabled: boolean;
+  capacity: { coresPerWriter: number; memoryPerWriter: number; maxWriters?: number };
+  disk: { minFreeBytes: number };
+}
+
 export interface HarnessConfig {
+  a2aClient?: { enabled: boolean; timeoutMs: number; maxCardBytes: number; maxRequestBytes: number; maxReplyBytes: number; maxPeers: number; peerCalls: number; turnCalls: number; peerTokens: number; turnTokens: number };
   import?: { ssh?: { connections?: Record<string, {
     host: string; port: number; user: string; roots: string[]; allowPrivate: boolean;
     hostKey?: { sha256: string; algorithm?: string };
   }> } };
-  collaboration: { fanoutEnabled: boolean };
+  collaboration: { fanoutEnabled: boolean; limits: CollaborationLimitsConfig; teams: CollaborationTeamsConfig };
   remote?: {publish:"local"|"tailnet"|"network";tls:"self-signed"|"company-ca";publicOrigin?:string;bind:{address?:string;port?:number;allowPublicInterface?:boolean};allowSubnets:string[];noticeAck?:{by:string;at:number;version:1}};
   approvals?: { maxGrantDays: number; requireOsConfirmation: boolean };
   breakglass?: { reasonMinChars: number; reasonMaxChars: number; maxWindowMinutes: number };
@@ -45,13 +67,13 @@ export interface HarnessConfig {
   sidecars?: Record<string, { mode: "bundled" | "remote" | "off"; url?: string; caBundle?: string; fingerprint?: string; timeoutMs: number }>;
   $schema?: string;
   schemaVersion: 1;
-  session: { compaction: { softRatio: number; hardRatio: number; summaryMaxTokens: number; maxMessageTokens: number; summarizer: "llm" | "digest"; prune: { enabled: boolean; keepLastTurns: number; decider: "laya" | "heuristic" | "off"; maxMs: number; batchSize: number } } };
+  session: { rewind: { autoProjects: string[]; fileProjects: string[]; checkpointRetentionTurns: number }; compaction: { softRatio: number; hardRatio: number; summaryMaxTokens: number; maxMessageTokens: number; summarizer: "llm" | "digest"; prune: { enabled: boolean; keepLastTurns: number; decider: "laya" | "heuristic" | "off"; maxMs: number; batchSize: number } } };
   tools: { sandbox: { required: boolean; maxTasks: number }; hostctl: { enabled: boolean; shell: { allowed: boolean; default: "bash" | "zsh" | "pwsh" }; exec: { timeoutMs: number }; output: { maxBytes: number }; env: { allow: string[] }; denyPatterns: string[]; search: { maxResults: number } } };
   core: { webHandoffBaseUrl: string; logLevel: "debug" | "info" | "warn" | "error"; recall: { softBudgetMs: number; hardBudgetMs: number; capChars: number }; capture: { waitMs: number }; shutdownBudgetMs: number };
   supervisor: { graceMs: number; healthIntervalMs: number; maxCores: number };
   logs: { maxBytes: number; keep: number };
   metrics: { enabled: boolean; port: number };
-  agents: Record<string, { skills?: { blocked?: string[]; pinned?: string[]; applyAt?: "next-turn" | "next-session" }; createdAt?: string; behaviour?: BehaviourSet; displayName?: string; persona?: string; model?: string; modelPolicy?: ModelRoutingPolicy; toolUse?: ToolUsePolicy; channels?: string[]; voice?: VoiceV3Override; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> }; privacy?: { localOnly?: boolean }; memoryExposure?: { collab?: { recall?: { workspace?: boolean; user?: boolean; agentPrivate?: boolean }; capture?: boolean }; mcp?: { recall?: { workspace?: boolean; user?: boolean; agentPrivate?: boolean }; capture?: boolean }; a2a?: { recall?: { workspace?: boolean; user?: boolean; agentPrivate?: boolean }; capture?: boolean } }; mcpServer?: { exposed?: boolean; allowedGroups?: readonly string[] } }>;
+  agents: Record<string, { coding?: boolean; skills?: { blocked?: string[]; pinned?: string[]; applyAt?: "next-turn" | "next-session" }; createdAt?: string; behaviour?: BehaviourSet; displayName?: string; persona?: string; model?: string; modelPolicy?: ModelRoutingPolicy; toolUse?: ToolUsePolicy; channels?: string[]; voice?: VoiceV3Override; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> }; privacy?: { localOnly?: boolean }; engine?: { kind: "external"; connector: "claude-code" | "codex" | "goose" | "agy"; maxTurns?: number; timeoutMs?: number }; memoryExposure?: { collab?: { recall?: { workspace?: boolean; user?: boolean; agentPrivate?: boolean }; capture?: boolean }; mcp?: { recall?: { workspace?: boolean; user?: boolean; agentPrivate?: boolean }; capture?: boolean }; a2a?: { recall?: { workspace?: boolean; user?: boolean; agentPrivate?: boolean }; capture?: boolean } }; mcpServer?: { exposed?: boolean; allowedGroups?: readonly string[] } }>;
   memory: { embedding?: { privacyAck?: PrivacyAcknowledgment }; reranker?: { privacyAck?: PrivacyAcknowledgment }; mediaEmbedding: MediaEmbeddingConfig };
   /** Installation-wide privacy switches (privacy.localOnly: no model call leaves the machine). */
   privacy: { localOnly: boolean; localEndpoints: string[] };
@@ -186,6 +208,7 @@ export type RestartClass = "live" | "core" | `module:${string}`;
 const ajv = new ((Ajv2020 as any).default ?? Ajv2020)({ strict: true, allErrors: true, useDefaults: true, strictSchema: false });
 ((addFormats as any).default ?? addFormats)(ajv);
 ajv.addKeyword("x-restart"); ajv.addKeyword("x-reserved"); ajv.addKeyword("x-tier");
+ajv.addKeyword("x-media-models");
 const validateFn: ValidateFunction = ajv.compile(CONFIG_SCHEMA);
 
 /** Defaults are produced by validating an empty object with useDefaults — one source of truth. */
@@ -211,6 +234,8 @@ export function validate(value: unknown): { ok: true; config: HarnessConfig } | 
     })] as [string, MediaEmbeddingConfig][];
     for (const [path, media] of mediaLayers) {
       if (!media.enabled) continue;
+      // Loading existing schema-valid media selections is tolerant. Catalog support is
+      // checked on relevant writes; the runtime uses documented local defaults for legacy entries.
       for (const [suffix, provider, ack, local] of [
         ["", media.provider, media.privacyAck, ["local", "local-transformers", "egemma2", "off"].includes(media.provider)],
         ["/caption", media.caption.provider, media.caption.privacyAck, !media.caption.provider || ["local", "off"].includes(media.caption.provider) || media.caption.source === "off"],

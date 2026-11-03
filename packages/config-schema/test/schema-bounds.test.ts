@@ -47,19 +47,21 @@ describe("schema bounds", () => {
     ["core.recall.softBudgetMs", MS, [["core.recall.hardBudgetMs", MS]]], ["core.recall.hardBudgetMs", MS],
     ["core.capture.waitMs", MS], ["core.shutdownBudgetMs", MS], ["supervisor.graceMs", MS], ["supervisor.healthIntervalMs", MS],
     ["session.compaction.summaryMaxTokens", 2_000_000], ["session.compaction.maxMessageTokens", 2_000_000], ["session.compaction.prune.keepLastTurns", 1000],
-    ["memory.mediaEmbedding.dimensions", 16384], ["memory.mediaEmbedding.video.segmentSec", 3600], ["memory.mediaEmbedding.video.maxFrames", 4096],
-    ["memory.mediaEmbedding.audio.segmentSec", 3600], ["memory.mediaEmbedding.audio.maxSeconds", 604_800], ["memory.mediaEmbedding.caption.maxChars", 10_000], ["engine.schicht15.maxPromotionsPerRun", 1_000_000],
+    ["memory.mediaEmbedding.dimensions", 16384], ["memory.mediaEmbedding.image.softTokens", 280], ["memory.mediaEmbedding.video.softTokens", 280], ["memory.mediaEmbedding.video.segmentSec", 3600], ["memory.mediaEmbedding.video.maxFrames", 4096],
+    ["memory.mediaEmbedding.audio.segmentSec", 30], ["memory.mediaEmbedding.audio.maxSeconds", 604_800], ["memory.mediaEmbedding.caption.maxChars", 10_000], ["engine.schicht15.maxPromotionsPerRun", 1_000_000],
   ];
   for (const [path, max, siblings = []] of numbers) {
     it(`${path} accepts ${max} and refuses ${max + 1}`, () => {
-      const build = (v: number) => siblings.reduce((c, [p, x]) => at(c, p, x), at(defaults(), path, v));
+      // Schema bounds also cover disabled selections; enabled local models have narrower catalog dimensions.
+      const seed = () => path.endsWith(".dimensions") ? at(defaults(), "memory.mediaEmbedding.enabled", false) : defaults();
+      const build = (v: number) => siblings.reduce((c, [p, x]) => at(c, p, x), at(seed(), path, v));
       assert.equal(ok(build(max)), true, `${path} = ${max}`);
       assert.equal(ok(build(max + 1)), false, `${path} = ${max + 1}`);
     });
   }
 
   it("the same media limits apply to a per-agent override", () => {
-    const build = (dimensions: number, maxFrames: number) => at(at(defaults(), "agents.bernd.memory.mediaEmbedding.dimensions", dimensions), "agents.bernd.memory.mediaEmbedding.video.maxFrames", maxFrames);
+    const build = (dimensions: number, maxFrames: number) => at(at(at(defaults(), "memory.mediaEmbedding.enabled", false), "agents.bernd.memory.mediaEmbedding.dimensions", dimensions), "agents.bernd.memory.mediaEmbedding.video.maxFrames", maxFrames);
     assert.equal(ok(build(16384, 4096)), true);
     assert.equal(ok(build(16385, 32)), false);
     assert.equal(ok(build(768, 4097)), false);
@@ -89,7 +91,7 @@ describe("schema bounds", () => {
 
   const strings: [path: string, max: number, prefix?: [string, unknown][]][] = [
     ["auth.openai.federated.command", 4096], ["auth.openai.federated.file", 4096], ["modelRoles.chat", 256], ["$schema", 2048],
-    ["engine.baseDbPathOverride", 4096], ["memory.mediaEmbedding.model", 256], ["memory.mediaEmbedding.provider", 128, [["memory.mediaEmbedding.enabled", false]]],
+    ["engine.baseDbPathOverride", 4096], ["memory.mediaEmbedding.model", 256, [["memory.mediaEmbedding.enabled", false]]], ["memory.mediaEmbedding.provider", 128, [["memory.mediaEmbedding.enabled", false]]],
     ["agents.bernd.skills.pinned.0", 128], ["containers.image", 512],
   ];
   for (const [path, max, prefix = []] of strings) {
@@ -119,7 +121,7 @@ describe("schema bounds", () => {
     Object.assign(cfg.logs, { maxBytes: 536_870_912, keep: 30 });
     Object.assign(cfg.core.recall, { capChars: 200_000, hardBudgetMs: 120_000, softBudgetMs: 60_000 });
     Object.assign(cfg.session.compaction, { summaryMaxTokens: 128_000, maxMessageTokens: 200_000 });
-    Object.assign(cfg.memory.mediaEmbedding, { dimensions: 3072 });
+    Object.assign(cfg.memory.mediaEmbedding, { enabled: false, dimensions: 3072 });
     assert.equal(ok(cfg), true);
   });
 });

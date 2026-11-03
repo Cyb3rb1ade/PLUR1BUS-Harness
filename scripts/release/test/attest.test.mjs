@@ -15,6 +15,8 @@ test('all release targets ship the exact helper beside the CLI with safe tar per
   writeFileSync(join(d, 'cli'), 'cli'); writeFileSync(join(d, 'core'), 'core');
   writeFileSync(join(d, 'plur1bus-attest'), 'final helper bytes', { mode: 0o777 });
   writeFileSync(join(d, 'plur1bus-attest.exe'), 'final windows bytes');
+  writeFileSync(join(d, 'plur1bus-tools'), 'native tools fixture');
+  writeFileSync(join(d, 'plur1bus-tools.exe'), 'native tools fixture');
   for (const target of ['linux-x64', 'linux-arm64', 'linux-x64-musl', 'darwin-arm64', 'darwin-x64', 'darwin-universal', 'win-x64']) {
     const windows = target === 'win-x64', name = `bin/plur1bus-attest${windows ? '.exe' : ''}`;
     const archive = join(d, `${target}.${windows ? 'zip' : 'tar.gz'}`);
@@ -23,6 +25,7 @@ test('all release targets ship the exact helper beside the CLI with safe tar per
     if (windows) execFileSync('unzip', ['-q', archive, '-d', out]);
     else execFileSync('tar', ['-xf', archive, '-C', out]);
     assert.equal(readFileSync(join(out, name), 'utf8'), windows ? 'final windows bytes' : 'final helper bytes');
+    assert.equal(readFileSync(join(out, `bin/plur1bus-tools${windows ? '.exe' : ''}`), 'utf8'), 'native tools fixture');
     if (!windows) {
       assert.equal(statSync(join(out, name)).mode & 0o777, 0o755);
       assert.equal(statSync(join(out, 'bin')).mode & 0o022, 0);
@@ -52,7 +55,10 @@ test('helper preparation hashes after signing, and missing signer pins warn with
 
 test('release build without hash pin warns, debug builds do not; changing pins invalidates Cargo build', () => fixture(async d => {
   const executable = join(d, 'build-script');
-  execFileSync('rustc', [join(root, 'crates/plur1bus/build.rs'), '-o', executable]);
+  const source = join(d, 'build-script.rs');
+  // Compile the actual platform-independent build metadata; Cargo supplies cc for the native watchdog shim.
+  writeFileSync(source, `#[path = ${JSON.stringify(join(root, 'crates/plur1bus/build/attest_pins.rs'))}]\nmod attest_pins;\nfn main() { attest_pins::emit(); }\n`);
+  execFileSync('rustc', [source, '-o', executable]);
   const env = { ...process.env, PROFILE: 'release' }; delete env.PLUR1BUS_ATTEST_SHA256;
   const run = extra => spawnSync(executable, [], { env: { ...env, ...extra }, encoding: 'utf8' });
   const missing = run({}); assert.equal(missing.status, 0); assert.match(missing.stdout, /cargo:warning=.*PLUR1BUS_ATTEST_SHA256/);
@@ -67,7 +73,9 @@ test('workflow passes final helper hash before CLI build, including the universa
   assert.match(workflow, /-p plur1bus-attest/);
   assert.match(workflow, /build:\n    needs: \[meta, attest\]/);
   assert.ok(workflow.indexOf('attest.mjs --load helper') < workflow.indexOf('pnpm gen && pnpm build'));
-  assert.ok(workflow.indexOf('scripts/release/attest.mjs') < workflow.indexOf('cargo build --locked --release -p plur1bus --target'));
+  const cliBuild = workflow.indexOf('cargo build --locked --release -p plur1bus -p plur1bus-tools --target');
+  assert.ok(cliBuild >= 0, 'the release builds both the CLI and its native tools service');
+  assert.ok(workflow.indexOf('scripts/release/attest.mjs') < cliBuild);
   assert.match(workflow, /vars.PLUR1BUS_ATTEST_TEAM_ID/); assert.match(workflow, /vars.PLUR1BUS_ATTEST_WIN_THUMBPRINT/);
   assert.match(workflow, /attest-darwin-universal/);
   for (const file of ['nfpm/nfpm.yaml.in', 'scoop/plur1bus.json.in', 'homebrew/plur1bus.rb.in']) assert.match(readFileSync(join(root, 'packaging', file), 'utf8'), /plur1bus-attest/);

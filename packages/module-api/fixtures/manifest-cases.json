@@ -1442,5 +1442,29 @@
       }
     ],
     "valid": false
+  },
+  {
+    "name": "reserved native process role api",
+    "manifest": {
+      "name": "api",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "index.js",
+      "scope": "installation",
+      "priority": 500
+    },
+    "valid": false
+  },
+  {
+    "name": "reserved native process role tools",
+    "manifest": {
+      "name": "tools",
+      "version": "0.1.0",
+      "apiVersion": "1",
+      "entry": "index.js",
+      "scope": "installation",
+      "priority": 500
+    },
+    "valid": false
   }
 ]

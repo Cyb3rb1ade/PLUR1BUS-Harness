@@ -1,19 +1,36 @@
 # plur1bus-engine
 
+The experimental process server and its current implementation limits are described in
+[Engine process](../../docs/engine-process.md) (RE-08 T2 / U1).
+
 The PLUR1BUS memory engine in Rust: the stores (LanceDB table `memories`, the SQLite caches, the working-memory files
 and the ledgers), the embedding and rerank providers, the recall and capture pipelines and the background jobs, run as
 one process under the harness supervisor (plan `docs/superpowers/plans/2026-10-23-rust-engine-rewrite.md` §2, briefs in
 `docs/superpowers/plans/rust-engine/`). It replaces the pinned Node engine package step by step; until Phase 3 the
 Node engine stays the default.
 
-**State: RE-00 skeleton.** The crate declares its dependency set and the lint policy and implements no engine
-behaviour. The modules of plan §2.4 arrive with RE-01 onwards.
+**State: library implementation through RE-04/T5.** Contracts, stores, embeddings, recall stages and
+post-selection rendering are implemented as library boundaries. Namespace fusion (T4, #850) is reviewed
+separately; budget/timing/trace orchestration (T6) and process composition (RE-08) remain separate tasks.
+The executable's `serve` entry remains a placeholder.
+
+`recall::render::assemble_context` forwards the configured recall limit and summary word limit to a
+`SelectedRecallPipeline`, then renders the original six blocks. `inject_budget::plan` produces the
+separate capped host text. Internal `JsString` values retain lone surrogates and count UTF-16 units;
+`tokensEstimate` stays absent. Neo is consumed through `NeoPrelude`; CA5 owns its implementation.
+Session/reminder/Neo maintenance effects are caller-owned intents. Warm recall supplies only a
+read-only pipeline port and persists nothing; optional retrieval-counter maintenance uses `Store::patch`
+for exactly `retrievalCount` and `lastRetrievedAt`.
+
+The [T5 fixtures](tests/fixtures/recall/golden/render/README.md) describe the real Node recorder,
+the 119 cases and the narrowly authorized Semantic Lens ACL parity exception. The Node reference
+is unchanged; default/on/off Lens settings all retain the authorized base and omit foreign user rows.
 
 ## Targets
 
 | Target | Name | What it is |
 |---|---|---|
-| library | `plur1bus_engine` | `CRATE_VERSION`, the `cache_profiles` table reader (RE-14/T1), and the unused `tokens` counting/calibration service (RE-14/T2–T3) |
+| library | `plur1bus_engine` | Contracts, store and provider ports, recall selection/rendering, `cache_profiles`, and `tokens` counting/calibration; production composition remains RE-08 |
 | binary | `plur1bus-engine` | `--version`; the hidden placeholder `serve`, which RE-08 fills (`plur1bus-engine serve --home <dir> ...`). Today `serve` exits 2 with `E_NOT_AVAILABLE reason=not-implemented`; a usage error exits 2 (clap), as `docs/errors.md` says |
 
 ## Build and test
@@ -167,15 +184,34 @@ the owner can still veto any line in review.
 
 No entry in `docs/dependency-exceptions.json` or `audit-allowlist.json`.
 
-### tantivy patch
+### tantivy, arrow-rs and lance patches (RE-D14, RE-D30)
 
 `lance-index` 2.0.0 (pinned through `lancedb` 0.26.2, RE-D3) depends on `tantivy` 0.24.2, which pins `lru` 0.12; `lru`
-0.12.5 carries two unsoundness advisories (RUSTSEC-2026-0002, RUSTSEC-2026-0253) with no 0.12.x fix, and the release
-dependency audit blocks on them. The owner chose a fork over an advisory exception: `Cyb3rb1ade/tantivy`, branch
-`plur1bus/0.24.2-lru-0.18.2`, commit `038215a5`, is upstream tag 0.24.2 with one changed line (`lru = "0.18.2"`);
-tantivy's own version stays 0.24.2, and its store tests pass against lru 0.18. The root `Cargo.toml` replaces tantivy
-with it through `[patch.crates-io]` (pinned by `rev`), and `deny.toml` allows the fork as a git source. **Exit
-condition:** remove the patch when the Lance pin moves to a tantivy with lru >= 0.18.2 or to no tantivy at all.
+0.12.5 carries two unsoundness advisories (RUSTSEC-2026-0002, RUSTSEC-2026-0253) with no 0.12.x fix. Furthermore,
+`arrow-ipc` 57.3.1, `lance-encoding` 2.0.0, and `tantivy-sstable` 0.5.0 all required `zstd ^0.13` (resolving to 0.13.3) / `zstd-safe` 7.3.0,
+carrying 13 RUSTSEC advisories (RUSTSEC-2026-0391, RUSTSEC-2026-0395..-0406) fixed only in `zstd` 0.14.3 / `zstd-safe` 8.2.0.
+A temporary audit exception was granted until forks could be established (3c5875e7).
+
+The root `Cargo.toml` replaces the three upstream closures with forks via `[patch.crates-io]` (pinned by `rev`), and
+`deny.toml` allows the git sources:
+- `Cyb3rb1ade/tantivy`, branch `plur1bus/0.24.2-lru-0.18.2-zstd-0.14` (rev `0c34640dde00696629a37eb1a41bf6fe11e199e4`, tag `plur1bus-pin/0.24.2-lru-0.18.2-zstd-0.14`):
+  upstream tag 0.24.2 with `lru = "0.18.2"` and `zstd = "0.14.3"`.
+- `Cyb3rb1ade/arrow-rs`, branch `plur1bus/57.3.1-zstd-0.14` (rev `cfe57eff8e9b84dd68e89e12e7fa7fcf6583c42b`, tag `plur1bus-pin/57.3.1-zstd-0.14`):
+  upstream tag 57.3.1 with `zstd = "0.14.3"` in `arrow-ipc` (and dev-dependencies in `parquet` and `arrow-avro`). All 14 crates in the arrow workspace present in `Cargo.lock`
+  are redirected to prevent dual-registry type splits.
+- `Cyb3rb1ade/lance`, branch `plur1bus/2.0.0-zstd-0.14` (rev `7dfd9ede65693027db8852159587d24e157ee0c6`, tag `plur1bus-pin/2.0.0-zstd-0.14`):
+  upstream tag v2.0.0 with `zstd = "0.14.3"` in `lance-encoding`. All 16 crates published to crates.io in the lance workspace present in
+  `Cargo.lock` (with `fsst` vendored via path dependency in the workspace) are redirected to prevent dual-registry type splits.
+
+With these forks, all 13 `zstd` advisories are eliminated without audit exceptions.
+
+**Exit condition (RE-D30):** Each fork goes when the Lance pin (RE-D3) moves to a closure whose arrow-ipc / lance-encoding / tantivy-sstable resolve zstd ≥ 0.14.3 from crates.io. Today that means arrow-ipc ≥ 60.0.0 (or a 57.x patch release that moves to zstd 0.14), lance-encoding ≥ 14.0.1 and tantivy ≥ 0.27.0. The tantivy fork also drops the RE-D14 lru patch.
+
+**Test evidence:**
+- `tantivy-sstable`: 38/38 tests pass
+- `arrow-ipc --features zstd,lz4 --lib`: 97/97 tests pass
+- `lance-encoding --lib`: 50/50 tests pass
+- `store_roundtrip` Node↔Rust: 24/24 tests pass
 
 ### protoc
 

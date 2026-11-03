@@ -31,10 +31,10 @@ const run = async (r: ReturnType<typeof rig>, sessionId = "ses_1") => {
 };
 
 describe("core session backend coverage: createSession", () => {
-  it("creates a session of kind acp for the caller and agent and returns its id", async () => {
+  it("creates a legacy direct session for the caller and agent when Core has no coding contract", async () => {
     const r = rig();
     assert.deepEqual(await r.backend.createSession(), { sessionId: "ses_1" });
-    assert.deepEqual(r.calls, [{ m: "session.create", p: { caller: CALLER, agentId: "bernd", kind: "acp", title: "ACP" } }]);
+    assert.deepEqual(r.calls, [{ m: "session.create", p: { caller: CALLER, agentId: "bernd", kind: "direct", title: "ACP" } }]);
   });
   it("propagates a create failure", async () => {
     const client: RpcCaller = { call: async () => { throw new Error("down"); } };

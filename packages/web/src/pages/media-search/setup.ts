@@ -1,9 +1,9 @@
 // The media part of the wizard's Memory step: text and media index side by side, the media index on or off, its modalities,
 // captioning, caption source and backfill. Shows and edits `answers.media` only; the wizard page validates and saves
-// (model.ts: validate, changesFor). Untouched defaults write nothing (mediaSetupChanges).
+// (model.ts: validate, changesFor). The manual backfill proposal is written explicitly (mediaSetupChanges).
 import { h } from "preact";
 import type { View } from "../../view.ts";
-import { t, type Key } from "../../i18n.ts";
+import { t, formatNumber, type Key } from "../../i18n.ts";
 import { choiceById } from "../setup/licences.ts";
 import type { CaptionSourceSetting, MediaBackfillSetting, MediaErrorCode, MediaModality } from "./contract.ts";
 import { ALL_MODALITIES, CAPTION_CHOICES, CAPTION_SOURCES, MEDIA_PROVIDERS, captionPreselection, effectiveCaption, problemText, providerById, type CaptionChoice, type MediaSetup } from "./model.ts";
@@ -18,6 +18,8 @@ export type MediaSetupProps = {
 
 const captionLabel = (c: CaptionChoice): string => (c === "local" ? t("mediasearch.setup.caption.local") : c === "off" ? t("mediasearch.setup.caption.off") : t("mediasearch.setup.caption.cloud"));
 const sourceLabel = (s: CaptionSourceSetting): string => t(s === "prompt-then-user-then-auto" ? "mediasearch.setup.source.prompt" : s === "user-only" ? "mediasearch.setup.source.user" : "mediasearch.setup.source.off");
+// E1: Controller-verified vision/audio q8 pins at daa72c51243991dfcaf9f9137d2c573d8f7790c0; excludes text files.
+const LOCAL_EGEMMA2_MEDIA_ENCODER_BYTES = 535_699_121;
 
 export function MediaSetupStep({ textProvider, media, set, error }: MediaSetupProps): View {
   const provider = providerById(media.provider) ?? MEDIA_PROVIDERS[0]!;
@@ -49,7 +51,10 @@ export function MediaSetupStep({ textProvider, media, set, error }: MediaSetupPr
           h("dl", { class: "setup-facts" },
             h("dt", {}, t("mediasearch.setup.model")), h("dd", {}, provider.name),
             h("dt", {}, t("mediasearch.setup.licence")), h("dd", {}, choice?.licence ?? provider.licence),
-            h("dt", {}, t("mediasearch.setup.size")), h("dd", {}, t("mediasearch.setup.sizeUnknown"))),
+            h("dt", {}, t("mediasearch.setup.size")), h("dd", {}, media.provider === "egemma2" && provider.local
+              ? t("mediasearch.setup.sizeVerified", { bytes: formatNumber(LOCAL_EGEMMA2_MEDIA_ENCODER_BYTES) })
+              : t("mediasearch.setup.sizeUnknown"))),
+          h("p", { class: "field-hint" }, t("mediasearch.setup.photoTiming")),
           h("fieldset", { class: "setup-opts" },
             h("legend", {}, t("mediasearch.setup.modalities")),
             h("p", { class: "field-hint" }, t("mediasearch.setup.modalitiesHint")),
@@ -78,7 +83,10 @@ export function MediaSetupStep({ textProvider, media, set, error }: MediaSetupPr
             (["auto", "manual"] as MediaBackfillSetting[]).map((b) => {
               const id = `setup-backfill-${b}`;
               return h("div", { key: b, class: "setup-opt" },
-                h("input", { id, type: "radio", name: "setup-backfill", checked: media.backfill === b, onChange: () => { set({ backfill: b }); } }),
+                h("input", {
+                  id, type: "radio", name: "setup-backfill", checked: media.backfill === b,
+                  onChange: () => { set({ backfill: b, backfillChosen: true }); },
+                }),
                 h("label", { for: id }, t(`mediasearch.setup.backfill.${b}` as Key)));
             })),
           h("p", { class: "field-hint" }, t("mediasearch.setup.privacy")))

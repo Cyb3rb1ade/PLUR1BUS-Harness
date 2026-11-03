@@ -645,8 +645,8 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
       }
     }
     if (this.#host) {
-      // Framework v1 is text-only: rich turns are available through onMessage, never silently claimed as core media support.
-      if (!message.text || message.callback || message.attachments?.length) {
+      // Callback interactions retain their dedicated rich transport semantics.
+      if ((!message.text && !message.attachments?.length) || message.callback) {
         this.#log("warn", "channel.telegram.framework-rich-turn-gap", {});
         return;
       }

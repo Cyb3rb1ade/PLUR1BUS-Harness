@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { ChannelHost } from "../../core/src/channels/types.ts";
+import type { ChannelHost, InboundMessage } from "../../core/src/channels/types.ts";
 import type { IdentityService } from "../../core/src/identity/service.ts";
 import { parseMessage, UnsupportedError, type ApprovalDecision, type RichInbound } from "../src/index.ts";
 import { ALLOWED, BOT, CAROL, IMAP_PW, SMTP_PW, STRANGER, fixtureMail, makeEmailFixture } from "./helpers/contract.ts";
@@ -175,12 +175,13 @@ test("a foreign authserv-id claiming dmarc=pass does not pass requireAuthPass", 
   }
 });
 
-test("inbound quoted history and signature are stripped; attachments go to rich onMessage only", async () => {
+test("inbound quoted history and signature are stripped; attachments reach both inbound ports", async () => {
   const fx = await makeEmailFixture();
   const h = hostRec();
   const rich: RichInbound[] = [];
+  const received: InboundMessage[] = [];
   try {
-    await fx.channel.start(h.host);
+    await fx.channel.start({ ...h.host, receive: async (m) => { received.push(m); await h.host.receive(m); } });
     fx.channel.onMessage((m) => void rich.push(m));
     const raw = Buffer.from(
       [
@@ -213,8 +214,9 @@ test("inbound quoted history and signature are stripped; attachments go to rich 
     assert.equal(rich[0]!.text, "please check");
     assert.equal(rich[0]!.attachments?.[0]?.kind, "image");
     assert.deepEqual([...rich[0]!.attachments![0]!.data], [0x89, 0x50, 0x4e, 0x47]);
-    assert.equal(h.received.length, 0, "rich-only turns are not forwarded as text");
-    assert.ok(fx.logs.some((l) => (l as { event: string }).event === "channel.email.framework-rich-turn-gap"));
+    assert.equal(h.received.length, 1);
+    assert.deepEqual(received[0]!.attachments, rich[0]!.attachments);
+    assert.equal(h.received[0]!.text, "please check");
   } finally {
     await fx.dispose();
   }

@@ -710,6 +710,15 @@ fn generate(schema: &Schema, node: &Value, optionals: Optionals, rng: &mut Rng) 
 /// `bundle.manifest.format`, a pinned value). Until 2026-10 the keyword removal took the property with it (#405).
 #[test]
 fn properties_named_format_survive() {
+    fn has_format_property(value: &Value) -> bool {
+        match value {
+            Value::Object(fields) => {
+                fields.contains_key("format") || fields.values().any(has_format_property)
+            }
+            Value::Array(items) => items.iter().any(has_format_property),
+            _ => false,
+        }
+    }
     let schema = Schema::load();
     let mut failures = Vec::new();
     let mut hit = BTreeSet::new();
@@ -720,7 +729,7 @@ fn properties_named_format_survive() {
             optionals: Optionals::All,
         }
         .gen(e.node(&schema), 0);
-        if !x.to_string().contains("\"format\"") {
+        if !has_format_property(&x) {
             continue;
         }
         hit.insert(e.name);
@@ -735,9 +744,11 @@ fn properties_named_format_survive() {
         }
     }
     assert_eq!(
-        hit.len(),
-        3,
-        "the schema has three methods with a `format` property: {hit:?}"
+        hit,
+        ["agent.export", "media.edit", "media.generate"]
+            .into_iter()
+            .collect(),
+        "every method with a `format` property must survive the round trip"
     );
     report("properties named format", &failures);
 }
@@ -2036,6 +2047,8 @@ table! {
     Result "engine.shutdown" EngineShutdownResult,
     Params "engine.status" EngineStatusParams,
     Result "engine.status" EngineStatusResult,
+    Params "engine.adopt" EngineAdoptParams,
+    Result "engine.adopt" EngineAdoptResult,
     Params "engine.open" EngineOpenParams,
     Result "engine.open" EngineOpenResult,
     Params "engine.auth" EngineAuthParams,
@@ -2060,6 +2073,8 @@ table! {
     Result "chat.restore" ChatRestoreResult,
     Params "chat.cancel" ChatCancelParams,
     Result "chat.cancel" ChatCancelResult,
+    Params "chat.rewind" ChatRewindParams,
+    Result "chat.rewind" ChatRewindResult,
     Params "chat.fork" ChatForkParams,
     Result "chat.fork" ChatForkResult,
     Params "chat.delete" ChatDeleteParams,
@@ -2215,8 +2230,20 @@ table! {
     Result "project.member.role" ProjectMemberRoleResult,
     Params "project.agent.add" ProjectAgentAddParams,
     Result "project.agent.add" ProjectAgentAddResult,
+    Params "a2a.peer.add" A2aPeerAddParams,
+    Result "a2a.peer.add" A2aPeerAddResult,
+    Params "a2a.peer.list" A2aPeerListParams,
+    Result "a2a.peer.list" A2aPeerListResult,
+    Params "a2a.peer.remove" A2aPeerRemoveParams,
+    Result "a2a.peer.remove" A2aPeerRemoveResult,
+    Params "a2a.peer.trust" A2aPeerTrustParams,
+    Result "a2a.peer.trust" A2aPeerTrustResult,
     Params "project.agent.remove" ProjectAgentRemoveParams,
     Result "project.agent.remove" ProjectAgentRemoveResult,
+    Params "project.repo.bind" ProjectRepoBindParams,
+    Result "project.repo.bind" ProjectRepoBindResult,
+    Params "project.repo.unbind" ProjectRepoUnbindParams,
+    Result "project.repo.unbind" ProjectRepoUnbindResult,
     Params "task.complete" TaskCompleteParams,
     Result "task.complete" TaskCompleteResult,
     Params "chat.promote.preview" ChatPromotePreviewParams,
@@ -2247,6 +2274,10 @@ table! {
     Result "identity.principals" IdentityPrincipalsResult,
     Params "core.auth" CoreAuthParams,
     Result "core.auth" CoreAuthResult,
+    Params "tools.hello" ToolsHelloParams,
+    Result "tools.hello" ToolsHelloResult,
+    Params "tools.health" ToolsHealthParams,
+    Result "tools.health" ToolsHealthResult,
     Params "core.status" CoreStatusParams,
     Result "core.status" CoreStatusResult,
     Params "core.shutdown" CoreShutdownParams,
@@ -2613,12 +2644,22 @@ table! {
     Result "session.submit" SessionSubmitResult,
     Params "session.events" SessionEventsParams,
     Result "session.events" SessionEventsResult,
+    Params "code.session.open" CodeSessionOpenParams,
+    Result "code.session.open" CodeSessionOpenResult,
+    Params "code.session.mode" CodeSessionModeParams,
+    Result "code.session.mode" CodeSessionModeResult,
+    Params "code.session.diff" CodeSessionDiffParams,
+    Result "code.session.diff" CodeSessionDiffResult,
+    Params "code.session.check" CodeSessionCheckParams,
+    Result "code.session.check" CodeSessionCheckResult,
     Params "session.model.get" SessionModelGetParams,
     Result "session.model.get" SessionModelGetResult,
     Params "session.model.set" SessionModelSetParams,
     Result "session.model.set" SessionModelSetResult,
     Params "session.cancel" SessionCancelParams,
     Result "session.cancel" SessionCancelResult,
+    Params "session.rewind" SessionRewindParams,
+    Result "session.rewind" SessionRewindResult,
     Params "grant.list" GrantListParams,
     Result "grant.list" GrantListResult,
     Params "grant.get" GrantGetParams,

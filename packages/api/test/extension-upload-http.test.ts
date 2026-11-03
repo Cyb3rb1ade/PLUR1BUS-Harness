@@ -17,6 +17,13 @@ const bytes = (value = Buffer.from("package-bytes")) =>
     value,
     Buffer.from("\r\n--fixture-boundary--\r\n"),
   ]);
+async function stagedFiles(home: string): Promise<string[]> {
+  try { return await readdir(join(home, "run", "uploads")); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
+  }
+}
 async function fixture(t: import("node:test").TestContext, productionRate = false) {
   const home = await mkdtemp(join(tmpdir(), "extensions-http-"));
   const core = fakeCore(),
@@ -84,7 +91,7 @@ test("live configured byte limit and interrupted multipart leave no upload behin
     });
   assert.equal((await send(bytes(Buffer.alloc(1048577)))).status, 413);
   assert.equal((await send(bytes().subarray(0, -8))).status, 400);
-  assert.deepEqual(await readdir(join(home, "run", "uploads")), []);
+  assert.deepEqual(await stagedFiles(home), []);
 });
 test("only this route's enrolled, live person-bound device bearer can upload or inspect; PAT authority stays agent", async (t) => {
   const { h, home, core } = await fixture(t);
@@ -197,5 +204,5 @@ test("native file credentials do not substitute for mandatory MFA", async (t) =>
   });
   assert.equal(response.status, 403);
   assert.equal(response.json.reason, "second-factor-required");
-  assert.deepEqual(await readdir(join(home, "run", "uploads")), []);
+  assert.deepEqual(await stagedFiles(home), []);
 });

@@ -1,4 +1,4 @@
-//! `plur1bus memory import-text|export-text`: prompt memory import and export (RPC 1.13.0, experimental).
+//! `plur1bus memory import-text|export-text`: prompt memory import and export (RPC 1.22.0, experimental).
 //!
 //! `import-text` reads an export that another chat assistant wrote for `--show-prompt`, asks the core to parse it
 //! (`memory.importText.preview`, which also returns the core's per-entry target recommendations), and applies it with

@@ -186,14 +186,15 @@ export function createExternalTurnService(d: ExternalTurnDeps): {
 
         cancel.signal.throwIfAborted();
 
-        const existingMessages = d.store.listMessages(session.id);
+        const existingMessages = d.store.contextMessages(session.id);
+        const lessons = new Set(d.store.rewinds(session.id).map(rewind => rewind.lessonMessageId));
         const historyMessages: { role: "system" | "user" | "assistant"; text: string; turnId?: string }[] = [];
         if (origin === "a2a") {
           historyMessages.push({ role: "system", text: A2A_SYSTEM_INSTRUCTION });
         }
         for (const m of existingMessages) {
           historyMessages.push({
-            role: m.role as "user" | "assistant",
+            role: lessons.has(m.id) ? "user" : m.role as "user" | "assistant",
             text: m.text,
             ...(m.turnId ? { turnId: m.turnId } : {}),
           });

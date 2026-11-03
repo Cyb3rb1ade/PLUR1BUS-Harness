@@ -21,6 +21,7 @@ function artefacts(targets: readonly string[]): string {
   const dir = mkdtempSync(join(tmpdir(), "p1b-rel-"));
   for (const t of targets) {
     writeFileSync(join(dir, binaryName(t)), `fake binary ${t}`);
+    writeFileSync(join(dir, binaryName(t).replace("plur1bus-", "plur1bus-tools-")), `fake tools ${t}`);
     const payload = payloadName(VERSION, t);
     writeFileSync(join(dir, payload), `fake payload ${t}`);
     writeFileSync(join(dir, `${payload}.sha256`), `${sha(`fake payload ${t}`)}  ${payload}\n`);
@@ -37,6 +38,8 @@ describe("release-native", () => {
     try {
       const native = await buildNative({ artifacts: dir, version: VERSION, baseUrl: BASE });
       assert.deepEqual(Object.keys(native.binary), TARGETS);
+      assert.deepEqual(Object.keys(native.tools), TARGETS);
+      assert.deepEqual(native.tools["win-x64"], { url: `${BASE}/plur1bus-tools-win-x64.exe`, sha256: sha("fake tools win-x64") });
       assert.deepEqual(Object.keys(native.core.payload), TARGETS);
       assert.deepEqual(native.binary["win-x64"], { url: `${BASE}/plur1bus-win-x64.exe`, sha256: sha("fake binary win-x64") });
       assert.deepEqual(native.binary["linux-arm64"], { url: `${BASE}/plur1bus-linux-arm64`, sha256: sha("fake binary linux-arm64") });
@@ -102,5 +105,13 @@ describe("release-native", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("refuses a release missing the tools companion for any target", async () => {
+    const dir = artefacts(TARGETS);
+    try {
+      rmSync(join(dir, "plur1bus-tools-win-arm64.exe"));
+      await assert.rejects(buildNative({ artifacts: dir, version: VERSION, baseUrl: BASE }), /win-arm64: no tools binary/);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 });

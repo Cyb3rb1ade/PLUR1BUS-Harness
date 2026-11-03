@@ -1,6 +1,6 @@
 # ADR-003: Agent model, collaboration, group vs 1:1 behaviour
 
-**Status:** Accepted (2026-09-22, with amendment D14) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D2/D5/D8/D11/D14/D15; `docs/phase0/auftrag-original-2026-09-21.md` §2.1, §5, §7, §8, §13 Q4; `docs/phase0/research/hermes-learnings-and-import.md` A6, A8, A11, A12, "What our harness must explicitly NOT copy"; `docs/phase0/research/harness-engineering-state-of-the-art.md` §5, rules 13–14; `docs/phase0/research/plur1bus-host-contract.md` §8; `docs/phase0/research/plur1bus-crons-embedding-portability.md` §3; `docs/phase0/research/openclaw-layout-dreaming-ui.md` §1
+**Status:** Accepted (2026-09-22, with amendment D14; **amended 2026-11-01 by D124**: collaboration guardrail defaults, see the note after the guardrail table) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D2/D5/D8/D11/D14/D15; `docs/phase0/auftrag-original-2026-09-21.md` §2.1, §5, §7, §8, §13 Q4; `docs/phase0/research/hermes-learnings-and-import.md` A6, A8, A11, A12, "What our harness must explicitly NOT copy"; `docs/phase0/research/harness-engineering-state-of-the-art.md` §5, rules 13–14; `docs/phase0/research/plur1bus-host-contract.md` §8; `docs/phase0/research/plur1bus-crons-embedding-portability.md` §3; `docs/phase0/research/openclaw-layout-dreaming-ui.md` §1
 
 ## Context
 
@@ -150,13 +150,37 @@ interface BehaviourLayer {
 
 | Guard | Default | Source |
 |---|---|---|
-| Consultation depth | 1 (a consulted agent may not consult further) | Goose's structural depth guard, ibid. §5 |
+| Consultation depth | Read-only helpers: 2; writers: 1 | D124 Q2, decided 2026-11-01 |
 | Cycle / self-call | blocked; call graph checked per root turn | auftrag §7 |
-| Calls per turn / per agent pair | 3 per turn, 2 per pair per turn | ours; tunable |
-| Turn and time budget per delegation | 25 turns, 5 minutes | Goose defaults, ibid. §5 |
+| Calls per turn / per agent pair | 8 read helpers per calling turn, configurable up to 32; 4 consults per pair; package delegations have no pair cap | D124 Q2 and §7.1 |
+| Concurrent writers | 4 per project, configurable; CPU and available memory determine the soft capacity, explicit overcommit warns | D124 Q3; `collaboration.limits.writers` and `collaboration.teams.capacity` |
+| Turn and time budget per delegation | consult 25/5 min; research 50/15 min; review 40/20 min; code-small 100/45 min; code-large 200/120 min | D124 Q4; per-delegation deadlines replace the chain timer |
 | Token/cost budget | checked **before** every call, against project and agent budgets | auftrag §7; ≈15× cost multiplier, ibid. §5 |
 | User abort | always available, propagates to children | auftrag §7 |
 | Partial success | representable — a timed-out delegation returns a partial result marked `interrupted`, never silence | Goose failure semantics, ibid. §5 |
+
+**D124 amendment (owner, 2026-11-01; TM1).** Limits resolve from `collaboration.limits` and narrowing project
+overrides. Work allocations cover acceptance, work, retries and return repair; per-call output limits come from the
+provider profile, and returned summaries remain capped at 2,000 tokens. `consult_agent` and `delegate_task` support
+`wait: false`; `await_delegations` collects the starting turn's children. Turn and pair slots, project writer slots,
+shared CPU/RAM capacity and the trace are reserved before asynchronous preparation. The starting turn owns and
+collects all children, including card-bound ones; cancellation stops them all. A handoff cancels the sender's other
+unbound children before joining. Effective tool-contract deadlines respect the task-class wall time and any narrower
+requested deadline. Blocking calls also end one second before the dispatcher's five-minute limit so partial results
+can settle; nonblocking children keep their task deadlines without that dispatcher cap.
+Versionless project settings normalize legacy defaults on read; the next save writes `settingsVersion: 2`, after
+which explicit values are preserved. This changes neither the SQLite schema nor the RPC version. The configured
+positive disk floor is reserved for admission before the provisioner-backed team scheduler creates worktrees.
+
+**D124 design, decided 2026-11-01.** The owner approved
+[`2026-11-01-parallel-agent-teams-design.md`](../superpowers/specs/2026-11-01-parallel-agent-teams-design.md)
+(§7, §16). Beyond the implemented PT-1 limits above, the design requires one writer per worktree and branch,
+run/section/package token allocations, local-model and person-review capacity, a hard configurable disk floor
+before new worktrees, and at most three items waiting for a person. Cycle and self-call blocking, abort propagation,
+partial results and the separate 2,000-token return cap remain. The decision also answers open question 5 (depth 2
+for read-only helpers) and action items 8 (an evaluation replacing the fixture fan-out evaluation) and 9 (worktree
+lifecycle). Later packages add a moderated team channel and direct messages between team members. Those messages
+remain data and never carry instruction authority or approvals, under the security invariants below.
 
 **Security invariants.** Other agents' messages are **data, not instructions** — results enter the caller's context as `tool_result` with a provenance envelope `{agentId, sessionId, projectId, at, cost, target-kind}` and never as system or assistant text (auftrag §7, §11). The caller's permissions **do not transfer** to the callee; the callee runs under its own approval policy, its own toolset and its own budget. The triggering user's RBAC bounds the set of consultable agents (ADR-007). Private knowledge of the consulted agent and any `user`-scope memory never migrates automatically into the caller's store, the workspace pool, or a remote agent (auftrag §7) — the only automatic write is the provenance-tagged result card in the caller's own `agent-private` scope; anything beyond that goes through explicit `/share`, which is copy-never-move and re-embeds (`lib/shared-memory.js:216-231`, `memory-edit.js:508`).
 

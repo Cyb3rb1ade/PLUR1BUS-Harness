@@ -60,6 +60,19 @@ export function submitErrorKey(e: unknown): Key {
   return "chat.err.generic";
 }
 
+export function rewindErrorKey(e: unknown): Key {
+  if (isApiError(e)) {
+    if (e.kind === "forbidden") return "chat.rewind.deniedError";
+    if (e.kind === "rpc-error" || e.kind === "http") {
+      if (e.reason === "turn-running" || e.reason === "turn-in-progress") return "chat.err.busy";
+      if (e.reason === "rewind-target" || e.reason === "rewind-empty") return "chat.rewind.targetError";
+      if (e.reason === "rewind-stale" || e.reason === "rewind-files-changed") return "chat.rewind.staleError";
+      if (e.errorCode === "E_DENIED" || e.reason === "rewind-not-allowed" || e.reason === "rewind-person-required") return "chat.rewind.deniedError";
+    }
+  }
+  return "chat.rewind.error";
+}
+
 export function isAborted(e: unknown): boolean { return isApiError(e) && e.kind === "aborted"; }
 
 /** A draft that could not be sent while a new chat was created: the chat page puts it back into the composer. */

@@ -26,7 +26,7 @@ the table.
 ## Error codes
 
 The RPC codes below are the closed set of the RPC schema ([rpc.md](rpc.md#error-codes)); the CLI reports the code
-the core sent. The last two are raised by the CLI itself.
+the core sent. The last four are raised by the CLI itself.
 
 | Code | Exit | Meaning |
 |---|---|---|
@@ -63,6 +63,33 @@ the core sent. The last two are raised by the CLI itself.
 | `E_MEDIA_UNSUPPORTED_KIND` | 1 | The medium cannot be processed (decoder or frame extractor missing, format unknown). |
 | `E_IMPORT_FAILED` | 1 | `plur1bus import` could not run or finish the importer (`reason`: `importer-missing`, `node-unavailable`, `importer-crashed`). The importer's own errors keep the exit code it reports. |
 | `E_CANCELLED` | 2 | The user declined a confirmation prompt (`config apply`, `module`, `secret remove`, `memory forget`, `media reindex`, `ext`, `update apply`: `reason=declined`); nothing was changed. `plur1bus login` ended with Ctrl-C reports it with exit 130 (see above). |
+| `E_TURN_FAILED` | 1 | A coding turn or advisory check finished unsuccessfully. Inspect its preceding events before deciding whether to retry. |
+| `E_RPC_PROTOCOL` | 1 | The coding frontend received a malformed response or could not recover a consecutive event stream. Reopen the session and inspect the result before retrying. |
+| `E_BUSY` | 1 | A bounded coding input, event or command queue is full, or its connection is busy. Reopen the session and inspect the recorded state before retrying. |
+| `E_IO` | 1 | Local terminal, input, output or coding event-channel I/O failed. Restore the connection and inspect the session before retrying. |
+| `E_TIMEOUT` | 1 | A coding RPC call or reconnection exceeded its deadline. Its remote result may be uncertain; inspect the session before repeating the operation. |
+
+## Rewind reasons (D120 CX1, RPC 1.18.0)
+
+No new error code is introduced. Human-only `chat.rewind`/`session.rewind` and
+the `/rewind` transcript command use these reasons:
+
+| Reason | Code | Recovery |
+| --- | --- | --- |
+| `turn-running` | `E_CONFLICT` | Wait for the active turn to finish. |
+| `rewind-in-progress` | `E_CONFLICT` | Finish or cancel the pending file approval. |
+| `rewind-target`, `rewind-empty`, `rewind-command`, `rewind-lesson` | `E_INVALID_PARAMS` | Choose a kept message on the current active path, or correct the command/note. |
+| `rewind-stale`, `rewind-project-changed`, `rewind-files-changed` | `E_CONFLICT` | Inspect the current session, card binding and files, then request a new rewind. |
+| `rewind-checkpoint-unavailable`, `rewind-checkpoint` | `E_CONFLICT` | Use conversation-only rewind, or a D115 card with a recorded per-turn checkpoint. |
+| `rewind-files-disabled` | `E_CONFLICT` | Use conversation-only rewind, or ask an Owner/Admin to opt the project into `session.rewind.fileProjects`. |
+| `rewind-files-preview-limit` | `E_CONFLICT` | The complete restore preview exceeds its cap; inspect the files and use conversation-only rewind. |
+| `rewind-person-required`, `rewind-files-not-approved` | `E_DENIED` | A person must request rewind; file restoration needs the exact single-use native approval. |
+| `rewind-not-allowed` | `E_DENIED` | In a non-direct channel, only the session owner or a current Owner/Admin may rewind or undo. The channel explains this refusal in its configured de/en locale (English by default), without naming the owner or exposing internal error text. |
+| `audit-unavailable` | `E_STORAGE` | Restore the audit writer before retrying. |
+
+Undo lifts a conversation overlay and never restores files or corrects captured
+memory. An approved file restoration is separately audited; if the later overlay
+write fails, inspect the worktree before retrying.
 
 ## Sign-in reasons (`plur1bus login`)
 
@@ -116,6 +143,7 @@ not lost: `plur1bus media job <id>` shows it.
 | `release-key-expired` | The release is signed by a rotated key whose expiry has passed. |
 | `key-list-invalid` | A key list is not signed by a trusted key, is for another channel, or is malformed. |
 | `release-unreachable`, `download-too-large`, `digest-mismatch`, `size-mismatch`, `io` | Fetching or verifying a file failed (a declared `size` must match exactly). |
+| `tools-missing` | Setup or the signed release lacks the required native tools companion. Install the CLI and `plur1bus-tools` from the same release; update applies neither binary without the matching target asset. |
 | `release-malformed`, `min-from-version`, `no-native-release`, `target-unsupported`, `unit-unsupported` | The release cannot be applied to this install (`unit-unsupported`: it also changes the Node runtime or modules, run `plur1bus setup`). |
 | `downgrade-refused` | The release is older than the installed version; `--allow-downgrade` overrides. |
 | `release-replay` | The release is older than the newest one this install accepted on the channel; `--allow-downgrade` overrides. |
@@ -251,3 +279,35 @@ The first collection (#423) found the inconsistencies below. All of them are fix
 ### D106 sandbox adapter diagnostics (2026-10-15 Draft)
 
 Sandbox failure uses the existing tool error envelope (`tool-failed`); the host adapter may supply `sourceCode: sandbox-unavailable`, and exec retains its existing `spawn-failed` diagnostic inside the adapter failure. These are tool-local diagnostics, not new RPC error codes. Missing isolation never changes into a successful unsandboxed result. The trusted Rust limits launcher exits 125 on setup failure; the CLI exit-code checker already documents that code.
+
+### Coding CLI
+
+`plur1bus code` emits `code.event/1` JSON lines for RPC results and stream events. A final frontend error uses the
+existing `error/1` document. `E_TURN_FAILED` means a turn or advisory check failed; `E_APPROVAL_REQUIRED` reports a
+missing folder grant or a noninteractive approval refusal. `E_RPC_PROTOCOL` identifies a malformed or unrecoverable
+stream. `E_BUSY`, `E_IO` and `E_TIMEOUT` describe bounded frontend queues, local I/O and frontend deadlines; these are
+CLI-only codes. Existing RPC errors keep their code. Terminal and thread guards finish before the CLI's exiting error path.
+Reopen the reported session after a transport error and inspect its events before retrying a task with an uncertain
+result. An unavailable Steering, queue or Rewind capability retains the user's draft.
+
+### Native tools service (D120 H1-1)
+
+The internal tools connection uses existing error codes: `E_DENIED` with `tools-core-only` for a caller without the Core principal, `tools-identity-change` for reauthentication on an established connection, `E_UNAUTHORIZED` with `tools-credential` for an invalid service credential, `E_INVALID_PARAMS` with `tools-params` for a closed-parameter refusal, and `E_NOT_AVAILABLE` with `tools-unavailable` at the Core client boundary. Supervisor adoption retains `adopt-nonce`. No registered provider secrets enter this process.
+
+### External ACP platform refusals
+
+On an actual macOS host, external delegation, agent/probe launch, terminal callbacks
+and installed-connector discovery refuse with `reason: sandbox-unavailable` and
+`cause: macos-acceptance-pending`. Delegation throws `CollabError` with code `invalid`
+and retains both typed fields before engine selection (including `connector-unavailable`),
+worktree provisioning, transcript/turn creation or any connection/process. Windows
+also refuses with `sandbox-unavailable`, without the Mac acceptance cause. Restrictive
+platform overrides cannot enable ACP or change which host has pending Mac acceptance.
+
+The bounded Core event `external.agent.refused` carries process, reason and cause;
+Doctor reports the independent `external.agents.sandbox` row. These are ACP diagnostics,
+not new RPC error codes or native watchdog causes. Ordinary sandboxed tools retain
+their separate policy. Linux ACP still requires the accepted namespace task limit
+and a positive safe-integer `tools.sandbox.maxTasks`; zero refuses ACP launch.
+Native Mac acceptance remains pending D123 SB-1 (pnpm/RSS) and SB-3 (Git/libxcrun,
+open/osascript); see [ACP containment](acp.md#external-process-containment-820-q3).

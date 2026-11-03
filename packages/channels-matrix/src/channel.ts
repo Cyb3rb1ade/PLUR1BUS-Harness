@@ -759,8 +759,8 @@ export class MatrixChannel implements Channel {
       }
     }
     if (this.#host) {
-      // Framework v1 is text-only: attachments are available through onMessage, never silently claimed as core support.
-      if (!message.text || message.attachments?.length) {
+      // Preserve transport identity while forwarding the common attachment envelope.
+      if (!message.text && !message.attachments?.length) {
         this.#log("warn", "channel.matrix.framework-rich-turn-gap", {});
         return;
       }
@@ -773,6 +773,7 @@ export class MatrixChannel implements Channel {
           senderId: message.senderId,
           addressed: message.addressed,
           text: message.text,
+          ...(message.attachments?.length ? { attachments: message.attachments } : {}),
           ...(message.messageId !== undefined ? { messageId: message.messageId } : {}),
         });
       } catch {

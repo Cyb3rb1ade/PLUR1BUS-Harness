@@ -6,6 +6,20 @@ import { SessionStore } from '../../src/session/store.ts';
 import { deriveUserPrincipal } from '../../src/identity/principals.ts';
 import { useIdentity } from '../identity/helpers.ts';
 const fixture=useIdentity();
+test("D120: a Web continuation excludes rewound channel messages and overlapping summaries", () => {
+  const r = rig();
+  try {
+    r.store.addSummary({ sessionId: r.session.id, fromSeq: 1, toSeq: 18, text: "DISCARDED_HANDOFF_SUMMARY",
+      tokens: 4, tier: 1, state: "applied" });
+    r.store.rewindPath(r.session.id, { toSeq: 2, lesson: "Keep the first exchange.", actor: r.human.id, trigger: "user" });
+    const issued = r.handoff.issue(r.session.id, r.human.id);
+    const continued = r.handoff.redeem(issued.token, r.human.id);
+    const context = r.store.listMessages(continued.sessionId)[0]!.text;
+    assert.doesNotMatch(context, /DISCARDED_HANDOFF_SUMMARY|question-8|reply-8/);
+    assert.match(context, /question-0/);
+    assert.match(context, /Keep the first exchange/);
+  } finally { r.handoff.close(); r.store.close(); }
+});
 function rig(){const f=fixture(),human=f.human(),other=f.human('Other');const identity={channel:'telegram',accountId:'bot',userId:'sender'};const link=f.pairAndLink(human.id,identity);const store=new SessionStore({path:join(f.dir,'sessions.sqlite')});const audit:any[]=[];const options={path:join(f.dir,'handoff.sqlite'),store:()=>store,identity:()=>f.svc,clock:f.now,audit:{append:(e:any)=>{audit.push(e);}},resolve:(id:string)=>({kind:'person' as const,role:'owner' as const,userId:id}),agentId:()=> 'main',baseUrl:()=> 'https://web.example'};const handoff=new ChannelHandoff(options);const session=store.createSession({kind:'channel',agentId:'main',owner:deriveUserPrincipal(human.id),chatKey:'telegram:dm',title:'Private DM'});const msg={channel:'telegram',accountId:'bot',senderId:'sender',chatId:'dm',chatKind:'direct' as const,text:'hello'};handoff.observe(msg,human.id,session.id);for(let n=0;n<9;n++){const t=store.beginTurn(session.id,`question-${n}`,2);store.completeTurn(t.turn.id,{text:`reply-${n}`,tokens:2});}return {f,human,other,identity,link,store,handoff,session,msg,audit,options};}
 test('person-bound link redeems once into a separate seeded direct session, keeps channel active and never audits token',()=>{const r=rig();try{const issued=r.handoff.issue(r.session.id,r.human.id);assert.throws(()=>r.handoff.redeem(issued.token,r.other.id));const out=r.handoff.redeem(issued.token,r.human.id);const next=r.store.getSession(out.sessionId)!;assert.equal(next.kind,'direct');assert.equal(next.owner,deriveUserPrincipal(r.human.id));assert.notEqual(next.id,r.session.id);assert.equal(r.store.getSession(r.session.id)!.archivedAt,null);const seed=r.store.listMessages(next.id)[0]!;assert.equal(seed.role,'user');assert.match(seed.text,/untrusted/);assert.match(seed.text,/question-8/);assert.doesNotMatch(seed.text,/question-0/);assert.throws(()=>r.handoff.redeem(issued.token,r.human.id));assert.ok(!JSON.stringify(r.audit).includes(issued.token));}finally{r.handoff.close();r.store.close();}});
 test('expired or revoked identity cannot redeem; a wrong bot cannot issue from a DM',()=>{const r=rig();try{const issued=r.handoff.issue(r.session.id,r.human.id);assert.throws(()=>r.handoff.issueMessage({...r.msg,accountId:'wrong'},r.human.id));r.f.advance(600000);assert.throws(()=>r.handoff.redeem(issued.token,r.human.id));const again=r.handoff.issue(r.session.id,r.human.id);r.f.svc.unlink({linkId:r.link.linkId},r.human.self);assert.throws(()=>r.handoff.redeem(again.token,r.human.id));assert.deepEqual(r.handoff.list(r.human.id).sessions,[]);}finally{r.handoff.close();r.store.close();}});

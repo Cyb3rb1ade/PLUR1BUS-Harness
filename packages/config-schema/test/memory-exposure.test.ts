@@ -53,3 +53,10 @@ test("the switches validate, unknown keys and non-booleans do not, and the insta
     assert.equal(validate(cfg).ok, false, JSON.stringify(bad));
   }
 });
+
+test("external engine selection is owner/admin writable and audited, without an ACP memory switch", () => {
+  const agent = (CONFIG_SCHEMA.properties.agents as any).additionalProperties;
+  assert.deepEqual(agent.properties.engine["x-write-roles"], ["owner", "admin"]);
+  assert.equal(agent.properties.engine["x-audit"], true);
+  assert.equal(agent.properties.memoryExposure.properties.acp, undefined);
+});

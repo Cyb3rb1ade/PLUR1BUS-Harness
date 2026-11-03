@@ -107,6 +107,8 @@ jobs:
         run: node apps/desktop/scripts/ui-browser.mjs install
       - name: Verify pinned UI browser
         run: node apps/desktop/scripts/ui-browser.mjs verify
+      - name: Build web runtime for actual desktop API fixtures
+        run: pnpm --filter "@plur1bus/web..." build
       - run: pnpm --filter @plur1bus/desktop-ui build
       - run: pnpm --filter @plur1bus/desktop-ui test
       - run: cargo fmt --all -- --check

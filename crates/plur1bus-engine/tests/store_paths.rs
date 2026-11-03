@@ -143,17 +143,37 @@ fn a_windows_junction_counts_as_an_unsafe_link() {
 }
 #[cfg(unix)]
 #[test]
-fn a_group_writable_existing_store_directory_is_not_silently_repaired() {
+fn group_and_other_writable_store_directories_are_not_silently_repaired() {
     use std::os::unix::fs::PermissionsExt;
     let root = scratch();
     let path = root.path.join("store");
     secure_dir(&path).unwrap();
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o770)).unwrap();
-    assert!(matches!(secure_dir(&path), Err(StoreError::UntrustedPath)));
-    assert_eq!(
-        std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
-        0o770
-    );
+    for mode in [0o770, 0o707] {
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(mode)).unwrap();
+        assert!(matches!(secure_dir(&path), Err(StoreError::UntrustedPath)));
+        assert_eq!(
+            std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            mode
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn sqlite_cache_refuses_a_store_path_through_a_symlink_without_creating_the_database() {
+    use plur1bus_engine::store::sqlite::EmbeddingCache;
+    use std::os::unix::fs::symlink;
+
+    let root = scratch();
+    let physical = root.path.join("physical");
+    secure_dir(&physical).unwrap();
+    let alias = root.path.join("alias");
+    symlink(&physical, &alias).unwrap();
+    assert!(matches!(
+        EmbeddingCache::open(&alias.join("cache.sqlite")),
+        Err(StoreError::UntrustedPath)
+    ));
+    assert!(!physical.join("cache.sqlite").exists());
 }
 #[test]
 fn schema_versions_read_the_node_base_marker_and_the_composite_fixture_marker() {

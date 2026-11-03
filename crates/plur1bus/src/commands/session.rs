@@ -282,7 +282,38 @@ pub(crate) fn pick_agent(out: &Out, config: &Value, agent: Option<String>) -> St
     }
 }
 
-fn change_model(
+pub(crate) fn model_switch_params(
+    caller: &crate::identity::CallerIdentity,
+    session: &str,
+    profile: &str,
+    reasoning: Option<&str>,
+) -> Value {
+    let mut params = json!({"caller":caller,"sessionId":session,"profile":profile});
+    if let Some(level) = reasoning {
+        params["reasoning"] = json!(level);
+    }
+    params
+}
+
+pub(crate) fn confirm_model_switch(mut params: Value, preview: &Value) -> Value {
+    params["confirmed"] = json!(true);
+    params["expectedRevision"] = preview["revision"].clone();
+    params
+}
+
+pub(crate) fn model_preview_is_current(base_revision: Option<&Value>, preview: &Value) -> bool {
+    base_revision.is_none_or(|revision| revision == &preview["revision"])
+}
+
+pub(crate) fn model_switch_warning(german: bool) -> &'static str {
+    if german {
+        "Modell oder Reasoning wechseln? Der Cache wird neu aufgebaut; neue Cache-Schreibkosten und andere Modellkosten können entstehen. Die Präfixe pro Modell bleiben erhalten."
+    } else {
+        "Switch model or reasoning? The cache will rebuild; new cache writes and different model costs may apply. Per-model prefixes are preserved."
+    }
+}
+
+pub(crate) fn change_model(
     out: &Out,
     c: &mut Client,
     caller: &crate::identity::CallerIdentity,
@@ -298,9 +329,9 @@ fn change_model(
             json!({}),
         );
     }
-    let mut params = json!({"caller":caller,"sessionId":session});
+    let params;
     let base_revision = if let Some(profile) = model {
-        params["profile"] = json!(profile);
+        params = model_switch_params(caller, session, profile, reasoning);
         None
     } else {
         let current = call(
@@ -319,17 +350,11 @@ fn change_model(
                     json!({"reason":"model-profile-unavailable"}),
                 )
             });
-        params["profile"] = json!(profile);
+        params = model_switch_params(caller, session, profile, reasoning);
         Some(current["revision"].clone())
     };
-    if let Some(level) = reasoning {
-        params["reasoning"] = json!(level);
-    }
     let preview = call(out, c, "session.model.set", params.clone());
-    if base_revision
-        .as_ref()
-        .is_some_and(|revision| revision != &preview["revision"])
-    {
+    if !model_preview_is_current(base_revision.as_ref(), &preview) {
         out.fail(
             "E_CONFLICT",
             "model profile changed while reading; retry the command",
@@ -337,16 +362,15 @@ fn change_model(
         );
     }
     let german = std::env::var("LANG").unwrap_or_default().starts_with("de");
-    let warning = if german {
-        "Modell oder Reasoning wechseln? Der Cache wird neu aufgebaut; neue Cache-Schreibkosten und andere Modellkosten können entstehen. Die Präfixe pro Modell bleiben erhalten."
-    } else {
-        "Switch model or reasoning? The cache will rebuild; new cache writes and different model costs may apply. Per-model prefixes are preserved."
-    };
+    let warning = model_switch_warning(german);
     eprintln!("{warning}");
     crate::commands::module::confirm(out, warning, yes);
-    params["confirmed"] = json!(true);
-    params["expectedRevision"] = preview["revision"].clone();
-    call(out, c, "session.model.set", params)
+    call(
+        out,
+        c,
+        "session.model.set",
+        confirm_model_switch(params, &preview),
+    )
 }
 
 pub fn chat(out: &Out, layout: &Layout, args: ChatArgs) {

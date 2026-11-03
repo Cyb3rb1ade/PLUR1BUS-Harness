@@ -510,7 +510,12 @@ class Plur1busMemoryProvider(MemoryProvider):
         assert journal is not None
         for i, entry in enumerate(entries):
             try:
-                journal.append(entry, timeout=timeout)
+                remaining = timeout
+                if deadline is not None:
+                    remaining = min(timeout, max(0.0, deadline - time.monotonic()))
+                    if remaining <= 0:
+                        raise TimeoutError("shutdown journal deadline expired")
+                journal.append(entry, timeout=remaining)
             except Exception as e:  # noqa: BLE001 - LockTimeout, OSError, ...
                 # Worker path keeps the 0.2 s bump wait. Shutdown passes its deadline so bump
                 # cannot start a fresh wait after the budget is already spent (0 = one try).

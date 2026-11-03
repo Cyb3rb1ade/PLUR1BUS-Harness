@@ -2,7 +2,7 @@
 //! the core's experimental MemoryOps RPC surface (`memory.list`, `memory.show`, `memory.forget`,
 //! `memory.correct`, `memory.share`, `memory.state`, `memory.propose`,
 //! `memory.proposals.list|accept|reject`). `memory import-text|export-text` (prompt memory
-//! import/export, RPC 1.13.0) are dispatched from here to `memory_text.rs`. Unlike
+//! import/export, RPC 1.22.0) are dispatched from here to `memory_text.rs`. Unlike
 //! `memory add`/`memory recall` (`memory.rs`), these never journal: a core that cannot be reached fails fast with `E_CORE_UNAVAILABLE`.
 use crate::cli::{CurationCmd, MemoryCmd, ProposalStatus, ProposalsCmd, ShareTarget};
 use crate::commands::daemon::supervisor_detail;

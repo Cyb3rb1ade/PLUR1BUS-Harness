@@ -3,6 +3,7 @@
   "$id": "https://plur1bus.dev/schema/config/1/config.schema.json",
   "title": "PLUR1BUS harness config.json (schemaVersion 1)",
   "description": "Configuration for the PLUR1BUS harness process, its supervisor, and optional integrations.",
+  "x-media-models": {"providers": ["local", "local-transformers", "egemma2"], "models": {"google/embeddinggemma-2": {"local": true, "capabilities": {"text": true, "image": true, "video": true, "audio": true}, "licence": {"id": "Apache-2.0", "nonCommercial": false}, "dimensions": [128, 256, 512, 768]}}},
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion"],
@@ -118,9 +119,296 @@
     },
     "collaboration": {
       "description": "Agent collaboration and owner-controlled fan-out.",
-      "type": "object", "additionalProperties": false,
+      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "fanoutEnabled": { "type": "boolean", "default": false, "x-restart": "live", "x-tier": "advanced", "description": "Enable collaboration fan-out only after owner review of the equal-token-budget evaluation." }
+        "fanoutEnabled": {
+          "type": "boolean",
+          "default": false,
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "description": "Enable collaboration fan-out only after owner review of the equal-token-budget evaluation."
+        },
+        "teams": {
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "description": "D124 capacity facts; team scheduling remains disabled until its scheduler, reviews and merge queue land.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable coding teams when team scheduling, review and merge support is installed; off by default."
+            },
+            "capacity": {
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "coresPerWriter": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "default": 2,
+                  "description": "Allowed CPU cores estimated per local writer.",
+                  "maximum": 9007199254740991
+                },
+                "memoryPerWriter": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "default": 4294967296,
+                  "description": "Available memory in bytes estimated per local writer.",
+                  "maximum": 9007199254740991
+                },
+                "maxWriters": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Explicit soft-capacity override. Exceeding measured CPU or memory capacity emits a warning. The numeric bound preserves JSON safe integers, without an operational writer ceiling.",
+                  "maximum": 9007199254740991
+                }
+              },
+              "description": "Soft writer capacity from CPU cores and available memory, with an explicit overcommit override."
+            },
+            "disk": {
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "minFreeBytes": {
+                  "type": "integer",
+                  "minimum": 1073741824,
+                  "default": 21474836480,
+                  "description": "Hard floor before creating a worktree. Cannot be disabled; the provisioner-backed team scheduler enforces it.",
+                  "maximum": 9007199254740991
+                }
+              },
+              "description": "Required free disk space before creating an additional worktree."
+            }
+          }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "description": "D124 collaboration limits. Project settings can only narrow these installation limits.",
+          "properties": {
+            "readHelpers": {
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "perTurn": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 32,
+                  "default": 8,
+                  "description": "Read helper starts per calling turn."
+                },
+                "depth": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2,
+                  "default": 2,
+                  "description": "Maximum read-only delegation depth."
+                }
+              },
+              "description": "Read-only helper starts and nesting depth."
+            },
+            "writers": {
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "perProject": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "default": 4,
+                  "description": "Concurrent writers per project. Hardware capacity is a soft bound; there is no fixed writer ceiling. The numeric bound preserves JSON safe integers.",
+                  "maximum": 9007199254740991
+                }
+              },
+              "description": "Project-wide concurrent writer limit, independent of read helper starts."
+            },
+            "consults": {
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "perPairPerTurn": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "default": 4,
+                  "description": "Consult starts per agent pair per calling turn.",
+                  "maximum": 9007199254740991
+                }
+              },
+              "description": "Consult-only pair allowance; package delegations have no pair cap."
+            },
+            "workTokens": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 131072,
+              "description": "Standalone delegation work allocation when no smaller explicit allocation is supplied. Includes acceptance and return repair; independent of the 2000-token return cap.",
+              "maximum": 9007199254740991
+            },
+            "taskClasses": {
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "consult": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "rounds": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "default": 25,
+                      "description": "Maximum model rounds for this delegation.",
+                      "maximum": 9007199254740991
+                    },
+                    "wallTimeMs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647,
+                      "default": 300000,
+                      "description": "Maximum elapsed milliseconds for the delegation."
+                    },
+                    "stallTimeMs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647,
+                      "default": 120000,
+                      "description": "Maximum milliseconds without progress before cancelling the delegation."
+                    }
+                  },
+                  "description": "Advice and short read-only helper work."
+                },
+                "research": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "rounds": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "default": 50,
+                      "description": "Maximum model rounds for this delegation.",
+                      "maximum": 9007199254740991
+                    },
+                    "wallTimeMs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647,
+                      "default": 900000,
+                      "description": "Maximum elapsed milliseconds for the delegation."
+                    },
+                    "stallTimeMs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647,
+                      "default": 300000,
+                      "description": "Maximum milliseconds without progress before cancelling the delegation."
+                    }
+                  },
+                  "description": "Exploration, research and explanations."
+                },
+                "review": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "rounds": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "default": 40,
+                      "description": "Maximum model rounds for this delegation.",
+                      "maximum": 9007199254740991
+                    },
+                    "wallTimeMs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647,
+                      "default": 1200000,
+                      "description": "Maximum elapsed milliseconds for the delegation."
+                    },
+                    "stallTimeMs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647,
+                      "default": 300000,
+                      "description": "Maximum milliseconds without progress before cancelling the delegation."
+                    }
+                  },
+                  "description": "Independent read-only review."
+                },
+                "code-small": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "rounds": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "default": 100,
+                      "description": "Maximum model rounds for this delegation.",
+                      "maximum": 9007199254740991
+                    },
+                    "wallTimeMs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647,
+                      "default": 2700000,
+                      "description": "Maximum elapsed milliseconds for the delegation."
+                    },
+                    "stallTimeMs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647,
+                      "default": 600000,
+                      "description": "Maximum milliseconds without progress before cancelling the delegation."
+                    }
+                  },
+                  "description": "Coding packages of roughly fewer than 200 changed lines."
+                },
+                "code-large": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "rounds": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "default": 200,
+                      "description": "Maximum model rounds for this delegation.",
+                      "maximum": 9007199254740991
+                    },
+                    "wallTimeMs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647,
+                      "default": 7200000,
+                      "description": "Maximum elapsed milliseconds for the delegation."
+                    },
+                    "stallTimeMs": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 2147483647,
+                      "default": 900000,
+                      "description": "Maximum milliseconds without progress before cancelling the delegation."
+                    }
+                  },
+                  "description": "Larger coding packages."
+                }
+              },
+              "description": "Round, elapsed-time and inactivity limits for each delegation task class."
+            }
+          }
+        }
       },
       "default": {}
     },
@@ -626,6 +914,7 @@
         "description": "Settings for one agent.",
         "type": "object", "additionalProperties": false,
         "properties": {
+          "coding": { "description": "Enable the static coding profile and pre-admit registered coding tools. Filesystem permissions and grants stay unchanged.", "type": "boolean", "default": false, "x-restart": "live", "x-tier": "advanced" },
           "behaviour": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"default": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"reply": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"policy": {"type": "string","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"enum": ["always","on-mention","never"],"description": "always, on-mention, or never; a later layer may only restrict."}},"description": "Controls when the agent may reply."},"memory": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"capture": {"type": "string","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"enum": ["full","provenance-only","none"],"description": "Full capture, content-free provenance receipt, or no capture."},"allowedScopes": {"type": "array", "maxItems": 3,"x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"uniqueItems": true,"items": {"enum": ["agent-private","workspace","user"]},"description": "Intersection-only memory scope allowlist. Empty denies all memory access."},"captureOtherSpeakers": {"type": "boolean","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"description": "Whether third-party speakers may be captured. False cannot be re-enabled by a later layer."},"requireLinkedPrincipalForUserScope": {"type": "boolean","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"description": "Requires a verified identity for user-scope memory; true cannot be relaxed."}},"description": "Memory permissions for this behaviour layer."},"commands": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"allow": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."},"deny": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Denied names or * patterns, unioned across layers."}},"description": "Command names without a leading slash."},"tools": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"allow": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."},"deny": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Denied names or * patterns, unioned across layers."}},"description": "Tool names allowed or denied in this layer."},"capabilities": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"allow": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."},"deny": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Denied names or * patterns, unioned across layers."}},"description": "Capability identifiers allowed or denied in this layer."},"rateLimits": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"repliesPerHour": {"type": "integer","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"minimum": 0,"maximum": 65536,"description": "Maximum replies per person and chat per fixed hour window. Zero disables replies."},"editsPerMinute": {"type": "integer","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"minimum": 0,"maximum": 65536,"description": "Maximum edits per chat per fixed minute window. Zero disables edits."},"maxReplyChars": {"type": "integer","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"minimum": 0,"maximum": 65536,"description": "Maximum outbound text length in UTF-16 units, clipped without splitting surrogate pairs."}},"description": "Additional numeric ceilings, merged by minimum."}},"description": "Agent-wide restrictions inherited by every channel."},"direct": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"reply": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"policy": {"type": "string","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"enum": ["always","on-mention","never"],"description": "always, on-mention, or never; a later layer may only restrict."}},"description": "Controls when the agent may reply."},"memory": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"capture": {"type": "string","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"enum": ["full","provenance-only","none"],"description": "Full capture, content-free provenance receipt, or no capture."},"allowedScopes": {"type": "array", "maxItems": 3,"x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"uniqueItems": true,"items": {"enum": ["agent-private","workspace","user"]},"description": "Intersection-only memory scope allowlist. Empty denies all memory access."},"captureOtherSpeakers": {"type": "boolean","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"description": "Whether third-party speakers may be captured. False cannot be re-enabled by a later layer."},"requireLinkedPrincipalForUserScope": {"type": "boolean","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"description": "Requires a verified identity for user-scope memory; true cannot be relaxed."}},"description": "Memory permissions for this behaviour layer."},"commands": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"allow": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."},"deny": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Denied names or * patterns, unioned across layers."}},"description": "Command names without a leading slash."},"tools": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"allow": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."},"deny": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Denied names or * patterns, unioned across layers."}},"description": "Tool names allowed or denied in this layer."},"capabilities": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"allow": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."},"deny": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Denied names or * patterns, unioned across layers."}},"description": "Capability identifiers allowed or denied in this layer."},"rateLimits": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"repliesPerHour": {"type": "integer","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"minimum": 0,"maximum": 65536,"description": "Maximum replies per person and chat per fixed hour window. Zero disables replies."},"editsPerMinute": {"type": "integer","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"minimum": 0,"maximum": 65536,"description": "Maximum edits per chat per fixed minute window. Zero disables edits."},"maxReplyChars": {"type": "integer","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"minimum": 0,"maximum": 65536,"description": "Maximum outbound text length in UTF-16 units, clipped without splitting surrogate pairs."}},"description": "Additional numeric ceilings, merged by minimum."}},"description": "Additional restrictions for direct messages and DMs."},"group": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"reply": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"policy": {"type": "string","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"enum": ["always","on-mention","never"],"description": "always, on-mention, or never; a later layer may only restrict."}},"description": "Controls when the agent may reply."},"memory": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"capture": {"type": "string","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"enum": ["full","provenance-only","none"],"description": "Full capture, content-free provenance receipt, or no capture."},"allowedScopes": {"type": "array", "maxItems": 3,"x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"uniqueItems": true,"items": {"enum": ["agent-private","workspace","user"]},"description": "Intersection-only memory scope allowlist. Empty denies all memory access."},"captureOtherSpeakers": {"type": "boolean","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"description": "Whether third-party speakers may be captured. False cannot be re-enabled by a later layer."},"requireLinkedPrincipalForUserScope": {"type": "boolean","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"description": "Requires a verified identity for user-scope memory; true cannot be relaxed."}},"description": "Memory permissions for this behaviour layer."},"commands": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"allow": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."},"deny": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Denied names or * patterns, unioned across layers."}},"description": "Command names without a leading slash."},"tools": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"allow": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."},"deny": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Denied names or * patterns, unioned across layers."}},"description": "Tool names allowed or denied in this layer."},"capabilities": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"allow": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."},"deny": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Denied names or * patterns, unioned across layers."}},"description": "Capability identifiers allowed or denied in this layer."},"rateLimits": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"repliesPerHour": {"type": "integer","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"minimum": 0,"maximum": 65536,"description": "Maximum replies per person and chat per fixed hour window. Zero disables replies."},"editsPerMinute": {"type": "integer","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"minimum": 0,"maximum": 65536,"description": "Maximum edits per chat per fixed minute window. Zero disables edits."},"maxReplyChars": {"type": "integer","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"minimum": 0,"maximum": 65536,"description": "Maximum outbound text length in UTF-16 units, clipped without splitting surrogate pairs."}},"description": "Additional numeric ceilings, merged by minimum."}},"description": "Additional restrictions for groups and channels."},"byChannelKind": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxProperties": 128,"propertyNames": {"pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"},"additionalProperties": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"reply": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"policy": {"type": "string","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"enum": ["always","on-mention","never"],"description": "always, on-mention, or never; a later layer may only restrict."}},"description": "Controls when the agent may reply."},"memory": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"capture": {"type": "string","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"enum": ["full","provenance-only","none"],"description": "Full capture, content-free provenance receipt, or no capture."},"allowedScopes": {"type": "array", "maxItems": 3,"x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"uniqueItems": true,"items": {"enum": ["agent-private","workspace","user"]},"description": "Intersection-only memory scope allowlist. Empty denies all memory access."},"captureOtherSpeakers": {"type": "boolean","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"description": "Whether third-party speakers may be captured. False cannot be re-enabled by a later layer."},"requireLinkedPrincipalForUserScope": {"type": "boolean","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"description": "Requires a verified identity for user-scope memory; true cannot be relaxed."}},"description": "Memory permissions for this behaviour layer."},"commands": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"allow": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."},"deny": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Denied names or * patterns, unioned across layers."}},"description": "Command names without a leading slash."},"tools": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"allow": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."},"deny": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Denied names or * patterns, unioned across layers."}},"description": "Tool names allowed or denied in this layer."},"capabilities": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"allow": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."},"deny": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Denied names or * patterns, unioned across layers."}},"description": "Capability identifiers allowed or denied in this layer."},"rateLimits": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"repliesPerHour": {"type": "integer","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"minimum": 0,"maximum": 65536,"description": "Maximum replies per person and chat per fixed hour window. Zero disables replies."},"editsPerMinute": {"type": "integer","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"minimum": 0,"maximum": 65536,"description": "Maximum edits per chat per fixed minute window. Zero disables edits."},"maxReplyChars": {"type": "integer","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"minimum": 0,"maximum": 65536,"description": "Maximum outbound text length in UTF-16 units, clipped without splitting surrogate pairs."}},"description": "Additional numeric ceilings, merged by minimum."}},"description": "One sparse behaviour layer; all specified values restrict inherited permissions."},"description": "Additional restrictions keyed by channel kind."},"byBotConnection": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxProperties": 128,"propertyNames": {"enum": ["telegram","discord","matrix","slack","signal","email","buzz"]},"additionalProperties": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"reply": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"policy": {"type": "string","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"enum": ["always","on-mention","never"],"description": "always, on-mention, or never; a later layer may only restrict."}},"description": "Controls when the agent may reply."},"memory": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"capture": {"type": "string","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"enum": ["full","provenance-only","none"],"description": "Full capture, content-free provenance receipt, or no capture."},"allowedScopes": {"type": "array", "maxItems": 3,"x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"uniqueItems": true,"items": {"enum": ["agent-private","workspace","user"]},"description": "Intersection-only memory scope allowlist. Empty denies all memory access."},"captureOtherSpeakers": {"type": "boolean","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"description": "Whether third-party speakers may be captured. False cannot be re-enabled by a later layer."},"requireLinkedPrincipalForUserScope": {"type": "boolean","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"description": "Requires a verified identity for user-scope memory; true cannot be relaxed."}},"description": "Memory permissions for this behaviour layer."},"commands": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"allow": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."},"deny": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Denied names or * patterns, unioned across layers."}},"description": "Command names without a leading slash."},"tools": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"allow": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."},"deny": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Denied names or * patterns, unioned across layers."}},"description": "Tool names allowed or denied in this layer."},"capabilities": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"allow": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Literal allowed names, intersected across layers. Omitted inherits; empty denies all."},"deny": {"type": "array","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"maxItems": 256,"uniqueItems": true,"items": {"type": "string","minLength": 1,"maxLength": 128,"pattern": "^[a-zA-Z0-9_.*/-]+$"},"description": "Denied names or * patterns, unioned across layers."}},"description": "Capability identifiers allowed or denied in this layer."},"rateLimits": {"type": "object","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"additionalProperties": false,"properties": {"repliesPerHour": {"type": "integer","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"minimum": 0,"maximum": 65536,"description": "Maximum replies per person and chat per fixed hour window. Zero disables replies."},"editsPerMinute": {"type": "integer","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"minimum": 0,"maximum": 65536,"description": "Maximum edits per chat per fixed minute window. Zero disables edits."},"maxReplyChars": {"type": "integer","x-restart": "live","x-tier": "advanced","x-write-roles": ["owner","admin"],"x-audit": true,"minimum": 0,"maximum": 65536,"description": "Maximum outbound text length in UTF-16 units, clipped without splitting surrogate pairs."}},"description": "Additional numeric ceilings, merged by minimum."}},"description": "One sparse behaviour layer; all specified values restrict inherited permissions."},"description": "Restrictions for hosted bot connections. The current host uses the channel kind as its stable connection id."}},"description": "ADR-003 four-level restrictive behaviour: default, direct/group, channel kind, bot connection. No per-chat layer."},
           "voice": {
             "type": "object",
@@ -1266,6 +1555,7 @@
             ]
           },
           "model": {"description": "Named model profile selected for this agent.", "type": "string", "minLength": 1, "maxLength": 128, "x-restart": "live", "x-tier": "basic"},
+          "engine": {"x-write-roles": ["owner", "admin"], "x-audit": true, "description": "External ACP agent (ADR-003 Q4). Stateless: the connector keeps no harness session. Real CLIs stay out of CI.", "type": "object", "additionalProperties": false, "x-restart": "live", "x-tier": "advanced", "required": ["kind", "connector"], "properties": {"kind": {"const": "external", "description": "External coding agent. The harness remains the only git writer."}, "connector": {"enum": ["claude-code", "codex", "goose", "agy"], "description": "Connector id. goose is gated; agy is best-effort."}, "maxTurns": {"type": "integer", "minimum": 1, "maximum": 200, "default": 20, "description": "Maximum ACP prompts for one delegation."}, "timeoutMs": {"type": "integer", "minimum": 1000, "maximum": 3600000, "default": 600000, "description": "Kills the connector process group after this many milliseconds."}}},
           "channels": {"description": "Channel names selected for this agent. Does not enable installation channels.", "type": "array", "uniqueItems": true, "maxItems": 32, "items": {"type": "string", "minLength": 1, "maxLength": 32}, "x-restart": "live", "x-tier": "basic"},
           "createdAt": { "description": "Timestamp when the agent was created, in date-time format.", "type": "string", "maxLength": 64, "format": "date-time" },
           "displayName": { "description": "Optional human-readable name for the agent.", "type": "string", "maxLength": 128 },
@@ -1286,13 +1576,16 @@
               "model": {"description": "Model id used for the media index; the same model may serve text and media, the indexes stay separate.", "type": "string", "maxLength": 256, "x-restart": "core", "x-tier": "basic"},
               "dimensions": {"description": "Vector dimensions of the media index; must be supported by the model (EmbeddingGemma: 768, 512, 256 or 128).", "type": "integer", "minimum": 1, "maximum": 16384, "x-restart": "core", "x-tier": "advanced"},
               "modalities": {"description": "Media kinds that are indexed.", "type": "array", "items": {"type": "string", "enum": ["image", "video", "audio"], "description": "One media kind."}, "uniqueItems": true, "minItems": 1, "maxItems": 3, "x-restart": "core", "x-tier": "basic"},
+              "image": {"description": "Image preprocessing token budget (owner E3).", "type": "object", "additionalProperties": false, "x-restart": "core", "x-tier": "advanced", "properties": {"softTokens": {"description": "Soft token budget per photo; changing it changes the media vector space.", "type": "integer", "minimum": 1, "maximum": 280, "x-restart": "core", "x-tier": "advanced"}}},
+              "dtypes": {"description": "Pinned encoder precision per platform (owner E2): q8 until a separate measured decision. Audio always uses q8.", "type": "object", "additionalProperties": false, "x-restart": "core", "x-tier": "advanced", "properties": {"linux-x64": {"description": "Encoder precision on linux-x64.", "type": "object", "additionalProperties": false, "x-restart": "core", "x-tier": "advanced", "properties": {"text": {"description": "Pinned text encoder precision.", "type": "string", "enum": ["q8"], "x-restart": "core", "x-tier": "advanced"}, "vision": {"description": "Pinned vision encoder precision.", "type": "string", "enum": ["q8"], "x-restart": "core", "x-tier": "advanced"}, "audio": {"description": "Pinned audio encoder precision.", "type": "string", "enum": ["q8"], "x-restart": "core", "x-tier": "advanced"}}}, "linux-arm64": {"description": "Encoder precision on linux-arm64.", "type": "object", "additionalProperties": false, "x-restart": "core", "x-tier": "advanced", "properties": {"text": {"description": "Pinned text encoder precision.", "type": "string", "enum": ["q8"], "x-restart": "core", "x-tier": "advanced"}, "vision": {"description": "Pinned vision encoder precision.", "type": "string", "enum": ["q8"], "x-restart": "core", "x-tier": "advanced"}, "audio": {"description": "Pinned audio encoder precision.", "type": "string", "enum": ["q8"], "x-restart": "core", "x-tier": "advanced"}}}, "darwin-arm64": {"description": "Encoder precision on darwin-arm64.", "type": "object", "additionalProperties": false, "x-restart": "core", "x-tier": "advanced", "properties": {"text": {"description": "Pinned text encoder precision.", "type": "string", "enum": ["q8"], "x-restart": "core", "x-tier": "advanced"}, "vision": {"description": "Pinned vision encoder precision.", "type": "string", "enum": ["q8"], "x-restart": "core", "x-tier": "advanced"}, "audio": {"description": "Pinned audio encoder precision.", "type": "string", "enum": ["q8"], "x-restart": "core", "x-tier": "advanced"}}}, "win32-x64": {"description": "Encoder precision on win32-x64.", "type": "object", "additionalProperties": false, "x-restart": "core", "x-tier": "advanced", "properties": {"text": {"description": "Pinned text encoder precision.", "type": "string", "enum": ["q8"], "x-restart": "core", "x-tier": "advanced"}, "vision": {"description": "Pinned vision encoder precision.", "type": "string", "enum": ["q8"], "x-restart": "core", "x-tier": "advanced"}, "audio": {"description": "Pinned audio encoder precision.", "type": "string", "enum": ["q8"], "x-restart": "core", "x-tier": "advanced"}}}, "win32-arm64": {"description": "Encoder precision on win32-arm64.", "type": "object", "additionalProperties": false, "x-restart": "core", "x-tier": "advanced", "properties": {"text": {"description": "Pinned text encoder precision.", "type": "string", "enum": ["q8"], "x-restart": "core", "x-tier": "advanced"}, "vision": {"description": "Pinned vision encoder precision.", "type": "string", "enum": ["q8"], "x-restart": "core", "x-tier": "advanced"}, "audio": {"description": "Pinned audio encoder precision.", "type": "string", "enum": ["q8"], "x-restart": "core", "x-tier": "advanced"}}}}},
               "video": {"description": "How video is cut into segments and frames before embedding.", "type": "object", "additionalProperties": false, "properties": {
                 "segmentSec": {"description": "Length of one video segment in seconds.", "type": "integer", "minimum": 1, "maximum": 3600, "x-restart": "core", "x-tier": "advanced"},
                 "maxFrames": {"description": "Maximum number of frames embedded per video; capped by the model limit.", "type": "integer", "minimum": 1, "maximum": 4096, "x-restart": "core", "x-tier": "advanced"},
-                "sceneDetect": {"description": "Whether frames are picked at scene changes instead of a fixed interval.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"}
+                "sceneDetect": {"description": "Whether frames are picked at scene changes instead of a fixed interval.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
+                "softTokens": {"description": "Soft token budget per video frame (owner E3); changing it changes the media vector space.", "type": "integer", "minimum": 1, "maximum": 280, "x-restart": "core", "x-tier": "advanced"}
               }},
               "audio": {"description": "How audio is cut into segments before embedding.", "type": "object", "additionalProperties": false, "properties": {
-                "segmentSec": {"description": "Length of one audio segment in seconds.", "type": "integer", "minimum": 1, "maximum": 3600, "x-restart": "core", "x-tier": "advanced"},
+                "segmentSec": {"description": "Length of one audio segment in seconds; the model silently truncates above 30 (owner E8).", "type": "integer", "minimum": 1, "maximum": 30, "x-restart": "core", "x-tier": "advanced"},
                 "maxSeconds": {"description": "Maximum audio duration in seconds that is indexed; longer media is truncated.", "type": "integer", "minimum": 1, "maximum": 604800, "x-restart": "core", "x-tier": "advanced"}
               }},
               "caption": {"description": "Captions: one text entry per medium in the text index, written by the prompt, the user or an automatic captioner.", "type": "object", "additionalProperties": false, "properties": {
@@ -1415,13 +1708,16 @@
         "model": {"description": "Model id used for the media index; the same model may serve text and media, the indexes stay separate.", "type": "string", "maxLength": 256, "default": "google/embeddinggemma-2", "x-restart": "core", "x-tier": "basic"},
         "dimensions": {"description": "Vector dimensions of the media index; must be supported by the model (EmbeddingGemma: 768, 512, 256 or 128).", "type": "integer", "minimum": 1, "maximum": 16384, "default": 768, "x-restart": "core", "x-tier": "advanced"},
         "modalities": {"description": "Media kinds that are indexed.", "type": "array", "items": {"type": "string", "enum": ["image", "video", "audio"], "description": "One media kind."}, "uniqueItems": true, "minItems": 1, "maxItems": 3, "default": ["image", "video", "audio"], "x-restart": "core", "x-tier": "basic"},
+        "image": {"description": "Image preprocessing token budget (owner E3).", "type": "object", "additionalProperties": false, "default": {}, "x-restart": "core", "x-tier": "advanced", "properties": {"softTokens": {"description": "Soft token budget per photo; changing it changes the media vector space.", "type": "integer", "minimum": 1, "maximum": 280, "default": 140, "x-restart": "core", "x-tier": "advanced"}}},
+        "dtypes": {"description": "Pinned encoder precision per platform (owner E2): q8 until a separate measured decision. Audio always uses q8.", "type": "object", "additionalProperties": false, "default": {}, "x-restart": "core", "x-tier": "advanced", "properties": {"linux-x64": {"description": "Encoder precision on linux-x64.", "type": "object", "additionalProperties": false, "default": {}, "x-restart": "core", "x-tier": "advanced", "properties": {"text": {"description": "Pinned text encoder precision.", "type": "string", "enum": ["q8"], "default": "q8", "x-restart": "core", "x-tier": "advanced"}, "vision": {"description": "Pinned vision encoder precision.", "type": "string", "enum": ["q8"], "default": "q8", "x-restart": "core", "x-tier": "advanced"}, "audio": {"description": "Pinned audio encoder precision.", "type": "string", "enum": ["q8"], "default": "q8", "x-restart": "core", "x-tier": "advanced"}}}, "linux-arm64": {"description": "Encoder precision on linux-arm64.", "type": "object", "additionalProperties": false, "default": {}, "x-restart": "core", "x-tier": "advanced", "properties": {"text": {"description": "Pinned text encoder precision.", "type": "string", "enum": ["q8"], "default": "q8", "x-restart": "core", "x-tier": "advanced"}, "vision": {"description": "Pinned vision encoder precision.", "type": "string", "enum": ["q8"], "default": "q8", "x-restart": "core", "x-tier": "advanced"}, "audio": {"description": "Pinned audio encoder precision.", "type": "string", "enum": ["q8"], "default": "q8", "x-restart": "core", "x-tier": "advanced"}}}, "darwin-arm64": {"description": "Encoder precision on darwin-arm64.", "type": "object", "additionalProperties": false, "default": {}, "x-restart": "core", "x-tier": "advanced", "properties": {"text": {"description": "Pinned text encoder precision.", "type": "string", "enum": ["q8"], "default": "q8", "x-restart": "core", "x-tier": "advanced"}, "vision": {"description": "Pinned vision encoder precision.", "type": "string", "enum": ["q8"], "default": "q8", "x-restart": "core", "x-tier": "advanced"}, "audio": {"description": "Pinned audio encoder precision.", "type": "string", "enum": ["q8"], "default": "q8", "x-restart": "core", "x-tier": "advanced"}}}, "win32-x64": {"description": "Encoder precision on win32-x64.", "type": "object", "additionalProperties": false, "default": {}, "x-restart": "core", "x-tier": "advanced", "properties": {"text": {"description": "Pinned text encoder precision.", "type": "string", "enum": ["q8"], "default": "q8", "x-restart": "core", "x-tier": "advanced"}, "vision": {"description": "Pinned vision encoder precision.", "type": "string", "enum": ["q8"], "default": "q8", "x-restart": "core", "x-tier": "advanced"}, "audio": {"description": "Pinned audio encoder precision.", "type": "string", "enum": ["q8"], "default": "q8", "x-restart": "core", "x-tier": "advanced"}}}, "win32-arm64": {"description": "Encoder precision on win32-arm64.", "type": "object", "additionalProperties": false, "default": {}, "x-restart": "core", "x-tier": "advanced", "properties": {"text": {"description": "Pinned text encoder precision.", "type": "string", "enum": ["q8"], "default": "q8", "x-restart": "core", "x-tier": "advanced"}, "vision": {"description": "Pinned vision encoder precision.", "type": "string", "enum": ["q8"], "default": "q8", "x-restart": "core", "x-tier": "advanced"}, "audio": {"description": "Pinned audio encoder precision.", "type": "string", "enum": ["q8"], "default": "q8", "x-restart": "core", "x-tier": "advanced"}}}}},
         "video": {"description": "How video is cut into segments and frames before embedding.", "type": "object", "additionalProperties": false, "default": {}, "properties": {
           "segmentSec": {"description": "Length of one video segment in seconds.", "type": "integer", "minimum": 1, "maximum": 3600, "default": 10, "x-restart": "core", "x-tier": "advanced"},
           "maxFrames": {"description": "Maximum number of frames embedded per video; capped by the model limit.", "type": "integer", "minimum": 1, "maximum": 4096, "default": 32, "x-restart": "core", "x-tier": "advanced"},
-          "sceneDetect": {"description": "Whether frames are picked at scene changes instead of a fixed interval.", "type": "boolean", "default": true, "x-restart": "core", "x-tier": "advanced"}
+          "sceneDetect": {"description": "Whether frames are picked at scene changes instead of a fixed interval.", "type": "boolean", "default": true, "x-restart": "core", "x-tier": "advanced"},
+          "softTokens": {"description": "Soft token budget per video frame (owner E3); changing it changes the media vector space.", "type": "integer", "minimum": 1, "maximum": 280, "default": 70, "x-restart": "core", "x-tier": "advanced"}
         }},
         "audio": {"description": "How audio is cut into segments before embedding.", "type": "object", "additionalProperties": false, "default": {}, "properties": {
-          "segmentSec": {"description": "Length of one audio segment in seconds.", "type": "integer", "minimum": 1, "maximum": 3600, "default": 30, "x-restart": "core", "x-tier": "advanced"},
+          "segmentSec": {"description": "Length of one audio segment in seconds; the model silently truncates above 30 (owner E8).", "type": "integer", "minimum": 1, "maximum": 30, "default": 30, "x-restart": "core", "x-tier": "advanced"},
           "maxSeconds": {"description": "Maximum audio duration in seconds that is indexed; longer media is truncated.", "type": "integer", "minimum": 1, "maximum": 604800, "default": 3600, "x-restart": "core", "x-tier": "advanced"}
         }},
         "caption": {"description": "Captions: one text entry per medium in the text index, written by the prompt, the user or an automatic captioner.", "type": "object", "additionalProperties": false, "default": {}, "properties": {
@@ -1431,7 +1727,7 @@
           "maxChars": {"description": "Maximum caption length in characters.", "type": "integer", "minimum": 20, "maximum": 10000, "default": 280, "x-restart": "core", "x-tier": "advanced"},
           "perSegment": {"description": "Whether video and audio get one caption per segment instead of one per medium.", "type": "boolean", "default": false, "x-restart": "core", "x-tier": "advanced"}
         }},
-        "backfill": {"description": "Whether existing media are indexed automatically in the background (auto) or only on request (manual).", "type": "string", "enum": ["auto", "manual"], "default": "auto", "x-restart": "core", "x-tier": "advanced"}
+        "backfill": {"description": "Whether existing media are indexed automatically in the background (auto) or only on request (manual).", "type": "string", "enum": ["auto", "manual"], "default": "manual", "x-restart": "core", "x-tier": "advanced"}
       }}
     }},
     "engine": {
@@ -1560,6 +1856,149 @@
               }
             }
           }
+        }
+      }
+    },
+    "a2aClient": {
+      "description": "Outbound A2A client. Pins live in the private peer registry; no credentials or foreign card text belong in configuration.",
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "x-restart": "live",
+      "x-tier": "advanced",
+      "x-write-roles": [
+        "owner"
+      ],
+      "x-audit": true,
+      "x-since": "1.12.0",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable the outbound A2A client. Peer registration and explicit trust use Owner-only RPC.",
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 120000,
+          "default": 30000,
+          "description": "Network deadline per outbound A2A HTTP request, including its same-origin redirects.",
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true
+        },
+        "maxCardBytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 131072,
+          "default": 131072,
+          "description": "Maximum raw UTF-8 bytes of a signed foreign agent card.",
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true
+        },
+        "maxRequestBytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 65536,
+          "default": 16384,
+          "description": "Maximum raw JSON request bytes sent to a peer.",
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true
+        },
+        "maxReplyBytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 65536,
+          "default": 16384,
+          "description": "Maximum raw JSON response bytes accepted from a peer.",
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true
+        },
+        "maxPeers": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024,
+          "default": 64,
+          "description": "Maximum registered outbound peers. Existing pins remain removable when lowered.",
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true
+        },
+        "peerCalls": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "default": 8,
+          "description": "Maximum outgoing HTTP requests to one peer in one authenticated turn, including card reads.",
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true
+        },
+        "turnCalls": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000,
+          "default": 16,
+          "description": "Maximum outgoing A2A HTTP requests across peers in one authenticated turn.",
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true
+        },
+        "peerTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000000,
+          "default": 65536,
+          "description": "Per-peer per-turn communicated-token bound, conservatively measured in UTF-8 request and reply bytes. Hidden peer usage is not metered.",
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true
+        },
+        "turnTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000000,
+          "default": 131072,
+          "description": "Communicated-token bound across all peers in one turn, measured in UTF-8 request and reply bytes.",
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true
         }
       }
     },
@@ -2252,6 +2691,29 @@
       "default": {},
       "description": "Session context maintenance.",
       "properties": {
+        "rewind": {
+          "type": "object", "additionalProperties": false, "default": {},
+          "description": "D120 reversible conversation paths. Automatic rewind and file checkpoints each require an explicit project opt-in.",
+          "properties": {
+            "autoProjects": {
+              "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "uniqueItems": true, "maxItems": 128, "default": [],
+              "description": "Projects that permit automatic rewind after three failed edit/test cycles on unattended D115 cards. Interactive sessions only propose; no file restore is automatic.",
+              "x-restart": "live", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true
+            },
+            "fileProjects": {
+              "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "uniqueItems": true, "maxItems": 128, "default": [],
+              "description": "Projects that permit tracked-file checkpoints and separately approved file rewind on D115 card sessions. Empty disables capture and file restore.",
+              "x-restart": "live", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true
+            },
+            "checkpointRetentionTurns": {
+              "type": "integer", "minimum": 1, "maximum": 500, "default": 50,
+              "description": "Keep private file-checkpoint refs only within this many recent session turns. Archived sessions and completed cards release their refs earlier.",
+              "x-restart": "live", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true
+            }
+          }
+        },
         "compaction": {
           "type": "object",
           "additionalProperties": false,

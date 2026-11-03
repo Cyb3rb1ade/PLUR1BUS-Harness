@@ -23,15 +23,18 @@ import { join } from "node:path";
 import type { HarnessConfig } from "@plur1bus/config-schema";
 import type { restartPlan } from "@plur1bus/config-schema";
 import { deriveUserPrincipal } from "../identity/principals.ts";
+import type { Role } from "../rbac/types.ts";
+import { requireRewindSender } from "./rewind.ts";
 import type { IdentityService, Link } from "../identity/service.ts";
 import type { ApprovalEvents, ApprovalView, ServiceDecideInput, ServiceDecideResult } from "../approvals/service.ts";
 import type { SessionStore } from "../session/store.ts";
 import type { TurnRunner } from "../session/turn-loop.ts";
-import type { EventRecord } from "../session/types.ts";
+import type { EventRecord, SessionRecord } from "../session/types.ts";
 import type { ChannelRegistryView } from "../rpc/channel-surface.ts";
 import { type Clock, type Timer } from "./clock.ts";
 import { ChannelRegistry, type ChannelStatus, type RegistryOptions } from "./registry.ts";
 import { ChannelRouter } from "./router.ts";
+import { RpcError } from "../rpc/errors.ts";
 import type {
   Channel, ChannelHealth, ChannelHost, ChannelLogger, ChatKey, ChatKind, IdentityPort, IdentityResolution, InboundMessage,
   OutboundMessage, PairingResult, SenderRef, SessionPort,
@@ -91,7 +94,18 @@ export interface TurnPort { store: SessionStore; runner: TurnRunner; agentId(): 
 export interface ApprovalDecider { decide(input: ServiceDecideInput): ServiceDecideResult }
 export interface OutputsPort { store(): unknown | null }
 
+/** Host-selected session and linked human; callers must authorize agent.use before privately publishing any bytes. */
+export interface ChannelAttachmentIngressInput {
+  message: InboundMessage;
+  session: SessionRecord;
+  humanId: string;
+  /** Refresh the session and current linked human after each I/O boundary; rejects when the binding is no longer valid. */
+  revalidate: () => Promise<SessionRecord>;
+}
+
 export interface SwitchboardOptions {
+  /** Resolves after private storage and background indexing enqueue, never after encoding or captioning. */
+  ingestAttachments?: (input: ChannelAttachmentIngressInput) => Promise<void>;
   command?: import("./router.ts").RouterDeps["command"];
   observed?: import("./router.ts").RouterDeps["observed"];
   config: ConfigPort;
@@ -102,6 +116,8 @@ export interface SwitchboardOptions {
    * inbound message, every turn and every approval press, never cached. Absent: nobody is disabled (tests without an admin store).
    */
   personActive?: (humanId: string) => boolean;
+  /** Trusted live admin-store role, never a role supplied by a channel message. Missing/failing lookup is unprivileged. */
+  personRole?: (humanId: string) => Role | undefined;
   turns: () => TurnPort | null;
   approvals: () => ApprovalDecider | null;
   /** The media output store (read-only use through the adapters' `outputs` port); absent: images are not sent. */
@@ -207,7 +223,11 @@ class Host implements Switchboard {
 
   constructor(o: SwitchboardOptions) {
     this.#o = o;
-    const router = new ChannelRouter({ identity: this.#identityPort(), sessions: this.#sessionPort(), clock: o.clock, log: o.log, behaviour: (msg) => this.behaviour(msg), ...(o.command ? { command: o.command } : {}), ...(o.observed ? { observed: o.observed } : {}) });
+    const locale = (msg: InboundMessage): "de" | "en" => {
+      const channel = (o.config.current().channels as unknown as Record<string, { locale?: unknown }>)[msg.channel];
+      return channel?.locale === "de" ? "de" : "en";
+    };
+    const router = new ChannelRouter({ identity: this.#identityPort(), sessions: this.#sessionPort(), clock: o.clock, log: o.log, locale, behaviour: (msg) => this.behaviour(msg), ...(o.command ? { command: o.command } : {}), ...(o.observed ? { observed: o.observed } : {}), ...(o.ingestAttachments ? { ingestAttachments: (input) => this.#ingestAttachments(input) } : {}) });
     this.#registry = new ChannelRegistry({ clock: o.clock, router, log: o.log, redact: (t) => this.#redact(t), ...o.registry });
     for (const b of o.bindings) this.#bindings.set(b.id, b);
     const r = this.#registry;
@@ -489,11 +509,39 @@ class Host implements Switchboard {
     try { return f(humanId) !== false; } catch { return false; }
   }
 
+  #role(humanId: string): Role | undefined {
+    try { return this.#o.personRole?.(humanId); } catch { return undefined; }
+  }
+
   #linkOf(humanId: string, channel: string): Link | null {
     const svc = this.#o.identity();
     if (!svc) return null;
     const human = svc.list({}).humans.find((h) => h.id === humanId);
     return human?.identities.find((l) => l.channel === channel && l.revokedAt === null) ?? null;
+  }
+
+  /** Recheck current identity and session ownership at the byte-publication boundary. */
+  async #ingestAttachments(input: import("./router.ts").AttachmentIngressInput): Promise<void> {
+    const ingest = this.#o.ingestAttachments;
+    if (!ingest) throw new RpcError("E_NOT_AVAILABLE", "channel attachment ingestion unavailable", { reason: "media-unavailable" });
+    const revalidate = () => this.#attachmentBinding(input);
+    const session = await revalidate();
+    await ingest({ message: input.message, session, humanId: input.humanId, revalidate });
+  }
+
+  /** Session records are snapshots: refresh both authorities whenever upload I/O yields control. */
+  async #attachmentBinding(input: import("./router.ts").AttachmentIngressInput): Promise<SessionRecord> {
+    const { message, sessionId, humanId } = input;
+    if (!this.#active(humanId)) throw new RpcError("E_DENIED", "person is disabled", { reason: "upload-forbidden" });
+    const current = await this.#identityPort().resolve({ channel: message.channel, senderId: message.senderId, ...(message.accountId !== undefined ? { accountId: message.accountId } : {}) });
+    if (!current.linked || current.disabled || current.userId !== humanId) throw new RpcError("E_DENIED", "channel identity is no longer linked", { reason: "upload-forbidden" });
+    if (!this.#active(humanId)) throw new RpcError("E_DENIED", "person is disabled", { reason: "upload-forbidden" });
+    // Read after the awaited identity lookup so mutable session state is current on return.
+    const session = this.#o.turns()?.store.getSession(sessionId);
+    if (!session || session.kind !== "channel" || session.archivedAt !== null
+      || session.chatKey !== chatKeyOf(message.channel, message.chatId)) throw new RpcError("E_DENIED", "not an active channel session", { reason: "upload-forbidden" });
+    if (message.chatKind === "direct" && session.owner !== deriveUserPrincipal(humanId)) throw new RpcError("E_DENIED", "session belongs to someone else", { reason: "upload-forbidden" });
+    return session;
   }
 
   #sessionPort(): SessionPort {
@@ -537,6 +585,9 @@ class Host implements Switchboard {
         const kind = this.#kinds.get(session.chatKey);
         // Defence in depth: a private chat's session only ever runs a turn for the person who owns it.
         if (kind === "direct" && session.owner !== deriveUserPrincipal(input.userId)) throw new Error("session belongs to someone else");
+        const role = this.#role(input.userId);
+        requireRewindSender({ text: input.text, chatKind: kind, owner: session.owner, person: input.userId,
+          ...(role ? { role } : {}) });
         // D109 §5: a private chat with a linked person is surface T2; anything else (a group, an unknown chat) is the lower T1.
         const surface = kind === "direct" ? 2 : 1;
         const handle = t.runner.submit({

@@ -21,6 +21,8 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 |---|---|---|---|---|
 | `import.ssh` | object | `{}` | live | Owner-managed SSH source identity and endpoint configuration. |
 | `collaboration.fanoutEnabled` | boolean | `false` | live | Enable collaboration fan-out only after owner review of the equal-token-budget evaluation. |
+| `collaboration.teams` | object | `{}` | live | D124 capacity facts; team scheduling remains disabled until its scheduler, reviews and merge queue land. |
+| `collaboration.limits` | object | `{}` | live | D124 collaboration limits. Project settings can only narrow these installation limits. |
 | `approvals.maxGrantDays` | integer | `90` | core | Always-grant idle lifetime in days. Explicit shorter expiries still apply. |
 | `approvals.requireOsConfirmation` | boolean | `true` | core | Allow the required OS confirmation for an otherwise untrusted local decision. False disables this lift; it never bypasses surface trust. |
 | `breakglass.reasonMinChars` | integer | `10` | core | Minimum trimmed break-glass reason length. |
@@ -71,6 +73,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `mcp` | object | `{}` | live | Installed MCP extension activation and per-agent tool visibility (X2). |
 | `mcpServer` | object | `{}` | live | Harness MCP server for foreign hosts (M6-A): exposes harness functions, memory and skills behind agent-bound tokens. |
 | `a2a` | object | `{}` | live | A2A configuration, including registered external peers. |
+| `a2aClient` | object | `{}` | live | Outbound A2A client. Pins live in the private peer registry; no credentials or foreign card text belong in configuration. |
 | `a2aServer` | object | `{}` | live | Harness A2A server exposure configuration. |
 | `auth.requireSecondFactor` | string | `"remote"` | core | Require TOTP or WebAuthn for Owner and Admin on remote listeners by default; always or never are explicit overrides. |
 | `auth.openai.loopbackTimeoutMs` | integer | `600000` | core | Loopback login deadline. |
@@ -93,6 +96,9 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `egress.modelDownloads` | object | `{}` | live | Named exception for credential-free GET/HEAD model artifact downloads. Ordinary provider/web traffic stays under allowHosts. Remove a host or disable to block subsequent downloads; DNS pinning and private-address refusal always apply. |
 | `egress.allowLoopback` | boolean | `false` | live | Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused. |
 | `privacy.localEndpoints` | array | `[]` | live | Self-hosted model servers outside loopback that count as local for privacy.localOnly (for example your own Ollama or vLLM server in the home network), as exact origins scheme://host[:port]. LAN addresses are not local unless listed here. |
+| `session.rewind.autoProjects` | array | `[]` | live | Projects that permit automatic rewind after three failed edit/test cycles on unattended D115 cards. Interactive sessions only propose; no file restore is automatic. |
+| `session.rewind.fileProjects` | array | `[]` | live | Projects that permit tracked-file checkpoints and separately approved file rewind on D115 card sessions. Empty disables capture and file restore. |
+| `session.rewind.checkpointRetentionTurns` | integer | `50` | live | Keep private file-checkpoint refs only within this many recent session turns. Archived sessions and completed cards release their refs earlier. |
 | `session.compaction.softRatio` | number | `0.65` | core | Prepare a summary above this fraction of the model context window. |
 | `session.compaction.hardRatio` | number | `0.88` | core | Swap prepared summary above this fraction. Must exceed softRatio. |
 | `session.compaction.summaryMaxTokens` | integer | `1228` | core | Maximum summary tokens; also capped to 15 percent of the catalogue window. |

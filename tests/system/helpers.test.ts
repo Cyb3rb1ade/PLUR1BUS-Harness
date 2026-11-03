@@ -2,7 +2,47 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { alive, killCore, killPid, windowsHomePids } from './helpers.ts';
+import { modelCacheSnapshot } from './model-cache-diagnostics.ts';
+
+test('model-cache diagnostics count partial bytes without exposing names or following nested aliases', () => {
+  const root = mkdtempSync(join(tmpdir(), 'p1b-cache-diagnostic-'));
+  try {
+    const cache = join(root, 'cache');
+    const home = join(root, 'home');
+    const outside = join(root, 'private-outside');
+    for (const dir of [cache, home, outside]) mkdirSync(dir);
+    symlinkSync(cache, join(home, 'models'), process.platform === 'win32' ? 'junction' : 'dir');
+    symlinkSync(outside, join(cache, 'nested-alias'), process.platform === 'win32' ? 'junction' : 'dir');
+    writeFileSync(join(cache, 'private-complete-name'), Buffer.alloc(11));
+    writeFileSync(join(cache, 'private-download.part-123-test'), Buffer.alloc(7));
+    writeFileSync(join(outside, 'private-external-name'), Buffer.alloc(10_000));
+    const result = modelCacheSnapshot(home);
+    assert.deepEqual(result, { files: 2, bytes: 18, partialFiles: 1, partialBytes: 7, truncated: false, unavailable: false });
+    assert.doesNotMatch(JSON.stringify(result), /private|cache-diagnostic|models|123/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('model-cache diagnostics stop at a fixed entry budget and report missing caches without paths', () => {
+  const home = mkdtempSync(join(tmpdir(), 'p1b-cache-diagnostic-'));
+  try {
+    assert.deepEqual(modelCacheSnapshot(home), { files: 0, bytes: 0, partialFiles: 0, partialBytes: 0, truncated: false, unavailable: true });
+    const cache = join(home, 'models'); mkdirSync(cache);
+    for (let i = 0; i < 300; i += 1) writeFileSync(join(cache, `entry-${i}`), 'x');
+    const result = modelCacheSnapshot(home);
+    assert.equal(result.truncated, true);
+    assert.equal(result.unavailable, false);
+    assert.ok(result.files > 0 && result.files <= 256);
+    assert.equal(result.bytes, result.files);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
 
 test('Windows reaper selects only the complete home argument, including spaces and regex characters', () => {
   const h = 'C:\\temp\\home (test).1';
