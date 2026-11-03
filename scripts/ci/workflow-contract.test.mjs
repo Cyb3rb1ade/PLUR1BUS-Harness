@@ -18,6 +18,17 @@ const jobBlocks = yaml => Object.fromEntries(yaml.slice(yaml.indexOf('\njobs:\n'
 // A job's block also carries the comment lines written above the next job; they are not steps.
 const stepsOf = block => block.slice(block.indexOf('\n    steps:\n')).replace(/(?:^  #.*\n)+$/m, '');
 
+test('release smoke prepares the verified real-model cache before the unchanged acceptance deadline', () => {
+  const yaml = readFileSync(new URL('../../.github/workflows/release-smoke.yml', import.meta.url), 'utf8');
+  const prepare = yaml.indexOf('node scripts/ci/prepare-real-models.mjs');
+  const acceptance = yaml.indexOf('tests/system/two-session-recall.test.ts');
+  assert(prepare > 0 && prepare < acceptance, 'real artifacts must be prepared before timed model startup');
+  assert.equal((yaml.match(/PLUR1BUS_MODELS_CACHE: \$\{\{ runner.temp \}\}\/release-real-models/g) ?? []).length, 3);
+  const source = readFileSync(new URL('../../tests/system/two-session-recall.test.ts', import.meta.url), 'utf8');
+  assert(source.includes('waitEngineReady(h, 60_000)'));
+  assert(yaml.includes('--test-timeout=300000 tests/system/two-session-recall.test.ts'));
+});
+
 test('every workflow job is either in the gate or deliberately ungated, and job conditions match the skip policy', () => {
   const jobs = jobBlocks(workflow());
   const gated = Object.keys(selections({})).sort();
@@ -109,6 +120,18 @@ test('unit checks continue after earlier failures, stop on cancellation and time
     for (const phase of [library, build, run]) {
       assert.doesNotMatch(phase, /--(?:exclude|skip|features|no-default-features|target-dir|release)\b/);
     }
+  }
+});
+
+test("Windows unit builds omit debug information without changing assertions or timeout budgets", () => {
+  const mode = "${{ matrix.os == 'windows-2025' && '0' || '2' }}";
+  for (const name of ["unit", "unit-os"]) {
+    const job = jobBlocks(workflow())[name];
+    for (const profile of ["DEV", "TEST"]) {
+      assert.ok(job.includes(`      CARGO_PROFILE_${profile}_DEBUG: ${mode}\n`));
+    }
+    assert.doesNotMatch(job, /CARGO_PROFILE_(?:DEV|TEST)_(?:DEBUG_ASSERTIONS|OVERFLOW_CHECKS):/);
+    assert.match(job, /timeout-minutes: \$\{\{ matrix\.os == 'windows-2025' && 90 \|\| 65 \}\}/);
   }
 });
 
