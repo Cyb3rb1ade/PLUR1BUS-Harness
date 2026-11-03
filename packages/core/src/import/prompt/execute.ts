@@ -265,9 +265,11 @@ export async function executePromptImport(
   }
 
   report.affectedAgents = Array.from(affectedAgents);
+  // Recovery must know every target before an Engine call can persist its first card.
+  writeReport();
 
   // Execute import batches (<= 500 cards per engine call)
-  const appliedRunsPerAgent = new Set<string>();
+  const attemptedRunsPerAgent = new Set<string>();
 
   try {
     for (const [agentId, tasks] of agentBatches.entries()) {
@@ -284,12 +286,13 @@ export async function executePromptImport(
           importRunId: runId,
         };
 
+        // A rejected call can already have written part of its first batch.
+        attemptedRunsPerAgent.add(agentId);
         const result: E.MemoryImportResult = await engine.memory.import(
           importReq,
           agentPrincipal,
           SYSTEM_CONTEXT,
         );
-        appliedRunsPerAgent.add(agentId);
 
         if (dryRun) {
           report.counts.imported += result.created;
@@ -368,11 +371,9 @@ export async function executePromptImport(
     report.status = "failed";
     report.error = String((err as Error)?.message ?? err);
     report.finishedAt = new Date(now()).toISOString();
-    writeReport();
-
-    // Rollback already written batches for this runId
+    // Attempt cleanup before a failed report write can prevent it.
     if (!dryRun) {
-      for (const agentId of appliedRunsPerAgent) {
+      for (const agentId of attemptedRunsPerAgent) {
         const agentPrincipal = opts.principalFor ? opts.principalFor(agentId) : { ...principal, agentId };
         try {
           await engine.memory.unimport(
@@ -386,6 +387,7 @@ export async function executePromptImport(
       }
     }
 
+    writeReport();
     throw err;
   }
 }
