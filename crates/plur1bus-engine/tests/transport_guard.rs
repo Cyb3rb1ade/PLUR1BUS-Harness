@@ -811,6 +811,7 @@ fn cancellation_and_deadline_close_a_socket_during_the_rustls_handshake() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
         let (ready, observe) = mpsc::channel();
+        let (arm_close, close_by) = mpsc::channel::<Instant>();
         let peer = std::thread::spawn(move || {
             let (mut socket, _) = listener.accept().unwrap();
             socket
@@ -823,15 +824,20 @@ fn cancellation_and_deadline_close_a_socket_during_the_rustls_handshake() {
             let mut hello = vec![0; u16::from_be_bytes([header[3], header[4]]) as usize];
             socket.read_exact(&mut hello).unwrap();
             ready.send(()).unwrap();
+            // Observe EOF within the same absolute bound as the caller, including its existing margin.
+            let response_by = close_by.recv_timeout(Duration::from_secs(1)).unwrap();
+            let remaining = response_by.checked_duration_since(Instant::now()).unwrap();
+            socket.set_read_timeout(Some(remaining)).unwrap();
             let mut byte = [0];
-            match socket.read(&mut byte) {
+            let closed = match socket.read(&mut byte) {
                 Ok(0) => true,
                 Err(error) => matches!(
                     error.kind(),
                     std::io::ErrorKind::ConnectionReset | std::io::ErrorKind::ConnectionAborted
                 ),
                 Ok(_) => false,
-            }
+            };
+            (Instant::now(), closed)
         });
         let client = GuardedClient::new_owned(Arc::new(Gate::local()), local_lookup());
         let cancel = Cancel::never();
@@ -859,8 +865,9 @@ fn cancellation_and_deadline_close_a_socket_during_the_rustls_handshake() {
         } else {
             expires + Duration::from_millis(250)
         };
+        arm_close.send(response_by).unwrap();
         let result = receive.recv_timeout(response_by.saturating_duration_since(Instant::now()));
-        let closed = peer.join().unwrap();
+        let (closed_at, closed) = peer.join().unwrap();
         worker.join().unwrap();
         assert_eq!(
             result.unwrap(),
@@ -875,6 +882,10 @@ fn cancellation_and_deadline_close_a_socket_during_the_rustls_handshake() {
         assert!(
             closed,
             "the rustls handshake's actual TCP socket must close"
+        );
+        assert!(
+            closed_at <= response_by,
+            "the peer observes closure within the same response bound"
         );
     }
 }
