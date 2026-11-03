@@ -76,7 +76,7 @@ describe("journal hardening (c02)", () => {
     assert.equal(countJournalLines({ dir: l.journal, logger }), 1);
   });
 
-  it("a replaying file is streamed line by line: a 128 MiB journal does not sit in memory (was KNOWN GAP: readFileSync)", async () => {
+  it("a replaying file is streamed line by line: a 128 MiB journal does not sit in memory (was KNOWN GAP: readFileSync)", async (t) => {
     const { l, agents, logger } = setup();
     const f = join(l.journal, "bernd.jsonl");
     const fd = openSync(f, "w", 0o600);
@@ -93,7 +93,29 @@ describe("journal hardening (c02)", () => {
     assert.deepEqual(captured, ["first", "last"]);
     assert.deepEqual(r, { replayed: 2, kept: 0 });
     assert.equal(readdirSync(l.journal).length, 0, "the finished file is gone");
+    t.diagnostic(`128 MiB journal RSS growth: ${Math.round(peak / 1048576)} MiB (limit 64 MiB)`);
     assert.ok(peak < 64 * 1024 * 1024, `memory grew by ${Math.round(peak / 1048576)} MiB while a 128 MiB file replayed`);
+  });
+
+  it("blank journal lines are discarded without allocating decoded text", async () => {
+    const { l, agents, logger, engine, captured } = setup();
+    const padding = `${" ".repeat(255)}\n`.repeat(4096);
+    writeFileSync(join(l.journal, "bernd.jsonl"), `${JSON.stringify(line(1, "first"))}\n${padding}${JSON.stringify(line(2, "last"))}\n`);
+    const decode = Buffer.prototype.toString;
+    let decodedBlankBytes = 0;
+    Buffer.prototype.toString = function(this: Buffer, encoding?: BufferEncoding, start?: number, end?: number) {
+      const text = decode.call(this, encoding, start, end);
+      if (encoding === "utf8" && text.length > 0 && /^[ \t\r]*$/.test(text)) decodedBlankBytes += Buffer.byteLength(text);
+      return text;
+    };
+    try {
+      assert.deepEqual(await replayJournal({ dir: l.journal, agents, engine, logger, clock: () => 1 }), { replayed: 2, kept: 0 });
+    } finally {
+      Buffer.prototype.toString = decode;
+    }
+    assert.deepEqual(captured, ["first", "last"]);
+    assert.equal(readdirSync(l.journal).length, 0);
+    assert.equal(decodedBlankBytes, 0, "discarded whitespace must not create file-sized decoded allocations");
   });
 
   it("UTF-8 characters and CRLF endings that straddle read-chunk boundaries come through intact", async () => {

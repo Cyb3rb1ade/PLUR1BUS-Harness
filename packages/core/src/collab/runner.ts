@@ -5,6 +5,9 @@ import type { AgentScopePort } from "./ports.ts";
 import { requireAgentScope, type AgentScopeValue } from "./scope.ts";
 
 export interface AgentRunInput {
+  maxRounds?: number;
+  workBudget?: import('./limits.ts').DelegationWorkBudget;
+  returnTokens?: number;
   /** Original authenticated turn context for outbound transports; never taken from peer/model arguments. */
   outbound?: import('../tools/a2a-transport.ts').A2aExecution;
   sessionId?: string;
@@ -35,6 +38,20 @@ export interface AgentRunner {
   run(input: AgentRunInput): Promise<AgentRunResult>;
 }
 
+/** Carry the authenticated triggering person for nested RBAC, never an approval or an approver surface. */
+export function delegationIdentity(input: AgentRunInput): { principal?: string; authenticatedPerson?: string } {
+  return input.principal ? { principal: input.principal.userId, ...(input.principal.kind === 'person' ? { authenticatedPerson: input.principal.userId } : {}) } : {};
+}
+
+/** Use the receiver's own tools for writes; scoped reads and independent review never gain write tools. */
+export function delegationToolView(input: AgentRunInput, held: AgentScopeValue): { toolView?: readonly string[]; readOnlyWorktree?: string } {
+  if (input.handoff?.context.readOnlyWorktree) return { toolView: held.toolView.filter(name => ['file.read', 'file.list', 'file.stat'].includes(name) && input.handoff!.contract.constraints.scope.tools.includes(name)), readOnlyWorktree: input.handoff.context.readOnlyWorktree };
+  if (!held.delegation) return { toolView: held.toolView };
+  if (held.delegation.callClass !== 'write') return { toolView: held.toolView.length ? [...held.toolView, 'consult_agent', 'await_delegations'] : [] };
+  const tools = input.handoff?.contract.constraints.scope.tools ?? [];
+  return { toolView: held.toolView.filter(name => tools.includes(name)) };
+}
+
 /** Runs the target agent through the session ChatProvider seam. The callee sees only question+context. */
 export function providerRunner(provider: ChatProvider, scope: AgentScopePort): AgentRunner {
   return {
@@ -51,6 +68,12 @@ export function providerRunner(provider: ChatProvider, scope: AgentScopePort): A
       let inputTokens = 0;
       let outputTokens = 0;
       for await (const chunk of provider.stream({
+        onProgress: () => input.onProgress?.({ text, inputTokens, outputTokens }),
+        ...(input.workBudget ? { delegationBudget: input.workBudget } : {}),
+        ...(input.maxRounds === undefined ? {} : { maxRounds: input.maxRounds }),
+        ...delegationToolView(input, held),
+        ...delegationIdentity(input),
+        projectId: held.projectId,
         sessionId: input.sessionId ?? `collab:${held.projectId}`,
         agentId: input.agentId,
         summaries: [],
@@ -60,6 +83,7 @@ export function providerRunner(provider: ChatProvider, scope: AgentScopePort): A
       })) {
         input.signal.throwIfAborted();
         if (chunk.type === "delta") { text += chunk.text; input.onProgress?.({ text, inputTokens, outputTokens }); }
+        else if (chunk.type === "tool.call" || chunk.type === "tool.result") input.onProgress?.({ text, inputTokens, outputTokens });
         else if (chunk.type === "usage") { inputTokens = chunk.inputTokens; outputTokens = chunk.outputTokens; }
       }
       return { text, inputTokens, outputTokens };

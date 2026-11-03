@@ -1,12 +1,13 @@
-import { apiPrincipal, type ApiPrincipal } from "@plur1bus/module-api";
+import { apiPrincipal, RpcError, type ApiPrincipal } from "@plur1bus/module-api";
 import type { Principal } from "../rbac/types.ts";
 import type { CallContext } from "./server.ts";
 
 /** API connections never fall back to LOCAL_OWNER. Current stored roles/rights win over forwarded claims. */
-export function apiIdentities(resolve: (p: ApiPrincipal) => Principal | null) {
+export function apiIdentities(resolve: (p: ApiPrincipal) => Principal | null, isStopping: () => boolean = () => false) {
   const connections = new Map<string, ApiPrincipal | null>();
   return {
     forwarded(principal: ApiPrincipal): ApiPrincipal | null {
+      if (isStopping()) throw new RpcError("E_NOT_AVAILABLE", "the core is stopping", { reason: "stopping" });
       const p = resolve(principal);
       return p ? {
         ...p,
