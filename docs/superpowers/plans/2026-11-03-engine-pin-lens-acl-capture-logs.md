@@ -18,7 +18,7 @@ No change to `types/engine.d.ts`, `engine/config/engine-config.schema.json`, the
 
 Two pin commits are not on `main`: `98e18b6b` (`admin.reembedding.validate`, contract 1.17.0) and `9f34008c` (zod override). They come with PR #275, which is still open.
 
-Version note: there is no `v7.19.x` tag or release yet (latest release `v7.18.31`, 2026-10-23; `main`'s `package.json` still says `7.18.4`). This plan uses the commit delta above. If a 7.19.0 release is cut, its tag commit becomes `PIN_NEW` below, provided it contains #275, #278 and #279.
+Version note: `v7.19.0` (`83640e6b`, 2026-11-02) is a release-line tag of the OpenClaw plugin and has diverged from `main` (52 commits not on `main`, 488 `main` commits not in the tag), so it cannot be the Harness pin. Its changes are handled in [the 7.19.0 adoption plan](2026-11-03-plur1bus-7-19-adoption.md). `main`'s `package.json` still says `7.18.4`.
 
 ## 2. Why it matters for the Harness
 
@@ -31,7 +31,7 @@ Version note: there is no `v7.19.x` tag or release yet (latest release `v7.18.31
 
 ### P0 – New engine pin (engine repo; Owner)
 
-Merge PR #275 into engine `main` after its review (or merge `main` into `feat/reembedding-validate` with a normal merge commit). The resulting commit, or a 7.19.0 tag cut from it, is `PIN_NEW`. It must contain `98e18b6b`, `8e753189`, `92bb9c04` and the zod override. Fix the `package.json` version field to the released version so the Harness doctor and `engine.version` report it correctly.
+Merge PR #275 into engine `main` after its review (or merge `main` into `feat/reembedding-validate` with a normal merge commit), together with PR #257 (rerank order) and the `zod` 4.6.7 override from the 7.19.0 adoption plan (E1). The resulting commit, or an engine-line tag cut from it, is `PIN_NEW`. It must contain `98e18b6b`, `8e753189`, `92bb9c04`, #257 and the zod override. Fix the `package.json` version field to the released version so the Harness doctor and `engine.version` report it correctly.
 
 Acceptance: `npm ci --ignore-scripts`, `npm run lint` and `npm test` green on `PIN_NEW` (upstream reports 6,371 passed for #278 + #279 combined).
 
@@ -66,7 +66,7 @@ Acceptance: `npm ci --ignore-scripts`, `npm run lint` and `npm test` green on `P
 ## 4. Order and stops
 
 P0 → P1 (security fix live) → P2 + P3 → P4. P1 does not wait for P2.
-Stop and report if: `PIN_NEW` lacks #275, #278 or #279; any contract, config schema, constant or golden output other than the four Lens cases changes; the core suite fails with the real engine for a reason other than the known main failures.
+Stop and report if: `PIN_NEW` lacks #275, #278, #279 or #257; any contract, config schema, constant or golden output other than the four Lens cases changes; the core suite fails with the real engine for a reason other than the known main failures.
 
 ## 5. Housekeeping
 
