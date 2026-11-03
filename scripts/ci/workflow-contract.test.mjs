@@ -59,6 +59,17 @@ test('every job running Core builds the native sandbox launcher before its asser
   }
 });
 
+test('release smoke prepares the verified real-model cache before the unchanged acceptance deadline', () => {
+  const yaml = readFileSync(new URL('../../.github/workflows/release-smoke.yml', import.meta.url), 'utf8');
+  const prepare = yaml.indexOf('node scripts/ci/prepare-real-models.mjs');
+  const acceptance = yaml.indexOf('tests/system/two-session-recall.test.ts');
+  assert(prepare > 0 && prepare < acceptance, 'real artifacts must be prepared before timed model startup');
+  assert.equal((yaml.match(/PLUR1BUS_MODELS_CACHE: \$\{\{ runner.temp \}\}\/release-real-models/g) ?? []).length, 3);
+  const source = readFileSync(new URL('../../tests/system/two-session-recall.test.ts', import.meta.url), 'utf8');
+  assert(source.includes('waitEngineReady(h, 60_000)'));
+  assert(yaml.includes('--test-timeout=300000 tests/system/two-session-recall.test.ts'));
+});
+
 test('every workflow job is either in the gate or deliberately ungated, and job conditions match the skip policy', () => {
   const jobs = jobBlocks(workflow());
   const gated = Object.keys(selections({})).sort();
