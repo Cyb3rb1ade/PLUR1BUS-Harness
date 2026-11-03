@@ -92,6 +92,8 @@ export function buildCollabSurface(
     "project.agent.remove": bind((s, p, a) =>
       s.removeAgent(a, p.projectId, p.agentId),
     ),
+    "project.repo.bind": bind((s, p, a) => s.bindRepo(a, p.projectId, p.repoPath, p.baseBranch)),
+    "project.repo.unbind": bind((s, p, a) => s.unbindRepo(a, p.projectId)),
     "collab.trace.get": bind((s, p, a) => trace(s, a, p.traceId)),
     "collab.trace.list": bind((s, p, a) => {
       read(s, a, p.projectId);

@@ -2,6 +2,7 @@ import { spawn, execFileSync, type ChildProcess } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { modelCacheSnapshot } from "./model-cache-diagnostics.ts";
 
 export const BIN = resolve(process.env.PLUR1BUS_BIN ?? "target/release/plur1bus");
 export const CORE_JS = resolve(process.env.PLUR1BUS_CORE_JS ?? "packages/core/dist/core.js");
@@ -163,8 +164,8 @@ export async function waitEngineReady(h: string, timeoutMs: number): Promise<num
     const check = (doc.checks as Array<{ id: string; status: string }>).find((c) => c.id === "models.warm");
     last = check;
     if (check?.status === "ok") return performance.now() - t0;
-    if (check?.status === "fail") throw new Error(`models failed to warm: ${JSON.stringify(check)}`);
-    if (performance.now() - t0 > timeoutMs) throw new Error(`models not warm within ${timeoutMs} ms: ${JSON.stringify(last)}`);
+    if (check?.status === "fail") throw new Error(`models failed to warm: ${JSON.stringify(check)}; cache metadata: ${JSON.stringify(modelCacheSnapshot(h))}`);
+    if (performance.now() - t0 > timeoutMs) throw new Error(`models not warm within ${timeoutMs} ms: ${JSON.stringify(last)}; cache metadata: ${JSON.stringify(modelCacheSnapshot(h))}`);
     await sleep(250);
   }
 }

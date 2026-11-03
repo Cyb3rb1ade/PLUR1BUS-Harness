@@ -359,6 +359,11 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `agents.*.modelPolicy.tiers[]` | string |  | live | advanced | false | false |  |  |
 | `agents.*.modelPolicy.perTurn` | boolean | `false` | live | advanced | false | false |  | Opt in to selecting again each turn. False keeps the served model stable across a session. |
 | `agents.*.model` | string |  | live | basic | false | false |  | Named model profile selected for this agent. |
+| `agents.*.engine` | object |  | live | advanced | false | false |  | External ACP agent (ADR-003 Q4). Stateless: the connector keeps no harness session. Real CLIs stay out of CI. |
+| `agents.*.engine.kind` | const |  | live | advanced | false | false |  | External coding agent. The harness remains the only git writer. |
+| `agents.*.engine.connector` | enum |  | live | advanced | false | false |  | Connector id. goose is gated; agy is best-effort. |
+| `agents.*.engine.maxTurns` | integer | `20` | live | advanced | false | false |  | Maximum ACP prompts for one delegation. |
+| `agents.*.engine.timeoutMs` | integer | `600000` | live | advanced | false | false |  | Kills the connector process group after this many milliseconds. |
 | `agents.*.channels` | array |  | live | basic | false | false |  | Channel names selected for this agent. Does not enable installation channels. |
 | `agents.*.channels[]` | string |  | live | basic | false | false |  |  |
 | `agents.*.createdAt` | string |  | live | basic | false | false |  | Timestamp when the agent was created, in date-time format. |
