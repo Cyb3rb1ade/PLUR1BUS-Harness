@@ -3,7 +3,7 @@ import {mkdtemp, mkdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {removeExitedProfile} from './owned-process.mjs';
+import {removeExitedProfile, ownedProfileFailureMessage} from './owned-process.mjs';
 const desktop = fileURLToPath(new URL('..', import.meta.url));
 // Every child is tracked to close before disposable profile removal. Never forward raw output.
 function owned(command, args, options, timeout, onLine = () => {}) {
@@ -55,4 +55,4 @@ async function main() {
     await removeExitedProfile(root);
   }
 }
-main().catch(error => {console.error(/^NATIVE_DEEPLINK_[A-Z_]+$/.test(error.message) ? error.message : 'NATIVE_DEEPLINK_FAILED');process.exitCode=1;});
+main().catch(error => {console.error(/^NATIVE_DEEPLINK_[A-Z_]+$/.test(error.message) ? error.message : ownedProfileFailureMessage(error) ?? 'NATIVE_DEEPLINK_FAILED');process.exitCode=1;});
