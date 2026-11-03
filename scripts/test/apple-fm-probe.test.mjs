@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   captureProcess, describeResponse, latencySummary, requireLiveProbe, socketRequest, withOwnedProcess,
   systemAvailability,
@@ -46,7 +47,7 @@ test("the live probe requires explicit opt-in and refuses CI even with opt-in", 
 });
 
 test("invoking the real probe CLI without opt-in refuses before starting fm", () => {
-  const result = spawnSync(process.execPath, [new URL("../spikes/apple-fm-probe.mjs", import.meta.url).pathname], {
+  const result = spawnSync(process.execPath, [fileURLToPath(new URL("../spikes/apple-fm-probe.mjs", import.meta.url))], {
     env: { PATH: process.env.PATH }, encoding: "utf8",
   });
   assert.equal(result.status, 1);
