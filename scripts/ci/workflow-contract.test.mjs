@@ -112,6 +112,18 @@ test('unit checks continue after earlier failures, stop on cancellation and time
   }
 });
 
+test("Windows unit builds omit debug information without changing assertions or timeout budgets", () => {
+  const mode = "${{ matrix.os == 'windows-2025' && '0' || '2' }}";
+  for (const name of ["unit", "unit-os"]) {
+    const job = jobBlocks(workflow())[name];
+    for (const profile of ["DEV", "TEST"]) {
+      assert.ok(job.includes(`      CARGO_PROFILE_${profile}_DEBUG: ${mode}\n`));
+    }
+    assert.doesNotMatch(job, /CARGO_PROFILE_(?:DEV|TEST)_(?:DEBUG_ASSERTIONS|OVERFLOW_CHECKS):/);
+    assert.match(job, /timeout-minutes: \$\{\{ matrix\.os == 'windows-2025' && 90 \|\| 65 \}\}/);
+  }
+});
+
 test('the Windows Core shards run the Ubuntu partition under the full-platform policy, outside the gate', () => {
   const jobs = jobBlocks(workflow());
   const ubuntu = jobs['core-unit-shard'], windows = jobs['core-unit-shard-windows'], check = jobs['core-unit-windows'];
