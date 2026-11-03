@@ -289,12 +289,15 @@ for (const ending of ["archive", "card-done"] as const) {
 
 test("Git routing/config variables are removed with Windows case semantics while ordinary environment survives", () => {
   const env = checkpointEnvironment({ PATH: "/bin", LANG: "en", GIT_DIR: "/foreign", Git_Work_Tree: "/foreign",
-    git_config_count: "1", Git_Config_Key_0: "filter.evil.clean" });
+    git_config_count: "1", Git_Config_Key_0: "filter.evil.clean", GIT_CONFIG_GLOBAL: "/foreign-config" });
   assert.equal(env.PATH, "/bin");
   assert.equal(env.LANG, "en");
   assert.equal(env.Git_Work_Tree, undefined);
   assert.equal(env.git_config_count, undefined);
   assert.equal(env.Git_Config_Key_0, undefined);
+  assert.equal(env.GIT_CONFIG_GLOBAL, process.platform === "win32" ? "NUL" : "/dev/null");
+  assert.equal(env.GIT_CONFIG_NOSYSTEM, "1");
+  assert.equal(env.GIT_ATTR_NOSYSTEM, "1");
 });
 
 test("checkpoint and approved restore retain dirty working bytes, staged bytes, branch and untracked files", async () => {

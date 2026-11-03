@@ -21,7 +21,9 @@ input.once('line', line => {
     if (end < 0) return;
     const reply = JSON.parse(buffer.slice(0, end));
     clearTimeout(deadline);
-    process.stdout.write(JSON.stringify({ ok: Boolean(reply.result), error: reply.error?.data?.error }) + '\n');
+    process.stdout.write(JSON.stringify({ ok: Boolean(reply.result), error: reply.error?.data?.error,
+      tokenValid: /^[a-f0-9]{64}$/.test(config.token),
+      ticketKeyValid: /^[a-f0-9]{64}$/.test(config.ticketKey) }) + '\n');
     socket.removeAllListeners('data');
   });
   socket.on('error', () => { clearTimeout(deadline); process.exit(2); });

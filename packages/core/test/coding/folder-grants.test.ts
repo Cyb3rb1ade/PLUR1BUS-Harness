@@ -13,7 +13,7 @@ import { createApprovalService } from "../../src/approvals/service.ts";
 import { PERSON, AGENT_PRINCIPAL, rpcRig, refused } from "../approvals/rpc-helpers.ts";
 
 async function fixture(t: TestContext, confirmation = true) {
-  const dir = mkdtempSync(join(tmpdir(), "code-folder-grant-"));
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), "code-folder-grant-")));
   const root = join(dir, "repo"),
     home = join(dir, "harness");
   mkdirSync(root);

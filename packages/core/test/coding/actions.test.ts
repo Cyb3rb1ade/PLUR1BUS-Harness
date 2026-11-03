@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync, unlinkSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, realpathSync, existsSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SessionStore } from "../../src/session/store.ts";
@@ -15,7 +15,7 @@ import type { VerifierPort } from "../../src/collab/verifier.ts";
 const who = { userId: "owner", role: "owner", kind: "person" } as const;
 const caller = { channel: "cli", accountId: "host", userId: "owner" } as const;
 async function rig(t: TestContext, verifier: VerifierPort) {
-  const dir = mkdtempSync(join(tmpdir(), "coding-actions-")),
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), "coding-actions-"))),
     root = join(dir, "repo"),
     home = join(dir, "home");
   mkdirSync(root);

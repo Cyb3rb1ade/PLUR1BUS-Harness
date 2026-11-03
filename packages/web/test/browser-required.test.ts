@@ -25,6 +25,8 @@ test("the media capability acceptance file fails instead of skipping when CI's p
       PLUR1BUS_WEB_E2E_REQUIRED: "1", PLUR1BUS_CHROMIUM: process.execPath };
     // A fresh node:test invocation must not inherit this test worker's nested-run marker.
     delete env.NODE_TEST_CONTEXT;
+    // This invocation owns its TAP reporter; inherited CI reporter/destination pairs conflict with it.
+    delete env.NODE_OPTIONS;
     const result = spawnSync(process.execPath, ["--experimental-strip-types", "--conditions=source", "--no-warnings=ExperimentalWarning",
       "--test", "--test-reporter=tap", "--test-concurrency=1", "--test-timeout=30000",
       fileURLToPath(new URL("./media-capabilities.test.ts", import.meta.url))], {
