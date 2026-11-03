@@ -16,6 +16,8 @@ const OID = /^[a-f0-9]{40,64}$/;
 const CHECKPOINT = "refs/plur1bus/checkpoints";
 const MAX_PREVIEW_PATHS = 200;
 const MAX_PREVIEW_CHARS = 4096;
+// Git for Windows expects NUL; Node's \\.\nul spelling is rejected by its config/path reader.
+const GIT_NULL_DEVICE = process.platform === "win32" ? "NUL" : devNull;
 
 interface CheckpointDeps {
   store: SessionStore;
@@ -33,7 +35,7 @@ interface CheckpointDeps {
 export function checkpointEnvironment(source: NodeJS.ProcessEnv, index?: string): NodeJS.ProcessEnv {
   // Inherited GIT_DIR/GIT_WORK_TREE/config injection must not redirect a native operation away from the bound root.
   const env = Object.fromEntries(Object.entries(source).filter(([key]) => !key.toUpperCase().startsWith("GIT_")));
-  return { ...env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: devNull, GIT_ATTR_NOSYSTEM: "1",
+  return { ...env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: GIT_NULL_DEVICE, GIT_ATTR_NOSYSTEM: "1",
     GIT_NO_REPLACE_OBJECTS: "1", GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0",
     ...(index ? { GIT_INDEX_FILE: index } : {}) };
 }
@@ -44,7 +46,7 @@ async function git(root: string, args: readonly string[], options: {
   try {
     return await checkpointGitProcess(["--no-pager", "--literal-pathspecs", "-c", "core.fsmonitor=false",
       "-c", "commit.gpgSign=false", "-c", "tag.gpgSign=false",
-      "-c", `core.hooksPath=${devNull}`, "-c", `core.attributesFile=${devNull}`, ...options.config ?? [],
+      "-c", `core.hooksPath=${GIT_NULL_DEVICE}`, "-c", `core.attributesFile=${GIT_NULL_DEVICE}`, ...options.config ?? [],
       "-C", root, ...args], { signal: options.signal,
       env: { ...checkpointEnvironment(process.env, options.index), ...options.env } });
   } catch (error) {

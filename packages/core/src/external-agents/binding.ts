@@ -7,7 +7,7 @@ import { git, type GitExec } from "./git.ts";
 const BRANCH = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$/;
 
 function real(p: string): string {
-  return realpathSync(p);
+  return realpathSync.native(p);
 }
 
 function inside(child: string, parent: string): boolean {

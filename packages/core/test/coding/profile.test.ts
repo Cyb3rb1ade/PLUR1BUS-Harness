@@ -87,7 +87,7 @@ test("the coding operating section is static; normal, summarize and voice-profil
 });
 
 test("a virtual coding cwd resolves relative paths but stays outside configured roots for D109", async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), "coding-root-policy-"));
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), "coding-root-policy-")));
   const home = join(dir, "home"),
     configured = join(dir, "workspace"),
     root = join(dir, "repo");
