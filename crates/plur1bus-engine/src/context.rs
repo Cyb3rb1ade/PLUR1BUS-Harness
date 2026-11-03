@@ -21,6 +21,10 @@ use crate::{
     text::js::{self, JsString},
 };
 
+#[cfg(windows)]
+#[path = "context_windows_path.rs"]
+mod windows_path;
+
 const WORKSPACE_KEY_PREFIX: &str = "workspace:v1:";
 const WORKSPACE_DIR_PREFIX: &str = "workspace-dir:v1:";
 const RESERVED_CHANNELS: &[&str] = &[
@@ -936,8 +940,13 @@ pub(crate) fn canonical_stored_workspace(
 }
 
 fn node_realpath(path: &str) -> Result<String, String> {
-    match std::fs::canonicalize(Path::new(path)) {
-        Ok(canonical) => Ok(strip_verbatim(&canonical)),
+    #[cfg(windows)]
+    let canonical =
+        windows_path::realpath(Path::new(path)).map(|path| path.to_string_lossy().into_owned());
+    #[cfg(not(windows))]
+    let canonical = std::fs::canonicalize(Path::new(path)).map(|path| strip_verbatim(&path));
+    match canonical {
+        Ok(canonical) => Ok(canonical),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             Err("path does not exist".to_owned())
         }
@@ -945,6 +954,7 @@ fn node_realpath(path: &str) -> Result<String, String> {
     }
 }
 
+#[cfg(not(windows))]
 fn strip_verbatim(path: &Path) -> String {
     let text = path.to_string_lossy();
     if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
