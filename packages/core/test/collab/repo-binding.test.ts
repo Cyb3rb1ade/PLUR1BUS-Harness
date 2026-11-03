@@ -44,7 +44,7 @@ test("bind records toplevel and base branch; unbind clears it; only a lead perso
   try {
     const project = collab.createProject(lead, { name: "Auth rework" });
     const bound = collab.bindRepo(lead, project.id, repo, "main");
-    assert.equal(bound.repo?.repoPath, realpathSync(repo));
+    assert.equal(bound.repo?.repoPath, realpathSync.native(repo));
     assert.equal(bound.repo?.baseBranch, "main");
     assert.equal(collab.getProject(lead, project.id).repo?.baseBranch, "main");
     const flat = rec.calls.flat();
