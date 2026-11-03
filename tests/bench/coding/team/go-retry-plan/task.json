@@ -1,0 +1,77 @@
+{
+  "schema": "plur1bus.team-task/1",
+  "id": "go-retry-plan",
+  "title": "Bounded retry timing plan",
+  "kind": "decomposable",
+  "tier": "team",
+  "language": "go",
+  "license": "MIT",
+  "seeds": [
+    17,
+    104729,
+    8675309
+  ],
+  "budgets": {
+    "tokens": 53248,
+    "maxRounds": 48,
+    "wallMs": 720000
+  },
+  "instruction": "prompt.md",
+  "start": "start",
+  "seedGenerator": "seed.mjs",
+  "packages": [
+    {
+      "id": "backoff",
+      "entry": "src/backoff__SEED__/solution__SEED__.go",
+      "symbol": "Solve__SEED__",
+      "owns": [
+        "src/backoff__SEED__/solution__SEED__.go"
+      ],
+      "dependsOn": [],
+      "reference": "reference/backoff",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "backoff"
+      }
+    },
+    {
+      "id": "deadline",
+      "entry": "src/deadline__SEED__/solution__SEED__.go",
+      "symbol": "Solve__SEED__",
+      "owns": [
+        "src/deadline__SEED__/solution__SEED__.go"
+      ],
+      "dependsOn": [],
+      "reference": "reference/deadline",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "deadline"
+      }
+    },
+    {
+      "id": "summary",
+      "entry": "src/summary__SEED__/solution__SEED__.go",
+      "symbol": "Solve__SEED__",
+      "owns": [
+        "src/summary__SEED__/solution__SEED__.go"
+      ],
+      "dependsOn": [],
+      "reference": "reference/summary",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "summary"
+      }
+    }
+  ],
+  "endToEnd": {
+    "checker": {
+      "path": "check.mjs",
+      "scope": "e2e"
+    },
+    "order": [
+      "backoff",
+      "deadline",
+      "summary"
+    ]
+  }
+}

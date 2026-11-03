@@ -1,7 +1,7 @@
 /** CLI-1 human worktree binding. Uses the existing session writer, D115 board and D109 grant evaluator. */
 import { createHash, randomUUID } from "node:crypto";
 import { realpathSync } from "node:fs";
-import type { CallerIdentity } from "@plur1bus/rpc-schema";
+import type { CallerIdentity, CodeSessionModeParams } from "@plur1bus/rpc-schema";
 import type { AgentRegistry } from "../agents.ts";
 import type { Collab } from "../collab/service.ts";
 import type { ProjectWorktreePort } from "../collab/coding-surface.ts";
@@ -62,14 +62,17 @@ interface CodingDeps {
 }
 
 interface CodePresence {
+  connectionId: string;
   sessionId: string;
   person: string;
   interactive: boolean;
   taskId: string;
   approvalId?: string;
   approvalRoot?: string;
+  mode?: "chat" | "coding";
 }
-const MAX_NATIVE_CONNECTIONS = 1024;
+const MAX_CODE_PRESENCES = 1024;
+const presenceKey = (connectionId: string, sessionId: string): string => JSON.stringify([connectionId, sessionId]);
 
 /** One human coding binding service, shared by CLI and ACP; no filesystem authority is cached in this object. */
 export class CodingSessions {
@@ -158,20 +161,22 @@ export class CodingSessions {
         memoryMode: p.memoryMode ?? "remember",
       });
     if (session.memoryMode === "incognito") this.#ephemeralSessions.add(session.id);
-    const oldMode = this.#presence.get(connection.connectionId);
-    if (oldMode && (oldMode.sessionId !== session.id || oldMode.person !== who.userId)) {
+    const key = presenceKey(connection.connectionId, session.id);
+    if ([...this.#presence.values()].some(old => old.connectionId === connection.connectionId &&
+      (old.person !== who.userId || (session.kind !== "acp" && old.sessionId !== session.id)))) {
       this.connectionClosed(connection.connectionId);
     }
-    const mode: CodePresence = this.#presence.get(connection.connectionId) ?? {
+    const mode: CodePresence = this.#presence.get(key) ?? {
+      connectionId: connection.connectionId,
       sessionId: session.id,
       person: who.userId,
       interactive: p.interactive !== false,
       taskId: `code_${randomUUID()}`,
     };
     mode.interactive = p.interactive !== false;
-    this.#presence.delete(connection.connectionId);
-    this.#presence.set(connection.connectionId, mode);
-    if (this.#presence.size > MAX_NATIVE_CONNECTIONS) this.connectionClosed(this.#presence.keys().next().value!);
+    this.#presence.delete(key);
+    this.#presence.set(key, mode);
+    if (this.#presence.size > MAX_CODE_PRESENCES) this.#endPresence(this.#presence.keys().next().value!);
     if (!this.#granted(root, who.userId, session.agentId, session.id, p.projectId, mode.taskId)) {
       if (!mayAsk)
         throw new RpcError("E_APPROVAL_REQUIRED", "folder grant is missing or revoked", { reason: "root-not-granted" });
@@ -192,7 +197,7 @@ export class CodingSessions {
             signal: connection.signal ?? new AbortController().signal,
             ...(p.projectId ? { projectId: p.projectId } : {}),
             sessionActive: () => {
-              if (this.#presence.get(connection.connectionId) !== mode || connection.signal?.aborted) return false;
+              if (this.#presence.get(key) !== mode || connection.signal?.aborted) return false;
               const person = this.#d.resolvePerson ? this.#d.resolvePerson(who.userId) : who;
               if (!person) return false;
               this.#human(person, session.agentId);
@@ -247,6 +252,7 @@ export class CodingSessions {
         { kind: "person", id: who.userId },
       );
     }
+    mode.mode = "coding";
     let branch: string | null = null;
     try {
       branch = gitLine(codingGit(root.canonical, ["symbolic-ref", "--quiet", "--short", "HEAD"]));
@@ -263,6 +269,33 @@ export class CodingSessions {
       runningTurnId: store.runningTurn(session.id)?.id ?? null,
       ...(p.projectId ? { projectId: p.projectId, cardId: p.cardId! } : {}),
     };
+  }
+
+  /** CX5: a human selects only this ACP connection/session's future profile, with no grant mutation. */
+  async setMode(p: CodeSessionModeParams, who: Principal, connection: CodeConnection) {
+    const session = this.#owned(p.sessionId, who, p.caller);
+    this.#human(who, session.agentId);
+    if (this.#d.linkedCaller && !this.#d.linkedCaller(who, p.caller)) {
+      throw new RpcError("E_DENIED", "caller identity must be linked to the authenticated person");
+    }
+    if (session.kind !== "acp" || (p.mode !== "chat" && p.mode !== "coding")) {
+      throw new RpcError("E_INVALID_PARAMS", "mode selection requires an ACP session and chat or coding");
+    }
+    const key = presenceKey(connection.connectionId, session.id);
+    const presence = this.#presence.get(key);
+    await this.requireRoot(session.id, who, p.caller, presence?.taskId);
+    if (!presence || presence.person !== who.userId || this.#presence.get(key) !== presence ||
+      connection.signal?.aborted) {
+      throw new RpcError("E_CONFLICT", "open the coding session on this connection before selecting its mode", {
+        reason: "code-mode-connection",
+      });
+    }
+    const from = presence.mode ?? "coding";
+    if (from === p.mode) return { mode: p.mode, changed: false };
+    this.#d.audit.append({ at: this.#d.clock(), actor: { user: who.userId, host: "core" },
+      action: "code.session.mode", target: session.id, detail: { from, to: p.mode } });
+    presence.mode = p.mode;
+    return { mode: p.mode, changed: true };
   }
 
   /** Revalidate ownership, live D115 assignment/native identity and current D109 read permission on every use. */
@@ -297,15 +330,16 @@ export class CodingSessions {
 
   /** A responsible identity on a noninteractive code connection is not live T3 presence (Q13). */
   approver(connectionId: string, sessionId: string, original: TurnApprover): TurnApprover {
-    const mode = this.#presence.get(connectionId);
+    const mode = this.#presence.get(presenceKey(connectionId, sessionId));
     return mode?.sessionId === sessionId && mode.person === original.person
-      ? { ...original, taskId: mode.taskId, ...(!mode.interactive ? { surface: 0 as const } : {}) }
+      ? { ...original, taskId: mode.taskId, ...(mode.mode ? { codingMode: mode.mode } : {}),
+        ...(!mode.interactive ? { surface: 0 as const } : {}) }
       : original;
   }
 
   /** The task comes from the authenticated connection's open operation, never the request body. */
   taskId(connectionId: string, sessionId: string): string | undefined {
-    const mode = this.#presence.get(connectionId);
+    const mode = this.#presence.get(presenceKey(connectionId, sessionId));
     return mode?.sessionId === sessionId ? mode.taskId : undefined;
   }
 
@@ -322,6 +356,8 @@ export class CodingSessions {
     if (req.role) return false;
     const store = this.#d.storeFor(req.sessionId),
       session = store.getSession(req.sessionId);
+    // ACP mode is connection-local; a persisted worktree never gives another peer this profile.
+    if (session?.kind === "acp") return req.approver?.codingMode === "coding";
     return (
       store.worktree(req.sessionId) !== null ||
       this.#d.codingAgent?.(req.agentId) === true ||
@@ -339,6 +375,11 @@ export class CodingSessions {
       throw new RpcError("E_DENIED", "coding request does not match the stored session");
     }
     if (req.role) return { ...req, ...(binding.projectId ? { projectId: binding.projectId } : {}) };
+    if (session.kind === "acp" && req.approver?.codingMode === undefined) {
+      throw new RpcError("E_CONFLICT", "the ACP connection mode expired; open a new editor session", {
+        reason: "code-mode-connection",
+      });
+    }
     const who = this.#d.resolvePerson?.(binding.createdBy);
     if (!who) throw new RpcError("E_DENIED", "coding session owner is unavailable");
     await this.requireRoot(session.id, who, req.caller, req.approver?.taskId);
@@ -347,8 +388,12 @@ export class CodingSessions {
 
   /** Core connection lifecycle cleanup; a new connection must explicitly open its own coding mode. */
   connectionClosed(id: string): void {
-    const mode = this.#presence.get(id);
-    this.#presence.delete(id);
+    for (const [key, mode] of this.#presence) if (mode.connectionId === id) this.#endPresence(key);
+  }
+
+  #endPresence(key: string): void {
+    const mode = this.#presence.get(key);
+    this.#presence.delete(key);
     if (mode) {
       this.#cancelFolder(mode);
       try {
@@ -366,7 +411,7 @@ export class CodingSessions {
   /** Session archive/replacement withdraws pending root requests before the standing grants end. */
   sessionEnded(sessionId: string): void {
     this.#ephemeralSessions.delete(sessionId);
-    for (const [id, mode] of this.#presence) if (mode.sessionId === sessionId) this.connectionClosed(id);
+    for (const [key, mode] of this.#presence) if (mode.sessionId === sessionId) this.#endPresence(key);
   }
 
   #cancelFolder(mode: CodePresence): void {
@@ -387,7 +432,7 @@ export class CodingSessions {
 
   /** End every native task before the permission runtime closes. */
   close(): void {
-    for (const id of this.#presence.keys()) this.connectionClosed(id);
+    for (const key of this.#presence.keys()) this.#endPresence(key);
     for (const id of this.#ephemeralSessions) {
       try {
         this.#d.endSession?.(id);

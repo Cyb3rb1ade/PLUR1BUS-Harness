@@ -1,3 +1,4 @@
+import { ToolsClient } from "./tools-service/client.ts";
 import { ChannelHandoff } from "./channel-handoff/service.ts";
 import { handoffMethods } from "./channel-handoff/rpc.ts";
 import { DeliveryTargets } from "./delivery/service.ts";
@@ -12,6 +13,7 @@ import { assertEmbeddingChangeAllowed, embeddingChange, memoryModelStatus, store
 import { creationDigest } from "./agents/saga.ts";
 import { LicenceLedger } from "./licences/ledger.ts";
 import { buildLicenceSurface, LICENCE_RULES } from "./rpc/licence-surface.ts";
+import { validateMediaChanges } from "./media-search/validate.ts";
 import { buildChatSurface } from "./rpc/chat-surface.ts";
 import { configuredDefaults } from './toolcall/host-eval-store.ts';
 import { apiAdmission } from "./rpc/api-admission.ts";
@@ -311,6 +313,7 @@ export function createCore(o: CoreOptions): Core {
   let delivery: DeliveryTargets | null = null;
   let handoff: ChannelHandoff | null = null;
   let userJobsTimer: ReturnType<typeof setInterval> | null = null;
+  let toolsService: ToolsClient | null = null;
   let sessions: SessionService | null = null;
   let turnComposition: TurnComposition | null = null;
   let extensionSpawnSecrets: Awaited<ReturnType<typeof startExtensionSpawnSecrets>> | null = null;
@@ -378,6 +381,7 @@ export function createCore(o: CoreOptions): Core {
         ...(sharedMemory ? { sharedMemory } : {}),
         ...(storeSchema ? { storeSchema } : {}),
       },
+      ...(toolsService ? { tools: toolsService.snapshot() } : {}),
       agents: (agents?.list() ?? []).map((agentId) => ({ agentId, activity: activity.get(agentId) })),
       // E4: the engine reads the journal through the host capability; the replay's count when it reports none.
       journalBacklog: es?.journal ? es.journal.entries : journalBacklog,
@@ -424,11 +428,16 @@ export function createCore(o: CoreOptions): Core {
       log.error(msg, { run: l.run, supervised });
       throw new Error(msg);
     }
+    toolsService = new ToolsClient({ home: l.home, supervised: o.lifeline !== undefined || o.supervisorConfig !== undefined, orphanGraceMs: config.supervisor.graceMs });
     platform.securePath(l.catalog, { mode: 0o700 });
     platform.securePath(l.systemJobs, { mode: 0o700 });
     // M2: the secret store. Nothing is probed or opened here (the keychain is first touched by a `secret.*` call).
     const egress = createEgress({ config: () => cs.current().egress, now: clock, ...(o.discovery?.resolver ? { resolver: o.discovery.resolver } : {}) });
-    const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath, fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: log });
+    // A trusted constructor isolates only its own Store; explicit modes retain the normal R5 gate.
+    const secretEnv = o.testInternals !== undefined && process.env.PLUR1BUS_SECRETS_KEYRING === undefined
+      ? { ...process.env, PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_SECRETS_KEYRING: "memory" } : process.env;
+    const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath,
+      fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: log, env: secretEnv });
     // Every secret value the store writes, rotates, reveals or leases is masked in the core log from that moment on.
     if (createdLog) { unsubscribeCoreRedaction?.(); unsubscribeCoreRedaction = secretStore.redaction.subscribe((value, info) => createdLog.registerSecret(value, info)); }
     // web.search (D95): the SearXNG sidecar plus the keyed providers (Brave, Tavily, Exa), chosen per agent from `modules.web-search`.
@@ -694,7 +703,7 @@ export function createCore(o: CoreOptions): Core {
           ...(p.tokenId !== undefined ? { tokenId: p.tokenId } : {}),
           ...(p.binding !== undefined ? { binding: p.binding } : {}),
         };
-      });
+      }, () => state.state === "stopping" || state.state === "stopped");
       const resolvePrincipal: PrincipalResolver = async (ctx, method, params) => {
         const forwarded = apiPrincipal(ctx);
         if (forwarded && people.person(forwarded.userId)?.disabled) throw new RpcError("E_DENIED", "person is disabled", { reason: "person-disabled" });
@@ -745,7 +754,11 @@ export function createCore(o: CoreOptions): Core {
           try { await send({ chatId: msg.chatId, text }); } catch { log.warn("channel.handoff.send.failed", { channel: msg.channel }); } return true;
         },
         ...(o.channels ?? {}),
-        layout: l, config: cs, secrets: secretStore, identity: () => identity, personActive: id => !people.person(id)?.disabled, sessions: () => sessions, agents: registry, permissions: () => permissions,
+        ingestAttachments: input => turnComposition?.ingestChannelAttachments(input)
+          ?? Promise.reject(new RpcError("E_NOT_AVAILABLE", "channel upload storage is unavailable")),
+        layout: l, config: cs, secrets: secretStore, identity: () => identity, personActive: id => !people.person(id)?.disabled,
+        personRole: id => people.role(id, id === LOCAL_OWNER.userId ? "owner" : "member"),
+        sessions: () => sessions, agents: registry, permissions: () => permissions,
         clock, log: { info: (m, f) => log.info(m, f), warn: (m, f) => { channelToInbox(inboxPort, m, f); log.warn(m, f); }, error: (m, f) => log.error(m, f) },
       });
       permissions = createPermissionRuntime({
@@ -1052,17 +1065,23 @@ export function createCore(o: CoreOptions): Core {
           surface: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }),
         ...buildInboxSurface(() => inbox?.service ?? null),
         ...buildProjectBoardSurface(() => turnComposition?.collab ?? null, event => { void deliverBoardChange(event, () => turnComposition?.collab ?? null, { subscriptions: () => server?.subscriptions() ?? [], resolve: async connectionId => resolvePrincipal({ requestId: "board-event", connectionId, signal: shutdown.signal }, "project.card.list", {}), notify: (m, p, opts) => { if (!shutdown.signal.aborted) server?.notify(m, p, opts); } }).catch(() => { log.debug("project board event withheld"); }); }),
-        ...buildCollabSurface(() => turnComposition?.collab ?? null, id => registry.has(id)),
+        ...buildCollabSurface(() => turnComposition?.collab ?? null, id => registry.has(id) || turnComposition?.a2a?.hasAgent(id) === true),
         ...buildIdentitySurface(() => identity),
         ...(await import("./rpc/device-surface.ts")).createDeviceSurface({ state: l.state, clock, signal: shutdown.signal, revoked: userId => server?.notify("api.account.changed", {userId}, {audience:apiIdentity.services().map(connectionId=>({connectionId}))}), personVersion: id => { const p=people.person(id); return p && !p.disabled ? p.version : null; }, audit: rbacAudit, securePath: p => platform.securePath(p), notifyTrust: (event,owners) => server?.notify("devices.trust.next",event,{audience:owners.map(personId=>({personId}))}) }),
         ...adminSurface,
         ...buildEngineTestSurface({ embedding: eng.embedding, config: () => engineConfig, diagnostics: engineTestDiagnostics }),
         // The API runs model.licence.check before every web config.set: another embedding identity is written only while the
         // store holds no table (a populated store moves with memory reembed).
-        ...buildLicenceSurface(licenceLedger, cfg, changes => assertEmbeddingChangeAllowed({ current: cfg(), changes, layout: l, active: engineConfig, holdsTables: () => storeHoldsTables(String(engineConfig.baseDbPath)) })),
+        ...buildLicenceSurface(licenceLedger, cfg, async changes => {
+          assertEmbeddingChangeAllowed({ current: cfg(), changes, layout: l, active: engineConfig, holdsTables: () => storeHoldsTables(String(engineConfig.baseDbPath)) });
+          await validateMediaChanges(cfg(), changes);
+        }),
         ...buildMemoryModelsSurface({
           status: () => memoryModelStatus(engineConfig, cfg(), storeHoldsTables(String(engineConfig.baseDbPath))),
-          check: changes => embeddingChange({ current: cfg(), changes, layout: l, active: engineConfig, holdsTables: () => storeHoldsTables(String(engineConfig.baseDbPath)), acceptances: licenceLedger.list() }),
+          check: async changes => {
+            await validateMediaChanges(cfg(), changes);
+            return embeddingChange({ current: cfg(), changes, layout: l, active: engineConfig, holdsTables: () => storeHoldsTables(String(engineConfig.baseDbPath)), acceptances: licenceLedger.list() });
+          },
           canSwitch: () => typeof reembedEnginePort.validate === "function",
         }),
         ...sessionTranscriptSurface({ sessions: () => sessions?.store ?? null, lookup: id => sessions?.forSession(id).store ?? null, breakglass, ownership, personOf }),
@@ -1089,7 +1108,7 @@ export function createCore(o: CoreOptions): Core {
       // The other caller-taking memory ops (forget, correct, share, state, propose, proposals.*) act as the principal derived from `caller`: bind it to the authenticated person like memory.list/show and session.*.
       Object.assign(rawMethods, memoryCallerAccess({ methods: rawMethods, ownership, resolve: resolvePrincipal }));
       let initialDoctorCheck: (() => Promise<unknown>) | undefined;
-      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, sandboxRequired: () => cfg().tools.sandbox.required, sandboxMaxTasks: () => cfg().tools.sandbox.maxTasks, toolEvalDefaults: () => configuredDefaults(cfg()), redactor: secretStore.redaction.redactor({ pii: true }), capabilityStatus: () => turnComposition?.capabilities.status(), turnTelemetry: () => metrics.turnTelemetrySummary(), miningStatus: () => turnComposition?.mining.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; }, coreChecks: () => [localOnlyCheck(cfg()), ...emailAuthChecks(cfg())] }));
+      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, sandboxRequired: () => cfg().tools.sandbox.required, sandboxMaxTasks: () => cfg().tools.sandbox.maxTasks, toolEvalDefaults: () => configuredDefaults(cfg()), redactor: secretStore.redaction.redactor({ pii: true }), capabilityStatus: () => turnComposition?.capabilities.status(), turnTelemetry: () => metrics.turnTelemetrySummary(), miningStatus: () => turnComposition?.mining.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; }, coreChecks: () => [localOnlyCheck(cfg()), ...emailAuthChecks(cfg()), { id: "tools.service", status: toolsService?.snapshot().ready ? "ok" as const : "fail" as const, summary: toolsService?.snapshot().ready ? "Native tools service is ready." : "Native tools service is unavailable; Core turns continue." }] }));
       Object.assign(rawMethods, attachUserJobMethods({ ...rawMethods }, userJobs, resolvePrincipal));
       // events.subscribe is handled in the shared transport; this guard still supplies its admission/audit.
       rawMethods["events.subscribe"] = async () => ({});
@@ -1138,6 +1157,7 @@ export function createCore(o: CoreOptions): Core {
       platform.securePath(engineModelsPath);
       writeFileSync(l.corePid, `${process.pid} ${instanceId}\n`, { mode: 0o600 }); // S6
       platform.securePath(l.coreToken); platform.securePath(l.corePid);
+      toolsService.start();
       extensionSpawnSecrets = await startExtensionSpawnSecrets({ home: l.home, token, store: secretStore,
         definition: name => installedExtensionSecretDefinition(l.home, name) });
       await importComposition?.listen(token);
@@ -1287,6 +1307,7 @@ export function createCore(o: CoreOptions): Core {
       await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null; handoff?.close(); handoff = null;
       await step(log, "permissions close", async () => { permissionNotifier?.close(); await permissions?.close(); }); permissions = null; permissionNotifier = null;
       await step(log, "budget close", () => { budget?.close(); budget = null; });
+      await step(log, "tools close", async () => { await toolsService?.close(); });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
       await step(log, "metrics close", async () => { await metricsHttp?.close(); }); metricsHttp = null;
       await step(log, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; hostClients?.close(); hostClients = null; agentLifecycle?.close(); agentLifecycle = null; memorySensitivity?.close(); memorySensitivity = null; });
@@ -1374,6 +1395,7 @@ export function createCore(o: CoreOptions): Core {
       await step(logger, "sessions close", async () => { await turnComposition?.close(); turnComposition = null; sessions = null; }, errors);
       // A re-embedding run in flight ends at its next batch boundary (aborted, resumable) before the engine closes under it.
       await step(logger, "re-embedding run", async () => { await reembed?.stop(Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }, errors);
+      await step(logger, "tools close", async () => { await toolsService?.close(); }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
       await step(logger, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; hostClients?.close(); hostClients = null; agentLifecycle?.close(); agentLifecycle = null; memorySensitivity?.close(); memorySensitivity = null; }, errors);
       await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null; handoff?.close(); handoff = null;

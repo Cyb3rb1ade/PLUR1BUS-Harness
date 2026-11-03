@@ -11,6 +11,13 @@
       "provider": "local-transformers",
       "model": "woxpas-ai/bge-reranker-v2-m3-onnx"
     },
-    "embeddingSwitch": "allowed"
+    "embeddingSwitch": "allowed",
+    "capabilities": {
+      "text": true,
+      "image": false,
+      "audio": false,
+      "video": false
+    },
+    "encoders": []
   }
 }

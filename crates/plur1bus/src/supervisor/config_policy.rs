@@ -369,6 +369,8 @@ mod tests {
             "breakglass.reasonMinChars",
             "breakglass.reasonMaxChars",
             "breakglass.maxWindowMinutes",
+            "session.rewind.fileProjects",
+            "session.rewind.checkpointRetentionTurns",
             "memory.embedding.privacyAck",
             "memory.mediaEmbedding.privacyAck",
             "memory.mediaEmbedding.caption.privacyAck",

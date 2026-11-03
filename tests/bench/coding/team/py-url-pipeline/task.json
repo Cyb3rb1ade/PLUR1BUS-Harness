@@ -1,0 +1,82 @@
+{
+  "schema": "plur1bus.team-task/1",
+  "id": "py-url-pipeline",
+  "title": "Sequential URL normalization",
+  "kind": "coupled",
+  "tier": "team",
+  "language": "python",
+  "license": "MIT",
+  "seeds": [
+    17,
+    104729,
+    8675309
+  ],
+  "budgets": {
+    "tokens": 65536,
+    "maxRounds": 54,
+    "wallMs": 810000
+  },
+  "instruction": "prompt.md",
+  "start": "start",
+  "seedGenerator": "seed.mjs",
+  "packages": [
+    {
+      "id": "split",
+      "entry": "src/pipeline.__SEED__.py",
+      "symbol": "split_url__SEED__",
+      "owns": [
+        "src/pipeline.__SEED__.py"
+      ],
+      "dependsOn": [],
+      "reference": "reference/split",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "split"
+      }
+    },
+    {
+      "id": "normalize",
+      "entry": "src/pipeline.__SEED__.py",
+      "symbol": "normalize_url__SEED__",
+      "owns": [
+        "src/pipeline.__SEED__.py"
+      ],
+      "dependsOn": [
+        "split"
+      ],
+      "reference": "reference/normalize",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "normalize"
+      }
+    },
+    {
+      "id": "assemble",
+      "entry": "src/pipeline.__SEED__.py",
+      "symbol": "assemble_url__SEED__",
+      "owns": [
+        "src/pipeline.__SEED__.py"
+      ],
+      "dependsOn": [
+        "split",
+        "normalize"
+      ],
+      "reference": "reference/assemble",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "assemble"
+      }
+    }
+  ],
+  "endToEnd": {
+    "checker": {
+      "path": "check.mjs",
+      "scope": "e2e"
+    },
+    "order": [
+      "split",
+      "normalize",
+      "assemble"
+    ]
+  }
+}

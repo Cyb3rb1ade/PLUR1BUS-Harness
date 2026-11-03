@@ -269,7 +269,7 @@ Alt+Enter = queue, `/steer`, `/queue`, `/unqueue`, Ctrl+C/Ctrl+D, `approve.rs` i
 `commands.rs` for `/check`, `/diff`, `/done`, `/rewind`, `/compact`, `/model`, `/help`), the `Code(CodeArgs)` entry in
 `crates/plur1bus/src/cli.rs` sharing `pick_agent` and the model switch with `commands/session.rs`; the core method
 `code.session.open` (RPC schema, handler beside `rpc/chat-surface.ts`, D115 card binding through `ProjectWorktreePort`,
-`session_worktrees` in session schema v11 (owner allocation 2026-11-01; independent main branch), the D109 grant request for a folder that is not a granted root) and the coding
+`session_worktrees` in session schema v11 (owner allocation 2026-11-01), the D109 grant request for a folder that is not a granted root) and the coding
 profile (pre-admitted ACI tools, the static coding section in zone 2); `reedline` 0.52.1 through the dependency gate
 (`deny.toml`, `docs/dependency-policy.md`, `THIRD_PARTY*`); the non-interactive mode with `code.event/1` documents. Spec
 §8.8, Q22–Q25. Tests: Rust unit tests for key handling (Enter and Alt+Enter while busy and idle), the renderer against
@@ -287,6 +287,25 @@ D109 approvals as `session/request_permission` with the option mapping of spec �
 `_app.plur1bus/steer` and `_app.plur1bus/follow_up` advertised in `agentCapabilities._meta`; the CLI flag in
 `crates/plur1bus/src/cli.rs`. Tests: the ACP test client (`packages/core/test/acp/`) for each mapping, unknown custom
 methods still `-32601`, the stderr rule (no prompt text) unchanged. Docs: `docs/acp.md`. Acceptance: spec §16 CLI-ACP row.
+
+Controller allocation 2026-11-01: RPC **1.21.0**, `code.session.mode` is human-only, forbidden to external agent tools,
+audited and scoped to one connection/session. No new session migration. A mode change freezes the current turn's
+profile and changes future turns only; it never widens a D109 grant. Q25 continues to refuse folder grants over ACP.
+Delivery extensions are advertised only when the connected Core provides the H3-1 queue/delivery contract.
+Live post-tool steering and queued-turn stream acceptance stays pending until H3-1 is available; the current CX4
+base does not advertise those extensions. B1 deltas remain unmeasured until the shared baseline exists.
+
+Controller diff ruling 2026-11-01: a standard ACP `diff` requires exact complete `oldText`/`newText`. A successful
+full UTF-8 `file.write` with Core proof that the file was newly created supplies `oldText: null`; a unified diff alone
+does not supply unknown old contents. Full contents are capped at **128 KiB combined**. Otherwise display an explicitly
+labelled text patch, including truncation and size-limit labels. Reverse application is permitted only with an
+untruncated patch, proof that the post-tool file is unchanged, and a Core-only read bound to the worktree; without
+that proof, keep the text fallback. Tests cover genuine diff, fallback and truncated patches. K files stay unchanged.
+
+**OPEN — later additive K ticket (owner: K/Controller):** define a bounded before/after artifact or integrity contract
+for file edits and replacements, including exactness/truncation and the bound path/post-operation content identity.
+This enables more complete ACP diffs later; it is not a CX5 blocker. Until that contract or equivalent exact proof
+exists, do not infer whole-file contents from patch hunks or read editor files directly.
 
 ## C4 — Sensors and the D98 gate (2.5 agent days; Sonnet, TypeScript; crushers from H1-3)
 
@@ -309,7 +328,10 @@ the agent trigger as decided in Q13 (project setting, N = 3, unattended D115 car
 here" in the web; the optional `--files` checkpoint restore (Q14) behind an approval. Tests: the hidden range never
 reaches the model, undo restores it, messages and events stay byte-identical, the digest matches, FTS marks hidden
 messages, the cache prefix up to `parent_seq` is unchanged. Docs: `docs/architecture/compaction.md`, `docs/rpc.md`,
-`docs/web-ui.md`. Acceptance: spec §16 H4 row.
+`docs/web-ui.md`. File checkpoints require the live Owner/Admin `session.rewind.fileProjects` opt-in (default `[]`),
+bounded turn retention and cleanup on archive/card completion. Reproduce the native cost probe with
+`packages/core/bench/rewind-checkpoints.ts`. Acceptance: spec §16 H4 row; corpus evidence remains open pending the
+B1 baseline (Controller decision 2026-11-01), and is not established by local regression tests.
 
 ## T1-a — TypeScript architecture test (1 agent day; Sonnet, TypeScript)
 

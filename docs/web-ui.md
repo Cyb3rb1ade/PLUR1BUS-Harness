@@ -1,5 +1,20 @@
 # Web UI pages and API usage (`packages/web`)
 
+D120 CX1 (RPC 1.18.0) adds **Rewind to here** to stored messages of an idle chat.
+It keeps that message and hides the later path. Discarded messages stay available
+in collapsed transcript entries; **Undo rewind** restores their active view.
+The server distills a bounded lesson through the configured summarize role or
+uses a deterministic fallback. A three-cycle agent proposal shows a separate
+**Confirm rewind** button; receiving the proposal performs no rewind.
+The browser uses authenticated `POST /api/v1/chats/{sessionId}/rewind`, with
+`toSeq` or `undo`; it supplies no caller identity. Live rewind/undo events reload
+the authoritative overlay. Actions are disabled while a turn or another write is
+running. Web rewinds change the conversation and leave files as they are; the
+optional D115 `--files` path requires a separate native approval.
+Harness-command messages and their replies carry Core-derived `command: true`
+metadata and offer no rewind target. Error notices distinguish a running turn,
+an unavailable target, stale state and missing authority.
+
 `@plur1bus/web` is the M3 web UI: the shell of [`ui/web-shell.md`](ui/web-shell.md) plus the pages Chat, Memories & Dreams, Models, Usage & Quota,
 Doctor (M3 part 1) and Agents, Settings (general, models, memory, extensions, network, users & roles, secrets, devices), Logs
 (log viewer, activity feed, sessions overview) and the first-run wizard (M3 part 2), a command palette (⌘K / Ctrl+K), a typed API
@@ -409,7 +424,7 @@ Numbers are stable; other documents refer to them.
   `modelPreparation.acceptNonCommercialLicense`. Moving a store that already holds data to another embedding model is
   `plur1bus memory reembed` (or `plur1bus config set engine.embedding…`), which copies, validates and switches.
 - **F36. Backup schedule and list** (Wizard). Only `admin.backup.snapshot` exists.
-- **F37. Import** (Wizard and `/import`). Both mount the same `ImportWizard`. Source formats come from the canonical API catalog; free host paths obey verified transport locality, WSL probing is opt-in, native selections expose only opaque snapshot handles, and SSH uses configured trusted roots. Broad path/WSL/SSH roots have an explicit Find installations action; selecting a result separately inspects and seals that installation. Source/plan/preflight identifiers remain separate. Apply, resume and rollback require a fresh preflight and explicit downtime consent. Skills-only preview/apply keeps the Core running. Progress uses run-bound checkpoints and status polling. Owner-only SSH setup shows read-only public-key instructions, exact central host/port consent and independent host-key verification. Only authenticated container deployment metadata can propose host.docker.internal; the proposal grants no network authority. Selected stores disclose the source-model candidate and the actual default target, with separate canonical NC ledger confirmations. The global NC acknowledgement uses the existing Settings review path; import device scopes are not widened. Ordinary-cookie native HTTP apply has passed. Fresh manual rollback passed; browser/axe execution remains pending; only API-private imports-purpose MFA provenance can admit a native device cookie to its own bounded offline run.
+- **F37. Import** (Wizard and `/import`). Both mount the same `ImportWizard`. Source formats come from the canonical API catalog; free host paths obey verified transport locality, WSL probing is opt-in, native selections expose only opaque snapshot handles, and SSH uses configured trusted roots. Broad path/WSL/SSH roots have an explicit Find installations action; selecting a result separately inspects and seals that installation. Source/plan/preflight identifiers remain separate. Apply, resume and rollback require a fresh preflight and explicit downtime consent. Skills-only preview/apply keeps the Core running. Progress uses run-bound checkpoints and status polling. Owner-only SSH setup shows read-only public-key instructions, exact central host/port consent and independent host-key verification. Only authenticated container deployment metadata can propose host.docker.internal; the proposal grants no network authority. Selected stores disclose the source-model candidate and the actual default target, with separate canonical NC ledger confirmations. The global NC acknowledgement uses the existing Settings review path; import device scopes are not widened. Ordinary-cookie native HTTP apply has passed. Fresh manual rollback passed; browser/axe execution remains pending; only API-private imports-purpose MFA provenance can admit a native device cookie to its own bounded offline run. *(Amendment 2026-10-31: Extensions to `ImportWizard` (F37) covering the new external AI tools [Claude, Codex, Cursor, Kimi, AGY, and Grok paste], granular component selection, side-by-side rule conflict resolution screen, archive dropzone, and text paste, as specified in [Profile import spec](superpowers/specs/2026-10-27-profile-import-and-plugin-compat-design.md) §3.3).*
 - **F38. `agent.create` with an idempotency key** (Agents). Create goes through `config.set` with `ifRevision`, an existence check and
   a client key; a real RPC with a server-side key would replace it. `agents.<id>.state` and `skills` are assumptions about the shape.
 - **F39. Agent lifecycle — wired.** `agent.pause/resume/archive/unarchive/export/delete` and

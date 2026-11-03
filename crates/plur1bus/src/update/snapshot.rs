@@ -16,6 +16,11 @@ const META: &str = "snapshot.json";
 #[serde(rename_all = "camelCase")]
 pub struct Meta {
     pub binary_sha256: String,
+    /// Distinguishes legacy snapshots, which never touched tools, from a pre-tools install.
+    #[serde(default)]
+    pub tools_managed: bool,
+    #[serde(default)]
+    pub tools_sha256: Option<String>,
     /// `None`: there was no `config.json` (restoring removes one a new version created).
     pub config_sha256: Option<String>,
     pub manifest_sha256: Option<String>,
@@ -63,6 +68,8 @@ pub fn create(layout: &Layout, target_bin: &Path) -> Result<Meta, String> {
     };
     let meta = Meta {
         binary_sha256,
+        tools_managed: true,
+        tools_sha256: opt(super::tools_binary(target_bin), "plur1bus-tools")?,
         config_sha256: opt(layout.config_path(), "config.json")?,
         manifest_sha256: opt(layout.install_manifest(), "manifest.json")?,
         core_moved: false,
@@ -89,6 +96,9 @@ pub fn verify(layout: &Layout) -> Result<Meta, String> {
         }
     };
     check(BINARY, &meta.binary_sha256)?;
+    if let Some(h) = &meta.tools_sha256 {
+        check("plur1bus-tools", h)?;
+    }
     if let Some(h) = &meta.config_sha256 {
         check("config.json", h)?;
     }
@@ -172,6 +182,13 @@ pub fn restore(layout: &Layout, target_bin: &Path, meta: &Meta) -> Result<(), St
             },
         }
     };
+    if meta.tools_managed {
+        one(
+            "plur1bus-tools",
+            &meta.tools_sha256,
+            super::tools_binary(target_bin),
+        )?;
+    }
     one("config.json", &meta.config_sha256, layout.config_path())?;
     one(
         "manifest.json",

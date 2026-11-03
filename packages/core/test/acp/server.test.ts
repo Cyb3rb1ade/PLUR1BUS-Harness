@@ -69,12 +69,12 @@ describe("acp server", () => {
     r.input.end(); await r.done;
   });
 
-  it("session/new creates exactly one harness session of kind acp; a prompt round trip streams ordered chunks, then end_turn", async () => {
+  it("legacy session/new creates one direct session; a prompt round trip streams ordered chunks, then end_turn", async () => {
     const r = rig();
     await init(r);
     const sid = await newSession(r);
     const stored = r.store.getSession(sid)!;
-    assert.deepEqual([stored.kind, stored.agentId], ["acp", "bernd"]);
+    assert.deepEqual([stored.kind, stored.agentId], ["direct", "bernd"]);
     prompt(r, 3, sid, "hello world");
     const res = await r.response(3);
     assert.deepEqual(res.result, { stopReason: "end_turn" });

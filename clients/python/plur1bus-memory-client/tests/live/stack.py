@@ -101,6 +101,7 @@ class LiveStack:
             PLUR1BUS_NODE=shutil.which("node") or "node",
             PLUR1BUS_ALLOW_TEST_INTERNALS="1",
             PLUR1BUS_TEST_INTERNALS=FLAT_INTERNALS,
+            PLUR1BUS_SECRETS_KEYRING="memory",
             PLUR1BUS_SERVICE_FAKE=self.service_fake,
         )
 

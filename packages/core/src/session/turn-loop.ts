@@ -16,6 +16,7 @@ import { createTurnTelemetry, type TurnTelemetry } from "./turn-telemetry.ts";
 import type { DispatchContext, ToolDispatcher } from "../tools/dispatcher.ts";
 import type { SessionStore } from "./store.ts";
 import { SessionError, type EventRecord, type SessionRecord } from "./types.ts";
+import { parseRewindCommand, type RewindService, type RewindFilesPort } from "./rewind.ts";
 
 export interface TurnLoopLogger { info(msg: string, f?: Record<string, unknown>): void; warn(msg: string, f?: Record<string, unknown>): void }
 
@@ -23,6 +24,8 @@ export interface TurnRunnerDeps {
   catalog?: ReadCatalog;
   workspace?: (agentId: string) => string;
   store: SessionStore; compactor: Compactor; memory: TurnMemory;
+  rewind?: RewindService;
+  checkpoints?: RewindFilesPort;
   /** null: no provider is configured (`submit` then fails with `no-provider` before anything is written). */
   provider: () => ChatProvider | null;
   /** Every persisted event, as it is persisted, with its session (the core relays it as `session.event`). */
@@ -58,10 +61,15 @@ export class TurnRunner {
   /** The caller has authorised `session` (owner check) already. */
   submit(a: { session: SessionRecord; caller: CallerIdentity; text: string; authenticatedPerson?: string; approver?: TurnApprover; turnProfile?: TurnProfile; recurring?: import("./provider.ts").RecurringOrigin }): TurnHandle {
     const provider = this.#d.provider();
-    const localCommand = a.text.trim() === '/compact --explain' || /^\/compact --restore event:\d+$/.test(a.text.trim());
+    const rewind = parseRewindCommand(a.text);
+    if (rewind && !(a.approver?.person ?? a.authenticatedPerson)) {
+      throw new SessionError("immutable", "rewind requires a person", "rewind-person-required");
+    }
+    if (rewind && !this.#d.rewind) throw new SessionError("conflict", "rewind service unavailable", "rewind-unavailable");
+    const localCommand = rewind !== null || a.text.trim() === '/compact --explain' || /^\/compact --restore event:\d+$/.test(a.text.trim());
     if (!provider && !localCommand) throw new NoProviderError();
     if (a.text.length === 0) throw new SessionError("invalid", "message text is empty", "text-empty");
-    const { turn, message, event } = this.#d.store.beginTurn(a.session.id, a.text, estimateTokens(a.text));
+    const { turn, message, event } = this.#d.store.beginTurn(a.session.id, a.text, estimateTokens(a.text), { harnessCommand: localCommand });
     this.#emit(event, a.session);
     const cancel = new AbortController();
     this.#cancels.set(turn.id, cancel);
@@ -101,13 +109,41 @@ export class TurnRunner {
     const signal = turnProfile?.signal ? AbortSignal.any([cancelled, turnProfile.signal, ...(this.#d.signal ? [this.#d.signal] : [])]) : this.#d.signal ? AbortSignal.any([this.#d.signal, cancelled]) : cancelled;
     const trace = (r: import("../composition/trace.ts").PipelineRecord) => this.#d.logger?.info("turn.stage", { ...r });
     let telemetry = createTurnTelemetry();
+    const deliveryReceipts = new Map<string, Set<(accepted: boolean) => void>>();
+    const registerDelivery = (id: string, settle: (accepted: boolean) => void): (() => void) => {
+      let receipts = deliveryReceipts.get(id);
+      if (!receipts) { receipts = new Set(); deliveryReceipts.set(id, receipts); }
+      receipts.add(settle);
+      return () => { receipts.delete(settle); if (!receipts.size && deliveryReceipts.get(id) === receipts) deliveryReceipts.delete(id); };
+    };
+    const settleDelivery = (id: string, accepted: boolean): void => {
+      const receipts = deliveryReceipts.get(id);
+      deliveryReceipts.delete(id);
+      for (const settle of receipts ?? []) settle(accepted);
+    };
+    const persistToolResult = (id: string, data: Record<string, unknown>): void => {
+      const event = store.appendEvent(turnId, 'tool.result', data);
+      // Commit before notification or another await: persistence is the session's delivery boundary.
+      settleDelivery(id, true);
+      this.#emit(event, session);
+    };
     try {
       // D33 transcript commands share the admitted session, event stream and cancellation switch.
       // They never enter recall/capture, the model, or the cached prefix.
       const command=text.trim(), restore=/^\/compact --restore (event:\d+)$/.exec(command);
-      if(command==='/compact --explain'||restore){
+      const rewind = parseRewindCommand(text);
+      if(command==='/compact --explain'||restore||rewind){
         signal.throwIfAborted();
-        const reply=restore ? JSON.stringify({ref:restore[1],restored:compactor.restoreToolRef(session.id,restore[1]!)}) : JSON.stringify(compactor.explain(session.id));
+        let reply: string;
+        if (rewind) {
+          const actor = approver?.person ?? authenticatedPerson;
+          if (!actor || !this.#d.rewind) throw new SessionError("immutable", "rewind requires a person", "rewind-person-required");
+          const result = "undo" in rewind ? this.#d.rewind.undo(session.id, rewind.undo, actor, turnId)
+            : await this.#d.rewind.rewind({ ...rewind, sessionId: session.id, actor, caller, commandTurnId: turnId,
+              signal, ...(approver ? { approver } : {}) });
+          reply = JSON.stringify({ sessionId: session.id, rewind: result });
+        } else reply=restore ? JSON.stringify({ref:restore[1],restored:compactor.restoreToolRef(session.id,restore[1]!)}) : JSON.stringify(compactor.explain(session.id));
+        signal.throwIfAborted();
         this.#event(turnId,'delta',{index:0,text:reply},session);
         telemetry.endReason = "command";
         const done=store.completeTurn(turnId,{text:reply,tokens:estimateTokens(reply),data:{provider:'harness-command',telemetry}});
@@ -116,6 +152,14 @@ export class TurnRunner {
         this.#emit(done.event,session);return {state:'completed',assistantMessageId:done.message.id,reply};
       }
       if(!provider)throw new NoProviderError();
+      try {
+        await this.#d.checkpoints?.capture?.({ sessionId: session.id, turnId,
+          personId: approver?.person ?? authenticatedPerson ?? recurring?.runAs ?? "", signal });
+      } catch (err) {
+        signal.throwIfAborted();
+        // Checkpoints are optional; an unavailable one refuses --files later, never substitutes HEAD for dirty bytes.
+        this.#d.logger?.warn("D115 turn checkpoint unavailable", { sessionId: session.id, turnId, err });
+      }
       // 1. recall: exactly one call. A recall that fails or degrades never fails the turn.
       let recalled: { text: string; degraded: unknown } = { text: "", degraded: null };
       try { const recall = (signal: AbortSignal) => stage("recall", signal, trace, () => memory.recall({ agentId: session.agentId, caller, query: text, signal, ...((authenticatedPerson ?? recurring?.runAs) ? { authenticatedPerson: authenticatedPerson ?? recurring!.runAs } : {}), ...(turnProfile ? { turnProfile } : {}) }));
@@ -137,6 +181,12 @@ export class TurnRunner {
       let reply = ""; let usage: { inputTokens: number; outputTokens: number; model?: string; measurements?: import("./provider.ts").UsageMeasurement[] } | null = null; let index = 0;
       telemetry.rounds = 1;
       for await (const chunk of provider.stream({
+        onToolResultDelivery: registerDelivery,
+        onDelegationResult: result => {
+          // Harness-owned joins have no model tool call. Persist a matching read operation without accepting reported provenance.
+          this.#event(turnId, 'tool.call', { id: result.taskId, name: 'await_delegations', args: { taskIds: [result.taskId], timeoutMs: 0 }, origin: 'harness:collaboration' }, session);
+          persistToolResult(result.taskId, { id: result.taskId, output: result.output, origin: 'harness:collaboration' });
+        },
         onTurnTelemetry: observation => { telemetry = structuredClone(observation); },
         buffered: !!recurring || !['cli', 'web', 'api', 'voice'].includes(caller.channel),
         ...(selectedProfile ? { modelProfile: selectedProfile } : {}), ...(reasoning ? { reasoning } : {}),
@@ -162,7 +212,7 @@ export class TurnRunner {
               && "error" in result && !!result.error && typeof result.error === "object"
               && "code" in result.error && result.error.code === "aborted";
           } catch { /* Only a typed final aborted envelope survives cancellation. */ }
-          if (aborted) this.#event(turnId, "tool.result", { id: chunk.id, output: chunk.output, isError: true }, session);
+          if (aborted) persistToolResult(chunk.id, { id: chunk.id, output: chunk.output, isError: true });
         }
         signal.throwIfAborted();
         if (chunk.type === "delta") { turnProfile?.onDelta?.(chunk.text); reply += chunk.text; this.#event(turnId, "delta", { index: index++, text: chunk.text }, session); }
@@ -176,13 +226,13 @@ export class TurnRunner {
           const tc = this.#d.toolCalls;
           if (tc) {
             // The dispatcher never throws; its error envelopes are results like any other. Only an abort ends the turn.
-            const res = await tc.dispatcher.call({ id: chunk.id, name: chunk.name, args: chunk.args }, { ...tc.context({ session, caller }), signal });
-            this.#event(turnId, "tool.result", { id: chunk.id, output: JSON.stringify(res), isError: res.isError }, session);
+            const res = await tc.dispatcher.call({ id: chunk.id, name: chunk.name, args: chunk.args }, { ...tc.context({ session, caller }), signal, onResultSettled: settle => { registerDelivery(chunk.id, settle); } });
+            persistToolResult(chunk.id, { id: chunk.id, output: JSON.stringify(res), isError: res.isError });
             signal.throwIfAborted();
           }
         }
         // RULING: with a dispatcher the harness executes; a result the provider reports itself is ignored (it could forge provenance).
-        else if (chunk.type === "tool.result") { if (!this.#d.toolCalls) this.#event(turnId, "tool.result", { id: chunk.id, output: chunk.output }, session); }
+        else if (chunk.type === "tool.result") { if (!this.#d.toolCalls) persistToolResult(chunk.id, { id: chunk.id, output: chunk.output }); }
         else usage = { inputTokens: chunk.inputTokens, outputTokens: chunk.outputTokens, ...(chunk.model ? { model: chunk.model } : {}), ...(chunk.measurements ? { measurements: chunk.measurements } : {}) };
       }
 
@@ -207,6 +257,12 @@ export class TurnRunner {
       this.#observeTelemetry(telemetry, session, turnId);
       this.#emit(done.event, session);
       await this.#after(session, caller, turnId, text, reply, incognito, turnProfile, recurring, authenticatedPerson);
+      // Q13: a background run's responsible person is an identity, not a live approver. Its trusted T0 origin is unattended.
+      try {
+        await this.#d.rewind?.afterTurn({ sessionId: session.id,
+          personId: approver?.person ?? authenticatedPerson ?? recurring?.runAs ?? "",
+          unattended: session.kind === "card" && (approver?.surface ?? 0) === 0 });
+      } catch (err) { this.#d.logger?.warn("turn-boundary rewind unavailable", { sessionId: session.id, err }); }
       return { state: "completed", assistantMessageId: done.message.id, reply };
     } catch (e) {
       const error = cancelled.aborted ? "cancelled" : signal.aborted ? "aborted" : e && typeof e === 'object' && 'code' in e && typeof e.code === 'string' ? e.code : e && typeof e === 'object' && 'kind' in e && typeof e.kind === 'string' ? e.kind : e instanceof Error ? e.message : String(e);
@@ -217,6 +273,8 @@ export class TurnRunner {
       catch (e2) { this.#d.logger?.warn("session turn could not be marked failed; recovery will at the next start", { sessionId: session.id, turnId, err: e2 }); }
       this.#d.logger?.warn("session turn failed", { sessionId: session.id, turnId, error });
       return { state: "failed", error };
+    } finally {
+      for (const id of deliveryReceipts.keys()) settleDelivery(id, false);
     }
   }
 

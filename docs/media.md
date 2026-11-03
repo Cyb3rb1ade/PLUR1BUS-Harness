@@ -123,6 +123,38 @@ that Draw Things stops rendering.
 
 ## Output and metadata
 
+Channel uploads use the additive `putUploaded`, `getUploaded` and `deleteUploaded` APIs. They are stored beneath
+`.uploads/<random UUID>/` with a separate `media.upload/1` manifest; generated `media.output/1` records and APIs retain
+their meaning. Uploads preserve the original bytes, never transcode on ingress, and accept at most 25 MiB per file.
+MIME/container checks, private 0700 directories/0600 files, SHA-256 verification, atomic publication and the shared
+quota/retention also apply to uploads. Display filenames never become paths. The host publishes its owner record before
+calling the background upload hook; raw uploads do not trigger the generated-output `onPut` listener.
+
+The production Core uses one store factory with a **1 GiB total quota** shared by generated outputs and uploads and
+**30 days retention**. It prunes on startup and hourly, deferring while import maintenance holds the home. Upload
+deletion awaits its cleanup hooks before unlinking the bytes; the host removes the corresponding owner record.
+Failed cleanup leaves the upload available for an idempotent retry and returns a stable storage error. Private direct-chat
+uploads additionally require the owning person, even when another person has rights on the same agent; incomplete older
+channel ownership records fail closed. Generated-media ownership rules remain agent-based.
+
+Quota accounting uses actual owned file sizes, including damaged upload directories, and never follows symlinks.
+A private `.upload-index/<id>.json` record stores only the accounted media/manifest bytes, creation time and storage
+availability, outside the payload directory. It is persisted before publication and survives a Core restart. The quota
+continues to cover media and manifests; bounded accounting records, like lock files, are store control metadata.
+An unreadable upload keeps its saved charge (or larger partially observed size), allowing unrelated publications within
+the remaining quota. Older readable uploads acquire records lazily; an unindexed inaccessible legacy upload conservatively
+reserves the 25 MiB admission limit plus the 4096-byte manifest bound until readable. `1staid check` reports `media.uploads`
+without paths, filenames, identities or content; malformed/unreadable diagnostics produce a warning rather than a clean bill of health.
+Recovery and pruning inspect bounded manifests and file
+metadata, without reading or hashing upload payloads under the store lock. Proven manifest/size/missing-file corruption
+can be removed after a one-hour grace period measured from the newest file/directory modification, emitting
+`onCorruptUploadRemoved` without raw paths or content. Transient read errors retain the upload and its owner, emit only
+a content-free `storage-unavailable` warning and are retried on the next sweep. After retention expires, saved creation
+metadata permits removal without reading the inaccessible upload, still awaiting owner cleanup before unlink. If removal
+itself is denied, storage must be repaired and the sweep retried. Reads through `getUploaded` still verify
+the payload hash: same-size bit corruption is refused there and remains stored until retention expires. Uploads currently have no per-file RPC/CLI delete
+command; `media.output.delete` and `plur1bus media rm` delete generated outputs. Automatic retention applies to uploads.
+
 Each output directory is published by a single rename after files and manifest
 have been flushed. SHA-256 hashes describe the stored bytes (including embedded
 metadata). The manifest always includes adapter/model, prompt, parameters,

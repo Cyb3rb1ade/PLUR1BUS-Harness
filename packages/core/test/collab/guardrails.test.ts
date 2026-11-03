@@ -14,13 +14,12 @@ function base(over: Partial<GuardrailInput> = {}): GuardrailInput {
 }
 
 describe("guardrails (pure)", () => {
-  it("refuses self-call, cycle, depth, fanout, pair, timeout, repeat, boundary, budgets", () => {
+  it("refuses self-call, cycle, depth, fanout, pair, repeat, boundary, budgets", () => {
     assert.equal(evaluateGuardrails(base({ toAgent: "a" })), "self-call");
     assert.equal(evaluateGuardrails(base({ fromAgent: "b", path: ["a", "b"], toAgent: "a" })), "cycle");
-    assert.equal(evaluateGuardrails(base({ path: ["a", "b"], toAgent: "c" })), "depth");
-    assert.equal(evaluateGuardrails(base({ fanout: 3 })), "fanout");
-    assert.equal(evaluateGuardrails(base({ pairCount: 2 })), "pair-limit");
-    assert.equal(evaluateGuardrails(base({ now: 5 * 60 * 1000, chainStartedAt: 0 })), "timeout");
+    assert.equal(evaluateGuardrails(base({ path: ["a", "b", "c"], toAgent: "d" })), "depth");
+    assert.equal(evaluateGuardrails(base({ fanout: 8 })), "fanout");
+    assert.equal(evaluateGuardrails(base({ pairCount: 4 })), "pair-limit");
     assert.equal(evaluateGuardrails(base({ lastRepeatAt: 990, now: 1000 })), "repeat");
     assert.equal(evaluateGuardrails(base({ sameProject: false })), "project-boundary");
     assert.equal(evaluateGuardrails(base({ settings: { ...DEFAULT_COLLAB_SETTINGS, tokenBudget: 1 }, tokensUsed: 1, nextTokens: 1 })), "token-budget");
@@ -44,7 +43,7 @@ describe("guardrails (service)", () => {
 
   it("blocks a second hop when maxDepth is 1", async () => {
     const h = open();
-    const p = await projectWithAgents(h);
+    const p = await projectWithAgents(h, undefined, { maxDepth: 1 });
     const first = await h.collab.consult({ principal: owner(), projectId: p.id, fromAgent: "lead", toAgent: "worker", question: "q1", context: "" });
     await assert.rejects(
       h.collab.consult({
@@ -95,4 +94,30 @@ describe("guardrails (service)", () => {
       isCode("guardrail", "token-budget"),
     );
   });
+});
+
+
+it('enforces the narrowed task deadline through production tool admission and the service timer', async t => {
+  const { createCollab } = await import('../../src/collab/service.ts');
+  const { collaborationTools } = await import('../../src/tools/collaboration.ts');
+  const started = Promise.withResolvers<void>();
+  let now = Date.now(), signal: AbortSignal | undefined;
+  const timers = new Set<{ at: number; fire(): void }>();
+  const collab = createCollab({ path: ':memory:', clock: () => now, timers: { set(callback, ms) { const timer = { at: now + ms, fire: callback }; timers.add(timer); return () => timers.delete(timer); } }, runner: { async run(input) { signal = input.signal; input.onProgress?.({ text: 'partial evidence', inputTokens: 1, outputTokens: 1 }); started.resolve(); return new Promise(() => {}); } } });
+  t.after(() => collab.shutdown());
+  const project = collab.createProject(owner(), { name: 'Timer', settings: { timeoutMs: 1000 } });
+  for (const a of ['lead', 'peer']) collab.addAgent(owner(), project.id, a);
+  const request = { sessionId: 'root', agentId: 'lead', summaries: [], memory: '', messages: [], signal: new AbortController().signal };
+  const tool = collaborationTools({ collab, enabled: () => true, principal: () => owner(), authority: { approvals: { get: () => undefined }, grants: { get: () => undefined }, audit() {}, now: () => now } }, request).find(t => t.name === 'delegate_task')!;
+  const result = tool.execute({ projectId: project.id, toAgent: 'peer', objective: 'inspect', deadline: new Date(now + 500).toISOString() }, { agentId: 'lead', principal: owner().userId, signal: request.signal });
+  await started.promise;
+  now += 499;
+  for (const timer of [...timers]) if (timer.at <= now) timer.fire();
+  assert.equal(signal!.aborted, false);
+  now++;
+  for (const timer of [...timers]) if (timer.at <= now) timer.fire();
+  assert.equal(signal!.aborted, true);
+  assert.match(JSON.stringify(await result), /partial evidence/);
+  assert.equal(collab.listTraces(owner(), project.id)[0]!.spans[0]!.status, 'partial');
+  assert.equal(timers.size, 0);
 });

@@ -230,6 +230,7 @@ interface RawLine {
   oversize: boolean;
   /** Only spaces, tabs and CRs (an empty line included). */
   blank: boolean;
+  /** Blank and oversized lines have no decoded text; the replay discards or copies their byte range. */
   text: string;
 }
 
@@ -250,13 +251,13 @@ function* readLines(fd: number, maxBytes: number): Generator<RawLine> {
         len += stop - from;
         break;
       }
-      const text = over ? "" : pieces.length ? Buffer.concat([...pieces, view.subarray(from, stop)]).toString("utf8") : view.toString("utf8", from, stop);
+      const text = over || blank ? "" : pieces.length ? Buffer.concat([...pieces, view.subarray(from, stop)]).toString("utf8") : view.toString("utf8", from, stop);
       yield { start: lineStart, end: base + stop, terminated: true, oversize: over, blank, text };
       pieces = []; len = 0; over = false; blank = true; lineStart = base + nl + 1; from = nl + 1;
     }
     base += r;
   }
-  if (len > 0) yield { start: lineStart, end: base, terminated: false, oversize: over, blank, text: over ? "" : Buffer.concat(pieces).toString("utf8") };
+  if (len > 0) yield { start: lineStart, end: base, terminated: false, oversize: over, blank, text: over || blank ? "" : Buffer.concat(pieces).toString("utf8") };
 }
 
 function writeAll(fd: number, buf: Buffer): void {

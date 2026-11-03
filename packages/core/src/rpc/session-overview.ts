@@ -5,7 +5,7 @@ import type { Principal } from "../rbac/types.ts";
 import { authenticatedPrincipal } from "../rbac/guard.ts";
 import type { Handler } from "./server.ts";
 import { RpcError } from "./errors.ts";
-import { toWireEvent, toWireSession, mapSessionError } from "../session/methods.ts";
+import { toWireEvent, toWireSession, toWireMessages, mapSessionError } from "../session/methods.ts";
 import { hiddenToolOutputs } from "../session/pruning.ts";
 export function sessionTranscriptSurface(d: { sessions: () => SessionStore | null; /** Resolves the store holding a session (incognito sessions are memory-only); falls back to `sessions`. */ lookup?: (sessionId: string) => SessionStore | null; breakglass: BreakGlass; ownership: (a: Principal, p: unknown) => string[]; personOf: (owner: string) => string | undefined }): Record<string, Handler> {
   const read = (method: "get" | "resume" | "events"): Handler => async (p, ctx) => {
@@ -18,13 +18,14 @@ export function sessionTranscriptSurface(d: { sessions: () => SessionStore | nul
     }
     try {
       const wire = toWireSession(session);
-      const messages = (limit: number) => store.listMessages(session.id).slice(-limit).map(m => ({ id: m.id, seq: m.seq, turnId: m.turnId, role: m.role, text: m.text, createdAt: m.createdAt }));
+      const messages = (limit: number) => toWireMessages(store, session.id, store.listMessages(session.id).slice(-limit));
+      const rewindView = { rewinds: store.rewinds(session.id), rewindProposal: store.rewindProposal(session.id) };
       const runningTurnId = store.runningTurn(session.id)?.id ?? null;
       // includeHidden is opt-in and rides the same gate as the rest of the transcript: nothing above is relaxed for it.
-      if (method === "get") return { session: wire, runningTurnId, ...(p.messages ? { messages: messages(p.messages) } : {}), ...(p.includeHidden === true ? { hiddenToolOutputs: hiddenToolOutputs(store, session.id) } : {}) };
+      if (method === "get") return { session: wire, runningTurnId, ...rewindView, ...(p.messages ? { messages: messages(p.messages) } : {}), ...(p.includeHidden === true ? { hiddenToolOutputs: hiddenToolOutputs(store, session.id) } : {}) };
       if (method === "resume") {
         if (session.archivedAt !== null) throw new RpcError("E_CONFLICT", "session is archived", { reason: "archived" });
-        return { session: wire, runningTurnId, messages: messages(p.limit ?? 100), lastEventSeq: store.lastEventSeq(session.id) ?? 0 };
+        return { session: wire, runningTurnId, ...rewindView, messages: messages(p.limit ?? 100), lastEventSeq: store.lastEventSeq(session.id) ?? 0 };
       }
       return { sessionId: session.id, events: store.listEvents(session.id, p.afterSeq ?? 0, p.limit ?? 500).map(toWireEvent), lastSeq: store.lastEventSeq(session.id) ?? 0, running: runningTurnId !== null };
     } catch (e) { return mapSessionError(e); }

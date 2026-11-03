@@ -18,7 +18,7 @@ Plur1bus führt zwei getrennte Indexe:
 
 Vektoren werden nie über Räume hinweg verglichen. Eine Suche von Text nach Medien kodiert deinen Text mit dem
 Text-Encoder des Medienmodells und vergleicht ihn danach nur mit dem Medien-Index. Dasselbe Modell kann beide Indexe
-bedienen. Es wird nur einmal geladen, die Indexe bleiben aber getrennt.
+bedienen. Die Indexe und die Sitzungen für die Berechnung bleiben getrennt.
 
 ## Bildunterschriften
 
@@ -68,13 +68,30 @@ Eine neue Installation startet mit diesen Einstellungen, die du in der Einrichtu
 
 - EmbeddingGemma 2 lokal für den Text-Index und den Medien-Index.
 - Alle drei Medienarten aktiv: Bild, Video und Audio.
-- Nachindexierung automatisch. Nachindexieren heißt, Medien zu indexieren, die noch nicht indexiert sind. Sie läuft im
-  Hintergrund, lässt sich anhalten, wird nach einem Neustart fortgesetzt und hält dein Budget ein.
+- Nachindexierung manuell. Vorhandene Medien werden erst auf deinen Wunsch indexiert. Ausdrücklich gespeicherte
+  Einstellungen bleiben erhalten. Die Verarbeitung im Hintergrund lässt sich anhalten und fortsetzen und hält dein Budget ein.
+
+Die Anzeige der Modellfähigkeiten nennt die vom Server gemeldeten Medienarten. Unterstützung durch das Modell bedeutet
+noch nicht, dass zusätzliche Encoder installiert sind oder der Rust-Medienindex schon verfügbar ist. Fotos brauchen
+zum Dekodieren kein ffmpeg. Fehlt ffmpeg für Audio und Video, zeigt die Einrichtung den Befehl, den du selbst
+ausführen kannst. Plur1bus führt weder sudo noch eine Paketmanager-Installation aus und liefert ffmpeg nicht mit.
+`plur1bus 1staid check` prüft, ob es vorhanden ist.
+
+Uploads aus privaten Direktnachrichten bleiben an die sendende Person gebunden; Rechte auf denselben Agenten reichen
+anderen Personen nicht zum Lesen. Uploads und erzeugte Medien teilen sich 1 GiB Speicher und werden nach 30 Tagen
+automatisch bereinigt. Einzelne hochgeladene Dateien haben derzeit keinen eigenen Löschbefehl; die Löschfunktion
+für erzeugte Medien gilt nur für diese.
+
+Audioabschnitte sind höchstens 30 Sekunden lang, die gesamte Audiodatei höchstens eine Stunde. Ältere konfigurierte
+Abschnittslängen über 30 werden mit einem Konfigurationsfehler abgelehnt. Das Token-Budget beträgt standardmäßig 140
+je Foto und 70 je Videobild. Auf allen unterstützten Plattformen gilt derzeit q8.
 
 ## Medienarten und Modellvariante
 
-Jede Medienart (Bild, Video, Audio) kannst du einzeln ausschalten. Die Modellvariante richtet sich nach den Arten, die du
-behältst. Die Größe des Modells, das geladen wird, kann sich deshalb ändern, wenn du eine Art ein- oder ausschaltest.
+Jede Medienart (Bild, Video, Audio) kannst du einzeln ausschalten. Das verifizierte lokale q8-Encoder-Paket für
+EmbeddingGemma 2 umfasst 535.699.121 Bytes (etwa 511 MiB),
+ohne das Textmodell. Die Einrichtung zeigt diese zusätzliche Downloadgröße getrennt vom Installationsstatus.
+Die Zeit je Foto auf deinem Gerät wurde noch nicht gemessen; die Einrichtung weist darauf hin.
 
 ## Lizenzen
 
@@ -92,7 +109,8 @@ Indexierung mit einer Fehlermeldung ab (siehe unten).
 
 ## Nachindexieren und Neuindexieren
 
-Die Nachindexierung startet, nachdem du die Mediensuche eingeschaltet hast, und nach jedem Wechsel des Medienmodells. Während
+Bei ausdrücklich gewählter automatischer Nachindexierung startet sie nach dem Einschalten der Mediensuche und nach jedem
+Wechsel des Medienmodells. Beim manuellen Standard startest du sie selbst. Während
 sie läuft, siehst du den Fortschritt. Du kannst sie anhalten und wieder fortsetzen. Solange die Nachindexierung nicht
 fertig ist, lässt sich noch nicht alles finden.
 

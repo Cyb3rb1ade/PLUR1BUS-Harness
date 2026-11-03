@@ -14,6 +14,7 @@ import { getApi, useLoad } from "../common/load.ts";
 import { DEFAULT_EMBEDDING, DEFAULT_RERANK, activeChoice, choiceById, choicesOf, lockedNcEmbedding, type MemoryModels, type ModelChoice, type ModelKind } from "./licences.ts";
 import { USE_CLASSES, chosen, type Answers, type UseClass } from "./model.ts";
 import type { StepProps } from "./steps.ts";
+import { ModelCapabilities } from "../media-search/capabilities.ts";
 import "../../styles/setup.css";
 const when = (iso: string): string => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? iso : formatDateTime(d); };
 
@@ -42,6 +43,14 @@ function CurrentOption({ kind, m, checked, onPick }: { kind: ModelKind; m: Memor
 export function MemoryStep({ a, set, errors }: StepProps): View {
   const [ask, setAsk] = useState<{ model: ModelChoice; at: string } | null>(null);
   const { state, reload } = useLoad((signal) => getApi().rpc("model.memory.status", {}, { write: false, signal }) as Promise<MemoryModels>, []);
+  const { state: mediaConfig } = useLoad((signal) =>
+    getApi().rpc("config.get", { key: "memory.mediaEmbedding" }, { write: false, signal }), []);
+  useLayoutEffect(() => {
+    if (mediaConfig.status !== "ok" || a.media.backfillChosen) return;
+    const value = mediaConfig.data.value;
+    const backfill = value && typeof value === "object" ? (value as { backfill?: unknown }).backfill : undefined;
+    if (backfill === "auto" || backfill === "manual") set({ media: { ...a.media, backfill } });
+  }, [mediaConfig]);
   // A failed load forgets an earlier answer: without the engine's answer the step writes no model. Taken over before the step is
   // painted, so Next never sees the models on screen without the engine's answer in the wizard state.
   useLayoutEffect(() => { if (state.status !== "loading") set({ memoryModels: state.status === "ok" ? state.data : undefined }); }, [state]);
@@ -91,7 +100,9 @@ export function MemoryStep({ a, set, errors }: StepProps): View {
   let models: View;
   if (state.status === "loading") models = h(PageLoading, { label: t("setup.memory.loading") });
   else if (!m) models = h("div", {}, h(Notice, {}, t("setup.memory.loadFailed")), h("button", { type: "button", class: "btn", onClick: reload }, t("setup.model.retry")));
-  else models = h("div", {}, group("embedding", m), h("p", { class: "field-hint" }, t("setup.memory.embeddingNote")), group("rerank", m));
+  else models = h("div", {},
+    group("embedding", m), h("p", { class: "field-hint" }, t("setup.memory.embeddingNote")), group("rerank", m),
+    h(ModelCapabilities, { model: m.embedding.model, capabilities: m.capabilities, encoders: m.encoders }));
 
   return h("div", {},
     h("p", { class: "reading" }, t("setup.memory.lead")),
