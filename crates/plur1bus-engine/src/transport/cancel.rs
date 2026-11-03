@@ -142,6 +142,20 @@ impl Connector<()> for CancelConnector {
         self.control.check_io()?;
         socket.set_nonblocking(false)?;
         socket.set_tcp_nodelay(details.config.no_delay())?;
+        #[cfg(windows)]
+        {
+            // A Winsock duplicate made before connect retains an unconnected view:
+            // shutdown returns WSAENOTCONN and cannot wake the connected reader.
+            // Keep the pre-connect registration above for cancellation while dialing,
+            // then replace it under the same lock before any HTTP/TLS I/O can start.
+            let mut watched = self
+                .control
+                .socket
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            self.control.check_io()?;
+            *watched = Some(socket.try_clone()?);
+        }
         let stream: TcpStream = socket.into();
         Ok(Some(CancelTransport {
             stream,
