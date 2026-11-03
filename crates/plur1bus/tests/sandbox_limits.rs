@@ -234,3 +234,141 @@ fn the_launcher_refuses_missing_or_zero_limits() {
         );
     }
 }
+
+#[cfg(target_os = "macos")]
+#[test]
+fn acp_watchdog_counts_four_bounded_forks_against_two_tasks() {
+    let out = launcher()
+        .args([
+            "--watch-tree",
+            "2",
+            "1073741824",
+            "--",
+            "/usr/bin/perl",
+            "-e",
+            "for(1..4){if(fork()==0){sleep 2;exit 0}} sleep 2",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(121), "{out:?}");
+    assert!(String::from_utf8_lossy(&out.stderr).contains("task-limit-exceeded"));
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn acp_watchdog_counts_descendant_rss_during_streaming() {
+    let out = launcher()
+        .args([
+            "--watch-tree",
+            "16",
+            "33554432",
+            "--",
+            "/usr/bin/perl",
+            "-e",
+            "$|=1;print qq(streaming\\n);if(fork()==0){$x='x' x (128*1024*1024);sleep 3}sleep 3",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(122), "{out:?}");
+    assert!(String::from_utf8_lossy(&out.stderr).contains("rss-limit-exceeded"));
+    assert!(String::from_utf8_lossy(&out.stdout).contains("streaming"));
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn acp_task_mode_refuses_shared_namespace_before_target_exec() {
+    let out = launcher()
+        .args([
+            "--tasks-required",
+            "7",
+            &own_userns(),
+            "--",
+            "/bin/echo",
+            "executed",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(125));
+    assert!(out.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("shared user namespace"));
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn acp_task_mode_refuses_uid_zero_before_target_exec() {
+    let temp = tempfile::tempdir().unwrap();
+    let marker = temp.path().join("target-started");
+    let sandbox = || {
+        let mut command = Command::new("/usr/bin/bwrap");
+        command
+            .args([
+                "--unshare-all",
+                "--die-with-parent",
+                "--cap-drop",
+                "ALL",
+                "--uid",
+                "0",
+                "--gid",
+                "0",
+                "--ro-bind",
+                "/",
+                "/",
+                "--proc",
+                "/proc",
+                "--bind",
+            ])
+            .arg(temp.path())
+            .arg(temp.path())
+            .arg("--");
+        command
+    };
+    // Exercise a real UID0 user namespace, even when the test runner is an ordinary user.
+    let identity = sandbox().args(["/usr/bin/id", "-u"]).output().unwrap();
+    assert!(identity.status.success(), "{identity:?}");
+    assert_eq!(identity.stdout, b"0\n");
+    let out = sandbox()
+        .arg(assert_cmd::cargo::cargo_bin("plur1bus-sandbox-limits"))
+        .args([
+            "--tasks-required",
+            "7",
+            &own_userns(),
+            "--",
+            "/usr/bin/touch",
+        ])
+        .arg(&marker)
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(125), "{out:?}");
+    assert!(String::from_utf8_lossy(&out.stderr)
+        .contains("sandbox-unavailable: UID0 task limit is not supported"));
+    assert!(!marker.exists(), "the refused target must never execute");
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn acp_watchdog_counts_same_group_orphans_against_two_tasks() {
+    let out = launcher()
+        .args([
+            "--watch-tree",
+            "2",
+            "1073741824",
+            "--",
+            "/usr/bin/perl",
+            "-e",
+            "if(fork()==0){for(1..4){if(fork()==0){sleep 3;exit 0}}exit 0}sleep 3",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(121), "{out:?}");
+    assert!(String::from_utf8_lossy(&out.stderr).contains("task-limit-exceeded"));
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn acp_watchdog_counts_streaming_same_group_orphan_rss() {
+    let out = launcher().args(["--watch-tree", "16", "33554432", "--", "/usr/bin/perl", "-e",
+        "$|=1;print qq(streaming\\n);if(fork()==0){if(fork()==0){select undef,undef,undef,0.1;$x='x' x (128*1024*1024);sleep 3}exit 0}sleep 3"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(122), "{out:?}");
+    assert!(String::from_utf8_lossy(&out.stderr).contains("rss-limit-exceeded"));
+    assert!(String::from_utf8_lossy(&out.stdout).contains("streaming"));
+}
