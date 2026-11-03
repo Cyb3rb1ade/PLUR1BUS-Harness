@@ -244,6 +244,10 @@ impl StalledPeer {
                 match stream.read(&mut buffer) {
                     Ok(0) => {
                         let _ = closed.send(Ok(()));
+                        // The owner releases the peer handle independently of observed EOF/reset.
+                        while !stopped.load(Ordering::Acquire) {
+                            thread::sleep(Duration::from_millis(1));
+                        }
                         return;
                     }
                     Ok(_) => {}
@@ -262,6 +266,10 @@ impl StalledPeer {
                             Err(kind)
                         };
                         let _ = closed.send(result);
+                        // The owner releases the peer handle independently of observed EOF/reset.
+                        while !stopped.load(Ordering::Acquire) {
+                            thread::sleep(Duration::from_millis(1));
+                        }
                         return;
                     }
                 }
