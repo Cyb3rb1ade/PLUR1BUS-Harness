@@ -1,0 +1,9 @@
+{
+  "params": {
+    "id": "peer"
+  },
+  "result": {
+    "id": "peer",
+    "removed": true
+  }
+}

@@ -887,9 +887,11 @@ fn a_chain_invalidates_the_egress_cache_of_every_member() {
 fn an_auth_header_rotates_the_secret_even_when_its_body_exceeds_the_deadline() {
     use std::sync::atomic::{AtomicUsize, Ordering};
     let calls = AtomicUsize::new(0);
-    let stub = Stub::dynamic_body(move |_| {
+    // Hold the body until the caller closes its socket at the deadline.
+    // The one-second budget lets the 401 headers arrive on a loaded runner.
+    let stub = Stub::dynamic_body_until_close(move |_| {
         if calls.fetch_add(1, Ordering::SeqCst) == 0 {
-            (401, String::new(), "{}".into(), Duration::from_millis(100))
+            (401, String::new(), "{}".into(), Duration::from_secs(2))
         } else {
             (
                 200,
@@ -911,7 +913,7 @@ fn an_auth_header_rotates_the_secret_even_when_its_body_exceeds_the_deadline() {
         provider
             .embed_remote(
                 &["doc".into()],
-                &Cancel::with_deadline(Instant::now() + Duration::from_millis(60))
+                &Cancel::with_deadline(Instant::now() + Duration::from_secs(1))
             )
             .unwrap_err()
             .kind,

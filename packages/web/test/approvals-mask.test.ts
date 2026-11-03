@@ -3,13 +3,33 @@
 // know a value it was never given. Test credentials are assembled at run time, so no token-shaped literal sits in the source.
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { maskSecrets } from "../src/pages/approvals/mask.ts";
+import { maskSecrets, publicPeerTrustSummary } from "../src/pages/approvals/mask.ts";
+import { randomBytes, randomUUID } from "node:crypto";
 
 const sk = ["sk", "q".repeat(24)].join("-");
 const gh = ["ghp", "Z".repeat(30)].join("_");
 const jwt = ["eyJ" + "a".repeat(12), "b".repeat(12), "c".repeat(12)].join(".");
 
 describe("maskSecrets", () => {
+  test("a public trust projection requires its internal tool, matching fields and credential-free canonical endpoint", () => {
+    const fingerprint = `sha256:${randomBytes(32).toString("base64url")}`;
+    const revision = randomUUID();
+    const projection = (endpoint: string) =>
+      `Endpoint: ${endpoint}\nKey fingerprint: ${fingerprint}\nRevision: ${revision}`;
+    const summary = projection("https://peer.example/.ssh/token=public-route");
+    const view = { tool: "peer.a2a_trust", summary, diff: summary };
+    assert.equal(publicPeerTrustSummary(view), summary);
+    assert.equal(publicPeerTrustSummary({ ...view, tool: "exec.run" }), undefined);
+    assert.equal(publicPeerTrustSummary({ ...view, diff: "different" }), undefined);
+    const credential = randomBytes(24).toString("base64url");
+    for (const endpoint of [`https://${credential}:${credential}@peer.example/rpc`,
+      `https://peer.example/rpc?token=${credential}`]) {
+      const unsafe = projection(endpoint);
+      assert.equal(publicPeerTrustSummary({ ...view, summary: unsafe, diff: unsafe }), undefined);
+    }
+    const extra = `${summary}\nBearer ${randomBytes(24).toString("base64url")}`;
+    assert.equal(publicPeerTrustSummary({ ...view, summary: extra, diff: extra }), undefined);
+  });
   test("hides bearer and basic credentials, keeps the scheme", () => {
     assert.equal(maskSecrets(`curl -H "Authorization: Bearer ${sk}" https://example.test/x`), `curl -H "Authorization: Bearer [hidden]" https://example.test/x`);
     assert.equal(maskSecrets("Authorization: Basic dXNlcjpwYXNzd29yZA=="), "Authorization: Basic [hidden]");

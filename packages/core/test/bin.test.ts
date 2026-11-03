@@ -63,9 +63,15 @@ describe("dist/core.js", () => {
     const next = startCore(home); const nextReady = await next.ready; // the lock was released: a new core starts on the same home
     assert.equal(await stopGracefully(next.child, home, nextReady.address), 0);
   });
-  it("refuses --test-internals without the env guard", async () => {
-    const child = spawn(process.execPath, [dist, "--home", tempDir("p1b-bin-"), "--test-internals", "flat-embedder"], { stdio: "ignore" });
+  it("refuses --test-internals without the env guard", async (t) => {
+    const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => key.toUpperCase() !== "PLUR1BUS_ALLOW_TEST_INTERNALS"));
+    env.PLUR1BUS_SECRETS_KEYRING = "memory";
+    const child = spawn(process.execPath, [dist, "--home", tempDir("p1b-bin-"), "--test-internals", "flat-embedder"], { env, stdio: ["ignore", "ignore", "pipe"] });
+    t.after(() => { if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL"); });
+    let stderr = "";
+    child.stderr.on("data", chunk => { stderr += String(chunk).slice(0, Math.max(0, 4096 - stderr.length)); });
     assert.equal(await new Promise((r) => child.once("exit", r)), 2);
+    assert.match(stderr, /--test-internals requires PLUR1BUS_ALLOW_TEST_INTERNALS=1/);
   });
   it("R20.5: a second SIGTERM while stopping is ignored, not a crash", { skip: process.platform === "win32" && "POSIX signal semantics; on Windows the core is stopped via core.shutdown" }, async () => {
     const home = tempDir("p1b-bin-");
