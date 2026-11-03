@@ -251,3 +251,21 @@ The first collection (#423) found the inconsistencies below. All of them are fix
 ### D106 sandbox adapter diagnostics (2026-10-15 Draft)
 
 Sandbox failure uses the existing tool error envelope (`tool-failed`); the host adapter may supply `sourceCode: sandbox-unavailable`, and exec retains its existing `spawn-failed` diagnostic inside the adapter failure. These are tool-local diagnostics, not new RPC error codes. Missing isolation never changes into a successful unsandboxed result. The trusted Rust limits launcher exits 125 on setup failure; the CLI exit-code checker already documents that code.
+
+### External ACP platform refusals
+
+On an actual macOS host, external delegation, agent/probe launch, terminal callbacks
+and installed-connector discovery refuse with `reason: sandbox-unavailable` and
+`cause: macos-acceptance-pending`. Delegation throws `CollabError` with code `invalid`
+and retains both typed fields before engine selection (including `connector-unavailable`),
+worktree provisioning, transcript/turn creation or any connection/process. Windows
+also refuses with `sandbox-unavailable`, without the Mac acceptance cause. Restrictive
+platform overrides cannot enable ACP or change which host has pending Mac acceptance.
+
+The bounded Core event `external.agent.refused` carries process, reason and cause;
+Doctor reports the independent `external.agents.sandbox` row. These are ACP diagnostics,
+not new RPC error codes or native watchdog causes. Ordinary sandboxed tools retain
+their separate policy. Linux ACP still requires the accepted namespace task limit
+and a positive safe-integer `tools.sandbox.maxTasks`; zero refuses ACP launch.
+Native Mac acceptance remains pending D123 SB-1 (pnpm/RSS) and SB-3 (Git/libxcrun,
+open/osascript); see [ACP containment](acp.md#external-process-containment-820-q3).

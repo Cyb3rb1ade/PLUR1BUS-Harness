@@ -2252,6 +2252,33 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
             "minLength": 1,
             "maxLength": 128
           },
+          "engine": {
+            "type": "object",
+            "required": [
+              "kind",
+              "connector"
+            ],
+            "properties": {
+              "kind": {
+                "const": "external"
+              },
+              "connector": {
+                "enum": [
+                  "claude-code",
+                  "codex",
+                  "goose",
+                  "agy"
+                ]
+              },
+              "maxTurns": {
+                "type": "integer"
+              },
+              "timeoutMs": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false
+          },
           "channels": {
             "type": "array",
             "items": {
