@@ -17,6 +17,33 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "import.ssh", type: "object", tier: "advanced", help: "Owner-managed SSH source identity and endpoint configuration." },
   { key: "import.ssh.connections", type: "object", tier: "advanced", help: "Owner-managed named SSH source connections." },
   { key: "collaboration.fanoutEnabled", type: "boolean", tier: "advanced", help: "Enable collaboration fan-out only after owner review of the equal-token-budget evaluation." },
+  { key: "collaboration.teams", type: "object", tier: "advanced", help: "D124 capacity facts; team scheduling remains disabled until its scheduler, reviews and merge queue land." },
+  { key: "collaboration.teams.enabled", type: "boolean", tier: "advanced", help: "Enable coding teams when team scheduling, review and merge support is installed; off by default." },
+  { key: "collaboration.teams.capacity.coresPerWriter", type: "integer", tier: "advanced", help: "Allowed CPU cores estimated per local writer." },
+  { key: "collaboration.teams.capacity.memoryPerWriter", type: "integer", tier: "advanced", help: "Available memory in bytes estimated per local writer." },
+  { key: "collaboration.teams.capacity.maxWriters", type: "integer", tier: "advanced", help: "Explicit soft-capacity override. Exceeding measured CPU or memory capacity emits a warning. The numeric bound preserves JSON safe integers, without an operational writer ceiling." },
+  { key: "collaboration.teams.disk.minFreeBytes", type: "integer", tier: "advanced", help: "Hard floor before creating a worktree. Cannot be disabled; the provisioner-backed team scheduler enforces it." },
+  { key: "collaboration.limits", type: "object", tier: "advanced", help: "D124 collaboration limits. Project settings can only narrow these installation limits." },
+  { key: "collaboration.limits.readHelpers.perTurn", type: "integer", tier: "advanced", help: "Read helper starts per calling turn." },
+  { key: "collaboration.limits.readHelpers.depth", type: "integer", tier: "advanced", help: "Maximum read-only delegation depth." },
+  { key: "collaboration.limits.writers.perProject", type: "integer", tier: "advanced", help: "Concurrent writers per project. Hardware capacity is a soft bound; there is no fixed writer ceiling. The numeric bound preserves JSON safe integers." },
+  { key: "collaboration.limits.consults.perPairPerTurn", type: "integer", tier: "advanced", help: "Consult starts per agent pair per calling turn." },
+  { key: "collaboration.limits.workTokens", type: "integer", tier: "advanced", help: "Standalone delegation work allocation when no smaller explicit allocation is supplied. Includes acceptance and return repair; independent of the 2000-token return cap." },
+  { key: "collaboration.limits.taskClasses.consult.rounds", type: "integer", tier: "advanced", help: "Maximum model rounds for this delegation." },
+  { key: "collaboration.limits.taskClasses.consult.wallTimeMs", type: "integer", tier: "advanced", help: "Maximum elapsed milliseconds for the delegation." },
+  { key: "collaboration.limits.taskClasses.consult.stallTimeMs", type: "integer", tier: "advanced", help: "Maximum milliseconds without progress before cancelling the delegation." },
+  { key: "collaboration.limits.taskClasses.research.rounds", type: "integer", tier: "advanced", help: "Maximum model rounds for this delegation." },
+  { key: "collaboration.limits.taskClasses.research.wallTimeMs", type: "integer", tier: "advanced", help: "Maximum elapsed milliseconds for the delegation." },
+  { key: "collaboration.limits.taskClasses.research.stallTimeMs", type: "integer", tier: "advanced", help: "Maximum milliseconds without progress before cancelling the delegation." },
+  { key: "collaboration.limits.taskClasses.review.rounds", type: "integer", tier: "advanced", help: "Maximum model rounds for this delegation." },
+  { key: "collaboration.limits.taskClasses.review.wallTimeMs", type: "integer", tier: "advanced", help: "Maximum elapsed milliseconds for the delegation." },
+  { key: "collaboration.limits.taskClasses.review.stallTimeMs", type: "integer", tier: "advanced", help: "Maximum milliseconds without progress before cancelling the delegation." },
+  { key: "collaboration.limits.taskClasses.code-small.rounds", type: "integer", tier: "advanced", help: "Maximum model rounds for this delegation." },
+  { key: "collaboration.limits.taskClasses.code-small.wallTimeMs", type: "integer", tier: "advanced", help: "Maximum elapsed milliseconds for the delegation." },
+  { key: "collaboration.limits.taskClasses.code-small.stallTimeMs", type: "integer", tier: "advanced", help: "Maximum milliseconds without progress before cancelling the delegation." },
+  { key: "collaboration.limits.taskClasses.code-large.rounds", type: "integer", tier: "advanced", help: "Maximum model rounds for this delegation." },
+  { key: "collaboration.limits.taskClasses.code-large.wallTimeMs", type: "integer", tier: "advanced", help: "Maximum elapsed milliseconds for the delegation." },
+  { key: "collaboration.limits.taskClasses.code-large.stallTimeMs", type: "integer", tier: "advanced", help: "Maximum milliseconds without progress before cancelling the delegation." },
   { key: "approvals.maxGrantDays", type: "integer", tier: "advanced", help: "Always-grant idle lifetime in days. Explicit shorter expiries still apply." },
   { key: "approvals.requireOsConfirmation", type: "boolean", tier: "advanced", help: "Allow the required OS confirmation for an otherwise untrusted local decision. False disables this lift; it never bypasses surface trust." },
   { key: "breakglass.reasonMinChars", type: "integer", tier: "advanced", help: "Minimum trimmed break-glass reason length." },
@@ -125,6 +152,17 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "mcpServer.enabled", type: "boolean", tier: "advanced", help: "Allow foreign MCP hosts to connect to the harness MCP server." },
   { key: "a2a", type: "object", tier: "advanced", help: "A2A configuration, including registered external peers." },
   { key: "a2a.peers", type: "array", tier: "advanced", help: "Configured external A2A peers." },
+  { key: "a2aClient", type: "object", tier: "advanced", help: "Outbound A2A client. Pins live in the private peer registry; no credentials or foreign card text belong in configuration." },
+  { key: "a2aClient.enabled", type: "boolean", tier: "advanced", help: "Enable the outbound A2A client. Peer registration and explicit trust use Owner-only RPC." },
+  { key: "a2aClient.timeoutMs", type: "integer", tier: "advanced", help: "Network deadline per outbound A2A HTTP request, including its same-origin redirects." },
+  { key: "a2aClient.maxCardBytes", type: "integer", tier: "advanced", help: "Maximum raw UTF-8 bytes of a signed foreign agent card." },
+  { key: "a2aClient.maxRequestBytes", type: "integer", tier: "advanced", help: "Maximum raw JSON request bytes sent to a peer." },
+  { key: "a2aClient.maxReplyBytes", type: "integer", tier: "advanced", help: "Maximum raw JSON response bytes accepted from a peer." },
+  { key: "a2aClient.maxPeers", type: "integer", tier: "advanced", help: "Maximum registered outbound peers. Existing pins remain removable when lowered." },
+  { key: "a2aClient.peerCalls", type: "integer", tier: "advanced", help: "Maximum outgoing HTTP requests to one peer in one authenticated turn, including card reads." },
+  { key: "a2aClient.turnCalls", type: "integer", tier: "advanced", help: "Maximum outgoing A2A HTTP requests across peers in one authenticated turn." },
+  { key: "a2aClient.peerTokens", type: "integer", tier: "advanced", help: "Per-peer per-turn communicated-token bound, conservatively measured in UTF-8 request and reply bytes. Hidden peer usage is not metered." },
+  { key: "a2aClient.turnTokens", type: "integer", tier: "advanced", help: "Communicated-token bound across all peers in one turn, measured in UTF-8 request and reply bytes." },
   { key: "a2aServer", type: "object", tier: "advanced", help: "Harness A2A server exposure configuration." },
   { key: "a2aServer.enabled", type: "boolean", tier: "advanced", help: "Allow foreign A2A peers to connect to the harness A2A server." },
   { key: "a2aServer.legacy03", type: "boolean", tier: "advanced", help: "Opt-in to legacy A2A 0.3 dotted method names." },
@@ -615,6 +653,159 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
       "properties": {
         "fanoutEnabled": {
           "type": "boolean"
+        },
+        "teams": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "capacity": {
+              "type": "object",
+              "properties": {
+                "coresPerWriter": {
+                  "type": "integer"
+                },
+                "memoryPerWriter": {
+                  "type": "integer"
+                },
+                "maxWriters": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "disk": {
+              "type": "object",
+              "properties": {
+                "minFreeBytes": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "readHelpers": {
+              "type": "object",
+              "properties": {
+                "perTurn": {
+                  "type": "integer"
+                },
+                "depth": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "writers": {
+              "type": "object",
+              "properties": {
+                "perProject": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "consults": {
+              "type": "object",
+              "properties": {
+                "perPairPerTurn": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "workTokens": {
+              "type": "integer"
+            },
+            "taskClasses": {
+              "type": "object",
+              "properties": {
+                "consult": {
+                  "type": "object",
+                  "properties": {
+                    "rounds": {
+                      "type": "integer"
+                    },
+                    "wallTimeMs": {
+                      "type": "integer"
+                    },
+                    "stallTimeMs": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "research": {
+                  "type": "object",
+                  "properties": {
+                    "rounds": {
+                      "type": "integer"
+                    },
+                    "wallTimeMs": {
+                      "type": "integer"
+                    },
+                    "stallTimeMs": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "review": {
+                  "type": "object",
+                  "properties": {
+                    "rounds": {
+                      "type": "integer"
+                    },
+                    "wallTimeMs": {
+                      "type": "integer"
+                    },
+                    "stallTimeMs": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "code-small": {
+                  "type": "object",
+                  "properties": {
+                    "rounds": {
+                      "type": "integer"
+                    },
+                    "wallTimeMs": {
+                      "type": "integer"
+                    },
+                    "stallTimeMs": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "code-large": {
+                  "type": "object",
+                  "properties": {
+                    "rounds": {
+                      "type": "integer"
+                    },
+                    "wallTimeMs": {
+                      "type": "integer"
+                    },
+                    "stallTimeMs": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -3265,6 +3456,42 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
             },
             "additionalProperties": false
           }
+        }
+      },
+      "additionalProperties": false
+    },
+    "a2aClient": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "timeoutMs": {
+          "type": "integer"
+        },
+        "maxCardBytes": {
+          "type": "integer"
+        },
+        "maxRequestBytes": {
+          "type": "integer"
+        },
+        "maxReplyBytes": {
+          "type": "integer"
+        },
+        "maxPeers": {
+          "type": "integer"
+        },
+        "peerCalls": {
+          "type": "integer"
+        },
+        "turnCalls": {
+          "type": "integer"
+        },
+        "peerTokens": {
+          "type": "integer"
+        },
+        "turnTokens": {
+          "type": "integer"
         }
       },
       "additionalProperties": false

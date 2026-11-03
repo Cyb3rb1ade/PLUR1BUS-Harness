@@ -9,7 +9,7 @@ use crate::paths::Layout;
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 use std::io::{BufRead, BufReader, Read, Write};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 use zeroize::Zeroizing;
@@ -100,6 +100,25 @@ fn output_pipe(pipe: std::process::ChildStdout) -> mpsc::Receiver<Result<Value, 
         }
     });
     receiver
+}
+
+/// EOF and already-buffered frames do not grant a new budget after the caller's deadline.
+fn drain_output(
+    output: &mpsc::Receiver<Result<Value, ()>>,
+    mut deadline: impl FnMut() -> Instant,
+    mut receive: impl FnMut(Value) -> Result<(), ExtError>,
+) -> Result<(), ExtError> {
+    loop {
+        let left = deadline()
+            .checked_duration_since(Instant::now())
+            .filter(|left| !left.is_zero())
+            .ok_or_else(failed)?;
+        match output.recv_timeout(left.min(Duration::from_millis(50))) {
+            Ok(value) => receive(value.map_err(|_| failed())?)?,
+            Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+        }
+    }
 }
 
 fn initial(job: &Job, layout: &Layout) -> Value {
@@ -291,6 +310,27 @@ fn execute(
     if Instant::now() >= deadline {
         return Err(failed());
     }
+    let worker = start_worker(program)?;
+    execute_started(shared, layout, job, secrets, worker, deadline)
+}
+
+struct StartedWorker {
+    child: Child,
+    tree: crate::ext::worker::ProcessTree,
+    input: Input,
+    output: mpsc::Receiver<Result<Value, ()>>,
+}
+
+impl Drop for StartedWorker {
+    fn drop(&mut self) {
+        // Preparation can fail before the protocol loop owns teardown; cleanup remains idempotent afterward.
+        self.input.close();
+        self.tree.kill();
+        let _ = self.child.wait();
+    }
+}
+
+fn start_worker(program: (&std::path::Path, &std::path::Path)) -> Result<StartedWorker, ExtError> {
     let (node, entry) = program;
     if !entry.is_file() {
         return Err(failed());
@@ -346,13 +386,35 @@ fn execute(
             return Err(failed());
         }
     };
-    let mut input = input_pipe(child.stdin.take().ok_or_else(failed)?);
+    let input = input_pipe(child.stdin.take().ok_or_else(failed)?);
     let output = output_pipe(child.stdout.take().ok_or_else(failed)?);
     if let Some(mut stderr) = child.stderr.take() {
         std::thread::spawn(move || {
             let _ = std::io::copy(&mut stderr, &mut std::io::sink());
         });
     }
+    Ok(StartedWorker {
+        child,
+        tree,
+        input,
+        output,
+    })
+}
+
+fn execute_started(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    job: &Job,
+    secrets: Option<Zeroizing<Vec<u8>>>,
+    mut worker: StartedWorker,
+    deadline: Instant,
+) -> Result<Value, ExtError> {
+    let StartedWorker {
+        child,
+        tree,
+        input,
+        output,
+    } = &mut worker;
     let operation = (|| {
         input.json(&initial(job, layout))?;
         if let Some(frame) = secrets {
@@ -381,36 +443,26 @@ fn execute(
             if let Some(status) = child.try_wait().map_err(|_| failed())? {
                 // Drain final protocol lines already read when the process exited.
                 let finish_by = Instant::now() + Duration::from_secs(1);
-                loop {
-                    let drain_deadline = deadline
-                        .min(stopping_deadline(shared).unwrap_or(deadline))
-                        .min(abort_at.unwrap_or(deadline))
-                        .min(finish_by);
-                    let left = drain_deadline
-                        .checked_duration_since(Instant::now())
-                        .filter(|left| !left.is_zero())
-                        .ok_or_else(failed)?;
-                    match output.recv_timeout(left.min(Duration::from_millis(50))) {
-                        Ok(value) => {
-                            if answer.is_some() {
-                                return Err(failed());
-                            }
-                            if let Some(result) = control(
-                                shared,
-                                layout,
-                                job,
-                                value.map_err(|_| failed())?,
-                                &input,
-                                &mut seen,
-                                deadline,
-                            )? {
-                                answer = Some(result);
-                            }
+                drain_output(
+                    output,
+                    || {
+                        deadline
+                            .min(stopping_deadline(shared).unwrap_or(deadline))
+                            .min(abort_at.unwrap_or(deadline))
+                            .min(finish_by)
+                    },
+                    |value| {
+                        if answer.is_some() {
+                            return Err(failed());
                         }
-                        Err(mpsc::RecvTimeoutError::Disconnected) => break,
-                        Err(mpsc::RecvTimeoutError::Timeout) => continue,
-                    }
-                }
+                        if let Some(result) =
+                            control(shared, layout, job, value, input, &mut seen, deadline)?
+                        {
+                            answer = Some(result);
+                        }
+                        Ok(())
+                    },
+                )?;
                 let answer = answer.ok_or_else(failed)?;
                 if status.success() != (answer["ok"] == true) {
                     return Err(failed());
@@ -428,7 +480,7 @@ fn execute(
                         layout,
                         job,
                         value.map_err(|_| failed())?,
-                        &input,
+                        input,
                         &mut seen,
                         deadline,
                     )? {

@@ -18,11 +18,16 @@ export interface ToolLimits { timeoutMs: number; maxResultBytes: number }
 export interface ToolRunContext {
   /** Aborted on timeout or when the caller aborts; a well-behaved tool stops. */
   signal: AbortSignal;
+  /** Internal delivery receipt: true commits accepted output/failure; false releases output withheld by the dispatcher. */
+  onResultSettled?: (callback: (accepted: boolean) => void) => void;
   agentId: string;
   principal: string;
   sessionId?: string;
   /** Trust of the surface the call originates from (D109 §5), as the dispatcher received it. */
   surface?: 0 | 1 | 2 | 3;
+  /** Trusted calling turn and policy snapshot for nested protocol transports; never model arguments. */
+  execution?: { turnId: string; taskId?: string; policy: import('../policy/index.ts').Context;
+    recurring?: import("./approval.ts").ApprovalAsk["recurring"] };
   /** Classification used to gate this call; tools re-check live args against it before spawn (D109 follow-up). */
   classified?: ToolClassification;
   /** Live process-owned secret generation. Supplied by the dispatcher, never by tool arguments. */
@@ -42,6 +47,8 @@ export interface ToolProcessSandbox {
 
 /** What the tool knows about a call that the policy needs (D109 §2). Flags are computed by the harness path layer, not the model. */
 export interface ToolClassification {
+  /** A trusted classifier can mark a dynamic foreign result; it cannot upgrade an untrusted registration. */
+  untrustedResult?: boolean;
   flags?: Partial<CallFlags>;
   targets?: readonly string[];
   access?: "read" | "write";

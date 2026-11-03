@@ -27,6 +27,44 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `import.ssh.connections.*.hostKey.algorithm` | string |  | live | advanced | false | false |  | Observed SSH host-key algorithm. |
 | `collaboration` | object | `{}` |  | advanced | false | false |  | Agent collaboration and owner-controlled fan-out. |
 | `collaboration.fanoutEnabled` | boolean | `false` | live | advanced | false | false |  | Enable collaboration fan-out only after owner review of the equal-token-budget evaluation. |
+| `collaboration.teams` | object | `{}` | live | advanced | false | false |  | D124 capacity facts; team scheduling remains disabled until its scheduler, reviews and merge queue land. |
+| `collaboration.teams.enabled` | boolean | `false` | live | advanced | false | false |  | Enable coding teams when team scheduling, review and merge support is installed; off by default. |
+| `collaboration.teams.capacity` | object | `{}` | live | advanced | false | false |  | Soft writer capacity from CPU cores and available memory, with an explicit overcommit override. |
+| `collaboration.teams.capacity.coresPerWriter` | integer | `2` | live | advanced | false | false |  | Allowed CPU cores estimated per local writer. |
+| `collaboration.teams.capacity.memoryPerWriter` | integer | `4294967296` | live | advanced | false | false |  | Available memory in bytes estimated per local writer. |
+| `collaboration.teams.capacity.maxWriters` | integer |  | live | advanced | false | false |  | Explicit soft-capacity override. Exceeding measured CPU or memory capacity emits a warning. The numeric bound preserves JSON safe integers, without an operational writer ceiling. |
+| `collaboration.teams.disk` | object | `{}` | live | advanced | false | false |  | Required free disk space before creating an additional worktree. |
+| `collaboration.teams.disk.minFreeBytes` | integer | `21474836480` | live | advanced | false | false |  | Hard floor before creating a worktree. Cannot be disabled; the provisioner-backed team scheduler enforces it. |
+| `collaboration.limits` | object | `{}` | live | advanced | false | false |  | D124 collaboration limits. Project settings can only narrow these installation limits. |
+| `collaboration.limits.readHelpers` | object | `{}` | live | advanced | false | false |  | Read-only helper starts and nesting depth. |
+| `collaboration.limits.readHelpers.perTurn` | integer | `8` | live | advanced | false | false |  | Read helper starts per calling turn. |
+| `collaboration.limits.readHelpers.depth` | integer | `2` | live | advanced | false | false |  | Maximum read-only delegation depth. |
+| `collaboration.limits.writers` | object | `{}` | live | advanced | false | false |  | Project-wide concurrent writer limit, independent of read helper starts. |
+| `collaboration.limits.writers.perProject` | integer | `4` | live | advanced | false | false |  | Concurrent writers per project. Hardware capacity is a soft bound; there is no fixed writer ceiling. The numeric bound preserves JSON safe integers. |
+| `collaboration.limits.consults` | object | `{}` | live | advanced | false | false |  | Consult-only pair allowance; package delegations have no pair cap. |
+| `collaboration.limits.consults.perPairPerTurn` | integer | `4` | live | advanced | false | false |  | Consult starts per agent pair per calling turn. |
+| `collaboration.limits.workTokens` | integer | `131072` | live | advanced | false | false |  | Standalone delegation work allocation when no smaller explicit allocation is supplied. Includes acceptance and return repair; independent of the 2000-token return cap. |
+| `collaboration.limits.taskClasses` | object | `{}` | live | advanced | false | false |  | Round, elapsed-time and inactivity limits for each delegation task class. |
+| `collaboration.limits.taskClasses.consult` | object | `{}` | live | advanced | false | false |  | Advice and short read-only helper work. |
+| `collaboration.limits.taskClasses.consult.rounds` | integer | `25` | live | advanced | false | false |  | Maximum model rounds for this delegation. |
+| `collaboration.limits.taskClasses.consult.wallTimeMs` | integer | `300000` | live | advanced | false | false |  | Maximum elapsed milliseconds for the delegation. |
+| `collaboration.limits.taskClasses.consult.stallTimeMs` | integer | `120000` | live | advanced | false | false |  | Maximum milliseconds without progress before cancelling the delegation. |
+| `collaboration.limits.taskClasses.research` | object | `{}` | live | advanced | false | false |  | Exploration, research and explanations. |
+| `collaboration.limits.taskClasses.research.rounds` | integer | `50` | live | advanced | false | false |  | Maximum model rounds for this delegation. |
+| `collaboration.limits.taskClasses.research.wallTimeMs` | integer | `900000` | live | advanced | false | false |  | Maximum elapsed milliseconds for the delegation. |
+| `collaboration.limits.taskClasses.research.stallTimeMs` | integer | `300000` | live | advanced | false | false |  | Maximum milliseconds without progress before cancelling the delegation. |
+| `collaboration.limits.taskClasses.review` | object | `{}` | live | advanced | false | false |  | Independent read-only review. |
+| `collaboration.limits.taskClasses.review.rounds` | integer | `40` | live | advanced | false | false |  | Maximum model rounds for this delegation. |
+| `collaboration.limits.taskClasses.review.wallTimeMs` | integer | `1200000` | live | advanced | false | false |  | Maximum elapsed milliseconds for the delegation. |
+| `collaboration.limits.taskClasses.review.stallTimeMs` | integer | `300000` | live | advanced | false | false |  | Maximum milliseconds without progress before cancelling the delegation. |
+| `collaboration.limits.taskClasses.code-small` | object | `{}` | live | advanced | false | false |  | Coding packages of roughly fewer than 200 changed lines. |
+| `collaboration.limits.taskClasses.code-small.rounds` | integer | `100` | live | advanced | false | false |  | Maximum model rounds for this delegation. |
+| `collaboration.limits.taskClasses.code-small.wallTimeMs` | integer | `2700000` | live | advanced | false | false |  | Maximum elapsed milliseconds for the delegation. |
+| `collaboration.limits.taskClasses.code-small.stallTimeMs` | integer | `600000` | live | advanced | false | false |  | Maximum milliseconds without progress before cancelling the delegation. |
+| `collaboration.limits.taskClasses.code-large` | object | `{}` | live | advanced | false | false |  | Larger coding packages. |
+| `collaboration.limits.taskClasses.code-large.rounds` | integer | `200` | live | advanced | false | false |  | Maximum model rounds for this delegation. |
+| `collaboration.limits.taskClasses.code-large.wallTimeMs` | integer | `7200000` | live | advanced | false | false |  | Maximum elapsed milliseconds for the delegation. |
+| `collaboration.limits.taskClasses.code-large.stallTimeMs` | integer | `900000` | live | advanced | false | false |  | Maximum milliseconds without progress before cancelling the delegation. |
 | `approvals` | object | `{}` |  | advanced | false | false |  | Approval policy limits; transport-enforced writes require owner or admin and audit. |
 | `approvals.maxGrantDays` | integer | `90` | core | advanced | false | false |  | Always-grant idle lifetime in days. Explicit shorter expiries still apply. |
 | `approvals.requireOsConfirmation` | boolean | `true` | core | advanced | false | false |  | Allow the required OS confirmation for an otherwise untrusted local decision. False disables this lift; it never bypasses surface trust. |
@@ -550,6 +588,17 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `a2a.peers[].grants` | object |  | live | advanced | false | false |  | Action grants for this peer per agent id. |
 | `a2a.peers[].grants.*` | array |  | live | advanced | false | false |  | Allowed A2A actions on this agent. |
 | `a2a.peers[].grants.*[]` | string |  | live | advanced | false | false |  |  |
+| `a2aClient` | object | `{}` | live | advanced | false | false |  | Outbound A2A client. Pins live in the private peer registry; no credentials or foreign card text belong in configuration. |
+| `a2aClient.enabled` | boolean | `false` | live | advanced | false | false |  | Enable the outbound A2A client. Peer registration and explicit trust use Owner-only RPC. |
+| `a2aClient.timeoutMs` | integer | `30000` | live | advanced | false | false |  | Network deadline per outbound A2A HTTP request, including its same-origin redirects. |
+| `a2aClient.maxCardBytes` | integer | `131072` | live | advanced | false | false |  | Maximum raw UTF-8 bytes of a signed foreign agent card. |
+| `a2aClient.maxRequestBytes` | integer | `16384` | live | advanced | false | false |  | Maximum raw JSON request bytes sent to a peer. |
+| `a2aClient.maxReplyBytes` | integer | `16384` | live | advanced | false | false |  | Maximum raw JSON response bytes accepted from a peer. |
+| `a2aClient.maxPeers` | integer | `64` | live | advanced | false | false |  | Maximum registered outbound peers. Existing pins remain removable when lowered. |
+| `a2aClient.peerCalls` | integer | `8` | live | advanced | false | false |  | Maximum outgoing HTTP requests to one peer in one authenticated turn, including card reads. |
+| `a2aClient.turnCalls` | integer | `16` | live | advanced | false | false |  | Maximum outgoing A2A HTTP requests across peers in one authenticated turn. |
+| `a2aClient.peerTokens` | integer | `65536` | live | advanced | false | false |  | Per-peer per-turn communicated-token bound, conservatively measured in UTF-8 request and reply bytes. Hidden peer usage is not metered. |
+| `a2aClient.turnTokens` | integer | `131072` | live | advanced | false | false |  | Communicated-token bound across all peers in one turn, measured in UTF-8 request and reply bytes. |
 | `a2aServer` | object | `{}` | live | advanced | false | false |  | Harness A2A server exposure configuration. |
 | `a2aServer.enabled` | boolean | `false` | live | advanced | false | false |  | Allow foreign A2A peers to connect to the harness A2A server. |
 | `a2aServer.legacy03` | boolean | `false` | live | advanced | false | false |  | Opt-in to legacy A2A 0.3 dotted method names. |
