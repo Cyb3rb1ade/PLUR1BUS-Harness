@@ -402,14 +402,18 @@ test("Owner SSH setup requires exact endpoint policy consent and independent hos
     await app.page.getByLabel("SSH account", { exact: true }).fill(connection.user);
     await app.page.getByLabel("Permitted remote roots (one absolute path per line)", { exact: true }).fill("/source");
     assert.equal(await app.page.locator('[data-ssh="readonly-instructions"]').textContent(), instructions);
+    await app.page.getByText("Approve this exact destination: source.example:2222", { exact: true }).waitFor();
     const save = app.page.getByRole("button", { name: "Save policy and connection", exact: true });
     assert.equal(await save.isDisabled(), true);
     await app.page
       .getByLabel("I approve adding the displayed exact host and port to the central egress policy.", { exact: true })
       .check();
     await app.page.getByLabel("SSH port", { exact: true }).fill("22");
+    await app.page.getByText("Approve this exact destination: source.example:22", { exact: true }).waitFor();
     assert.equal(await save.isDisabled(), true);
+    assert.equal(await app.page.getByLabel("I approve adding the displayed exact host and port to the central egress policy.", { exact: true }).isChecked(), false);
     await app.page.getByLabel("SSH port", { exact: true }).fill("2222");
+    await app.page.getByText("Approve this exact destination: source.example:2222", { exact: true }).waitFor();
     await app.page
       .getByLabel("I approve adding the displayed exact host and port to the central egress policy.", { exact: true })
       .check();
