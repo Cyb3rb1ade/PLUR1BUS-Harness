@@ -1,3 +1,5 @@
+import { pinnedGit } from "../external-agents/git.ts";
+import { gitText } from "../collab/verifier.ts";
 import { composeA2a } from "./a2a.ts";
 import { availableParallelism, freemem, totalmem } from 'node:os';
 import { isA2aTarget, targetRunner } from "../collab/target.ts";
@@ -75,6 +77,7 @@ import { CodingGate } from '../collab/coding-gate.ts';
 import { sandboxVerifier } from '../collab/verifier.ts';
 import { codingMethods, reviewHooks, type CodingCompletion } from '../collab/coding-surface.ts';
 import { composedAgentRunner } from './collaboration.ts';
+import { wireExternalAgents } from './external-agents.ts';
 import { collabMemory, externalMemory } from '../memory-exposure/index.ts';
 import { createExternalTurnService } from '../external-turn/index.ts';
 import { legacyAdapter } from './legacy.ts';
@@ -248,7 +251,6 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     disposers.push(() => execOutput.close());
     const a2a = budget ? isolated('A2A client', () => composeA2a(d, budget, registerSecret)) : null;
     if (a2a) disposers.push(() => a2a.close());
-    const delegationTargets = [...(options.delegationTargets ?? []), ...(a2a ? [a2a.client.target] : [])];
     const grants: GrantSource = { maxGrantDays: () => d.config().approvals?.maxGrantDays ?? 90, list: q => d.permissions.current()?.grants.list(q) ?? [], get: id => d.permissions.current()?.grants.get(id) };
     // MCP-stdio stderr is child output like exec's: the same envelope (process.output.line, untrusted, redacted, line-capped), attributed to the harness's MCP client.
     // Registered before the registry so shutdown (reverse order) stops the servers, and flushes their last lines, before this writer closes.
@@ -445,10 +447,12 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       } catch (error) { record(signal.aborted ? 'cancelled' : 'refused'); throw error; }
     };
     voice.setDelegate(provider);
-    collab = budget ? isolated('collaboration', () => createCollab({ path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock, limits: () => d.config().collaboration.limits,
+    wireExternalAgents(d, options, () => sessions, () => { if (!collab) throw new Error("collaboration unavailable"); return collab.worktreeStore; });
+    const delegationTargets = [...(options.delegationTargets ?? []), ...(a2a ? [a2a.client.target] : [])];
+    collab = budget ? isolated('collaboration', () => createCollab({ home: d.home, provisionWorktrees: true, path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock, limits: () => d.config().collaboration.limits,
       capacity: () => { const config = d.config(), cores = availableParallelism(); return { cores: config.supervisor.maxCores > 0 ? Math.min(cores, config.supervisor.maxCores) : cores, availableMemory: freemem(), totalMemory: totalmem(), settings: config.collaboration.teams.capacity }; },
       sessions: () => sessions.store, redact: liveLogsRedactionPort(secretValues, knownSecrets),
-      runner: provider ? composedAgentRunner(provider, alsAgentScopePort(), d.home, delegationTargets, collabMemory({ memory, config: d.config, logger: d.logger })) : targetRunner([...delegationTargets, { kind: 'local', accepts: id => !delegationTargets.some(t => t.accepts(id)), async ack() { throw new Error('no-provider'); }, async run() { throw new Error('no-provider'); } }]),
+      runner: provider ? composedAgentRunner(provider, alsAgentScopePort(), d.home, delegationTargets, collabMemory({ memory, config: d.config, logger: d.logger }), options.projectWorktrees) : targetRunner([...delegationTargets, { kind: 'local', accepts: id => !delegationTargets.some(t => t.accepts(id)), async ack() { throw new Error('no-provider'); }, async run() { throw new Error('no-provider'); } }]),
       directory: { get: id => {
         const matches = options.delegationTargets?.filter(target => target.accepts(id)) ?? [];
         if (matches.length > 1) return null;
@@ -473,6 +477,12 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     if (collab) {
       disposers.push(() => collab.shutdown());
       const gate = new CodingGate({ path: join(d.home, 'state', 'coding-gate.sqlite'),
+        git: (root, args) => {
+          const row = collab!.worktreeStore.worktreeAt(root);
+          if (!row) return gitText(root, args);
+          if (!row.gitDir) throw new Error('provisioned Git metadata unavailable');
+          return pinnedGit(row.gitDir, root, args);
+        },
         isLocalReviewer: id => !collab!.isA2aAgent(id) && (d.agents.has(id) || !!options.delegationTargets?.some(target => target.accepts(id))),
         verifier: sandboxVerifier(60000, { limitsHelper: join(d.home, 'bin', 'plur1bus-sandbox-limits'), maxTasks: () => d.config().tools.sandbox.maxTasks }), audit: event => { d.audit.append({ at: d.clock(), actor: { user: 'core', host: 'core' }, action: 'coding.gate', target: 'task', detail: { ...event } }); } });
       disposers.push(() => gate.close());
