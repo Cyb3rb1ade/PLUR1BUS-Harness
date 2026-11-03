@@ -14,12 +14,14 @@ export type GuardrailReason = (typeof GUARDRAIL_REASONS)[number];
 export class CollabError extends Error {
   readonly code: CollabErrorCode;
   readonly reason: string | undefined;
+  override readonly cause: "macos-acceptance-pending" | undefined;
   readonly guardrail: GuardrailReason | undefined;
-  constructor(code: CollabErrorCode, message: string, extra: { reason?: string; guardrail?: GuardrailReason } = {}) {
+  constructor(code: CollabErrorCode, message: string, extra: { reason?: string; cause?: "macos-acceptance-pending"; guardrail?: GuardrailReason } = {}) {
     super(message);
     this.name = "CollabError";
     this.code = code;
     this.reason = extra.reason;
+    this.cause = extra.cause;
     this.guardrail = extra.guardrail;
   }
 }

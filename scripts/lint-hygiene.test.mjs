@@ -51,6 +51,7 @@ const RULE_FIXTURES = [
   ["HYG-011", "crates/plur1bus/src/ext/unclassified.rs", "crates/plur1bus/src/ext/record.rs"],
   ["HYG-012", "x.p12", "x.txt"],
   ["HYG-013", "docs/synthetic.txt"],
+  ["HYG-017", "packages/core/src/external-agents/discovery.ts"],
 ];
 
 for (const [id, rejectPath, allowPath = rejectPath] of RULE_FIXTURES) {
