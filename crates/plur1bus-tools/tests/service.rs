@@ -85,7 +85,13 @@ impl Service {
             .unwrap();
         let mut service = Self { child, home };
         let deadline = Instant::now() + Duration::from_secs(5);
-        while !service.path("tools-core.token").exists() {
+        // Creation precedes the credential write; readiness requires the complete wire format.
+        while !std::fs::read_to_string(service.path("tools-core.token")).is_ok_and(|token| {
+            token.len() == 64
+                && token
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        }) {
             assert!(
                 service.child.try_wait().unwrap().is_none(),
                 "tools exited before readiness"
@@ -223,7 +229,7 @@ fn one_core_lifetime_keeps_its_key_across_connections_and_rejects_a_replacement(
 fn a_peer_cannot_claim_the_recorded_core_pid_of_another_process() {
     let service = Service::start();
     let peer = CorePeer::start(&service, false);
-    assert_eq!(peer.reply["error"], "E_DENIED");
+    assert_eq!(peer.reply["error"], "E_DENIED", "{}", peer.reply);
 }
 
 #[test]
