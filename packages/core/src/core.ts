@@ -511,6 +511,7 @@ export function createCore(o: CoreOptions): Core {
     platform.securePath(l.catalog, { mode: 0o700 });
     platform.securePath(l.systemJobs, { mode: 0o700 });
     const egress = createEgress({ config: () => cs.current().egress, now: clock, ...(o.discovery?.resolver ? { resolver: o.discovery.resolver } : {}) });
+
     // web.search (D95): the SearXNG sidecar plus the keyed providers (Brave, Tavily, Exa), chosen per agent from `modules.web-search`.
     // The sidecar's destination is configuration (sidecars.searxng) or the address the container layer injected; the keyed
     // providers go through the egress policy and read their key from the secret store per call. The trace carries lengths,
@@ -775,7 +776,7 @@ export function createCore(o: CoreOptions): Core {
           ...(p.tokenId !== undefined ? { tokenId: p.tokenId } : {}),
           ...(p.binding !== undefined ? { binding: p.binding } : {}),
         };
-      });
+      }, () => state.state === "stopping" || state.state === "stopped");
       const resolvePrincipal: PrincipalResolver = async (ctx, method, params) => {
         const forwarded = apiPrincipal(ctx);
         if (forwarded && people.person(forwarded.userId)?.disabled) throw new RpcError("E_DENIED", "person is disabled", { reason: "person-disabled" });
