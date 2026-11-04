@@ -58,7 +58,7 @@ fn main() {
             let exe = std::env::current_exe()
                 .ok()
                 .map(|p| p.to_string_lossy().into_owned());
-            let doc = serde_json::json!({ "env": names, "argv0": argv0, "exe": exe, "argv": argv });
+            let doc = serde_json::json!({ "env": names, "argv0": argv0, "exe": exe, "argv": argv, "architectureFingerprint": plur1bus_desktop_test_bins::architecture_fingerprint(), "architectureCanary": std::env::var("PROCESSOR_ARCHITECTURE").as_deref() == Ok("must-not-pass") });
             let _ = out.write_all(doc.to_string().as_bytes());
         }
         _ => {
