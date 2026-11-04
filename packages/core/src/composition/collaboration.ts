@@ -58,7 +58,11 @@ export function composedAgentRunner(provider: ChatProvider, scope: AgentScopePor
         || ('agent' in h.to && h.to.agent !== input.agentId) || h.from.agent !== context.fromAgent
         || (input.origin && input.origin.fromAgent !== context.fromAgent))
         throw new CollabError('unauthorized', 'trusted coding handoff identity required');
-      worktreeMount = worktrees.mount?.(input.agentId, held.projectId, cardId, context.fromAgent);
+      const transferred = h.kind === 'handoff';
+      if (transferred && !context.onAccepted) throw new CollabError('unauthorized', 'trusted ownership transfer required');
+      // targetRunner already ran the trusted transfer callback, which checked the sender
+      // and removed its assignment. Delegations retain both assignments; transfers do not.
+      worktreeMount = worktrees.mount?.(input.agentId, held.projectId, cardId, transferred ? undefined : context.fromAgent);
       if (!worktrees.mount || worktreeMount) {
         codingWorktree = worktrees.root(input.agentId, held.projectId, cardId);
         if (!codingWorktree) throw new CollabError('unauthorized', 'assigned coding checkout unavailable');

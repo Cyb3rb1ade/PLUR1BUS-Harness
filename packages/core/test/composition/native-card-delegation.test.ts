@@ -27,6 +27,10 @@ async function delegated(kind: 'delegate' | 'handoff' = 'delegate') {
         budget: { tokens: 10000, toolCalls: 10, deadline: new Date(Date.now() + 30000).toISOString(), modelTier: 'standard' },
         returnContract: { format: 'plur1bus.return/1', maxTokens: 2000, outputSchema: { type: 'string' }, citationsRequired: false } },
       context: { person: b.who.userId, taskId, sessionId, fromAgent: 'lead', projectId: b.project.id,
+        ...(kind === 'handoff' ? { onAccepted() {
+          assert.ok(b.collab.boardStore.getCard(b.project.id, b.card.id).assignees.some(a => a.id === 'lead'));
+          b.collab.boardStore.assign(b.project.id, b.card.id, { kind: 'agent', id: 'lead' }, false, { kind: 'person', id: b.who.userId });
+        } } : {}),
         approvals: approvals.stores.approvals, grants: approvals.stores.grants, now: Date.now, audit() {} },
     } };
   const port = provisionedWorktreePort(b.store, () => null, join(b.home, 'state'));
@@ -90,6 +94,15 @@ for (const mismatch of ['sender', 'receiver', 'unknown-card', 'archived-card', '
   });
 }
 }
+
+test('a card handoff without the trusted acceptance callback cannot obtain native authority', async () => {
+  const b = await delegated('handoff');
+  try {
+    delete b.input.handoff!.context.onAccepted;
+    await assert.rejects(b.run({ id: 'fixture', async *stream() { assert.fail('unaccepted handoff reached provider'); } }),
+      /trusted ownership transfer/);
+  } finally { b.close(); }
+});
 
 for (const callClass of ['read', 'review'] as const) test(`${callClass} scopes cannot upgrade a selected card to a native writable turn`, async () => {
   const b = await delegated();

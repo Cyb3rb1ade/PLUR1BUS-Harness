@@ -8,8 +8,10 @@ configuration field. K2's model benchmark and owner baseline remain separate.
 
 The held delegation supplies the actual project, receiving agent, sender and
 person. A requested card ID only selects a card. Before provisioning, the live
-board must contain an active project and unarchived card assigned to both
-agents. The existing `GitWorktreeProvisioner` is the only component that creates
+board must contain an active project and unarchived card. A delegation requires
+both agents to remain assigned. Ownership handoff checks the sender in the trusted
+acceptance callback, assigns the receiver and removes the sender; subsequent
+admission therefore checks the receiver's live assignment. The existing `GitWorktreeProvisioner` is the only component that creates
 a missing checkout. A lookup alone never creates one.
 
 The native request carries an opaque, in-process `WorktreeMount`. Serializing a
@@ -66,10 +68,12 @@ grant, with at most 16 concurrent filesystem operations and a 30-second maximum
 admission budget. Cancellation waits for outstanding operations to settle.
 
 A hard-linked file is admitted only when all inode links are accounted for inside
-that exact card. A contained package store therefore works, but external stores,
+that exact card. A contained hardlink-only package store therefore works, but external stores,
 sibling cards and protected paths acquire no exception. Protected credential
 aliases are checked both during preparation and the final backend refresh.
 Symlinks, special entries and filesystem crossings are refused for native mounts.
+Package installations that create symlinks, including typical npm/pnpm layouts,
+therefore prevent subsequent native process admission under this strict policy.
 These checks do not constitute an atomic filesystem snapshot: the kernel sandbox
 remains responsible for the admitted process's containment.
 
