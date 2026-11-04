@@ -188,7 +188,7 @@ function OwnerSshSetup({ onChanged, suggestion }: { onChanged(): void; suggestio
         ? h(FailureState, { failure: data.state.failure, onRetry: data.reload })
         : h(
             "fieldset",
-            { disabled: busy },
+            { key: "ssh-key", disabled: busy },
             h("legend", null, t("imports.ssh.key")),
             data.state.data.key.configured
               ? h(
@@ -273,7 +273,7 @@ function OwnerSshSetup({ onChanged, suggestion }: { onChanged(): void; suggestio
     probe
       ? h(
           "fieldset",
-          { disabled: busy },
+          { key: "ssh-probe", disabled: busy },
           h("legend", null, t("imports.ssh.verify", { endpoint: probe.endpoint })),
           probe.changed ? h(Notice, { tone: "warn" }, t("imports.ssh.changed")) : null,
           h("p", null, probe.hostKeyAlgorithm ?? ""),
@@ -298,7 +298,7 @@ function OwnerSshSetup({ onChanged, suggestion }: { onChanged(): void; suggestio
       : null,
     h(
       "fieldset",
-      { disabled: busy },
+      { key: "ssh-connection", disabled: busy },
       h("legend", null, t("imports.ssh.connectionForm")),
       field("id", t("imports.ssh.id")),
       field("host", t("imports.ssh.host")),
