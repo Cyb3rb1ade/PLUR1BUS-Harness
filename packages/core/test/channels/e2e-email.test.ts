@@ -103,16 +103,21 @@ test("a linked person's mail runs a turn and the reply is threaded back to the s
   } finally { await t.close(); }
 });
 
-test("approval: the prompt mail carries a code; only the approver's DMARC-passing reply with the right code decides", async (tc) => {
+for (const holdAcknowledgement of [false, true]) test(`approval: the prompt mail carries a code; only the approver's DMARC-passing reply with the right code decides${holdAcknowledgement ? ' before SMTP acknowledgement' : ''}`, async (tc) => {
   // Buffered static milestones identify a stalled await without logging mail, identities or approval codes.
   tc.diagnostic("email approval: setup started");
   const t = await setup({ allow: [PAT, EVE] });
+  let acknowledge: (() => void) | undefined;
   try {
     tc.diagnostic("email approval: channel running");
     const { humanId } = t.e2e.link("email", BOT, PAT);
     const root = await t.deliver(PAT, "do it");
     await t.e2e.until(() => t.mails().length === 1, "reply mail");
     tc.diagnostic("email approval: initial reply received");
+    if (holdAcknowledgement) t.smtp.acknowledge = send => {
+      acknowledge = send;
+      t.smtp.acknowledge = next => next();
+    };
     t.e2e.switchboard.approvalEvents.emit("approval.requested", { approval: approvalFor(humanId, sessionOf(t.e2e, humanId).id), nonce: "nonce-1", foregroundUntil: 1 });
     await t.e2e.until(() => t.mails().length === 2, "prompt mail");
     tc.diagnostic("email approval: prompt received");
@@ -135,6 +140,11 @@ test("approval: the prompt mail carries a code; only the approver's DMARC-passin
 
     await t.deliver(PAT, `${code} 1`, { root });
     tc.diagnostic("email approval: valid reply processed");
+    if (holdAcknowledgement) {
+      assert.ok(acknowledge, 'the SMTP acknowledgement is held');
+      assert.deepEqual(t.e2e.approvals.decisions, [], 'Core waits until delivery has succeeded');
+      acknowledge(); acknowledge = undefined;
+    }
     await t.e2e.until(() => t.e2e.approvals.decisions.length === 1, "decision");
     tc.diagnostic("email approval: decision recorded");
     assert.deepEqual(t.e2e.approvals.decisions, [{ requestId: "req-1", nonce: "nonce-1", decision: "approve", person: humanId, surface: 2 }]);
@@ -143,6 +153,7 @@ test("approval: the prompt mail carries a code; only the approver's DMARC-passin
     await flush(30);
     assert.equal(t.e2e.approvals.decisions.length, 1);
   } finally {
+    acknowledge?.();
     tc.diagnostic("email approval: cleanup started");
     await t.close();
     tc.diagnostic("email approval: cleanup completed");

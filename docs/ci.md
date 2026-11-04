@@ -1,5 +1,12 @@
 # CI: affected suites and runner policy
 
+The macOS unit job opts into `PLUR1BUS_CORE_TEST_CONCURRENCY=bounded` for the
+Core package. It runs at most two test files concurrently, capped by available
+CPUs and a nominal 4 GiB per process after reserving 4 GiB for the guest. Smaller
+machines and all other packages keep one file at a time. This changes no file
+selection, test assertion, per-test timeout or the 25-minute unit-step deadline.
+Local runs remain serial unless explicitly opted in.
+
 
 ## PR impact selection (GP5 P2)
 
