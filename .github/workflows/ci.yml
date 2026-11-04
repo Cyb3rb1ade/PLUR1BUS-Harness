@@ -157,6 +157,7 @@ jobs:
           # timed out before core ran). Off here by this explicit switch, never by dropping the Chrome path; the suites
           # run in `web-browser-macos` below (docs/ci.md). Linux (no Chromium here) and Windows are unchanged.
           PLUR1BUS_WEB_BROWSER: ${{ runner.os == 'macOS' && 'off' || '' }}
+          PLUR1BUS_CORE_TEST_CONCURRENCY: ${{ runner.os == 'macOS' && 'bounded' || '' }}
       - name: slowest 20 test files
         if: always() && needs.changes.outputs.ts-core == 'true'
         run: node scripts/release/timing-summary.mjs test-timings
@@ -366,6 +367,7 @@ jobs:
           # timed out before core ran). Off here by this explicit switch, never by dropping the Chrome path; the suites
           # run in `web-browser-macos` below (docs/ci.md). Linux (no Chromium here) and Windows are unchanged.
           PLUR1BUS_WEB_BROWSER: ${{ runner.os == 'macOS' && 'off' || '' }}
+          PLUR1BUS_CORE_TEST_CONCURRENCY: ${{ runner.os == 'macOS' && 'bounded' || '' }}
       - name: slowest 20 test files
         if: always() && needs.changes.outputs.ts-core == 'true'
         run: node scripts/release/timing-summary.mjs test-timings
