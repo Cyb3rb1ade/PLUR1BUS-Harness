@@ -18,6 +18,20 @@ const jobBlocks = yaml => Object.fromEntries(yaml.slice(yaml.indexOf('\njobs:\n'
 // A job's block also carries the comment lines written above the next job; they are not steps.
 const stepsOf = block => block.slice(block.indexOf('\n    steps:\n')).replace(/(?:^  #.*\n)+$/m, '');
 
+test('every job running Core builds the native sandbox launcher before its assertions', () => {
+  const jobs = jobBlocks(workflow());
+  for (const name of ['unit', 'unit-os', 'core-unit-shard', 'core-unit-shard-windows']) {
+    const block = jobs[name];
+    const build = block.indexOf('cargo build --locked -p plur1bus --bin plur1bus-sandbox-limits');
+    const tests = block.indexOf(name.startsWith('core-unit') ? '      - name: measured Core shard' : '      - name: unit tests with file timings');
+    assert.ok(build >= 0 && build < tests, `${name}: native launcher must exist before Core starts`);
+    const toolchain = block.indexOf('uses: dtolnay/rust-toolchain@');
+    assert.ok(toolchain >= 0 && toolchain < build, name);
+    const step = block.slice(0, build).split(/(?=^      - )/m).at(-1);
+    assert.doesNotMatch(step, /outputs\.rust/, `${name}: a TS-only change still needs the launcher`);
+  }
+});
+
 test('release smoke prepares the verified real-model cache before the unchanged acceptance deadline', () => {
   const yaml = readFileSync(new URL('../../.github/workflows/release-smoke.yml', import.meta.url), 'utf8');
   const prepare = yaml.indexOf('node scripts/ci/prepare-real-models.mjs');

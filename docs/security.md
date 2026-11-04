@@ -114,6 +114,12 @@ Today only stable methods and the memory reads are tools by default, so the expe
 
 The API credential narrows ordinary local-client capabilities, but cannot isolate hostile processes of the same OS user. A cookie authenticates an account; it is not proof of physical human intent. Browser delegation preserves current surface trust and never performs automatic OS confirmation. Stronger broker/OS separation, durable account provisioning and the production active-person source remain Owner decisions; details in the [transport handoff](handoff/2026-10-14-web-transport.md).
 
+### External agent worktree
+
+External ACP agents, terminals and discovery probes are unavailable on macOS pending acceptance: every production launch refuses with `sandbox-unavailable`, cause `macos-acceptance-pending`, before creating any process. A platform override cannot bypass the actual host policy. Windows remains fail-closed without the Mac acceptance cause. The delegation guard precedes engine/worktree/session access even with an injected connection. See [ACP errors](errors.md#external-acp-platform-refusals). Ordinary sandboxed tools keep their separate Seatbelt policy. The Core diagnostic event `external.agent.refused` and Doctor row `external.agents.sandbox` expose this fixed acceptance cause without process output or credentials.
+
+On Linux an external coding agent writes only inside its provisioned worktree, using bubblewrap and the native resource helper. Two checks cover hard links. The sandbox denies links to outside files (an unmounted target is `ENOENT` and a read-only system bind is `EXDEV`). Before the session and before `terminal/create`, a regular file with `nlink > 1` refuses the run (`hardlink-in-worktree`). A process outside the sandbox could still create a link between that scan and the launch. That process is outside the threat model, because the agent itself runs in the sandbox. Symlinks are resolved before a read or write and do not escape the worktree.
+
 ### Known boundary: same OS user
 
 `run/api-delegation.token` is private (0600) and rotated when the Core restarts, including configuration restarts. A process running as the same OS user can read it and impersonate the API. This is the same trust boundary as the existing local IPC credentials. Today, service installations can use a separate OS user to isolate them from interactive applications; strict API/Core separation through different users, a broker or attestation is planned, and is not implemented.
