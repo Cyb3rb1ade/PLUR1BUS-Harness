@@ -29,15 +29,19 @@ async function withFake(mode, use) {
 
 test("owned cleanup records ESRCH for the complete group and every tracked descendant", POSIX, async () => {
   let owned;
+  // A spawn event precedes Node's signal-handler setup. Report the PID only after the descendant confirms readiness.
+  const descendant = "process.on('SIGTERM',()=>{});console.log('ready');setInterval(()=>{},1000)";
   const source = "const {spawn}=require('node:child_process');"
-    + "const c=spawn(process.execPath,['-e',\"process.on('SIGTERM',()=>{});setInterval(()=>{},1000)\"],{stdio:'ignore'});"
-    + "c.once('spawn',()=>console.log(c.pid));process.on('SIGTERM',()=>process.exit(0));setInterval(()=>{},1000)";
+    + `const c=spawn(process.execPath,['-e',${JSON.stringify(descendant)}],{stdio:['ignore','pipe','ignore']});`
+    + "c.stdout.once('data',b=>{if(b.toString().trim()!=='ready')process.exit(2);console.log(c.pid)});"
+    + "process.on('SIGTERM',()=>process.exit(0));setInterval(()=>{},1000)";
   await lib.withOwnedProcess(process.execPath, ["-e", source], { env: {}, graceMs: 30 }, async handle => {
     owned = handle;
     const [bytes] = await once(handle.child.stdout, "data");
     handle.trackPid(Number(bytes.toString().trim()));
   });
   assert.equal(owned.cleanup.directChildReaped, true);
+  assert.ok(owned.cleanup.signals.some(item => item.signal === "SIGKILL" && item.code === "sent"), "the ready descendant ignores SIGTERM and requires group SIGKILL");
   assert.equal(owned.cleanup.group.code, "ESRCH");
   assert.equal(owned.cleanup.pids.length, 2);
   assert.ok(owned.cleanup.pids.every(item => item.code === "ESRCH"));

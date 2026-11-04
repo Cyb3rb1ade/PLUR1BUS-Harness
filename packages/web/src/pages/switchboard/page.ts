@@ -17,6 +17,7 @@ import { FailureState } from "../common/states.ts";
 import { currentRole, getApi, roleIn, useLoad } from "../common/load.ts";
 import type { PageProps } from "../registry.ts";
 import { navigate } from "../../router.ts";
+import { configNeedsReplacement, configReferenceWarning, configPolicyOf, isConfigReference, redactConfigView } from "../../config-policy.ts";
 
 import "../../styles/switchboard.css";
 
@@ -102,8 +103,18 @@ function EditDialog({
 }): View {
   const [key, setKey] = useState(initialKey);
   const [val, setVal] = useState(
-    typeof initialValue === "string" ? initialValue : JSON.stringify(initialValue ?? "")
+    configNeedsReplacement(initialValue, ["channels", channelId, initialKey]) ? ""
+      : typeof initialValue === "string" ? initialValue : JSON.stringify(initialValue ?? "")
   );
+  const [edited, setEdited] = useState(false);
+  const path = ["channels", channelId, key];
+  const policy = configPolicyOf(path);
+  const replacement = configNeedsReplacement(initialValue, path);
+  let candidate: unknown = val;
+  try { candidate = JSON.parse(val); } catch { /* A string replacement does not need JSON syntax. */ }
+  const referenceWarning = configReferenceWarning(candidate, path) ??
+    configReferenceWarning(initialValue, ["channels", channelId, initialKey]);
+  const current = redactConfigView(initialValue, ["channels", channelId, initialKey]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [isSecretErr, setIsSecretErr] = useState(false);
@@ -111,7 +122,7 @@ function EditDialog({
   // A ref, not `busy`: a second Enter or click can arrive before the re-render that disables the button.
   const inFlight = useRef(false);
   const save = async (): Promise<void> => {
-    if (inFlight.current) return;
+    if (inFlight.current || (replacement && !edited)) return;
     inFlight.current = true;
     setBusy(true);
     setErr("");
@@ -161,7 +172,7 @@ function EditDialog({
             type: "submit",
             form: "channel-set-form",
             class: "btn btn-primary",
-            disabled: busy,
+            disabled: busy || (replacement && !edited),
           },
           t("switchboard.action.save"),
         ),
@@ -196,7 +207,7 @@ function EditDialog({
           id: "channel-set-key",
           type: "text",
           value: key,
-          onInput: (e: Event) => setKey((e.target as HTMLInputElement).value),
+          onInput: (e: Event) => { setKey((e.target as HTMLInputElement).value); setVal(""); setEdited(false); },
         }),
       ),
       h(
@@ -205,10 +216,18 @@ function EditDialog({
         h("label", { for: "channel-set-val" }, t("switchboard.edit.value")),
         h("input", {
           id: "channel-set-val",
-          type: "text",
+          type: replacement && (policy.sensitive || (policy.referenceSchema !== undefined && !policy.urlCredentials)) && !isConfigReference(val, path) ? "password" : "text",
           value: val,
-          onInput: (e: Event) => setVal((e.target as HTMLInputElement).value),
+          ...(replacement ? { placeholder: t("switchboard.edit.replacePlaceholder") } : {}),
+          "aria-describedby": [replacement ? "channel-set-replace" : "", referenceWarning ? "channel-set-reference-warning" : ""].filter(Boolean).join(" ") || undefined,
+          onInput: (e: Event) => { setVal((e.target as HTMLInputElement).value); setEdited(true); },
         }),
+        replacement ? h("div", { id: "channel-set-replace", class: "field-hint" },
+          h("p", {}, typeof current === "string" && isConfigReference(initialValue, `channels.${channelId}.${initialKey}`)
+            ? t("settings.cfg.reference", { name: current })
+            : t("settings.cfg.replace.current", { value: (typeof current === "string" ? current : JSON.stringify(current)) || t("settings.cfg.unset") })),
+          h("p", {}, t("switchboard.edit.replaceHint"))) : null,
+        referenceWarning ? h("p", { id: "channel-set-reference-warning", class: "field-hint", "data-tone": "warn", role: "status" }, t(`settings.cfg.${referenceWarning}`)) : null,
       ),
     ),
   );
@@ -432,17 +451,21 @@ function DetailView({
           "tbody",
           null,
           configEntries.map(([k, v]) => {
+            const path = ["channels", channelId, k];
             const secretRef = d.secrets?.find((s) => s.key === k);
+            const value = redactConfigView(secretRef ? secretRef.name : v, path);
             const valDisplay = secretRef
-              ? `${secretRef.name} (${secretRef.present ? "stored" : "missing"})`
-              : typeof v === "object"
-              ? JSON.stringify(v)
-              : String(v ?? "");
+              ? `${value} (${secretRef.present ? "stored" : "missing"})`
+              : typeof value === "object"
+              ? JSON.stringify(value)
+              : String(value ?? "");
+            const referenceWarning = configReferenceWarning(secretRef ? secretRef.name : v, path);
             return h(
               "tr",
               { key: k },
               h("th", { scope: "row" }, k),
-              h("td", null, valDisplay),
+              h("td", null, valDisplay,
+                referenceWarning ? h("p", { class: "field-hint", "data-tone": "warn", role: "status" }, t(`settings.cfg.${referenceWarning}`)) : null),
               h(
                 "td",
                 null,

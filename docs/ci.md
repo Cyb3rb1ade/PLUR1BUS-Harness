@@ -176,12 +176,19 @@ Platform-sensitive paths (the `SENSITIVE` list in the script; edit it there only
 
 ## Self-hosted macOS runner
 
-Since the owner decision of 2026-10-28 the deciding macOS jobs, `quality` (`release-quality.yml`) and the macOS leg of
-`dependency-licenses`, can run on a macOS VM on the owner's Mac instead of waiting in GitHub's macOS queue. Their
+The macOS jobs `quality` (`release-quality.yml`), the macOS leg of `dependency-licenses` and the console unit leg
+`unit (macOS VM)` (`ci.yml`'s `unit-os`) can run on the owner's macOS VM instead of waiting in GitHub's macOS queue.
+The unit jobs download SHA-256-pinned CMake 3.31.12 into their own temporary directory before Rust builds; they do
+not need an administrator or change the template. The TypeScript runner supports both JavaScript pnpm and the
+native `@pnpm/exe` installation used by the setup action.
+The quality and licence routes were introduced by the owner decision of 2026-10-28. Their
 `runs-on` picks the label `plur1bus-macos-vm` only while the repository variable `MACOS_SELF_HOSTED` is `true`, and only
 for code from this repository: a push, a manual or scheduled run, or a pull request whose head branch is in this
 repository. A fork's pull request and a merge group always run on `macos-15`. `scripts/ci/macos-vm-runner.test.mjs`
-checks that no other job uses the label and that every route to it admits only those events.
+checks this exact three-job allowlist, the unchanged hosted Windows unit route, and the trusted-event boundary.
+The native Desktop GUI, service and other macOS matrix jobs keep their GitHub-hosted runners. A VM unit result is
+CI evidence for that macOS guest; it does not replace reference-hardware or native Desktop acceptance. The VM leg
+uses its own displayed name and reports `sw_vers`, so a newer guest is never presented as a `macos-15` host.
 
 The pieces are in `scripts/ci/macos-vm-runner/`:
 
@@ -511,3 +518,29 @@ Actions contexts: different commits/PRs/refs/workflows, all relevant event types
 existing policy without dispatching or polling Actions. The release-script suite already runs this file in CI.
 
 No repository rules, release policy, controller merging or watcher behavior change in P3.
+
+### D124 team fixture self-tests
+
+`collab/team-eval.test.ts` validates the arm registry, canonical identities and allocations tied to all three task limits.
+The split `collab/team-fixture*.test.ts` files grade 18 authored tasks across three seeds, partial implementations and
+ownership boundaries. The common materializer proof hashes all 108 start/reference variants twice. The mutant gate
+kills twelve previously surviving validation mutants; an additional generic guard framework covers thirty mutations
+across all eighteen tasks, four languages and all six coupled tasks; stdin carries NUL cases. No model or network is used.
+
+Linux and macOS authored-fixture tests use Node 24.21, repository Rust, Go 1.27.1 and Python 3.13. Preflight compiles/runs
+known-good code before candidate evaluation. Missing tools fail as infrastructure; candidate self-deletion remains a
+candidate failure. Linux live acceptance requires the existing bubblewrap/user-namespace setup above and proves PID,
+oracle-path and outside-write isolation. Mac/Windows live tests assert typed refusal; Windows process isolation is
+explicitly deferred to D123 Q6, with no fallback and no skips. Materialization and contract proofs still run there.
+
+The checker adopts K2 #868's result shape and command-environment allowlist. Its host-only oracle never enters the
+candidate's input-only bridge. K2 owns public `plur1bus.coding-bench/1` reports and their closed environment metadata.
+K2's loader excludes `tests/bench/coding/team/`. The task/arm package adds no model runner, live baseline or nightly.
+Task caps remain provisional until the K2 single-arm pilot calibrates difficulty. The runtime adapter and replacement
+of `fanout-eval.ts`/`eval:m5` still wait for K2; executable `explore+single` also waits for #853 on main.
+
+`.github/ci/core-test-timings.json` uses measured Linux grader costs for shard weights and records separate local macOS
+and Windows measurements, including source revision and toolchains. The 63 team tests pass on all three platforms.
+Windows timings measure materialization, contracts and typed process/live refusal under D123 Q6, not candidate execution.
+These measurements do not represent model throughput. Both packages extend this document; the
+second merger integrates main with a merge commit and resolves the overlap. No rebase is used.

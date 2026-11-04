@@ -1555,8 +1555,12 @@ fn startup_releases_a_recovered_hold_even_when_uninstall_removed_its_record() {
 #[test]
 fn running_parallel_inspectors_block_maintenance_admission_before_plan_claim() {
     let h = Home::new();
-    let mut supervisor =
-        h.start_with_core(&[("PLUR1BUS_TEST_EXT_WORKER_ARGS", "inspect:--sleep-ms 1200")]);
+    // #879: worker acknowledgments and a held directory pin both leases across the admission reply.
+    let hold = tempfile::tempdir_in(h.dir.path()).unwrap();
+    let mut supervisor = h.start_with_core(&[(
+        "PLUR1BUS_TEST_EXT_INSPECTION_HOLD",
+        hold.path().to_str().unwrap(),
+    )]);
     let mut client = common::client(&h.home);
     common::wait_child(
         &mut client,
@@ -1569,20 +1573,31 @@ fn running_parallel_inspectors_block_maintenance_admission_before_plan_claim() {
     let second = h.clone();
     let a = std::thread::spawn(move || inspect(&first, "inspecting-a", &[]));
     let b = std::thread::spawn(move || inspect(&second, "inspecting-b", &[]));
-    common::wait_until("both ordinary inspectors run concurrently", WAIT, || {
-        workers_of(&h.home).len() == 2
-    });
+    common::wait_until(
+        "both ordinary inspectors acknowledge the hold",
+        WAIT,
+        || {
+            entries(hold.path())
+                .iter()
+                .filter(|name| name.starts_with("inspector-") && name.ends_with(".ready"))
+                .count()
+                == 2
+        },
+    );
     let reply = call(
         &h.home,
         "admin.import.apply",
         json!({"planId":"11111111-1111-4111-8111-111111111111","preflightId":"22222222-2222-4222-8222-222222222222"}),
     );
+    drop(hold);
+    let first = a.join().unwrap();
+    let second = b.join().unwrap();
     assert_eq!(
         reply["error"]["data"]["error"], "E_CONFLICT",
         "admission must refuse before looking up a missing plan: {reply}"
     );
     assert_eq!(reply["error"]["data"]["reason"], "busy");
-    assert_eq!(a.join().unwrap()["manifest"]["name"], "inspecting-a");
-    assert_eq!(b.join().unwrap()["manifest"]["name"], "inspecting-b");
+    assert_eq!(first["manifest"]["name"], "inspecting-a");
+    assert_eq!(second["manifest"]["name"], "inspecting-b");
     stop(&mut supervisor, &h.home);
 }

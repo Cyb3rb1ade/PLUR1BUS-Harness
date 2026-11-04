@@ -15,6 +15,7 @@
       "required": ["binary", "core", "node", "modules", "configSchemaVersion"],
       "properties": {
         "binary": { "$ref": "#/$defs/perTarget" },
+        "tools": { "description": "Native tools companion, installed and updated with the CLI. Older feeds may omit it; update apply then fails closed.", "$ref": "#/$defs/perTarget" },
         "core": {
           "type": "object",
           "additionalProperties": false,

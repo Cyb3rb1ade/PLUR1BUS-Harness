@@ -110,7 +110,7 @@ fn is_locked(e: &io::Error) -> bool {
 
 // ---- run.stale-files.remove ------------------------------------------------------------------------------------
 
-/// The run files this step may ever remove: a pid file or a socket of the core, the supervisor or a module. Never a
+/// The run files this step may ever remove: a pid file or a socket of the core, supervisor, tools or a module. Never a
 /// token, `supervisor.lock` or anything else.
 fn removable(name: &str) -> bool {
     let stem = name
@@ -124,7 +124,7 @@ fn removable(name: &str) -> bool {
             && m.chars()
                 .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
     });
-    stem == "core" || stem == "supervisor" || module
+    stem == "core" || stem == "supervisor" || stem == "tools" || module
 }
 
 /// Why `run/<name>` must stay, or `None` when nothing lives behind it: re-checked right before the removal
@@ -285,7 +285,7 @@ fn wait_supervisor_accepts(client: &mut plur1bus_rpc::Client) -> bool {
     }
 }
 
-/// A supervisor that answers: the broken file is backed up and the configuration it runs (`config.get`) is written
+/// A supervisor that answers: the broken file is backed up and its private `config.watch` snapshot is written
 /// in its place, which re-arms a core stopped on it (B18). No supervisor, or one that runs no valid configuration:
 /// the newest `config.json.bak-*` that validates. A supervisor that does not answer: nothing is written (B6).
 pub fn restore_config(ctx: &Ctx, _step: &Step) -> Result<Value, String> {
@@ -297,8 +297,8 @@ pub fn restore_config(ctx: &Ctx, _step: &Step) -> Result<Value, String> {
     };
     let running = client
         .as_mut()
-        .and_then(|c| config_cmd::call(c, "config.get", json!({})).ok())
-        .map(|r| r["value"].clone())
+        .and_then(|c| config_cmd::call(c, "config.watch", json!({})).ok())
+        .map(|r| r["config"].clone())
         .filter(Value::is_object);
     let mut detail = match running {
         Some(config) => {
@@ -413,6 +413,8 @@ mod tests {
         for ok in [
             "core.pid",
             "supervisor.pid",
+            "tools.pid",
+            "tools.sock",
             "module-fixture.pid",
             "core.sock",
             "module-fixture-b.sock",
@@ -421,6 +423,8 @@ mod tests {
         }
         for no in [
             "core.token",
+            "tools.token",
+            "tools-core.token",
             "supervisor.token",
             "supervisor.lock",
             "module-.pid",

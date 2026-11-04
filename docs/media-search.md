@@ -11,11 +11,15 @@ The production adapter targets Engine contract **1.19.0** ([Engine H1 PR #248](h
 
 The existing Web **Medien** tab, settings and six RPC methods are reused. Native Harness H3 acceptance is gated on the pin/ports. Engine H1's real image/audio measurements remain separate evidence.
 
+MM-3a adds the Harness prerequisites for the Rust media path: authenticated channel uploads, a local capability catalogue,
+optional status metadata and explicit ffmpeg setup. The Rust media index and its `engine.media.*` binding arrive in
+MM-2b/MM-3b; these prerequisites do not make an unavailable index ready.
+
 ## Model of the two indexes
 
 - The text index stays the main index. Media never change its provider, dimension or fingerprint.
 - Image, video and audio have their own media index. Text and media providers are chosen independently; the same model may serve
-  both (it is loaded once, the indexes stay separate). Vectors of different spaces are never compared: a text query against the
+  both (the indexes and inference sessions stay separate). Vectors of different spaces are never compared: a text query against the
   media index uses the text encoder of the **media** model.
 - Every medium gets a caption. The caption is a normal memory entry in the text index (`kind="media-caption"`, `mediaRef=<mediaId>`),
   embedded with the text provider. `fuseCaptions` fuses the two result lists by rank (RRF), never by vector.
@@ -30,12 +34,19 @@ reference with defaults is [config.md](config.md).
 | `enabled` | `true` |
 | `provider` / `model` / `dimensions` | `local-transformers` / `google/embeddinggemma-2` / `768` |
 | `modalities` | `["image","video","audio"]` |
+| `image.softTokens` / `video.softTokens` | `140` / `70` |
 | `video.segmentSec` / `maxFrames` / `sceneDetect` | `10` / `32` / `true` |
 | `audio.segmentSec` / `maxSeconds` | `30` / `3600` |
 | `caption.source` | `prompt-then-user-then-auto` (or `user-only`, `off`) |
 | `caption.provider` | local when the embedding is local, otherwise unset (setup asks) |
 | `caption.maxChars` / `caption.perSegment` | `280` / `false` |
-| `backfill` | `auto` (or `manual`) |
+| `backfill` | `manual` (or explicitly `auto`) |
+
+New setup choices and unset configuration use `backfill = manual`: existing media are indexed only on request.
+Explicit saved choices, including `auto`, are preserved.
+`audio.segmentSec` accepts 1–30 seconds, globally and in agent overrides; older values above 30 are rejected rather than
+silently clamped. `dtypes` records text, vision and audio separately for each supported platform, currently all `q8`.
+Audio always stays q8. A later text/vision dtype change needs a different vector-space identity and re-embedding.
 
 Validation (`packages/core/src/media-search/validate.ts`) checks capability, licence, “Only local models” (`privacy.localOnly`), function-specific privacy acknowledgments and availability.
 There are no lists of allowed provider combinations. Failures use the `E_MEDIA_*` codes in [errors.md](errors.md).
@@ -66,6 +77,12 @@ engine reports `unsupported-kind` for that medium (no crash). Calls use no shell
 `file:<path>` with `-protocol_whitelist file,pipe`, and every call has a timeout and an output size limit. Byte sources are written
 to `<home>/media/tmp` and removed afterwards, also on errors.
 
+Setup detects ffmpeg without executing it. If it is absent, setup displays the system package-manager command for the
+person to run manually and continues. The Harness never runs sudo, a package manager or an elevation helper, including
+when launched as root; `--yes` does not change this. A displayed command may contain sudo, but is never executed by the
+Harness. `plur1bus 1staid check` includes the read-only `media.ffmpeg` check. Photos do not require ffmpeg; audio/video
+decoding does. This project does not distribute, link or download ffmpeg, and the container image is unchanged.
+
 ## Captions
 
 `CaptionService` picks the text in this order and cuts it to `caption.maxChars` at a word boundary:
@@ -95,7 +112,16 @@ Paths: `createFfmpegPorts({ allowedRoots })` and the caption providers (`allowed
 
 After a result is stored in the `OutputStore` the hook captions the medium and calls `MediaIndexPort.index(...)` asynchronously;
 the reply never waits for it. Deleting calls `remove`; a delete that finishes while an index job of the same medium is still running makes that job remove the medium again, so a deleted medium does not come back. An error produces a `media.index.failed` event and a counter, nothing else.
-There is no inbound upload path in the repository yet; `hook.onUploaded` exists for it.
+Telegram, Discord, Slack, Matrix, Signal and Email can forward their existing attachments through the additive channel
+message field. Existing transport limits still apply, with an additional framework limit of ten attachments and 25 MiB
+combined per message. The host resolves the current linked person, session and agent and checks `agent.use` before saving.
+Unknown, disabled or unauthorized people cannot publish uploads. Incognito sessions refuse persistent uploads.
+
+Raw media are saved privately through `OutputStore.putUploaded`, with a separate `media.upload/1` manifest. Actual bytes
+determine size and hash; filenames do not determine paths. MIME/container validation runs before publication. The host
+publishes the agent/person owner record and host-constructed D19 provenance before exactly one `hook.onUploaded` call.
+Uploads remain agent-private. An attachment-only message receives a receipt without submitting an empty turn; a text
+message keeps its text. Ingress awaits private storage, while captioning and embedding run on the background hook.
 
 Cloud encoding remains disabled in production. The dependency-free `MediaEncodingBudget` seam prepares [#603](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/603): reserve one image or the ceiling of trusted video seconds before encode, settle started encodes conservatively even on failure, release an unused reservation when privacy changes during admission, and propagate settlement failures. It imports no pending budget implementation and makes no token-budget substitution. Cloud query encoding also needs its own token/Secret admission; global Engine backfill cannot meter each item and therefore cannot run a cloud encoder. The current runtime binds only the coarse local backfill gate. This is not a claim that #603 unit accounting is wired.
 
@@ -114,12 +140,27 @@ kept in `<home>/state/media-search.json`.
 
 The generated reference is [rpc.md](rpc.md) and [cli.md](cli.md); the rule table is in [rbac.md](rbac.md).
 
+RPC 1.20.0 adds optional `capabilities` and `encoders` to `model.memory.status` and `media.index.status`. Responses without
+either field remain valid. Capabilities describe what the selected catalogue model understands; encoder state describes
+available installation evidence. An empty encoder list does not mean the files are installed or inference is ready.
+
 ## Setup
 
 `plur1bus setup` has a step "Memory & Mediensuche": text and media provider separately (EmbeddingGemma 2 local preselected for both),
 modalities, captioning. The step can be skipped; every choice also has a flag for non-interactive runs.
 
+The pinned local EmbeddingGemma 2 q8 vision/audio encoders total **535,699,121 bytes (about 511 MiB)**, excluding
+the text model: vision is 195,391,167 bytes and audio is 340,307,954 bytes. These are the Controller-verified graph and
+data files at revision `daa72c51243991dfcaf9f9137d2c573d8f7790c0`. Setup displays this download size separately from
+installation readiness. Time per photo on the current machine has not yet been measured; setup says so explicitly.
+With Controller approval (E1), hardware-specific photo timing is deferred to MM-3b. MM-3a shows the verified
+download size and measurement status.
+
 ## Privacy acknowledgments
+
+Schema-valid legacy local model/dimension selections remain readable and are not rewritten. The media runtime uses
+schema defaults only for unsupported local fields and emits a content-free warning per affected configuration entry.
+Relevant media writes still require a supported catalog selection; unrelated writes preserve the legacy values.
 
 Text embedding currently uses `local-transformers` only. `memory.embedding.privacyAck` is optional preparation for a future cloud-text decision; its cloud validation is unit-tested with synthetic choices. Setup has no cloud-text selection and `buildEngineConfig` still forces the local provider.
 

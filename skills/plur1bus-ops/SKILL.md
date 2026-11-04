@@ -7,11 +7,12 @@ useWhen: Diagnose an unhealthy PLUR1BUS supervisor, core or module, apply a conf
 
 # plur1bus-ops
 
-Operations skill for a PLUR1BUS Harness installation (spec §9, D4, D66). Three playbooks:
+Operations skill for a PLUR1BUS Harness installation (spec §9, D4, D66). Four playbooks:
 
 - `playbooks/diagnose.md` — read `1staid check`, `daemon status` and the logs; decide what, if anything, is wrong.
 - `playbooks/configure.md` — change `config.json` safely, knowing which keys restart what.
 - `playbooks/repair.md` — the repair ladder, from `1staid repair --dry-run` up to asking the owner.
+- `playbooks/coding.md` — coding-session roots, streamed events, approvals and advisory checks versus the D98 card gate.
 
 Read `diagnose.md` first on any report of trouble. Only move to `configure.md` or `repair.md` once the diagnosis names a specific check or unit.
 

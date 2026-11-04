@@ -1,0 +1,15 @@
+{
+  "methods": {
+    "tools.hello": {
+      "stability": "experimental",
+      "since": "1.15.0"
+    },
+    "tools.health": {
+      "stability": "experimental",
+      "since": "1.15.0"
+    }
+  },
+  "notifications": {},
+  "extensionPoints": {},
+  "features": []
+}

@@ -1,6 +1,7 @@
 export * from './types.ts';
 export * from './units.ts';
 export * from './store.ts';
+export * from './upload-types.ts';
 export * from './jobs.ts';
 export * from './adapters.ts';
 export * from './coreml.ts';

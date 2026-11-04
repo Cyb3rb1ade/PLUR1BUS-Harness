@@ -6,11 +6,13 @@ use serde_json::Value;
 use std::{collections::BTreeMap, fs, io, path::PathBuf, sync::OnceLock};
 
 pub const MODULE_API_VERSION: u32 = 1;
-/// `core` and `supervisor` (the supervisor's own units), and the Windows device names (M8), refused on every OS so a
+/// Fixed process roles and the Windows device names (M8), refused on every OS so a
 /// manifest is portable.
 pub const RESERVED_NAMES: &[&str] = &[
     "core",
     "supervisor",
+    "api",
+    "tools",
     "con",
     "prn",
     "aux",
@@ -125,6 +127,11 @@ pub fn parse_manifest(raw: &str) -> Result<Manifest, Vec<String>> {
         .collect();
     if !errs.is_empty() {
         return Err(errs);
+    }
+    if let Some(schema) = v.get("configSchema") {
+        if !plur1bus_config::supports_config_disclosure_policy(schema) {
+            return Err(vec!["/configSchema unsupported configuration disclosure policy; use direct property, map and item annotations".into()]);
+        }
     }
     serde_json::from_value(v).map_err(|e| vec![e.to_string()])
 }

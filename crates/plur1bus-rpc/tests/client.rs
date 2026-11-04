@@ -148,6 +148,125 @@ fn auth_call_and_notification_skipping() {
 }
 
 #[test]
+fn engine_endpoint_sends_explicit_auth_params_and_validates_the_engine_hello() {
+    for valid in [true, false] {
+        let (address, listener) = socket_path();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut line = String::new();
+            BufReader::new(stream.try_clone().unwrap())
+                .read_line(&mut line)
+                .unwrap();
+            let request: Value = serde_json::from_str(&line).unwrap();
+            assert_eq!(request["method"], "engine.auth");
+            assert_eq!(
+                request["params"],
+                json!({"token": TOKEN, "clientId": "harness-core"})
+            );
+            let mut hello = json!({
+                "contract": "1.8.0", "rpc": "1.7.0", "instanceId": "engine-instance", "pid": 1,
+                "capabilities": plur1bus_rpc::capabilities("engine", &[])
+            });
+            if !valid {
+                hello.as_object_mut().unwrap().remove("capabilities");
+            }
+            reply(
+                &mut stream,
+                json!({"jsonrpc": "2.0", "id": request["id"], "result": hello}),
+            );
+        });
+        let result = Client::connect_with_auth(
+            &address,
+            json!({"token": TOKEN, "clientId": "harness-core"}),
+            ConnectOptions {
+                endpoint: Endpoint::Engine,
+                ..Default::default()
+            },
+        );
+        if valid {
+            let client = result.unwrap();
+            assert_eq!(client.endpoint(), Endpoint::Engine);
+            assert_eq!(client.hello()["instanceId"], "engine-instance");
+        } else {
+            assert!(matches!(result, Err(RpcError::Protocol(_))));
+        }
+        server.join().unwrap();
+    }
+}
+
+#[test]
+fn core_connection_preserves_the_engine_delegation_auth_object() {
+    let (address, listener) = socket_path();
+    let auth =
+        json!({"token": TOKEN, "engine": {"clientId": "memory-engine", "token": "e".repeat(64)}});
+    let expected = auth.clone();
+    let server = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let mut line = String::new();
+        BufReader::new(stream.try_clone().unwrap())
+            .read_line(&mut line)
+            .unwrap();
+        let request: Value = serde_json::from_str(&line).unwrap();
+        assert_eq!(request["method"], "core.auth");
+        assert_eq!(request["params"], expected);
+        reply(
+            &mut stream,
+            json!({"jsonrpc": "2.0", "id": request["id"], "result": {
+                "contract": "1.8.0", "rpc": "1.7.0", "instanceId": "core-instance", "pid": 1
+            }}),
+        );
+    });
+    let client = Client::connect_with_auth(&address, auth, ConnectOptions::default()).unwrap();
+    assert_eq!(client.endpoint(), Endpoint::Core);
+    server.join().unwrap();
+}
+
+#[test]
+fn the_default_engine_handshake_supplies_the_harness_core_client_id() {
+    for use_existing_stream in [false, true] {
+        let (address, listener) = socket_path();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut line = String::new();
+            BufReader::new(stream.try_clone().unwrap())
+                .read_line(&mut line)
+                .unwrap();
+            let request: Value = serde_json::from_str(&line).unwrap();
+            assert_eq!(request["method"], "engine.auth");
+            let valid = request["params"] == json!({"token": TOKEN, "clientId": "harness-core"});
+            if valid {
+                reply(
+                    &mut stream,
+                    json!({"jsonrpc": "2.0", "id": request["id"], "result": {
+                        "contract": "1.8.0", "rpc": "1.7.0", "instanceId": "engine-instance", "pid": 1,
+                    "capabilities": plur1bus_rpc::capabilities("engine", &[])
+                    }}),
+                );
+            } else {
+                reply(
+                    &mut stream,
+                    json!({"jsonrpc": "2.0", "id": request["id"], "error": {
+                        "code": -32602, "message": "clientId missing", "data": {"error": "E_INVALID_PARAMS"}
+                    }}),
+                );
+            }
+        });
+        let opts = ConnectOptions {
+            endpoint: Endpoint::Engine,
+            ..Default::default()
+        };
+        let result = if use_existing_stream {
+            let stream = plur1bus_rpc::transport::connect(&address, opts.connect_timeout).unwrap();
+            Client::handshake(stream, TOKEN, opts)
+        } else {
+            Client::connect(&address, TOKEN, opts)
+        };
+        assert!(result.is_ok(), "default engine auth must include clientId");
+        server.join().unwrap();
+    }
+}
+
+#[test]
 fn bad_token_and_version_mismatch() {
     let addr = fake_core("1.0.0");
     assert!(matches!(

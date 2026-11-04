@@ -7,6 +7,7 @@ pub mod audit;
 pub mod backup;
 pub mod budget;
 pub mod channel;
+pub mod code;
 pub mod completions;
 pub mod config;
 pub mod config_embedding;
@@ -20,6 +21,7 @@ pub mod firstaid;
 pub(crate) mod firstaid_bundle;
 pub(crate) mod firstaid_ext;
 pub(crate) mod firstaid_install;
+pub(crate) mod firstaid_media;
 pub mod grant;
 pub(crate) mod help_examples;
 pub mod identity;
@@ -98,6 +100,7 @@ fn read_token_of(layout: &Layout, endpoint: Endpoint) -> Option<String> {
     let path = match endpoint {
         Endpoint::Core => layout.core_token(),
         Endpoint::Supervisor => layout.supervisor_token(),
+        Endpoint::Engine => layout.run().join("engine.token"),
         // A module's token file is per module (`Layout::endpoints`); nothing reads one through this helper.
         Endpoint::Module => return None,
     };

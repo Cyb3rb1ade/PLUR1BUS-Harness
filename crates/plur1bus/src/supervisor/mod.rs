@@ -28,6 +28,7 @@ pub mod import_recovery;
 pub mod import_secrets;
 pub mod import_worker;
 pub mod imports;
+mod log_redaction;
 pub mod logfile;
 pub mod modules;
 #[cfg(windows)]
@@ -237,27 +238,54 @@ impl Shared {
 /// failure never reaches the caller: the line is dropped.
 pub struct Log {
     file: Mutex<Option<RotatingFile>>,
+    redaction: Arc<log_redaction::Registry>,
 }
 
 impl Log {
-    pub fn open(path: &Path, max_bytes: u64, keep: u32) -> Self {
-        let file = match RotatingFile::open(path, max_bytes, keep) {
+    /// Load sensitivity before any startup record, including diagnostics for an invalid configuration.
+    pub fn open(layout: &Layout, max_bytes: u64, keep: u32) -> Self {
+        let redaction = Arc::new(log_redaction::Registry::from_file(layout));
+        let file = match RotatingFile::open(layout.log_file("supervisor"), max_bytes, keep) {
             Ok(file) => Some(file),
             Err(e) => {
                 eprintln!("plur1bus supervise: cannot open private log; output is dropped: {e}");
                 None
             }
         };
-        Self {
+        let log = Self {
             file: Mutex::new(file),
+            redaction,
+        };
+        if let Ok(bytes) = std::fs::read(layout.config_path()) {
+            if let Ok(config) = serde_json::from_slice(&bytes) {
+                log.warn_references(layout, &config);
+            }
         }
+        log
     }
     /// A log that writes nowhere (before `logs/` exists).
     pub fn none() -> Self {
         Self {
             file: Mutex::new(None),
+            redaction: Arc::new(log_redaction::Registry::new()),
         }
     }
+
+    /// Replace the pinned current configuration group before any consumer can observe an accepted update.
+    pub fn register_config(&self, layout: &Layout, config: &Value) {
+        self.redaction.replace_config(layout, config);
+        self.warn_references(layout, config);
+    }
+
+    fn warn_references(&self, layout: &Layout, config: &Value) {
+        // Metadata failures already use a private registry fallback; warning discovery never reads secret targets.
+        if let Ok(policy) = crate::config_redaction::ConfigDisclosurePolicy::load(layout, config) {
+            for warning in policy.reference_warnings(config) {
+                self.warn(warning.message, json!({"key":warning.key}));
+            }
+        }
+    }
+
     pub fn write(&self, level: &str, msg: &str, fields: Value) {
         let mut rec = Map::new();
         rec.insert("at".into(), json!(iso8601(now_ms())));
@@ -267,7 +295,22 @@ impl Log {
             rec.extend(f);
         }
         rec.insert("msg".into(), json!(msg));
-        let mut line = Value::Object(rec).to_string();
+        let mut rec = Value::Object(rec);
+        let written = self.redaction.with_matcher(|matcher| {
+            matcher.redact_value(&mut rec)?;
+            self.append(&rec);
+            Ok(())
+        });
+        if let Err(reason) = written {
+            self.append(&json!({
+                "at": iso8601(now_ms()), "level":"error", "role":"supervisor",
+                "msg":"log redaction unavailable; payload withheld", "reason":reason.to_string()
+            }));
+        }
+    }
+
+    fn append(&self, record: &Value) {
+        let mut line = record.to_string();
         line.push('\n');
         let mut file = self.file.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(f) = file.as_mut() {
@@ -504,6 +547,31 @@ fn create_private_dir(dir: &Path) -> io::Result<()> {
     Ok(())
 }
 
+/// Prepare shared state before any child starts, without changing an existing directory's permissions.
+fn prepare_shared_state(dir: &Path) -> io::Result<()> {
+    #[cfg(unix)]
+    let builder = {
+        use std::os::unix::fs::DirBuilderExt;
+        let mut builder = fs::DirBuilder::new();
+        builder.mode(0o700);
+        builder
+    };
+    #[cfg(not(unix))]
+    let builder = fs::DirBuilder::new();
+    match builder.create(dir) {
+        Ok(()) => {
+            #[cfg(windows)]
+            {
+                let sid = plur1bus_rpc::win::user_sid()?;
+                plur1bus_rpc::win::set_path_dacl(dir, &plur1bus_rpc::acl::run_dir_sddl(&sid))?;
+            }
+            Ok(())
+        }
+        Err(error) if error.kind() == io::ErrorKind::AlreadyExists && dir.is_dir() => Ok(()),
+        Err(error) => Err(error),
+    }
+}
+
 fn create_private_log_dir(dir: &Path) -> io::Result<()> {
     create_private_dir(dir)?;
     #[cfg(windows)]
@@ -650,7 +718,7 @@ fn fail(layout: &Layout, code: i32, msg: &str) -> ! {
             "exiting {mapped} instead of {code} so launchd does not restart a non-transient failure"
         );
         eprintln!("{note}");
-        let log = Log::open(&layout.log_file("supervisor"), u64::MAX, 1);
+        let log = Log::open(layout, u64::MAX, 1);
         log.info(&note, json!({}));
     }
     std::process::exit(mapped)
@@ -673,7 +741,7 @@ pub fn run(layout: &Layout, opts: SuperviseOpts) -> ! {
         Ok(code) => std::process::exit(code),
         Err(p) => {
             // The shared log went down with the panicking frame; append the one line that matters through a new one.
-            let log = Log::open(&layout.log_file("supervisor"), u64::MAX, 1);
+            let log = Log::open(layout, u64::MAX, 1);
             die_of_panic(&log, "main", p.as_ref())
         }
     }
@@ -711,6 +779,16 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             &format!("cannot create run/ under {}: {e}", layout.home.display()),
         );
     }
+    if !opts.no_core {
+        // The supervisor owns shared layout preparation. Tools only inspects Home and state/.
+        if let Err(e) = prepare_shared_state(&layout.state()) {
+            fail(
+                layout,
+                1,
+                &format!("cannot create shared state/ directory: {e}"),
+            );
+        }
+    }
     let tightened = match tighten_log_tree(&layout.logs()) {
         Ok(n) => n,
         Err(e) => fail(
@@ -724,7 +802,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     };
     // HB17: one record per start, before anything can fail with a remapped exit, so `1staid repair` can tell a
     // restart loop (under launchd, systemd or Task Scheduler alike) from the log. Opened like `fail`'s ad hoc log.
-    let log = Log::open(&layout.log_file("supervisor"), u64::MAX, 1);
+    let log = Log::open(layout, u64::MAX, 1);
     log.info("log permissions tightened", json!({ "entries": tightened }));
     log.info(
         "supervisor started",
@@ -779,11 +857,19 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     let recovered = crate::ext::recover(layout);
     let config_state = config::initial(layout);
     let config = config::supervisor_config(config_state.running.as_ref());
-    let log = Log::open(
-        &layout.log_file("supervisor"),
-        config.log_max_bytes,
-        config.log_keep,
-    );
+    // Keep the early registry: recovery can change config.json, and the runtime must register its exact snapshot.
+    if let Some(running) = &config_state.running {
+        log.register_config(layout, running);
+    } else if let Some(bytes) = config_state
+        .rejected
+        .as_ref()
+        .and_then(|rejected| rejected.bytes.as_deref())
+    {
+        log.redaction.replace_bytes(layout, bytes);
+    } else {
+        log.redaction.disable(log_redaction::Unavailable::Config);
+    }
+    log.set_limits(config.log_max_bytes, config.log_keep);
     if let Some(r) = &config_state.rejected {
         // B18: no configuration runs until a valid file appears; a core started now exits 2 (config-invalid).
         log.warn(
@@ -855,6 +941,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             } else {
                 vec![
                     Slot::new(Role::core(), time_scale),
+                    Slot::new(Role::tools(), time_scale),
                     Slot::new(Role::api(), time_scale),
                 ]
             },
@@ -921,6 +1008,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         if !imports::busy(&shared) {
             start_child(&shared, layout, &token, &Role::core(), &mut monitors);
         }
+        start_child(&shared, layout, &token, &Role::tools(), &mut monitors);
         start_child(&shared, layout, &token, &Role::api(), &mut monitors);
         start_modules(&shared, layout);
     }
@@ -1041,13 +1129,17 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         .map(|s| (s.role.name.clone(), s.role.kind))
         .collect();
     let grace = child::stop_grace(time_scale);
-    let mut stopped_children = 0;
+    let mut stopped_budget_peers = 0;
     for (name, kind) in order {
         if let Some(m) = monitors.get_mut(&name) {
             let (budget, deadline) =
-                child_stop_timing(stop, kind, grace, stopped_children, Instant::now());
+                child_stop_timing(stop, kind, grace, stopped_budget_peers, Instant::now());
             m.stop_until(budget, deadline);
-            stopped_children += 1;
+            // H1-1 preserves Core's nominal allowance when only the fixed tools companion precedes it.
+            // Tools still spends the shared budget and never moves the acceptance-anchored hard deadline.
+            if kind != RoleKind::Tools {
+                stopped_budget_peers += 1;
+            }
         }
     }
     // The last log line comes before the run files go: `daemon stop` returns once `run/supervisor.pid` is gone, and a
@@ -1060,21 +1152,22 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
 }
 
 /// The child's RPC allowance and fixed stop deadline; prior children spend one shared budget (H3B-R25).
+/// The fixed tools companion does not change Core's no-module nominal allowance (H1-1/ADR-012 §10.12).
 fn child_stop_timing(
     stop: StopRequest,
     kind: RoleKind,
     grace: Duration,
-    stopped_children: usize,
+    stopped_budget_peers: usize,
     now: Instant,
 ) -> (Duration, Instant) {
     let budget_end = stop.requested_at + stop.budget;
     let left = budget_end.saturating_duration_since(now);
     match kind {
-        RoleKind::Api | RoleKind::Module => (left, budget_end),
+        RoleKind::Api | RoleKind::Tools | RoleKind::Module => (left, budget_end),
         RoleKind::Core => {
             // ADR-012 §10.12: without an earlier child, Core keeps its full nominal RPC budget. Scheduling or
             // import cleanup never renews the acceptance-anchored hard deadline enforced by stop_until.
-            let allowance = if stopped_children == 0 {
+            let allowance = if stopped_budget_peers == 0 {
                 stop.budget
             } else {
                 left
@@ -1319,7 +1412,7 @@ fn probe_and_adopt(
 ) -> bool {
     let found = match role.kind {
         RoleKind::Api => adopt::Probe::Absent,
-        RoleKind::Core => adopt::probe_child(layout, role, adopt::PROBE_TIMEOUT),
+        RoleKind::Core | RoleKind::Tools => adopt::probe_child(layout, role, adopt::PROBE_TIMEOUT),
         RoleKind::Module => {
             // The manifest as it is now (minor 3), else what the slot last saw.
             let api = child::module_plan(layout, role, "probe")
@@ -1520,7 +1613,7 @@ mod tests {
         };
         let grace = Duration::from_millis(100);
         let now = stop.requested_at + Duration::from_millis(500);
-        for kind in [RoleKind::Api, RoleKind::Module] {
+        for kind in [RoleKind::Api, RoleKind::Tools, RoleKind::Module] {
             assert_eq!(
                 child_stop_timing(stop, kind, grace, 0, now),
                 (Duration::from_millis(1500), stop.requested_at + stop.budget)
@@ -1559,6 +1652,30 @@ mod tests {
             0o755
         );
         assert_eq!(fs::read(&target_file).unwrap(), b"leave this alone\n");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn preparing_new_shared_state_restricts_inherited_windows_access() {
+        let home = tempfile::tempdir().unwrap();
+        plur1bus_rpc::win::set_path_dacl(home.path(), "D:P(A;OICI;FA;;;WD)").unwrap();
+        let state = home.path().join("state");
+        prepare_shared_state(&state).unwrap();
+        let sid = plur1bus_rpc::win::user_sid().unwrap();
+        let entries = plur1bus_rpc::win::file_dacl_report(&state).unwrap();
+        assert!(plur1bus_rpc::acl::run_writable_by_others(&entries, &sid).is_empty());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn preparing_existing_shared_state_leaves_its_windows_acl_unchanged() {
+        let home = tempfile::tempdir().unwrap();
+        let state = home.path().join("state");
+        fs::create_dir(&state).unwrap();
+        plur1bus_rpc::win::set_path_dacl(&state, "D:P(A;OICI;FA;;;WD)").unwrap();
+        let before = plur1bus_rpc::win::file_dacl_report(&state).unwrap();
+        prepare_shared_state(&state).unwrap();
+        assert_eq!(plur1bus_rpc::win::file_dacl_report(&state).unwrap(), before);
     }
 
     #[cfg(windows)]

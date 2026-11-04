@@ -6,6 +6,10 @@ import type { ErrorCode, MediaIndexKind } from "../../../../rpc-schema/generated
 export type MediaModality = MediaIndexKind;
 export type CaptionSourceSetting = "prompt-then-user-then-auto" | "user-only" | "off";
 export type MediaBackfillSetting = "auto" | "manual";
+/** Maximum input window supported by the audio encoder (E8). */
+export const AUDIO_SEGMENT_MAX_SECONDS = 30;
+export type EncoderDtypes = Partial<Record<"text" | "vision" | "audio", "q8">>;
+export type MediaPlatform = "linux-x64" | "linux-arm64" | "darwin-arm64" | "win32-x64" | "win32-arm64";
 /** Provider IDs are strings; `"off"` disables the index (provider) or captioning (caption.provider). */
 export type ProviderOrOff = string | "off";
 
@@ -18,14 +22,17 @@ export type MediaEmbeddingConfig = {
   model: string;
   dimensions: number;
   modalities: MediaModality[];
-  video: { segmentSec: number; maxFrames: number; sceneDetect: boolean };
+  image?: { softTokens?: number };
+  dtypes?: Partial<Record<MediaPlatform, EncoderDtypes>>;
+  video: { softTokens?: number; segmentSec: number; maxFrames: number; sceneDetect: boolean };
   audio: { segmentSec: number; maxSeconds: number };
   caption: { source: CaptionSourceSetting; provider?: ProviderOrOff; maxChars: number; perSegment: boolean };
   backfill: MediaBackfillSetting;
 };
 
 /** Per-agent override, `agents.<id>.memory.mediaEmbedding.*`: the same structure, every field optional (missing = inherit). */
-export type MediaEmbeddingOverride = Partial<Omit<MediaEmbeddingConfig, "video" | "audio" | "caption">> & {
+export type MediaEmbeddingOverride = Partial<Omit<MediaEmbeddingConfig, "image" | "video" | "audio" | "caption">> & {
+  image?: Partial<NonNullable<MediaEmbeddingConfig["image"]>>;
   video?: Partial<MediaEmbeddingConfig["video"]>;
   audio?: Partial<MediaEmbeddingConfig["audio"]>;
   caption?: Partial<MediaEmbeddingConfig["caption"]>;
@@ -46,7 +53,7 @@ export const MEDIA_EMBEDDING_DEFAULTS = {
   video: { segmentSec: 10, maxFrames: 32, sceneDetect: true },
   audio: { segmentSec: 30, maxSeconds: 3600 },
   caption: { source: "prompt-then-user-then-auto", maxChars: 280, perSegment: false },
-  backfill: "auto",
+  backfill: "manual",
 } as const satisfies Omit<MediaEmbeddingConfig, "caption"> & { caption: Omit<MediaEmbeddingConfig["caption"], "provider"> };
 
 /** The media codes of the closed `ErrorCode` enum of the schema (docs/errors.md). Each has a user-facing text under `media.error.*`. */

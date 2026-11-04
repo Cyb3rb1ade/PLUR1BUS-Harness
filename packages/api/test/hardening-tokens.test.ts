@@ -31,7 +31,7 @@ const MIN_ROLE: Record<string, string> = {
   "channel.history.list": "viewer", "channel.history.get": "viewer", "channel.handoff.create": "member", "channel.handoff.redeem": "member",
   "passkeys.list": "viewer", "passkeys.options": "member", "passkeys.register": "member", "passkeys.change": "member",
   "chats.list": "viewer", "chats.create": "member", "chats.create-agent": "member", "chats.get": "viewer", "chats.update": "member",
-  "chats.messages": "viewer", "chats.submit": "member", "chats.events": "viewer", "chats.cancel": "member", "chats.archive": "member",
+  "chats.messages": "viewer", "chats.submit": "member", "chats.events": "viewer", "chats.cancel": "member", "chats.rewind": "member", "chats.archive": "member",
   "chats.restore": "member", "chats.fork": "member", "chats.export": "viewer", "chats.delete": "member", "chats.model-get": "viewer", "chats.model-set": "member", "ws.ticket": "admin", "ws.reserved": "admin",
   "remote.get": "admin", "remote.set": "admin", "remote.confirm": "admin", "remote.certificate": "admin",
   "remote.pairing.status": "admin", "remote.pairing.offer": "admin", "remote.trust.get": "viewer", "remote.trust.challenge": "member", "remote.trust.ack": "member", "remote.trust.rotate": "admin",

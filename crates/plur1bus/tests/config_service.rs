@@ -19,15 +19,32 @@ fn write_config(home: &Path, v: &Value) {
     std::fs::write(config_path(home), serde_json::to_string_pretty(v).unwrap()).unwrap();
 }
 
+fn write_sensitive_module(home: &Path) -> std::path::PathBuf {
+    let module = home.join("modules").join("fixture");
+    std::fs::create_dir_all(&module).unwrap();
+    std::fs::write(module.join("index.js"), "export {};\n").unwrap();
+    std::fs::write(module.join("module.json"), json!({
+        "name":"fixture", "version":"0.1.0", "apiVersion":"1", "entry":"index.js",
+        "scope":"installation", "priority":500,
+        "configSchema":{"type":"object","additionalProperties":false,"properties":{
+            "ordinary":{"type":"string","x-sensitive":true},
+            "endpoint":{"type":"string","x-url-credentials":true},
+            "headers":{"type":"object","additionalProperties":{"type":"string","x-sensitive":true}},
+            "count":{"type":"integer"}
+        }}
+    }).to_string()).unwrap();
+    module
+}
+
 /// config.json as the supervisor would load it (defaults filled in).
 fn file_config(home: &Path) -> Value {
     plur1bus_config::parse(&std::fs::read_to_string(config_path(home)).unwrap()).unwrap()
 }
 
 fn running(c: &mut Client) -> (Value, String) {
-    let v = c.call("config.get", json!({})).unwrap();
+    let v = c.call("config.watch", json!({})).unwrap();
     (
-        v["value"].clone(),
+        v["config"].clone(),
         v["revision"].as_str().unwrap().to_string(),
     )
 }
@@ -77,7 +94,10 @@ fn config_get_returns_the_running_config_and_its_revision() {
 
     let whole = c.call("config.get", json!({})).unwrap();
     assert_valid("methods/config.get/result", &whole);
-    assert_eq!(whole["value"], file_config(home));
+    assert_eq!(
+        whole["value"],
+        plur1bus_config::redact_config(&file_config(home))
+    );
     assert_eq!(level(&whole["value"]), "warn");
     assert_eq!(
         whole["revision"],
@@ -115,6 +135,242 @@ fn config_get_returns_the_running_config_and_its_revision() {
     assert_eq!(e, ErrorCode::EInvalidParams);
     let (e, ..) = call_error(c.call("config.get", json!({ "extra": true })));
     assert_eq!(e, ErrorCode::EInvalidParams);
+}
+
+#[test]
+fn public_config_get_masks_declared_values_while_private_watch_keeps_the_runtime_snapshot() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    let secret = uuid::Uuid::new_v4().to_string();
+    let user = uuid::Uuid::new_v4().to_string();
+    let public_id = uuid::Uuid::new_v4().to_string();
+    let reference = format!("fixture.reference.{}", &public_id[..8]);
+    let endpoint = format!(
+        "https://{user}:{secret}@relay.example.test/service?ordinary={secret}&ordinary={secret}"
+    );
+    let mut config = plur1bus_config::defaults();
+    config["voice"]["providers"]["elevenlabs"]["apiKeyRef"] = json!(reference);
+    config["voice"]["providers"]["elevenlabs"]["baseUrl"] = json!(endpoint);
+    config["engine"]["embedding"] = json!({"apiKey":secret});
+    config["channels"]["buzz"]["relays"] = json!([
+        format!("wss://relay.example.test/first?ordinary={secret}"),
+        format!("wss://relay.example.test/second?another={secret}")
+    ]);
+    config["a2aServer"]["signingKey"]["kid"] = json!(public_id);
+    config["providers"]["futurePublic"] = json!({"enabled":true});
+    config["providers"]["fixture"] = json!({"profile":{
+        "extra_headers":{"X-Ordinary-Name":secret},"secret_ref":reference,"base_url":endpoint
+    },"entries":[{"secretRef":reference}]});
+    config["providers"]["mcp"] = json!({"servers":[{"authSecret":reference,"transport":{
+        "url":endpoint,"headers":{"X-Ordinary-Name":secret},"args":[secret],"env":{"ORDINARY":secret}
+    }}]});
+    write_config(home, &config);
+    let _sup = start(home);
+    let mut c = client(home);
+    let original = file_config(home);
+    let watch = Watch::open(home);
+    assert_eq!(
+        watch.result["config"], original,
+        "private runtime snapshot must remain complete"
+    );
+
+    for params in [
+        json!({}),
+        json!({"key":"voice.providers.elevenlabs"}),
+        json!({"key":"voice.providers.elevenlabs.apiKeyRef"}),
+        json!({"key":"voice.providers.elevenlabs.baseUrl"}),
+        json!({"key":"channels.buzz.relays"}),
+        json!({"key":"providers.fixture.profile"}),
+        json!({"key":"providers.mcp.servers"}),
+        json!({"tier":"advanced"}),
+        json!({"tier":"basic"}),
+    ] {
+        let result = c.call("config.get", params).unwrap();
+        assert_valid("methods/config.get/result", &result);
+        let text = result["value"].to_string();
+        assert!(
+            !text.contains(&secret),
+            "public config returned a marked credential value"
+        );
+        assert!(!text.contains(&user), "public config returned URL userinfo");
+        assert_eq!(result["revision"], watch.result["revision"]);
+    }
+    let whole = c.call("config.get", json!({})).unwrap();
+    assert_eq!(
+        whole["value"]["session"]["compaction"]["maxMessageTokens"],
+        original["session"]["compaction"]["maxMessageTokens"]
+    );
+    assert_eq!(whole["value"]["a2aServer"]["signingKey"]["kid"], public_id);
+    assert_eq!(
+        whole["value"]["voice"]["providers"]["elevenlabs"]["apiKeyRef"],
+        reference
+    );
+    assert_eq!(
+        whole["value"]["providers"]["futurePublic"],
+        json!({"enabled":true})
+    );
+    assert_eq!(
+        whole["value"]["voice"]["providers"]["elevenlabs"]["baseUrl"],
+        "https://••••@relay.example.test/service?ordinary=••••&ordinary=••••"
+    );
+    assert_eq!(
+        whole["value"]["channels"]["buzz"]["relays"],
+        json!([
+            "wss://relay.example.test/first?ordinary=••••",
+            "wss://relay.example.test/second?another=••••"
+        ])
+    );
+    assert_eq!(
+        file_config(home),
+        original,
+        "reading public views must never rewrite config.json"
+    );
+}
+
+#[test]
+fn public_config_get_applies_installed_module_annotations_to_ordinary_names() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    let secret = uuid::Uuid::new_v4().to_string();
+    write_sensitive_module(home);
+    let configured = json!({"enabled":false,"ordinary":secret,
+        "endpoint":format!("https://relay.example.test/module?ordinary={secret}"),
+        "headers":{"ordinary":secret}, "count":7});
+    write_config(
+        home,
+        &json!({"schemaVersion":1,"modules":{"fixture":configured}}),
+    );
+    let _sup = start(home);
+    let mut c = client(home);
+    let watch = Watch::open(home);
+    assert_eq!(watch.result["config"]["modules"]["fixture"], configured);
+    for params in [
+        json!({}),
+        json!({"key":"modules.fixture"}),
+        json!({"key":"modules.fixture.ordinary"}),
+        json!({"tier":"advanced"}),
+    ] {
+        let result = c.call("config.get", params).unwrap();
+        assert_valid("methods/config.get/result", &result);
+        assert!(
+            !result["value"].to_string().contains(&secret),
+            "public config ignored an installed module's annotations"
+        );
+    }
+    let result = c
+        .call("config.get", json!({"key":"modules.fixture"}))
+        .unwrap();
+    assert_eq!(
+        result["value"],
+        json!({"enabled":false,"ordinary":"••••",
+        "endpoint":"https://relay.example.test/module?ordinary=••••",
+        "headers":{"ordinary":"••••"},"count":7})
+    );
+}
+
+#[test]
+fn a_missing_module_policy_refuses_public_module_reads_without_changing_private_runtime_data() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    let secret = uuid::Uuid::new_v4().to_string();
+    let module = write_sensitive_module(home);
+    write_config(
+        home,
+        &json!({"schemaVersion":1,"modules":{"fixture":{"enabled":false,"ordinary":secret}}}),
+    );
+    let _sup = start(home);
+    let mut c = client(home);
+    std::fs::remove_file(module.join("module.json")).unwrap();
+    let result = c.call("config.get", json!({"key":"modules.fixture"}));
+    assert!(
+        result.is_err(),
+        "public module data escaped without its sensitivity policy"
+    );
+    let (error, reason, _, _) = call_error(result);
+    assert_eq!(error, ErrorCode::ENotAvailable);
+    assert_eq!(reason.as_deref(), Some("config-policy-unavailable"));
+    let public = c
+        .call("config.get", json!({"key":"core.logLevel"}))
+        .unwrap();
+    assert_eq!(public["value"], "info");
+    let watch = Watch::open(home);
+    assert_eq!(
+        watch.result["config"]["modules"]["fixture"]["ordinary"],
+        secret
+    );
+}
+
+#[test]
+fn an_uninterpretable_module_policy_refuses_public_data_instead_of_ignoring_markers() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    let secret = uuid::Uuid::new_v4().to_string();
+    let module = write_sensitive_module(home);
+    write_config(
+        home,
+        &json!({"schemaVersion":1,"modules":{"fixture":{"enabled":false,"ordinary":secret}}}),
+    );
+    let _sup = start(home);
+    let mut c = client(home);
+    let original: Value =
+        serde_json::from_slice(&std::fs::read(module.join("module.json")).unwrap()).unwrap();
+    for policy in [
+        json!({"properties":{"ordinary":{"type":"string","x-sensitive":"true"}}}),
+        json!({"$defs":{"private":{"type":"string","x-sensitive":true}},"properties":{"ordinary":{"$ref":"#/$defs/private"}}}),
+        json!({"default":{"type":"string","x-sensitive":true},"properties":{"ordinary":{"$ref":"#/default"}}}),
+        json!({"$defs":{"private":{"type":"string"}},"properties":{"ordinary":{
+            "$id":"https://schema.example.test/private-scope",
+            "$defs":{"private":{"type":"string","x-sensitive":true}},
+            "allOf":[{"$ref":"#/$defs/private"}]
+        }}}),
+        json!({"$defs":{"private":{"type":"string","x-sensitive":true}},"properties":{"ordinary":{"$dynamicRef":"#/$defs/private"}}}),
+        json!({"properties":{"ordinary":{"type":"string","x-sensitive":true,"x-url-credentials":true}}}),
+        json!({"dependencies":{"ordinary":{"properties":{"ordinary":{"type":"string","x-sensitive":true}}}}}),
+        json!({"items":[{"type":"string"}],"additionalItems":{"type":"string","x-sensitive":true}}),
+        json!({"$defs":{"name":{"type":"string","x-secret-reference":true}},"properties":{"ordinary":{"$ref":"#/$defs/name"}}}),
+        json!({"allOf":[{"properties":{"ordinary":{"type":"string","x-secret-reference":true}}}]}),
+    ] {
+        let mut manifest = original.clone();
+        manifest["configSchema"] = policy;
+        std::fs::write(module.join("module.json"), manifest.to_string()).unwrap();
+        let result = c.call("config.get", json!({"key":"modules.fixture"}));
+        assert!(
+            result.is_err(),
+            "public configuration ignored an uninterpretable privacy policy"
+        );
+        let (error, reason, _, _) = call_error(result);
+        assert_eq!(error, ErrorCode::ENotAvailable);
+        assert_eq!(reason.as_deref(), Some("config-policy-unavailable"));
+    }
+}
+
+#[test]
+fn rejected_module_secret_values_are_not_echoed_in_config_errors_or_status() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    let secret = uuid::Uuid::new_v4().to_string();
+    let module = write_sensitive_module(home);
+    let mut manifest: Value =
+        serde_json::from_slice(&std::fs::read(module.join("module.json")).unwrap()).unwrap();
+    manifest["configSchema"]["properties"]["ordinary"]["maxLength"] = json!(4);
+    std::fs::write(module.join("module.json"), manifest.to_string()).unwrap();
+    write_config(
+        home,
+        &json!({"schemaVersion":1,"modules":{"fixture":{"enabled":false,"ordinary":""}}}),
+    );
+    let _sup = start(home);
+    let mut c = client(home);
+    let result = set(&mut c, change("modules.fixture.ordinary", json!(secret)));
+    let (error, reason, detail, _) = call_error(result);
+    assert_eq!(error, ErrorCode::EConfigInvalid);
+    assert_eq!(reason, None);
+    let detail = detail.unwrap();
+    assert!(
+        !detail.contains(&secret),
+        "a module validation error printed its rejected secret"
+    );
+    assert!(detail.contains("modules.fixture.ordinary"));
+    assert!(!status_config(&mut c).to_string().contains(&secret));
 }
 
 #[test]
@@ -942,5 +1198,36 @@ fn a_local_agent_rejects_shared_cloud_engine_writes_and_dry_runs_before_mutation
         assert!(message.contains("local-agent"), "{message}");
         assert_eq!(std::fs::read(config_path(home)).unwrap(), before);
         assert_eq!(running(&mut c).1, revision);
+    }
+}
+
+#[test]
+fn raw_supervisor_refuses_unknown_active_media_providers_and_keeps_config_bytes_and_revision() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    write_config(home, &json!({"schemaVersion":1}));
+    let _sup = start(home);
+    let mut c = client(home);
+    let before = std::fs::read(config_path(home)).unwrap();
+    let (_, revision) = running(&mut c);
+    let media = json!({
+        "enabled":true, "provider":"unknown-remote", "model":"unknown-model",
+        "privacyAck":{"provider":"unknown-remote","acknowledgedAt":"2026-11-01T00:00:00Z","by":"owner"}
+    });
+    for dry in [true, false] {
+        for changes in [
+            json!([{"key":"memory.mediaEmbedding","value":media}]),
+            json!([{"key":"agents.child","value":{"memory":{"mediaEmbedding":media}}}]),
+        ] {
+            let result = set(
+                &mut c,
+                json!({"changes":changes,"dryRun":dry,"ifRevision":revision}),
+            );
+            let message = result.as_ref().unwrap_err().to_string();
+            assert!(message.contains("E_MEDIA_UNAVAILABLE"), "{message}");
+            assert_eq!(call_error(result).0, ErrorCode::EConfigInvalid);
+            assert_eq!(std::fs::read(config_path(home)).unwrap(), before);
+            assert_eq!(running(&mut c).1, revision);
+        }
     }
 }

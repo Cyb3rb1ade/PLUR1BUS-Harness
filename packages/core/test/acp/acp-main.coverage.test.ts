@@ -104,7 +104,7 @@ describe("acp main coverage: serving", () => {
     t.stdin.end();
     assert.equal(await p, 0);
     const created = calls.find((c) => c.m === "session.create")!;
-    assert.deepEqual(created.p, { caller: { channel: "cli", accountId: "acc", userId: "u" }, agentId: "bernd", kind: "acp", title: "ACP" });
+    assert.deepEqual(created.p, { caller: { channel: "cli", accountId: "acc", userId: "u" }, agentId: "bernd", kind: "direct", title: "ACP" });
     const errLines = t.err().trim().split("\n").map((l) => JSON.parse(l));
     assert.ok(errLines.some((l) => l.event === "acp.started" && l.level === "info"));
     assert.ok(errLines.some((l) => l.event === "acp.session-new"));

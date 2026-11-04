@@ -134,11 +134,12 @@ test("webhook rejects secrets/malformed bodies, deduplicates and polling removes
   assert.equal(fake.callsOf("deleteWebhook").length, 1);
 });
 
-test("incoming photo/document/voice/audio/video become bounded attachments with captions", async () => {
+test("incoming photo/document/voice/audio/video preserve rich payloads and reach the framework", async () => {
   const got: InboundMessage[] = [];
+  const received: InboundMessage[] = [];
   const ch = make({ groupPolicy: "all" });
   ch.onMessage((m) => void got.push(m));
-  await ch.start();
+  await ch.start({ ...host, receive: async (m) => { received.push(m as InboundMessage); } });
   try {
     for (const [i, kind] of ["photo", "document", "voice", "audio", "video"].entries()) {
       const mime =
@@ -165,6 +166,7 @@ test("incoming photo/document/voice/audio/video become bounded attachments with 
       );
     }
     assert.equal(got.length, 5);
+    assert.deepEqual(received, got);
     assert.ok(got.every((m) => m.text === "caption" && m.attachments?.[0]?.data.length === 7));
     assert.equal(fake.callsOf("getFile").length, 5);
   } finally {

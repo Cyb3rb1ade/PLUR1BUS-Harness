@@ -45,6 +45,12 @@ const KEY_NAMES: [&str; 22] = [
     "accountkey",
 ];
 
+/// Bundle-only defense for credential-shaped property names after schema projection.
+pub(super) fn credential_key(name: &str) -> bool {
+    let name = name.to_ascii_lowercase();
+    KEY_NAMES.iter().any(|part| name.contains(part))
+}
+
 /// Header-like keys: the value is the rest of the line (`Authorization: Bearer abc`, `Cookie: a=1; b=2`).
 const LINE_VALUE_KEYS: [&str; 2] = ["authorization", "cookie"];
 
@@ -52,6 +58,11 @@ pub struct Redactor {
     /// Known secret values, ≥ 8 characters, with their base64, base64url (padded and unpadded), percent-encoded and hex
     /// (lower and upper case) forms; longest first.
     secrets: Vec<String>,
+}
+
+enum Context {
+    Text,
+    ConfigValue,
 }
 
 impl Redactor {
@@ -64,14 +75,7 @@ impl Redactor {
             if s.len() < 8 {
                 continue;
             }
-            all.push(base64(s.as_bytes(), false, true));
-            all.push(base64(s.as_bytes(), false, false));
-            all.push(base64(s.as_bytes(), true, false));
-            all.push(base64(s.as_bytes(), true, true));
-            all.push(percent_encode(&s));
-            all.push(hex_encode(s.as_bytes(), false));
-            all.push(hex_encode(s.as_bytes(), true));
-            all.push(s);
+            all.extend(known_secret_forms(&s));
         }
         all.retain(|s| s.len() >= 8);
         all.sort_by_key(|s| std::cmp::Reverse(s.len()));
@@ -81,27 +85,53 @@ impl Redactor {
 
     /// `text` with every match of rules 1–4 replaced.
     pub fn redact(&self, text: &str) -> String {
-        self.apply(text).0
+        self.apply(text, Context::Text).0
     }
 
     /// The rules that still match `text` — empty for anything [`Redactor::redact`] returned.
     pub fn scan(&self, text: &str) -> Vec<&'static str> {
-        self.apply(text).1
+        self.apply(text, Context::Text).1
     }
 
-    fn apply(&self, text: &str) -> (String, Vec<&'static str>) {
+    /// A schema-projected configuration value: preserve public key names while retaining value-pattern backstops.
+    pub fn redact_config_value(&self, text: &str) -> String {
+        self.apply(text, Context::Text).0
+    }
+
+    /// Rescan a schema-projected configuration without treating public property names as credentials.
+    pub fn scan_config_value(&self, text: &str) -> Vec<&'static str> {
+        self.apply(text, Context::ConfigValue).1
+    }
+
+    fn apply(&self, text: &str, context: Context) -> (String, Vec<&'static str>) {
         let mut hits: Vec<&'static str> = Vec::new();
         let mut s = text.to_string();
         s = substitute(&s, RULE_SECRET, &mut hits, |t| {
             find_secrets(t, &self.secrets)
         });
         s = substitute(&s, RULE_PATTERN, &mut hits, find_pem);
-        s = substitute(&s, RULE_KEY, &mut hits, find_keyed_values);
+        if matches!(context, Context::Text) {
+            s = substitute(&s, RULE_KEY, &mut hits, find_keyed_values);
+        }
         s = substitute(&s, RULE_PATTERN, &mut hits, find_patterns);
         s = substitute(&s, RULE_URL, &mut hits, find_url_parts);
         hits.dedup();
         (s, hits)
     }
+}
+
+/// Literal encodings shared by bundle and Supervisor redaction; callers enforce their own value limits.
+pub(crate) fn known_secret_forms(value: &str) -> Vec<String> {
+    vec![
+        value.to_string(),
+        base64(value.as_bytes(), false, true),
+        base64(value.as_bytes(), false, false),
+        base64(value.as_bytes(), true, false),
+        base64(value.as_bytes(), true, true),
+        percent_encode(value),
+        hex_encode(value.as_bytes(), false),
+        hex_encode(value.as_bytes(), true),
+    ]
 }
 
 /// Replaces the (sorted, non-overlapping) ranges `find` returns with `[REDACTED:<rule>]`.

@@ -28,6 +28,9 @@ import type { Principal } from "../rbac/types.ts";
 import { RpcError } from "./errors.ts";
 import type { CallContext, Handler } from "./server.ts";
 import { surfaceError } from "./surface-errors.ts";
+import { productionMediaProviderCatalog } from "../media-search/validate.ts";
+import { deriveUserPrincipal } from "../identity/principals.ts";
+import type { ChatKind } from "../channels/types.ts";
 
 export interface MediaSearchSurfaceDeps {
   index: () => MediaIndexPort | null;
@@ -104,6 +107,15 @@ function projectStatus(s: MediaIndexStatus) {
       ...(s.backfill.startedAt !== undefined ? { startedAt: s.backfill.startedAt } : {}),
       ...(s.backfill.pausedReason !== undefined ? { pausedReason: s.backfill.pausedReason } : {}),
     },
+    ...(s.capabilities ? { capabilities: {
+      text: s.capabilities.text, image: s.capabilities.image,
+      audio: s.capabilities.audio, video: s.capabilities.video,
+    } } : {}),
+    ...(s.encoders ? { encoders: s.encoders.map(encoder => ({
+      role: encoder.role, dtype: encoder.dtype, state: encoder.state,
+      ...(encoder.downloadBytes !== undefined ? { downloadBytes: encoder.downloadBytes } : {}),
+      ...(encoder.revision !== undefined ? { revision: encoder.revision } : {}),
+    })) } : {}),
   };
 }
 
@@ -122,7 +134,12 @@ export function createMediaSearchSurface(d: MediaSearchSurfaceDeps): { methods: 
     try { return await fn(p, authenticatedPrincipal(ctx), ctx); }
     catch (e) { return surfaceError(e); }
   };
-  const status = async () => projectStatus(await port().status());
+  const status = async () => {
+    const current = await port().status(), selected = d.config().memory.mediaEmbedding;
+    const capabilities = current.capabilities
+      ?? productionMediaProviderCatalog.lookup(current.provider || selected.provider, current.model || selected.model)?.capabilities;
+    return projectStatus({ ...current, ...(capabilities ? { capabilities } : {}), encoders: current.encoders ?? [] });
+  };
 
   const hitOf = async (h: MediaHit) => {
     const caption = d.captionOf ? await d.captionOf(h.captionMemoryId).catch(() => undefined) : undefined;
@@ -203,23 +220,36 @@ export function createMediaSearchSurface(d: MediaSearchSurfaceDeps): { methods: 
   return { methods };
 }
 
-interface MediaOwner { agentId: string; userId: string }
+interface MediaOwner { agentId: string; userId: string; chatKind?: ChatKind; owner?: string }
 
 /**
  * Read/edit rights over the media surface's owner files (`<home>/media/owners/<id>.json`, written by media.generate/edit):
- * the same rule as media.output.get (read) and media.output.delete (edit): `agent.read` / `agent.use` on the agent that made
- * the medium. A medium without an owner file is neither readable nor editable (deny by default).
+ * generated media retain `agent.read` / `agent.use` on the producing agent. Channel DM uploads additionally require
+ * the authenticated owning person. Incomplete legacy channel bindings fail closed, never back to agent-wide access.
+ * A medium without a valid owner file is neither readable nor editable.
  */
 export function createMediaOwnerAcl(d: { home: string }): Pick<MediaSearchSurfaceDeps, "readable" | "editable"> {
   const ownerOf = async (mediaId: string): Promise<MediaOwner | null> => {
     try {
       const o = JSON.parse(await readFile(join(d.home, "media", "owners", `${safeId(mediaId)}.json`), "utf8")) as unknown;
-      return isObj(o) && typeof o.agentId === "string" && o.agentId !== "" ? { agentId: o.agentId, userId: typeof o.userId === "string" ? o.userId : "" } : null;
+      if (!isObj(o) || typeof o.agentId !== "string" || o.agentId === "") return null;
+      const userId = typeof o.userId === "string" ? o.userId : "";
+      const provenance = isObj(o.provenance) && isObj(o.provenance.origin) ? o.provenance.origin : null;
+      const channelBound = "channel" in o || "sessionId" in o || "chatKind" in o || "owner" in o
+        || (typeof o.connectionId === "string" && o.connectionId.startsWith("channel:"))
+        || (typeof provenance?.system === "string" && provenance.system.startsWith("channel:"));
+      if (!channelBound) return { agentId: o.agentId, userId };
+      if (!userId || (o.chatKind !== "direct" && o.chatKind !== "group" && o.chatKind !== "broadcast")
+        || typeof o.owner !== "string" || !o.owner
+        || (o.chatKind === "direct" && o.owner !== deriveUserPrincipal(userId))) return null;
+      return { agentId: o.agentId, userId, chatKind: o.chatKind, owner: o.owner };
     } catch { return null; }
   };
   const allowed = (action: "agent.read" | "agent.use") => async (who: Principal, mediaId: string): Promise<boolean> => {
     const o = await ownerOf(mediaId);
-    return o !== null && authorize(who, action, { kind: "agent", agentId: o.agentId }).effect === "allow";
+    return o !== null
+      && (o.chatKind !== "direct" || (who.kind === "person" && who.userId === o.userId))
+      && authorize(who, action, { kind: "agent", agentId: o.agentId }).effect === "allow";
   };
   return { readable: allowed("agent.read"), editable: allowed("agent.use") };
 }

@@ -13,6 +13,7 @@ import { RpcError } from "../../src/rpc/errors.ts";
 import type { Principal } from "../../src/rbac/types.ts";
 import type { CallContext } from "../../src/rpc/server.ts";
 import type { MediaHit, MediaIndexPort, MediaIndexStatus, MediaSearchRequest, Scope } from "../../src/media-search/types.ts";
+import { deriveUserPrincipal } from "../../src/identity/principals.ts";
 
 const schema = JSON.parse(readFileSync(new URL("../../../rpc-schema/schema/rpc.schema.json", import.meta.url), "utf8"));
 const OWNER: Principal = { userId: "local-owner", role: "owner", kind: "person" };
@@ -22,9 +23,10 @@ const AGENT: Principal = { userId: "bernd", role: "member", kind: "agent" };
 const STATUS: MediaIndexStatus = {
   enabled: true, provider: "local-transformers", model: "google/embeddinggemma-2", dim: 768, fingerprint: "fp-1",
   counts: { indexed: 2, pending: 1, failed: 0, unsupported: 0 }, backfill: { state: "running", done: 2, total: 3 },
+  capabilities: { text: true, image: true, audio: true, video: true }, encoders: [],
 };
 
-function setup(o: { hits?: MediaHit[]; readable?: (p: Principal, id: string) => boolean; editable?: (p: Principal, id: string) => boolean; index?: boolean; mediaCfg?: Record<string, unknown>; searchError?: unknown; scopes?: Scope[]; scores?: number[]; globalStatus?: boolean } = {}) {
+function setup(o: { hits?: MediaHit[]; readable?: (p: Principal, id: string) => boolean; editable?: (p: Principal, id: string) => boolean; ownerHome?: string; index?: boolean; mediaCfg?: Record<string, unknown>; searchError?: unknown; scopes?: Scope[]; scores?: number[]; globalStatus?: boolean } = {}) {
   const calls: string[] = [];
   const searches: MediaSearchRequest[] = [];
   const captions: { id: string; text: string; source: string }[] = [];
@@ -34,6 +36,7 @@ function setup(o: { hits?: MediaHit[]; readable?: (p: Principal, id: string) => 
     async setCaption(id: string, text: string, source: string) { captions.push({ id, text, source }); },
   } as unknown as MediaIndexPort;
   const cfg = defaults() as any;
+  const ownerAcl = o.ownerHome ? createMediaOwnerAcl({ home: o.ownerHome }) : undefined;
   if (o.mediaCfg) cfg.memory.mediaEmbedding = { ...(cfg.memory.mediaEmbedding ?? {}), ...o.mediaCfg };
   const audit = memoryAuditSink();
   const deps: MediaSearchSurfaceDeps = {
@@ -41,8 +44,8 @@ function setup(o: { hits?: MediaHit[]; readable?: (p: Principal, id: string) => 
     index: () => (o.index === false ? null : index), config: () => cfg,
     backfill: { pause: async () => { calls.push("pause"); }, resume: async () => { calls.push("resume"); }, reindex: async () => { calls.push("reindex"); } },
     scopeOf: (p) => o.scopes ?? ({ agent: p.kind === "agent" ? p.userId : "main", workspace: "w" }) as never,
-    readable: async (p, id) => (o.readable ? o.readable(p, id) : true),
-    editable: async (p, id) => (o.editable ? o.editable(p, id) : true),
+    readable: async (p, id) => ownerAcl ? ownerAcl.readable(p, id) : (o.readable ? o.readable(p, id) : true),
+    editable: async (p, id) => ownerAcl ? ownerAcl.editable(p, id) : (o.editable ? o.editable(p, id) : true),
     captionOf: async (id) => (id ? `caption of ${id}` : undefined),
     thumbnailUrl: (id) => `/thumb/${id}`,
     audit, clock: () => 7,
@@ -221,6 +224,62 @@ test("owner ACL: a medium is readable/editable through the rights on the agent t
     assert.equal(await acl.readable(OWNER, "nope"), false);
     assert.equal(await acl.readable(OWNER, "../x"), false);
   } finally { rmSync(home, { recursive: true, force: true }); }
+});
+
+test("private DM uploads stay with their person through search, similar-media and caption paths", async t => {
+  const home = mkdtempSync(join(tmpdir(), "dm-media-acl-"));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const owners = join(home, "media", "owners");
+  mkdirSync(owners, { recursive: true });
+  const alice: Principal = { userId: "alice", role: "member", kind: "person", agentRights: { main: "use" } };
+  const bob: Principal = { ...alice, userId: "bob" };
+  writeFileSync(join(owners, "private.json"), JSON.stringify({ agentId: "main", userId: "alice",
+    channel: "telegram", sessionId: "dm-session", connectionId: "channel:dm-session",
+    chatKind: "direct", owner: deriveUserPrincipal("alice") }));
+  writeFileSync(join(owners, "group.json"), JSON.stringify({ agentId: "main", userId: "alice",
+    channel: "telegram", sessionId: "group-session", chatKind: "group", owner: "group-session-owner" }));
+  writeFileSync(join(owners, "generated.json"), JSON.stringify({ agentId: "main", userId: "alice", connectionId: "generation" }));
+  const s = setup({ ownerHome: home, hits: ["private", "group", "generated"].map(mediaId => ({ mediaId, kind: "image", score: 1 })) });
+  const ids = async (person: Principal) => (await s.as(person).call("media.search", { text: "photo" })).hits.map((h: MediaHit) => h.mediaId);
+  assert.deepEqual(await ids(alice), ["private", "group", "generated"]);
+  assert.deepEqual(await ids(bob), ["group", "generated"]);
+  const before = s.searches.length;
+  assert.deepEqual(await s.as(bob).refusal("media.search", { likeMediaId: "private" }), { error: "E_NOT_FOUND", reason: "unknown-media" });
+  assert.equal(s.searches.length, before, "an unreadable private seed never reaches the index");
+  assert.deepEqual(await s.as(bob).refusal("media.caption.set", { mediaId: "private", text: "changed" }), { error: "E_NOT_FOUND", reason: "unknown-media" });
+  assert.deepEqual(s.captions, []);
+  await s.as(alice).call("media.search", { likeMediaId: "private" });
+  assert.deepEqual(await s.as(alice).call("media.caption.set", { mediaId: "private", text: "mine" }), { ok: true });
+  assert.deepEqual(s.captions, [{ id: "private", text: "mine", source: "user" }]);
+  const acl = createMediaOwnerAcl({ home });
+  for (const caller of [bob, { ...bob, role: "owner" }, { ...bob, role: "admin" }, { ...alice, kind: "agent" }, { ...alice, agentRights: {} }] as Principal[]) {
+    assert.equal(await acl.readable(caller, "private"), false);
+    assert.equal(await acl.editable(caller, "private"), false);
+  }
+});
+
+test("channel owner records with missing or inconsistent privacy metadata fail closed", async t => {
+  const home = mkdtempSync(join(tmpdir(), "legacy-media-acl-"));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const owners = join(home, "media", "owners");
+  mkdirSync(owners, { recursive: true });
+  const channelRecords = [
+    { channel: "telegram", sessionId: "dm-session", connectionId: "channel:dm-session" },
+    { connectionId: "channel:dm-session" },
+    { provenance: { origin: { system: "channel:telegram" } } },
+    { channel: "telegram", chatKind: "direct" },
+    { channel: "telegram", chatKind: "other", owner: deriveUserPrincipal("mia") },
+    { channel: "telegram", chatKind: "direct", owner: deriveUserPrincipal("someone-else") },
+  ];
+  const acl = createMediaOwnerAcl({ home });
+  for (const [index, metadata] of channelRecords.entries()) {
+    const id = `legacy-${index}`;
+    writeFileSync(join(owners, `${id}.json`), JSON.stringify({ agentId: "main", userId: "mia", ...metadata }));
+    for (const principal of [OWNER, { ...MEMBER, agentRights: { main: "use" } }] as Principal[]) {
+      assert.equal(await acl.readable(principal, id), false, `${id} read`);
+      assert.equal(await acl.editable(principal, id), false, `${id} edit`);
+    }
+  }
 });
 
 test("human multi-agent search keeps highest scores and rechecks readability", async () => {

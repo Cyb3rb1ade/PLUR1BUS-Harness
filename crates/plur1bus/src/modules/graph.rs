@@ -311,13 +311,16 @@ mod tests {
     #[test]
     fn start_order_is_topological_then_priority_then_name() {
         let mods = [
-            module("api", 100, json!({ "needs": ["store", "core"] })),
+            module("api-module", 100, json!({ "needs": ["store", "core"] })),
             module("beta", 100, json!({})),
             module("alpha", 100, json!({})),
             module("store", 500, json!({})),
-            module("ui", 0, json!({ "needs": ["api"] })),
+            module("ui", 0, json!({ "needs": ["api-module"] })),
             invalid("broken"),
         ];
-        assert_eq!(start_order(&mods), ["alpha", "beta", "store", "api", "ui"]);
+        assert_eq!(
+            start_order(&mods),
+            ["alpha", "beta", "store", "api-module", "ui"]
+        );
     }
 }

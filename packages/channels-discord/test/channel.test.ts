@@ -334,7 +334,7 @@ test("inbound: duplicate MESSAGE_CREATE ids are processed once", async () => {
   await finish(e, ch);
 });
 
-test("inbound: the host gets text-only turns; rich turns go through onMessage and log the gap", async () => {
+test("inbound: the host and rich handlers receive attachment turns without changing the payload", async () => {
   const e = await makeEnv();
   const ch = e.channel();
   await started(e, ch);
@@ -347,8 +347,7 @@ test("inbound: the host gets text-only turns; rich turns go through onMessage an
   assert.equal(att.kind, "image");
   assert.equal(att.mimeType, "image/png");
   assert.equal(Buffer.from(att.data).toString(), "PNGDATA");
-  assert.equal(e.received.length, 0, "framework path does not carry attachments");
-  assert.ok(e.logs.some((l) => l.event === "channel.discord.framework-rich-turn-gap"));
+  assert.deepEqual(e.received, rich);
   await finish(e, ch);
 });
 

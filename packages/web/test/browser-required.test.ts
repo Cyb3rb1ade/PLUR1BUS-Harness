@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 test("required browser mode refuses missing pinned Chromium even when an override exists", () => {
   const emptyBrowsers = mkdtempSync(join(tmpdir(), "m3-web-browser-required-"));
@@ -14,6 +15,28 @@ test("required browser mode refuses missing pinned Chromium even when an overrid
     });
     assert.equal(r.status, 1, `missing lockfile-matched browser must fail: ${r.stderr}`);
     assert.match(r.stderr, /PLUR1BUS_WEB_E2E_REQUIRED=1 but no Chromium was found/);
+  } finally { rmSync(emptyBrowsers, { recursive: true, force: true }); }
+});
+
+test("the media capability acceptance file fails instead of skipping when CI's pinned browser is missing", () => {
+  const emptyBrowsers = mkdtempSync(join(tmpdir(), "mm3a-browser-required-"));
+  try {
+    const env: NodeJS.ProcessEnv = { ...process.env, PLUR1BUS_WEB_BROWSER: "", PLAYWRIGHT_BROWSERS_PATH: emptyBrowsers,
+      PLUR1BUS_WEB_E2E_REQUIRED: "1", PLUR1BUS_CHROMIUM: process.execPath };
+    // A fresh node:test invocation must not inherit this test worker's nested-run marker.
+    delete env.NODE_TEST_CONTEXT;
+    // This invocation owns its TAP reporter; inherited CI reporter/destination pairs conflict with it.
+    delete env.NODE_OPTIONS;
+    const result = spawnSync(process.execPath, ["--experimental-strip-types", "--conditions=source", "--no-warnings=ExperimentalWarning",
+      "--test", "--test-reporter=tap", "--test-concurrency=1", "--test-timeout=30000",
+      fileURLToPath(new URL("./media-capabilities.test.ts", import.meta.url))], {
+      env,
+      encoding: "utf8", timeout: 40_000,
+    });
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout + result.stderr, /PLUR1BUS_WEB_E2E_REQUIRED=1 but no Chromium was found/);
+    assert.match(result.stdout, /# fail 1\b/);
+    assert.match(result.stdout, /# skipped 0\b/);
   } finally { rmSync(emptyBrowsers, { recursive: true, force: true }); }
 });
 

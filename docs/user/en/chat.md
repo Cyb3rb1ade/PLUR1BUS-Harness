@@ -53,6 +53,103 @@ plur1bus session archive <id>
 - `plur1bus session list` lists your chats. `--agent`, `--kind` (`direct`, `card`, `project`, `channel` or `acp`), `--archived` (`only` or `any`), `--search` (titles and messages) and `--limit` narrow the list.
 - `plur1bus session show` prints the last messages (20 by default). `plur1bus session archive` archives a chat; nothing is deleted.
 
+## Coding in a terminal
+
+`plur1bus code` opens a coding session in a Git worktree. Start the daemon and choose the registered agent when the installation has several agents:
+
+```sh
+plur1bus code /path/to/repository --agent worker
+plur1bus code /path/to/repository --project PROJECT --card CARD --agent worker
+plur1bus code /path/to/repository --session SESSION
+```
+
+`PATH` defaults to the current directory and must name the native worktree root. A card uses the worktree shared with its assigned project agent. The session and root remain bound; reopen the same session to continue. Changing the assignment or revoking folder access takes effect on the next use.
+
+The coding profile pre-admits registered coding tools and adds a fixed operating guide. It preserves the agent's persona, SOUL and frozen memory snapshot. The current file tools work immediately; newly installed coding tools become available at the next turn boundary. To select this profile for an agent's ordinary sessions too, set `agents.<id>.coding` to `true` with `plur1bus config set`. Project-card sessions select it automatically. Permission checks apply to each tool call.
+
+### Input and results
+
+Enter submits a message. During a running turn, Enter steers and Alt+Enter queues a follow-up when the core advertises those capabilities. Esc followed by Enter is the queue fallback; macOS Terminal.app also offers “Use Option as Meta key”. `/steer text` and `/queue text` provide explicit commands. An unavailable capability leaves the input as a draft.
+
+Ctrl+C cancels the running turn or check. Two Ctrl+C presses within two seconds exit. Ctrl+D exits when idle. The prompt remains editable while events arrive. Tool results show a compact summary and an inline diff; patches fold after 40 lines.
+
+| Command | Result |
+|---|---|
+| `/help` | Input keys and available command syntax. |
+| `/check [format\|lint\|typecheck\|test]` | Advisory checks using the project's D98 verifier plan and sandbox. |
+| `/done` on a direct session | The same advisory checks. |
+| `/done` on a project card | `task.complete`, including D98's checks, manifest and review requirements. |
+| `/diff` | Tracked worktree changes against HEAD, through a read-only Git view with repository programs disabled. |
+| `/diff CALL` | The stored tool call's complete inline patch. If the result has no inline patch, use `/diff` for the worktree. |
+| `/rewind …`, `/compact …` | The core's transcript commands; Rewind requires the corresponding core capability. |
+| `/model [PROFILE] [--reasoning LEVEL]` | Inspect the model choice or preview a switch with a cache-cost warning and confirmation. |
+| `/queue`, `/unqueue N` | List follow-ups or remove the entry at the displayed one-based position. |
+
+Checks run with the same command detector and runner as the card gate. An advisory result does not complete a card or replace its independent review. An uncommitted verifier manifest cannot enable network access. Diffs are limited to 4 MiB before paging and preserve the real index, HEAD and staging state.
+
+### Fullscreen view
+
+```sh
+plur1bus code . --tui --agent worker
+```
+
+The fullscreen view uses the same session, event stream, commands and permission decisions as the line view.
+Piped input, a single message, `--json`, a dumb terminal or a build without fullscreen support selects the line
+view and reports the fallback. No terminal screen is opened for help or scripts.
+
+At 90 columns and above, the transcript and tool/diff panes appear side by side. In a narrower terminal, Tab
+chooses the visible pane. The draft remains editable while output arrives.
+
+| Key | Action |
+|---|---|
+| Enter / Alt+Enter | Submit or steer / queue, with the same core capability checks as the line view. |
+| Tab | Select transcript or tool/diff pane. |
+| Page Up / Page Down | Scroll the selected pane. |
+| Ctrl+Home / Ctrl+End | Go to its beginning or end; the transcript follows new output at the end. |
+| Alt+Up / Alt+Down | Select the previous or next retained tool call. |
+| Ctrl+F | Fold or expand the selected tool's diff. |
+| F1 | Open or close the key guide. |
+| F2 | Open or close the currently loaded queue; Page Up / Page Down scroll it. `/queue` refreshes it. |
+| Ctrl+C / Ctrl+D | Cancel; twice within two seconds exits / exit when idle. |
+
+The status line shows the model selection, the last completed turn's measured input/output tokens, this
+session's measured cache ratio and the applicable global and agent token limits. A dash means the core did
+not report a value or access to it was refused. An unlimited token budget is shown only after a successful
+budget response without applicable token limits. The heading shows the bound worktree and its branch at open.
+
+An approval appears over the work area with its tool, targets, risk and available preview. Type the displayed
+choice and press Enter; an empty answer makes no decision. Escape denies. The draft underneath remains intact.
+If the request changes, an answer to the old request is discarded and a draft overtaken by a new question is
+restored. A required operating-system confirmation still uses the existing approval flow.
+
+The display keeps a bounded window: up to 1 MiB of transcript text in 512 entries, and 128 tool previews with a
+shared 1 MiB limit. Each frame scrolls within the newest 128 KiB or 8,192 lines of transcript; an ellipsis
+marks omitted text. Individual previews retain up to 64 KiB and visibly mark truncation. The core's transcript
+is unchanged. For a larger diff, use the line/JSON view to read the core's paged result. Closing the view,
+interrupting it or an unexpected renderer failure restores the terminal's input, cursor and normal screen.
+
+### Approvals
+
+For a request in this session, the terminal shows the recorded tool, targets, risk and available diff preview. Answer `y` for once, `a` for the displayed grant scope, `n` to deny, or `?` for details. The core offers and enforces the permitted scopes. A required operating-system confirmation appears through the existing D109 flow. Model replies and tool output cannot answer this prompt.
+
+When a folder lacks access, an interactive terminal asks once for permission to read and write that exact folder recursively for this Code session. Confirm through the operating system; `--yes` cannot answer this question. The permission ends with the session, and a stored binding never confers access by itself. Home roots, drive roots, system trees and the Harness's protected state/run directories remain refused. Scripts and ACP receive `E_APPROVAL_REQUIRED` instead of a folder prompt. Revoked permission takes effect on the next use.
+
+### Scripts and memory
+
+With a message, piped stdin or `--json`, the CLI runs without interactive approval:
+
+```sh
+plur1bus code . "Fix the failing parser test" --json
+printf '%s\n' 'Fix calculation' 'Update configuration' | plur1bus code . --json
+plur1bus code . "Fix the failing parser test" --model PROFILE --reasoning high --yes --json
+```
+
+Each stdin line starts one turn after the previous turn finishes. Results and raw events are JSON lines with `schema: "code.event/1"`; a final CLI error retains the usual `error/1` document and exit status. Future fields in RPC values are preserved. Every approval is answered no, with `approval-required` reported. `--yes` confirms only a requested model switch.
+
+`--no-memory` keeps the session, transcript and binding in the core's volatile store. They disappear when that core stops. Edits affect the selected worktree. The line editor's input history stays in memory.
+
+For diagnostics, see the [coding operations playbook](../../../skills/plur1bus-ops/playbooks/coding.md) and the generated [CLI reference](../../cli.md).
+
 ## When something goes wrong
 
 | Message | What to do |
