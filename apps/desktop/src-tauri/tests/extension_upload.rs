@@ -12,10 +12,21 @@ fn package_reads_are_bounded_and_refuse_nonregular_files() {
     assert_eq!(read_package(&path, 3).unwrap_err(), "too-large");
     assert_eq!(read_package(dir.path(), 10).unwrap_err(), "unsafe-file");
     std::fs::create_dir(dir.path().join("nested")).unwrap();
-    assert_eq!(
-        read_package(&dir.path().join("nested/../package.p1x"), 10).unwrap_err(),
-        "unsafe-file"
+    // PathBuf::join normalizes `..` when the Windows root is verbatim.
+    // Keep the deliberately untrusted lexical path intact before validation.
+    let mut traversal = dir.path().as_os_str().to_os_string();
+    let separator = std::path::MAIN_SEPARATOR;
+    traversal.push(format!(
+        "{separator}nested{separator}..{separator}package.p1x"
+    ));
+    let traversal = std::path::PathBuf::from(traversal);
+    assert!(
+        traversal
+            .components()
+            .any(|part| matches!(part, std::path::Component::ParentDir)),
+        "the negative fixture must still contain its lexical parent component"
     );
+    assert_eq!(read_package(&traversal, 10).unwrap_err(), "unsafe-file");
     assert_eq!(read_package(&path, u64::MAX).unwrap_err(), "unsafe-file");
 }
 
