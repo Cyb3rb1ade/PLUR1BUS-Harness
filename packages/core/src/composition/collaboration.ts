@@ -51,7 +51,7 @@ export function composedAgentRunner(provider: ChatProvider, scope: AgentScopePor
     let codingWorktree: string | null | undefined;
     let worktreeMount: WorktreeMount | null | undefined;
     const writable = !held.delegation || held.delegation.callClass === 'write';
-    if (worktrees && writable && input.handoff?.contract.kind === 'delegate' && cardId) {
+    if (worktrees && writable && (input.handoff?.contract.kind === 'delegate' || input.handoff?.contract.kind === 'handoff') && cardId) {
       const { contract: h, context } = input.handoff;
       if (input.principal.kind !== 'person' || context.person !== input.principal.userId
         || context.projectId !== held.projectId || h.task.project !== held.projectId

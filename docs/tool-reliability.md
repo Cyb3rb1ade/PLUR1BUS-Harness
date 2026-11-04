@@ -309,6 +309,11 @@ are written and no networking is performed by the fixture runner itself.
 
 ## Single execution path (D120 T1-a)
 
+Trusted registrations may carry a synchronous `beforeExecute` admission check.
+The dispatcher runs it after policy and approval, immediately before calling the
+executor. Native card tools use it to reject revoked grants and foreign turn
+identities. It cannot grant policy permission or execute a tool itself.
+
 Two tests keep every tool execution behind `ToolDispatcher`. `packages/core/test/tools/call-paths.test.ts` is a text scan of `packages/core/src` plus end-to-end turns; `packages/core/test/architecture/single-gate.test.ts` is a type-checked scan of `packages/*/src`.
 G1 allows `ToolDef.execute` only inside `ToolDispatcher.#run` and `ToolRegistry.register`. G2 allows `FsToolSpec.execute`, `ExecToolSpec.execute`, `ToolSpec.execute`, `HostTool.run`, `McpToolPort.callTool`, `McpRegistry.callTool`, `McpConnection.callTool`, `Hostctl.invoke` and `runHostTool` only inside a `ToolDef` `execute` body, an `McpToolPort` `callTool` decorator, `McpRegistry.callTool` (for `McpConnection.callTool`), or `runHostTool` and `createHostctl`'s `invoke` (for `HostTool.run`).
 The scan does not see values typed `any` or `unknown` and then cast, reflective access (`Reflect.get`, computed keys that are not string literals), objects whose type is inferred and only structurally compatible with an executor interface, or code outside `packages/*/src` (tests call executors directly on purpose).

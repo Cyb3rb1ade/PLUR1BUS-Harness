@@ -107,10 +107,11 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
   const registry = new ToolRegistry();
   const register = (tool: ToolDef) => {
     const discovery = tool.discovery ?? (tool.trust === 'first-party' ? firstPartyDiscovery(tool.name) : undefined);
-    registry.register({ ...tool, ...(discovery ? { discovery } : {}), ...(worktreeMount ? { execute: async (args: unknown, ctx: Parameters<ToolDef['execute']>[1]) => {
+    registry.register({ ...tool, ...(discovery ? { discovery } : {}), ...(worktreeMount ? { beforeExecute: (ctx: Parameters<ToolDef['execute']>[1]) => {
       if (ctx.agentId !== req.agentId || ctx.principal !== req.principal) throw new SandboxFailure('foreign native turn identity');
       nativeWorktreeBinding(worktreeMount, ctx.agentId, req.projectId, req.codingWorktree);
-      return tool.execute(args, ctx);
+      tool.beforeExecute?.(ctx);
+      return undefined;
     } } : {}), ...(req.codingWorktree && tool.classify ? { classify: async (...args: Parameters<NonNullable<ToolDef["classify"]>>) => {
       const result = await tool.classify!(...args);
       return { ...result, flags: { ...result.flags, ...(result.flags?.outsideRoots ? { denyListHit: true } : {}) } };

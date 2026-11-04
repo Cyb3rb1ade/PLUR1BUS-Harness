@@ -17,15 +17,22 @@ mount, inventing an object or supplying a raw path grants no authority. The
 binding fixes the provisioned row, canonical checkout, Git metadata and directory
 identity. Every bound tool invocation rechecks the row, assignments and executing
 agent/person identity after dispatcher authorization, including file and host tools.
+The registry carries this synchronous admission check into the dispatcher, which
+remains the sole caller of tool execution; approval waits cannot bypass a fresh check.
 Process admission additionally rechecks the row and assignments; observed revocation
 invalidates the grant permanently. A final synchronous check immediately precedes
 the child spawn. Revocation prevents subsequent admission; it does not claim to
 terminate a process or asynchronous tool operation already admitted.
 
-Only writable card delegations receive this grant. Consultation, read and review
+Only writable card delegations and ownership handoffs receive this grant. Consultation, read and review
 turns receive none. The provider's candidate first-party tool names are intersected
 with the handoff's declared tools. The live tool registry and ordinary dispatcher
 authorization still decide which calls may execute.
+
+A write delegation without a card or repository binding receives no card mount.
+Its declared tools are still intersected with the trusted first-party view and
+use the receiving agent's configured ordinary roots. Linux native execution still
+refuses a missing writable mount; this does not create a project-root fallback.
 
 ## Containment and resource bounds
 

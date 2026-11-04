@@ -12,14 +12,15 @@ import { nativeWorktreeBinding } from '../../src/tools/sandbox/worktree-mount.ts
 import { rig } from '../approvals/service-helpers.ts';
 import { nativeCardFixture } from './native-card-fixture.ts';
 
-async function delegated() {
+async function delegated(kind: 'delegate' | 'handoff' = 'delegate') {
   const b = nativeCardFixture(), approvals = await rig();
   const traceId = randomUUID(), spanId = randomUUID(), taskId = randomUUID(), sessionId = randomUUID();
   const scope = { ...scopeFor('worker', b.project.id), toolView: ['exec.run', 'file.write'],
     delegation: { traceId, spanId, path: ['lead', 'worker'], callClass: 'write' as 'write' | 'read' | 'review', workBudget: delegationWorkBudget(10000) } };
   const input: AgentRunInput = { agentId: 'worker', principal: b.who, question: 'Code', context: '', sessionId,
     signal: new AbortController().signal, origin: { fromAgent: 'lead', traceId, spanId }, handoff: {
-      contract: { schema: 'plur1bus.handoff/1', id: randomUUID(), kind: 'delegate', from: { agent: 'lead', session: sessionId },
+      contract: { schema: 'plur1bus.handoff/1', id: randomUUID(), kind,
+        ...(kind === 'handoff' ? { state: { done: [], current: 'Implement card', next: ['Verify result'] } } : {}), from: { agent: 'lead', session: sessionId },
         to: { agent: 'worker' }, task: { id: taskId, project: b.project.id, card: b.card.id }, objective: 'Code', doneWhen: ['verified'],
         constraints: { must: [], mustNot: [], scope: { paths: ['**'], tools: ['exec.run', 'file.write'] } },
         authority: { mayDecide: [], mustAsk: [], approvalsHeld: [] },
@@ -51,8 +52,9 @@ async function delegated() {
     close() { approvals.service.dispose(); approvals.stores.db.close(); b.close(); } };
 }
 
-test('a trusted assigned delegate carries the opaque mount into its ordinary native request', async () => {
-  const b = await delegated();
+for (const kind of ['delegate', 'handoff'] as const) {
+test(`a trusted assigned ${kind} carries the opaque mount into its ordinary native request`, async () => {
+  const b = await delegated(kind);
   try {
     let calls = 0;
     await b.run({ id: 'fixture', async *stream(req) {
@@ -67,8 +69,8 @@ test('a trusted assigned delegate carries the opaque mount into its ordinary nat
 });
 
 for (const mismatch of ['sender', 'receiver', 'unknown-card', 'archived-card', 'project', 'from', 'to', 'person'] as const) {
-  test(`invalid delegated ${mismatch} creates no mount, fork or work-provider call`, async () => {
-    const b = await delegated();
+  test(`invalid ${kind} ${mismatch} creates no mount, fork or work-provider call`, async () => {
+    const b = await delegated(kind);
     try {
       const h = b.input.handoff!.contract;
       if (mismatch === 'sender' || mismatch === 'receiver') b.collab.boardStore.assign(b.project.id, b.card.id,
@@ -86,6 +88,7 @@ for (const mismatch of ['sender', 'receiver', 'unknown-card', 'archived-card', '
       assert.deepEqual(b.store.liveWorktree(b.project.id, h.task.card ?? null), before);
     } finally { b.close(); }
   });
+}
 }
 
 for (const callClass of ['read', 'review'] as const) test(`${callClass} scopes cannot upgrade a selected card to a native writable turn`, async () => {

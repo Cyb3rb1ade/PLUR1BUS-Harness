@@ -161,6 +161,23 @@ describe("ToolDispatcher", () => {
     assert.equal(ran, 0); assertProvenance(r, /^harness:tools$/);
   });
 
+  for (const revoke of [false, true]) it(`live admission follows approval and immediately precedes execution: revoked=${revoke}`, async () => {
+    const events: string[] = [];
+    let revoked = false;
+    const { d } = rig([ask({ beforeExecute(ctx) {
+      events.push('admission');
+      assert.equal(ctx.agentId, CTX.agentId);
+      assert.equal(ctx.principal, CTX.principal);
+      if (revoked) throw new Error('authority revoked');
+      return undefined;
+    }, execute: async () => { events.push('execute'); return 1; } })], {
+      approve: async () => { events.push('approval'); revoked = revoke; return { approved: true }; },
+    });
+    const result = await d.call(call('demo.net', { q: 'a' }), CTX);
+    assert.equal(result.isError, revoke);
+    assert.deepEqual(events, revoke ? ['approval', 'admission'] : ['approval', 'admission', 'execute']);
+  });
+
   it("approval port failure or abort while waiting fails closed", async () => {
     let ran = 0;
     const x = rig([ask({ execute: async () => { ran++; return 1; } })], { approve: async () => { throw new Error("store down"); } });

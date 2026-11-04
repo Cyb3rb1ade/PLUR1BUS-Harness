@@ -69,6 +69,8 @@ export interface ToolDef {
   limits?: Partial<ToolLimits>;
   processSandbox?: ToolProcessSandbox;
   classify?(args: unknown): ToolClassification | Promise<ToolClassification>;
+  /** Trusted synchronous live-authority check, after policy/approval and immediately before execution. */
+  beforeExecute?(ctx: ToolRunContext): undefined;
   execute(args: unknown, ctx: ToolRunContext): Promise<unknown>;
 }
 
@@ -118,7 +120,7 @@ export class ToolRegistry {
       name: d.name, ...(d.discovery ? { discovery: structuredClone(d.discovery) } : {}), description: d.description, inputSchema: schema, capability: cap.id, effect: d.effect, risk: d.risk,
       trust: d.trust ?? "untrusted", limits: { timeoutMs, maxResultBytes },
       ...(d.processSandbox ? { processSandbox: { required: d.processSandbox.required, recordBypass: d.processSandbox.recordBypass } } : {}),
-      ...(d.classify ? { classify: d.classify } : {}), execute: d.execute,
+      ...(d.classify ? { classify: d.classify } : {}), ...(d.beforeExecute ? { beforeExecute: d.beforeExecute } : {}), execute: d.execute,
     }));
   }
 
