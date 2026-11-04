@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.14.0)
+# RPC reference (rpc 1.15.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -12,7 +12,7 @@ capabilities is a convenience, while every handler enforces the principal at dis
 `engine.event` with its `x-engine-notification` schema; the deprecated Core emitter keeps its existing payload and opt-in rule.
 Design and rationale: `docs/adr/ADR-012-process-model-and-languages.md`.
 
-JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch.
+JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch. D120: tools methods are served by plur1bus-tools and require the Core principal.
 
 ## Local endpoint trust
 
@@ -492,6 +492,11 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `engine.snapshot.verify`: experimental, since 1.7.0
 - `engine.tombstones.reapply`: experimental, since 1.7.0
 - `engine.agent.close`: experimental, since 1.7.0
+
+### tools server
+
+- `tools.hello`: experimental, since 1.15.0
+- `tools.health`: experimental, since 1.15.0
 
 ## Methods
 
@@ -24687,6 +24692,93 @@ D109 §9.10: approval-related HMAC-chain entries of the calling person, newest f
 }
 ```
 
+### `tools.hello`
+
+**Stability:** experimental · since 1.15.0
+
+**Served by:** tools
+
+First call on a Core tools connection. The dedicated credential and recorded Core PID/instance establish the principal; where available the kernel peer PID must match run/core.pid. The first hello installs a process-wide 32-byte hex HMAC ticketKey for that Core start (D120 §11.2); further connections must present the same key. A new Core identity replaces the key and closes old Core connections. Neither credential is returned or logged. Supervisor lifecycle uses a separate control token.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "token",
+    "ticketKey"
+  ],
+  "properties": {
+    "token": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "ticketKey": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "rpc",
+    "instanceId",
+    "pid",
+    "capabilities"
+  ],
+  "properties": {
+    "rpc": {
+      "type": "string"
+    },
+    "instanceId": {
+      "type": "string"
+    },
+    "pid": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "capabilities": {
+      "$ref": "#/$defs/Capabilities"
+    }
+  }
+}
+```
+
+### `tools.health`
+
+**Stability:** experimental · since 1.15.0
+
+**Served by:** tools
+
+Core-only tools readiness. A tools failure does not stop Core turns.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/ToolsHealth"
+}
+```
+
 ## Notifications
 
 Core notifications are delivered on the same connection to clients that called `events.subscribe`. Engine transport notifications are delivered on authenticated engine connections.
@@ -32659,6 +32751,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "type": "string"
       },
       "description": "Deprecated methods/notifications used at least once since start, as `method:<name>`/`notification:<name>`, sorted (ADR-016 §5, S13)."
+    },
+    "tools": {
+      "$ref": "#/$defs/ToolsServiceStatus"
     }
   }
 }
@@ -33085,9 +33180,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "enum": [
         "core",
         "module",
-        "api"
+        "api",
+        "tools"
       ],
-      "description": "Experimental (1.3.0). Whether the child is the core, HTTP API or a module; absent from supervisors before 1.3.0."
+      "description": "Experimental (1.3.0). Whether the child is Core, HTTP API, an installable module, or the native tools service (since 1.15.0 / D120 H1-1); absent from supervisors before 1.3.0."
     }
   }
 }
@@ -39205,6 +39301,72 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "null"
       ],
       "minimum": 0
+    }
+  }
+}
+```
+
+### `ToolsHealth`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "process",
+    "rpc",
+    "instanceId",
+    "pid",
+    "uptimeMs"
+  ],
+  "properties": {
+    "process": {
+      "$ref": "#/$defs/ProcessState"
+    },
+    "rpc": {
+      "type": "string"
+    },
+    "instanceId": {
+      "type": "string"
+    },
+    "pid": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "uptimeMs": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `ToolsServiceStatus`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "ready",
+    "pid",
+    "checkedAt"
+  ],
+  "properties": {
+    "ready": {
+      "type": "boolean"
+    },
+    "pid": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "checkedAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
     }
   }
 }

@@ -5,7 +5,7 @@
 import { describe, it, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, rmSync } from "node:fs";
-import { join, parse, resolve } from "node:path";
+import { dirname, join, parse, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { BIN, REAL, RERANK_FAILURE, waitEngineReady, waitFor, cli, daemonStatus, home, linkModelCache, reapHome, startDaemon, stopDaemon } from "../system/helpers.ts";
@@ -91,8 +91,10 @@ describe("E3 — CLI → daemon → core smoke", () => {
     mkdirSync(user);
     const installedBinary = join(installation, process.platform === "win32" ? "plur1bus.exe" : "plur1bus");
     cpSync(BIN, installedBinary);
+    const toolsName = `plur1bus-tools${process.platform === "win32" ? ".exe" : ""}`;
+    cpSync(join(dirname(BIN), toolsName), join(installation, toolsName));
     const installedEnv: NodeJS.ProcessEnv = { ...process.env, ...FAKE, ...(REAL ? {} : { PLUR1BUS_TEST_INTERNALS: "flat-embedder" }), PLUR1BUS_SERVICE_FAKE: service, PLUR1BUS_UPDATE_TARGET_BIN: installedBinary, HOME: user, USERPROFILE: user, LOCALAPPDATA: join(user, "AppData", "Local"), XDG_CONFIG_HOME: join(user, ".config") };
-    for (const key of ["PLUR1BUS_NODE", "PLUR1BUS_CORE_JS", "PLUR1BUS_NODE_MIRROR", "PLUR1BUS_CONTAINER", "PLUR1BUS_HOME"]) delete installedEnv[key];
+    for (const key of ["PLUR1BUS_NODE", "PLUR1BUS_CORE_JS", "PLUR1BUS_NODE_MIRROR", "PLUR1BUS_CONTAINER", "PLUR1BUS_HOME", "PLUR1BUS_TOOLS_BIN"]) delete installedEnv[key];
     if (REAL) delete installedEnv.PLUR1BUS_TEST_INTERNALS;
     if (process.env.PLUR1BUS_SMOKE_NODE_MIRROR) installedEnv.PLUR1BUS_NODE_MIRROR = process.env.PLUR1BUS_SMOKE_NODE_MIRROR;
     try {
@@ -135,6 +137,10 @@ describe("E3 — CLI → daemon → core smoke", () => {
       assert.equal(status.children[0].role, "core");
       assert.equal(status.children[0].process.state, "ready", JSON.stringify(status.children[0]));
       assert.equal(typeof status.children[0].pid, "number");
+      const tools = status.children.filter((child: any) => child.kind === "tools");
+      assert.equal(tools.length, 1);
+      assert.equal(tools[0].process.state, "ready", JSON.stringify(tools[0]));
+      assert.equal(typeof tools[0].pid, "number");
 
       t.diagnostic(`models warm ${Math.round(await waitEngineReady(h1, REAL ? 60_000 : 30_000))} ms after daemon start`);
 
@@ -152,7 +158,8 @@ describe("E3 — CLI → daemon → core smoke", () => {
       if (REAL) assert.equal(cli(h1, ["memory", "add", "--agent", "bernd", "--session", "s1", "Please remember that the quarterly budget draft is due in March."]).stored, 1);
       const logFile = join(h1, "logs", "core.log");
       const logMark = existsSync(logFile) ? statSync(logFile).size : 0;
-      const recall = cli(h1, ["memory", "recall", "--agent", "bernd", "--session", "s2", "--joined", "harbour tour"]);
+      t.diagnostic(`first CLI recall at ${new Date().toISOString()}`);
+      const recall = timed(t, "first CLI recall", () => cli(h1, ["memory", "recall", "--agent", "bernd", "--session", "s2", "--joined", "harbour tour"]));
       assert.equal(recall.degraded, null, JSON.stringify(recall));
       assert.match(recall.joined.text, /harbour tour/);
       if (REAL) {
@@ -164,7 +171,8 @@ describe("E3 — CLI → daemon → core smoke", () => {
       t.diagnostic(`daemon restart at ${new Date().toISOString()}`);
       cli(h1, ["daemon", "start"], { env: installedEnv });
       t.diagnostic(`models warm ${Math.round(await waitEngineReady(h1, REAL ? 60_000 : 30_000))} ms after the restart`);
-      const restartedRecall = cli(h1, ["memory", "recall", "--agent", "bernd", "--session", "after-restart", "--joined", "harbour tour"]);
+      t.diagnostic(`restarted CLI recall at ${new Date().toISOString()}`);
+      const restartedRecall = timed(t, "restarted CLI recall", () => cli(h1, ["memory", "recall", "--agent", "bernd", "--session", "after-restart", "--joined", "harbour tour"]));
       assert.equal(restartedRecall.degraded, null);
       assert.match(restartedRecall.joined.text, /harbour tour/);
       for (const line of [...coreTimings(h1), ...supervisorEvents(h1), ...(REAL ? modelFiles(h1) : [])]) t.diagnostic(line);

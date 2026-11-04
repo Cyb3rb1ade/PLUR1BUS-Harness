@@ -1,3 +1,5 @@
+//! Typed RPC fixtures enforce closed params and forward-compatible results.
+
 use plur1bus_rpc::types;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
@@ -91,7 +93,7 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
         .map(|entry| {
             let path = entry.unwrap().path();
             let name = path.file_stem().unwrap().to_string_lossy().into_owned();
-            let fixture = serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
+            let fixture: Value = serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
             (name, fixture)
         })
         .collect();
@@ -104,6 +106,16 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
 
     for (name, fixture) in &fixtures {
         match name.as_str() {
+            "tools.hello" => check_pair::<types::ToolsHelloParams, types::ToolsHelloResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "tools.health" => check_pair::<types::ToolsHealthParams, types::ToolsHealthResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "admin.extensions.auth.cancel" => check_pair::<
                 types::AdminExtensionsAuthCancelParams,
                 types::AdminExtensionsAuthCancelResult,

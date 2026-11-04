@@ -62,7 +62,12 @@ test('Core System One diagnostics send only the fixed synthetic choice through t
   try {
     await rpc.call('secret.set', { name: 'typesafe-test', value: 'core-diagnostic-key-probe' });
     await assert.rejects(rpc.call('decision.test', { agentId: 'bernd', state: 'private arbitrary message' })); assert.equal(calls.length, 0);
-    const result = await rpc.call<{ ok: boolean; backend: string }>('decision.test', { agentId: 'bernd' }); assert.equal(result.ok, true); assert.equal(result.backend, 'jev');
+    const result = await rpc.call<{ ok: boolean; backend?: string; outcome: string; durationMs: number }>('decision.test', { agentId: 'bernd' });
+    // This RPC returns fixed labels and a duration, never the credential or synthetic request body.
+    const diagnostic = JSON.stringify({ outcome: result.outcome, backend: result.backend,
+      durationMs: result.durationMs, requestsReceived: calls.length });
+    t.diagnostic(diagnostic);
+    assert.equal(result.ok, true, diagnostic); assert.equal(result.backend, 'jev');
     assert.equal(calls.length, 1); assert.equal(calls[0].state, '2'); assert.equal(calls[0].questions.decision.instructions, 'Is this integer even or odd?');
     assert.equal(JSON.stringify(calls).includes('private arbitrary message'), false);
   } finally { await rpc.close(); await core.stop({ budgetMs: 5000 }); }

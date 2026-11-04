@@ -6,10 +6,14 @@ use serde_json::Value;
 use std::fs::{self, File, Metadata, OpenOptions};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 const MAX_METADATA: u64 = 2048;
 const MAX_PACKAGE: u64 = 1 << 30;
 const UPLOAD_TTL: u64 = 600_000;
+
+// A second inspector must not validate a newly created directory before its private ACL is installed.
+static INSPECTION_DIRECTORY: Mutex<()> = Mutex::new(());
 
 /// A local Core credential and an API-forwarded person remain distinct, even for userId `local-owner`.
 #[derive(Clone, Copy)]
@@ -233,8 +237,21 @@ pub fn bind_inspection(layout: &Layout, id: &str, caller: Caller<'_>) -> Result<
         return Err(record::expired());
     }
     private_path(&layout.run(), true).map_err(|_| record::expired())?;
+    let initializing = INSPECTION_DIRECTORY.lock().map_err(|_| record::expired())?;
     let dir = layout.run().join("inspect");
-    match fs::create_dir(&dir) {
+    // Another first inspector may validate the directory as soon as mkdir returns.
+    let created = {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::DirBuilderExt;
+            fs::DirBuilder::new().mode(0o700).create(&dir)
+        }
+        #[cfg(not(unix))]
+        {
+            fs::create_dir(&dir)
+        }
+    };
+    match created {
         Ok(()) => {
             #[cfg(unix)]
             {
@@ -253,6 +270,7 @@ pub fn bind_inspection(layout: &Layout, id: &str, caller: Caller<'_>) -> Result<
         Err(_) => return Err(record::expired()),
     }
     directory(layout, "inspect").map_err(|_| record::expired())?;
+    drop(initializing);
     let owner = InspectionOwner {
         version: 1,
         user_id: match caller {
@@ -321,5 +339,58 @@ pub fn check_inspection(layout: &Layout, id: &str, caller: Caller<'_>) -> Result
 pub fn remove_owner(layout: &Layout, id: &str) {
     if record::valid_id(id) {
         let _ = fs::remove_file(owner_path(layout, id));
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+    use std::sync::Barrier;
+
+    #[test]
+    fn concurrent_inspection_bindings_create_one_private_directory() {
+        for _ in 0..64 {
+            let dir = tempfile::tempdir().unwrap();
+            let layout = Layout::new(dir.path().to_path_buf());
+            fs::DirBuilder::new()
+                .mode(0o700)
+                .create(layout.run())
+                .unwrap();
+            let barrier = Barrier::new(8);
+            let ids: Vec<String> = (0..8)
+                .map(|_| crate::ext::worker::new_inspection_id())
+                .collect();
+            std::thread::scope(|scope| {
+                let pending: Vec<_> = ids
+                    .iter()
+                    .map(|id| {
+                        let layout = &layout;
+                        let barrier = &barrier;
+                        scope.spawn(move || {
+                            barrier.wait();
+                            bind_inspection(layout, id, Caller::LocalOwner)
+                        })
+                    })
+                    .collect();
+                for result in pending {
+                    assert!(
+                        result.join().unwrap().is_ok(),
+                        "a concurrent first inspection was refused"
+                    );
+                }
+            });
+            assert_eq!(
+                fs::metadata(layout.run().join("inspect"))
+                    .unwrap()
+                    .permissions()
+                    .mode()
+                    & 0o777,
+                0o700
+            );
+            for id in ids {
+                assert!(owner_path(&layout, &id).is_file());
+            }
+        }
     }
 }

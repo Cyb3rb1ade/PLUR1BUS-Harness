@@ -161,7 +161,7 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
        *  never-gives-up assertion below would expose if it were wrong. */
       let kills: number[] = [];
       /** The supervisor-kill phase whose restart is pending: its core pid, and whether that core must be adopted. */
-      let phase: { core: number; adopt: boolean } | null = null;
+      let phase: { core: number; tools: number; adopt: boolean } | null = null;
       /** ms spent waiting for a pending supervisor restart after the last turn (added to the drain budget). */
       let restartWaitMs = 0;
       const restartDue = async (): Promise<void> => {
@@ -169,21 +169,41 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
         const wait = Math.max(0, restartAt - performance.now());
         await sleep(wait);
         restartWaitMs = wait;
-        await restartSupervisor(h, env);
+        try {
+          await restartSupervisor(h, env);
+        } catch (error) {
+          // Content-free lifecycle metadata survives cleanup when a supervisor cannot restart.
+          let lifecycle: unknown[] = [];
+          try {
+            lifecycle = readFileSync(join(h, "logs/supervisor.log"), "utf8").trim().split("\n").slice(-30)
+              .map((line) => JSON.parse(line))
+              .map(({ msg, child, pid, code, signal, state, reason }) => ({ msg, child, pid, code, signal, state, reason }));
+          } catch { /* Preserve the original failure even if the log is absent or incomplete. */ }
+          t.diagnostic(`restart lifecycle: ${JSON.stringify(lifecycle)}`);
+          throw error;
+        }
         restartAt = null;
         kills = [];
         const p = phase!;
         phase = null;
+        const tools = await waitFor("a ready tools service after supervisor restart", () => {
+          const child = daemonStatus(h).children.find((child: any) => child.role === "tools");
+          return child?.process?.state === "ready" && child.pid != null && child;
+        }, 10_000);
         if (p.adopt) {
           // < grace: the running core is adopted, not respawned.
           const c = await waitFor("the core to be adopted", () => { const c = coreChild(h); return c?.adopted === true && c; }, 10_000);
           assert.equal(c.pid, p.core, `the adopted core is the same process: ${JSON.stringify(c)}`);
+          assert.equal(tools.pid, p.tools, "tools is adopted within its orphan grace");
+          assert.equal(tools.adopted, true, JSON.stringify(tools));
           counts.adoptions++;
         } else {
           // > grace: the orphaned core stopped on its own, and the new supervisor spawns a new one.
           const c = await waitFor("a new core process", () => { const c = coreChild(h); return c?.pid != null && c; }, 10_000);
           assert.notEqual(c.pid, p.core, `a new core after the grace: ${JSON.stringify(c)}`);
           assert.equal(c.adopted, false, JSON.stringify(c));
+          assert.notEqual(tools.pid, p.tools, "tools also expires after the configured 3 s orphan grace");
+          assert.equal(tools.adopted, false, JSON.stringify(tools));
           const logs = readdirSync(join(h, "logs")).filter((f) => /^core\.log(\.\d+)?$/.test(f));
           assert.ok(logs.some((f) => readFileSync(join(h, "logs", f), "utf8").includes("orphan grace expired")), `core.log records the grace expiry (${logs.join(", ")})`);
           counts.respawns++;
@@ -192,9 +212,13 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
       const killSupervisor = async (afterMs: number, adopt: boolean): Promise<void> => {
         await restartDue();
         const ready = await waitFor("a ready core before the supervisor kill", () => readyChild(h), READY_BUDGET_MS);
+        const tools = await waitFor("a ready tools service before the supervisor kill", () => {
+          const child = daemonStatus(h).children.find((child: any) => child.role === "tools");
+          return child?.process?.state === "ready" && child.pid != null && child;
+        }, READY_BUDGET_MS);
         await killPid(supervisorPid(h)!, "SIGKILL");
         restartAt = performance.now() + afterMs;
-        phase = { core: ready.pid, adopt };
+        phase = { core: ready.pid, tools: tools.pid, adopt };
       };
       const timed = (args: string[], into: number[], budgetMs: number): any => {
         const s = performance.now();
@@ -326,14 +350,16 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
       // before it stores again.
       assert.deepEqual(replayedTwice, [], `journaled facts not present exactly once: ${JSON.stringify(replayedTwice)}`);
 
-      // Exactly one supervisor and one core remain (next to the loopback API the supervisor monitors since the
-      // supervised API landed: at most one healthy `api` child), and only the core holds
-      // LanceDB files.
+      // One core, one healthy native tools service, and at most one healthy loopback API remain.
+      // Only Core may hold LanceDB files.
       const status = daemonStatus(h);
       const cores = status.children.filter((c: any) => c.role === "core");
       const others = status.children.filter((c: any) => c.role !== "core");
       assert.equal(cores.length, 1, JSON.stringify(status));
-      assert.ok(others.length <= 1 && others.every((c: any) => c.role === "api" && c.process?.state === "ready"), `only a healthy api may run next to the core: ${JSON.stringify(status)}`);
+      assert.equal(others.filter((c: any) => c.role === "tools").length, 1, "exactly one tools service remains");
+      assert.ok(others.length <= 2 && new Set(others.map((c: any) => c.role)).size === others.length &&
+        others.every((c: any) => ["tools", "api"].includes(c.role) && c.process?.state === "ready"),
+        `only healthy fixed companions may run next to Core: ${JSON.stringify(status)}`);
       const pids = homePids(h).sort();
       assert.deepEqual(pids, [status.supervisor.pid, ready.pid, ...others.map((c: any) => c.pid)].sort(), `pgrep -f -- "--home ${h}"`);
       if (process.platform === "linux") {

@@ -21,6 +21,7 @@
         "sha256": { "$ref": "#/$defs/sha256OrNull" }
       }
     },
+    "tools": { "description": "Native tools companion; absent only in pre-D120 installs.", "type": "object", "additionalProperties": false, "required": ["version", "sha256"], "properties": { "version": { "$ref": "#/$defs/version" }, "sha256": { "$ref": "#/$defs/sha256OrNull" } } },
     "node": {
       "type": "object",
       "additionalProperties": false,

@@ -67,7 +67,13 @@ jobs:
       # PLUR1BUS_TOKENIZER_DIR is set on the steps that use it: a job's env has no `runner` context, and GitHub rejects
       # the whole workflow file when one is referenced there.
     steps:
+      - name: Report actual macOS version
+        if: runner.os == 'macOS'
+        run: sw_vers
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Job-local CMake for macOS unit builds
+        if: runner.os == 'macOS'
+        run: bash scripts/ci/setup-macos-cmake.sh
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with: { version: 10.28.0 }
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -125,6 +131,9 @@ jobs:
       - name: build native sandbox launcher for Core assertions
         if: needs.changes.outputs.ts-core == 'true'
         run: cargo build --locked -p plur1bus --bin plur1bus-sandbox-limits
+      - name: native binaries for Core tools-service integration (macOS)
+        if: runner.os == 'macOS'
+        run: cargo build --locked -p plur1bus-tools -p plur1bus
       - name: unit tests with file timings
         if: needs.changes.outputs.ts-core == 'true'
         shell: bash
@@ -229,14 +238,15 @@ jobs:
   # dispatch, label `ci:macos`, platform-sensitive paths; docs/ci.md) instead of excluding matrix entries (an all-excluded
   # matrix is not used). The Linux leg is `unit` above. Windows runs Core in `core-unit-shard-windows` below, as Ubuntu does.
   unit-os:
-    name: unit (${{ matrix.os }})
+    name: unit (${{ (matrix.os == 'macos-15' && vars.MACOS_SELF_HOSTED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && 'macOS VM' || matrix.os }})
     needs: changes
     if: needs.changes.outputs.proceed == 'true' && (needs.changes.outputs.rust == 'true' || needs.changes.outputs.ts-core == 'true') && needs.changes.outputs.macos == 'true'
     strategy:
       fail-fast: false
       matrix:
         os: [macos-15, windows-2025]
-    runs-on: ${{ matrix.os }}
+    # Reuse the owner's isolated ephemeral VM for trusted macOS unit code; other platforms keep their hosted runners.
+    runs-on: ${{ (matrix.os == 'macos-15' && vars.MACOS_SELF_HOSTED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","plur1bus-macos-vm"]') || matrix.os }}
     # A hang fails fast: the job has a ceiling, and each long test step its own, below it.
     timeout-minutes: ${{ matrix.os == 'windows-2025' && 90 || 65 }}
     env:
@@ -248,7 +258,13 @@ jobs:
       # PLUR1BUS_TOKENIZER_DIR is set on the steps that use it: a job's env has no `runner` context, and GitHub rejects
       # the whole workflow file when one is referenced there.
     steps:
+      - name: Report actual macOS version
+        if: runner.os == 'macOS'
+        run: sw_vers
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Job-local CMake for macOS unit builds
+        if: runner.os == 'macOS'
+        run: bash scripts/ci/setup-macos-cmake.sh
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with: { version: 10.28.0 }
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -306,6 +322,9 @@ jobs:
       - name: build native sandbox launcher for Core assertions
         if: needs.changes.outputs.ts-core == 'true'
         run: cargo build --locked -p plur1bus --bin plur1bus-sandbox-limits
+      - name: native binaries for Core tools-service integration (macOS)
+        if: runner.os == 'macOS'
+        run: cargo build --locked -p plur1bus-tools -p plur1bus
       - name: unit tests with file timings
         if: needs.changes.outputs.ts-core == 'true'
         shell: bash
@@ -458,6 +477,8 @@ jobs:
           bwrap --ro-bind / / --unshare-all true
       - name: build native sandbox launcher for Core assertions
         run: cargo build --locked -p plur1bus --bin plur1bus-sandbox-limits
+      - name: native binaries for tools-service integration
+        run: cargo build --locked -p plur1bus-tools -p plur1bus
       - name: measured Core shard
         timeout-minutes: 15
         shell: bash
@@ -552,6 +573,8 @@ jobs:
       # About 222 files, so about 16 minutes at that rate; the budget leaves room for a slow runner.
       - name: build native sandbox launcher for Core assertions
         run: cargo build --locked -p plur1bus --bin plur1bus-sandbox-limits
+      - name: native binaries for tools-service integration
+        run: cargo build --locked -p plur1bus-tools -p plur1bus
       - name: measured Core shard
         timeout-minutes: 30
         shell: bash
@@ -632,7 +655,7 @@ jobs:
           fi
           git config --global --add "url.${base}.insteadOf" "git@github.com:"
           git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
-      - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
+      - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus -p plur1bus-tools
       # X1 Task 14: the extension fixtures (signed and tampered packages, the module fixture) are generated per run with a
       # throwaway in-memory key; only its public half reaches the tests, through pubkeys.env. Nothing is committed.
       - name: extension fixtures
@@ -691,11 +714,13 @@ jobs:
         with: { toolchain: "1.95" }
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
       - name: build Core and CLI for served-stack browser acceptance
-        run: pnpm gen && pnpm build && pnpm typecheck && cargo build -p plur1bus
+        run: pnpm gen && pnpm build && pnpm typecheck && cargo build -p plur1bus -p plur1bus-tools
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: web-browser-cli
-          path: target/debug/plur1bus
+          path: |
+            target/debug/plur1bus
+            target/debug/plur1bus-tools
           if-no-files-found: error
           retention-days: 1
   web-browser-shard:
@@ -742,7 +767,7 @@ jobs:
           name: web-browser-cli
           path: target/debug
       - name: current-branch CLI from web-browser-build
-        run: chmod +x "$PLUR1BUS_BIN" && "$PLUR1BUS_BIN" --version
+        run: chmod +x "$PLUR1BUS_BIN" "$(dirname "$PLUR1BUS_BIN")/plur1bus-tools" && "$PLUR1BUS_BIN" --version
       # The browser files are keyed by the lockfile (it pins Playwright and so the Chromium revision); the install step
       # below still runs, adds the Linux libraries and downloads the browser on a miss.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -869,8 +894,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
         with: { toolchain: "1.95" }
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
-      - run: cargo build --release -p plur1bus
-      - run: cargo test --release -p plur1bus --test service
+      - run: cargo build --release -p plur1bus -p plur1bus-tools
+      - run: cargo build --release -p plur1bus -p plur1bus-tools && cargo test --release -p plur1bus --test service
         timeout-minutes: 5
       - name: user service manager
         id: manager
@@ -960,7 +985,7 @@ jobs:
           done
           export GIT_CONFIG_COUNT=$n
           unset GH_ENGINE_READ_TOKEN base
-          pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
+          pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus -p plur1bus-tools
       # PLUR1BUS_LIVE_REQUIRED: a live suite that cannot run fails here instead of skipping.
       - name: live RPC conformance and provider against a real core
         shell: bash
@@ -1229,7 +1254,7 @@ jobs:
           export GIT_CONFIG_KEY_2="url.${base}.insteadOf" GIT_CONFIG_VALUE_2='https://github.com/'
           pnpm install --frozen-lockfile
       - run: pnpm prep
-      - run: cargo build --release -p plur1bus
+      - run: cargo build --release -p plur1bus -p plur1bus-tools
       - name: help isolation and measurement tests
         run: node --experimental-strip-types --conditions=source --test --test-concurrency=1 tests/system/help-isolation.test.ts scripts/bench/metrics.test.mjs scripts/bench/startup.test.mjs
       - name: measure B1 B8 B11 (30 starts, advisory timings)
@@ -1303,7 +1328,7 @@ jobs:
           export GIT_CONFIG_KEY_2="url.${base}.insteadOf" GIT_CONFIG_VALUE_2='https://github.com/'
           pnpm install --frozen-lockfile
       - run: pnpm prep
-      - run: cargo build --release -p plur1bus
+      - run: cargo build --release -p plur1bus -p plur1bus-tools
       - name: O6 dry hardware baseline (known incomplete coverage is explicit)
         shell: bash
         run: |

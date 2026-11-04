@@ -110,3 +110,12 @@ test('shared Rust fixtures and Rust source parity inputs select both language su
     assert.deepEqual(selected(['docs/a.md', file]), ['rust', 'ts-core', 'web'], file);
   }
 });
+
+for (const file of ['crates/plur1bus-tools/src/server.rs', 'crates/plur1bus-rpc/src/server_transport.rs',
+  'crates/plur1bus-rpc/src/server_transport_unix.rs', 'crates/plur1bus-rpc/src/server_transport_windows.rs']) {
+  test(`native tools dependency selects Core integration: ${file}`, () => {
+    const selected = classify({ event: 'pull_request', files: [file] });
+    assert.equal(selected.rust, true);
+    assert.equal(selected['ts-core'], true);
+  });
+}

@@ -110,7 +110,7 @@ fn is_locked(e: &io::Error) -> bool {
 
 // ---- run.stale-files.remove ------------------------------------------------------------------------------------
 
-/// The run files this step may ever remove: a pid file or a socket of the core, the supervisor or a module. Never a
+/// The run files this step may ever remove: a pid file or a socket of the core, supervisor, tools or a module. Never a
 /// token, `supervisor.lock` or anything else.
 fn removable(name: &str) -> bool {
     let stem = name
@@ -124,7 +124,7 @@ fn removable(name: &str) -> bool {
             && m.chars()
                 .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
     });
-    stem == "core" || stem == "supervisor" || module
+    stem == "core" || stem == "supervisor" || stem == "tools" || module
 }
 
 /// Why `run/<name>` must stay, or `None` when nothing lives behind it: re-checked right before the removal
@@ -413,6 +413,8 @@ mod tests {
         for ok in [
             "core.pid",
             "supervisor.pid",
+            "tools.pid",
+            "tools.sock",
             "module-fixture.pid",
             "core.sock",
             "module-fixture-b.sock",
@@ -421,6 +423,8 @@ mod tests {
         }
         for no in [
             "core.token",
+            "tools.token",
+            "tools-core.token",
             "supervisor.token",
             "supervisor.lock",
             "module-.pid",

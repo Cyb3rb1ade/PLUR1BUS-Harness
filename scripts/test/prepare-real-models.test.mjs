@@ -90,3 +90,52 @@ test('preparation never grants a noncommercial licence while preparing the exist
     /requires explicit acknowledgement/);
   assert.equal(f.calls.length, 0);
 });
+
+test('progress identifies each download phase using numeric metadata without URLs or artifact contents', async t => {
+  const directory = await cache(t), f = fixture(), events = [];
+  await prepareRealModels({ directory, profiles: f.profiles, fetchImpl: f.fetchImpl,
+    onProgress: event => events.push(event) });
+  assert.deepEqual(events.filter(e => e.stage === 'verify-started').map(e => e.profile), [1, 2]);
+  assert.deepEqual(events.filter(e => e.stage === 'verified').map(e => [e.profile, e.downloaded]), [[1, 2], [2, 2]]);
+  assert.equal(events.filter(e => e.stage === 'request-started').length, 4);
+  assert.equal(events.filter(e => e.stage === 'headers-received' && e.status === 200).length, 4);
+  for (const event of events) {
+    assert.ok(Number.isFinite(event.elapsedMs) && event.elapsedMs >= 0);
+    assert.ok(Object.values(event).every(value => typeof value === 'number' ||
+      ['verify-started', 'request-started', 'headers-received', 'verified',
+        'artifact-downloading', 'artifact-verified', 'artifact-reused'].includes(value)));
+  }
+  assert.equal(JSON.stringify(events).includes('https:'), false);
+  assert.equal(JSON.stringify(events).includes('synthetic'), false);
+});
+
+test('a failed download cannot emit verified progress or start the next profile', async t => {
+  const directory = await cache(t), f = fixture(), events = [];
+  await assert.rejects(prepareRealModels({ directory, profiles: f.profiles,
+    fetchImpl: async () => new Response(Buffer.from('corrupt')),
+    onProgress: event => events.push(event) }), /size mismatch/);
+  assert.deepEqual(events.filter(e => e.stage === 'verify-started').map(e => e.profile), [1]);
+  assert.equal(events.some(e => e.stage === 'verified'), false);
+  assert.equal(events.at(-1).stage, 'headers-received');
+});
+
+test('fragmented artifact streams keep progress bounded while every original byte is verified', async t => {
+  const directory = await cache(t), f = fixture(), events = [];
+  let chunks = 0;
+  await prepareRealModels({ directory, profiles: f.profiles,
+    fetchImpl: async url => {
+      const bytes = f.responses.get(url);
+      return new Response(new ReadableStream({ start(controller) {
+        for (const byte of bytes) { controller.enqueue(Uint8Array.of(byte)); chunks++; }
+        controller.close();
+      } }));
+    }, onProgress: event => events.push(event) });
+  assert.ok(chunks > events.length);
+  assert.equal(events.filter(e => e.stage === 'artifact-downloading').length, 4);
+  assert.equal(events.filter(e => e.stage === 'artifact-verified').length, 4);
+  assert.equal(events.filter(e => e.stage === 'verified').length, 2);
+  for (const profile of f.profiles) for (const artifact of profile.artifacts) {
+    assert.deepEqual(await readFile(target(directory, profile, artifact)),
+      f.responses.get(`https://huggingface.co/${profile.model}/resolve/${profile.revision}/${artifact.path}`));
+  }
+});
