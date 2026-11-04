@@ -1042,15 +1042,42 @@ fn an_owned_cache_failure_is_not_hidden_behind_a_pending_foreign_key() {
             )
         })
     };
-    started_rx.recv().unwrap();
-    let result = service.embed(
-        &["B".into(), "C".into()],
-        EmbedKind::Query,
-        &identity(3),
-        &Cancel::with_deadline(Instant::now() + Duration::from_millis(30)),
-    );
+    let started = started_rx.recv_timeout(Duration::from_secs(1));
+    if started.is_err() {
+        release_tx.send(()).unwrap();
+        owner.join().unwrap().unwrap();
+        assert!(
+            started.is_ok(),
+            "the fixture must hold foreign B before overlap"
+        );
+        return;
+    }
+    let cancel = Cancel::never();
+    let (result_tx, result_rx) = std::sync::mpsc::channel();
+    let overlapping = {
+        let service = service.clone();
+        let cancel = cancel.clone();
+        std::thread::spawn(move || {
+            result_tx
+                .send(service.embed(
+                    &["B".into(), "C".into()],
+                    EmbedKind::Query,
+                    &identity(3),
+                    &cancel,
+                ))
+                .unwrap();
+        })
+    };
+    // This checks error ordering, not provider throughput. B remains blocked
+    // until after the result is observed. The one-second fixture reserve only
+    // bounds cleanup if a regression waits on B; request deadlines have their
+    // own tests and must not race the known C error here.
+    let completed = result_rx.recv_timeout(Duration::from_secs(1));
+    cancel.cancel();
     release_tx.send(()).unwrap();
     owner.join().unwrap().unwrap();
+    overlapping.join().unwrap();
+    let result = completed.expect("the owned error must return while foreign B is still held");
     assert!(
         matches!(
             result,
