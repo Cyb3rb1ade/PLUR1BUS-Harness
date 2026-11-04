@@ -1,4 +1,5 @@
 //! Deterministic helper fixture. Output contains names, a fingerprint and a synthetic-canary boolean, never values.
+mod architecture;
 use std::io::{BufRead, Write};
 fn main() {
     let mut stdout = std::io::stdout().lock();
@@ -23,7 +24,7 @@ fn main() {
                     &mut stdout,
                     &serde_json::json!({
                         "env": std::env::vars().map(|(k, _)| k).collect::<Vec<_>>(),
-                        "architectureFingerprint": plur1bus_desktop_test_bins::architecture_fingerprint(),
+                        "architectureFingerprint": architecture::fingerprint(),
                         "architectureCanary": std::env::var("PROCESSOR_ARCHITECTURE").as_deref() == Ok("must-not-pass"),
                     }),
                 )
