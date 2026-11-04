@@ -4,6 +4,7 @@
 // or in a log writer that subscribed to it.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -19,6 +20,24 @@ const token = (i: number) => `oauth-token-${String(i).padStart(5, "0")}-xxxxxxxx
 const masked = (r: ReturnType<typeof createSecretRedaction>, value: string) => !r.redactor().text(`x ${value} y`).includes(value);
 
 describe("redaction registry", () => {
+  it("configuration groups replace atomically, retire removed values and cannot collide with store names", () => {
+    const registry = createSecretRedaction();
+    const group = Symbol("configuration");
+    const fixed = randomUUID();
+    const old = randomUUID();
+    const next = randomUUID();
+    registry.register(fixed, "configuration");
+    registry.replaceGroup(group, [old, next]);
+    const heard: [string, boolean][] = [];
+    registry.subscribe((value, info) => heard.push([value, info.pinned]));
+    registry.replaceGroup(group, [next]);
+    assert.ok(heard.some(([value, pinned]) => value === old && !pinned));
+    registry.replaceGroup(group, []);
+    assert.ok(heard.some(([value, pinned]) => value === next && !pinned));
+    for (let index = 0; index < MAX_REGISTERED_SECRETS + 1; index++) registry.register(randomUUID());
+    assert.ok(registry.values().includes(fixed));
+    assert.ok(!registry.values().includes(old) && !registry.values().includes(next));
+  });
   it("a pinned value survives any number of other values (the chain key vs 1000 OAuth refreshes)", () => {
     const r = createSecretRedaction();
     r.register(CHAIN, "approvals.chain-key.v1");

@@ -1,4 +1,5 @@
 import type { BehaviourSet } from "./behaviour.ts";
+export { supportsConfigDisclosurePolicy } from "./disclosure-policy.ts";
 export type { BehaviourSet, BehaviourLayer } from "./behaviour.ts";
 import { privacyAcknowledgmentError, type PrivacyAcknowledgment } from "./privacy.ts";
 export { privacyAcknowledgmentError } from "./privacy.ts";
@@ -6,6 +7,13 @@ export type { PrivacyAcknowledgment, PrivacyChoice } from "./privacy.ts";
 import Ajv2020, { type ValidateFunction } from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import schemaJson from "../schema/config.schema.json" with { type: "json" };
+import { configurationWarnings, type ConfigWarning } from "./sensitive.ts";
+export { sensitiveOf, urlCredentialsOf, configurationWarnings, redactConfig } from "./sensitive.ts";
+export { configTextSecretEntries } from "./sensitive.ts";
+export { maskUrlCredentials } from "./url-credentials.ts";
+export { secretReferenceOf } from "./sensitive.ts";
+export { looksLikePastedKey } from "./secret-reference.ts";
+export type { ConfigSchemaNode, ConfigSecretEntry, ConfigWarning, ConfigRedactionOptions } from "./sensitive.ts";
 
 export const CONFIG_SCHEMA = schemaJson as Record<string, any>;
 export const SCHEMA_VERSION = 1 as const;
@@ -209,6 +217,11 @@ const ajv = new ((Ajv2020 as any).default ?? Ajv2020)({ strict: true, allErrors:
 ((addFormats as any).default ?? addFormats)(ajv);
 ajv.addKeyword("x-restart"); ajv.addKeyword("x-reserved"); ajv.addKeyword("x-tier");
 ajv.addKeyword("x-media-models");
+ajv.addKeyword({ keyword: "x-sensitive", schemaType: "boolean" });
+ajv.addKeyword({ keyword: "x-url-credentials", schemaType: "boolean" });
+ajv.addKeyword({ keyword: "x-value-schema", schemaType: "object" });
+ajv.addKeyword({ keyword: "x-unknown-members", schemaType: "string", metaSchema: { enum: ["sensitive", "public"] } });
+ajv.addKeyword({ keyword: "x-text-credentials", schemaType: "string", metaSchema: { const: "parts" } });
 const validateFn: ValidateFunction = ajv.compile(CONFIG_SCHEMA);
 
 /** Defaults are produced by validating an empty object with useDefaults — one source of truth. */
@@ -219,7 +232,7 @@ export function defaults(): HarnessConfig {
   return r.config;
 }
 
-export function validate(value: unknown): { ok: true; config: HarnessConfig } | { ok: false; errors: string[] } {
+export function validate(value: unknown): { ok: true; config: HarnessConfig; warnings?: ConfigWarning[] } | { ok: false; errors: string[] } {
   const copy = structuredClone(value);
   if (validateFn(copy)) {
     const c = (copy as HarnessConfig).session.compaction;
@@ -252,7 +265,8 @@ export function validate(value: unknown): { ok: true; config: HarnessConfig } | 
       if (failure) return { ok: false, errors: [`${path}/features/${failure.feature} exceeds voice.v3.budgetMs (${failure.totalMs} ms)`] };
       for (const name of VOICE_V3_FEATURES) if (name !== "toolSchemas" && features[name].mode === "reduced") return { ok: false, errors: [`${path}/features/${name} reduced is only supported for toolSchemas`] };
     }
-    return { ok: true, config: cfg };
+    const warnings = configurationWarnings(cfg);
+    return { ok: true, config: cfg, ...(warnings.length ? { warnings } : {}) };
   }
   // allErrors collects every violation: bound the list so a hostile or broken file cannot produce a megabyte message.
   const all = (validateFn.errors ?? []).map((e) => `${e.instancePath || "/"} ${e.message ?? ""}${e.params && "additionalProperty" in e.params ? ` (${(e.params as any).additionalProperty})` : ""}`.trim());

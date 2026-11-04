@@ -36,6 +36,8 @@ pub struct ConfigState {
     /// M7: at start, the `modules.<name>` sections that do not satisfy their module's `configSchema` (edited while no
     /// supervisor ran, or a stricter schema installed since). Logged, and shown in `module.list` errors; not refused.
     pub module_errors: Vec<String>,
+    /// Manifest bytes used by the last disclosure-policy refresh, independent of config edits.
+    pub disclosure_stamp: Option<[u8; 32]>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -114,6 +116,7 @@ pub fn initial(layout: &Layout) -> ConfigState {
     };
     match parse(&bytes) {
         Ok(v) => ConfigState {
+            disclosure_stamp: Some(crate::config_redaction::registry_stamp(layout)),
             module_errors: crate::modules::current_config_errors(&crate::modules::scan(layout), &v),
             revision: Some(cfg::revision(&v)),
             running: Some(v),
@@ -130,6 +133,14 @@ pub fn initial(layout: &Layout) -> ConfigState {
             }),
             ..ConfigState::default()
         },
+    }
+}
+
+/// A manifest may change without a config edit; register its declarations before diagnostics or a new child.
+pub(crate) fn refresh_log_policy(shared: &Shared, layout: &Layout) {
+    let state = relock(&shared.config);
+    if let Some(running) = &state.running {
+        shared.log.register_config(layout, running);
     }
 }
 
@@ -175,26 +186,38 @@ fn tier_name(t: cfg::Tier) -> &'static str {
 /// The `config.get` result for `config` (the supervisor's running configuration, or the file the CLI read when no
 /// supervisor runs): the whole value, one tier, or one key (`None` when the key does not exist).
 pub fn get_result(
+    layout: &Layout,
     config: &Value,
     revision: &str,
     key: Option<&str>,
     tier: Option<cfg::Tier>,
-) -> Option<Value> {
+) -> Result<Option<Value>, crate::config_redaction::ConfigRedactionError> {
+    let needs_modules = key.map_or(tier != Some(cfg::Tier::Basic), |key| {
+        key == "modules" || key.starts_with("modules.")
+    });
+    let public = if needs_modules {
+        crate::config_redaction::ConfigDisclosurePolicy::load(layout, config)?.project(config)
+    } else {
+        cfg::redact_config(config)
+    };
+    let config = &public;
     if let Some(t) = tier {
-        return Some(json!({
+        return Ok(Some(json!({
             "key": Value::Null, "tier": tier_name(t), "value": cfg::filter_config_by_tier(config, t),
             "restartClass": Value::Null, "restart": Value::Null, "revision": revision,
-        }));
+        })));
     }
-    let value = cfg::get(config, key)?;
+    let Some(value) = cfg::get(config, key) else {
+        return Ok(None);
+    };
     let class = key.map(cfg::restart_class_name);
     let restart = class
         .as_deref()
         .map(|c| if c.starts_with("module") { "module" } else { c });
-    Some(json!({
+    Ok(Some(json!({
         "key": key, "tier": key.map(|k| tier_name(cfg::tier_of(k))), "value": value,
         "restartClass": class, "restart": restart, "revision": revision,
-    }))
+    })))
 }
 
 /// Applies what the supervisor itself consumes of `config` at once: the health interval (read by the health loop
@@ -241,11 +264,13 @@ fn rearm_core(shared: &Shared) {
 /// notifications go out in revision order.
 fn install(
     shared: &Shared,
+    layout: &Layout,
     st: &mut ConfigState,
     new: Value,
     source: &str,
     idle: Option<&super::imports::Idle<'_>>,
 ) {
+    shared.log.register_config(layout, &new);
     let previous = st.revision.clone();
     let was_invalid = st.running.is_none() || st.rejected.is_some();
     let before = st.running.take().unwrap_or_else(|| json!({}));
@@ -414,7 +439,14 @@ pub(crate) fn restore_maintenance(
     }
     state.applied_hash = bytes.map(sha256);
     state.stamp = file_stamp(&layout.config_path());
-    install(shared, &mut state, config, "maintenance-restore", None);
+    install(
+        shared,
+        layout,
+        &mut state,
+        config,
+        "maintenance-restore",
+        None,
+    );
     Ok(json!({"revision":state.revision}))
 }
 
@@ -561,7 +593,7 @@ fn set_inner(
             st.applied_hash = Some(sha256(cfg::serialize(&plan.after).as_bytes()));
             // The temp file's stamp, taken before the rename: a write that lands after it always differs.
             st.stamp = meta.modified().ok().map(|m| (m, meta.len()));
-            install(shared, &mut st, plan.after, "set", idle.as_ref());
+            install(shared, layout, &mut st, plan.after, "set", idle.as_ref());
             let revision = st.revision.clone().unwrap_or_default();
             // Queued before the config lock is released, so the job precedes any the restarted core's own
             // `restartPending` could cause. A module key restarts its module (B13), `enabled` stops or starts it.
@@ -673,6 +705,13 @@ pub fn poll_file(shared: &Arc<Shared>, layout: &Layout) {
         return;
     };
     let mut st = relock(&shared.config);
+    let stamp = crate::config_redaction::registry_stamp(layout);
+    if st.disclosure_stamp != Some(stamp) {
+        if let Some(running) = &st.running {
+            shared.log.register_config(layout, running);
+        }
+        st.disclosure_stamp = Some(stamp);
+    }
     poll_locked(shared, layout, &mut st, Some(&idle));
 }
 
@@ -771,7 +810,7 @@ fn poll_locked(
                 return;
             }
             st.applied_hash = Some(hash);
-            install(shared, st, new, "file", idle);
+            install(shared, layout, st, new, "file", idle);
         }
     }
 }
@@ -826,18 +865,26 @@ mod tests {
 
     #[test]
     fn get_result_keeps_the_cli_restart_field_and_adds_class_and_revision() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
         let c = cfg::defaults();
-        let v = get_result(&c, "r1", Some("core.logLevel"), None).unwrap();
+        let v = get_result(&layout, &c, "r1", Some("core.logLevel"), None)
+            .unwrap()
+            .unwrap();
         assert_eq!(v["restart"], "live");
         assert_eq!(v["restartClass"], "live");
         assert_eq!(v["tier"], "advanced");
         assert_eq!(v["revision"], "r1");
-        let v = get_result(&c, "r1", None, Some(cfg::Tier::Basic)).unwrap();
+        let v = get_result(&layout, &c, "r1", None, Some(cfg::Tier::Basic))
+            .unwrap()
+            .unwrap();
         assert!(v["key"].is_null() && v["restart"].is_null() && v["restartClass"].is_null());
         assert!(v["value"].get("core").is_none());
-        assert!(get_result(&c, "r1", Some("nope.key"), None).is_none());
-        let whole = get_result(&c, "r1", None, None).unwrap();
-        assert_eq!(whole["value"], c);
+        assert!(get_result(&layout, &c, "r1", Some("nope.key"), None)
+            .unwrap()
+            .is_none());
+        let whole = get_result(&layout, &c, "r1", None, None).unwrap().unwrap();
+        assert_eq!(whole["value"], cfg::redact_config(&c));
         assert!(whole["tier"].is_null());
     }
 
@@ -848,7 +895,7 @@ mod tests {
             maintenance: Default::default(),
             state: std::sync::Mutex::new(crate::supervisor::test_state()),
             wake: std::sync::Condvar::new(),
-            log: crate::supervisor::Log::open(&layout.logs().join("supervisor.log"), 1 << 20, 3),
+            log: crate::supervisor::Log::open(layout, 1 << 20, 3),
             config: std::sync::Mutex::new(initial(layout)),
             subscribers: Default::default(),
             out_logs: std::sync::Mutex::new(Vec::new()),

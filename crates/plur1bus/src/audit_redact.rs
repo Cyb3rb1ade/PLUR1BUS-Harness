@@ -396,14 +396,47 @@ impl Compiled {
     }
 
     /// Deep copy of `v` with every string redacted and every value under a secret-looking key replaced.
-    fn walk(&self, v: &Value, depth: usize) -> Value {
+    fn walk(
+        &self,
+        v: &Value,
+        depth: usize,
+        pointer: &str,
+        references: &[String],
+        inherited_secret: bool,
+    ) -> Value {
+        if depth < MAX_DEPTH && references.iter().any(|reference| reference == pointer) {
+            return v.clone();
+        }
+        if inherited_secret && !v.is_null() {
+            let prefix = format!("{pointer}/");
+            let contains_reference = (v.is_object() || v.is_array())
+                && references
+                    .iter()
+                    .any(|reference| reference.starts_with(&prefix));
+            if !contains_reference {
+                return Value::String(self.tag("key"));
+            }
+        }
         match v {
             Value::String(s) => Value::String(self.text(s)),
             Value::Array(a) => {
                 if depth >= MAX_DEPTH {
                     return Value::String("[TRUNCATED:depth]".into());
                 }
-                Value::Array(a.iter().map(|x| self.walk(x, depth + 1)).collect())
+                Value::Array(
+                    a.iter()
+                        .enumerate()
+                        .map(|(index, x)| {
+                            self.walk(
+                                x,
+                                depth + 1,
+                                &format!("{pointer}/{index}"),
+                                references,
+                                inherited_secret,
+                            )
+                        })
+                        .collect(),
+                )
             }
             Value::Object(o) => {
                 if depth >= MAX_DEPTH {
@@ -411,11 +444,14 @@ impl Compiled {
                 }
                 let mut out = Map::new();
                 for (k, x) in o {
-                    let nv = if self.is_secret_key(k) && !x.is_null() {
-                        Value::String(self.tag("key"))
-                    } else {
-                        self.walk(x, depth + 1)
-                    };
+                    let child = format!("{pointer}/{}", k.replace('~', "~0").replace('/', "~1"));
+                    let nv = self.walk(
+                        x,
+                        depth + 1,
+                        &child,
+                        references,
+                        inherited_secret || self.is_secret_key(k),
+                    );
                     out.insert(k.clone(), nv);
                 }
                 Value::Object(out)
@@ -434,7 +470,15 @@ fn compiled() -> io::Result<&'static Compiled> {
 
 /// `detail` with every secret redacted. An error (the redaction data cannot be read) means: write nothing.
 pub(crate) fn redact_detail(detail: &Value) -> io::Result<Value> {
-    Ok(compiled()?.walk(detail, 0))
+    redact_detail_preserving_references(detail, &[])
+}
+
+/// Preserve only exact schema-validated reference subtrees; all other audit values keep the central backstops.
+pub(crate) fn redact_detail_preserving_references(
+    detail: &Value,
+    references: &[String],
+) -> io::Result<Value> {
+    Ok(compiled()?.walk(detail, 0, "", references, false))
 }
 
 /// One string through the rules (used by the tests; the audit writers only go through [`redact_detail`]).
@@ -580,6 +624,28 @@ mod tests {
 
     fn parts(v: &Value) -> String {
         strings(v).concat()
+    }
+
+    #[test]
+    fn a_reference_exception_keeps_heuristic_siblings_and_other_text_backstops_protected() {
+        let literal = uuid::Uuid::new_v4().to_string();
+        let token = format!(
+            "ghp_{}{}",
+            uuid::Uuid::new_v4().simple(),
+            uuid::Uuid::new_v4().simple()
+        );
+        let detail = json!({"apiKey":{"handle":"service.reference","ordinary":literal},
+            "public":{"text":token,"path":"/home/fixture/.ssh/id_rsa"}});
+        let redacted =
+            redact_detail_preserving_references(&detail, &["/apiKey/handle".to_owned()]).unwrap();
+        assert_eq!(redacted["apiKey"]["handle"], "service.reference");
+        assert_eq!(redacted["apiKey"]["ordinary"], "[REDACTED:key]");
+        assert!(!redacted.to_string().contains(&literal));
+        assert!(!redacted.to_string().contains(&token));
+        assert!(!redacted["public"]["path"]
+            .as_str()
+            .unwrap()
+            .contains("id_rsa"));
     }
 
     /// Output of the TypeScript redactor (`createRedactor().text`) for the same input.

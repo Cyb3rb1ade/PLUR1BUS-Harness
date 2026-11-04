@@ -13,6 +13,7 @@ pub mod config;
 pub mod context;
 pub mod contract;
 pub mod embedding;
+pub mod media;
 pub mod recall;
 pub mod rpc;
 pub mod store;

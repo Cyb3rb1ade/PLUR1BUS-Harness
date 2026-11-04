@@ -85,13 +85,25 @@ Behaviour at the edges (tests in `provider.test.ts`):
   300 characters; typed failures retain their structured hints and issues when they fit. Every string passes the
   existing secret redactor and the home-path sanitizer. Logs and audit output keep their existing contracts. A successful
   result is redacted inside the dispatcher, once, against the registered secret values only (rule `secret`: the value and
-  its base64, hex and URL-encoded forms, `[REDACTED:secret]`, nothing under 8 characters) before it reaches the model, the
+  its base64, base64url, hex, URL-encoded and JSON-escaped forms, `[REDACTED:secret]`, nothing under 8 UTF-16 code units) before it reaches the model, the
   transcript, an offloaded result file or any audit line; a result that holds none of them is returned exactly as the tool
-  returned it. A failure message is masked the same way before it is cut to length. "Registered" means read, written or
-  leased in this core process: after a restart a stored secret that nothing has used yet is not masked. A stored value of 8 or
+  returned it. A failure message is masked the same way before it is cut to length. Before its first log record, Core
+  registers schema-declared literal config secrets, URL credentials and readable values from each enabled, accessible
+  Store backend, including both physical copies of a name. Initial and recovery Store values stay pinned until Core exits; later
+  reads, writes and leases register values too. Persistent backend I/O runs outside the event loop, with one three-second
+  preload deadline and demand-driven recovery after 30 seconds; timed-out startup discards unsafe queued logs. Safe reference names are public metadata. A stored value of 8 or
   more characters masks every matching piece of text in a result, so a low-entropy one (a short word, a path) masks ordinary
   text too. A registered value that comes back as a JSON number cannot be masked, so that result is withheld
   (`tool-result-invalid`); a result over its size limit is refused on its raw size before it is checked. Details and regression tests: [tool-reliability.md](tool-reliability.md#what-the-model-sees-when-a-tool-fails).
+
+The shared registry caches canonical variants and a compiled matcher once per secret-set membership generation.
+Reordering, rereading or adding another pin for an existing value reuses the immutable snapshot; a changed set replaces it.
+Composition combines registered config, Store and manual values and passes a trusted snapshot callback through the
+provider, dispatcher and native tools. Error details, validation, repair presentation, collaboration previews and agent
+exports reuse that generation. Presentation refreshes after execution, cursor reads and asynchronous export signing;
+new secrets cannot bypass the boundary because an earlier snapshot was retained. The dispatcher
+reads this set after execution, so values learned by the tool itself count. Standalone dispatchers have an equivalent
+local cache. Composition retains the union of its own recent credentials and the shared registry's values.
 
 The cached system zone contains stable working instructions and the agent's sorted `Available skills` catalogue.
 Descriptions retain the author's text, capped at 1024 characters per skill and about 4000 tokens overall; overflow

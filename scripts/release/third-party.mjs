@@ -4,7 +4,7 @@
 import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync, existsSync, writeFileSync, realpathSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join, dirname, resolve, relative, isAbsolute } from 'node:path';
+import { join, dirname, resolve, relative, isAbsolute, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const locks = ['pnpm-lock.yaml', 'Cargo.lock', 'apps/desktop/Cargo.lock'];
@@ -31,6 +31,27 @@ function checkoutRoot(dir) {
     if (parent === curr) return null;
     curr = parent;
   }
+}
+
+function insideDirectory(parent, child) {
+  const path = relative(parent, child);
+  return path !== '' && path !== '..' && !path.startsWith(`..${sep}`) && !isAbsolute(path);
+}
+
+// Cargo path patches have source:null too. Only checked-in vendor packages are third-party;
+// ordinary workspace/path packages stay excluded, and symlinks cannot widen the vendor boundary.
+function vendoredPackage(directory, pkg) {
+  if (typeof pkg.manifest_path !== 'string') return false;
+  const vendor = resolve(directory, 'vendor');
+  const manifest = resolve(directory, pkg.manifest_path);
+  if (!insideDirectory(vendor, dirname(manifest))) return false;
+  const resolvedVendor = realpathSync(vendor);
+  if (resolvedVendor !== join(realpathSync(directory), 'vendor') ||
+      !insideDirectory(resolvedVendor, realpathSync(dirname(manifest))) ||
+      !insideDirectory(resolvedVendor, dirname(realpathSync(manifest)))) {
+    throw new Error('vendored Cargo package resolves outside the checkout vendor directory');
+  }
+  return true;
 }
 
 function notices(dir) {
@@ -133,7 +154,7 @@ export function generateNotices({ reuseNpm = false, directory = root, collect = 
   for (const manifest of ['Cargo.toml', 'apps/desktop/Cargo.toml']) {
     const metadata = collect('cargo', ['metadata', '--format-version', '1', '--locked', '--manifest-path', manifest], directory);
     for (const p of metadata.packages) {
-      if (!p.source) continue;
+      if (!p.source && !vendoredPackage(directory, p)) continue;
       add('cargo', p.name, p.version, p.license || (p.license_file ? `SEE ${p.license_file}` : null), dirname(p.manifest_path), (p.authors || []).join(', '));
     }
   }
