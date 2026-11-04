@@ -2,6 +2,7 @@ import { GitWorktreeProvisioner } from "../external-agents/provisioner.ts";
 import type { ChatProvider } from "../session/provider.ts";
 import { FakeChatProvider } from "../session/provider.ts";
 import { estimateTokens, truncateWithPointer } from "../session/compaction.ts";
+import { wellFormedPrefix } from "../logs/utf16.ts";
 import type { Principal } from "../rbac/types.ts";
 import { withoutAgentScope } from "../agents/scope.ts";
 import { DEFAULT_COLLAB_SETTINGS, SPAN_PREVIEW_CHARS } from "./defaults.ts";
@@ -164,7 +165,10 @@ export function createCollab(o: CollabOptions): Collab {
     if (cap.text.includes(pointer) && cap.text.includes("[truncated")) return cap;
     return { text: `[truncated ${text.length} chars; ${pointer}]`, truncated: true };
   };
-  const preview = (s: string): string => redact.text(s.length > SPAN_PREVIEW_CHARS ? `${s.slice(0, SPAN_PREVIEW_CHARS)}…` : s);
+  const preview = (s: string): string => {
+    const masked = redact.text(s).toWellFormed();
+    return masked.length > SPAN_PREVIEW_CHARS ? `${wellFormedPrefix(masked, SPAN_PREVIEW_CHARS)}…` : masked;
+  };
   const redactTrace = (t: CollabTrace): CollabTrace => ({
     ...t,
     spans: t.spans.map((s) => ({

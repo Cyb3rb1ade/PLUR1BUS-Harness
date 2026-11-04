@@ -26,6 +26,14 @@ if (
   process.env.PLUR1BUS_ALLOW_TEST_INTERNALS !== "1"
 )
   throw new Error("native import fixture arguments and test gate required");
+// A bounded failure trace distinguishes setup, fingerprinting, maintenance and
+// restart time without recording paths, cookies, identifiers or payloads.
+const fixtureStarted = Date.now(), trace = [];
+const mark = (stage) => {
+  trace.push({ stage, elapsedMs: Date.now() - fixtureStarted });
+  if (trace.length > 32) trace.shift();
+};
+mark("fixture-start");
 const deadline = Date.now() + 75_000,
   family = SOURCE_CATALOG[0].id,
   skillName = "http-native-proof";
@@ -95,6 +103,7 @@ if (mode === "failure") {
   );
 }
 
+mark("source-and-baseline-ready");
 const link = createCoreLink(home),
   ownerToken = randomBytes(32).toString("hex");
 const proofClock = systemClock;
@@ -124,6 +133,7 @@ const api = createApiServer({
   resolveBootstrap: async () => (await link.serviceCall("admin.api.person.resolve", { userId: "local-owner" })).person,
 });
 const { url } = await api.listen();
+mark("http-listening");
 const streams = new Set();
 const diagnosticAbort = new AbortController();
 let rpcId = 0;
@@ -297,6 +307,7 @@ async function progress(cookie, runId, onProgress = async () => {}) {
             "same-run schema-valid progress",
           );
           observed = true;
+          if (["snapshot", "apply", "restore", "restart"].includes(value.phase)) mark(`progress-${value.phase}`);
           if (value.phase === "apply" && value.completed >= 1) appliedEntity = true;
           await onProgress(value);
         }
@@ -305,7 +316,11 @@ async function progress(cookie, runId, onProgress = async () => {}) {
       if (!abort.signal.aborted && error.name !== "TypeError") throw error;
     }
   })();
-  return { close: () => abort.abort(), done: pump, observed: () => observed, appliedEntity: () => appliedEntity };
+  // Observe rejection immediately: the caller may still be polling HTTP when
+  // the stream fails. Preserve that error for the awaited completion below.
+  const completion = pump.then(() => ({ ok: true }), error => ({ ok: false, error }));
+  const done = async () => { const result = await completion; if (!result.ok) throw result.error; };
+  return { close: () => abort.abort(), done, observed: () => observed, appliedEntity: () => appliedEntity };
 }
 
 async function firstBaselineCopy(root) {
@@ -390,7 +405,7 @@ async function waitForRun(cookie, otherCookie, otherCsrf, runId, abortDuringSnap
     await delay(750);
   }
   stream?.close();
-  await stream?.done;
+  await stream?.done();
   await abortTask;
   assert.equal(offlineStatus, true, "real status succeeded while the Core credential file was absent");
   if (abortDuringSnapshot) assert.ok(abortTask, "the actual cold-copy checkpoint caused cancellation");
@@ -440,13 +455,17 @@ try {
     sourceId: detected.sourceId,
     options: { onConflict: "skip", migrateSecrets: false, agentIds: detected.agents.map((agent) => agent.id) },
   });
+  mark("plan-ready");
   const preflight = await rpc(cookie, "admin.import.preflight", { planId: plan.planId, operation: "apply" });
   assert.equal(preflight.ok, true, "real live-Core preflight");
+  mark("preflight-ready");
   const immutablePlan = (await createImportRecords(home).readPlan(plan.planId, "local-owner", plan.planSha256)).record;
   const targetBefore = ["complete", "device"].includes(mode)
     ? undefined
     : await fingerprintImportTarget(home, immutablePlan.roots);
+  mark("baseline-fingerprinted");
   const rootsBefore = ["complete", "device"].includes(mode) ? undefined : await snapshot(immutablePlan.roots);
+  mark("baseline-snapshotted");
   const assertRestoredRoots = async () => {
     const current = await fingerprintImportTarget(home, immutablePlan.roots);
     if (current !== targetBefore)
@@ -464,6 +483,7 @@ try {
       : undefined;
   const started = await rpc(cookie, "admin.import.apply", { planId: plan.planId, preflightId: preflight.preflightId });
   assert.equal(started.runId, plan.runId);
+  mark("import-submitted");
   const finished = await waitForRun(cookie, otherCookie, otherCsrf, started.runId, mode === "abort",
     mode === "abort" ? { planId: plan.planId, preflightId: preflight.preflightId } : undefined);
   assert.equal(
@@ -471,7 +491,9 @@ try {
     mode === "abort" ? "aborted" : mode === "failure" ? "failed" : "completed",
     `native maintenance reaches its expected terminal state: ${JSON.stringify(finished.run)}`,
   );
+  mark("maintenance-terminal");
   const after = await rpc(verificationCookie, "core.status");
+  mark("restarted-core-answered");
   assert.ok(
     Number.isInteger(before.pid) && Number.isInteger(after.pid) && before.pid !== after.pid,
     "actual Core process restarted",
@@ -575,6 +597,10 @@ try {
     }
   }
   process.stdout.write(JSON.stringify(summary) + "\n");
+} catch (error) {
+  mark("failed");
+  process.stderr.write(JSON.stringify({ diagnostic: "native-maintenance-stages", mode, trace }) + "\n");
+  throw error;
 } finally {
   diagnosticAbort.abort();
   for (const stream of streams) stream.abort();

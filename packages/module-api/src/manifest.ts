@@ -1,4 +1,5 @@
 import Ajv2020, { type ValidateFunction } from "ajv/dist/2020.js";
+import { supportsConfigDisclosurePolicy } from "@plur1bus/config-schema/policy";
 import schemaJson from "../schema/manifest.schema.json" with { type: "json" };
 
 /** D14 `module.json`. `schema/manifest.schema.json` is the one source; the supervisor (Rust) embeds the same file. */
@@ -45,6 +46,12 @@ export function validateManifest(v: unknown): { ok: true; manifest: ModuleManife
     validateFn = ajv.compile(MANIFEST_SCHEMA) as ValidateFunction;
   }
   const copy = structuredClone(v);
-  if (validateFn(copy)) return { ok: true, manifest: copy as ModuleManifest };
+  if (validateFn(copy)) {
+    const manifest = copy as ModuleManifest;
+    if (manifest.configSchema && !supportsConfigDisclosurePolicy(manifest.configSchema)) {
+      return { ok: false, errors: ["/configSchema contains unsupported configuration disclosure metadata"] };
+    }
+    return { ok: true, manifest };
+  }
   return { ok: false, errors: (validateFn.errors ?? []).map((e) => `${e.instancePath || "/"} ${e.message ?? ""}${e.params && "additionalProperty" in e.params ? ` (${(e.params as any).additionalProperty})` : ""}`.trim()) };
 }
