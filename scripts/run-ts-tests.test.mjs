@@ -1,11 +1,50 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildArgs, countTests, guard } from "./run-ts-tests.mjs";
+import { pnpmCommand } from "./pnpm-command.mjs";
+
+test("pnpm JavaScript entry uses Node without a shell and preserves arguments with spaces", () => {
+  for (const platform of ["darwin", "linux", "win32"]) {
+    const entry = "/a path/pnpm/bin/pnpm.cjs";
+    assert.deepEqual(pnpmCommand(["--filter=!a package", "test"], { env: { npm_execpath: entry }, platform, node: "node-path" }),
+      { command: "node-path", args: [entry, "--filter=!a package", "test"], shell: false });
+  }
+});
+
+test("pnpm native entries execute directly on every platform; only Windows command shims need a shell", () => {
+  for (const [platform, entry, shell] of [
+    ["darwin", "/a path/@pnpm/exe/pnpm", false],
+    ["linux", "/a path/@pnpm/exe/pnpm", false],
+    ["win32", "C:\\a path\\pnpm.exe", false],
+    ["win32", "C:\\a path\\pnpm.cmd", true],
+  ]) {
+    assert.deepEqual(pnpmCommand(["test"], { env: { npm_execpath: entry }, platform, node: "node-path" }),
+      { command: entry, args: ["test"], shell });
+  }
+});
+
+test("a real native executable named pnpm is started as a program, never parsed as JavaScript", (t) => {
+  const dir = fixture(t);
+  const entry = path.join(dir, process.platform === "win32" ? "pnpm native.exe" : "pnpm native");
+  copyFileSync(process.execPath, entry);
+  chmodSync(entry, 0o755);
+  const invocation = pnpmCommand(["--version"], { env: { npm_execpath: entry } });
+  const result = spawnSync(invocation.command, invocation.args, { shell: invocation.shell, encoding: "utf8", timeout: 5000, maxBuffer: 4096 });
+  assert.equal(result.status, 0, result.stderr?.slice(0, 200));
+  assert.equal(result.stdout.trim(), process.version);
+});
+
+test("pnpm PATH fallback retains the Windows command-shim handling and ignores another package manager", () => {
+  for (const platform of ["darwin", "linux", "win32"]) {
+    assert.deepEqual(pnpmCommand(["test"], { env: { npm_execpath: "/npm/npm-cli.js" }, platform }),
+      { command: "pnpm", args: ["test"], shell: platform === "win32" });
+  }
+});
 
 test("buildArgs has no shell-quoted element", () => {
   for (const a of buildArgs()) assert.ok(!/['"]/.test(a), a);
