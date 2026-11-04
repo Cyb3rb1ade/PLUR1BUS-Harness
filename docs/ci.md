@@ -178,6 +178,9 @@ Platform-sensitive paths (the `SENSITIVE` list in the script; edit it there only
 
 The macOS jobs `quality` (`release-quality.yml`), the macOS leg of `dependency-licenses` and the console unit leg
 `unit (macOS VM)` (`ci.yml`'s `unit-os`) can run on the owner's macOS VM instead of waiting in GitHub's macOS queue.
+The unit jobs download SHA-256-pinned CMake 3.31.12 into their own temporary directory before Rust builds; they do
+not need an administrator or change the template. The TypeScript runner supports both JavaScript pnpm and the
+native `@pnpm/exe` installation used by the setup action.
 The quality and licence routes were introduced by the owner decision of 2026-10-28. Their
 `runs-on` picks the label `plur1bus-macos-vm` only while the repository variable `MACOS_SELF_HOSTED` is `true`, and only
 for code from this repository: a push, a manual or scheduled run, or a pull request whose head branch is in this

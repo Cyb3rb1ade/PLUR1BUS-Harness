@@ -152,7 +152,8 @@ describe("E3 — CLI → daemon → core smoke", () => {
       if (REAL) assert.equal(cli(h1, ["memory", "add", "--agent", "bernd", "--session", "s1", "Please remember that the quarterly budget draft is due in March."]).stored, 1);
       const logFile = join(h1, "logs", "core.log");
       const logMark = existsSync(logFile) ? statSync(logFile).size : 0;
-      const recall = cli(h1, ["memory", "recall", "--agent", "bernd", "--session", "s2", "--joined", "harbour tour"]);
+      t.diagnostic(`first CLI recall at ${new Date().toISOString()}`);
+      const recall = timed(t, "first CLI recall", () => cli(h1, ["memory", "recall", "--agent", "bernd", "--session", "s2", "--joined", "harbour tour"]));
       assert.equal(recall.degraded, null, JSON.stringify(recall));
       assert.match(recall.joined.text, /harbour tour/);
       if (REAL) {
@@ -164,7 +165,8 @@ describe("E3 — CLI → daemon → core smoke", () => {
       t.diagnostic(`daemon restart at ${new Date().toISOString()}`);
       cli(h1, ["daemon", "start"], { env: installedEnv });
       t.diagnostic(`models warm ${Math.round(await waitEngineReady(h1, REAL ? 60_000 : 30_000))} ms after the restart`);
-      const restartedRecall = cli(h1, ["memory", "recall", "--agent", "bernd", "--session", "after-restart", "--joined", "harbour tour"]);
+      t.diagnostic(`restarted CLI recall at ${new Date().toISOString()}`);
+      const restartedRecall = timed(t, "restarted CLI recall", () => cli(h1, ["memory", "recall", "--agent", "bernd", "--session", "after-restart", "--joined", "harbour tour"]));
       assert.equal(restartedRecall.degraded, null);
       assert.match(restartedRecall.joined.text, /harbour tour/);
       for (const line of [...coreTimings(h1), ...supervisorEvents(h1), ...(REAL ? modelFiles(h1) : [])]) t.diagnostic(line);
