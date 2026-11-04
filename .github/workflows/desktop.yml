@@ -121,9 +121,9 @@ jobs:
         working-directory: apps/desktop
       # Stable Rust 1.95 rejects --report-time; bounded proxy tests emit named elapsed_ms.
       # Isolate latency measurements from unrelated parallel tests; keep every test and limit.
-      # A cold Windows test build consumes 8-10 minutes; do not charge it to the 15-minute execution deadline.
-      - name: Build Windows Rust test executables
-        if: runner.os == 'Windows'
+      # Cold test compilation also consumes minutes on Linux ARM and macOS.
+      # Keep the existing 15-minute execution limit separate on every platform.
+      - name: Build Rust test executables
         run: cargo test --locked --workspace --no-run
         timeout-minutes: 15
         working-directory: apps/desktop
