@@ -174,17 +174,23 @@ it("real Core setup releases declared slots, isolates leases, denies agent/PAT a
     const ambient = await tool("leak_env").execute({ name: "PLUR1BUS_AMBIENT_TEST_SECRET" }, run);
     assert.match(JSON.stringify(ambient), /value=/);
     assert.ok(!JSON.stringify(ambient).includes("synthetic-ambient"));
-    const pidResult = await tool("pid").execute({}, run) as { content: { text: string }[] };
-    let pid = Number(pidResult.content[0]!.text);
+    const pidResult = await tool("pid").execute({ includeInstance: true }, run) as { content: { text: string }[] };
+    const firstProcess = JSON.parse(pidResult.content[0]!.text) as { pid: number; instanceId: string };
+    let pid = firstProcess.pid;
     assert.ok(pid > 0);
+    assert.match(firstProcess.instanceId, /^[0-9a-f-]{36}$/);
     const oldPidTool = tool("pid");
     await client.call("secret.set", { name: "ext:reports:TOKEN", value: ROTATED_SECRET });
     assert.ok(await waitDead(pid), "rotation must stop a child that inherited the retired value");
     await assert.rejects(() => oldPidTool.execute({}, run));
     registry = await toolsForTurn(request);
-    const restarted = await tool("pid").execute({}, run) as { content: { text: string }[] };
-    const nextPid = Number(restarted.content[0]!.text);
-    assert.notEqual(nextPid, pid);
+    const restarted = await tool("pid").execute({ includeInstance: true }, run) as { content: { text: string }[] };
+    const nextProcess = JSON.parse(restarted.content[0]!.text) as { pid: number; instanceId: string };
+    const nextPid = nextProcess.pid;
+    assert.ok(nextPid > 0);
+    // Windows may reuse a stopped child's numeric PID. The fixture incarnation must still change.
+    assert.match(nextProcess.instanceId, /^[0-9a-f-]{36}$/);
+    assert.notEqual(nextProcess.instanceId, firstProcess.instanceId);
     pid = nextPid;
     assert.deepEqual(await client.call("admin.extensions.runtime.hold", { name: "reports" }), { name: "reports", held: true });
     assert.ok(await waitDead(pid));
