@@ -23,6 +23,9 @@ importers:
       '@plur1bus/config-schema':
         specifier: workspace:*
         version: link:packages/config-schema
+      '@plur1bus/log-schema':
+        specifier: workspace:*
+        version: link:packages/log-schema
       '@plur1bus/module-api':
         specifier: workspace:*
         version: link:packages/module-api
