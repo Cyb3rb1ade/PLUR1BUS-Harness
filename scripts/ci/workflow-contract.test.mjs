@@ -77,6 +77,16 @@ test('the ungated jobs can neither delay nor fail the gate', () => {
     'an ungated job in needs is a contract error, never a silent pass');
 });
 
+test('macOS unit opts into bounded Core concurrency without changing deadlines or test selection', () => {
+  const block = jobBlocks(workflow())['unit-os'];
+  assert.match(block, /PLUR1BUS_CORE_TEST_CONCURRENCY: \$\{\{ runner.os == 'macOS' && 'bounded' \|\| '' \}\}/);
+  assert.match(block, /timeout-minutes: \$\{\{ matrix.os == 'windows-2025' && 35 \|\| 25 \}\}/);
+  assert.match(block, /            pnpm test\n/);
+  const runner = readFileSync(new URL('../test-package.mjs', import.meta.url), 'utf8');
+  assert.match(runner, /const TEST_TIMEOUT_MS = 120_000/);
+  assert.match(runner, /\.\.\.files\], \{ stdio: "inherit" \}/);
+});
+
 test('unit-os preserves every unit step while Ubuntu and Windows run Core only in their measured shards', () => {
   const jobs = jobBlocks(workflow());
   const coreSplit = '          # The Core files run exactly once in core-unit-shard; every other package stays here.\n' +
