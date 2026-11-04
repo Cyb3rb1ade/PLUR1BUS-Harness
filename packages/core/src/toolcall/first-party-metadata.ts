@@ -101,3 +101,8 @@ export function firstPartyDiscovery(name: string): Discovery | undefined {
   const discovery = SHIPPED.get(name);
   return discovery ? { ...discovery } : undefined;
 }
+
+/** Candidate names only: a handoff's scope, the live registry and dispatcher policy still restrict their use. */
+export function firstPartyToolNames(): readonly string[] {
+  return [...SHIPPED.keys()];
+}

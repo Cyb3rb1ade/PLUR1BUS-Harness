@@ -90,8 +90,12 @@ for (const provisionCard of [false, true]) test(provisionCard
         return;
       }
       assert.ok(req.codingWorktree, "the production runner must select the provisioned tree");
+      assert.ok(req.toolView?.includes('exec.run'), 'the actual scoped request must offer native exec to its provider');
+      assert.equal(req.toolView?.includes('memory.capture'), false, 'unrequested tools remain outside the handoff');
       seen = req.codingWorktree;
-      const registry = await o.toolsForTurn!(req);
+      const unbound = { ...req };
+      delete unbound.worktreeMount;
+      const registry = await o.toolsForTurn!(unbound);
       const dispatcher = new ToolDispatcher({ registry, approvals: approvals.service, grants: approvals.stores.grants,
         clock: { now: Date.now }, policyContext: () => ({ overrides: { "fs.write": "allowed", "shell.exec": "allowed" } }) });
       const ctx = { agentId: "coder", principal: who.userId, signal: req.signal, surface: 1 as const };
@@ -112,6 +116,16 @@ for (const provisionCard of [false, true]) test(provisionCard
       assert.match(JSON.stringify(failure.detail), /spawn-failed/);
       assert.match(JSON.stringify(failure.detail), /sandbox path is deny-listed/);
       assert.equal(existsSync(marker), false);
+      assert.ok(req.worktreeMount, 'the real assigned handoff must supply opaque native authority');
+      const boundRegistry = await o.toolsForTurn!(req);
+      const boundDispatcher = new ToolDispatcher({ registry: boundRegistry, approvals: approvals.service,
+        grants: approvals.stores.grants, clock: { now: Date.now },
+        policyContext: () => ({ overrides: { 'shell.exec': 'allowed' } }) });
+      const boundMarker = join(seen, 'native-assigned-card-started');
+      const started = await boundDispatcher.call({ id: 'bridge-native-grant', name: 'exec.run',
+        args: { program: '/usr/bin/touch', args: [boundMarker], cwd: seen } }, ctx);
+      assert.equal(started.isError, false, JSON.stringify(started));
+      assert.equal(existsSync(boundMarker), true);
       const written = await dispatcher.call({ id: "bridge-write", name: "file.write", args: { path: "notes.md", content: "local coding turn\n", overwrite: true } }, ctx);
       assert.equal(written.isError, false, JSON.stringify(written));
       const result = await dispatcher.call({ id: "bridge-complete", name: "coding_complete", args: { projectId, cardId } }, ctx);
@@ -163,12 +177,14 @@ for (const provisionCard of [false, true]) test(provisionCard
       assert.equal(seen, "");
       return;
     }
+    c.collab.boardStore.assign(projectId, cardId, { kind: 'agent', id: 'lead' }, true,
+      { kind: 'person', id: who.userId });
     new GitWorktreeProvisioner(c.collab.worktreeStore, join(home, "state")).fork({ projectId, cardId });
     const done = await c.collab.delegate({ principal: who, projectId, fromAgent: "lead", toAgent: "coder", task: "Code", acceptanceCriteria: "verified",
       handoff: {
         contract: { schema: "plur1bus.handoff/1", id: "ho_bridge", kind: "delegate", from: { agent: "lead", session: "session" }, to: { agent: "coder" },
           task: { id: "task", project: projectId, card: cardId }, objective: "Code", doneWhen: ["local change verified"],
-          constraints: { must: [], mustNot: [], scope: { paths: ["**"], tools: [] } }, authority: { mayDecide: [], mustAsk: [], approvalsHeld: [] },
+          constraints: { must: [], mustNot: [], scope: { paths: ["**"], tools: ['exec.run', 'file.write', 'coding_complete'] } }, authority: { mayDecide: [], mustAsk: [], approvalsHeld: [] },
           budget: { tokens: 2000, toolCalls: 5, deadline: "2099-01-01T00:00:00Z", modelTier: "standard" },
           returnContract: { format: "plur1bus.return/1", maxTokens: 2000, outputSchema: { type: "string" }, citationsRequired: false } },
         context: { person: who.userId, taskId: "task", sessionId: "session", fromAgent: "lead", projectId,

@@ -7,6 +7,8 @@ import { CollabError } from "../collab/errors.ts";
 import type { CollabStore } from "../collab/store.ts";
 import { git, type GitExec } from "./git.ts";
 import { assertId, cardBranch, hex6, projectKey, rootBranch } from "./names.ts";
+import { cardAssignedTo } from './card-assignment.ts';
+import { WorktreeMount } from '../tools/sandbox/worktree-mount.ts';
 
 const FORBIDDEN = new Set(["--force", "reset", "rebase", "push"]);
 
@@ -95,12 +97,21 @@ export class GitWorktreeProvisioner implements ProjectWorktreeProvisioner {
 }
 
 /** Lookup only: bound projects use an already provisioned checkout. Without a binding, the previous workspace fallback stays. */
-export function provisionedWorktreePort(store: CollabStore, fallback: (agentId: string) => string | null): ProjectWorktreePort {
+export function provisionedWorktreePort(store: CollabStore, fallback: (agentId: string) => string | null, stateDir?: string): ProjectWorktreePort {
   return { root(_agentId, projectId, cardId) {
     const project = store.getProject(projectId);
     if (!project?.repo) return fallback(_agentId);
+    if (cardId && !cardAssignedTo(store, projectId, cardId, _agentId)) return null;
     return store.liveWorktree(projectId, cardId || null)?.path ?? null;
-  } };
+  }, ...(stateDir ? { mount(agentId: string, projectId: string, cardId: string, fromAgentId?: string) {
+    const project = store.getProject(projectId);
+    if (!project || project.archivedAt !== null) throw new CollabError('unauthorized', 'active coding project required');
+    if (!project.repo) return null;
+    if (!cardAssignedTo(store, projectId, cardId, agentId, fromAgentId))
+      throw new CollabError('unauthorized', 'receiving and sending agents must be assigned to the active coding card');
+    if (!store.liveWorktree(projectId, cardId)) new GitWorktreeProvisioner(store, stateDir).fork({ projectId, cardId });
+    return WorktreeMount.fromStore(store, stateDir, projectId, cardId, agentId, fromAgentId);
+  } } : {}) };
 }
 
 export function assertGitArgv(argv: readonly string[]): void {

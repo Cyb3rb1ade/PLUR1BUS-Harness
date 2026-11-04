@@ -1,6 +1,8 @@
 import { classifyHostTool } from '../host-tools/classify.ts';
 import { firstPartyDiscovery } from '../toolcall/first-party-metadata.ts';
 import { createSandboxProcessPort, createSandboxHostExec, type SandboxOptions } from '../tools/sandbox/ports.ts';
+import { nativeWorktreeBinding } from '../tools/sandbox/worktree-mount.ts';
+import { SandboxFailure } from '../tools/sandbox/types.ts';
 import { codingCompletionTool, type CodingCompletion } from '../collab/coding-surface.ts';
 import { collaborationTools, type CollaborationTools } from '../tools/collaboration.ts';
 import type { createHostctlPool } from '../../../hostctl/src/pool.ts';
@@ -88,6 +90,18 @@ function unwrap(value: unknown): unknown {
 }
 /** Registration is per turn for scoped MCP visibility. No executable tool escapes the dispatcher. */
 export async function composeTools(o: ToolCompositionOptions, req: ChatRequest): Promise<ToolRegistry> {
+  const { worktreeMount: configuredMount, ...sandbox } = o.sandbox ?? {};
+  if (req.worktreeMount && configuredMount && req.worktreeMount !== configuredMount)
+    throw new SandboxFailure('conflicting native worktree grants');
+  const worktreeMount = req.worktreeMount ?? configuredMount;
+  if (worktreeMount) {
+    if (req.readOnlyWorktree !== undefined) throw new SandboxFailure('read-only turn cannot obtain a native mount');
+    if (o.sandbox?.required === false) throw new SandboxFailure('native card mount requires the sandbox');
+    const binding = nativeWorktreeBinding(worktreeMount, req.agentId, req.projectId, req.codingWorktree);
+    req = { ...req, codingWorktree: binding.path };
+  }
+  // Host tools receive neither the turn grant nor a grant hidden in shared sandbox options.
+  if (o.sandbox) o = { ...o, sandbox };
   if (req.codingWorktree) o = { ...o, roots: [{ id: req.agentId, path: req.codingWorktree }] };
   if (req.readOnlyWorktree) o = { ...o, roots: [{ id: req.agentId, path: req.readOnlyWorktree }] };
   const registry = new ToolRegistry();
@@ -121,6 +135,10 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
   // Only ToolDispatcher invokes this closure after a recorded D109 authorization. The inner exec gate is narrowed
   // to that already-authorized invocation; it still enforces config.mode, roots, deny paths, arguments and env.
   register({ name: 'exec.run', description: 'Run an enabled, allowlisted program inside a granted root without a shell.', inputSchema: (await import('../tools/exec/tool.ts')).EXEC_RUN_SCHEMA, capability: 'shell.exec', effect: 'local-write', risk: 'medium', trust: 'first-party', classify: args => classifyExecRun(args, { roots: o.roots, deny, sandboxed: o.sandbox?.required !== false, ...(o.exec ? { exec: o.exec } : {}) }), execute: async (args, ctx) => {
+    if (worktreeMount) {
+      if (ctx.agentId !== req.agentId || ctx.principal !== req.principal) throw new SandboxFailure('foreign native turn identity');
+      nativeWorktreeBinding(worktreeMount, ctx.agentId, req.projectId, req.codingWorktree);
+    }
     if (ctx.classified) {
       const live = await classifyExecRun(args, { roots: o.roots, deny, sandboxed: o.sandbox?.required !== false, ...(o.exec ? { exec: o.exec } : {}) });
       if (ctx.classified.targets?.[0] !== live.targets?.[0] || ctx.classified.hashExtra !== live.hashExtra) {
@@ -128,7 +146,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
       }
     }
     const invocationRoots = ctx.classified?.flags?.outsideRoots && ctx.classified.targets?.[0] ? [...o.roots, { id: 'invocation-only', path: ctx.classified.targets[0] }] : o.roots;
-    const tool = createExecTool({ config: { ...o.exec, mode: o.exec?.mode ?? 'deny', roots: invocationRoots, deny }, process: createSandboxProcessPort({ ...sandboxOptions, roots: invocationRoots }), timers: systemTimers, audit: o.audit, policy: { grants: o.grants, clock: { now: Date.now } }, policyContext: { principal: { person: ctx.principal }, subject: { kind: 'agent', agentId: ctx.agentId }, surface: ctx.surface ?? 0, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), overrides: { 'shell.exec': 'allowed' } }, ...(o.output ? { output: o.output } : {}) });
+    const tool = createExecTool({ config: { ...o.exec, mode: o.exec?.mode ?? 'deny', roots: invocationRoots, deny }, process: createSandboxProcessPort({ ...sandboxOptions, roots: invocationRoots, ...(worktreeMount ? { worktreeMount } : {}) }), timers: systemTimers, audit: o.audit, policy: { grants: o.grants, clock: { now: Date.now } }, policyContext: { principal: { person: ctx.principal }, subject: { kind: 'agent', agentId: ctx.agentId }, surface: ctx.surface ?? 0, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), overrides: { 'shell.exec': 'allowed' } }, ...(o.output ? { output: o.output } : {}) });
     const run = tool.execute; const value = unwrap(await run(args, ctx)); const result = value as { stdout: string; stderr: string }; return { ...(value as object), stdout: redactText(result.stdout), stderr: redactText(result.stderr), sandboxed: o.sandbox?.required !== false };
   } });
   if (o.media) for (const name of ['image.generate', 'image.edit', 'media.generate', 'media.edit'] as const) {

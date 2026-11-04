@@ -6,6 +6,7 @@ import { test } from "node:test";
 import { CollabError } from "../../src/collab/errors.ts";
 import { createCollab } from "../../src/collab/service.ts";
 import { CollabStore } from "../../src/collab/store.ts";
+import { newId } from '../../src/collab/ids.ts';
 import { gitArgv, gitEnv, hostGitExecutable, windowsGitCandidates, realGit, type GitExec } from "../../src/external-agents/git.ts";
 import { cardBranch, projectKey, rootBranch, hex6 } from "../../src/external-agents/names.ts";
 import { GitWorktreeProvisioner, provisionedWorktreePort } from "../../src/external-agents/provisioner.ts";
@@ -32,8 +33,14 @@ test("fork names the branch and worktree, remove keeps the branch, and argv stay
   const git: GitExec = { run(args, cwd) { calls.push(["git", ...gitArgv(args, cwd)]); return realGit.run(args, cwd); } };
   const db = join(state, "collab.sqlite");
   const lead = owner();
-  const collab = createCollab({ path: db, home, git });
+  const collab = createCollab({ path: db, home, git, newId: prefix => prefix === 'card' ? 'crd_aabbcc' : newId(prefix) });
   const project = collab.createProject(lead, { name: "Auth Rework" });
+  collab.addAgent(lead, project.id, 'agent');
+  const assigned = collab.boardStore.createCard(project.id, { title: 'Named card',
+    columnId: collab.boardStore.columns(project.id)[0]!.id }, { kind: 'person', id: lead.userId });
+  assert.equal(assigned.id, 'crd_aabbcc');
+  collab.boardStore.assign(project.id, assigned.id, { kind: 'agent', id: 'agent' }, true,
+    { kind: 'person', id: lead.userId });
   collab.bindRepo(lead, project.id, repo, "main");
   const id = project.id;
   collab.close();
@@ -133,9 +140,18 @@ test("host Git selects Git for Windows using the trusted host PATH, with inherit
 test("worktree root lookup never implicitly provisions a root or model-selected card", () => {
   const dir = tempDir("q3-lookup-only-"), repo = join(dir, "repo"), state = join(dir, "state");
   gitInit(repo); mkdirSync(state);
+  const collab = createCollab({ path: join(state, 'collab.sqlite'), home: dir,
+    newId: prefix => prefix === 'card' ? 'card_abcdef' : newId(prefix) });
+  const project = collab.createProject(owner(), { name: 'Lookup' });
+  collab.addAgent(owner(), project.id, 'agent');
+  const selected = collab.boardStore.createCard(project.id, { title: 'Selected card',
+    columnId: collab.boardStore.columns(project.id)[0]!.id }, { kind: 'person', id: owner().userId });
+  assert.equal(selected.id, 'card_abcdef');
+  collab.boardStore.assign(project.id, selected.id, { kind: 'agent', id: 'agent' }, true,
+    { kind: 'person', id: owner().userId });
+  collab.close();
   const store = new CollabStore({ path: join(state, "collab.sqlite") });
   try {
-    const project = store.createProject({ name: "Lookup", owner: "u-owner" });
     store.setRepo(project.id, { repoPath: repo, baseBranch: "main" });
     const port = provisionedWorktreePort(store, () => "/fallback");
     const before = execFileSync("git", ["-C", repo, "worktree", "list", "--porcelain"], { encoding: "utf8" });
