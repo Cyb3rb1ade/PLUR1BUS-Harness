@@ -11,6 +11,7 @@
     "test": "node ../../scripts/test-package.mjs"
   },
   "dependencies": {
+    "@plur1bus/config-schema": "workspace:*",
     "@preact/signals": "2.11.3",
     "preact": "10.29.8"
   },
