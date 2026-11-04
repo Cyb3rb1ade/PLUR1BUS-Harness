@@ -31,6 +31,21 @@ test('B1 fixture selftests prepare the pinned Go and Python toolchains before ex
   }
 });
 
+test('every Desktop platform builds test executables before the unchanged execution deadline', () => {
+  const yaml = readFileSync(new URL('../../.github/workflows/desktop.yml', import.meta.url), 'utf8');
+  const desktop = jobBlocks(yaml).desktop;
+  const steps = desktop.split(/(?=^      - )/m);
+  const build = steps.find(step => /run: cargo test --locked --workspace --no-run\n/.test(step));
+  const execute = steps.find(step => /id: desktop-rust-tests\n/.test(step));
+  assert(build, 'cold compilation must have its own bounded step');
+  assert.doesNotMatch(build, /^        if:/m, 'Linux and macOS must not charge compilation to test execution');
+  assert.match(build, /^        timeout-minutes: 15$/m);
+  assert.match(execute, /^        timeout-minutes: 15$/m);
+  assert.match(execute, /cargo test --locked --workspace --no-fail-fast -- --test-threads=1 --nocapture/);
+  assert(steps.indexOf(build) < steps.indexOf(execute));
+  assert.match(desktop, /^    timeout-minutes: 60$/m);
+});
+
 test('every job running Core builds the native sandbox launcher before its assertions', () => {
   const jobs = jobBlocks(workflow());
   for (const name of ['unit', 'unit-os', 'core-unit-shard', 'core-unit-shard-windows']) {
