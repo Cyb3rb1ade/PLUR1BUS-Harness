@@ -33,6 +33,16 @@ test('every Desktop platform builds test executables before the unchanged execut
   assert.match(desktop, /^    timeout-minutes: 60$/m);
 });
 
+test('macOS unit opts into bounded Core concurrency without changing deadlines or test selection', () => {
+  const block = jobBlocks(workflow())['unit-os'];
+  assert.match(block, /PLUR1BUS_CORE_TEST_CONCURRENCY: \$\{\{ runner.os == 'macOS' && 'bounded' \|\| '' \}\}/);
+  assert.match(block, /timeout-minutes: \$\{\{ matrix.os == 'windows-2025' && 35 \|\| 25 \}\}/);
+  assert.match(block, /            pnpm test\n/);
+  const runner = readFileSync(new URL('../test-package.mjs', import.meta.url), 'utf8');
+  assert.match(runner, /const TEST_TIMEOUT_MS = 120_000/);
+  assert.match(runner, /\.\.\.files\], \{ stdio: "inherit" \}/);
+});
+
 test('every job running Core builds the native sandbox launcher before its assertions', () => {
   const jobs = jobBlocks(workflow());
   for (const name of ['unit', 'unit-os', 'core-unit-shard', 'core-unit-shard-windows']) {
