@@ -23,6 +23,9 @@ importers:
       '@plur1bus/config-schema':
         specifier: workspace:*
         version: link:packages/config-schema
+      '@plur1bus/log-schema':
+        specifier: workspace:*
+        version: link:packages/log-schema
       '@plur1bus/module-api':
         specifier: workspace:*
         version: link:packages/module-api
@@ -217,6 +220,9 @@ importers:
 
   packages/web:
     dependencies:
+      '@plur1bus/config-schema':
+        specifier: workspace:*
+        version: link:../config-schema
       '@preact/signals':
         specifier: 2.11.3
         version: 2.11.3(preact@10.29.8)
