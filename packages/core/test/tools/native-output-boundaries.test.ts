@@ -123,6 +123,23 @@ test("file UTF-8 classification and byte metadata belong to the requested source
   await assert.rejects(ops.read({ path, offset: 2, length: 5 }, live), e => (e as { code?: string }).code === "binary-content");
 });
 
+test("file BOM bytes retain Unicode tails and source coordinates while secrets stay masked", async () => {
+  const secret = canary(), live = registry(secret), dir = await root(), path = join(dir, "bom-secret");
+  const source = Buffer.from("\uFEFF" + secret + "€😀\r\n");
+  await writeFile(path, source);
+  const ops = createFsOps({ roots: [{ id: "r", path: dir }] });
+  const full = await ops.read({ path }, live);
+  assert.equal(full.content, "\uFEFF" + MARK + "€😀\r\n");
+  assert.equal(full.bytesRead, source.length);
+  assert.equal(full.size, source.length);
+  assert.equal(full.truncated, false);
+  const part = await ops.read({ path, length: 10 }, live);
+  assert.equal(part.content, "\uFEFF" + MARK);
+  assert.equal(part.bytesRead, 10);
+  assert.equal(part.truncated, true);
+  concealed(JSON.stringify([full, part]), secret);
+});
+
 test("file padding may start inside a multibyte codepoint without changing the requested text", async () => {
   const secret = canary(), live = registry(secret), dir = await root(), path = join(dir, "padding");
   await writeFile(path, "€".repeat(1000) + secret);
