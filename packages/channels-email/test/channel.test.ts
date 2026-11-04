@@ -335,6 +335,36 @@ test("approval by email: prompt, valid code accepted once, replay and wrong-thre
   }
 });
 
+test('an authenticated approval reply is recognized while SMTP acknowledgement is still pending', async () => {
+  const fx = await makeEmailFixture(), h = hostRec();
+  let release: (() => void) | undefined;
+  let pending: ReturnType<typeof fx.channel.prompt> | undefined;
+  try {
+    await fx.channel.start(h.host);
+    await fx.deliverRaw(fixtureMail({ from: ALLOWED, body: 'request', messageId: 'early-root@x' }));
+    const decisions: ApprovalDecision[] = [];
+    fx.channel.onDecision(d => { decisions.push(d); });
+    const accepted = new Promise<void>(resolve => { fx.smtp.acknowledge = send => { release = send; resolve(); }; });
+    pending = fx.channel.prompt({ chatId: h.received[0]!.chatId, text: 'Allow?',
+      choices: [{ id: 'once', label: 'once' }], approverIds: [ALLOWED] });
+    await accepted;
+    const mail = parseMessage(fx.smtp.received.at(-1)!.data);
+    const code = /\[approval ([0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4})\]/.exec(mail.subject)![1]!;
+    await fx.deliverRaw(fixtureMail({ from: ALLOWED, body: `${code} 1`, messageId: 'early-reply@x',
+      extraHeaders: [`References: <early-root@x> <${mail.messageId}>`] }));
+    assert.equal(decisions.length, 1);
+    assert.equal(h.received.length, 1, 'an approval reply must not become an ordinary agent turn');
+    assert.ok(release);
+    release(); release = undefined;
+    const sent = await pending;
+    assert.equal(decisions[0]!.promptId, sent.promptId);
+  } finally {
+    release?.();
+    await pending?.catch(() => {});
+    await fx.dispose();
+  }
+});
+
 test("approval codes expire", async () => {
   const fx = await makeEmailFixture();
   const h = hostRec();

@@ -214,6 +214,7 @@ class Host implements Switchboard {
   readonly #allowed = new Map<string, Set<string>>();
   readonly #pendingMedia = new Map<string, string[]>();
   readonly #prompts = new Map<string, { channel: string; requestId: string; nonce: string; person: string; chatId: string; chatKind: ChatKind; approverIds: ReadonlySet<string> }>();
+  readonly #sendingPrompts = new Set<{ channel: string; requestId: string; chatId: string; approverIds: ReadonlySet<string>; decisions: ApprovalDecisionLike[] }>();
   #unwatch: (() => void) | null = null;
   #recheck: Timer | null = null;
   #recheckDelay = 0;
@@ -273,6 +274,8 @@ class Host implements Switchboard {
 
   async stop(): Promise<void> {
     this.#stopped = true;
+    this.#sendingPrompts.clear();
+    this.#prompts.clear();
     this.#unwatch?.(); this.#unwatch = null;
     this.#recheck?.cancel(); this.#recheck = null;
     await this.idle();
@@ -628,6 +631,7 @@ class Host implements Switchboard {
   // --- D109 relay -------------------------------------------------------------------------------------------------------
 
   async #relayApproval(p: { approval: ApprovalView; nonce: string; foregroundUntil: number }): Promise<void> {
+    let sending: { channel: string; requestId: string; chatId: string; approverIds: ReadonlySet<string>; decisions: ApprovalDecisionLike[] } | undefined;
     try {
       const { approval, nonce } = p;
       const t = this.#o.turns(), svc = this.#o.identity();
@@ -646,6 +650,11 @@ class Host implements Switchboard {
       if (this.#kinds.get(session.chatKey) !== "direct") return;
       const kind: ChatKind = "direct";
       const ttl = Math.min(Math.max(approval.expiresAt - this.#o.clock.now(), 1_000), MAX_APPROVAL_TTL_MS);
+      // Delivery can be visible before its transport acknowledgement reaches Core.
+      // Retain only bounded candidate replies; bind them to the returned prompt ID below.
+      if (this.#sendingPrompts.size >= MAX_PROMPTS) return;
+      sending = { channel: chat.channel, requestId: approval.id, chatId: chat.chatId, approverIds: new Set(approverIds), decisions: [] };
+      this.#sendingPrompts.add(sending);
       const sent = await adapter.prompt({
         chatId: chat.chatId,
         text: approvalText(approval),
@@ -653,19 +662,31 @@ class Host implements Switchboard {
         approverIds,
         ttlMs: Number.isFinite(ttl) ? ttl : DEFAULT_APPROVAL_TTL_MS,
       });
+      if (!this.#sendingPrompts.delete(sending) || this.#stopped || this.#live.get(chat.channel) !== adapter) return;
       while (this.#prompts.size >= MAX_PROMPTS) this.#prompts.delete(this.#prompts.keys().next().value as string);
       this.#prompts.set(`${chat.channel}\0${sent.promptId}`, {
         channel: chat.channel, requestId: approval.id, nonce, person: approval.principal, chatId: chat.chatId, chatKind: kind, approverIds: new Set(approverIds),
       });
+      for (const decision of sending.decisions) if (decision.promptId === sent.promptId) await this.#decide(chat.channel, decision);
     } catch (e) {
       this.#o.log.warn("channel.approval.prompt-failed", { error: this.#redact(errText(e)) });
+    } finally {
+      if (sending) this.#sendingPrompts.delete(sending);
     }
   }
 
   async #decide(channel: string, d: ApprovalDecisionLike): Promise<void> {
     const key = `${channel}\0${d.promptId}`;
     const p = this.#prompts.get(key);
-    if (!p) return;
+    if (!p) {
+      if ((d.choiceId !== APPROVE && d.choiceId !== DENY) || d.promptId.length > 1024) return;
+      for (const sending of this.#sendingPrompts) {
+        if (sending.channel !== channel || sending.chatId !== d.chatId || !sending.approverIds.has(d.senderId)) continue;
+        if (sending.decisions.length === 16) sending.decisions.shift();
+        sending.decisions.push({ ...d });
+      }
+      return;
+    }
     // The adapter already checked the approver list (the snapshot taken when the prompt went out). The host checks again against
     // the person's links as they are NOW: a handle revoked since, or a person disabled since, can no longer decide.
     if (d.chatId !== p.chatId || !p.approverIds.has(d.senderId) || !this.#approversOf(p.person, channel).includes(d.senderId) || !this.#active(p.person)) {
@@ -691,9 +712,11 @@ class Host implements Switchboard {
   }
 
   #forgetPrompts(requestId: string): void {
+    for (const pending of this.#sendingPrompts) if (pending.requestId === requestId) this.#sendingPrompts.delete(pending);
     for (const [k, v] of this.#prompts) if (v.requestId === requestId) this.#prompts.delete(k);
   }
   #forgetChannelPrompts(channel: string): void {
+    for (const pending of this.#sendingPrompts) if (pending.channel === channel) this.#sendingPrompts.delete(pending);
     for (const [k, v] of this.#prompts) if (v.channel === channel) this.#prompts.delete(k);
   }
 
