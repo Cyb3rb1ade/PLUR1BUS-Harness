@@ -6,6 +6,7 @@
 // and the guard below fails the run when no test ran or pnpm matched nothing.
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { pnpmCommand } from "./pnpm-command.mjs";
 
 // Excluded: the desktop UI's tests need a browser and run in desktop.yml.
 export const EXCLUDED = ["@plur1bus/desktop-ui"];
@@ -29,12 +30,9 @@ export function guard(output, status) {
 }
 
 function main() {
-  // `pnpm test` exports npm_execpath (pnpm's own entry); fall back to `pnpm` on PATH.
-  const exec = process.env.npm_execpath?.includes("pnpm") ? process.env.npm_execpath : null;
   const args = buildArgs(process.argv.slice(2));
-  const child = exec
-    ? spawn(process.execPath, [exec, ...args], { stdio: ["inherit", "pipe", "pipe"] })
-    : spawn("pnpm", args, { stdio: ["inherit", "pipe", "pipe"], shell: process.platform === "win32" });
+  const invocation = pnpmCommand(args);
+  const child = spawn(invocation.command, invocation.args, { stdio: ["inherit", "pipe", "pipe"], shell: invocation.shell });
   let out = "";
   const tee = (stream, sink) => stream.on("data", (b) => { out += b; sink.write(b); });
   tee(child.stdout, process.stdout);

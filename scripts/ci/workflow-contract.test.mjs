@@ -113,8 +113,9 @@ test('unit-os preserves every unit step while Ubuntu and Windows run Core only i
   const matrix = block => /^        os: \[([^\]]+)\]/m.exec(block)[1].split(',').map(x => x.trim());
   assert.deepEqual(matrix(jobs.unit), ['ubuntu-24.04']);
   assert.deepEqual(matrix(jobs['unit-os']), ['macos-15', 'windows-2025']);
-  // The check names stay `unit (ubuntu-24.04)`, `unit (macos-15)`, `unit (windows-2025)`.
-  assert.match(jobs['unit-os'], /^    name: unit \(\$\{\{ matrix\.os \}\}\)$/m);
+  // Hosted check names stay stable; the separately tested trusted VM route declares its actual environment.
+  assert.doesNotMatch(jobs.unit, /^    name:/m, 'Linux keeps the default unit matrix check name');
+  assert.match(jobs['unit-os'], /^    name: unit \(\$\{\{ .* && 'macOS VM' \|\| matrix\.os \}\}\)$/m);
 });
 
 test('unit checks continue after earlier failures, stop on cancellation and time Rust build separately', () => {

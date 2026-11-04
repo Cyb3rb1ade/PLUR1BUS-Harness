@@ -1,4 +1,5 @@
-//! Deterministic helper fixture. Output contains variable names only, never values.
+//! Deterministic helper fixture. Output contains names, a fingerprint and a synthetic-canary boolean, never values.
+mod architecture;
 use std::io::{BufRead, Write};
 fn main() {
     let mut stdout = std::io::stdout().lock();
@@ -21,7 +22,11 @@ fn main() {
             Some("environment") => {
                 serde_json::to_writer(
                     &mut stdout,
-                    &std::env::vars().map(|(k, _)| k).collect::<Vec<_>>(),
+                    &serde_json::json!({
+                        "env": std::env::vars().map(|(k, _)| k).collect::<Vec<_>>(),
+                        "architectureFingerprint": architecture::fingerprint(),
+                        "architectureCanary": std::env::var("PROCESSOR_ARCHITECTURE").as_deref() == Ok("must-not-pass"),
+                    }),
                 )
                 .unwrap();
                 writeln!(stdout).unwrap();

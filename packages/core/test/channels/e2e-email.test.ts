@@ -103,14 +103,19 @@ test("a linked person's mail runs a turn and the reply is threaded back to the s
   } finally { await t.close(); }
 });
 
-test("approval: the prompt mail carries a code; only the approver's DMARC-passing reply with the right code decides", async () => {
+test("approval: the prompt mail carries a code; only the approver's DMARC-passing reply with the right code decides", async (tc) => {
+  // Buffered static milestones identify a stalled await without logging mail, identities or approval codes.
+  tc.diagnostic("email approval: setup started");
   const t = await setup({ allow: [PAT, EVE] });
   try {
+    tc.diagnostic("email approval: channel running");
     const { humanId } = t.e2e.link("email", BOT, PAT);
     const root = await t.deliver(PAT, "do it");
     await t.e2e.until(() => t.mails().length === 1, "reply mail");
+    tc.diagnostic("email approval: initial reply received");
     t.e2e.switchboard.approvalEvents.emit("approval.requested", { approval: approvalFor(humanId, sessionOf(t.e2e, humanId).id), nonce: "nonce-1", foregroundUntil: 1 });
     await t.e2e.until(() => t.mails().length === 2, "prompt mail");
+    tc.diagnostic("email approval: prompt received");
     const prompt = t.mails()[1]!;
     assert.deepEqual(prompt.to, [PAT]);
     assert.match(prompt.msg.text, /demo\.net/);
@@ -120,18 +125,28 @@ test("approval: the prompt mail carries a code; only the approver's DMARC-passin
     assert.match(prompt.msg.subject, new RegExp(code!));
 
     await t.deliver(EVE, `${code} 1`, { root });                                    // another address
+    tc.diagnostic("email approval: non-approver processed");
     await t.deliver(PAT, `${code} 1`, { root, auth: "mx.test; dmarc=fail" });         // no DMARC pass
+    tc.diagnostic("email approval: failed DMARC processed");
     await t.deliver(PAT, "ZZZZ-ZZZZ 1", { root });                                    // wrong code
+    tc.diagnostic("email approval: wrong code processed");
     await flush(30);
     assert.deepEqual(t.e2e.approvals.decisions, []);
 
     await t.deliver(PAT, `${code} 1`, { root });
+    tc.diagnostic("email approval: valid reply processed");
     await t.e2e.until(() => t.e2e.approvals.decisions.length === 1, "decision");
+    tc.diagnostic("email approval: decision recorded");
     assert.deepEqual(t.e2e.approvals.decisions, [{ requestId: "req-1", nonce: "nonce-1", decision: "approve", person: humanId, surface: 2 }]);
     await t.deliver(PAT, `${code} 2`, { root });                                      // a code works once
+    tc.diagnostic("email approval: replay processed");
     await flush(30);
     assert.equal(t.e2e.approvals.decisions.length, 1);
-  } finally { await t.close(); }
+  } finally {
+    tc.diagnostic("email approval: cleanup started");
+    await t.close();
+    tc.diagnostic("email approval: cleanup completed");
+  }
 });
 
 test("channel.test --send-owner mails the fixed test text to the person's address", async () => {

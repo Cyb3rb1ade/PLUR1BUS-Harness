@@ -285,7 +285,7 @@ fn wait_supervisor_accepts(client: &mut plur1bus_rpc::Client) -> bool {
     }
 }
 
-/// A supervisor that answers: the broken file is backed up and the configuration it runs (`config.get`) is written
+/// A supervisor that answers: the broken file is backed up and its private `config.watch` snapshot is written
 /// in its place, which re-arms a core stopped on it (B18). No supervisor, or one that runs no valid configuration:
 /// the newest `config.json.bak-*` that validates. A supervisor that does not answer: nothing is written (B6).
 pub fn restore_config(ctx: &Ctx, _step: &Step) -> Result<Value, String> {
@@ -297,8 +297,8 @@ pub fn restore_config(ctx: &Ctx, _step: &Step) -> Result<Value, String> {
     };
     let running = client
         .as_mut()
-        .and_then(|c| config_cmd::call(c, "config.get", json!({})).ok())
-        .map(|r| r["value"].clone())
+        .and_then(|c| config_cmd::call(c, "config.watch", json!({})).ok())
+        .map(|r| r["config"].clone())
         .filter(Value::is_object);
     let mut detail = match running {
         Some(config) => {

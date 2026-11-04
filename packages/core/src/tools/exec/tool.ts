@@ -25,7 +25,7 @@ export interface ExecToolSpec {
   inputSchema: Record<string, unknown>;
   effect: "local-write";
   parallelSafe: false;
-  execute(args: unknown, ctx?: { signal?: AbortSignal | undefined; classified?: ToolClassification }): Promise<ExecToolOutcome>;
+  execute(args: unknown, ctx?: { signal?: AbortSignal | undefined; classified?: ToolClassification; knownSecrets?: () => import("../../logs/secret-forms.ts").SecretFormsSnapshot }): Promise<ExecToolOutcome>;
 }
 
 export function createExecTool(deps: ExecDeps): ExecToolSpec {
@@ -44,7 +44,7 @@ export function createExecTool(deps: ExecDeps): ExecToolSpec {
         if (extra.length > 0) throw new ExecFailure("invalid-input", `unknown argument: ${extra[0]}`);
         const env = a.env;
         if (env !== undefined && (env === null || typeof env !== "object" || Array.isArray(env))) throw new ExecFailure("invalid-input", "env must be an object");
-        const value = await execRun(a as never, deps, ctx?.signal, ctx?.classified);
+        const value = await execRun(a as never, ctx?.knownSecrets ? { ...deps, knownSecrets: ctx.knownSecrets } : deps, ctx?.signal, ctx?.classified);
         return { isError: false, value };
       } catch (e) {
         if (e instanceof ExecFailure) return e.toResult();

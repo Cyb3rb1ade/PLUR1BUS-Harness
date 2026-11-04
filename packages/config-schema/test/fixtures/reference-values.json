@@ -1,0 +1,189 @@
+[
+  {
+    "definition": "backupSecretName",
+    "value": "openai-api-key",
+    "reference": true,
+    "warning": false
+  },
+  {
+    "definition": "backupSecretName",
+    "value": {
+      "prefix": "sk-",
+      "repeat": "fixture",
+      "count": 6
+    },
+    "reference": false,
+    "warning": true
+  },
+  {
+    "definition": "backupSecretName",
+    "value": {
+      "prefix": "ghp_",
+      "repeat": "fixture",
+      "count": 6
+    },
+    "reference": false,
+    "warning": true
+  },
+  {
+    "definition": "backupSecretName",
+    "value": {
+      "prefix": "xoxb-",
+      "repeat": "fixture",
+      "count": 6
+    },
+    "reference": false,
+    "warning": true
+  },
+  {
+    "definition": "backupSecretName",
+    "value": {
+      "kind": "alphabet"
+    },
+    "reference": false,
+    "warning": true
+  },
+  {
+    "definition": "backupSecretName",
+    "value": {
+      "kind": "hex_alphabet",
+      "count": 3
+    },
+    "reference": false,
+    "warning": true
+  },
+  {
+    "definition": "backupSecretName",
+    "value": {
+      "repeat": "reference",
+      "count": 11
+    },
+    "reference": false,
+    "warning": true
+  },
+  {
+    "definition": "backupSecretName",
+    "value": {
+      "repeat": "name",
+      "count": 24
+    },
+    "reference": true,
+    "warning": false
+  },
+  {
+    "definition": "backupSecretName",
+    "value": "not a name",
+    "reference": false,
+    "warning": true
+  },
+  {
+    "definition": "backupSecretName",
+    "value": 42,
+    "reference": false,
+    "warning": true
+  },
+  {
+    "definition": "secretEnvironmentName",
+    "value": "_FIXTURE_REFERENCE",
+    "reference": true,
+    "warning": false
+  },
+  {
+    "definition": "secretFileReference",
+    "value": {
+      "prefix": "/tmp/",
+      "repeat": "reference path/",
+      "count": 12,
+      "suffix": "file"
+    },
+    "reference": true,
+    "warning": false
+  },
+  {
+    "definition": "secretFileReference",
+    "value": {
+      "kind": "alphabet"
+    },
+    "reference": false,
+    "warning": true
+  },
+  {
+    "definition": "secretFileReference",
+    "value": "C:\\Users\\Public\\reference.json",
+    "reference": true,
+    "warning": false
+  },
+  {
+    "definition": "backupEngineSecretReference",
+    "value": "${OPENAI_API_KEY}",
+    "reference": true,
+    "warning": false
+  },
+  {
+    "definition": "backupEngineSecretReference",
+    "value": "${ARBITRARY_ENV}",
+    "reference": false,
+    "warning": true
+  },
+  {
+    "definition": "backupEngineSecretReference",
+    "value": {
+      "source": "store",
+      "provider": "fixture",
+      "id": "openai-api-key"
+    },
+    "reference": true,
+    "warning": false
+  },
+  {
+    "definition": "backupEngineSecretReference",
+    "value": {
+      "source": "env",
+      "provider": "fixture",
+      "id": "FIXTURE_REFERENCE_NAME"
+    },
+    "reference": true,
+    "warning": false
+  },
+  {
+    "definition": "backupEngineSecretReference",
+    "value": {
+      "source": "file",
+      "provider": "fixture",
+      "id": {
+        "prefix": "/tmp/",
+        "repeat": "reference path/",
+        "count": 12,
+        "suffix": "file"
+      }
+    },
+    "reference": true,
+    "warning": false
+  },
+  {
+    "definition": "backupEngineSecretReference",
+    "value": {
+      "source": "exec",
+      "provider": "fixture",
+      "id": {
+        "prefix": "sk-",
+        "repeat": "fixture",
+        "count": 6
+      }
+    },
+    "reference": false,
+    "warning": true
+  },
+  {
+    "definition": "backupSecretName",
+    "value": "openai-api-key\n",
+    "reference": false,
+    "warning": true
+  },
+  {
+    "definition": "secretEnvironmentName",
+    "value": "FIXTURE_REFERENCE\n",
+    "reference": false,
+    "warning": true
+  }
+]

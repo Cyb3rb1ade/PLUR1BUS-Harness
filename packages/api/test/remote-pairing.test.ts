@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, chmodSync, writeFileSync, symlinkSync, renameSync } from "node:fs";
+import { mkdtempSync, rmSync, chmodSync, readFileSync, writeFileSync, symlinkSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { generateKeyPairSync, sign } from "node:crypto";
@@ -15,7 +15,8 @@ function fixture(t:import("node:test").TestContext){
  const next=pinOf(Buffer.from("next cert")),ca=pinOf(Buffer.from("same company CA")),calls:string[]=[],devices:any[]=[];
  const audit=memoryAuditSink();let challenge="";const key=generateKeyPairSync("ed25519"),publicKey=key.publicKey.export({type:"spki",format:"der"}).toString("base64");
  const core:any={callAs:async()=>({devices}),serviceCall:async(method:string,p:any)=>{calls.push(method);if(method==="admin.api.person.resolve")return{person:live?{id:"owner-person",role:"owner"}:null};if(method==="admin.api.device.pair"){const device={id:`dev-${devices.length}`,name:p.name,publicKey:p.publicKey,pairedBy:p.pairedBy,scope:p.scope,platform:p.platform};devices.push(device);return{device};}if(method==="admin.api.device.announce"){if(announceFails)throw Error("announce refused");return{announced:true};}if(method==="admin.api.device.challenge"){challenge=Buffer.alloc(32,7).toString("base64url");return{challenge};}if(method==="admin.api.device.prove"){assert.equal(p.publicKey,publicKey);assert.equal(p.signature,sign(null,Buffer.from(challenge,"base64url"),key.privateKey).toString("base64url"));return{device:devices.find(d=>d.id===p.id)};}throw Error(method);}};
- const options={core,audit,now:()=>now,trustFile:join(home,"private","trust.json"),publish:()=>publish,tlsMode:()=>"company-ca" as const,origin:()=>"https://fixture.local",current:()=>({certPin:current,caPin:ca}),transport:(i:HandlerInput)=>i.remoteTransport,stage:async()=>({certPin:next,caPin:ca}),activate:async()=>{calls.push("activate");current=next;},cancelStage:async()=>{},codes:new PairCodeStore({params:LIGHT})};
+ const currentSpki=()=>pinOf(Buffer.from(`synthetic test key for ${current}`)),nextMaterial=()=>({certPin:next,certSpkiPin:pinOf(Buffer.from(`synthetic test key for ${next}`)),caPin:ca});
+ const options={core,audit,now:()=>now,trustFile:join(home,"private","trust.json"),publish:()=>publish,tlsMode:()=>"company-ca" as const,origin:()=>"https://fixture.local",current:()=>({certPin:current,certSpkiPin:currentSpki(),caPin:ca}),transport:(i:HandlerInput)=>i.remoteTransport,stage:async()=>nextMaterial(),staged:()=>nextMaterial(),activate:async()=>{calls.push("activate");current=next;},cancelStage:async()=>{},codes:new PairCodeStore({params:LIGHT})};
  const controller=new RemotePairingController(options);
  const transport:PairingTransport={tls:true,origin:options.origin(),servedFingerprint:current};
  const input=(body:object={},over:Partial<HandlerInput>={}):HandlerInput=>({body,ip:"192.0.2.10",rbac:{kind:"person",userId:"owner-person",role:"owner"},remoteTransport:transport,...over} as HandlerInput);
@@ -61,6 +62,14 @@ test("trust acknowledgement requires device ownership, one-use challenge and val
  const f=fixture(t);f.devices.push({id:"dev-a",name:"connected",pairedBy:"owner-person",publicKey:f.publicKey});await f.controller.rotate(f.input({operation:"stage"}));await assert.rejects(f.controller.challenge(f.input({deviceId:"foreign"})));
  const proof=await f.controller.challenge(f.input({deviceId:"dev-a"}));const b={deviceId:"dev-a",challenge:proof.challenge,publicKey:f.publicKey,signature:sign(null,Buffer.from(proof.challenge,"base64url"),f.key.privateKey).toString("base64url"),pin:f.next};assert.deepEqual(await f.controller.ack(f.input(b)),{acknowledged:true});await assert.rejects(f.controller.ack(f.input(b)));
  assert.deepEqual(((await f.controller.rotate(f.input({operation:"activate"}))) as any).repairIds,[]);
+});
+test("legacy pending activation refuses ACK without writing an unreadable v2 envelope",async t=>{
+ const f=fixture(t);f.devices.push({id:"dev-a",name:"connected",pairedBy:"owner-person",publicKey:f.publicKey});await f.controller.rotate(f.input({operation:"stage"}));
+ const staged=JSON.parse(readFileSync(f.options.trustFile,"utf8"));writeFileSync(f.options.trustFile,JSON.stringify({version:1,state:staged.state,activation:{devices:[{id:"dev-a",name:"connected"}],at:f.options.now()}})+"\n");
+ const restarted=new RemotePairingController(f.options),proof=await restarted.challenge(f.input({deviceId:"dev-a"})),before=readFileSync(f.options.trustFile,"utf8");
+ const b={deviceId:"dev-a",challenge:proof.challenge,publicKey:f.publicKey,signature:sign(null,Buffer.from(proof.challenge,"base64url"),f.key.privateKey).toString("base64url"),pin:f.next};
+ await assert.rejects(restarted.ack(f.input(b)),e=>(e as any).reason==="trust-ack");assert.equal(readFileSync(f.options.trustFile,"utf8"),before);
+ assert.equal((await new RemotePairingController(f.options).getTrust(f.input())).current.pin,staged.state.current.pin);
 });
 test("tailnet proof requires controlled gateway and client comparison with actual edge TLS leaf",async t=>{
  const f=fixture(t);f.setPublish("tailnet");const offer=await f.controller.offer(f.input()),nonce=createClientNonce();await assert.rejects(f.controller.proof(f.input({clientNonce:nonce})));

@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { defaults } from "@plur1bus/config-schema";
 import { openTurnComposition, type CompositionDeps } from "../../src/composition/index.ts";
@@ -12,6 +13,7 @@ import { useTempDirs } from "./helpers.ts";
 import { createSecretStore } from "../../src/secrets/store.ts";
 import { createMemoryBackend } from "../../src/secrets/memory-backend.ts";
 import { createMemoryAuditSink } from "../../src/secrets/audit.ts";
+import { loadConfigDisclosurePolicy } from "../../src/config-disclosure.ts";
 
 const tmp = useTempDirs("p1b-open-comp-");
 const MEDIA_METHODS = ["chat.promote.links", "chat.promote.preview", "chat.promote.commit", "task.complete", "media.generate", "media.edit", "media.job.get", "media.job.list", "media.job.cancel", "media.output.get", "media.output.list", "media.output.delete", "media.adapters.list", "media.preferences.get", "media.preferences.set"];
@@ -51,6 +53,38 @@ async function open(over: Partial<CompositionDeps> = {}, prepare: (home: string)
 }
 
 describe("composition openTurnComposition", () => {
+  it("actual collaboration replay masks live Store and config-policy values while keeping declared public module controls", async () => {
+    const stored = randomUUID(), configured = randomUUID(), publicRegion = "public-eu-region", publicPath = "/public/report.txt";
+    const secrets = createSecretStore({ keyring: createMemoryBackend(), file: createMemoryBackend(), fileFallback: () => false, audit: createMemoryAuditSink() });
+    let config!: ReturnType<typeof defaults>;
+    const text = `${stored} ${configured} ${publicRegion} ${publicPath} 2026.11 user@example.com`;
+    const { composition: c, home, identity } = await open({ secrets, options: {
+      providers: { profiles: { default: [{ provider: "fixture", model: "gpt-4.1", adapter: { async *stream() {} } }] } },
+      createTurnProvider: () => ({ id: "fixture", telemetry: {} as never, async *stream() { yield { type: "delta", text }; } }) as never,
+    } }, home => {
+      mkdirSync(join(home, "modules/fixture"), { recursive: true });
+      writeFileSync(join(home, "modules/fixture/module.json"), JSON.stringify({ name: "fixture", version: "0.1.0", apiVersion: "1", entry: "index.js", scope: "installation", priority: 500,
+        configSchema: { type: "object", properties: { private: { type: "string", "x-sensitive": true }, region: { type: "string" }, path: { type: "string" }, version: { type: "string" } } } }));
+    }, cfg => {
+      config = cfg; cfg.agents.worker = {};
+      cfg.modules.fixture = { enabled: false, private: configured, region: publicRegion, path: publicPath, version: "2026.11" };
+    });
+    try {
+      await secrets.set({ kind: "owner", id: "fixture" }, "fixture.store", stored);
+      secrets.redaction.replaceGroup(Symbol("config-policy"), (await loadConfigDisclosurePolicy(home)).values(config));
+      const principal = { userId: "owner", kind: "person" as const, role: "owner" as const };
+      assert.ok(c.collab);
+      const project = c.collab.createProject(principal, { name: "fixture" });
+      for (const agent of ["bernd", "worker"]) c.collab.addAgent(principal, project.id, agent);
+      const result = await c.collab.consult({ principal, projectId: project.id, fromAgent: "bernd", toAgent: "worker", question: "Check public controls", context: "" });
+      const trace = c.collab.getTrace(principal, result.traceId), span = trace.spans[0]!;
+      const seen = JSON.stringify({ trace, replay: c.collab.replay(principal, result.traceId, span.spanId) });
+      for (const privateValue of [stored, configured, "user@example.com"]) assert.ok(!seen.includes(privateValue), "private collaboration data escaped the composed redaction source");
+      for (const publicValue of [publicRegion, publicPath, "2026.11"]) assert.ok(seen.includes(publicValue), publicValue);
+      assert.ok(seen.includes("[REDACTED:secret]") && seen.includes("[REDACTED:pii]"));
+    } finally { await c.close(); identity.close(); }
+  });
+
   it("D105: the bounded decision call is required only when modelRoles.decision is configured; without one the rule triage keeps the tool shortlist", async () => {
     for (const role of [undefined, "triage"]) {
       const seen: { requireTriage?: boolean; classifier: boolean }[] = [];

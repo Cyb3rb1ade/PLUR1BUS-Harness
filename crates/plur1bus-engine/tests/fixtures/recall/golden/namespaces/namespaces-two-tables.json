@@ -1,0 +1,1111 @@
+{
+  "recordedFrom": {
+    "engine": "node",
+    "runtimeCommit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "mergeCommit": "6419a60e79975d0b5244798c1fdbbd7997a712ce",
+    "mergeTag": "v7.18.31",
+    "node": "v24.21.0",
+    "unicode": "17.0",
+    "icu": "78.3",
+    "runtimeSourceSha256": "637899ffb1d94bfff7a23ab306f2ade4c025dce16d2690f7bb74d6955acb9a71",
+    "ledgerSourceSha256": "95c310c6446a168a48333a40d3ad6fcbdd6ce9a54b769a1f1eda04bc3d8495d5",
+    "mergeSourceSha256": "32b1374f39e708888c1a46ffcd403eb27ae396e2ae4b620971a63adfc8226b4e",
+    "sources": {
+      "runtime": {
+        "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+        "sha256": {
+          "engine/recall/namespace-recall.js": "637899ffb1d94bfff7a23ab306f2ade4c025dce16d2690f7bb74d6955acb9a71",
+          "lib/recall-pipeline.js": "ade8fb665973fb71fedf076a0d4394da4f12f4e73ea5d76bd146f80e01360b6f",
+          "lib/recall-budget.js": "13eee28bde5a5bfc57740d8a79621c93597d31dac087f063a1c59c55d3170112",
+          "lib/memory-dynamics.js": "95c310c6446a168a48333a40d3ad6fcbdd6ce9a54b769a1f1eda04bc3d8495d5",
+          "lib/namespace-config.js": "cccf6f246d7aec2433c1830aea68bfab2ca00b9697ce04dc9a34778a2774f1b0",
+          "lib/multi-namespace-pool.js": "29002723ee3f84b783941bf775cf9e3b53d708e9ea922f1e5c98586dae24b0aa",
+          "engine/store/agent-db-pool.js": "703afed77c742baf1a50d1606c7a80ae45e436b244f893112e0b60656e906898",
+          "engine/store/memory-db.js": "bc2df1ec45fd71669c8c32209fea537b821415bd298efcf232432c0d78ecd1c5",
+          "lib/recall-decision-trace.js": "cee6208fa0a91654adae11ccd17c3b44e86c84fdf9b30c1addfa1d299c96711d",
+          "lib/providers/embedding-identity.js": "82a08f98867c94480d4c5094e881483b0685189f6be51b601002dbbb98265702",
+          "lib/memory-graph.js": "6e801999c3873fb210f9602c4c67d80d5d87e643f775064d415428fc7d797bac",
+          "engine/recall/assemble-prompt-context.js": "f2e1e0d671bdd28a4b66c8d57625984494f841aea74b33202dc0efc00aa09896",
+          "engine/create-engine.js": "616601790f1859fee2a61494bfd2ed8cd82874bdc759c37b8e5295c183028ed6"
+        }
+      },
+      "plugin": {
+        "commit": "6419a60e79975d0b5244798c1fdbbd7997a712ce",
+        "sha256": {
+          "index.js": "eb49314c61f7d8c31402de7fcf59cbcc7fb95b1648a52691a98d7ddd6eeeadeb",
+          "lib/recall-pipeline.js": "32b1374f39e708888c1a46ffcd403eb27ae396e2ae4b620971a63adfc8226b4e",
+          "lib/recall-budget.js": "520edcf00f91ef8e5a195e3753ab7e68448d5c13835885cb52f5d1ed7d69ca7b",
+          "lib/recall-decision-trace.js": "cee6208fa0a91654adae11ccd17c3b44e86c84fdf9b30c1addfa1d299c96711d"
+        }
+      }
+    }
+  },
+  "runtime": {
+    "config": {
+      "activeWriteNamespace": "active",
+      "activeRecallNamespaces": [
+        "active"
+      ],
+      "legacyReadOnlyNamespaces": [
+        "legacy"
+      ],
+      "crossNamespaceRecall": true
+    },
+    "agentId": "namespace-fixture",
+    "query": "Synthetic namespace fixture",
+    "now": 1798761600000,
+    "rows": [
+      {
+        "namespace": "active",
+        "row": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "text": "Active synthetic fixture",
+          "summary": "Active synthetic fixture",
+          "agentId": "namespace-fixture",
+          "storedBy": "namespace-fixture",
+          "scope": "agent-private",
+          "category": "fact",
+          "status": "active",
+          "epistemicStatus": "untrusted",
+          "memoryStrength": 1,
+          "createdAt": 1798761600000,
+          "expiresAt": 0
+        }
+      },
+      {
+        "namespace": "legacy",
+        "row": {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "text": "Legacy synthetic fixture",
+          "summary": "Legacy synthetic fixture",
+          "agentId": "namespace-fixture",
+          "storedBy": "namespace-fixture",
+          "scope": "agent-private",
+          "category": "fact",
+          "status": "active",
+          "epistemicStatus": "untrusted",
+          "memoryStrength": 1,
+          "createdAt": 1798761600000,
+          "expiresAt": 0
+        }
+      }
+    ],
+    "missingLegacyCreated": null,
+    "result": {
+      "threw": false,
+      "queryVector": [
+        1,
+        0
+      ],
+      "canonical": [],
+      "memories": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "text": "Active synthetic fixture",
+          "score": 0.85,
+          "rerankScore": null,
+          "namespace": "active",
+          "source": "vector"
+        },
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "text": "Legacy synthetic fixture",
+          "score": 0.85,
+          "rerankScore": null,
+          "namespace": "legacy",
+          "source": "vector"
+        }
+      ],
+      "trace": {
+        "candidates": [
+          {
+            "id": "11111111-1111-4111-8111-111111111111",
+            "namespace": "active"
+          },
+          {
+            "id": "22222222-2222-4222-8222-222222222222",
+            "namespace": "legacy"
+          }
+        ],
+        "decisions": [
+          {
+            "memoryId": "11111111-1111-4111-8111-111111111111",
+            "action": "inclusion",
+            "stage": "score-recompute",
+            "reason": "re-scored",
+            "namespace": "active"
+          },
+          {
+            "memoryId": "22222222-2222-4222-8222-222222222222",
+            "action": "inclusion",
+            "stage": "score-recompute",
+            "reason": "re-scored",
+            "namespace": "legacy"
+          }
+        ],
+        "guards": [
+          {
+            "reason": "strength/epistemic re-scoring applied",
+            "name": "score-recompute",
+            "passed": true,
+            "namespace": "active"
+          },
+          {
+            "reason": "strength/epistemic re-scoring applied",
+            "name": "score-recompute",
+            "passed": true,
+            "namespace": "legacy"
+          }
+        ],
+        "storeDecisions": []
+      }
+    },
+    "ledger": [
+      {
+        "id": "__UUID__",
+        "agentId": "namespace-fixture",
+        "workspaceKey": null,
+        "queryHash": "37c9223d1838ff7455d3a17387184d96b831dfe69c324a82633b0a692394c103",
+        "resultsCount": 2,
+        "selectedIds": [
+          "11111111-1111-4111-8111-111111111111",
+          "22222222-2222-4222-8222-222222222222"
+        ],
+        "timestamp": 1798761600000
+      }
+    ],
+    "ledgerLines": [
+      "{\"id\":\"__UUID__\",\"agentId\":\"namespace-fixture\",\"workspaceKey\":null,\"queryHash\":\"37c9223d1838ff7455d3a17387184d96b831dfe69c324a82633b0a692394c103\",\"resultsCount\":2,\"selectedIds\":[\"11111111-1111-4111-8111-111111111111\",\"22222222-2222-4222-8222-222222222222\"],\"timestamp\":1798761600000}\n"
+    ],
+    "completed": []
+  },
+  "merges": [
+    {
+      "name": "scores-duplicates-canonical-and-cap",
+      "options": {
+        "maxOut": 4,
+        "canonicalMaxItems": 2,
+        "dedupEnabled": false
+      },
+      "input": [
+        {
+          "namespace": "first",
+          "queryVector": [
+            1,
+            0
+          ],
+          "canonical": [
+            {
+              "heading": " Release ",
+              "text": "Alpha  beta",
+              "score": 0.7
+            },
+            {
+              "heading": "Other",
+              "text": "Other canonical",
+              "score": 0.5
+            }
+          ],
+          "memories": [
+            {
+              "entry": {
+                "id": "same",
+                "text": "same",
+                "summary": "same",
+                "agentId": "namespace-fixture",
+                "storedBy": "namespace-fixture",
+                "scope": "agent-private",
+                "category": "fact",
+                "status": "active",
+                "epistemicStatus": "",
+                "memoryStrength": 1,
+                "createdAt": 1798761600000,
+                "expiresAt": 0
+              },
+              "score": 0.4,
+              "source": "vector"
+            },
+            {
+              "entry": {
+                "id": "tie-a",
+                "text": "tie-a",
+                "summary": "tie-a",
+                "agentId": "namespace-fixture",
+                "storedBy": "namespace-fixture",
+                "scope": "agent-private",
+                "category": "fact",
+                "status": "active",
+                "epistemicStatus": "",
+                "memoryStrength": 1,
+                "createdAt": 1798761600000,
+                "expiresAt": 0
+              },
+              "score": 0.7,
+              "source": "vector"
+            },
+            {
+              "entry": {
+                "id": "low",
+                "text": "low",
+                "summary": "low",
+                "agentId": "namespace-fixture",
+                "storedBy": "namespace-fixture",
+                "scope": "agent-private",
+                "category": "fact",
+                "status": "active",
+                "epistemicStatus": "",
+                "memoryStrength": 1,
+                "createdAt": 1798761600000,
+                "expiresAt": 0
+              },
+              "score": 0.1,
+              "source": "vector"
+            }
+          ]
+        },
+        {
+          "namespace": "second",
+          "canonical": [
+            {
+              "heading": "release",
+              "text": "alpha beta",
+              "score": 0.9
+            }
+          ],
+          "memories": [
+            {
+              "entry": {
+                "id": "same",
+                "text": "Higher copy",
+                "summary": "Higher copy",
+                "agentId": "namespace-fixture",
+                "storedBy": "namespace-fixture",
+                "scope": "agent-private",
+                "category": "fact",
+                "status": "active",
+                "epistemicStatus": "",
+                "memoryStrength": 1,
+                "createdAt": 1798761600000,
+                "expiresAt": 0
+              },
+              "score": 0.8,
+              "source": "vector"
+            },
+            {
+              "entry": {
+                "id": "tie-b",
+                "text": "tie-b",
+                "summary": "tie-b",
+                "agentId": "namespace-fixture",
+                "storedBy": "namespace-fixture",
+                "scope": "agent-private",
+                "category": "fact",
+                "status": "active",
+                "epistemicStatus": "",
+                "memoryStrength": 1,
+                "createdAt": 1798761600000,
+                "expiresAt": 0
+              },
+              "score": 0.7,
+              "source": "vector"
+            }
+          ]
+        }
+      ],
+      "result": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "canonical": [
+          {
+            "heading": "release",
+            "text": "alpha beta",
+            "score": 0.9,
+            "namespace": "second"
+          },
+          {
+            "heading": "Other",
+            "text": "Other canonical",
+            "score": 0.5,
+            "namespace": "first"
+          }
+        ],
+        "memories": [
+          {
+            "id": "same",
+            "text": "Higher copy",
+            "score": 0.8,
+            "rerankScore": null,
+            "namespace": "second",
+            "source": "vector"
+          },
+          {
+            "id": "tie-a",
+            "text": "tie-a",
+            "score": 0.7,
+            "rerankScore": null,
+            "namespace": "first",
+            "source": "vector"
+          }
+        ],
+        "trace": {
+          "candidates": [],
+          "decisions": [
+            {
+              "memoryId": "canonical:Release",
+              "action": "deduped",
+              "stage": "namespace-canonical-dedup",
+              "reason": "duplicate canonical content",
+              "namespace": "first"
+            },
+            {
+              "memoryId": "same",
+              "action": "deduped",
+              "stage": "namespace-origin-dedup",
+              "reason": "duplicate canonical origin namespace-fixture:same",
+              "namespace": "first"
+            },
+            {
+              "memoryId": "low",
+              "action": "deduped",
+              "stage": "namespace-result-dedup",
+              "reason": "duplicate or beyond global result cap",
+              "namespace": "first"
+            },
+            {
+              "memoryId": "tie-b",
+              "action": "deduped",
+              "stage": "namespace-result-dedup",
+              "reason": "duplicate or beyond global result cap",
+              "namespace": "second"
+            }
+          ],
+          "guards": [],
+          "storeDecisions": []
+        }
+      },
+      "inputsUnchanged": true
+    },
+    {
+      "name": "jaccard-dedup-and-disjoint-validity",
+      "options": {
+        "maxOut": 6,
+        "dedupEnabled": true,
+        "dedupJaccard": 0.78
+      },
+      "input": [
+        {
+          "namespace": "first",
+          "memories": [
+            {
+              "entry": {
+                "id": "near-a",
+                "text": "alpha beta gamma delta",
+                "summary": "alpha beta gamma delta",
+                "agentId": "namespace-fixture",
+                "storedBy": "namespace-fixture",
+                "scope": "agent-private",
+                "category": "fact",
+                "status": "active",
+                "epistemicStatus": "",
+                "memoryStrength": 1,
+                "createdAt": 1798761600000,
+                "expiresAt": 0
+              },
+              "score": 0.9,
+              "source": "vector"
+            },
+            {
+              "entry": {
+                "id": "past",
+                "text": "temporal words",
+                "summary": "temporal words",
+                "agentId": "namespace-fixture",
+                "storedBy": "namespace-fixture",
+                "scope": "agent-private",
+                "category": "fact",
+                "status": "active",
+                "epistemicStatus": "",
+                "memoryStrength": 1,
+                "createdAt": 1798761600000,
+                "expiresAt": 0,
+                "validFrom": 1,
+                "validUntil": 10
+              },
+              "score": 0.8,
+              "source": "vector"
+            }
+          ]
+        },
+        {
+          "namespace": "second",
+          "memories": [
+            {
+              "entry": {
+                "id": "near-b",
+                "text": "alpha beta gamma delta",
+                "summary": "alpha beta gamma delta",
+                "agentId": "namespace-fixture",
+                "storedBy": "namespace-fixture",
+                "scope": "agent-private",
+                "category": "fact",
+                "status": "active",
+                "epistemicStatus": "",
+                "memoryStrength": 1,
+                "createdAt": 1798761600000,
+                "expiresAt": 0
+              },
+              "score": 0.7,
+              "source": "vector"
+            },
+            {
+              "entry": {
+                "id": "future",
+                "text": "temporal words",
+                "summary": "temporal words",
+                "agentId": "namespace-fixture",
+                "storedBy": "namespace-fixture",
+                "scope": "agent-private",
+                "category": "fact",
+                "status": "active",
+                "epistemicStatus": "",
+                "memoryStrength": 1,
+                "createdAt": 1798761600000,
+                "expiresAt": 0,
+                "validFrom": 10,
+                "validUntil": 20
+              },
+              "score": 0.6,
+              "source": "vector"
+            }
+          ]
+        }
+      ],
+      "result": {
+        "queryVector": null,
+        "canonical": [],
+        "memories": [
+          {
+            "id": "near-a",
+            "text": "alpha beta gamma delta",
+            "score": 0.9,
+            "rerankScore": null,
+            "namespace": "first",
+            "source": "vector"
+          },
+          {
+            "id": "past",
+            "text": "temporal words",
+            "score": 0.8,
+            "rerankScore": null,
+            "namespace": "first",
+            "source": "vector"
+          },
+          {
+            "id": "future",
+            "text": "temporal words",
+            "score": 0.6,
+            "rerankScore": null,
+            "namespace": "second",
+            "source": "vector"
+          }
+        ],
+        "trace": {
+          "candidates": [],
+          "decisions": [
+            {
+              "memoryId": "near-b",
+              "action": "deduped",
+              "stage": "namespace-result-dedup",
+              "reason": "duplicate or beyond global result cap",
+              "namespace": "second"
+            }
+          ],
+          "guards": [],
+          "storeDecisions": []
+        }
+      },
+      "inputsUnchanged": true
+    },
+    {
+      "name": "fair-child-traces-and-global-decisions",
+      "options": {
+        "maxOut": 4,
+        "dedupEnabled": false
+      },
+      "maxDecisions": 4,
+      "input": [
+        {
+          "namespace": "first",
+          "memories": [
+            {
+              "entry": {
+                "id": "same",
+                "text": "same",
+                "summary": "same",
+                "agentId": "namespace-fixture",
+                "storedBy": "namespace-fixture",
+                "scope": "agent-private",
+                "category": "fact",
+                "status": "active",
+                "epistemicStatus": "",
+                "memoryStrength": 1,
+                "createdAt": 1798761600000,
+                "expiresAt": 0
+              },
+              "score": 0.8,
+              "source": "vector"
+            }
+          ],
+          "trace": {
+            "decisions": [
+              {
+                "memoryId": "a",
+                "action": "rejection",
+                "stage": "fixture",
+                "reason": "first-old"
+              },
+              {
+                "memoryId": "b",
+                "action": "rejection",
+                "stage": "fixture",
+                "reason": "first-new"
+              }
+            ],
+            "candidates": [
+              {
+                "id": "same",
+                "source": "vector",
+                "score": 0.8,
+                "summary": "Synthetic"
+              }
+            ],
+            "guards": [
+              {
+                "name": "fixture",
+                "passed": false,
+                "reason": "guard-a"
+              }
+            ]
+          }
+        },
+        {
+          "namespace": "second",
+          "memories": [
+            {
+              "entry": {
+                "id": "same",
+                "text": "same",
+                "summary": "same",
+                "agentId": "namespace-fixture",
+                "storedBy": "namespace-fixture",
+                "scope": "agent-private",
+                "category": "fact",
+                "status": "active",
+                "epistemicStatus": "",
+                "memoryStrength": 1,
+                "createdAt": 1798761600000,
+                "expiresAt": 0
+              },
+              "score": 0.4,
+              "source": "vector"
+            }
+          ],
+          "trace": {
+            "decisions": [
+              {
+                "memoryId": "c",
+                "action": "rejection",
+                "stage": "fixture",
+                "reason": "second-new"
+              }
+            ],
+            "storeDecisions": [
+              {
+                "memoryId": "same",
+                "action": "fixture",
+                "reason": "store-b"
+              }
+            ]
+          }
+        }
+      ],
+      "result": {
+        "queryVector": null,
+        "canonical": [],
+        "memories": [
+          {
+            "id": "same",
+            "text": "same",
+            "score": 0.8,
+            "rerankScore": null,
+            "namespace": "first",
+            "source": "vector"
+          }
+        ],
+        "trace": {
+          "candidates": [
+            {
+              "id": "same",
+              "namespace": "first"
+            }
+          ],
+          "decisions": [
+            {
+              "memoryId": "a",
+              "action": "rejection",
+              "stage": "fixture",
+              "reason": "first-old",
+              "namespace": "first"
+            },
+            {
+              "memoryId": "b",
+              "action": "rejection",
+              "stage": "fixture",
+              "reason": "first-new",
+              "namespace": "first"
+            },
+            {
+              "memoryId": "c",
+              "action": "rejection",
+              "stage": "fixture",
+              "reason": "second-new",
+              "namespace": "second"
+            },
+            {
+              "memoryId": "same",
+              "action": "deduped",
+              "stage": "namespace-origin-dedup",
+              "reason": "duplicate canonical origin namespace-fixture:same",
+              "namespace": "second"
+            }
+          ],
+          "guards": [
+            {
+              "reason": "guard-a",
+              "name": "fixture",
+              "passed": false,
+              "namespace": "first"
+            }
+          ],
+          "storeDecisions": [
+            {
+              "memoryId": "same",
+              "action": "fixture",
+              "reason": "store-b",
+              "namespace": "second"
+            }
+          ]
+        }
+      },
+      "inputsUnchanged": true
+    },
+    {
+      "name": "replacement-of-two-disjoint-origin-revisions",
+      "options": {
+        "maxOut": 4,
+        "dedupEnabled": false
+      },
+      "input": [
+        {
+          "namespace": "first",
+          "memories": [
+            {
+              "entry": {
+                "id": "old-a",
+                "text": "first revision",
+                "summary": "first revision",
+                "agentId": "namespace-fixture",
+                "storedBy": "namespace-fixture",
+                "scope": "agent-private",
+                "category": "fact",
+                "status": "active",
+                "epistemicStatus": "",
+                "memoryStrength": 1,
+                "createdAt": 1798761600000,
+                "expiresAt": 0,
+                "sourceAgentId": "author",
+                "sourceMemoryId": "origin",
+                "validFrom": 1,
+                "validUntil": 10
+              },
+              "score": 0.8,
+              "source": "vector"
+            },
+            {
+              "entry": {
+                "id": "old-b",
+                "text": "second revision",
+                "summary": "second revision",
+                "agentId": "namespace-fixture",
+                "storedBy": "namespace-fixture",
+                "scope": "agent-private",
+                "category": "fact",
+                "status": "active",
+                "epistemicStatus": "",
+                "memoryStrength": 1,
+                "createdAt": 1798761600000,
+                "expiresAt": 0,
+                "sourceAgentId": "author",
+                "sourceMemoryId": "origin",
+                "validFrom": 10,
+                "validUntil": 20
+              },
+              "score": 0.7,
+              "source": "vector"
+            }
+          ]
+        },
+        {
+          "namespace": "second",
+          "memories": [
+            {
+              "entry": {
+                "id": "replacement",
+                "text": "replacement revision",
+                "summary": "replacement revision",
+                "agentId": "namespace-fixture",
+                "storedBy": "namespace-fixture",
+                "scope": "agent-private",
+                "category": "fact",
+                "status": "active",
+                "epistemicStatus": "",
+                "memoryStrength": 1,
+                "createdAt": 1798761600000,
+                "expiresAt": 0,
+                "sourceAgentId": "author",
+                "sourceMemoryId": "origin",
+                "validFrom": 1,
+                "validUntil": 20
+              },
+              "score": 0.9,
+              "source": "vector"
+            }
+          ]
+        }
+      ],
+      "result": {
+        "queryVector": null,
+        "canonical": [],
+        "memories": [
+          {
+            "id": "replacement",
+            "text": "replacement revision",
+            "score": 0.9,
+            "rerankScore": null,
+            "namespace": "second",
+            "source": "vector"
+          }
+        ],
+        "trace": {
+          "candidates": [],
+          "decisions": [
+            {
+              "memoryId": "old-a",
+              "action": "deduped",
+              "stage": "namespace-origin-dedup",
+              "reason": "duplicate canonical origin author:origin",
+              "namespace": "first"
+            },
+            {
+              "memoryId": "old-b",
+              "action": "deduped",
+              "stage": "namespace-origin-dedup",
+              "reason": "duplicate canonical origin author:origin",
+              "namespace": "first"
+            }
+          ],
+          "guards": [],
+          "storeDecisions": []
+        }
+      },
+      "inputsUnchanged": true
+    },
+    {
+      "name": "invalid-source-kind-falls-back-to-namespace",
+      "options": {
+        "maxOut": 4,
+        "dedupEnabled": false
+      },
+      "input": [
+        {
+          "namespace": "shared-workspace",
+          "sourceKind": "unknown",
+          "memories": [
+            {
+              "entry": {
+                "id": "shared-copy",
+                "text": "Shared copy",
+                "summary": "Shared copy",
+                "agentId": "namespace-fixture",
+                "storedBy": "namespace-fixture",
+                "scope": "agent-private",
+                "category": "fact",
+                "status": "active",
+                "epistemicStatus": "",
+                "memoryStrength": 1,
+                "createdAt": 1798761600000,
+                "expiresAt": 0,
+                "sourceAgentId": "namespace-fixture",
+                "sourceMemoryId": "original"
+              },
+              "score": 0.99,
+              "source": "vector"
+            }
+          ]
+        },
+        {
+          "namespace": "private",
+          "memories": [
+            {
+              "entry": {
+                "id": "original",
+                "text": "original",
+                "summary": "original",
+                "agentId": "namespace-fixture",
+                "storedBy": "namespace-fixture",
+                "scope": "agent-private",
+                "category": "fact",
+                "status": "active",
+                "epistemicStatus": "",
+                "memoryStrength": 1,
+                "createdAt": 1798761600000,
+                "expiresAt": 0
+              },
+              "score": 0.1,
+              "source": "vector"
+            }
+          ]
+        }
+      ],
+      "result": {
+        "queryVector": null,
+        "canonical": [],
+        "memories": [
+          {
+            "id": "original",
+            "text": "original",
+            "score": 0.1,
+            "rerankScore": null,
+            "namespace": "private",
+            "source": "vector"
+          }
+        ],
+        "trace": {
+          "candidates": [],
+          "decisions": [
+            {
+              "memoryId": "shared-copy",
+              "action": "deduped",
+              "stage": "namespace-origin-dedup",
+              "reason": "duplicate canonical origin namespace-fixture:original",
+              "namespace": "shared-workspace"
+            }
+          ],
+          "guards": [],
+          "storeDecisions": []
+        }
+      },
+      "inputsUnchanged": true
+    },
+    {
+      "name": "default-canonical-cap-follows-global",
+      "options": {
+        "maxOut": 1,
+        "dedupEnabled": false
+      },
+      "input": [
+        {
+          "namespace": "first",
+          "canonical": [
+            {
+              "heading": "Canonical",
+              "text": "Canonical fixture",
+              "score": 1
+            }
+          ],
+          "memories": [
+            {
+              "entry": {
+                "id": "memory",
+                "text": "memory",
+                "summary": "memory",
+                "agentId": "namespace-fixture",
+                "storedBy": "namespace-fixture",
+                "scope": "agent-private",
+                "category": "fact",
+                "status": "active",
+                "epistemicStatus": "",
+                "memoryStrength": 1,
+                "createdAt": 1798761600000,
+                "expiresAt": 0
+              },
+              "score": 1,
+              "source": "vector"
+            }
+          ]
+        }
+      ],
+      "result": {
+        "queryVector": null,
+        "canonical": [
+          {
+            "heading": "Canonical",
+            "text": "Canonical fixture",
+            "score": 1,
+            "namespace": "first"
+          }
+        ],
+        "memories": [],
+        "trace": {
+          "candidates": [],
+          "decisions": [
+            {
+              "memoryId": "memory",
+              "action": "deduped",
+              "stage": "namespace-result-dedup",
+              "reason": "duplicate or beyond global result cap",
+              "namespace": "first"
+            }
+          ],
+          "guards": [],
+          "storeDecisions": []
+        }
+      },
+      "inputsUnchanged": true
+    }
+  ],
+  "routing": [
+    {
+      "name": "implicit-flat",
+      "config": null,
+      "result": {
+        "threw": false,
+        "mode": "legacy-flat",
+        "write": null,
+        "read": [
+          null
+        ],
+        "baseLeafWasStripped": false
+      }
+    },
+    {
+      "name": "explicit-defaults",
+      "config": {},
+      "result": {
+        "threw": false,
+        "mode": "named",
+        "write": "lancedb-namespaced",
+        "read": [
+          "lancedb-namespaced"
+        ],
+        "baseLeafWasStripped": false
+      }
+    },
+    {
+      "name": "active-leaf",
+      "leaf": "active",
+      "config": {
+        "activeWriteNamespace": "active"
+      },
+      "result": {
+        "threw": false,
+        "mode": "named",
+        "write": "active",
+        "read": [
+          "active"
+        ],
+        "baseLeafWasStripped": true
+      }
+    },
+    {
+      "name": "stable-dedup-without-legacy",
+      "config": {
+        "activeWriteNamespace": "active",
+        "activeRecallNamespaces": [
+          "active",
+          "other",
+          "active"
+        ],
+        "legacyReadOnlyNamespaces": [
+          "legacy",
+          "legacy"
+        ]
+      },
+      "result": {
+        "threw": false,
+        "mode": "named",
+        "write": "active",
+        "read": [
+          "active",
+          "other"
+        ],
+        "baseLeafWasStripped": false
+      }
+    },
+    {
+      "name": "cross-namespace-includes-legacy",
+      "config": {
+        "activeWriteNamespace": "active",
+        "activeRecallNamespaces": [
+          "other",
+          "active"
+        ],
+        "legacyReadOnlyNamespaces": [
+          "legacy"
+        ],
+        "crossNamespaceRecall": true
+      },
+      "result": {
+        "threw": false,
+        "mode": "named",
+        "write": "active",
+        "read": [
+          "other",
+          "active",
+          "legacy"
+        ],
+        "baseLeafWasStripped": false
+      }
+    },
+    {
+      "name": "overlap-is-refused",
+      "config": {
+        "activeWriteNamespace": "active",
+        "legacyReadOnlyNamespaces": [
+          "active"
+        ]
+      },
+      "result": {
+        "threw": true
+      }
+    },
+    {
+      "name": "writer-must-be-readable",
+      "config": {
+        "activeWriteNamespace": "active",
+        "activeRecallNamespaces": [
+          "other"
+        ]
+      },
+      "result": {
+        "threw": true
+      }
+    },
+    {
+      "name": "ambiguous-non-writer-leaf",
+      "leaf": "other",
+      "config": {
+        "activeWriteNamespace": "active",
+        "activeRecallNamespaces": [
+          "active",
+          "other"
+        ]
+      },
+      "result": {
+        "threw": true
+      }
+    }
+  ]
+}

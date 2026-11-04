@@ -16,9 +16,9 @@ export async function registerAgentConfig(l: Layout, id: string, agent: HarnessC
     client = await connect({ address: supervisorAddress(l.home), token: readRunToken(l.home, l.supervisorToken), endpoint: "supervisor", connectTimeoutMs: 1000, callTimeoutMs: 120000, ...(pid === undefined ? {} : { expectedServerPid: pid }) });
   } catch { throw unavailable(); }
   try {
-    const current = await client.call<{ value: HarnessConfig; revision: string }>("config.get", {});
-    if (Object.hasOwn(current.value.agents, id)) throw new RpcError("E_AGENT_EXISTS", "agent already exists");
-    const errors = agentReferenceErrors(current.value, agent);
+    const current = await client.call<{ config: HarnessConfig; revision: string }>("config.watch", {});
+    if (Object.hasOwn(current.config.agents, id)) throw new RpcError("E_AGENT_EXISTS", "agent already exists");
+    const errors = agentReferenceErrors(current.config, agent);
     if (errors.length) throw new RpcError("E_INVALID_PARAMS", errors[0]!.message, { detail: errors[0]!.field });
     await client.call("config.set", { changes: [{ key: `agents.${id}`, value: agent }], ifRevision: current.revision });
   } catch (e) {
@@ -35,9 +35,9 @@ export async function unregisterAgentConfig(l: Layout, id: string, expected: Har
   try { client = await connect({ address: supervisorAddress(l.home), token: readRunToken(l.home, l.supervisorToken), endpoint: "supervisor", connectTimeoutMs: 1000, callTimeoutMs: 120000 }); }
   catch { throw unavailable(); }
   try {
-    const current = await client.call<{ value: HarnessConfig; revision: string }>("config.get", {});
-    if (current.value.agents[id] && creationDigest(current.value.agents[id]) !== creationDigest(expected)) throw new RpcError("E_CONFLICT", "agent config changed during provisioning");
-    const agents = { ...current.value.agents }; delete agents[id];
+    const current = await client.call<{ config: HarnessConfig; revision: string }>("config.watch", {});
+    if (current.config.agents[id] && creationDigest(current.config.agents[id]) !== creationDigest(expected)) throw new RpcError("E_CONFLICT", "agent config changed during provisioning");
+    const agents = { ...current.config.agents }; delete agents[id];
     await client.call("config.set", { changes: [{ key: "agents", value: agents }], ifRevision: current.revision });
   } catch { throw unavailable(); } finally { await client.close().catch(() => {}); }
 }
