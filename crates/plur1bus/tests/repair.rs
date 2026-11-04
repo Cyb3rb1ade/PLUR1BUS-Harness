@@ -447,7 +447,16 @@ fn no_tty_without_yes_exits_2_and_changes_nothing() {
 #[test]
 fn config_restore_with_a_running_supervisor_backs_up_the_edit_and_rearms_the_core() {
     let e = Env::new();
-    fs::write(e.home.join("config.json"), r#"{"schemaVersion":1}"#).unwrap();
+    let secret = uuid::Uuid::new_v4().to_string();
+    let endpoint = format!("https://relay.example.test/service?ordinary={secret}");
+    fs::write(
+        e.home.join("config.json"),
+        json!({"schemaVersion":1,
+            "voice":{"providers":{"elevenlabs":{"apiKeyRef":secret,"baseUrl":endpoint}}}
+        })
+        .to_string(),
+    )
+    .unwrap();
     // The first core crashes 600 ms after ready; every later one serves, but exits 2 at start while config.json is
     // not JSON (B18: fatal config-invalid until a valid file re-arms it).
     let _s = supervise(
@@ -486,7 +495,16 @@ fn config_restore_with_a_running_supervisor_backs_up_the_edit_and_rearms_the_cor
         .collect();
     assert_eq!(rejected.len(), 1, "{rejected:?}");
     assert_eq!(fs::read(&rejected[0]).unwrap(), b"{ not json");
-    plur1bus_config::parse(&fs::read_to_string(e.home.join("config.json")).unwrap()).unwrap();
+    let restored =
+        plur1bus_config::parse(&fs::read_to_string(e.home.join("config.json")).unwrap()).unwrap();
+    assert_eq!(
+        restored["voice"]["providers"]["elevenlabs"]["apiKeyRef"],
+        secret
+    );
+    assert_eq!(
+        restored["voice"]["providers"]["elevenlabs"]["baseUrl"],
+        endpoint
+    );
     wait_until("the core to be ready again", WAIT, || {
         core_state(&mut c) == "ready"
     });

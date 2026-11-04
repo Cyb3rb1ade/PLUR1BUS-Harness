@@ -16,7 +16,8 @@ after(() => {
 });
 
 export function tempDir(prefix: string): string {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
+  // The native call expands Windows 8.3 temp aliases before D109 checks the test's roots and paths.
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), prefix)));
   made.push(dir);
   return dir;
 }

@@ -2,7 +2,10 @@
 import { constants, openSync, readFileSync, closeSync, fstatSync, lstatSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
-import { createRedactor, isSecretKey } from "../logs/redact.ts";
+import { createRedactor, isSecretKey, maskSecretsInJson } from "../logs/redact.ts";
+import { SecretFormsCache, type SecretFormsSnapshot } from "../logs/secret-forms.ts";
+import { createSecretMatcher } from "../logs/secret-matcher.ts";
+import { configTextSecretEntries, redactConfig } from "@plur1bus/config-schema";
 import { canonicalManifest } from "./manifest.ts";
 import { RpcError } from "../rpc/errors.ts";
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -12,22 +15,52 @@ const ROOT_FILES = new Set(["SOUL.md", "IDENTITY.md", "USER.md", "MEMORY.md", "p
 const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i;
 const importable = (name: string) => !RESERVED.test(name) && !name.endsWith(".") && !name.endsWith(" ");
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
+const localForms = new SecretFormsCache();
+let combinedSnapshot: SecretFormsSnapshot | undefined;
+const sameForms = (left: readonly string[], right: readonly string[]): boolean => {
+  if (left === right) return true;
+  const members = new Set(left);
+  return members.size === right.length && right.every(form => members.has(form));
+};
+
+/** Raw local canaries keep their own encodings; shared forms are combined directly, never re-derived as values. */
+function exportSnapshot(values: Iterable<string>, known?: SecretFormsSnapshot): SecretFormsSnapshot {
+  const local = localForms.snapshot(values);
+  if (!known || known.forms.length === 0) return local;
+  if (local.forms.length === 0) return known;
+  const forms = [...new Set([...known.forms, ...local.forms])];
+  if (sameForms(known.forms, forms)) return known;
+  if (sameForms(local.forms, forms)) return local;
+  if (!combinedSnapshot || !sameForms(combinedSnapshot.forms, forms)) {
+    const matcher = createSecretMatcher(forms);
+    combinedSnapshot = Object.freeze({ forms: matcher.forms, matcher });
+  }
+  return combinedSnapshot;
+}
+
 export interface ExportInput {
   root: string; agentId: string; config: unknown; memories: unknown[]; secrets?: Iterable<string>; rights?: Record<string, "use" | "manage">; requiredSecrets?: string[];
   signer: (hash: string) => Promise<{ publicKey: string; signature: string }>;
+  /** Complete Store/config generation, captured after the caller has collected export canaries. */
+  knownSecrets?: () => SecretFormsSnapshot;
 }
 export async function exportAgent(i: ExportInput) {
-  const redactor = createRedactor(i.secrets ? { secrets: i.secrets } : {});
+  const secrets = [...(i.secrets ?? []), ...configTextSecretEntries({ agents: { [i.agentId]: i.config } }).map(({ value }) => value)];
+  const known = i.knownSecrets?.();
+  const snapshot = exportSnapshot(secrets, known);
+  const redactor = createRedactor({ secretMatcher: snapshot.matcher });
   const files: { path: string; text: string }[] = [];
   let bytes = 0;
-  const add = (path: string, raw: string) => {
-    const text = redactor.text(raw); bytes += Buffer.byteLength(text);
+  const keep = (path: string, text: string) => {
+    bytes += Buffer.byteLength(text);
     if (bytes > MAX_BYTES || files.length >= MAX_FILES) throw new RpcError("E_NOT_AVAILABLE", "agent export exceeds transfer limit", { reason: "export-too-large" });
     files.push({ path, text });
   };
-  // Secret-named config keys are omitted, rather than exporting masked references as if they were usable config.
-  const clean = (v: any): any => Array.isArray(v) ? v.map(clean) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).filter(([k]) => !isSecretKey(k)).map(([k, value]) => [k, clean(value)])) : typeof v === "string" ? redactor.text(v) : v;
-  add("config.json", JSON.stringify(clean(i.config)));
+  const add = (path: string, raw: string) => keep(path, redactor.text(raw));
+  // Configuration follows its root schema prefix. The exact-value backstop cannot reinterpret public key names or JSON types.
+  const config = redactConfig(i.config, { key: "agents.*" });
+  const configJson = JSON.stringify(config);
+  keep("config.json", maskSecretsInJson(configJson, config, [], snapshot)?.json ?? configJson);
   add("memory/cards.json", JSON.stringify(redactor.value(i.memories)));
   const read = (rel: string) => {
     const path = join(i.root, rel);
@@ -56,7 +89,18 @@ export async function exportAgent(i: ExportInput) {
   walk("", 0);
   files.sort((a, b) => a.path.localeCompare(b.path));
   const manifest = canonicalManifest({ format: "plur1bus.agent-export/1", agentId: i.agentId, ...(i.rights ? { rights: i.rights } : {}), ...(i.requiredSecrets?.length ? { requiredSecrets: i.requiredSecrets } : {}), files: files.map(f => ({ path: f.path, bytes: Buffer.byteLength(f.text), sha256: sha(f.text) })) });
-  const manifestHash = sha(JSON.stringify(manifest));
+  const manifestJson = JSON.stringify(manifest);
+  // Reference names normally stay readable. A known-value collision cannot be masked into an invalid signed manifest.
+  let unsafeMetadata = true;
+  try { unsafeMetadata = maskSecretsInJson(manifestJson, manifest, [], snapshot) !== undefined; }
+  catch { /* An uncheckable metadata value must also withhold the export. */ }
+  if (unsafeMetadata) throw new RpcError("E_NOT_AVAILABLE", "agent export metadata contains a registered secret value; resolve the reference-name collision before exporting", { reason: "export-secret-metadata" });
+  const manifestHash = sha(manifestJson);
   const signed = await i.signer(manifestHash);
-  return { format: "plur1bus.agent-export/1", files, manifest, manifestHash, algorithm: "Ed25519", publicKey: signed.publicKey, signature: signed.signature };
+  const bundle = { format: "plur1bus.agent-export/1", files, manifest, manifestHash, algorithm: "Ed25519", publicKey: signed.publicKey, signature: signed.signature };
+  // Signing can register another value while awaiting a lease. Refuse a collision rather than mutate signed bytes.
+  const latest = i.knownSecrets?.();
+  if (latest && !sameForms(known?.forms ?? [], latest.forms) && latest.matcher.scanJson(JSON.stringify(bundle)).found)
+    throw new RpcError("E_NOT_AVAILABLE", "agent export contains a newly registered secret value; retry exporting", { reason: "export-secret-metadata" });
+  return bundle;
 }

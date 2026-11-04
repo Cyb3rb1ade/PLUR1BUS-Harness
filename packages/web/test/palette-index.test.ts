@@ -1,3 +1,4 @@
+// Palette catalogue, navigation and value projection preserve public controls while concealing credentials.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
@@ -5,29 +6,32 @@ import { ALL_ITEMS } from "../src/nav.ts";
 import { catalogues } from "../src/i18n.ts";
 import { buildIndex, humanize, settingsHref, settingValues } from "../src/palette/index-build.ts";
 import { search } from "../src/palette/match.ts";
+import { policyForNode, valuePolicy, type ConfigPolicy } from "@plur1bus/config-schema/policy";
 import { SETTINGS, type SettingSpec } from "../src/palette/settings-index.ts";
 
 const schema = JSON.parse(readFileSync(new URL("../../config-schema/schema/config.schema.json", import.meta.url), "utf8")) as { properties: Record<string, SchemaNode> };
-type SchemaNode = { type?: string; enum?: unknown[]; description?: string; properties?: Record<string, SchemaNode>; "x-tier"?: "basic" | "advanced" };
+type SchemaNode = { type?: string | string[]; enum?: unknown[]; description?: string; properties?: Record<string, SchemaNode>; items?: SchemaNode; "x-tier"?: "basic" | "advanced"; "x-sensitive"?: boolean; "x-url-credentials"?: boolean; "x-value-schema"?: SchemaNode };
 
 /** The rule documented in settings-index.ts, applied to the real schema. */
 function fromSchema(): SettingSpec[] {
   const rows: SettingSpec[] = [];
-  const walk = (props: Record<string, SchemaNode>, prefix: string, inherited: string | undefined): void => {
+  const walk = (props: Record<string, SchemaNode>, prefix: string, inherited: string | undefined, parentPolicy?: ConfigPolicy): void => {
     for (const [k, v] of Object.entries(props)) {
       const key = prefix ? `${prefix}.${k}` : k;
       if (key === "$schema" || key === "schemaVersion") continue;
       const help = v.description ?? inherited;
-      if (!v.properties || v["x-tier"]) rows.push({ key, type: v.type ?? (v.enum ? "enum" : ""), tier: v["x-tier"] ?? "advanced", ...(help ? { help } : {}) });
-      if (v.properties) walk(v.properties, key, help);
+      const policy = policyForNode(v, parentPolicy);
+      const { sensitive, urlCredentials } = valuePolicy(v, parentPolicy);
+      if (!v.properties || v["x-tier"]) rows.push({ key, type: Array.isArray(v.type) ? v.type.join("|") : (v.type ?? (v.enum ? "enum" : "")), tier: v["x-tier"] ?? "advanced", ...(sensitive ? { sensitive: true } : {}), ...(urlCredentials ? { urlCredentials: true } : {}), ...(help ? { help } : {}) });
+      if (v.properties) walk(v.properties, key, help, policy);
     }
   };
-  walk(schema.properties, "", undefined);
+  walk(schema.properties, "", undefined, policyForNode(schema));
   return rows;
 }
 
 describe("settings catalogue", () => {
-  test("is exactly the settings of config.schema.json (key, type, tier, help): no invented settings, no drift", () => {
+  test("is exactly the settings of config.schema.json including sensitivity: no invented settings, no drift", () => {
     assert.deepEqual([...SETTINGS], fromSchema());
   });
 });
@@ -77,7 +81,7 @@ describe("buildIndex", () => {
   });
   test("values come from a config.get result by dotted path; objects and null are skipped, lists are joined", () => {
     const values = settingValues({ metrics: { port: 9464, enabled: true }, egress: { allowHosts: ["a.example", "b.example"] }, agents: { x: {} }, core: { logLevel: null } });
-    assert.deepEqual(values, { "metrics.port": "9464", "metrics.enabled": "true", "egress.allowHosts": "a.example, b.example" });
+    assert.deepEqual(values, { "metrics.port": "9464", "metrics.enabled": "true", "egress.allowHosts": ["a.example", "b.example"] });
     const hit = search(buildIndex({ lang: "en", values }), "9464");
     assert.deepEqual(hit.map((h) => h.entry.key), ["metrics.port"]);
     assert.equal(hit[0]?.entry.value, "9464");
@@ -87,9 +91,9 @@ describe("buildIndex", () => {
   });
   test("values of sensitive keys never enter the index, whatever the source", () => {
     const specs: SettingSpec[] = [
-      { key: "providers.openai.apiKey", type: "string", tier: "basic" }, { key: "x.accessToken", type: "string", tier: "basic" },
-      { key: "secrets.store", type: "string", tier: "advanced" }, { key: "auth.password", type: "string", tier: "basic" },
-      { key: "oauth.credentials", type: "string", tier: "advanced" }, { key: "core.logLevel", type: "enum", tier: "advanced" },
+      { key: "providers.openai.apiKey", type: "string", tier: "basic", sensitive: true }, { key: "x.accessToken", type: "string", tier: "basic", sensitive: true },
+      { key: "secrets.store", type: "string", tier: "advanced", sensitive: true }, { key: "auth.password", type: "string", tier: "basic", sensitive: true },
+      { key: "oauth.credentials", type: "string", tier: "advanced", sensitive: true }, { key: "core.logLevel", type: "enum", tier: "advanced" },
     ];
     const values = Object.fromEntries(specs.map((s) => [s.key, s.key === "core.logLevel" ? "debug" : "sk-TOPSECRET-123"]));
     const index = buildIndex({ lang: "en", settings: specs, values });
@@ -100,12 +104,12 @@ describe("buildIndex", () => {
     assert.equal(search(index, "apikey")[0]?.entry.key, "providers.openai.apiKey");
   });
   test("settingValues drops sensitive keys itself when given specs", () => {
-    const specs: SettingSpec[] = [{ key: "a.apiKey", type: "string", tier: "basic" }, { key: "a.name", type: "string", tier: "basic" }];
-    assert.deepEqual(settingValues({ a: { apiKey: "sk-1", name: "n" } }, specs), { "a.name": "n" });
+    const specs: SettingSpec[] = [{ key: "a.apiKey", type: "string", tier: "basic", sensitive: true }, { key: "core.logLevel", type: "string", tier: "basic" }];
+    assert.deepEqual(settingValues({ a: { apiKey: "sk-1" }, core: { logLevel: "debug" } }, specs), { "core.logLevel": "debug" });
   });
-  test("the keys the first heuristic missed stay out of the index, both from settingValues and from buildIndex", () => {
+  test("explicitly marked values stay out of the index through either input", () => {
     const keys = ["egress.proxy.authorization", "web.cookie", "tls.passphrase", "auth.bearer", "egress.proxy.auth"];
-    const specs: SettingSpec[] = [...keys.map((key) => ({ key, type: "string", tier: "advanced" as const })), { key: "core.logLevel", type: "enum", tier: "advanced" }];
+    const specs: SettingSpec[] = [...keys.map((key) => ({ key, type: "string", tier: "advanced" as const, sensitive: true })), { key: "core.logLevel", type: "enum", tier: "advanced" }];
     const config = { egress: { proxy: { authorization: "hunter2", auth: "hunter2" } }, web: { cookie: "hunter2" }, tls: { passphrase: "hunter2" }, auth: { bearer: "hunter2" }, core: { logLevel: "debug" } };
     const values = settingValues(config, specs);
     assert.deepEqual(values, { "core.logLevel": "debug" });
@@ -113,13 +117,13 @@ describe("buildIndex", () => {
     assert.equal(JSON.stringify(index).includes("hunter2"), false);
   });
   test("credentials inside a URL value are masked, whatever the key is called", () => {
-    const specs: SettingSpec[] = [{ key: "metrics.remoteWrite", type: "string", tier: "advanced" }, { key: "core.dataDir", type: "string", tier: "advanced" }];
-    const config = { metrics: { remoteWrite: "https://bob:hunter2@metrics.example/api?api_key=hunter3&x=1" }, core: { dataDir: "/var/lib" } };
+    const specs: SettingSpec[] = [{ key: "core.webHandoffBaseUrl", type: "string", tier: "advanced", urlCredentials: true }, { key: "core.logLevel", type: "string", tier: "advanced" }];
+    const config = { core: { webHandoffBaseUrl: "https://bob:hunter2@metrics.example/api?api_key=hunter3&x=1", logLevel: "debug" } };
     const values = settingValues(config, specs);
-    assert.equal(values["core.dataDir"], "/var/lib");
+    assert.equal(values["core.logLevel"], "debug");
     assert.equal(JSON.stringify(values).includes("hunter"), false);
-    assert.match(values["metrics.remoteWrite"] ?? "", /metrics\.example\/api\?api_key=••••&x=1$/);
-    const index = buildIndex({ lang: "en", settings: specs, values: { "metrics.remoteWrite": "https://bob:hunter2@metrics.example/" } });
+    assert.equal(values["core.webHandoffBaseUrl"], "https://••••@metrics.example/api?api_key=••••&x=••••");
+    const index = buildIndex({ lang: "en", settings: specs, values: { "core.webHandoffBaseUrl": "https://bob:hunter2@metrics.example/" } });
     assert.equal(JSON.stringify(index).includes("hunter2"), false);
     assert.deepEqual(search(index, "hunter2"), []);
   });

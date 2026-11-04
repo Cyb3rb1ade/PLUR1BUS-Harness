@@ -18,6 +18,21 @@ name = "embedding_parity"
 path = "tests/embedding_parity.rs"
 required-features = ["real-models"]
 
+[[test]]
+name = "media_model_parity"
+path = "tests/media_model_parity.rs"
+required-features = ["real-models"]
+
+[[test]]
+name = "media_audio_reference"
+path = "tests/media_audio_reference.rs"
+required-features = ["real-models"]
+
+[[test]]
+name = "media_image_reference"
+path = "tests/media_image_reference.rs"
+required-features = ["real-models"]
+
 [lints]
 workspace = true
 
@@ -60,6 +75,8 @@ sha2 = "0.10"
 ureq = { version = "3", default-features = false, features = ["rustls", "platform-verifier"] }
 # Reuse the locked socket API for cancellation of ureq connections; this adds no HTTP/TLS stack.
 socket2 = "=0.6.5"
+# MM-1/E13: bounded decode only; Pillow-compatible resize stays in-tree.
+image = { version = "=0.25.10", default-features = false, features = ["jpeg", "png", "webp"] }
 
 # Keep these direct dependencies on the exact lines already resolved by lancedb 0.26.2.
 arrow-array = "=57.3.1"

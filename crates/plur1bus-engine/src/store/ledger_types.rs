@@ -415,15 +415,40 @@ impl BehaviorCardLine {
 }
 
 typed_record!(RetrievalLedgerLine, "A selected-retrieval record passed to appendRetrievalLedger.", {
-    agent_id: JsString => "agentId",
-    workspace_key: JsString => "workspaceKey",
-    query: JsString => "query",
+    id: JsString => "id",
+    agent_id: Option<JsString> => "agentId",
+    workspace_key: Option<JsString> => "workspaceKey",
+    query_hash: Option<JsString> => "queryHash",
     results_count: LedgerNumber => "resultsCount",
-    selected_ids: Vec<JsString> => "selectedIds",
+    selected_ids: Vec<Option<JsString>> => "selectedIds",
+    timestamp: LedgerNumber => "timestamp",
 });
 impl RetrievalLedgerLine {
     /// The existing Node file name, without its owner-specific directory.
     pub const FILE_NAME: &'static str = "retrieval-ledger.jsonl";
+
+    /// Construct the Node envelope in its persisted field order. Nullable values
+    /// are present JSON nulls; absence remains available for historical records.
+    #[must_use]
+    pub fn selected(
+        id: JsString,
+        agent_id: Option<JsString>,
+        workspace_key: Option<JsString>,
+        query_hash: Option<JsString>,
+        selected_ids: Vec<Option<JsString>>,
+        timestamp: i64,
+    ) -> Self {
+        Self {
+            id: Some(id),
+            agent_id: Some(agent_id),
+            workspace_key: Some(workspace_key),
+            query_hash: Some(query_hash),
+            results_count: Some((selected_ids.len() as u64).into()),
+            selected_ids: Some(selected_ids),
+            timestamp: Some(timestamp.into()),
+            ..Self::default()
+        }
+    }
 }
 
 typed_record!(ReconsolidationEventLine, "A safe-update event, including the optional epistemic-collapse audit fields.", {

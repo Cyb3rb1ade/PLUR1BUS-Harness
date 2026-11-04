@@ -96,10 +96,29 @@ The owner selected this policy on 2026-10-15:
   and unsoundness advisories fail closed for production; unmaintained/yanked notices warn.
 - Invalid reports, unavailable tools/databases/network, invalid policy and expired exceptions fail
   the job. The script still attempts each ecosystem and writes the summary on failure.
-- Only `audit-allowlist.json` can exempt an advisory. It starts empty; no exceptions were added.
-  Entries require `advisoryId` (GHSA/RUSTSEC), `reason`, `created` and `expires` (UTC `YYYY-MM-DD`).
+- Only `audit-allowlist.json` can exempt a finding. Entries require `advisoryId` (RUSTSEC),
+  `crate`, `versionRange`, `reason`, `created` and `expires` (UTC `YYYY-MM-DD`). The advisory,
+  authoritative package name and installed version must all match. Missing crate/range fields and
+  duplicate normalized tuples reject the policy; separate approvals may cover distinct crates or ranges.
+  The existing approvals are scoped to their exact locked versions, with their original reasons and dates.
   Expiry is exclusive at 00:00 UTC and must be at most 90 days after creation. An expired entry
   fails even if the advisory disappeared. No automatic renewal or package-wide exceptions.
+
+The dependency-free range language accepts an exact stable version (`=1.2.3`) or a nonempty bounded
+interval inside one major version (`>=1.2.3, <1.3.0`; lower `>`/`>=`, upper `<`/`<=`).
+The next major is allowed only as an exclusive `major.0.0` upper bound, for example `>=1.0.0, <2.0.0`.
+Open or broader intervals are rejected. Components are full, nonnegative,
+safe-integer `major.minor.patch` values without leading zeros, compared numerically. Wildcards,
+caret/tilde/OR ranges, partial versions, prereleases and build metadata are rejected in approvals.
+Finding versions outside this subset remain visible and cannot use exceptions. Cargo reports retain
+package names and versions separately from their display text. The current pnpm collector records
+no concrete installed version, so its findings cannot use an exception; a vulnerable-version range
+is never treated as an installed version. GHSA approvals are rejected with an explicit missing-installed-version
+message until that collector can supply one. Severity and production/development precedence are unchanged.
+
+The release-audit tests validate the checked-in allowlist, including current expiration dates. Each unused approval
+appears as a warning naming advisory, crate and version range. This warning does not make the audit fail; collection
+errors, policy errors and blocking findings retain their existing exit behavior.
 
 ### Desktop updater archive policy
 
@@ -111,10 +130,11 @@ The three former zip advisory exceptions have been removed. Signature verificati
 anti-rollback and the exclusive install slot remain unchanged; the app still installs only the bytes returned
 by the verified download.
 
-**KNOWN GAP:** exceptions are keyed by advisory ID only and cannot be scoped to a package, version or lockfile.
-The existing TODO in `scripts/release/test/audit-policy.test.mjs` records this policy limitation; removing the
-zip exceptions does not resolve it. `Update::install` itself does not verify input, so the application must
-continue to use `Update::download` before installing.
+The crate/version regression in `scripts/release/test/audit-policy.test.mjs` is a regular pass/fail test.
+The approval tuple has no lockfile field: an identical advisory, crate and version is approved in either
+Cargo workspace. Separate approvals per workspace remain outside this policy's scope.
+`Update::install` itself does not verify input, so the application must continue to use
+`Update::download` before installing.
 
 Only the repository owner changes the allowlist. CODEOWNERS requests their review, and the
 release gate rejects an allowlist change in a PR created by anyone else. The owner must enable

@@ -1,15 +1,17 @@
 // The settings catalogue behind the palette's "Settings" group: a static subset of `packages/config-schema/schema/config.schema.json`
-// (the schema of config.json, `config.get` / `config.set` in docs/rpc.md; docs/config.md for the tiers). The schema package is NOT
-// imported: it pulls ajv and Node code, and the bundle must not. test/palette-index.test.ts reads the schema file and fails when
-// this list drifts from it (a key added, removed, or its tier or help changed), so regenerate the rows when it does.
+// (the schema of config.json, `config.get` / `config.set` in docs/rpc.md; docs/config.md for the tiers). Runtime consumers import only
+// the browser-safe config-schema/policy entry point. test/palette-index.test.ts reads the schema and rejects catalogue drift.
 //
-// What is real: key, type, tier and help text, all copied from the schema. A key is listed when it is a leaf or carries an
+// What is real: key, type, tier, sensitivity, URL-credential policy and help text, all copied from the schema. A key is listed when it is a leaf or carries an
 // `x-tier` (objects such as `agents` or `modules` are edited as a whole). `help` is the node's own `description`, else its nearest
 // ancestor's (so `metrics.port` carries the description of `metrics`). `$schema` and `schemaVersion` are not settings.
+// Sensitivity and URL-credential flags inherit from their container; sensitive string-array items also protect the collection widget.
 // What is NOT available: localised labels. The schema has no titles, so the label is derived from the last key segment
 // (`softBudgetMs` -> "Soft budget ms") and help stays in the schema's English. A localised catalogue needs schema titles or an
 // owner-approved UI catalogue (follow-up).
-export type SettingSpec = { readonly key: string; readonly type: string; readonly tier: "basic" | "advanced"; readonly help?: string };
+import type { ConfigSchemaNode } from "@plur1bus/config-schema/policy";
+
+export type SettingSpec = { readonly key: string; readonly type: string; readonly tier: "basic" | "advanced"; readonly sensitive?: boolean; readonly urlCredentials?: boolean; readonly help?: string };
 
 export const SETTINGS: readonly SettingSpec[] = [
   { key: "import.ssh", type: "object", tier: "advanced", help: "Owner-managed SSH source identity and endpoint configuration." },
@@ -60,7 +62,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "remote", type: "object", tier: "advanced", help: "Remote listeners: tailnet by default, network requires TLS and an audited notice acknowledgment." },
   { key: "remote.publish", type: "string", tier: "advanced", help: "Exposure mode; tailnet by default, network requires TLS and notice confirmation." },
   { key: "remote.tls", type: "string", tier: "advanced", help: "TLS material source for the network listener." },
-  { key: "remote.publicOrigin", type: "string", tier: "advanced", help: "Exact HTTPS origin advertised to remote clients and used for Origin and RP validation." },
+  { key: "remote.publicOrigin", type: "string", tier: "advanced", urlCredentials: true, help: "Exact HTTPS origin advertised to remote clients and used for Origin and RP validation." },
   { key: "remote.bind", type: "object", tier: "advanced", help: "Network TLS listener address and port." },
   { key: "remote.bind.address", type: "string", tier: "advanced", help: "Literal interface IP for the network TLS listener." },
   { key: "remote.bind.port", type: "integer", tier: "advanced", help: "Network TLS listener port." },
@@ -81,7 +83,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "tools.hostctl.env.allow", type: "array", tier: "advanced", help: "Environment names eligible for inheritance; secrets and injection variables remain blocked." },
   { key: "tools.hostctl.denyPatterns", type: "array", tier: "advanced", help: "Additional case-insensitive literal command substrings to refuse." },
   { key: "tools.hostctl.search.maxResults", type: "integer", tier: "advanced", help: "Maximum matches per search." },
-  { key: "core.webHandoffBaseUrl", type: "string", tier: "advanced", help: "Explicit Web UI address for external channel continuation links. Empty disables /web links; HTTPS except loopback HTTP. No credentials, query or fragment." },
+  { key: "core.webHandoffBaseUrl", type: "string", tier: "advanced", urlCredentials: true, help: "Explicit Web UI address for external channel continuation links. Empty disables /web links; HTTPS except loopback HTTP. No credentials, query or fragment." },
   { key: "core.logLevel", type: "enum", tier: "advanced", help: "Minimum severity written to the core log." },
   { key: "core.recall.softBudgetMs", type: "integer", tier: "advanced", help: "Soft target duration for a recall, in milliseconds; must not exceed hardBudgetMs." },
   { key: "core.recall.hardBudgetMs", type: "integer", tier: "advanced", help: "Maximum duration allowed for a recall before it is aborted, in milliseconds; must not be below softBudgetMs." },
@@ -107,12 +109,12 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "memory.embedding.privacyAck.provider", type: "string", tier: "advanced", help: "Exactly the provider confirmed for this function." },
   { key: "memory.embedding.privacyAck.acknowledgedAt", type: "string", tier: "advanced", help: "When this function-specific privacy acknowledgment was recorded." },
   { key: "memory.embedding.privacyAck.by", type: "string", tier: "advanced", help: "Person id that recorded this acknowledgment." },
-  { key: "memory.embedding.privacyAck.endpoint", type: "string", tier: "advanced", help: "Exact configured endpoint, when the provider has one." },
+  { key: "memory.embedding.privacyAck.endpoint", type: "string", tier: "advanced", urlCredentials: true, help: "Exact configured endpoint, when the provider has one." },
   { key: "memory.reranker.privacyAck", type: "object", tier: "advanced", help: "Privacy acknowledgment for this function and selected provider; does not override the effective “Only local models” policy (`privacy.localOnly` and `agents.<id>.privacy.localOnly`); local endpoint origins are configured in `privacy.localEndpoints`. Writes require a trusted person and audit in the authenticated transport." },
   { key: "memory.reranker.privacyAck.provider", type: "string", tier: "advanced", help: "Exactly the provider confirmed for this function." },
   { key: "memory.reranker.privacyAck.acknowledgedAt", type: "string", tier: "advanced", help: "When this function-specific privacy acknowledgment was recorded." },
   { key: "memory.reranker.privacyAck.by", type: "string", tier: "advanced", help: "Person id that recorded this acknowledgment." },
-  { key: "memory.reranker.privacyAck.endpoint", type: "string", tier: "advanced", help: "Exact configured endpoint, when the provider has one." },
+  { key: "memory.reranker.privacyAck.endpoint", type: "string", tier: "advanced", urlCredentials: true, help: "Exact configured endpoint, when the provider has one." },
   { key: "memory.mediaEmbedding", type: "object", tier: "basic", help: "Media index (image, video, audio) with its own provider, independent of the text embedding. Captions land in the text index." },
   { key: "memory.mediaEmbedding.enabled", type: "boolean", tier: "basic", help: "Whether the separate media index (image, video, audio) is used." },
   { key: "memory.mediaEmbedding.provider", type: "string", tier: "basic", help: "Embedding provider id for the media index, or \"off\". Chosen independently of the text embedding provider." },
@@ -120,7 +122,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "memory.mediaEmbedding.privacyAck.provider", type: "string", tier: "advanced", help: "Exactly the provider confirmed for this function." },
   { key: "memory.mediaEmbedding.privacyAck.acknowledgedAt", type: "string", tier: "advanced", help: "When this function-specific privacy acknowledgment was recorded." },
   { key: "memory.mediaEmbedding.privacyAck.by", type: "string", tier: "advanced", help: "Person id that recorded this acknowledgment." },
-  { key: "memory.mediaEmbedding.privacyAck.endpoint", type: "string", tier: "advanced", help: "Exact configured endpoint, when the provider has one." },
+  { key: "memory.mediaEmbedding.privacyAck.endpoint", type: "string", tier: "advanced", urlCredentials: true, help: "Exact configured endpoint, when the provider has one." },
   { key: "memory.mediaEmbedding.model", type: "string", tier: "basic", help: "Model id used for the media index; the same model may serve text and media, the indexes stay separate." },
   { key: "memory.mediaEmbedding.dimensions", type: "integer", tier: "advanced", help: "Vector dimensions of the media index; must be supported by the model (EmbeddingGemma: 768, 512, 256 or 128)." },
   { key: "memory.mediaEmbedding.modalities", type: "array", tier: "basic", help: "Media kinds that are indexed." },
@@ -159,7 +161,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "memory.mediaEmbedding.caption.privacyAck.provider", type: "string", tier: "advanced", help: "Exactly the provider confirmed for this function." },
   { key: "memory.mediaEmbedding.caption.privacyAck.acknowledgedAt", type: "string", tier: "advanced", help: "When this function-specific privacy acknowledgment was recorded." },
   { key: "memory.mediaEmbedding.caption.privacyAck.by", type: "string", tier: "advanced", help: "Person id that recorded this acknowledgment." },
-  { key: "memory.mediaEmbedding.caption.privacyAck.endpoint", type: "string", tier: "advanced", help: "Exact configured endpoint, when the provider has one." },
+  { key: "memory.mediaEmbedding.caption.privacyAck.endpoint", type: "string", tier: "advanced", urlCredentials: true, help: "Exact configured endpoint, when the provider has one." },
   { key: "memory.mediaEmbedding.caption.maxChars", type: "integer", tier: "advanced", help: "Maximum caption length in characters." },
   { key: "memory.mediaEmbedding.caption.perSegment", type: "boolean", tier: "advanced", help: "Whether video and audio get one caption per segment instead of one per medium." },
   { key: "memory.mediaEmbedding.backfill", type: "string", tier: "advanced", help: "Whether existing media are indexed automatically in the background (auto) or only on request (manual)." },
@@ -190,9 +192,9 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "a2aServer.legacy03", type: "boolean", tier: "advanced", help: "Opt-in to legacy A2A 0.3 dotted method names." },
   { key: "a2aServer.defaultAgentId", type: "string", tier: "advanced", help: "Default agent id to expose when none is specified." },
   { key: "a2aServer.signingKey", type: "object", tier: "advanced", help: "Private key for signing agent cards." },
-  { key: "a2aServer.signingKey.privateKeySecret", type: "string", tier: "advanced", help: "Name of the secret holding the agent card signing private key; never the key itself." },
+  { key: "a2aServer.signingKey.privateKeySecret", type: "string", tier: "advanced", sensitive: true, help: "Name of the secret holding the agent card signing private key; never the key itself." },
   { key: "a2aServer.signingKey.kid", type: "string", tier: "advanced", help: "Key identifier for the signing key." },
-  { key: "providers", type: "object", tier: "basic", help: "Reserved namespace for model-provider configuration." },
+  { key: "providers", type: "object", tier: "basic", help: "Open namespace for provider definitions. Non-validating privacy metadata follows the existing auth, MCP and media consumers." },
   { key: "auth.requireSecondFactor", type: "string", tier: "advanced", help: "Require TOTP or WebAuthn for Owner and Admin on remote listeners by default; always or never are explicit overrides." },
   { key: "auth.openai.loopbackTimeoutMs", type: "integer", tier: "advanced", help: "Loopback login deadline." },
   { key: "auth.openai.httpTimeoutMs", type: "integer", tier: "advanced", help: "Bounded OpenAI HTTP deadline." },
@@ -204,20 +206,20 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "auth.openai.storeBackend", type: "string", tier: "advanced", help: "Use the existing secret service. auto permits only its explicitly enabled encrypted-file fallback." },
   { key: "auth.openai.federated", type: "object", tier: "advanced", help: "External bearer supplier: one executable or file, explicit arguments and environment." },
   { key: "auth.openai.federated.command", type: "string", tier: "advanced", help: "Executable that prints a fresh federated token as JSON on stdout (run without a shell). Mutually exclusive with file." },
-  { key: "auth.openai.federated.file", type: "string", tier: "advanced", help: "File holding the federated token and its expiry, re-read on refresh. Mutually exclusive with command." },
-  { key: "auth.openai.federated.args", type: "array", tier: "advanced", help: "Arguments passed to command, one array element per argument (no shell interpolation)." },
-  { key: "auth.openai.federated.environment", type: "object", tier: "advanced", help: "Extra environment variables for command; only these and the built-in allowlist are passed." },
-  { key: "oauth", type: "object", tier: "advanced", help: "Reserved namespace for OAuth configuration." },
+  { key: "auth.openai.federated.file", type: "string", tier: "advanced", sensitive: true, help: "File holding the federated token and its expiry, re-read on refresh. Mutually exclusive with command." },
+  { key: "auth.openai.federated.args", type: "array", tier: "advanced", sensitive: true, help: "Arguments passed to command, one array element per argument (no shell interpolation)." },
+  { key: "auth.openai.federated.environment", type: "object", tier: "advanced", sensitive: true, help: "Extra environment variables for command; only these and the built-in allowlist are passed." },
+  { key: "oauth", type: "object", tier: "advanced", sensitive: true, help: "Reserved namespace for OAuth configuration." },
   { key: "decision", type: "object", tier: "advanced", help: "Decision service contract (ADR-015). Selection does not install or activate an unavailable backend." },
   { key: "decision.systemOne", type: "object", tier: "advanced", help: "System One backends. Both are disabled until explicitly enabled; credentials alone do not enable a backend." },
   { key: "decision.systemOne.jev", type: "object", tier: "advanced", help: "Cloud System One. Content also requires trusted caller admission; never arbitrary tool or triage text." },
   { key: "decision.systemOne.jev.enabled", type: "boolean", tier: "advanced", help: "Explicit opt-in for Jev; does not authorize cloud content by itself." },
   { key: "decision.systemOne.jev.model", type: "string", tier: "advanced", help: "Pinned documented System One model id." },
-  { key: "decision.systemOne.jev.secretRef", type: "string", tier: "advanced", help: "Secret-store name for the API key. No inline values." },
+  { key: "decision.systemOne.jev.secretRef", type: "string", tier: "advanced", sensitive: true, help: "Secret-store name for the API key. No inline values." },
   { key: "decision.systemOne.kev", type: "object", tier: "advanced", help: "Local Kev preparation. Native spike admission remains mandatory and is not configurable here." },
   { key: "decision.systemOne.kev.enabled", type: "boolean", tier: "advanced", help: "Explicit opt-in; remains unavailable until the native spike gate passes." },
   { key: "decision.systemOne.kev.model", type: "string", tier: "advanced", help: "Explicit model name accepted by the local System One server." },
-  { key: "decision.systemOne.kev.endpoint", type: "string", tier: "advanced", help: "Literal loopback System One endpoint; localhost and remote addresses are refused." },
+  { key: "decision.systemOne.kev.endpoint", type: "string", tier: "advanced", urlCredentials: true, help: "Literal loopback System One endpoint; localhost and remote addresses are refused." },
   { key: "decision.backend", type: "enum", tier: "advanced", help: "Preferred backend. role preserves the existing decision model role; auto selects only installed and eligible backends." },
   { key: "decision.timeoutMs", type: "integer", tier: "advanced", help: "Overall request deadline in milliseconds, including all fallback attempts. The caller may impose a shorter deadline." },
   { key: "decision.budgets", type: "object", tier: "advanced", help: "Maximum milliseconds per use case, also bounded by timeoutMs and the remaining caller budget." },
@@ -253,7 +255,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "egress.modelDownloads.allowHosts", type: "array", tier: "advanced", help: "Exact catalogue/CDN hosts admitted for engine model files; no wildcards or inference endpoints." },
   { key: "egress.allowLoopback", type: "boolean", tier: "advanced", help: "Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused." },
   { key: "privacy.localOnly", type: "boolean", tier: "basic", help: "Only local models: every model or inference endpoint must be loopback (localhost, 127.0.0.0/8, ::1) or listed in privacy.localEndpoints. A cloud provider is refused with E_DENIED reason local-only, never silently replaced by another model. Web tools (web.fetch, web.search) are not model calls and are not affected. An agent can override it with agents.<id>.privacy.localOnly." },
-  { key: "privacy.localEndpoints", type: "array", tier: "advanced", help: "Self-hosted model servers outside loopback that count as local for privacy.localOnly (for example your own Ollama or vLLM server in the home network), as exact origins scheme://host[:port]. LAN addresses are not local unless listed here." },
+  { key: "privacy.localEndpoints", type: "array", tier: "advanced", urlCredentials: true, help: "Self-hosted model servers outside loopback that count as local for privacy.localOnly (for example your own Ollama or vLLM server in the home network), as exact origins scheme://host[:port]. LAN addresses are not local unless listed here." },
   { key: "session.rewind.autoProjects", type: "array", tier: "advanced", help: "Projects that permit automatic rewind after three failed edit/test cycles on unattended D115 cards. Interactive sessions only propose; no file restore is automatic." },
   { key: "session.rewind.fileProjects", type: "array", tier: "advanced", help: "Projects that permit tracked-file checkpoints and separately approved file rewind on D115 card sessions. Empty disables capture and file restore." },
   { key: "session.rewind.checkpointRetentionTurns", type: "integer", tier: "advanced", help: "Keep private file-checkpoint refs only within this many recent session turns. Archived sessions and completed cards release their refs earlier." },
@@ -268,7 +270,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "session.compaction.prune.maxMs", type: "integer", tier: "advanced", help: "Total decision time budget. Timeout retains original context." },
   { key: "session.compaction.prune.batchSize", type: "integer", tier: "advanced", help: "Maximum tool pairs in one decision request." },
   { key: "channels.discord.enabled", type: "boolean", tier: "advanced", help: "Whether the discord channel is started. Off by default; nothing connects until this is true." },
-  { key: "channels.discord.tokenSecret", type: "string", tier: "advanced", help: "Name of the secret holding the Discord bot token. The value never appears in config or logs." },
+  { key: "channels.discord.tokenSecret", type: "string", tier: "advanced", sensitive: true, help: "Name of the secret holding the Discord bot token. The value never appears in config or logs." },
   { key: "channels.discord.applicationId", type: "string", tier: "advanced", help: "Discord application id (needed to register slash commands). Taken from the gateway READY event when omitted." },
   { key: "channels.discord.intents", type: "array", tier: "advanced", help: "Gateway intents to request. MESSAGE_CONTENT is privileged and must also be enabled in the developer portal." },
   { key: "channels.discord.allowlist", type: "array", tier: "advanced", help: "Guild channel, thread or DM channel ids that may talk to the bot. Empty allows nothing, inbound and outbound." },
@@ -278,8 +280,8 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "channels.discord.maxMediaBytes", type: "integer", tier: "advanced", help: "Largest attachment accepted or sent, in bytes (checked before and during download and before upload)." },
   { key: "channels.discord.locale", type: "enum", tier: "advanced", help: "Language of the bot's own messages (pairing replies, refusals, approval prompts)." },
   { key: "channels.slack.enabled", type: "boolean", tier: "advanced", help: "Whether the slack channel is started. Off by default; nothing connects until this is true." },
-  { key: "channels.slack.botTokenSecret", type: "string", tier: "advanced", help: "Name of the secret holding the Slack bot token (xoxb-…)." },
-  { key: "channels.slack.appTokenSecret", type: "string", tier: "advanced", help: "Name of the secret holding the Slack app-level token (xapp-…) with the connections:write scope, used for Socket Mode." },
+  { key: "channels.slack.botTokenSecret", type: "string", tier: "advanced", sensitive: true, help: "Name of the secret holding the Slack bot token (xoxb-…)." },
+  { key: "channels.slack.appTokenSecret", type: "string", tier: "advanced", sensitive: true, help: "Name of the secret holding the Slack app-level token (xapp-…) with the connections:write scope, used for Socket Mode." },
   { key: "channels.slack.teamId", type: "string", tier: "advanced", help: "Slack workspace id; events from other workspaces are ignored when set." },
   { key: "channels.slack.allowlist", type: "array", tier: "advanced", help: "Slack channel, group or conversation ids that may talk to the bot. Empty allows nothing, inbound and outbound." },
   { key: "channels.slack.dmAllowlist", type: "array", tier: "advanced", help: "Sender ids that may write to the bot in a direct message. Empty allows no direct messages." },
@@ -289,17 +291,17 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "channels.slack.locale", type: "enum", tier: "advanced", help: "Language of the bot's own messages (pairing replies, refusals, approval prompts)." },
   { key: "channels.buzz", type: "object", tier: "advanced", help: "NIP-17 text-only direct messages. Disabled by default." },
   { key: "channels.buzz.enabled", type: "boolean", tier: "advanced", help: "Start Buzz." },
-  { key: "channels.buzz.relays", type: "array", tier: "advanced", help: "Permitted wss relays; ws only for literal loopback." },
-  { key: "channels.buzz.privateKeySecret", type: "string", tier: "advanced", help: "Name of the secret holding the Buzz private key; never the key itself." },
+  { key: "channels.buzz.relays", type: "array", tier: "advanced", urlCredentials: true, help: "Permitted wss relays; ws only for literal loopback." },
+  { key: "channels.buzz.privateKeySecret", type: "string", tier: "advanced", sensitive: true, help: "Name of the secret holding the Buzz private key; never the key itself." },
   { key: "channels.buzz.senderAllowlist", type: "array", tier: "advanced", help: "Allowed hex or npub sender keys." },
   { key: "channels.buzz.locale", type: "string", tier: "advanced", help: "Local command language." },
   { key: "channels.matrix.e2ee", type: "object", tier: "advanced", help: "Experimental E2EE. Memory mode is NOT persistent: restart loses keys and requires device verification again." },
   { key: "channels.matrix.e2ee.mode", type: "string", tier: "advanced", help: "Disabled by default. Memory is experimental and loses keys after restart." },
   { key: "channels.matrix.e2ee.unverifiedDevices", type: "string", tier: "advanced", help: "Reject and report unverified devices by default. Allow is an explicit owner experiment." },
   { key: "channels.matrix.enabled", type: "boolean", tier: "advanced", help: "Whether the matrix channel is started. Off by default; nothing connects until this is true." },
-  { key: "channels.matrix.homeserverUrl", type: "string", tier: "advanced", help: "Base URL of the Matrix homeserver. Must be https, or http for a loopback host." },
+  { key: "channels.matrix.homeserverUrl", type: "string", tier: "advanced", urlCredentials: true, help: "Base URL of the Matrix homeserver. Must be https, or http for a loopback host." },
   { key: "channels.matrix.userId", type: "string", tier: "advanced", help: "Matrix id of the bot account, for example @bot:example.org." },
-  { key: "channels.matrix.accessTokenSecret", type: "string", tier: "advanced", help: "Name of the secret holding the bot account's access token." },
+  { key: "channels.matrix.accessTokenSecret", type: "string", tier: "advanced", sensitive: true, help: "Name of the secret holding the bot account's access token." },
   { key: "channels.matrix.deviceId", type: "string", tier: "advanced", help: "Device id of the access token, when the homeserver requires it to be stated." },
   { key: "channels.matrix.autoJoin", type: "enum", tier: "advanced", help: "Which room invites the bot accepts: `allowlist` joins only invites from allowed rooms or senders, `never` joins nothing." },
   { key: "channels.matrix.allowlist", type: "array", tier: "advanced", help: "Room ids that may talk to the bot. Empty allows nothing, inbound and outbound." },
@@ -327,7 +329,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "channels.email.imap.port", type: "integer", tier: "advanced", help: "IMAP server port." },
   { key: "channels.email.imap.security", type: "enum", tier: "advanced", help: "Transport security: `tls` for implicit TLS, `starttls` for an upgrade before any credential is sent. Plain text is not offered." },
   { key: "channels.email.imap.user", type: "string", tier: "advanced", help: "IMAP login name." },
-  { key: "channels.email.imap.passwordSecret", type: "string", tier: "advanced", help: "Name of the secret holding the IMAP password or app password." },
+  { key: "channels.email.imap.passwordSecret", type: "string", tier: "advanced", sensitive: true, help: "Name of the secret holding the IMAP password or app password." },
   { key: "channels.email.imap.folder", type: "string", tier: "advanced", help: "IMAP folder to watch." },
   { key: "channels.email.imap.idle", type: "boolean", tier: "advanced", help: "Use IMAP IDLE when the server offers it; otherwise, or when false, poll." },
   { key: "channels.email.imap.pollIntervalSec", type: "integer", tier: "advanced", help: "Seconds between polls when IDLE is not used." },
@@ -335,20 +337,20 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "channels.email.smtp.port", type: "integer", tier: "advanced", help: "SMTP server port." },
   { key: "channels.email.smtp.security", type: "enum", tier: "advanced", help: "Transport security: `tls` for implicit TLS, `starttls` for an upgrade before any credential is sent. Plain text is not offered." },
   { key: "channels.email.smtp.user", type: "string", tier: "advanced", help: "SMTP login name." },
-  { key: "channels.email.smtp.passwordSecret", type: "string", tier: "advanced", help: "Name of the secret holding the SMTP password or app password." },
+  { key: "channels.email.smtp.passwordSecret", type: "string", tier: "advanced", sensitive: true, help: "Name of the secret holding the SMTP password or app password." },
   { key: "channels.email.dmAllowlist", type: "array", tier: "advanced", help: "Sender addresses that may write to the bot: an exact address or `*@domain`. Empty allows nobody." },
   { key: "channels.email.maxAttachmentBytes", type: "integer", tier: "advanced", help: "Largest attachment accepted or sent, in bytes." },
   { key: "channels.email.authServId", type: "string", tier: "advanced", help: "Authserv-id of the mail server that delivers into the bot mailbox. Only Authentication-Results headers from this server are read; without it every SPF/DKIM/DMARC result counts as none." },
   { key: "channels.email.requireAuthPass", type: "boolean", tier: "advanced", help: "Drop mail whose Authentication-Results do not show a pass (dmarc, or spf and dkim). The channel only reads the verdict; it does not verify mail itself." },
   { key: "channels.email.locale", type: "enum", tier: "advanced", help: "Language of the bot's own messages (pairing replies, refusals, approval prompts)." },
   { key: "channels.telegram.enabled", type: "boolean", tier: "advanced", help: "Whether the Telegram channel is started. Off by default; nothing connects until this is true." },
-  { key: "channels.telegram.tokenSecret", type: "string", tier: "advanced", help: "Name of the secret holding the Telegram bot token. The value never appears in config or logs." },
-  { key: "channels.telegram.allowlist", type: "array", tier: "advanced", help: "Decimal chat IDs (users, groups, supergroups) that may talk to the bot. Empty allows nothing, inbound and outbound." },
-  { key: "channels.telegram.userAllowlist", type: "array", tier: "advanced", help: "When present, only these numeric user IDs are heard in groups and direct chats." },
+  { key: "channels.telegram.tokenSecret", type: "string", tier: "advanced", sensitive: true, help: "Name of the secret holding the Telegram bot token. The value never appears in config or logs." },
+  { key: "channels.telegram.allowlist", type: "array", tier: "advanced", sensitive: true, help: "Decimal chat IDs (users, groups, supergroups) that may talk to the bot. Empty allows nothing, inbound and outbound." },
+  { key: "channels.telegram.userAllowlist", type: "array", tier: "advanced", sensitive: true, help: "When present, only these numeric user IDs are heard in groups and direct chats." },
   { key: "channels.telegram.mode", type: "enum", tier: "advanced", help: "Connection transport: `polling` for long polling (default), or `webhook` for host HTTP webhook dispatch." },
   { key: "channels.telegram.webhook", type: "object", tier: "advanced", help: "Webhook mode parameters (required when mode is `webhook`)." },
-  { key: "channels.telegram.webhook.url", type: "string", tier: "advanced", help: "HTTPS webhook URL Telegram will deliver updates to." },
-  { key: "channels.telegram.webhook.secret", type: "string", tier: "advanced", help: "Secret token sent in the X-Telegram-Bot-Api-Secret-Token header (1..256 alphanumeric/dash/underscore chars)." },
+  { key: "channels.telegram.webhook.url", type: "string", tier: "advanced", urlCredentials: true, help: "HTTPS webhook URL Telegram will deliver updates to." },
+  { key: "channels.telegram.webhook.secret", type: "string", tier: "advanced", sensitive: true, help: "Secret token sent in the X-Telegram-Bot-Api-Secret-Token header (1..256 alphanumeric/dash/underscore chars)." },
   { key: "channels.telegram.webhook.maxBodyBytes", type: "integer", tier: "advanced", help: "Maximum accepted request body size in bytes." },
   { key: "channels.telegram.botId", type: "integer", tier: "advanced", help: "Explicit bot user ID override (normally discovered via getMe)." },
   { key: "channels.telegram.botUsername", type: "string", tier: "advanced", help: "Explicit bot username override without @ (normally discovered via getMe)." },
@@ -399,21 +401,21 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "voice.v3.selectedProfiles.de", type: "enum", tier: "advanced", help: "Selected profile for de." },
   { key: "voice.v3.selectedProfiles.en", type: "enum", tier: "advanced", help: "Selected profile for en." },
   { key: "voice.providers.elevenlabs.enabled", type: "boolean", tier: "advanced", help: "Whether ElevenLabs may be used. Off until enabled and given an apiKeyRef." },
-  { key: "voice.providers.elevenlabs.apiKeyRef", type: "string", tier: "advanced", help: "Secret-store reference holding the ElevenLabs API key." },
+  { key: "voice.providers.elevenlabs.apiKeyRef", type: "string", tier: "advanced", sensitive: true, help: "Secret-store reference holding the ElevenLabs API key." },
   { key: "voice.providers.elevenlabs.region", type: "enum", tier: "advanced", help: "Data-residency region: default (global), us, eu or in. Ignored when baseUrl is set." },
-  { key: "voice.providers.elevenlabs.baseUrl", type: "string", tier: "advanced", help: "Override of the API base URL (https only, or loopback for a local relay)." },
+  { key: "voice.providers.elevenlabs.baseUrl", type: "string", tier: "advanced", urlCredentials: true, help: "Override of the API base URL (https only, or loopback for a local relay)." },
   { key: "voice.providers.elevenlabs.defaultVoice", type: "string", tier: "advanced", help: "Voice id used when a request names none." },
   { key: "voice.providers.elevenlabs.defaultModel", type: "string", tier: "advanced", help: "Text-to-speech model id used when a request names none; discovery lists the available ones." },
   { key: "voice.providers.elevenlabs.defaultSttModel", type: "string", tier: "advanced", help: "Speech-to-text model id used when a request names none." },
   { key: "voice.providers.elevenlabs.zeroRetention", type: "boolean", tier: "advanced", help: "Ask ElevenLabs not to log or retain request content (enable_logging=false), where the account plan allows it." },
   { key: "voice.providers.xai.enabled", type: "boolean", tier: "advanced", help: "Whether Grok Voice may be used. Off until enabled and given an apiKeyRef." },
-  { key: "voice.providers.xai.apiKeyRef", type: "string", tier: "advanced", help: "Secret-store reference holding the xAI API key." },
-  { key: "voice.providers.xai.baseUrl", type: "string", tier: "advanced", help: "Override of the API base URL (https only, or loopback for a local relay)." },
+  { key: "voice.providers.xai.apiKeyRef", type: "string", tier: "advanced", sensitive: true, help: "Secret-store reference holding the xAI API key." },
+  { key: "voice.providers.xai.baseUrl", type: "string", tier: "advanced", urlCredentials: true, help: "Override of the API base URL (https only, or loopback for a local relay)." },
   { key: "voice.providers.xai.defaultVoice", type: "string", tier: "advanced", help: "Voice used when a session names none." },
   { key: "voice.providers.xai.defaultModel", type: "string", tier: "advanced", help: "Realtime model id used when a session names none; found by discovery when empty." },
   { key: "voice.providers.gemini.enabled", type: "boolean", tier: "advanced", help: "Whether Gemini Live may be used. Off until enabled and given an apiKeyRef." },
-  { key: "voice.providers.gemini.apiKeyRef", type: "string", tier: "advanced", help: "Secret-store reference holding the Gemini API key." },
-  { key: "voice.providers.gemini.baseUrl", type: "string", tier: "advanced", help: "Override of the API base URL (https only, or loopback for a local relay)." },
+  { key: "voice.providers.gemini.apiKeyRef", type: "string", tier: "advanced", sensitive: true, help: "Secret-store reference holding the Gemini API key." },
+  { key: "voice.providers.gemini.baseUrl", type: "string", tier: "advanced", urlCredentials: true, help: "Override of the API base URL (https only, or loopback for a local relay)." },
   { key: "voice.providers.gemini.defaultVoice", type: "string", tier: "advanced", help: "Prebuilt voice name used when a session names none." },
   { key: "voice.providers.gemini.defaultModel", type: "string", tier: "advanced", help: "Live model id used when a session names none; native-audio models are found by discovery when empty." },
   { key: "voice.providers.polly.enabled", type: "boolean", tier: "advanced", help: "Whether Polly may be used. Off until enabled." },
@@ -424,7 +426,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "voice.local.language", type: "string", tier: "advanced", help: "Language of the local voice (catalog code such as de or en). Empty: the system language when the catalog has it, else en." },
   { key: "voice.local.profile", type: "enum", tier: "advanced", help: "Local model tier: fast (streaming recogniser, small voice) or quality (larger models)." },
   { key: "voice.local.perAgent", type: "object", tier: "advanced", help: "Per-agent override of language and tier, keyed by agent identifier." },
-  { key: "voice.local.catalogOverride", type: "object", tier: "advanced", help: "Data that adds or replaces catalog models and languages (adding a language is data, not code). Same shape as the built-in catalog." },
+  { key: "voice.local.catalogOverride", type: "object", tier: "advanced", sensitive: true, help: "Data that adds or replaces catalog models and languages (adding a language is data, not code). Same shape as the built-in catalog." },
   { key: "voice.local.modelsDir", type: "string", tier: "advanced", help: "Directory for downloaded voice models. Empty: a directory under the harness data directory." },
   { key: "voice.local.acceptedLicences", type: "object", tier: "advanced", help: "Licences the owner confirmed, one entry per model: the key is the model id, an @ sign and the licence id (for example kroko-de@CC-BY-SA), the value the date-time of the confirmation. A model under a non-commercial or unconfirmed licence is downloaded and used only with its own entry; a new model or a changed licence needs a new confirmation." },
   { key: "voice.localRealtime.enabled", type: "boolean", tier: "advanced", help: "Whether the local real-time profile applies. When off, every feature runs without a time budget." },
@@ -523,44 +525,44 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "media.video.adapters.google.audio", type: "boolean", tier: "advanced", help: "The selected protocol supports an audio generation switch." },
   { key: "media.video.adapters.google.inputSchema", type: "object", tier: "advanced", help: "Published model input properties for fal; Replicate discovers them from the model/version." },
   { key: "media.adapters.openai.enabled", type: "boolean", tier: "advanced", help: "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key." },
-  { key: "media.adapters.openai.apiKeyRef", type: "string", tier: "advanced", help: "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin." },
-  { key: "media.adapters.openai.baseUrl", type: "string", tier: "advanced", help: "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers." },
+  { key: "media.adapters.openai.apiKeyRef", type: "string", tier: "advanced", sensitive: true, help: "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin." },
+  { key: "media.adapters.openai.baseUrl", type: "string", tier: "advanced", urlCredentials: true, help: "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers." },
   { key: "media.adapters.openai.model", type: "string", tier: "advanced", help: "Model identifier sent to the provider." },
   { key: "media.adapters.openai.timeoutMs", type: "integer", tier: "advanced", help: "Upper bound for one generation, including polling, in milliseconds." },
   { key: "media.adapters.openai.maxConcurrent", type: "integer", tier: "advanced", help: "How many requests this adapter runs at once; further jobs wait." },
   { key: "media.adapters.google.enabled", type: "boolean", tier: "advanced", help: "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key." },
-  { key: "media.adapters.google.apiKeyRef", type: "string", tier: "advanced", help: "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin." },
-  { key: "media.adapters.google.baseUrl", type: "string", tier: "advanced", help: "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers." },
+  { key: "media.adapters.google.apiKeyRef", type: "string", tier: "advanced", sensitive: true, help: "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin." },
+  { key: "media.adapters.google.baseUrl", type: "string", tier: "advanced", urlCredentials: true, help: "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers." },
   { key: "media.adapters.google.model", type: "string", tier: "advanced", help: "Model identifier sent to the provider." },
   { key: "media.adapters.google.timeoutMs", type: "integer", tier: "advanced", help: "Upper bound for one generation, including polling, in milliseconds." },
   { key: "media.adapters.google.maxConcurrent", type: "integer", tier: "advanced", help: "How many requests this adapter runs at once; further jobs wait." },
   { key: "media.adapters.xai.enabled", type: "boolean", tier: "advanced", help: "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key." },
-  { key: "media.adapters.xai.apiKeyRef", type: "string", tier: "advanced", help: "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin." },
-  { key: "media.adapters.xai.baseUrl", type: "string", tier: "advanced", help: "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers." },
+  { key: "media.adapters.xai.apiKeyRef", type: "string", tier: "advanced", sensitive: true, help: "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin." },
+  { key: "media.adapters.xai.baseUrl", type: "string", tier: "advanced", urlCredentials: true, help: "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers." },
   { key: "media.adapters.xai.model", type: "string", tier: "advanced", help: "Model identifier sent to the provider." },
   { key: "media.adapters.xai.timeoutMs", type: "integer", tier: "advanced", help: "Upper bound for one generation, including polling, in milliseconds." },
   { key: "media.adapters.xai.maxConcurrent", type: "integer", tier: "advanced", help: "How many requests this adapter runs at once; further jobs wait." },
   { key: "media.adapters.openrouter.enabled", type: "boolean", tier: "advanced", help: "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key." },
-  { key: "media.adapters.openrouter.apiKeyRef", type: "string", tier: "advanced", help: "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin." },
-  { key: "media.adapters.openrouter.baseUrl", type: "string", tier: "advanced", help: "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers." },
+  { key: "media.adapters.openrouter.apiKeyRef", type: "string", tier: "advanced", sensitive: true, help: "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin." },
+  { key: "media.adapters.openrouter.baseUrl", type: "string", tier: "advanced", urlCredentials: true, help: "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers." },
   { key: "media.adapters.openrouter.model", type: "string", tier: "advanced", help: "Model identifier sent to the provider." },
   { key: "media.adapters.openrouter.timeoutMs", type: "integer", tier: "advanced", help: "Upper bound for one generation, including polling, in milliseconds." },
   { key: "media.adapters.openrouter.maxConcurrent", type: "integer", tier: "advanced", help: "How many requests this adapter runs at once; further jobs wait." },
   { key: "media.adapters.replicate.enabled", type: "boolean", tier: "advanced", help: "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key." },
-  { key: "media.adapters.replicate.apiKeyRef", type: "string", tier: "advanced", help: "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin." },
-  { key: "media.adapters.replicate.baseUrl", type: "string", tier: "advanced", help: "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers." },
+  { key: "media.adapters.replicate.apiKeyRef", type: "string", tier: "advanced", sensitive: true, help: "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin." },
+  { key: "media.adapters.replicate.baseUrl", type: "string", tier: "advanced", urlCredentials: true, help: "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers." },
   { key: "media.adapters.replicate.model", type: "string", tier: "advanced", help: "Model identifier sent to the provider." },
   { key: "media.adapters.replicate.timeoutMs", type: "integer", tier: "advanced", help: "Upper bound for one generation, including polling, in milliseconds." },
   { key: "media.adapters.replicate.maxConcurrent", type: "integer", tier: "advanced", help: "How many requests this adapter runs at once; further jobs wait." },
   { key: "media.adapters.fal.enabled", type: "boolean", tier: "advanced", help: "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key." },
-  { key: "media.adapters.fal.apiKeyRef", type: "string", tier: "advanced", help: "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin." },
-  { key: "media.adapters.fal.baseUrl", type: "string", tier: "advanced", help: "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers." },
+  { key: "media.adapters.fal.apiKeyRef", type: "string", tier: "advanced", sensitive: true, help: "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin." },
+  { key: "media.adapters.fal.baseUrl", type: "string", tier: "advanced", urlCredentials: true, help: "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers." },
   { key: "media.adapters.fal.model", type: "string", tier: "advanced", help: "Model identifier sent to the provider." },
   { key: "media.adapters.fal.timeoutMs", type: "integer", tier: "advanced", help: "Upper bound for one generation, including polling, in milliseconds." },
   { key: "media.adapters.fal.maxConcurrent", type: "integer", tier: "advanced", help: "How many requests this adapter runs at once; further jobs wait." },
   { key: "media.adapters.together.enabled", type: "boolean", tier: "advanced", help: "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key." },
-  { key: "media.adapters.together.apiKeyRef", type: "string", tier: "advanced", help: "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin." },
-  { key: "media.adapters.together.baseUrl", type: "string", tier: "advanced", help: "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers." },
+  { key: "media.adapters.together.apiKeyRef", type: "string", tier: "advanced", sensitive: true, help: "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin." },
+  { key: "media.adapters.together.baseUrl", type: "string", tier: "advanced", urlCredentials: true, help: "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers." },
   { key: "media.adapters.together.model", type: "string", tier: "advanced", help: "Model identifier sent to the provider." },
   { key: "media.adapters.together.timeoutMs", type: "integer", tier: "advanced", help: "Upper bound for one generation, including polling, in milliseconds." },
   { key: "media.adapters.together.maxConcurrent", type: "integer", tier: "advanced", help: "How many requests this adapter runs at once; further jobs wait." },
@@ -579,3 +581,6218 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "media.adapters.coreml.scheduler", type: "string", tier: "advanced", help: "Diffusion scheduler name understood by the helper; unset uses the helper default." },
   { key: "media.adapters.coreml.timeoutMs", type: "integer", tier: "advanced", help: "Upper bound for one generation in milliseconds." },
 ];
+
+// Structural policy uses the shared schema format, retaining public members, unknown-member rules and reference definitions.
+// It describes values without adding editable widgets or palette targets.
+export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
+  "type": "object",
+  "required": [
+    "schemaVersion"
+  ],
+  "x-secret-reference-policy": {
+    "storeNamePattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+    "envNamePattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+    "tokenPrefixPattern": "(?:^|[/:.])(?:sk[-_]|gh[pousr]_|github_pat_|xox)",
+    "maxNameLength": 96,
+    "entropyMinLength": 32,
+    "entropyMinBits": 4.5,
+    "hexMinLength": 32,
+    "hexMinEntropyBits": 3
+  },
+  "x-unknown-members": "sensitive",
+  "properties": {
+    "import": {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "ssh": {
+          "type": "object",
+          "required": [],
+          "properties": {
+            "connections": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "required": [
+                  "host",
+                  "user",
+                  "roots",
+                  "port",
+                  "allowPrivate"
+                ],
+                "properties": {
+                  "host": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 253
+                  },
+                  "port": {
+                    "type": "integer"
+                  },
+                  "user": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "roots": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    }
+                  },
+                  "allowPrivate": {
+                    "type": "boolean"
+                  },
+                  "hostKey": {
+                    "type": "object",
+                    "required": [
+                      "sha256"
+                    ],
+                    "properties": {
+                      "sha256": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 50,
+                        "pattern": "^SHA256:[A-Za-z0-9+/]{43}$"
+                      },
+                      "algorithm": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "collaboration": {
+      "type": "object",
+      "properties": {
+        "fanoutEnabled": {
+          "type": "boolean"
+        },
+        "teams": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "capacity": {
+              "type": "object",
+              "properties": {
+                "coresPerWriter": {
+                  "type": "integer"
+                },
+                "memoryPerWriter": {
+                  "type": "integer"
+                },
+                "maxWriters": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "disk": {
+              "type": "object",
+              "properties": {
+                "minFreeBytes": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "readHelpers": {
+              "type": "object",
+              "properties": {
+                "perTurn": {
+                  "type": "integer"
+                },
+                "depth": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "writers": {
+              "type": "object",
+              "properties": {
+                "perProject": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "consults": {
+              "type": "object",
+              "properties": {
+                "perPairPerTurn": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "workTokens": {
+              "type": "integer"
+            },
+            "taskClasses": {
+              "type": "object",
+              "properties": {
+                "consult": {
+                  "type": "object",
+                  "properties": {
+                    "rounds": {
+                      "type": "integer"
+                    },
+                    "wallTimeMs": {
+                      "type": "integer"
+                    },
+                    "stallTimeMs": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "research": {
+                  "type": "object",
+                  "properties": {
+                    "rounds": {
+                      "type": "integer"
+                    },
+                    "wallTimeMs": {
+                      "type": "integer"
+                    },
+                    "stallTimeMs": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "review": {
+                  "type": "object",
+                  "properties": {
+                    "rounds": {
+                      "type": "integer"
+                    },
+                    "wallTimeMs": {
+                      "type": "integer"
+                    },
+                    "stallTimeMs": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "code-small": {
+                  "type": "object",
+                  "properties": {
+                    "rounds": {
+                      "type": "integer"
+                    },
+                    "wallTimeMs": {
+                      "type": "integer"
+                    },
+                    "stallTimeMs": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "code-large": {
+                  "type": "object",
+                  "properties": {
+                    "rounds": {
+                      "type": "integer"
+                    },
+                    "wallTimeMs": {
+                      "type": "integer"
+                    },
+                    "stallTimeMs": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "approvals": {
+      "type": "object",
+      "properties": {
+        "maxGrantDays": {
+          "type": "integer"
+        },
+        "requireOsConfirmation": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "breakglass": {
+      "type": "object",
+      "properties": {
+        "reasonMinChars": {
+          "type": "integer"
+        },
+        "reasonMaxChars": {
+          "type": "integer"
+        },
+        "maxWindowMinutes": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "inbox": {
+      "type": "object",
+      "properties": {
+        "retention": {
+          "type": "object",
+          "properties": {
+            "days": {
+              "type": "integer"
+            },
+            "maxEntries": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "containers": {
+      "type": "object",
+      "properties": {
+        "runtime": {
+          "enum": [
+            "auto",
+            "apple",
+            "docker"
+          ]
+        },
+        "image": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "stateVolume": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$"
+        },
+        "bindAddress": {
+          "type": "string",
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 15
+            },
+            {
+              "type": "string",
+              "maxLength": 45
+            }
+          ]
+        },
+        "apiPort": {
+          "type": "integer"
+        },
+        "healthTimeoutMs": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "sidecars": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "enum": [
+              "bundled",
+              "remote",
+              "off"
+            ]
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 2048,
+            "pattern": "^(https?|valkey|redis)://[^/@#]+(?:/[^#]*)?$",
+            "x-url-credentials": true
+          },
+          "caBundle": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 65536
+          },
+          "fingerprint": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "timeoutMs": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false,
+        "allOf": [
+          {},
+          {}
+        ]
+      }
+    },
+    "remote": {
+      "type": "object",
+      "properties": {
+        "publish": {
+          "type": "string",
+          "enum": [
+            "local",
+            "tailnet",
+            "network"
+          ]
+        },
+        "tls": {
+          "type": "string",
+          "enum": [
+            "self-signed",
+            "company-ca"
+          ]
+        },
+        "publicOrigin": {
+          "type": "string",
+          "maxLength": 512,
+          "x-url-credentials": true
+        },
+        "bind": {
+          "type": "object",
+          "properties": {
+            "address": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "port": {
+              "type": "integer"
+            },
+            "allowPublicInterface": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "allowSubnets": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 64
+          }
+        },
+        "noticeAck": {
+          "type": "object",
+          "required": [
+            "by",
+            "at",
+            "version"
+          ],
+          "properties": {
+            "by": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "at": {
+              "type": "integer"
+            },
+            "version": {
+              "type": "integer",
+              "const": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "$schema": {
+      "type": "string",
+      "maxLength": 2048
+    },
+    "activity": {
+      "type": "object",
+      "properties": {
+        "maxEntries": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "tools": {
+      "type": "object",
+      "properties": {
+        "sandbox": {
+          "type": "object",
+          "properties": {
+            "maxTasks": {
+              "type": "integer"
+            },
+            "required": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "hostctl": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "shell": {
+              "type": "object",
+              "properties": {
+                "allowed": {
+                  "type": "boolean"
+                },
+                "default": {
+                  "type": "string",
+                  "enum": [
+                    "bash",
+                    "zsh",
+                    "pwsh"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "exec": {
+              "type": "object",
+              "properties": {
+                "timeoutMs": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "output": {
+              "type": "object",
+              "properties": {
+                "maxBytes": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "env": {
+              "type": "object",
+              "properties": {
+                "allow": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 128
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "denyPatterns": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              }
+            },
+            "search": {
+              "type": "object",
+              "properties": {
+                "maxResults": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "core": {
+      "type": "object",
+      "properties": {
+        "webHandoffBaseUrl": {
+          "type": "string",
+          "maxLength": 2048,
+          "pattern": "^(?:$|https://[^/?#@]+(?:/[^?#]*)?|http://(?:127\\.0\\.0\\.1|\\[::1\\]|localhost)(?::[0-9]{1,5})?(?:/[^?#]*)?)$",
+          "x-url-credentials": true
+        },
+        "logLevel": {
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ]
+        },
+        "recall": {
+          "type": "object",
+          "properties": {
+            "softBudgetMs": {
+              "type": "integer"
+            },
+            "hardBudgetMs": {
+              "type": "integer"
+            },
+            "capChars": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
+        "capture": {
+          "type": "object",
+          "properties": {
+            "waitMs": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
+        "shutdownBudgetMs": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "supervisor": {
+      "type": "object",
+      "properties": {
+        "graceMs": {
+          "type": "integer"
+        },
+        "healthIntervalMs": {
+          "type": "integer"
+        },
+        "maxCores": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "port": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "logs": {
+      "type": "object",
+      "properties": {
+        "maxBytes": {
+          "type": "integer"
+        },
+        "keep": {
+          "type": "integer"
+        },
+        "otlp": {
+          "type": "object",
+          "properties": {
+            "endpoint": {
+              "type": "string",
+              "x-url-credentials": true
+            },
+            "headers": {
+              "type": "object",
+              "x-sensitive": true,
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "agents": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "coding": {
+            "type": "boolean"
+          },
+          "behaviour": {
+            "type": "object",
+            "properties": {
+              "default": {
+                "type": "object",
+                "properties": {
+                  "reply": {
+                    "type": "object",
+                    "properties": {
+                      "policy": {
+                        "type": "string",
+                        "enum": [
+                          "always",
+                          "on-mention",
+                          "never"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "memory": {
+                    "type": "object",
+                    "properties": {
+                      "capture": {
+                        "type": "string",
+                        "enum": [
+                          "full",
+                          "provenance-only",
+                          "none"
+                        ]
+                      },
+                      "allowedScopes": {
+                        "type": "array",
+                        "items": {
+                          "enum": [
+                            "agent-private",
+                            "workspace",
+                            "user"
+                          ]
+                        }
+                      },
+                      "captureOtherSpeakers": {
+                        "type": "boolean"
+                      },
+                      "requireLinkedPrincipalForUserScope": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "commands": {
+                    "type": "object",
+                    "properties": {
+                      "allow": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                        }
+                      },
+                      "deny": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "tools": {
+                    "type": "object",
+                    "properties": {
+                      "allow": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                        }
+                      },
+                      "deny": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "capabilities": {
+                    "type": "object",
+                    "properties": {
+                      "allow": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                        }
+                      },
+                      "deny": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "rateLimits": {
+                    "type": "object",
+                    "properties": {
+                      "repliesPerHour": {
+                        "type": "integer"
+                      },
+                      "editsPerMinute": {
+                        "type": "integer"
+                      },
+                      "maxReplyChars": {
+                        "type": "integer"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              },
+              "direct": {
+                "type": "object",
+                "properties": {
+                  "reply": {
+                    "type": "object",
+                    "properties": {
+                      "policy": {
+                        "type": "string",
+                        "enum": [
+                          "always",
+                          "on-mention",
+                          "never"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "memory": {
+                    "type": "object",
+                    "properties": {
+                      "capture": {
+                        "type": "string",
+                        "enum": [
+                          "full",
+                          "provenance-only",
+                          "none"
+                        ]
+                      },
+                      "allowedScopes": {
+                        "type": "array",
+                        "items": {
+                          "enum": [
+                            "agent-private",
+                            "workspace",
+                            "user"
+                          ]
+                        }
+                      },
+                      "captureOtherSpeakers": {
+                        "type": "boolean"
+                      },
+                      "requireLinkedPrincipalForUserScope": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "commands": {
+                    "type": "object",
+                    "properties": {
+                      "allow": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                        }
+                      },
+                      "deny": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "tools": {
+                    "type": "object",
+                    "properties": {
+                      "allow": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                        }
+                      },
+                      "deny": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "capabilities": {
+                    "type": "object",
+                    "properties": {
+                      "allow": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                        }
+                      },
+                      "deny": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "rateLimits": {
+                    "type": "object",
+                    "properties": {
+                      "repliesPerHour": {
+                        "type": "integer"
+                      },
+                      "editsPerMinute": {
+                        "type": "integer"
+                      },
+                      "maxReplyChars": {
+                        "type": "integer"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              },
+              "group": {
+                "type": "object",
+                "properties": {
+                  "reply": {
+                    "type": "object",
+                    "properties": {
+                      "policy": {
+                        "type": "string",
+                        "enum": [
+                          "always",
+                          "on-mention",
+                          "never"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "memory": {
+                    "type": "object",
+                    "properties": {
+                      "capture": {
+                        "type": "string",
+                        "enum": [
+                          "full",
+                          "provenance-only",
+                          "none"
+                        ]
+                      },
+                      "allowedScopes": {
+                        "type": "array",
+                        "items": {
+                          "enum": [
+                            "agent-private",
+                            "workspace",
+                            "user"
+                          ]
+                        }
+                      },
+                      "captureOtherSpeakers": {
+                        "type": "boolean"
+                      },
+                      "requireLinkedPrincipalForUserScope": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "commands": {
+                    "type": "object",
+                    "properties": {
+                      "allow": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                        }
+                      },
+                      "deny": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "tools": {
+                    "type": "object",
+                    "properties": {
+                      "allow": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                        }
+                      },
+                      "deny": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "capabilities": {
+                    "type": "object",
+                    "properties": {
+                      "allow": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                        }
+                      },
+                      "deny": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "rateLimits": {
+                    "type": "object",
+                    "properties": {
+                      "repliesPerHour": {
+                        "type": "integer"
+                      },
+                      "editsPerMinute": {
+                        "type": "integer"
+                      },
+                      "maxReplyChars": {
+                        "type": "integer"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              },
+              "byChannelKind": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "reply": {
+                      "type": "object",
+                      "properties": {
+                        "policy": {
+                          "type": "string",
+                          "enum": [
+                            "always",
+                            "on-mention",
+                            "never"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "memory": {
+                      "type": "object",
+                      "properties": {
+                        "capture": {
+                          "type": "string",
+                          "enum": [
+                            "full",
+                            "provenance-only",
+                            "none"
+                          ]
+                        },
+                        "allowedScopes": {
+                          "type": "array",
+                          "items": {
+                            "enum": [
+                              "agent-private",
+                              "workspace",
+                              "user"
+                            ]
+                          }
+                        },
+                        "captureOtherSpeakers": {
+                          "type": "boolean"
+                        },
+                        "requireLinkedPrincipalForUserScope": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "commands": {
+                      "type": "object",
+                      "properties": {
+                        "allow": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                          }
+                        },
+                        "deny": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "tools": {
+                      "type": "object",
+                      "properties": {
+                        "allow": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                          }
+                        },
+                        "deny": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "capabilities": {
+                      "type": "object",
+                      "properties": {
+                        "allow": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                          }
+                        },
+                        "deny": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "rateLimits": {
+                      "type": "object",
+                      "properties": {
+                        "repliesPerHour": {
+                          "type": "integer"
+                        },
+                        "editsPerMinute": {
+                          "type": "integer"
+                        },
+                        "maxReplyChars": {
+                          "type": "integer"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "byBotConnection": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "reply": {
+                      "type": "object",
+                      "properties": {
+                        "policy": {
+                          "type": "string",
+                          "enum": [
+                            "always",
+                            "on-mention",
+                            "never"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "memory": {
+                      "type": "object",
+                      "properties": {
+                        "capture": {
+                          "type": "string",
+                          "enum": [
+                            "full",
+                            "provenance-only",
+                            "none"
+                          ]
+                        },
+                        "allowedScopes": {
+                          "type": "array",
+                          "items": {
+                            "enum": [
+                              "agent-private",
+                              "workspace",
+                              "user"
+                            ]
+                          }
+                        },
+                        "captureOtherSpeakers": {
+                          "type": "boolean"
+                        },
+                        "requireLinkedPrincipalForUserScope": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "commands": {
+                      "type": "object",
+                      "properties": {
+                        "allow": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                          }
+                        },
+                        "deny": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "tools": {
+                      "type": "object",
+                      "properties": {
+                        "allow": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                          }
+                        },
+                        "deny": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "capabilities": {
+                      "type": "object",
+                      "properties": {
+                        "allow": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                          }
+                        },
+                        "deny": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "^[a-zA-Z0-9_.*/-]+$"
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "rateLimits": {
+                      "type": "object",
+                      "properties": {
+                        "repliesPerHour": {
+                          "type": "integer"
+                        },
+                        "editsPerMinute": {
+                          "type": "integer"
+                        },
+                        "maxReplyChars": {
+                          "type": "integer"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "voice": {
+            "type": "object",
+            "required": [],
+            "properties": {
+              "language": {
+                "enum": [
+                  "de",
+                  "en"
+                ]
+              },
+              "profile": {
+                "enum": [
+                  "fast",
+                  "quality"
+                ]
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "endpointingMs": {
+                "type": "integer"
+              },
+              "speculative": {
+                "type": "boolean"
+              },
+              "ackSound": {
+                "type": "boolean"
+              },
+              "features": {
+                "type": "object",
+                "required": [],
+                "properties": {
+                  "autoRecall": {
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "enum": [
+                          "on",
+                          "deferred",
+                          "off",
+                          "reduced"
+                        ]
+                      },
+                      "maxMs": {
+                        "type": "integer"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "promptEnrichment": {
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "enum": [
+                          "on",
+                          "deferred",
+                          "off",
+                          "reduced"
+                        ]
+                      },
+                      "maxMs": {
+                        "type": "integer"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "reranker": {
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "enum": [
+                          "on",
+                          "deferred",
+                          "off",
+                          "reduced"
+                        ]
+                      },
+                      "maxMs": {
+                        "type": "integer"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "decisionService": {
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "enum": [
+                          "on",
+                          "deferred",
+                          "off",
+                          "reduced"
+                        ]
+                      },
+                      "maxMs": {
+                        "type": "integer"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "postTurnRefine": {
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "enum": [
+                          "on",
+                          "deferred",
+                          "off",
+                          "reduced"
+                        ]
+                      },
+                      "maxMs": {
+                        "type": "integer"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "memoryWrite": {
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "enum": [
+                          "on",
+                          "deferred",
+                          "off",
+                          "reduced"
+                        ]
+                      },
+                      "maxMs": {
+                        "type": "integer"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "compaction": {
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "enum": [
+                          "on",
+                          "deferred",
+                          "off",
+                          "reduced"
+                        ]
+                      },
+                      "maxMs": {
+                        "type": "integer"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "toolSchemas": {
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "enum": [
+                          "on",
+                          "deferred",
+                          "off",
+                          "reduced"
+                        ]
+                      },
+                      "maxMs": {
+                        "type": "integer"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "privacy": {
+            "type": "object",
+            "properties": {
+              "localOnly": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "memoryExposure": {
+            "type": "object",
+            "properties": {
+              "collab": {
+                "type": "object",
+                "properties": {
+                  "recall": {
+                    "type": "object",
+                    "properties": {
+                      "workspace": {
+                        "type": "boolean"
+                      },
+                      "user": {
+                        "type": "boolean"
+                      },
+                      "agentPrivate": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "capture": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "mcp": {
+                "type": "object",
+                "properties": {
+                  "recall": {
+                    "type": "object",
+                    "properties": {
+                      "workspace": {
+                        "type": "boolean"
+                      },
+                      "user": {
+                        "type": "boolean"
+                      },
+                      "agentPrivate": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "capture": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "a2a": {
+                "type": "object",
+                "properties": {
+                  "recall": {
+                    "type": "object",
+                    "properties": {
+                      "workspace": {
+                        "type": "boolean"
+                      },
+                      "user": {
+                        "type": "boolean"
+                      },
+                      "agentPrivate": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "capture": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "persona": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "toolUse": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "enum": [
+                  "auto",
+                  "prefer",
+                  "require-first"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "modelPolicy": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "enum": [
+                  "fixed",
+                  "auto"
+                ]
+              },
+              "tiers": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "\\S"
+                }
+              },
+              "perTurn": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false,
+            "allOf": [
+              {}
+            ]
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "engine": {
+            "type": "object",
+            "required": [
+              "kind",
+              "connector"
+            ],
+            "properties": {
+              "kind": {
+                "const": "external"
+              },
+              "connector": {
+                "enum": [
+                  "claude-code",
+                  "codex",
+                  "goose",
+                  "agy"
+                ]
+              },
+              "maxTurns": {
+                "type": "integer"
+              },
+              "timeoutMs": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "displayName": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "skills": {
+            "type": "object",
+            "properties": {
+              "blocked": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 128
+                }
+              },
+              "pinned": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 128
+                }
+              },
+              "applyAt": {
+                "enum": [
+                  "next-turn",
+                  "next-session"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "memory": {
+            "type": "object",
+            "properties": {
+              "mediaEmbedding": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "provider": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "privacyAck": {
+                    "type": "object",
+                    "required": [
+                      "provider",
+                      "acknowledgedAt",
+                      "by"
+                    ],
+                    "properties": {
+                      "provider": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "acknowledgedAt": {
+                        "type": "string",
+                        "maxLength": 64
+                      },
+                      "by": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      },
+                      "endpoint": {
+                        "type": "string",
+                        "maxLength": 2048,
+                        "x-url-credentials": true
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "model": {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  "dimensions": {
+                    "type": "integer"
+                  },
+                  "modalities": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "image",
+                        "video",
+                        "audio"
+                      ]
+                    }
+                  },
+                  "image": {
+                    "type": "object",
+                    "properties": {
+                      "softTokens": {
+                        "type": "integer",
+                        "x-sensitive": false
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "dtypes": {
+                    "type": "object",
+                    "properties": {
+                      "linux-x64": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          },
+                          "vision": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          },
+                          "audio": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "linux-arm64": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          },
+                          "vision": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          },
+                          "audio": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "darwin-arm64": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          },
+                          "vision": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          },
+                          "audio": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "win32-x64": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          },
+                          "vision": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          },
+                          "audio": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "win32-arm64": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          },
+                          "vision": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          },
+                          "audio": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "video": {
+                    "type": "object",
+                    "properties": {
+                      "segmentSec": {
+                        "type": "integer"
+                      },
+                      "maxFrames": {
+                        "type": "integer"
+                      },
+                      "sceneDetect": {
+                        "type": "boolean"
+                      },
+                      "softTokens": {
+                        "type": "integer",
+                        "x-sensitive": false
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "audio": {
+                    "type": "object",
+                    "properties": {
+                      "segmentSec": {
+                        "type": "integer"
+                      },
+                      "maxSeconds": {
+                        "type": "integer"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "caption": {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "prompt-then-user-then-auto",
+                          "user-only",
+                          "off"
+                        ]
+                      },
+                      "provider": {
+                        "type": "string",
+                        "maxLength": 128
+                      },
+                      "privacyAck": {
+                        "type": "object",
+                        "required": [
+                          "provider",
+                          "acknowledgedAt",
+                          "by"
+                        ],
+                        "properties": {
+                          "provider": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "acknowledgedAt": {
+                            "type": "string",
+                            "maxLength": 64
+                          },
+                          "by": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "endpoint": {
+                            "type": "string",
+                            "maxLength": 2048,
+                            "x-url-credentials": true
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "maxChars": {
+                        "type": "integer"
+                      },
+                      "perSegment": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "backfill": {
+                    "type": "string",
+                    "enum": [
+                      "auto",
+                      "manual"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "mcpServer": {
+            "type": "object",
+            "properties": {
+              "exposed": {
+                "type": "boolean"
+              },
+              "groups": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 64,
+                  "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "a2aServer": {
+            "type": "object",
+            "properties": {
+              "exposed": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 1024
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "properties": {
+        "allowUnsigned": {
+          "type": "boolean"
+        },
+        "trashDays": {
+          "type": "integer"
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "packageBytes": {
+              "type": "integer"
+            },
+            "skillBytes": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "embedding": {
+      "type": "object",
+      "properties": {
+        "useClass": {
+          "enum": [
+            "general",
+            "research",
+            "commercial"
+          ]
+        },
+        "acceptedNcLicence": {
+          "type": "boolean"
+        },
+        "acceptedNcLicenceAt": {
+          "type": "string",
+          "maxLength": 64
+        }
+      },
+      "additionalProperties": false
+    },
+    "memory": {
+      "type": "object",
+      "properties": {
+        "embedding": {
+          "type": "object",
+          "properties": {
+            "privacyAck": {
+              "type": "object",
+              "required": [
+                "provider",
+                "acknowledgedAt",
+                "by"
+              ],
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "acknowledgedAt": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "by": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "endpoint": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "x-url-credentials": true
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "reranker": {
+          "type": "object",
+          "properties": {
+            "privacyAck": {
+              "type": "object",
+              "required": [
+                "provider",
+                "acknowledgedAt",
+                "by"
+              ],
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "acknowledgedAt": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "by": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "endpoint": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "x-url-credentials": true
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "mediaEmbedding": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "provider": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "privacyAck": {
+              "type": "object",
+              "required": [
+                "provider",
+                "acknowledgedAt",
+                "by"
+              ],
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "acknowledgedAt": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "by": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "endpoint": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "x-url-credentials": true
+                }
+              },
+              "additionalProperties": false
+            },
+            "model": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "dimensions": {
+              "type": "integer"
+            },
+            "modalities": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "image",
+                  "video",
+                  "audio"
+                ]
+              }
+            },
+            "image": {
+              "type": "object",
+              "properties": {
+                "softTokens": {
+                  "type": "integer",
+                  "x-sensitive": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "dtypes": {
+              "type": "object",
+              "properties": {
+                "linux-x64": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    },
+                    "vision": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    },
+                    "audio": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "linux-arm64": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    },
+                    "vision": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    },
+                    "audio": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "darwin-arm64": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    },
+                    "vision": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    },
+                    "audio": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "win32-x64": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    },
+                    "vision": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    },
+                    "audio": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "win32-arm64": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    },
+                    "vision": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    },
+                    "audio": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "video": {
+              "type": "object",
+              "properties": {
+                "segmentSec": {
+                  "type": "integer"
+                },
+                "maxFrames": {
+                  "type": "integer"
+                },
+                "sceneDetect": {
+                  "type": "boolean"
+                },
+                "softTokens": {
+                  "type": "integer",
+                  "x-sensitive": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "audio": {
+              "type": "object",
+              "properties": {
+                "segmentSec": {
+                  "type": "integer"
+                },
+                "maxSeconds": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "caption": {
+              "type": "object",
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "prompt-then-user-then-auto",
+                    "user-only",
+                    "off"
+                  ]
+                },
+                "provider": {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                "privacyAck": {
+                  "type": "object",
+                  "required": [
+                    "provider",
+                    "acknowledgedAt",
+                    "by"
+                  ],
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "acknowledgedAt": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "by": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    },
+                    "endpoint": {
+                      "type": "string",
+                      "maxLength": 2048,
+                      "x-url-credentials": true
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "maxChars": {
+                  "type": "integer"
+                },
+                "perSegment": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "backfill": {
+              "type": "string",
+              "enum": [
+                "auto",
+                "manual"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "engine": {
+      "type": "object",
+      "properties": {
+        "implementation": {
+          "type": "string",
+          "enum": [
+            "node",
+            "rust"
+          ]
+        },
+        "schicht15": {
+          "type": "object",
+          "properties": {
+            "maxPromotionsPerRun": {
+              "type": "integer"
+            },
+            "apiKey": {
+              "type": [
+                "string",
+                "object"
+              ],
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/backupEngineSecretReference"
+              },
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "env",
+                    "store",
+                    "file",
+                    "exec"
+                  ]
+                },
+                "provider": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "apiKeyRef": {
+              "type": "string",
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/backupSecretName"
+              }
+            },
+            "headers": {
+              "type": "object",
+              "x-sensitive": true,
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "baseUrl": {
+              "type": "string",
+              "x-url-credentials": true
+            }
+          },
+          "additionalProperties": true
+        },
+        "baseDbPathOverride": {
+          "type": "string",
+          "maxLength": 4096,
+          "pattern": "^(?:[ \\t\\r\\n]*$|/|[A-Za-z]:[\\\\/]|\\\\\\\\)"
+        },
+        "embedding": {
+          "type": "object",
+          "properties": {
+            "apiKey": {
+              "type": [
+                "string",
+                "object"
+              ],
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/backupEngineSecretReference"
+              },
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "env",
+                    "store",
+                    "file",
+                    "exec"
+                  ]
+                },
+                "provider": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "fallback": {
+              "type": "object",
+              "properties": {
+                "apiKey": {
+                  "type": [
+                    "string",
+                    "object"
+                  ],
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupEngineSecretReference"
+                  },
+                  "properties": {
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "env",
+                        "store",
+                        "file",
+                        "exec"
+                      ]
+                    },
+                    "provider": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "baseUrl": {
+                  "type": "string",
+                  "x-url-credentials": true
+                },
+                "model": {
+                  "type": "string"
+                }
+              }
+            },
+            "apiKeyRef": {
+              "type": "string",
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/backupSecretName"
+              }
+            },
+            "apiKeyEnv": {
+              "type": "string",
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/secretEnvironmentName"
+              }
+            },
+            "baseUrl": {
+              "type": "string",
+              "x-url-credentials": true
+            },
+            "routes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "provider": {
+                    "type": "object",
+                    "properties": {
+                      "apiKey": {
+                        "type": [
+                          "string",
+                          "object"
+                        ],
+                        "x-sensitive": true,
+                        "x-secret-reference": {
+                          "$ref": "#/$defs/backupEngineSecretReference"
+                        },
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "env",
+                              "store",
+                              "file",
+                              "exec"
+                            ]
+                          },
+                          "provider": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "apiKeyRef": {
+                        "type": "string",
+                        "x-sensitive": true,
+                        "x-secret-reference": {
+                          "$ref": "#/$defs/backupSecretName"
+                        }
+                      },
+                      "apiKeyEnv": {
+                        "type": "string",
+                        "x-sensitive": true,
+                        "x-secret-reference": {
+                          "$ref": "#/$defs/secretEnvironmentName"
+                        }
+                      },
+                      "baseUrl": {
+                        "type": "string",
+                        "x-url-credentials": true
+                      },
+                      "fallback": {
+                        "type": "object",
+                        "properties": {
+                          "apiKey": {
+                            "type": [
+                              "string",
+                              "object"
+                            ],
+                            "x-sensitive": true,
+                            "x-secret-reference": {
+                              "$ref": "#/$defs/backupEngineSecretReference"
+                            },
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "env",
+                                  "store",
+                                  "file",
+                                  "exec"
+                                ]
+                              },
+                              "provider": {
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "baseUrl": {
+                            "type": "string",
+                            "x-url-credentials": true
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "identity": {
+                    "type": "object",
+                    "properties": {
+                      "model": {
+                        "type": "string"
+                      },
+                      "tokenCap": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "local": {
+              "type": "object",
+              "properties": {
+                "maxTokens": {
+                  "type": "integer"
+                },
+                "model": {
+                  "type": "string"
+                }
+              }
+            },
+            "model": {
+              "type": "string"
+            }
+          }
+        },
+        "reranker": {
+          "type": "object",
+          "properties": {
+            "apiKey": {
+              "type": [
+                "string",
+                "object"
+              ],
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/backupEngineSecretReference"
+              },
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "env",
+                    "store",
+                    "file",
+                    "exec"
+                  ]
+                },
+                "provider": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "apiKeyRef": {
+              "type": "string",
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/backupSecretName"
+              }
+            },
+            "apiKeyEnv": {
+              "type": "string",
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/secretEnvironmentName"
+              }
+            },
+            "baseUrl": {
+              "type": "string",
+              "x-url-credentials": true
+            }
+          }
+        },
+        "merging": {
+          "type": "object",
+          "properties": {
+            "apiKey": {
+              "type": [
+                "string",
+                "object"
+              ],
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/backupEngineSecretReference"
+              },
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "env",
+                    "store",
+                    "file",
+                    "exec"
+                  ]
+                },
+                "provider": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "apiKeyRef": {
+              "type": "string",
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/backupSecretName"
+              }
+            },
+            "headers": {
+              "type": "object",
+              "x-sensitive": true,
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "baseUrl": {
+              "type": "string",
+              "x-url-credentials": true
+            },
+            "model": {
+              "type": "string"
+            }
+          }
+        },
+        "skillMiner": {
+          "type": "object",
+          "properties": {
+            "apiKey": {
+              "type": [
+                "string",
+                "object"
+              ],
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/backupEngineSecretReference"
+              },
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "env",
+                    "store",
+                    "file",
+                    "exec"
+                  ]
+                },
+                "provider": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "apiKeyRef": {
+              "type": "string",
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/backupSecretName"
+              }
+            },
+            "headers": {
+              "type": "object",
+              "x-sensitive": true,
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "baseUrl": {
+              "type": "string",
+              "x-url-credentials": true
+            }
+          }
+        },
+        "criticalPush": {
+          "type": "object",
+          "properties": {
+            "apiKey": {
+              "type": [
+                "string",
+                "object"
+              ],
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/backupEngineSecretReference"
+              },
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "env",
+                    "store",
+                    "file",
+                    "exec"
+                  ]
+                },
+                "provider": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "apiKeyRef": {
+              "type": "string",
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/backupSecretName"
+              }
+            },
+            "headers": {
+              "type": "object",
+              "x-sensitive": true,
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "baseUrl": {
+              "type": "string",
+              "x-url-credentials": true
+            }
+          }
+        },
+        "emotion": {
+          "type": "object",
+          "properties": {
+            "t3": {
+              "type": "object",
+              "properties": {
+                "apiKey": {
+                  "type": [
+                    "string",
+                    "object"
+                  ],
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupEngineSecretReference"
+                  },
+                  "properties": {
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "env",
+                        "store",
+                        "file",
+                        "exec"
+                      ]
+                    },
+                    "provider": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "apiKeyRef": {
+                  "type": "string",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
+                },
+                "baseUrl": {
+                  "type": "string",
+                  "x-url-credentials": true
+                },
+                "encodingMaxTokens": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "captureChunkingJev": {
+          "type": "object",
+          "properties": {
+            "apiKeyEnv": {
+              "type": "string",
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/secretEnvironmentName"
+              }
+            }
+          }
+        },
+        "reminders": {
+          "type": "object",
+          "properties": {
+            "webhookUrl": {
+              "type": "string",
+              "x-sensitive": true
+            }
+          }
+        },
+        "neo": {
+          "type": "object",
+          "properties": {
+            "corpusDefaultWorkspaceKey": {
+              "type": "string",
+              "x-sensitive": false
+            },
+            "workspaces": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "workspaceKey": {
+                    "type": "string",
+                    "x-sensitive": false
+                  },
+                  "legacyKeys": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "recall": {
+          "type": "object",
+          "properties": {
+            "adaptiveBudget": {
+              "type": "object",
+              "properties": {
+                "tokenBudgetPct": {
+                  "type": "number"
+                }
+              }
+            },
+            "semanticCompression": {
+              "type": "object",
+              "properties": {
+                "tokenBudget": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "mcp": {
+      "type": "object",
+      "properties": {
+        "servers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "agents": {
+                "oneOf": [
+                  {
+                    "const": "all"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                    }
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "mcpServer": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "a2a": {
+      "type": "object",
+      "properties": {
+        "peers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "keySha256",
+              "grants"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$"
+              },
+              "keySha256": {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[0-9a-f]{64}$",
+                "x-sensitive": false
+              },
+              "grants": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "card.read",
+                      "task.send",
+                      "task.read",
+                      "task.cancel",
+                      "task.push"
+                    ],
+                    "maxLength": 32
+                  }
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "a2aClient": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "timeoutMs": {
+          "type": "integer"
+        },
+        "maxCardBytes": {
+          "type": "integer"
+        },
+        "maxRequestBytes": {
+          "type": "integer"
+        },
+        "maxReplyBytes": {
+          "type": "integer"
+        },
+        "maxPeers": {
+          "type": "integer"
+        },
+        "peerCalls": {
+          "type": "integer"
+        },
+        "turnCalls": {
+          "type": "integer"
+        },
+        "peerTokens": {
+          "type": "integer"
+        },
+        "turnTokens": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "a2aServer": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "legacy03": {
+          "type": "boolean"
+        },
+        "defaultAgentId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "signingKey": {
+          "type": "object",
+          "properties": {
+            "privateKeySecret": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/backupSecretName"
+              }
+            },
+            "kid": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "providers": {
+      "type": "object",
+      "properties": {
+        "media": {
+          "type": "object",
+          "properties": {
+            "adapters": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "secretRef": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupSecretName"
+                    }
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "x-url-credentials": true
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "mcp": {
+          "type": "object",
+          "properties": {
+            "servers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "authSecret": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupSecretName"
+                    }
+                  },
+                  "transport": {
+                    "type": "object",
+                    "properties": {
+                      "url": {
+                        "type": "string",
+                        "x-url-credentials": true
+                      },
+                      "headers": {
+                        "type": "object",
+                        "x-sensitive": true,
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      },
+                      "env": {
+                        "type": "object",
+                        "x-sensitive": true,
+                        "x-text-credentials": "parts",
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      },
+                      "args": {
+                        "type": "array",
+                        "x-text-credentials": "parts",
+                        "items": {
+                          "type": "string",
+                          "x-sensitive": true
+                        }
+                      },
+                      "type": {
+                        "type": "string"
+                      },
+                      "command": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "apiKeyRef": {
+            "type": "string",
+            "x-sensitive": true,
+            "x-secret-reference": {
+              "$ref": "#/$defs/backupSecretName"
+            }
+          },
+          "profile": {
+            "type": "object",
+            "properties": {
+              "secret_ref": {
+                "type": "string",
+                "x-sensitive": true,
+                "x-secret-reference": {
+                  "$ref": "#/$defs/backupSecretName"
+                }
+              },
+              "extra_headers": {
+                "type": "object",
+                "x-sensitive": true,
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "base_url": {
+                "type": "string",
+                "x-url-credentials": true
+              },
+              "authorizeUrl": {
+                "type": "string",
+                "x-url-credentials": true
+              },
+              "tokenUrl": {
+                "type": "string",
+                "x-url-credentials": true
+              },
+              "deviceUrl": {
+                "type": "string",
+                "x-url-credentials": true
+              },
+              "authorization_endpoint": {
+                "type": "string",
+                "x-url-credentials": true
+              },
+              "token_endpoint": {
+                "type": "string",
+                "x-url-credentials": true
+              },
+              "device_authorization_endpoint": {
+                "type": "string",
+                "x-url-credentials": true
+              },
+              "revocation_endpoint": {
+                "type": "string",
+                "x-url-credentials": true
+              },
+              "id": {
+                "type": "string"
+              },
+              "display_name": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "audience": {
+                "type": "string"
+              },
+              "client_registration": {
+                "type": "string"
+              },
+              "client_id": {
+                "type": "string"
+              },
+              "pkce": {
+                "type": "string"
+              },
+              "policy_status": {
+                "type": "string"
+              },
+              "policy_source": {
+                "type": "string"
+              },
+              "policy_checked": {
+                "type": "string"
+              },
+              "auth_header_scheme": {
+                "type": "string",
+                "x-sensitive": false
+              },
+              "capabilities": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "scopes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "person_bound": {
+                "type": "boolean"
+              },
+              "redirect": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string"
+                  },
+                  "port": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "refresh": {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "type": "string"
+                  },
+                  "refresh_skew_seconds": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "secretRef": {
+                  "type": "string",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
+                },
+                "id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "wireFormat": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "properties": {
+        "requireSecondFactor": {
+          "type": "string",
+          "enum": [
+            "remote",
+            "always",
+            "never"
+          ]
+        },
+        "openai": {
+          "type": "object",
+          "properties": {
+            "loopbackTimeoutMs": {
+              "type": "integer"
+            },
+            "httpTimeoutMs": {
+              "type": "integer"
+            },
+            "refreshSkewSeconds": {
+              "type": "integer"
+            },
+            "liveHandleTtlSeconds": {
+              "type": "integer"
+            },
+            "voiceDailySeconds": {
+              "type": "integer"
+            },
+            "voiceCapacity": {
+              "type": "integer"
+            },
+            "clientRegistration": {
+              "type": "string",
+              "enum": [
+                "dynamic_on_authorize"
+              ]
+            },
+            "storeBackend": {
+              "type": "string",
+              "enum": [
+                "keyring",
+                "auto"
+              ]
+            },
+            "federated": {
+              "type": "object",
+              "properties": {
+                "command": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "file": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096,
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/secretFileReference"
+                  }
+                },
+                "args": {
+                  "type": "array",
+                  "x-text-credentials": "parts",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 4096,
+                    "x-sensitive": true
+                  }
+                },
+                "environment": {
+                  "type": "object",
+                  "x-sensitive": true,
+                  "x-text-credentials": "parts",
+                  "additionalProperties": {
+                    "type": "string",
+                    "maxLength": 32767
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "oauth": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "decision": {
+      "type": "object",
+      "properties": {
+        "systemOne": {
+          "type": "object",
+          "properties": {
+            "jev": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "model": {
+                  "type": "string",
+                  "enum": [
+                    "jev-1.13.0"
+                  ]
+                },
+                "secretRef": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "kev": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "model": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9._/@-]+$"
+                },
+                "endpoint": {
+                  "type": "string",
+                  "maxLength": 256,
+                  "pattern": "^https?://(?:127(?:\\.[0-9]{1,3}){3}|\\[::1\\])(?::[0-9]{1,5})?/v1/systemone$",
+                  "x-url-credentials": true
+                }
+              },
+              "additionalProperties": false,
+              "allOf": [
+                {}
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "backend": {
+          "enum": [
+            "role",
+            "laya",
+            "kev",
+            "jev",
+            "auto"
+          ]
+        },
+        "timeoutMs": {
+          "type": "integer"
+        },
+        "budgets": {
+          "type": "object",
+          "properties": {
+            "triage": {
+              "type": "integer"
+            },
+            "routing": {
+              "type": "integer"
+            },
+            "pruning": {
+              "type": "integer"
+            },
+            "skills": {
+              "type": "integer"
+            },
+            "placement": {
+              "type": "integer"
+            },
+            "zoom": {
+              "type": "integer"
+            },
+            "compaction": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
+        "confidence": {
+          "type": "object",
+          "properties": {
+            "triage": {
+              "type": "number"
+            },
+            "routing": {
+              "type": "number"
+            },
+            "pruning": {
+              "type": "number"
+            },
+            "skills": {
+              "type": "number"
+            },
+            "placement": {
+              "type": "number"
+            },
+            "zoom": {
+              "type": "number"
+            },
+            "compaction": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "classProfiles": {
+          "type": "object",
+          "properties": {
+            "small": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "\\S"
+            },
+            "medium": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "\\S"
+            },
+            "large": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "\\S"
+            },
+            "frontier": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "\\S"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "modelRoles": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 256
+      }
+    },
+    "modelProfiles": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "candidates"
+        ],
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "strategy": {
+            "enum": [
+              "fallback",
+              "moa"
+            ]
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "model"
+              ],
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "weight": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "aggregator": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "temperature": {
+                "type": "number"
+              },
+              "topP": {
+                "type": "number"
+              },
+              "maxTokens": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false
+          },
+          "cache": {
+            "type": "object",
+            "properties": {
+              "hint": {
+                "enum": [
+                  "auto",
+                  "none",
+                  "prefer"
+                ]
+              },
+              "ttlSeconds": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false,
+        "allOf": [
+          {},
+          {}
+        ]
+      }
+    },
+    "models": {
+      "type": "object",
+      "properties": {
+        "scan": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "intervalHours": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "secrets": {
+      "type": "object",
+      "properties": {
+        "fileFallback": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "egress": {
+      "type": "object",
+      "properties": {
+        "allowHosts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          }
+        },
+        "allowPorts": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "modelDownloads": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "allowHosts": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "huggingface.co",
+                  "us.aws.cdn.hf.co"
+                ]
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "allowLoopback": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "privacy": {
+      "type": "object",
+      "properties": {
+        "localOnly": {
+          "type": "boolean"
+        },
+        "localEndpoints": {
+          "type": "array",
+          "x-url-credentials": true,
+          "items": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 256,
+            "pattern": "^https?://[^/?#@\\s]+/?$"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "session": {
+      "type": "object",
+      "properties": {
+        "rewind": {
+          "type": "object",
+          "properties": {
+            "autoProjects": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            "fileProjects": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            "checkpointRetentionTurns": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
+        "compaction": {
+          "type": "object",
+          "properties": {
+            "softRatio": {
+              "type": "number"
+            },
+            "hardRatio": {
+              "type": "number"
+            },
+            "summaryMaxTokens": {
+              "type": "integer"
+            },
+            "maxMessageTokens": {
+              "type": "integer"
+            },
+            "summarizer": {
+              "type": "string",
+              "enum": [
+                "llm",
+                "digest"
+              ]
+            },
+            "prune": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "keepLastTurns": {
+                  "type": "integer"
+                },
+                "decider": {
+                  "type": "string",
+                  "enum": [
+                    "laya",
+                    "heuristic",
+                    "off"
+                  ]
+                },
+                "maxMs": {
+                  "type": "integer"
+                },
+                "batchSize": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "channels": {
+      "type": "object",
+      "properties": {
+        "discord": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "tokenSecret": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/backupSecretName"
+              }
+            },
+            "applicationId": {
+              "type": "string",
+              "pattern": "^[0-9]{5,25}$"
+            },
+            "intents": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "GUILDS",
+                  "GUILD_MESSAGES",
+                  "DIRECT_MESSAGES",
+                  "MESSAGE_CONTENT",
+                  "GUILD_MESSAGE_REACTIONS",
+                  "DIRECT_MESSAGE_REACTIONS"
+                ]
+              }
+            },
+            "allowlist": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "dmAllowlist": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "userAllowlist": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "replyPolicy": {
+              "enum": [
+                "mention",
+                "always",
+                "allowlist"
+              ]
+            },
+            "maxMediaBytes": {
+              "type": "integer"
+            },
+            "locale": {
+              "enum": [
+                "en",
+                "de"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "slack": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "botTokenSecret": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/backupSecretName"
+              }
+            },
+            "appTokenSecret": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/backupSecretName"
+              }
+            },
+            "teamId": {
+              "type": "string",
+              "pattern": "^[A-Z0-9]{5,16}$"
+            },
+            "allowlist": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "dmAllowlist": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "userAllowlist": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "replyPolicy": {
+              "enum": [
+                "mention",
+                "always",
+                "allowlist"
+              ]
+            },
+            "maxMediaBytes": {
+              "type": "integer"
+            },
+            "locale": {
+              "enum": [
+                "en",
+                "de"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "buzz": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "relays": {
+              "type": "array",
+              "x-url-credentials": true,
+              "items": {
+                "type": "string",
+                "maxLength": 2048
+              }
+            },
+            "privateKeySecret": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^channels\\.buzz\\.[a-zA-Z0-9._-]+$",
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/backupSecretName"
+              }
+            },
+            "senderAllowlist": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 128
+              }
+            },
+            "locale": {
+              "type": "string",
+              "enum": [
+                "de",
+                "en"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "matrix": {
+          "type": "object",
+          "properties": {
+            "e2ee": {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "off",
+                    "memory"
+                  ]
+                },
+                "unverifiedDevices": {
+                  "type": "string",
+                  "enum": [
+                    "reject",
+                    "allow"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "homeserverUrl": {
+              "type": "string",
+              "maxLength": 512,
+              "pattern": "^(https://[^\\s/]+|http://(localhost|127\\.[0-9.]+|\\[::1\\])(:[0-9]+)?)(/[^\\s]*)?$",
+              "x-url-credentials": true
+            },
+            "userId": {
+              "type": "string",
+              "maxLength": 255,
+              "pattern": "^@[^:\\s]+:[^\\s]+$"
+            },
+            "accessTokenSecret": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/backupSecretName"
+              }
+            },
+            "deviceId": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "autoJoin": {
+              "enum": [
+                "allowlist",
+                "never"
+              ]
+            },
+            "allowlist": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "dmAllowlist": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "userAllowlist": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "replyPolicy": {
+              "enum": [
+                "mention",
+                "always",
+                "allowlist"
+              ]
+            },
+            "maxMediaBytes": {
+              "type": "integer"
+            },
+            "locale": {
+              "enum": [
+                "en",
+                "de"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "allOf": [
+            {}
+          ]
+        },
+        "signal": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "account": {
+              "type": "string",
+              "pattern": "^\\+[1-9][0-9]{6,14}$"
+            },
+            "endpoint": {
+              "type": "object",
+              "properties": {
+                "socketPath": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "host": {
+                  "type": "string",
+                  "maxLength": 253
+                },
+                "port": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "allowRemoteEndpoint": {
+              "type": "boolean"
+            },
+            "allowlist": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "dmAllowlist": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "userAllowlist": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "replyPolicy": {
+              "enum": [
+                "mention",
+                "always",
+                "allowlist"
+              ]
+            },
+            "maxMediaBytes": {
+              "type": "integer"
+            },
+            "locale": {
+              "enum": [
+                "en",
+                "de"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "allOf": [
+            {}
+          ]
+        },
+        "email": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "address": {
+              "type": "string",
+              "maxLength": 320
+            },
+            "displayName": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "imap": {
+              "type": "object",
+              "properties": {
+                "host": {
+                  "type": "string",
+                  "maxLength": 253
+                },
+                "port": {
+                  "type": "integer"
+                },
+                "security": {
+                  "enum": [
+                    "tls",
+                    "starttls"
+                  ]
+                },
+                "user": {
+                  "type": "string",
+                  "maxLength": 320
+                },
+                "passwordSecret": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
+                },
+                "folder": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 255
+                },
+                "idle": {
+                  "type": "boolean"
+                },
+                "pollIntervalSec": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "smtp": {
+              "type": "object",
+              "properties": {
+                "host": {
+                  "type": "string",
+                  "maxLength": 253
+                },
+                "port": {
+                  "type": "integer"
+                },
+                "security": {
+                  "enum": [
+                    "tls",
+                    "starttls"
+                  ]
+                },
+                "user": {
+                  "type": "string",
+                  "maxLength": 320
+                },
+                "passwordSecret": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "dmAllowlist": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "maxAttachmentBytes": {
+              "type": "integer"
+            },
+            "authServId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253
+            },
+            "requireAuthPass": {
+              "type": "boolean"
+            },
+            "locale": {
+              "enum": [
+                "en",
+                "de"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "allOf": [
+            {}
+          ]
+        },
+        "telegram": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "tokenSecret": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+              "x-sensitive": true,
+              "x-secret-reference": {
+                "$ref": "#/$defs/backupSecretName"
+              }
+            },
+            "allowlist": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^-?[0-9]{1,20}$"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              }
+            },
+            "userAllowlist": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^-?[0-9]{1,20}$"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              }
+            },
+            "mode": {
+              "enum": [
+                "polling",
+                "webhook"
+              ]
+            },
+            "webhook": {
+              "type": "object",
+              "required": [
+                "url",
+                "secret"
+              ],
+              "properties": {
+                "url": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "pattern": "^https://",
+                  "x-url-credentials": true
+                },
+                "secret": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,256}$",
+                  "x-sensitive": true
+                },
+                "maxBodyBytes": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "botId": {
+              "type": "integer"
+            },
+            "botUsername": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_]{5,32}$"
+            },
+            "groupPolicy": {
+              "enum": [
+                "addressed",
+                "all"
+              ]
+            },
+            "maxMediaBytes": {
+              "type": "integer"
+            },
+            "pollTimeoutSec": {
+              "type": "integer"
+            },
+            "maxSendRetries": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false,
+          "allOf": [
+            {}
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "voice": {
+      "type": "object",
+      "properties": {
+        "v3": {
+          "type": "object",
+          "properties": {
+            "language": {
+              "enum": [
+                "de",
+                "en"
+              ]
+            },
+            "profile": {
+              "enum": [
+                "fast",
+                "quality"
+              ]
+            },
+            "profiles": {
+              "type": "object",
+              "properties": {
+                "de": {
+                  "type": "object",
+                  "properties": {
+                    "fast": {
+                      "type": "string",
+                      "enum": [
+                        "piper-de-thorsten-low",
+                        "kokoro-multi"
+                      ]
+                    },
+                    "quality": {
+                      "type": "string",
+                      "enum": [
+                        "piper-de-thorsten-low",
+                        "kokoro-multi"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "en": {
+                  "type": "object",
+                  "properties": {
+                    "fast": {
+                      "type": "string",
+                      "enum": [
+                        "piper-de-thorsten-low",
+                        "kokoro-multi"
+                      ]
+                    },
+                    "quality": {
+                      "type": "string",
+                      "enum": [
+                        "piper-de-thorsten-low",
+                        "kokoro-multi"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "budgetMs": {
+              "type": "integer"
+            },
+            "realtime": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "endpointingMs": {
+                  "type": "integer"
+                },
+                "speculative": {
+                  "type": "boolean"
+                },
+                "ackSound": {
+                  "type": "boolean"
+                },
+                "features": {
+                  "type": "object",
+                  "properties": {
+                    "autoRecall": {
+                      "type": "object",
+                      "required": [
+                        "mode"
+                      ],
+                      "properties": {
+                        "mode": {
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off",
+                            "reduced"
+                          ]
+                        },
+                        "maxMs": {
+                          "type": "integer"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "promptEnrichment": {
+                      "type": "object",
+                      "required": [
+                        "mode"
+                      ],
+                      "properties": {
+                        "mode": {
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off",
+                            "reduced"
+                          ]
+                        },
+                        "maxMs": {
+                          "type": "integer"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "reranker": {
+                      "type": "object",
+                      "required": [
+                        "mode"
+                      ],
+                      "properties": {
+                        "mode": {
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off",
+                            "reduced"
+                          ]
+                        },
+                        "maxMs": {
+                          "type": "integer"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "decisionService": {
+                      "type": "object",
+                      "required": [
+                        "mode"
+                      ],
+                      "properties": {
+                        "mode": {
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off",
+                            "reduced"
+                          ]
+                        },
+                        "maxMs": {
+                          "type": "integer"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "postTurnRefine": {
+                      "type": "object",
+                      "required": [
+                        "mode"
+                      ],
+                      "properties": {
+                        "mode": {
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off",
+                            "reduced"
+                          ]
+                        },
+                        "maxMs": {
+                          "type": "integer"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "memoryWrite": {
+                      "type": "object",
+                      "required": [
+                        "mode"
+                      ],
+                      "properties": {
+                        "mode": {
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off",
+                            "reduced"
+                          ]
+                        },
+                        "maxMs": {
+                          "type": "integer"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "compaction": {
+                      "type": "object",
+                      "required": [
+                        "mode"
+                      ],
+                      "properties": {
+                        "mode": {
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off",
+                            "reduced"
+                          ]
+                        },
+                        "maxMs": {
+                          "type": "integer"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "toolSchemas": {
+                      "type": "object",
+                      "required": [
+                        "mode"
+                      ],
+                      "properties": {
+                        "mode": {
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off",
+                            "reduced"
+                          ]
+                        },
+                        "maxMs": {
+                          "type": "integer"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "selectedProfiles": {
+              "type": "object",
+              "properties": {
+                "de": {
+                  "enum": [
+                    "fast",
+                    "quality"
+                  ]
+                },
+                "en": {
+                  "enum": [
+                    "fast",
+                    "quality"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "providers": {
+          "type": "object",
+          "properties": {
+            "elevenlabs": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "apiKeyRef": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
+                },
+                "region": {
+                  "enum": [
+                    "default",
+                    "us",
+                    "eu",
+                    "in"
+                  ]
+                },
+                "baseUrl": {
+                  "type": "string",
+                  "maxLength": 300,
+                  "x-url-credentials": true
+                },
+                "defaultVoice": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "defaultModel": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "defaultSttModel": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "zeroRetention": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "xai": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "apiKeyRef": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
+                },
+                "baseUrl": {
+                  "type": "string",
+                  "maxLength": 300,
+                  "x-url-credentials": true
+                },
+                "defaultVoice": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "defaultModel": {
+                  "type": "string",
+                  "maxLength": 200
+                }
+              },
+              "additionalProperties": false
+            },
+            "gemini": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "apiKeyRef": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
+                },
+                "baseUrl": {
+                  "type": "string",
+                  "maxLength": 300,
+                  "x-url-credentials": true
+                },
+                "defaultVoice": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "defaultModel": {
+                  "type": "string",
+                  "maxLength": 200
+                }
+              },
+              "additionalProperties": false
+            },
+            "polly": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "region": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "credentials": {
+                  "type": "object",
+                  "properties": {
+                    "profile": {
+                      "type": "string",
+                      "maxLength": 128
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "defaultVoice": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "defaultModel": {
+                  "type": "string",
+                  "maxLength": 64
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "local": {
+          "type": "object",
+          "properties": {
+            "language": {
+              "type": "string",
+              "maxLength": 32,
+              "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]+)?$"
+            },
+            "profile": {
+              "enum": [
+                "fast",
+                "quality"
+              ]
+            },
+            "perAgent": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "language": {
+                    "type": "string",
+                    "maxLength": 32,
+                    "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]+)?$"
+                  },
+                  "profile": {
+                    "enum": [
+                      "fast",
+                      "quality"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "catalogOverride": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "modelsDir": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "acceptedLicences": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string",
+                "maxLength": 64
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "localRealtime": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "endpointingMs": {
+              "type": "integer"
+            },
+            "speculativeTurnStart": {
+              "type": "boolean"
+            },
+            "ackSound": {
+              "type": "boolean"
+            },
+            "sentenceChunking": {
+              "type": "object",
+              "properties": {
+                "maxWords": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "features": {
+              "type": "object",
+              "properties": {
+                "autoRecall": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "enum": [
+                        "on",
+                        "deferred",
+                        "off"
+                      ]
+                    },
+                    "maxMs": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "reranker": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "enum": [
+                        "on",
+                        "deferred",
+                        "off"
+                      ]
+                    },
+                    "maxMs": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "recallMultiIdentity": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "enum": [
+                        "on",
+                        "deferred",
+                        "off"
+                      ]
+                    },
+                    "maxMs": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "promptEnrichment": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "enum": [
+                        "on",
+                        "deferred",
+                        "off"
+                      ]
+                    },
+                    "maxMs": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "decisionService": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "enum": [
+                        "on",
+                        "deferred",
+                        "off"
+                      ]
+                    },
+                    "maxMs": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "postTurnRefine": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "enum": [
+                        "on",
+                        "deferred",
+                        "off"
+                      ]
+                    },
+                    "maxMs": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "memoryWrite": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "enum": [
+                        "on",
+                        "deferred",
+                        "off"
+                      ]
+                    },
+                    "maxMs": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "compaction": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "enum": [
+                        "on",
+                        "deferred",
+                        "off"
+                      ]
+                    },
+                    "maxMs": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "toolSchemas": {
+              "enum": [
+                "reduced",
+                "full"
+              ]
+            },
+            "auditDetail": {
+              "enum": [
+                "minimal",
+                "full"
+              ]
+            },
+            "perAgent": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "endpointingMs": {
+                    "type": "integer"
+                  },
+                  "speculativeTurnStart": {
+                    "type": "boolean"
+                  },
+                  "ackSound": {
+                    "type": "boolean"
+                  },
+                  "sentenceChunking": {
+                    "type": "object",
+                    "properties": {
+                      "maxWords": {
+                        "type": "integer"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "features": {
+                    "type": "object",
+                    "properties": {
+                      "autoRecall": {
+                        "type": "object",
+                        "properties": {
+                          "mode": {
+                            "enum": [
+                              "on",
+                              "deferred",
+                              "off"
+                            ]
+                          },
+                          "maxMs": {
+                            "type": "integer"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "reranker": {
+                        "type": "object",
+                        "properties": {
+                          "mode": {
+                            "enum": [
+                              "on",
+                              "deferred",
+                              "off"
+                            ]
+                          },
+                          "maxMs": {
+                            "type": "integer"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "recallMultiIdentity": {
+                        "type": "object",
+                        "properties": {
+                          "mode": {
+                            "enum": [
+                              "on",
+                              "deferred",
+                              "off"
+                            ]
+                          },
+                          "maxMs": {
+                            "type": "integer"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "promptEnrichment": {
+                        "type": "object",
+                        "properties": {
+                          "mode": {
+                            "enum": [
+                              "on",
+                              "deferred",
+                              "off"
+                            ]
+                          },
+                          "maxMs": {
+                            "type": "integer"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "decisionService": {
+                        "type": "object",
+                        "properties": {
+                          "mode": {
+                            "enum": [
+                              "on",
+                              "deferred",
+                              "off"
+                            ]
+                          },
+                          "maxMs": {
+                            "type": "integer"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "postTurnRefine": {
+                        "type": "object",
+                        "properties": {
+                          "mode": {
+                            "enum": [
+                              "on",
+                              "deferred",
+                              "off"
+                            ]
+                          },
+                          "maxMs": {
+                            "type": "integer"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "memoryWrite": {
+                        "type": "object",
+                        "properties": {
+                          "mode": {
+                            "enum": [
+                              "on",
+                              "deferred",
+                              "off"
+                            ]
+                          },
+                          "maxMs": {
+                            "type": "integer"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "compaction": {
+                        "type": "object",
+                        "properties": {
+                          "mode": {
+                            "enum": [
+                              "on",
+                              "deferred",
+                              "off"
+                            ]
+                          },
+                          "maxMs": {
+                            "type": "integer"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "toolSchemas": {
+                    "enum": [
+                      "reduced",
+                      "full"
+                    ]
+                  },
+                  "auditDetail": {
+                    "enum": [
+                      "minimal",
+                      "full"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "modules": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "media": {
+      "type": "object",
+      "properties": {
+        "video": {
+          "type": "object",
+          "properties": {
+            "maxBytes": {
+              "type": "integer"
+            },
+            "embedMetadata": {
+              "type": "boolean"
+            },
+            "adapters": {
+              "type": "object",
+              "properties": {
+                "openrouter": {
+                  "type": "object",
+                  "required": [
+                    "model"
+                  ],
+                  "properties": {
+                    "model": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "textToVideo": {
+                      "type": "boolean"
+                    },
+                    "imageToVideo": {
+                      "type": "boolean"
+                    },
+                    "videoToVideo": {
+                      "type": "boolean"
+                    },
+                    "durationSeconds": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      }
+                    },
+                    "resolutions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 64
+                      }
+                    },
+                    "aspects": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 32
+                      }
+                    },
+                    "fps": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      }
+                    },
+                    "audio": {
+                      "type": "boolean"
+                    },
+                    "inputSchema": {
+                      "type": "object",
+                      "x-unknown-members": "public",
+                      "additionalProperties": true
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "replicate": {
+                  "type": "object",
+                  "required": [
+                    "model"
+                  ],
+                  "properties": {
+                    "model": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "textToVideo": {
+                      "type": "boolean"
+                    },
+                    "imageToVideo": {
+                      "type": "boolean"
+                    },
+                    "videoToVideo": {
+                      "type": "boolean"
+                    },
+                    "durationSeconds": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      }
+                    },
+                    "resolutions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 64
+                      }
+                    },
+                    "aspects": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 32
+                      }
+                    },
+                    "fps": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      }
+                    },
+                    "audio": {
+                      "type": "boolean"
+                    },
+                    "inputSchema": {
+                      "type": "object",
+                      "x-unknown-members": "public",
+                      "additionalProperties": true
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "fal": {
+                  "type": "object",
+                  "required": [
+                    "model"
+                  ],
+                  "properties": {
+                    "model": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "textToVideo": {
+                      "type": "boolean"
+                    },
+                    "imageToVideo": {
+                      "type": "boolean"
+                    },
+                    "videoToVideo": {
+                      "type": "boolean"
+                    },
+                    "durationSeconds": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      }
+                    },
+                    "resolutions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 64
+                      }
+                    },
+                    "aspects": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 32
+                      }
+                    },
+                    "fps": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      }
+                    },
+                    "audio": {
+                      "type": "boolean"
+                    },
+                    "inputSchema": {
+                      "type": "object",
+                      "x-unknown-members": "public",
+                      "additionalProperties": true
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "xai": {
+                  "type": "object",
+                  "required": [
+                    "model"
+                  ],
+                  "properties": {
+                    "model": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "textToVideo": {
+                      "type": "boolean"
+                    },
+                    "imageToVideo": {
+                      "type": "boolean"
+                    },
+                    "videoToVideo": {
+                      "type": "boolean"
+                    },
+                    "durationSeconds": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      }
+                    },
+                    "resolutions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 64
+                      }
+                    },
+                    "aspects": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 32
+                      }
+                    },
+                    "fps": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      }
+                    },
+                    "audio": {
+                      "type": "boolean"
+                    },
+                    "inputSchema": {
+                      "type": "object",
+                      "x-unknown-members": "public",
+                      "additionalProperties": true
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "openai": {
+                  "type": "object",
+                  "required": [
+                    "model"
+                  ],
+                  "properties": {
+                    "model": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "textToVideo": {
+                      "type": "boolean"
+                    },
+                    "imageToVideo": {
+                      "type": "boolean"
+                    },
+                    "videoToVideo": {
+                      "type": "boolean"
+                    },
+                    "durationSeconds": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      }
+                    },
+                    "resolutions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 64
+                      }
+                    },
+                    "aspects": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 32
+                      }
+                    },
+                    "fps": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      }
+                    },
+                    "audio": {
+                      "type": "boolean"
+                    },
+                    "inputSchema": {
+                      "type": "object",
+                      "x-unknown-members": "public",
+                      "additionalProperties": true
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "google": {
+                  "type": "object",
+                  "required": [
+                    "model"
+                  ],
+                  "properties": {
+                    "model": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "textToVideo": {
+                      "type": "boolean"
+                    },
+                    "imageToVideo": {
+                      "type": "boolean"
+                    },
+                    "videoToVideo": {
+                      "type": "boolean"
+                    },
+                    "durationSeconds": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      }
+                    },
+                    "resolutions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 64
+                      }
+                    },
+                    "aspects": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 32
+                      }
+                    },
+                    "fps": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      }
+                    },
+                    "audio": {
+                      "type": "boolean"
+                    },
+                    "inputSchema": {
+                      "type": "object",
+                      "x-unknown-members": "public",
+                      "additionalProperties": true
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "adapters": {
+          "type": "object",
+          "properties": {
+            "openai": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "apiKeyRef": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
+                },
+                "baseUrl": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "x-url-credentials": true
+                },
+                "model": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "timeoutMs": {
+                  "type": "integer"
+                },
+                "maxConcurrent": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "google": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "apiKeyRef": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
+                },
+                "baseUrl": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "x-url-credentials": true
+                },
+                "model": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "timeoutMs": {
+                  "type": "integer"
+                },
+                "maxConcurrent": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "xai": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "apiKeyRef": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
+                },
+                "baseUrl": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "x-url-credentials": true
+                },
+                "model": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "timeoutMs": {
+                  "type": "integer"
+                },
+                "maxConcurrent": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "openrouter": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "apiKeyRef": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
+                },
+                "baseUrl": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "x-url-credentials": true
+                },
+                "model": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "timeoutMs": {
+                  "type": "integer"
+                },
+                "maxConcurrent": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "replicate": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "apiKeyRef": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
+                },
+                "baseUrl": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "x-url-credentials": true
+                },
+                "model": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "timeoutMs": {
+                  "type": "integer"
+                },
+                "maxConcurrent": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "fal": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "apiKeyRef": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
+                },
+                "baseUrl": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "x-url-credentials": true
+                },
+                "model": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "timeoutMs": {
+                  "type": "integer"
+                },
+                "maxConcurrent": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "together": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "apiKeyRef": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
+                },
+                "baseUrl": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "x-url-credentials": true
+                },
+                "model": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "timeoutMs": {
+                  "type": "integer"
+                },
+                "maxConcurrent": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "drawthings": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "host": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 253
+                },
+                "port": {
+                  "type": "integer"
+                },
+                "allowLan": {
+                  "type": "boolean"
+                },
+                "model": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "timeoutMs": {
+                  "type": "integer"
+                },
+                "maxConcurrent": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "coreml": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "binary": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                },
+                "modelsDir": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                },
+                "model": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "computeUnits": {
+                  "type": "string",
+                  "enum": [
+                    "auto",
+                    "cpuAndNeuralEngine",
+                    "all",
+                    "cpuAndGPU"
+                  ]
+                },
+                "scheduler": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_.-]{1,64}$"
+                },
+                "timeoutMs": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "backupSecretName": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+      "x-secret-reference": true,
+      "x-secret-reference-kind": "store-name"
+    },
+    "secretEnvironmentName": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+      "x-secret-reference": true,
+      "x-secret-reference-kind": "env-name"
+    },
+    "secretFileReference": {
+      "type": "string",
+      "minLength": 1,
+      "x-secret-reference": true,
+      "x-secret-reference-kind": "file-path"
+    },
+    "backupEngineSecretReference": {
+      "x-secret-reference": true,
+      "x-secret-reference-kind": "engine-input",
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "source",
+            "provider",
+            "id"
+          ],
+          "minLength": 1,
+          "properties": {
+            "source": {
+              "type": "string",
+              "enum": [
+                "env",
+                "store",
+                "file",
+                "exec"
+              ]
+            },
+            "provider": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "enum": [
+            "${COHERE_API_KEY}",
+            "${OPENAI_API_KEY}",
+            "${OPENAI_API_KEY_FALLBACK}",
+            "${OPENAI_COMPATIBLE_API_KEY}",
+            "${PLUR1BUS_COHERE_API_KEY}",
+            "${PLUR1BUS_OPENAI_API_KEY}",
+            "${PLUR1BUS_OPENAI_COMPATIBLE_API_KEY}"
+          ]
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+};
