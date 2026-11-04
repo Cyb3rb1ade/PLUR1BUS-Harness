@@ -166,29 +166,56 @@ impl std::fmt::Debug for CancelTransport {
         f.write_str("CancelTransport")
     }
 }
-struct IoBudget<'a> {
+trait IoClock {
+    fn now(&self) -> Instant;
+    fn wait(&self, duration: Duration);
+}
+struct SystemIoClock;
+impl IoClock for SystemIoClock {
+    fn now(&self) -> Instant {
+        Instant::now()
+    }
+    fn wait(&self, duration: Duration) {
+        std::thread::sleep(duration);
+    }
+}
+struct IoBudget<'a, C = SystemIoClock> {
     control: &'a IoControl,
     deadline: Instant,
+    clock: C,
 }
-impl<'a> IoBudget<'a> {
+impl<'a> IoBudget<'a, SystemIoClock> {
     fn new(control: &'a IoControl, timeout: NextTimeout) -> Result<Self, ureq::Error> {
+        Self::with_clock(control, timeout, SystemIoClock)
+    }
+}
+impl<'a, C: IoClock> IoBudget<'a, C> {
+    fn with_clock(
+        control: &'a IoControl,
+        timeout: NextTimeout,
+        clock: C,
+    ) -> Result<Self, ureq::Error> {
         let budget = control.check_io()?;
         let duration = timeout
             .not_zero()
             .map_or(budget, |value| budget.min(*value));
-        let deadline = Instant::now().checked_add(duration).ok_or_else(|| {
+        let deadline = clock.now().checked_add(duration).ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "invalid request I/O deadline",
             )
         })?;
-        Ok(Self { control, deadline })
+        Ok(Self {
+            control,
+            deadline,
+            clock,
+        })
     }
     fn remaining(&self) -> Result<Duration, ureq::Error> {
         let budget = self.control.check_io()?;
         let remaining = self
             .deadline
-            .checked_duration_since(Instant::now())
+            .checked_duration_since(self.clock.now())
             .filter(|value| !value.is_zero())
             .ok_or_else(|| {
                 std::io::Error::new(std::io::ErrorKind::TimedOut, "request I/O timed out")
@@ -196,15 +223,15 @@ impl<'a> IoBudget<'a> {
         Ok(remaining.min(budget))
     }
     fn wait(&self) -> Result<(), ureq::Error> {
-        std::thread::sleep(self.remaining()?.min(POLL));
+        self.clock.wait(self.remaining()?.min(POLL));
         Ok(())
     }
 }
 
-fn write_pending(
+fn write_pending<C: IoClock>(
     writer: &mut impl Write,
     bytes: &[u8],
-    budget: &IoBudget<'_>,
+    budget: &IoBudget<'_, C>,
 ) -> Result<(), ureq::Error> {
     let mut written = 0;
     while written < bytes.len() {
@@ -331,6 +358,15 @@ mod tests {
 
     #[test]
     fn partial_progress_cannot_restart_the_operation_deadline() {
+        struct Clock(std::cell::Cell<Instant>);
+        impl IoClock for Clock {
+            fn now(&self) -> Instant {
+                self.0.get()
+            }
+            fn wait(&self, duration: Duration) {
+                self.0.set(self.now() + duration);
+            }
+        }
         struct BackpressuredWriter {
             calls: usize,
             progress: usize,
@@ -351,7 +387,10 @@ mod tests {
         }
         let control = open_control();
         let started = Instant::now();
-        let budget = IoBudget::new(
+        // Advance the same deadline arithmetic through backpressure without
+        // letting VM scheduling consume the partial-progress window.
+        // The pending-socket tests below still use real time and real sockets.
+        let budget = IoBudget::with_clock(
             &control,
             NextTimeout {
                 after: ureq::unversioned::transport::time::Duration::Exact(Duration::from_millis(
@@ -359,6 +398,7 @@ mod tests {
                 )),
                 reason: ureq::Timeout::SendBody,
             },
+            Clock(std::cell::Cell::new(started)),
         )
         .unwrap();
         let mut writer = BackpressuredWriter {
@@ -366,7 +406,7 @@ mod tests {
             progress: 0,
         };
         let result = write_pending(&mut writer, &[0x5a; 1024], &budget);
-        let elapsed = started.elapsed();
+        let elapsed = budget.clock.now().duration_since(started);
         assert!(
             matches!(result, Err(ureq::Error::Io(error)) if error.kind() == ErrorKind::TimedOut)
         );
@@ -374,10 +414,10 @@ mod tests {
             writer.progress > 0,
             "the writer makes partial progress before expiry"
         );
-        assert!(elapsed >= Duration::from_millis(150));
+        assert_eq!(elapsed, Duration::from_millis(150));
         assert!(
-            elapsed <= Duration::from_millis(400),
-            "the same operation budget plus 250 ms bounds the send"
+            writer.progress < 1024,
+            "expiry prevents completing the send"
         );
         assert!(
             control.budget().is_ok(),

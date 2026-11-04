@@ -1,6 +1,7 @@
 // Settings config sections (general, models, memory, extensions, network): states, edit -> diff -> save, conflict, restart badge,
 // focus, secrets, role, a11y, 400 px. Runs against test/mock-rpc.ts; the backend serves no /rpc yet.
 import assert from "node:assert/strict";
+import { randomBytes, randomUUID } from "node:crypto";
 import { after, before, describe, test } from "node:test";
 import { expectAxeClean } from "./axe.ts";
 import { browserSkip, openRoute, setup, teardown, withApp, type App } from "./harness.ts";
@@ -71,9 +72,40 @@ describe("settings config: states", opts, () => {
 });
 
 describe("settings config: sections and fields", opts, () => {
+  test("opaque Config views keep reference names readable and hide literal values at the same reference field", async () => {
+    await withApp({}, async (app) => {
+      const name = `providers.openai.${randomUUID().slice(0, 8)}`;
+      const literal = `sk-${randomBytes(24).toString("base64url")}`;
+      seedConfig(app.server.rpc, { providers: {
+        "safe.vendor": { profile: { secret_ref: name } },
+        "literal.vendor": { profile: { secret_ref: literal, extra_headers: { ordinary: literal } } },
+      } });
+      await open(app, "#/settings/models?focus=providers");
+      const current = app.page.locator("#cfg-providers");
+      await current.waitFor();
+      const text = await current.innerText();
+      assert.ok(text.includes(name));
+      assert.ok(!text.includes(literal));
+      assert.match(text, /••••/);
+      assert.match(await app.page.locator('.cfg-field[data-key="providers"]').innerText(), /looks like a pasted key/i);
+      assert.ok(!(await app.page.content()).includes(literal));
+    });
+  });
+  test("opaque reference views warn about malformed references without exposing their identifiers", async () => {
+    await withApp({}, async (app) => {
+      const invalid = `invalid reference ${randomUUID()}`;
+      seedConfig(app.server.rpc, { providers: { "invalid.vendor": { profile: { secret_ref: invalid } } } });
+      await open(app, "#/settings/models?focus=providers");
+      await app.page.locator("#cfg-providers").waitFor();
+      const field = app.page.locator('.cfg-field[data-key="providers"]');
+      assert.match(await field.innerText(), /reference is invalid/i);
+      assert.ok(!(await app.page.content()).includes(invalid));
+    });
+  });
   test("each section shows only its own keys; secret-holding values are masked", async () => {
     await withApp({}, async (app) => {
-      seedConfig(app.server.rpc);
+      const secret = randomUUID();
+      seedConfig(app.server.rpc, { engine: { schicht15: { headers: { ordinary: secret } } } });
       await open(app, "#/settings/network");
       await app.page.locator("#cfg-egress-allowHosts").waitFor();
       assert.equal(await app.page.locator("#cfg-egress-allowHosts").inputValue(), "api.example.com");
@@ -84,11 +116,17 @@ describe("settings config: sections and fields", opts, () => {
       const roles = app.page.locator("#cfg-modelRoles-chat");
       await roles.waitFor();
       const text = await app.page.locator("main").innerText();
-      assert.ok(!text.includes("sk-secret-123") && !text.includes("sk-should-not-show"), "secret value shown");
+      assert.ok(!text.includes(secret), "secret value shown");
+      assert.match(await app.page.locator("#cfg-modelProfiles").innerText(), /4096/);
       assert.equal(await roles.inputValue(), "anthropic/claude-x");
       assert.equal(await roles.isEnabled(), true);
       assert.equal(await app.page.locator("#cfg-modelRoles-decision").count(), 1);
       assert.equal(await app.page.locator("#cfg-models-scan-enabled").getAttribute("role"), "switch");
+      await app.page.evaluate(() => { location.hash = "#/settings/memory"; });
+      const opaque = app.page.locator("#cfg-engine-schicht15");
+      await opaque.waitFor();
+      assert.ok(!(await opaque.innerText()).includes(secret));
+      assert.match(await opaque.innerText(), /••••/);
     });
   });
   test("a key unknown to the metadata gets a widget from its value type", async () => {
@@ -130,6 +168,45 @@ describe("settings config: edit, review, save", opts, () => {
       assert.deepEqual(fake.sets, [{ changes: [{ key: "core.logLevel", value: "debug" }, { key: "core.recall.softBudgetMs", value: 500 }, { key: "metrics.enabled", value: true }], ifRevision: "r1" }]);
       assert.match(await app.page.locator("[data-section=general] .form-notice").first().innerText(), /after a restart/);
       await app.page.waitForFunction(() => (document.getElementById("cfg-core-logLevel") as HTMLSelectElement | null)?.value === "debug");
+    });
+  });
+  test("endpoint replacements mask current and review values, preserve untouched URLs and support an explicit clear", async () => {
+    await withApp({}, async (app) => {
+      const oldSecret = randomUUID();
+      const newSecret = randomUUID();
+      const oldUrl = `https://relay.example.test/public/path?ordinary=${oldSecret}`;
+      const newUrl = `https://${newSecret}@other.example.test/new/path?ordinary=${newSecret}`;
+      const fake = seedConfig(app.server.rpc, { core: { logLevel: "warn", webHandoffBaseUrl: oldUrl } });
+      await open(app, "#/settings/general");
+      const row = app.page.locator('.cfg-field[data-key="core.webHandoffBaseUrl"]');
+      const input = row.locator("input");
+      await input.waitFor();
+      assert.equal(await input.inputValue(), "");
+      assert.match(await row.innerText(), /relay\.example\.test\/public\/path\?ordinary=••••/);
+      assert.ok(!(await row.innerText()).includes(oldSecret));
+      await app.page.locator("#cfg-core-logLevel").selectOption("debug");
+      await app.page.getByRole("button", { name: "Review changes" }).click();
+      await app.page.getByRole("button", { name: "Save changes" }).click();
+      await app.page.getByText(/Saved 1 changes/).waitFor();
+      assert.deepEqual((fake.sets[0] as { changes: unknown }).changes, [{ key: "core.logLevel", value: "debug" }]);
+      assert.equal((fake.config.core as Record<string, unknown>).webHandoffBaseUrl, oldUrl);
+      await input.fill(newUrl);
+      await app.page.getByRole("button", { name: "Review changes" }).click();
+      const diff = app.page.locator(".cfg-diff");
+      await diff.waitFor();
+      const text = await diff.innerText();
+      assert.ok(!text.includes(oldSecret) && !text.includes(newSecret));
+      assert.match(text, /relay\.example\.test\/public\/path/);
+      assert.match(text, /other\.example\.test\/new\/path/);
+      await app.page.getByRole("button", { name: "Save changes" }).click();
+      await app.page.locator(".cfg-review").waitFor({ state: "detached" });
+      await row.getByText(/Current: https:\/\/••••@other\.example\.test\/new\/path/).waitFor();
+      assert.equal((fake.config.core as Record<string, unknown>).webHandoffBaseUrl, newUrl);
+      await row.getByRole("button", { name: "Clear value", exact: true }).click();
+      await app.page.getByRole("button", { name: "Review changes" }).click();
+      await app.page.getByRole("button", { name: "Save changes" }).click();
+      await app.page.locator(".cfg-review").waitFor({ state: "detached" });
+      assert.equal((fake.config.core as Record<string, unknown>).webHandoffBaseUrl, "");
     });
   });
   test("list fields send arrays", async () => {
@@ -233,6 +310,143 @@ describe("settings config: ?focus", opts, () => {
 });
 
 describe("settings config: races and leaving", opts, () => {
+  test("a successful save keeps fields locked until the refreshed revision arrives", async () => {
+    await withApp({}, async (app) => {
+      const oldSecret = randomUUID(), newSecret = randomUUID();
+      const oldUrl = `https://relay.example.test/public/path?ordinary=${oldSecret}`;
+      const newUrl = `https://${newSecret}@other.example.test/new/path?ordinary=${newSecret}`;
+      const fake = seedConfig(app.server.rpc, { core: { logLevel: "warn", webHandoffBaseUrl: oldUrl } });
+      await open(app, "#/settings/general");
+      await app.page.locator("#cfg-core-logLevel").selectOption("debug");
+      await app.page.getByRole("button", { name: "Review changes" }).click();
+      await app.page.locator(".cfg-diff").waitFor();
+      const gate = Promise.withResolvers<void>();
+      const isReload = (request: import("playwright").Request): boolean => {
+        const body = request.postDataJSON() as { method?: string; params?: { key?: string } };
+        return fake.revision === 2 && body.method === "config.get" && body.params?.key === undefined;
+      };
+      await app.page.route("**/rpc", async (route) => {
+        if (isReload(route.request())) await gate.promise;
+        await route.continue();
+      });
+      const refreshing = app.page.waitForRequest((request) => request.url().endsWith("/rpc") && isReload(request));
+      try {
+        await app.page.getByRole("button", { name: "Save changes" }).click();
+        await refreshing;
+        await app.page.getByText(/Saved 1 changes/).waitFor();
+        assert.equal(await app.page.locator("#cfg-core-webHandoffBaseUrl").isDisabled(), true,
+          "the previous revision cannot accept an edit that the reload would discard");
+        assert.equal(await app.page.getByRole("button", { name: "Back to editing" }).isDisabled(), true);
+        assert.equal((fake.config.core as Record<string, unknown>).webHandoffBaseUrl, oldUrl);
+      } finally {
+        gate.resolve();
+      }
+      await app.page.waitForFunction(() => {
+        const input = document.getElementById("cfg-core-webHandoffBaseUrl") as HTMLInputElement | null;
+        return input !== null && !input.disabled &&
+          (document.getElementById("cfg-core-logLevel") as HTMLSelectElement | null)?.value === "debug";
+      });
+      await app.page.locator("#cfg-core-webHandoffBaseUrl").fill(newUrl);
+      await app.page.getByRole("button", { name: "Review changes" }).click();
+      const diff = app.page.locator(".cfg-diff");
+      await diff.waitFor();
+      const text = await diff.innerText();
+      assert.ok(!text.includes(oldSecret) && !text.includes(newSecret));
+      assert.match(text, /relay\.example\.test\/public\/path/);
+      assert.match(text, /other\.example\.test\/new\/path/);
+    });
+  });
+  test("a successful no-op replacement unlocks after reloading the same revision and keeps the next edit", async () => {
+    await withApp({}, async (app) => {
+      const oldSecret = randomUUID(), newSecret = randomUUID();
+      const oldUrl = `https://relay.example.test/public/path?ordinary=${oldSecret}`;
+      const newUrl = `https://${newSecret}@other.example.test/new/path?ordinary=${newSecret}`;
+      const fake = seedConfig(app.server.rpc, { core: { webHandoffBaseUrl: oldUrl } });
+      app.server.rpc.handle("config.set", (params) => {
+        const request = params as { changes: { key: string; value: unknown }[]; dryRun?: boolean; ifRevision: string };
+        assert.equal(request.ifRevision, "r1");
+        if (!request.dryRun) {
+          assert.deepEqual(request.changes, [{ key: "core.webHandoffBaseUrl", value: oldUrl }]);
+          fake.sets.push(params);
+        }
+        return { applied: !request.dryRun, dryRun: request.dryRun === true, revision: "r1",
+          changed: request.changes.map((change) => change.key), restart: { live: [], core: false, modules: [] } };
+      });
+      await open(app, "#/settings/general");
+      const input = app.page.locator("#cfg-core-webHandoffBaseUrl");
+      await input.fill(oldUrl);
+      await app.page.getByRole("button", { name: "Review changes" }).click();
+      await app.page.locator(".cfg-diff").waitFor();
+      const gate = Promise.withResolvers<void>();
+      const isReload = (request: import("playwright").Request): boolean => {
+        const body = request.postDataJSON() as { method?: string; params?: { key?: string } };
+        return fake.sets.length === 1 && body.method === "config.get" && body.params?.key === undefined;
+      };
+      await app.page.route("**/rpc", async (route) => {
+        if (isReload(route.request())) await gate.promise;
+        await route.continue();
+      });
+      const refreshing = app.page.waitForRequest((request) => request.url().endsWith("/rpc") && isReload(request));
+      try {
+        await app.page.getByRole("button", { name: "Save changes" }).click();
+        await refreshing;
+        await app.page.getByText(/Saved 1 changes/).waitFor();
+        assert.equal(await input.isDisabled(), true);
+        assert.equal(fake.revision, 1, "an identical replacement leaves the content-derived revision unchanged");
+      } finally {
+        gate.resolve();
+      }
+      await app.page.waitForFunction(() => {
+        const input = document.getElementById("cfg-core-webHandoffBaseUrl") as HTMLInputElement | null;
+        return input !== null && !input.disabled;
+      });
+      assert.equal(await input.inputValue(), "");
+      await input.fill(newUrl);
+      await app.page.getByRole("button", { name: "Review changes" }).click();
+      const diff = app.page.locator(".cfg-diff");
+      await diff.waitFor();
+      const text = await diff.innerText();
+      assert.ok(!text.includes(oldSecret) && !text.includes(newSecret));
+      assert.match(text, /relay\.example\.test\/public\/path/);
+      assert.match(text, /other\.example\.test\/new\/path/);
+      assert.deepEqual(sets(app).at(-1)!.params, {
+        changes: [{ key: "core.webHandoffBaseUrl", value: newUrl }], dryRun: true, ifRevision: "r1",
+      });
+    });
+  });
+  test("a failed refresh after saving offers retry and restores an editable current revision", async () => {
+    await withApp({}, async (app) => {
+      seedConfig(app.server.rpc);
+      await open(app, "#/settings/general");
+      await app.page.locator("#cfg-core-logLevel").selectOption("debug");
+      await app.page.getByRole("button", { name: "Review changes" }).click();
+      await app.page.locator(".cfg-diff").waitFor();
+      app.server.rpc.scenario("config.get", "error");
+      await app.page.getByRole("button", { name: "Save changes" }).click();
+      await app.page.locator('.page-state[data-state=error]').waitFor();
+      app.server.rpc.scenario("config.get", "success");
+      await app.page.getByRole("button", { name: "Try again" }).click();
+      await app.page.waitForFunction(() => {
+        const input = document.getElementById("cfg-core-logLevel") as HTMLSelectElement | null;
+        return input !== null && !input.disabled && input.value === "debug";
+      });
+    });
+  });
+  test("a refused save restores edit controls", async () => {
+    await withApp({}, async (app) => {
+      seedConfig(app.server.rpc);
+      await open(app, "#/settings/general");
+      await app.page.locator("#cfg-core-logLevel").selectOption("debug");
+      await app.page.getByRole("button", { name: "Review changes" }).click();
+      await app.page.locator(".cfg-diff").waitFor();
+      app.server.rpc.scenario("config.set", "error");
+      await app.page.getByRole("button", { name: "Save changes" }).click();
+      await app.page.locator(".cfg-form .form-notice").waitFor();
+      assert.equal(await app.page.locator("#cfg-core-logLevel").isDisabled(), false);
+      await app.page.locator("#cfg-core-logLevel").selectOption("info");
+      assert.equal(await app.page.locator("#cfg-core-logLevel").inputValue(), "info");
+    });
+  });
   test("an edit made while the dry run is in flight drops that review instead of saving the old change list", async () => {
     await withApp({}, async (app) => {
       seedConfig(app.server.rpc);

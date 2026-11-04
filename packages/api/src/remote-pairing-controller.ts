@@ -2,16 +2,16 @@ import { dirname } from "node:path";
 // Pairing bootstrap is deliberately separate from cookie authentication. It can only redeem a grant opened by an
 // authenticated Owner/Admin, over the configured TLS origin, after certificate proof or a reviewed tailnet QR tag.
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import { mkdirSync } from "node:fs";
-import { PairCodeStore, buildPairingOffer, offerTag, encodePairingLink, qrData, handlePairProof, createProofLimiter, initTrust, stageTrust, switchTrust, cancelTrust, ackTrust, announcementFor, trustProgress, trustNextEvent, trustForNewPairing, parseTrust, serializeTrust, pinsEqual, parsePin, type Pin, type Anchor, type TrustState, type SignedOffer, type TrustDevice, type PublishMode, type TlsMode, type TrustNextEvent } from "../../remote-access/src/index.ts";
+import { PairCodeStore, buildPairingOffer, offerTag, encodePairingLink, qrData, handlePairProof, createProofLimiter, initTrust, stageTrust, cancelTrust, ackTrust, announcementFor, trustProgress, trustNextEvent, trustForNewPairing, pinsEqual, parsePin, type Pin, type Anchor, type SignedOffer, type PublishMode, type TlsMode, type TrustNextEvent } from "../../remote-access/src/index.ts";
 import type { Device } from "../../remote-access/src/device-store.ts";
-import { privateAtomicJson, readPrivateText } from "./remote-certificates.ts";
+import { ensurePrivateDirectory, privateAtomicJson, readPrivateText } from "./remote-certificates.ts";
+import { parseStoredTrust, switchedTrust, validateStoredTrust, type StoredTrust } from "./remote-trust-envelope.ts";
 import type { HandlerInput } from "./routes.ts";
 import type { CoreRpc } from "./core-rpc.ts";
 import { authorize, type AuditSink } from "./rbac-bridge.ts";
 import { webPrincipal, webConnection } from "./principal.ts";
 import { ApiError, errors, fromCoreError } from "./errors.ts";
-export interface PairingCertificate { certPin: Pin; caPin?: Pin }
+export interface PairingCertificate { certPin: Pin; certSpkiPin?: Pin; caPin?: Pin }
 export interface PairingTransport {
  tls: boolean; origin: string; servedFingerprint?: Pin;
  /** Only the locally controlled Tailscale serve backend can set this, never a forwarded header. */
@@ -21,6 +21,8 @@ export interface RemotePairingOptions {
  core: CoreRpc; audit: AuditSink; now(): number; trustFile: string;
  publish(): PublishMode; tlsMode(): TlsMode; origin(): string;
  current(): PairingCertificate | undefined | Promise<PairingCertificate | undefined>;
+ /** Synchronous inspection keeps candidate verification and the activation handoff in the same turn. */
+ staged(): PairingCertificate | undefined;
  transport(input: HandlerInput): PairingTransport | undefined;
  stage(): Promise<PairingCertificate>; activate(): Promise<void>; cancelStage(): Promise<void>;
  /** Optional testing seam; production uses the existing Argon2id code store. */
@@ -29,7 +31,6 @@ export interface RemotePairingOptions {
 interface Grant { actor: ReturnType<typeof webPrincipal>; expiresAt: number; fingerprint: Pin; origin: string; tag: string }
 interface Receipt { codeId: string; source: string; fingerprint: Pin; origin: string; clientNonce: string; expiresAt: number }
 interface Challenge { deviceId: string; source: string; fingerprint: Pin; origin: string; expiresAt: number }
-interface StoredTrust { version: 1; state: TrustState; activation?: { devices: TrustDevice[]; at: number } }
 const sameSecret=(a:string,b:string)=>{const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length && timingSafeEqual(x,y);};
 const obj=(v:unknown):v is Record<string,unknown>=>!!v && typeof v==="object" && !Array.isArray(v);
 const invalid=()=>errors.badRequest("pairing-request","invalid pairing request");
@@ -38,23 +39,28 @@ function field(b:Record<string,unknown>,key:string,max=128):string{const v=b[key
 export class RemotePairingController {
  readonly codes:PairCodeStore; private options:RemotePairingOptions; private key=randomBytes(32); private grants=new Map<string,Grant>();
  private receipts=new Map<string,Receipt>(); private challenges=new Map<string,Challenge>();private proofLimiter=createProofLimiter();private stored?:StoredTrust;
- private queue:Promise<unknown>=Promise.resolve();
+ private queue:Promise<unknown>=Promise.resolve();private legacy=false;
  constructor(options:RemotePairingOptions){this.options=options;this.codes=options.codes??new PairCodeStore({});
-  const privateTrust=readPrivateText(options.trustFile);if(privateTrust!==undefined){const raw=JSON.parse(privateTrust) as StoredTrust;const parsed=parseTrust(serializeTrust(raw.state));if(raw.version!==1||!parsed.ok)throw new Error("remote trust state unavailable");this.stored={...raw,state:parsed.state};}
+  ensurePrivateDirectory(dirname(options.trustFile));const privateTrust=readPrivateText(options.trustFile);if(privateTrust!==undefined){const parsed=parseStoredTrust(privateTrust);this.stored=parsed.stored;this.legacy=parsed.legacy;}
  }
  private serial<T>(fn:()=>Promise<T>):Promise<T>{const result=this.queue.then(fn);this.queue=result.catch(()=>{});return result;}
  private audit(action:string,actor:string,detail:Record<string,unknown>={}){this.options.audit.append({at:this.options.now(),actor:{user:actor,host:"api"},action,target:"remote-pairing",detail});}
  private admin(i:HandlerInput){if(!i.rbac||i.rbac.kind!=="person"||authorize(i.rbac,"admin.pairing.read",{kind:"system"}).effect!=="allow")throw errors.forbidden("role-denied");return webPrincipal(i.rbac,i.principal?.kind==="owner");}
  private person(i:HandlerInput,write=false){if(!i.rbac||i.rbac.kind!=="person"||authorize(i.rbac,write?"remote.device.write":"device.list",{kind:"system"}).effect!=="allow")throw errors.forbidden("role-denied");return webPrincipal(i.rbac,i.principal?.kind==="owner");}
- private save(state:TrustState,activation?:StoredTrust["activation"]){const next:StoredTrust={version:1,state,...(activation?{activation}:{})};mkdirSync(dirname(this.options.trustFile),{recursive:true,mode:0o700});privateAtomicJson(this.options.trustFile,next);this.stored=next;}
+ private save(next:StoredTrust){validateStoredTrust(next);ensurePrivateDirectory(dirname(this.options.trustFile));privateAtomicJson(this.options.trustFile,next);this.stored=next;this.legacy=false;}
  private prune(){const now=this.options.now();for(const[id,g]of this.grants)if(now>=g.expiresAt){this.codes.revoke(id);this.grants.delete(id);}for(const[id,r]of this.receipts)if(now>=r.expiresAt)this.receipts.delete(id);for(const[id,r]of this.challenges)if(now>=r.expiresAt)this.challenges.delete(id);}
- private async certificate(){if(this.options.publish()==="local")throw new ApiError(404,"E_NOT_AVAILABLE","pairing is hidden in local mode",{reason:"remote-local"});const current=await this.options.current();if(!current||!parsePin(current.certPin))throw new ApiError(503,"E_NOT_AVAILABLE","verified served certificate fingerprint unavailable",{reason:"pairing-fingerprint-unavailable"});return current;}
+ private async certificate(){if(this.options.publish()==="local")throw new ApiError(404,"E_NOT_AVAILABLE","pairing is hidden in local mode",{reason:"remote-local"});const current=await this.options.current();if(!current||!parsePin(current.certPin)||current.certSpkiPin!==undefined&&!parsePin(current.certSpkiPin))throw new ApiError(503,"E_NOT_AVAILABLE","verified served certificate fingerprint unavailable",{reason:"pairing-fingerprint-unavailable"});return current;}
  private async trust(){const cert=await this.certificate(),anchor:Anchor={kind:"cert",pin:cert.certPin};
-  if(!this.stored)this.save(initTrust(anchor));let state=this.stored!.state;
+  if(!this.stored)this.save({version:2,state:initTrust(anchor),keys:{current:cert.certSpkiPin??null,retired:[],unresolved:[]}});let stored=this.stored!,state=stored.state;
   if(!pinsEqual(state.current.pin,anchor.pin)){
-   if(this.stored!.activation&&state.phase==="staged"&&state.next&&pinsEqual(state.next.pin,anchor.pin)){const recovered=switchTrust(state,this.stored!.activation.devices,this.options.now());if(!recovered.ok)throw new Error("trust recovery unavailable");this.save(recovered.state);state=recovered.state;}
+   if(stored.activation&&state.phase==="staged"&&state.next&&pinsEqual(state.next.pin,anchor.pin)){
+    if(stored.keys.next!==null&&stored.keys.next!==undefined&&stored.keys.next!==cert.certSpkiPin)throw new Error("remote trust recovery unavailable");
+    const recovered=switchedTrust({...stored,keys:{...stored.keys,next:cert.certSpkiPin??null}},stored.activation.devices,stored.activation.at,this.legacy);this.save(recovered);stored=recovered;state=recovered.state;
+   }
    else throw new ApiError(503,"E_STORAGE","certificate changed without staged trust",{reason:"trust-state-mismatch"});
-  }return {cert,state};
+  }else if(stored.keys.current===null&&cert.certSpkiPin){if(stored.keys.retired.includes(cert.certSpkiPin))throw new Error("remote trust state unavailable");stored={...stored,keys:{...stored.keys,current:cert.certSpkiPin}};this.stored=stored;}
+  else if(stored.keys.current!==null&&cert.certSpkiPin!==undefined&&stored.keys.current!==cert.certSpkiPin)throw new Error("remote trust state unavailable");
+  return {cert,state,stored};
  }
  private async transport(i:HandlerInput,typed=false){const cert=await this.certificate(),t=this.options.transport(i),origin=this.options.origin();
   if(!t||t.origin!==origin)throw errors.forbidden("pairing-origin");
@@ -107,11 +113,33 @@ export class RemotePairingController {
  async getTrust(i:HandlerInput){this.person(i);const {state}=await this.trust(),devices=await this.devices(i);this.audit("device.trust.read",webPrincipal(i.rbac!,i.principal?.kind==="owner").userId);return {...announcementFor(state),...(state.phase==="switched"?{phase:"switched" as const,repairIds:(state.repairIds??[]).filter(id=>devices.some(d=>d.id===id))}:{}),progress:trustProgress(state,devices)};}
  async challenge(i:HandlerInput){this.person(i,true);this.prune();const b=body(i.body,["deviceId"]),id=field(b,"deviceId"),devices=await this.devices(i);if(!devices.some(d=>d.id===id))throw errors.forbidden("device-owner");const ctx=await this.transport(i);const made=await this.service<{challenge:string}>("admin.api.device.challenge",{});if(this.challenges.size>=1000)throw errors.rateLimited(30);this.challenges.set(made.challenge,{deviceId:id,source:i.ip,fingerprint:ctx.fingerprint,origin:ctx.origin,expiresAt:this.options.now()+30_000});return {...made,expiresAt:this.options.now()+30_000,current:(await this.trust()).state.current,origin:ctx.origin};}
  ack(i:HandlerInput){return this.serial(async()=>{this.person(i,true);this.prune();const b=body(i.body,["deviceId","publicKey","challenge","signature","pin"]),id=field(b,"deviceId"),challenge=field(b,"challenge"),pending=this.challenges.get(challenge);this.challenges.delete(challenge);const ctx=await this.transport(i);if(!pending||pending.deviceId!==id||pending.source!==i.ip||pending.origin!==ctx.origin||!pinsEqual(pending.fingerprint,ctx.fingerprint))throw errors.forbidden("device-proof");
-  const devices=await this.devices(i);if(!devices.some(d=>d.id===id))throw errors.forbidden("device-owner");await this.service("admin.api.device.prove",{id,publicKey:field(b,"publicKey",4096),challenge,signature:field(b,"signature")});const {state}=await this.trust();const next=ackTrust(state,{deviceId:id,pin:field(b,"pin") as Pin,now:this.options.now(),paired:devices.map(d=>d.id)});if(!next.ok)throw errors.forbidden("trust-ack");this.audit("device.trust.acknowledged",webPrincipal(i.rbac!,i.principal?.kind==="owner").userId);this.save(next.state);return {acknowledged:true};
+  const devices=await this.devices(i);if(!devices.some(d=>d.id===id))throw errors.forbidden("device-owner");await this.service("admin.api.device.prove",{id,publicKey:field(b,"publicKey",4096),challenge,signature:field(b,"signature")});const {state,stored}=await this.trust();if(stored.activation)throw errors.forbidden("trust-ack");const next=ackTrust(state,{deviceId:id,pin:field(b,"pin") as Pin,now:this.options.now(),paired:devices.map(d=>d.id)});if(!next.ok)throw errors.forbidden("trust-ack");this.audit("device.trust.acknowledged",webPrincipal(i.rbac!,i.principal?.kind==="owner").userId);this.save({...stored,state:next.state});return {acknowledged:true};
  });}
- rotate(i:HandlerInput){return this.serial(async()=>{const actor=this.admin(i),b=body(i.body,["operation"]),operation=field(b,"operation"),{state}=await this.trust();this.audit("device.trust.rotate",actor.userId,{operation:operation==="stage"||operation==="activate"||operation==="cancel"?operation:"invalid"});
-  if(operation==="stage"){const material=await this.options.stage(),next:Anchor={kind:"cert",pin:material.certPin};const staged=stageTrust(state,next,this.options.now());if(!staged.ok)throw errors.badRequest("trust-stage","remote pairing operation refused");this.save(staged.state);const event=trustNextEvent(staged.state)!;await this.service("admin.api.device.announce",{next:event.next,stagedAt:event.stagedAt});return {...announcementFor(staged.state),progress:trustProgress(staged.state,await this.devices(i))};}
-  if(operation==="cancel"){const cancelled=cancelTrust(state);if(!cancelled.ok)throw errors.badRequest("trust-cancel","remote pairing operation refused");await this.options.cancelStage();this.save(cancelled.state);return announcementFor(cancelled.state);}
-  if(operation!=="activate"||state.phase!=="staged")throw errors.badRequest("trust-activate","remote pairing operation refused");const devices=await this.devices(i);const event=trustNextEvent(state)!;await this.service("admin.api.device.announce",{next:event.next,stagedAt:event.stagedAt});this.save(state,{devices:devices.map(d=>({id:d.id,name:d.name})),at:this.options.now()});await this.options.activate();const switched=switchTrust(state,devices,this.options.now());if(!switched.ok)throw errors.badRequest("trust-activate","remote pairing operation refused");this.save(switched.state);for(const id of this.grants.keys())this.codes.revoke(id);this.grants.clear();this.receipts.clear();this.challenges.clear();return {...announcementFor(switched.state),repairIds:switched.state.repairIds??[]};
+ rotate(i:HandlerInput){return this.serial(async()=>{const actor=this.admin(i),b=body(i.body,["operation"]),operation=field(b,"operation"),trust=await this.trust();let {stored}=trust;const {state}=trust;
+  if(operation!=="activate")this.audit("device.trust.rotate",actor.userId,{operation:operation==="stage"||operation==="cancel"?operation:"invalid"});
+  if(operation==="stage"){
+   if(state.phase==="staged"||stored.keys.current===null||stored.keys.unresolved.length)throw errors.badRequest("trust-stage","remote pairing operation refused");
+   let durable=false;
+   try{
+    const material=await this.options.stage(),next:Anchor={kind:"cert",pin:material.certPin};
+    if(!material.certSpkiPin||!parsePin(material.certSpkiPin)||stored.keys.retired.includes(material.certSpkiPin))throw errors.badRequest("trust-stage","remote pairing operation refused");
+    const staged=stageTrust(state,next,this.options.now());if(!staged.ok)throw errors.badRequest("trust-stage","remote pairing operation refused");
+    this.save({version:2,state:staged.state,keys:{...stored.keys,next:material.certSpkiPin}});durable=true;
+    const event=trustNextEvent(staged.state)!;await this.service("admin.api.device.announce",{next:{...event.next},stagedAt:event.stagedAt});return {...announcementFor(staged.state),progress:trustProgress(staged.state,await this.devices(i))};
+   }catch(e){if(!durable)await this.options.cancelStage();throw e;}
+  }
+  if(operation==="cancel"){
+   const cancelled=state.phase==="staged"?cancelTrust(state):{ok:true as const,state};if(!cancelled.ok)throw errors.badRequest("trust-cancel","remote pairing operation refused");
+   await this.options.cancelStage();const {next:_,...keys}=stored.keys;this.save({version:2,state:cancelled.state,keys});return announcementFor(cancelled.state);
+  }
+  if(operation!=="activate"||state.phase!=="staged"||stored.keys.current===null||stored.keys.unresolved.length)throw errors.badRequest("trust-activate","remote pairing operation refused");
+  const legacy=this.legacy;
+  if(stored.keys.next===null){const candidate=this.options.staged();if(!candidate||candidate.certPin!==state.next?.pin||!candidate.certSpkiPin||!parsePin(candidate.certSpkiPin))throw errors.badRequest("trust-activate","remote pairing operation refused");stored={...stored,keys:{...stored.keys,next:candidate.certSpkiPin}};}
+  const pending=stored.activation,devices=pending?.devices??(await this.devices(i)).map(d=>({id:d.id,name:d.name})),at=pending?.at??this.options.now();
+  const intent:StoredTrust={...stored,activation:{devices,at}},final=switchedTrust(stored,devices,at);validateStoredTrust(intent);validateStoredTrust(final);
+  const event=trustNextEvent(state)!;await this.service("admin.api.device.announce",{next:{...event.next},stagedAt:event.stagedAt});
+  const actual=this.options.staged();if(!actual||actual.certPin!==state.next?.pin||actual.certSpkiPin!==stored.keys.next||this.stored?.state!==state)throw errors.badRequest("trust-activate","remote pairing operation refused");
+  if(!pending||legacy){this.audit("device.trust.rotate",actor.userId,{operation:"activate",retired:{...state.current},certSpkiPin:stored.keys.current,keyRetired:stored.keys.current!==stored.keys.next,at});this.save(intent);}
+  await this.options.activate();this.save(final);for(const id of this.grants.keys())this.codes.revoke(id);this.grants.clear();this.receipts.clear();this.challenges.clear();return {...announcementFor(final.state),repairIds:final.state.repairIds??[]};
  });}
 }

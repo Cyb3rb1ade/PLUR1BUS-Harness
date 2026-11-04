@@ -7,7 +7,7 @@
 //
 // Everything is a pure function over plain data. The API package persists the harness state (serializeTrust), serves
 // `GET /api/v1/devices/trust` from announcementFor(), pushes `devices.trust.next` through the AnnouncePort, and
-// authenticates the device for `POST /api/v1/devices/trust/ack` before calling ackTrust(): wiring is a follow-up.
+// authenticates the device for `POST /api/v1/devices/trust/ack` before calling ackTrust().
 //
 // The security rule the device side encodes: a next pin is accepted only from an authenticated request on a
 // connection that the device's *current* trust already verified. Nothing else can plant one: no unauthenticated
@@ -24,6 +24,8 @@ export type Phase = "none" | "staged" | "switched";
 
 export interface TrustState {
   readonly current: Anchor;
+  /** Persisted departing anchors. Never truncated; a retired fingerprint cannot be staged under either role. */
+  readonly revoked: readonly Anchor[];
   readonly phase: Phase;
   readonly next?: Anchor;
   readonly stagedAt?: EpochMs;
@@ -38,7 +40,7 @@ export interface TrustDevice { readonly id: string; readonly name: string; reado
 
 export type TrustErrorCode =
   | "same-trust" | "already-staged" | "bad-pin" | "not-staged" | "not-switched" | "unknown-device" | "pin-mismatch"
-  | "untrusted-channel" | "wrong-harness" | "bad-state";
+  | "untrusted-channel" | "wrong-harness" | "bad-state" | "retired-anchor";
 export interface TrustError { readonly ok: false; readonly code: TrustErrorCode; readonly message: string }
 export type TrustResult = { readonly ok: true; readonly state: TrustState } | TrustError;
 
@@ -50,7 +52,7 @@ function validAnchor(a: Anchor): boolean {
 const same = (a: Anchor, b: Anchor): boolean => a.kind === b.kind && pinsEqual(a.pin, b.pin);
 
 export function initTrust(current: Anchor): TrustState {
-  return { current, phase: "none", acks: {} };
+  return { current, revoked: [], phase: "none", acks: {} };
 }
 
 /** Both anchors while a change is staged, otherwise just the current one: what the harness lets devices hold. */
@@ -72,7 +74,9 @@ export function stageTrust(s: TrustState, next: Anchor, now: EpochMs): TrustResu
   if (!validAnchor(next)) return err("bad-pin", "the next trust is not a valid sha256 pin");
   if (s.phase === "staged") return err("already-staged", "a change is already staged; switch or cancel it first");
   if (same(s.current, next)) return err("same-trust", "the new certificate has the same fingerprint as the current one");
-  return { ok: true, state: { current: s.current, phase: "staged", next, stagedAt: now, acks: {} } };
+  const revoked = s.revoked;
+  if (revoked.some(anchor => pinsEqual(anchor.pin, next.pin))) return err("retired-anchor", "a retired trust fingerprint cannot be staged again");
+  return { ok: true, state: { current: s.current, revoked, phase: "staged", next, stagedAt: now, acks: {} } };
 }
 
 export function ackTrust(s: TrustState, o: { deviceId: string; pin: Pin; now: EpochMs; paired: readonly string[] }): TrustResult {
@@ -92,19 +96,24 @@ export function trustProgress(s: TrustState, devices: readonly TrustDevice[]): {
 
 export function switchTrust(s: TrustState, devices: readonly TrustDevice[], now: EpochMs): { ok: true; state: TrustState; repair: TrustDevice[] } | TrustError {
   if (s.phase !== "staged" || !s.next) return err("not-staged", "no trust change is staged");
+  const next = s.next;
+  if (s.revoked.some(anchor => pinsEqual(anchor.pin, next.pin))) return err("retired-anchor", "a retired trust fingerprint cannot be activated again");
   const repair = devices.filter((d) => !Object.hasOwn(s.acks, d.id));
-  return { ok: true, state: { current: s.next, phase: "switched", acks: {}, switchedAt: now, repairIds: repair.map((d) => d.id) }, repair };
+  const revoked = [...s.revoked];
+  if (!revoked.some(anchor => same(anchor, s.current))) revoked.push(s.current);
+  return { ok: true, state: { current: next, revoked, phase: "switched", acks: {}, switchedAt: now, repairIds: repair.map((d) => d.id) }, repair };
 }
 
 export function cancelTrust(s: TrustState): TrustResult {
+  if (s.phase === "none") return { ok: true, state: s };
   if (s.phase !== "staged") return err("not-staged", "no trust change is staged");
-  return { ok: true, state: initTrust(s.current) };
+  return { ok: true, state: { ...initTrust(s.current), revoked: s.revoked } };
 }
 
 /** Dismisses the "switched" summary (the admin has seen who must pair again). */
 export function clearSwitched(s: TrustState): TrustResult {
   if (s.phase !== "switched") return err("not-switched", "nothing to clear");
-  return { ok: true, state: initTrust(s.current) };
+  return { ok: true, state: { ...initTrust(s.current), revoked: s.revoked } };
 }
 
 // --- announcement --------------------------------------------------------------------------------------------------
@@ -161,6 +170,20 @@ export function parseTrust(text: string): { ok: true; state: TrustState } | Trus
   };
   const current = anchor(o["current"]);
   if (!current) return bad("current is not a valid anchor");
+  if (o["revoked"] !== undefined && !Array.isArray(o["revoked"])) return bad("revoked must be an anchor list");
+  const revoked: Anchor[] = [];
+  const identities = new Set<string>(), fingerprints = new Set<Pin>();
+  for (const raw of (o["revoked"] ?? []) as unknown[]) {
+    const retired = anchor(raw);
+    if (!retired) return bad("revoked contains an invalid anchor");
+    // parsePin enforces one canonical spelling. Sets keep validation linear as retained history grows.
+    const identity = `${retired.kind}:${retired.pin}`;
+    if (identities.has(identity)) return bad("revoked contains a duplicate anchor");
+    identities.add(identity); fingerprints.add(retired.pin);
+    revoked.push(retired);
+  }
+  // A current-pin role change may retire its old role; the exact current anchor must never be retired.
+  if (identities.has(`${current.kind}:${current.pin}`)) return bad("current anchor is retired");
   const phase = o["phase"];
   if (phase !== "none" && phase !== "staged" && phase !== "switched") return bad("unknown phase");
   const acksRaw = o["acks"];
@@ -172,17 +195,18 @@ export function parseTrust(text: string): { ok: true; state: TrustState } | Trus
   if (phase === "staged") {
     const next = anchor(o["next"]);
     if (!next || !isTime(o["stagedAt"])) return bad("a staged change needs next and stagedAt");
+    if (fingerprints.has(next.pin)) return bad("next fingerprint is retired");
     if (o["switchedAt"] !== undefined || o["repairIds"] !== undefined) return bad("staged state carries switch data");
-    return { ok: true, state: { current, phase, next, stagedAt: o["stagedAt"], acks } };
+    return { ok: true, state: { current, revoked, phase, next, stagedAt: o["stagedAt"], acks } };
   }
   if (o["next"] !== undefined || o["stagedAt"] !== undefined) return bad("only a staged state has next/stagedAt");
   if (phase === "switched") {
     const repair = o["repairIds"];
     if (!isTime(o["switchedAt"]) || !Array.isArray(repair) || !repair.every((x) => typeof x === "string")) return bad("a switched state needs switchedAt and repairIds");
-    return { ok: true, state: { current, phase, acks, switchedAt: o["switchedAt"], repairIds: repair as string[] } };
+    return { ok: true, state: { current, revoked, phase, acks, switchedAt: o["switchedAt"], repairIds: repair as string[] } };
   }
   if (o["switchedAt"] !== undefined || o["repairIds"] !== undefined) return bad("state none carries switch data");
-  return { ok: true, state: { current, phase, acks } };
+  return { ok: true, state: { current, revoked, phase, acks } };
 }
 
 // --- device side ---------------------------------------------------------------------------------------------------

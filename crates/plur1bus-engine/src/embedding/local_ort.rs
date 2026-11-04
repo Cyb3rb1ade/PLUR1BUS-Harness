@@ -13,6 +13,10 @@ use std::sync::{Arc, Mutex, TryLockError};
 use std::time::Duration;
 
 mod session;
+// MM-1 shares initialization and cancellation only; media never accesses the ordinary text session slot.
+pub(crate) use session::{
+    environment as media_environment, media_admission_wait, with_watchdog as media_watchdog,
+};
 /// Transformers.js-compatible encode-then-cut tokenization and batch padding.
 pub mod tokenizer;
 

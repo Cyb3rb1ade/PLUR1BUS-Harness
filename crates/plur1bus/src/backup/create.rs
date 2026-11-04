@@ -59,6 +59,19 @@ pub struct CreateReport {
     pub skipped: Vec<String>,
     pub created_at_ms: u64,
     pub engine: Engine,
+    /// The manifest's names-only disclosure note, reused by the CLI without adding result fields.
+    pub secrets_note: String,
+}
+
+/// Creation-only selection. Ordinary archives exclude API credential material unless explicitly requested (SH8).
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct CreateOpts {
+    /// Include the staged API account database; the archive remains unencrypted. Defaults to false.
+    pub include_api_accounts: bool,
+}
+
+fn selected_snapshot_path(path: &str, opts: CreateOpts) -> bool {
+    opts.include_api_accounts || !path.eq_ignore_ascii_case("sqlite/api/accounts.db")
 }
 
 /// Removes a directory tree when dropped (staging areas, on every exit path).
@@ -236,24 +249,36 @@ pub fn check_staging_dir(layout: &Layout, snap: &Snapshot) -> Result<PathBuf, Ba
     Ok(dir)
 }
 
-/// Builds and writes the archive; `snap` is the core's staged snapshot. The staged directories are removed on every path.
+/// Builds an ordinary archive excluding API accounts; staged directories are removed on every path.
 pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateReport, BackupError> {
+    create_with_opts(layout, out, snap, CreateOpts::default())
+}
+
+/// Builds an archive with explicit creation-only selection. Refuses inconsistent staged data and cleans staging on exit.
+pub fn create_with_opts(
+    layout: &Layout,
+    out: &Path,
+    snap: &Snapshot,
+    opts: CreateOpts,
+) -> Result<CreateReport, BackupError> {
     let engine_dir = check_staging_dir(layout, snap)?;
     let _engine_cleanup = Cleanup(engine_dir.clone());
-    let ms = now_ms();
-    let backups = ensure_backups_dir(layout)?;
-    let stage = backups.join(format!(".staging-{ms}-{}", short_id()));
-    fs::create_dir_all(&stage)?;
-    let _stage_cleanup = Cleanup(stage.clone());
     if !store_target_allowed(&snap.store_target) {
         return Err(BackupError::new(
             "manifest-invalid",
             format!("store target {:?} is not allowed", snap.store_target),
         ));
     }
+    super::store_guard::check_store_target(layout, &snap.store_target)?;
+    let ms = now_ms();
+    let backups = ensure_backups_dir(layout)?;
+    let stage = backups.join(format!(".staging-{ms}-{}", short_id()));
+    fs::create_dir_all(&stage)?;
+    let _stage_cleanup = Cleanup(stage.clone());
     let store = snap.store_target.as_str();
 
     let mut skipped = Vec::new();
+    let mut redacted_config_keys = Vec::new();
     let mut units: Vec<Unit> = vec![Unit {
         archive: "store".into(),
         target: store.into(),
@@ -287,7 +312,7 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
         walk(&engine_dir, "sqlite", &mut w)?;
         for (rel, _) in w.files {
             // A stray `-wal`/`-shm` next to a staged database is connection state, not data: it is not planned.
-            if is_sqlite_sidecar(&rel) {
+            if is_sqlite_sidecar(&rel) || !selected_snapshot_path(&rel, opts) {
                 continue;
             }
             let target = format!("state/{}", &rel["sqlite/".len()..]);
@@ -316,7 +341,7 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
                 copy_file_stable(&live, &dst, target)?;
                 if target == "config.json" {
                     // A secret VALUE kept in the config never reaches the archive (the live file is not touched).
-                    super::redact::redact_staged_config(&dst)?;
+                    redacted_config_keys = super::redact::redact_staged_config(layout, &dst)?;
                 }
                 units.push(Unit {
                     archive,
@@ -373,8 +398,12 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
     files.sort_by(|a, b| a.path.cmp(&b.path));
 
     // The core's own digests must agree with what is on disk now, file for file (nothing added, nothing missing).
-    let reported: HashMap<&str, &SnapFile> =
-        snap.files.iter().map(|f| (f.path.as_str(), f)).collect();
+    let reported: HashMap<&str, &SnapFile> = snap
+        .files
+        .iter()
+        .filter(|f| selected_snapshot_path(&f.path, opts))
+        .map(|f| (f.path.as_str(), f))
+        .collect();
     for f in files.iter().filter(|f| engine_owned(&f.path)) {
         match reported.get(f.path.as_str()) {
             Some(r) if r.sha256 == f.sha256 && r.bytes == f.bytes => {}
@@ -387,7 +416,12 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
         }
     }
     let have: BTreeSet<&str> = files.iter().map(|f| f.path.as_str()).collect();
-    if let Some(m) = snap.files.iter().find(|f| !have.contains(f.path.as_str())) {
+    if let Some(m) = snap
+        .files
+        .iter()
+        .filter(|f| selected_snapshot_path(&f.path, opts))
+        .find(|f| !have.contains(f.path.as_str()))
+    {
         return Err(BackupError::new(
             "snapshot-mismatch",
             format!("{} was staged but is not in the archive plan", m.path),
@@ -423,7 +457,11 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
         skipped,
         secrets: Secrets {
             included: false,
-            note: SECRETS_NOTE.into(),
+            note: if opts.include_api_accounts {
+                secrets_note_with_api_accounts(&redacted_config_keys, true)
+            } else {
+                secrets_note(&redacted_config_keys)
+            },
         },
     };
     manifest.validate()?;
@@ -442,6 +480,7 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
         skipped: manifest.skipped.clone(),
         created_at_ms: ms,
         engine: manifest.engine.clone(),
+        secrets_note: manifest.secrets.note.clone(),
     })
 }
 
@@ -494,6 +533,412 @@ pub(crate) mod testkit {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Read;
+
+    fn add_staged_file(snap: &mut Snapshot, path: &str, contents: &[u8]) {
+        let staged = snap.dir.join(path);
+        fs::create_dir_all(staged.parent().unwrap()).unwrap();
+        fs::write(&staged, contents).unwrap();
+        let (sha256, bytes) = hash_file(&staged).unwrap();
+        snap.files.push(SnapFile {
+            path: path.into(),
+            bytes,
+            sha256,
+        });
+    }
+
+    fn archive_entry(out: &Path, wanted: &str) -> Option<Vec<u8>> {
+        let decoder = flate2::read::GzDecoder::new(fs::File::open(out).unwrap());
+        let mut archive = tar::Archive::new(decoder);
+        for entry in archive.entries().unwrap() {
+            let mut entry = entry.unwrap();
+            if entry.path().unwrap().as_ref() == Path::new(wanted) {
+                let mut contents = Vec::new();
+                entry.read_to_end(&mut contents).unwrap();
+                return Some(contents);
+            }
+        }
+        None
+    }
+
+    fn assert_refused_and_cleaned(
+        layout: &Layout,
+        snap: &Snapshot,
+        out: &Path,
+        opts: CreateOpts,
+        reason: &str,
+    ) {
+        let error = create_with_opts(layout, out, snap, opts).err().unwrap();
+        assert_eq!(error.reason, reason, "{error}");
+        assert!(!out.exists(), "a refused backup must not be published");
+        assert!(!snap.dir.exists(), "private Core staging must be cleaned");
+        let backups = backups_dir(layout);
+        if backups.exists() {
+            assert!(!fs::read_dir(backups).unwrap().any(|entry| {
+                entry
+                    .unwrap()
+                    .file_name()
+                    .as_encoded_bytes()
+                    .starts_with(b".staging-")
+            }));
+        }
+    }
+
+    #[test]
+    fn ordinary_backups_omit_api_accounts_but_keep_other_sqlite_databases() {
+        let d = tempfile::tempdir().unwrap();
+        let layout = Layout::new(d.path().to_path_buf());
+        let mut snap = testkit::staged(&layout, b"budget database", false);
+        let marker = format!("account-credential-{}", uuid::Uuid::new_v4());
+        let account = snap.dir.join("sqlite/api/accounts.db");
+        fs::create_dir_all(account.parent().unwrap()).unwrap();
+        fs::write(&account, marker.as_bytes()).unwrap();
+        let (sha256, bytes) = hash_file(&account).unwrap();
+        snap.files.push(SnapFile {
+            path: "sqlite/api/accounts.db".into(),
+            bytes,
+            sha256,
+        });
+        let out = d.path().join("ordinary.tar.gz");
+        let report = create(&layout, &out, &snap).unwrap();
+        let manifest = verify(&out).unwrap();
+        assert!(!manifest
+            .units
+            .iter()
+            .any(|unit| unit.target.eq_ignore_ascii_case("state/api/accounts.db")));
+        assert!(!manifest
+            .files
+            .iter()
+            .any(|file| file.path.eq_ignore_ascii_case("sqlite/api/accounts.db")));
+        assert!(!report
+            .absent
+            .iter()
+            .any(|target| target.eq_ignore_ascii_case("state/api/accounts.db")));
+        assert!(manifest
+            .files
+            .iter()
+            .any(|file| file.path == "sqlite/budget.sqlite"));
+        let mut unpacked = Vec::new();
+        flate2::read::GzDecoder::new(fs::File::open(&out).unwrap())
+            .read_to_end(&mut unpacked)
+            .unwrap();
+        assert!(!unpacked
+            .windows(marker.len())
+            .any(|window| window == marker.as_bytes()));
+        let mut archive = tar::Archive::new(unpacked.as_slice());
+        for entry in archive.entries().unwrap() {
+            assert!(!entry
+                .unwrap()
+                .path()
+                .unwrap()
+                .as_os_str()
+                .as_encoded_bytes()
+                .eq_ignore_ascii_case(b"data/sqlite/api/accounts.db"));
+        }
+        assert!(!snap.dir.exists(), "private Core staging must be cleaned");
+    }
+
+    #[test]
+    fn account_selection_matches_only_the_canonical_path_ignoring_ascii_case() {
+        for account in ["sqlite/api/accounts.db", "sqlite/Api/Accounts.DB"] {
+            for include_api_accounts in [false, true] {
+                let d = tempfile::tempdir().unwrap();
+                let layout = Layout::new(d.path().to_path_buf());
+                let mut snap = testkit::staged(&layout, b"budget database", false);
+                let marker = format!("account-credential-{}", uuid::Uuid::new_v4());
+                add_staged_file(&mut snap, account, marker.as_bytes());
+                let account_parent = account.rsplit_once('/').unwrap().0;
+                let unrelated_paths = [
+                    format!("{account_parent}/accounts-copy.db"),
+                    "sqlite/other/accounts.db".to_string(),
+                    format!("{account_parent}/accounts.db.sqlite"),
+                ];
+                for unrelated in &unrelated_paths {
+                    add_staged_file(&mut snap, unrelated, b"unrelated database");
+                }
+                let out = d.path().join("selection.tar.gz");
+                create_with_opts(
+                    &layout,
+                    &out,
+                    &snap,
+                    CreateOpts {
+                        include_api_accounts,
+                    },
+                )
+                .unwrap();
+                let manifest = verify(&out).unwrap();
+                assert_eq!(
+                    manifest.files.iter().any(|file| file.path == account),
+                    include_api_accounts
+                );
+                assert_eq!(
+                    archive_entry(&out, &format!("data/{account}")),
+                    include_api_accounts.then(|| marker.as_bytes().to_vec())
+                );
+                for unrelated in unrelated_paths
+                    .iter()
+                    .map(String::as_str)
+                    .chain(["sqlite/budget.sqlite"])
+                {
+                    assert!(manifest.files.iter().any(|file| file.path == unrelated));
+                }
+                assert!(!manifest
+                    .absent
+                    .iter()
+                    .any(|target| target.eq_ignore_ascii_case("state/api/accounts.db")));
+                assert!(!snap.dir.exists());
+            }
+        }
+    }
+
+    #[test]
+    fn excluding_accounts_keeps_both_directions_of_unrelated_snapshot_completeness_strict() {
+        for change in [
+            "changed",
+            "unreported",
+            "missing",
+            "added",
+            "report-only",
+            "reported-sidecar",
+            "reported-account-sidecar",
+            "changed-store",
+        ] {
+            let d = tempfile::tempdir().unwrap();
+            let layout = Layout::new(d.path().to_path_buf());
+            let mut snap = testkit::staged(&layout, b"budget database", false);
+            let marker = format!("account-credential-{}", uuid::Uuid::new_v4());
+            add_staged_file(&mut snap, "sqlite/api/accounts.db", marker.as_bytes());
+            match change {
+                "changed" => fs::write(snap.dir.join("sqlite/budget.sqlite"), b"changed").unwrap(),
+                "unreported" => snap
+                    .files
+                    .retain(|file| file.path != "sqlite/budget.sqlite"),
+                "missing" => fs::remove_file(snap.dir.join("sqlite/budget.sqlite")).unwrap(),
+                "added" => fs::write(snap.dir.join("sqlite/extra.db"), b"unreported").unwrap(),
+                "report-only" => snap.files.push(SnapFile {
+                    path: "sqlite/extra.db".into(),
+                    bytes: 0,
+                    sha256: "0".repeat(64),
+                }),
+                "reported-sidecar" => {
+                    add_staged_file(&mut snap, "sqlite/budget.sqlite-wal", b"connection state")
+                }
+                "reported-account-sidecar" => {
+                    add_staged_file(&mut snap, "sqlite/api/accounts.db-wal", b"connection state")
+                }
+                "changed-store" => fs::write(snap.dir.join("store/t.lance"), b"changed").unwrap(),
+                _ => unreachable!(),
+            }
+            assert_refused_and_cleaned(
+                &layout,
+                &snap,
+                &d.path().join("mismatch.tar.gz"),
+                CreateOpts::default(),
+                "snapshot-mismatch",
+            );
+        }
+    }
+
+    #[test]
+    fn account_snapshot_mismatches_are_ignored_only_when_accounts_are_not_selected() {
+        for include_api_accounts in [false, true] {
+            for change in ["changed", "missing", "unreported", "misreported"] {
+                let d = tempfile::tempdir().unwrap();
+                let layout = Layout::new(d.path().to_path_buf());
+                let mut snap = testkit::staged(&layout, b"budget database", false);
+                let marker = format!("account-credential-{}", uuid::Uuid::new_v4());
+                let account = "sqlite/api/accounts.db";
+                add_staged_file(&mut snap, account, marker.as_bytes());
+                match change {
+                    "changed" => fs::write(snap.dir.join(account), b"changed").unwrap(),
+                    "missing" => fs::remove_file(snap.dir.join(account)).unwrap(),
+                    "unreported" => snap.files.retain(|file| file.path != account),
+                    "misreported" => snap.files.last_mut().unwrap().bytes += 1,
+                    _ => unreachable!(),
+                }
+                let out = d.path().join("selected-mismatch.tar.gz");
+                let opts = CreateOpts {
+                    include_api_accounts,
+                };
+                if include_api_accounts {
+                    assert_refused_and_cleaned(&layout, &snap, &out, opts, "snapshot-mismatch");
+                } else {
+                    create_with_opts(&layout, &out, &snap, opts).unwrap();
+                    assert!(archive_entry(&out, "data/sqlite/api/accounts.db").is_none());
+                    assert!(!snap.dir.exists());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn missing_account_sources_never_become_absent_deletion_markers() {
+        for include_api_accounts in [false, true] {
+            let d = tempfile::tempdir().unwrap();
+            let layout = Layout::new(d.path().to_path_buf());
+            let snap = testkit::staged(&layout, b"budget database", false);
+            let out = d.path().join("no-account-source.tar.gz");
+            create_with_opts(
+                &layout,
+                &out,
+                &snap,
+                CreateOpts {
+                    include_api_accounts,
+                },
+            )
+            .unwrap();
+            let manifest = verify(&out).unwrap();
+            assert!(!manifest
+                .units
+                .iter()
+                .any(|unit| unit.target.eq_ignore_ascii_case("state/api/accounts.db")));
+            assert!(!manifest
+                .absent
+                .iter()
+                .any(|target| target.eq_ignore_ascii_case("state/api/accounts.db")));
+        }
+    }
+
+    #[test]
+    fn overlapping_store_targets_refuse_both_modes_and_remove_validated_staging() {
+        for include_api_accounts in [false, true] {
+            for target in [
+                "state/api",
+                "STATE/API",
+                "state/api/accounts.db",
+                "STATE/API/ACCOUNTS.DB/child",
+            ] {
+                let d = tempfile::tempdir().unwrap();
+                let layout = Layout::new(d.path().to_path_buf());
+                let mut snap = testkit::staged(&layout, b"budget database", false);
+                snap.store_target = target.into();
+                assert_refused_and_cleaned(
+                    &layout,
+                    &snap,
+                    &d.path().join("overlap.tar.gz"),
+                    CreateOpts {
+                        include_api_accounts,
+                    },
+                    "manifest-invalid",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn sibling_store_targets_and_missing_leaves_remain_creatable_in_both_modes() {
+        for include_api_accounts in [false, true] {
+            for target in [
+                "state/api/store",
+                "state/api-archive",
+                "state/api/accounts.db2",
+            ] {
+                let d = tempfile::tempdir().unwrap();
+                let layout = Layout::new(d.path().to_path_buf());
+                let mut snap = testkit::staged(&layout, b"budget database", false);
+                snap.store_target = target.into();
+                let out = d.path().join("sibling.tar.gz");
+                create_with_opts(
+                    &layout,
+                    &out,
+                    &snap,
+                    CreateOpts {
+                        include_api_accounts,
+                    },
+                )
+                .unwrap();
+                assert_eq!(verify(&out).unwrap().store_target, target);
+                assert!(!snap.dir.exists());
+            }
+        }
+    }
+
+    #[cfg(any(unix, windows))]
+    fn directory_alias(target: &Path, alias: &Path) {
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(target, alias).unwrap();
+        #[cfg(windows)]
+        {
+            // A directory junction needs neither administrator privileges nor Developer Mode.
+            let result = std::process::Command::new("cmd")
+                .args(["/C", "mklink", "/J"])
+                .arg(alias)
+                .arg(target)
+                .output()
+                .unwrap();
+            assert!(
+                result.status.success(),
+                "junction fixture failed: {}",
+                String::from_utf8_lossy(&result.stderr)
+            );
+        }
+    }
+
+    #[cfg(any(unix, windows))]
+    #[test]
+    fn live_store_or_account_parent_aliases_cannot_bypass_account_separation() {
+        for include_api_accounts in [false, true] {
+            for alias in ["store", "store-parent", "account-parent"] {
+                let d = tempfile::tempdir().unwrap();
+                let layout = Layout::new(d.path().to_path_buf());
+                let mut snap = testkit::staged(&layout, b"budget database", false);
+                let api = layout.state().join(if alias == "account-parent" {
+                    "real-api"
+                } else {
+                    "api"
+                });
+                fs::create_dir_all(&api).unwrap();
+                let marker = format!("account-credential-{}", uuid::Uuid::new_v4());
+                fs::write(api.join("accounts.db"), marker.as_bytes()).unwrap();
+                match alias {
+                    "store" => directory_alias(&api, &layout.state().join("lancedb")),
+                    "store-parent" => {
+                        directory_alias(&layout.state(), &layout.home.join("state-alias"));
+                        snap.store_target = "state-alias/api".into();
+                    }
+                    "account-parent" => {
+                        directory_alias(&api, &layout.state().join("api"));
+                        snap.store_target = "state/real-api".into();
+                    }
+                    _ => unreachable!(),
+                }
+                add_staged_file(&mut snap, "store/accounts.db", marker.as_bytes());
+                assert_refused_and_cleaned(
+                    &layout,
+                    &snap,
+                    &d.path().join("alias.tar.gz"),
+                    CreateOpts {
+                        include_api_accounts,
+                    },
+                    "manifest-invalid",
+                );
+                assert_eq!(
+                    fs::read(api.join("accounts.db")).unwrap(),
+                    marker.as_bytes()
+                );
+            }
+        }
+    }
+
+    #[cfg(any(unix, windows))]
+    #[test]
+    fn dangling_live_store_aliases_refuse_instead_of_falling_back_to_a_lexical_path() {
+        for include_api_accounts in [false, true] {
+            let d = tempfile::tempdir().unwrap();
+            let layout = Layout::new(d.path().to_path_buf());
+            let snap = testkit::staged(&layout, b"budget database", false);
+            directory_alias(&layout.state().join("api"), &layout.state().join("lancedb"));
+            assert_refused_and_cleaned(
+                &layout,
+                &snap,
+                &d.path().join("dangling.tar.gz"),
+                CreateOpts {
+                    include_api_accounts,
+                },
+                "io",
+            );
+        }
+    }
 
     #[test]
     fn sqlite_sidecars_next_to_a_staged_database_are_neither_planned_nor_archived() {

@@ -8,7 +8,7 @@ use ort::session::{builder::GraphOptimizationLevel, RunOptions, Session};
 use ort::value::{DynValue, Tensor, TensorElementType, ValueType};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Mutex, MutexGuard, OnceLock, TryLockError};
 use std::time::Duration;
 
@@ -22,6 +22,32 @@ type SessionSlot = Option<CachedSession>;
 static ENVIRONMENT: OnceLock<Environment> = OnceLock::new();
 static INITIALIZE: Mutex<()> = Mutex::new(());
 static SESSION: Mutex<SessionSlot> = Mutex::new(None);
+// Queued and running ordinary text calls have admission priority over the next media stage (MM-1/E1).
+static TEXT_PENDING: AtomicUsize = AtomicUsize::new(0);
+
+struct TextAdmission;
+impl TextAdmission {
+    fn enter() -> Self {
+        TEXT_PENDING.fetch_add(1, Ordering::AcqRel);
+        Self
+    }
+}
+impl Drop for TextAdmission {
+    fn drop(&mut self) {
+        TEXT_PENDING.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+
+/// Wait at a media stage boundary while ordinary text calls are queued or running.
+pub(crate) fn media_admission_wait(cancel: &Cancel) -> Result<(), LocalModelError> {
+    loop {
+        cancel.check()?;
+        if TEXT_PENDING.load(Ordering::Acquire) == 0 {
+            return Ok(());
+        }
+        std::thread::sleep(Duration::from_millis(2));
+    }
+}
 
 /// Initialize the one process-wide CPU environment from an explicit host-owned library path.
 /// The first successful initialization remains alive for the process; no process environment is changed.
@@ -57,7 +83,7 @@ pub(crate) fn initialize(path: &Path) -> Result<(), LocalModelError> {
         .map_err(|_| LocalModelError::RuntimeFailed)
 }
 
-fn environment() -> Result<&'static Environment, LocalModelError> {
+pub(crate) fn environment() -> Result<&'static Environment, LocalModelError> {
     if let Some(environment) = ENVIRONMENT.get() {
         return Ok(environment);
     }
@@ -258,7 +284,7 @@ impl Drop for StopWatch<'_> {
     }
 }
 
-fn with_watchdog<T>(
+pub(crate) fn with_watchdog<T>(
     cancel: &Cancel,
     options: &RunOptions,
     run: impl FnOnce() -> ort::Result<T>,
@@ -325,6 +351,7 @@ pub(super) fn infer(
     load_verifier: impl FnOnce() -> Result<(), LocalModelError>,
 ) -> Result<InferenceOutputs, LocalModelError> {
     cancel.check()?;
+    let _priority = TextAdmission::enter();
     let mut slot = shared_session(profile, model_path, cancel, load_verifier)?;
     let session = &mut slot.as_mut().ok_or(LocalModelError::RuntimeFailed)?.session;
     let values = inputs(session, profile, batch, task_id, media)?;
@@ -359,6 +386,32 @@ pub(super) fn infer(
     }
     cancel.check()?;
     Ok(tensors)
+}
+
+#[cfg(test)]
+mod media_admission_tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+
+    #[test]
+    fn text_slot_remains_available_while_every_media_slot_is_locked() {
+        crate::media::session::with_slots_locked(|| {
+            let _priority = TextAdmission::enter();
+            assert!(SESSION.try_lock().is_ok());
+        });
+    }
+
+    #[test]
+    fn pending_text_delays_the_next_media_stage_until_cancelled_or_finished() {
+        let priority = TextAdmission::enter();
+        let cancel = Cancel::with_deadline(std::time::Instant::now() + Duration::from_millis(15));
+        assert!(matches!(
+            media_admission_wait(&cancel),
+            Err(LocalModelError::Cancelled(_))
+        ));
+        drop(priority);
+        media_admission_wait(&Cancel::never()).unwrap();
+    }
 }
 
 #[cfg(all(test, feature = "real-models"))]
