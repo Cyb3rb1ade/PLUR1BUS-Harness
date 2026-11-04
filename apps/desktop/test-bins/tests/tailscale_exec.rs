@@ -3,6 +3,8 @@
 //! test copies the fake into its own temporary directory with its own `fake-tailscale.scenario`, so the scenario never
 //! travels through the environment the exec clears. `exec_status` is a debug-only test surface, so this file is too.
 #![cfg(debug_assertions)]
+#[path = "support/cleared_environment.rs"]
+mod cleared_environment;
 #[cfg(unix)]
 use plur1bus_desktop::transport::exec_candidate;
 use plur1bus_desktop::transport::{
@@ -45,17 +47,30 @@ fn exited(outcome: ExecOutcome) -> (bool, Vec<u8>) {
 #[test]
 fn argv_is_exactly_status_json_and_only_allow_listed_variables_pass() {
     let f = fake("env");
+    let baseline = std::process::Command::new(&f.bin)
+        .env_clear()
+        .args(["status", "--json"])
+        .output()
+        .unwrap();
+    assert!(baseline.status.success());
+    let cleared: serde_json::Value = serde_json::from_slice(&baseline.stdout).unwrap();
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .unwrap();
     let outcome = {
         let _guard = ENV.lock().unwrap_or_else(|e| e.into_inner());
+        let architecture = std::env::var_os("PROCESSOR_ARCHITECTURE");
+        std::env::set_var("PROCESSOR_ARCHITECTURE", "must-not-pass");
         std::env::set_var("PLUR1BUS_SYNTHETIC_SENTINEL", "must-not-pass");
         std::env::set_var("FAKE_TAILSCALE_SCENARIO", "running");
         let outcome = runtime.block_on(exec_status(&f.bin));
         std::env::remove_var("PLUR1BUS_SYNTHETIC_SENTINEL");
         std::env::remove_var("FAKE_TAILSCALE_SCENARIO");
+        match architecture {
+            Some(value) => std::env::set_var("PROCESSOR_ARCHITECTURE", value),
+            None => std::env::remove_var("PROCESSOR_ARCHITECTURE"),
+        }
         outcome
     };
     let (success, stdout) = exited(outcome);
@@ -80,12 +95,7 @@ fn argv_is_exactly_status_json_and_only_allow_listed_variables_pass() {
         "ProgramData",
         "TEMP",
     ];
-    for name in &names {
-        assert!(
-            allowed.iter().any(|a| a.eq_ignore_ascii_case(name)),
-            "{name} passed the allow-list: {names:?}"
-        );
-    }
+    cleared_environment::assert_environment(&doc, &cleared, &allowed);
     #[cfg(unix)]
     assert!(names.iter().any(|n| n == "LANG"), "{names:?}");
     assert!(!names.iter().any(|n| n.eq_ignore_ascii_case("PATH")));
