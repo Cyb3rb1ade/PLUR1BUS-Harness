@@ -221,3 +221,10 @@ pub fn synthetic_help(argv: &[&str]) -> Option<&'static str> {
         _=>None,
     }
 }
+
+/// Compare the architecture injected by process startup without printing values.
+pub fn architecture_fingerprint() -> Option<String> {
+    use sha2::Digest;
+    env::var_os("PROCESSOR_ARCHITECTURE")
+        .map(|value| format!("{:x}", sha2::Sha256::digest(value.as_encoded_bytes())))
+}
