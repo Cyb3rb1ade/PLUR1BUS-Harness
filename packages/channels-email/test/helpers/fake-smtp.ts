@@ -26,6 +26,8 @@ export class FakeSmtp {
   readonly fails: FailRule[] = [];
   credentialsBeforeTls = false;
   authenticated = 0;
+  /** Tests may hold the final response after the recipient can see the message. */
+  acknowledge(send: () => void): void { send(); }
   port = 0;
   #server: Server | undefined;
   #sockets = new Set<Socket>();
@@ -108,7 +110,7 @@ class SmtpConn {
       this.#f.received.push({ from: this.#from, rcpt: [...this.#rcpt], data });
       this.#from = "";
       this.#rcpt = [];
-      this.#write("250 2.0.0 queued");
+      this.#f.acknowledge(() => this.#write("250 2.0.0 queued"));
       return;
     }
     this.#buf += d.toString("utf8");
