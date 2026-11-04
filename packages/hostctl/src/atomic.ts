@@ -6,6 +6,7 @@ import { openVerified, type CanonicalPath } from '../../core/src/policy/paths-in
 import { fail } from './errors.ts';
 type Canon = (path: string, access: 'read' | 'write') => Promise<CanonicalPath>;
 const sameIdentity = (a: CanonicalPath['identity'], b: CanonicalPath['identity']) => a.dev === b.dev && a.ino === b.ino && a.birth === b.birth;
+const publicationCollisions = new Set(['EPERM', 'EACCES', 'EBUSY']);
 /** Atomic publication with a final abort/identity check after staging, immediately before rename/link. */
 export async function atomicWrite(input: string, data: Buffer, overwrite: boolean, canon: Canon, signal: AbortSignal, limit: number, afterStage?: () => Promise<void>) {
   signal.throwIfAborted(); if (data.length > limit) fail('TOO_LARGE', 'Write less than output.maxBytes per operation.');
@@ -14,6 +15,8 @@ export async function atomicWrite(input: string, data: Buffer, overwrite: boolea
   let mode = 0o600;
   if (target.exists) { const s = await stat(target.canonical); if (!s.isFile()) fail('DENIED', 'The target must be a regular file.'); mode = s.mode & 0o777; }
   const parent = await canon(dirname(target.canonical), 'write');
+  const changed = (current: CanonicalPath, directory: CanonicalPath) => current.canonical !== target.canonical || current.exists !== target.exists ||
+    (target.exists && !sameIdentity(current.identity, target.identity)) || !sameIdentity(directory.identity, parent.identity);
   const temp = await canon(join(parent.canonical, `.hostctl-${randomUUID()}.tmp`), 'write');
   const handle = await openVerified(temp, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL);
   if ('ok' in handle) fail('CHANGED', 'The directory changed before the temporary file was opened.');
@@ -28,9 +31,21 @@ export async function atomicWrite(input: string, data: Buffer, overwrite: boolea
     await afterStage?.();
     signal.throwIfAborted();
     const again = await canon(input, 'write'); const directory = await canon(parent.canonical, 'write');
-    if (again.canonical !== target.canonical || again.exists !== target.exists || (target.exists && !sameIdentity(again.identity, target.identity)) || !sameIdentity(directory.identity, parent.identity)) fail('CHANGED', 'The target changed while staging; read it again before retrying.');
+    if (changed(again, directory)) fail('CHANGED', 'The target changed while staging; read it again before retrying.');
     signal.throwIfAborted();
-    if (overwrite) { await rename(temp.canonical, target.canonical); live = false; }
+    if (overwrite) {
+      try { await rename(temp.canonical, target.canonical); }
+      catch (error) {
+        // Windows can deny replacement during a competing publication after the final check.
+        // Report only a proven identity change; preserve permission failures and never retry the write.
+        if (publicationCollisions.has((error as NodeJS.ErrnoException)?.code ?? '')) {
+          const fresh = await Promise.all([canon(input, 'write'), canon(parent.canonical, 'write')]).catch(() => null);
+          if (fresh && changed(fresh[0], fresh[1])) fail('CHANGED', 'The target changed during publication; read it again before retrying.');
+        }
+        throw error;
+      }
+      live = false;
+    }
     else { await link(temp.canonical, target.canonical); await clean(); live = false; }
     return { bytesWritten: data.length, created: !target.exists };
   } finally { if (live) await clean(); }
