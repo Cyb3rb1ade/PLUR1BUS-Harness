@@ -3,7 +3,9 @@ use plur1bus_desktop::extension_commands::read_package;
 
 #[test]
 fn package_reads_are_bounded_and_refuse_nonregular_files() {
-    let dir = tempfile::tempdir().unwrap();
+    // Resolve only the system Temp root. Selected package paths still go
+    // unchanged through the production no-symlink reader.
+    let dir = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
     let path = dir.path().join("package.p1x");
     std::fs::write(&path, b"1234").unwrap();
     assert_eq!(read_package(&path, 4).unwrap(), b"1234");
@@ -21,12 +23,20 @@ fn package_reads_are_bounded_and_refuse_nonregular_files() {
 #[test]
 fn package_reads_refuse_symlink_and_fifo_before_opening() {
     use std::os::unix::fs::symlink;
-    let dir = tempfile::tempdir().unwrap();
+    // Resolve only the system Temp root. Selected package paths still go
+    // unchanged through the production no-symlink reader.
+    let dir = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
     let path = dir.path().join("real.p1x");
     std::fs::write(&path, b"secret").unwrap();
     let link = dir.path().join("link.p1x");
     symlink(&path, &link).unwrap();
     assert_eq!(read_package(&link, 100).unwrap_err(), "unsafe-file");
+    let alias = dir.path().join("alias");
+    symlink(dir.path(), &alias).unwrap();
+    assert_eq!(
+        read_package(&alias.join("real.p1x"), 100).unwrap_err(),
+        "unsafe-file"
+    );
     let fifo = dir.path().join("pipe.p1x");
     let name = std::ffi::CString::new(fifo.to_str().unwrap()).unwrap();
     assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
