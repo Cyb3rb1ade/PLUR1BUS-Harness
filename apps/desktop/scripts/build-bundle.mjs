@@ -19,7 +19,7 @@ export async function buildBundle(options){
  await run('cargo',['build','--locked','--release','--target',options.target,'-p','plur1bus-host']);
  await mkdir(join(desktop,'src-tauri/binaries'),{recursive:true});
  await copyFile(join(targetRoot,options.target,'release',`plur1bus-host${suffix}`),join(desktop,'src-tauri/binaries',`plur1bus-host-${options.target}${suffix}`));
- const args=[join(desktop,'node_modules/@tauri-apps/cli/tauri.js'),'build','--target',options.target,'--config',prepared.configPath];
+ const args=[join(desktop,'node_modules/@tauri-apps/cli/tauri.js'),'build','--verbose','--target',options.target,'--config',prepared.configPath];
  if(options.channel==='dev')args.push('--debug');
  if(options.distribution==='store'||options.distribution==='flatpak')args.push('--config',join(desktop,'src-tauri/tauri.store.conf.json'),'--features','store','--no-bundle');
 
