@@ -189,7 +189,12 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
       if (c.authTimer) { clearTimeout(c.authTimer); c.authTimer = null; }
       let principal: ApiPrincipal | null = null;
       try { principal = hasApi && delegated ? await o.apiPrincipalOf?.(delegated) ?? null : null; }
-      catch { return replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "API identity unavailable", { reason: "no-principal" })); }
+      catch (error) {
+        const stopping = error instanceof RpcError && error.error === "E_NOT_AVAILABLE" && error.reason === "stopping";
+        return replyAndClose(c, id, stopping
+          ? new RpcError("E_NOT_AVAILABLE", "API identity unavailable while the core stops", { reason: "stopping" })
+          : new RpcError("E_UNAUTHORIZED", "API identity unavailable", { reason: "no-principal" }));
+      }
       const hello = o.hello();
       const features = (hello as { capabilities?: { features?: readonly string[] } }).capabilities?.features ?? [];
       return send(c, { jsonrpc: "2.0", id, result: { ...hello, ...(hasEngine ? { capabilities: buildCapabilities([...features, "engine"], role) } : {}), ...(hasApi ? { apiPrincipal: principal } : {}) } });
