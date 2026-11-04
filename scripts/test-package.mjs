@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { availableParallelism, totalmem } from 'node:os';
+import { coreTestConcurrency } from './ci/core-test-concurrency.mjs';
 import { listTestFiles, parseShard, selectShard, writeManifest } from "./ci/test-shards.mjs";
 
 // Default per-test timeout: a hung test fails with its own name instead of silently eating the CI job budget (the job
@@ -27,5 +29,11 @@ if (process.env.PLUR1BUS_TEST_SHARD !== undefined) {
   console.log(`shard ${shard.index}/${shard.total}: ${files.length} test files`);
 }
 if (files.length === 0) { console.log("no tests"); process.exit(0); }
-const r = spawnSync(process.execPath, ["--import", new URL("./test-prerequisites.mjs", import.meta.url).href, "--experimental-strip-types", "--conditions=source", "--no-warnings=ExperimentalWarning", "--test", "--test-concurrency=1", `--test-timeout=${TEST_TIMEOUT_MS}`, ...files], { stdio: "inherit" });
+let packageName;
+try { packageName = JSON.parse(readFileSync('package.json', 'utf8')).name; }
+catch (error) { if (error.code !== 'ENOENT') throw error; }
+const concurrency = coreTestConcurrency({ mode: process.env.PLUR1BUS_CORE_TEST_CONCURRENCY,
+  packageName, cpus: availableParallelism(), memoryBytes: totalmem() });
+if (concurrency > 1) console.log(`Core test file concurrency: ${concurrency} (hardware bounded)`);
+const r = spawnSync(process.execPath, ["--import", new URL("./test-prerequisites.mjs", import.meta.url).href, "--experimental-strip-types", "--conditions=source", "--no-warnings=ExperimentalWarning", "--test", `--test-concurrency=${concurrency}`, `--test-timeout=${TEST_TIMEOUT_MS}`, ...files], { stdio: "inherit" });
 process.exit(r.status ?? 1);
