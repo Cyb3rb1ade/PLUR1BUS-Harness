@@ -767,6 +767,12 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `privacy.localEndpoints` | array | `[]` | live | advanced | false | true |  | Self-hosted model servers outside loopback that count as local for privacy.localOnly (for example your own Ollama or vLLM server in the home network), as exact origins scheme://host[:port]. LAN addresses are not local unless listed here. |
 | `privacy.localEndpoints[]` | string |  | live | advanced | false | true |  |  |
 | `session` | object | `{}` |  | advanced | false | false |  | Session context maintenance. |
+| `session.rewind` | object | `{}` |  | advanced | false | false |  | D120 reversible conversation paths. Automatic rewind and file checkpoints each require an explicit project opt-in. |
+| `session.rewind.autoProjects` | array | `[]` | live | advanced | false | false |  | Projects that permit automatic rewind after three failed edit/test cycles on unattended D115 cards. Interactive sessions only propose; no file restore is automatic. |
+| `session.rewind.autoProjects[]` | string |  | live | advanced | false | false |  |  |
+| `session.rewind.fileProjects` | array | `[]` | live | advanced | false | false |  | Projects that permit tracked-file checkpoints and separately approved file rewind on D115 card sessions. Empty disables capture and file restore. |
+| `session.rewind.fileProjects[]` | string |  | live | advanced | false | false |  |  |
+| `session.rewind.checkpointRetentionTurns` | integer | `50` | live | advanced | false | false |  | Keep private file-checkpoint refs only within this many recent session turns. Archived sessions and completed cards release their refs earlier. |
 | `session.compaction` | object | `{}` |  | advanced | false | false |  | Progressive session compaction (D23, L14); hide originals without deleting them. |
 | `session.compaction.softRatio` | number | `0.65` | core | advanced | false | false |  | Prepare a summary above this fraction of the model context window. |
 | `session.compaction.hardRatio` | number | `0.88` | core | advanced | false | false |  | Swap prepared summary above this fraction. Must exceed softRatio. |
