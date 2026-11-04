@@ -15,10 +15,12 @@ a missing checkout. A lookup alone never creates one.
 The native request carries an opaque, in-process `WorktreeMount`. Serializing a
 mount, inventing an object or supplying a raw path grants no authority. The
 binding fixes the provisioned row, canonical checkout, Git metadata and directory
-identity. Process admission rechecks the row and assignments; observed revocation
+identity. Every bound tool invocation rechecks the row, assignments and executing
+agent/person identity after dispatcher authorization, including file and host tools.
+Process admission additionally rechecks the row and assignments; observed revocation
 invalidates the grant permanently. A final synchronous check immediately precedes
 the child spawn. Revocation prevents subsequent admission; it does not claim to
-terminate a process already admitted.
+terminate a process or asynchronous tool operation already admitted.
 
 Only writable card delegations receive this grant. Consultation, read and review
 turns receive none. The provider's candidate first-party tool names are intersected
@@ -36,6 +38,8 @@ positive required task cap. Missing capabilities fail closed. The exact card is
 writable; sibling cards, the original checkout, Core state and common Git metadata
 remain outside that writable grant. Existing Git metadata is mounted read-only.
 Native macOS Seatbelt operation and macOS ACP refusal retain their existing paths.
+Card-bound ACP lookups now also require the active card's receiver assignment;
+an unassigned external agent is refused instead of receiving that card's checkout.
 
 The Linux native process uses the existing ACP 8 GiB virtual-address-space
 profile. Node 24 cannot initialize under the generic 512 MiB Linux `RLIMIT_AS`
@@ -71,6 +75,13 @@ unbound and read-only turns, host tools, symlinks and outside hardlinks. Positiv
 cases include two isolated simultaneous cards, contained store links and cold,
 warm and newly populated inventories exceeding 20,000 entries. Existing ACP,
 coding-gate and sandbox regressions remain in place.
+
+A native macOS regression attempts to hard-link the fixture repository's actual
+Git config into the writable card and modify it. A normal card write succeeds,
+and an unsandboxed control proves the same user and filesystem can create that
+link. Seatbelt refuses the sandboxed link; the Git config remains byte-identical.
+Held-registry tests also refuse subsequent reads and writes after receiver,
+sender, card, project or worktree revocation, and calls with a foreign identity.
 
 The Linux-only production composition test runs a genuine copied Node binary
 with its normal options; unavailable required isolation fails that positive test.

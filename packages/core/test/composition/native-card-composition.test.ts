@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { chmod, copyFile, link, symlink } from 'node:fs/promises';
+import { chmod, copyFile, link, readFile, stat, symlink, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { composeTools } from '../../src/composition/tools.ts';
@@ -25,14 +25,14 @@ async function composed() {
   const options = { home: b.home, roots: [], audit: memoryAuditSink(), grants: approvals.stores.grants,
     sandbox: { required: true, limitsHelper }, exec: { mode: 'allowlist' as const, allowlist: [{ program }] } };
   const context = { agentId: 'worker', principal: b.who.userId, sessionId: request.sessionId, signal, surface: 1 as const };
-  const dispatch = (registry: ToolRegistry, marker: string, ctx = context, cwd = b.tree.path) => {
-    const dispatcher = new ToolDispatcher({ registry, approvals: approvals.service, grants: approvals.stores.grants,
+  const dispatcher = (registry: ToolRegistry) => new ToolDispatcher({ registry, approvals: approvals.service, grants: approvals.stores.grants,
       clock: { now: Date.now }, policyContext: () => ({ overrides: { 'shell.exec': 'allowed' } }) });
-    return dispatcher.call({ id: 'native-exec', name: 'exec.run', args: { program,
+  const dispatch = (registry: ToolRegistry, marker: string, ctx = context, cwd = b.tree.path) => {
+    return dispatcher(registry).call({ id: 'native-exec', name: 'exec.run', args: { program,
       args: process.platform === 'win32' ? ['-e', 'process.exit(0)'] : [marker], cwd } }, ctx);
   };
   return { ...b, grant, request, options, context, program,
-    dispatch,
+    dispatch, dispatcher,
     close() { approvals.service.dispose(); approvals.stores.db.close(); b.close(); },
     async call(marker: string, req = request) {
       const registry = await composeTools(options, req);
@@ -100,6 +100,66 @@ test('a held native tool registry refuses a revoked assignment and a different e
     const revoked = await b.dispatch(registry, marker);
     assert.equal(revoked.isError, true);
     assert.equal(existsSync(marker), false);
+  } finally { b.close(); }
+});
+
+for (const lost of ['receiver', 'sender', 'card', 'project', 'worktree'] as const) {
+  test(`held native file tools refuse a new read and write after losing their ${lost}`, async () => {
+    const b = await composed();
+    try {
+      const dispatcher = b.dispatcher(await composeTools(b.options, b.request));
+      const before = join(b.tree.path, 'before-revocation'), after = join(b.tree.path, 'after-revocation');
+      const write = (path: string) => dispatcher.call({ id: 'write', name: 'file.write', args: { path, content: 'fixture' } }, b.context);
+      assert.equal((await write(before)).isError, false);
+      if (lost === 'receiver' || lost === 'sender') b.collab.boardStore.assign(b.project.id, b.card.id,
+        { kind: 'agent', id: lost === 'receiver' ? 'worker' : 'lead' }, false, { kind: 'person', id: b.who.userId });
+      else if (lost === 'card') b.collab.boardStore.archiveCard(b.project.id, b.card.id, true, { kind: 'person', id: b.who.userId });
+      else if (lost === 'project') b.store.archiveProject(b.project.id);
+      else b.store.markWorktreeRemoved(b.project.id, b.card.id);
+      const read = await dispatcher.call({ id: 'read', name: 'file.read', args: { path: before } }, b.context);
+      assert.equal(read.isError, true, JSON.stringify(read));
+      const written = await write(after);
+      assert.equal(written.isError, true, JSON.stringify(written));
+      assert.equal(existsSync(after), false);
+    } finally { b.close(); }
+  });
+}
+
+test('held native file tools reject a different executing agent or principal', async () => {
+  const b = await composed();
+  try {
+    const dispatcher = b.dispatcher(await composeTools(b.options, b.request));
+    const path = join(b.tree.path, 'foreign-write');
+    for (const context of [{ ...b.context, agentId: 'other' }, { ...b.context, principal: 'foreign-person' }]) {
+      const result = await dispatcher.call({ id: 'foreign', name: 'file.write', args: { path, content: 'must not write' } }, context);
+      assert.equal(result.isError, true, JSON.stringify(result));
+      assert.equal(existsSync(path), false);
+    }
+  } finally { b.close(); }
+});
+
+if (process.platform === 'darwin') test('native macOS refuses a new hardlink from read-only Git metadata into its writable card', async () => {
+  const b = await composed();
+  try {
+    const config = join(b.store.liveWorktree(b.project.id, b.card.id)!.commonGitDir!, 'config');
+    const original = await readFile(config, 'utf8');
+    const own = join(b.tree.path, 'positive-native-write'), alias = join(b.tree.path, 'git-config-alias');
+    // Control: the same filesystem and user can create the link outside the sandbox.
+    await link(config, alias);
+    assert.equal((await stat(config)).ino, (await stat(alias)).ino);
+    await unlink(alias);
+    const program = '/usr/bin/perl';
+    const registry = await composeTools({ ...b.options, exec: { mode: 'allowlist', allowlist: [{ program }] } }, b.request);
+    const code = 'open(my $own, ">", $ARGV[0]) or die "positive:$!"; print $own "fixture"; close($own); if (!link($ARGV[1], $ARGV[2])) { print "LINK_DENIED"; exit 0; } open(my $out, ">>", $ARGV[2]) or die "alias:$!"; print $out "\\n# fixture-hardlink-write\\n"; close($out); print "LINK_WRITE_SUCCEEDED";';
+    const result = await b.dispatcher(registry).call({ id: 'hardlink', name: 'exec.run',
+      args: { program, args: ['-e', code, own, config, alias], cwd: b.tree.path } }, b.context);
+    assert.equal(result.isError, false, JSON.stringify(result));
+    assert.equal(existsSync(own), true, 'positive native write must execute before the attempted link');
+    const value = result.value as ExecResult;
+    assert.equal(value.exitCode, 0, value.stderr);
+    assert.equal(value.stdout, 'LINK_DENIED');
+    assert.equal(existsSync(alias), false);
+    assert.equal(await readFile(config, 'utf8'), original);
   } finally { b.close(); }
 });
 

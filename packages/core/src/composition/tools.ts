@@ -107,7 +107,11 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
   const registry = new ToolRegistry();
   const register = (tool: ToolDef) => {
     const discovery = tool.discovery ?? (tool.trust === 'first-party' ? firstPartyDiscovery(tool.name) : undefined);
-    registry.register({ ...tool, ...(discovery ? { discovery } : {}), ...(req.codingWorktree && tool.classify ? { classify: async (...args: Parameters<NonNullable<ToolDef["classify"]>>) => {
+    registry.register({ ...tool, ...(discovery ? { discovery } : {}), ...(worktreeMount ? { execute: async (args: unknown, ctx: Parameters<ToolDef['execute']>[1]) => {
+      if (ctx.agentId !== req.agentId || ctx.principal !== req.principal) throw new SandboxFailure('foreign native turn identity');
+      nativeWorktreeBinding(worktreeMount, ctx.agentId, req.projectId, req.codingWorktree);
+      return tool.execute(args, ctx);
+    } } : {}), ...(req.codingWorktree && tool.classify ? { classify: async (...args: Parameters<NonNullable<ToolDef["classify"]>>) => {
       const result = await tool.classify!(...args);
       return { ...result, flags: { ...result.flags, ...(result.flags?.outsideRoots ? { denyListHit: true } : {}) } };
     } } : {}) });
@@ -135,10 +139,6 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
   // Only ToolDispatcher invokes this closure after a recorded D109 authorization. The inner exec gate is narrowed
   // to that already-authorized invocation; it still enforces config.mode, roots, deny paths, arguments and env.
   register({ name: 'exec.run', description: 'Run an enabled, allowlisted program inside a granted root without a shell.', inputSchema: (await import('../tools/exec/tool.ts')).EXEC_RUN_SCHEMA, capability: 'shell.exec', effect: 'local-write', risk: 'medium', trust: 'first-party', classify: args => classifyExecRun(args, { roots: o.roots, deny, sandboxed: o.sandbox?.required !== false, ...(o.exec ? { exec: o.exec } : {}) }), execute: async (args, ctx) => {
-    if (worktreeMount) {
-      if (ctx.agentId !== req.agentId || ctx.principal !== req.principal) throw new SandboxFailure('foreign native turn identity');
-      nativeWorktreeBinding(worktreeMount, ctx.agentId, req.projectId, req.codingWorktree);
-    }
     if (ctx.classified) {
       const live = await classifyExecRun(args, { roots: o.roots, deny, sandboxed: o.sandbox?.required !== false, ...(o.exec ? { exec: o.exec } : {}) });
       if (ctx.classified.targets?.[0] !== live.targets?.[0] || ctx.classified.hashExtra !== live.hashExtra) {
