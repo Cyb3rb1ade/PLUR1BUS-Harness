@@ -173,11 +173,16 @@ export function createFsOps(cfg: FsConfig): FsOps {
 
   // ---- read -------------------------------------------------------------------------------------------------------
   const strict = new TextDecoder("utf-8", { fatal: true });
-  const decodeText = (buf: Buffer, moreFollows: boolean): string | null => {
+  const validTextBytes = (buf: Buffer, moreFollows: boolean): number | null => {
     if (buf.includes(0)) return null;
     // A cut inside a multi-byte sequence at the end is not binary: drop the incomplete tail (at most 3 bytes).
     for (let drop = 0; drop <= (moreFollows ? 3 : 0) && drop < buf.length + 1; drop++) {
-      try { return strict.decode(drop === 0 ? buf : buf.subarray(0, buf.length - drop)); } catch { /* try shorter */ }
+      try {
+        const prefix = drop === 0 ? buf : buf.subarray(0, buf.length - drop);
+        strict.decode(prefix);
+        // A decoder may consume a BOM. Source windows still use the original byte positions.
+        return prefix.length;
+      } catch { /* try shorter */ }
     }
     return null;
   };
@@ -245,9 +250,8 @@ export function createFsOps(cfg: FsConfig): FsOps {
         return fits({ ...rp, encoding: "base64" as const, content: Buffer.from(safe).toString("base64"), size, offset, bytesRead: got, truncated });
       }
       // RULING: a ranged read that starts mid-codepoint is binary; binary is never returned as text.
-      const text = decodeText(data, truncated);
-      if (text === null) throw new FsFailure("binary-content", "content is not valid UTF-8 text");
-      const bytesRead = Buffer.byteLength(text, "utf8");
+      const bytesRead = validTextBytes(data, truncated);
+      if (bytesRead === null) throw new FsFailure("binary-content", "content is not valid UTF-8 text");
       const safe = snapshot ? snapshot.matcher.maskBytesWindow(padded, begin, begin + bytesRead) : data.subarray(0, bytesRead);
       return fits({ ...rp, encoding: "utf8" as const, content: Buffer.from(safe).toString("utf8"), size, offset, bytesRead, truncated });
     } finally { await fh.close().catch(() => {}); }
