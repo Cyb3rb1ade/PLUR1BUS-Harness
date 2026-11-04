@@ -8,6 +8,7 @@
 // somewhere must stay masked, but retired values are bounded (the newest `MAX_REGISTERED_SECRETS`), which is what keeps a
 // token that refreshes every hour from growing the set, and the cost of every log line, without end.
 import { createRedactor, type Redactor } from "../logs/redact.ts";
+import { SecretFormsCache, type SecretFormsSnapshot } from "../logs/secret-forms.ts";
 import { MIN_REDACTED_VALUE_CHARS } from "./types.ts";
 
 /** How many retired (and name-less) values are kept, newest first. Pinned values are not counted and never leave. */
@@ -23,13 +24,19 @@ export interface SecretRedaction {
   /** Registers a value (and, for an authorization header value, its bare credential). Short or non-string input is ignored.
    *  With `name`, it becomes the current value of that store name (pinned) and the name's previous value is retired. */
   register(value: string, name?: string): void;
+  /** Atomically replace an internal registration group. Removed values retire under the normal bound; empty clears it. */
+  replaceGroup(group: symbol, values: readonly string[]): void;
   /** `sink` receives every value registered so far and every later one. Returns the unsubscribe function. */
   subscribe(sink: SecretSink): () => void;
   /** A redactor that always masks the values registered at the time of each call. */
-  redactor(options?: { pii?: boolean }): Redactor;
+  redactor(options?: { pii?: boolean; secretsOnly?: boolean }): Redactor;
   /** Every value that is masked now, as registered: the current ones of a store name, then the retired ones. For a caller that
    *  applies the exact-value rule itself (a tool result, `createRedactor({ secretsOnly })`). */
   values(): readonly string[];
+  /** Cached variants for the current membership generation, shared by all registry consumers. */
+  forms(): readonly string[];
+  /** Immutable forms and compiled matcher for this membership generation. */
+  snapshot(): SecretFormsSnapshot;
   /** True when `text` contains a value registered so far (plain, as the user typed it). */
   contains(text: string): boolean;
   /** `text` with every registered value replaced by a fixed mask. Nothing else in the text is touched. */
@@ -38,13 +45,20 @@ export interface SecretRedaction {
 
 export function createSecretRedaction(): SecretRedaction {
   /** name -> the values it holds now (a header value and its bare credential are two values of one name). */
-  const current = new Map<string, Set<string>>();
+  const current = new Map<string | symbol, Set<string>>();
   /** value -> how many names hold it now. */
   const pins = new Map<string, number>();
   /** Not current anywhere, oldest first. */
   const retired = new Set<string>();
   const sinks = new Set<SecretSink>(); let version = 0;
   const known = (): string[] => [...pins.keys(), ...retired];
+  const formCache = new SecretFormsCache();
+  let snapshotVersion = -1; let cachedSnapshot: SecretFormsSnapshot | undefined;
+  const snapshot = (): SecretFormsSnapshot => {
+    if (!cachedSnapshot || snapshotVersion !== version) { cachedSnapshot = formCache.snapshot(known()); snapshotVersion = version; }
+    return cachedSnapshot;
+  };
+  const forms = (): readonly string[] => snapshot().forms;
   const tell = (value: string): void => { const pinned = pins.has(value); for (const sink of sinks) { try { sink(value, { pinned }); } catch { /* one failing sink must not stop the others or the caller */ } } };
   const eligible = (value: unknown): value is string => typeof value === "string" && value.length >= MIN_LENGTH;
   /** Drops one name's hold on `value`; true when no name holds it any more. */
@@ -56,16 +70,16 @@ export function createSecretRedaction(): SecretRedaction {
     retired.add(value); bound(); version++;
     tell(value);
   }
-  function addNamed(name: string, values: string[]): void {
+  function addNamed(name: string | symbol, values: readonly string[]): void {
     const next = new Set(values.filter(eligible));
-    if (next.size === 0) return;
     const prev = current.get(name) ?? new Set<string>();
     // A value that is already current for this name is a re-read (the common case): nothing changes.
-    if ([...next].every((v) => prev.has(v))) return;
+    if (next.size === prev.size && [...next].every((v) => prev.has(v))) return;
     const changed: string[] = [];
     for (const v of prev) if (!next.has(v) && unpin(v)) { retired.add(v); changed.push(v); }
     for (const v of next) if (!prev.has(v)) { pins.set(v, (pins.get(v) ?? 0) + 1); retired.delete(v); changed.push(v); }
-    current.set(name, next);
+    if (next.size > 0) current.set(name, next);
+    else current.delete(name);
     bound(); version++;
     for (const v of changed) tell(v);
   }
@@ -74,9 +88,20 @@ export function createSecretRedaction(): SecretRedaction {
     register(value, name) {
       if (typeof value !== "string") return;
       const bare = value.replace(/^(?:Bearer|Basic)\s+/i, "");
-      if (typeof name === "string" && name !== "") { addNamed(name, bare !== value ? [value, bare] : [value]); return; }
+      if (typeof name === "string" && name !== "") {
+        const values = (bare !== value ? [value, bare] : [value]).filter(eligible);
+        if (values.length > 0) addNamed(name, values);
+        return;
+      }
       addAnonymous(value);
       if (bare !== value) addAnonymous(bare);
+    },
+    replaceGroup(group, values) {
+      const expanded = values.flatMap((value) => {
+        const bare = value.replace(/^(?:Bearer|Basic)\s+/i, "");
+        return bare === value ? [value] : [value, bare];
+      });
+      addNamed(group, expanded);
     },
     subscribe(sink) {
       sinks.add(sink);
@@ -85,10 +110,14 @@ export function createSecretRedaction(): SecretRedaction {
     },
     redactor(options = {}) {
       let seen = -1; let inner: Redactor | undefined;
-      const rebuild = (): Redactor => { if (!inner || seen !== version) { inner = createRedactor({ ...options, secrets: new Set(known()) }); seen = version; } return inner; };
-      return { text: s => rebuild().text(s), value: v => rebuild().value(v) };
+      const rebuild = (): Redactor => { if (!inner || seen !== version) { inner = createRedactor({ ...options, secretMatcher: snapshot().matcher }); seen = version; } return inner; };
+      return { text: s => rebuild().text(s), value: v => rebuild().value(v),
+        textWindow: (s, begin, end) => rebuild().textWindow!(s, begin, end),
+        secretMatcher: () => snapshot().matcher, pii: options.pii === true };
     },
     values: () => known(),
+    forms,
+    snapshot,
     contains: (text) => typeof text === "string" && known().some((v) => text.includes(v)),
     mask: (text) => { let out = text; for (const v of known().sort((a, b) => b.length - a.length)) if (out.includes(v)) out = out.split(v).join("[redacted]"); return out; },
   };

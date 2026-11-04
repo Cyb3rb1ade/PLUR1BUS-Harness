@@ -14,7 +14,7 @@
 //! (`packages/core/src/restore-reapply.ts`).
 use super::archive::{verify, visit};
 use super::create::{ensure_backups_dir, Cleanup};
-use super::manifest::{is_sqlite_name, Kind, Manifest, SQLITE_SIDECARS};
+use super::manifest::{is_sqlite_name, redacted_config_keys, Kind, Manifest, SQLITE_SIDECARS};
 use super::{now_ms, short_id, utc_stamp, BackupError};
 use crate::paths::Layout;
 use serde::Serialize;
@@ -58,6 +58,9 @@ pub struct RestoreReport {
     pub archive_harness: String,
     pub current_harness: String,
     pub store_schema: Option<String>,
+    /// Guidance for CLI stderr only; the JSON result shape remains unchanged (owner SH2 ruling).
+    #[serde(skip)]
+    pub redacted_config_keys: Vec<String>,
 }
 
 fn live(home: &Path, target: &str) -> PathBuf {
@@ -331,6 +334,7 @@ pub fn restore(
         archive_harness: manifest.harness.version.clone(),
         current_harness: env!("CARGO_PKG_VERSION").to_string(),
         store_schema: manifest.engine.store_schema.clone(),
+        redacted_config_keys: redacted_config_keys(&manifest.secrets.note)?,
     };
     if opts.dry_run {
         return Ok(report);
@@ -387,7 +391,229 @@ pub fn restore(
 
 #[cfg(test)]
 mod tests {
+    use super::super::create::{self, CreateOpts, SnapFile};
     use super::*;
+    use std::collections::BTreeMap;
+
+    fn account_archive(root: &Path, opts: CreateOpts, accounts: Option<&[u8]>) -> PathBuf {
+        let source = Layout::new(root.join("src"));
+        let mut snapshot = create::testkit::staged(&source, b"BACKED-UP-DB", false);
+        if let Some(bytes) = accounts {
+            let path = snapshot.dir.join("sqlite/api/accounts.db");
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(&path, bytes).unwrap();
+            let (sha256, bytes) = super::super::archive::hash_file(&path).unwrap();
+            snapshot.files.push(SnapFile {
+                path: "sqlite/api/accounts.db".into(),
+                bytes,
+                sha256,
+            });
+        }
+        let archive = root.join("accounts.tar.gz");
+        create::create_with_opts(&source, &archive, &snapshot, opts).unwrap();
+        assert!(
+            !snapshot.dir.exists(),
+            "private Core staging is cleaned after selection"
+        );
+        archive
+    }
+
+    fn live_api_state(destination: &Layout) -> BTreeMap<String, Vec<u8>> {
+        let mut state = BTreeMap::new();
+        for name in [
+            "accounts.db",
+            "accounts.db-wal",
+            "accounts.db-shm",
+            "accounts.db-journal",
+            "neighbor.json",
+        ] {
+            let relative = format!("state/api/{name}");
+            let path = destination.home.join(&relative);
+            let bytes = uuid::Uuid::new_v4().to_string().into_bytes();
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, &bytes).unwrap();
+            state.insert(relative, bytes);
+        }
+        fs::write(destination.state().join("budget.sqlite"), b"LIVE-DB").unwrap();
+        state
+    }
+
+    fn assert_api_state(destination: &Layout, expected: &BTreeMap<String, Vec<u8>>) {
+        for (relative, bytes) in expected {
+            assert_eq!(
+                fs::read(destination.home.join(relative)).unwrap(),
+                *bytes,
+                "{relative}"
+            );
+        }
+    }
+
+    #[test]
+    fn default_account_omission_preserves_live_api_bytes_and_produces_no_account_restore_action() {
+        let root = tempfile::tempdir().unwrap();
+        let incoming = uuid::Uuid::new_v4();
+        let archive = account_archive(
+            root.path(),
+            CreateOpts::default(),
+            Some(incoming.as_bytes()),
+        );
+        let destination = Layout::new(root.path().join("dst"));
+        let before = live_api_state(&destination);
+        let dry = restore(
+            &destination,
+            &archive,
+            &RestoreOpts {
+                dry_run: true,
+                fail_at: None,
+            },
+        )
+        .unwrap();
+        assert!(!dry.applied && dry.pre_restore.is_none());
+        assert!(dry
+            .units
+            .iter()
+            .all(|unit| !unit.target.starts_with("state/api/")));
+        assert!(dry
+            .removed
+            .iter()
+            .all(|target| !target.starts_with("state/api/")));
+        assert_api_state(&destination, &before);
+        assert_eq!(
+            fs::read(destination.state().join("budget.sqlite")).unwrap(),
+            b"LIVE-DB"
+        );
+        assert!(!destination.home.join("backups").exists());
+        let applied = apply(&destination, &archive, None).unwrap();
+        assert_api_state(&destination, &before);
+        assert_eq!(
+            fs::read(destination.state().join("budget.sqlite")).unwrap(),
+            b"BACKED-UP-DB"
+        );
+        let pre = PathBuf::from(
+            applied
+                .pre_restore
+                .expect("the selected budget DB was displaced"),
+        );
+        assert_eq!(
+            fs::read(pre.join("state/budget.sqlite")).unwrap(),
+            b"LIVE-DB"
+        );
+        assert!(
+            !pre.join("state/api").exists(),
+            "default omission must not move API files aside"
+        );
+    }
+
+    #[test]
+    fn missing_source_accounts_preserve_destination_for_both_creation_policies() {
+        for include_api_accounts in [false, true] {
+            let root = tempfile::tempdir().unwrap();
+            let archive = account_archive(
+                root.path(),
+                CreateOpts {
+                    include_api_accounts,
+                },
+                None,
+            );
+            let manifest = verify(&archive).unwrap();
+            assert!(manifest
+                .units
+                .iter()
+                .all(|unit| unit.target != "state/api/accounts.db"));
+            assert!(manifest
+                .absent
+                .iter()
+                .all(|target| target != "state/api/accounts.db"));
+            let destination = Layout::new(root.path().join("dst"));
+            let before = live_api_state(&destination);
+            let report = apply(&destination, &archive, None).unwrap();
+            assert!(report.applied);
+            assert_api_state(&destination, &before);
+            assert!(report
+                .units
+                .iter()
+                .all(|unit| !unit.target.starts_with("state/api/")));
+            let pre = PathBuf::from(
+                report
+                    .pre_restore
+                    .expect("the selected budget DB was displaced"),
+            );
+            assert!(!pre.join("state/api").exists());
+        }
+    }
+
+    #[test]
+    fn opted_in_accounts_replace_the_database_and_keep_displaced_sidecars_for_recovery() {
+        let root = tempfile::tempdir().unwrap();
+        let incoming = uuid::Uuid::new_v4().to_string().into_bytes();
+        let archive = account_archive(
+            root.path(),
+            CreateOpts {
+                include_api_accounts: true,
+            },
+            Some(&incoming),
+        );
+        let destination = Layout::new(root.path().join("dst"));
+        let before = live_api_state(&destination);
+        let report = apply(&destination, &archive, None).unwrap();
+        assert_eq!(
+            fs::read(destination.home.join("state/api/accounts.db")).unwrap(),
+            incoming
+        );
+        let pre = PathBuf::from(report.pre_restore.expect("old account bytes are retained"));
+        for (relative, bytes) in before {
+            if relative.ends_with("neighbor.json") {
+                assert_eq!(fs::read(destination.home.join(&relative)).unwrap(), bytes);
+                assert!(!pre.join(relative).exists());
+            } else {
+                assert_eq!(fs::read(pre.join(&relative)).unwrap(), bytes, "{relative}");
+                if relative != "state/api/accounts.db" {
+                    assert!(!destination.home.join(relative).exists());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn opted_in_account_rollback_restores_all_old_api_bytes_before_and_after_placement() {
+        let root = tempfile::tempdir().unwrap();
+        let incoming = uuid::Uuid::new_v4();
+        let archive = account_archive(
+            root.path(),
+            CreateOpts {
+                include_api_accounts: true,
+            },
+            Some(incoming.as_bytes()),
+        );
+        let manifest = verify(&archive).unwrap();
+        let index = manifest
+            .units
+            .iter()
+            .position(|unit| unit.target == "state/api/accounts.db")
+            .unwrap();
+        let destination = Layout::new(root.path().join("dst"));
+        let before = live_api_state(&destination);
+        for phase in ["swap", "swap-after"] {
+            let point = format!("{phase}:{index}");
+            let error = apply(&destination, &archive, Some(&point)).unwrap_err();
+            assert_eq!(error.reason, "restore-failed", "{point}");
+            assert_api_state(&destination, &before);
+            assert_eq!(
+                fs::read(destination.state().join("budget.sqlite")).unwrap(),
+                b"LIVE-DB"
+            );
+            assert!(!destination
+                .state()
+                .join(".restore-reapply-tombstones")
+                .exists());
+            assert_eq!(
+                fs::read_dir(destination.home.join("backups"))
+                    .unwrap()
+                    .count(),
+                0
+            );
+        }
+    }
 
     fn archive_of_a_fresh_home(d: &Path) -> (PathBuf, Layout) {
         use super::super::create::{create, testkit};

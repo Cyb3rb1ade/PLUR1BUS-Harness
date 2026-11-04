@@ -3,9 +3,9 @@
 // malformed answer) gives null and the palette indexes without values. Never throws, never shows an error.
 import type { Api } from "../api/index.ts";
 import { getApi } from "../api/shared.ts";
-import { settingValues } from "./index-build.ts";
+import { settingValues, type SettingValue } from "./index-build.ts";
 
-export async function loadSettingValues(api: Api = getApi(), signal?: AbortSignal): Promise<Record<string, string> | null> {
+export async function loadSettingValues(api: Api = getApi(), signal?: AbortSignal): Promise<Record<string, SettingValue> | null> {
   try {
     const res = await api.rpc("config.get", undefined, { write: false, ...(signal ? { signal } : {}) });
     const value = typeof res === "object" && res !== null ? (res as { value?: unknown }).value : undefined;

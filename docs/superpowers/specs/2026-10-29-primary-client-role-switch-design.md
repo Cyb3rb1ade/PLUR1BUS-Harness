@@ -205,11 +205,27 @@ by the supervisor or by the CLI while no supervisor runs (the CLI takes the inst
 `reach.ref` is a connection or SSH-profile id on desktops and a short operator note on CLI nodes; never an address
 with credentials. The record holds no secret.
 
+RS0 serializes record updates under the OS-backed `state/role.lock` across threads and processes. It reads
+from a no-follow regular-file handle, stages each update under a unique private name, syncs the file and publishes
+with a parent-directory sync on Unix or a Windows `MoveFileExW` replace with `MOVEFILE_WRITE_THROUGH`.
+A persistence failure cannot authorize sending a commit token. A stored clustered writer cannot silently reset
+its cluster or become standalone: it must first persist a non-writer role. The unclustered standalone bootstrap
+and legal non-writer leave/discard resets remain supported. Authority epoch exhaustion refuses with
+`E_CONFLICT reason=role-epoch-exhausted`; it never saturates into a reused fencing epoch.
+
+Lease timestamps are caller-supplied wall-clock milliseconds. A backward clock step does not rewrite a persisted
+deadline and cannot shorten the forced-takeover waiting requirement; RS4 owns the required clock-skew preflight.
+
 ### 4.6 Fencing and split brain
 
 - **Epoch on every contact.** The node bridge hello (D51 b), `role status` over SSH and every bundle carry
   `{clusterId, epoch, role, nodeId}`. A node that sees the same cluster with a **higher** epoch than its own writer
   epoch turns `fenced` at once: the supervisor restarts the core in hold and stops writer modules; audit `role.fenced`.
+- **Equal-epoch writer conflict.** Authenticated contact includes the peer node id and whether its advertised role
+  permits writers. When two nodes forced takeover at the same epoch, the lexicographically lower verified node id
+  retains authority; the other becomes `fenced` on contact. The same ordering is used by the model and fence helper.
+  Observing a non-writer at the same epoch grants no authority. Optional primary display metadata is discarded when
+  malformed or self-naming; it cannot suppress a verified higher-epoch fence or highest-seen update.
 - **The MacBook wakes after the server took over** (the owner's case): the MacBook's record already says `client`
   (it committed before the server activated, I2). It never starts a writer, whatever it sees on the network.
 - **Interrupted handover:** a source that sleeps in `handing-over` resumes there; before the commit it may abort

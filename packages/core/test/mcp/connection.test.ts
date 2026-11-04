@@ -67,6 +67,32 @@ describe("mcp connection: a fixture tool is listed and called over both transpor
     const { conn } = await open(httpDef(http.url, {}, { "X-Fixture-Auth": "abc-123456" }));
     try { await conn.listTools(); assert.equal(http.lastHeaders()["x-fixture-auth"], "abc-123456"); } finally { await conn.close("graceful"); }
   });
+  it("http: fixture incarnations differ even when their numeric PID is identical", async () => {
+    const second = await startFixtureHttp();
+    const connections: McpConnection[] = [];
+    try {
+      const first = (await open(httpDef(http.url))).conn;
+      connections.push(first);
+      const next = (await open(httpDef(second.url))).conn;
+      connections.push(next);
+      const identity = async (conn: McpConnection) => {
+        const result = await conn.callTool("pid", { includeInstance: true });
+        assert.ok(Array.isArray(result.content));
+        return JSON.parse((result.content[0] as { text: string }).text) as { pid: number; instanceId: string };
+      };
+      const before = await identity(first);
+      assert.equal(before.pid, process.pid);
+      assert.deepEqual(await identity(first), before, "one live fixture keeps its identity");
+      const after = await identity(next);
+      assert.equal(after.pid, before.pid, "both servers deliberately run in this same process");
+      assert.match(before.instanceId, /^[0-9a-f-]{36}$/);
+      assert.match(after.instanceId, /^[0-9a-f-]{36}$/);
+      assert.notEqual(after.instanceId, before.instanceId);
+    } finally {
+      await Promise.all(connections.map(conn => conn.close("graceful")));
+      await second.close();
+    }
+  });
   it("connect failure maps to connect-failed and leaves no child", async () => {
     const def = stdioDef({ transport: { type: "stdio", command: process.execPath, args: ["-e", "process.exit(3)"] } });
     await assert.rejects(open(def), (e: { code?: string }) => e.code === "connect-failed");

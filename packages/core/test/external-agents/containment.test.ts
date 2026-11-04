@@ -35,8 +35,18 @@ test("filesystem writes stay in the worktree", async () => {
   assert.equal(await containedRead(box, join(worktree, "ok.txt")), "hello");
   const outside = join(root, "outside.txt");
   writeFileSync(outside, "secret");
-  symlinkSync(outside, join(worktree, "link"));
-  await assert.rejects(containedWrite(box, join(worktree, "link"), "x"), (e) => reason(e) === "outside-root" || reason(e) === "deny-listed");
+  let linkedFile = join(worktree, "link");
+  if (process.platform === "win32") {
+    // Junctions exercise the directory alias an unprivileged Windows agent can create.
+    const outsideDirectory = join(root, "outside-directory");
+    mkdirSync(outsideDirectory);
+    writeFileSync(join(outsideDirectory, "outside.txt"), "secret");
+    symlinkSync(outsideDirectory, linkedFile, "junction");
+    linkedFile = join(linkedFile, "outside.txt");
+  } else {
+    symlinkSync(outside, linkedFile);
+  }
+  await assert.rejects(containedWrite(box, linkedFile, "x"), (e) => reason(e) === "outside-root" || reason(e) === "deny-listed");
   await assert.rejects(containedWrite(box, join(worktree, "..", "outside.txt"), "x"), (e) => typeof reason(e) === "string");
   await assert.rejects(containedWrite(box, outside, "x"), (e) => reason(e) === "outside-root" || reason(e) === "deny-listed");
   await assert.rejects(containedWrite(box, join(home, "notes.txt"), "x"), (e) => reason(e) === "deny-listed" || reason(e) === "outside-root");

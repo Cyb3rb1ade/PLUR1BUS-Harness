@@ -62,9 +62,10 @@ async function main(): Promise<void> {
   mkdirSync(join(home, "state", "remote"), { mode: 0o700, recursive: true });
   const remotePairing = new RemotePairingController({ core, audit: chain, now: Date.now, trustFile: join(home, "state", "remote", "trust.json"),
     publish: () => startup.config.publish, tlsMode: () => startup.config.tls, origin: () => remote?.state.publicOrigin ?? startup.publicOrigin ?? "",
-    current: () => { if (remote?.state.phase !== "active") return undefined; if (startup.config.publish === "tailnet") return remote.state.fingerprint ? { certPin: remote.state.fingerprint as Pin } : undefined; const current = certificates.current(); return current ? { certPin: current.certPin, ...(current.caPin ? { caPin: current.caPin } : {}) } : undefined; },
+    current: () => { if (remote?.state.phase !== "active") return undefined; if (startup.config.publish === "tailnet") return remote.state.fingerprint ? { certPin: remote.state.fingerprint as Pin } : undefined; const current = certificates.current(); return current ? { certPin: current.certPin, certSpkiPin: current.certSpkiPin, ...(current.caPin ? { caPin: current.caPin } : {}) } : undefined; },
+    staged: () => certificates.staged(),
     transport: input => input.remoteTransport,
-    stage: async () => { if (startup.config.publish !== "network") throw new Error("Tailscale owns its certificate; local TLS rollover is network-only"); const staged = certificates.staged(); if (!staged && startup.config.tls === "company-ca") throw new Error("Upload the next company certificate before staging rollover"); const next = staged ?? await certificates.stageSelfSigned(); return { certPin: next.certPin, ...(next.caPin ? { caPin: next.caPin } : {}) }; },
+    stage: async () => { if (startup.config.publish !== "network") throw new Error("Tailscale owns its certificate; local TLS rollover is network-only"); const staged = certificates.staged(); if (!staged && startup.config.tls === "company-ca") throw new Error("Upload the next company certificate before staging rollover"); const next = staged ?? await certificates.stageSelfSigned(); return { certPin: next.certPin, certSpkiPin: next.certSpkiPin, ...(next.caPin ? { caPin: next.caPin } : {}) }; },
     activate: async () => { if (!remote) throw new Error("remote runtime unavailable"); await remote.activateStaged(); }, cancelStage: async () => { certificates.cancelStaged(); },
   });
   const loadConfig = () => {

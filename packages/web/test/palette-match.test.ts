@@ -92,33 +92,23 @@ describe("highlight", () => {
   });
 });
 
-describe("isSensitiveKey", () => {
-  test("key, token, secret, password and credential in any segment, any case", () => {
-    for (const k of ["providers.openai.apiKey", "x.accessToken", "secrets.store", "auth.PASSWORD", "oauth.credentials", "a.b.Secret"]) assert.equal(isSensitiveKey(k), true, k);
-    for (const k of ["core.logLevel", "logs.keep", "metrics.port", "egress.allowHosts"]) assert.equal(isSensitiveKey(k), false, k);
+describe("schema-backed configuration disclosure", () => {
+  test("explicit sensitive members and their descendants are protected regardless of their names", () => {
+    for (const key of ["voice.providers.elevenlabs.apiKeyRef", "engine.merging.headers.ordinary", "auth.openai.federated.environment.NORMAL", "engine.embedding.apiKey.id", "a.password"])
+      assert.equal(isSensitiveKey(key), true, key);
+    for (const key of ["core.logLevel", "logs.keep", "modelProfiles.primary.params.maxTokens", "auth.openai.voiceCapacity", "a2aServer.signingKey.kid"])
+      assert.equal(isSensitiveKey(key), false, key);
   });
-});
-
-describe("isSensitiveKey: names the first heuristic missed", () => {
-  test("authorization, cookie, passphrase, bearer, private material, signatures and auth leaves", () => {
-    for (const k of ["egress.proxy.authorization", "http.Authorisation", "web.cookie", "web.sessionCookies", "tls.passphrase", "x.passwd", "ssh.pwd", "auth.bearer", "http.bearerValue", "tls.privateKeyPem", "x.privateData", "hooks.signature", "x.jwt", "x.hmacSeed", "egress.proxy.auth", "x.auth", "x.basic-auth", "AUTH"])
-      assert.equal(isSensitiveKey(k), true, k);
+  test("classified URLs mask userinfo and every query value", () => {
+    assert.equal(maskUrlSecrets("postgres://admin:replacement@db.local:5432/x", true), "postgres://••••@db.local:5432/x");
+    assert.equal(maskUrlSecrets("https://user@host/p", true), "https://••••@host/p");
+    assert.equal(maskUrlSecrets("https://h/p?a=1&ordinary=2&token=3&b=4", true), "https://h/p?a=••••&ordinary=••••&token=••••&b=••••");
   });
-  test("the auth tuning keys and ordinary names stay visible", () => {
-    for (const k of ["auth.openai.httpTimeoutMs", "auth.openai.voiceCapacity", "core.logLevel", "authors.count", "egress.allowHosts", "metrics.port"])
-      assert.equal(isSensitiveKey(k), false, k);
-  });
-});
-
-describe("maskUrlSecrets", () => {
-  test("user:password@ in a URL and secret-named query parameters are masked", () => {
-    assert.equal(maskUrlSecrets("postgres://admin:hunter2@db.local:5432/x"), "postgres://••••@db.local:5432/x");
-    assert.equal(maskUrlSecrets("https://user@host/p"), "https://••••@host/p");
-    assert.equal(maskUrlSecrets("https://h/p?a=1&api_key=zzz&token=yyy&b=2"), "https://h/p?a=1&api_key=••••&token=••••&b=2");
-    assert.equal(maskUrlSecrets("https://h/p?access_token=zzz"), "https://h/p?access_token=••••");
-  });
-  test("plain values, URLs without credentials and email-like text are left alone", () => {
-    for (const v of ["info", "http://localhost:9464/metrics", "https://example.org/a?page=2", "ops@example.org", "debug"]) assert.equal(maskUrlSecrets(v), v);
+  test("URL backstop masks every query and fragment while preserving public hosts and paths", () => {
+    for (const value of ["info", "http://localhost:9464/metrics", "ops@example.org", "debug"])
+      assert.equal(maskUrlSecrets(value), value);
+    assert.equal(maskUrlSecrets("https://example.org/a?page=2"), "https://example.org/a?page=••••");
+    assert.equal(maskUrlSecrets("https://example.org/public/path#public", true), "https://example.org/public/path#••••");
   });
 });
 
