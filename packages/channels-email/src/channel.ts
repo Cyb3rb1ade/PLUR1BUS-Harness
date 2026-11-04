@@ -354,9 +354,7 @@ export class EmailChannel implements Channel {
     const promptId = randomBytes(12).toString("base64url");
     const numbered = req.choices.map((c, i) => ({ n: i + 1, id: c.id, label: c.label }));
     const text = `${req.text}\n\n${this.#msgs.approvalHowTo(code, numbered, Math.round(ttl / 60000))}`;
-    const refs = [
-      await this.#compose(req.chatId, rec, text, { subject: `[approval ${code}] ${this.#msgs.approvalSubject}` }),
-    ];
+    // A recipient can reply before the SMTP server acknowledges the accepted mail.
     this.#approvals.set(code, {
       promptId,
       chatId: req.chatId,
@@ -365,7 +363,13 @@ export class EmailChannel implements Channel {
       expires: this.#now() + ttl,
       used: false,
     });
-    return { promptId, refs };
+    try {
+      const refs = [await this.#compose(req.chatId, rec, text, { subject: `[approval ${code}] ${this.#msgs.approvalSubject}` })];
+      return { promptId, refs };
+    } catch (error) {
+      this.#approvals.delete(code);
+      throw error;
+    }
   }
 
   #prune(): void {
