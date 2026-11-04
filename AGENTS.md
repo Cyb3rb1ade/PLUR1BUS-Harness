@@ -228,6 +228,7 @@ Env vars that matter when driving the core directly instead of through the CLI:
   - `PLUR1BUS_TEST_EXT_INSPECT_TTL_MS=<ms>` — the inspection's lifetime instead of 10 minutes.
   - `PLUR1BUS_TEST_HARNESS_VERSION=<semver>` — replaces the harness version in `compat` checks.
   - `PLUR1BUS_TEST_EXT_WORKER_ARGS=<op>:<arg> [<arg>…][;<op>:…]` — extra arguments the supervisor passes to its package worker for `op` (`inspect` or `stage`), operations separated by `;`, e.g. `inspect:--sleep-ms 800;stage:--crash`.
+  - `PLUR1BUS_TEST_EXT_INSPECTION_HOLD=<test-owned directory>` — each inspector acknowledges arrival with an empty, numeric `inspector-<pid>.ready` file, then waits until the directory is removed within the unchanged inspection deadline. Requires test internals; a test-owned `TempDir` removes the markers and releases the hold during cleanup. Tests observe worker readiness without native process enumeration (#879).
   - `PLUR1BUS_TEST_EXT_WORKER_DEADLINE_MS=<op>:<ms>` — the worker's deadline for `op` instead of 60 s (inspect) or 300 s (stage).
   - The hidden worker arguments those two drive (on `plur1bus ext __worker inspect|stage`, also gated by `PLUR1BUS_ALLOW_TEST_INTERNALS=1`): `--sleep-ms <ms>` sleeps first (to overrun a deadline or to hold the mutation lock), `--crash` aborts right after the package is spooled (inspect) or extracted into staging (stage), as a crashing parser would.
 - `PLUR1BUS_FIXTURE_MODULE=<dir>` — where a Rust test finds the built fixture module to install

@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 use std::{
     io::{BufRead, BufReader, Write},
     path::{Path, PathBuf},
-    process::{Child, ChildStdin, ChildStdout, Stdio},
+    process::{Child, ChildStdin, ChildStdout, Output, Stdio},
     time::Duration,
 };
 
@@ -274,6 +274,43 @@ fn import_tree(root: &Path) -> std::collections::BTreeMap<String, Vec<u8>> {
     }
     entries
 }
+// #879: an empty native reply must retain its process outcome without exposing SSH arguments or captured bytes.
+fn parse_cli_json(output: &Output, args: &[&str]) -> Result<Value, String> {
+    serde_json::from_slice(&output.stdout).map_err(|error| {
+        let operation = if args.contains(&"--probe-host-key") {
+            "probe"
+        } else if args.contains(&"--trust-host-key") {
+            "trust"
+        } else if args.contains(&"--allow-egress") {
+            "setup-egress"
+        } else if args.contains(&"--ssh") {
+            "setup"
+        } else if args.contains(&"--key") {
+            "key"
+        } else {
+            "metadata"
+        };
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let category = if stderr.contains("os error 231") {
+            "pipe-busy"
+        } else if stderr.contains("os error 109") || stderr.contains("os error 232") {
+            "pipe-closed"
+        } else if stderr.contains("panicked at") {
+            "panic"
+        } else if stderr.is_empty() {
+            "empty"
+        } else {
+            "other"
+        };
+        format!(
+            "invalid CLI JSON: operation={operation}, status={}, stdout_empty={}, stderr_category={category}, json={:?}",
+            output.status,
+            output.stdout.is_empty(),
+            error.classify()
+        )
+    })
+}
+
 fn call(home: &Path, args: &[&str], success: bool) -> Value {
     let output = Command::cargo_bin("plur1bus")
         .unwrap()
@@ -284,7 +321,7 @@ fn call(home: &Path, args: &[&str], success: bool) -> Value {
         .timeout(Duration::from_secs(30))
         .output()
         .unwrap();
-    let result: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let result = parse_cli_json(&output, args).unwrap_or_else(|error| panic!("{error}"));
     assert_eq!(
         output.status.success(),
         success,
@@ -296,6 +333,30 @@ fn call(home: &Path, args: &[&str], success: bool) -> Value {
     );
     assert!(!String::from_utf8_lossy(&output.stdout).contains("BEGIN PRIVATE KEY"));
     result
+}
+
+#[test]
+fn malformed_cli_json_keeps_the_exit_status_and_never_echoes_captured_ssh_data() {
+    #[cfg(unix)]
+    use std::os::unix::process::ExitStatusExt;
+    #[cfg(windows)]
+    use std::os::windows::process::ExitStatusExt;
+
+    let mut output = Output {
+        status: std::process::ExitStatus::from_raw(0),
+        stdout: b"PRIVATE-STDOUT-CANARY".to_vec(),
+        stderr: b"PRIVATE-STDERR-CANARY (os error 231)".to_vec(),
+    };
+    let detail = parse_cli_json(&output, &["--probe-host-key", "PRIVATE-ARG-CANARY"]).unwrap_err();
+    assert!(detail.contains("operation=probe"));
+    assert!(detail.contains("stderr_category=pipe-busy"));
+    assert!(detail.contains(&output.status.to_string()));
+    assert!(!detail.contains("PRIVATE-"));
+    output.stdout.clear();
+    let detail = parse_cli_json(&output, &["PRIVATE-ARG-CANARY"]).unwrap_err();
+    assert!(detail.contains("stdout_empty=true"));
+    assert!(detail.contains("json=Eof"));
+    assert!(!detail.contains("PRIVATE-"));
 }
 #[test]
 fn ssh_help_is_additive_and_offline_ssh_never_falls_back_to_the_legacy_importer() {

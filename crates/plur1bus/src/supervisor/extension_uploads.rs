@@ -6,10 +6,14 @@ use serde_json::Value;
 use std::fs::{self, File, Metadata, OpenOptions};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 const MAX_METADATA: u64 = 2048;
 const MAX_PACKAGE: u64 = 1 << 30;
 const UPLOAD_TTL: u64 = 600_000;
+
+// A second inspector must not validate a newly created directory before its private ACL is installed.
+static INSPECTION_DIRECTORY: Mutex<()> = Mutex::new(());
 
 /// A local Core credential and an API-forwarded person remain distinct, even for userId `local-owner`.
 #[derive(Clone, Copy)]
@@ -233,6 +237,7 @@ pub fn bind_inspection(layout: &Layout, id: &str, caller: Caller<'_>) -> Result<
         return Err(record::expired());
     }
     private_path(&layout.run(), true).map_err(|_| record::expired())?;
+    let initializing = INSPECTION_DIRECTORY.lock().map_err(|_| record::expired())?;
     let dir = layout.run().join("inspect");
     match fs::create_dir(&dir) {
         Ok(()) => {
@@ -253,6 +258,7 @@ pub fn bind_inspection(layout: &Layout, id: &str, caller: Caller<'_>) -> Result<
         Err(_) => return Err(record::expired()),
     }
     directory(layout, "inspect").map_err(|_| record::expired())?;
+    drop(initializing);
     let owner = InspectionOwner {
         version: 1,
         user_id: match caller {
