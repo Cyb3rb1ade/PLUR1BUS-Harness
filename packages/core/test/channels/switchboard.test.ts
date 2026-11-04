@@ -314,6 +314,41 @@ async function pendingApproval() {
   return { rig, a, humanId, view };
 }
 
+for (const outcome of ['approve', 'duplicate', 'foreign', 'wrong-prompt', 'revoked', 'send-failed', 'cancelled', 'stopped'] as const) {
+  test(`an early channel decision is bound after delivery: ${outcome}`, async () => {
+    const rig = await running();
+    try {
+      const { humanId } = rig.link('discord', 'bot-1', 'sender-1');
+      const a = rig.adapter();
+      await a.inbound({ text: 'do it' });
+      const session = rig.store.listSessions({ owner: deriveUserPrincipal(humanId), kind: 'channel' }).sessions[0]!;
+      const view = approvalFor(rig, humanId, session.id);
+      const prompt = a.prompt.bind(a);
+      a.prompt = async req => {
+        const sent = await prompt(req);
+        const decision = { promptId: outcome === 'wrong-prompt' ? 'unrelated' : sent.promptId, chatId: req.chatId,
+          senderId: outcome === 'foreign' ? 'intruder' : 'sender-1', choiceId: 'approve' };
+        await a.decide(decision);
+        if (outcome === 'duplicate') await a.decide(decision);
+        if (outcome === 'revoked') {
+          const link = rig.identity.list({}).humans.find(h => h.id === humanId)!.identities[0]!;
+          rig.identity.unlink({ linkId: link.id }, OWNER);
+        }
+        if (outcome === 'stopped') await rig.switchboard.stop();
+        if (outcome === 'cancelled') rig.switchboard.approvalEvents.emit('approval.resolved', { approval: view });
+        if (outcome === 'send-failed') throw new Error('synthetic delivery failure');
+        return sent;
+      };
+      rig.switchboard.approvalEvents.emit('approval.requested', { approval: view, nonce: 'nonce-1', foregroundUntil: 1 });
+      await flush(20);
+      assert.equal(a.prompts.length, 1);
+      assert.equal(rig.approvals.decisions.length, outcome === 'approve' || outcome === 'duplicate' ? 1 : 0);
+      if (rig.approvals.decisions.length) assert.deepEqual(rig.approvals.decisions[0],
+        { requestId: 'req-1', nonce: 'nonce-1', decision: 'approve', person: humanId, surface: 2 });
+    } finally { rig.close(); }
+  });
+}
+
 test("an approval asked in a channel chat is shown there, to the person's linked handles only", async () => {
   const { rig, a } = await pendingApproval();
   assert.equal(a.prompts.length, 1);
