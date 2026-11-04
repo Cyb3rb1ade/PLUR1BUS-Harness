@@ -58,20 +58,27 @@ test("a killed native helper recovers through a fresh preload and keeps every re
   const file = createFileBackend({ dir: l.secrets, secure });
   await file.put("item", first, new Date());
   let firstKeyring = true;
+  let blockingNativeCallEntered = false;
   const store = createCoreSecretStore({ layout: l, securePath: secure, fileFallback: () => true, env: {},
     isolation: { budgetMs: 1500, retryAfterMs: 0, spawn(description) {
       const hang = description.kind === "keyring" && firstKeyring;
       if (description.kind === "keyring") firstKeyring = false;
-      return fork(fileURLToPath(new URL(hang ? "./fixtures/isolated-keyring.ts" : "./fixtures/isolated-memory-keyring.ts", import.meta.url)), [], {
+      const child = fork(fileURLToPath(new URL(hang ? "./fixtures/isolated-keyring.ts" : "./fixtures/isolated-memory-keyring.ts", import.meta.url)), [], {
         execArgv: ["--experimental-strip-types", "--conditions=source"], stdio: ["ignore", "ignore", "ignore", "ipc"], serialization: "advanced",
       });
+      if (hang) child.on("message", message => {
+        if ((message as { entered?: unknown } | null)?.entered === true) blockingNativeCallEntered = true;
+      });
+      return child;
     } } });
   try {
     await store.preloadRedaction();
     assert.equal(store.startupStatus().state, "unavailable");
+    assert.ok(blockingNativeCallEntered, "the unavailable helper reached its synchronously blocking native call");
     assert.equal(store.redaction.contains(first), false);
     await store.preloadRedaction();
-    assert.equal(store.startupStatus().state, "ready");
+    const recovered = store.startupStatus();
+    assert.equal(recovered.state, "ready", JSON.stringify(recovered));
     assert.ok(store.redaction.contains(first), "recovery became available before registering its file snapshot");
     await file.put("item", second, new Date());
     store.backendUnavailable();
