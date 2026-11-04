@@ -102,7 +102,11 @@ fixture_shape!(
     "retrieval-ledger.jsonl",
     |record: &RetrievalLedgerLine| {
         assert!(record.agent_id.is_some());
-        assert!(record.query.is_some());
+        // This historical synthetic file predates the real hash-only envelope.
+        // Its plaintext field stays lossless, outside the current typed shape.
+        assert_eq!(record.string("query"), Some(&JsString::from("fester Turn")));
+        assert!(record.query_hash.is_none());
+        assert!(record.id.is_none());
         assert_eq!(record.results_count.as_ref().unwrap().as_u64(), Some(1));
         assert_eq!(record.selected_ids.as_ref().unwrap().len(), 1);
     }

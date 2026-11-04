@@ -6,6 +6,8 @@
 // The validator covers the JSON Schema subset the harness's own tool schemas use (type, required, properties,
 // additionalProperties:false, enum, minimum/maximum, min/maxLength, pattern, items, min/maxItems). Swap in the core's
 // shared validator when the dispatcher lands; `validateArgs` is the only seam.
+import { wellFormedPrefix } from "../logs/utf16.ts";
+import type { SecretFormsSnapshot } from "../logs/secret-forms.ts";
 
 export interface ValidationIssue {
   /** JSON pointer to the offending value; "" is the arguments object itself. */
@@ -34,21 +36,23 @@ export interface ToolCallInvalid {
 type Schema = Record<string, any>;
 
 const typeOf = (v: unknown): string => (v === null ? "null" : Array.isArray(v) ? "array" : typeof v);
-const show = (v: unknown): string => {
+const show = (v: unknown, knownSecrets?: () => SecretFormsSnapshot): string => {
   let s: string;
   try {
     s = JSON.stringify(v) ?? String(v);
   } catch {
     s = String(v);
   }
-  return s.length > 40 ? `${s.slice(0, 39)}…` : s;
+  try { if (knownSecrets) s = knownSecrets().matcher.maskText(s); }
+  catch { s = "[value withheld]"; }
+  return s.length > 40 ? `${wellFormedPrefix(s, 39)}…` : s.toWellFormed();
 };
 
-function check(schema: Schema, value: unknown, path: string, out: ValidationIssue[]): void {
+function check(schema: Schema, value: unknown, path: string, out: ValidationIssue[], knownSecrets?: () => SecretFormsSnapshot): void {
   const t = schema.type as string | undefined;
   const issue = (expected: string, got: string, message: string): void => void out.push({ path, expected, got, message });
   if (Array.isArray(schema.enum)) {
-    if (!schema.enum.some((e: unknown) => e === value)) issue(`one of ${schema.enum.map((e: unknown) => JSON.stringify(e)).join(", ")}`, show(value), "value is not one of the allowed values");
+    if (!schema.enum.some((e: unknown) => e === value)) issue(`one of ${schema.enum.map((e: unknown) => JSON.stringify(e)).join(", ")}`, show(value, knownSecrets), "value is not one of the allowed values");
     return;
   }
   if (t === "object") {
@@ -56,7 +60,7 @@ function check(schema: Schema, value: unknown, path: string, out: ValidationIssu
     const obj = value as Record<string, unknown>;
     const props: Record<string, Schema> = schema.properties ?? {};
     for (const key of schema.required ?? []) if (!Object.hasOwn(obj, key)) out.push({ path: `${path}/${key}`, expected: props[key]?.type ?? "value", got: "missing", message: "required property missing" });
-    for (const [key, sub] of Object.entries(props)) if (Object.hasOwn(obj, key)) check(sub, obj[key], `${path}/${key}`, out);
+    for (const [key, sub] of Object.entries(props)) if (Object.hasOwn(obj, key)) check(sub, obj[key], `${path}/${key}`, out, knownSecrets);
     if (schema.additionalProperties === false) {
       for (const key of Object.keys(obj)) if (!Object.hasOwn(props, key)) out.push({ path: `${path}/${key}`, expected: "no such property", got: typeOf(obj[key]), message: "unknown property" });
     }
@@ -66,14 +70,14 @@ function check(schema: Schema, value: unknown, path: string, out: ValidationIssu
     if (!Array.isArray(value)) return issue("array", typeOf(value), "must be an array");
     if (typeof schema.maxItems === "number" && value.length > schema.maxItems) issue(`at most ${schema.maxItems} items`, `${value.length} items`, `must have at most ${schema.maxItems} items`);
     if (typeof schema.minItems === "number" && value.length < schema.minItems) issue(`at least ${schema.minItems} items`, `${value.length} items`, `must have at least ${schema.minItems} items`);
-    if (schema.items) value.forEach((v, i) => check(schema.items, v, `${path}/${i}`, out));
+    if (schema.items) value.forEach((v, i) => check(schema.items, v, `${path}/${i}`, out, knownSecrets));
     return;
   }
   if (t === "string") {
     if (typeof value !== "string") return issue("string", typeOf(value), "must be a string");
     if (typeof schema.minLength === "number" && value.length < schema.minLength) issue(`string of at least ${schema.minLength} characters`, `${value.length} characters`, `must have at least ${schema.minLength} characters`);
     if (typeof schema.maxLength === "number" && value.length > schema.maxLength) issue(`string of at most ${schema.maxLength} characters`, `${value.length} characters`, `must have at most ${schema.maxLength} characters`);
-    if (typeof schema.pattern === "string" && !new RegExp(schema.pattern).test(value)) issue(`string matching ${schema.pattern}`, show(value), "does not match the required pattern");
+    if (typeof schema.pattern === "string" && !new RegExp(schema.pattern).test(value)) issue(`string matching ${schema.pattern}`, show(value, knownSecrets), "does not match the required pattern");
     return;
   }
   if (t === "integer" || t === "number") {
@@ -85,9 +89,9 @@ function check(schema: Schema, value: unknown, path: string, out: ValidationIssu
   if (t === "boolean" && typeof value !== "boolean") issue("boolean", typeOf(value), "must be a boolean");
 }
 
-export function validateArgs(schema: Record<string, unknown>, args: unknown): ValidationIssue[] {
+export function validateArgs(schema: Record<string, unknown>, args: unknown, knownSecrets?: () => SecretFormsSnapshot): ValidationIssue[] {
   const out: ValidationIssue[] = [];
-  check(schema, args, "", out);
+  check(schema, args, "", out, knownSecrets);
   return out;
 }
 

@@ -57,7 +57,7 @@ fn main() {
     let Some(fixture) = args.next().filter(|s| {
         matches!(
             s.as_str(),
-            "production_lifecycle" | "production_diagnostics"
+            "production_lifecycle" | "production_diagnostics" | "production_deeplink"
         )
     }) else {
         eprintln!("FIXTURE_JOB_ARGUMENT_INVALID");

@@ -1,18 +1,11 @@
-//! Secret VALUES that `config.json` itself holds.
+//! Apply schema-owned disclosure policy only to the private backup copy of `config.json` (SH2).
 //!
-//! The configuration names its secrets (`tokenSecret`, `passwordSecret`, `apiKeyRef`, ...) and keeps the values in the secret
-//! store, which a backup never reads (R4). One property is the exception: `channels.telegram.webhook.secret` is the token
-//! Telegram echoes in the `X-Telegram-Bot-Api-Secret-Token` header, and it is kept in `config.json` as a plain string. A
-//! verbatim copy would put it in the archive in clear, whoever opens the archive could then pass as Telegram to the webhook,
-//! and the manifest says no secrets are part of it.
-//!
-//! `create` therefore replaces such a value by [`PLACEHOLDER`] in its private staged copy of `config.json` (the live file is
-//! never touched, and the manifest's digest describes the redacted bytes). The placeholder is not a secret and it satisfies the
-//! schema's pattern for the property, so the restored configuration still validates. `restore` replaces the placeholder in its
-//! staging tree by a fresh random value before the file is put in place, so that the restored installation never accepts the
-//! publicly known placeholder as a webhook secret; the Telegram channel registers whatever value is configured with
-//! `setWebhook` each time it starts. A config without such a value is archived and restored byte for byte.
+//! References are preserved without reading their targets. Declared literals become placeholders and endpoint URLs lose
+//! only userinfo/query/fragment values. Restore keeps that copy, except for the existing Telegram webhook regeneration: the channel
+//! registers the new random value with `setWebhook` when it starts. Unmodified configurations retain their original bytes.
 use super::BackupError;
+use crate::config_redaction::ConfigDisclosurePolicy;
+use crate::paths::Layout;
 use serde_json::Value;
 use std::fs;
 use std::io;
@@ -21,10 +14,8 @@ use std::path::Path;
 /// Stands where a redacted value was. It matches `^[A-Za-z0-9_-]{1,256}$` (the schema's pattern for the webhook secret).
 pub const PLACEHOLDER: &str = "backup-redacted-replaced-on-restore";
 
-/// The `config.json` properties that hold a secret VALUE, as key paths. The test `every_credential_named_string_property...`
-/// reads `config.schema.json` and fails when a new property with a credential-like name that is not a by-name reference is not
-/// listed here.
-pub const SECRET_VALUE_PATHS: &[&[&str]] = &[&["channels", "telegram", "webhook", "secret"]];
+// This existing channel behavior is regeneration, not a disclosure-policy list (owner SH2 ruling).
+const WEBHOOK_PATH: &[&str] = &["channels", "telegram", "webhook", "secret"];
 
 fn slot<'a>(config: &'a mut Value, path: &[&str]) -> Option<&'a mut Value> {
     let mut cur = config;
@@ -34,28 +25,67 @@ fn slot<'a>(config: &'a mut Value, path: &[&str]) -> Option<&'a mut Value> {
     Some(cur)
 }
 
-/// Whether a configuration value is a real secret (not absent, not empty, not already the placeholder).
-fn holds_value(v: &Value) -> bool {
-    match v {
-        Value::Null => false,
-        Value::String(s) => !s.is_empty() && s.as_str() != PLACEHOLDER,
-        _ => true,
+/// The configuration text with every secret value replaced, or `None` when it held none (nothing is to be rewritten then).
+fn redacted(layout: &Layout, text: &[u8]) -> Result<(Option<String>, Vec<String>), BackupError> {
+    let config = super::config_json::parse(text).map_err(|_| {
+        BackupError::new(
+            "config-unreadable",
+            "config.json must be valid JSON with unique object member names before it can be checked for secret values; repair it first (plur1bus 1staid repair)",
+        )
+    })?;
+    let installed = ConfigDisclosurePolicy::load(layout, &config)
+        .map_err(|error| BackupError::new("config-policy-invalid", error.to_string()))?;
+    let schema: Value = serde_json::from_str(plur1bus_config::SCHEMA_JSON).map_err(|_| {
+        BackupError::new(
+            "config-policy-invalid",
+            "the installed configuration schema is not valid JSON",
+        )
+    })?;
+    let original = config;
+    let mut config = installed.harness_config(&original);
+    let (mut keys, mut changed) = super::config_policy::redact(&mut config, &schema)?;
+    for (name, schema) in installed.module_schemas() {
+        let Some(original_module) = original
+            .get("modules")
+            .and_then(|modules| modules.get(name))
+        else {
+            continue;
+        };
+        let mut module = original_module.clone();
+        let (module_keys, module_changed) = super::config_policy::redact(&mut module, schema)
+            .map_err(|error| {
+                BackupError::new(error.reason, format!("module {name}: {}", error.detail))
+            })?;
+        if let (Some(enabled), Some(object)) = (
+            original_module
+                .get("enabled")
+                .filter(|value| value.is_boolean()),
+            module.as_object_mut(),
+        ) {
+            object.insert("enabled".into(), enabled.clone());
+        }
+        if let Some(modules) = config.get_mut("modules").and_then(Value::as_object_mut) {
+            modules.insert(name.to_owned(), module);
+        }
+        let prefix = format!("modules.{name}");
+        keys.extend(module_keys.into_iter().map(|key| {
+            if key.is_empty() {
+                prefix.clone()
+            } else {
+                format!("{prefix}.{key}")
+            }
+        }));
+        changed |= module_changed;
     }
+    keys.sort_unstable();
+    keys.dedup();
+    Ok((changed.then(|| plur1bus_config::serialize(&config)), keys))
 }
 
-/// The configuration text with every secret value replaced, or `None` when it held none (nothing is to be rewritten then).
-fn redact(text: &[u8]) -> Result<Option<String>, serde_json::Error> {
-    let mut config: Value = serde_json::from_slice(text)?;
-    let mut changed = false;
-    for path in SECRET_VALUE_PATHS {
-        if let Some(value) = slot(&mut config, path) {
-            if holds_value(value) {
-                *value = Value::String(PLACEHOLDER.to_string());
-                changed = true;
-            }
-        }
-    }
-    Ok(changed.then(|| plur1bus_config::serialize(&config)))
+#[cfg(test)]
+fn redact(text: &[u8]) -> Result<Option<String>, BackupError> {
+    let directory = tempfile::tempdir().unwrap();
+    redacted(&Layout::new(directory.path().to_path_buf()), text).map(|(text, _)| text)
 }
 
 /// Lets the owner write the file again (a staged copy of a read-only source is read-only).
@@ -84,25 +114,15 @@ fn rewrite(path: &Path, text: &str) -> io::Result<()> {
     fs::set_permissions(path, permissions)
 }
 
-/// Redacts the staged copy of `config.json` in place; `Ok(true)` when a value was replaced. A file that is not JSON cannot be
-/// searched for secret values, so the backup fails closed instead of archiving it unchecked.
-pub fn redact_staged_config(staged: &Path) -> Result<bool, BackupError> {
+/// Redact the staged copy using its real home's installed module policies; return only affected key names.
+/// Invalid JSON or unavailable/unsupported configured installed module metadata fails closed.
+pub fn redact_staged_config(layout: &Layout, staged: &Path) -> Result<Vec<String>, BackupError> {
     let bytes = fs::read(staged)?;
-    let redacted = redact(&bytes).map_err(|e| {
-        BackupError::new(
-            "config-unreadable",
-            format!(
-                "config.json is not valid JSON ({e}), so it cannot be checked for secret values; repair it first (plur1bus 1staid repair)"
-            ),
-        )
-    })?;
-    match redacted {
-        Some(text) => {
-            rewrite(staged, &text)?;
-            Ok(true)
-        }
-        None => Ok(false),
+    let (redacted, keys) = redacted(layout, &bytes)?;
+    if let Some(text) = redacted {
+        rewrite(staged, &text)?;
     }
+    Ok(keys)
 }
 
 /// 32 random bytes as 64 lower-case hex characters: matches the webhook secret's pattern.
@@ -129,12 +149,10 @@ pub fn refill_staged_config(staging: &Path) -> io::Result<bool> {
         return Ok(false);
     };
     let mut changed = false;
-    for path_keys in SECRET_VALUE_PATHS {
-        if let Some(value) = slot(&mut config, path_keys) {
-            if value.as_str() == Some(PLACEHOLDER) {
-                *value = Value::String(fresh_secret()?);
-                changed = true;
-            }
+    if let Some(value) = slot(&mut config, WEBHOOK_PATH) {
+        if value.as_str() == Some(PLACEHOLDER) {
+            *value = Value::String(fresh_secret()?);
+            changed = true;
         }
     }
     if changed {
@@ -238,7 +256,10 @@ mod tests {
             use std::os::unix::fs::PermissionsExt;
             fs::set_permissions(&p, fs::Permissions::from_mode(0o640)).unwrap();
         }
-        assert!(redact_staged_config(&p).unwrap());
+        assert_eq!(
+            redact_staged_config(&Layout::new(d.path().to_path_buf()), &p).unwrap(),
+            ["channels.telegram.webhook.secret"]
+        );
         let text = fs::read_to_string(&p).unwrap();
         assert!(!text.contains(MARKER) && text.ends_with('\n'), "{text}");
         assert_eq!(secret_of(&text), PLACEHOLDER);
@@ -250,8 +271,11 @@ mod tests {
                 0o640
             );
         }
-        // Run again: nothing left to redact, and the file does not change.
-        assert!(!redact_staged_config(&p).unwrap());
+        // Run again: keep the restore guidance without rewriting the file.
+        assert_eq!(
+            redact_staged_config(&Layout::new(d.path().to_path_buf()), &p).unwrap(),
+            ["channels.telegram.webhook.secret"]
+        );
         assert_eq!(fs::read_to_string(&p).unwrap(), text);
     }
 
@@ -261,7 +285,11 @@ mod tests {
         let p = d.path().join("config.json");
         let original = b"{ \"schemaVersion\": 1,   \"restored\": true }";
         fs::write(&p, original).unwrap();
-        assert!(!redact_staged_config(&p).unwrap());
+        assert!(
+            redact_staged_config(&Layout::new(d.path().to_path_buf()), &p)
+                .unwrap()
+                .is_empty()
+        );
         assert_eq!(fs::read(&p).unwrap(), original, "byte for byte");
     }
 
@@ -270,7 +298,7 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         let p = d.path().join("config.json");
         fs::write(&p, format!("not json, but it names {MARKER}")).unwrap();
-        let e = redact_staged_config(&p).unwrap_err();
+        let e = redact_staged_config(&Layout::new(d.path().to_path_buf()), &p).unwrap_err();
         assert_eq!(e.reason, "config-unreadable");
         assert!(!e.detail.contains(MARKER), "{}", e.detail);
     }
@@ -311,73 +339,6 @@ mod tests {
             fs::write(&p, &original).unwrap();
             assert!(!refill_staged_config(d.path()).unwrap(), "{original}");
             assert_eq!(fs::read_to_string(&p).unwrap(), original);
-        }
-    }
-
-    /// Every property of `config.schema.json` (dotted path, node), through `properties` and the keywords that nest them.
-    fn schema_properties() -> Vec<(String, Value)> {
-        fn walk(node: &Value, path: &str, out: &mut Vec<(String, Value)>) {
-            if let Some(props) = node.get("properties").and_then(Value::as_object) {
-                for (k, v) in props {
-                    let p = if path.is_empty() {
-                        k.clone()
-                    } else {
-                        format!("{path}.{k}")
-                    };
-                    out.push((p.clone(), v.clone()));
-                    walk(v, &p, out);
-                }
-            }
-            for key in ["additionalProperties", "items", "then"] {
-                if node[key].is_object() {
-                    walk(&node[key], &format!("{path}.*"), out);
-                }
-            }
-            for key in ["allOf", "anyOf", "oneOf"] {
-                for sub in node[key].as_array().into_iter().flatten() {
-                    walk(sub, path, out);
-                }
-            }
-        }
-        let schema: Value = serde_json::from_str(plur1bus_config::SCHEMA_JSON).unwrap();
-        let mut out = Vec::new();
-        walk(&schema, "", &mut out);
-        out
-    }
-
-    #[test]
-    fn every_credential_named_string_property_is_a_reference_or_is_redacted() {
-        let props = schema_properties();
-        assert!(props.len() > 100, "{} schema properties", props.len());
-        let mut references = 0;
-        for (path, node) in &props {
-            let key = path.rsplit('.').next().unwrap();
-            let lower = key.to_ascii_lowercase();
-            let credential_named = ["secret", "token", "password", "apikey", "privatekey"]
-                .iter()
-                .any(|w| lower.contains(w));
-            if !credential_named || node["type"] != json!("string") {
-                continue;
-            }
-            // `tokenSecret`, `botTokenSecret`, `passwordSecret`, `apiKeyRef`, ...: the NAME of a secret in the store.
-            if key.ends_with("Secret") || key.ends_with("Ref") {
-                references += 1;
-                continue;
-            }
-            let listed = SECRET_VALUE_PATHS.iter().any(|p| p.join(".") == *path);
-            assert!(
-                listed,
-                "{path} looks like a credential kept in config.json: add it to SECRET_VALUE_PATHS (or name it like a reference)"
-            );
-        }
-        assert!(references >= 8, "{references} reference properties found");
-        // And every listed path exists in the schema.
-        for p in SECRET_VALUE_PATHS {
-            let dotted = p.join(".");
-            assert!(
-                props.iter().any(|(path, _)| *path == dotted),
-                "{dotted} is not a config property"
-            );
         }
     }
 }

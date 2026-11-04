@@ -50,6 +50,18 @@ is done. Choose another place with `--backup-out <FILE>`; a path inside the home
 - A backup needs a running core (`backup create` asks the core for a consistent snapshot). If it cannot be written, the
   uninstall stops **before changing anything** and says so; start the daemon and run it again, or pass `--no-backup`.
 
+The automatic purge backup uses the ordinary default and excludes `state/api/accounts.db`. If API login credentials
+must be recoverable after purging, make a separate account-inclusive backup before uninstalling:
+
+```sh
+plur1bus backup create --include-api-accounts --out "/private/backup-with-api-accounts.tar.gz"
+```
+
+That archive includes password hashes, TOTP seeds and token hashes and is not encrypted. The
+[portable encrypted workflow](portable-backup.md) includes API accounts in both its backup and rollback archives and
+also recovers owner-readable Vault values. Ordinary archives never include the secret store. Keep either backup
+outside the home that will be purged.
+
 ## `--dry-run`, confirmation and `--json`
 
 `--dry-run` prints the same plan the real run would act on and changes nothing. The plan is computed from the current

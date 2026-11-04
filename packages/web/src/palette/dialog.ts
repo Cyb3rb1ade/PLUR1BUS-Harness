@@ -14,7 +14,7 @@ import { currentRole } from "../pages/common/load.ts";
 import { loadSettingValues } from "./config-values.ts";
 import { FANOUT, runFanout } from "./fanout.ts";
 import { agentsSource, sessionsSource, type AgentRow, type SessionRow } from "./fanout-sources.ts";
-import { agentEntries, buildIndex, logSearchEntries, sessionEntries } from "./index-build.ts";
+import { agentEntries, buildIndex, logSearchEntries, sessionEntries, type SettingValue } from "./index-build.ts";
 import { highlight, search, type Entry, type Hit } from "./match.ts";
 import { closePalette } from "./state.ts";
 import "../styles/palette.css";
@@ -47,7 +47,7 @@ export function PaletteDialog(): View {
   const [query, setQuery] = useState("");
   // The active option is tracked by entry id, so a group arriving above it does not move the selection.
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [values, setValues] = useState<Record<string, string> | null>(null);
+  const [values, setValues] = useState<Record<string, SettingValue> | null>(null);
 
   // Like Dialog: modal, focus into the field, focus back to the opener on unmount (unless a choice moved focus to the new page).
   useLayoutEffect(() => {

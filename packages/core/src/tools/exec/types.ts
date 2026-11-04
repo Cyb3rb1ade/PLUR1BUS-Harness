@@ -63,6 +63,8 @@ export interface ApprovalPort {
 }
 
 export interface ExecDeps {
+  /** Trusted current-generation matcher; never derived from a tool argument or its environment. */
+  knownSecrets?: () => import("../../logs/secret-forms.ts").SecretFormsSnapshot;
   config: ExecConfig;
   process: ProcessPort;
   timers: TimerPort;

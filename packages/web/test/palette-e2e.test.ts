@@ -1,5 +1,6 @@
 // The command palette in a real browser: hotkey, keyboard operation, focus, sensitive values, responsive targets and axe.
 import assert from "node:assert/strict";
+import { randomBytes, randomUUID } from "node:crypto";
 import { after, before, describe, test } from "node:test";
 import type { Page } from "playwright";
 import { expectAxeClean } from "./axe.ts";
@@ -8,12 +9,15 @@ import { browserSkip, setup, signIn, teardown, withApp, type App } from "./harne
 before(setup);
 after(teardown);
 const opts = { skip: browserSkip };
+const REFERENCE_NAME = `channels.discord.${randomUUID().slice(0, 8)}`;
+const PASTED_KEY = `sk-${randomBytes(24).toString("base64url")}`;
 
 const CONFIG = {
   metrics: { enabled: true, port: 9464 },
   core: { logLevel: "debug", recall: { softBudgetMs: 1234 } },
   secrets: { fileFallback: { enabled: true } },
-  providers: { openai: { apiKey: "sk-TOPSECRET-123" } },
+  voice: { providers: { elevenlabs: { apiKeyRef: PASTED_KEY } } },
+  channels: { discord: { tokenSecret: REFERENCE_NAME } },
   egress: { allowHosts: ["api.example.org"] },
 };
 
@@ -246,24 +250,25 @@ describe("palette: keyboard operation", opts, () => {
 });
 
 describe("palette: values and sensitive keys", opts, () => {
-  test("values appear for plain keys and never for sensitive ones, in the DOM or in what can be searched", async () => {
+  test("safe reference names are readable and searchable while pasted key values stay out of the palette", async () => {
     await withApp({}, async (app) => {
       const page = await shell(app);
       await open(page);
       await combo(page).fill("port");
       await page.getByText("= 9464").waitFor();
-      await combo(page).fill("true"); // secrets.fileFallback.enabled is true, but its key names a secret
-      await dlg(page).getByRole("option", { name: /Enabled/ }).first().waitFor(); // metrics.enabled
-      const keys = await page.locator("dialog.palette [role=option]").evaluateAll((els) => els.map((e) => e.textContent ?? ""));
-      assert.ok(keys.some((k) => k.includes("metrics.enabled")));
-      assert.ok(!keys.some((k) => k.includes("secrets.fileFallback.enabled")), "a sensitive key's value must not be searchable");
-      await combo(page).fill("secrets");
-      const secretRow = (await page.locator("dialog.palette [role=option]", { hasText: "secrets.fileFallback.enabled" }).first().textContent()) ?? "";
-      assert.ok(secretRow.includes("secrets.fileFallback.enabled") && !secretRow.includes("= true"), secretRow);
-      await combo(page).fill("TOPSECRET");
+      await combo(page).fill(REFERENCE_NAME);
+      const referenceRow = dlg(page).getByRole("option").filter({ hasText: "channels.discord.tokenSecret" });
+      await referenceRow.waitFor();
+      assert.ok((await referenceRow.innerText()).includes(`= ${REFERENCE_NAME}`));
+      await combo(page).fill("voice.providers.elevenlabs.apiKeyRef");
+      const literalRow = dlg(page).locator('[role="option"][data-group="setting"]').filter({ hasText: "voice.providers.elevenlabs.apiKeyRef" });
+      await literalRow.waitFor();
+      assert.ok(!(await literalRow.innerText()).includes("= "));
+      const query = PASTED_KEY.slice(3, 15);
+      await combo(page).fill(query);
       await dlg(page).getByRole("option").first().waitFor();
-      assert.deepEqual(await dlg(page).getByRole("option").allTextContents(), ["Search logs for “TOPSECRET”"]); // only the query-built fallback, no setting
-      assert.equal((await page.content()).includes("sk-TOPSECRET-123"), false);
+      assert.deepEqual(await dlg(page).getByRole("option").allTextContents(), [`Search logs for “${query}”`]);
+      assert.equal((await page.content()).includes(PASTED_KEY), false);
     });
   });
 

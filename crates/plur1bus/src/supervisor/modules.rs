@@ -795,6 +795,7 @@ fn install_module(
             return Err(err);
         }
     };
+    super::config::refresh_log_policy(shared, layout);
     shared.log.info(
         "module installed",
         json!({ "module": name, "version": version, "replaced": replaced }),
@@ -838,6 +839,7 @@ fn uninstall_module(
         err.detail = Some(e.to_string());
         return Err(err);
     }
+    super::config::refresh_log_policy(shared, layout);
     shared
         .log
         .info("module uninstalled", json!({ "module": name }));

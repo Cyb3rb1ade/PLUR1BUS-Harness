@@ -1,9 +1,14 @@
+// Real-Core archive policy keeps API accounts opt-in and preserves destination credentials when they were omitted.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
+import { DatabaseSync } from "node:sqlite";
 import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { REAL, cli, home, startCore, stopCore, type RunningCore } from "./helpers.ts";
+import { defaults, validate } from "../../packages/config-schema/src/index.ts";
+import { AccountStore } from "../../packages/api/src/account-store.ts";
 
 const QUERIES = ["when is the roadmap review", "quarterly budget draft", "harbour tour"];
 const FACTS = [
@@ -13,6 +18,83 @@ const FACTS = [
 ];
 
 describe("M8 — backup and restore against a real core", () => {
+  it("ordinary backups omit API accounts by default, preserve destination accounts, and restore an explicit opt-in", { timeout: 120_000 }, async () => {
+    const h = home(), ordinary = join(h, "ordinary.tar.gz"), inclusive = join(h, "inclusive.tar.gz");
+    const accountPath = join(h, "state", "api", "accounts.db");
+    const sourceHash = randomBytes(32).toString("hex"), destinationHash = randomBytes(32).toString("hex");
+    let core: RunningCore | undefined;
+    const passwordHash = (): unknown => {
+      const db = new DatabaseSync(accountPath, { readOnly: true });
+      try { return db.prepare("SELECT password_hash FROM accounts WHERE person_id=?").get("backup-person")?.password_hash; }
+      finally { db.close(); }
+    };
+    try {
+      writeFileSync(join(h, "config.json"), JSON.stringify(defaults()));
+      const accounts = new AccountStore({ path: accountPath, resolve: async () => null });
+      try {
+        await accounts.createPending("backup-person", "backup-person", sourceHash);
+        await accounts.activate("backup-person");
+      } finally { accounts.close(); }
+      const publicDb = new DatabaseSync(join(h, "state", "public.sqlite"));
+      try { publicDb.exec("CREATE TABLE public_control(value TEXT); INSERT INTO public_control VALUES ('public-value')"); }
+      finally { publicDb.close(); }
+      core = await startCore(h);
+      const omitted = cli(h, ["backup", "create", "--out", ordinary]);
+      assert.ok(!omitted.units.includes("state/api/accounts.db"));
+      assert.ok(omitted.units.includes("state/public.sqlite"), "an unrelated database stays selected");
+      const plain = gunzipSync(readFileSync(ordinary));
+      assert.ok(!plain.includes(sourceHash), "the ordinary archive must omit API credential bytes");
+      assert.ok(!plain.includes("data/sqlite/api/accounts.db"), "the account file must not be a tar entry");
+      assert.ok(!cli(h, ["backup", "verify", ordinary]).units.includes("state/api/accounts.db"));
+      const included = cli(h, ["backup", "create", "--out", inclusive, "--include-api-accounts"]);
+      assert.ok(included.units.includes("state/api/accounts.db"));
+      assert.ok(gunzipSync(readFileSync(inclusive)).includes(sourceHash));
+      await stopCore(core); core = undefined;
+      const destination = new AccountStore({ path: accountPath, resolve: async () => null });
+      try { await destination.updatePasswordHash("backup-person", destinationHash); }
+      finally { destination.close(); }
+      const dry = cli(h, ["backup", "restore", "--dry-run", ordinary]);
+      assert.ok(!dry.units.some((unit: { target: string }) => unit.target === "state/api/accounts.db"));
+      assert.ok(!dry.removed.includes("state/api/accounts.db"));
+      assert.equal(passwordHash(), destinationHash);
+      assert.equal(cli(h, ["backup", "restore", "--yes", ordinary]).applied, true);
+      assert.equal(passwordHash(), destinationHash, "omission preserves the destination account");
+      assert.equal(cli(h, ["backup", "restore", "--yes", inclusive]).applied, true);
+      assert.equal(passwordHash(), sourceHash, "opt-in restores the backed-up account");
+    } finally {
+      if (core) await stopCore(core);
+      rmSync(h, { recursive: true, force: true });
+    }
+  });
+  it("ordinary URL credential placeholders survive create → restore → TS validation", { timeout: 120_000 }, async () => {
+    const h = home(), archive = join(h, "credential-snapshot.tar.gz");
+    let core: RunningCore | undefined;
+    const canary = randomBytes(32).toString("hex"), reference = "voice-elevenlabs-key";
+    const config = defaults();
+    config.voice.providers.elevenlabs.baseUrl = `https://user:${canary}@provider.example/public/path?token=${canary}#auth=${canary}`;
+    config.voice.providers.elevenlabs.apiKeyRef = reference;
+    writeFileSync(join(h, "config.json"), JSON.stringify(config));
+    assert.ok(validate(config).ok);
+    try {
+      core = await startCore(h);
+      const created = cli(h, ["backup", "create", "--out", archive]);
+      assert.equal(created.schema, "backup.create/1");
+      const raw = gunzipSync(readFileSync(archive));
+      assert.ok(!raw.includes(canary), "a literal URL credential entered the archive");
+      assert.ok(raw.includes(reference), "the reference name must survive byte-for-byte");
+      await stopCore(core); core = undefined;
+      writeFileSync(join(h, "config.json"), JSON.stringify(defaults()));
+      assert.equal(cli(h, ["backup", "restore", "--yes", archive]).applied, true);
+      const restored = JSON.parse(readFileSync(join(h, "config.json"), "utf8"));
+      assert.equal(restored.voice.providers.elevenlabs.baseUrl,
+        "https://REDACTED@provider.example/public/path?token=REDACTED#auth=REDACTED");
+      assert.equal(restored.voice.providers.elevenlabs.apiKeyRef, reference);
+      assert.ok(validate(restored).ok, "the real restored config must satisfy the TS URI validator");
+    } finally {
+      if (core) await stopCore(core);
+      rmSync(h, { recursive: true, force: true });
+    }
+  });
   it("create → restore round trip gives identical recall; corrupt archives and failed restores change nothing", { skip: REAL && "flat embedder only", timeout: 300_000 }, async (t) => {
     const h = home();
     let core: RunningCore | undefined;

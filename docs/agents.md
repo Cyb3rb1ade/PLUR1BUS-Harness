@@ -85,7 +85,9 @@ keys and redacts recognized credential patterns in text. Arbitrary unrecognized
 secret text cannot be identified automatically: only share exports reviewed
 for sensitive free text. No source credential backend or token is transferred.
 
-The export manifest carries required **secret names** and current person rights.
+Exported configuration follows the schema policy at `agents.<id>`: marked values are masked and endpoint hosts/paths
+remain visible, with userinfo and query values masked. Public key names and JSON types are retained. The export manifest
+carries required **secret names** and current person rights; these names describe target provisioning, never stored values.
 Old v1 exports without that metadata remain supported. Required credentials
 are also derived from the target instance's selected channel and model-profile
 provider settings. Missing local credentials produce `E_AGENT_SECRETS_MISSING`

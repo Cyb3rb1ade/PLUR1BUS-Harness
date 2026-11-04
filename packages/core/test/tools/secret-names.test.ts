@@ -3,6 +3,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { defaults } from "@plur1bus/config-schema";
+import { loadConfigDisclosurePolicy } from "../../src/config-disclosure.ts";
 import { composeTools } from "../../src/composition/tools.ts";
 import { secretNamesPort } from "../../src/composition/index.ts";
 import { ToolDispatcher, type DispatchContext } from "../../src/tools/dispatcher.ts";
@@ -34,12 +35,27 @@ async function rig() {
   await store.set(owner, "unrelated.secret", `${VALUE}-other`);
   const audit = memoryAuditSink();
   const registry = await composeTools({ home: "/nonexistent", roots: [], grants: { list: () => [], get: () => undefined }, audit: memoryAuditSink(), secretNames: secretNamesPort({ config: () => cfg, secrets: store }) }, { agentId: "a1", principal: "p", signal: new AbortController().signal, messages: [] } as unknown as ChatRequest);
-  const dispatcher = new ToolDispatcher({ registry, approvals: { request: async () => ({ approved: false }) }, grants: { list: () => [], get: () => undefined }, audit: createPolicyAudit({ sink: audit, clock: { now: () => 1 }, host: "h" }), clock: { now: () => 1 } });
+  const dispatcher = new ToolDispatcher({ registry, approvals: { request: async () => ({ approved: false }) }, grants: { list: () => [], get: () => undefined }, audit: createPolicyAudit({ sink: audit, clock: { now: () => 1 }, host: "h" }), clock: { now: () => 1 }, secrets: () => store.redaction.values() });
   const ctx = (agentId: string): DispatchContext => ({ agentId, principal: "user:v1:o", sessionId: "s", surface: 1, signal: new AbortController().signal });
   return { cfg, store, registry, dispatcher, audit, ctx };
 }
 
 describe("secret_names", () => {
+  it("preserves provisioning reference names when configuration registrations share the output redactor", async () => {
+    const { cfg, store, dispatcher, ctx } = await rig();
+    const policy = await loadConfigDisclosurePolicy("/nonexistent");
+    store.redaction.replaceGroup(Symbol("configuration"), policy.values(cfg));
+    const result = await dispatcher.call({ id: "shared-registry", name: SECRET_NAMES_TOOL, args: {} }, ctx("a1"));
+    assert.ok(!result.isError);
+    assert.deepEqual((result.value as { secrets: { name: string }[] }).secrets.map(entry => entry.name),
+      ["openai.key", "telegram.bot"]);
+    await store.set(owner, "actual-stored-value", "openai.key");
+    const collision = await dispatcher.call({ id: "actual-value-collision", name: SECRET_NAMES_TOOL, args: {} }, ctx("a1"));
+    assert.ok(!collision.isError);
+    assert.deepEqual((collision.value as { secrets: { name: string }[] }).secrets.map(entry => entry.name),
+      ["[REDACTED:secret]", "telegram.bot"], "a reference exemption must never release an actual known store value");
+  });
+
   it("lists exactly the secrets this agent's configuration refers to, with scope and presence", async () => {
     const { dispatcher, ctx } = await rig();
     const a1 = await dispatcher.call({ id: "1", name: SECRET_NAMES_TOOL, args: {} }, ctx("a1"));

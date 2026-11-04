@@ -41,7 +41,10 @@ export interface FsConfig {
   /** Race-injection seam: honoured only with PLUR1BUS_ALLOW_TEST_INTERNALS=1, ignored otherwise. */
   testHooks?: { afterCheck?: (op: "read" | "write") => Promise<void> };
 }
-export interface OpContext { signal?: AbortSignal | undefined }
+export interface OpContext {
+  signal?: AbortSignal | undefined;
+  knownSecrets?: (() => import("../../logs/secret-forms.ts").SecretFormsSnapshot) | undefined;
+}
 
 export interface FsOps {
   stat(args: { path: string }, ctx?: OpContext): Promise<StatResult>;
@@ -200,29 +203,53 @@ export function createFsOps(cfg: FsConfig): FsOps {
         throw new FsFailure("too-large", `file has ${remaining} bytes beyond offset ${offset}; the limit is ${limits.maxReadBytes} (pass length to read a range)`);
       }
       const want = Math.min(explicitLen ?? limits.maxReadBytes, remaining);
-      const buf = Buffer.allocUnsafe(want);
-      let got = 0;
-      while (got < want) {
-        checkAbort(ctx);
-        const { bytesRead } = await fh.read(buf, got, want - got, offset + got);
-        if (bytesRead === 0) break; // the file shrank
-        got += bytesRead;
+      let snapshot = ctx?.knownSecrets?.();
+      let padded = Buffer.alloc(0), begin = 0;
+      // A newly registered longer value needs more source context. Retry once on the same verified handle, then withhold.
+      for (let attempt = 0; ; attempt++) {
+        const padding = snapshot ? Math.max(0, snapshot.matcher.maxSourceBytes - 1) + 3 : 0;
+        const start = want ? Math.max(0, offset - padding) : offset;
+        const end = want ? Math.min(size, offset + want + padding) : offset;
+        const buf = Buffer.allocUnsafe(end - start);
+        let read = 0;
+        while (read < buf.length) {
+          checkAbort(ctx);
+          const n = await fh.read(buf, read, buf.length - read, start + read);
+          if (n.bytesRead === 0) break;
+          read += n.bytesRead;
+        }
+        padded = buf.subarray(0, read); begin = Math.min(offset - start, read);
+        const fresh = ctx?.knownSecrets?.();
+        if (fresh && fresh.matcher.maxSourceBytes > (snapshot?.matcher.maxSourceBytes ?? 0)) {
+          if (attempt) throw new FsFailure("io-error", "file content was withheld because secret context changed");
+          snapshot = fresh; continue;
+        }
+        snapshot = fresh ?? snapshot; break;
       }
-      const data = buf.subarray(0, got);
+      const got = Math.min(want, padded.length - begin);
+      const data = padded.subarray(begin, begin + got);
       const truncated = offset + got < size;
       const after = await fh.stat({ bigint: true });
       if (after.dev !== st.dev || after.ino !== st.ino) throw new FsFailure("changed", "the file was replaced while reading");
       const rp = await rel(c);
+      const fresh = ctx?.knownSecrets?.();
+      if (fresh && fresh.matcher.maxSourceBytes > (snapshot?.matcher.maxSourceBytes ?? 0)) throw new FsFailure("io-error", "file content was withheld because secret context changed");
+      snapshot = fresh ?? snapshot;
       const fits = <R extends ReadResult>(r: R): R => {
         const encoded = Buffer.byteLength(JSON.stringify(r));
         if (encoded > limits.maxResultBytes) throw new FsFailure("too-large", `the ${r.encoding} result would be ${encoded} bytes; the limit is ${limits.maxResultBytes} (pass a smaller length)`);
         return r;
       };
-      if (encoding === "base64") return fits({ ...rp, encoding: "base64" as const, content: data.toString("base64"), size, offset, bytesRead: got, truncated });
+      if (encoding === "base64") {
+        const safe = snapshot ? snapshot.matcher.maskBytesWindow(padded, begin, begin + got) : data;
+        return fits({ ...rp, encoding: "base64" as const, content: Buffer.from(safe).toString("base64"), size, offset, bytesRead: got, truncated });
+      }
       // RULING: a ranged read that starts mid-codepoint is binary; binary is never returned as text.
       const text = decodeText(data, truncated);
       if (text === null) throw new FsFailure("binary-content", "content is not valid UTF-8 text");
-      return fits({ ...rp, encoding: "utf8" as const, content: text, size, offset, bytesRead: Buffer.byteLength(text, "utf8"), truncated });
+      const bytesRead = Buffer.byteLength(text, "utf8");
+      const safe = snapshot ? snapshot.matcher.maskBytesWindow(padded, begin, begin + bytesRead) : data.subarray(0, bytesRead);
+      return fits({ ...rp, encoding: "utf8" as const, content: Buffer.from(safe).toString("utf8"), size, offset, bytesRead, truncated });
     } finally { await fh.close().catch(() => {}); }
   });
 

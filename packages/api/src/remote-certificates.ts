@@ -3,11 +3,18 @@ import { X509Certificate, createPrivateKey, randomBytes } from "node:crypto";
 import { chmodSync, closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createSecurePath } from "@plur1bus/module-api";
-import { certPin, createMemorySecretPort, generateSelfSigned, importCompanyCa, loadTlsMaterial, splitPem, type Pin } from "../../remote-access/src/index.ts";
-export interface RemoteTlsMaterial { readonly key: string; readonly cert: string; readonly kind: "self-signed" | "company-ca"; readonly certPin: Pin; readonly caPin?: Pin; readonly notAfter: number }
+import { certPin, spkiPin, createMemorySecretPort, generateSelfSigned, importCompanyCa, loadTlsMaterial, splitPem, type Pin } from "../../remote-access/src/index.ts";
+export interface RemoteTlsMaterial { readonly key: string; readonly cert: string; readonly kind: "self-signed" | "company-ca"; readonly certPin: Pin; readonly certSpkiPin: Pin; readonly caPin?: Pin; readonly notAfter: number }
 export interface CertificateNames { readonly hostnames: readonly string[]; readonly ips?: readonly string[] }
 export class RemoteCertificateError extends Error { readonly reason: string; constructor(reason: string) { super(`remote TLS material unavailable (${reason})`); this.reason = reason; } }
 const failed = (reason: string): never => { throw new RemoteCertificateError(reason); };
+export function ensurePrivateDirectory(path: string): void {
+  try {
+    mkdirSync(path, { mode: 0o700, recursive: true }); const st = lstatSync(path);
+    if (!st.isDirectory() || typeof process.geteuid === "function" && st.uid !== process.geteuid()) failed("untrusted-directory");
+    chmodSync(path, 0o700); if (!createSecurePath()(path, { mode: 0o700 }).applied) failed("permissions");
+  } catch (e) { if (e instanceof RemoteCertificateError) throw e; failed("storage"); }
+}
 export function privateAtomicJson(path: string, value: unknown): void {
   const temp = `${path}.${randomBytes(8).toString("hex")}.tmp`; let fd: number | undefined;
   try {
@@ -27,13 +34,10 @@ export class RemoteCertificates {
   readonly #dir: string; readonly #names: CertificateNames; readonly #now: () => number;
   constructor(o: { home: string; names: CertificateNames; now?: () => number }) {
     this.#dir = join(o.home, "state", "api", "remote-tls"); this.#names = o.names; this.#now = o.now ?? Date.now;
-    try {
-      mkdirSync(this.#dir, { mode: 0o700, recursive: true }); const st = lstatSync(this.#dir);
-      if (!st.isDirectory() || typeof process.geteuid === "function" && st.uid !== process.geteuid()) failed("untrusted-directory");
-      chmodSync(this.#dir, 0o700); if (!createSecurePath()(this.#dir, { mode: 0o700 }).applied) failed("permissions");
-    } catch (e) { if (e instanceof RemoteCertificateError) throw e; failed("storage"); }
+    ensurePrivateDirectory(this.#dir);
   }
   #read(slot: "current" | "next"): RemoteTlsMaterial | undefined {
+    ensurePrivateDirectory(this.#dir);
     const raw = readPrivateText(join(this.#dir, slot + ".json")); if (raw === undefined) return undefined;
     try {
       const b = JSON.parse(raw) as Record<string, unknown>;
@@ -49,17 +53,17 @@ export class RemoteCertificates {
       if (!Number.isFinite(after) || chain.some(c => !Number.isFinite(Date.parse(c.validFrom)) || Date.parse(c.validFrom) > this.#now()) || after <= this.#now()) failed("certificate-expired");
       for (const host of this.#names.hostnames) if (!leaf.checkHost(host, { subject: "never" })) failed("certificate-name");
       for (const ip of this.#names.ips ?? []) if (!leaf.checkIP(ip)) failed("certificate-name");
-      return { key, cert, kind, certPin: certPin(leaf), ...(ca ? { caPin: certPin(ca) } : {}), notAfter: after };
+      return { key, cert, kind, certPin: certPin(leaf), certSpkiPin: spkiPin(leaf), ...(ca ? { caPin: certPin(ca) } : {}), notAfter: after };
     } catch (e) { if (e instanceof RemoteCertificateError) throw e; return failed("invalid-certificate"); }
   }
-  hasCurrent(): boolean { return readPrivateText(join(this.#dir, "current.json")) !== undefined; }
+  hasCurrent(): boolean { ensurePrivateDirectory(this.#dir); return readPrivateText(join(this.#dir, "current.json")) !== undefined; }
   current(): RemoteTlsMaterial | undefined { return this.#read("current"); }
   staged(): RemoteTlsMaterial | undefined { return this.#read("next"); }
   async #selfSigned(slot: "current" | "next"): Promise<RemoteTlsMaterial> {
     const secrets = createMemorySecretPort(), keyRef = "remote-listener";
     const made = await generateSelfSigned({ ...this.#names, now: new Date(this.#now()), keyRef, secrets });
     const material = await loadTlsMaterial(secrets, keyRef, made.certPem); const result = this.#validate(material.key, material.cert, "self-signed");
-    privateAtomicJson(join(this.#dir, slot + ".json"), { version: 1, kind: result.kind, key: result.key, cert: result.cert }); return result;
+    ensurePrivateDirectory(this.#dir); privateAtomicJson(join(this.#dir, slot + ".json"), { version: 1, kind: result.kind, key: result.key, cert: result.cert }); return result;
   }
   async ensureSelfSigned(): Promise<RemoteTlsMaterial> {
     const existing = this.current(); if (existing) { if (existing.kind !== "self-signed") return failed("tls-mode-mismatch"); return existing; } return this.#selfSigned("current");
@@ -70,7 +74,7 @@ export class RemoteCertificates {
     const secrets = createMemorySecretPort(), keyRef = "remote-listener", imported = await importCompanyCa({ ...input, ...this.#names, now: new Date(this.#now()), keyRef, secrets });
     if (!imported.ok) return failed(imported.issues[0]?.code ?? "company-ca-invalid");
     const material = await loadTlsMaterial(secrets, keyRef, imported.chainPem), result = this.#validate(material.key, material.cert, "company-ca", imported.caPem);
-    privateAtomicJson(join(this.#dir, "next.json"), { version: 1, kind: result.kind, key: result.key, cert: result.cert, ...(imported.caPem ? { ca: imported.caPem } : {}) }); return result;
+    ensurePrivateDirectory(this.#dir); privateAtomicJson(join(this.#dir, "next.json"), { version: 1, kind: result.kind, key: result.key, cert: result.cert, ...(imported.caPem ? { ca: imported.caPem } : {}) }); return result;
   }
   /** Called only after the trust controller has announced next over the existing trusted channel. */
   activateStaged(): RemoteTlsMaterial {
@@ -78,5 +82,5 @@ export class RemoteCertificates {
     if (process.platform !== "win32") { const fd = openSync(this.#dir, "r"); try { fsyncSync(fd); } finally { closeSync(fd); } }
     return next;
   }
-  cancelStaged(): void { rmSync(join(this.#dir, "next.json"), { force: true }); }
+  cancelStaged(): void { ensurePrivateDirectory(this.#dir); rmSync(join(this.#dir, "next.json"), { force: true }); }
 }

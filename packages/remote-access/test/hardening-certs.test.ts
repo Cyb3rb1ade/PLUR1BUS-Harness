@@ -334,18 +334,33 @@ test("a device takes an announcement only over an authenticated connection the c
 
 test("rollover state machine, 2000 seeded operations over 6 devices: at most two anchors, switch makes the staged one current, cancel restores the current, repair lists exactly the unconfirmed, serialisation round-trips, acks only for paired devices", () => {
   const SEED = 0x7205; const rand = mulberry32(SEED); const anchors: Anchor[] = [A, B, C, { kind: "ca", pin: pin("anchor D") }, { kind: "cert", pin: pin("anchor E") }];
-  const devices: TrustDevice[] = Array.from({ length: 6 }, (_, i) => ({ id: `dev_${i}`, name: `device ${i}` })); let s = initTrust(A); let step = 0;
+  const devices: TrustDevice[] = Array.from({ length: 6 }, (_, i) => ({ id: `dev_${i}`, name: `device ${i}` })); let s = initTrust(A); let step = 0; const switches = [0, 0, 0, 0];
   for (; step < 2000; step++) {
-    const where = `seed ${SEED} step ${step}`; const before = s; const op = Math.floor(rand() * 6);
-    if (op === 0) { const next = anchors[Math.floor(rand() * anchors.length)]!; const r = stageTrust(s, next, step); if (r.ok) { s = r.state; assert.equal(s.phase, "staged", where); assert.deepEqual(s.next, next, where); assert.deepEqual(s.current, before.current, where); } else assert.ok(before.phase === "staged" || (before.current.kind === next.kind && before.current.pin === next.pin), `${where}: ${r.code}`); }
+    const where = `seed ${SEED} step ${step}`; const before = s; const beforeText = serializeTrust(before); const op = Math.floor(rand() * 6);
+    if (op === 0) {
+      const next: Anchor = rand() < 0.75
+        ? { kind: rand() < 0.5 ? "cert" : "ca", pin: pin(`seed ${SEED} fresh anchor at step ${step}`) }
+        : anchors[Math.floor(rand() * anchors.length)]!;
+      const r = stageTrust(s, next, step);
+      if (r.ok) { assert.ok(!before.revoked.some(retired => retired.pin === next.pin), `${where}: accepted a retired candidate`); s = r.state; assert.equal(s.phase, "staged", where); assert.deepEqual(s.next, next, where); assert.deepEqual(s.current, before.current, where); }
+      else {
+        const expected = before.phase === "staged" ? "already-staged"
+          : before.current.kind === next.kind && before.current.pin === next.pin ? "same-trust"
+          : before.revoked.some(retired => retired.pin === next.pin) ? "retired-anchor" : undefined;
+        assert.ok(expected, `${where}: unexpected refusal ${r.code}`); assert.equal(r.code, expected, where);
+      }
+    }
     else if (op === 1) { const d = devices[Math.floor(rand() * 6)]!.id; const paired = rand() < 0.8 ? devices.map((x) => x.id) : []; const r = ackTrust(s, { deviceId: d, pin: rand() < 0.9 ? (s.next?.pin ?? A.pin) : B.pin, now: step, paired }); if (r.ok) { s = r.state; assert.ok(paired.includes(d), `${where}: acked an unpaired device`); } }
-    else if (op === 2) { const r = switchTrust(s, devices, step); if (r.ok) { assert.deepEqual(r.state.current, before.next, where); assert.deepEqual(r.repair.map((d) => d.id).sort(), devices.filter((d) => !(Object.hasOwn(before.acks, d.id))).map((d) => d.id).sort(), `${where}: repair list`); s = r.state; assert.equal(s.phase, "switched", where); assert.deepEqual(acceptedAnchors(s), [s.current], where); } }
-    else if (op === 3) { const r = cancelTrust(s); if (r.ok) { assert.equal(before.phase, "staged", where); assert.deepEqual(r.state.current, before.current, where); s = r.state; assert.equal(s.phase, "none", where); } }
+    else if (op === 2) { const r = switchTrust(s, devices, step); if (r.ok) { switches[Math.floor(step / 500)]!++; assert.deepEqual(r.state.current, before.next, where); assert.deepEqual(r.repair.map((d) => d.id).sort(), devices.filter((d) => !(Object.hasOwn(before.acks, d.id))).map((d) => d.id).sort(), `${where}: repair list`); s = r.state; assert.equal(s.phase, "switched", where); assert.deepEqual(acceptedAnchors(s), [s.current], where); } }
+    else if (op === 3) { const r = cancelTrust(s); if (r.ok) { if (before.phase === "none") assert.equal(r.state, before, `${where}: idle cancellation changed state`); else assert.equal(before.phase, "staged", where); assert.deepEqual(r.state.current, before.current, where); s = r.state; assert.equal(s.phase, "none", where); } else { assert.equal(before.phase, "switched", where); assert.equal(r.code, "not-staged", where); } }
     else if (op === 4) { const p = trustProgress(s, devices); if (s.phase === "staged") assert.equal(p.received + p.missing.length, p.total, where); else assert.deepEqual(p.missing, [], where); }
     else { const back = parseTrust(serializeTrust(s)); assert.ok(back.ok, `${where}: ${JSON.stringify(back)}`); assert.deepEqual((back as { state: TrustState }).state, s, `${where}: round trip`); }
     assert.ok(acceptedAnchors(s).length <= 2, where); assert.equal(acceptedAnchors(s).length, s.phase === "staged" ? 2 : 1, where);
+    assert.equal(serializeTrust(before), beforeText, `${where}: a transition mutated its input`);
+    for (const retired of before.revoked) assert.ok(s.revoked.some(anchor => anchor.kind === retired.kind && anchor.pin === retired.pin), `${where}: retired history was lost`);
   }
   assert.equal(step, 2000);
+  assert.ok(switches.every(count => count >= 5), `seed ${SEED}: each 500-operation window must keep switching: ${switches}`);
 });
 
 test("device ids that are names of Object.prototype members are never mistaken for confirmations (progress, switch, ack)", () => {
@@ -367,9 +382,36 @@ test("persisted trust state is strict about its numbers: only finite, non-negati
   assert.equal(parseTrust("{").ok, false);
 });
 
-test("KNOWN GAP: after a switch from A to B the harness will stage the retired anchor A again, and devices will accept it as their next anchor", { todo: "KNOWN GAP: no list of retired anchors; a rollback to a key that was replaced (perhaps because it was compromised) is not refused; see SICHERHEIT in the PR" }, () => {
+test("a persisted switch from A to B refuses retired A before another announcement can be produced", () => {
   const s1 = ok(stageTrust(initTrust(A), B, 1)); const sw = switchTrust(s1, [], 2); assert.ok(sw.ok); const switched = (sw as { state: TrustState }).state;
-  const back = stageTrust(initTrust(switched.current), A, 3); assert.equal(back.ok, false, "staging the retired anchor again was accepted");
-  const dev: DeviceTrust = { current: B }; const r = receiveAnnouncement(dev, { phase: "staged", current: B, next: A, stagedAt: 3 }, { authenticated: true, verifiedBy: "current" });
-  assert.equal(r.ok, false, "a device took the retired anchor as its next trust");
+  const restored = ok(parseTrust(serializeTrust(switched)));
+  const back = stageTrust(restored, A, 3); assert.equal(back.ok, false, "staging the retired anchor again was accepted");
+  if (!back.ok) assert.equal(back.code, "retired-anchor");
+  assert.deepEqual(announcementFor(restored), { phase: "none", current: B });
+  assert.equal(evaluateConnection({ current: B }, { leafPin: A.pin }), "certificate-changed", "the retired anchor is not trusted by the promoted device");
+});
+
+test("characterization: initTrust after A to B cannot reconstruct lost retired history for original A", () => {
+  const switched = ok(switchTrust(ok(stageTrust(initTrust(A), B, 1)), [], 2));
+  const restored = ok(parseTrust(serializeTrust(switched)));
+  assert.deepEqual(restored.revoked, [A]);
+  const retained = stageTrust(restored, A, 3);
+  assert.ok(!retained.ok && retained.code === "retired-anchor");
+  const lost = initTrust(restored.current);
+  assert.deepEqual(lost.revoked, [], "the current anchor alone carries no prior retirement history");
+  const accepted = ok(stageTrust(lost, A, 3));
+  assert.deepEqual(accepted.next, A, "losing the persisted history makes original A stageable again");
+});
+
+// Owner-authorized SH6-L1 marker; inventory: docs/reference/todo-inventory.md (device-side retired-anchor history).
+// Close by persisting device retirement history and rejecting authenticated announcements whose next pin was retired.
+test.todo("device-side durable history rejects a retired announced next pin (docs/reference/todo-inventory.md; close when retired history survives device restart and rejects next)", () => {
+  const staged = ok(stageTrust(initTrust(A), B, 1));
+  const announced = receiveAnnouncement({ current: A }, announcementFor(staged), { authenticated: true, verifiedBy: "current" });
+  assert.ok(announced.ok);
+  const promoted = promote(announced.device, { leafPin: B.pin });
+  assert.deepEqual(promoted.current, B);
+  const restarted = JSON.parse(JSON.stringify(promoted)) as DeviceTrust;
+  const back = receiveAnnouncement(restarted, { phase: "staged", current: B, next: A, stagedAt: 3 }, { authenticated: true, verifiedBy: "current" });
+  assert.equal(back.ok, false, "a device must reject an announced next anchor that it previously retired");
 });
