@@ -20,7 +20,8 @@ function put(o: Record<string, unknown>, key: string, v: unknown): void {
 export function seedConfig(rpc: MockRpc, config: Record<string, unknown> = {}): Fake {
   const f: Fake = {
     config: { schemaVersion: 1, core: { logLevel: "warn", recall: { softBudgetMs: 400 } }, metrics: { port: 9464 }, egress: { allowHosts: ["api.example.com"], allowPorts: [443] },
-      modelRoles: { chat: "anthropic/claude-x", apiKey: "sk-should-not-show" }, providers: { anthropic: { apiKey: "sk-secret-123", baseUrl: "https://x" } },
+      modelRoles: { chat: "anthropic/claude-x" }, providers: { anthropic: { name: "public-provider" } },
+      modelProfiles: { primary: { candidates: [{ model: "anthropic/claude-x" }], params: { maxTokens: 4096 } } },
       embedding: { useClass: "general" }, ...config },
     revision: 1, sets: [],
   };

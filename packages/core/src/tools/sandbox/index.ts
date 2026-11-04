@@ -10,7 +10,7 @@ export { detectSandbox, seatbeltProfile } from './backends.ts';
 export { preparePolicy } from './policy.ts';
 export * from './types.ts';
 /** Fixed argv only. The policy and executable installation path come from trusted composition. */
-export async function sandboxSpawn(argv: readonly string[], policy: SandboxPolicy, options: { signal?: AbortSignal } = {}): Promise<SandboxResult> {
+export async function sandboxSpawn(argv: readonly string[], policy: SandboxPolicy, options: { signal?: AbortSignal; knownSecrets?: () => import("../../logs/secret-forms.ts").SecretFormsSnapshot; onStdout?: (chunk: Uint8Array) => void; onStderr?: (chunk: Uint8Array) => void } = {}): Promise<SandboxResult> {
   if (!argv.length || argv.some(s => typeof s !== 'string' || s.includes('\0')) || !(process.platform === 'win32' ? win32 : posix).isAbsolute(argv[0]!)) throw new SandboxFailure('sandbox requires an absolute executable and NUL-free argv');
   if (process.platform === 'win32') {
     const unavailable = await detectSandbox(policy.limitsHelper);
@@ -29,14 +29,15 @@ export async function sandboxSpawn(argv: readonly string[], policy: SandboxPolic
     if (value !== undefined) env[name] = value;
   }
   const started = Date.now();
-  const out = new BoundedCapture(p.limits.maxOutputBytes), err = new BoundedCapture(p.limits.maxOutputBytes);
+  const out = new BoundedCapture(p.limits.maxOutputBytes, options.knownSecrets), err = new BoundedCapture(p.limits.maxOutputBytes, options.knownSecrets);
   let timedOut = false, aborted = false;
   const resources = () => ({ durationMs: Date.now() - started, cpuSeconds: p.limits.cpuSeconds, memoryBytes: p.limits.memoryBytes,
     maxTasks: detection.tasks.mechanism === 'namespace-limit' && p.limits.maxTasks > 0 ? p.limits.maxTasks : null, measured: false as const });
   const sandbox = { ...detection, network: p.network === 'egress' ? 'none' as const : p.network, warnings: p.network === 'egress' ? ['Egress proxy enforcement unavailable; network forced to none.'] : [] };
   if (options.signal?.aborted) return { exitCode: null, signal: null, stdout: '', stderr: '', stdoutTruncated: false, stderrTruncated: false, timedOut, aborted: true, resources: resources(), sandbox };
   const child = createNodeProcessPort().spawn({ program: p.limitsHelper, args: [String(p.limits.cpuSeconds), String(p.limits.memoryBytes), ...command], cwd: p.cwd, env });
-  child.onStdout(c => out.push(c)); child.onStderr(c => err.push(c));
+  // The exec adapter must see raw source bytes before this sandbox result's separate output cap.
+  child.onStdout(c => { options.onStdout?.(c); out.push(c); }); child.onStderr(c => { options.onStderr?.(c); err.push(c); });
   const kill = () => { void child.killTree(); };
   let sampling = false;
   const memoryTimer = process.platform === 'darwin' ? setInterval(() => {

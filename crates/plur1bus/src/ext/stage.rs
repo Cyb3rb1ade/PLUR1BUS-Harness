@@ -30,6 +30,7 @@ use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 /// The hidden `plur1bus ext __worker` operations.
 #[derive(clap::Subcommand, Debug, Clone)]
@@ -644,6 +645,71 @@ fn to_json<T: Serialize>(what: &str, v: T) -> Result<Value, ExtError> {
     })
 }
 
+fn inspection_hold_failure(message: &'static str) -> ExtError {
+    ExtError::new("E_INTERNAL", "worker-failed", message)
+}
+
+/// A numeric, empty acknowledgment stays inside the explicitly enabled test's private directory.
+fn acknowledge_inspection_test_hold(hold: &Path) -> Result<bool, ExtError> {
+    match std::fs::symlink_metadata(hold) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Ok(metadata) if metadata.is_dir() => {}
+        _ => {
+            return Err(inspection_hold_failure(
+                "the inspection test hold is not a directory",
+            ))
+        }
+    }
+    let marker = hold.join(format!("inspector-{}.ready", std::process::id()));
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    options
+        .open(marker)
+        .map_err(|_| inspection_hold_failure("the inspection test hold cannot be acknowledged"))?;
+    Ok(true)
+}
+
+/// #879: a test-owned directory pins an inspector until its RAII owner removes it.
+/// The worker and its parent retain the existing inspection deadline; no package data is opened here.
+fn wait_inspection_test_hold(
+    hold: Option<&Path>,
+    allowed: bool,
+    within: Duration,
+) -> Result<(), ExtError> {
+    let Some(hold) = hold else { return Ok(()) };
+    if !allowed {
+        return Err(inspection_hold_failure(
+            "the inspection test hold requires test internals",
+        ));
+    }
+    if !acknowledge_inspection_test_hold(hold)? {
+        return Ok(());
+    }
+    let start = Instant::now();
+    loop {
+        match std::fs::symlink_metadata(hold) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(_) => {
+                return Err(inspection_hold_failure(
+                    "the inspection test hold cannot be checked",
+                ))
+            }
+            Ok(_) => {}
+        }
+        if start.elapsed() >= within {
+            return Err(inspection_hold_failure(
+                "the inspection test hold exceeded the worker deadline",
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
 /// `plur1bus ext __worker …`: runs one operation and prints exactly one JSON line, `{"ok":true,"result":…}` (exit 0)
 /// or `{"ok":false,"error":{"code","reason","message","data"}}` (exit 1).
 pub fn worker_main(
@@ -674,21 +740,29 @@ pub fn worker_main(
             sleep_ms,
             crash,
         } => {
-            sleep(sleep_ms);
-            let src = match (stdin, path) {
-                (false, Some(p)) => Source::Path(p),
-                _ => Source::Stdin,
-            };
-            let expected = expected_source_sha256.as_deref().zip(expected_source_size);
-            inspect::inspect_with_expected(
-                layout,
-                src,
-                &id,
-                crash && allow_internals(),
-                fetch,
-                expected,
+            let hold = std::env::var_os("PLUR1BUS_TEST_EXT_INSPECTION_HOLD").map(PathBuf::from);
+            wait_inspection_test_hold(
+                hold.as_deref(),
+                allow_internals(),
+                super::worker::INSPECT_DEADLINE,
             )
-            .and_then(|r| to_json("inspection", r))
+            .and_then(|()| {
+                sleep(sleep_ms);
+                let src = match (stdin, path) {
+                    (false, Some(p)) => Source::Path(p),
+                    _ => Source::Stdin,
+                };
+                let expected = expected_source_sha256.as_deref().zip(expected_source_size);
+                inspect::inspect_with_expected(
+                    layout,
+                    src,
+                    &id,
+                    crash && allow_internals(),
+                    fetch,
+                    expected,
+                )
+                .and_then(|r| to_json("inspection", r))
+            })
         }
         WorkerArgs::Stage {
             id,
@@ -714,4 +788,32 @@ pub fn worker_main(
     let _ = writeln!(out, "{line}");
     let _ = out.flush();
     std::process::exit(code)
+}
+
+#[cfg(test)]
+mod inspection_hold_tests {
+    use super::*;
+
+    #[test]
+    fn an_unconfigured_hold_does_not_require_test_internals() {
+        assert!(wait_inspection_test_hold(None, false, Duration::ZERO).is_ok());
+    }
+
+    #[test]
+    fn a_configured_hold_requires_test_internals_even_when_its_path_is_absent() {
+        let root = tempfile::tempdir().unwrap();
+        let hold = root.path().join("absent");
+        let error = wait_inspection_test_hold(Some(&hold), false, Duration::ZERO).unwrap_err();
+        assert!(error.message.contains("requires test internals"));
+    }
+
+    #[test]
+    fn a_hold_keeps_the_existing_deadline_and_opens_after_its_owner_removes_it() {
+        let hold = tempfile::tempdir().unwrap();
+        let path = hold.path().to_path_buf();
+        let error = wait_inspection_test_hold(Some(&path), true, Duration::ZERO).unwrap_err();
+        assert!(error.message.contains("worker deadline"));
+        drop(hold);
+        assert!(wait_inspection_test_hold(Some(&path), true, Duration::ZERO).is_ok());
+    }
 }

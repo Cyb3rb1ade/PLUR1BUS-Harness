@@ -40,3 +40,8 @@ pub fn normalize_epistemic_status(value: &str) -> &'static str {
 pub fn strength_adjustment(memory_strength: f64) -> f64 {
     memory_strength - 1.0
 }
+/// Optional emotional state consulted during the pin's scoring stage.
+pub trait EmotionalRecallState: Sync {
+    /// Return the recall factor; the pipeline clamps it to 0.9–1.1.
+    fn recall_boost(&self, row: &crate::contract::MemoryRow) -> f64;
+}

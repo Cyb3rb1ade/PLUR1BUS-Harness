@@ -128,6 +128,11 @@ pub fn parse_manifest(raw: &str) -> Result<Manifest, Vec<String>> {
     if !errs.is_empty() {
         return Err(errs);
     }
+    if let Some(schema) = v.get("configSchema") {
+        if !plur1bus_config::supports_config_disclosure_policy(schema) {
+            return Err(vec!["/configSchema unsupported configuration disclosure policy; use direct property, map and item annotations".into()]);
+        }
+    }
     serde_json::from_value(v).map_err(|e| vec![e.to_string()])
 }
 

@@ -95,6 +95,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libsecret-1-dev patchelf xvfb openbox dbus-x11
       - run: pnpm install --frozen-lockfile
       - run: pnpm gen
+      - name: Build actual Web assets for Desktop API fixtures
+        run: pnpm --filter "@plur1bus/web..." build
       - name: Isolate UI test browser storage
         run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/plur1bus-playwright" >> "$GITHUB_ENV"
       - name: Lifecycle report path (runner.temp is not available in job-level env)
@@ -119,6 +121,12 @@ jobs:
         working-directory: apps/desktop
       # Stable Rust 1.95 rejects --report-time; bounded proxy tests emit named elapsed_ms.
       # Isolate latency measurements from unrelated parallel tests; keep every test and limit.
+      # A cold Windows test build consumes 8-10 minutes; do not charge it to the 15-minute execution deadline.
+      - name: Build Windows Rust test executables
+        if: runner.os == 'Windows'
+        run: cargo test --locked --workspace --no-run
+        timeout-minutes: 15
+        working-directory: apps/desktop
       - run: cargo test --locked --workspace --no-fail-fast -- --test-threads=1 --nocapture
         id: desktop-rust-tests
         timeout-minutes: 15

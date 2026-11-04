@@ -2,7 +2,7 @@ import { surfaceSatisfies } from "../rbac/surface.ts";
 import { MIN_SECRET_SURFACE, MIN_DESCRIPTION_VALUE_CHARS, SecretError, checkDescription, checkName, checkValue, isSecretName, type BackendKind, type SecretBackend, type SecretMeta, type SecretPrincipal } from "./types.ts";
 import { createLeaseTable, type Lease, type LeaseInfo } from "./leases.ts";
 import type { AuditAction, AuditDetail, AuditSink } from "./audit.ts";
-import { createSecretRedaction } from "./redaction.ts";
+import { createSecretRedaction, type SecretRedaction } from "./redaction.ts";
 
 export interface SecretStoreLogger { debug(msg: string, fields?: Record<string, unknown>): void; info(msg: string, fields?: Record<string, unknown>): void; warn(msg: string, fields?: Record<string, unknown>): void }
 
@@ -15,6 +15,17 @@ export interface SecretStoreOptions {
   audit: AuditSink;
   clock?: () => number;
   logger?: SecretStoreLogger;
+  /** Share startup configuration registrations with store values and every downstream sink. */
+  redaction?: SecretRedaction;
+  /** Trusted runtime lifecycle. Backends keep their normal async port; production I/O lives in child processes. */
+  startup?: { budgetMs?: number; retryAfterMs?: number; cancel?(): void; close?(): Promise<void> };
+}
+
+export interface SecretStartupStatus {
+  state: "idle" | "loading" | "ready" | "unavailable" | "closed";
+  reason?: "startup-timeout" | "backend-unavailable" | "no-backend";
+  /** False when unread values could still occur in arbitrary queued startup records. */
+  safeToFlush: boolean;
 }
 
 export interface SecretStatus {
@@ -38,7 +49,31 @@ export function createSecretStore(o: SecretStoreOptions) {
   const clock = o.clock ?? Date.now;
   const leases = createLeaseTable(clock);
   /** Every value this store writes or reads is registered before it is returned, so no log, audit or report redactor misses it. */
-  const redaction = createSecretRedaction();
+  const redaction = o.redaction ?? createSecretRedaction();
+  const startupGroup = Symbol("startup-store");
+  const startupValues = new Set<string>();
+  let preload: Promise<void> | undefined;
+  let startup: SecretStartupStatus = { state: "idle", safeToFlush: false };
+  let generation = 0, retryAt = 0;
+  let cancelAttempt: (() => void) | undefined;
+  let closing: Promise<void> | undefined;
+  let availableBackends = new Set<"keyring" | "file">();
+  const unavailable = () => new SecretError("backend-unavailable", "Secret-Store unavailable");
+  const retryAfterMs = o.startup?.retryAfterMs ?? 30_000;
+  function assertAvailable(expected = generation): void {
+    if (expected !== generation) throw unavailable();
+    if (startup.state === "unavailable" && startup.reason === "no-backend") throw new SecretError("no-backend", NO_BACKEND);
+    if (startup.state !== "idle" && startup.state !== "ready") throw unavailable();
+  }
+  function backendUnavailable(reason: "startup-timeout" | "backend-unavailable" = "backend-unavailable"): void {
+    if (startup.state === "closed") return;
+    generation++;
+    startup = { state: "unavailable", reason, safeToFlush: false };
+    availableBackends.clear(); retryAt = performance.now() + retryAfterMs;
+    cancelAttempt?.(); cancelAttempt = undefined;
+    for (const lease of leases.active()) leases.revoke(lease.leaseId);
+    o.startup?.cancel?.();
+  }
   const changeListeners = new Set<(name: string) => void>();
   const changed = (name: string): void => {
     for (const listener of [...changeListeners]) {
@@ -78,10 +113,33 @@ export function createSecretStore(o: SecretStoreOptions) {
   let epoch = 0;
   let writing = 0;
   let lastKind: string | null = null;
+  const unavailableSelection = (): Selection => ({ kind: "none", backend: null, other: null,
+    keyring: { available: false, reason: startup.reason ?? "backend-unavailable" },
+    fileAvailable: o.fileFallback() ? false : null });
   async function select(): Promise<Selection> {
-    const kp = await o.keyring.probe();
+    if (startup.state !== "idle") {
+      if (startup.state === "unavailable" && performance.now() >= retryAt) await beginPreload();
+      if (startup.state !== "ready") return unavailableSelection();
+    }
+    const version = generation;
+    let kp, fp;
     const enabled = o.fileFallback();
-    const fp = enabled ? await o.file.probe() : null;
+    try { kp = await o.keyring.probe(); fp = enabled ? await o.file.probe() : null; }
+    catch (error) {
+      if (!(error instanceof SecretError) || error.code !== "backend-unavailable") throw error;
+      backendUnavailable(); return unavailableSelection();
+    }
+    if (version !== generation || (startup.state !== "idle" && startup.state !== "ready")) return unavailableSelection();
+    if (startup.state !== "idle") {
+      if (!kp.available) availableBackends.delete("keyring");
+      if (!fp?.available) availableBackends.delete("file");
+      // A returning backend, or a newly enabled fallback, must register its complete readable snapshot first.
+      if ((kp.available && !availableBackends.has("keyring")) || (fp?.available && !availableBackends.has("file"))) {
+        await beginPreload();
+        if (startup.state !== "ready") return unavailableSelection();
+        return select();
+      }
+    }
     const sel: Selection = kp.available
       ? { kind: "keyring", backend: o.keyring, other: fp?.available ? o.file : null, keyring: kp, fileAvailable: fp?.available ?? null }
       : fp?.available
@@ -91,7 +149,7 @@ export function createSecretStore(o: SecretStoreOptions) {
     if (sel.kind !== lastKind) { lastKind = sel.kind; o.logger?.info("secret backend selected", { backend: sel.kind, ...(kp.reason ? { keyringReason: kp.reason } : {}) }); }
     return sel;
   }
-  const need = (s: Selection): SecretBackend => { if (!s.backend) throw new SecretError("no-backend", NO_BACKEND); return s.backend; };
+  const need = (s: Selection): SecretBackend => { assertAvailable(); if (!s.backend) throw new SecretError("no-backend", NO_BACKEND); return s.backend; };
 
   const ms = (iso: unknown): number => { const t = typeof iso === "string" ? Date.parse(iso) : Number.NaN; return Number.isFinite(t) ? t : 0; };
   const core: SecretPrincipal = { kind: "core" };
@@ -116,32 +174,42 @@ export function createSecretStore(o: SecretStoreOptions) {
    * away while the name was rotated or deleted: audit secrets #1): the newer `updatedAt` wins, a keyring copy not newer than a
    * tombstone of the file is a deleted one, and on a tie the keyring wins. Only the winner is decrypted.
    */
-  async function find(name: string): Promise<{ value: string; from: SecretBackend } | null> {
+  async function find(name: string): Promise<{ value: string; from: SecretBackend; generation: number } | null> {
     const s = await select();
     const primary = need(s);
     const other = s.other;
-    const take = (value: string, from: SecretBackend) => { redaction.register(value, name); return { value, from }; };
-    if (!other) { const v = await primary.get(name); return v === null ? null : take(v, primary); }
+    const version = generation;
+    const take = (value: string, from: SecretBackend) => { assertAvailable(version); redaction.register(value, name); return { value, from, generation: version }; };
+    if (!other) { const v = await primary.get(name); assertAvailable(version); return v === null ? null : take(v, primary); }
     const om = (await other.list()).find((m) => m.name === name);
+    assertAvailable(version);
     const tomb = await tombstonesOf(s);
+    assertAvailable(version);
     let pv = await primary.get(name);
+    assertAvailable(version);
     let pm: SecretMeta | undefined;
     if (pv !== null && (om || Object.hasOwn(tomb, name))) {
       pm = (await primary.list()).find((m) => m.name === name);
+      assertAvailable(version);
       if (buried(tomb, pm ?? { name, backend: primary.kind, createdAt: "", updatedAt: "" })) pv = null;
     }
     if (pv !== null && !(om && ms(om.updatedAt) > ms(pm?.updatedAt))) return take(pv, primary);
     if (!om) return null;
     const ov = await other.get(name);
+    assertAvailable(version);
     return ov === null ? null : take(ov, other);
   }
 
   interface Plan { purge: string[]; promote: string[]; dropOther: string[]; clear: string[] }
   /** Every name the owner can see, newest version winning, plus what the two backends owe each other (see `settle`). */
   async function merged(s: Selection): Promise<{ metas: Map<string, SecretMeta>; primary: SecretMeta[]; plan: Plan }> {
+    const version = generation;
     const primary = s.backend ? await s.backend.list() : [];
+    assertAvailable(version);
     const other = s.other ? await s.other.list() : [];
+    assertAvailable(version);
     const tomb = await tombstonesOf(s);
+    assertAvailable(version);
     const plan: Plan = { purge: [], promote: [], dropOther: [], clear: Object.keys(tomb) };
     const metas = new Map<string, SecretMeta>();
     for (const m of primary) { if (buried(tomb, m)) plan.purge.push(m.name); else metas.set(m.name, m); }
@@ -165,11 +233,12 @@ export function createSecretStore(o: SecretStoreOptions) {
     await exclusive(async () => {
       const s = await select();
       if (s.kind !== "keyring" || !s.other) return;
+      const version = generation;
       const { plan: fresh } = await merged(s);
       const keyring = s.backend!; const file = s.other;
       const done = new Set<string>();
       const step = async (name: string, action: AuditAction, detail: AuditDetail, fn: () => Promise<unknown>): Promise<boolean> => {
-        try { audited(core, action, name, { reason: "keyring-sync", ...detail }); await changing(name, fn); return true; }
+        try { assertAvailable(version); audited(core, action, name, { reason: "keyring-sync", ...detail }); await changing(name, fn); assertAvailable(version); return true; }
         catch { o.logger?.warn("secret copies could not be brought in line", { name }); return false; }
       };
       for (const name of fresh.purge) if (await step(name, "secret.delete", { backend: "keyring" }, () => keyring.delete(name))) done.add(name);
@@ -184,7 +253,7 @@ export function createSecretStore(o: SecretStoreOptions) {
       for (const name of fresh.clear) {
         const wasPurged = fresh.purge.includes(name);
         if (wasPurged && !done.has(name)) continue; // the keyring copy is still there: the tombstone keeps hiding it
-        try { await file.clearTombstone?.(name); } catch { o.logger?.warn("a secret tombstone could not be cleared", { name }); }
+        try { assertAvailable(version); await file.clearTombstone?.(name); } catch { o.logger?.warn("a secret tombstone could not be cleared", { name }); }
       }
     }).catch(() => { /* a sync that cannot run is not a failure of the read that asked for it */ });
   }
@@ -202,8 +271,77 @@ export function createSecretStore(o: SecretStoreOptions) {
     }
   }
 
+  /** Startup reads never settle copies or release values; the initial snapshot stays masked until Core exits. */
+  async function preloadValues(version: number): Promise<{ values: string[]; available: Set<"keyring" | "file">; failures: { backend: "keyring" | "file"; phase: "probe" | "list" | "read"; count: number }[] }> {
+    const values: string[] = [];
+    const usable = new Set<"keyring" | "file">();
+    const failures: { backend: "keyring" | "file"; phase: "probe" | "list" | "read"; count: number }[] = [];
+    const backends: ["keyring" | "file", SecretBackend][] = [["keyring", o.keyring]];
+    if (o.fileFallback()) backends.push(["file", o.file]);
+    for (const [backend, source] of backends) {
+      if (version !== generation) throw unavailable();
+      let available: boolean;
+      try { available = (await source.probe()).available; }
+      catch { failures.push({ backend, phase: "probe", count: 1 }); continue; }
+      if (!available) continue;
+      usable.add(backend);
+      let entries: SecretMeta[];
+      try { entries = await source.list(); }
+      catch { failures.push({ backend, phase: "list", count: 1 }); continue; }
+      let unreadable = 0;
+      for (const { name } of entries) {
+        if (version !== generation) throw unavailable();
+        try {
+          const value = await source.get(name);
+          if (value !== null) values.push(value);
+        } catch { unreadable++; } // An inaccessible entry must not prevent registration of the others.
+      }
+      if (unreadable) failures.push({ backend, phase: "read", count: unreadable });
+    }
+    return { values, available: usable, failures };
+  }
+  function beginPreload(): Promise<void> {
+    if (startup.state === "closed") return Promise.resolve();
+    if (startup.state === "loading") return preload!;
+    const version = ++generation;
+    startup = { state: "loading", safeToFlush: false };
+    preload = new Promise<void>(resolve => {
+      const timer = setTimeout(() => backendUnavailable("startup-timeout"), o.startup?.budgetMs ?? 3000);
+      cancelAttempt = () => { clearTimeout(timer); resolve(); };
+      // Include factory/import/probe/list/every read under this single deadline.
+      void Promise.resolve().then(() => preloadValues(version)).then(result => {
+        if (version !== generation || startup.state !== "loading") return;
+        for (const value of result.values) startupValues.add(value);
+        redaction.replaceGroup(startupGroup, [...startupValues]);
+        availableBackends = result.available;
+        startup = result.available.size ? { state: "ready", safeToFlush: true }
+          : { state: "unavailable", reason: "no-backend", safeToFlush: true };
+        retryAt = performance.now() + retryAfterMs;
+        cancelAttempt?.(); cancelAttempt = undefined;
+        for (const failure of result.failures) o.logger?.warn("secret startup values could not all be read", failure);
+      }, () => { if (version === generation) backendUnavailable(); });
+    });
+    return preload;
+  }
+
   return {
     redaction,
+    /** Trusted in-process, idempotent initialization; no plaintext result, migration, audit access or lease. */
+    preloadRedaction(): Promise<void> {
+      if (!preload || (startup.state === "unavailable" && performance.now() >= retryAt)) return beginPreload();
+      return preload;
+    },
+    startupStatus(): SecretStartupStatus { return { ...startup }; },
+    /** Runtime I/O failure invalidates every in-flight release before helpers are retired. */
+    backendUnavailable,
+    close(): Promise<void> {
+      if (closing) return closing;
+      generation++; startup = { state: "closed", safeToFlush: false };
+      cancelAttempt?.(); cancelAttempt = undefined;
+      for (const lease of leases.active()) leases.revoke(lease.leaseId);
+      closing = Promise.resolve().then(() => o.startup?.close?.());
+      return closing;
+    },
     /** In-process committed-value notifications contain names only and never delay the secret operation. */
     onChange(listener: (name: string) => void): () => void {
       changeListeners.add(listener);
@@ -211,7 +349,8 @@ export function createSecretStore(o: SecretStoreOptions) {
     },
     async status(p: SecretPrincipal): Promise<SecretStatus> {
       gate(p, "status", null, ["owner", "core"]);
-      const s = await select();
+      let s = await select();
+      const version = generation;
       let count: number | null = null;
       let secrets: SecretMeta[] | undefined;
       if (s.backend) {
@@ -222,13 +361,16 @@ export function createSecretStore(o: SecretStoreOptions) {
           await settle(m.plan);
         } catch { secrets = undefined; }
       }
+      if (version !== generation || (startup.state !== "idle" && startup.state !== "ready")) {
+        s = unavailableSelection(); count = null; secrets = undefined;
+      }
       return {
         backend: s.kind, degraded: s.kind !== "keyring",
         keyring: { available: s.keyring.available, ...(s.keyring.reason ? { reason: s.keyring.reason } : {}) },
         file: { enabled: o.fileFallback(), available: s.fileAvailable, ...(s.fileReason ? { reason: s.fileReason } : {}) },
         count, activeLeases: leases.active().length,
         ...(secrets ? { secrets: secrets.map(m => ({ name: m.name, backend: m.backend, ...(typeof m.createdAt === "string" && m.createdAt ? { createdAt: m.createdAt } : {}), ...(typeof m.updatedAt === "string" && m.updatedAt ? { updatedAt: m.updatedAt } : {}), ...(typeof m.updatedBy === "string" && m.updatedBy ? { updatedBy: m.updatedBy } : {}), ...(typeof m.description === "string" && m.description ? { description: redaction.mask(m.description) } : {}) })) } : {}),
-        ...(s.kind === "none" ? { remedy: NO_BACKEND } : {}),
+        ...(s.kind === "none" ? { remedy: startup.state === "unavailable" && startup.reason !== "no-backend" ? "Secret-Store unavailable" : NO_BACKEND } : {}),
       };
     },
 
@@ -241,6 +383,7 @@ export function createSecretStore(o: SecretStoreOptions) {
       return exclusive(async () => {
         const s = await select();
         const backend = need(s);
+        const version = generation;
         if (text) {
           await assertDescriptionHoldsNoValue(text, s);
           // The text may also not echo an older value of this very name, which `put` replaces (and which the other names' check above
@@ -248,10 +391,12 @@ export function createSecretStore(o: SecretStoreOptions) {
           const previous = await find(name);
           if (previous) checkDescription(text, previous.value);
         }
+        assertAvailable(version);
         redaction.register(value, name);
         audited(p, "secret.set", name, { backend: backend.kind });
         const result = await changing(name, async () => {
-          const meta = await backend.put(name, value, now(), p.kind === "owner" ? p.id : undefined, text, previous => redaction.register(previous));
+          const meta = await backend.put(name, value, now(), p.kind === "owner" ? p.id : undefined, text, previous => { if (generation === version) redaction.register(previous); });
+          assertAvailable(version);
           // A copy of the old value in the other backend would come back when this one goes away: rotation removes it, and a
           // tombstone of an earlier delete has nothing left to hide.
           if (s.other) {
@@ -259,6 +404,7 @@ export function createSecretStore(o: SecretStoreOptions) {
           }
           return meta;
         });
+        assertAvailable(version);
         changed(name);
         return result;
       });
@@ -277,8 +423,13 @@ export function createSecretStore(o: SecretStoreOptions) {
         if (!found) throw new SecretError("not-found", "secret does not exist");
         if (text) await assertDescriptionHoldsNoValue(text, s);
         checkDescription(text, found.value);
+        assertAvailable(found.generation);
         audited(p, "secret.describe", name, { backend: found.from.kind });
-        return found.from.describe(name, text, now(), p.kind === "owner" ? p.id : undefined, value => redaction.register(value));
+        const result = await found.from.describe(name, text, now(), p.kind === "owner" ? p.id : undefined, value => {
+          if (generation === found.generation) redaction.register(value);
+        });
+        assertAvailable(found.generation);
+        return result;
       });
     },
 
@@ -288,7 +439,10 @@ export function createSecretStore(o: SecretStoreOptions) {
       checkName(name);
       audited(p, "secret.get", name);
       const s = await select();
+      assertAvailable();
+      const version = generation;
       const m = s.backend ? (await merged(s)).metas.get(name) : undefined;
+      assertAvailable(version);
       if (m) return m;
       throw new SecretError("not-found", `no secret named ${name}`, { name });
     },
@@ -302,6 +456,7 @@ export function createSecretStore(o: SecretStoreOptions) {
       const hit = await find(name);
       if (hit === null) throw new SecretError("not-found", `no secret named ${name}`, { name });
       const meta = (await hit.from.list()).find((x) => x.name === name) ?? { name, backend: hit.from.kind, createdAt: "", updatedAt: "" };
+      assertAvailable(hit.generation);
       return { meta, value: hit.value };
     },
 
@@ -312,13 +467,17 @@ export function createSecretStore(o: SecretStoreOptions) {
       return exclusive(async () => {
         const s = await select();
         need(s);
+        const version = generation;
         audited(p, "secret.delete", name);
         let removed = false;
         await changing(name, async () => {
           // The file is all that can be changed while the keyring is away, so a delete there leaves a tombstone: the keyring's older
           // copy would otherwise come back with the keyring (audit secrets #1).
           const at = s.backend === o.file ? now() : undefined;
-          for (const b of [s.backend, s.other]) if (b && (await b.delete(name, b === o.file ? at : undefined))) removed = true;
+          for (const b of [s.backend, s.other]) if (b) {
+            if (await b.delete(name, b === o.file ? at : undefined)) removed = true;
+            assertAvailable(version);
+          }
           if (s.other) { try { await s.other.clearTombstone?.(name); } catch { o.logger?.warn("a secret tombstone could not be cleared", { name }); } }
           // An entry in the file backend stays on disk when the fallback is switched off or the file is not the backend in use:
           // a delete must not leave it to reappear when the flag is turned back on.
@@ -326,6 +485,7 @@ export function createSecretStore(o: SecretStoreOptions) {
             try { if (await o.file.delete(name)) removed = true; } catch { o.logger?.warn("file backend copy could not be checked", { name }); }
           }
         });
+        assertAvailable(version);
         if (!removed) throw new SecretError("not-found", `no secret named ${name}`, { name });
         changed(name);
         return { removed: true as const };
@@ -337,9 +497,11 @@ export function createSecretStore(o: SecretStoreOptions) {
       gate(p, "list", null, ["owner"]);
       const s = await select();
       const b = need(s);
+      const version = generation;
       audited(p, "secret.list", null, { backend: b.kind });
       const m = await merged(s);
       await settle(m.plan);
+      assertAvailable(version);
       return [...m.metas.values()].sort((a, b2) => a.name.localeCompare(b2.name));
     },
 
@@ -354,6 +516,7 @@ export function createSecretStore(o: SecretStoreOptions) {
         const before = epoch;
         const hit = await find(name);
         if (hit === null) throw new SecretError("not-found", `no secret named ${name}`, { name });
+        assertAvailable(hit.generation);
         if (epoch === before && writing === 0) return leases.issue(name, hit.value, o2);
       }
       throw new SecretError("lease-invalid", "the secret changed while the lease was being issued; try again");
@@ -361,6 +524,7 @@ export function createSecretStore(o: SecretStoreOptions) {
     /** Re-reads a live lease. */
     readLease(p: SecretPrincipal, leaseId: string): Lease {
       gate(p, "lease.read", null, ["owner", "core"]);
+      assertAvailable();
       audited(p, "secret.lease.read", null, { leaseId });
       return leases.read(leaseId);
     },

@@ -3,7 +3,7 @@ use super::{guarded::remaining_cancelled, TransportError};
 use crate::contract::Cancel;
 use socket2::{Domain, Protocol, Socket, Type};
 use std::io::{Read, Write};
-use std::net::{Shutdown, SocketAddr, TcpStream};
+use std::net::{Shutdown, SocketAddr};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
@@ -16,7 +16,7 @@ const POLL: Duration = Duration::from_millis(10);
 pub(super) struct IoControl {
     cancel: Cancel,
     deadline: Instant,
-    socket: Mutex<Option<Socket>>,
+    socket: Mutex<Option<Arc<Socket>>>,
 }
 impl IoControl {
     fn budget(&self) -> Result<Duration, TransportError> {
@@ -105,11 +105,12 @@ impl Connector<()> for CancelConnector {
         details: &ConnectionDetails<'_>,
         _: Option<()>,
     ) -> Result<Option<Self::Out>, ureq::Error> {
-        let socket = Socket::new(
+        let socket = Arc::new(Socket::new(
             Domain::for_address(self.address),
             Type::STREAM,
             Some(Protocol::TCP),
-        )?;
+        )?);
+        // Pending Winsock reads can outlive shutdown; keep every I/O attempt nonblocking.
         socket.set_nonblocking(true)?;
         {
             let mut watched = self
@@ -118,7 +119,7 @@ impl Connector<()> for CancelConnector {
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
             self.control.check_io()?;
-            *watched = Some(socket.try_clone()?);
+            *watched = Some(socket.clone());
             // Register and initiate while holding the same lock used by the watchdog.
             // Cancellation cannot shut down a not-yet-started socket and then miss connect.
             if let Err(error) = socket.connect(&self.address.into()) {
@@ -140,25 +141,9 @@ impl Connector<()> for CancelConnector {
             std::thread::sleep(budget.min(POLL));
         }
         self.control.check_io()?;
-        socket.set_nonblocking(false)?;
         socket.set_tcp_nodelay(details.config.no_delay())?;
-        #[cfg(windows)]
-        {
-            // A Winsock duplicate made before connect retains an unconnected view:
-            // shutdown returns WSAENOTCONN and cannot wake the connected reader.
-            // Keep the pre-connect registration above for cancellation while dialing,
-            // then replace it under the same lock before any HTTP/TLS I/O can start.
-            let mut watched = self
-                .control
-                .socket
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            self.control.check_io()?;
-            *watched = Some(socket.try_clone()?);
-        }
-        let stream: TcpStream = socket.into();
         Ok(Some(CancelTransport {
-            stream,
+            stream: socket,
             buffers: LazyBuffers::new(
                 details.config.input_buffer_size(),
                 details.config.output_buffer_size(),
@@ -171,7 +156,7 @@ impl Connector<()> for CancelConnector {
 // ureq keeps TcpTransport private. This adapter supplies its public Transport I/O
 // contract; all HTTP framing, response limits and TLS remain in ureq/rustls.
 pub(super) struct CancelTransport {
-    stream: TcpStream,
+    stream: Arc<Socket>,
     buffers: LazyBuffers,
     control: Arc<IoControl>,
 }
@@ -181,31 +166,119 @@ impl std::fmt::Debug for CancelTransport {
         f.write_str("CancelTransport")
     }
 }
-impl CancelTransport {
-    fn timeout(&self, timeout: NextTimeout) -> Result<Duration, ureq::Error> {
-        let budget = self.control.check_io()?;
-        Ok(timeout
-            .not_zero()
-            .map_or(budget, |value| budget.min(*value)))
+trait IoClock {
+    fn now(&self) -> Instant;
+    fn wait(&self, duration: Duration);
+}
+struct SystemIoClock;
+impl IoClock for SystemIoClock {
+    fn now(&self) -> Instant {
+        Instant::now()
     }
+    fn wait(&self, duration: Duration) {
+        std::thread::sleep(duration);
+    }
+}
+struct IoBudget<'a, C = SystemIoClock> {
+    control: &'a IoControl,
+    deadline: Instant,
+    clock: C,
+}
+impl<'a> IoBudget<'a, SystemIoClock> {
+    fn new(control: &'a IoControl, timeout: NextTimeout) -> Result<Self, ureq::Error> {
+        Self::with_clock(control, timeout, SystemIoClock)
+    }
+}
+impl<'a, C: IoClock> IoBudget<'a, C> {
+    fn with_clock(
+        control: &'a IoControl,
+        timeout: NextTimeout,
+        clock: C,
+    ) -> Result<Self, ureq::Error> {
+        let budget = control.check_io()?;
+        let duration = timeout
+            .not_zero()
+            .map_or(budget, |value| budget.min(*value));
+        let deadline = clock.now().checked_add(duration).ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "invalid request I/O deadline",
+            )
+        })?;
+        Ok(Self {
+            control,
+            deadline,
+            clock,
+        })
+    }
+    fn remaining(&self) -> Result<Duration, ureq::Error> {
+        let budget = self.control.check_io()?;
+        let remaining = self
+            .deadline
+            .checked_duration_since(self.clock.now())
+            .filter(|value| !value.is_zero())
+            .ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::TimedOut, "request I/O timed out")
+            })?;
+        Ok(remaining.min(budget))
+    }
+    fn wait(&self) -> Result<(), ureq::Error> {
+        self.clock.wait(self.remaining()?.min(POLL));
+        Ok(())
+    }
+}
+
+fn write_pending<C: IoClock>(
+    writer: &mut impl Write,
+    bytes: &[u8],
+    budget: &IoBudget<'_, C>,
+) -> Result<(), ureq::Error> {
+    let mut written = 0;
+    while written < bytes.len() {
+        budget.remaining()?;
+        match writer.write(&bytes[written..]) {
+            Ok(0) => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::WriteZero,
+                    "request socket closed",
+                )
+                .into())
+            }
+            Ok(count) => written += count,
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => budget.wait()?,
+            Err(error) => return Err(error.into()),
+        }
+    }
+    budget.remaining()?;
+    Ok(())
 }
 impl Transport for CancelTransport {
     fn buffers(&mut self) -> &mut dyn Buffers {
         &mut self.buffers
     }
     fn transmit_output(&mut self, amount: usize, timeout: NextTimeout) -> Result<(), ureq::Error> {
-        self.stream
-            .set_write_timeout(Some(self.timeout(timeout)?))?;
-        self.stream.write_all(&self.buffers.output()[..amount])?;
-        self.control.check_io()?;
-        Ok(())
+        let budget = IoBudget::new(&self.control, timeout)?;
+        let mut socket = self.stream.as_ref();
+        write_pending(&mut socket, &self.buffers.output()[..amount], &budget)
     }
     fn await_input(&mut self, timeout: NextTimeout) -> Result<bool, ureq::Error> {
-        self.stream.set_read_timeout(Some(self.timeout(timeout)?))?;
-        let amount = self.stream.read(self.buffers.input_append_buf())?;
-        self.control.check_io()?;
-        self.buffers.input_appended(amount);
-        Ok(amount > 0)
+        let budget = IoBudget::new(&self.control, timeout)?;
+        loop {
+            budget.remaining()?;
+            match self.stream.as_ref().read(self.buffers.input_append_buf()) {
+                Ok(amount) => {
+                    budget.remaining()?;
+                    self.buffers.input_appended(amount);
+                    return Ok(amount > 0);
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    budget.wait()?;
+                }
+                Err(error) => return Err(error.into()),
+            }
+        }
     }
     fn is_open(&mut self) -> bool {
         // Every guarded hop owns one connection; make reuse impossible.
@@ -231,7 +304,126 @@ mod tests {
 
     use super::*;
     use std::io::ErrorKind;
-    use std::net::TcpListener;
+    use std::net::{TcpListener, TcpStream};
+
+    fn open_control() -> IoControl {
+        IoControl {
+            cancel: Cancel::never(),
+            deadline: Instant::now() + Duration::from_secs(5),
+            socket: Mutex::new(None),
+        }
+    }
+
+    #[test]
+    fn partial_writes_and_readiness_errors_preserve_every_output_byte() {
+        struct ShortWriter {
+            bytes: Vec<u8>,
+            calls: usize,
+        }
+        impl Write for ShortWriter {
+            fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+                self.calls += 1;
+                if self.calls == 1 {
+                    return Err(ErrorKind::Interrupted.into());
+                }
+                if self.calls == 2 {
+                    return Err(ErrorKind::WouldBlock.into());
+                }
+                let count = bytes.len().min(7);
+                self.bytes.extend_from_slice(&bytes[..count]);
+                Ok(count)
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let expected: Vec<u8> = (0_u8..=250).cycle().take(64 * 1024).collect();
+        let control = open_control();
+        let budget = IoBudget::new(
+            &control,
+            NextTimeout {
+                after: ureq::unversioned::transport::time::Duration::NotHappening,
+                reason: ureq::Timeout::SendBody,
+            },
+        )
+        .unwrap();
+        let mut writer = ShortWriter {
+            bytes: Vec::new(),
+            calls: 0,
+        };
+        write_pending(&mut writer, &expected, &budget).unwrap();
+        assert_eq!(writer.bytes, expected);
+        assert!(writer.calls > 2);
+    }
+
+    #[test]
+    fn partial_progress_cannot_restart_the_operation_deadline() {
+        struct Clock(std::cell::Cell<Instant>);
+        impl IoClock for Clock {
+            fn now(&self) -> Instant {
+                self.0.get()
+            }
+            fn wait(&self, duration: Duration) {
+                self.0.set(self.now() + duration);
+            }
+        }
+        struct BackpressuredWriter {
+            calls: usize,
+            progress: usize,
+        }
+        impl Write for BackpressuredWriter {
+            fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+                self.calls += 1;
+                if self.calls.is_multiple_of(3) {
+                    self.progress += 1;
+                    Ok(1)
+                } else {
+                    Err(ErrorKind::WouldBlock.into())
+                }
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let control = open_control();
+        let started = Instant::now();
+        // Advance the same deadline arithmetic through backpressure without
+        // letting VM scheduling consume the partial-progress window.
+        // The pending-socket tests below still use real time and real sockets.
+        let budget = IoBudget::with_clock(
+            &control,
+            NextTimeout {
+                after: ureq::unversioned::transport::time::Duration::Exact(Duration::from_millis(
+                    150,
+                )),
+                reason: ureq::Timeout::SendBody,
+            },
+            Clock(std::cell::Cell::new(started)),
+        )
+        .unwrap();
+        let mut writer = BackpressuredWriter {
+            calls: 0,
+            progress: 0,
+        };
+        let result = write_pending(&mut writer, &[0x5a; 1024], &budget);
+        let elapsed = budget.clock.now().duration_since(started);
+        assert!(
+            matches!(result, Err(ureq::Error::Io(error)) if error.kind() == ErrorKind::TimedOut)
+        );
+        assert!(
+            writer.progress > 0,
+            "the writer makes partial progress before expiry"
+        );
+        assert_eq!(elapsed, Duration::from_millis(150));
+        assert!(
+            writer.progress < 1024,
+            "expiry prevents completing the send"
+        );
+        assert!(
+            control.budget().is_ok(),
+            "the independent whole-call budget remains open"
+        );
+    }
 
     fn assert_deadline_closes_pending_socket(send_headers: bool) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -286,7 +478,9 @@ mod tests {
             closed.send((Instant::now(), result)).unwrap();
         });
         observe_ready.recv_timeout(Duration::from_secs(1)).unwrap();
-        let registered = Socket::from(stream.try_clone().unwrap());
+        let stream = Arc::new(Socket::from(stream));
+        stream.set_nonblocking(true).unwrap();
+        let registered = stream.clone();
 
         let expires = Instant::now() + Duration::from_millis(150);
         let response_by = expires + Duration::from_millis(250);

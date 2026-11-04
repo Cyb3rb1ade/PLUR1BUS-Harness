@@ -1,7 +1,21 @@
-// Settings: gaps found in the c18 audit that cannot be closed inside src/pages/settings (they need the router, the shared
-// palette or a wire change). Each is a todo until its owner closes it.
-import { describe, test } from "node:test";
+// Schema-backed display policy replaces the former Settings metadata gap.
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { test } from "node:test";
+import { redact } from "../src/pages/settings/config/model.ts";
 
-describe("settings: known gaps", () => {
-  test.todo("KNOWN GAP: no x-sensitive marker exists in config.schema.json, so the UI cannot tell secret-bearing keys from the schema; it relies on key names (config/model.ts isSecretKey)");
+test("Settings masks a declared ordinary header even though its name is not a credential heuristic", () => {
+  const secret = randomUUID();
+  const value = { engine: { merging: { headers: { ordinary: secret }, model: "public-model" } } };
+  assert.deepEqual(redact(value), {
+    engine: { merging: { headers: { ordinary: "••••" }, model: "public-model" } },
+  });
+  assert.equal(value.engine.merging.headers.ordinary, secret);
+});
+
+test("Settings preserves public token limits and conceals unknown credential-looking labels", () => {
+  const value = { modelProfiles: { primary: { params: { maxTokens: 4096 } } }, unknown: { password: "public-label" } };
+  assert.deepEqual(redact(value), {
+    modelProfiles: { primary: { params: { maxTokens: 4096 } } }, unknown: { password: "••••" },
+  });
 });

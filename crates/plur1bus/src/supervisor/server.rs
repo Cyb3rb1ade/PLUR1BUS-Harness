@@ -633,13 +633,21 @@ impl ConnCtx {
         let (Some(running), Some(revision)) = (st.running.as_ref(), st.revision.as_ref()) else {
             return config_unavailable(id);
         };
-        match config::get_result(running, revision, key, tier) {
-            Some(v) => result_reply(id, v),
-            None => error_reply(
+        match config::get_result(&self.layout, running, revision, key, tier) {
+            Ok(Some(v)) => result_reply(id, v),
+            Ok(None) => error_reply(
                 id,
                 "E_INVALID_PARAMS",
                 &format!("no such key: {}", key.unwrap_or_default()),
                 Some("unknown-key"),
+                None,
+                None,
+            ),
+            Err(error) => error_reply(
+                id,
+                "E_NOT_AVAILABLE",
+                &error.to_string(),
+                Some("config-policy-unavailable"),
                 None,
                 None,
             ),

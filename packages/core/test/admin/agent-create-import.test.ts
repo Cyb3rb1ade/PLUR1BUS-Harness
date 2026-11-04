@@ -115,7 +115,7 @@ test("version, file checksums, manifest checksum and signature are verified befo
 });
 test("unsigned checksum-valid export is sanitized, traversal/duplicates refused", async t => {
   const s = setup(t), b: any = await bundle(s, { config: { persona: "Plain text.", apiKey: "fixture-value" } });
-  // Export already omits secrets. Inject an unsigned foreign credential to test the independent import boundary.
+  // Inject an unsigned foreign credential to test the independent import boundary.
   delete b.signature; delete b.publicKey; delete b.algorithm;
   b.files[0].text = JSON.stringify({ persona: "Plain text.", apiKey: "fixture-value" });
   const hash = (v: string) => createHash("sha256").update(v).digest("hex");
@@ -132,8 +132,12 @@ test("an engine import failure keeps the recoverable agent paused and returns it
 
 test("required secrets use the target profile's native secret_ref, pool secretRef and channel fields", t => {
   const s = setup(t);
-  s.config.providers.local = { profile: { secret_ref: "providers/local:key" }, entries: [{ secretRef: "providers.local.spare" }] };
+  s.config.providers.local = { profile: { secret_ref: "providers/local:key" }, entries: [{ secretRef: "providers.local.spare" }],
+    publicLabels: { ordinarySecret: "public.label" } };
   assert.deepEqual(agentRequiredSecrets(s.config, { model: "local", channels: ["telegram"] }), ["channels.telegram.botToken", "providers.local.spare", "providers/local:key"]);
+  s.config.providers["local.dotted"] = s.config.providers.local;
+  s.config.modelProfiles.dotted = { ...s.config.modelProfiles.local!, candidates: [{ model: "local.dotted/fixture", weight: 1 }] };
+  assert.deepEqual(agentRequiredSecrets(s.config, { model: "dotted" }), ["providers.local.spare", "providers/local:key"]);
 });
 
 

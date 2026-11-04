@@ -37,6 +37,11 @@ pub fn run(out: &Out, layout: &Layout, args: BundleArgs) -> ! {
             &format!("cannot read the installation: {e}"),
             json!({}),
         ),
+        Err(BundleError::ConfigPolicy(error)) => out.fail(
+            "E_NOT_AVAILABLE",
+            &error.to_string(),
+            json!({"reason":"config-policy-unavailable"}),
+        ),
     };
     let dest = bundle::destination(layout, args.out.as_deref(), now_ms).unwrap_or_else(|e| {
         out.fail(

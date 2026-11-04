@@ -45,6 +45,17 @@ test('every job running Core builds the native sandbox launcher before its asser
   }
 });
 
+test('release smoke prepares the verified real-model cache before the unchanged acceptance deadline', () => {
+  const yaml = readFileSync(new URL('../../.github/workflows/release-smoke.yml', import.meta.url), 'utf8');
+  const prepare = yaml.indexOf('node scripts/ci/prepare-real-models.mjs');
+  const acceptance = yaml.indexOf('tests/system/two-session-recall.test.ts');
+  assert(prepare > 0 && prepare < acceptance, 'real artifacts must be prepared before timed model startup');
+  assert.equal((yaml.match(/PLUR1BUS_MODELS_CACHE: \$\{\{ runner.temp \}\}\/release-real-models/g) ?? []).length, 3);
+  const source = readFileSync(new URL('../../tests/system/two-session-recall.test.ts', import.meta.url), 'utf8');
+  assert(source.includes('waitEngineReady(h, 60_000)'));
+  assert(yaml.includes('--test-timeout=300000 tests/system/two-session-recall.test.ts'));
+});
+
 test('every workflow job is either in the gate or deliberately ungated, and job conditions match the skip policy', () => {
   const jobs = jobBlocks(workflow());
   const gated = Object.keys(selections({})).sort();
@@ -115,8 +126,9 @@ test('unit-os preserves every unit step while Ubuntu and Windows run Core only i
   const matrix = block => /^        os: \[([^\]]+)\]/m.exec(block)[1].split(',').map(x => x.trim());
   assert.deepEqual(matrix(jobs.unit), ['ubuntu-24.04']);
   assert.deepEqual(matrix(jobs['unit-os']), ['macos-15', 'windows-2025']);
-  // The check names stay `unit (ubuntu-24.04)`, `unit (macos-15)`, `unit (windows-2025)`.
-  assert.match(jobs['unit-os'], /^    name: unit \(\$\{\{ matrix\.os \}\}\)$/m);
+  // Hosted check names stay stable; the separately tested trusted VM route declares its actual environment.
+  assert.doesNotMatch(jobs.unit, /^    name:/m, 'Linux keeps the default unit matrix check name');
+  assert.match(jobs['unit-os'], /^    name: unit \(\$\{\{ .* && 'macOS VM' \|\| matrix\.os \}\}\)$/m);
 });
 
 test('unit checks continue after earlier failures, stop on cancellation and time Rust build separately', () => {
