@@ -10,7 +10,7 @@ fn shared(layout: &Layout) -> Arc<Shared> {
         maintenance: Default::default(),
         state: Mutex::new(crate::supervisor::test_state()),
         wake: Condvar::new(),
-        log: Log::open(&layout.logs().join("supervisor.log"), 1 << 20, 3),
+        log: Log::open(layout, 1 << 20, 3),
         config: Mutex::new(config::initial(layout)),
         subscribers: Default::default(),
         out_logs: Mutex::new(Vec::new()),

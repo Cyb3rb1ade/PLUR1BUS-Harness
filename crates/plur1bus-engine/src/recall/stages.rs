@@ -20,11 +20,13 @@ use crate::store::{RowFilter, Store};
 use super::acl::{self, DenialSink};
 use super::graph::{
     cap_graph_score, edges_between, lance_stored_relevance, reachable_endpoint_ids,
-    reembedded_relevance, relevance_below_threshold, relevance_reason, traverse, GraphEdge,
-    HYDRATION_RELEVANCE_THRESHOLD,
+    reembedded_relevance, relevance_below_threshold, relevance_reason, traverse_observed,
+    GraphEdge, HYDRATION_RELEVANCE_THRESHOLD,
 };
 use super::knowledge::{self, CanonicalHit};
 use super::lifecycle::{self, epoch};
+use super::namespace_observation::Observations;
+use super::namespace_trace::{NamespaceTrace, TraceLimits};
 use super::score::{self, distance_to_score};
 use super::temporal::{self, range_from_anchor, Temporal};
 
@@ -94,8 +96,16 @@ pub struct StageInput<'a> {
 }
 
 /// Ordered stage-7 memories plus the canonical list and rejection trace.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct StageSnapshot {
+    /// Owned hydrated rows; row, score and provenance cannot become misaligned.
+    pub hydrated: Vec<HydratedMemory>,
+    /// Observations emitted at the actual stage boundaries, excluding T6 wall-clock fields.
+    pub trace: NamespaceTrace,
+    /// Query vector shared with namespace merge.
+    pub query_vector: Vec<f32>,
+    /// Initial live, authorized vector ids for child-trace replay.
+    pub candidate_ids: Vec<String>,
     /// Memory ids after hydration, the deferred slice and the final ACL.
     pub ordered_ids: Vec<String>,
     /// Scores in the same order, before rounding.
@@ -104,6 +114,32 @@ pub struct StageSnapshot {
     pub canonical: Vec<CanonicalHit>,
     /// Trace decisions whose action is `rejection`, in emission order.
     pub rejections: Vec<Rejection>,
+}
+
+impl PartialEq for StageSnapshot {
+    fn eq(&self, other: &Self) -> bool {
+        self.ordered_ids == other.ordered_ids
+            && self.scores == other.scores
+            && self.canonical == other.canonical
+            && self.rejections == other.rejections
+            && self.trace == other.trace
+            && self.query_vector == other.query_vector
+            && self.candidate_ids == other.candidate_ids
+            && hydrated_equal(&self.hydrated, &other.hydrated)
+    }
+}
+
+/// A hydrated row moved from the hit list, including its originating graph depth.
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct HydratedMemory {
+    /// Persisted row with its full authorization binding.
+    pub row: MemoryRow,
+    /// Score at the end of hydration.
+    pub score: f64,
+    /// Vector, graph or overlapping source.
+    pub source: &'static str,
+    /// Present only for graph-only wrappers.
+    pub depth: Option<usize>,
 }
 
 /// One rejection decision.
@@ -144,6 +180,7 @@ impl std::error::Error for StageError {}
 
 #[derive(Clone)]
 struct Hit {
+    depth: Option<usize>,
     id: String,
     row: Option<MemoryRow>,
     score: f64,
@@ -159,28 +196,85 @@ pub fn run_through_stage_7(
     input: &StageInput<'_>,
     sink: &dyn DenialSink,
 ) -> Result<StageSnapshot, StageError> {
+    run_observed_stage_7(input, sink, None, None)
+}
+
+/// Run the same stages with stage-local observations and an optional emotional state.
+pub fn run_observed_stage_7(
+    input: &StageInput<'_>,
+    sink: &dyn DenialSink,
+    trace: Option<TraceLimits>,
+    emotion: Option<&dyn score::EmotionalRecallState>,
+) -> Result<StageSnapshot, StageError> {
     let mut rejections = Vec::new();
+    let mut observations = Observations::new(trace);
     let query_vector = embed_query(input)?;
     let mut hits = search_hits(input, &query_vector, sink, &mut rejections)?;
-    // The synonym expander is not part of stages 1–7. A raised flag must not pretend the
-    // query was rewritten. The pinned engine emits no skip trace while the flag is false.
+    observations.rejections(&rejections);
+    let candidate_ids = hits.iter().map(|hit| hit.id.clone()).collect();
+    observe_vectors(&mut observations, &hits);
     if input.flags.query_refiner && should_refine_query(&hits, input.limits.recall_min_score) {
         return Err(StageError::RefinementUnavailable);
     }
     hits = apply_temporal(input, &mut hits, &mut rejections)?;
+    observations.rejections(&rejections);
     let canonical = canonical_hits(input, &query_vector);
-    hits = score_hits(hits);
+    for hit in &canonical {
+        observations.canonical(hit);
+    }
+    hits = score_hits(hits, emotion);
+    observations.scoring(
+        hits.iter()
+            .filter_map(|hit| hit.row.as_ref().map(|row| (row, hit.score))),
+        emotion.is_some(),
+    );
     reject_inactive(input, &mut hits, &mut rejections);
-    hits = spread_graph(input, hits, sink, &mut rejections)?;
+    observations.rejections(&rejections);
+    hits = spread_graph(input, hits, sink, &mut rejections, &mut observations)?;
     hits = hydrate(input, hits, &query_vector, sink, &mut rejections)?;
+    observations.rejections(&rejections);
     hits.truncate(slice_limit(input));
     hits.retain(|hit| acl_allows(input, hit, "acl", sink, &mut rejections));
-    Ok(StageSnapshot {
-        ordered_ids: hits.iter().map(|hit| hit.id.clone()).collect(),
-        scores: hits.iter().map(|hit| hit.score).collect(),
+    observations.rejections(&rejections);
+    Ok(snapshot(
+        hits,
+        query_vector,
+        candidate_ids,
         canonical,
         rejections,
-    })
+        observations.trace,
+    ))
+}
+
+fn snapshot(
+    hits: Vec<Hit>,
+    query_vector: Vec<f32>,
+    candidate_ids: Vec<String>,
+    canonical: Vec<CanonicalHit>,
+    rejections: Vec<Rejection>,
+    trace: NamespaceTrace,
+) -> StageSnapshot {
+    let hydrated = hits
+        .into_iter()
+        .filter_map(|hit| {
+            hit.row.map(|row| HydratedMemory {
+                row,
+                score: hit.score,
+                source: hit.source,
+                depth: hit.depth,
+            })
+        })
+        .collect::<Vec<_>>();
+    StageSnapshot {
+        ordered_ids: hydrated.iter().map(|hit| hit.row.id.clone()).collect(),
+        scores: hydrated.iter().map(|hit| hit.score).collect(),
+        hydrated,
+        query_vector,
+        candidate_ids,
+        canonical,
+        rejections,
+        trace,
+    }
 }
 
 fn embed_query(input: &StageInput<'_>) -> Result<Vec<f32>, StageError> {
@@ -224,6 +318,7 @@ fn search_hits(
             continue;
         }
         hits.push(Hit {
+            depth: None,
             id: scored.row.id.clone(),
             row: Some(scored.row),
             score,
@@ -329,11 +424,14 @@ fn canonical_hits(input: &StageInput<'_>, query_vector: &[f32]) -> Vec<Canonical
     )
 }
 
-fn score_hits(mut hits: Vec<Hit>) -> Vec<Hit> {
+fn score_hits(mut hits: Vec<Hit>, emotion: Option<&dyn score::EmotionalRecallState>) -> Vec<Hit> {
     for hit in &mut hits {
         let Some(row) = hit.row.as_ref() else {
             continue;
         };
+        if let Some(emotion) = emotion {
+            hit.score *= emotion.recall_boost(row).clamp(0.9, 1.1);
+        }
         let strength = lifecycle::number(&row.memory_strength);
         hit.score += score::strength_adjustment(strength);
         hit.score += score::epistemic_score_boost(&row.epistemic_status);
@@ -347,6 +445,7 @@ fn spread_graph(
     hits: Vec<Hit>,
     sink: &dyn DenialSink,
     rejections: &mut Vec<Rejection>,
+    observations: &mut Observations,
 ) -> Result<Vec<Hit>, StageError> {
     if !input.flags.associative || input.edges.is_empty() || hits.is_empty() {
         return Ok(hits);
@@ -358,48 +457,33 @@ fn spread_graph(
         .collect();
     let seed_ids: Vec<String> = seeds.iter().map(|(id, _)| id.clone()).collect();
     let endpoints = reachable_endpoint_ids(input.edges, &seed_ids);
-    let mut allowed = Vec::new();
-    for endpoint in &endpoints {
-        match input.store.get(endpoint).map_err(StageError::Store)? {
-            None => rejections.push(Rejection {
-                memory_id: endpoint.clone(),
-                stage: "graph-endpoint-acl".to_owned(),
-                reason: "missing endpoint row".to_owned(),
-            }),
-            Some(row) => {
-                if !lifecycle::is_recall_entry_live(
-                    &row,
-                    input.clocks.now_ms,
-                    input.clocks.valid_at,
-                ) {
-                    rejections.push(Rejection {
-                        memory_id: endpoint.clone(),
-                        stage: "graph-endpoint-acl".to_owned(),
-                        reason: inactive_reason(&row).to_owned(),
-                    });
-                    continue;
-                }
-                let shell = Hit {
-                    id: row.id.clone(),
-                    row: Some(row),
-                    score: 0.0,
-                    source: "graph",
-                };
-                if acl_allows(input, &shell, "graph-endpoint-acl", sink, rejections) {
-                    allowed.push(endpoint.clone());
-                }
-            }
-        }
-    }
+    let allowed = allowed_endpoints(input, &endpoints, sink, rejections)?;
     let edges = edges_between(input.edges, &allowed);
-    let associative = traverse(&seeds, &edges);
-    Ok(merge_graph(hits, associative, slice_limit(input)))
+    observations.rejections(rejections);
+    let traversal = traverse_observed(&seeds, &edges);
+    observations.guard(
+        "graph-traversal",
+        true,
+        &format!(
+            "visited {} nodes, returned {} associative results",
+            traversal.visited,
+            traversal.hits.len()
+        ),
+        None,
+    );
+    Ok(merge_graph(
+        hits,
+        traversal.hits,
+        slice_limit(input),
+        observations,
+    ))
 }
 
 fn merge_graph(
     hits: Vec<Hit>,
     associative: Vec<super::graph::AssociativeHit>,
     max_total: usize,
+    observations: &mut Observations,
 ) -> Vec<Hit> {
     let max_vector = hits
         .iter()
@@ -408,9 +492,20 @@ fn merge_graph(
     let mut merged = hits;
     for assoc in associative {
         if let Some(existing) = merged.iter_mut().find(|hit| hit.id == assoc.memory_id) {
+            observations.overlap(&existing.id, existing.score, assoc.associated_score);
             existing.source = "both";
         } else {
+            let capped = cap_graph_score(assoc.associated_score, max_vector);
+            observations.graph(
+                &assoc.memory_id,
+                assoc.associated_score,
+                capped,
+                max_vector,
+                assoc.depth,
+                &assoc.seed_id,
+            );
             merged.push(Hit {
+                depth: Some(assoc.depth),
                 id: assoc.memory_id,
                 row: None,
                 score: cap_graph_score(assoc.associated_score, max_vector),
@@ -470,6 +565,7 @@ fn hydrate_one(
         return Ok(None);
     }
     let kept = Hit {
+        depth: hit.depth,
         id: row.id.clone(),
         row: Some(row),
         score: hit.score,
@@ -479,12 +575,12 @@ fn hydrate_one(
         return Ok(None);
     }
     if !query_vector.is_empty() {
-        let row = kept
+        let vector = kept
             .row
             .as_ref()
-            .map(|row| row.vector.clone())
+            .map(|row| row.vector.as_slice())
             .unwrap_or_default();
-        let relevance = hydration_relevance(input, &row, query_vector, &kept)?;
+        let relevance = hydration_relevance(input, vector, query_vector, &kept)?;
         if relevance_below_threshold(relevance, HYDRATION_RELEVANCE_THRESHOLD) {
             rejections.push(Rejection {
                 memory_id: kept.id,
@@ -607,3 +703,59 @@ fn hit_rows(hits: &[Hit]) -> Vec<&MemoryRow> {
 
 /// The hash embedder re-exported for fixtures that materialise row vectors.
 pub use super::hash_embed::hash_unit;
+
+fn hydrated_equal(left: &[HydratedMemory], right: &[HydratedMemory]) -> bool {
+    matches!((serde_json::to_value(left), serde_json::to_value(right)),
+        (Ok(left), Ok(right)) if left == right)
+}
+
+fn observe_vectors(observations: &mut Observations, hits: &[Hit]) {
+    for hit in hits {
+        if let Some(row) = &hit.row {
+            observations.vector(row, hit.score);
+        }
+    }
+}
+
+fn allowed_endpoints(
+    input: &StageInput<'_>,
+    endpoints: &[String],
+    sink: &dyn DenialSink,
+    rejections: &mut Vec<Rejection>,
+) -> Result<Vec<String>, StageError> {
+    let mut allowed = Vec::new();
+    for endpoint in endpoints {
+        match input.store.get(endpoint).map_err(StageError::Store)? {
+            None => rejections.push(Rejection {
+                memory_id: endpoint.clone(),
+                stage: "graph-endpoint-acl".to_owned(),
+                reason: "missing endpoint row".to_owned(),
+            }),
+            Some(row) => {
+                if !lifecycle::is_recall_entry_live(
+                    &row,
+                    input.clocks.now_ms,
+                    input.clocks.valid_at,
+                ) {
+                    rejections.push(Rejection {
+                        memory_id: endpoint.clone(),
+                        stage: "graph-endpoint-acl".to_owned(),
+                        reason: inactive_reason(&row).to_owned(),
+                    });
+                    continue;
+                }
+                let shell = Hit {
+                    depth: None,
+                    id: row.id.clone(),
+                    row: Some(row),
+                    score: 0.0,
+                    source: "graph",
+                };
+                if acl_allows(input, &shell, "graph-endpoint-acl", sink, rejections) {
+                    allowed.push(endpoint.clone());
+                }
+            }
+        }
+    }
+    Ok(allowed)
+}

@@ -1,6 +1,8 @@
+// Portable account inclusion and encrypted rollback preserve distinct prior credentials without exposing payload values.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, statSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { encryptBackup, decryptBackup, readPassword } from '../portable-backup.mjs';
@@ -54,37 +56,102 @@ test('passphrase files must be regular/private and at least 16 bytes; invalid va
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('failed vault import rolls the state and old vault back and keeps an encrypted recovery artifact', async () => {
+test('portable creation explicitly includes API accounts before encrypting the forward archive', async () => {
   const { runPortable } = await import('../portable-backup.mjs');
-  const root = mkdtempSync(join(tmpdir(), 'portable-rollback-'));
+  const root = mkdtempSync(join(tmpdir(), 'portable-accounts-'));
   try {
-    const state = join(root, 'new-state'), file = join(root, 'new-backup');
-    writeFileSync(state, 'new'); await encryptBackup(state, [{ name: 'new', value: marker }], file, password);
-    let current = 'old', failOnce = true; const secrets = new Map([['old', 'old-secret-value']]);
-    const execute = (_bin, _home, a, input) => {
-      if (a[0] === 'daemon') return {};
-      if (a[0] === 'backup') {
-        if (a[1] === 'create') writeFileSync(a[3], current);
-        if (a[1] === 'restore') current = readFileSync(a[3], 'utf8');
-        return { units: ['config.json'] };
+    const file = join(root, 'forward-backup'), recovered = join(root, 'recovered-state');
+    const source = { config: { label: 'source' },
+      accounts: { personId: 'source-person', passwordHash: randomBytes(32).toString('hex') } };
+    const vault = [{ name: 'provider/source', value: randomBytes(32).toString('hex') }];
+    const creates = [];
+    const units = state => ['config.json', ...(state.accounts ? ['state/api/accounts.db'] : [])];
+    const execute = (_bin, _home, args) => {
+      if (args[0] === 'secret' && args[1] === 'ls') return { secrets: vault.map(({ name }) => ({ name })) };
+      if (args[0] === 'secret' && args[1] === 'get') return { value: vault.find(v => v.name === args[2]).value };
+      if (args[0] === 'backup' && args[1] === 'create') {
+        creates.push([...args]);
+        const state = { config: source.config,
+          ...(args.includes('--include-api-accounts') ? { accounts: source.accounts } : {}) };
+        writeFileSync(args[3], JSON.stringify(state));
+        return { units: units(state) };
       }
-      if (a[1] === 'ls') return { secrets: [...secrets.keys()].map(name => ({ name })) };
-      if (a[1] === 'get') return { value: secrets.get(a[2]) };
-      if (a[1] === 'rm') { secrets.delete(a[2]); return {}; }
-      if (a[1] === 'set') {
-        if (a[2] === 'new' && failOnce) { secrets.set(a[2], input.slice(0, -1)); failOnce = false; throw new Error(marker); }
-        secrets.set(a[2], input.slice(0, -1)); return {};
-      }
+      if (args[0] === 'backup' && args[1] === 'verify')
+        return { units: units(JSON.parse(readFileSync(args[2], 'utf8'))) };
       throw new Error('unexpected command');
     };
-    await assert.rejects(runPortable({ operation: 'restore', bin: 'fixture', home: root, file, password, execute }), e => /was rolled back/.test(String(e)) && !String(e).includes(marker));
-    assert.equal(current, 'old'); assert.deepEqual([...secrets], [['old', 'old-secret-value']]);
-    const { readdirSync } = await import('node:fs');
-    const recovery = readdirSync(root).find(n => n.startsWith('new-backup.rollback-'));
-    assert.ok(recovery); assert.equal(readFileSync(join(root, recovery)).includes('old-secret-value'), false);
+    const result = await runPortable({ operation: 'create', bin: 'fixture', home: root, file, password, execute });
+    assert.deepEqual(result.plan, { units: ['config.json', 'state/api/accounts.db'], secrets: ['provider/source'] });
+    assert.equal(creates.length, 1);
+    assert.equal(creates[0].at(-1), '--include-api-accounts');
+    assert.deepEqual(await decryptBackup(file, recovered, password), vault);
+    assert.deepEqual(JSON.parse(readFileSync(recovered, 'utf8')), source);
+    for (const value of [source.accounts.passwordHash, vault[0].value]) {
+      assert.equal(readFileSync(file).includes(value), false);
+      assert.equal(JSON.stringify(result).includes(value), false);
+    }
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test('failed Vault import restores distinct prior accounts, config and Vault through an inclusive rollback archive', async () => {
+  const { runPortable } = await import('../portable-backup.mjs');
+  const root = mkdtempSync(join(tmpdir(), 'portable-rollback-'));
+  try {
+    const state = join(root, 'incoming-state'), file = join(root, 'incoming-backup');
+    const incoming = { config: { label: 'incoming-source' },
+      accounts: { personId: 'incoming-person', passwordHash: randomBytes(32).toString('hex') } };
+    const previous = { config: { label: 'prior-target' },
+      accounts: { personId: 'prior-person', passwordHash: randomBytes(32).toString('hex') } };
+    const incomingVault = randomBytes(32).toString('hex'), priorVault = randomBytes(32).toString('hex');
+    writeFileSync(state, JSON.stringify(incoming));
+    await encryptBackup(state, [{ name: 'new', value: incomingVault }], file, password);
+    let current = structuredClone(previous), failOnce = true;
+    const secrets = new Map([['old', priorVault]]), creates = [], restored = [];
+    const units = archive => ['config.json', ...(archive.accounts ? ['state/api/accounts.db'] : [])];
+    const execute = (_bin, _home, args, input) => {
+      if (args[0] === 'daemon') return {};
+      if (args[0] === 'backup' && args[1] === 'create') {
+        creates.push([...args]);
+        const archive = { config: current.config,
+          ...(args.includes('--include-api-accounts') ? { accounts: current.accounts } : {}) };
+        writeFileSync(args[3], JSON.stringify(archive));
+        return { units: units(archive) };
+      }
+      if (args[0] === 'backup') {
+        const archive = JSON.parse(readFileSync(args[args[1] === 'restore' ? 3 : 2], 'utf8'));
+        if (args[1] === 'restore') {
+          // Ordinary restore preserves a database omitted from the archive; a missing opt-in cannot repair incoming accounts.
+          current = { config: archive.config, accounts: archive.accounts ?? current.accounts };
+          restored.push(structuredClone(current));
+        }
+        return { units: units(archive) };
+      }
+      if (args[1] === 'ls') return { secrets: [...secrets.keys()].map(name => ({ name })) };
+      if (args[1] === 'get') return { value: secrets.get(args[2]) };
+      if (args[1] === 'rm') { secrets.delete(args[2]); return {}; }
+      if (args[1] === 'set') {
+        secrets.set(args[2], input.slice(0, -1));
+        if (args[2] === 'new' && failOnce) { failOnce = false; throw new Error(incomingVault); }
+        return {};
+      }
+      throw new Error('unexpected command');
+    };
+    await assert.rejects(runPortable({ operation: 'restore', bin: 'fixture', home: root, file, password, execute }),
+      e => /was rolled back/.test(String(e)) && !String(e).includes(incomingVault));
+    assert.deepEqual(restored, [incoming, previous], 'the incoming account really replaced the distinct prior account before rollback');
+    assert.deepEqual(current, previous);
+    assert.deepEqual([...secrets], [['old', priorVault]]);
+    assert.equal(creates.length, 1);
+    assert.equal(creates[0].at(-1), '--include-api-accounts');
+    const recovery = readdirSync(root).find(name => name.startsWith('incoming-backup.rollback-'));
+    assert.ok(recovery);
+    const recovered = join(root, 'recovered-rollback');
+    assert.deepEqual(await decryptBackup(join(root, recovery), recovered, password), [{ name: 'old', value: priorVault }]);
+    assert.deepEqual(JSON.parse(readFileSync(recovered, 'utf8')), previous);
+    for (const value of [previous.accounts.passwordHash, priorVault])
+      assert.equal(readFileSync(join(root, recovery)).includes(value), false);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
 
 test('standalone CLI runs under a spaced path and native temp-directory aliases', async () => {
   const { copyFileSync } = await import('node:fs');

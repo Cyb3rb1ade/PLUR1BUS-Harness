@@ -56,6 +56,7 @@ struct Link {
 
 #[derive(Clone, Debug)]
 struct Queued {
+    seed_id: String,
     memory_id: String,
     score: f64,
     cumulative: f64,
@@ -65,6 +66,8 @@ struct Queued {
 /// A neighbour found by walking out from the seeds.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AssociativeHit {
+    /// First node on the traversal path, retained for the graph trace preview.
+    pub seed_id: String,
     /// Memory id that was not itself a seed at depth 0.
     pub memory_id: String,
     /// Score before the anchor cap.
@@ -173,6 +176,15 @@ pub fn edges_between(edges: &[GraphEdge], allowed: &[String]) -> Vec<GraphEdge> 
 /// Beam search. Seeds at depth 0 are not results. The returned score is uncapped.
 #[must_use]
 pub fn traverse(seeds: &[(String, f64)], edges: &[GraphEdge]) -> Vec<AssociativeHit> {
+    traverse_observed(seeds, edges).hits
+}
+
+pub(crate) struct Traversal {
+    pub hits: Vec<AssociativeHit>,
+    pub visited: usize,
+}
+
+pub(crate) fn traverse_observed(seeds: &[(String, f64)], edges: &[GraphEdge]) -> Traversal {
     let adjacency = adjacency_of(edges);
     let mut visited = Vec::new();
     let mut results = Vec::new();
@@ -182,6 +194,7 @@ pub fn traverse(seeds: &[(String, f64)], edges: &[GraphEdge]) -> Vec<Associative
             continue;
         }
         queue.push(Queued {
+            seed_id: memory_id.clone(),
             memory_id: memory_id.clone(),
             score: nonzero(*score, 0.5),
             cumulative: 1.0,
@@ -205,6 +218,7 @@ pub fn traverse(seeds: &[(String, f64)], edges: &[GraphEdge]) -> Vec<Associative
             let depth_penalty = 1.0 / (1.0 + current.depth as f64 * 0.5);
             let associated_score = nonzero(current.score, 0.5) * current.cumulative * depth_penalty;
             results.push(AssociativeHit {
+                seed_id: current.seed_id.clone(),
                 memory_id: current.memory_id.clone(),
                 associated_score,
                 depth: current.depth,
@@ -230,6 +244,7 @@ pub fn traverse(seeds: &[(String, f64)], edges: &[GraphEdge]) -> Vec<Associative
                 continue;
             }
             queue.push(Queued {
+                seed_id: current.seed_id.clone(),
                 memory_id: edge.target,
                 score: current.score,
                 cumulative: next_cumulative,
@@ -237,7 +252,10 @@ pub fn traverse(seeds: &[(String, f64)], edges: &[GraphEdge]) -> Vec<Associative
             });
         }
     }
-    results
+    Traversal {
+        hits: results,
+        visited: visited.len(),
+    }
 }
 
 /// Cap a graph-only score under the best vector score, or scale it when there is no anchor.
