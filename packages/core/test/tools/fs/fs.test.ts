@@ -316,6 +316,26 @@ describe("limits, binary and special files", () => {
     assert.equal(r.bytesRead, 3);
   });
 
+  it("UTF-8 BOMs keep source byte counts, Unicode tails and ranged-read boundaries", T, async () => {
+    for (const marks of [1, 2]) {
+      const prefix = "\uFEFF".repeat(marks);
+      const original = Buffer.from(prefix + "aé€😀\r\n");
+      await writeFile(join(root, "bom.txt"), original);
+      const o = ops();
+      for (const encoding of ["auto", "utf8"] as const) {
+        const full = await o.read({ path: "bom.txt", encoding });
+        assert.deepEqual(Buffer.from(full.content), original, `marks=${marks} encoding=${encoding}`);
+        assert.equal(full.bytesRead, original.length);
+        assert.equal(full.size, original.length);
+        assert.equal(full.truncated, false);
+        const part = await o.read({ path: "bom.txt", encoding, length: marks * 3 + 4 });
+        assert.equal(part.content, prefix + "aé");
+        assert.equal(part.bytesRead, marks * 3 + 3);
+        assert.equal(part.truncated, true);
+      }
+    }
+  });
+
   it("write round-trips base64 bytes and rejects malformed base64 / lone surrogates", T, async () => {
     const o = ops();
     const bytes = Buffer.from([0, 255, 128, 7]);
